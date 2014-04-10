@@ -1,0 +1,53 @@
+vortex (medium mesh use patran.sq.40.out) 
+  "."
+ gridfile type             gridfile
+       2                "grid_files/meilin/quad.40x40.neu"
+ n_order  iop_solpts  iop_flxpts  iop_tripts  metis_option
+    3         1           1           2            2
+ flux_divergence  iop_correction  quadrature
+        2                2            3
+testcase  iRKtype  num_stages irestart  init_loc  error_loc
+    5        3         3         0          0         0
+  num_ts   FinalTime   CFL    d_tin   Flux_Method
+  12500       -1.0     1.0    0.0008      1
+  Filter_Option  etac  Filter_Order  Filter_Alpha
+        0        0.0        16           36.0
+ output_solution  output_interval  restart_interval  results_interval
+        1                0                  0               0
+ Free-stream conditions 
+ Density  Temperature  Pressure  Mach  AOA  Gamma   Rgas
+  -1.0       300.0      100000    0.4  45    1.4   287.15
+ Bound_Error   Error_Bound_Limit
+      0               5.0  
+!quad_interval
+!     0
+! flux_divergence = 1 -> Lagrange Polynomial
+! flux_divergence = 2 -> Chain rule using conserved variables
+! flux_divergence = 3 -> Chain rule using jacobian
+! flux_divergence = 4 -> DG method using weak formulation
+! flux_divergence = 5 -> DG method using strong formulation
+! iop_correction  = 1 -> project primitive variables to interface to correct fluxes
+! iop_correction  = 2 -> project conservative variables to interface to correct fluxes
+! iop_correction  = 3 -> project fluxes at solution points to interface to correct fluxes
+! For iop_solpts or iop_fluxpts:
+!     = 1 -> Gauss points
+!     = 2 -> Gauss-Lobatto points
+!     = 3 -> Chebyshev points (not working)
+!     = 4 -> Chebyshev-Lobatto points (not working)
+! iRKtype = 1 -> Classic 'num_stage'-stage RK
+! iRKtype = 2 -> 2-stage/2nd-order SSP RK
+! iRKtype = 3 -> 3-stage/3rd-order SSP RK
+! iRKtype = 4 -> 5-stage/4th-order SSP RK
+! iRKtype = 5 -> 5-stage/4th-order low-storage Carpenter-Kennedy RK
+! iop_tripts = 1 -> Alpha optimized Lobatto nodes
+! iop_tripts = 2 -> HT 1D Lobatto nodes projected to triangle coordinates
+! Flux_Method = 1 -> Original flux HT used
+! Flux_Method = 2 -> HLLC
+! Flux_Method = 3 -> LDFSS
+! init_loc =  0 -> init. sol. computed on solution points (SP)
+! init_loc =  1 -> init. sol. computed on Gauss   pts (GP) then projected to SP
+! init_loc =  2 -> init. sol. computed on Lobatto pts (LP) then projected to SP
+! init_loc = -1 -> init. sol. computed on Radau   pts (RP) then projected to SP
+! error_loc =  0 -> exact sol. on SP with weights on SP
+! error_loc =  1 -> exact sol. on GP, proj. numerical to GP, weights on GP
+! error_loc = -1 -> exact sol. on RP, proj. numerical to RP, weights on RP

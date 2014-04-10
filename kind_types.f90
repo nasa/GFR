@@ -1,0 +1,566 @@
+module module_kind_types
+  !
+  !.. Use Statements ..
+  use mpi
+  !
+  implicit none
+  !
+  public
+  !
+ !include "mpif.h"
+  !
+  ! KIND definitions for single or double precision real variables (IEEE 754)
+  !
+  integer, parameter :: i4 = selected_int_kind(9)
+  integer, parameter :: i8 = selected_int_kind(18)
+  integer, parameter :: r4 = selected_real_kind(6,37)
+  integer, parameter :: r8 = selected_real_kind(15,307)
+  integer, parameter :: r16 = max( r8 , selected_real_kind(33, 4931) )
+  !
+  ! Aliases for kind type parameters
+  !
+  integer, parameter :: vhp = r4
+  integer, parameter :: vbp = r8
+  integer, parameter :: vdp = r16
+ !integer, parameter :: vhp = r8
+ !integer, parameter :: vbp = r16
+ !integer, parameter :: vdp = r16
+  !
+  ! Definitions for numerical contants
+  !
+  real(vbp), parameter :: zero    = 0.0_vbp
+  real(vbp), parameter :: half    = 0.5_vbp
+  real(vbp), parameter :: one     = 1.0_vbp
+  real(vbp), parameter :: s1      = 1.2_vbp
+  real(vbp), parameter :: s2      = 0.8_vbp
+  real(vbp), parameter :: two     = 2.0_vbp
+  real(vbp), parameter :: three   = 3.0_vbp
+  real(vbp), parameter :: four    = 4.0_vbp
+  real(vbp), parameter :: five    = 5.0_vbp
+  real(vbp), parameter :: six     = 6.0_vbp
+  real(vbp), parameter :: eight   = 8.0_vbp
+  real(vbp), parameter :: nine    = 9.0_vbp
+  real(vbp), parameter :: ten     = 10.0_vbp
+  real(vbp), parameter :: sixteen = 16.0_vbp
+  !
+  real(vbp), parameter :: one6   = one/six
+  real(vbp), parameter :: one4   = one/four
+  real(vbp), parameter :: one3   = one/three
+  real(vbp), parameter :: one2   = one/two
+  real(vbp), parameter :: two3   = two/three
+  real(vbp), parameter :: three4 = three/four
+  !
+  real(vbp), parameter :: eps1  = 1.0e-01_vbp
+  real(vbp), parameter :: eps2  = 1.0e-02_vbp
+  real(vbp), parameter :: eps3  = 1.0e-03_vbp
+  real(vbp), parameter :: eps6  = 1.0e-06_vbp
+  real(vbp), parameter :: eps9  = 1.0e-09_vbp
+  real(vbp), parameter :: eps10 = 1.0e-10_vbp
+  real(vbp), parameter :: eps11 = 1.0e-11_vbp
+  real(vbp), parameter :: eps12 = 1.0e-12_vbp
+  real(vbp), parameter :: eps14 = 1.0e-14_vbp
+  real(vbp), parameter :: eps17 = 1.0e-17_vbp
+  !
+  real(vbp), parameter :: c0_03 = 0.03_vbp
+  real(vbp), parameter :: c0_10 = 0.10_vbp
+  real(vbp), parameter :: c0_15 = 0.15_vbp
+  real(vbp), parameter :: c0_20 = 0.20_vbp
+  real(vbp), parameter :: c0_25 = 0.25_vbp
+  real(vbp), parameter :: c0_30 = 0.30_vbp
+  real(vbp), parameter :: c0_35 = 0.35_vbp
+  real(vbp), parameter :: c0_45 = 0.45_vbp
+  real(vbp), parameter :: c0_55 = 0.55_vbp
+  real(vbp), parameter :: c0_65 = 0.65_vbp
+  real(vbp), parameter :: c0_70 = 0.70_vbp
+  real(vbp), parameter :: c0_75 = 0.75_vbp
+  real(vbp), parameter :: c0_80 = 0.80_vbp
+  real(vbp), parameter :: c2_50 = 2.50_vbp
+  real(vbp), parameter :: c3_50 = 3.50_vbp
+  real(vbp), parameter :: c4_50 = 4.50_vbp
+  !
+  real(vbp), parameter :: pi = 3.14159265358979323846_vbp
+  !
+  real(vbp), parameter :: radians2degrees = two*nine*ten/pi
+  real(vbp), parameter :: degrees2radians = one/radians2degrees
+  !
+  real(vbp), parameter :: rndoff  = epsilon(one)
+  real(vbp), parameter :: tny     = tiny(one)
+  !
+  logical, parameter :: true = .true.
+  logical, parameter :: fals = .false.
+  !
+  ! I/O constants
+  !
+  integer, parameter :: iout = 6
+  !
+  ! Boundary condition constants
+  !
+  integer, parameter :: bc_inflow = 1
+  integer, parameter :: bc_outflow = 2
+  integer, parameter :: bc_wall = 3
+  integer, parameter :: bc_periodic = 4
+  integer, parameter :: bc_freestream = 5
+  integer, parameter :: bc_cpu_bnd = 99
+  integer, parameter :: bc_unknown = -9999
+  integer, parameter :: bc_sub_inflow = 6
+  integer, parameter :: bc_sub_outflow = 7
+  integer, parameter :: bc_sup_inflow = 8
+  integer, parameter :: bc_sup_outflow = 9
+  integer, parameter :: bc_characteristic = 10
+ !integer, parameter :: bc_freestream = 6
+ !integer, parameter :: bc_wall = 7
+ !integer, parameter :: bc_periodic = 8
+  !
+  integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
+  !
+  ! Parameters for the vortex problem
+  !
+  ! Shu version of the vortex
+  real(vbp), parameter :: vortex_bigR = 1.0_vbp
+  real(vbp), parameter :: vortex_bigGam = 5.0_vbp
+ !real(vbp), parameter :: vortex_bigR = 0.85_vbp
+ !real(vbp), parameter :: vortex_bigGam = 6.75_vbp
+  ! Vincent version of the vortex
+ !real(vbp), parameter :: vortex_bigR = 1.5_vbp
+ !real(vbp), parameter :: vortex_bigGam = 13.5_vbp
+  !
+  real(vbp), parameter :: density_bigR = 1.0_vbp
+  real(vbp), parameter :: density_bigGam = 5.0_vbp
+  !
+  ! Parameters defining workshop test cases
+  !
+  integer, parameter :: Ringleb_Problem  = 2
+  integer, parameter :: NACA0012_Airfoil = 3
+  integer, parameter :: Laminar_BndLyr   = 4
+  integer, parameter :: Shu_Vortex       = 5
+  integer, parameter :: Vortex_Transport = 6
+  integer, parameter :: Density_Transport = 7
+  integer, parameter :: Entropy_Transport = 8
+  integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
+                                                        Entropy_Transport ]
+  integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
+                                                         Vortex_Transport ]
+  integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
+                                                            Vortex_Transport, &
+                                                            Advec_Problems ]
+  !
+  integer, parameter :: Legendre_Gauss          = 1
+  integer, parameter :: Legendre_Gauss_Lobatto  = 2
+  integer, parameter :: Chebyshev_Gauss         = 3
+  integer, parameter :: Chebyshev_Gauss_Lobatto = 4
+  !
+  integer, parameter :: LagrangePolynomial = 1
+  integer, parameter :: ChainRuleCV = 2
+  integer, parameter :: ChainRuleUtd = 3
+  integer, parameter :: DGWeakForm = 4
+  integer, parameter :: DGStrongForm = 5
+  integer, parameter :: OnPrimitiveVariables = 1
+  integer, parameter :: OnConservativeVariables = 2
+  integer, parameter :: OnFluxes = 3
+  !
+  ! MPI Scalars 
+  !
+  integer, protected, save :: mypnum
+  integer, protected, save :: ncpu
+  integer,            save :: mpierr
+  !
+  integer, parameter :: abort = 8
+  integer, parameter :: stop_mpi = 9
+  !
+  ! MPI datatypes to match Fortran intrinsic datatypes
+  !
+  integer, protected, save :: mpi_flttyp ! working real precision
+  integer, protected, save :: mpi_hlftyp ! half working real precision
+  integer, protected, save :: mpi_dbltyp ! double working real precision
+  integer, protected, save :: mpi_inttyp ! working integer precision
+  !
+  ! Generic interface for reallocating arrays of varying types and ranks
+  !
+  interface reallocate
+    module procedure reallocate1_i4, reallocate1_i8, &
+                     reallocate1_r4, reallocate1_r8, &
+                     reallocate1_c,  reallocate2_i4
+  end interface reallocate
+  !
+  ! Make the non-generic reallocation subroutines to private
+  !
+  private :: reallocate1_i4
+  private :: reallocate1_i8
+  private :: reallocate1_r4
+  private :: reallocate1_r8
+  private :: reallocate1_c
+  private :: reallocate2_i4
+  !
+contains
+!
+!###############################################################################
+!
+subroutine reallocate1_i4(array,new_size)
+  integer, intent(in) :: new_size
+  integer(i4), allocatable, dimension(:), intent(inout) :: array
+  integer(i4), allocatable, dimension(:) :: temp_array
+  integer :: ierr
+continue
+  ! Allocate the temporary array to store the old contents of array
+  allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
+  call alloc_error("reallocate1_i4","temp_array",1,ierr)
+  ! If array is allocated, copy the old contents
+  ! of array into the temporary array
+  if (allocated(array)) temp_array(1:size(array)) = array
+  ! move_alloc does:
+  !     1. deallocates array if it is allocated
+  !     2. allocates array with the same type, type parameters,
+  !        array bounds, and value as temp_array
+  !     3. deallocates temp_array
+  call move_alloc( from=temp_array , to=array )
+end subroutine reallocate1_i4
+!
+!###############################################################################
+!
+subroutine reallocate1_i8(array,new_size)
+  integer, intent(in) :: new_size
+  integer(i8), allocatable, dimension(:), intent(inout) :: array
+  integer(i8), allocatable, dimension(:) :: temp_array
+  integer :: ierr
+continue
+  allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
+  call alloc_error("reallocate1_i8","temp_array",1,ierr)
+  if (allocated(array)) temp_array(1:size(array)) = array
+  call move_alloc( from=temp_array , to=array )
+end subroutine reallocate1_i8
+!
+!###############################################################################
+!
+subroutine reallocate1_r4(array,new_size)
+  integer, intent(in) :: new_size
+  real(r4), allocatable, dimension(:), intent(inout) :: array
+  real(r4), allocatable, dimension(:) :: temp_array
+  integer :: ierr
+continue
+  allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
+  call alloc_error("reallocate1_r4","temp_array",1,ierr)
+  if (allocated(array)) temp_array(1:size(array)) = array
+  call move_alloc( from=temp_array , to=array )
+end subroutine reallocate1_r4
+!
+!###############################################################################
+!
+subroutine reallocate1_r8(array,new_size)
+  integer, intent(in) :: new_size
+  real(r8), allocatable, dimension(:), intent(inout) :: array
+  real(r8), allocatable, dimension(:) :: temp_array
+  integer :: ierr
+continue
+  allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
+  call alloc_error("reallocate1_r8","temp_array",1,ierr)
+  if (allocated(array)) temp_array(1:size(array)) = array
+  call move_alloc( from=temp_array , to=array )
+end subroutine reallocate1_r8
+!
+!###############################################################################
+!
+subroutine reallocate1_c(array,new_size)
+  integer, intent(in) :: new_size
+  character(len=*), allocatable, dimension(:), intent(inout) :: array
+  character(len=len(array)), allocatable, dimension(:) :: temp_array
+  integer :: ierr
+continue
+  allocate ( temp_array(1:new_size) , stat=ierr )
+  call alloc_error("reallocate1_c","temp_array",1,ierr)
+  if (allocated(array)) temp_array(1:size(array)) = array
+  call move_alloc( from=temp_array , to=array )
+end subroutine reallocate1_c
+!
+!###############################################################################
+!
+subroutine reallocate2_i4(array,new_size1,new_size2)
+  !
+  !.. Formal Arguments ..
+  integer, optional,                       intent(in) :: new_size1
+  integer, optional,                       intent(in) :: new_size2
+  integer(i4), allocatable, dimension(:,:), intent(inout) :: array
+  !
+  !.. Local Scalars ..
+  integer :: old_size1,old_size2,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(i4), allocatable, dimension(:,:) :: temp_array
+  !
+continue
+  !
+  ! Get the old dimensions of array
+  !
+  old_size1 = 1
+  old_size2 = 1
+  if (allocated(array)) then
+    old_size1 = size(array,1)
+    old_size2 = size(array,2)
+  end if
+  !
+  ! Allocate the temporary array to store the old contents of array
+  !
+  if (present(new_size1) .and. present(new_size2)) then
+    allocate ( temp_array(1:new_size1,1:new_size2) , source=0_i4 , stat=ierr )
+  else if (present(new_size1)) then
+    allocate ( temp_array(1:new_size1,1:old_size2) , source=0_i4 , stat=ierr )
+  else if (present(new_size2)) then
+    allocate ( temp_array(1:old_size1,1:new_size2) , source=0_i4 , stat=ierr )
+  else
+    allocate ( temp_array(1:old_size1,1:old_size2) , source=0_i4 , stat=ierr )
+  end if
+  call alloc_error("reallocate2_i4","temp_array",1,ierr)
+  !
+  ! Copy the old contents of array into the temporary array
+  !
+  if (allocated(array)) temp_array(1:old_size1,1:old_size2) = array
+  !
+  ! move_alloc does:
+  !     1. deallocates array
+  !     2. allocates array with the same type, type parameters,
+  !        array bounds, and value as temp_array
+  !     3. deallocates temp_array
+  !
+  call move_alloc( from=temp_array , to=array )
+  !
+end subroutine reallocate2_i4
+!
+!###############################################################################
+!
+subroutine alloc_error(procedure_name,variable_name,ioptype,iemessag)
+  !
+  ! Subroutine to generate an error message when
+  ! an allocate or deallocate returns an error code
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: procedure_name
+  character(len=*), intent(in) :: variable_name
+  integer,          intent(in) :: ioptype
+  integer,          intent(in) :: iemessag
+  !
+continue
+  !
+  if (iemessag /= 0) then
+    !
+    if (ioptype == 1) then
+      write (iout,1) trim(adjustl(variable_name))
+    else
+      write (iout,2) trim(adjustl(variable_name))
+    end if
+    !
+    write (iout,3) trim(adjustl(procedure_name)),iemessag
+    call stop_recon(abort,"alloc_error")
+    !
+  end if
+  !
+  ! Format statements
+  !
+  1 format (/," ***************************************************** ",/, &
+              " UNABLE TO ALLOCATE MEMORY FOR VARIABLE ",a)
+  2 format (/," ***************************************************** ",/, &
+              " UNABLE TO DEALLOCATE MEMORY FOR VARIABLE ",a)
+  3 format (" INSIDE PROCEDURE: ",a,/, &
+            " ERROR INDICATOR = ",i0,/, &
+            " ***************************************************** ",//)
+  !
+end subroutine alloc_error
+!
+!###############################################################################
+!
+subroutine io_error(procedure_name,file_name,ioptype,iemessag)
+  !
+  ! Subroutine to generate an error message when
+  ! an open or close returns an error code
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: procedure_name
+  character(len=*), intent(in) :: file_name
+  integer,          intent(in) :: ioptype
+  integer,          intent(in) :: iemessag
+  !
+continue
+  !
+  if (iemessag /= 0) then
+    !
+    write (iout,10)
+    !
+    if (ioptype == 1) then
+      write (iout,1) trim(adjustl(file_name))
+    else if (ioptype == 2) then
+      write (iout,2) trim(adjustl(file_name))
+    else if (ioptype == 3) then
+      write (iout,3) trim(adjustl(file_name))
+    else
+      write (iout,4) trim(adjustl(file_name))
+    end if
+    !
+    write (iout,11) trim(adjustl(procedure_name)),iemessag
+    call stop_recon(abort,"io_error")
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (" ERROR OPENING FILE '",a,"'")
+  2 format (" ERROR CLOSING FILE '",a,"'")
+  3 format (" ERROR REOPENING CGNS FILE '",a,"'")
+  4 format (" UNKNOWN ERROR WITH FILE '",a,"'")
+  10 format (/," ***************************************************** ")
+  11 format (" INSIDE PROCEDURE: ",a,/, &
+             " ERROR INDICATOR = ",i0,/, &
+             " ***************************************************** ",//)
+  !
+end subroutine io_error
+!
+!###############################################################################
+!
+subroutine initialize_mpi_environment
+  !
+  !.. Local Scalars ..
+  integer :: r,p
+  !
+continue
+  !
+  ! Initialize the overall MPI session
+  !
+  call mpi_init(mpierr)
+  call mpi_comm_size(mpi_comm_world,ncpu,mpierr)
+  call mpi_comm_rank(mpi_comm_world,mypnum,mpierr)
+  !
+  ! MPI datatype for working integer precision
+  !
+ !r = range( 0 )
+ !write (*,*) "integer precision"
+ !write (*,*) r
+ !write (*,*) selected_int_kind(r)
+ !call mpi_type_create_f90_integer(r,mpi_inttyp,mpierr)
+ !write (*,*) mpi_inttyp
+  mpi_inttyp = mpi_integer
+  !
+  ! MPI datatype for half working real precision
+  !
+ !r = range( 0.0_vhp )
+ !p = precision( 0.0_vhp )
+ !write (*,*) "half working precision"
+ !write (*,*) r,p
+ !write (*,*) vhp
+ !call mpi_type_create_f90_real(p,r,mpi_hlftyp,mpierr)
+ !write (*,*) mpi_hlftyp
+  mpi_hlftyp = merge(mpi_real,mpi_double_precision,vhp<r8)
+  mpi_flttyp = merge(mpi_real,mpi_double_precision,vbp<r8)
+  !
+  ! MPI datatype for working real precision
+  !
+ !r = range( 0.0_vbp )
+ !p = precision( 0.0_vbp )
+ !write (*,*) "working precision"
+ !write (*,*) r,p
+ !write (*,*) vbp
+ !call mpi_type_create_f90_real(p,r,mpi_flttyp,mpierr)
+ !write (*,*) mpi_flttyp
+ !mpi_flttyp = mpi_double_precision
+  !
+  ! MPI datatype for double working real precision
+  ! NOTE: mpi_type_create_f90_real doesnt seem to support quad precision
+  !
+ !r = range( 0.0_vdp )
+ !p = precision ( 0.0_vdp )
+ !write (*,*) "double working precision"
+ !write (*,*) r,p
+ !write (*,*) vdp
+ !call mpi_type_create_f90_real(p,r,mpi_dbltyp,mpierr)
+ !write (*,*) mpi_dbltyp
+ !!
+ !! Test to make sure mpi_in_place is Fortran compatible
+ !!
+ !if (is_in_place(mpi_in_place) /= 1) then
+ !  write (*,*) "MPI_IN_PLACE does not seem to be compatible with Fortran!"
+ !  call stop_recon(9,"initialize_mpi_environment")
+ !end if
+  !
+end subroutine initialize_mpi_environment
+!
+!###############################################################################
+!
+subroutine finalize_mpi_environment
+  !
+continue
+  !
+  ! Finalize the overall MPI session
+  !
+  call mpi_finalize(mpierr)
+  !
+  ! Stop execution
+  !
+  flush(iout)
+  !
+  stop
+  !
+end subroutine finalize_mpi_environment
+!
+!###############################################################################
+!
+subroutine stop_recon(iend,procedure_name)
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iend
+  character(len=*), optional, intent(in) :: procedure_name 
+  !
+  !.. Local Scalars ..
+  integer :: iflag
+  !
+continue
+  !
+  iflag = abort
+  if (present(iend)) iflag = iend
+  !
+  if (mypnum == 0) write (iout,1)
+  !
+  if (ncpu > 0) then
+    !
+    ! First finalize the overall MPI session before stoping execution
+    !
+    if (ncpu == 1 .or. iflag == stop_mpi) then
+      !
+      if (mypnum == 0) then
+        write (iout,2)
+        if (present(procedure_name)) &
+          write (iout,4) trim(adjustl(procedure_name))
+        write (iout,5)
+      end if
+      !
+      ! Stop all MPI processes
+      !
+      call mpi_finalize(mpierr)
+      !
+    else if (iflag == abort) then
+      !
+      ! Abort all MPI processes
+      !
+      write (iout,3) mypnum
+      if (present(procedure_name)) &
+        write (iout,4) trim(adjustl(procedure_name))
+      write (iout,5)
+      !
+      call mpi_abort(mpi_comm_world,iflag,mpierr)
+      !
+    end if
+    !
+  end if
+  !
+  flush(iout)
+  !
+  stop
+  !
+  ! Format Statements
+  !
+  1 format (//,"#########################################################")
+  2 format (   "    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
+  3 format (   "           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
+  4 format (   " STOP ISSUED FROM PROCEDURE '",a,"'")
+  5 format (   "#########################################################",//)
+  !
+end subroutine stop_recon
+!
+!###############################################################################
+!
+end module module_kind_types
