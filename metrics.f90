@@ -2567,11 +2567,7 @@ end function FaceNormals2D
 !###############################################################################
 !
 include "Functions/np2nfp.f90"
-include "Functions/norms.f90"
 include "Functions/last.f90"
-include "Functions/rotate.f90"
-include "Functions/reflect.f90"
-include "Functions/rotate_2d.f90"
 include "Functions/chop.f90"
 !
 !###############################################################################

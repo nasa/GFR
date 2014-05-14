@@ -2791,8 +2791,6 @@ end subroutine output2d
 !
 !###############################################################################
 !
-include "Functions/deltafun.f90"
-include "Functions/reciprocal.f90"
 include "Functions/np2n.f90"
 include "Functions/np2nfp.f90"
 include "Functions/chop.f90"

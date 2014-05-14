@@ -2164,8 +2164,6 @@ end subroutine getbc
 !
 !###############################################################################
 !
-include "Functions/norms.f90"
-include "Functions/deltafun.f90"
 include "Functions/vortex.f90"
 !
 !###############################################################################

@@ -27,6 +27,36 @@ module triangle_mod
                   0.9800_vbp, 1.0999_vbp, 1.2832_vbp, 1.3648_vbp, 1.4773_vbp, &
                   1.4959_vbp, 1.5743_vbp, 1.5770_vbp, 1.6223_vbp, 1.6258_vbp  /)
   !
+ !interface EquiTriNodes2D
+ !  module procedure EquiTriNodes2D_DP, &
+ !                   EquiTriNodes2D_QP
+ !end interface EquiTriNodes2D
+ !!
+ !interface Warpfactor
+ !  module procedure Warpfactor_DP, &
+ !                   Warpfactor_QP
+ !end interface Warpfactor 
+ !!
+ !interface Nodes2D
+ !  module procedure Nodes2D_DP, &
+ !                   Nodes2D_QP
+ !end interface Nodes2D
+ !!
+ !interface xytors
+ !  module procedure xytors_DP, &
+ !                   xytors_QP
+ !end interface xytors
+ !!
+ !interface TriNodes2D_DG
+ !  module procedure TriNodes2D_DG_DP, &
+ !                   TriNodes2D_DG_QP
+ !end interface TriNodes2D_DG
+ !!
+ !interface TriNodes2D_HT
+ !  module procedure TriNodes2D_HT_DP, &
+ !                   TriNodes2D_HT_QP
+ !end interface TriNodes2D_HT
+  !
 contains
 !
 !###############################################################################
@@ -288,10 +318,6 @@ continue
  !return_value = return_value*two - one
   !
 end function TriNodes2D_HT
-!
-!###############################################################################
-!
-include "Functions/deltafun.f90"
 !
 !###############################################################################
 !

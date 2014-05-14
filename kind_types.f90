@@ -188,6 +188,78 @@ module module_kind_types
                      reallocate1_c,  reallocate2_i4
   end interface reallocate
   !
+  interface cross_product
+    module procedure cross_product_DP, &
+                     cross_product_QP
+  end interface cross_product
+  !
+  interface deltafun
+    module procedure deltafun_DP!, deltafun_QP
+  end interface deltafun
+  !
+  interface selfdot
+    module procedure selfdot_DP, &
+                     selfdot_QP
+  end interface selfdot
+  !
+  interface rnorm2
+    module procedure rnorm2_DP, &
+                     rnorm2_QP
+  end interface rnorm2
+  !
+  interface unit_vector
+    module procedure unit_vector_DP, &
+                     unit_vector_QP
+  end interface unit_vector
+  !
+  interface outerprod
+    module procedure outerprod_DP, &
+                     outerprod_QP
+  end interface outerprod
+  !
+  interface reciprocal
+    module procedure reciprocal_DP, &
+                     reciprocal_QP
+  end interface reciprocal
+  !
+  interface reflect
+    module procedure reflect_DP, &
+                     reflect_QP
+  end interface reflect
+  !
+  interface rotate_2d
+    module procedure rotate_2d_DP, &
+                     rotate_2d_QP
+  end interface rotate_2d
+  !
+  interface rotate
+    module procedure rotate_DP, &
+                     rotate_QP
+  end interface rotate
+  !
+  ! Make the non-generic functions private
+  !
+  private :: cross_product_DP
+  private :: cross_product_QP
+ !private :: deltafun_DP
+  private :: deltafun_QP
+  private :: selfdot_DP
+  private :: selfdot_QP
+  private :: rnorm2_DP
+  private :: rnorm2_QP
+  private :: unit_vector_DP
+  private :: unit_vector_QP
+  private :: outerprod_DP
+  private :: outerprod_QP
+  private :: reciprocal_DP
+  private :: reciprocal_QP
+  private :: reflect_DP
+  private :: reflect_QP
+  private :: rotate_DP
+  private :: rotate_QP
+  private :: rotate_2d_DP
+  private :: rotate_2d_QP
+  !
   ! Make the non-generic reallocation subroutines to private
   !
   private :: reallocate1_i4
@@ -566,6 +638,17 @@ continue
   5 format (   "#########################################################",//)
   !
 end subroutine stop_recon
+!
+!###############################################################################
+!
+include "Functions/cross_product.f90"
+include "Functions/deltafun.f90"
+include "Functions/norms.f90"
+include "Functions/outerprod.f90"
+include "Functions/reciprocal.f90"
+include "Functions/reflect.f90"
+include "Functions/rotate.f90"
+include "Functions/rotate_2d.f90"
 !
 !###############################################################################
 !

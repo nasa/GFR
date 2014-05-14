@@ -2917,9 +2917,4 @@ end function g_jacobian_using_primitive
 !
 !###############################################################################
 !
-include "Functions/norms.f90"
-include "Functions/reciprocal.f90"
-!
-!##############################################################################
-!
 end module flux_mod

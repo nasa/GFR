@@ -1,7 +1,15 @@
-pure function cross_product(a,b) result(return_value)
-real(vbp), dimension(3), intent(in) :: a,b
-real(vbp), dimension(3) :: return_value
+pure function cross_product_DP(a,b) result(return_value)
+real(dp), dimension(3), intent(in) :: a,b
+real(dp), dimension(3) :: return_value
 return_value(1) = a(2)*b(3) - a(3)*b(2)
 return_value(2) = a(3)*b(1) - a(1)*b(3)
 return_value(3) = a(1)*b(2) - a(2)*b(1)
-end function cross_product
+end function cross_product_DP
+!
+pure function cross_product_QP(a,b) result(return_value)
+real(qp), dimension(3), intent(in) :: a,b
+real(qp), dimension(3) :: return_value
+return_value(1) = a(2)*b(3) - a(3)*b(2)
+return_value(2) = a(3)*b(1) - a(1)*b(3)
+return_value(3) = a(1)*b(2) - a(2)*b(1)
+end function cross_product_QP
