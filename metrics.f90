@@ -33,6 +33,10 @@ module metrics_mod
                    '(/,"Option for location of ",a,"'// &
                        ' points is not valid!",/)'
   !
+  interface get_quad_weights_at_solpts
+    module procedure get_quad_weights_at_solpts_DP, &
+                     get_quad_weights_at_solpts_QP
+  end interface get_quad_weights_at_solpts
 contains
 !
 !###############################################################################
@@ -83,10 +87,13 @@ subroutine get_flux_points_2d()
   integer :: i,n,nf,n1,n2,ierr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:n_sp1de) :: vp
-  real(vbp), dimension(1:nr)   :: pt1
-  real(vbp), dimension(1:nr)   :: pt2
-  real(vbp), dimension(1:nr)   :: delpt
+  real(wp), dimension(1:nr)      :: pt1
+  real(wp), dimension(1:nr)      :: pt2
+  real(wp), dimension(1:nr)      :: delpt
+  real(wp), dimension(1:n_sp1de) :: vp
+  real(qp), dimension(1:n_sp1de) :: vp_qp
+  real(qp), dimension(1:n_sp1de) :: flxpts_1d_qp
+  real(qp), dimension(1:n_sp1de) :: flxwts_1d_qp
   !
 continue
   !
@@ -101,25 +108,25 @@ continue
   !
   if (iop_flxpts == Legendre_Gauss) then
     !
-    call nodes_legendre_gauss(n_sp1de,flxpts_1d,vp)
-    call weights_legendre_gauss(n_sp1de,flxpts_1d,vp,flxwts_1d)
+    call nodes_legendre_gauss(n_sp1de,flxpts_1d_qp,vp_qp)
+    call weights_legendre_gauss(n_sp1de,flxpts_1d_qp,vp_qp,flxwts_1d_qp)
     !
   else if (iop_flxpts == Legendre_Gauss_Lobatto) then
     !
-    call nodes_legendre_gauss_lobatto(n_order,flxpts_1d,vp)
-    call weights_legendre_gauss_lobatto(n_order,vp,flxwts_1d)
+    call nodes_legendre_gauss_lobatto(n_order,flxpts_1d_qp,vp_qp)
+    call weights_legendre_gauss_lobatto(n_order,vp_qp,flxwts_1d_qp)
     !
   else if (iop_flxpts == Chebyshev_Gauss) then
     !
-    call nodes_chebyshev_gauss(n_sp1de,flxpts_1d)
-    call weights_chebyshev_gauss(n_sp1de,flxwts_1d)
+    call nodes_chebyshev_gauss(n_sp1de,flxpts_1d_qp)
+    call weights_chebyshev_gauss(n_sp1de,flxwts_1d_qp)
     write (iout,CG_error) "Flux"
     call stop_recon(stop_mpi,"get_flux_points_2d")
     !
   else if (iop_flxpts == Chebyshev_Gauss_Lobatto) then
     !
-    call nodes_chebyshev_gauss_lobatto(n_order,flxpts_1d)
-    call weights_chebyshev_gauss_lobatto(n_order,flxwts_1d)
+    call nodes_chebyshev_gauss_lobatto(n_order,flxpts_1d_qp)
+    call weights_chebyshev_gauss_lobatto(n_order,flxwts_1d_qp)
     write (iout,CGL_error) "Flux"
     call stop_recon(stop_mpi,"get_flux_points_2d")
     !
@@ -129,6 +136,10 @@ continue
     call stop_recon(stop_mpi,"get_flux_points_2d")
     !
   end if
+  !
+  flxpts_1d(:) = chop( flxpts_1d_qp(:) )
+  flxwts_1d(:) = chop( flxwts_1d_qp(:) )
+  !
  !!
  !! Now create the coordinates of the flux points on each face
  !!
@@ -179,11 +190,25 @@ subroutine get_solution_points_2d()
   !
   !.. Local Scalars ..
   integer   :: i,j,n,n1,n2,p1,p2,np,ierr
-  real(vbp) :: r,s
+  real(wp) :: r,s
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr,1:4) :: xy
-  real(vbp), dimension(1:n_order+1) :: vp
+  real(wp), dimension(1:nr,1:4) :: xy
+  real(wp), dimension(1:n_sp1de) :: vp
+  !
+  !.. Local Quad Precision Arrays ..
+  real(qp), dimension(1:n_sp1de) :: vp_qp
+  real(qp), dimension(1:n_sp1de) :: radau_1d_qp
+  real(qp), dimension(1:n_sp1de) :: radau_wts_1d_qp
+  real(qp), dimension(1:n_sp2dq) :: radau_wts_2d_qp
+  real(qp), dimension(1:n_sp1de) :: gauss_1d_qp
+  real(qp), dimension(1:n_sp1de) :: gauss_wts_1d_qp
+  real(qp), dimension(1:n_sp2dq) :: gauss_wts_2d_qp
+  real(qp), dimension(1:n_sp1de) :: lobatto_1d_qp
+  real(qp), dimension(1:n_sp1de) :: lobatto_wts_1d_qp
+  real(qp), dimension(1:n_sp2dq) :: lobatto_wts_2d_qp
+  real(qp), dimension(1:n_sp1de) :: solpts_1d_qp
+  real(qp), dimension(1:n_sp1de) :: solwts_1d_qp
   !
 continue
   !
@@ -198,13 +223,9 @@ continue
   n_totnod = size(xyz_nodes,dim=2)
   nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
   !
-  ! Set some of the base constants needed
+  ! Get the 1D coordinates and weights of various node types
   !
-  n_sp1de = n_order + 1                ! number of 1D solution points
-  n_sp2dt = n_sp1de * (n_sp1de+1) / 2  ! number of 2D triangle solution points
-  n_sp2dq = n_sp1de * n_sp1de          ! number of 2D quad     solution points
-  !
-  ! Get the 1D coordinates and weights of the Lobatto nodes
+  ! Allocate the working precision arrays
   !
   allocate ( radau_1d(1:n_sp1de) , source=zero , stat=ierr )
   call alloc_error("get_solution_points_2d","radau_1d",1,ierr)
@@ -232,53 +253,56 @@ continue
   allocate ( solwts_1d(1:n_sp1de) , source=zero , stat=ierr )
   call alloc_error("get_solution_points_2d","solwts_1d",1,ierr)
   !
-  ! Create the 1D arrays for the location of the Gauss, Lobatto,
+  ! #####################################################################
+  ! #####################################################################
+  ! ##     USE QUAD PRECISION ARRAYS TO CREATE ALL OF THE ARRAYS       ##
+  ! ##   PREVIOUSLY ALLOCATED. WE WILL THEN PERFORM A CHOP TO ZERO     ##
+  ! ##  EVERYTHING WITH AN ABSOLUTE VALUE SMALLER THAN EPSILON(0_WP).  ##
+  ! #####################################################################
+  ! #####################################################################
+  !
+  ! Create the 1D arrays for the locations of the Gauss, Lobatto,
   ! and Radau solution points and their corresponding weights
   !
-  call nodes_legendre_gauss(n_sp1de,gauss_1d,vp)
-  call weights_legendre_gauss(n_sp1de,gauss_1d,vp,gauss_wts_1d)
+  call nodes_legendre_gauss(n_sp1de,gauss_1d_qp,vp_qp)
+  call weights_legendre_gauss(n_sp1de,gauss_1d_qp,vp_qp,gauss_wts_1d_qp)
   !
-  call nodes_legendre_gauss_lobatto(n_order,lobatto_1d,vp)
-  call weights_legendre_gauss_lobatto(n_order,vp,lobatto_wts_1d)
+  call nodes_legendre_gauss_lobatto(n_order,lobatto_1d_qp,vp_qp)
+  call weights_legendre_gauss_lobatto(n_order,vp_qp,lobatto_wts_1d_qp)
   !
-  call nodes_right_radau(n_order,radau_1d)
-  call weights_right_radau(n_order,radau_1d,radau_wts_1d)
-  !
- !write (*,*)
- !write (*,'(100f10.6)') radau_1d
- !write (*,'(100f10.6)') radau_wts_1d
- !write (*,*)
+  call nodes_right_radau(n_order,radau_1d_qp)
+  call weights_right_radau(n_order,radau_1d_qp,radau_wts_1d_qp)
   !
   ! Create the 2D weights for the Gauss and Lobatto solution points on quads
   !
-  gauss_wts_2d = get_quad_weights_at_solpts(gauss_wts_1d)
-  lobatto_wts_2d = get_quad_weights_at_solpts(lobatto_wts_1d)
-  radau_wts_2d = get_quad_weights_at_solpts(radau_wts_1d)
+  gauss_wts_2d_qp = get_quad_weights_at_solpts(gauss_wts_1d_qp)
+  lobatto_wts_2d_qp = get_quad_weights_at_solpts(lobatto_wts_1d_qp)
+  radau_wts_2d_qp = get_quad_weights_at_solpts(radau_wts_1d_qp)
   !
   ! Now get the 1D solution points for the computation
   ! NOTE: We will save into vp whichever of gauss_1d and lobatto_1d isnt solpts_1d
   !
   if (iop_solpts == Legendre_Gauss) then
     !
-    solpts_1d(:) = gauss_1d(:)
-    solwts_1d(:) = gauss_wts_1d(:)
+    solpts_1d_qp(:) = gauss_1d_qp(:)
+    solwts_1d_qp(:) = gauss_wts_1d_qp(:)
     !
   else if (iop_solpts == Legendre_Gauss_Lobatto) then
     !
-    solpts_1d(:) = lobatto_1d(:)
-    solwts_1d(:) = lobatto_wts_1d(:)
+    solpts_1d_qp(:) = lobatto_1d_qp(:)
+    solwts_1d_qp(:) = lobatto_wts_1d_qp(:)
     !
   else if (iop_solpts == Chebyshev_Gauss) then
     !
-    call nodes_chebyshev_gauss(n_order+1,solpts_1d)
-    call weights_chebyshev_gauss(n_order+1,solwts_1d)
+    call nodes_chebyshev_gauss(n_order+1,solpts_1d_qp)
+    call weights_chebyshev_gauss(n_order+1,solwts_1d_qp)
     write (iout,CG_error) "Solution"
     call stop_recon(stop_mpi,"get_solution_points_2d")
     !
   else if (iop_solpts == Chebyshev_Gauss_Lobatto) then
     !
-    call nodes_chebyshev_gauss_lobatto(n_order,solpts_1d)
-    call weights_chebyshev_gauss_lobatto(n_order,solwts_1d)
+    call nodes_chebyshev_gauss_lobatto(n_order,solpts_1d_qp)
+    call weights_chebyshev_gauss_lobatto(n_order,solwts_1d_qp)
     write (iout,CGL_error) "Solution"
     call stop_recon(stop_mpi,"get_solution_points_2d")
     !
@@ -288,6 +312,31 @@ continue
     call stop_recon(stop_mpi,"get_solution_points_2d")
     !
   end if
+  !
+  ! ##############################################
+  ! ##############################################
+  ! ##   CHOP THE QUAD PRECISION ARRAYS AND     ##
+  ! ##  STORE IN THE WORKING PRECISION ARRAYS.  ##
+  ! ##############################################
+  ! ##############################################
+  !
+  radau_1d(:)       = chop( radau_1d_qp(:) )
+  radau_wts_1d(:)   = chop( radau_wts_1d_qp(:) )
+  radau_wts_2d(:)   = chop( radau_wts_2d_qp(:) )
+  gauss_1d(:)       = chop( gauss_1d_qp(:) )
+  gauss_wts_1d(:)   = chop( gauss_wts_1d_qp(:) )
+  gauss_wts_2d(:)   = chop( gauss_wts_2d_qp(:) )
+  lobatto_1d(:)     = chop( lobatto_1d_qp(:) )
+  lobatto_wts_1d(:) = chop( lobatto_wts_1d_qp(:) )
+  lobatto_wts_2d(:) = chop( lobatto_wts_2d_qp(:) )
+  solpts_1d(:)      = chop( solpts_1d_qp(:) )
+  solwts_1d(:)      = chop( solwts_1d_qp(:) )
+  !
+  ! ######################################################################
+  ! ######################################################################
+  ! ##  CONTINUE ON AND COMPUTE THE COORDINATES OF THE SOLUTION POINTS  ##
+  ! ######################################################################
+  ! ######################################################################
   !
   ! Get the coordinates of the base triangle in r-s space
   !
@@ -569,11 +618,11 @@ end function get_triangle_weights_at_solpts
 !
 !###############################################################################
 !
-pure function get_quad_weights_at_solpts(weights) result(return_value)
+pure function get_quad_weights_at_solpts_DP(weights) result(return_value)
   !
-  real(vbp), dimension(:), intent(in) :: weights
+  real(dp), dimension(:), intent(in) :: weights
   !
-  real(vbp), dimension(1:size(weights)**2) :: return_value
+  real(dp), dimension(1:size(weights)**2) :: return_value
   !
   integer :: i,j,k
   !
@@ -587,7 +636,29 @@ continue
     end do
   end do
   !
-end function get_quad_weights_at_solpts
+end function get_quad_weights_at_solpts_DP
+!
+!###############################################################################
+!
+pure function get_quad_weights_at_solpts_QP(weights) result(return_value)
+  !
+  real(qp), dimension(:), intent(in) :: weights
+  !
+  real(qp), dimension(1:size(weights)**2) :: return_value
+  !
+  integer :: i,j,k
+  !
+continue
+  !
+  k = 0
+  do i = 1,size(weights)
+    do j = 1,size(weights)
+      k = k + 1
+      return_value(k) = weights(i)*weights(j)
+    end do
+  end do
+  !
+end function get_quad_weights_at_solpts_QP
 !
 !###############################################################################
 !
@@ -2501,6 +2572,7 @@ include "Functions/last.f90"
 include "Functions/rotate.f90"
 include "Functions/reflect.f90"
 include "Functions/rotate_2d.f90"
+include "Functions/chop.f90"
 !
 !###############################################################################
 !
