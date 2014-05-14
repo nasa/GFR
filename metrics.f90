@@ -14,6 +14,7 @@ module metrics_mod
   public :: get_solution_points_2d
  !public :: get_flux_points_2d
   public :: get_grid_connectivity
+  public :: get_metrics
   !
   integer, parameter :: mindex = 15
   integer, parameter :: nstack = 50
@@ -966,6 +967,10 @@ continue
   !
   call find_points_on_each_face
   !
+  ! Get the indices for the flux points for each cell
+  !
+  call find_flxpts_of_each_cell
+  !
   ! Get the periodic connectivity if there is any
   !
   if (any(bface(1,:) == bc_periodic)) &
@@ -977,7 +982,7 @@ continue
   !
   ! Get the grid metrics
   !
-  call get_metrics
+ !call get_metrics
   !
 end subroutine get_grid_connectivity
 !
@@ -1249,14 +1254,14 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !
   ! For Triangles : 
   !   for cells_on_face(3,:) = (    1    ,     2     ,3)
-  !       cells_on_face(5,:) = (n_sp1de+1,2*n_sp1de+1,1)
+  !       cells_on_face(5,:) = (n_qp1de+1,2*n_qp1de+1,1)
   !   for cells_on_face(4,:) = (    1    ,    2    ,   3   )
-  !       cells_on_face(6,:) = (2*n_sp1de,3*n_sp1de,n_sp1de)
+  !       cells_on_face(6,:) = (2*n_qp1de,3*n_qp1de,n_qp1de)
   ! For Quadrilaterals : 
   !   for cells_on_face(3,:) = (    1    ,     2     ,     3     ,4)
-  !       cells_on_face(5,:) = (n_sp1de+1,2*n_sp1de+1,3*n_sp1de+1,1)
+  !       cells_on_face(5,:) = (n_qp1de+1,2*n_qp1de+1,3*n_qp1de+1,1)
   !   for cells_on_face(4,:) = (    1    ,    2    ,    3    ,   4   )
-  !       cells_on_face(6,:) = (2*n_sp1de,3*n_sp1de,4*n_sp1de,n_sp1de)
+  !       cells_on_face(6,:) = (2*n_qp1de,3*n_qp1de,4*n_qp1de,n_qp1de)
   !
   !.. Use Statements ..
   use geovar
@@ -1461,12 +1466,15 @@ continue
     else if (sum(lnode(2:3)) == 2) then
       cells_on_face(3,nf) = 2
       cells_on_face(5,nf) = n_sp1de + 1
+     !cells_on_face(5,nf) = n_qp1de + 1
     else if (sum(lnode(3:4)) == 2) then
       cells_on_face(3,nf) = 3
       cells_on_face(5,nf) = 2*n_sp1de + 1
+     !cells_on_face(5,nf) = 2*n_qp1de + 1
     else
       cells_on_face(3,nf) = 4
       cells_on_face(5,nf) = merge(2,3,n2-n1+1==3)*n_sp1de + 1
+     !cells_on_face(5,nf) = merge(2,3,n2-n1+1==3)*n_qp1de + 1
     end if
     !
     ! Now the right cell on the current face
@@ -1478,6 +1486,7 @@ continue
      !!
      !cells_on_face(4,nf) = 1
      !cells_on_face(6,nf) = n_sp1de
+     !cells_on_face(6,nf) = n_qp1de
       !
       ! For boundary faces, I think everything should be set up
       ! properly so that we shouldnt have to differentiate here
@@ -1510,15 +1519,19 @@ continue
       if (sum(lnode(1:2)) == 2) then
         cells_on_face(4,nf) = 1
         cells_on_face(6,nf) = n_sp1de
+       !cells_on_face(6,nf) = n_qp1de
       else if (sum(lnode(2:3)) == 2) then
         cells_on_face(4,nf) = 2
         cells_on_face(6,nf) = 2*n_sp1de
+       !cells_on_face(6,nf) = 2*n_qp1de
       else if (sum(lnode(3:4)) == 2) then
         cells_on_face(4,nf) = 3
         cells_on_face(6,nf) = 3*n_sp1de
+       !cells_on_face(6,nf) = 3*n_qp1de
       else
         cells_on_face(4,nf) = 4
         cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_sp1de
+       !cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_qp1de
       end if
       !
     else
@@ -1541,15 +1554,19 @@ continue
       if (sum(lnode(1:2)) == 2) then
         cells_on_face(4,nf) = 1
         cells_on_face(6,nf) = n_sp1de
+       !cells_on_face(6,nf) = n_qp1de
       else if (sum(lnode(2:3)) == 2) then
         cells_on_face(4,nf) = 2
         cells_on_face(6,nf) = 2*n_sp1de
+       !cells_on_face(6,nf) = 2*n_qp1de
       else if (sum(lnode(3:4)) == 2) then
         cells_on_face(4,nf) = 3
         cells_on_face(6,nf) = 3*n_sp1de
+       !cells_on_face(6,nf) = 3*n_qp1de
       else
         cells_on_face(4,nf) = 4
         cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_sp1de
+       !cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_qp1de
       end if
       !
     end if
@@ -1650,6 +1667,168 @@ continue
   end do
   !
 end subroutine find_points_on_each_face
+!
+!###############################################################################
+!
+subroutine find_flxpts_of_each_cell()
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,ncell,n_totcel,nface,n_sp1de,n_flxpts,nflxprm
+  use geovar, only : flxpts_of_cell_ptr,flxpts_of_cell,bface
+  use geovar, only : cells_on_face,nodes_of_cell_ptr
+  !
+  !.. Local Scalars ..
+  integer :: n,nf,ierr,k
+  integer :: jl,lf1,lf2,lk1,lk,lfp
+  integer :: jr,rf1,rf2,rk1,rk,rfp
+  !
+  !.. Local Parameters ..
+  integer, parameter :: left_side = 1
+  integer, parameter :: right_side = 2
+  !
+continue
+  !
+  n_flxpts = nface*n_sp1de
+  !
+  ! Create the pointer for the flxpts_of_cell array
+  !
+  allocate ( flxpts_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
+  call alloc_error("find_flxpts_of_each_cell","flxpts_of_cell_ptr",1,ierr)
+  !
+  ! Set up the flux points pointer array for each interior cell
+  ! NOTE: This array is only used for interior cells so it does
+  !       not need to account for ghost cells
+  !
+  do n = 1,ncell
+    k = nodes_of_cell_ptr(n+1) - nodes_of_cell_ptr(n)
+    flxpts_of_cell_ptr(n+1) = flxpts_of_cell_ptr(n) + k*n_sp1de
+  end do
+  !
+  ! Allocate the flxpts_of_cell array
+  !
+  allocate ( flxpts_of_cell(1:nflxprm,1:last(flxpts_of_cell_ptr)) , &
+             source=0 , stat=ierr )
+  call alloc_error("find_flxpts_of_each_cell","flxpts_of_cell",1,ierr)
+  !
+  ! Loop through the boundary faces and fill
+  ! the left part of the flxpts_of_cell array
+  !
+  do nf = 1,nfbnd
+    !
+    jl = cells_on_face(1,nf) ! left  cell on face
+    !
+    lf1 = flxpts_of_cell_ptr(jl)+1 ! beginning flxpt index for left  cell
+    lf2 = flxpts_of_cell_ptr(jl+1) ! ending    flxpt index for left  cell
+    !
+    lk1 = cells_on_face(5,nf) ! beginning flxpt on current face for left  cell
+    !
+    ! Loop through each flux point on the current face and get
+    ! the flux point information for both cells on this face
+    !
+    do k = 1,n_sp1de
+      !
+      lk = lk1-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
+      !
+      lfp = lf1-1 + lk ! idx of current flxpt for left  cell (from lf1 to lf2)
+      !
+      flxpts_of_cell(1,lfp) = nf
+      flxpts_of_cell(2,lfp) = k
+      flxpts_of_cell(3,lfp) = lk
+      flxpts_of_cell(4,lfp) = left_side
+      !
+    end do
+    !
+  end do
+  !
+  ! Loop through each interior face to fill the
+  ! remaining parts of the flxpts_of_cell array
+  !
+  do nf = nfbnd+1,nface
+    !
+    jl = cells_on_face(1,nf) ! left  cell on face
+    jr = cells_on_face(2,nf) ! right cell on face
+    !
+    lf1 = flxpts_of_cell_ptr(jl)+1 ! beginning flxpt index for left  cell
+    lf2 = flxpts_of_cell_ptr(jl+1) ! ending    flxpt index for left  cell
+    !
+    rf1 = flxpts_of_cell_ptr(jr)+1 ! beginning flxpt index for right cell
+    rf2 = flxpts_of_cell_ptr(jr+1) ! ending    flxpt index for right cell
+    !
+    lk1 = cells_on_face(5,nf) ! beginning flxpt on current face for left  cell
+    rk1 = cells_on_face(6,nf) ! beginning flxpt on current face for right cell
+    !
+    ! Loop through each flux point on the current face and get
+    ! the flux point information for both cells on this face
+    !
+    do k = 1,n_sp1de
+      !
+      lk = lk1-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
+      rk = rk1+1 - k ! idx of current flxpt for right cell (from 1 to rf2-rf1+1)
+      !
+      lfp = lf1-1 + lk ! idx of current flxpt for left  cell (from lf1 to lf2)
+      rfp = rf1-1 + rk ! idx of current flxpt for right cell (from rf1 to rf2)
+      !
+      flxpts_of_cell(1,lfp) = nf
+      flxpts_of_cell(2,lfp) = k
+      flxpts_of_cell(3,lfp) = lk
+      flxpts_of_cell(4,lfp) = left_side
+      !
+      flxpts_of_cell(1,rfp) = nf
+      flxpts_of_cell(2,rfp) = k
+      flxpts_of_cell(3,rfp) = rk
+      flxpts_of_cell(4,rfp) = right_side
+      !
+    end do
+    !
+  end do
+  !
+ !write (121+mypnum,6)
+ !do nf = 1,nfbnd
+ !  write (121+mypnum,7) nf,(bface(k,nf),k=1,size(bface,1))
+ !end do
+ !write (101+mypnum,1)
+ !do nf = 1,ncell
+ !  !
+ !  lf1 = flxpts_of_cell_ptr(nf)+1
+ !  lf2 = flxpts_of_cell_ptr(nf+1)
+ !  !
+ !  do k = lf1,lf2
+ !    if (flxpts_of_cell(3,k) /= k-lf1+1) write (iout,*) "error",nf,k
+ !    if (k == lf1) then
+ !      if (flxpts_of_cell(1,k) <= nfbnd) then
+ !        write (101+mypnum,8) nf,flxpts_of_cell(1:4,k)
+ !      else
+ !       !write (101+mypnum,2) nf,flxpts_of_cell(1:4,k)
+ !      end if
+ !    else if (mod(k-lf1+n_sp1de,n_sp1de) == 0) then
+ !      if (flxpts_of_cell(1,k) <= nfbnd) then
+ !        write (101+mypnum,8) nf,flxpts_of_cell(1:4,k)
+ !      else
+ !       !write (101+mypnum,3) flxpts_of_cell(1:4,k)
+ !      end if
+ !    else
+ !      if (flxpts_of_cell(1,k) <= nfbnd) then
+ !        write (101+mypnum,4) flxpts_of_cell(2:3,k)
+ !      else
+ !       !write (101+mypnum,4) flxpts_of_cell(2:3,k)
+ !      end if
+ !    end if
+ !  end do
+ !  write (101+mypnum,5)
+ !end do
+  !
+  1 format (" Cell  Face  FaceFlxPt  CellFlxPt  FaceSide",/, &
+              "----------------------------------------------")
+  2 format (i5,i6,i8,i11,i10)
+  3 format (5x,i6,i8,i11,i10)
+  4 format (5x,6x,i8,i11,10x)
+  5 format ("----------------------------------------------")
+  6 format (" nf   bc        hc htype  hloc      adjf  adjh  adjp  adjt  adjl        gc")
+  7 format (2i4,4x,3i6,4x,5i6,4x,i6)
+  8 format (i5,"*",i4,"*",i8,i11,i10)
+  9 format (5x,"*",i4,"*",i8,i11,i10)
+  !
+end subroutine find_flxpts_of_each_cell
 !
 !###############################################################################
 !
@@ -1890,11 +2069,25 @@ subroutine get_metrics()
   integer   :: n1,n2,nf,np,p1,p2
   real(vbp) :: tvol
   real(r8)  :: loc_vol,tot_vol
+ !real(wp)  :: dxdr,dxds,dydr,dyds
   !
   !.. Local Arrays ..
   real(vbp), dimension(1:2,1:4) :: xy
+ !real(vbp), dimension(1:n_qp2dq) :: qdtr_jac
+ !real(vbp), dimension(1:n_qp2dq) :: qdtr_wts
+ !real(vbp), dimension(1:n_qp2dq) :: dxdr
+ !real(vbp), dimension(1:n_qp2dq) :: dxds
+ !real(vbp), dimension(1:n_qp2dq) :: dydr
+ !real(vbp), dimension(1:n_qp2dq) :: dyds
   !
 continue
+  !
+ !qdtr_wts(1:n_qp2dq) = get_quad_weights_at_solpts(qdtwts_1d)
+ !!
+ !do i = 110,150,10
+ !  write (i+3,*) "using matmul"
+ !  write (i+4,*) "using metrics loop"
+ !end do
   !
   ! Allocate metrics arrays
   !
@@ -2063,6 +2256,105 @@ continue
         tvol = tvol + jacobian(j)*weights2d(j-p1+1,2)
         !
       end do
+      !
+     !qdtr_jac(:) = zero
+     !dxdr(:) = zero
+     !dxds(:) = zero
+     !dydr(:) = zero
+     !dyds(:) = zero
+     !do j = 1,n_qp2dq
+     !  l = (j-1)/n_qp1de + 1
+     !  k = j - (l-1)*n_qp1de
+     !  dxdr(j) = c0_25 * ( (qdtpts_1d(l)-one)*(xy(1,1)-xy(1,2)) + &
+     !                      (qdtpts_1d(l)+one)*(xy(1,3)-xy(1,4)) )
+     !  dydr(j) = c0_25 * ( (qdtpts_1d(l)-one)*(xy(2,1)-xy(2,2)) + &
+     !                      (qdtpts_1d(l)+one)*(xy(2,3)-xy(2,4)) )
+     !  dxds(j) = c0_25 * ( (qdtpts_1d(k)-one)*(xy(1,1)-xy(1,4)) + &
+     !                      (qdtpts_1d(k)+one)*(xy(1,3)-xy(1,2)) )
+     !  dyds(j) = c0_25 * ( (qdtpts_1d(k)-one)*(xy(2,1)-xy(2,4)) + &
+     !                      (qdtpts_1d(k)+one)*(xy(2,3)-xy(2,2)) )
+     !  qdtr_jac(j) = dxdr(j)*dyds(j) - dxds(j)*dydr(j)
+     !end do
+     !!
+     !!------------------------------------------------------------------
+     !write (112,*) "Cell = ",i
+     !write (112,*) " Jacobian at solution points"
+     !write (112,*) jacobian(p1:p2)
+     !write (112,*) "sum = ",sum(jacobian(p1:p2)*weights2d(:,2))
+     !write (112,*)
+     !!
+     !write (113,*) "Cell = ",i
+     !write (113,*) " Jacobian at quadrature points"
+     !write (113,*) matmul( interp_s2q , jacobian(p1:p2) )
+     !write (113,*) "sum = ",sum(matmul( interp_s2q , jacobian(p1:p2) )*qdtr_wts(:))
+     !write (113,*)
+     !!
+     !write (114,*) "Cell = ",i
+     !write (114,*) " Jacobian at quadrature points"
+     !write (114,*) qdtr_jac(:)
+     !write (114,*) "sum = ",sum(qdtr_jac(:)*qdtr_wts(:))
+     !write (114,*)
+     !!------------------------------------------------------------------
+     !write (122,*) "Cell = ",i
+     !write (122,*) " dxdr at solution points"
+     !write (122,*) dx(p1:p2)%dr
+     !write (122,*)
+     !!
+     !write (123,*) "Cell = ",i
+     !write (123,*) " dxdr at quadrature points"
+     !write (123,*) matmul( interp_s2q , dx(p1:p2)%dr )
+     !write (123,*)
+     !!
+     !write (124,*) "Cell = ",i
+     !write (124,*) " dxdr at quadrature points"
+     !write (124,*) dxdr(:)
+     !write (124,*)
+     !!------------------------------------------------------------------
+     !write (132,*) "Cell = ",i
+     !write (132,*) " dxds at solution points"
+     !write (132,*) dx(p1:p2)%ds
+     !write (132,*)
+     !!
+     !write (133,*) "Cell = ",i
+     !write (133,*) " dxds at quadrature points"
+     !write (133,*) matmul( interp_s2q , dx(p1:p2)%ds )
+     !write (133,*)
+     !!
+     !write (134,*) "Cell = ",i
+     !write (134,*) " dxds at quadrature points"
+     !write (134,*) dxds(:)
+     !write (134,*)
+     !!------------------------------------------------------------------
+     !write (142,*) "Cell = ",i
+     !write (142,*) " dydr at solution points"
+     !write (142,*) dy(p1:p2)%dr
+     !write (142,*)
+     !!
+     !write (143,*) "Cell = ",i
+     !write (143,*) " dydr at quadrature points"
+     !write (143,*) matmul( interp_s2q , dy(p1:p2)%dr )
+     !write (143,*)
+     !!
+     !write (144,*) "Cell = ",i
+     !write (144,*) " dydr at quadrature points"
+     !write (144,*) dydr(:)
+     !write (144,*)
+     !!------------------------------------------------------------------
+     !write (152,*) "Cell = ",i
+     !write (152,*) " dyds at solution points"
+     !write (152,*) dy(p1:p2)%ds
+     !write (152,*)
+     !!
+     !write (153,*) "Cell = ",i
+     !write (153,*) " dyds at quadrature points"
+     !write (153,*) matmul( interp_s2q , dy(p1:p2)%ds )
+     !write (153,*)
+     !!
+     !write (154,*) "Cell = ",i
+     !write (154,*) " dyds at quadrature points"
+     !write (154,*) dyds(:)
+     !write (154,*)
+      !------------------------------------------------------------------
       !
       volj(i) = tvol
       !

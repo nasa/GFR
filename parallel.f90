@@ -16,8 +16,11 @@ module parallel_mod
   public :: blocking_exchange
   public :: nonblocking_exchange
   public :: test_nonblocking_exchange
+  public :: test_nonblocking_fexchange
   public :: collect_global_solpts
   public :: collect_global_solution
+  public :: wait_faceusp
+  public :: exchange_faceusp
   !
   ! IDEA: 1. all processors send in their global versions of bface, xyz_nodes, 
   !          nodes_of_cell, nodes_of_cell_ptr, etc. to a single subroutine
@@ -182,6 +185,7 @@ module parallel_mod
   ! Exchange partners
   !
   integer, save, allocatable, dimension(:) :: exch_cpu
+  integer, save, allocatable, dimension(:) :: exchf_cpu
   !
   ! Send and receive cell maps and pointers
   !
@@ -212,15 +216,26 @@ module parallel_mod
   !
   integer, save, allocatable, dimension(:) :: test_send
   integer, save, allocatable, dimension(:) :: test_recv
+  integer, save, allocatable, dimension(:) :: testf_send
+  integer, save, allocatable, dimension(:) :: testf_recv
   !
   ! MPI datatypes for exchanging solution data between adjacent partitions
   !
   integer, save, allocatable, dimension(:) :: send_usp
   integer, save, allocatable, dimension(:) :: recv_usp
   !
+  integer, save, allocatable, dimension(:) :: send_fusp
+  integer, save, allocatable, dimension(:) :: recv_fusp
+  !
+  ! Request and status arrays for non-blocking exchanges
+  !
+  integer, save, allocatable, dimension(:)   :: fusp_rqst
+  integer, save, allocatable, dimension(:,:) :: fusp_istat
+  !
   ! Exchange buffer
   !
-  real(r8), save, allocatable, dimension(:,:) :: exch_buffer
+  real(r8), save, allocatable, dimension(:,:)     :: exch_buffer
+  real(r8), save, allocatable, dimension(:,:,:,:) :: fusp_buffer
   !
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
@@ -530,6 +545,7 @@ continue
   !
   ! Finally, create MPI datatypes for exchanging data between processes
   !
+  call create_face_nonblocking_datatypes(bface)
   call create_nonblocking_exchange_datatypes(nodes_of_cell, &
                                              nodes_of_cell_ptr,bface)
   !
@@ -891,7 +907,7 @@ continue
     !###############################################################
     ! Not sure if we need any weighting on the faces so set to zero
     allocate ( adjwgt(1:nadjfac) , source=0 , stat=ierr )
-  call alloc_error("create_grid_weights","adjwgt",1,ierr)
+    call alloc_error("create_grid_weights","adjwgt",1,ierr)
     !###############################################################
     !###############################################################
     !
@@ -901,7 +917,7 @@ continue
     ! weight of the cells (i.e., how much data has to be sent to/from this cell)
     !
     allocate ( adjwgt(1:ngcell) , source=0 , stat=ierr )
-  call alloc_error("create_grid_weights","adjwgt",1,ierr)
+    call alloc_error("create_grid_weights","adjwgt",1,ierr)
     !
     ! Set the communication weight of the cells to
     ! the number of solution points for each cell
@@ -1145,6 +1161,7 @@ continue
       bface(7,nf) = epart(pc) - 1  ! adjacent partition processor ID
     else if (bface(1,nf) /= bc_cpu_bnd) then
       bface(7,nf) = mypnum
+     !bface(7,nf) = epart(bface(2,nf))-1
     end if
   end do
   !
@@ -1971,12 +1988,11 @@ subroutine create_nonblocking_exchange_datatypes(nodes_of_cell, &
   integer, dimension(1:ncpu) :: cpu_id
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:)   :: send_msk
-  integer, allocatable, dimension(:)   :: recv_map
-  integer, allocatable, dimension(:)   :: send_temp
-  integer, allocatable, dimension(:)   :: recv_temp
-  integer, allocatable, dimension(:)   :: cell_offset
-  integer, allocatable, dimension(:,:) :: exch_count
+  logical, allocatable, dimension(:) :: send_msk
+  integer, allocatable, dimension(:) :: recv_map
+  integer, allocatable, dimension(:) :: send_temp
+  integer, allocatable, dimension(:) :: recv_temp
+  integer, allocatable, dimension(:) :: cell_offset
   !
 continue
   !
@@ -1988,6 +2004,10 @@ continue
   ! ## 1 ##
   ! #######
   !
+ !write (150+mypnum,*) "   bc    hc  htype  hloc  adjf  adjh  adjp  adjt  adjl   gc"
+ !do nf = 1,nfbnd
+ !  write (150+mypnum,'(*(i6))') (bface(n,nf),n=1,size(bface,1))
+ !end do
   ! Create the offset for each cell of the local
   ! grid due to the solution points within the cell
   !
@@ -2061,6 +2081,26 @@ continue
     ! the host cells of icpu to the local ghost cells whose data
     ! needs to be received from icpu.
     !
+    ! #################################################################
+    ! #################################################################
+    ! #################################################################
+    !            WARNING! WARNING! WARNING! WARNING! WARNING!
+    ! #################################################################
+    ! #################################################################
+    ! #################################################################
+    !
+    ! THERE IS A GIANT FLAW IN THE NEXT LOOP IF A HOST CELL ON ONE 
+    ! PROCESSOR CORRESPONDS TO TWO OR MORE SEPARATE GHOST CELLS ON
+    ! ANOTHER PROCESSOR
+    !
+    ! #################################################################
+    ! #################################################################
+    ! #################################################################
+    !            WARNING! WARNING! WARNING! WARNING! WARNING!
+    ! #################################################################
+    ! #################################################################
+    ! #################################################################
+    !
     do nf = 1,nfbnd
       !
       if (any(bface(1,nf) == bc_comm) .and. bface(7,nf) == icpu) then
@@ -2069,6 +2109,16 @@ continue
       end if
       !
     end do
+   !write (160+mypnum,*) icpu
+   !write (170+mypnum,*) icpu
+   !do n = smin,smax
+   !  write (160+mypnum,*) n,send_msk(n)
+   !end do
+   !do n = rmin,rmax
+   !  write (170+mypnum,*) n,recv_map(n)
+   !end do
+   !write (160+mypnum,*)
+   !write (170+mypnum,*)
     !
     ! Now create the send and receive cell maps. These maps will contain
     ! in order the cells that need to sent and received from the current
@@ -2344,8 +2394,8 @@ continue
     !
   end do
   !
-  ! We dont need send_pts, recv_pts, send_pts_ptr, recv_pts_ptr,
-  ! send_cell_ptr, or recv_cell_ptr anymore so deallocate
+  ! We dont need send_pts, recv_pts, send_pts_ptr, recv_pts_ptr, send_cell,
+  ! send_cell_ptr, recv_cell, or recv_cell_ptr anymore so deallocate
   !
   deallocate ( send_pts , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","send_pts",2,ierr)
@@ -2355,8 +2405,12 @@ continue
   call alloc_error("create_nonblocking_exchange_datatypes","recv_pts",2,ierr)
   deallocate ( recv_pts_ptr , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","recv_pts_ptr",2,ierr)
+  deallocate ( send_cell , stat=ierr )
+  call alloc_error("create_nonblocking_exchange_datatypes","send_cell",2,ierr)
   deallocate ( send_cell_ptr , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","send_cell_ptr",2,ierr)
+  deallocate ( recv_cell , stat=ierr )
+  call alloc_error("create_nonblocking_exchange_datatypes","recv_cell",2,ierr)
   deallocate ( recv_cell_ptr , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","recv_cell_ptr",2,ierr)
   !
@@ -2382,7 +2436,7 @@ continue
   !
   ! Lets allocate the exchange buffer for the solver
   !
-  allocate ( exch_buffer(1:nq,1:n_totpts), source=0.0_r8 , stat=ierr )
+  allocate ( exch_buffer(1:nq,1:n_totpts) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","exch_buffer",1,ierr)
   !
   1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
@@ -2393,6 +2447,338 @@ continue
   6 format (" CPU ",i0," <- CPU ",i0," :: Receiving - ",3i6)
   !
 end subroutine create_nonblocking_exchange_datatypes
+!
+!###############################################################################
+!
+subroutine create_face_nonblocking_datatypes(bface)
+  !
+ !use metrics_mod, only : get_solution_points_2d
+ !use geovar, only : xyz,n_global_totpts,nr,n_totpts
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:,:), intent(inout) :: bface
+  !
+  !.. Local Scalars ..
+  integer :: n,nf,np,scnt,rcnt,i,icpu,ierr
+  integer :: s1,s2,r1,r2
+  integer :: rmin,rmax,adj_face,loc_face
+  integer :: p1,p2,nc,nfpts,nfbnd
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:ncpu) :: cpu_id
+  !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable, dimension(:) :: send_msk
+  integer, allocatable, dimension(:) :: recv_map
+  integer, allocatable, dimension(:) :: send_temp
+  integer, allocatable, dimension(:) :: recv_temp
+  !
+ !real(r8), dimension(1:nr,1:n_global_totpts,1:ncpu) :: gxyz
+  !
+continue
+  !
+  !
+ !call get_solution_points_2d
+ !do n = 1,ncpu
+ !  if (mypnum == n-1) np = n_totpts
+ !  call mpi_bcast(np,1,mpi_inttyp,n-1,mpi_comm_world,mpierr)
+ !  if (mypnum == n-1) gxyz(1:nr,1:np,n) = real(xyz(1:nr,1:n_totpts),kind=r8)
+ !  call mpi_bcast(gxyz(1:nr,1:np,n),np*nr,mpi_flttyp,n-1,mpi_comm_world,mpierr)
+ !end do
+  !
+  nfbnd = size(bface,dim=2)
+  !
+  nfpts = n_sp1de
+ !nfpts = n_qp1de !if we want to switch to sending quadrature face values
+  !
+  ! Now onto creating the communication datatypes
+  !
+  ! First we need to find which processes the
+  ! current process needs to exchange with
+  !
+  cpu_id(:) = -99
+  do nf = 1,nfbnd
+    if ( any(bface(1,nf) == bc_comm) ) cpu_id(bface(7,nf)+1) = bface(7,nf)
+  end do
+  !
+  ! Make sure that the current process doesnt try to communicate with itself
+  !
+  cpu_id(mypnum+1) = -99
+  !
+  ! Count the number of processes the current process needs to communicate with
+  !
+  ncomm = count(cpu_id >= 0)
+  !
+  ! Create a condensed array containing the process
+  ! IDs the current process needs to communicate with
+  !
+  allocate ( exchf_cpu(1:ncomm) , source=pack(cpu_id,cpu_id>=0) , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","exchf_cpu",1,ierr)
+  !
+  ! Now loop through the processes to exchange with
+  ! and create the send and receive cell maps
+  !
+  rmin = minval(bface(5,:))
+  rmax = maxval(bface(5,:))
+  allocate ( send_msk(1:nfbnd) , source=fals , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_msk",1,ierr)
+  allocate ( recv_map(rmin:rmax) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_map",1,ierr)
+  allocate ( send_temp(1:nfpts*nfbnd) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_temp",1,ierr)
+  allocate ( recv_temp(1:nfpts*nfbnd) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_temp",1,ierr)
+  allocate ( send_pts_ptr(1:ncomm+1) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_pts_ptr",1,ierr)
+  allocate ( recv_pts_ptr(1:ncomm+1) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_pts_ptr",1,ierr)
+  !
+  do i = 1,ncomm
+    !
+    icpu = exchf_cpu(i)
+    !
+    ! Loop to find the communication boundary faces between the
+    ! current processor and the current exchange partner, icpu.
+    ! We will create a mask array, send_msk, to identify all the
+    ! local host cells that need to be sent to the ghost cells
+    ! of icpu. We will also create an array, recv_map, that maps
+    ! the host cells of icpu to the local ghost cells whose data
+    ! needs to be received from icpu.
+    !
+    do nf = 1,nfbnd
+      if (any(bface(1,nf) == bc_comm) .and. bface(7,nf) == icpu) then
+        adj_face = bface(5,nf)
+        send_msk(nf) = true
+        recv_map(adj_face) = nf
+      end if
+    end do
+    !
+    ! Now create the send and receive cell maps. These maps will contain
+    ! in order the cells that need to sent and received from the current
+    ! adjacent partition icpu
+    ! NOTE: Each processor will send its cell data in order of the cell IDs.
+    !       The receiving datatypes need to account for this so that the
+    !       received data is placed in the correct location within an array.
+    !       This is why we have created the array recv_map so that we can
+    !       loop in order through the cells of the adjacent partition to
+    !       create the receive offsets in the same order of the adjacent
+    !       partitions cell IDs.
+    !
+    ! Create the send cell maps
+    !
+    scnt = 0
+    do nf = 1,nfbnd
+      !
+      if (.not. send_msk(nf)) cycle
+      !
+      ! Create the send point offsets
+      !
+      do n = 1,nfpts
+        scnt = scnt + 1
+        send_temp(scnt) = (nf-1)*2*nfpts + n-1
+      end do
+      !
+    end do
+    !
+    ! Create the receive point offsets
+    ! NOTE: We want to receive these in reverse order
+    !       to match the host cell face points
+    !
+    rcnt = 0
+    do nf = rmin,rmax
+      !
+      if (recv_map(nf) == 0) cycle
+      !
+      adj_face = nf
+      loc_face = recv_map(nf)
+      !
+      do n = nfpts,1,-1
+        rcnt = rcnt + 1
+        recv_temp(rcnt) = (loc_face-1)*2*nfpts + nfpts + n-1
+      end do
+      !
+    end do
+    !
+    ! Create the send_face and send_face_ptr
+    ! arrays for this communication couple
+    !
+    send_pts_ptr(i+1) = send_pts_ptr(i) + scnt
+    !
+    s1 = send_pts_ptr(i)+1
+    s2 = send_pts_ptr(i+1)
+    !
+    call reallocate(send_pts,s2)
+    send_pts(s1:s2) = send_temp(1:scnt)
+    !
+    ! Create the recv_face and recv_face_ptr
+    ! arrays for this communication couple
+    !
+    recv_pts_ptr(i+1) = recv_pts_ptr(i) + rcnt
+    !
+    r1 = recv_pts_ptr(i)+1
+    r2 = recv_pts_ptr(i+1)
+    !
+    call reallocate(recv_pts,r2)
+    recv_pts(r1:r2) = recv_temp(1:rcnt)
+    !
+    ! Finally, reset send_msk, recv_map, send_temp,
+    ! and recv_temp before next communication loop
+    !
+    send_msk(:) = fals
+    recv_map(:) = 0
+    send_temp(:) = 0
+    recv_temp(:) = 0
+    !
+  end do
+  !
+  deallocate ( send_msk , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_msk",2,ierr)
+  deallocate ( recv_map , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_map",2,ierr)
+  deallocate ( send_temp , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_temp",2,ierr)
+  deallocate ( recv_temp , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_temp",2,ierr)
+  !
+  ! Finally create the MPI datatypes for exchanging
+  ! solution data between adjacent partitions
+  !
+  allocate ( send_fusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_fusp",1,ierr)
+  allocate ( recv_fusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_fusp",1,ierr)
+  !
+  ! Adjust send_pts and recv_pts for the solution arrays
+  !
+  send_pts(:) = send_pts(:)*nq
+  recv_pts(:) = recv_pts(:)*nq
+  !
+  do i = 1,ncomm
+    !
+    s1 = send_pts_ptr(i)+1
+    s2 = send_pts_ptr(i+1)
+    np = s2-s1+1
+    !
+    call mpi_type_create_indexed_block(np,nq,send_pts(s1:s2),mpi_flttyp, &
+                                       send_fusp(i),mpierr)
+    call mpi_type_commit(send_fusp(i),mpierr)
+    !
+    r1 = recv_pts_ptr(i)+1
+    r2 = recv_pts_ptr(i+1)
+    np = r2-r1+1
+    !
+    call mpi_type_create_indexed_block(np,nq,recv_pts(r1:r2),mpi_flttyp, &
+                                       recv_fusp(i),mpierr)
+    call mpi_type_commit(recv_fusp(i),mpierr)
+    !
+  end do
+  !
+  ! Remove the solution array adjustment from send_pts and recv_pts
+  !
+  send_pts(:) = send_pts(:)/nq
+  recv_pts(:) = recv_pts(:)/nq
+  !
+  ! Output all the solution point offsets for debugging
+  !
+ !do i = 1,ncomm
+ !  !
+ !  icpu = exchf_cpu(i)
+ !  !
+ !  s1 = send_pts_ptr(i)+1
+ !  s2 = send_pts_ptr(i+1)
+ !  !
+ !  r1 = recv_pts_ptr(i)+1
+ !  r2 = recv_pts_ptr(i+1)
+ !  !
+ !  write (mypnum+180,1) mypnum,icpu
+ !  !
+ !  do n = s1,s2
+ !    p1 = send_pts(n)+1
+ !    p2 = recv_pts(n)+1
+ !    write (mypnum+180,7) n,p1,gxyz(1,p1,mypnum+1),gxyz(2,p1,mypnum+1), &
+ !                           p2,gxyz(1,p2,icpu+1),gxyz(2,p2,icpu+1)
+ !  end do
+ !  !
+ !  write (*,5) mypnum,icpu,s2,send_pts_ptr(i+1),send_pts_ptr(i+1)-send_pts_ptr(i)
+ !  write (*,6) mypnum,icpu,r2,recv_pts_ptr(i+1),recv_pts_ptr(i+1)-recv_pts_ptr(i)
+ !  !
+ !end do
+  !
+  send_pts(:) = send_pts(:) * 2
+  recv_pts(:) = recv_pts(:) * 2
+  !
+  ! Create the test MPI datatypes
+  !
+  allocate ( testf_send(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","testf_send",1,ierr)
+  allocate ( testf_recv(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","testf_recv",1,ierr)
+  !
+  do i = 1,ncomm
+    !
+    s1 = send_pts_ptr(i)+1
+    s2 = send_pts_ptr(i+1)
+    np = s2-s1+1
+    !
+    call mpi_type_create_indexed_block(np,2,send_pts(s1:s2),mpi_flttyp, &
+                                       testf_send(i),mpierr)
+    call mpi_type_commit(testf_send(i),mpierr)
+    !
+    r1 = recv_pts_ptr(i)+1
+    r2 = recv_pts_ptr(i+1)
+    np = r2-r1+1
+    !
+    call mpi_type_create_indexed_block(np,2,recv_pts(r1:r2),mpi_flttyp, &
+                                       testf_recv(i),mpierr)
+    call mpi_type_commit(testf_recv(i),mpierr)
+    !
+  end do
+  !
+  ! We dont need send_pts, recv_pts, send_pts_ptr,
+  ! or recv_pts_ptr anymore so deallocate
+  !
+  deallocate ( send_pts , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_pts",2,ierr)
+  deallocate ( send_pts_ptr , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_pts_ptr",2,ierr)
+  deallocate ( recv_pts , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_pts",2,ierr)
+  deallocate ( recv_pts_ptr , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_pts_ptr",2,ierr)
+  !
+  ! These offsets are only to the grid cells of each partition. We need to
+  ! account for the fact that each cell contains multiple solution points.
+  ! All of the solution point data for a cell is lumped together so all
+  ! that is necessary to exchange this block of information is to know the
+  ! geometry type of the cell. However, the ordering of the solution points
+  ! within a cell is not guaranteed to be the same across partitions. The
+  ! ordering of the solution points is only dependent on the ordering of the
+  ! nodes defining the element. Therefore, if we can find the ordering of the
+  ! cell nodes on each partition, we can find the offsets for each solution
+  ! point within the cell. The data in bface(4,:) gives the face of the local
+  ! host cell that is on the boundary face and bface(9,:) gives the face of
+  ! the adjacent host cell that is on the boundary face. Using these two
+  ! pieces of data we should be able to find the solution point offsets.
+  !
+  ! Lets allocate the exchange buffer for the solver
+  !
+  allocate ( fusp_buffer(1:nq,1:nfpts,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fusp_buffer",1,ierr)
+  allocate ( fusp_rqst(1:2*ncomm) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fusp_rqst",1,ierr)
+  allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fusp_istat",1,ierr)
+  !
+  1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
+  2 format (/," CPU ",i0," <- CPU ",i0," :: Receiving")
+  3 format (*(12i6,/))
+  4 format (" Cell = ",i0,*(/,12i6))
+  5 format (" CPU ",i0," -> CPU ",i0," :: Sending   - ",3i6)
+  6 format (" CPU ",i0," <- CPU ",i0," :: Receiving - ",3i6)
+  7 format (2x,i6,": Sending - ",i0,4x,2f12.4,/, &
+            "        Receiving - ",i0,4x,2f12.4)  
+  !
+end subroutine create_face_nonblocking_datatypes
 !
 !###############################################################################
 !
@@ -3040,6 +3426,70 @@ end subroutine blocking_exchange
 !
 !###############################################################################
 !
+subroutine exchange_faceusp(faceusp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(vbp), dimension(:,:,:,:), intent(in) :: faceusp
+  !
+  !.. Local Scalars..
+  integer :: n,s,r,dtype
+  !
+  !.. Local Arrays ..
+  real(r8), dimension(1:size(faceusp,1),1:size(faceusp,2), &
+                      1:size(faceusp,3),1:nfbnd) :: exch_send
+  !
+continue
+  !
+  fusp_buffer(:,:,:,:) = real(faceusp(:,:,:,1:nfbnd),kind=r8)
+  exch_send(:,:,:,:)   = real(faceusp(:,:,:,1:nfbnd),kind=r8)
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    s = exchf_cpu(n)
+    dtype = recv_fusp(n)
+    call mpi_irecv(fusp_buffer,1,dtype,s,s,mpi_comm_world,fusp_rqst(n),mpierr)
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    r = exchf_cpu(n)
+    dtype = send_fusp(n)
+    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+                   mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
+  end do
+  !
+end subroutine exchange_faceusp
+!
+!###############################################################################
+!
+subroutine wait_faceusp(faceusp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:,:,:), intent(inout) :: faceusp
+  !
+continue
+  !
+  ! Wait for all faceusp sends and receives to complete
+  !
+  call mpi_waitall(2*ncomm,fusp_rqst,fusp_istat,mpierr)
+  !
+  ! Update the right states for all the boundary faces
+  !
+  faceusp(:,:,2,1:nfbnd) = real(fusp_buffer(:,:,2,1:nfbnd),kind=wp)
+  !
+end subroutine wait_faceusp
+!
+!###############################################################################
+!
 subroutine nonblocking_exchange(usp)
   !
   use geovar, only : n_totpts,n_solpts
@@ -3048,15 +3498,17 @@ subroutine nonblocking_exchange(usp)
   real(vbp), dimension(:,:), intent(inout) :: usp
   !
   !.. Local Scalars..
-  integer :: i,n,s,r,dtype
+  integer :: n,s,r,dtype
   !
   !.. Local Arrays ..
   integer, dimension(1:2*ncomm) :: rqst
   integer, dimension(1:mpi_status_size,1:2*ncomm) :: istat
+  real(r8), dimension(1:size(usp,1),1:size(usp,2)) :: exch_send
   !
 continue
   !
   exch_buffer(:,:) = real(usp(:,:),r8)
+  exch_send(:,:) = real(usp(:,:),r8)
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -3072,7 +3524,7 @@ continue
   do n = 1,ncomm
     r = exch_cpu(n)
     dtype = send_usp(n)
-    call mpi_isend(real(usp,r8),1,dtype,r,mypnum,mpi_comm_world,rqst(n+ncomm),mpierr)
+    call mpi_isend(exch_send,1,dtype,r,mypnum,mpi_comm_world,rqst(n+ncomm),mpierr)
   end do
   !
   ! Wait for all sends and receives to complete
@@ -3084,6 +3536,95 @@ continue
   usp(:,n_solpts+1:n_totpts) = real(exch_buffer(:,n_solpts+1:n_totpts),vbp)
   !
 end subroutine nonblocking_exchange
+!
+!###############################################################################
+!
+subroutine test_nonblocking_fexchange()
+  !
+  use geovar, only : nr,xyz,nfbnd,cells_on_face,pts_in_cell_ptr,interp_s2f,bface
+  !
+  !.. Local Scalars..
+  integer :: i,n,s,r,dtype,ierr,nf,jl,kbl,l1,l2,nl,wl,k,kl
+  real(wp) :: tmp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:2*ncomm) :: rqst
+  integer, dimension(1:mpi_status_size,1:2*ncomm) :: istat
+  !
+  !.. Local Allocatable Arrays ..
+  real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: recv_buffer
+  real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: send_buffer
+  !
+continue
+  !
+  send_buffer(:,:,:,:) = real(0.0,kind=r8)
+  recv_buffer(:,:,:,:) = real(0.0,kind=r8)
+  do nf = 1,nfbnd
+    !
+    jl = cells_on_face(1,nf)
+    kbl = cells_on_face(5,nf)
+    !
+    l1 = pts_in_cell_ptr(jl)+1
+    l2 = pts_in_cell_ptr(jl+1)
+    !
+    nl = l2-l1+1
+    wl = merge(1,2,nl==n_sp2dt)
+    !
+    do k = 1,n_sp1de
+      kl = kbl-1 + k
+      do n = 1,nr
+        tmp = dot_product(interp_s2f(1:nl,kl,wl),xyz(n,l1:l2))
+        send_buffer(n,k,1,nf) = real(tmp,kind=r8)
+      end do
+    end do
+    !
+  end do
+  !
+  recv_buffer(:,:,:,:) = send_buffer(:,:,:,:)
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    s = exchf_cpu(n)
+    dtype = testf_recv(n)
+    call mpi_irecv(recv_buffer,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    r = exchf_cpu(n)
+    dtype = testf_send(n)
+    call mpi_isend(send_buffer,1,dtype,r,mypnum,mpi_comm_world,rqst(n+ncomm),mpierr)
+  end do
+  !
+  ! Wait for all sends and receives to complete
+  !
+  call mpi_waitall(2*ncomm,rqst,istat,mpierr)
+  !
+  ! Update the adjacent elements
+  !
+  send_buffer(:,:,:,:) = recv_buffer(:,:,:,:)
+  !
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    write (150+mypnum,1) nf,cells_on_face(1:2,nf)
+    do k = 1,n_sp1de
+      write (150+mypnum,2) k,send_buffer(1,k,1,nf),send_buffer(2,k,1,nf), &
+                             send_buffer(1,k,2,nf),send_buffer(2,k,2,nf)
+    end do
+  end do
+  !
+ !call stop_recon(stop_mpi,"test_nonblocking_fexchange")
+  !
+  1 format (" Face = ",i6,4x,"=> Left cell = ",i5,"  |  Right Cell = ",i5)
+  2 format ("    k = ",i2," -   xl,yl = ",g12.4,",",g12.4, &
+                          "  |  xr,yr = ",g12.4,",",g12.4)
+ !2 format ("    k = ",i2," -   xl = ",g12.4,"  |  xr = ",g12.4,/, &
+ !          "               yl = ",g12.4,"  |  yr = ",g12.4)
+  !
+end subroutine test_nonblocking_fexchange
 !
 !###############################################################################
 !
@@ -3423,7 +3964,7 @@ subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   integer,   dimension(:), optional, intent(in) :: epart
   !
   !.. Local Scalars ..
-  integer :: i,n,n1,n2,ierr
+  integer :: i,n,n1,n2,ierr,np,nc
   character(len=100) :: fname
   !
   !.. Local Constants ..
@@ -3433,8 +3974,12 @@ continue
   !
   if (present(epart)) then
     fname = "partitions.tec"
+    np = ngnode
+    nc = ngcell
   else
     write (fname,'("partitions.",i0,".tec")') id
+    np = size(xyz_nodes,dim=2)
+    nc = size(nodes_of_cell_ptr)-1
   end if
   fname = adjustl(fname)
   !
@@ -3444,24 +3989,24 @@ continue
   ! Tecplot header with grid size parameters
   !
   if (present(epart)) then
-    write (iot,1) ngnode,ngcell
+    write (iot,1) np,nc
   else
-    write (iot,5) size(xyz_nodes,dim=2),size(nodes_of_cell_ptr)-1
+    write (iot,5) np,nc
   end if
   !
   ! Node coordinates
   !
   do n = 1,size(xyz_nodes,dim=1)
-    write (iot,2) (xyz_nodes(n,i),i=1,size(xyz_nodes,dim=2))
+    write (iot,2) (xyz_nodes(n,i),i=1,np)
   end do
   !
   ! Cell partition 
   !
-  if (present(epart)) write (iot,3) (epart(i),i=1,size(epart))
+  if (present(epart)) write (iot,3) (epart(i),i=1,nc)
   !
   ! Cell Connectivity
   !
-  do n = 1,size(nodes_of_cell_ptr)-1
+  do n = 1,nc
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
     if (n2-n1+1 == 3) then

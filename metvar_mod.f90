@@ -1,6 +1,6 @@
 module metvar
   !
-  use module_kind_types, only : vbp
+  use module_kind_types, only : vbp,wp
   !
   implicit none
   !
@@ -63,7 +63,13 @@ module metvar
   !            variables/fluxes from the solution points in the cell
   !            interior to the flux points on the cell faces
   !
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: lagrange
+  real(wp), public, save, allocatable, dimension(:,:)   :: dq1D_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqr_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqs_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqr_LPmat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqs_LPmat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqr_CRmat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dqs_CRmat
   ! 
  !real(vbp), public, save, allocatable, dimension(:,:) :: spmat       !(3,ksp2d)
  !real(vbp), public, save, allocatable, dimension(:,:) :: spcemat     !(ksp1d+1,ksp2d)

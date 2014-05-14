@@ -38,6 +38,7 @@ module ovar
   integer, public, save :: iop_solpts
   integer, public, save :: iop_flxpts
   integer, public, save :: iop_tripts
+  integer, public, save :: iop_qdtpts
   integer, public, save :: irestart
   integer, public, save :: flux_divergence
   integer, public, save :: iop_correction
@@ -45,6 +46,7 @@ module ovar
   integer, public, save :: flux_method
   integer, public, save :: init_loc
   integer, public, save :: error_loc
+  integer, public, save :: dflux_opt
   !
   integer,   public, save :: metis_option
   !

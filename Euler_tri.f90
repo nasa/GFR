@@ -35,7 +35,8 @@ program Euler_tri
                      write_vortex_results_file, &
                      write_tecplot_partitions
   use metrics_mod, only : get_solution_points_2d, &
-                          get_grid_connectivity
+                          get_grid_connectivity, &
+                          get_metrics
   use startup_mod, only : get_quadrature_data
   use initialization_mod, only : initialize_flow
   use generic_mod, only : rgetdtmax,getbc,rresi, &
@@ -55,9 +56,13 @@ program Euler_tri
                        correct_flux_project_pv, &
                        correct_flux_project_flx, &
                        dg_weak_form, &
-                       dg_strong_form
+                       dg_strong_form, &
+                       interp_cv_to_flxpts, &
+                       derflux1_qdtr, &
+                       correct_interface_flux_qdtr
   use parallel_mod, only : partition_grid, &
-                           create_serial_cell_map
+                           create_serial_cell_map, &
+                           test_nonblocking_fexchange
   !
   use iso_c_binding, only : c_long
   !
@@ -137,28 +142,46 @@ continue
   !              to the respective processor along with
   !              connectivities for the partition boundaries
   !
+ !write (iout,*) "Calling partition_grid"
+ !call mpi_barrier(mpi_comm_world,mpierr)
   if (ncpu > 1) then
     call partition_grid(ncpu,n_order,metis_option,bface,nodes_of_cell, &
                         nodes_of_cell_ptr,xyz_nodes)
   else
     call create_serial_cell_map(ncell)
   end if
+ !write (iout,*) "Exiting partition grid"
+ !call mpi_barrier(mpi_comm_world,mpierr)
   !
   ! Get the coordinates of the solution points within each grid cell
   !
+ !write (iout,*) "Calling get_solution_points_2d",mypnum
+ !call mpi_barrier(mpi_comm_world,mpierr)
   call get_solution_points_2d
   !
   ! Get the grid connectivity and metrics
   !
+ !write (iout,*) "Calling get_grid_connectivity",mypnum
+ !call mpi_barrier(mpi_comm_world,mpierr)
   call get_grid_connectivity
   !
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
+ !write (iout,*) "Calling get_quadrature_data",mypnum
+ !call mpi_barrier(mpi_comm_world,mpierr)
   call get_quadrature_data
+  !
+  ! Get the grid metrics
+  !
+ !write (iout,*) "Calling get_metrics",mypnum
+ !call mpi_barrier(mpi_comm_world,mpierr)
+  call get_metrics
   !
   ! Output information about each partition
   !
+ !write (iout,*) "Outputing information about each partition",mypnum
+ !call mpi_barrier(mpi_comm_world,mpierr)
   do i = 0,ncpu-1
     if (mypnum == i) then
       write (iout,10) mypnum
@@ -178,6 +201,7 @@ continue
     write (iout,15) (solpts_1d(k), k=1,n_sp1de)
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
+ !call stop_recon(stop_mpi,"main")
   !
   ! Initialize the flow variables for all solution points or
   ! read in the restart values if restarting a simulation
@@ -206,8 +230,15 @@ continue
     if (output_interval == 0) output_interval = Period_Timesteps
   end if
   !
+  if (mypnum == 0) then
+    write (iout,19) n_order,n_order_qp,n_sp1de,n_qp1de, &
+                    n_sp2dt,n_qp2dt,n_sp2dq,n_qp2dq
+  end if
+  !
   ! Write the header for the terminal output 
   !
+ !call test_nonblocking_fexchange
+ !call stop_recon(stop_mpi,"main")
   if (mypnum == 0) write (iout,20)
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -255,7 +286,11 @@ continue
         !
         ! Use the derivative of the Lagrange polynomial
         !
-        call derflux1
+        if (n_order_qp > n_order) then
+          call derflux1_qdtr
+        else
+          call derflux1
+        end if
         if (iop_correction == OnPrimitiveVariables) then
           call correct_flux_project_pv
         else if (iop_correction == OnConservativeVariables) then
@@ -301,6 +336,13 @@ continue
         ! Use the weak form of the DG method
         !
         call dg_strong_form
+        !
+      else if (flux_divergence == TestQuadrature) then
+        !
+        call interp_cv_to_flxpts
+        call derflux1_qdtr
+        call correct_interface_flux_qdtr
+       !call correct_flux_project_flx
         !
       end if
       !
@@ -505,9 +547,17 @@ continue
   12 format ('  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0,'  nDOF = ',i0)
   13 format ('  Partition Volume = ',f13.6)
   14 format ('  Total Grid Volume = ',f13.6)
-  15 format ('  1D Solution Points = ',8f9.3)
+  15 format ('  1D Solution Points = ',8f9.5)
   16 format (/," Allocated Wall Time = ",i0," s.",/)
   !
+  19 format (/,' n_order_sp = ',i4,/, &
+               ' n_order_qp = ',i4,/, &
+               ' n_sp1de    = ',i4,/, &
+               ' n_qp1de    = ',i4,/, &
+               ' n_sp2dt    = ',i4,/, &
+               ' n_qp2dt    = ',i4,/, &
+               ' n_sp2dq    = ',i4,/, &
+               ' n_qp2dq    = ',i4,/)
   20 format (/,5x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy', &
                4x,'Cell',3x,'Solpt',6x,'x',10x,'y',6x,'Time Left')
   !

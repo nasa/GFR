@@ -1014,6 +1014,7 @@ continue
                        mpi_sum,mpi_comm_world,mpierr)
   else
     all_error(:,:,:,1) = error(:,:,:)
+    error_volume = my_volume
   end if
   !
   ! Finish computing the global error across all processors
@@ -1701,13 +1702,14 @@ subroutine getbc
   !.. Use Statements ..
   use geovar
   use ovar,         only : gam,p_exit,bc_invar,bc_in
-  use metvar,       only : dx,dy,lagrange,geofa
-  use flowvar,      only : vsp,usp
+  use ovar,         only : flux_divergence
+  use metvar,       only : dx,dy,geofa
+  use flowvar,      only : vsp,usp,faceusp
   use parallel_mod, only : nonblocking_exchange
   !
   !.. Local Scalars ..
-  integer   :: gc,g1,g2,p1,p2,hk,gk,nf,k,gp,ip1,ip2
-  integer   :: hc,h1,h2,np,wh,hbfp,gbfp,m,n1,n2
+  integer   :: gc,g1,g2,gp,gw,gkb,gk,k,p1,p2,ip1,nf
+  integer   :: hc,h1,h2,hp,hw,hkb,hk,m,n1,n2,ip2,kg
   real(vbp) :: ai,ao,vni,vno,rp,rm,uc,ac,vti,vto
   real(vbp) :: u,v,ut,un,gm1,mach,utc,unc,sc
   character(len=8) :: flow
@@ -1717,7 +1719,7 @@ subroutine getbc
   real(vbp), dimension(1:nr) :: rnrm
   real(vbp), dimension(1:nr) :: rtan
   real(vbp), dimension(1:neqns) :: varh
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: husp
+  real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
   !
 continue
   !
@@ -1725,9 +1727,35 @@ continue
   !
   ! First exchange information between adjacent partitions
   !
-  if (ncpu > 1) call nonblocking_exchange(vsp)
+  if (ncpu > 1 .and. flux_divergence/=TestQuadrature) then
+    call nonblocking_exchange(vsp)
+  end if
   !
   do nf = 1,nfbnd
+    !
+    hc = cells_on_face(1,nf) ! left/host   cell on boundary face
+    gc = cells_on_face(2,nf) ! right/ghost cell on boundary face
+    !
+    hkb = cells_on_face(5,nf) ! beginning flxpt on current face for host  cell
+    gkb = cells_on_face(6,nf) ! beginning flxpt on current face for ghost cell
+    !
+   !hf1 = flxpts_of_cell_ptr(hc)+1 ! beginning flxpt index for host  cell
+   !hf2 = flxpts_of_cell_ptr(hc+1) ! ending    flxpt index for host  cell
+   !!
+   !gf1 = flxpts_of_cell_ptr(gc)+1 ! beginning flxpt index for ghost cell
+   !gf2 = flxpts_of_cell_ptr(gc+1) ! ending    flxpt index for ghost cell
+    !
+    h1 = pts_in_cell_ptr(hc)+1 ! beginning index for sol-pts in host cell
+    h2 = pts_in_cell_ptr(hc+1) ! ending    index for sol-pts in host cell
+    !
+    g1 = pts_in_cell_ptr(gc)+1 ! beginning index for sol-pts in ghost cell
+    g2 = pts_in_cell_ptr(gc+1) ! ending    index for sol-pts in ghost cell
+    !
+    hp = h2-h1+1
+    gp = g2-g1+1
+    !
+    hw = merge(1,2,hp == n_sp2dt)
+    gw = merge(1,2,gp == n_sp2dt)
     !
     ! Fill the ghost cell depending on boundary condition
     !
@@ -1737,9 +1765,6 @@ continue
       !
       gc = bface(10,nf)
       !
-      g1 = pts_in_cell_ptr(gc)+1
-      g2 = pts_in_cell_ptr(gc+1)
-      !
       do k = g1,g2
         vsp(:,k) = bc_in(:)
       end do
@@ -1748,28 +1773,12 @@ continue
       !
       ! Inflow boundary condition
       !
-      hc = cells_on_face(1,nf) ! left/host   cell on boundary face
-      gc = cells_on_face(2,nf) ! right/ghost cell on boundary face
-      !
-      hbfp = cells_on_face(5,nf) ! beginning flux point for host  cell
-      gbfp = cells_on_face(6,nf) ! beginning flux point for ghost cell
-      !
       n1 = nodes_of_cell_ptr(hc)+1
-      !
-      h1 = pts_in_cell_ptr(hc)+1 ! beginning index for sol-pts in host cell
-      h2 = pts_in_cell_ptr(hc+1) ! ending    index for sol-pts in host cell
-      !
-      g1 = pts_in_cell_ptr(gc)+1 ! beginning index for sol-pts in ghost cell
-      g2 = pts_in_cell_ptr(gc+1) ! ending    index for sol-pts in ghost cell
-      !
-      np = h2-h1+1 ! number of solution points in host  cell
-      !
-      wh = merge(1,2,np == n_sp2dt)
       !
       ! Store the transpose of usp for the host cell to reduce cache misses
       !
       do k = h1,h2
-        husp(k-h1+1,:) = usp(:,k)
+        tusp(k-h1+1,:) = usp(:,k)
       end do
       !
       do k = g1,g2
@@ -1799,16 +1808,16 @@ continue
        !rnrm(:) = unit_vector( geofa(:,k,nf) )
         rnrm(:) = -unit_vector( geofa(:,k,nf) )
         !
-        hk = hbfp-1 + k ! index for current host  cell flux point
-        gk = gbfp+1 - k ! index for current ghost cell flux point
-        gp = g1-1 + gk ! index for current ghost cell solution point
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
        !gk = g1-1 + k ! index for current ghost cell flux point
         !
         ! Use the Lagrange polynomial to project the conservative variables from
         ! the host cell solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(lagrange(1:np,hk,wh),husp(1:np,m))
+          varh(m) = dot_product(interp_s2f(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -1845,8 +1854,8 @@ continue
           !
           ! Set ghost cell flux point to free stream conditions
           !
-          vsp(:,gp) = bc_in(:) ! sup-in
-         !vsp(:,gp) = varh(:) ! sup-out
+          vsp(:,kg) = bc_in(:) ! sup-in
+         !vsp(:,kg) = varh(:) ! sup-out
           !
          !flow = "Sup-In  "
        !else if (mach >= one) then
@@ -1856,8 +1865,8 @@ continue
           !
           ! Extrapolate interior to ghost cell flux point
           !
-          vsp(:,gp) = varh(:) ! sup-out
-         !vsp(:,gp) = bc_in(:) ! sup-in
+          vsp(:,kg) = varh(:) ! sup-out
+         !vsp(:,kg) = bc_in(:) ! sup-in
           !
          !flow = "Sup-Out "
         else
@@ -1880,7 +1889,7 @@ continue
             ac = one4*gm1*(rp-rm)
             sc = bc_in(neqns)/(bc_in(1)**gam)
             !
-           !vsp(2:neqns-1,gp) = bc_in(2:neqns-1) + (uc-vno)*rnrm(:)
+           !vsp(2:neqns-1,kg) = bc_in(2:neqns-1) + (uc-vno)*rnrm(:)
             !
            !flow = "Sub-In  "
           else ! this is an outflow boundary
@@ -1892,18 +1901,18 @@ continue
             ac = one4*gm1*(rp-rm)
             sc = varh(neqns)/(varh(1)**gam)
             !
-           !vsp(2:neqns-1,gp) = varh(2:neqns-1) + (uc-vni)*rnrm(:)
+           !vsp(2:neqns-1,kg) = varh(2:neqns-1) + (uc-vni)*rnrm(:)
             !
            !flow = "Sub-Out "
           end if
           !
-          vsp(1,gp) = ((ac*ac)/(gam*sc))**(one/gm1)
-          vsp(neqns,gp) = sc*(vsp(1,gp)**gam)
-          vsp(2:neqns-1,gp) = unc*rnrm(:) + utc*rtan(:)
+          vsp(1,kg) = ((ac*ac)/(gam*sc))**(one/gm1)
+          vsp(neqns,kg) = sc*(vsp(1,kg)**gam)
+          vsp(2:neqns-1,kg) = unc*rnrm(:) + utc*rtan(:)
           !
           !
-         !vsp(1,gp) = ( (ac*ac*(bc_in(1)**gam)) / (gam*bc_in(neqns)) )**(one/gm1)
-         !vsp(neqns,gp) = ac*ac*vsp(1,gp)/gam
+         !vsp(1,kg) = ( (ac*ac*(bc_in(1)**gam)) / (gam*bc_in(neqns)) )**(one/gm1)
+         !vsp(neqns,kg) = ac*ac*vsp(1,kg)/gam
          !!
          !! Compute the Riemann invariants
          !!
@@ -1923,8 +1932,8 @@ continue
          !!
          !! Compute the density and pressure from the Riemann invariants
          !!
-         !vsp(1,gp) = (ac*ac*(bc_in(1)**gam))/(gam*bc_in(neqns))**(one/gm1)
-         !vsp(neqns,gp) = ac*ac*vsp(1,gp)/gam
+         !vsp(1,kg) = (ac*ac*(bc_in(1)**gam))/(gam*bc_in(neqns))**(one/gm1)
+         !vsp(neqns,kg) = ac*ac*vsp(1,kg)/gam
          !!
          !! Compute velocities based on inflow (uc>0) or outflow (uc<0)
          !!
@@ -1932,15 +1941,15 @@ continue
          !  !
          !  ! Subsonic inflow
          !  !
-         !  vsp(2:neqns-1,gp) = vsp(1,gp)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
-         ! !vsp(2:neqns-1,gp) = vsp(1,gp)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
+         !  vsp(2:neqns-1,kg) = vsp(1,kg)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
+         ! !vsp(2:neqns-1,kg) = vsp(1,kg)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
          !  !
          !else
          !  !
          !  ! Subsonic outflow
          !  !
-         !  vsp(2:neqns-1,gp) = vsp(1,gp)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
-         ! !vsp(2:neqns-1,gp) = vsp(1,gp)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
+         !  vsp(2:neqns-1,kg) = vsp(1,kg)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
+         ! !vsp(2:neqns-1,kg) = vsp(1,kg)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
          !  !
          !end if
           !
@@ -1952,7 +1961,7 @@ continue
        !else
        !  side = "ERROR "
        !end if
-       !write (141,'(2a,4es14.5)') side,flow,vsp(:,gp)
+       !write (141,'(2a,4es14.5)') side,flow,vsp(:,kg)
         !
       end do
       !
@@ -2098,15 +2107,39 @@ continue
       !
       ! Periodic boundary condition
       !
-      gc = cells_on_face(2,nf)
-      g1 = pts_in_cell_ptr(gc)+1
-      g2 = pts_in_cell_ptr(gc+1)
-      !
       p1 = pts_of_periodic_ptr(nf)+1
       p2 = pts_of_periodic_ptr(nf+1)
       !
       vsp(:,g1:g2) = vsp(:,pts_of_periodic(p1:p2))
+      do k = g1,g2
+        tusp(k-g1+1,:) = vsp2u_sp( vsp(:,k) )
+      end do
       !
+      do k = 1,n_sp1de
+        !
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        !
+        ! Use the Lagrange polynomial to project the conservative variables from
+        ! the ghost cell solution points to the current ghost cell flux point.
+        !
+        do m = 1,neqns
+          faceusp(m,k,2,nf) = dot_product(interp_s2f(1:gp,gk,gw),tusp(1:gp,m))
+        end do
+        !
+      end do
+      !
+   !else if (bface(1,nf) == bc_cpu_bnd) then
+     !!
+     !do k = 1,n_sp1de
+     !  !
+     !  gk = gkb+1 - k ! index for current ghost cell flux point
+     !  !
+     !  do m = 1,neqns
+     !    faceusp(m,k,2,nf) = dot_product(interp_s2f(1:gp,gk,gw),usp(m,g1:g2))
+     !  end do
+     !  !
+     !end do
+     !!
     else if (bface(1,nf) /= bc_cpu_bnd) then
       !
       ! This shouldn't be here and is an unknown boundary condition

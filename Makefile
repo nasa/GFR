@@ -43,12 +43,14 @@ CGNS25LIB = -lcgns2
 
 # Various compiler flag options
 PRECISION = -fp-model precise -prec-sqrt -prec-div -assume protect_parens,minus0
-FCBASE = -vec-report0 -ftrapuv -traceback -g -warn stderrors
+ FCBASE = -vec-report0 -ftrapuv -traceback -g #-warn stderrors
+#FCBASE = -ftrapuv -traceback -g -warn stderrors
  FPP = -fpp
 #FPP += -DPBS_ENV 
 #FPP += -DIO_FOR_NAS 
 #OPTIM = -O2 -ip -fpe0
- OPTWM = -O3 -ipo -xSSE4.2
+ OPTWM = -O3 -ip -xSSE4.2
+#OPTWM = -O3 -ipo -xSSE4.2
 #OPTWM = -O3 -ipo -ipo-jobs4 -xSSE4.2
  OPTSB = -O3 -ipo -xAVX
  OPTIB = -O3 -ipo -xAVX
@@ -72,8 +74,10 @@ FCFLAG += $(FPP)
 #FCFLAG += $(PRECISION)
 #FCFLAG += $(DEBUG)
 #FCFLAG += -gen-dep=deplist.txt
- FCFLAG += $(OPTIM)
+#FCFLAG += $(OPTIM)
  FCFLAG += $(F08STD)
+#FCFLAG += -opt-report=2 -opt-report-file=medium.opt.log
+#FCFLAG += -multiple-processes=6
 #
 FCFLAG += $(MOD) $(INCDIR)
 #
@@ -94,6 +98,13 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/parallel.o
 #
+optimize: FCFLAG += $(OPTIM)
+optimize: all
+#
+debug: FCFLAG += $(DEBUG)
+debug: all
+##	$(FC) $(FCFLAG) $(DEBUG) -o recon $(OBJS) $(FLIB)
+#
 all: $(OBJS)
 	$(FC) $(FCFLAG) -o recon $(OBJS) $(FLIB)
 ##	/bin/cp -f recon $(EXEDIR)/recon
@@ -113,9 +124,6 @@ basic: $(OBJS)
 base: $(OBJS)
 	$(FC) $(FCFLAG) -o recon $(OBJS) $(FLIB)
 #
-debug: $(OBJS)
-	$(FC) $(FCFLAG) $(DEBUG) -o recon $(OBJS) $(FLIB)
-#
 retune: $(OBJS)
 	$(FC) $(FCFLAG) $(RETUNE) -o recon $(OBJS) $(FLIB)
 #
@@ -125,8 +133,8 @@ tune: $(OBJS)
 profile: $(OBJS)
 	$(FC) $(FCFLAG) $(PROFILE) -o recon $(OBJS) $(FLIB)
 #
-optimize: $(OBJS)
-	$(FC) $(FCFLAG) $(OPTIMIZE) -o recon $(OBJS) $(FLIB)
+##optimize: $(OBJS)
+##	$(FC) $(FCFLAG) $(OPTIMIZE) -o recon $(OBJS) $(FLIB)
 #
 precise: $(OBJS)
 	$(FC) $(FCPREC) -o recon $(OBJS) $(FLIB)
@@ -142,6 +150,9 @@ f95: $(OBJS)
 #
 f90: $(OBJS)
 	$(FC) $(F90STD) $(MOD) -o recon $(OBJS) $(FLIB)
+#
+test_poly: test_poly.f90 kind_types.f90 poly.f90
+	$(FC) -check all -debug -g -traceback $(MOD) $(INCDIR) -o test test_poly.f90
 #
 .PHONY: clean
 clean:
@@ -221,4 +232,5 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/metvar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
+         $(OBJDIR)/parallel.o \
          $(OBJDIR)/generic.o

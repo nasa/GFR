@@ -134,15 +134,16 @@ subroutine read_input_file
   !...
   !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
   !
-  use geovar, only : n_order,n_order_qp
+  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
+  use geovar, only : n_order_qp,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
   use ovar,   only : itestcase,num_stages,irestart, &
                      flux_divergence,iop_correction, &
                      num_ts,cfl,dt_in,gam,output_solution, &
                      output_interval,restart_interval, &
-                     results_interval,flux_method, &
+                     results_interval,flux_method,dflux_opt, &
                      iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
                      Final_Time,Total_Periods, &
-                     iop_solpts,iop_flxpts,iop_tripts, &
+                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
                      Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha, &
                      rhoref,tref,pref,machref,aoaref, &
@@ -196,6 +197,10 @@ continue
   read (inpt,1) input_text(3)
   read (inpt,*) n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
   !
+  n_sp1de = n_order + 1
+  n_sp2dt = n_sp1de*(n_sp1de+1)/2
+  n_sp2dq = n_sp1de*n_sp1de
+  !
   ! Now that we have the name of the grid file and the location
   ! of the flux and solution points, read in the grid file
   !
@@ -205,7 +210,18 @@ continue
   ! and the option of what variables to use when computing the flux corrections
   !
   read (inpt,1) input_text(4)
-  read (inpt,*) flux_divergence, iop_correction, n_order_qp
+  read (inpt,*) flux_divergence, iop_correction, &
+                n_order_qp, iop_qdtpts, dflux_opt
+  !
+  ! Make sure the quadrature order is at least the same as the solution order
+  !
+  n_order_qp = max(n_order,n_order_qp)
+  !
+  n_qp1de = n_order_qp + 1
+  n_qp2dt = n_qp1de*(n_qp1de+1)/2
+  n_qp2dq = n_qp1de*n_qp1de
+  !
+  using_quadrature = .not. (n_order_qp==n_order .and. iop_solpts==iop_qdtpts)
   !
   ! Read the testcase, Runge-Kutta options, restart, etc
   !
@@ -395,7 +411,8 @@ continue
     write (iout,1) trim(input_text(3))
     write (iout,51) n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
     write (iout,1) trim(input_text(4))
-    write (iout,52) flux_divergence, iop_correction, n_order_qp
+    write (iout,52) flux_divergence, iop_correction, &
+                    n_order_qp, iop_qdtpts, dflux_opt
     write (iout,1) trim(input_text(5))
     write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
     write (iout,1) trim(input_text(6))
@@ -415,7 +432,7 @@ continue
   1  format (a)
   50 format (i8,8x,a)
   51 format (3x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
-  52 format (7x,i2,15x,i2,12x,i2)
+  52 format (7x,i2,15x,i2,2x,3(10x,i2))
   53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
   54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0)
   55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
@@ -838,6 +855,14 @@ continue
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
+  do n = 1,ncell
+    n1 = nodes_of_cell_ptr(n)+1
+    n2 = nodes_of_cell_ptr(n+1)
+    if (n2-n1+1 == 3) then
+      write (*,3)
+      call stop_recon(stop_mpi,"read_gambit_neutral_gridfile")
+    end if
+  end do
   if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
       iop_flxpts /= Legendre_Gauss_Lobatto) then
     do n = 1,ncell
@@ -855,6 +880,9 @@ continue
   1 format (a)
   2 format (/," Quadrature points besides Gauss-Lobatto nodes are not",/, &
               " currently supported for a grid containing triangle cells.",//)
+  3 format (///," Triangles are temporarily disabled due to significant",/, &
+                " changes in the quadrilateral part of the code. These ",/, &
+                " changes have yet to be applied to triangles.",///)
   !
 end subroutine read_gambit_neutral_gridfile
 !
@@ -1573,10 +1601,6 @@ subroutine save_global_grid
   integer :: n,np,n1,n2,ierr
   !
 continue
-  !
-  n_sp1de = n_order + 1
-  n_sp2dt = n_sp1de*(n_sp1de+1)/2
-  n_sp2dq = n_sp1de*n_sp1de
   !
   n_global_node = nnode
   n_global_cell = ncell
@@ -2922,7 +2946,7 @@ end subroutine write_nodal_cgns
 subroutine write_modal_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_sp1de,vand_quad_inv
+  use geovar,  only : nr,n_sp1de,n_sp2dq,vand_quad_inv,vand_quad
   use ovar,    only : time
   !
   !.. Aliased Use Statements ..
@@ -2949,6 +2973,7 @@ subroutine write_modal_cgns(iflag)
   integer,   dimension(1:3) :: idim1
   real(vbp), dimension(1:n_sp1de+1) :: x1d
   real(vbp), dimension(1:nr,1:4) :: xy
+  real(vhp), dimension(1:n_sp2dq) :: var2
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: ipelem
@@ -2962,11 +2987,11 @@ continue
   !
   ! If triangle cells exist, return
   !
-  if (npoin /= n_solpts) return
+  if (n_solpts /= ncell*n_sp2dq) return
   !
   ! Allocate var for cell-centered data
   !
-  allocate ( var(1:n_solpts) , source=real(0,vhp) , stat=ierr )
+  allocate ( var(1:npoin) , source=real(0,vhp) , stat=ierr )
   call alloc_error("write_modal_cgns","var",1,ierr)
   !
   ! Open the cgns output file
@@ -2988,9 +3013,9 @@ continue
     ! Create the connectivity array
     !
     allocate ( ipelem(1:4,1:n_solpts) , source=0 , stat=ierr )
-  call alloc_error("write_modal_cgns","ipelem",1,ierr)
+    call alloc_error("write_modal_cgns","ipelem",1,ierr)
     allocate ( coord(1:nr,1:npoin) , source=zero , stat=ierr )
-  call alloc_error("write_modal_cgns","coord",1,ierr)
+    call alloc_error("write_modal_cgns","coord",1,ierr)
     !
     ! Create the connectivity array
     !
@@ -3083,7 +3108,7 @@ continue
   end if
   !
  !write (tname,'(i0.4," Time = ",es9.2)') cgnsmodalzone_counter,time
-  write (tname,'("FlowSolution ",i0)') cgnsmodalzone_counter
+  write (tname,'("FlowSolution",i0)') cgnsmodalzone_counter
   !
   ! Reallocate the modtime and modname arrays so we
   ! can concatenate this solution onto those arrays
@@ -3121,6 +3146,7 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , vsp(1,n1:n2) ) , kind(var) )
+   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , vsp(1,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Density", &
                         var(1:n_solpts),ifld_m,ierr)
@@ -3131,8 +3157,9 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , vsp(2,n1:n2) ) , kind(var) )
+   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , vsp(2,n1:n2) ) , kind(var) )
   end do
-  var(1:n_solpts) = real( usp(2,1:n_solpts) , kind(var) )
+ !var(1:n_solpts) = real( usp(2,1:n_solpts) , kind(var) )
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"VelocityX", &
                         var(1:n_solpts),ifld_m,ierr)
   !
@@ -3142,6 +3169,7 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , usp(4,n1:n2) ) , kind(var) )
+   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , usp(4,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Entropy", &
                         var(1:n_solpts),ifld_m,ierr)
@@ -3152,6 +3180,7 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , usp(2,n1:n2) ) , kind(var) )
+   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , usp(2,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Vorticity", &
                         var(1:n_solpts),ifld_m,ierr)

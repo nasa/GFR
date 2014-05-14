@@ -1,6 +1,6 @@
 module geovar
   !
-  use module_kind_types, only : vbp
+  use module_kind_types, only : vbp,wp
   !
   implicit none
   !
@@ -25,15 +25,18 @@ module geovar
   ! n_sp2dt  : number of solution points within a 2D triangular cell
   ! n_sp2dq  : number of solution points within a 2d quadrilateral cell
   ! n_solpts : total number of solution points across all cells
+  ! n_flxpts : total number of flux points across all cells
   !
   integer, public, save :: n_order
   integer, public, save :: n_sp1de
   integer, public, save :: n_sp2dt
   integer, public, save :: n_sp2dq
   integer, public, save :: n_solpts
+  integer, public, save :: n_flxpts
   !
   ! over-integration parameters
   !
+  logical, public, save :: using_quadrature
   integer, public, save :: n_order_qp
   integer, public, save :: n_qp1de
   integer, public, save :: n_qp2dt
@@ -102,6 +105,10 @@ module geovar
   real(vbp), public, save, allocatable, dimension(:)   :: flxwts_1d
   real(vbp), public, save, allocatable, dimension(:,:) :: weights2d
   real(vbp), public, save, allocatable, dimension(:,:) :: rs
+  !
+  real(vbp), public, save, allocatable, dimension(:)   :: qdtpts_1d
+  real(vbp), public, save, allocatable, dimension(:)   :: qdtwts_1d
+  real(vbp), public, save, allocatable, dimension(:,:) :: qdtwts_2d
   !
   ! radau2numer   : matrix to move from Radau   SP to the numerical SP
   ! gauss2numer   : matrix to move from Gauss   SP to the numerical SP
@@ -247,7 +254,9 @@ module geovar
   !    flxpts_of_cell(3,i_flxpt) = index of lagrange polynomial for interpolating
   !                                i_cell solution point data to i_flxpt
   !    flxpts_of_cell(4,i_flxpt) = gives the side of the face i_cell lies on
-  ! 
+  !
+  integer, public, parameter :: nflxprm = 4
+  !
   integer, public, save, allocatable, dimension(:)   :: flxpts_of_cell_ptr
   integer, public, save, allocatable, dimension(:,:) :: flxpts_of_cell
   !
@@ -276,6 +285,19 @@ module geovar
   real(vbp), public, save, allocatable, dimension(:,:) :: vand_tria_inv
   real(vbp), public, save, allocatable, dimension(:,:) :: vand_quad
   real(vbp), public, save, allocatable, dimension(:,:) :: vand_quad_inv
+  !
+  real(vbp), public, save, allocatable, dimension(:,:,:) :: invM_mat
+  !
+  real(vbp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr
+  real(vbp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr_inv
+  !
+  real(wp), public, save, allocatable, dimension(:,:) :: interp_f2g
+  real(wp), public, save, allocatable, dimension(:,:) :: projct_g2f
+  !
+  real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2f
+  real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2g
+  real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2q
+  real(wp), public, save, allocatable, dimension(:,:,:) :: projct_q2s
   !
 contains
 !

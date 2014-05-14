@@ -25,10 +25,10 @@ module flowvar
   real(vbp), public, save, allocatable, dimension(:,:) :: global_usp
   real(vbp), public, save, allocatable, dimension(:,:) :: global_vsp
   !
-  ! faceflux(1:neqns,1:ndimn,1:2,1:n_sp1de,1:nface)
+  ! faceflx(1:neqns,1:2,1:n_sp1de,1:nface) ! this is the normal face flux
   ! faceusp(1:neqns,1:2,1:n_sp1de,1:nface)
   real(vbp), public, save, allocatable, dimension(:,:,:,:) :: faceusp
-  real(vbp), public, save, allocatable, dimension(:,:,:,:,:) :: faceflux
+  real(vbp), public, save, allocatable, dimension(:,:,:,:) :: faceflx
   !
  !real(vbp), public, save, allocatable, dimension(:,:,:) :: VSPbe_
  !real(vbp), public, save, allocatable, dimension(:,:,:) :: WSPbe_

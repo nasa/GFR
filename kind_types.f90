@@ -19,72 +19,77 @@ module module_kind_types
   !
   ! Aliases for kind type parameters
   !
-  integer, parameter :: vhp = r4
-  integer, parameter :: vbp = r8
-  integer, parameter :: vdp = r16
- !integer, parameter :: vhp = r8
- !integer, parameter :: vbp = r16
+  integer, parameter :: SP = r4
+  integer, parameter :: DP = r8
+  integer, parameter :: QP = r16
+  integer, parameter :: WP = r8
+ !integer, parameter :: vhp = r4
+ !integer, parameter :: vbp = r8
  !integer, parameter :: vdp = r16
+  integer, parameter :: vhp = r4
+  integer, parameter :: vbp = WP
+  integer, parameter :: vdp = r16
   !
   ! Definitions for numerical contants
   !
-  real(vbp), parameter :: zero    = 0.0_vbp
-  real(vbp), parameter :: half    = 0.5_vbp
-  real(vbp), parameter :: one     = 1.0_vbp
-  real(vbp), parameter :: s1      = 1.2_vbp
-  real(vbp), parameter :: s2      = 0.8_vbp
-  real(vbp), parameter :: two     = 2.0_vbp
-  real(vbp), parameter :: three   = 3.0_vbp
-  real(vbp), parameter :: four    = 4.0_vbp
-  real(vbp), parameter :: five    = 5.0_vbp
-  real(vbp), parameter :: six     = 6.0_vbp
-  real(vbp), parameter :: eight   = 8.0_vbp
-  real(vbp), parameter :: nine    = 9.0_vbp
-  real(vbp), parameter :: ten     = 10.0_vbp
-  real(vbp), parameter :: sixteen = 16.0_vbp
+  real(qp), parameter :: qzero   = 0.0_qp
+  real(wp), parameter :: zero    = 0.0_wp
+  real(wp), parameter :: half    = 0.5_wp
+  real(wp), parameter :: one     = 1.0_wp
+  real(wp), parameter :: s1      = 1.2_wp
+  real(wp), parameter :: s2      = 0.8_wp
+  real(wp), parameter :: two     = 2.0_wp
+  real(wp), parameter :: three   = 3.0_wp
+  real(wp), parameter :: four    = 4.0_wp
+  real(wp), parameter :: five    = 5.0_wp
+  real(wp), parameter :: six     = 6.0_wp
+  real(wp), parameter :: eight   = 8.0_wp
+  real(wp), parameter :: nine    = 9.0_wp
+  real(wp), parameter :: ten     = 10.0_wp
+  real(wp), parameter :: sixteen = 16.0_wp
   !
-  real(vbp), parameter :: one6   = one/six
-  real(vbp), parameter :: one4   = one/four
-  real(vbp), parameter :: one3   = one/three
-  real(vbp), parameter :: one2   = one/two
-  real(vbp), parameter :: two3   = two/three
-  real(vbp), parameter :: three4 = three/four
+  real(wp), parameter :: one6   = one/six
+  real(wp), parameter :: one4   = one/four
+  real(wp), parameter :: one3   = one/three
+  real(wp), parameter :: one2   = one/two
+  real(wp), parameter :: two3   = two/three
+  real(wp), parameter :: three4 = three/four
   !
-  real(vbp), parameter :: eps1  = 1.0e-01_vbp
-  real(vbp), parameter :: eps2  = 1.0e-02_vbp
-  real(vbp), parameter :: eps3  = 1.0e-03_vbp
-  real(vbp), parameter :: eps6  = 1.0e-06_vbp
-  real(vbp), parameter :: eps9  = 1.0e-09_vbp
-  real(vbp), parameter :: eps10 = 1.0e-10_vbp
-  real(vbp), parameter :: eps11 = 1.0e-11_vbp
-  real(vbp), parameter :: eps12 = 1.0e-12_vbp
-  real(vbp), parameter :: eps14 = 1.0e-14_vbp
-  real(vbp), parameter :: eps17 = 1.0e-17_vbp
+  real(wp), parameter :: eps1  = 1.0e-01_wp
+  real(wp), parameter :: eps2  = 1.0e-02_wp
+  real(wp), parameter :: eps3  = 1.0e-03_wp
+  real(wp), parameter :: eps6  = 1.0e-06_wp
+  real(wp), parameter :: eps9  = 1.0e-09_wp
+  real(wp), parameter :: eps10 = 1.0e-10_wp
+  real(wp), parameter :: eps11 = 1.0e-11_wp
+  real(wp), parameter :: eps12 = 1.0e-12_wp
+  real(wp), parameter :: eps14 = 1.0e-14_wp
+  real(wp), parameter :: eps17 = 1.0e-17_wp
   !
-  real(vbp), parameter :: c0_03 = 0.03_vbp
-  real(vbp), parameter :: c0_10 = 0.10_vbp
-  real(vbp), parameter :: c0_15 = 0.15_vbp
-  real(vbp), parameter :: c0_20 = 0.20_vbp
-  real(vbp), parameter :: c0_25 = 0.25_vbp
-  real(vbp), parameter :: c0_30 = 0.30_vbp
-  real(vbp), parameter :: c0_35 = 0.35_vbp
-  real(vbp), parameter :: c0_45 = 0.45_vbp
-  real(vbp), parameter :: c0_55 = 0.55_vbp
-  real(vbp), parameter :: c0_65 = 0.65_vbp
-  real(vbp), parameter :: c0_70 = 0.70_vbp
-  real(vbp), parameter :: c0_75 = 0.75_vbp
-  real(vbp), parameter :: c0_80 = 0.80_vbp
-  real(vbp), parameter :: c2_50 = 2.50_vbp
-  real(vbp), parameter :: c3_50 = 3.50_vbp
-  real(vbp), parameter :: c4_50 = 4.50_vbp
+  real(wp), parameter :: c0_03 = 0.03_wp
+  real(wp), parameter :: c0_10 = 0.10_wp
+  real(wp), parameter :: c0_15 = 0.15_wp
+  real(wp), parameter :: c0_20 = 0.20_wp
+  real(wp), parameter :: c0_25 = 0.25_wp
+  real(wp), parameter :: c0_30 = 0.30_wp
+  real(wp), parameter :: c0_35 = 0.35_wp
+  real(wp), parameter :: c0_45 = 0.45_wp
+  real(wp), parameter :: c0_55 = 0.55_wp
+  real(wp), parameter :: c0_65 = 0.65_wp
+  real(wp), parameter :: c0_70 = 0.70_wp
+  real(wp), parameter :: c0_75 = 0.75_wp
+  real(wp), parameter :: c0_80 = 0.80_wp
+  real(wp), parameter :: c2_50 = 2.50_wp
+  real(wp), parameter :: c3_50 = 3.50_wp
+  real(wp), parameter :: c4_50 = 4.50_wp
   !
-  real(vbp), parameter :: pi = 3.14159265358979323846_vbp
+  real(wp), parameter :: pi = 3.14159265358979323846_wp
   !
-  real(vbp), parameter :: radians2degrees = two*nine*ten/pi
-  real(vbp), parameter :: degrees2radians = one/radians2degrees
+  real(wp), parameter :: radians2degrees = two*nine*ten/pi
+  real(wp), parameter :: degrees2radians = one/radians2degrees
   !
-  real(vbp), parameter :: rndoff  = epsilon(one)
-  real(vbp), parameter :: tny     = tiny(one)
+  real(wp), parameter :: rndoff  = epsilon(one)
+  real(wp), parameter :: tny     = tiny(one)
   !
   logical, parameter :: true = .true.
   logical, parameter :: fals = .false.
@@ -116,16 +121,16 @@ module module_kind_types
   ! Parameters for the vortex problem
   !
   ! Shu version of the vortex
-  real(vbp), parameter :: vortex_bigR = 1.0_vbp
-  real(vbp), parameter :: vortex_bigGam = 5.0_vbp
- !real(vbp), parameter :: vortex_bigR = 0.85_vbp
- !real(vbp), parameter :: vortex_bigGam = 6.75_vbp
+  real(wp), parameter :: vortex_bigR = 1.0_wp
+  real(wp), parameter :: vortex_bigGam = 5.0_wp
+ !real(wp), parameter :: vortex_bigR = 0.85_wp
+ !real(wp), parameter :: vortex_bigGam = 6.75_wp
   ! Vincent version of the vortex
- !real(vbp), parameter :: vortex_bigR = 1.5_vbp
- !real(vbp), parameter :: vortex_bigGam = 13.5_vbp
+ !real(wp), parameter :: vortex_bigR = 1.5_wp
+ !real(wp), parameter :: vortex_bigGam = 13.5_wp
   !
-  real(vbp), parameter :: density_bigR = 1.0_vbp
-  real(vbp), parameter :: density_bigGam = 5.0_vbp
+  real(wp), parameter :: density_bigR = 1.0_wp
+  real(wp), parameter :: density_bigGam = 5.0_wp
   !
   ! Parameters defining workshop test cases
   !
@@ -154,6 +159,7 @@ module module_kind_types
   integer, parameter :: ChainRuleUtd = 3
   integer, parameter :: DGWeakForm = 4
   integer, parameter :: DGStrongForm = 5
+  integer, parameter :: TestQuadrature = 0
   integer, parameter :: OnPrimitiveVariables = 1
   integer, parameter :: OnConservativeVariables = 2
   integer, parameter :: OnFluxes = 3

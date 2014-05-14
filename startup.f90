@@ -37,6 +37,9 @@ module startup_mod
   real(vbp), save, allocatable, dimension(:,:)   :: grad_vand_1d
   real(vbp), save, allocatable, dimension(:,:,:) :: grad_vand_tria
   !
+  logical, parameter :: array_debugging = fals
+ !logical, parameter :: array_debugging = true
+  !
   ! Karniadakis, 1993; Nodes, Modes, and Flow Codes; Physics Today.
   ! "Electronic component speeds and densities have improved by a factor of more
   !  than 10^5 in the last half-century. This development is unrivaled in other
@@ -52,8 +55,9 @@ contains
 subroutine get_quadrature_data()
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_sp1de,n_sp2dt,n_sp2dq,solpts_1d,rs,flxpts_1d,n_order
-  use metvar, only : cormat,d1_mat,dr_mat,ds_mat,dr_hat,ds_hat,lagrange
+  use geovar, only : nr,n_sp1de,n_sp2dt,n_sp2dq,solpts_1d
+  use geovar, only : rs,flxpts_1d,n_order,interp_s2f
+  use metvar, only : cormat,d1_mat,dr_mat,ds_mat,dr_hat,ds_hat,cormat_dg
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,n,nf,ierr
@@ -112,6 +116,8 @@ continue
   !
   vand_quad = Vandermonde2d_quad(solpts_1d)
   vand_quad_inv = invert_matrix(vand_quad)
+  call output2d(vand_quad(:,:),2,2,0,'vand_quad')
+  call output2d(vand_quad_inv(:,:),2,2,0,'vand_quad_inv')
   !
   ! Get the derivative of the 1D Vandermonde matrix
   !
@@ -143,18 +149,20 @@ continue
   !
   call Dmatrix2d_tria
   !
-  call Dmatrix2d_quad
+  call Dmatrix2d_quad(d1_mat,dr_mat(:,:,2),ds_mat(:,:,2))
   !
   call Dmatrix2d_weak
   !
   ! Get the Lagrange polynomial to project the variables/fluxes from the
   ! solution points in the cell interior to the flux points on the cell face
   !
-  allocate ( lagrange(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","lagrange",1,ierr)
+  allocate ( interp_s2f(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
+  call alloc_error("get_quadrature_data","interp_s2f",1,ierr)
   !
-  lagrange(1:n_sp2dt,1:3*n_sp1de,1) = LagrangePoly2D_tria(rs)
-  lagrange(1:n_sp2dq,1:4*n_sp1de,2) = LagrangePoly2D_quad(flxpts_1d,solpts_1d)
+  interp_s2f(1:n_sp2dt,1:3*n_sp1de,1) = LagrangePoly2D_tria(rs)
+  interp_s2f(1:n_sp2dq,1:4*n_sp1de,2) = LagrangePoly2D_quad(flxpts_1d,solpts_1d)
+  !
+  call output2d(interp_s2f(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'interp_s2f')
   !
   ! Output the solution and flux points to a tecplot file for visualization
   !
@@ -175,9 +183,11 @@ continue
   !
   call gauss_lobatto_matrices
   !
+  call interp2quadrature
+  !
  !write (101,*) "Quad Vandermonde Matrix"
  !1 format (a,i0,a,i0,a)
- !2 format (<n_sp1de>es12.4)
+ !2 format (*(es12.4))
  !do lj = 0,n_order
  !  do li = 0,n_order
  !    l = n_sp1de*lj + li + 1
@@ -189,37 +199,44 @@ continue
  !  end do
  !end do
  !!
- !write (102,*) "Inverse of Quad Vandermonde Matrix"
+ !!
+ !write (100,*) "Inverse of Quad Vandermonde Matrix"
  !do lj = 0,n_order
  !  do li = 0,n_order
  !    l = n_sp1de*lj + li + 1
- !    write (102,*)
- !    write (102,1) "Basis function for term (x^",li,")*(y^",lj,")"
+ !    write (100,*)
+ !    write (100,1) "Basis function for term (x^",li,")*(y^",lj,")"
  !    do kj = n_sp1de,1,-1
- !      write (102,2) (vand_quad_inv(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
+ !      write (100,2) (vand_quad_inv(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
  !    end do
  !  end do
  !end do
- !stop
  !!
- !write (101,*) "DG Correction Function"
+ !!
+ !write (101,*) "Correction Function"
+ !write (102,*) "DG Correction Function"
  !do nf = 1,4*n_sp1de
  !  !
  !  if (nf <= 1*n_sp1de) then
  !    write (101,5) nf
+ !    write (102,5) nf
  !  else if (nf <= 2*n_sp1de) then
  !    write (101,6) nf - n_sp1de
+ !    write (102,6) nf - n_sp1de
  !  else if (nf <= 3*n_sp1de) then
  !    write (101,7) n_sp1de+1-(nf-2*n_sp1de)
+ !    write (102,7) n_sp1de+1-(nf-2*n_sp1de)
  !  else
  !    write (101,8) n_sp1de+1-(nf-3*n_sp1de)
+ !    write (102,8) n_sp1de+1-(nf-3*n_sp1de)
  !  end if
  !  do j = n_sp1de,1,-1
  !    write (101,4) (cormat((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
+ !    write (102,4) (cormat_dg((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
  !  end do
  !  !
  !end do
- !4 format (<n_sp1de>es12.4)
+ !4 format (*(es12.4))
  !5 format (/," Bottom/South edge for xi = ",i0)
  !6 format (/," Right/East edge for eta = ",i0)
  !7 format (/," Top/North edge for xi = ",i0)
@@ -246,7 +263,18 @@ continue
  !  end do
  !end do
  !2 format (/,"i = ",i2,", j = ",i2)
- !3 format (<n_sp1de>es12.4)
+ !3 format (*(es12.4))
+ !!
+ !write (110,*) "interp_s2f"
+ !do l = 1,4
+ !  do k = 1,n_sp1de
+ !    write (110,4) l,k
+ !    do j = 1,n_sp1de
+ !      write (110,3) (interp_s2f( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
+ !    end do
+ !  end do
+ !end do
+ !4 format (/,"Face = ",i2,", i = ",i2)
  !!
  !write (108,*) "1D Dr"
  !write (109,*) "1D Ds"
@@ -266,13 +294,15 @@ continue
  !  write (202,1) (dr_mat(i,j,1),i=1,n_sp2dt)
  !  write (203,1) (ds_mat(i,j,1),i=1,n_sp2dt)
  !end do
- !write (105,*) "Lagrange matrix"
+ !write (105,*) "interp_s2f matrix"
  !do j = 1,4*n_sp1de
- !  write (*,1) (lagrange(i,j,2),i=1,n_sp2dq)
+ !  write (*,1) (interp_s2f(i,j,2),i=1,n_sp2dq)
  !end do
  !!
  !1 format (<n_sp2dq>es12.4)
-  !
+ !!
+ !call stop_recon(stop_mpi,"get_quadrature_data")
+ !!
 end subroutine get_quadrature_data
 !
 !###############################################################################
@@ -506,55 +536,49 @@ end subroutine Dmatrix2D_tria
 !
 !###############################################################################
 !
-subroutine Dmatrix2D_quad()
+subroutine Dmatrix2D_quad(d1_mat,dr_mat,ds_mat)
   !
-  !.. Use Statements ..
-  use geovar, only : nr,n_sp1de,n_sp2dq
-  use metvar, only : d1_mat,dr_mat,ds_mat
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:),    intent(in) :: d1_mat
+  real(wp), dimension(:,:), intent(inout) :: dr_mat
+  real(wp), dimension(:,:), intent(inout) :: ds_mat
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l
+  integer :: i,j,k,l,n
   integer :: lbeg,lend
   !
 continue
   !
+  n = size(d1_mat,1)
+  !
   ! Initialize the quad parts of the derivative matrices to zero
   !
-  dr_mat(:,:,2) = zero
-  ds_mat(:,:,2) = zero
+  dr_mat(:,:) = zero
+  ds_mat(:,:) = zero
   !
   ! First the r/xi direction
   !
   k = 0
-  do j = 1,n_sp1de
-    lbeg = (j-1)*n_sp1de + 1
-    lend = j*n_sp1de
-    do i = 1,n_sp1de
+  do j = 1,n
+    lbeg = (j-1)*n + 1
+    lend = j*n
+    do i = 1,n
       k = k + 1
-      dr_mat(lbeg:lend,k,2) = d1_mat(i,:)
+      dr_mat(lbeg:lend,k) = d1_mat(i,:)
     end do
   end do
   !
   ! Next the s/eta direction
   !
   k = 0
-  do j = 1,n_sp1de
-    do i = 1,n_sp1de
+  do j = 1,n
+    do i = 1,n
       k = k + 1
-      do l = 1,n_sp1de
-        ds_mat(i+(l-1)*n_sp1de,k,2) = d1_mat(j,l)
+      do l = 1,n
+        ds_mat(i+(l-1)*n,k) = d1_mat(j,l)
       end do
     end do
   end do
-  !
- !do k = 1,n_sp2dq
- !  do j = 1,n_sp1de
- !    write (104,'(10es12.4)') (dr_mat(n_sp1de*(j-1)+i,k,2),i=1,n_sp1de)
- !    write (105,'(10es12.4)') (ds_mat(n_sp1de*(j-1)+i,k,2),i=1,n_sp1de)
- !  end do
- !  write (104,*)
- !  write (105,*)
- !end do
   !
 end subroutine Dmatrix2D_quad
 !
@@ -980,8 +1004,8 @@ end function CorrectionMatrix2D_quad
 subroutine CorrectionMatrix2D_dg()
   !
   !.. Use Statements ..
-  use geovar, only : n_sp1de,n_sp2dq,solwts_1d,solpts_1d
-  use metvar, only : lagrange,cormat_dg
+  use geovar, only : n_sp1de,n_sp2dq,solwts_1d,solpts_1d,interp_s2f
+  use metvar, only : cormat_dg
   !
   !.. Local Scalars ..
   integer   :: i,j,k,nf,ierr
@@ -1043,7 +1067,7 @@ continue
  !  do j = 1,n_sp1de
  !    do i = 1,n_sp1de
  !      k = (j-1)*n_sp1de + i
- !     !cormat_dg(k,nf,2) = lagrange(k,nf,2)/solwts_1d(i)
+ !     !cormat_dg(k,nf,2) = interp_s2f(k,nf,2)/solwts_1d(i)
  !      cormat_dg(k,nf,2) = eval_LagrangePoly1D(i,-one,solpts_1d)/solwts_1d(i)
  !    end do
  !  end do
@@ -1051,7 +1075,7 @@ continue
  !end do
  !!
  !write (98,*) "DGSEM Correction Function"
- !write (99,*) "Lagrange interpolation polynomial"
+ !write (99,*) "interp_s2f interpolation polynomial"
  !do nf = 1,4*n_sp1de
  !  !
  !  if (nf <= 1*n_sp1de) then
@@ -1070,7 +1094,7 @@ continue
  !  !
  !  do j = n_sp1de,1,-1
  !    write (98,1) (cormat_dg((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
- !    write (99,1) (lagrange((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
+ !    write (99,1) (interp_s2f((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
  !  end do
  !  !
  !end do
@@ -2097,6 +2121,498 @@ end subroutine gauss_lobatto_matrices
 !
 !###############################################################################
 !
+pure function Vandermonde1D_N(xi,N) result(return_value)
+  !
+  integer,                 intent(in) :: N
+  real(vbp), dimension(:), intent(in) :: xi
+  !
+  real(vbp), dimension(1:size(xi),1:N) :: return_value
+  !
+  integer :: i,j
+  !
+continue
+  !
+  return_value(:,:) = zero
+  !
+  do j = 1,N
+    do i = 1,size(xi)
+      return_value(i,j) = JacobiP(j-1,zero,zero,xi(i))
+    end do
+  end do
+  !
+end function Vandermonde1D_N
+!
+!###############################################################################
+!
+pure function Vandermonde2D_quad_N(xi,N) result(return_value)
+  !
+  integer,                 intent(in) :: N
+  real(vbp), dimension(:), intent(in) :: xi
+  !
+  real(vbp), dimension(1:size(xi)**2,1:(N+1)**2) :: return_value
+  !
+  !.. Local Scalars ..
+  integer   :: k,ki,kj,l,li,lj
+  integer   :: nsp,nso,nsq,nqp,nqo,nqq
+  real(vbp) :: x,y,hx,hy
+  !
+continue
+  !
+  nqp = size(xi)
+  nqo = nqp-1
+  nqq = nqp*nqp
+  !
+  nsp = N+1
+  nso = N
+  nsq = nsp*nsp
+  !
+  do kj = 1,nqp
+    do ki = 1,nqp
+      !
+      ! k is the 1D index of the solution point at
+      ! which each basis function is being evaluated
+      !
+      k = nqp*(kj-1) + ki
+      !
+      x = xi(ki)
+      y = xi(kj)
+      !
+      do lj = 0,nso
+        do li = 0,nso
+          !
+          ! l is the index of the current basis function being evaluated
+          !
+          l = nsp*lj + li + 1
+          !
+          hx = JacobiP(li,zero,zero,x)
+          hy = JacobiP(lj,zero,zero,y)
+          !
+          return_value(k,l) = hx*hy
+          !
+        end do
+      end do
+      !
+    end do
+  end do
+  !
+end function Vandermonde2D_quad_N
+!
+!###############################################################################
+!
+subroutine interp2quadrature()
+  !
+  !.. Use Statements ..
+  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
+  use geovar, only : n_order_qp,n_qp1de,n_qp2dt,n_qp2dq
+  use geovar, only : qdtpts_1d,qdtwts_1d,qdtwts_2d
+  use geovar, only : solpts_1d,solwts_1d,invM_mat,weights2d
+  use geovar, only : interp_f2g,projct_g2f,vand_qdtr
+  use geovar, only : interp_s2q,projct_q2s,vand_qdtr_inv
+  use geovar, only : interp_s2g,using_quadrature
+  use ovar,   only : iop_qdtpts
+  use metvar, only : dr_mat,ds_mat,dq1D_mat
+  use metvar, only : dqr_mat,dqr_LPmat,dqr_CRmat
+  use metvar, only : dqs_mat,dqs_LPmat,dqs_CRmat
+  use polynomial_mod, only : nodes_legendre_gauss, &
+                             weights_legendre_gauss
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
+                             weights_legendre_gauss_lobatto
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,ierr
+  integer :: li,lj,ki,kj,nsp,nqp
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_qp1de) :: vp
+  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: tmpmat
+  real(wp), dimension(1:n_qp1de,1:n_qp1de) :: vand1D_qp
+  real(wp), dimension(1:n_qp1de,1:n_qp1de) :: dv1D_qp
+  real(wp), dimension(1:n_qp1de,1:n_sp1de) :: vand1D_f2g
+  real(wp), dimension(1:n_qp2dq,1:n_sp2dq,1:2) :: vand2D_s2q
+  !
+continue
+  !
+  if (using_quadrature) write (iout,1)
+  !
+  ! ###########################################################
+  ! ###########################################################
+  ! ##                                                       ##
+  ! ##  Allocate all the arrays needed for quadrature in 2D  ##
+  ! ##                                                       ##
+  ! ###########################################################
+  ! ###########################################################
+  !
+  allocate ( qdtpts_1d(1:n_qp1de) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","qdtpts_1d",1,ierr)
+  allocate ( qdtwts_1d(1:n_qp1de) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","qdtwts_1d",1,ierr)
+  allocate ( dq1D_mat(1:n_qp1de,1:n_qp1de), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dq1D_mat",1,ierr)
+  allocate ( interp_f2g(1:n_sp1de,1:n_qp1de) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","interp_f2g",1,ierr)
+  allocate ( projct_g2f(1:n_qp1de,1:n_sp1de) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","projct_g2f",1,ierr)
+  !
+  ! ####################################
+  ! ####################################
+  ! ##                                ##
+  ! ##  Section for quadrature in 1D  ##
+  ! ##                                ##
+  ! ####################################
+  ! ####################################
+  !
+  ! 1D quadrature nodes and weights
+  !
+  if (iop_qdtpts == Legendre_Gauss_Lobatto) then
+    call nodes_legendre_gauss_lobatto(n_order_qp,qdtpts_1d,vp)
+    call weights_legendre_gauss_lobatto(n_order_qp,vp,qdtwts_1d)
+  else
+    call nodes_legendre_gauss(n_qp1de,qdtpts_1d,vp)
+    call weights_legendre_gauss(n_qp1de,qdtpts_1d,vp,qdtwts_1d)
+  end if
+  !
+  ! 1D Derivative matrix for the quadrature points
+  !
+  vand1d_qp(:,:) = Vandermonde1D(qdtpts_1d)
+  dv1d_qp(:,:) = GradVandermonde1D(qdtpts_1d)
+  dq1D_mat(:,:) = Dmatrix1D(vand1d_qp,dv1d_qp)
+  !
+  ! 1D Vandermonde matrix giving the value for each of the
+  ! #(n_sp1de) modes at the #(n_qp1de) quadrature points
+  !
+  vand1d_f2g(:,:) = Vandermonde1D_N(qdtpts_1d,n_sp1de)
+  !
+  ! Matrix for interpolating 1D nodal values at face
+  ! flux/solution points to face quadrature points
+  !
+  interp_f2g(:,:) = transpose( matmul( vand1d_f2g , vand_1d_inv ) )
+  !
+  call output2d(interp_f2g(:,:),2,2,3,'interp_f2g')
+  !
+  ! Matrix for projecting nodal values at face quadrature
+  ! points to the face flux/solution points
+  !
+  projct_g2f(:,:) = matmul( vand1D_f2g , transpose(vand_1D) )
+  do i = 1,n_sp1de
+    projct_g2f(:,i) = projct_g2f(:,i) * qdtwts_1d(:)
+  end do
+  !
+  call output2d(projct_g2f(:,:),2,2,3,'projct_g2f')
+  !
+  ! ###########################################################
+  ! ###########################################################
+  ! ##                                                       ##
+  ! ##  Allocate all the arrays needed for quadrature in 2D  ##
+  ! ##                                                       ##
+  ! ###########################################################
+  ! ###########################################################
+  !
+  allocate ( qdtwts_2d(1:n_qp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","qdtwts_2d",1,ierr)
+  allocate ( vand_qdtr(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","vand_qdtr",1,ierr)
+  allocate ( vand_qdtr_inv(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","vand_qdtr_inv",1,ierr)
+  allocate ( interp_s2q(1:n_sp2dq,1:n_qp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","interp_s2q",1,ierr)
+  allocate ( projct_q2s(1:n_qp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","projct_q2s",1,ierr)
+  allocate ( dqr_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqr_mat",1,ierr)
+  allocate ( dqs_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqs_mat",1,ierr)
+  allocate ( dqr_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqr_LPmat",1,ierr)
+  allocate ( dqs_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqs_LPmat",1,ierr)
+  allocate ( dqr_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqr_CRmat",1,ierr)
+  allocate ( dqs_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","dqs_CRmat",1,ierr)
+  allocate ( invM_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","invM_mat",1,ierr)
+  allocate ( interp_s2g(1:n_sp2dq,1:4*n_qp1de,1:2) , source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","interp_s2g",1,ierr)
+  !
+  ! ################################################
+  ! ################################################
+  ! ##                                            ##
+  ! ##  Section for quadrature on triangle cells  ##
+  ! ##                                            ##
+  ! ################################################
+  ! ################################################
+  !
+  nsp = n_sp2dt
+  nqp = n_qp2dt
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##                                                 ##
+  ! ##  Section for quadrature on quadrilateral cells  ##
+  ! ##                                                 ##
+  ! #####################################################
+  ! #####################################################
+  !
+  nsp = n_sp2dq
+  nqp = n_qp2dq
+  !
+  ! 2D quadrature weights for the quadrature points
+  !
+  k = 0
+  do i = 1,n_qp1de
+    do j = 1,n_qp1de
+      k = k + 1
+      qdtwts_2d(k,2) = qdtwts_1d(i)*qdtwts_1d(j)
+    end do
+  end do
+  !
+  ! Full Vandermonde matrix for the quadrature nodes and modes
+  !
+  vand_qdtr(1:nqp,1:nqp,2) = Vandermonde2D_quad(qdtpts_1d)
+  vand_qdtr_inv(1:nqp,1:nqp,2) = invert_matrix(vand_qdtr(1:nqp,1:nqp,2))
+  !
+  ! 2D matrix for interpolating nodal values at SPs to QPs
+  !
+  vand2D_s2q(1:nqp,1:nsp,2) = Vandermonde2D_quad_N(qdtpts_1d,n_order)
+  interp_s2q(1:nsp,1:nqp,2) = &
+        transpose( matmul( vand2D_s2q(1:nqp,1:nsp,2) , vand_quad_inv ) )
+  !
+  call output2d(interp_s2q(1:nsp,1:nqp,2),2,2,2,'interp_s2q')
+  !
+  ! Matrix for interpolating cell nodal values at SPs to face QPs
+  !
+  interp_s2g(1:nsp,1:4*n_qp1de,2) = LagrangePoly2D_quad(qdtpts_1d,solpts_1d)
+  !
+  call output2d(interp_s2g(1:nsp,1:4*n_qp1de,2),2,1,2,'interp_s2g')
+  !
+  ! 2D matrix to project nodal values at QPs to SPs
+  !
+  projct_q2s(1:nqp,1:nsp,2) = &
+        matmul( vand2D_s2q(1:nqp,1:nsp,2) , transpose(vand_quad) )
+  do i = 1,nsp
+    projct_q2s(1:nqp,i,2) = projct_q2s(1:nqp,i,2) * qdtwts_2d(1:nqp,2)
+  end do
+  !
+  call output2d(projct_q2s(1:nqp,1:nsp,2),2,2,2,'projct_q2s')
+  !
+  ! 2D Derivative matrix for the quadrature points
+  !
+  call output2d(dr_mat(1:nsp,1:nsp,2),2,2,2,'dr_mat')
+  call output2d(ds_mat(1:nsp,1:nsp,2),2,2,2,'ds_mat')
+  !
+  call Dmatrix2D_quad(dq1d_mat,dqr_mat(1:nqp,1:nqp,2),dqs_mat(1:nqp,1:nqp,2))
+  !
+  call output2d(dqr_mat(1:nqp,1:nqp,2),2,2,2,'dqr_mat')
+  call output2d(dqs_mat(1:nqp,1:nqp,2),2,2,2,'dqs_mat')
+  !
+  ! Pre-multiply the derivative matrices by the projection
+  ! matrix for when using the derivative of the Lagrange polynomial
+  !
+  dqr_LPmat(1:nqp,1:nsp,2) = &
+      matmul( transpose(dqr_mat(1:nqp,1:nqp,2)) , projct_q2s(1:nqp,1:nsp,2) )
+  dqs_LPmat(1:nqp,1:nsp,2) = &
+      matmul( transpose(dqs_mat(1:nqp,1:nqp,2)) , projct_q2s(1:nqp,1:nsp,2) )
+  !
+  call output2d(dqr_LPmat(1:nqp,1:nsp,2),2,2,2,'dqr_LPmat')
+  call output2d(dqs_LPmat(1:nqp,1:nsp,2),2,2,2,'dqs_LPmat')
+  !
+  ! Pre-multiply the derivative matrices by the
+  ! interpolation matrix for when using the chain-rule
+  !
+  dqr_CRmat(1:nsp,1:nqp,2) = &
+      matmul( interp_s2q(1:nsp,1:nqp,2) , transpose(dqr_mat(1:nqp,1:nqp,2)) )
+  dqs_CRmat(1:nsp,1:nqp,2) = &
+      matmul( interp_s2q(1:nsp,1:nqp,2) , transpose(dqs_mat(1:nqp,1:nqp,2)) )
+  !
+  call output2d(dqr_CRmat(1:nsp,1:nqp,2),2,2,2,'dqr_CRmat')
+  call output2d(dqs_CRmat(1:nsp,1:nqp,2),2,2,2,'dqs_CRmat')
+  !
+  ! Inverse of the mass matrix
+  !
+  invM_mat(1:nsp,1:nsp,2) = matmul( vand_quad , transpose(vand_quad) )
+  where (abs(invM_mat) <= eps12)  invM_mat = zero
+  !
+  call output2d(invM_mat(1:nsp,1:nsp,2),2,2,2,'invM_mat')
+  !
+ !write (121,5) "Solution point weights 1D"
+ !write (121,4) (solwts_1d(i),i=1,n_sp1de)
+ !write (121,5) "Quadrature weights 1D"
+ !write (121,4) (qdtwts_1d(i),i=1,n_sp1de)
+ !write (121,5) "Inverse solution point weights 1D"
+ !write (121,4) (one/solwts_1d(i),i=1,n_sp1de)
+ !write (121,5) "Inverse quadrature weights 1D"
+ !write (121,4) (one/qdtwts_1d(i),i=1,n_sp1de)
+ !4 format (/,*(f12.6))
+ !5 format (/,a)
+ !!
+ !write (104,*) "Dqr matrix"
+ !write (105,*) "Dqs matrix"
+ !!
+ !write (120,*) "weights"
+ !do j = 1,n_sp1de
+ !  write (120,3) (weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
+ !end do
+ !write (120,*) "Inverse weights"
+ !do j = 1,n_sp1de
+ !  write (120,3) (one/weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
+ !end do
+ !write (120,*) "Quadrature weights"
+ !do j = 1,n_qp1de
+ !  write (120,3) (qdtwts_2d( (n_qp1de-j)*n_qp1de+i ),i=1,n_qp1de)
+ !end do
+ !write (120,*) "Inverse mass matrix"
+ !do l = 1,n_sp1de
+ !  do k = 1,n_sp1de
+ !    write (104,2) k,l
+ !    write (105,2) k,l
+ !    write (120,2) k,l
+ !    do j = 1,n_qp1de
+ !      write (104,3) (dqr_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
+ !      write (105,3) (dqs_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
+ !    end do
+ !    do j = 1,n_sp1de
+ !      write (120,3) (invM_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
+ !    end do
+ !  end do
+ !end do
+ !2 format (/,"i = ",i2,", j = ",i2)
+ !3 format (*(es12.4))
+ !flush(120)
+ !!
+ !write (111,*) "Lagrange on Quadrature Points"
+ !do l = 1,4
+ !  do k = 1,n_sp1de
+ !    write (111,4) l,k
+ !    do j = 1,n_qp1de
+ !      write (111,3) (interp_s2g( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k ),i=1,n_qp1de)
+ !    end do
+ !  end do
+ !end do
+ !4 format (/,"Face = ",i2,", i = ",i2)
+ !write (102,*) "Quadrature Interpolation Vandermonde Matrix"
+ !do lj = 0,n_order
+ !  do li = 0,n_order
+ !    l = n_sp1de*lj + li + 1
+ !    write (102,*)
+ !    write (102,11) "Basis function for term (x^",li,")*(y^",lj,")"
+ !    do kj = n_qp1de,1,-1
+ !      write (102,12) (vand_qdtr(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
+ !    end do
+ !  end do
+ !end do
+ !!
+ !write (103,*) "Quadrature Interpolation Matrix"
+ !do lj = 0,n_order
+ !  do li = 0,n_order
+ !    l = n_sp1de*lj + li + 1
+ !    write (103,*)
+ !    write (103,11) "Basis function for term (x^",li,")*(y^",lj,")"
+ !    do kj = n_qp1de,1,-1
+ !      write (103,12) (interp_s2q(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
+ !    end do
+ !  end do
+ !end do
+ !!
+ !if (mypnum == 0) call write_lagrange_tecplot
+ !!
+ !10 format (100es14.6)
+  11 format (a,i0,a,i0,a)
+  12 format (*(es12.4))
+  !
+  1 format (/," ************************************************",/, &
+              "     USING OVER-INTEGRATION FOR DE-ALIASING",/, &
+              " ************************************************",/)
+ !!
+end subroutine interp2quadrature
+!
+!###############################################################################
+!
+subroutine write_lagrange_tecplot()
+  !
+  !.. Use Statements ..
+  use geovar, only : n_sp1de,n_sp2dq,n_qp1de,n_qp2dq
+  use geovar, only : solpts_1d,qdtpts_1d,interp_s2f,interp_s2g
+  use metvar, only : dr_mat,ds_mat
+  use metvar, only : dqr_mat,dqs_mat
+  !
+  !.. Local Scalars ..
+  integer   :: i,j,k,ierr
+  integer, parameter :: iotec = 4928
+  !
+continue
+  !
+  open (iotec,file="lagrange.tec.dat",status="replace", &
+              action="write",form="formatted",iostat=ierr)
+  call io_error("write_tecplot_partitions","lagrange.tec.dat",1,ierr)
+  !
+  write (iotec,1)
+  ! 
+  write (iotec,3) 1,n_sp1de,n_sp1de
+  write (iotec,2) ((solpts_1d(i),i=1,n_sp1de),j=1,n_sp1de)
+  write (iotec,2) ((solpts_1d(j),i=1,n_sp1de),j=1,n_sp1de)
+  write (iotec,2) ((interp_s2f((j-1)*n_sp1de+i,1,2),i=1,n_sp1de),j=1,n_sp1de)
+  !
+  do k = 2,4*n_sp1de
+    write (iotec,4) k,n_sp1de,n_sp1de
+    write (iotec,2) ((interp_s2f((j-1)*n_sp1de+i,k,2),i=1,n_sp1de),j=1,n_sp1de)
+  end do
+  !
+  do k = 1,n_sp2dq
+    write (iotec,5) k,n_sp1de,n_sp1de
+    write (iotec,2) ((dr_mat((j-1)*n_sp1de+i,k,2)/maxval(dqr_mat(:,k,2)),i=1,n_sp1de),j=1,n_sp1de)
+  end do
+  !
+  do k = 1,n_sp2dq
+    write (iotec,6) k,n_sp1de,n_sp1de
+    write (iotec,2) ((ds_mat((j-1)*n_sp1de+i,k,2)/maxval(dqs_mat(:,k,2)),i=1,n_sp1de),j=1,n_sp1de)
+  end do
+  !
+  write (iotec,7) 1,n_qp1de,n_qp1de
+  write (iotec,2) ((qdtpts_1d(i),i=1,n_qp1de),j=1,n_qp1de)
+  write (iotec,2) ((qdtpts_1d(j),i=1,n_qp1de),j=1,n_qp1de)
+  write (iotec,2) ((interp_s2g((j-1)*n_qp1de+i,1,2),i=1,n_qp1de),j=1,n_qp1de)
+  !
+  do k = 2,4*n_sp1de
+    write (iotec,8) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
+    write (iotec,2) ((interp_s2g((j-1)*n_qp1de+i,k,2),i=1,n_qp1de),j=1,n_qp1de)
+  end do
+  !
+  do k = 1,n_sp2dq
+    write (iotec,9) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
+    write (iotec,2) ((dqr_mat((j-1)*n_qp1de+i,k,2)/maxval(dqr_mat(:,k,2)),i=1,n_qp1de),j=1,n_qp1de)
+  end do
+  !
+  do k = 1,n_sp2dq
+    write (iotec,10) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
+    write (iotec,2) ((dqs_mat((j-1)*n_qp1de+i,k,2)/maxval(dqs_mat(:,k,2)),i=1,n_qp1de),j=1,n_qp1de)
+  end do
+  !
+  close (iotec,iostat=ierr)
+  call io_error("write_tecplot_partitions","lagrange.tec.dat",2,ierr)
+  !
+  !
+  !
+  1 format ('VARIABLES = "X", "Y", "Z"')
+  2 format (5es18.10)
+  3 format ('ZONE T="La-SP - ',i0,'", I=',i0,', J=',i0,', K=1, DATAPACKING=BLOCK')
+  4 format ('ZONE T="La-SP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
+  5 format ('ZONE T="Dr-SP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
+  6 format ('ZONE T="Ds-SP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
+  7 format ('ZONE T="La-QP - ',i0,'", I=',i0,', J=',i0,', K=1, DATAPACKING=BLOCK')
+  8 format ('ZONE T="La-QP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
+  9 format ('ZONE T="Dr-QP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
+ 10 format ('ZONE T="Ds-QP - ',i0,'", I=',i0,', J=',i0, &
+            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
+  !
+end subroutine write_lagrange_tecplot
+!
+!###############################################################################
+!
 subroutine write_quadrature()
   !
   !.. Use Statements ..
@@ -2150,10 +2666,136 @@ end subroutine write_quadrature
 !
 !###############################################################################
 !
+subroutine output2d(array,dim1,dim2,ctype,arrayname)
+  !
+  !.. Use Statements ..
+  use ifport
+  !
+  !.. Formal Arguments ..
+  integer,                  intent(in) :: dim1,dim2,ctype
+  real(wp), dimension(:,:), intent(in) :: array
+  character(len=*),         intent(in) :: arrayname
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,np1,np2
+  integer :: ni,nj,nk,nl,ierr
+  integer :: exitstat,cmndstat
+  character(len=1000) :: cmndmsg,command
+  character(len=6+len_trim(adjustl(arrayname))) :: fname
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(array,1),1:size(array,2)) :: copy
+  !
+  !.. Local Constants ..
+  integer, parameter :: face = 1
+  integer, parameter :: cell = 2
+  integer, parameter :: iu = 18421
+  !
+continue
+  !
+  exitstat = 0
+  cmndstat = 0
+  cmndmsg = " "
+  !
+  if (mypnum == 0 .and. array_debugging) then
+    !
+    fname = "array."//trim(adjustl(arrayname))
+    open(iu,file=fname,status="replace",action="write",form="formatted",iostat=ierr)
+    call io_error('output2d',fname,1,ierr)
+    !
+    np1 = size(array,1)
+    np2 = size(array,2)
+    !
+    copy(:,:) = array(:,:)
+    where (abs(copy) <= eps12) copy = zero
+    !
+    write (iu,1) trim(adjustl(arrayname))
+    !
+    ! Default values
+    !
+    ni = np1
+    nj = 1
+    nk = np2
+    nl = 1
+    !
+    if (ctype == 1) then
+      !
+      ni = np2n(np1)
+      nj = ni
+      nk = np2n(np2)
+      nl = nk
+      !
+    else if (ctype == 2) then
+      !
+      if (dim1 == face) then
+        ni = np1/4
+        nj = 4
+      else if (dim1 == cell) then
+        ni = nint( sqrt(real(np1,kind=wp)) )
+        nj = ni
+      end if
+      !
+      if (dim2 == face) then
+        nk = np2/4
+        nl = 4
+      else if (dim2 == cell) then
+        nk = nint( sqrt(real(np2,kind=wp)) )
+        nl = nk
+      end if
+      !
+      do l = 1,nl
+        do k = 1,nk
+          write (iu,2) k,l
+          do j = 1,nj
+            write (iu,3) ( copy( (nj-j)*ni+i , (l-1)*nk+k ) , i=1,ni )
+          end do
+        end do
+      end do
+      !
+    else
+      !
+      do j = 1,np1
+        write (iu,3) ( copy(j,i) , i=1,np2 )
+      end do
+      !
+    end if
+    !
+    flush (iu)
+    !
+    close (iu,iostat=ierr)
+    call io_error('output2d',fname,2,ierr)
+    !
+    command = "sed -i 's/\<0\.000\>/  -  /g' "//trim(adjustl(fname))
+    write (iout,4) "Executing: ",trim(adjustl(command))
+    !
+    exitstat = system( trim(command) )
+   !call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
+    !
+    if (exitstat /= 0 .or. cmndstat /= 0) then
+      write (iout,99) exitstat,cmndstat,trim(adjustl(cmndmsg))
+    end if
+    !
+  end if
+  !
+  1 format (/,a,/)
+  2 format (/,"i = ",i2,",j = ",i2)
+  3 format (*(g12.4))
+  4 format (a,a)
+  11 format (a,i0,a,i0,a)
+  99 format (/," Error attempting to use command line!",/, &
+               " exit status    = ",i0,/, &
+               " command status = ",i0,/, &
+               " error message  = ",a,//)
+  !
+end subroutine output2d
+!
+!###############################################################################
+!
 include "Functions/deltafun.f90"
 include "Functions/reciprocal.f90"
 include "Functions/np2n.f90"
 include "Functions/np2nfp.f90"
+include "Functions/chop.f90"
 !
 !###############################################################################
 !
