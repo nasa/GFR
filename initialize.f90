@@ -50,7 +50,7 @@ subroutine initialize_flow()
   use ovar
   use flowvar
   use io_mod,      only : read_restart_file
-  use generic_mod, only : usp2v
+  use generic_mod, only : usp2v,project_to_porder
   !
   !.. Local Scalars ..
   integer   :: n1,n2,nc,np,ns,m,nf,ierr
@@ -81,9 +81,9 @@ continue
   call alloc_error("initialize_flow","uspstart",1,ierr)
   allocate ( uoldsp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uoldsp",1,ierr)
-  allocate ( faceusp(1:neqns,1:n_sp1de,1:2,1:nface) , source=zero , stat=ierr )
+  allocate ( faceusp(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
-  allocate ( faceflx(1:neqns,1:n_sp1de,1:2,1:nface) , source=zero , stat=ierr )
+  allocate ( faceflx(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
   !
   ! Allocate the storage for the Runge-Kutta methods
@@ -280,6 +280,10 @@ continue
     time  = tmrst
     !
   else
+    !
+    ! Project the initial solution to p_order
+    !
+    call project_to_porder(ncell,pts_in_cell_ptr,uspstart)
     !
     ! Initialize usp to uspstart
     !

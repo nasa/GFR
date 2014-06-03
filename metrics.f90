@@ -12,7 +12,6 @@ module metrics_mod
   !
   public :: get_solution_points_1d
   public :: get_solution_points_2d
- !public :: get_flux_points_2d
   public :: get_grid_connectivity
   public :: get_metrics
   !
@@ -37,6 +36,12 @@ module metrics_mod
     module procedure get_quad_weights_at_solpts_DP, &
                      get_quad_weights_at_solpts_QP
   end interface get_quad_weights_at_solpts
+  !
+  interface get_triangle_weights_at_solpts
+    module procedure get_triangle_weights_at_solpts_DP, &
+                     get_triangle_weights_at_solpts_QP
+  end interface get_triangle_weights_at_solpts
+  !
 contains
 !
 !###############################################################################
@@ -67,109 +72,15 @@ end function get_solution_points_1d
 !
 !###############################################################################
 !
-subroutine get_flux_points_2d()
-  !
-  !.. Use Statements ..
-  use geovar,   only : n_order,n_sp1de,nr,nface
-  use geovar,   only : flxpts_1d,flxwts_1d
-  use geovar,   only : xyz_flxpts,xyz_nodes,nodes_on_face
-  use ovar,     only : iop_flxpts
-  use polynomial_mod, only : nodes_legendre_gauss, &
-                             nodes_legendre_gauss_lobatto, &
-                             nodes_chebyshev_gauss, &
-                             nodes_chebyshev_gauss_lobatto, &
-                             weights_legendre_gauss, &
-                             weights_legendre_gauss_lobatto, &
-                             weights_chebyshev_gauss, &
-                             weights_chebyshev_gauss_lobatto
-  !
-  !.. Local Scalars ..
-  integer :: i,n,nf,n1,n2,ierr
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr)      :: pt1
-  real(wp), dimension(1:nr)      :: pt2
-  real(wp), dimension(1:nr)      :: delpt
-  real(wp), dimension(1:n_sp1de) :: vp
-  real(qp), dimension(1:n_sp1de) :: vp_qp
-  real(qp), dimension(1:n_sp1de) :: flxpts_1d_qp
-  real(qp), dimension(1:n_sp1de) :: flxwts_1d_qp
-  !
-continue
-  !
-  ! Allocate the 1D flux arrays
-  !
-  allocate ( flxpts_1d(1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("get_flux_points_2d","flxpts_1d",1,ierr)
-  allocate ( flxwts_1d(1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("get_flux_points_2d","flxwts_1d",1,ierr)
-  !
-  ! Create the 1D array for the location of the flux points
-  !
-  if (iop_flxpts == Legendre_Gauss) then
-    !
-    call nodes_legendre_gauss(n_sp1de,flxpts_1d_qp,vp_qp)
-    call weights_legendre_gauss(n_sp1de,flxpts_1d_qp,vp_qp,flxwts_1d_qp)
-    !
-  else if (iop_flxpts == Legendre_Gauss_Lobatto) then
-    !
-    call nodes_legendre_gauss_lobatto(n_order,flxpts_1d_qp,vp_qp)
-    call weights_legendre_gauss_lobatto(n_order,vp_qp,flxwts_1d_qp)
-    !
-  else if (iop_flxpts == Chebyshev_Gauss) then
-    !
-    call nodes_chebyshev_gauss(n_sp1de,flxpts_1d_qp)
-    call weights_chebyshev_gauss(n_sp1de,flxwts_1d_qp)
-    write (iout,CG_error) "Flux"
-    call stop_recon(stop_mpi,"get_flux_points_2d")
-    !
-  else if (iop_flxpts == Chebyshev_Gauss_Lobatto) then
-    !
-    call nodes_chebyshev_gauss_lobatto(n_order,flxpts_1d_qp)
-    call weights_chebyshev_gauss_lobatto(n_order,flxwts_1d_qp)
-    write (iout,CGL_error) "Flux"
-    call stop_recon(stop_mpi,"get_flux_points_2d")
-    !
-  else
-    !
-    write (iout,PNT_error) "flux"
-    call stop_recon(stop_mpi,"get_flux_points_2d")
-    !
-  end if
-  !
-  flxpts_1d(:) = chop( flxpts_1d_qp(:) )
-  flxwts_1d(:) = chop( flxwts_1d_qp(:) )
-  !
- !!
- !! Now create the coordinates of the flux points on each face
- !!
- !allocate ( xyz_flxpts(1:nr,1:n_sp1de,1:nface) , source=zero , stat=ierr )
- !call alloc_error("get_flux_points_2d","xyz_flxpts",1,ierr)
- !!
- !do nf = 1,nface
- !  !
- !  n1 = nodes_on_face(1,nf)
- !  n2 = nodes_on_face(2,nf)
- !  !
- !  pt1(:) = xyz_nodes(:,n1)
- !  pt2(:) = xyz_nodes(:,n2)
- !  !
- !  delpt(:) = pt2(:) - pt1(:)
- !  !
- !  do n = 1,n_sp1de
- !    xyz_flxpts(:,n,nf) = pt1(:) + delpt(:)*(flxpts_1d(n)+one)/two
- !  end do
- !  !
- !end do
-  !
-end subroutine get_flux_points_2d
-!
-!###############################################################################
-!
 subroutine get_solution_points_2d()
   !
   use geovar
-  use ovar,           only : iop_solpts,iop_tripts,error_loc
+  use qpvar,          only : radau_1d_qp,radau_wts_1d_qp,radau_wts_2d_qp
+  use qpvar,          only : gauss_1d_qp,gauss_wts_1d_qp,gauss_wts_2d_qp
+  use qpvar,          only : lobatto_1d_qp,lobatto_wts_1d_qp,lobatto_wts_2d_qp
+  use qpvar,          only : solpts_1d_qp,solwts_1d_qp,vp_qp,rs_qp
+  use qpvar,          only : flxpts_1d_qp,flxwts_1d_qp,weights2d_qp
+  use ovar,           only : iop_solpts,iop_flxpts,iop_tripts,error_loc
   use metvar,         only : d1_mat
   use polynomial_mod, only : nodes_legendre_gauss, &
                              nodes_legendre_gauss_lobatto, &
@@ -195,20 +106,6 @@ subroutine get_solution_points_2d()
   !.. Local Arrays ..
   real(wp), dimension(1:nr,1:4) :: xy
   real(wp), dimension(1:n_sp1de) :: vp
-  !
-  !.. Local Quad Precision Arrays ..
-  real(qp), dimension(1:n_sp1de) :: vp_qp
-  real(qp), dimension(1:n_sp1de) :: radau_1d_qp
-  real(qp), dimension(1:n_sp1de) :: radau_wts_1d_qp
-  real(qp), dimension(1:n_sp2dq) :: radau_wts_2d_qp
-  real(qp), dimension(1:n_sp1de) :: gauss_1d_qp
-  real(qp), dimension(1:n_sp1de) :: gauss_wts_1d_qp
-  real(qp), dimension(1:n_sp2dq) :: gauss_wts_2d_qp
-  real(qp), dimension(1:n_sp1de) :: lobatto_1d_qp
-  real(qp), dimension(1:n_sp1de) :: lobatto_wts_1d_qp
-  real(qp), dimension(1:n_sp2dq) :: lobatto_wts_2d_qp
-  real(qp), dimension(1:n_sp1de) :: solpts_1d_qp
-  real(qp), dimension(1:n_sp1de) :: solwts_1d_qp
   !
 continue
   !
@@ -253,6 +150,16 @@ continue
   allocate ( solwts_1d(1:n_sp1de) , source=zero , stat=ierr )
   call alloc_error("get_solution_points_2d","solwts_1d",1,ierr)
   !
+  allocate ( flxpts_1d(1:n_sp1de) , source=zero , stat=ierr )
+  call alloc_error("get_solution_points_2d","flxpts_1d",1,ierr)
+  allocate ( flxwts_1d(1:n_sp1de) , source=zero , stat=ierr )
+  call alloc_error("get_solution_points_2d","flxwts_1d",1,ierr)
+  !
+  allocate ( rs(1:nr,1:n_sp2dt) , source=zero , stat=ierr )
+  call alloc_error("get_solution_points_2d","rs",1,ierr)
+  allocate ( weights2d(1:n_sp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("get_solution_points_2d","weights2d",1,ierr)
+  !
   ! #####################################################################
   ! #####################################################################
   ! ##     USE QUAD PRECISION ARRAYS TO CREATE ALL OF THE ARRAYS       ##
@@ -260,6 +167,46 @@ continue
   ! ##  EVERYTHING WITH AN ABSOLUTE VALUE SMALLER THAN EPSILON(0_WP).  ##
   ! #####################################################################
   ! #####################################################################
+  !
+  ! Allocate the quad precision arrays
+  !
+  allocate ( radau_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","radau_1d_qp",1,ierr)
+  allocate ( radau_wts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","radau_wts_1d_qp",1,ierr)
+  allocate ( radau_wts_2d_qp(1:n_sp2dq) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","radau_wts_2d_qp",1,ierr)
+  !
+  allocate ( gauss_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","gauss_1d_qp",1,ierr)
+  allocate ( gauss_wts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","gauss_wts_1d_qp",1,ierr)
+  allocate ( gauss_wts_2d_qp(1:n_sp2dq) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","gauss_wts_2d_qp",1,ierr)
+  !
+  allocate ( lobatto_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","lobatto_1d_qp",1,ierr)
+  allocate ( lobatto_wts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","lobatto_wts_1d_qp",1,ierr)
+  allocate ( lobatto_wts_2d_qp(1:n_sp2dq) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","lobatto_wts_2d_qp",1,ierr)
+  !
+  allocate ( solpts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","solpts_1d_qp",1,ierr)
+  allocate ( solwts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","solwts_1d_qp",1,ierr)
+  allocate ( vp_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","vp_qp",1,ierr)
+  !
+  allocate ( flxpts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","flxpts_1d_qp",1,ierr)
+  allocate ( flxwts_1d_qp(1:n_sp1de) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","flxwts_1d_qp",1,ierr)
+  !
+  allocate ( rs_qp(1:nr,1:n_sp2dt) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","rs_qp",1,ierr)
+  allocate ( weights2d_qp(1:n_sp2dq,1:2) , source=qzero , stat=ierr )
+  call alloc_error("get_solution_points_2d","weights2d_qp",1,ierr)
   !
   ! Create the 1D arrays for the locations of the Gauss, Lobatto,
   ! and Radau solution points and their corresponding weights
@@ -294,8 +241,8 @@ continue
     !
   else if (iop_solpts == Chebyshev_Gauss) then
     !
-    call nodes_chebyshev_gauss(n_order+1,solpts_1d_qp)
-    call weights_chebyshev_gauss(n_order+1,solwts_1d_qp)
+    call nodes_chebyshev_gauss(n_sp1de,solpts_1d_qp)
+    call weights_chebyshev_gauss(n_sp1de,solwts_1d_qp)
     write (iout,CG_error) "Solution"
     call stop_recon(stop_mpi,"get_solution_points_2d")
     !
@@ -312,6 +259,88 @@ continue
     call stop_recon(stop_mpi,"get_solution_points_2d")
     !
   end if
+  !
+  ! Now get the 1D flux points
+  !
+  if (iop_flxpts == Legendre_Gauss) then
+    !
+    flxpts_1d_qp(:) = gauss_1d_qp(:)
+    flxwts_1d_qp(:) = gauss_wts_1d_qp(:)
+    !
+  else if (iop_flxpts == Legendre_Gauss_Lobatto) then
+    !
+    flxpts_1d_qp(:) = lobatto_1d_qp(:)
+    flxwts_1d_qp(:) = lobatto_wts_1d_qp(:)
+    !
+  else if (iop_flxpts == Chebyshev_Gauss) then
+    !
+    call nodes_chebyshev_gauss(n_sp1de,flxpts_1d_qp)
+    call weights_chebyshev_gauss(n_sp1de,flxwts_1d_qp)
+    write (iout,CG_error) "Flux"
+    call stop_recon(stop_mpi,"get_solution_points_2d")
+    !
+  else if (iop_flxpts == Chebyshev_Gauss_Lobatto) then
+    !
+    call nodes_chebyshev_gauss_lobatto(n_order,flxpts_1d_qp)
+    call weights_chebyshev_gauss_lobatto(n_order,flxwts_1d_qp)
+    write (iout,CGL_error) "Flux"
+    call stop_recon(stop_mpi,"get_solution_points_2d")
+    !
+  else
+    !
+    write (iout,PNT_error) "flux"
+    call stop_recon(stop_mpi,"get_solution_points_2d")
+    !
+  end if
+  !
+  ! Get the coordinates of the base triangle in r-s space
+  !
+  if (iop_tripts == DG_TriPoints) then
+    rs_qp(:,:) = TriNodes2D_DG(n_order,qzero)
+  else if (iop_tripts == HT_TriPoints) then
+    rs_qp(:,:) = TriNodes2D_HT(n_order,qzero)
+  end if
+  !
+  ! r and s come out defined on the interval [0,1]
+  !
+  ! Get the triangle and quadrilateral weights at the solution points
+  !
+  weights2d_qp(1:n_sp2dt,1) = get_triangle_weights_at_solpts(rs_qp)
+  !
+  if (abs(error_loc) == 1) then
+    !
+    vp_qp(:) = merge( gauss_1d_qp(:) , radau_1d_qp(:) , error_loc > 0 )
+    !
+    weights2d_qp(1:n_sp2dq,2) = merge( gauss_wts_2d_qp(1:n_sp2dq) , &
+                                       radau_wts_2d_qp(1:n_sp2dq) , &
+                                       error_loc > 0 )
+    !
+  else
+    !
+    vp_qp(:) = solpts_1d_qp(:)
+    !
+    weights2d_qp(1:n_sp2dq,2) = get_quad_weights_at_solpts(solwts_1d_qp)
+    !
+  end if
+  !
+  ! Chop the quad precision arrays
+  !
+  radau_1d_qp       = chop_qp( radau_1d_qp )
+  radau_wts_1d_qp   = chop_qp( radau_wts_1d_qp )
+  radau_wts_2d_qp   = chop_qp( radau_wts_2d_qp )
+  gauss_1d_qp       = chop_qp( gauss_1d_qp )
+  gauss_wts_1d_qp   = chop_qp( gauss_wts_1d_qp )
+  gauss_wts_2d_qp   = chop_qp( gauss_wts_2d_qp )
+  lobatto_1d_qp     = chop_qp( lobatto_1d_qp )
+  lobatto_wts_1d_qp = chop_qp( lobatto_wts_1d_qp )
+  lobatto_wts_2d_qp = chop_qp( lobatto_wts_2d_qp )
+  solpts_1d_qp      = chop_qp( solpts_1d_qp )
+  solwts_1d_qp      = chop_qp( solwts_1d_qp )
+  flxpts_1d_qp      = chop_qp( flxpts_1d_qp )
+  flxwts_1d_qp      = chop_qp( flxwts_1d_qp )
+  vp_qp             = chop_qp( vp_qp )
+  rs_qp             = chop_qp( rs_qp )
+  weights2d_qp      = chop_qp( weights2d_qp )
   !
   ! ##############################################
   ! ##############################################
@@ -331,47 +360,18 @@ continue
   lobatto_wts_2d(:) = chop( lobatto_wts_2d_qp(:) )
   solpts_1d(:)      = chop( solpts_1d_qp(:) )
   solwts_1d(:)      = chop( solwts_1d_qp(:) )
+  flxpts_1d(:)      = chop( flxpts_1d_qp(:) )
+  flxwts_1d(:)      = chop( flxwts_1d_qp(:) )
+  vp(:)             = chop( vp_qp(:) )
+  rs(:,:)           = chop( rs_qp(:,:) )
+  weights2d(:,:)    = chop( weights2d_qp(:,:) )
+  !
   !
   ! ######################################################################
   ! ######################################################################
   ! ##  CONTINUE ON AND COMPUTE THE COORDINATES OF THE SOLUTION POINTS  ##
   ! ######################################################################
   ! ######################################################################
-  !
-  ! Get the coordinates of the base triangle in r-s space
-  !
-  allocate ( rs(1:nr,1:n_sp2dt) , source=zero , stat=ierr )
-  call alloc_error("get_solution_points_2d","rs",1,ierr)
-  allocate ( weights2d(1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_solution_points_2d","weights2d",1,ierr)
-  !
-  if (iop_tripts == DG_TriPoints) then
-    rs(:,:) = TriNodes2D_DG(n_order)
-  else if (iop_tripts == HT_TriPoints) then
-    rs(:,:) = TriNodes2D_HT(n_order)
-  end if
-  !
-  ! r and s come out defined on the interval [0,1]
-  !
-  ! Get the triangle and quadrilateral weights at the solution points
-  !
-  weights2d(1:n_sp2dt,1) = get_triangle_weights_at_solpts(rs)
-  !
-  if (abs(error_loc) == 1) then
-    !
-    vp(:) = merge( gauss_1d(:) , radau_1d(:) , error_loc > 0 )
-    !
-    weights2d(1:n_sp2dq,2) = merge( gauss_wts_2d(1:n_sp2dq) , &
-                                    radau_wts_2d(1:n_sp2dq) , &
-                                    error_loc > 0 )
-    !
-  else
-    !
-    vp(:) = solpts_1d(:)
-    !
-    weights2d(1:n_sp2dq,2) = get_quad_weights_at_solpts(solwts_1d)
-    !
-  end if
   !
   ! Save the number of solution points within a cell to pts_in_cell_ptr
   !
@@ -502,28 +502,33 @@ end function get_solution_points_quad
 !
 !###############################################################################
 !
-pure function get_triangle_weights_at_solpts(rs) result(return_value)
+pure function get_triangle_weights_at_solpts_DP(rs) result(return_value)
   !
   ! NOTE : This seems to fail for large n_order (>15)
   !
   use polynomial_mod, only : nodes_legendre_gauss, &
                              weights_legendre_gauss
-  use startup_mod, only : invert_matrix
   !
-  real(vbp), dimension(:,:), intent(in) :: rs
+  real(dp), dimension(:,:), intent(in) :: rs
   !
-  real(vbp), dimension(1:size(rs,2)) :: return_value
+  real(dp), dimension(1:size(rs,2)) :: return_value
   !
-  integer   :: i,j,k,n,m,np
-  integer   :: nspts,nfpts
-  real(vbp) :: g,h,x,y
+  integer  :: i,j,k,n,m,np
+  integer  :: nspts,nfpts
+  real(dp) :: g,h,x,y
   !
   integer, parameter :: nquad = 20
   !
-  real(vbp), dimension(1:nquad)                   :: xi
-  real(vbp), dimension(1:nquad)                   :: dxi
-  real(vbp), dimension(1:nquad)                   :: weights
-  real(vbp), dimension(1:size(rs,2),1:size(rs,2)) :: V
+  real(dp), dimension(1:nquad)                   :: xi
+  real(dp), dimension(1:nquad)                   :: dxi
+  real(dp), dimension(1:nquad)                   :: weights
+  real(dp), dimension(1:size(rs,2),1:size(rs,2)) :: V
+  !
+  integer, parameter :: lp = dp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
   !
 continue
   !
@@ -614,7 +619,128 @@ continue
     !
   end do
   !
-end function get_triangle_weights_at_solpts
+end function get_triangle_weights_at_solpts_DP
+!
+!###############################################################################
+!
+pure function get_triangle_weights_at_solpts_QP(rs) result(return_value)
+  !
+  ! NOTE : This seems to fail for large n_order (>15)
+  !
+  use polynomial_mod, only : nodes_legendre_gauss, &
+                             weights_legendre_gauss
+  !
+  real(qp), dimension(:,:), intent(in) :: rs
+  !
+  real(qp), dimension(1:size(rs,2)) :: return_value
+  !
+  integer  :: i,j,k,n,m,np
+  integer  :: nspts,nfpts
+  real(qp) :: g,h,x,y
+  !
+  integer, parameter :: nquad = 20
+  !
+  real(qp), dimension(1:nquad)                   :: xi
+  real(qp), dimension(1:nquad)                   :: dxi
+  real(qp), dimension(1:nquad)                   :: weights
+  real(qp), dimension(1:size(rs,2),1:size(rs,2)) :: V
+  !
+  integer, parameter :: lp = qp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  ! On entry, r and s need to be defined on the interval [0,1]
+  !
+  nspts = size(rs,2)
+  nfpts = np2nfp(nspts)
+  !
+  ! Compute the coefficients of the Vandermonde matrix for
+  ! the Lagrange polynomials using monomial basis functions
+  !
+  do n = 1,nspts
+    k = 0
+    do i = 1,nfpts
+      do j = 1,i
+        k = k + 1
+        V(k,n) = rs(1,n)**(i-j) * rs(2,n)**(j-1)
+      end do
+    end do
+  end do
+  !
+  ! Now get the inverse of this matrix for use later
+  !
+  V = invert_matrix(V)
+  !
+  ! Get the Gauss quadrature points on the interval [-1,1] and
+  ! the corresponding weights necessary to perform the integration
+  !
+  call nodes_legendre_gauss(nquad,xi,dxi)
+  call weights_legendre_gauss(nquad,xi,dxi,weights)
+  !
+  ! Reset the quadrature points and weights to the interval [0,1]
+  !
+  xi(:) = half*(one+xi(:))
+  weights(:) = half*weights(:)
+  !
+  ! Initialize the triangle weights to zero
+  !
+  return_value(:) = zero
+  !
+  ! Loop over each solution point performing a double integral on the
+  ! corresponding Lagrange polynomial over the domain of the triangle
+  ! i.e., ipt    : current solution point
+  !       L(ipt) : Lagrange polynomial for ipt
+  !
+  !   /\ 1    /\ 1-xi
+  !   |       |
+  !   | d(xi) | d(eta) [L(ipt)]
+  !   |       |
+  !  \/ 0    \/ 0
+  !
+  do np = 1,nspts
+    !
+    ! Outer integral loop
+    !
+    outer_integral: do n = 1,nquad
+      !
+      ! Inner integral loop
+      !
+      h = zero
+      inner_integral: do m = 1,nquad
+        !
+        x = xi(n)
+        y = (one-xi(n))*xi(m)
+        !
+        ! Evaluate the polynomial at the point x,y
+        !
+        k = 0
+        g = zero
+        do i = 1,nfpts
+          do j = 1,i
+            k = k + 1
+            g = g + V(np,k) * x**(i-j) * y**(j-1)
+          end do
+        end do
+        !
+        ! Add the weighted polynomial value to the inner integral result
+        !
+        h = h + (one-xi(n)) * weights(m) * g
+        !
+      end do inner_integral
+      !
+      ! Add the weighted inner integral result to the outer integral result
+      !
+      return_value(np) = return_value(np) + weights(n) * h
+      !
+    end do outer_integral
+    !
+  end do
+  !
+end function get_triangle_weights_at_solpts_QP
 !
 !###############################################################################
 !
@@ -1029,10 +1155,6 @@ continue
   ! Get the cells on each face
   !
   call find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
-  !
-  ! Now that we have the face connectivity, get the flux points on each face
-  !
-  call get_flux_points_2d
   !
   ! Get the solution points on each face
   !
@@ -1537,15 +1659,12 @@ continue
     else if (sum(lnode(2:3)) == 2) then
       cells_on_face(3,nf) = 2
       cells_on_face(5,nf) = n_sp1de + 1
-     !cells_on_face(5,nf) = n_qp1de + 1
     else if (sum(lnode(3:4)) == 2) then
       cells_on_face(3,nf) = 3
       cells_on_face(5,nf) = 2*n_sp1de + 1
-     !cells_on_face(5,nf) = 2*n_qp1de + 1
     else
       cells_on_face(3,nf) = 4
       cells_on_face(5,nf) = merge(2,3,n2-n1+1==3)*n_sp1de + 1
-     !cells_on_face(5,nf) = merge(2,3,n2-n1+1==3)*n_qp1de + 1
     end if
     !
     ! Now the right cell on the current face
@@ -1590,19 +1709,15 @@ continue
       if (sum(lnode(1:2)) == 2) then
         cells_on_face(4,nf) = 1
         cells_on_face(6,nf) = n_sp1de
-       !cells_on_face(6,nf) = n_qp1de
       else if (sum(lnode(2:3)) == 2) then
         cells_on_face(4,nf) = 2
         cells_on_face(6,nf) = 2*n_sp1de
-       !cells_on_face(6,nf) = 2*n_qp1de
       else if (sum(lnode(3:4)) == 2) then
         cells_on_face(4,nf) = 3
         cells_on_face(6,nf) = 3*n_sp1de
-       !cells_on_face(6,nf) = 3*n_qp1de
       else
         cells_on_face(4,nf) = 4
         cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_sp1de
-       !cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_qp1de
       end if
       !
     else
@@ -1625,19 +1740,15 @@ continue
       if (sum(lnode(1:2)) == 2) then
         cells_on_face(4,nf) = 1
         cells_on_face(6,nf) = n_sp1de
-       !cells_on_face(6,nf) = n_qp1de
       else if (sum(lnode(2:3)) == 2) then
         cells_on_face(4,nf) = 2
         cells_on_face(6,nf) = 2*n_sp1de
-       !cells_on_face(6,nf) = 2*n_qp1de
       else if (sum(lnode(3:4)) == 2) then
         cells_on_face(4,nf) = 3
         cells_on_face(6,nf) = 3*n_sp1de
-       !cells_on_face(6,nf) = 3*n_qp1de
       else
         cells_on_face(4,nf) = 4
         cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_sp1de
-       !cells_on_face(6,nf) = merge(3,4,n2-n1+1==3)*n_qp1de
       end if
       !
     end if
@@ -1744,22 +1855,20 @@ end subroutine find_points_on_each_face
 subroutine find_flxpts_of_each_cell()
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,ncell,n_totcel,nface,n_sp1de,n_flxpts,nflxprm
+  use geovar, only : nfbnd,ncell,n_totcel,nface,n_sp1de,n_fp1de,nflxprm
   use geovar, only : flxpts_of_cell_ptr,flxpts_of_cell,bface
   use geovar, only : cells_on_face,nodes_of_cell_ptr
   !
   !.. Local Scalars ..
   integer :: n,nf,ierr,k
-  integer :: jl,lf1,lf2,lk1,lk,lfp
-  integer :: jr,rf1,rf2,rk1,rk,rfp
+  integer :: jl,lf1,lf2,lk1,lk,lfp,lkbg
+  integer :: jr,rf1,rf2,rk1,rk,rfp,rkbg
   !
   !.. Local Parameters ..
   integer, parameter :: left_side = 1
   integer, parameter :: right_side = 2
   !
 continue
-  !
-  n_flxpts = nface*n_sp1de
   !
   ! Create the pointer for the flxpts_of_cell array
   !
@@ -1772,7 +1881,7 @@ continue
   !
   do n = 1,ncell
     k = nodes_of_cell_ptr(n+1) - nodes_of_cell_ptr(n)
-    flxpts_of_cell_ptr(n+1) = flxpts_of_cell_ptr(n) + k*n_sp1de
+    flxpts_of_cell_ptr(n+1) = flxpts_of_cell_ptr(n) + k*n_fp1de
   end do
   !
   ! Allocate the flxpts_of_cell array
@@ -1791,12 +1900,14 @@ continue
     lf1 = flxpts_of_cell_ptr(jl)+1 ! beginning flxpt index for left  cell
     lf2 = flxpts_of_cell_ptr(jl+1) ! ending    flxpt index for left  cell
     !
-    lk1 = cells_on_face(5,nf) ! beginning flxpt on current face for left  cell
+    lkbg = (cells_on_face(5,nf)-1)/n_sp1de
+    !
+    lk1 = lkbg*n_fp1de + 1 ! beginning flxpt on current face for left  cell
     !
     ! Loop through each flux point on the current face and get
     ! the flux point information for both cells on this face
     !
-    do k = 1,n_sp1de
+    do k = 1,n_fp1de
       !
       lk = lk1-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
       !
@@ -1825,13 +1936,16 @@ continue
     rf1 = flxpts_of_cell_ptr(jr)+1 ! beginning flxpt index for right cell
     rf2 = flxpts_of_cell_ptr(jr+1) ! ending    flxpt index for right cell
     !
-    lk1 = cells_on_face(5,nf) ! beginning flxpt on current face for left  cell
-    rk1 = cells_on_face(6,nf) ! beginning flxpt on current face for right cell
+    lkbg = (cells_on_face(5,nf)-1)/n_sp1de
+    rkbg = (cells_on_face(6,nf)-0)/n_sp1de
+    !
+    lk1 = lkbg*n_fp1de + 1 ! beginning flxpt on current face for left  cell
+    rk1 = rkbg*n_fp1de     ! beginning flxpt on current face for right cell
     !
     ! Loop through each flux point on the current face and get
     ! the flux point information for both cells on this face
     !
-    do k = 1,n_sp1de
+    do k = 1,n_fp1de
       !
       lk = lk1-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
       rk = rk1+1 - k ! idx of current flxpt for right cell (from 1 to rf2-rf1+1)
@@ -1871,7 +1985,7 @@ continue
  !      else
  !       !write (101+mypnum,2) nf,flxpts_of_cell(1:4,k)
  !      end if
- !    else if (mod(k-lf1+n_sp1de,n_sp1de) == 0) then
+ !    else if (mod(k-lf1+n_fp1de,n_fp1de) == 0) then
  !      if (flxpts_of_cell(1,k) <= nfbnd) then
  !        write (101+mypnum,8) nf,flxpts_of_cell(1:4,k)
  !      else
@@ -2047,37 +2161,46 @@ end subroutine get_periodic_connectivity
 subroutine get_unit_cell_subconnectivity()
   !
   !.. Use Statements ..
-  use geovar
+  use geovar, only : n_order,o_order,tria_connectivity,quad_connectivity
   !
   !.. Local Scalars ..
-  integer :: j1,j2,j3,j4,n,m,sk,ierr
+  integer :: j1,j2,j3,j4,n,m,sk,ierr,no1d,noc
   !
   !.. Local Arrays ..
-  integer, dimension(1:n_sp1de,1:n_sp1de) :: counter
+  integer, allocatable, dimension(:,:) :: counter
   !
 continue
   !
+  if (o_order <= 0) then
+    no1d = n_order
+  else
+    no1d = o_order
+  end if
+  !
+  noc = no1d*no1d
+  !
   ! Allocate tria_connectivity and quad_connectivity
   !
-  allocate ( tria_connectivity(1:4,1:n_sp2dq) , source=0 , stat=ierr )
+  allocate ( counter(1:no1d+1,1:no1d+1) , source=0 , stat=ierr )
+  call alloc_error("get_unit_cell_subconnectivity","counter",1,ierr)
+  allocate ( tria_connectivity(1:4,1:noc) , source=0 , stat=ierr )
   call alloc_error("get_unit_cell_subconnectivity","tria_connectivity",1,ierr)
-  allocate ( quad_connectivity(1:4,1:n_sp2dq) , source=0 , stat=ierr )
+  allocate ( quad_connectivity(1:4,1:noc) , source=0 , stat=ierr )
   call alloc_error("get_unit_cell_subconnectivity","quad_connectivity",1,ierr)
-  counter(:,:) = 0
   !
   ! Get the subconnectivity for the unit triangle
   !
   sk = 0
-  do n = 1,n_order+1
-    do m = 1,n_order+2-n
+  do n = 1,no1d+1
+    do m = 1,no1d+2-n
       sk = sk + 1
       counter(n,m) = sk
     end do
   end do
   !
   sk = 0
-  do n = 1,n_order+1
-    do m = 1,n_order+1-n
+  do n = 1,no1d+1
+    do m = 1,no1d+1-n
       !
       j1 = counter(n,m)
       j2 = counter(n,m+1)
@@ -2104,14 +2227,14 @@ continue
   ! Get the subconnectivity for the unit square
   !
   sk = 0
-  do n = 1,n_order
-    do m = 1,n_order
+  do n = 1,no1d
+    do m = 1,no1d
       !
       sk = sk + 1
-      quad_connectivity(1,sk) = (n_order+1)*(n-1) + m
-      quad_connectivity(2,sk) = (n_order+1)*(n-1) + m + 1
-      quad_connectivity(3,sk) = (n_order+1)*(n  ) + m + 1
-      quad_connectivity(4,sk) = (n_order+1)*(n  ) + m
+      quad_connectivity(1,sk) = (no1d+1)*(n-1) + m
+      quad_connectivity(2,sk) = (no1d+1)*(n-1) + m + 1
+      quad_connectivity(3,sk) = (no1d+1)*(n  ) + m + 1
+      quad_connectivity(4,sk) = (no1d+1)*(n  ) + m
       !
     end do
   end do

@@ -17,6 +17,7 @@ module io_mod
   ! Module public procedures
   !
   public :: read_input_file
+  public :: read_input_file_test
   public :: read_grid_file
   public :: read_restart_file
   public :: write_restart_file
@@ -65,7 +66,11 @@ module io_mod
   !
  !integer, parameter :: file_type = CG_FILE_ADF 
  !integer, parameter :: file_type = CG_FILE_ADF2
+#ifdef DCGNS_ADF
+  integer, parameter :: file_type = CG_FILE_ADF2
+#else
   integer, parameter :: file_type = CG_FILE_HDF5
+#endif
   !
   integer, save :: ifile_n
   integer, save :: ibase_n
@@ -134,8 +139,9 @@ subroutine read_input_file
   !...
   !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
   !
-  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar, only : n_order_qp,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
+  use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
+  use geovar, only : o_order
+  use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
   use ovar,   only : itestcase,num_stages,irestart, &
                      flux_divergence,iop_correction, &
                      num_ts,cfl,dt_in,gam,output_solution, &
@@ -145,7 +151,7 @@ subroutine read_input_file
                      Final_Time,Total_Periods, &
                      iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
                      Filter_Option,Filter_Order, &
-                     Filter_Cutoff,Filter_Alpha, &
+                     Filter_Cutoff,Filter_Alpha,Filter_etac, &
                      rhoref,tref,pref,machref,aoaref, &
                      vxref,vyref,aref,uref,rgasref, &
                      metis_option,init_loc,error_loc, &
@@ -158,10 +164,10 @@ subroutine read_input_file
   integer   :: Period_Timesteps_X,Period_Timesteps_Y
   real(vbp) :: Period_Time_X,Period_Time_Y
   real(vbp) :: real_Total_Periods
-  real(vbp) :: etac,aoa_radians,pres_check
+  real(vbp) :: aoa_radians,pres_check
   !
   !.. Local Arrays ..
-  character(len=80), dimension(11) :: input_text
+  character(len=80), dimension(12) :: input_text
   !
 continue
   !
@@ -195,8 +201,9 @@ continue
   ! Read the polynomial order, node locations, and MeTiS option
   !
   read (inpt,1) input_text(3)
-  read (inpt,*) n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
+  read (inpt,*) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
   !
+  n_order = max(p_order,n_order)
   n_sp1de = n_order + 1
   n_sp2dt = n_sp1de*(n_sp1de+1)/2
   n_sp2dq = n_sp1de*n_sp1de
@@ -211,17 +218,23 @@ continue
   !
   read (inpt,1) input_text(4)
   read (inpt,*) flux_divergence, iop_correction, &
-                n_order_qp, iop_qdtpts, dflux_opt
+                q_order, iop_qdtpts, dflux_opt
   !
   ! Make sure the quadrature order is at least the same as the solution order
   !
-  n_order_qp = max(n_order,n_order_qp)
+  q_order = max(n_order,q_order)
   !
-  n_qp1de = n_order_qp + 1
+  n_qp1de = q_order + 1
   n_qp2dt = n_qp1de*(n_qp1de+1)/2
   n_qp2dq = n_qp1de*n_qp1de
   !
-  using_quadrature = .not. (n_order_qp==n_order .and. iop_solpts==iop_qdtpts)
+  using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
+  !
+  if (using_quadrature .and. dflux_opt == project_derivatives) then
+    n_fp1de = n_qp1de
+  else
+    n_fp1de = n_sp1de
+  end if
   !
   ! Read the testcase, Runge-Kutta options, restart, etc
   !
@@ -251,9 +264,9 @@ continue
   ! Read the filter options
   !
   read (inpt,1) input_text(7)
-  read (inpt,*) Filter_Option, etac, Filter_Order, Filter_Alpha
+  read (inpt,*) Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
   !
-  Filter_Cutoff = nint( max(zero, min(one,etac) ) * real(n_order,vbp) )
+  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,vbp) )
   !
   ! Read the output options and intervals
   !
@@ -272,6 +285,428 @@ continue
   read (inpt,1) input_text(11)
   read (inpt,*) ival,error_bound_limit
   bound_error = (ival /= 0)
+  !
+  ! Read the output order
+  !
+  read (inpt,1) input_text(12)
+  if (input_text(12)(1:1) /= "!") then
+    read (inpt,*) o_order
+    if (o_order > 0) o_order = max(o_order,n_order+0)
+  else
+    input_text(12) = " Output_Order"
+    o_order = -n_order
+  end if
+  !
+  ! Close the input file now that we are finished reading it
+  !
+  close (inpt,iostat=ierr)
+  call io_error("read_input_file","recon3.in",2,ierr)
+  !
+  ! Make any necessary adjustments to the input parameters
+  !
+  ! Check the reference conditions for consistency
+  !
+  if (rhoref < zero) then
+    rhoref = pref/(rgasref*tref)
+  else if (pref < zero) then
+    pref = rhoref*rgasref*tref
+  else if (tref < zero) then
+    tref = pref/(rgasref*rhoref)
+  else
+    pres_check = rhoref*rgasref*tref
+    if (abs(pres_check-pref) > eps6) then
+      write (iout,99) pref,pres_check
+      call stop_recon(stop_mpi,"read_input_file")
+    end if
+  end if
+  !
+  ! Compute some of the remaining reference conditions
+  !
+  aref = sqrt( gam * pref / rhoref )
+  uref = machref * aref
+  vxref = uref * cos(aoaref * degrees2radians)
+  vyref = uref * sin(aoaref * degrees2radians)
+  !
+  ! Redefine the reference conditions for the linear advection problems
+  ! and the original Shu vortex problem because using the dimensional speed
+  ! of sound for nondimensionalizing velocity will cause issues
+  !
+  if (any(itestcase == Advec_Problems) .or. &
+      abs(itestcase) == Shu_Vortex .or. &
+      itestcase == -Vortex_Transport) then
+    !
+    ! Alteration to make the Shu case propagate in the
+    ! y-direction only instead of in both x and y directions
+    !
+    if (itestcase == -Shu_Vortex) then
+      aoaref = 90.0_vbp
+      vxref = zero
+      vyref = zero
+      itestcase = abs(itestcase)
+    else if (itestcase == -Vortex_Transport) then
+      aoaref = 90.0_vbp
+      vxref = zero
+      vyref = one
+      itestcase = Shu_Vortex
+    else
+      aoaref = 45.0_vbp
+      vxref = one
+      vyref = one
+    end if
+    !
+    machref = one/sqrt(gam)
+    aref = one
+    uref = one
+    rhoref = one
+    pref = one
+    tref = one
+    rgasref = one
+    !
+  end if
+  !
+  ! Compute periodic information for the transport problems
+  !
+  if (any(itestcase == Transport_Problems)) then
+    !
+    cfl = one
+    !
+    if (abs(vxref) < eps3) then
+      !
+      Period_Time_Y = Grid_Length_Y * reciprocal(vyref/aref)
+      Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
+      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
+      Period_Timesteps = Period_Timesteps_Y
+      !
+     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+      !
+    else if (abs(vyref) < eps3) then
+      !
+      Period_Time_X = Grid_Length_X * reciprocal(vxref/aref)
+      Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
+      Period_Timesteps_X = nint(Period_Time_X/dt_in)
+      Period_Timesteps = Period_Timesteps_X
+      !
+     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+      !
+    else
+      !
+      Period_Time_X = Grid_Length_X / (vxref/aref)
+      Period_Time_Y = Grid_Length_Y / (vyref/aref)
+      !
+      Period_Timesteps_X = nint(Period_Time_X/dt_in)
+      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
+      !
+      if (Period_Timesteps_X == Period_Timesteps_Y) then
+        Period_Timesteps = Period_Timesteps_X
+      else
+        Period_Timesteps = Period_Timesteps_X * Period_Timesteps_Y &
+                         / mod( max(Period_Timesteps_X,Period_Timesteps_Y), &
+                                min(Period_Timesteps_X,Period_Timesteps_Y) )
+      end if
+      !
+     !if (mypnum == 0) then
+     !write (*,*) Period_Time_X,Period_Time_Y
+     !write (*,*) Period_Timesteps_X,Period_Timesteps_Y
+     !write (*,*) Period_Timesteps
+     !end if
+      !
+    end if
+    !
+    Period_Time = dt_in*real(Period_Timesteps,vbp)
+    !
+    ! If Final_Time is negative, it is giving the total
+    ! number of periods that the simulation will run
+    !
+    if (Final_Time < zero) then
+      Total_Periods = nint( abs(Final_Time) )
+      Final_Time = Period_Time * real(Total_Periods,vbp)
+    else
+      real_Total_Periods = Final_Time*reciprocal(Period_Time)
+      Total_Periods = nint(real_Total_Periods)
+      if (abs(real_Total_Periods-real(Total_Periods,vbp)) > ten*eps6) then
+        if (mypnum == 0) write (iout,2) real_Total_Periods
+      end if
+    end if
+   !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
+    !
+    num_ts = nint( Final_Time / dt_in )
+    !
+  end if
+  !
+  ! Determine the frequency of dumping the results and solution files
+  !
+  if (any(itestcase == Transport_Problems)) then
+    !
+    if (results_interval == 0) then
+      results_interval = max(Period_Timesteps/500,1)
+    else if (results_interval < 0) then
+      results_interval = max(Period_Timesteps/abs(results_interval),1)
+    end if
+    !
+    if (output_interval == 0) then
+      output_interval = Period_Timesteps
+    else if (output_interval < 0) then
+      output_interval = abs(output_interval)*Period_Timesteps
+    end if
+    !
+  end if
+  !
+  ! Now write out a copy of the input file to standard output
+  !
+  if (mypnum == 0) then
+    !
+    write (iout,*)
+    write (iout,1) trim(input_text(1))
+    write (iout,1) trim(output_dir)
+    write (iout,1) trim(input_text(2))
+    write (iout,50) grid_format, trim(gridfile)
+    write (iout,1) trim(input_text(3))
+    write (iout,51) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
+    write (iout,1) trim(input_text(4))
+    write (iout,52) flux_divergence, iop_correction, &
+                    q_order, iop_qdtpts, dflux_opt
+    write (iout,1) trim(input_text(5))
+    write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
+    write (iout,1) trim(input_text(6))
+    write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method
+    write (iout,1) trim(input_text(7))
+    write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
+                    Filter_Order, Filter_Alpha
+    write (iout,1) trim(input_text(8))
+    write (iout,56) output_solution, output_interval, &
+                    restart_interval, results_interval
+    write (iout,1) trim(input_text(11))
+    write (iout,57) bound_error,error_bound_limit
+    write (iout,1) trim(input_text(12))
+    write (iout,58) o_order
+    write (iout,*)
+    !
+  end if
+  !
+  1  format (a)
+  50 format (i8,8x,a)
+  51 format (3x,i2,7x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
+  52 format (7x,i2,15x,i2,2x,3(10x,i2))
+  53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
+  54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0)
+  55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
+  56 format (1x,i8,9x,i8,9x,i8,9x,i8)
+  57 format (6x,l1,12x,f8.3)
+  58 format (i7)
+  78 format (" Dimensional Free-stream conditions",/, &
+             " Density         = ",es14.6," kg/m^3",/, &
+             " Pressure        = ",es14.6," N/m^2",/, &
+             " Temperature     = ",es14.6," K",/, &
+             " Mach Number     = ",es14.6,/, &
+             " Speed of Sound  = ",es14.6," m/s",/, &
+             " Velocity        = ",es14.6," m/s",/, &
+             " Angle of Attack = ",es14.6," degrees"/, &
+             " Gamma           = ",es14.6,/, &
+             " Gas Constant    = ",es14.6," J/(kg*K)",/)
+  99 format (/, &
+     "****************************** ERROR ******************************",/, &
+     " Free-stream conditions in the input file are not consistent! ",/, &
+     " Reference pressure given    : ",es14.6,/, &
+     " Reference pressure computed : ",es14.6,/, &
+     " Please correct the input file or set one of density, pressure, ",/, &
+     " and temperature to a negative value so it is explicitly computed. ",/, &
+     "****************************** ERROR ******************************",/)
+  2 format (/," ********************* WARNING!!! *********************",/, &
+              "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
+              "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
+              "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
+              " ********************* WARNING!!! *********************",/)
+  !
+end subroutine read_input_file
+!
+!###############################################################################
+!
+subroutine read_input_file_test
+  !
+  !... kCE: number of points on each Curved Edge
+  !...(linear edge = 2; parabolic edge = 3)
+  !
+  !... itestcase = 3 for Shu's vortex problem;
+  !...           = 0 or 1 for bump problem
+  !...           = 2 Ringleb
+  !... iopSP = 1 Gauss points for SP; = 2 Lobatto points for SP;
+  !...       = 3 equi distant including two boundaries for SP
+  !... iopCE = 1 Gauss points for SP; = 2 Lobatto points for SP;
+  !...       = 3 equi distant including two boundaries for SP
+  !... we only use Lobatto and equidistant points here
+  !... irestart = 1 for restart run; = 0 for fresh start
+  !... flux_divergence = 1 calculate derivative (no interaction) using
+  !...               Lagrange polynomials
+  !...          = 2 calculate derivative (no interaction) using
+  !...               the chain rule for U
+  !...          = 3 calculate derivative (no interaction) using
+  !...               the chain rule for Uja
+  !... isupersonic = 1 for supersonic flow (bump problem),
+  !...             = 0 for subsonic
+  !...
+  !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
+  !
+  use geovar_test, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
+  use geovar_test, only : o_order
+  use geovar_test, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
+  use ovar_test,   only : itestcase,num_stages,irestart, &
+                     flux_divergence,iop_correction, &
+                     num_ts,cfl,dt_in,gam,output_solution, &
+                     output_interval,restart_interval, &
+                     results_interval,flux_method,dflux_opt, &
+                     iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
+                     Final_Time,Total_Periods, &
+                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
+                     Filter_Option,Filter_Order, &
+                     Filter_Cutoff,Filter_Alpha,Filter_etac, &
+                     rhoref,tref,pref,machref,aoaref, &
+                     vxref,vyref,aref,uref,rgasref, &
+                     metis_option,init_loc,error_loc, &
+                     Period_Timesteps,Period_Time
+  use ovar_test,   only : Grid_Length_X,Grid_Length_Y
+  use ovar_test,   only : bound_error,error_bound_limit
+  !
+  !.. Local Scalars ..
+  integer   :: it1,it2,ierr,ival
+  integer   :: Period_Timesteps_X,Period_Timesteps_Y
+  real(vbp) :: Period_Time_X,Period_Time_Y
+  real(vbp) :: real_Total_Periods
+  real(vbp) :: aoa_radians,pres_check
+  !
+  !.. Local Arrays ..
+  character(len=80) :: text
+  character(len=80), dimension(12) :: input_text
+  !
+continue
+  !
+  Final_Time = zero
+  !
+  open (inpt,file="recon3.in",status="old",action="read", &
+             form="formatted",iostat=ierr)
+  call io_error("read_input_file","recon3.in",1,ierr)
+  !
+  ! Read the title line of the input file and the output directory
+  !
+  read (inpt,1) input_text(1)
+  read (inpt,*) output_dir
+  !
+  output_dir = trim(adjustl(output_dir))
+  call check_output_dir
+  !
+  ! Append the name of the solution and error files to output_dir
+  !
+  fname_nodal = trim(output_dir)//"solution.nodal.cgns"
+  fname_modal = trim(output_dir)//"solution.modal.cgns"
+  error_file = trim(output_dir)//"error.dat"
+  !
+  ! Read the name of the grid file and its format
+  !
+  read (inpt,1) input_text(2)
+  read (inpt,*) grid_format, gridfile
+  !
+  gridfile = trim(adjustl(gridfile))
+  !
+  ! Read the polynomial order, node locations, and MeTiS option
+  !
+  read (inpt,1) input_text(3)
+ !read (inpt,*) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
+  read (inpt,1) text
+  !
+ !n_order = max(p_order,n_order)
+ !n_sp1de = n_order + 1
+ !n_sp2dt = n_sp1de*(n_sp1de+1)/2
+ !n_sp2dq = n_sp1de*n_sp1de
+  !
+  ! Now that we have the name of the grid file and the location
+  ! of the flux and solution points, read in the grid file
+  !
+  call read_grid_file
+  !
+  ! Read the option for computing the discontinuous flux derivatives
+  ! and the option of what variables to use when computing the flux corrections
+  !
+  read (inpt,1) input_text(4)
+ !read (inpt,*) flux_divergence, iop_correction, &
+ !              q_order, iop_qdtpts, dflux_opt
+  read (inpt,1) text
+  !
+  ! Make sure the quadrature order is at least the same as the solution order
+  !
+ !q_order = max(n_order,q_order)
+  !
+ !n_qp1de = q_order + 1
+ !n_qp2dt = n_qp1de*(n_qp1de+1)/2
+ !n_qp2dq = n_qp1de*n_qp1de
+  !
+ !using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
+  !
+  if (using_quadrature .and. dflux_opt == project_derivatives) then
+    n_fp1de = n_qp1de
+  else
+    n_fp1de = n_sp1de
+  end if
+  !
+  ! Read the testcase, Runge-Kutta options, restart, etc
+  !
+  read (inpt,1) input_text(5)
+  read (inpt,*) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
+  !
+  ! Make sure the number of RK stages is correct for some RK types
+  !
+  if (iRKtype == TVD2_RK) then
+    num_stages = 2
+  else if (iRKtype == TVD3_RK) then
+    num_stages = 3
+  else if (iRKtype == TVD4_RK) then
+    num_stages = 5
+  else if (iRKtype == CK4_RK) then
+    num_stages = 5
+  end if
+  !
+  if (all(abs(init_loc) /= [1,2])) init_loc = 0
+  if (abs(error_loc) /= 1) error_loc = 0
+  !
+  ! Read the time step information and the method for computing the interface fluxes
+  !
+  read (inpt,1) input_text(6)
+  read (inpt,*) num_ts, Final_Time, cfl, dt_in, flux_method
+  !
+  ! Read the filter options
+  !
+  read (inpt,1) input_text(7)
+ !read (inpt,*) Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+ !Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,vbp) )
+  read (inpt,1) text
+  !
+  ! Read the output options and intervals
+  !
+  read (inpt,1) input_text(8)
+  read (inpt,*) output_solution, output_interval, &
+                restart_interval, results_interval
+  !
+  ! Read the reference conditions for the flow variables
+  !
+  read (inpt,1) input_text(9)
+  read (inpt,1) input_text(10)
+  read (inpt,*) rhoref, tref, pref, machref, aoaref, gam, rgasref
+  !
+  ! Read the information on bounding the region to compute error
+  !
+  read (inpt,1) input_text(11)
+ !read (inpt,*) ival,error_bound_limit
+ !bound_error = (ival /= 0)
+  read (inpt,1) text
+  !
+  ! Read the output order
+  !
+  read (inpt,1) input_text(12)
+  if (input_text(12)(1:1) /= "!") then
+    read (inpt,*) o_order
+    if (o_order > 0) o_order = max(o_order,n_order+1)
+  else
+    o_order = -n_order
+    input_text(12) = " Output_Order"
+  end if
   !
   ! Close the input file now that we are finished reading it
   !
@@ -315,16 +750,19 @@ continue
     if (itestcase == -Shu_Vortex) then
       aoaref = 90.0_vbp
       vxref = zero
+      vyref = zero
+     !vyref = one
       itestcase = abs(itestcase)
     else
       aoaref = 45.0_vbp
       vxref = one
+      vyref = one
     end if
     !
     machref = one/sqrt(gam)
     aref = one
     uref = one
-    vyref = one
+   !vyref = one
     rhoref = one
     pref = one
     tref = one
@@ -340,7 +778,8 @@ continue
     !
     if (abs(vxref) < eps3) then
       !
-      Period_Time_Y = Grid_Length_Y / (vyref/aref)
+      Period_Time_Y = Grid_Length_Y * reciprocal(vyref/aref)
+      Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
       Period_Timesteps = Period_Timesteps_Y
       !
@@ -348,7 +787,8 @@ continue
       !
     else if (abs(vyref) < eps3) then
       !
-      Period_Time_X = Grid_Length_X / (vxref/aref)
+      Period_Time_X = Grid_Length_X * reciprocal(vxref/aref)
+      Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps = Period_Timesteps_X
       !
@@ -387,7 +827,7 @@ continue
       Total_Periods = nint( abs(Final_Time) )
       Final_Time = Period_Time * real(Total_Periods,vbp)
     else
-      real_Total_Periods = Final_Time/Period_Time
+      real_Total_Periods = Final_Time*reciprocal(Period_Time)
       Total_Periods = nint(real_Total_Periods)
       if (abs(real_Total_Periods-real(Total_Periods,vbp)) > ten*eps6) then
         if (mypnum == 0) write (iout,2) real_Total_Periods
@@ -409,36 +849,40 @@ continue
     write (iout,1) trim(input_text(2))
     write (iout,50) grid_format, trim(gridfile)
     write (iout,1) trim(input_text(3))
-    write (iout,51) n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
+    write (iout,51) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
     write (iout,1) trim(input_text(4))
     write (iout,52) flux_divergence, iop_correction, &
-                    n_order_qp, iop_qdtpts, dflux_opt
+                    q_order, iop_qdtpts, dflux_opt
     write (iout,1) trim(input_text(5))
     write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
     write (iout,1) trim(input_text(6))
     write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method
     write (iout,1) trim(input_text(7))
-    write (iout,55) Filter_Option, etac, Filter_Cutoff, &
+    write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
                     Filter_Order, Filter_Alpha
+   !write (iout,*) Filter_Cutoff_ktmod,Filter_Cutoff_ktmod2,Filter_Cutoff_ktmod3
     write (iout,1) trim(input_text(8))
     write (iout,56) output_solution, output_interval, &
                     restart_interval, results_interval
     write (iout,1) trim(input_text(11))
     write (iout,57) bound_error,error_bound_limit
+    write (iout,1) trim(input_text(12))
+    write (iout,58) o_order
     write (iout,*)
     !
   end if
   !
   1  format (a)
   50 format (i8,8x,a)
-  51 format (3x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
+  51 format (3x,i2,7x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
   52 format (7x,i2,15x,i2,2x,3(10x,i2))
   53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
   54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0)
   55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
   56 format (1x,i8,9x,i8,9x,i8,9x,i8)
   57 format (6x,l1,12x,f8.3)
-  58 format (" Dimensional Free-stream conditions",/, &
+  58 format (i7)
+  78 format (" Dimensional Free-stream conditions",/, &
              " Density         = ",es14.6," kg/m^3",/, &
              " Pressure        = ",es14.6," N/m^2",/, &
              " Temperature     = ",es14.6," K",/, &
@@ -462,7 +906,7 @@ continue
               "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
               " ********************* WARNING!!! *********************",/)
   !
-end subroutine read_input_file
+end subroutine read_input_file_test
 !
 !###############################################################################
 !
@@ -2490,7 +2934,7 @@ subroutine write_cgns_solution(iflag)
   use metvar,       only : dx,dy,dr_mat,ds_mat,jacobian
   use flowvar,      only : usp,vsp,uoldsp
   use parallel_mod, only : collect_global_solution
-  use generic_mod,  only : vsp2u
+  use generic_mod,  only : vsp2u,entropy_pv_sp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -2524,8 +2968,7 @@ continue
   !
   if (itestcase /= Density_Transport) then
     do k = 1,n_solpts
-      usp(4,k) = log( (vsp(neqns,k)/bc_in(neqns)) / &
-                      ((vsp(1,k)/bc_in(1))**gam) )
+      usp(4,k) = entropy_pv_sp( vsp(:,k) )
     end do
   else
     usp(4,1:n_solpts) = one
@@ -2548,8 +2991,8 @@ continue
       dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
       dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
       !
-     usp(2,k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
-                  ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+      usp(2,k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
+                   ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
       !
     end do
     !
@@ -2562,22 +3005,21 @@ continue
   ! Output the nodal and/or modal solution to the cgns file(s)
   !
   if (mypnum == 0) then
+   !do n = 1,size(bc_in)
+   !  write (iout,'(" bc_in(",i0,") = ",g12.4)') n,bc_in(n)
+   !end do
     if (output_solution == 1) then
       call write_nodal_cgns(iflag)
     else if (output_solution == 2) then
       call write_modal_cgns(iflag)
     else
-      call write_nodal_cgns(iflag)
       call write_modal_cgns(iflag)
+      call write_nodal_cgns(iflag)
     end if
    !call write_tecplot_exact_sol
   end if
   !
   call mpi_barrier(mpi_comm_world,mpierr)
- !!
- !! Convert output variables in usp back to conserved solution variables
- !!
- !usp(:,1:n_solpts) = vsp2u( vsp(:,1:n_solpts) )
   !
   ! Copy the saved conserved variables back into usp
   !
@@ -2590,12 +3032,12 @@ end subroutine write_cgns_solution
 subroutine write_nodal_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : n_order,n_sp2dt,neqns
+  use geovar,  only : p_order,n_order,n_sp2dt,n_sp2dq,neqns
   use geovar,  only : tria_connectivity,quad_connectivity
-  use ovar,    only : time,aref,uref,vxref,vyref
+  use ovar,    only : time,aref,uref,vxref,vyref,gam
   use ovar,    only : itcur,Period_Timesteps,Period_Time
   use ovar,    only : Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y
-  use generic_mod, only : usp2v
+  use generic_mod, only : usp2v,project_to_porder,entropy_pv_sp
   !
   !.. Aliased Use Statements ..
   use geovar,  only : ncell => n_global_cell
@@ -2610,9 +3052,10 @@ subroutine write_nodal_cgns(iflag)
   integer, intent(in) :: iflag
   !
   !.. Local Scalars ..
-  integer   :: i,j,n,n1,n2,ierr,p1
-  integer   :: nelem,kind_real
-  real(vbp) :: cvel
+  integer   :: i,j,n,n1,n2,ierr,p1,k,m
+  integer   :: nelem,kind_real,nsp,nw,np
+  integer   :: n_outpts,no1d,noc,nopt,nopq
+  real(vbp) :: cvel,sn,se
   real(vbp) :: delt_since_lastperiod
   real(vbp) :: delx,dely,xoffset,yoffset
   !
@@ -2621,19 +3064,37 @@ subroutine write_nodal_cgns(iflag)
   !.. Local Arrays ..
   integer, dimension(1:2) :: idata
   integer, dimension(1:3) :: idim1
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: ipelem
+  real(wp),  allocatable, dimension(:)   :: vartmp
   real(vhp), allocatable, dimension(:)   :: var
   !
 continue
   !
+  noc = size(tria_connectivity,2)
+  !
+  no1d = nint(sqrt(real(noc,kind=wp)))
+ !no1d = n_order
+  !
+ !noc = no1d*no1d
+  nopt = (no1d+1)*(no1d+2)/2
+  nopq = (no1d+1)*(no1d+1)
+  nelem = ncell*noc
+  !
+  n_outpts = 0
+  do n = 1,ncell
+    np = nodes_of_cell_ptr(n+1) - nodes_of_cell_ptr(n)
+    n_outpts = n_outpts + merge(nopt,nopq,np==3)
+  end do
   !
   ! Compute the time that has elapsed since the start of the current period
   !
   delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        / real(Period_Timesteps,vbp)
+                        * reciprocal( real(Period_Timesteps,vbp) )
   delt_since_lastperiod = delt_since_lastperiod * Period_Time
+ !delt_since_lastperiod = zero
   !
   ! Find the x and y distances the vortex has
   ! traveled since the start of the current period
@@ -2647,13 +3108,14 @@ continue
   delx = mod(delx,Grid_Length_X)
   dely = mod(dely,Grid_Length_Y)
   !
-  cvel = aref/uref
+  cvel = aref*reciprocal(uref)
  !cvel = one
   !
-  nelem = ncell*n_order*n_order
   kind_real = merge(RealDouble,RealSingle,kind(var)==vbp)
   !
-  allocate ( var(1:n_solpts) , source=real(0,vhp) , stat=ierr )
+  allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
+  call alloc_error("write_nodal_cgns","vartmp",1,ierr)
+  allocate ( var(1:n_outpts) , source=real(0,vhp) , stat=ierr )
   call alloc_error("write_nodal_cgns","var",1,ierr)
   !
   ! Open the cgns output file if iflag is 1
@@ -2678,39 +3140,44 @@ continue
     call alloc_error("write_nodal_cgns","ipelem",1,ierr)
     !
     j = 0
+    p1 = 1
     do n = 1,ncell
       n1 = nodes_of_cell_ptr(n)+1
       n2 = nodes_of_cell_ptr(n+1)
-      p1 = pts_in_cell_ptr(n)+1
-      do i = 1,n_order*n_order
+     !p1 = pts_in_cell_ptr(n)+1
+     !do i = 1,n_order*n_order
+      do i = 1,noc
         j = j + 1
         ipelem(:,j) = p1 + merge(tria_connectivity(:,i), &
                                  quad_connectivity(:,i), &
                                  n2-n1+1 == 3)
       end do
+      p1 = p1 + merge(nopt,nopq,n2-n1+1 == 3)
     end do
     !
     ! Write the title for this solution
     !
-    idim1(:) = [n_solpts,nelem,0]
+    idim1(:) = [n_outpts,nelem,0]
     call cg_zone_write_f(ifile_n,ibase_n,"Solution",idim1, &
                          Unstructured,izone_n,ierr)
     !
     ! Write the x-coordinates
     !
     do i = 1,n_solpts
-      var(i) = real(xyz(1,i),kind(var))
+      vartmp(i) = xyz(1,i)
     end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts,2) , kind(var) )
     call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateX", &
-                          var(1:n_solpts),icoord_n,ierr)
+                          var(1:n_outpts),icoord_n,ierr)
     !
     ! Write the y-coordinates
     !
     do i = 1,n_solpts
-      var(i) = real(xyz(2,i),kind(var))
+      vartmp(i) = xyz(2,i)
     end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts,2) , kind(var) )
     call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateY", &
-                          var(1:n_solpts),icoord_n,ierr)
+                          var(1:n_outpts),icoord_n,ierr)
     !
     ! Write the grid connectivity
     !
@@ -2770,58 +3237,65 @@ continue
   ! Density
   !
   do i = 1,n_solpts
-    var(i) = real(vsp(1,i),kind(var))
+    vartmp(i) = vsp(1,i)
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! x-velocity
   !
  !do i = 1,n_solpts
- !  var(i) = real(vsp(2,i)*cvel,kind(var))
+ !  vartmp(i) = vsp(2,i)*cvel
  !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
- !                      var(1:n_solpts),ifld_n,ierr)
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! y-velocity
   !
  !do i = 1,n_solpts
- !  var(i) = real(vsp(3,i)*cvel,kind(var))
+ !  vartmp(i) = vsp(3,i)*cvel
  !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
- !                      var(1:n_solpts),ifld_n,ierr)
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! Pressure
   !
  !do i = 1,n_solpts
- !  var(i) = real(vsp(4,i)*cvel**2,kind(var))
+ !  vartmp(i) = vsp(4,i)*cvel**2
  !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
- !                      var(1:n_solpts),ifld_n,ierr)
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! Mach number
   !
  !do i = 1,n_solpts
- !  var(i) = real(usp(1,i),kind(var))
+ !  vartmp(i) = usp(1,i)
  !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
- !                      var(1:n_solpts),ifld_n,ierr)
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! Entropy
   !
   do i = 1,n_solpts
-    var(i) = real(usp(4,i),kind(var))
+    vartmp(i) = usp(4,i)
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! Vorticity
   !
   do i = 1,n_solpts
-    var(i) = real(usp(2,i)*cvel,kind(var))
+    vartmp(i) = usp(2,i)*cvel
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! Create the exact solution at each solution point
   !
@@ -2831,6 +3305,8 @@ continue
     usp(:,i) = vortex2d( xyz(1,i)-xoffset , xyz(2,i)-yoffset )
   end do
   !
+  call project_to_porder(ncell,pts_in_cell_ptr,usp)
+  !
   ! Convert these to primitive variables
   !
   usp(1:neqns,1:n_solpts) = usp2v(usp(1:neqns,1:n_solpts))
@@ -2838,34 +3314,49 @@ continue
   ! Density error
   !
   do i = 1,n_solpts
-    var(i) = real(usp(1,i)-vsp(1,i),kind(var))
+    vartmp(i) = usp(1,i)-vsp(1,i)
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Density", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! x-velocity error
   !
   do i = 1,n_solpts
-    var(i) = real(usp(2,i)-vsp(2,i),kind(var))
+    vartmp(i) = usp(2,i)-vsp(2,i)
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityX", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! y-velocity Error
   !
   do i = 1,n_solpts
-    var(i) = real(usp(3,i)-vsp(3,i),kind(var))
+    vartmp(i) = usp(3,i)-vsp(3,i)
   end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
   call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityY", &
-                        var(1:n_solpts),ifld_n,ierr)
+                        var(1:n_outpts),ifld_n,ierr)
+  !
+  ! Entropy error
+  !
+  do i = 1,n_solpts
+    sn = entropy_pv_sp( vsp(:,i) )
+    se = entropy_pv_sp( usp(:,i) )
+    vartmp(i) = sn-se
+  end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Entropy", &
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! Pressure error
   !
  !do i = 1,n_solpts
- !  var(i) = real(usp(4,i)-vsp(4,i),kind(var))
+ !  vartmp(i) = usp(4,i)-vsp(4,i)
  !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Pressure", &
- !                      var(1:n_solpts),ifld_n,ierr)
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! Deallocate var array
   !
@@ -3146,7 +3637,6 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , vsp(1,n1:n2) ) , kind(var) )
-   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , vsp(1,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Density", &
                         var(1:n_solpts),ifld_m,ierr)
@@ -3157,9 +3647,7 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , vsp(2,n1:n2) ) , kind(var) )
-   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , vsp(2,n1:n2) ) , kind(var) )
   end do
- !var(1:n_solpts) = real( usp(2,1:n_solpts) , kind(var) )
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"VelocityX", &
                         var(1:n_solpts),ifld_m,ierr)
   !
@@ -3169,7 +3657,6 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , usp(4,n1:n2) ) , kind(var) )
-   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , usp(4,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Entropy", &
                         var(1:n_solpts),ifld_m,ierr)
@@ -3180,7 +3667,6 @@ continue
     n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     var(n1:n2) = real( matmul( vand_quad_inv , usp(2,n1:n2) ) , kind(var) )
-   !var(n1:n2) = real( matmul( transpose(vand_quad_inv) , usp(2,n1:n2) ) , kind(var) )
   end do
   call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Vorticity", &
                         var(1:n_solpts),ifld_m,ierr)
@@ -3376,6 +3862,77 @@ continue
   9 format ('VARIABLES = "X", "Y", "Density", "Vx", "Vy", "Pressure"')
   !
 end subroutine write_tecplot_partitions
+!
+!###############################################################################
+!
+pure function interpolate_for_output(array,npts,ityp) result(return_value)
+  !
+  !... calculates d(utd)/dt
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_sp2dt,o_order
+  use geovar,  only : interp_s2o
+  use geovar,  only : ncell => n_global_cell
+  use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
+  !
+  ! PTYPE : gives the location of the variables needing projection
+  !         = 1 -> at solution points
+  !         = 2 -> at Gauss    points
+  !         = 3 -> at Lobatto  points
+  !         = 4 -> at Radau    points
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: npts
+  real(wp), dimension(:), intent(in) :: array
+  integer,  optional,     intent(in) :: ityp
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:npts) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
+  !
+continue 
+  !
+  k1 = 0
+  !
+  if (npts == size(array)) then
+    !
+    do n = 1,npts
+      return_value(n) = array(n)
+    end do
+    !
+  else
+    !
+    if (present(ityp)) then
+      iloc = max(1,min(ityp,2))
+    else
+      iloc = 1
+    end if
+    !
+    nopt = (o_order+1)*(o_order+2)/2
+    nopq = (o_order+1)*(o_order+1)
+    !
+    do n = 1,ncell
+      !
+      n1 = pts_in_cell_ptr(n)+1
+      n2 = pts_in_cell_ptr(n+1)
+      nsp = n2-n1+1
+      nw = merge(1,2,nsp==n_sp2dt)
+      !
+      nop = merge(nopt,nopq,nsp==n_sp2dt)
+      !
+      do k = 1,nop
+        return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+      end do
+      !
+      k1 = k1 + nop
+      !
+    end do
+    !
+  end if
+  !
+end function interpolate_for_output
 !
 !###############################################################################
 !

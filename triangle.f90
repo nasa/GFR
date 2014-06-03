@@ -9,81 +9,76 @@ module triangle_mod
   !
   private
   !
- !include "kind_defs.h"
- !include "constants.h"
-  !
   public :: TriNodes2D_DG
   public :: TriNodes2D_HT
   !
-  real(vbp), parameter :: csq3  = sqrt(three)
-  real(vbp), parameter :: csq3i = one/csq3
-  real(vbp), parameter :: cxt   = cos( two*pi/three)
-  real(vbp), parameter :: cxr   = cos(four*pi/three)
-  real(vbp), parameter :: cyt   = sin( two*pi/three)
-  real(vbp), parameter :: cyr   = sin(four*pi/three)
+  interface EquiTriNodes2D
+    module procedure EquiTriNodes2D_DP, &
+                     EquiTriNodes2D_QP
+  end interface EquiTriNodes2D
   !
-  real(vbp), dimension(1:15), parameter :: &
-      alpopt = (/ 0.0000_vbp, 0.0000_vbp, 1.4152_vbp, 0.1001_vbp, 0.2751_vbp, &
-                  0.9800_vbp, 1.0999_vbp, 1.2832_vbp, 1.3648_vbp, 1.4773_vbp, &
-                  1.4959_vbp, 1.5743_vbp, 1.5770_vbp, 1.6223_vbp, 1.6258_vbp  /)
+  interface Warpfactor
+    module procedure Warpfactor_DP, &
+                     Warpfactor_QP
+  end interface Warpfactor 
   !
- !interface EquiTriNodes2D
- !  module procedure EquiTriNodes2D_DP, &
- !                   EquiTriNodes2D_QP
- !end interface EquiTriNodes2D
- !!
- !interface Warpfactor
- !  module procedure Warpfactor_DP, &
- !                   Warpfactor_QP
- !end interface Warpfactor 
- !!
- !interface Nodes2D
- !  module procedure Nodes2D_DP, &
- !                   Nodes2D_QP
- !end interface Nodes2D
- !!
- !interface xytors
- !  module procedure xytors_DP, &
- !                   xytors_QP
- !end interface xytors
- !!
- !interface TriNodes2D_DG
- !  module procedure TriNodes2D_DG_DP, &
- !                   TriNodes2D_DG_QP
- !end interface TriNodes2D_DG
- !!
- !interface TriNodes2D_HT
- !  module procedure TriNodes2D_HT_DP, &
- !                   TriNodes2D_HT_QP
- !end interface TriNodes2D_HT
+  interface Nodes2D
+    module procedure Nodes2D_DP, &
+                     Nodes2D_QP
+  end interface Nodes2D
+  !
+  interface xytors
+    module procedure xytors_DP, &
+                     xytors_QP
+  end interface xytors
+  !
+  interface TriNodes2D_DG
+    module procedure TriNodes2D_DG_DP, &
+                     TriNodes2D_DG_QP
+  end interface TriNodes2D_DG
+  !
+  interface TriNodes2D_HT
+    module procedure TriNodes2D_HT_DP, &
+                     TriNodes2D_HT_QP
+  end interface TriNodes2D_HT
   !
 contains
 !
 !###############################################################################
 !
-pure function EquiTriNodes2D(N) result(return_value)
+pure function EquiTriNodes2D_DP(N,val) result(return_value)
   !
-  integer, intent(in) :: N
+  integer,  intent(in) :: N
+  real(dp), intent(in) :: val
   !
-  real(vbp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = dp
   !
   integer :: i,j,k,np
   !
-  real(vbp) :: rN,ri,rj,r,s,t
+  real(lp) :: rN,ri,rj,r,s,t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  real(lp), parameter :: eps10 = 1.0e-10_lp
   !
 continue
   !
-  rN = max(real(N,vbp),eps10)
+  rN = max(real(N,kind=lp),eps10)
   np = (N+1)*(N+2)/2
   !
   k = 1
   do i = 1,N+1
     !
-    ri = real(i,vbp)
+    ri = real(i,kind=lp)
     !
     do j = 1,N+2-i
       !
-      rj = real(j,vbp)
+      rj = real(j,kind=lp)
       !
       r = (rj-one)/rN
       s = (ri-one)/rN
@@ -98,33 +93,90 @@ continue
     !
   end do
   !
-end function EquiTriNodes2D
+end function EquiTriNodes2D_DP
 !
 !###############################################################################
 !
-pure function Warpfactor(N,r) result(return_value)
+pure function EquiTriNodes2D_QP(N,val) result(return_value)
   !
-  use startup_mod,    only : invert_matrix, &
-                             Vandermonde1D
+  integer,  intent(in) :: N
+  real(qp), intent(in) :: val
+  !
+  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = qp
+  !
+  integer :: i,j,k,np
+  !
+  real(lp) :: rN,ri,rj,r,s,t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  real(lp), parameter :: eps10 = 1.0e-10_lp
+  !
+continue
+  !
+  rN = max(real(N,kind=lp),eps10)
+  np = (N+1)*(N+2)/2
+  !
+  k = 1
+  do i = 1,N+1
+    !
+    ri = real(i,kind=lp)
+    !
+    do j = 1,N+2-i
+      !
+      rj = real(j,kind=lp)
+      !
+      r = (rj-one)/rN
+      s = (ri-one)/rN
+      t = one - r - s
+      !
+      return_value(1,k) = r - t
+      return_value(2,k) = (two*s - r - t)*csq3i
+      !
+      k = k + 1
+      !
+    end do
+    !
+  end do
+  !
+end function EquiTriNodes2D_QP
+!
+!###############################################################################
+!
+pure function Warpfactor_DP(N,r) result(return_value)
+  !
+  use startup_mod,    only : Vandermonde1D
   use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
                              JacobiP => normalized_jacobi_poly
   !
-  integer, intent(in) :: N
-  real(vbp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  integer,  intent(in) :: N
+  real(dp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
   !
-  real(vbp), dimension(1:(N+1)*(N+2)/2) :: return_value
+  real(dp), dimension(1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = dp
   !
   !.. Local Scalars ..
-  integer   :: i,j,np,nn
-  real(vbp) :: sf
+  integer  :: i,j,np,nn
+  real(lp) :: sf
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:N+1) :: LGL_nodes
-  real(vbp), dimension(1:N+1) :: EQD_nodes
-  real(vbp), dimension(1:(N+1)*(N+2)/2) :: warp
-  real(vbp), dimension(1:N+1,1:N+1) :: V_EQD
-  real(vbp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Pmat
-  real(vbp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Lmat
+  real(lp), dimension(1:N+1) :: LGL_nodes
+  real(lp), dimension(1:N+1) :: EQD_nodes
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: warp
+  real(lp), dimension(1:N+1,1:N+1) :: V_EQD
+  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Pmat
+  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Lmat
+  !
+  real(lp), parameter :: zero  = 0.0_lp
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: eps10 = 1.0e-10_lp
   !
 continue
   !
@@ -138,7 +190,7 @@ continue
   ! Get the 1D Equidistant nodes
   !
   do i = 1,np
-    EQD_nodes(i) = two*real(i-1,vbp)/real(N,vbp) - one
+    EQD_nodes(i) = two*real(i-1,kind=lp)/real(N,kind=lp) - one
   end do
   !
   ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
@@ -166,25 +218,127 @@ continue
   !
   do i = 1,nn
     sf = one - ( deltafun(abs(r(i))<one-eps10) * r(i) )**2
-    return_value(i) = warp(i)/sf + warp(i)*( deltafun(abs(r(i))<one-eps10) - one )
+    return_value(i) = warp(i)/sf + &
+                      warp(i)*( deltafun(abs(r(i))<one-eps10) - one )
   end do
   !
-end function Warpfactor
+end function Warpfactor_DP
 !
 !###############################################################################
 !
-pure function Nodes2D(N) result(return_value)
+pure function Warpfactor_QP(N,r) result(return_value)
   !
-  integer, intent(in) :: N
-  real(vbp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  use startup_mod,    only : Vandermonde1D
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
+                             JacobiP => normalized_jacobi_poly
+  !
+  integer,  intent(in) :: N
+  real(qp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  !
+  real(qp), dimension(1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = qp
   !
   !.. Local Scalars ..
-  real(vbp) :: alpha
+  integer  :: i,j,np,nn
+  real(lp) :: sf
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:(N+1)*(N+2)/2) :: r,warp_r
-  real(vbp), dimension(1:(N+1)*(N+2)/2) :: s,warp_s
-  real(vbp), dimension(1:(N+1)*(N+2)/2) :: t,warp_t
+  real(lp), dimension(1:N+1) :: LGL_nodes
+  real(lp), dimension(1:N+1) :: EQD_nodes
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: warp
+  real(lp), dimension(1:N+1,1:N+1) :: V_EQD
+  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Pmat
+  real(lp), dimension(1:N+1,1:(N+1)*(N+2)/2) :: Lmat
+  !
+  real(lp), parameter :: zero  = 0.0_lp
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: eps10 = 1.0e-10_lp
+  !
+continue
+  !
+  np = N+1
+  nn = (N+1)*(N+2)/2
+  !
+  ! Get the 1D Legendre-Gauss-Lobatto nodes
+  !
+  call nodes_legendre_gauss_lobatto(N,LGL_nodes,EQD_nodes)
+  !
+  ! Get the 1D Equidistant nodes
+  !
+  do i = 1,np
+    EQD_nodes(i) = two*real(i-1,kind=lp)/real(N,kind=lp) - one
+  end do
+  !
+  ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
+  !
+  V_EQD = transpose(Vandermonde1D(EQD_nodes))
+  !
+  ! Evaluate Lagrange polynomial at r
+  !
+  do i = 1,np
+    do j = 1,nn
+      Pmat(i,j) = JacobiP(i-1,zero,zero,r(j))
+    end do
+  end do
+  !
+  ! Compute the Lagrange polynomials based on equidistant nodes
+  ! solving the equation in the middle of page 47
+  !
+  Lmat = matmul(invert_matrix(V_EQD),Pmat)
+  !
+  ! Compute warp factor, Eq 6.7 on page 175
+  !
+  warp = matmul(transpose(Lmat),(LGL_nodes-EQD_nodes))
+  !
+  ! Scale factor, equation at bottom of page 176
+  !
+  do i = 1,nn
+    sf = one - ( deltafun_QP(abs(r(i))<one-eps10) * r(i) )**2
+    return_value(i) = warp(i)/sf + &
+                      warp(i)*( deltafun_QP(abs(r(i))<one-eps10) - one )
+  end do
+  !
+end function Warpfactor_QP
+!
+!###############################################################################
+!
+pure function Nodes2D_DP(N,val) result(return_value)
+  !
+  integer,  intent(in) :: N
+  real(dp), intent(in) :: val
+  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = dp
+  !
+  !.. Local Scalars ..
+  real(lp) :: alpha
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: r,warp_r
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: s,warp_s
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: t,warp_t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: four  = 4.0_lp
+  real(lp), parameter :: five  = 5.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  real(lp), parameter :: pi    = 3.14159265358979323846_lp
+  !
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  real(lp), parameter :: cxt   = cos( two*pi/three)
+  real(lp), parameter :: cxr   = cos(four*pi/three)
+  real(lp), parameter :: cyt   = sin( two*pi/three)
+  real(lp), parameter :: cyr   = sin(four*pi/three)
+  !
+  real(lp), dimension(1:15), parameter :: &
+         alpopt = (/ 0.0000_lp, 0.0000_lp, 1.4152_lp, 0.1001_lp, 0.2751_lp, &
+                     0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
+                     1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp  /)
   !
 continue
   !
@@ -196,7 +350,7 @@ continue
     alpha = five/three
   end if
   !
-  return_value(:,:) = EquiTriNodes2D(N)
+  return_value(:,:) = EquiTriNodes2D(N,val)
   !
   r(:) = ( three*return_value(1,:) - csq3*return_value(2,:) + two)/six
   s(:) = (                           csq3*return_value(2,:) + one)/three
@@ -213,18 +367,93 @@ continue
   return_value(1,:) = return_value(1,:) + cxr*warp_r + cxt*warp_t + warp_s
   return_value(2,:) = return_value(2,:) + cyr*warp_r + cyt*warp_t
   !
-end function Nodes2D
+end function Nodes2D_DP
 !
 !###############################################################################
 !
-pure function xytors(xy) result(return_value)
+pure function Nodes2D_QP(N,val) result(return_value)
   !
-  real(vbp), dimension(:,:), intent(in) :: xy
-  real(vbp), dimension(size(xy,1),size(xy,2)) :: return_value
+  integer,  intent(in) :: N
+  real(qp), intent(in) :: val
+  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = qp
+  !
+  !.. Local Scalars ..
+  real(lp) :: alpha
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: r,warp_r
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: s,warp_s
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: t,warp_t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: four  = 4.0_lp
+  real(lp), parameter :: five  = 5.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  real(lp), parameter :: pi    = 3.14159265358979323846_lp
+  !
+  real(lp), parameter :: csq3  = sqrt(three)
+  real(lp), parameter :: csq3i = one/csq3
+  real(lp), parameter :: cxt   = cos( two*pi/three)
+  real(lp), parameter :: cxr   = cos(four*pi/three)
+  real(lp), parameter :: cyt   = sin( two*pi/three)
+  real(lp), parameter :: cyr   = sin(four*pi/three)
+  !
+  real(lp), dimension(1:15), parameter :: &
+         alpopt = (/ 0.0000_lp, 0.0000_lp, 1.4152_lp, 0.1001_lp, 0.2751_lp, &
+                     0.9800_lp, 1.0999_lp, 1.2832_lp, 1.3648_lp, 1.4773_lp, &
+                     1.4959_lp, 1.5743_lp, 1.5770_lp, 1.6223_lp, 1.6258_lp  /)
+  !
+continue
+  !
+  ! Set optimized parameter, alpha, depending on order N
+  !
+  if (N<16 .and. N>0) then
+    alpha = alpopt(N)
+  else
+    alpha = five/three
+  end if
+  !
+  return_value(:,:) = EquiTriNodes2D(N,val)
+  !
+  r(:) = ( three*return_value(1,:) - csq3*return_value(2,:) + two)/six
+  s(:) = (                           csq3*return_value(2,:) + one)/three
+  t(:) = (-three*return_value(1,:) - csq3*return_value(2,:) + two)/six
+  !
+  warp_r = Warpfactor(N,t-s)
+  warp_s = Warpfactor(N,r-t)
+  warp_t = Warpfactor(N,s-r)
+  !
+  warp_r = (four*s*t) * warp_r * (one + (alpha*r)**2)
+  warp_s = (four*r*t) * warp_s * (one + (alpha*s)**2)
+  warp_t = (four*r*s) * warp_t * (one + (alpha*t)**2)
+  !
+  return_value(1,:) = return_value(1,:) + cxr*warp_r + cxt*warp_t + warp_s
+  return_value(2,:) = return_value(2,:) + cyr*warp_r + cyt*warp_t
+  !
+end function Nodes2D_QP
+!
+!###############################################################################
+!
+pure function xytors_DP(xy) result(return_value)
+  !
+  real(dp), dimension(:,:), intent(in) :: xy
+  real(dp), dimension(size(xy,1),size(xy,2)) :: return_value
+  !
+  integer, parameter :: lp = dp
   !
   !.. Local Scalars ..
   integer   :: i
-  real(vbp) :: r,s,t
+  real(lp) :: r,s,t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  real(lp), parameter :: csq3  = sqrt(three)
   !
 continue
   !
@@ -236,19 +465,56 @@ continue
     return_value(2,i) = s - r - t
   end do
   !
-end function xytors
+end function xytors_DP
 !
 !###############################################################################
 !
-pure function TriNodes2D_DG(N) result(return_value)
+pure function xytors_QP(xy) result(return_value)
   !
-  integer, intent(in) :: N
+  real(qp), dimension(:,:), intent(in) :: xy
+  real(qp), dimension(size(xy,1),size(xy,2)) :: return_value
   !
-  real(vbp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  integer, parameter :: lp = qp
+  !
+  !.. Local Scalars ..
+  integer   :: i
+  real(lp) :: r,s,t
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  real(lp), parameter :: three = 3.0_lp
+  real(lp), parameter :: six   = 6.0_lp
+  real(lp), parameter :: csq3  = sqrt(three)
   !
 continue
   !
-  return_value(:,:) = Nodes2D(N)
+  do i = 1,size(xy,2)
+    r = ( three*xy(1,i) - csq3*xy(2,i) + two)/six
+    s = (sqrt(three)*xy(2,i) + one)/three
+    t = (-three*xy(1,i) - csq3*xy(2,i) + two)/six
+    return_value(1,i) = r - s - t
+    return_value(2,i) = s - r - t
+  end do
+  !
+end function xytors_QP
+!
+!###############################################################################
+!
+pure function TriNodes2D_DG_DP(N,val) result(return_value)
+  !
+  integer,  intent(in) :: N
+  real(dp), intent(in) :: val
+  !
+  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = dp
+  !
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  return_value(:,:) = Nodes2D(N,val)
   return_value(:,:) = xytors(return_value)
   !
   ! Adjust the triangle nodes to lie in the unit right triangle
@@ -256,26 +522,58 @@ continue
   !
   return_value(:,:) = half * (return_value(:,:) + one)
   !
-end function TriNodes2D_DG
+end function TriNodes2D_DG_DP
 !
 !###############################################################################
 !
-function TriNodes2D_HT(N) result(return_value)
+pure function TriNodes2D_DG_QP(N,val) result(return_value)
+  !
+  integer,  intent(in) :: N
+  real(qp), intent(in) :: val
+  !
+  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = qp
+  !
+  real(lp), parameter :: half = 0.5_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  return_value(:,:) = Nodes2D(N,val)
+  return_value(:,:) = xytors(return_value)
+  !
+  ! Adjust the triangle nodes to lie in the unit right triangle
+  ! defined by the vertices: (0,0) - (1,0) - (0,1)
+  !
+  return_value(:,:) = half * (return_value(:,:) + one)
+  !
+end function TriNodes2D_DG_QP
+!
+!###############################################################################
+!
+function TriNodes2D_HT_DP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
                              nodes_legendre_gauss
   !
-  integer, intent(in) :: N
+  integer,  intent(in) :: N
+  real(dp), intent(in) :: val
   !
-  real(vbp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = dp
   !
   !.. Local Scalars ..
-  integer   :: i,j,k,isp,np1d,np2d,m
-  real(vbp) :: r,s,t,sm
+  integer  :: i,j,k,isp,np1d,np2d,m
+  real(lp) :: r,s,t,sm
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:N+1) :: xi
-  real(vbp), dimension(1:N+1) :: vp
+  real(lp), dimension(1:N+1) :: xi
+  real(lp), dimension(1:N+1) :: vp
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
   !
 continue
   !
@@ -317,7 +615,74 @@ continue
   !
  !return_value = return_value*two - one
   !
-end function TriNodes2D_HT
+end function TriNodes2D_HT_DP
+!
+!###############################################################################
+!
+function TriNodes2D_HT_QP(N,val) result(return_value)
+  !
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
+                             nodes_legendre_gauss
+  !
+  integer,  intent(in) :: N
+  real(qp), intent(in) :: val
+  !
+  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  !
+  integer, parameter :: lp = qp
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,isp,np1d,np2d,m
+  real(lp) :: r,s,t,sm
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:N+1) :: xi
+  real(lp), dimension(1:N+1) :: vp
+  !
+  real(lp), parameter :: one   = 1.0_lp
+  real(lp), parameter :: two   = 2.0_lp
+  !
+continue
+  !
+  np1d = N+1
+  np2d = (N+1)*(N+2)/2
+  !
+  ! Get the 1D Legendre-Gauss-Lobatto nodes
+  !
+  call nodes_legendre_gauss_lobatto(N,xi,vp)
+ !call nodes_legendre_gauss(np1d,xi,vp)
+  !
+  ! Adjust the 1D LGL nodes to lie on the interval [0,1]
+  !
+  xi = (xi + one)/two
+  !
+  ! Get the triangle nodes in r,s space and defined
+  ! by the vertices: (0,0) - (1,0) - (0,1)
+  !
+  isp = 0
+  do j = 1,np1d
+    do i = 1,np1d+1-j
+      !
+      isp = isp + 1
+      k = np1d + 2 - i - j
+      !
+      r = xi(i)
+      s = xi(j)
+      t = xi(k)
+      sm = r + s + t
+      !
+      return_value(1,isp) = r/sm
+      return_value(2,isp) = s/sm
+      !
+    end do
+  end do
+  !
+  ! Adjust the triangle nodes to lie in the bi-unit right
+  ! triangle defined by the vertices: (-1,-1) - (1,-1) - (-1,1)
+  !
+ !return_value = return_value*two - one
+  !
+end function TriNodes2D_HT_QP
 !
 !###############################################################################
 !

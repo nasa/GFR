@@ -33,6 +33,9 @@ module module_kind_types
   ! Definitions for numerical contants
   !
   real(qp), parameter :: qzero   = 0.0_qp
+  real(qp), parameter :: qone    = 1.0_qp
+  real(qp), parameter :: qtwo    = 2.0_qp
+  !
   real(wp), parameter :: zero    = 0.0_wp
   real(wp), parameter :: half    = 0.5_wp
   real(wp), parameter :: one     = 1.0_wp
@@ -93,6 +96,61 @@ module module_kind_types
   !
   logical, parameter :: true = .true.
   logical, parameter :: fals = .false.
+  !
+  ! Parameters controlled by pre-preprocessor directives
+  !
+#define p_order_fpp 2
+#define n_order_fpp 4
+#define q_order_fpp 4
+#define iop_solpts_fpp 2
+#define iop_flxpts_fpp 2
+#define iop_qdtpts_fpp 2
+#define iop_tripts_fpp 2
+#define metis_opt_fpp 2
+#define flux_div_fpp 0
+#define iop_corr_fpp 3
+#define dflux_opt_fpp 2
+#define filt_opt_fpp 0
+#define filt_ord_fpp 16
+#define filt_alph_fpp 36.0
+#define filt_etac_fpp 0.0
+#define err_bnd_lim_fpp 2.0
+#define err_val_fpp 0
+  !
+  integer, public, parameter :: p_order_ktmod = p_order_fpp
+  integer, public, parameter :: n_order_ktmod = max(n_order_fpp,p_order_fpp)
+  integer, public, parameter :: q_order_ktmod = max(n_order_fpp,q_order_fpp)
+  !
+  integer, public, parameter :: iop_solpts_ktmod = iop_solpts_fpp
+  integer, public, parameter :: iop_flxpts_ktmod = iop_flxpts_fpp
+  integer, public, parameter :: iop_qdtpts_ktmod = iop_qdtpts_fpp
+  integer, public, parameter :: iop_tripts_ktmod = iop_tripts_fpp
+  !
+  integer, public, parameter :: metis_opt_ktmod = metis_opt_fpp
+  !
+  integer, public, parameter :: flux_div_ktmod = flux_div_fpp
+  integer, public, parameter :: iop_corr_ktmod = iop_corr_fpp
+  !
+  integer, public, parameter :: dflux_opt_ktmod = dflux_opt_fpp
+  !
+  integer,  public, parameter :: Filter_Option_ktmod = filt_opt_fpp
+  integer,  public, parameter :: Filter_Order_ktmod = filt_ord_fpp
+  real(wp), public, parameter :: Filter_Alpha_ktmod = real(filt_alph_fpp,wp)
+  real(wp), public, parameter :: Filter_etac_ktmod = real(filt_etac_fpp,wp)
+ !real(wp), public, parameter :: ft1_ktmod = max(zero, min(one,Filter_etac_ktmod))
+ !real(wp), public, parameter :: ft2_ktmod = real(n_order_ktmod,wp)
+ !real(wp), public, parameter :: ft3_ktmod = anint(ft1_ktmod*ft2_ktmod)!+ eps6
+ !integer,  public, parameter :: Filter_Cutoff_ktmod = nint(ft3_ktmod)
+ !integer,  public, parameter :: Filter_Cutoff_ktmod2 = int(ft3_ktmod)
+ !integer,  public, parameter :: Filter_Cutoff_ktmod3 = floor(ft3_ktmod)
+  integer,  public, parameter :: &
+    Filter_Cutoff_ktmod = int( max(zero,min(one,Filter_etac_ktmod))*real(n_order_ktmod,wp) + eps6 )
+  !
+  real(wp), public, parameter :: err_bnd_lim_ktmod = real(err_bnd_lim_fpp,wp)
+  logical,  public, parameter :: bound_error_ktmod = (err_val_fpp /= 0)
+  !
+  logical, public, parameter :: &
+    using_quadrature_ktmod = .not.(q_order_ktmod==n_order_ktmod .and. iop_solpts_ktmod==iop_qdtpts_ktmod)
   !
   ! I/O constants
   !
@@ -164,6 +222,9 @@ module module_kind_types
   integer, parameter :: OnConservativeVariables = 2
   integer, parameter :: OnFluxes = 3
   !
+  integer, parameter :: project_derivatives = 1
+  integer, parameter :: derivative_of_proj_fluxes = 2
+  !
   ! MPI Scalars 
   !
   integer, protected, save :: mypnum
@@ -180,6 +241,8 @@ module module_kind_types
   integer, protected, save :: mpi_dbltyp ! double working real precision
   integer, protected, save :: mpi_inttyp ! working integer precision
   !
+  logical, private, save :: random_is_initialized = fals
+  !
   ! Generic interface for reallocating arrays of varying types and ranks
   !
   interface reallocate
@@ -189,8 +252,7 @@ module module_kind_types
   end interface reallocate
   !
   interface cross_product
-    module procedure cross_product_DP, &
-                     cross_product_QP
+    module procedure cross_product_DP, cross_product_QP
   end interface cross_product
   !
   interface deltafun
@@ -198,51 +260,67 @@ module module_kind_types
   end interface deltafun
   !
   interface selfdot
-    module procedure selfdot_DP, &
-                     selfdot_QP
+    module procedure selfdot_DP, selfdot_QP
   end interface selfdot
   !
   interface rnorm2
-    module procedure rnorm2_DP, &
-                     rnorm2_QP
+    module procedure rnorm2_DP, rnorm2_QP
   end interface rnorm2
   !
   interface unit_vector
-    module procedure unit_vector_DP, &
-                     unit_vector_QP
+    module procedure unit_vector_DP, unit_vector_QP
   end interface unit_vector
   !
   interface outerprod
-    module procedure outerprod_DP, &
-                     outerprod_QP
+    module procedure outerprod_DP, outerprod_QP
   end interface outerprod
   !
   interface reciprocal
-    module procedure reciprocal_DP, &
-                     reciprocal_QP
+    module procedure reciprocal_DP, reciprocal_QP
   end interface reciprocal
   !
   interface reflect
-    module procedure reflect_DP, &
-                     reflect_QP
+    module procedure reflect_DP, reflect_QP
   end interface reflect
   !
   interface rotate_2d
-    module procedure rotate_2d_DP, &
-                     rotate_2d_QP
+    module procedure rotate_2d_DP, rotate_2d_QP
   end interface rotate_2d
   !
   interface rotate
-    module procedure rotate_DP, &
-                     rotate_QP
+    module procedure rotate_DP, rotate_QP
   end interface rotate
+  !
+  interface invert_matrix
+    module procedure invert_matrix_DP, invert_matrix_QP
+  end interface invert_matrix
+  !
+  interface invert_matrix90
+    module procedure invert_matrix90_DP, invert_matrix90_QP
+  end interface invert_matrix90
+  !
+  interface ludcmp
+    module procedure ludcmp_DP, ludcmp_QP
+  end interface ludcmp
+  !
+  interface lubksb
+    module procedure lubksb_DP, lubksb_QP
+  end interface lubksb
+  !
+  interface determinant
+    module procedure determinant_DP, determinant_QP
+  end interface determinant
+  !
+  interface random
+    module procedure random_i4,random_sp,random_dp,random_qp
+  end interface random
   !
   ! Make the non-generic functions private
   !
   private :: cross_product_DP
   private :: cross_product_QP
- !private :: deltafun_DP
-  private :: deltafun_QP
+  private :: deltafun_DP
+ !private :: deltafun_QP
   private :: selfdot_DP
   private :: selfdot_QP
   private :: rnorm2_DP
@@ -259,6 +337,20 @@ module module_kind_types
   private :: rotate_QP
   private :: rotate_2d_DP
   private :: rotate_2d_QP
+  private :: invert_matrix_DP
+  private :: invert_matrix_QP
+  private :: invert_matrix90_DP
+  private :: invert_matrix90_QP
+  private :: ludcmp_DP
+  private :: ludcmp_QP
+  private :: lubksb_DP
+  private :: lubksb_QP
+  private :: determinant_DP
+  private :: determinant_QP
+  private :: random_i4
+  private :: random_sp
+  private :: random_dp
+  private :: random_qp
   !
   ! Make the non-generic reallocation subroutines to private
   !
@@ -649,6 +741,8 @@ include "Functions/reciprocal.f90"
 include "Functions/reflect.f90"
 include "Functions/rotate.f90"
 include "Functions/rotate_2d.f90"
+include "Functions/matrix_ops.f90"
+include "Functions/random.f90"
 !
 !###############################################################################
 !

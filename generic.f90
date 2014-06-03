@@ -14,6 +14,12 @@ module generic_mod
   public :: vsp2u
   public :: usp2v_sp
   public :: vsp2u_sp
+  public :: pressure_cv
+  public :: pressure_cv_sp
+  public :: entropy_cv
+  public :: entropy_cv_sp
+  public :: entropy_pv
+  public :: entropy_pv_sp
   public :: getbc
   public :: rgetdtmax
   public :: rresi
@@ -29,6 +35,7 @@ module generic_mod
   public :: compute_final_vortex_error
   public :: reset_boundaries
   public :: test_error
+  public :: project_to_porder
   !
   real(vbp), parameter :: o = zero
   !
@@ -186,6 +193,144 @@ end function vsp2u_sp
 !
 !###############################################################################
 !
+pure function pressure_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(uu,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,nq
+  !
+continue
+  !
+  nq = size(uu,1)
+  !
+  do n = 1,size(uu,2)
+    return_value(n) = (gam-one)*(uu(nq,n) - half*selfdot(uu(2:nq-1,n))/uu(1,n))
+  end do
+  !
+end function pressure_cv
+!
+!###############################################################################
+!
+pure function pressure_cv_sp(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: nq
+  !
+continue
+  !
+  nq = size(uu)
+  !
+  return_value = (gam-one)*(uu(nq) - half*selfdot(uu(2:nq-1))/uu(1))
+  !
+end function pressure_cv_sp
+!
+!###############################################################################
+!
+pure function entropy_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(uu,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  do n = 1,size(uu,2)
+    return_value(n) = log( pressure_cv_sp(uu(:,n)) ) - gam*log(uu(1,n))
+  end do
+  !
+end function entropy_cv
+!
+!###############################################################################
+!
+pure function entropy_cv_sp(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  return_value = log(pressure_cv_sp(uu)) - gam*log(uu(1))
+  !
+end function entropy_cv_sp
+!
+!###############################################################################
+!
+pure function entropy_pv(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(vv,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,nq
+  !
+continue
+  !
+  nq = size(vv,1)
+  !
+  do n = 1,size(vv,2)
+    return_value(n) = log(vv(nq,n)) - gam*log(vv(1,n)) 
+  end do
+  !
+end function entropy_pv
+!
+!###############################################################################
+!
+pure function entropy_pv_sp(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  return_value = log(vv(size(vv))) - gam*log(vv(1))
+  !
+end function entropy_pv_sp
+!
+!###############################################################################
+!
 subroutine rgetdtmax
   !
   !.. Use Statements ..
@@ -245,6 +390,7 @@ subroutine rresi
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,neqns
+  use geovar,  only : ncell,pts_in_cell_ptr
   use ovar,    only : itestcase
   use metvar,  only : jacobian
   use flowvar, only : residual
@@ -269,7 +415,76 @@ continue
     end do
   end if
   !
+  call project_to_porder(ncell,pts_in_cell_ptr,residual)
+  !
 end subroutine rresi
+!
+!###############################################################################
+!
+subroutine project_to_porder(ncell,pts_in_cell_ptr,array,ptype)
+  !
+  !... calculates d(utd)/dt
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_sp2dt,n_sp2dq
+  use geovar,  only : p_order,n_order
+  use geovar,  only : projct_s2p
+  !
+  ! PTYPE : gives the location of the variables needing projection
+  !         = 1 -> at solution points
+  !         = 2 -> at Gauss    points
+  !         = 3 -> at Lobatto  points
+  !         = 4 -> at Radau    points
+  !
+  !.. Formal Arguments ..
+  integer,                     intent(in) :: ncell
+  integer,  dimension(:),      intent(in) :: pts_in_cell_ptr
+  real(wp), dimension(:,:), intent(inout) :: array
+  integer,  optional,          intent(in) :: ptype
+  !
+  !.. Local Scalars ..
+  integer :: k,n,l,n1,n2,nsp,nw,ndim,ploc
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_sp2dq,1:size(array,dim=1)) :: tmp
+  !
+continue
+  !
+  if (p_order < n_order) then
+    !
+    ploc = 1
+    if (present(ptype)) then
+      if (ptype > 0 .and. ptype < 5) then
+        ploc = ptype
+      end if
+    end if
+    !
+    ndim = size(array,dim=1)
+    !
+    do n = 1,ncell
+      !
+      n1 = pts_in_cell_ptr(n)+1
+      n2 = pts_in_cell_ptr(n+1)
+      nsp = n2-n1+1
+      nw = merge(1,2,nsp==n_sp2dt)
+      !
+      do k = 1,nsp
+        do l = 1,ndim
+          tmp(k,l) = array(l,n1-1+k)
+        end do
+      end do
+      !
+      do k = 1,nsp
+        do l = 1,ndim
+          array(l,n1-1+k) = dot_product( projct_s2p(1:nsp,k,nw,ploc) , tmp(1:nsp,l) )
+        end do
+      end do
+      !
+    end do
+    !
+  end if
+  !
+end subroutine project_to_porder
 !
 !###############################################################################
 !
@@ -567,7 +782,7 @@ subroutine compute_final_error()
   !.. Local Scalars ..
   integer   :: n,n1,n2,np,k,l,w1,m,nc1,ierr
   real(vbp) :: rho_ratio,pres_ratio,c1,weight
-  real(vbp) :: delx,dely,xoffset,yoffset
+  real(vbp) :: delx,dely,xoffset,yoffset,sn,se
   real(vbp) :: delt_since_lastperiod
   !
   !.. Local Arrays ..
@@ -694,6 +909,10 @@ continue
       !
     end do
     !
+    ! Project the exact solution to p_order
+    !
+    call project_to_porder(1,[0,np],uexact(1:neqns,1:np))
+    !
     ! If using the depending on the error_loc flag, either covert the
     ! analytical solution from the solution points or convert the numerical
     ! solution to the solution points used for the exact solution
@@ -718,11 +937,14 @@ continue
       !
       ! Error for conserved variables at the current solution point
       !
-      rho_ratio  = unumer(    1,k)/bc_in(    1)
-      pres_ratio = vnumer(neqns,k)/bc_in(neqns)
+     !rho_ratio  = unumer(    1,k)/bc_in(    1)
+     !pres_ratio = vnumer(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vnumer(:,k) )
+      se = entropy_pv_sp( vexact(:,k) )
       !
       ett(1:neqns,1) = abs( unumer(:,k) - uexact(:,k) )
-      ett(neqns+1,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+     !ett(neqns+1,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett(neqns+1,1) = sn - se
       !
       ! Error for primitive variables at the current solution point
       !
@@ -834,7 +1056,7 @@ subroutine compute_final_vortex_error()
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
   real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
   real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: delt_since_lastperiod
+  real(vbp) :: delt_since_lastperiod,sn,se
   real(vbp) :: my_volume,error_volume
   !
   !.. Local Arrays ..
@@ -862,6 +1084,7 @@ continue
   delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
                         / real(Period_Timesteps,vbp)
   delt_since_lastperiod = delt_since_lastperiod * Period_Time
+ !delt_since_lastperiod = zero
   !
   ! Find the x and y distances the vortex has
   ! traveled since the start of the current period
@@ -931,6 +1154,11 @@ continue
       !
     end do
     !
+    ! Project the exact solutions to p_order
+    !
+    call project_to_porder(1,[0,np],vge(1:neqns,1:np),2)
+    call project_to_porder(1,[0,np],vle(1:neqns,1:np),3)
+    !
     ! Interpolate the numerical solution to the solution
     ! nodes for Guass and Lobatto quadratures
     !
@@ -960,19 +1188,25 @@ continue
         !
         ! Gauss error
         !
-        rho_ratio  = vgn(    1,k)/bc_in(    1)
-        pres_ratio = vgn(neqns,k)/bc_in(neqns)
+       !rho_ratio  = vgn(    1,k)/bc_in(    1)
+       !pres_ratio = vgn(neqns,k)/bc_in(neqns)
+        sn = entropy_pv_sp( vgn(:,k) )
+        se = entropy_pv_sp( vge(:,k) )
         !
         ett(1:neqns,1) = abs( vgn(:,k) - vge(:,k) )
-        ett(neqns+1,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+       !ett(neqns+1,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+        ett(neqns+1,1) = sn - se
         !
         ! Lobatto error
         !
-        rho_ratio  = vln(    1,k)/bc_in(    1)
-        pres_ratio = vln(neqns,k)/bc_in(neqns)
+       !rho_ratio  = vln(    1,k)/bc_in(    1)
+       !pres_ratio = vln(neqns,k)/bc_in(neqns)
+        sn = entropy_pv_sp( vln(:,k) )
+        se = entropy_pv_sp( vle(:,k) )
         !
         ett(1:neqns,2) = abs( vln(:,k) - vle(:,k) )
-        ett(neqns+1,2) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+       !ett(neqns+1,2) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+        ett(neqns+1,2) = sn - se
         !
         ! Now add the error for all variables at the current solution
         ! point to the running integral sum for the L1 and L2 error norms
@@ -1078,7 +1312,7 @@ subroutine compute_final_advec_error()
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
   real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
   real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: delt_since_lastperiod
+  real(vbp) :: delt_since_lastperiod,sn,se
   !
   !.. Local Arrays ..
   real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_r
@@ -1173,6 +1407,12 @@ continue
       !
     end do
     !
+    ! Project the exact solutions to p_order
+    !
+    call project_to_porder(1,[0,np],vge(1:neqns,1:np),2)
+    call project_to_porder(1,[0,np],vle(1:neqns,1:np),3)
+    call project_to_porder(1,[0,np],vre(1:neqns,1:np),4)
+    !
     ! Interpolate the numerical solution to the solution
     ! nodes of the three different quadratures
     !
@@ -1201,30 +1441,39 @@ continue
       !
       ! Gauss error
       !
-      rho_ratio  = vgn(    1,k)/bc_in(    1)
-      pres_ratio = vgn(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vgn(    1,k)/bc_in(    1)
+     !pres_ratio = vgn(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vgn(:,k) )
+      se = entropy_pv_sp( vge(:,k) )
       !
       ett(1,1) = abs( vgn(    1,k) - vge(    1,k) )
       ett(2,1) = abs( vgn(neqns,k) - vge(neqns,k) )
-      ett(3,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+     !ett(3,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett(3,1) = sn - se
       !
       ! Radau error
       !
-      rho_ratio  = vrn(    1,k)/bc_in(    1)
-      pres_ratio = vrn(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vrn(    1,k)/bc_in(    1)
+     !pres_ratio = vrn(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vrn(:,k) )
+      se = entropy_pv_sp( vre(:,k) )
       !
       ett(1,2) = abs( vrn(    1,k) - vre(    1,k) )
       ett(2,2) = abs( vrn(neqns,k) - vre(neqns,k) )
-      ett(3,2) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+     !ett(3,2) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett(3,2) = sn - se
       !
       ! Lobatto error
       !
-      rho_ratio  = vln(    1,k)/bc_in(    1)
-      pres_ratio = vln(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vln(    1,k)/bc_in(    1)
+     !pres_ratio = vln(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vln(:,k) )
+      se = entropy_pv_sp( vle(:,k) )
       !
       ett(1,3) = abs( vln(    1,k) - vle(    1,k) )
       ett(2,3) = abs( vln(neqns,k) - vle(neqns,k) )
-      ett(3,3) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+     !ett(3,3) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett(3,3) = sn - se
       !
       ! Now add the error for all variables at the current solution
       ! point to the running integral sum for the L1 and L2 error norms
@@ -1437,7 +1686,7 @@ subroutine rgeterr()
   !.. Local Scalars ..
   integer   :: n,n1,n2,k,w1,nc1
   integer   :: hrs_left,min_left,sec_left
-  real(vbp) :: rho_ratio,pres_ratio,c1
+  real(vbp) :: rho_ratio,pres_ratio,c1,sn,se
   real(vbp) :: next_time_est
   real(vbp) :: wall_time_last
   !
@@ -1480,11 +1729,14 @@ continue
       !
       ! Compute the entropy at this solution point
       !
-      rho_ratio = vsp(1,k)/bc_in(1)
-      pres_ratio = vsp(neqns,k)/bc_in(neqns)
+     !rho_ratio = vsp(1,k)/bc_in(1)
+     !pres_ratio = vsp(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vsp(:,k) )
+      se = entropy_pv_sp( bc_in(:) )
       !
      !write (*,'(3es14.6)') rho_ratio,pres_ratio,c1
-      ett(2) = log( (pres_ratio+c1) / (rho_ratio**gam) )
+     !ett(2) = log( (pres_ratio+c1) / (rho_ratio**gam) )
+      ett(2) = sn - se
       !
       ! Get the norms of density and entropy
       !
@@ -1589,7 +1841,7 @@ subroutine getmaxent
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,k,w1,nc1
-  real(vbp) :: rho_ratio,pres_ratio,ett,c1
+  real(vbp) :: rho_ratio,pres_ratio,ett,c1,sn,se
   !
   !.. Local Arrays ..
   real(vbp), dimension(1:6) :: error
@@ -1613,10 +1865,13 @@ continue
     !
     do k = n1,n2
       !
-      rho_ratio  = vsp(1,k)/bc_in(1)
-      pres_ratio = vsp(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vsp(1,k)/bc_in(1)
+     !pres_ratio = vsp(neqns,k)/bc_in(neqns)
+      sn = entropy_pv_sp( vsp(:,k) )
+      se = entropy_pv_sp( bc_in(:) )
       !
-      ett = log( (c1+pres_ratio) / (rho_ratio**gam) )
+     !ett = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett = sn - se
       !
       ! L2 norm of entropy
       !
@@ -1720,10 +1975,17 @@ subroutine getbc
   real(vbp), dimension(1:nr) :: rtan
   real(vbp), dimension(1:neqns) :: varh
   real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:n_sp2dq,1:4*n_fp1de,1:2) :: interp_mat
   !
 continue
   !
   gm1 = gam - one
+  !
+  if (n_fp1de /= n_sp1de) then
+    interp_mat(:,:,:) = interp_s2g(:,:,:)
+  else
+    interp_mat(:,:,:) = interp_s2f(:,:,:)
+  end if
   !
   ! First exchange information between adjacent partitions
   !
@@ -1763,15 +2025,15 @@ continue
       !
       ! Free stream boundary condition
       !
-      gc = bface(10,nf)
-      !
       do k = g1,g2
         vsp(:,k) = bc_in(:)
       end do
       !
-    else if (bface(1,nf) == bc_characteristic) then
+      do k = 1,n_fp1de
+        faceusp(:,k,2,nf) = vsp2u_sp( bc_in(:) )
+      end do
       !
-      ! Inflow boundary condition
+    else if (bface(1,nf) == bc_characteristic) then
       !
       n1 = nodes_of_cell_ptr(hc)+1
       !
@@ -1790,10 +2052,9 @@ continue
       ip1 = nodes_on_face(1,nf)
       ip2 = nodes_on_face(2,nf)
       !
-     !rtan(:) = unit_vector( xyz_nodes(:,ip2)-xyz_nodes(:,ip1) )
       rtan(:) = -unit_vector( xyz_nodes(:,ip2)-xyz_nodes(:,ip1) )
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -1805,19 +2066,17 @@ continue
         !###############################################################
         !###############################################################
         !
-       !rnrm(:) = unit_vector( geofa(:,k,nf) )
         rnrm(:) = -unit_vector( geofa(:,k,nf) )
         !
         hk = hkb-1 + k ! index for current host  cell flux point
         gk = gkb+1 - k ! index for current ghost cell flux point
         kg = g1-1 + gk ! index for current ghost cell solution point
-       !gk = g1-1 + k ! index for current ghost cell flux point
         !
-        ! Use the Lagrange polynomial to project the conservative variables from
-        ! the host cell solution points to the current host cell flux point.
+        ! Interpolate the conservative variables from the host cell
+        ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_s2f(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -1840,46 +2099,29 @@ continue
         vti = dot_product(rtan,varh(2:neqns-1))
         vto = dot_product(rtan,bc_in(2:neqns-1))
         !
-       !write (*,'(i6,es14.5,f8.2,2es14.5)') hc,vnh,xyz_nodes(1,nodes_of_cell(n1)),rnrm(:)
-        !
         ! Apply boundary conditions based on the
         ! normal Mach number to the boundary face
         !
         mach = vni/ai
         !
-       !if (mach <= -one) then
-        if (mach >= one) then
-          !
-          ! Supersonic inflow
+        if (mach >= one) then ! Supersonic inflow
           !
           ! Set ghost cell flux point to free stream conditions
           !
           vsp(:,kg) = bc_in(:) ! sup-in
-         !vsp(:,kg) = varh(:) ! sup-out
           !
-         !flow = "Sup-In  "
-       !else if (mach >= one) then
-        else if (mach <= -one) then
+          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
-          ! Supersonic outflow
+        else if (mach <= -one) then ! Supersonic outflow
           !
           ! Extrapolate interior to ghost cell flux point
           !
           vsp(:,kg) = varh(:) ! sup-out
-         !vsp(:,kg) = bc_in(:) ! sup-in
           !
-         !flow = "Sup-Out "
-        else
+          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
-          ! Subsonic inflow/outflow using Riemann invariants
+        else ! Subsonic inflow/outflow using Riemann invariants
           !
-         !rp = vno + two*ao/gm1
-         !rm = vni - two*ai/gm1
-         !uc = half*(rp+rm)
-         !ac = one4*gm1*(rm-rp)
-         !ac = one4*gm1*(rp-rm)
-          !
-         !if (mach < zero) then ! this is an inflow boundary
           if (mach > zero) then ! this is an inflow boundary
             !
             rp = vno + two*ao/gm1
@@ -1889,9 +2131,6 @@ continue
             ac = one4*gm1*(rp-rm)
             sc = bc_in(neqns)/(bc_in(1)**gam)
             !
-           !vsp(2:neqns-1,kg) = bc_in(2:neqns-1) + (uc-vno)*rnrm(:)
-            !
-           !flow = "Sub-In  "
           else ! this is an outflow boundary
             !
             rp = -abs(vno) + two*ao/gm1
@@ -1901,67 +2140,15 @@ continue
             ac = one4*gm1*(rp-rm)
             sc = varh(neqns)/(varh(1)**gam)
             !
-           !vsp(2:neqns-1,kg) = varh(2:neqns-1) + (uc-vni)*rnrm(:)
-            !
-           !flow = "Sub-Out "
           end if
           !
           vsp(1,kg) = ((ac*ac)/(gam*sc))**(one/gm1)
           vsp(neqns,kg) = sc*(vsp(1,kg)**gam)
           vsp(2:neqns-1,kg) = unc*rnrm(:) + utc*rtan(:)
           !
-          !
-         !vsp(1,kg) = ( (ac*ac*(bc_in(1)**gam)) / (gam*bc_in(neqns)) )**(one/gm1)
-         !vsp(neqns,kg) = ac*ac*vsp(1,kg)/gam
-         !!
-         !! Compute the Riemann invariants
-         !!
-         !vth = sqrt(selfdot(varh(2:neqns-1))-vnh**2)
-         !vtg = sqrt(selfdot(bc_in(2:neqns-1))-vng**2)
-         !!
-         !sh = varh(neqns)/(varh(1)**gam)
-         !sg = bc_in(neqns)/(bc_in(1)**gam)
-         !!
-         !rp = vng + two*ao/gm1
-         !rm = vnh - two*ai/gm1
-         !uc = half*(rp + rm)
-         !!
-         !! Compute the speed of sound based on the Riemann invariants
-         !!
-         !ac = one4*gm1*(rm - rp)
-         !!
-         !! Compute the density and pressure from the Riemann invariants
-         !!
-         !vsp(1,kg) = (ac*ac*(bc_in(1)**gam))/(gam*bc_in(neqns))**(one/gm1)
-         !vsp(neqns,kg) = ac*ac*vsp(1,kg)/gam
-         !!
-         !! Compute velocities based on inflow (uc>0) or outflow (uc<0)
-         !!
-         !if (uc >= zero) then
-         !  !
-         !  ! Subsonic inflow
-         !  !
-         !  vsp(2:neqns-1,kg) = vsp(1,kg)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
-         ! !vsp(2:neqns-1,kg) = vsp(1,kg)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
-         !  !
-         !else
-         !  !
-         !  ! Subsonic outflow
-         !  !
-         !  vsp(2:neqns-1,kg) = vsp(1,kg)*(varh(2:neqns-1) + (uc-vnh)*rnrm(:)) ! sub-out
-         ! !vsp(2:neqns-1,kg) = vsp(1,kg)*(bc_in(2:neqns-1) + (uc-vng)*rnrm(:)) ! sub-in
-         !  !
-         !end if
+          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
         end if
-       !if (rnrm(1) > zero) then
-       !  side = "Left  "
-       !else if (rnrm(1) < zero) then
-       !  side = "Right "
-       !else
-       !  side = "ERROR "
-       !end if
-       !write (141,'(2a,4es14.5)') side,flow,vsp(:,kg)
         !
       end do
       !
@@ -1972,7 +2159,7 @@ continue
       !   - Fix velocities to free stream
       !   - Extrapolate pressure
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -1990,6 +2177,8 @@ continue
         vsp(1:neqns-1,gk) = bc_in(1:neqns-1)
         vsp(neqns,gk) = vsp(neqns,hk)
         !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        !
       end do
       !
     else if (bface(1,nf) == bc_sub_outflow) then
@@ -1999,7 +2188,7 @@ continue
       !   - Extrapolate velocities
       !   - Fix pressure to free stream
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -2017,6 +2206,8 @@ continue
         vsp(1:neqns-1,gk) = vsp(1:neqns-1,hk)
         vsp(neqns,gk) = bc_in(neqns)
         !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        !
       end do
       !
     else if (bface(1,nf) == bc_sup_inflow) then
@@ -2024,7 +2215,7 @@ continue
       ! Supersonic inflow boundary condition
       !   - Fix all variables to free stream
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -2041,6 +2232,8 @@ continue
         !
         vsp(:,gk) = bc_in(:)
         !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        !
       end do
       !
     else if (bface(1,nf) == bc_sup_outflow) then
@@ -2048,7 +2241,7 @@ continue
       ! Supersonic outflow boundary condition
       !   - Extrapolate all variables
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -2065,13 +2258,15 @@ continue
         !
         vsp(:,gk) = vsp(:,hk)
         !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        !
       end do
       !
     else if (bface(1,nf) == bc_wall) then
       !
       ! Slip wall / symmetry boundary condition
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         !###############################################################
         !###############################################################
@@ -2101,6 +2296,8 @@ continue
         vsp(3,gk) = -un*rnrm(1) + ut*rnrm(2)
         vsp(4,gk) = vsp(4,hk)
         !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        !
       end do
       !
     else if (bface(1,nf) == bc_periodic) then
@@ -2115,7 +2312,7 @@ continue
         tusp(k-g1+1,:) = vsp2u_sp( vsp(:,k) )
       end do
       !
-      do k = 1,n_sp1de
+      do k = 1,n_fp1de
         !
         gk = gkb+1 - k ! index for current ghost cell flux point
         !
@@ -2123,7 +2320,7 @@ continue
         ! the ghost cell solution points to the current ghost cell flux point.
         !
         do m = 1,neqns
-          faceusp(m,k,2,nf) = dot_product(interp_s2f(1:gp,gk,gw),tusp(1:gp,m))
+          faceusp(m,k,2,nf) = dot_product(interp_mat(1:gp,gk,gw),tusp(1:gp,m))
         end do
         !
       end do

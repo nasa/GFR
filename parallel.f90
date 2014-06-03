@@ -2452,6 +2452,7 @@ end subroutine create_nonblocking_exchange_datatypes
 !
 subroutine create_face_nonblocking_datatypes(bface)
   !
+  use geovar, only : n_fp1de
  !use metrics_mod, only : get_solution_points_2d
  !use geovar, only : xyz,n_global_totpts,nr,n_totpts
   !
@@ -2462,7 +2463,7 @@ subroutine create_face_nonblocking_datatypes(bface)
   integer :: n,nf,np,scnt,rcnt,i,icpu,ierr
   integer :: s1,s2,r1,r2
   integer :: rmin,rmax,adj_face,loc_face
-  integer :: p1,p2,nc,nfpts,nfbnd
+  integer :: p1,p2,nc,nfbnd
   !
   !.. Local Arrays ..
   integer, dimension(1:ncpu) :: cpu_id
@@ -2487,9 +2488,6 @@ continue
  !end do
   !
   nfbnd = size(bface,dim=2)
-  !
-  nfpts = n_sp1de
- !nfpts = n_qp1de !if we want to switch to sending quadrature face values
   !
   ! Now onto creating the communication datatypes
   !
@@ -2524,9 +2522,9 @@ continue
   call alloc_error("create_face_nonblocking_datatypes","send_msk",1,ierr)
   allocate ( recv_map(rmin:rmax) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","recv_map",1,ierr)
-  allocate ( send_temp(1:nfpts*nfbnd) , source=0 , stat=ierr )
+  allocate ( send_temp(1:n_fp1de*nfbnd) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","send_temp",1,ierr)
-  allocate ( recv_temp(1:nfpts*nfbnd) , source=0 , stat=ierr )
+  allocate ( recv_temp(1:n_fp1de*nfbnd) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","recv_temp",1,ierr)
   allocate ( send_pts_ptr(1:ncomm+1) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","send_pts_ptr",1,ierr)
@@ -2573,9 +2571,9 @@ continue
       !
       ! Create the send point offsets
       !
-      do n = 1,nfpts
+      do n = 1,n_fp1de
         scnt = scnt + 1
-        send_temp(scnt) = (nf-1)*2*nfpts + n-1
+        send_temp(scnt) = (nf-1)*2*n_fp1de + n-1
       end do
       !
     end do
@@ -2592,9 +2590,9 @@ continue
       adj_face = nf
       loc_face = recv_map(nf)
       !
-      do n = nfpts,1,-1
+      do n = n_fp1de,1,-1
         rcnt = rcnt + 1
-        recv_temp(rcnt) = (loc_face-1)*2*nfpts + nfpts + n-1
+        recv_temp(rcnt) = (loc_face-1)*2*n_fp1de + n_fp1de + n-1
       end do
       !
     end do
@@ -2762,7 +2760,7 @@ continue
   !
   ! Lets allocate the exchange buffer for the solver
   !
-  allocate ( fusp_buffer(1:nq,1:nfpts,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
+  allocate ( fusp_buffer(1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_buffer",1,ierr)
   allocate ( fusp_rqst(1:2*ncomm) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_rqst",1,ierr)

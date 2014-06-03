@@ -22,6 +22,7 @@ program Euler_tri
   use flowvar
  !use mpivar
   use io_mod, only : read_input_file, &
+                     read_input_file_test, &
                      read_grid_file, &
                      write_tecplot_file, &
                      write_restart_file, &
@@ -38,6 +39,7 @@ program Euler_tri
                           get_grid_connectivity, &
                           get_metrics
   use startup_mod, only : get_quadrature_data
+  use startup_mod, only : old_get_quadrature_data
   use initialization_mod, only : initialize_flow
   use generic_mod, only : rgetdtmax,getbc,rresi, &
                           rgeterr,getmaxent, &
@@ -142,46 +144,33 @@ continue
   !              to the respective processor along with
   !              connectivities for the partition boundaries
   !
- !write (iout,*) "Calling partition_grid"
- !call mpi_barrier(mpi_comm_world,mpierr)
   if (ncpu > 1) then
     call partition_grid(ncpu,n_order,metis_option,bface,nodes_of_cell, &
                         nodes_of_cell_ptr,xyz_nodes)
   else
     call create_serial_cell_map(ncell)
   end if
- !write (iout,*) "Exiting partition grid"
- !call mpi_barrier(mpi_comm_world,mpierr)
   !
   ! Get the coordinates of the solution points within each grid cell
   !
- !write (iout,*) "Calling get_solution_points_2d",mypnum
- !call mpi_barrier(mpi_comm_world,mpierr)
   call get_solution_points_2d
   !
   ! Get the grid connectivity and metrics
   !
- !write (iout,*) "Calling get_grid_connectivity",mypnum
- !call mpi_barrier(mpi_comm_world,mpierr)
   call get_grid_connectivity
   !
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
- !write (iout,*) "Calling get_quadrature_data",mypnum
- !call mpi_barrier(mpi_comm_world,mpierr)
   call get_quadrature_data
+ !call old_get_quadrature_data
   !
   ! Get the grid metrics
   !
- !write (iout,*) "Calling get_metrics",mypnum
- !call mpi_barrier(mpi_comm_world,mpierr)
   call get_metrics
   !
   ! Output information about each partition
   !
- !write (iout,*) "Outputing information about each partition",mypnum
- !call mpi_barrier(mpi_comm_world,mpierr)
   do i = 0,ncpu-1
     if (mypnum == i) then
       write (iout,10) mypnum
@@ -201,7 +190,7 @@ continue
     write (iout,15) (solpts_1d(k), k=1,n_sp1de)
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
- !call stop_recon(stop_mpi,"main")
+ !call stop_recon(stop_mpi,"main: before initialize_flow")
   !
   ! Initialize the flow variables for all solution points or
   ! read in the restart values if restarting a simulation
@@ -225,20 +214,20 @@ continue
   ! If running the vortex or density problem,
   ! reset results_interval if it is set to zero
   !
-  if (any(itestcase == Transport_Problems)) then
-    if (results_interval == 0) results_interval = max(Period_Timesteps/500,1)
-    if (output_interval == 0) output_interval = Period_Timesteps
-  end if
+ !if (any(itestcase == Transport_Problems)) then
+ !  if (results_interval == 0) results_interval = max(Period_Timesteps/500,1)
+ !  if (output_interval == 0) output_interval = Period_Timesteps
+ !end if
   !
   if (mypnum == 0) then
-    write (iout,19) n_order,n_order_qp,n_sp1de,n_qp1de, &
+    write (iout,19) p_order,n_order,q_order,n_sp1de,n_qp1de, &
                     n_sp2dt,n_qp2dt,n_sp2dq,n_qp2dq
   end if
   !
   ! Write the header for the terminal output 
   !
  !call test_nonblocking_fexchange
- !call stop_recon(stop_mpi,"main")
+ !call stop_recon(stop_mpi,"main: before starting main iteration loop")
   if (mypnum == 0) write (iout,20)
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -286,7 +275,7 @@ continue
         !
         ! Use the derivative of the Lagrange polynomial
         !
-        if (n_order_qp > n_order) then
+        if (q_order > n_order) then
           call derflux1_qdtr
         else
           call derflux1
@@ -366,10 +355,12 @@ continue
       end if
       !
     end do rk_loop
+#ifndef PBS_ENV
     !
     ! Compute the residual error from the density and output to terminal
     !
     call rgeterr
+#endif
     !
     ! Store the new solution as the backup for the next iteration
     !
@@ -382,14 +373,14 @@ continue
     !
 #ifdef PBS_ENV
     if (mod(iter,1000) == 0) then
-#else
-    if (mod(iter,50) == 0) then
-#endif
       !
       ! Compute the residual error for this time step and see if we
       ! have enough wall time left to get to the next output interval
       !
-     !call rgeterr
+      call rgeterr
+#else
+    if (mod(iter,50) == 0) then
+#endif
       !
       ! Only do the rest if this is not the last time step
       !
@@ -470,13 +461,15 @@ continue
     !
     ! Continue the final countdown if the vortex has collapsed
     !
+#ifndef PBS_ENV
     if (vortex_has_collapsed) then
       final_countdown = final_countdown + 1
       if (mod(final_countdown,25*Period_Timesteps) == 0) then
-        write (iout,98)
+        if (mypnum == 0) write (iout,98)
         exit main_loop
       end if
     end if
+#endif
     !
   end do main_loop
   !
@@ -550,14 +543,15 @@ continue
   15 format ('  1D Solution Points = ',8f9.5)
   16 format (/," Allocated Wall Time = ",i0," s.",/)
   !
-  19 format (/,' n_order_sp = ',i4,/, &
-               ' n_order_qp = ',i4,/, &
-               ' n_sp1de    = ',i4,/, &
-               ' n_qp1de    = ',i4,/, &
-               ' n_sp2dt    = ',i4,/, &
-               ' n_qp2dt    = ',i4,/, &
-               ' n_sp2dq    = ',i4,/, &
-               ' n_qp2dq    = ',i4,/)
+  19 format (/,' p_order = ',i4,/, &
+               ' n_order = ',i4,/, &
+               ' q_order = ',i4,/, &
+               ' n_sp1de = ',i4,/, &
+               ' n_qp1de = ',i4,/, &
+               ' n_sp2dt = ',i4,/, &
+               ' n_qp2dt = ',i4,/, &
+               ' n_sp2dq = ',i4,/, &
+               ' n_qp2dq = ',i4,/)
   20 format (/,5x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy', &
                4x,'Cell',3x,'Solpt',6x,'x',10x,'y',6x,'Time Left')
   !

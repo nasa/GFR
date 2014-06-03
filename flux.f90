@@ -40,9 +40,6 @@ module flux_mod
   integer, parameter :: HLLC = 2
   integer, parameter :: LDFSS = 3
   !
-  integer, parameter :: project_derivatives = 1
-  integer, parameter :: derivative_of_proj_fluxes = 2
-  !
 contains
 !
 !###############################################################################
@@ -669,7 +666,7 @@ subroutine interp_cv_to_flxpts()
   !
   use geovar,  only : neqns,ncell,n_sp2dt,n_sp2dq,pts_in_cell_ptr
   use geovar,  only : flxpts_of_cell_ptr,flxpts_of_cell
-  use geovar,  only : interp_s2f
+  use geovar,  only : interp_s2f,interp_s2g,n_sp1de,n_fp1de
   use flowvar, only : usp,faceusp
   !
   use parallel_mod, only : exchange_faceusp
@@ -680,6 +677,7 @@ subroutine interp_cv_to_flxpts()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:n_sp2dq) :: lmat
+  real(wp), dimension(1:n_sp2dq,1:4*n_fp1de,1:2) :: interp_mat
   !
 continue
   !
@@ -698,6 +696,12 @@ continue
   ! AFTER THAT STEP.
   !######################################################################
   !######################################################################
+  !
+  if (n_fp1de /= n_sp1de) then
+    interp_mat(:,:,:) = interp_s2g(:,:,:)
+  else
+    interp_mat(:,:,:) = interp_s2f(:,:,:)
+  end if
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
@@ -727,7 +731,9 @@ continue
       !######################################################################
       !######################################################################
       !
-      lmat(1:np) = interp_s2f(1:np,lf,nl)
+     !write (mypnum+110,'(*(i6))') nc,n,f1,f2,nf,kf,lf,sf
+      !
+      lmat(1:np) = interp_mat(1:np,lf,nl)
       !
       do m = 1,neqns
         faceusp(m,kf,sf,nf) = dot_product(lmat(1:np),usp(m,n1:n2))
@@ -751,10 +757,10 @@ subroutine derflux1_qdtr
   !... for each cell, get f, g, ftd, gtd at the solution points
   !
   !.. Use Statements ..
-  use geovar,  only : neqns,ncell,n_sp2dt,n_sp2dq,nr
+  use geovar,  only : neqns,ncell,n_sp1de,n_fp1de,n_sp2dt,n_sp2dq,nr
   use geovar,  only : pts_in_cell_ptr,interp_s2q,n_qp2dq,n_qp2dt
   use geovar,  only : flxpts_of_cell,flxpts_of_cell_ptr,projct_q2s
-  use geovar,  only : interp_s2f,using_quadrature
+  use geovar,  only : interp_s2f,interp_s2g,using_quadrature
   use metvar,  only : dx,dy,dr_mat,ds_mat,geofa
   use metvar,  only : dqr_LPmat,dqs_LPmat,jacobian
   use flowvar, only : usp,residual,faceflx,faceusp
@@ -855,36 +861,29 @@ continue
       !
     end do
     !
-    ! Project the fluxes back to the solution polynomial order
-    !
-    if (using_quadrature) then
-      !
-      do l = 1,nr
-        do m = 1,neqns
-          !
-          ! Add in the quadrature jacobian term to the quadrature flux
-          !
-          xyflx_qp(1:nqp,m,l) = xyflx_qp(1:nqp,m,l)
-          rsflx_qp(1:nqp,m,l) = rsflx_qp(1:nqp,m,l)
-          !
-          do k = 1,nsp
-            xyflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , xyflx_qp(1:nqp,m,l) )
-            rsflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , rsflx_qp(1:nqp,m,l) )
-          end do
-          !
-        end do
-      end do
-      !
-    else
-      !
-      xyflx_sp(1:nsp,1:neqns,1:nr) = xyflx_qp(1:nsp,1:neqns,1:nr)
-      rsflx_sp(1:nsp,1:neqns,1:nr) = rsflx_qp(1:nsp,1:neqns,1:nr)
-      !
-    end if
-    !
     ! Two different methods for getting the derivative at the solution points
     !
     if (.not.using_quadrature .or. dflux_opt == derivative_of_proj_fluxes) then
+      !
+      ! Project the fluxes back to the solution polynomial order
+      !
+      if (using_quadrature) then
+        !
+        do l = 1,nr
+          do m = 1,neqns
+            do k = 1,nsp
+              xyflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , xyflx_qp(1:nqp,m,l) )
+              rsflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , rsflx_qp(1:nqp,m,l) )
+            end do
+          end do
+        end do
+        !
+      else
+        !
+        xyflx_sp(1:nsp,1:neqns,1:nr) = xyflx_qp(1:nsp,1:neqns,1:nr)
+        rsflx_sp(1:nsp,1:neqns,1:nr) = rsflx_qp(1:nsp,1:neqns,1:nr)
+        !
+      end if
       !
       ! Take the derivative of the projected fluxes
       !
@@ -895,6 +894,37 @@ continue
         end do
       end do
       !
+      ! Interpolate the fluxes to the interface flux points and dot this
+      ! interpolated vector with the face normal at each flux point
+      ! NOTE: We dont need to exchange this information for communication and
+      !       periodic boundary faces since this flux is only used within the
+      !       current cell.
+      !
+      do k = f1,f2
+        !
+        nf = flxpts_of_cell(1,k)
+        kf = flxpts_of_cell(2,k)
+        lf = flxpts_of_cell(3,k)
+        sf = flxpts_of_cell(4,k)
+        !
+        ! Get the unit normal for this face flux/solution point
+        !
+        unrm(:) = unit_vector( geofa(:,kf,nf) )
+        !
+        ! WE NEED TO ADD SOMETHING HERE IN CASE LOBATTO NODES ARE USED. LOOK AT 
+        ! ROUTINE interp_cv_to_flxpts FOR MORE DETAILS.
+        !
+        lmat(1:nsp) = interp_s2f(1:nsp,lf,nw)
+        !
+        do l = 1,nr
+          do m = 1,neqns
+            faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
+                                  dot_product(lmat(1:nsp),xyflx_sp(1:nsp,m,l))*unrm(l)
+          end do
+        end do
+        !
+      end do
+      !
     else if (dflux_opt == project_derivatives) then
       !
       ! Compute the derivative of the fluxes at the quadrature points
@@ -902,56 +932,52 @@ continue
       !
       do k = 1,nsp
         do m = 1,neqns
-          dflx_sp(m,k,1) = dot_product( dqr_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,1) )
-          dflx_sp(m,k,2) = dot_product( dqs_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,2) )
+          dflx_sp(k,m,1) = dot_product( dqr_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,1) )
+          dflx_sp(k,m,2) = dot_product( dqs_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,2) )
         end do
       end do
       !
-    end if
-    !
-    ! Interpolate the projected fluxes to the interface flux points and
-    ! dot this interpolated vector with the face normal at each flux point
-    ! NOTE: We dont need to exchange this information for communication and
-    !       periodic boundary faces since this flux is only used within the
-    !       current cell.
-    !
-    do k = f1,f2
+      ! Interpolate the fluxes to the interface flux points and dot this
+      ! interpolated vector with the face normal at each flux point
+      ! NOTE: We dont need to exchange this information for communication and
+      !       periodic boundary faces since this flux is only used within the
+      !       current cell.
       !
-      nf = flxpts_of_cell(1,k)
-      kf = flxpts_of_cell(2,k)
-      lf = flxpts_of_cell(3,k)
-      sf = flxpts_of_cell(4,k)
-      !
-      ! Get the unit normal for this face flux/solution point
-      !
-      unrm(:) = unit_vector( geofa(:,kf,nf) )
-      !
-      ! WE NEED TO ADD SOMETHING HERE IN CASE LOBATTO NODES ARE USED. LOOK AT 
-      ! ROUTINE interp_cv_to_flxpts FOR MORE DETAILS.
-      !
-      lmat(1:nsp) = interp_s2f(1:nsp,lf,nw)
-      !
-      do l = 1,nr
-        do m = 1,neqns
-          faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
-                                dot_product(lmat(1:nsp),xyflx_sp(1:nsp,m,l))*unrm(l)
-        end do
-      end do
-      !
-      ! Interpolate the conserved variables at the
-      ! solution points to the flux points of each cell
-      !
-      ! NOTE: NOT SURE IF WE SHOULD DO THIS HERE SINCE WE HAVE ALL
-      !       THE INFORMATION AT HAND TO IMPROVE EFFICIENCY OR IF
-      !       WE SHOULD USE THE interp_cv_to_flxpts ROUTINE SINCE
-      !       WE WILL NEED TO EXCHANGE THE LEFT AND RIGHT STATES FOR
-      !       THOSE FACES THAT LIE ON A COMMUNICATION BOUNDARY.
-      !
-     !do m = 1,neqns
-     !  faceusp(m,kf,sf,nf) = dot_product(lmat(1:nsp),tusp(n1:n2,m))
+     !do k = f1,f2
+     !  !
+     !  nf = flxpts_of_cell(1,k)
+     !  kf = flxpts_of_cell(2,k)
+     !  lf = flxpts_of_cell(3,k)
+     !  sf = flxpts_of_cell(4,k)
+     !  !
+     !  ! #################################################################
+     !  ! #################################################################
+     !  ! #################################################################
+     !  ! ##  ERROR! THIS WILL NOT WORK BECAUSE WE NEED TO INTERPOLATE  ##
+     !  ! ##         THE FACE NORMALS TO THE FACE QUADRATURE POINTS!    ##
+     !  ! #################################################################
+     !  ! #################################################################
+     !  ! #################################################################
+     !  !
+     !  ! Get the unit normal for this face flux/solution point
+     !  !
+     !  unrm(:) = unit_vector( geofa(:,kf,nf) )
+     !  !
+     !  ! WE NEED TO ADD SOMETHING HERE IN CASE LOBATTO NODES ARE USED. LOOK AT 
+     !  ! ROUTINE interp_cv_to_flxpts FOR MORE DETAILS.
+     !  !
+     !  lmat(1:nsp) = interp_s2g(1:nsp,lf,nw)
+     !  !
+     !  do l = 1,nr
+     !    do m = 1,neqns
+     !      faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
+     !                            dot_product(lmat(1:nsp),xyflx_qp(1:nsp,m,l))*unrm(l)
+     !    end do
+     !  end do
+     !  !
      !end do
       !
-    end do
+    end if
     !
     ! Add the derivatives of the flux to the residual
     !
@@ -984,10 +1010,10 @@ end subroutine derflux1_qdtr
 !
 subroutine correct_interface_flux_qdtr()
   !
-  use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_sp2dt,n_sp2dq,nr
+  use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_fp1de,n_sp2dt,n_sp2dq,nr
   use geovar,  only : bface,cells_on_face,pts_in_cell_ptr,xyz,flxwts_1d
   use geovar,  only : interp_s2f,n_qp1de,interp_f2g,projct_g2f,using_quadrature
-  use ovar,    only : flux_divergence
+  use ovar,    only : flux_divergence,dflux_opt
   use metvar,  only : cormat,geofa,volj
   use flowvar, only : usp,residual,faceflx,faceusp
   !
@@ -1004,11 +1030,11 @@ subroutine correct_interface_flux_qdtr()
   real(vbp), dimension(1:neqns) :: ul,ur
   real(vbp), dimension(1:neqns) :: dfl,dfr
   real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
+  real(vbp), dimension(1:neqns) :: fnl,fnr,fnc
   real(vbp), dimension(1:neqns) :: srcl,srcr
   real(vbp), dimension(1:nr,1:n_qp1de)    :: rnrm
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: lflx,fjl
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: rflx,fjr,fnc
+  real(vbp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
+  real(vbp), dimension(1:neqns,1:n_fp1de) :: lflx,rflx
   real(vbp), dimension(1:neqns,1:n_qp1de) :: luqp,ruqp,fncq
   !
 continue
@@ -1040,29 +1066,51 @@ continue
     wl = merge( 1 , 2 , l2-l1+1 == n_sp2dt ) ! check if jl is a tria or quad
     wr = merge( 1 , 2 , r2-r1+1 == n_sp2dt ) ! check if jr is a tria or quad
     !
-    lflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,1,nf)
-    rflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,2,nf)
-    !
     ! Interpolate the conserved variables and face normals at
     ! the solution flux points to the quadrature flux points
     !
     if (using_quadrature) then
       !
       do k = 1,nqp
+        !
         do m = 1,neqns
           luqp(m,k) = dot_product( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,1,nf) )
           ruqp(m,k) = dot_product( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,2,nf) )
         end do
+        !
         do l = 1,nr
-          rnrm(l,:) = dot_product( interp_f2g(1:nsp,k) , geofa(l,1:nsp,nf) )
+          rnrm(l,k) = dot_product( interp_f2g(1:nsp,k) , geofa(l,1:nsp,nf) )
         end do
+        !
       end do
       !
     else
       !
+      lflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,1,nf)
+      rflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,2,nf)
       luqp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,1,nf)
       ruqp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,2,nf)
       rnrm(1:nr,1:nsp) = geofa(1:nr,1:nsp,nf)
+      !
+    end if
+    !
+    ! Get the discontinuous fluxes at the interface
+    !
+    if (dflux_opt == project_derivatives) then
+      !
+      ! Get the discontinuous fluxes at the quadrature flux points
+      !
+      do k = 1,nqp
+        lflx(1:neqns,k) = nflux_cv( luqp(:,k) , rnrm(:,k) )
+        rflx(1:neqns,k) = nflux_cv( ruqp(:,k) , rnrm(:,k) )
+      end do
+      !
+    else
+      !
+      ! Get the discontinuous fluxes at the solution flux points
+      !
+      lflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,1,nf)
+      rflx(1:neqns,1:nsp) = faceflx(1:neqns,1:nsp,2,nf)
       !
     end if
     !
@@ -1090,24 +1138,46 @@ continue
     !
     if (using_quadrature) then
       !
-      do k = 1,nsp
-        do m = 1,neqns
-          fnc(m,k) = dot_product( projct_g2f(1:nqp,k) , fncq(m,1:nqp) )
+      if (dflux_opt == project_derivatives) then
+        !
+        lflx(1:neqns,1:nqp) = fncq(1:neqns,1:nqp) - lflx(1:neqns,1:nqp)
+        rflx(1:neqns,1:nqp) = fncq(1:neqns,1:nqp) - rflx(1:neqns,1:nqp)
+        !
+        do k = 1,nsp
+          do m = 1,neqns
+            fjl(m,k) = dot_product( projct_g2f(1:nqp,k) , lflx(m,1:nqp) )
+            fjr(m,k) = dot_product( projct_g2f(1:nqp,k) , rflx(m,1:nqp) )
+          end do
         end do
-      end do
+        !
+      else
+        !
+        do k = 1,nsp
+          !
+          do m = 1,neqns
+            fnc(m) = dot_product( projct_g2f(1:nqp,k) , fncq(m,1:nqp) )
+          end do
+          !
+          fjl(:,k) = fnc(:) - lflx(:,k)
+          fjr(:,k) = fnc(:) - rflx(:,k)
+          !
+        end do
+        !
+      end if
       !
     else
       !
-      fnc(1:neqns,1:nsp) = fncq(1:neqns,1:nsp)
-      !
+      fjl(1:neqns,1:nsp) = fncq(1:neqns,1:nsp) - lflx(1:neqns,1:nsp)
+      fjr(1:neqns,1:nsp) = fncq(1:neqns,1:nsp) - rflx(1:neqns,1:nsp)
+      ! 
     end if
     !
     ! Compute the flux jump at each solution flux point
     !
-    do k = 1,nsp
-      fjl(:,k) = fnc(:,k) - lflx(:,k)
-      fjr(:,k) = fnc(:,k) - rflx(:,k)
-    end do
+   !do k = 1,nsp
+   !  fjl(:,k) = fnc(:,k) - lflx(:,k)
+   !  fjr(:,k) = fnc(:,k) - rflx(:,k)
+   !end do
    !!
    !! Initialize the conservation source terms
    !!
@@ -2626,6 +2696,31 @@ continue
   end do
   !
 end subroutine dg_weak_form
+!
+!###############################################################################
+!
+pure function nflux_cv(uu,rnrm) result(return_value)
+  !
+  use geovar, only : neqns,nr
+  !
+  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nr),    intent(in) :: rnrm
+  !
+  real(wp), dimension(1:neqns) :: return_value
+  !
+  real(wp), dimension(1:nr)    :: unrm
+  real(wp), dimension(1:neqns) :: xflx,yflx
+  !
+continue
+  !
+  unrm(:) = unit_vector( rnrm(:) )
+  !
+  xflx(:) = xflux_cv( uu(:) )
+  yflx(:) = yflux_cv( uu(:) )
+  !
+  return_value(:) = xflx(:)*unrm(1) + yflx(:)*unrm(2)
+  !
+end function nflux_cv
 !
 !###############################################################################
 !

@@ -1,24 +1,26 @@
 vortex (medium mesh use patran.sq.40.out) 
   "."
  gridfile type             gridfile
-       2                "grid_files/meilin/quad.5x5.2X.neu"
- n_order  iop_solpts  iop_flxpts  iop_tripts  metis_option
-    3         2           2           2            2
+       2                "grid_files/meilin/quad.40x40.neu"
+ p_order  n_order  iop_solpts  iop_flxpts  iop_tripts  metis_option
+    4        4         2           2           2            2
  flux_divergence  iop_correction  quadrature  iop_qdtpts  dflux_opt
-        0                3            5           2           2
+        0                3             4          2           2
 testcase  iRKtype  num_stages irestart  init_loc  error_loc
     5        3         3         0          0         0
   num_ts   FinalTime   CFL    d_tin   Flux_Method
-   1000      -1.0      1.0    0.00125      1
+  12500      -1.0      1.0    0.0008       1
   Filter_Option  etac  Filter_Order  Filter_Alpha
         0        0.0        16           36.0
  output_solution  output_interval  restart_interval  results_interval
-        0               50                  0               0
+        0              100                  0               0
  Free-stream conditions 
  Density  Temperature  Pressure  Mach  AOA  Gamma   Rgas
-  -1.0       300.0      100000    0.4  45    1.4   287.15
+  -1.0       300.0      100000    0.0  90    1.4   287.15
  Bound_Error   Error_Bound_Limit
-      0               5.0  
+      0               2.0  
+ Output_Order
+     -6
 !quad_interval
 !     0
 ! flux_divergence = 1 -> Lagrange Polynomial
@@ -53,3 +55,4 @@ testcase  iRKtype  num_stages irestart  init_loc  error_loc
 ! error_loc = -1 -> exact sol. on RP, proj. numerical to RP, weights on RP
        2                "grid_files/meilin/quad.40x40.neu"
        2          "grid_files/hiocfd/c1.6_vortex/rp_2d_quad_grid1.fixed.neu"
+       2                "grid_files/periodic_with_outflow/quad.10x10.4X.neu"
