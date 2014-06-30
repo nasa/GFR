@@ -98,6 +98,7 @@ module ovar
   integer, public, save :: output_interval
   integer, public, save :: restart_interval
   integer, public, save :: results_interval
+  integer, public, save :: iter_out_interval
   !
   real(wp), public, save :: rhoref
   real(wp), public, save :: tref
@@ -284,6 +285,7 @@ module ovar_test
   integer, public, save :: output_interval
   integer, public, save :: restart_interval
   integer, public, save :: results_interval
+  integer, public, save :: iter_out_interval
   !
   real(wp), public, save :: rhoref
   real(wp), public, save :: tref

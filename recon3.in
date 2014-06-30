@@ -1,15 +1,15 @@
 vortex (medium mesh use patran.sq.40.out) 
   "."
  gridfile type             gridfile
-       2                "grid_files/meilin/quad.40x40.neu"
+       2                "grid_files/meilin/quad.80x80.2X.neu"
  p_order  n_order  iop_solpts  iop_flxpts  iop_tripts  metis_option
     4        4         2           2           2            2
  flux_divergence  iop_correction  quadrature  iop_qdtpts  dflux_opt
         0                3             4          2           2
 testcase  iRKtype  num_stages irestart  init_loc  error_loc
     5        3         3         0          0         0
-  num_ts   FinalTime   CFL    d_tin   Flux_Method
-  12500      -1.0      1.0    0.0008       1
+  num_ts   FinalTime   CFL    d_tin   Flux_Method   iter_out_interval
+  12500       0.0      1.0    0.0008       1              1000
   Filter_Option  etac  Filter_Order  Filter_Alpha
         0        0.0        16           36.0
  output_solution  output_interval  restart_interval  results_interval

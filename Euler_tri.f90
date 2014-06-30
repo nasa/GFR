@@ -355,12 +355,10 @@ continue
       end if
       !
     end do rk_loop
-#ifndef PBS_ENV
     !
     ! Compute the residual error from the density and output to terminal
     !
-    call rgeterr
-#endif
+    if (mod(iter,iter_out_interval) == 0) call rgeterr
     !
     ! Store the new solution as the backup for the next iteration
     !
@@ -373,11 +371,6 @@ continue
     !
 #ifdef PBS_ENV
     if (mod(iter,1000) == 0) then
-      !
-      ! Compute the residual error for this time step and see if we
-      ! have enough wall time left to get to the next output interval
-      !
-      call rgeterr
 #else
     if (mod(iter,50) == 0) then
 #endif

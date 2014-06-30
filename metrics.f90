@@ -2263,6 +2263,7 @@ subroutine get_metrics()
   integer   :: n1,n2,nf,np,p1,p2
   real(vbp) :: tvol
   real(r8)  :: loc_vol,tot_vol
+  real(wp) :: val
  !real(wp)  :: dxdr,dxds,dydr,dyds
   !
   !.. Local Arrays ..
@@ -2603,6 +2604,30 @@ continue
   total_volume = real(tot_vol,vbp)
   local_volume = real(loc_vol,vbp)
   !
+ !tot_vol = 1.0e-7_wp
+ !do
+ !  val = zero
+ !  do i = 1,ncell
+ !    n1 = pts_in_cell_ptr(i)+1
+ !    n2 = pts_in_cell_ptr(i+1)
+ !    np = n2-n1+1
+ !    p1= merge(1,2,np==n_sp2dt)
+ !    do k = n1,n2
+ !      val = val + tot_vol*tot_vol*jacobian(k)*weights2d(k-n1+1,p1)
+ !    end do
+ !  end do
+ !  val = val/total_volume
+ !  if (log10(val) > -3.0_wp) then
+ !    exit
+ !  else
+ !    tot_vol = tot_vol*1.1_wp
+ !  end if
+ !end do
+ !write (iout,88) tot_vol,val,log10(val)
+ !!
+ !88 format (/,3es14.6,/)
+ !!
+ !call stop_recon(stop_mpi,"end of get_metrics")
  !if (mypnum == 0) write (*,*) "Total volume = ",total_volume
   call mpi_barrier(mpi_comm_world,mpierr)
   !

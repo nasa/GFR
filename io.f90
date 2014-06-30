@@ -57,6 +57,7 @@ module io_mod
   !
   integer, parameter :: patran_neutral = 1
   integer, parameter :: gambit_neutral = 2
+  integer, parameter :: gmsh_file = 3
   !
  !character(len=*), parameter :: fname_nodal = "solution.nodal.cgns"
  !character(len=*), parameter :: fname_modal = "solution.modal.cgns"
@@ -155,7 +156,7 @@ subroutine read_input_file
                      rhoref,tref,pref,machref,aoaref, &
                      vxref,vyref,aref,uref,rgasref, &
                      metis_option,init_loc,error_loc, &
-                     Period_Timesteps,Period_Time
+                     Period_Timesteps,Period_Time,iter_out_interval
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
   !
@@ -259,7 +260,7 @@ continue
   ! Read the time step information and the method for computing the interface fluxes
   !
   read (inpt,1) input_text(6)
-  read (inpt,*) num_ts, Final_Time, cfl, dt_in, flux_method
+  read (inpt,*) num_ts, Final_Time, cfl, dt_in, flux_method, iter_out_interval
   !
   ! Read the filter options
   !
@@ -449,6 +450,12 @@ continue
       output_interval = abs(output_interval)*Period_Timesteps
     end if
     !
+    if (iter_out_interval == 0) then
+      iter_out_interval = Period_Timesteps
+    else if (iter_out_interval < 0) then
+      iter_out_interval = max(Period_Timesteps/abs(iter_out_interval),1)
+    end if
+    !
   end if
   !
   ! Now write out a copy of the input file to standard output
@@ -468,7 +475,7 @@ continue
     write (iout,1) trim(input_text(5))
     write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
     write (iout,1) trim(input_text(6))
-    write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method
+    write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method, iter_out_interval
     write (iout,1) trim(input_text(7))
     write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
                     Filter_Order, Filter_Alpha
@@ -488,7 +495,7 @@ continue
   51 format (3x,i2,7x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
   52 format (7x,i2,15x,i2,2x,3(10x,i2))
   53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
-  54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0)
+  54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0,8x,i10)
   55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
   56 format (1x,i8,9x,i8,9x,i8,9x,i8)
   57 format (6x,l1,12x,f8.3)
@@ -1044,6 +1051,8 @@ continue
     call read_patran_neutral_gridfile
   else if (grid_format == gambit_neutral) then
     call read_gambit_neutral_gridfile
+  else if (grid_format == gmsh_file) then
+    call read_gmsh_gridfile
   end if
   !
   ! Check that all the nodes are in counter-clockwise
@@ -1057,6 +1066,124 @@ continue
   call adjust_for_ghost_cells
   !
 end subroutine read_grid_file
+!
+!###############################################################################
+!
+subroutine read_gmsh_gridfile()
+  !
+  ! Routine to read in a grid file using GMSH formatting
+  !
+  ! Explanation of values given in array cell_nodes
+  !
+  ! 1  : 2-node line
+  ! 2  : 3-node triangle
+  ! 3  : 4-node quadrangle
+  ! 4  : 4-node tetrahedron
+  ! 5  : 8-node hexahedron
+  ! 6  : 6-node prism
+  ! 7  : 5-node pyramid
+  ! 8  : 3-node second order line
+  !        2 nodes associated with the vertices
+  !        1 with the edge
+  ! 9  : 6-node second order triangle
+  !        3 nodes associated with the vertices
+  !        3 with the edges
+  ! 10 : 9-node second order quadrangle
+  !        4 nodes associated with the vertices
+  !        4 with the edges
+  !        1 with the face
+  ! 11 : 10-node second order tetrahedron
+  !        4 nodes associated with the vertices
+  !        6 with the edges
+  ! 12 : 27-node second order hexahedron
+  !        8 nodes associated with the vertices
+  !        12 with the edges
+  !        6 with the faces
+  !        1 with the volume
+  ! 13 : 18-node second order prism
+  !        6 nodes associated with the vertices
+  !        9 with the edges
+  !        3 with the quadrangular faces
+  ! 14 : 14-node second order pyramid
+  !        5 nodes associated with the vertices
+  !        8 with the edges
+  !        1 with the quadrangular face
+  ! 15 : 1-node point
+  ! 16 : 8-node second order quadrangle
+  !        4 nodes associated with the vertices
+  !        4 with the edges
+  ! 17 : 20-node second order hexahedron
+  !        8 nodes associated with the vertices
+  !        12 with the edges
+  ! 18 : 15-node second order prism
+  !        6 nodes associated with the vertices
+  !        9 with the edges
+  ! 19 : 13-node second order pyramid
+  !        5 nodes associated with the vertices
+  !        8 with the edges
+  ! 20 : 9-node third order incomplete triangle
+  !        3 nodes associated with the vertices
+  !        6 with the edges
+  ! 21 : 10-node third order triangle
+  !        3 nodes associated with the vertices
+  !        6 with the edges
+  !        1 with the face
+  ! 22 : 12-node fourth order incomplete triangle
+  !        3 nodes associated with the vertices
+  !        9 with the edges
+  ! 23 : 15-node fourth order triangle
+  !        3 nodes associated with the vertices
+  !        9 with the edges
+  !        3 with the face
+  ! 24 : 15-node fifth order incomplete triangle
+  !        3 nodes associated with the vertices
+  !        12 with the edges
+  ! 25 : 21-node fifth order complete triangle
+  !        3 nodes associated with the vertices
+  !        12 with the edges
+  !        6 with the face
+  ! 26 : 4-node third order edge
+  !        2 nodes associated with the vertices
+  !        2 internal to the edge
+  ! 27 : 5-node fourth order edge
+  !        2 nodes associated with the vertices
+  !        3 internal to the edge
+  ! 28 : 6-node fifth order edge 
+  !        2 nodes associated with the vertices
+  !        4 internal to the edge
+  ! 29 : 20-node third order tetrahedron
+  !        4 nodes associated with the vertices
+  !        12 with the edges
+  !        4 with the faces
+  ! 30 : 35-node fourth order tetrahedron
+  !        4 nodes associated with the vertices
+  !        18 with the edges
+  !        12 with the faces
+  !        1 in the volume
+  ! 31 : 56-node fifth order tetrahedron
+  !        4 nodes associated with the vertices
+  !        24 with the edges
+  !        24 with the faces
+  !        4 in the volume
+  ! 92 : 64-node third order hexahedron
+  !        8 nodes associated with the vertices
+  !        24 with the edges
+  !        24 with the faces
+  !        8 in the volume
+  ! 93 : 125-node fourth order hexahedron
+  !        8 nodes associated with the vertices
+  !        36 with the edges
+  !        54 with the faces
+  !        27 in the volume
+  !
+  integer, parameter, dimension(1:33) :: &
+      cell_nodes = [ 2,  3,   4,  4,  8, 6,  5,  3,  6,  9, &
+                    10, 27,  18, 14,  1, 8, 20, 15, 13,  9, &
+                    10, 12,  15, 15, 21, 4,  5,  6, 20, 35, &
+                    56, 64, 125]
+continue
+  !
+end subroutine read_gmsh_gridfile
 !
 !###############################################################################
 !
@@ -3245,21 +3372,21 @@ continue
   !
   ! x-velocity
   !
- !do i = 1,n_solpts
- !  vartmp(i) = vsp(2,i)*cvel
- !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
- !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
- !                      var(1:n_outpts),ifld_n,ierr)
+  do i = 1,n_solpts
+    vartmp(i) = vsp(2,i)*cvel
+  end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! y-velocity
   !
- !do i = 1,n_solpts
- !  vartmp(i) = vsp(3,i)*cvel
- !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
- !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
- !                      var(1:n_outpts),ifld_n,ierr)
+  do i = 1,n_solpts
+    vartmp(i) = vsp(3,i)*cvel
+  end do
+  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
+                        var(1:n_outpts),ifld_n,ierr)
   !
   ! Pressure
   !
@@ -3278,24 +3405,24 @@ continue
  !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
  !                      var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Entropy
-  !
-  do i = 1,n_solpts
-    vartmp(i) = usp(4,i)
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
-                        var(1:n_outpts),ifld_n,ierr)
+! !
+! ! Entropy
+! !
+! do i = 1,n_solpts
+!   vartmp(i) = usp(4,i)
+! end do
+! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
+!                       var(1:n_outpts),ifld_n,ierr)
   !
   ! Vorticity
   !
-  do i = 1,n_solpts
-    vartmp(i) = usp(2,i)*cvel
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
-                        var(1:n_outpts),ifld_n,ierr)
+! do i = 1,n_solpts
+!   vartmp(i) = usp(2,i)*cvel
+! end do
+! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
+!                       var(1:n_outpts),ifld_n,ierr)
   !
   ! Create the exact solution at each solution point
   !
@@ -3313,41 +3440,41 @@ continue
   !
   ! Density error
   !
-  do i = 1,n_solpts
-    vartmp(i) = usp(1,i)-vsp(1,i)
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Density", &
-                        var(1:n_outpts),ifld_n,ierr)
+! do i = 1,n_solpts
+!   vartmp(i) = usp(1,i)-vsp(1,i)
+! end do
+! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Density", &
+!                       var(1:n_outpts),ifld_n,ierr)
   !
   ! x-velocity error
   !
-  do i = 1,n_solpts
-    vartmp(i) = usp(2,i)-vsp(2,i)
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityX", &
-                        var(1:n_outpts),ifld_n,ierr)
+! do i = 1,n_solpts
+!   vartmp(i) = usp(2,i)-vsp(2,i)
+! end do
+! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityX", &
+!                       var(1:n_outpts),ifld_n,ierr)
   !
   ! y-velocity Error
   !
-  do i = 1,n_solpts
-    vartmp(i) = usp(3,i)-vsp(3,i)
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityY", &
-                        var(1:n_outpts),ifld_n,ierr)
+! do i = 1,n_solpts
+!   vartmp(i) = usp(3,i)-vsp(3,i)
+! end do
+! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityY", &
+!                       var(1:n_outpts),ifld_n,ierr)
   !
   ! Entropy error
   !
-  do i = 1,n_solpts
-    sn = entropy_pv_sp( vsp(:,i) )
-    se = entropy_pv_sp( usp(:,i) )
-    vartmp(i) = sn-se
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Entropy", &
-                        var(1:n_outpts),ifld_n,ierr)
+ !do i = 1,n_solpts
+ !  sn = entropy_pv_sp( vsp(:,i) )
+ !  se = entropy_pv_sp( usp(:,i) )
+ !  vartmp(i) = sn-se
+ !end do
+ !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+ !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Entropy", &
+ !                      var(1:n_outpts),ifld_n,ierr)
   !
   ! Pressure error
   !
