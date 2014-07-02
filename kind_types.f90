@@ -743,6 +743,7 @@ include "Functions/rotate.f90"
 include "Functions/rotate_2d.f90"
 include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
+include "Functions/uppercase.f90"
 !
 !###############################################################################
 !
