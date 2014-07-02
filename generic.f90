@@ -33,7 +33,6 @@ module generic_mod
   public :: compute_final_error
   public :: compute_final_advec_error
   public :: compute_final_vortex_error
-  public :: reset_boundaries
   public :: test_error
   public :: project_to_porder
   !
@@ -776,7 +775,7 @@ subroutine compute_final_error()
                       Density_Maximum_Residual,vortex_has_collapsed, &
                       error_loc,Period_Time
   use metvar,  only : jacobian
-  use flowvar, only : usp,vsp,uspstart
+  use flowvar, only : usp,vsp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
@@ -1907,36 +1906,6 @@ continue
   entL2 = sqrt( sum(all_error(1,:)) /total_volume )
   !
 end subroutine getmaxent
-!
-!###############################################################################
-!
-subroutine reset_boundaries
-  ! 
-  use geovar,  only : nfbnd,bface,cells_on_face,pts_in_cell_ptr
-  use flowvar, only : vsp,usp,uspstart
-  !
-  integer :: nf,ic,i1,i2
-  !
-continue
-  !
-  do nf = 1,nfbnd
-    !
-    if (bface(1,nf) == bc_periodic) then
-      !
-      ! Periodic boundary condition
-      !
-      ic = cells_on_face(1,nf)
-      i1 = pts_in_cell_ptr(ic)+1
-      i2 = pts_in_cell_ptr(ic+1)
-      !
-      usp(:,i1:i2) = uspstart(:,i1:i2)
-      vsp(:,i1:i2) = usp2v( usp(:,i1:i2) )
-      !
-    end if
-    !
-  end do
-  !
-end subroutine reset_boundaries
 !
 !###############################################################################
 !
