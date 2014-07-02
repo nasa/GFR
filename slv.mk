@@ -17,13 +17,15 @@ METISLIB = -lmetis
 # PBS Time
 PBSTIME = -lpbs_time_left
 
-# CGNS 3.1 Library
-CGNS = -lcgns3
-PCGNS = -lpcgns
+# HDF5 Library
 HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm
 
+# CGNS 3.2 Library
+CGNS32 = -lcgns $(HDF5)
+# CGNS 3.1 Library
+CGNS31 = -lcgns -lpcgns $(HDF5)
 # CGNS 2.5 Library
-CGNS25LIB = -lcgns2
+CGNS25 = -lcgns2
 
 ####################################
 ####################################
@@ -52,7 +54,6 @@ CGNS25LIB = -lcgns2
 
 HOMEDIR = /home/sspiegel
 
-CGNS31LIB = $(CGNS) $(PCGNS) $(HDF5)
 LOCALLIB =
 OTHERLIB =
 
@@ -70,15 +71,16 @@ OPTIM = -O3 -ipo -xSSE4.2 #-ipo-jobs4
 ##############################
 ##############################
 
- CGNSLIB = $(CGNS31LIB)
-#CGNSLIB = $(CGNS25LIB)
+ CGNSLIB = $(CGNS32)
+#CGNSLIB = $(CGNS31)
+#CGNSLIB = $(CGNS25)
 
 EXEDIR = $(HOMEDIR)/bin
 LIBDIR = $(HOMEDIR)/lib
 INCDIR = $(HOMEDIR)/include
 
-INCLUDE = -I$(INCDIR)
-LIBRARY = -L$(LIBDIR) $(LOCALLIB)
+INCLUDE = -I$(INCDIR) -I/usr/local/include
+LIBRARY = -L$(LIBDIR) -L/usr/local/lib $(LOCALLIB)
 
 FLIB = $(LIBRARY) $(METISLIB) $(CGNSLIB) $(OTHERLIB)
 
@@ -94,10 +96,11 @@ F03STD = -std03
 F95STD = -std95
 F90STD = -std90
 #
-FCFLAG = $(FCBASE)
+FCFLAG = $(FCBASE) 
 FCFLAG += $(FPP)
 FCFLAG += $(F08STD)
 FCFLAG += $(MOD) $(INCLUDE)
+#FCFLAG += -shared-intel
 
 #
 #FCFLAG += -opt-report=2 -opt-report-file=medium.opt.log
