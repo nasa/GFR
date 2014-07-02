@@ -36,7 +36,7 @@ module flux_mod
   !
   real(vbp), dimension(1:2), parameter :: cl = (/ one , half /)
   !
-  integer, parameter :: HTFLUX = 1
+  integer, parameter :: ROEFLUX = 1
   integer, parameter :: HLLC = 2
   integer, parameter :: LDFSS = 3
   !
@@ -615,7 +615,7 @@ continue
       !
       ! Get the numerical flux at the current face sol-pt
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
@@ -1124,7 +1124,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fncq(:,k) = upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
       else if (flux_method == HLLC) then
         fncq(:,k) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
@@ -1393,7 +1393,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , ul , ur )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , ul , ur )
@@ -1555,7 +1555,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
@@ -1770,7 +1770,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , ul , ur )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , ul , ur )
@@ -2230,7 +2230,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , ul , ur )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , ul , ur )
@@ -2478,7 +2478,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , ul , ur )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , ul , ur )
@@ -2664,7 +2664,7 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (flux_method == HTFLUX) then
+      if (flux_method == ROEFLUX) then
         fnc(:) = upwind_flux_cv ( unrm(:) , ul , ur )
       else if (flux_method == HLLC) then
         fnc(:) = hllc_upwind_flux_cv ( unrm(:) , ul , ur )
