@@ -53,13 +53,16 @@ subroutine initialize_flow()
   use generic_mod, only : usp2v,project_to_porder
   !
   !.. Local Scalars ..
-  integer   :: n1,n2,nc,np,ns,m,nf,ierr
-  real(vbp) :: c1,c3,c4,gm1,rt2
-  real(vbp) :: rho_inf,vx_inf,vy_inf,p_inf,T_inf,a_inf,mach_inf
-  real(vbp) :: Rgas,bigR,xc,yc,Lx,Ly,cp,xt,yt,rt,du,dv,dT,beta
-  real(vbp) :: vx,vy,Temp,rho,pres,rho_nd,vx_nd,vy_nd,pres_nd
-  real(vbp) :: bigGam,func
-  real(vbp) :: rhoa,rhoa2
+  integer  :: n1,n2,nc,np,ns,m,nf,ierr
+  real(wp) :: c1,c3,c4,gm1,rt2
+  real(wp) :: rho_inf,vx_inf,vy_inf,p_inf,T_inf,a_inf,mach_inf
+  real(wp) :: Rgas,bigR,xc,yc,Lx,Ly,cp,xt,yt,rt,du,dv,dT,beta
+  real(wp) :: vx,vy,Temp,rho,pres,rho_nd,vx_nd,vy_nd,pres_nd
+  real(wp) :: bigGam,func
+  real(wp) :: rhoa,rhoa2
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable, dimension(:,:) :: uspstart
   !
 continue
   !
@@ -77,14 +80,15 @@ continue
   call alloc_error("initialize_flow","vsp",1,ierr)
   allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","residual",1,ierr)
-  allocate ( uspstart(1:neqns,1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error("initialize_flow","uspstart",1,ierr)
   allocate ( uoldsp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uoldsp",1,ierr)
   allocate ( faceusp(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
   allocate ( faceflx(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
+  !
+  allocate ( uspstart(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+  call alloc_error("initialize_flow","uspstart",1,ierr)
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
@@ -123,8 +127,8 @@ continue
    !!
    !! Vortex parameters
    !!
-   !bigGam = 13.5_vbp
-   !bigR = 1.5_vbp
+   !bigGam = 13.5_wp
+   !bigR = 1.5_wp
    !!
    !! Switch between vortex transport (2D Euler equations problem)
    !!           and density transport (2D advection equation problem)
@@ -379,10 +383,10 @@ end subroutine initialize_flow
 !  integer,  intent(in) :: nsolpt
 !  integer, intent(out) :: nq
 !
-!  real(vbp),              dimension(1:nsolpt), intent(in) :: x
-!  real(vbp), allocatable, dimension(:,:),   intent(inout) :: q
+!  real(wp),              dimension(1:nsolpt), intent(in) :: x
+!  real(wp), allocatable, dimension(:,:),   intent(inout) :: q
 !
-!  real(vbp) :: xmin,xmax,xlen,xcen,xhw
+!  real(wp) :: xmin,xmax,xlen,xcen,xhw
 !
 !continue
 !
@@ -454,12 +458,12 @@ end subroutine initialize_flow
 !!
 !pure function sine_wave(x,freq) result(return_value)
 !
-!  real(vbp), optional,     intent(in) :: freq
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp), optional,     intent(in) :: freq
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
-!  real(vbp) :: xmin,xmax,xhw
+!  real(wp) :: xmin,xmax,xhw
 !
 !continue
 !
@@ -476,12 +480,12 @@ end subroutine initialize_flow
 !!
 !pure function cosine_wave(x,freq) result(return_value)
 !
-!  real(vbp), optional,     intent(in) :: freq
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp), optional,     intent(in) :: freq
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
-!  real(vbp) :: xmin,xmax,xhw
+!  real(wp) :: xmin,xmax,xhw
 !
 !continue
 !
@@ -498,11 +502,11 @@ end subroutine initialize_flow
 !!
 !pure function square_wave(x,xcen,hw) result(return_value)
 !
-!  real(vbp),               intent(in) :: xcen
-!  real(vbp),               intent(in) :: hw
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp),               intent(in) :: xcen
+!  real(wp),               intent(in) :: hw
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
 !  integer :: i
 !
@@ -519,11 +523,11 @@ end subroutine initialize_flow
 !!
 !pure function gaussian_wave(x,xcen,hw) result(return_value)
 !
-!  real(vbp),               intent(in) :: xcen
-!  real(vbp),               intent(in) :: hw
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp),               intent(in) :: xcen
+!  real(wp),               intent(in) :: hw
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
 !continue
 !
@@ -535,11 +539,11 @@ end subroutine initialize_flow
 !!
 !pure function ellipse_wave(x,xcen,hw) result(return_value)
 !
-!  real(vbp),               intent(in) :: xcen
-!  real(vbp),               intent(in) :: hw
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp),               intent(in) :: xcen
+!  real(wp),               intent(in) :: hw
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
 !  integer :: i
 !
@@ -556,11 +560,11 @@ end subroutine initialize_flow
 !!
 !pure function triangle_wave(x,xcen,hw) result(return_value)
 !
-!  real(vbp),               intent(in) :: xcen
-!  real(vbp),               intent(in) :: hw
-!  real(vbp), dimension(:), intent(in) :: x
+!  real(wp),               intent(in) :: xcen
+!  real(wp),               intent(in) :: hw
+!  real(wp), dimension(:), intent(in) :: x
 !
-!  real(vbp), dimension(size(x)) :: return_value
+!  real(wp), dimension(size(x)) :: return_value
 !
 !  integer :: i
 !
