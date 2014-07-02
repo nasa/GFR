@@ -22,7 +22,7 @@ program Euler_tri
   use flowvar
  !use mpivar
   use io_mod, only : read_input_file, &
-                     read_input_file_test, &
+                    !read_input_file_test, &
                      read_grid_file, &
                      write_tecplot_file, &
                      write_restart_file, &
