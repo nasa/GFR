@@ -53,13 +53,8 @@ subroutine initialize_flow()
   use generic_mod, only : usp2v,project_to_porder
   !
   !.. Local Scalars ..
-  integer  :: n1,n2,nc,np,ns,m,nf,ierr
-  real(wp) :: c1,c3,c4,gm1,rt2
-  real(wp) :: rho_inf,vx_inf,vy_inf,p_inf,T_inf,a_inf,mach_inf
-  real(wp) :: Rgas,bigR,xc,yc,Lx,Ly,cp,xt,yt,rt,du,dv,dT,beta
-  real(wp) :: vx,vy,Temp,rho,pres,rho_nd,vx_nd,vy_nd,pres_nd
-  real(wp) :: bigGam,func
-  real(wp) :: rhoa,rhoa2
+  integer  :: n1,n2,n,np,m,ierr
+  real(wp) :: rhoa2
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable, dimension(:,:) :: uspstart
@@ -68,9 +63,7 @@ continue
   !
   ! Some constants from the free-stream conditions
   !
-  gm1 = gam - one
-  rhoa = rhoref * aref
-  rhoa2 = rhoa * aref
+  rhoa2 = rhoref * aref * aref
   !
   ! Allocate the solution arrays
   !
@@ -78,6 +71,8 @@ continue
   call alloc_error("initialize_flow","usp",1,ierr)
   allocate ( vsp(1:neqns,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","vsp",1,ierr)
+  allocate ( dusp(1:neqns*nr,1:n_totpts) , source=zero , stat=ierr )
+  call alloc_error("initialize_flow","dusp",1,ierr)
   allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","residual",1,ierr)
   allocate ( uoldsp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
@@ -92,18 +87,18 @@ continue
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
-  ns = 0
+  n = 0
   if (iRKtype == Classic_RK) then
-    ns = num_stages
+    n = num_stages
   else if (iRKtype == CK4_RK .or. iRKtype == TVD4_RK) then
-    ns = 1
+    n = 1
     if (iRKtype == TVD4_RK) then
       allocate ( usp_sum(1:neqns,1:n_solpts) , source=zero , stat=ierr )
       call alloc_error("initialize_flow","usp_sum",1,ierr)
     end if
   end if
   !
-  allocate ( rssprk(1:neqns,1:n_solpts,1:ns) , source=zero , stat=ierr )
+  allocate ( rssprk(1:neqns,1:n_solpts,1:n) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","rssprk",1,ierr)
   !
   ! Initialize uspstart depending on the test case requested
@@ -124,84 +119,14 @@ continue
     bc_in(3) = bc_in(3) / aref
     bc_in(4) = bc_in(4) / rhoa2
     !
-   !!
-   !! Vortex parameters
-   !!
-   !bigGam = 13.5_wp
-   !bigR = 1.5_wp
-   !!
-   !! Switch between vortex transport (2D Euler equations problem)
-   !!           and density transport (2D advection equation problem)
-   !!
-   !c4 = deltafun(itestcase == Vortex_Transport)
-   !!
-   !! For Vincent 2011 vortex, pressure has a leading term of 1/(gam*mach**2)
-   !! This term acts to nondimensionalize pressure by
-   !! p_nondim = p_dim/(rhoref*uref**2)
-   !! Changing the leading term to 1/gam changes
-   !! the pressure nondimensionalization to
-   !! p_nondim = p_dim/(rhoref*aref**2)
-   !!
-   !c3 = half*machref*machref*gm1
-   !!
-   !do nc = 1,ncell
-   !  !
-   !  n1 = pts_in_cell_ptr(nc)+1
-   !  n2 = pts_in_cell_ptr(nc+1)
-   !  !
-   !  do np = n1,n2
-   !    !
-   !    ! Vincent 2011 (very similar to workshop) vortex
-   !    !
-   !    xt = xyz(1,np)
-   !    yt = xyz(2,np)
-   !    !
-   !    func = (one - xt*xt - yt*yt)/(two*bigR*bigR)
-   !    !
-   !    c1 = bigGam*exp(func)/(two*pi)
-   !    !
-   !    ! Compute the dimensional fluxuations du, dv, and dt
-   !    !
-   !    du = -c1*yt/bigR * uref
-   !    dv =  c1*xt/bigR * uref
-   !    dT = -c3*c1*c1 * tref
-   !    !
-   !    ! Compute the dimensional velocities and temperature
-   !    !
-   !    vx   = du + vxref
-   !    vy   = dv + vyref
-   !    temp = dt + tref
-   !    !
-   !    ! Compute the remaining dimensional primitive variables
-   !    !
-   !    rho = rhoref * (temp/tref)**(one/gm1)
-   !    pres = pref  * (temp/tref)**(gam/gm1)
-   !    !
-   !    ! Compute the dimensional conserved variables
-   !    !
-   !    uspstart(1,np) = rho
-   !    uspstart(2,np) = rho*vx
-   !    uspstart(3,np) = rho*vy
-   !    uspstart(4,np) = pres/gm1*c4 + half*rho*(vx*vx + vy*vy)
-   !    !
-   !  end do
-   !  !
-   !end do
-   !!
-   !! Nondimensionalize the conserved variables
-   !!
-   !uspstart(1,1:n_solpts) = uspstart(1,1:n_solpts) / rhoref
-   !uspstart(2,1:n_solpts) = uspstart(2,1:n_solpts) / rhoa
-   !uspstart(3,1:n_solpts) = uspstart(3,1:n_solpts) / rhoa
-   !uspstart(4,1:n_solpts) = uspstart(4,1:n_solpts) / rhoa2
-   !!
+    ! Compute the initial solution for the vortex problem
     !
     if (init_loc == 1) then
       !
       write (*,4) "Gauss"
-      do nc = 1,ncell
-        n1 = pts_in_cell_ptr(nc)+1
-        n2 = pts_in_cell_ptr(nc+1)
+      do n = 1,ncell
+        n1 = pts_in_cell_ptr(n)+1
+        n2 = pts_in_cell_ptr(n+1)
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_gauss(1,np) , xyz_gauss(2,np) )
         end do
@@ -213,9 +138,9 @@ continue
     else if (init_loc == 2) then
       !
       write (*,4) "Lobatto"
-      do nc = 1,ncell
-        n1 = pts_in_cell_ptr(nc)+1
-        n2 = pts_in_cell_ptr(nc+1)
+      do n = 1,ncell
+        n1 = pts_in_cell_ptr(n)+1
+        n2 = pts_in_cell_ptr(n+1)
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_lobatto(1,np) , xyz_lobatto(2,np) )
         end do
@@ -227,9 +152,9 @@ continue
     else if (init_loc == -1) then
       !
       write (*,4) "right Radau"
-      do nc = 1,ncell
-        n1 = pts_in_cell_ptr(nc)+1
-        n2 = pts_in_cell_ptr(nc+1)
+      do n = 1,ncell
+        n1 = pts_in_cell_ptr(n)+1
+        n2 = pts_in_cell_ptr(n+1)
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_radau(1,np) , xyz_radau(2,np) )
         end do
@@ -245,20 +170,6 @@ continue
       end do
       !
     end if
-    !
-    ! Lets go through the boundary faces and set the velocity to zero.
-    ! This might prevent a very small shear layer at the periodic boundaries
-    !
-   !do nf = 1,nfbnd
-   !  !
-   !  if (bface(1,nf) == bc_periodic) then
-   !    nc = cells_on_face(1,nf)
-   !    n1 = pts_in_cell_ptr(nc)+1
-   !    n2 = pts_in_cell_ptr(nc+1)
-   !    uspstart(2:neqns-1,n1:n2) = zero
-   !  end if
-   !  !
-   !end do
     !
   else
     !

@@ -176,20 +176,6 @@ module module_kind_types
   !
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
   !
-  ! Parameters for the vortex problem
-  !
-  ! Shu version of the vortex
-  real(wp), parameter :: vortex_bigR = 1.0_wp
-  real(wp), parameter :: vortex_bigGam = 5.0_wp
- !real(wp), parameter :: vortex_bigR = 0.85_wp
- !real(wp), parameter :: vortex_bigGam = 6.75_wp
-  ! Vincent version of the vortex
- !real(wp), parameter :: vortex_bigR = 1.5_wp
- !real(wp), parameter :: vortex_bigGam = 13.5_wp
-  !
-  real(wp), parameter :: density_bigR = 1.0_wp
-  real(wp), parameter :: density_bigGam = 5.0_wp
-  !
   ! Parameters defining workshop test cases
   !
   integer, parameter :: Ringleb_Problem  = 2
@@ -200,12 +186,12 @@ module module_kind_types
   integer, parameter :: Density_Transport = 7
   integer, parameter :: Entropy_Transport = 8
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
-                                                        Entropy_Transport ]
+                                                Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
-                                                         Vortex_Transport ]
+                                                 Vortex_Transport ]
   integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
-                                                            Vortex_Transport, &
-                                                            Advec_Problems ]
+                                                    Vortex_Transport, &
+                                                    Advec_Problems ]
   !
   integer, parameter :: Legendre_Gauss          = 1
   integer, parameter :: Legendre_Gauss_Lobatto  = 2

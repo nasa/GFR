@@ -192,6 +192,7 @@ subroutine read_nml_input_file
                      Period_Timesteps,Period_Time,iter_out_interval
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
+  use ovar,   only : vortex_bigR,vortex_bigGam
  !use ovar,   only : input
   !
   !.. Local Scalars ..
@@ -233,6 +234,8 @@ subroutine read_nml_input_file
   namelist / input / bound_error, error_bound_limit
   ! INITIALIZATION/ERROR LOCATIONS
   namelist / input / init_loc, error_loc
+  ! VORTEX CONSTANTS
+  namelist / input / vortex_bigR, vortex_bigGam
   !
 continue
   !

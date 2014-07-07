@@ -88,6 +88,8 @@ module ovar
   logical,  public, save :: bound_error       = .false.
   real(wp), public, save :: error_bound_limit = 2.0_wp
   !
+  real(wp), public, save :: vortex_bigR = 1.0_wp
+  real(wp), public, save :: vortex_bigGam = 5.0_wp
   !
   !.. Non-Input Variables ..
   real(wp), public, save :: aref

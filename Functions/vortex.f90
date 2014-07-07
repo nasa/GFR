@@ -3,18 +3,19 @@ pure function vortex2D(x,y) result(return_value)
   !.. Use Statements ..
   use ovar, only : vxref,vyref,aref,uref,machref
   use ovar, only : gam,rhoref,tref,pref,itestcase
+  use ovar, only : vortex_bigR,vortex_bigGam
   !
   !.. Formal Arguments ..
-  real(vbp), intent(in) :: x
-  real(vbp), intent(in) :: y
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: y
   !
   !.. Function Return Value ..
-  real(vbp), dimension(1:4) :: return_value
+  real(wp), dimension(1:4) :: return_value
   !
   !.. Local Scalars ..
-  real(vbp) :: gm1,rhoa,rhoa2
-  real(vbp) :: c1,c2,c3,func,du,dv,dT,vx,vy,temp,rho,pres
-  real(vbp) :: bigR,bigGam
+  real(wp) :: gm1,rhoa,rhoa2
+  real(wp) :: c1,c2,c3,func,du,dv,dT,vx,vy,temp,rho,pres
+  real(wp) :: bigR,bigGam
   !
 continue
   !
@@ -27,8 +28,8 @@ continue
   ! For density/entropy transport or Shu vortex -> bigR = 1;   bigGam = 5
   ! For vortex          transport               -> bigR = 1.5; bigGam = 13.5
   !
-  bigR   = merge(vortex_bigR,  density_bigR,  any(itestcase==Vortex_Problems))
-  bigGam = merge(vortex_bigGam,density_bigGam,any(itestcase==Vortex_Problems))
+  bigR   = merge(vortex_bigR,  one, any(itestcase==Vortex_Problems))
+  bigGam = merge(vortex_bigGam,five,any(itestcase==Vortex_Problems))
   !
   c2 = half*machref*machref*gm1
   !
