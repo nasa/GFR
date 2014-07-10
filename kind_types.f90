@@ -57,6 +57,7 @@ module module_kind_types
   real(wp), parameter :: one2   = one/two
   real(wp), parameter :: two3   = two/three
   real(wp), parameter :: three4 = three/four
+  real(wp), parameter :: four3  = four/three
   !
   real(wp), parameter :: eps1  = 1.0e-01_wp
   real(wp), parameter :: eps2  = 1.0e-02_wp

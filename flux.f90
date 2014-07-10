@@ -23,6 +23,8 @@ module flux_mod
   public :: interp_cv_to_flxpts
   public :: derflux1_qdtr
   public :: correct_interface_flux_qdtr
+  public :: discontinuous_gradient_at_solpts
+  public :: correct_gradients_at_solpts
   !
   real(vbp), parameter :: amco2m = 1.0e-4_vbp
   real(vbp), parameter :: alphax = 0.1875_vbp
@@ -35,6 +37,8 @@ module flux_mod
   !      = 0.5 for quads
   !
   real(vbp), dimension(1:2), parameter :: cl = (/ one , half /)
+  !
+  real(wp), parameter, dimension(1:3) :: LDG_beta = (/ zero, zero, zero /)
   !
   integer, parameter :: ROEFLUX = 1
   integer, parameter :: HLLC = 2
@@ -548,120 +552,6 @@ end function ausm_plus_upwind_flux
 !
 !###############################################################################
 !
-subroutine correctd
-  !
-  !... this subroutine corrects the derivatives
-  !... ftdxi_(m,k,j) and gtdet_(m,k,j)
-  !
-  !.. Use Statements ..
-  use geovar,  only : neqns,nface,nfbnd,n_sp1de,n_sp2dt,n_sp2dq, &
-                      cells_on_face, &
-                      pts_on_face, &
-                      pts_in_cell_ptr,write_variable
-  use metvar,  only : cormat,geofa
-  use flowvar, only : residual,vsp
-  use generic_mod, only : vsp2u_sp
-  !
-  !.. Local Scalars ..
-  integer   :: nf,k,i,jl,jr,kl,kr,l1,l2,r1,r2,wl,wr,m
-  integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
-  !
-  !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: vl,vr
-  real(vbp), dimension(1:neqns) :: fnl,fnr,fjl,fjr,fnc
-  !
-continue
-  !
-  ! Loop over all the faces and correct the fluxes at the solution points
-  !
-  do nf = 1,nface
-    !
-    jl = cells_on_face(1,nf) ! left  cell on face
-    jr = cells_on_face(2,nf) ! right cell on face
-    !
-    kcorbl = cells_on_face(5,nf) ! starting face sol-pt for left  cell
-    kcorbr = cells_on_face(6,nf) ! starting face sol-pt for right cell
-    !
-    l1 = pts_in_cell_ptr(jl)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(jl+1) ! ending    index for sol-pts in left cell
-    !
-    r1 = pts_in_cell_ptr(jr)+1 ! beginning index for sol-pts in right cell
-    r2 = pts_in_cell_ptr(jr+1) ! ending    index for sol-pts in right cell
-    !
-    wl = merge( 1 , 2 , l2-l1+1 == n_sp2dt ) ! check if jl is a tria or quad
-    wr = merge( 1 , 2 , r2-r1+1 == n_sp2dt ) ! check if jr is a tria or quad
-    !
-    ! Loop through the solution points on the current face
-    !
-    do k = 1,n_sp1de
-      !
-      ! Get the unit normal at this flux point
-      !
-      unrm(:) = unit_vector( geofa(:,k,nf) )
-      !
-      ! Get the face length for the left and right cell
-      !
-      ds  = rnorm2( geofa(:,k,nf) )
-      dsl = ds * cl(wl)
-      dsr = ds * cl(wr)
-      !
-      kl = pts_on_face(1,k,nf) ! current face sol-pt of left  cell
-      kr = pts_on_face(2,k,nf) ! current face sol-pt of right cell
-      !
-      vl = vsp(:,kl) ! primitive variables at kl
-      vr = vsp(:,kr) ! primitive variables at kr
-      !
-      ! Get the numerical flux at the current face sol-pt
-      !
-      if (flux_method == ROEFLUX) then
-        fnc(:) = upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
-      else if (flux_method == HLLC) then
-        fnc(:) = hllc_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
-      else if (flux_method == LDFSS) then
-        fnc(:) = ldfss_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
-      end if
-      !
-      ! The flux at the sol-pts kl and kr in the direction of the face normal
-      !
-      fnl(:) = xflux_pv(vl)*unrm(1) + yflux_pv(vl)*unrm(2)
-      fnr(:) = xflux_pv(vr)*unrm(1) + yflux_pv(vr)*unrm(2)
-      !
-      ! The jump in the flux at the sol-pts kl and kr
-      !
-      fjl(:) = fnc(:) - fnl(:)
-      fjr(:) = fnc(:) - fnr(:)
-      !
-      kcorl = kcorbl-1 + k ! index for the correction function at sol-pt kl
-      kcorr = kcorbr+1 - k ! index for the correction function at sol-pt kr
-      !
-      ! Add the flux correction to the residuals of the sol-pts in cell jl
-      !
-      do i = l1,l2
-        do m = 1,neqns
-          residual(m,i) = residual(m,i) + dsl*fjl(m)*cormat(i-l1+1,kcorl,wl)
-        end do
-      end do
-      !
-      ! Add the flux correction to the residuals of the sol-pts in cell jr
-      !
-      if (nf > nfbnd) then
-        do i = r1,r2
-          do m = 1,neqns
-            residual(m,i) = residual(m,i) - dsr*fjr(m)*cormat(i-r1+1,kcorr,wr)
-          end do
-        end do
-      end if
-      !
-    end do
-    !
-  end do
-  !
-end subroutine correctd
-!
-!###############################################################################
-!
 subroutine interp_cv_to_flxpts()
   !
   use geovar,  only : neqns,ncell,n_sp2dt,n_sp2dq,pts_in_cell_ptr
@@ -853,8 +743,8 @@ continue
     !
     do k = 1,nqp
       !
-      xyflx_qp(k,:,1) = xflux_cv( uqp(:,k) ) ! x-directional flux
-      xyflx_qp(k,:,2) = yflux_cv( uqp(:,k) ) ! y-directional flux
+      xyflx_qp(k,:,1) = f_invs_flx_cv( uqp(:,k) ) ! x-directional flux
+      xyflx_qp(k,:,2) = g_invs_flx_cv( uqp(:,k) ) ! y-directional flux
       !
       rsflx_qp(k,:,1) =  xyflx_qp(k,:,1)*dyds(k) - xyflx_qp(k,:,2)*dxds(k)
       rsflx_qp(k,:,2) = -xyflx_qp(k,:,1)*dydr(k) + xyflx_qp(k,:,2)*dxdr(k)
@@ -1101,8 +991,8 @@ continue
       ! Get the discontinuous fluxes at the quadrature flux points
       !
       do k = 1,nqp
-        lflx(1:neqns,k) = nflux_cv( luqp(:,k) , rnrm(:,k) )
-        rflx(1:neqns,k) = nflux_cv( ruqp(:,k) , rnrm(:,k) )
+        lflx(1:neqns,k) = normal_invs_flx_cv( luqp(:,k) , rnrm(:,k) )
+        rflx(1:neqns,k) = normal_invs_flx_cv( ruqp(:,k) , rnrm(:,k) )
       end do
       !
     else
@@ -1403,10 +1293,10 @@ continue
       !
       ! Get left and right discontinuous fluxes at the current flux point
       !
-      dfl(:) = xflux_cv(ul)
-      dgl(:) = yflux_cv(ul)
-      dfr(:) = xflux_cv(ur)
-      dgr(:) = yflux_cv(ur)
+      dfl(:) = f_invs_flx_cv(ul)
+      dgl(:) = g_invs_flx_cv(ul)
+      dfr(:) = f_invs_flx_cv(ur)
+      dgr(:) = g_invs_flx_cv(ur)
       !
       ! Get the discontinuous flux function at the current
       ! interface point in the direction of the face normal
@@ -1565,10 +1455,10 @@ continue
       !
       ! Get left and right discontinuous fluxes at the current flux point
       !
-      dfl(:) = xflux_pv(vl)
-      dgl(:) = yflux_pv(vl)
-      dfr(:) = xflux_pv(vr)
-      dgr(:) = yflux_pv(vr)
+      dfl(:) = f_invs_flx_pv(vl)
+      dgl(:) = g_invs_flx_pv(vl)
+      dfr(:) = f_invs_flx_pv(vr)
+      dgr(:) = g_invs_flx_pv(vr)
       !
       ! Get the discontinuous flux function at the current
       ! interface point in the direction of the face normal
@@ -1672,8 +1562,8 @@ continue
     ! transpose of usp for the left cell to reduce cache misses
     !
     do k = l1,l2
-      lflxf(k-l1+1,:) = xflux_cv( usp(:,k) )
-      lflxg(k-l1+1,:) = yflux_cv( usp(:,k) )
+      lflxf(k-l1+1,:) = f_invs_flx_cv( usp(:,k) )
+      lflxg(k-l1+1,:) = g_invs_flx_cv( usp(:,k) )
       lusp (k-l1+1,:) = usp(:,k)
     end do
     !
@@ -1699,8 +1589,8 @@ continue
    !end do
     if (.not. is_1d_bc) then
       do k = r1,r2
-        rflxf(k-r1+1,:) = xflux_cv( usp(:,k) )
-        rflxg(k-r1+1,:) = yflux_cv( usp(:,k) )
+        rflxf(k-r1+1,:) = f_invs_flx_cv( usp(:,k) )
+        rflxg(k-r1+1,:) = g_invs_flx_cv( usp(:,k) )
       end do
     end if
     !
@@ -1751,8 +1641,8 @@ continue
         !
        !write (*,*) "kcorr = ",kcorr
         ur(:) = rusp(kcorr,:)
-        dfr(:) = xflux_cv( ur )
-        dgr(:) = yflux_cv( ur )
+        dfr(:) = f_invs_flx_cv( ur )
+        dgr(:) = g_invs_flx_cv( ur )
         !
       else
         !
@@ -1860,8 +1750,8 @@ continue
     !
     do k = n1,n2
       !
-      ff(:) = xflux_cv( usp(:,k) ) ! x-directional flux
-      gg(:) = yflux_cv( usp(:,k) ) ! y-directional flux
+      ff(:) = f_invs_flx_cv( usp(:,k) ) ! x-directional flux
+      gg(:) = g_invs_flx_cv( usp(:,k) ) ! y-directional flux
       !
       ftdc(k-n1+1,:) =  ff(:)*dy(k)%ds - gg(:)*dx(k)%ds
       gtdc(k-n1+1,:) =  ff(:)*dy(k)%dr - gg(:)*dx(k)%dr
@@ -1949,8 +1839,8 @@ continue
       !
       ! Compute the Jacobian of the fluxes at the current sol-pt
       !
-      dfdu(:,:) = f_jacobian_using_conserved( usp(:,k) )
-      dgdu(:,:) = g_jacobian_using_conserved( usp(:,k) )
+      dfdu(:,:) = f_invs_flx_jacobian_cv( usp(:,k) )
+      dgdu(:,:) = g_invs_flx_jacobian_cv( usp(:,k) )
       !
       ! Compute the Jacobian in the direction of the face normal
       !
@@ -2057,8 +1947,8 @@ continue
       !
       ! Compute the Jacobian of the fluxes at the current sol-pt
       !
-      dfdu(:,:) = f_jacobian_using_conserved( usp(:,k) )
-      dgdu(:,:) = g_jacobian_using_conserved( usp(:,k) )
+      dfdu(:,:) = f_invs_flx_jacobian_cv( usp(:,k) )
+      dgdu(:,:) = g_invs_flx_jacobian_cv( usp(:,k) )
       !
       ! Compute the Jacobian in the direction of the face normal
       !
@@ -2138,8 +2028,8 @@ continue
     !
     do k = n1,n2
       !
-      ff(:) = xflux_cv( usp(:,k) ) ! x-directional flux
-      gg(:) = yflux_cv( usp(:,k) ) ! y-directional flux
+      ff(:) = f_invs_flx_cv( usp(:,k) ) ! x-directional flux
+      gg(:) = g_invs_flx_cv( usp(:,k) ) ! y-directional flux
       !
       ftdc(k-n1+1,:) =  ff(:)*dy(k)%ds - gg(:)*dx(k)%ds
       gtdc(k-n1+1,:) =  ff(:)*dy(k)%dr - gg(:)*dx(k)%dr
@@ -2185,8 +2075,8 @@ continue
     ! transpose of usp for the left cell to reduce cache misses
     !
     do k = l1,l2
-      lflxf(k-l1+1,:) = xflux_cv( usp(:,k) )
-      lflxg(k-l1+1,:) = yflux_cv( usp(:,k) )
+      lflxf(k-l1+1,:) = f_invs_flx_cv( usp(:,k) )
+      lflxg(k-l1+1,:) = g_invs_flx_cv( usp(:,k) )
       lusp (k-l1+1,:) = usp(:,k)
     end do
     !
@@ -2194,8 +2084,8 @@ continue
     ! transpose of usp for the right cell to reduce cache misses
     ! 
     do k = r1,r2
-      rflxf(k-r1+1,:) = xflux_cv( usp(:,k) )
-      rflxg(k-r1+1,:) = yflux_cv( usp(:,k) )
+      rflxf(k-r1+1,:) = f_invs_flx_cv( usp(:,k) )
+      rflxg(k-r1+1,:) = g_invs_flx_cv( usp(:,k) )
       rusp (k-r1+1,:) = usp(:,k)
     end do
     !
@@ -2374,8 +2264,8 @@ continue
     !
     do k = 1,n_qp2dq
       !
-      ff(:) = xflux_cv( uqp(:,k) ) ! x-directional flux
-      gg(:) = yflux_cv( uqp(:,k) ) ! y-directional flux
+      ff(:) = f_invs_flx_cv( uqp(:,k) ) ! x-directional flux
+      gg(:) = g_invs_flx_cv( uqp(:,k) ) ! y-directional flux
       !
       ftdc(k,:) =  ff(:)*dyds(k) - gg(:)*dxds(k)
       gtdc(k,:) =  ff(:)*dydr(k) - gg(:)*dxdr(k)
@@ -2424,8 +2314,8 @@ continue
     ! transpose of usp for the left cell to reduce cache misses
     !
     do k = l1,l2
-      lflxf(k-l1+1,:) = xflux_cv( usp(:,k) )
-      lflxg(k-l1+1,:) = yflux_cv( usp(:,k) )
+      lflxf(k-l1+1,:) = f_invs_flx_cv( usp(:,k) )
+      lflxg(k-l1+1,:) = g_invs_flx_cv( usp(:,k) )
       lusp (k-l1+1,:) = usp(:,k)
     end do
     !
@@ -2433,8 +2323,8 @@ continue
     ! transpose of usp for the right cell to reduce cache misses
     ! 
     do k = r1,r2
-      rflxf(k-r1+1,:) = xflux_cv( usp(:,k) )
-      rflxg(k-r1+1,:) = yflux_cv( usp(:,k) )
+      rflxf(k-r1+1,:) = f_invs_flx_cv( usp(:,k) )
+      rflxg(k-r1+1,:) = g_invs_flx_cv( usp(:,k) )
       rusp (k-r1+1,:) = usp(:,k)
     end do
     !
@@ -2586,8 +2476,8 @@ continue
     !
     do k = n1,n2
       !
-      ff(:) = xflux_cv( usp(:,k) ) ! x-directional flux
-      gg(:) = yflux_cv( usp(:,k) ) ! y-directional flux
+      ff(:) = f_invs_flx_cv( usp(:,k) ) ! x-directional flux
+      gg(:) = g_invs_flx_cv( usp(:,k) ) ! y-directional flux
       !
       ftdc(k-n1+1,:) =  ff(:)*dy(k)%ds - gg(:)*dx(k)%ds
       gtdc(k-n1+1,:) =  ff(:)*dy(k)%dr - gg(:)*dx(k)%dr
@@ -2698,8 +2588,16 @@ continue
 end subroutine dg_weak_form
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
 !
-pure function nflux_cv(uu,rnrm) result(return_value)
+! Procedures for inviscid fluxes
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+pure function normal_invs_flx_cv(uu,rnrm) result(return_value)
   !
   use geovar, only : neqns,nr
   !
@@ -2709,22 +2607,22 @@ pure function nflux_cv(uu,rnrm) result(return_value)
   real(wp), dimension(1:neqns) :: return_value
   !
   real(wp), dimension(1:nr)    :: unrm
-  real(wp), dimension(1:neqns) :: xflx,yflx
+  real(wp), dimension(1:neqns) :: f_flx,g_flx
   !
 continue
   !
   unrm(:) = unit_vector( rnrm(:) )
   !
-  xflx(:) = xflux_cv( uu(:) )
-  yflx(:) = yflux_cv( uu(:) )
+  f_flx(:) = f_invs_flx_cv( uu(:) )
+  g_flx(:) = g_invs_flx_cv( uu(:) )
   !
-  return_value(:) = xflx(:)*unrm(1) + yflx(:)*unrm(2)
+  return_value(:) = f_flx(:)*unrm(1) + g_flx(:)*unrm(2)
   !
-end function nflux_cv
+end function normal_invs_flx_cv
 !
 !###############################################################################
 !
-pure function xflux_cv(uu) result(return_value) 
+pure function f_invs_flx_cv(uu) result(return_value) 
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2744,11 +2642,11 @@ continue
   return_value(2) = return_value(2) + pres
   return_value(neqns) = uu(2)/uu(1) * (uu(neqns) + pres)
   !
-end function xflux_cv
+end function f_invs_flx_cv
 !
 !###############################################################################
 !
-pure function yflux_cv(uu) result(return_value)
+pure function g_invs_flx_cv(uu) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2768,11 +2666,11 @@ continue
   return_value(3) = return_value(3) + pres
   return_value(neqns) = uu(3)/uu(1) * (uu(neqns) + pres)
   !
-end function yflux_cv
+end function g_invs_flx_cv
 !
 !###############################################################################
 !
-pure function xflux_pv(vv) result(return_value) 
+pure function f_invs_flx_pv(vv) result(return_value) 
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2792,11 +2690,11 @@ continue
   return_value(2) = return_value(2) + vv(neqns)
   return_value(neqns) = (ener + vv(neqns)) * vv(2)
   !
-end function xflux_pv
+end function f_invs_flx_pv
 !
 !###############################################################################
 !
-pure function yflux_pv(vv) result(return_value)
+pure function g_invs_flx_pv(vv) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2816,11 +2714,11 @@ continue
   return_value(3) = return_value(3) + vv(neqns)
   return_value(neqns) = (ener + vv(neqns)) * vv(3)
   !
-end function yflux_pv
+end function g_invs_flx_pv
 !
 !###############################################################################
 !
-pure function f_jacobian_using_conserved(uu) result(return_value)
+pure function f_invs_flx_jacobian_cv(uu) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2864,11 +2762,11 @@ continue
   return_value(3,4) = -gm1*u*v
   return_value(4,4) = gam*u
   !
-end function f_jacobian_using_conserved
+end function f_invs_flx_jacobian_cv
 !
 !###############################################################################
 !
-pure function g_jacobian_using_conserved(uu) result(return_value)
+pure function g_invs_flx_jacobian_cv(uu) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2912,11 +2810,11 @@ continue
   return_value(3,4) = gam*e - half*gm1*(u2+three*v2)
   return_value(4,4) = gam*v
   !
-end function g_jacobian_using_conserved
+end function g_invs_flx_jacobian_cv
 !
 !###############################################################################
 !
-pure function f_jacobian_using_primitive(vv) result(return_value)
+pure function f_invs_flx_jacobian_pv(vv) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -2960,11 +2858,11 @@ continue
   return_value(4,3) = -gm1*u*v
   return_value(4,4) = gam*u
   !
-end function f_jacobian_using_primitive
+end function f_invs_flx_jacobian_pv
 !
 !###############################################################################
 !
-pure function g_jacobian_using_primitive(vv) result(return_value)
+pure function g_invs_flx_jacobian_pv(vv) result(return_value)
   !
   use geovar, only : neqns
   use ovar, only : gam
@@ -3008,7 +2906,566 @@ continue
   return_value(4,3) = gam*e - half*gm1*(u2+three*v2)
   return_value(4,4) = gam*v
   !
-end function g_jacobian_using_primitive
+end function g_invs_flx_jacobian_pv
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+! Procedures for viscous fluxes
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+pure function visc_flx_cv(uu,dcvdx) result(return_value) 
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,neqns
+  use ovar,   only : cpref,Pr
+  !
+  use generic_mod, only : viscosity_cv_sp
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(1:neqns),      intent(in) :: uu
+  real(wp), dimension(1:nr,1:neqns), intent(in) :: dcvdx
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:neqns,1:nr) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: nq,vb,ve
+  real(wp) :: dudx,dudy,dvdx,dvdy
+  real(wp) :: mvsc,mcdt,dTdx,dTdy
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: vel
+  real(wp), dimension(1:nr,1:neqns) :: dpvdx
+  !
+continue
+  !
+  nq = neqns ! alias for neqns
+  vb = 2     ! first momentum equation
+  ve = nq-1  ! last  momentum equation 
+  !
+  ! Get the gradients of the primitive variables using the 
+  ! gradients of the conservative variables and the product rule
+  !
+  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
+  !
+  ! Get the velocity vector
+  !
+  vel(:) = uu(vb:ve)/uu(1)
+  !
+  mvsc = viscosity_cv_sp(uu)
+  mcdt = cpref * mvsc / Pr
+  !
+  dudx = dpvdx(1,2)
+  dudy = dpvdx(2,2)
+  dvdx = dpvdx(1,3)
+  dvdy = dpvdx(2,3)
+  dTdx = dpvdx(1,nq)
+  dTdy = dpvdx(2,nq)
+  !
+  ! x-directional viscous fluxes
+  !
+  return_value( 1,1) = zero
+  return_value( 2,1) = mvsc * two3 * (two*dudx - dvdy)
+  return_value( 3,1) = mvsc * (dudy + dvdx)
+  return_value(nq,1) = mcdt*dTdx + dot_product( vel , return_value(vb:ve,1) )
+  !
+  ! y-directional viscous fluxes
+  !
+  return_value( 1,2) = zero
+  return_value( 2,2) = mvsc * (dudy + dvdx)
+  return_value( 3,2) = mvsc * two3 * (two*dvdy - dudx)
+  return_value(nq,2) = mcdt*dTdy + dot_product( vel , return_value(vb:ve,2) )
+  !
+end function visc_flx_cv
+!
+!###############################################################################
+!
+pure function visc_flx_pv(vv) result(return_value) 
+  !
+  use geovar, only : neqns
+  use ovar, only : gam
+  !
+  real(vbp), dimension(1:neqns), intent(in) :: vv
+  !
+  real(vbp), dimension(1:neqns) :: return_value
+  !
+  real(vbp) :: ener
+  !
+continue
+  !
+  ener = vv(neqns)/(gam-one) + half*vv(1)*selfdot(vv(2:neqns-1))
+  !
+  return_value(1) = vv(1)*vv(2)
+  return_value(2:neqns-1) = vv(1)*vv(2:neqns-1) * vv(2)
+  return_value(2) = return_value(2) + vv(neqns)
+  return_value(neqns) = (ener + vv(neqns)) * vv(2)
+  !
+end function visc_flx_pv
+!
+!###############################################################################
+!
+subroutine correctd
+  !
+  !... this subroutine corrects the derivatives
+  !... ftdxi_(m,k,j) and gtdet_(m,k,j)
+  !
+  !.. Use Statements ..
+  use geovar,  only : neqns,nface,nfbnd,n_sp1de,n_sp2dt,n_sp2dq, &
+                      cells_on_face, &
+                      pts_on_face, &
+                      pts_in_cell_ptr,write_variable
+  use metvar,  only : cormat,geofa
+  use flowvar, only : residual,vsp
+  use generic_mod, only : vsp2u_sp
+  !
+  !.. Local Scalars ..
+  integer   :: nf,k,i,jl,jr,kl,kr,l1,l2,r1,r2,wl,wr,m
+  integer   :: kcorbl,kcorbr,kcorl,kcorr
+  real(vbp) :: ds,dsl,dsr
+  !
+  !.. Local Arrays ..
+  real(vbp), dimension(1:2)  :: unrm
+  real(vbp), dimension(1:neqns) :: vl,vr
+  real(vbp), dimension(1:neqns) :: fnl,fnr,fjl,fjr,fnc
+  !
+continue
+  !
+  ! Loop over all the faces and correct the fluxes at the solution points
+  !
+  do nf = 1,nface
+    !
+    jl = cells_on_face(1,nf) ! left  cell on face
+    jr = cells_on_face(2,nf) ! right cell on face
+    !
+    kcorbl = cells_on_face(5,nf) ! starting face sol-pt for left  cell
+    kcorbr = cells_on_face(6,nf) ! starting face sol-pt for right cell
+    !
+    l1 = pts_in_cell_ptr(jl)+1 ! beginning index for sol-pts in left cell
+    l2 = pts_in_cell_ptr(jl+1) ! ending    index for sol-pts in left cell
+    !
+    r1 = pts_in_cell_ptr(jr)+1 ! beginning index for sol-pts in right cell
+    r2 = pts_in_cell_ptr(jr+1) ! ending    index for sol-pts in right cell
+    !
+    wl = merge( 1 , 2 , l2-l1+1 == n_sp2dt ) ! check if jl is a tria or quad
+    wr = merge( 1 , 2 , r2-r1+1 == n_sp2dt ) ! check if jr is a tria or quad
+    !
+    ! Loop through the solution points on the current face
+    !
+    do k = 1,n_sp1de
+      !
+      ! Get the unit normal at this flux point
+      !
+      unrm(:) = unit_vector( geofa(:,k,nf) )
+      !
+      ! Get the face length for the left and right cell
+      !
+      ds  = rnorm2( geofa(:,k,nf) )
+      dsl = ds * cl(wl)
+      dsr = ds * cl(wr)
+      !
+      kl = pts_on_face(1,k,nf) ! current face sol-pt of left  cell
+      kr = pts_on_face(2,k,nf) ! current face sol-pt of right cell
+      !
+      vl = vsp(:,kl) ! primitive variables at kl
+      vr = vsp(:,kr) ! primitive variables at kr
+      !
+      ! Get the numerical flux at the current face sol-pt
+      !
+      if (flux_method == ROEFLUX) then
+        fnc(:) = upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
+      else if (flux_method == HLLC) then
+        fnc(:) = hllc_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
+      else if (flux_method == LDFSS) then
+        fnc(:) = ldfss_upwind_flux_cv ( unrm(:) , vsp2u_sp(vl) , vsp2u_sp(vr) )
+      end if
+      !
+      ! The flux at the sol-pts kl and kr in the direction of the face normal
+      !
+      fnl(:) = f_invs_flx_pv(vl)*unrm(1) + g_invs_flx_pv(vl)*unrm(2)
+      fnr(:) = f_invs_flx_pv(vr)*unrm(1) + g_invs_flx_pv(vr)*unrm(2)
+      !
+      ! The jump in the flux at the sol-pts kl and kr
+      !
+      fjl(:) = fnc(:) - fnl(:)
+      fjr(:) = fnc(:) - fnr(:)
+      !
+      kcorl = kcorbl-1 + k ! index for the correction function at sol-pt kl
+      kcorr = kcorbr+1 - k ! index for the correction function at sol-pt kr
+      !
+      ! Add the flux correction to the residuals of the sol-pts in cell jl
+      !
+      do i = l1,l2
+        do m = 1,neqns
+          residual(m,i) = residual(m,i) + dsl*fjl(m)*cormat(i-l1+1,kcorl,wl)
+        end do
+      end do
+      !
+      ! Add the flux correction to the residuals of the sol-pts in cell jr
+      !
+      if (nf > nfbnd) then
+        do i = r1,r2
+          do m = 1,neqns
+            residual(m,i) = residual(m,i) - dsr*fjr(m)*cormat(i-r1+1,kcorr,wr)
+          end do
+        end do
+      end if
+      !
+    end do
+    !
+  end do
+  !
+end subroutine correctd
+!
+!###############################################################################
+!
+subroutine discontinuous_gradient_at_solpts()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar,  only : neqns,ncell,n_sp2dt,n_sp2dq
+  use geovar,  only : pts_in_cell_ptr
+  use metvar,  only : dr_mat,ds_mat,dx,dy,jacobian
+  use flowvar, only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer  :: k,l,m,n,n1,n2,np,nw
+  real(wp) :: drdx,drdy,dsdx,dsdy
+  real(wp) :: dudr,duds,jac_inv
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do n = 1,ncell
+    !
+    n1 = pts_in_cell_ptr(n)+1 ! beginning index for solpts in cell n
+    n2 = pts_in_cell_ptr(n+1) ! ending    index for solpts in cell n
+    np = n2-n1+1 ! number of solution points in this cell
+    !
+    nw = merge(1,2,np == n_sp2dt) ! check if cell n is tria or quad
+    !
+    ! Store the transpose of usp for this cell to reduce cache misses
+    !
+    do k = 1,np
+      do m = 1,neqns
+        tusp(k,m) = usp(m,k+n1-1)
+      end do
+    end do
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do k = 1,np
+      !
+      l = k+n1-1 ! total index of solution point on current partition
+      !
+      jac_inv = one/jacobian(l) ! inverse of det(J)
+      !
+      ! Compute the contravariant metrics
+      !
+      drdx =  jac_inv * dy(l)%ds
+      drdy = -jac_inv * dx(l)%ds
+      dsdx = -jac_inv * dy(l)%dr
+      dsdy =  jac_inv * dx(l)%dr
+      !
+      do m = 1,neqns
+        !
+        dudr = dot_product( dr_mat(1:np,k,nw) , tusp(1:np,m) )
+        duds = dot_product( ds_mat(1:np,k,nw) , tusp(1:np,m) )
+        !
+        dusp(1,m,l) = drdx*dudr + dsdx*duds
+        dusp(2,m,l) = drdy*dudr + dsdy*duds
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+end subroutine discontinuous_gradient_at_solpts
+!
+!###############################################################################
+!
+subroutine correct_gradients_at_solpts()
+  !
+  !.. Use Statements ..
+  use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_sp2dt,nr
+  use geovar,  only : cells_on_face,pts_in_cell_ptr
+  use metvar,  only : cormat,geofa
+  use flowvar, only : dusp,faceusp
+  !
+  use parallel_mod, only : wait_faceusp
+  !
+  !.. Local Scalars ..
+  integer  :: k,l,m,n,nf,r1,r2,l1,l2
+  integer  :: jl,jr,wl,wr,nsp
+  integer  :: kbl,kbr,kl,kr
+  real(wp) :: cbias,hfpb,hfmb
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr)              :: unrm
+  real(wp), dimension(1:neqns)           :: ljfp,rjfp
+  real(wp), dimension(1:neqns,1:n_sp1de) :: lufp,rufp
+  !
+continue
+  !
+  nsp = n_sp1de
+  !
+  ! Make sure that the non-blocking exchange of faceusp has completed
+  !
+  if (ncpu > 1) call wait_faceusp(faceusp)
+  !
+  ! Loop over all the faces and add correct the gradient of the
+  ! continuous solution polynomial in the cells adjacent to the face
+  !
+  do nf = 1,nface
+    !
+    jl = cells_on_face(1,nf) ! left  cell on face
+    jr = cells_on_face(2,nf) ! right cell on face
+    !
+    kbl = cells_on_face(5,nf) ! beginning flux point for left  cell
+    kbr = cells_on_face(6,nf) ! ending    flux point for right cell
+    !
+    l1 = pts_in_cell_ptr(jl)+1 ! beginning index for sol-pts in left cell
+    l2 = pts_in_cell_ptr(jl+1) ! ending    index for sol-pts in left cell
+    !
+    r1 = pts_in_cell_ptr(jr)+1 ! beginning index for sol-pts in right cell
+    r2 = pts_in_cell_ptr(jr+1) ! ending    index for sol-pts in right cell
+    !
+    wl = merge( 1 , 2 , l2-l1+1 == n_sp2dt ) ! check if jl is a tria or quad
+    wr = merge( 1 , 2 , r2-r1+1 == n_sp2dt ) ! check if jr is a tria or quad
+    !
+    ! For all the flux points on the current face, extract the conservative
+    ! conservative variables for the left and right cells from faceusp
+    !
+    lufp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,1,nf)
+    rufp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,2,nf)
+    !
+    ! Correct the gradients of the conservative variables using the
+    ! solution jumps at the interface and the correction function
+    !
+    ! Use the LDG flux formulation for computing the common interface solutions
+    !   u_com = half*(u_left + u_right) - &
+    !                (u_left - u_right)*dot_product(LDG_beta,unit_normal)
+    !
+    do k = 1,nsp
+      !
+      ! Get the index for the correction function 
+      ! corresponding to the current interface flux point
+      !
+      kl = kbl-1 + k ! index for left  cell
+      kr = kbr+1 - k ! index for right cell
+      !
+      ! Get the unit normal at this flux point
+      !
+      unrm(1:nr) = unit_vector( geofa(1:nr,k,nf) )
+      !
+      ! Compute the LDG directional parameters
+      !
+      cbias = dot_product( LDG_beta(1:nr) , unrm(1:nr) )
+      !
+      hfpb = half + cbias
+      hfmb = half - cbias
+      !
+      ! Compute the interface jumps for the left and right solutions
+      ! NOTE: The common interface solution simplifies to
+      !         u_com = (half - cbias)*u_left + (half + cbias)*u_right
+      !       Using jump_left = u_com - u_left and jump_right = u_com - u_right
+      !         jump_left  = (half + cbias)*(u_right-u_left)
+      !         jump_right = (half - cbias)*(u_left-u_right)
+      !
+      do m = 1,neqns
+        ljfp(m) = hfpb*(rufp(m,k) - lufp(m,k))
+        rjfp(m) = hfmb*(lufp(m,k) - rufp(m,k))
+      end do
+      !
+      ! Now use the correction function with the interface jump to correct
+      ! the gradients of the conservative variables in the left cell
+      !
+      do n = l1,l2
+        do m = 1,neqns
+          do l = 1,nr
+            dusp(l,m,n) = dusp(l,m,n) + unrm(l)*ljfp(m)*cormat(n-l1+1,kl,wl)
+          end do
+        end do
+      end do
+      !
+      ! Now use the correction function with the interface jump to correct
+      ! the gradients of the conservative variables in the right cell
+      ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
+      !
+      if (nf > nfbnd) then
+        do n = r1,r2
+          do m = 1,neqns
+            do l = 1,nr
+              dusp(l,m,n) = dusp(l,m,n) + unrm(l)*rjfp(m)*cormat(n-r1+1,kr,wr)
+            end do
+          end do
+        end do
+      end if
+      !
+    end do
+    !
+  end do
+  !
+end subroutine correct_gradients_at_solpts
+!
+!###############################################################################
+!
+pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,neqns
+  use ovar,   only : rgasref,gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: rusp
+  real(wp), dimension(:,:), intent(in) :: dcdx
+  real(wp), dimension(:,:), intent(in) :: dcdy
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:nr,1:neqns,1:size(rusp,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: k,m,n,np
+  real(wp) :: cv_inv,rho_inv,rho_inv2
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:neqns,1:size(rusp,dim=2)) :: dpdx,dpdy
+  !
+continue
+  !
+  cv_inv = (gam - one) / rgasref
+  !
+  ! Get the number of solution points for the current cell
+  !
+  np = size(rusp,dim=2)
+  !
+  ! Compute the primitive variable gradients for the current cell
+  !
+  do k = 1,np
+    !
+    rho_inv = one/rusp(1,k)
+    rho_inv2 = rho_inv * rho_inv
+    !
+    ! Copy the density gradient
+    !
+    dpdx(1,k) = dcdx(1,k)
+    dpdy(1,k) = dcdy(1,k)
+    !
+    ! Using the chain rule:
+    !
+    ! 1. Compute the velocity gradients (m = 2,neqns-1)
+    ! 2. Compute the total energy gradient and store in the
+    !    location for the temperature gradient (m = neqns)
+    !
+    do m = 2,neqns
+      dpdx(m,k) = rho_inv*dcdx(m,k) - rho_inv2*rusp(m,k)*dcdx(1,k)
+      dpdy(m,k) = rho_inv*dcdy(m,k) - rho_inv2*rusp(m,k)*dcdy(1,k)
+    end do
+    !
+    ! The location for the temperature gradient currently contains
+    ! the total energy gradient from the previous loop.
+    ! Now use the velocity gradients to subtract the gradient of
+    ! kinetic-energy-per-unit-mass from the total energy gradient.
+    ! 
+    do m = 2,neqns-1
+      dpdx(neqns,k) = dpdx(neqns,k) - rho_inv*rusp(m,k)*dpdx(m,k)
+      dpdy(neqns,k) = dpdy(neqns,k) - rho_inv*rusp(m,k)*dpdy(m,k)
+    end do
+    !
+    ! Finish computing the temperature gradient by dividing through by
+    ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+    !
+    dpdx(neqns,k) = dpdx(neqns,k) * cv_inv
+    dpdy(neqns,k) = dpdy(neqns,k) * cv_inv
+    !
+  end do
+  !
+  ! Put primitive variable gradients in the dusp array
+  !
+  do k = 1,np
+    do m = 1,neqns
+      return_value(1,m,k) = dpdx(m,k)
+      return_value(2,m,k) = dpdy(m,k)
+    end do
+  end do
+  !
+end function grad_cv_to_grad_pv
+!
+!###############################################################################
+!
+pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,neqns
+  use ovar,   only : rgasref,gam
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:),   intent(in) :: rusp
+  real(wp), dimension(:,:), intent(in) :: dcvdx
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:nr,1:neqns) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: l,m
+  real(wp) :: cv_inv,rho_inv,rho_inv2
+  !
+continue
+  !
+  cv_inv = (gam - one) / rgasref
+  !
+  rho_inv = one/rusp(1)
+  rho_inv2 = rho_inv * rho_inv
+  !
+  ! Copy the density gradient
+  !
+  return_value(1:nr,1) = dcvdx(1:nr,1)
+  !
+  ! Using the chain rule:
+  !
+  ! 1. Compute the velocity gradients (m = 2,neqns-1)
+  ! 2. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (m = neqns)
+  !
+  do m = 2,neqns
+    do l = 1,nr
+      return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv2*rusp(m)*dcvdx(l,1)
+    end do
+  end do
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  ! 
+  do m = 2,neqns-1
+    do l = 1,nr
+      return_value(l,neqns) = return_value(l,neqns) &
+                            - rho_inv*rusp(m)*return_value(l,m)
+    end do
+  end do
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+  return_value(1:nr,neqns) = return_value(1:nr,neqns) * cv_inv
+  !
+end function grad_cv_to_grad_pv_sp
 !
 !###############################################################################
 !

@@ -76,6 +76,14 @@ module ovar
   real(wp), public, save :: aoaref  =     45.00_wp
   real(wp), public, save :: gam     =      1.40_wp
   real(wp), public, save :: rgasref =    287.15_wp
+  real(wp), public, save :: muref   =  1.716e-5_wp
+  !
+  real(wp), public, save :: Pr = 0.72_wp
+  real(wp), public, save :: Prt = 0.72_wp
+  !
+  real(wp), public, save :: suth_Sref = 110.4_wp
+  real(wp), public, save :: suth_Tref = 273.0_wp
+  real(wp), public, save :: suth_muref = 1.716e-5_wp
   !
   integer,  public, save :: Filter_Option = 0
   integer,  public, save :: Filter_Order  = 16
@@ -96,6 +104,7 @@ module ovar
   real(wp), public, save :: uref
   real(wp), public, save :: vxref
   real(wp), public, save :: vyref
+  real(wp), public, save :: cpref
   !
   real(wp), public, save :: dt_global
   !
@@ -174,6 +183,8 @@ module ovar
   real(wp), public, save :: Density_Maximum_Residual
   logical,  public, save :: vortex_has_collapsed
   integer,  public, save :: final_countdown
+  !
+  real(wp), public, save :: suth_c1
   !
 end module ovar
 !

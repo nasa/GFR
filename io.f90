@@ -63,6 +63,8 @@ module io_mod
   integer, parameter :: file_type = CG_FILE_HDF5
 #endif
   !
+  logical, parameter :: check_gradients = fals
+  !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
@@ -189,7 +191,8 @@ subroutine read_nml_input_file
                      rhoref,tref,pref,machref,aoaref, &
                      vxref,vyref,aref,uref,rgasref, &
                      metis_option,init_loc,error_loc, &
-                     Period_Timesteps,Period_Time,iter_out_interval
+                     Period_Timesteps,Period_Time,iter_out_interval, &
+                     suth_muref,suth_Tref,suth_Sref
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
   use ovar,   only : vortex_bigR,vortex_bigGam
@@ -228,6 +231,8 @@ subroutine read_nml_input_file
                      output_interval, results_interval, o_order
   ! REFERENCE CONDITIONS
   namelist / input / rhoref, tref, pref, machref, aoaref, gam, rgasref
+  ! SUTHERLANDS LAW COEFFICIENTS
+  namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
   namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
   ! BOUNDING ERROR OPTIONS
@@ -3143,9 +3148,9 @@ subroutine write_cgns_solution(iflag)
   use geovar,       only : neqns,n_sp2dt,ncell,n_solpts,pts_in_cell_ptr
   use ovar,         only : gam,bc_in,itestcase,output_solution
   use metvar,       only : dx,dy,dr_mat,ds_mat,jacobian
-  use flowvar,      only : usp,vsp,uoldsp
+  use flowvar,      only : usp,vsp,uoldsp,dusp
   use parallel_mod, only : collect_global_solution
-  use generic_mod,  only : vsp2u,entropy_pv_sp
+  use generic_mod,  only : vsp2u,usp2v,entropy_pv_sp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -3166,48 +3171,61 @@ continue
   !
   ! Mach number
   !
-  if (itestcase /= Density_Transport) then
+  if (check_gradients) then
+    !
     do k = 1,n_solpts
-      usp(1,k) = sqrt( selfdot(vsp(2:neqns-1,k)) * &
-                       vsp(1,k)/(gam*vsp(neqns,k)) )
+      do n = 1,neqns
+        usp(n,k) = dusp(1,n,k)
+        vsp(n,k) = dusp(2,n,k)
+      end do
     end do
+    !
   else
-    usp(1,1:n_solpts) = one
-  end if
-  !
-  ! Entropy
-  !
-  if (itestcase /= Density_Transport) then
-    do k = 1,n_solpts
-      usp(4,k) = entropy_pv_sp( vsp(:,k) )
+    !
+    if (itestcase /= Density_Transport) then
+      do k = 1,n_solpts
+        usp(1,k) = sqrt( selfdot(vsp(2:neqns-1,k)) * &
+                         vsp(1,k)/(gam*vsp(neqns,k)) )
+      end do
+    else
+      usp(1,1:n_solpts) = one
+    end if
+    !
+    ! Entropy
+    !
+    if (itestcase /= Density_Transport) then
+      do k = 1,n_solpts
+        usp(4,k) = entropy_pv_sp( vsp(:,k) )
+      end do
+    else
+      usp(4,1:n_solpts) = one
+    end if
+    !
+    ! Vorticity
+    !
+    do n = 1,ncell
+      !
+      n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
+      n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
+      np = n2-n1+1
+      !
+      nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+      !
+      do k = n1,n2
+        !
+        dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vsp(2,n1:n2))
+        duds = dot_product(ds_mat(1:np,k-n1+1,nw),vsp(2,n1:n2))
+        dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
+        dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
+        !
+        usp(2,k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
+                     ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+        !
+      end do
+      !
     end do
-  else
-    usp(4,1:n_solpts) = one
+    !
   end if
-  !
-  ! Vorticity
-  !
-  do n = 1,ncell
-    !
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
-    np = n2-n1+1
-    !
-    nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
-    !
-    do k = n1,n2
-      !
-      dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vsp(2,n1:n2))
-      duds = dot_product(ds_mat(1:np,k-n1+1,nw),vsp(2,n1:n2))
-      dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
-      dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vsp(3,n1:n2))
-      !
-      usp(2,k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
-                   ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
-      !
-    end do
-    !
-  end do
   !
   ! Collect the global solution arrays into global_usp and global_vsp
   !
@@ -3235,6 +3253,7 @@ continue
   ! Copy the saved conserved variables back into usp
   !
   usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
+  vsp(:,1:n_solpts) = usp2v(usp(:,1:n_solpts))
   !
 end subroutine write_cgns_solution
 !
@@ -3258,6 +3277,7 @@ subroutine write_nodal_cgns(iflag)
   use geovar,  only : xyz => global_xyz
   use flowvar, only : usp => global_usp
   use flowvar, only : vsp => global_vsp
+  use flowvar, only : uoldsp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -3445,32 +3465,92 @@ continue
   !
   call cg_sol_write_f(ifile_n,ibase_n,izone_n,tname,Vertex,isol_n,ierr)
   !
-  ! Density
-  !
-  do i = 1,n_solpts
-    vartmp(i) = vsp(1,i)
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! x-velocity
-  !
-  do i = 1,n_solpts
-    vartmp(i) = vsp(2,i)*cvel
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! y-velocity
-  !
-  do i = 1,n_solpts
-    vartmp(i) = vsp(3,i)*cvel
-  end do
-  var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
-                        var(1:n_outpts),ifld_n,ierr)
+  if (check_gradients) then
+    !
+    ! Density
+    !
+    do i = 1,n_solpts
+      vartmp(i) = usp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density dx", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! x-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = (usp(2,i) - uoldsp(2,i)/uoldsp(1,i)*usp(1,i)) / uoldsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX dx", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! y-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = (usp(3,i) - uoldsp(3,i)/uoldsp(1,i)*usp(1,i)) / uoldsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY dx", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! Density
+    !
+    do i = 1,n_solpts
+      vartmp(i) = vsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density dy", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! x-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = (vsp(2,i) - uoldsp(2,i)/uoldsp(1,i)*vsp(1,i)) / uoldsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX dy", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! y-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = (vsp(3,i) - uoldsp(3,i)/uoldsp(1,i)*vsp(1,i)) / uoldsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY dy", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+  else
+    !
+    ! Density
+    !
+    do i = 1,n_solpts
+      vartmp(i) = vsp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! x-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = vsp(2,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! y-velocity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = vsp(3,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+  end if
   !
   ! Pressure
   !
@@ -3507,23 +3587,23 @@ continue
 ! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
 ! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
 !                       var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Create the exact solution at each solution point
-  !
-  do i = 1,n_solpts
-    xoffset = merge(delx,delx-Grid_Length_X,xyz(1,i)-delx >= Grid_Min_X)
-    yoffset = merge(dely,dely-Grid_Length_Y,xyz(2,i)-dely >= Grid_Min_Y)
-    usp(:,i) = vortex2d( xyz(1,i)-xoffset , xyz(2,i)-yoffset )
-  end do
-  !
-  call project_to_porder(ncell,pts_in_cell_ptr,usp)
-  !
-  ! Convert these to primitive variables
-  !
-  usp(1:neqns,1:n_solpts) = usp2v(usp(1:neqns,1:n_solpts))
-  !
-  ! Density error
-  !
+! !
+! ! Create the exact solution at each solution point
+! !
+! do i = 1,n_solpts
+!   xoffset = merge(delx,delx-Grid_Length_X,xyz(1,i)-delx >= Grid_Min_X)
+!   yoffset = merge(dely,dely-Grid_Length_Y,xyz(2,i)-dely >= Grid_Min_Y)
+!   usp(:,i) = vortex2d( xyz(1,i)-xoffset , xyz(2,i)-yoffset )
+! end do
+! !
+! call project_to_porder(ncell,pts_in_cell_ptr,usp)
+! !
+! ! Convert these to primitive variables
+! !
+! usp(1:neqns,1:n_solpts) = usp2v(usp(1:neqns,1:n_solpts))
+! !
+! ! Density error
+! !
 ! do i = 1,n_solpts
 !   vartmp(i) = usp(1,i)-vsp(1,i)
 ! end do

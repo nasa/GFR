@@ -61,7 +61,9 @@ program Euler_tri
                        dg_strong_form, &
                        interp_cv_to_flxpts, &
                        derflux1_qdtr, &
-                       correct_interface_flux_qdtr
+                       correct_interface_flux_qdtr, &
+                       discontinuous_gradient_at_solpts, &
+                       correct_gradients_at_solpts
   use parallel_mod, only : partition_grid, &
                            create_serial_cell_map, &
                            test_nonblocking_fexchange
@@ -329,6 +331,8 @@ continue
       else if (flux_divergence == TestQuadrature) then
         !
         call interp_cv_to_flxpts
+        call discontinuous_gradient_at_solpts
+        call correct_gradients_at_solpts
         call derflux1_qdtr
         call correct_interface_flux_qdtr
        !call correct_flux_project_flx

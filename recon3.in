@@ -1,6 +1,7 @@
 &input
 Final_Time = 1.0
-output_interval = 500
+itestcase = 5
+output_interval = 125
 /
 
 #####################################

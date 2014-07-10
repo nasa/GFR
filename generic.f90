@@ -14,12 +14,13 @@ module generic_mod
   public :: vsp2u
   public :: usp2v_sp
   public :: vsp2u_sp
-  public :: pressure_cv
-  public :: pressure_cv_sp
-  public :: entropy_cv
-  public :: entropy_cv_sp
-  public :: entropy_pv
-  public :: entropy_pv_sp
+  public :: pressure_cv, pressure_cv_sp
+  public :: temperature_cv, temperature_cv_sp
+  public :: temperature_pv, temperature_pv_sp
+  public :: viscosity_cv, viscosity_cv_sp
+  public :: viscosity_pv, viscosity_pv_sp
+  public :: entropy_cv, entropy_cv_sp
+  public :: entropy_pv, entropy_pv_sp
   public :: getbc
   public :: rgetdtmax
   public :: rresi
@@ -239,6 +240,218 @@ continue
   return_value = (gam-one)*(uu(nq) - half*selfdot(uu(2:nq-1))/uu(1))
   !
 end function pressure_cv_sp
+!
+!###############################################################################
+!
+pure function temperature_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(uu,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rgas_inv
+  !
+continue
+  !
+  rgas_inv = one/rgasref
+  !
+  do n = 1,size(uu,2)
+    return_value(n) = pressure_cv_sp(uu(:,n)) * rgas_inv/uu(1,n)
+  end do
+  !
+end function temperature_cv
+!
+!###############################################################################
+!
+pure function temperature_cv_sp(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  return_value = pressure_cv_sp(uu)/uu(1)/rgasref
+  !
+end function temperature_cv_sp
+!
+!###############################################################################
+!
+pure function temperature_pv(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(vv,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: n,nq
+  real(wp) :: rgas_inv
+  !
+continue
+  !
+  nq = size(vv,1)
+  rgas_inv = one/rgasref
+  !
+  do n = 1,size(vv,2)
+    return_value(n) = vv(nq,n) * rgas_inv / vv(1,n)
+  end do
+  !
+end function temperature_pv
+!
+!###############################################################################
+!
+pure function temperature_pv_sp(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nq
+  !
+continue
+  !
+  nq = size(vv)
+  return_value = vv(nq)/vv(1)/rgasref
+  !
+end function temperature_pv_sp
+!
+!###############################################################################
+!
+pure function viscosity_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,rhoref,aref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(uu,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: tdim,mudim,muref_inv
+  !
+continue
+  !
+  muref_inv = one/rhoref/aref
+  !
+  do n = 1,size(uu,2)
+    tdim = temperature_cv_sp(uu(:,n)) * tref
+    mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+    return_value(n) = mudim * muref_inv
+  end do
+  !
+end function viscosity_cv
+!
+!###############################################################################
+!
+pure function viscosity_cv_sp(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,rhoref,aref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: uu
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: tdim,mudim
+  !
+continue
+  !
+  tdim = temperature_cv_sp(uu) * tref
+  mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+  return_value = mudim / rhoref / aref
+  !
+end function viscosity_cv_sp
+!
+!###############################################################################
+!
+pure function viscosity_pv(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,rhoref,aref,rgasref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(vv,2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: n,nq
+  real(wp) :: tdim,mudim,muref_inv,ref_const
+  !
+continue
+  !
+  nq = size(vv,1)
+  muref_inv = one/rhoref/aref
+  ref_const = tref / rgasref
+  !
+  do n = 1,size(vv,2)
+    tdim = (vv(nq,n) / vv(1,n)) * ref_const
+    mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+    return_value(n) = mudim * muref_inv
+  end do
+  !
+end function viscosity_pv
+!
+!###############################################################################
+!
+pure function viscosity_pv_sp(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : tref,rhoref,aref,rgasref
+  use ovar, only : suth_c1,suth_sref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: vv
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer  :: nq
+  real(wp) :: tdim,mudim
+  !
+continue
+  !
+  nq = size(vv)
+  !
+  tdim = (vv(nq) / rgasref / vv(1)) * tref
+  mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
+  return_value = mudim / rhoref / aref
+  !
+end function viscosity_pv_sp
 !
 !###############################################################################
 !

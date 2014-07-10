@@ -10,9 +10,9 @@ module flowvar
   ! VSP  : primitive variables @SP
   ! DUSP : gradient of primitive variables @SP
   !
-  real(wp), public, save, allocatable, dimension(:,:) :: usp
-  real(wp), public, save, allocatable, dimension(:,:) :: vsp
-  real(wp), public, save, allocatable, dimension(:,:) :: dusp
+  real(wp), public, save, allocatable, dimension(:,:)   :: usp
+  real(wp), public, save, allocatable, dimension(:,:)   :: vsp
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
   !
   ! UOLDSP   : conservative variables of previous time step @SP 
   ! RESIDUAL : RHS residual @SP for current time/RK step

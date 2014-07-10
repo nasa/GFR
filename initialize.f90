@@ -71,7 +71,7 @@ continue
   call alloc_error("initialize_flow","usp",1,ierr)
   allocate ( vsp(1:neqns,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","vsp",1,ierr)
-  allocate ( dusp(1:neqns*nr,1:n_totpts) , source=zero , stat=ierr )
+  allocate ( dusp(1:nr,1:neqns,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","dusp",1,ierr)
   allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","residual",1,ierr)
@@ -100,6 +100,10 @@ continue
   !
   allocate ( rssprk(1:neqns,1:n_solpts,1:n) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","rssprk",1,ierr)
+  !
+  ! Initialize the viscosity model
+  !
+  call initialize_viscosity
   !
   ! Initialize uspstart depending on the test case requested
   !
@@ -284,6 +288,22 @@ continue
               " ***************** ERROR! ****************",/)
   !
 end subroutine initialize_flow
+!
+!###############################################################################
+!
+subroutine initialize_viscosity
+  !
+  use ovar, only : rgasref, cpref, gam
+  use ovar, only : suth_muref, suth_c1
+  use ovar, only : suth_Tref, suth_Sref
+  !
+continue
+  !
+  suth_c1 = suth_muref * (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+  !
+  cpref = rgasref * gam / (gam - one)
+  !
+end subroutine initialize_viscosity
 !
 !###############################################################################
 !
