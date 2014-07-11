@@ -26,14 +26,17 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:,:) :: global_usp
   real(wp), public, save, allocatable, dimension(:,:) :: global_vsp
   !
-  ! FACEFLX : flux normal to cell faces at each interface flux point
-  ! FACEUSP : conservative variables at the interface flux points
+  ! FACEFLX  : flux normal to cell faces at each interface flux point
+  ! FACEUSP  : conservative variables at the interface flux points
+  ! FACEDUSP : conservative variable gradients at the interface flux points
   !
   ! faceflx(1:neqns,1:2,1:n_sp1de,1:nface) ! this is the normal face flux
   ! faceusp(1:neqns,1:2,1:n_sp1de,1:nface)
+  ! facedusp(1:2,1:neqns,1:2,1:n_sp1de,1:nface)
   !
-  real(wp), public, save, allocatable, dimension(:,:,:,:) :: faceusp
-  real(wp), public, save, allocatable, dimension(:,:,:,:) :: faceflx
+  real(wp), public, save, allocatable, dimension(:,:,:,:)   :: faceusp
+  real(wp), public, save, allocatable, dimension(:,:,:,:,:) :: facedusp
+  real(wp), public, save, allocatable, dimension(:,:,:,:)   :: faceflx
   !
   ! USP_SUM : auxilary array needed for SSP-RK4 method
   ! RSSPRK  : auxilary array containing old residuals, needed for some RK methods

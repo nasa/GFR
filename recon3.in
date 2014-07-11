@@ -1,4 +1,5 @@
 &input
+gridfile = "grid_files/meilin/quad.20x20.2X.neu"
 Final_Time = 1.0
 itestcase = 5
 output_interval = 125

@@ -79,6 +79,8 @@ continue
   call alloc_error("initialize_flow","uoldsp",1,ierr)
   allocate ( faceusp(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
+  allocate ( facedusp(1:2,1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
+  call alloc_error("initialize_flow","facedusp",1,ierr)
   allocate ( faceflx(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
   !

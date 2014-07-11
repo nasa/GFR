@@ -21,6 +21,8 @@ module parallel_mod
   public :: collect_global_solution
   public :: wait_faceusp
   public :: exchange_faceusp
+  public :: wait_facedusp
+  public :: exchange_facedusp
   !
   ! IDEA: 1. all processors send in their global versions of bface, xyz_nodes, 
   !          nodes_of_cell, nodes_of_cell_ptr, etc. to a single subroutine
@@ -227,15 +229,22 @@ module parallel_mod
   integer, save, allocatable, dimension(:) :: send_fusp
   integer, save, allocatable, dimension(:) :: recv_fusp
   !
+  integer, save, allocatable, dimension(:) :: send_fdusp
+  integer, save, allocatable, dimension(:) :: recv_fdusp
+  !
   ! Request and status arrays for non-blocking exchanges
   !
   integer, save, allocatable, dimension(:)   :: fusp_rqst
   integer, save, allocatable, dimension(:,:) :: fusp_istat
   !
+  integer, save, allocatable, dimension(:)   :: fdusp_rqst
+  integer, save, allocatable, dimension(:,:) :: fdusp_istat
+  !
   ! Exchange buffer
   !
-  real(r8), save, allocatable, dimension(:,:)     :: exch_buffer
-  real(r8), save, allocatable, dimension(:,:,:,:) :: fusp_buffer
+  real(r8), save, allocatable, dimension(:,:)       :: exch_buffer
+  real(r8), save, allocatable, dimension(:,:,:,:)   :: fusp_buffer
+  real(r8), save, allocatable, dimension(:,:,:,:,:) :: fdusp_buffer
   !
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
@@ -2461,7 +2470,7 @@ subroutine create_face_nonblocking_datatypes(bface)
   !
   !.. Local Scalars ..
   integer :: n,nf,np,scnt,rcnt,i,icpu,ierr
-  integer :: s1,s2,r1,r2
+  integer :: s1,s2,r1,r2,block_size
   integer :: rmin,rmax,adj_face,loc_face
   integer :: p1,p2,nc,nfbnd
   !
@@ -2478,6 +2487,8 @@ subroutine create_face_nonblocking_datatypes(bface)
   !
 continue
   !
+  !
+  call stop_recon(stop_mpi,"NEED TO SET UP FACEDUSP COMMUNICATION FIRST!!!")
   !
  !call get_solution_points_2d
  !do n = 1,ncpu
@@ -2638,18 +2649,26 @@ continue
   deallocate ( recv_temp , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","recv_temp",2,ierr)
   !
-  ! Finally create the MPI datatypes for exchanging
+  !##########################################################
+  !##########################################################
+  ! Create the MPI datatypes for exchanging
   ! solution data between adjacent partitions
+  !##########################################################
+  !##########################################################
   !
   allocate ( send_fusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","send_fusp",1,ierr)
   allocate ( recv_fusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","recv_fusp",1,ierr)
   !
+  ! Set the block size for this MPI datatype
+  !
+  block_size = nq
+  !
   ! Adjust send_pts and recv_pts for the solution arrays
   !
-  send_pts(:) = send_pts(:)*nq
-  recv_pts(:) = recv_pts(:)*nq
+  send_pts(:) = send_pts(:)*block_size
+  recv_pts(:) = recv_pts(:)*block_size
   !
   do i = 1,ncomm
     !
@@ -2657,26 +2676,77 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,nq,send_pts(s1:s2),mpi_flttyp, &
-                                       send_fusp(i),mpierr)
+    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2), &
+                                       mpi_flttyp,send_fusp(i),mpierr)
     call mpi_type_commit(send_fusp(i),mpierr)
     !
     r1 = recv_pts_ptr(i)+1
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,nq,recv_pts(r1:r2),mpi_flttyp, &
-                                       recv_fusp(i),mpierr)
+    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2), &
+                                       mpi_flttyp,recv_fusp(i),mpierr)
     call mpi_type_commit(recv_fusp(i),mpierr)
     !
   end do
   !
   ! Remove the solution array adjustment from send_pts and recv_pts
   !
-  send_pts(:) = send_pts(:)/nq
-  recv_pts(:) = recv_pts(:)/nq
+  send_pts(:) = send_pts(:)/block_size
+  recv_pts(:) = recv_pts(:)/block_size
   !
+  !##########################################################
+  !##########################################################
+  ! Create the MPI datatypes for exchanging solution
+  ! gradients data between adjacent partitions
+  !##########################################################
+  !##########################################################
+  !
+  allocate ( send_fdusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","send_fdusp",1,ierr)
+  allocate ( recv_fdusp(1:ncomm) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","recv_fdusp",1,ierr)
+  !
+  ! Set the block size for this MPI datatype
+  !
+  block_size = 2*nq
+  !
+  ! Adjust send_pts and recv_pts for the solution arrays
+  !
+  send_pts(:) = send_pts(:)*block_size
+  recv_pts(:) = recv_pts(:)*block_size
+  !
+  do i = 1,ncomm
+    !
+    s1 = send_pts_ptr(i)+1
+    s2 = send_pts_ptr(i+1)
+    np = s2-s1+1
+    !
+    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2), &
+                                       mpi_flttyp,send_fdusp(i),mpierr)
+    call mpi_type_commit(send_fdusp(i),mpierr)
+    !
+    r1 = recv_pts_ptr(i)+1
+    r2 = recv_pts_ptr(i+1)
+    np = r2-r1+1
+    !
+    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2), &
+                                       mpi_flttyp,recv_fdusp(i),mpierr)
+    call mpi_type_commit(recv_fdusp(i),mpierr)
+    !
+  end do
+  !
+  ! Remove the solution array adjustment from send_pts and recv_pts
+  !
+  send_pts(:) = send_pts(:)/block_size
+  recv_pts(:) = recv_pts(:)/block_size
+  !
+  !
+  !##########################################################
+  !##########################################################
   ! Output all the solution point offsets for debugging
+  !##########################################################
+  !##########################################################
   !
  !do i = 1,ncomm
  !  !
@@ -2766,6 +2836,13 @@ continue
   call alloc_error("create_face_nonblocking_datatypes","fusp_rqst",1,ierr)
   allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_istat",1,ierr)
+  !
+  allocate ( fdusp_buffer(1:nr,1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fdusp_buffer",1,ierr)
+  allocate ( fdusp_rqst(1:2*ncomm) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fdusp_rqst",1,ierr)
+  allocate ( fdusp_istat(1:mpi_status_size,1:2*ncomm) , source=0 , stat=ierr )
+  call alloc_error("create_face_nonblocking_datatypes","fdusp_istat",1,ierr)
   !
   1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
   2 format (/," CPU ",i0," <- CPU ",i0," :: Receiving")
@@ -3485,6 +3562,71 @@ continue
   faceusp(:,:,2,1:nfbnd) = real(fusp_buffer(:,:,2,1:nfbnd),kind=wp)
   !
 end subroutine wait_faceusp
+!
+!###############################################################################
+!
+subroutine exchange_facedusp(facedusp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(vbp), dimension(:,:,:,:,:), intent(in) :: facedusp
+  !
+  !.. Local Scalars..
+  integer :: n,s,r,dtype
+  !
+  !.. Local Arrays ..
+  real(r8), dimension(1:size(facedusp,1),1:size(facedusp,2), &
+                      1:size(facedusp,3),1:size(facedusp,4), &
+                      1:nfbnd) :: exch_send
+  !
+continue
+  !
+  fdusp_buffer(:,:,:,:,:) = real(facedusp(:,:,:,:,1:nfbnd),kind=r8)
+  exch_send(:,:,:,:,:)    = real(facedusp(:,:,:,:,1:nfbnd),kind=r8)
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    s = exchf_cpu(n)
+    dtype = recv_fdusp(n)
+    call mpi_irecv(fdusp_buffer,1,dtype,s,s,mpi_comm_world,fdusp_rqst(n),mpierr)
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    r = exchf_cpu(n)
+    dtype = send_fdusp(n)
+    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+                   mpi_comm_world,fdusp_rqst(n+ncomm),mpierr)
+  end do
+  !
+end subroutine exchange_facedusp
+!
+!###############################################################################
+!
+subroutine wait_facedusp(facedusp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:,:,:,:), intent(inout) :: facedusp
+  !
+continue
+  !
+  ! Wait for all facedusp sends and receives to complete
+  !
+  call mpi_waitall(2*ncomm,fdusp_rqst,fdusp_istat,mpierr)
+  !
+  ! Update the right states for all the boundary faces
+  !
+  facedusp(:,:,:,2,1:nfbnd) = real(fdusp_buffer(:,:,:,2,1:nfbnd),kind=wp)
+  !
+end subroutine wait_facedusp
 !
 !###############################################################################
 !

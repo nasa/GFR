@@ -60,8 +60,11 @@ program Euler_tri
                        dg_weak_form, &
                        dg_strong_form, &
                        interp_cv_to_flxpts, &
+                       interp_dusp_to_flxpts, &
                        derflux1_qdtr, &
+                       derflux1_qdtr_with_visc, &
                        correct_interface_flux_qdtr, &
+                       correct_interface_flux_qdtr_with_visc, &
                        discontinuous_gradient_at_solpts, &
                        correct_gradients_at_solpts
   use parallel_mod, only : partition_grid, &
@@ -333,8 +336,9 @@ continue
         call interp_cv_to_flxpts
         call discontinuous_gradient_at_solpts
         call correct_gradients_at_solpts
-        call derflux1_qdtr
-        call correct_interface_flux_qdtr
+        call interp_dusp_to_flxpts
+        call derflux1_qdtr_with_visc
+        call correct_interface_flux_qdtr_with_visc
        !call correct_flux_project_flx
         !
       end if
