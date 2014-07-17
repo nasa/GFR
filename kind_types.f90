@@ -156,25 +156,39 @@ module module_kind_types
   ! I/O constants
   !
   integer, parameter :: iout = 6
+  integer, parameter :: inpt = 7
+  integer, parameter :: iogrd = 8
   !
   ! Boundary condition constants
   !
-  integer, parameter :: bc_inflow = 1
-  integer, parameter :: bc_outflow = 2
-  integer, parameter :: bc_wall = 3
-  integer, parameter :: bc_periodic = 4
-  integer, parameter :: bc_freestream = 5
+  ! Inflow BCs
+  integer, parameter :: bc_generic_inflow = 1
+  integer, parameter :: bc_sub_inflow = 2
+  integer, parameter :: bc_sup_inflow = 3
+  integer, parameter :: bc_mdot_inflow = 4
+  ! Outflow BCs
+  integer, parameter :: bc_generic_outflow = 11
+  integer, parameter :: bc_sub_outflow = 12
+  integer, parameter :: bc_sup_outflow = 13
+  integer, parameter :: bc_mdot_outflow = 14
+  ! Generic Inflow/Outflow BCs
+  integer, parameter :: bc_characteristic = 21
+  integer, parameter :: bc_freestream = 22
+  integer, parameter :: bc_fixed = 23
+  ! Wall BCs
+  integer, parameter :: bc_slip_wall = 50
+  integer, parameter :: bc_euler_wall = 51
+  integer, parameter :: bc_adiabatic_wall = 52
+  integer, parameter :: bc_isothermal_wall = 53
+  integer, parameter :: bc_wall = bc_slip_wall
+  integer, parameter :: bc_default_wall = bc_adiabatic_wall
+  ! Other BCs
+  integer, parameter :: not_a_bc = 0
+  integer, parameter :: bc_symmetry = 80
+  integer, parameter :: bc_periodic = 81
   integer, parameter :: bc_cpu_bnd = 99
   integer, parameter :: bc_unknown = -9999
-  integer, parameter :: bc_sub_inflow = 6
-  integer, parameter :: bc_sub_outflow = 7
-  integer, parameter :: bc_sup_inflow = 8
-  integer, parameter :: bc_sup_outflow = 9
-  integer, parameter :: bc_characteristic = 10
- !integer, parameter :: bc_freestream = 6
- !integer, parameter :: bc_wall = 7
- !integer, parameter :: bc_periodic = 8
-  !
+  ! BC Groups
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
   !
   ! Parameters defining workshop test cases

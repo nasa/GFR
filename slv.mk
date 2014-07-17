@@ -115,6 +115,7 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/geovar_mod.o \
        $(OBJDIR)/flowvar_mod.o \
+       $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/io.o \
        $(OBJDIR)/metrics.o \
        $(OBJDIR)/poly.o \
@@ -238,12 +239,17 @@ $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/triangle.o \
             $(OBJDIR)/parallel.o \
             Functions/chop.f90
+$(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
+             $(OBJDIR)/kind_types.o \
+             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/ovar_mod.o
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
        $(OBJDIR)/geovar_mod.o \
        $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/metvar_mod.o \
        $(OBJDIR)/flowvar_mod.o \
+       $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/generic.o \
        Functions/vortex.f90

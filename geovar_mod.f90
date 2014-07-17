@@ -52,7 +52,7 @@ module geovar
   !
   ! nbfai : number of storage locations needed for each boundary face in array bface
   !
-  integer, public, parameter :: nbfai = 10
+  integer, public :: nbfai = 10
   !
   ! nr    : number of dimensions for computation
   ! nnode : total number of grid nodes
@@ -182,10 +182,10 @@ module geovar
   integer,  public, save, allocatable, dimension(:)   :: global_cell_offset
   !
   ! bface : Boundary face information
-  !         bface(1,:) = type of boundary condition
-  !         bface(2,:) = host cell of boundary face
-  !         bface(3,:) = type of cell on boundary (1-edge,2-quad,3-triangle,etc.)
-  !         bface(4,:) = face of host cell on boundary
+  !        bface( 1,:) = Type of boundary condition
+  !        bface( 2,:) = Host cell of boundary face
+  !        bface( 3,:) = Type of cell on boundary (1-edge,2-quad,3-triangle,etc.)
+  !        bface( 4,:) = Face of host cell on boundary
   !                      for triangles: 1 -> nodes 1 and 2 of cell are on the boundary
   !                      for triangles: 2 -> nodes 2 and 3 of cell are on the boundary
   !                      for triangles: 3 -> nodes 3 and 1 of cell are on the boundary
@@ -193,11 +193,11 @@ module geovar
   !                      for quads: 2 -> nodes 2 and 3 of cell are on the boundary
   !                      for quads: 3 -> nodes 3 and 4 of cell are on the boundary
   !                      for quads: 4 -> nodes 4 and 1 of cell are on the boundary
-  !         bface(5,:) = for a periodic or partition boundary face i_face with
+  !        bface( 5,:) = For a periodic or partition boundary face i_face with
   !                      host cell i_cell, this gives the boundary face j_face
   !                      that links to i_face. To find host cell j_cell for
   !                      periodic face j_face, use bface(2,bface(5,i_face)).
-  !         bface(6,:) = for a periodic or partition boundary face i_face
+  !        bface( 6,:) = For a periodic or partition boundary face i_face
   !                      with host cell i_cell, this gives the host cell
   !                      j_cell (i.e., bface(2,bface(5,i_face)) if they are
   !                      located on the same partition). This is needed if
@@ -205,10 +205,23 @@ module geovar
   !                      process wont have access to the host cell information
   !                      in bface(2,j_face) for the adjacent partition
   !                      which is actually stored on another processor.
-  !         bface(7,:) = for a periodic or partition boundary face i_face
+  !        bface( 7,:) = For a periodic or partition boundary face i_face
   !                      with host cell i_cell, this gives the partition that
-  !                      j_cell (i.e., bface(2,bface(5,i_face)) if they are
-  !                      on the same partition) belongs to.
+  !                      j_cell belongs to (i.e., bface(2,bface(5,i_face))
+  !                      if they are on the same partition).
+  !        bface( 8,:) = Geometry type of host cell on adjacent partition
+  !                      Equivalent to bface(3,:) but for adjacent partition
+  !                      host cell
+  !        bface( 9,:) = Face of adjacent partition host cell on boundary.
+  !                      Equivalent to bface(4,:) but for adjacent partition
+  !                      host cell.
+  !        bface(10,:) = Index of ghost cell for current boundary face
+  !                      NOTE: For a grid with only one partition, this is
+  !                            simply bface(10,i_face) = bface(2,i_face)+i_face.
+  !                            However, for multiple partitions, two boundary
+  !                            faces can connect to the same cell on an adjacent
+  !                            partition and therefore connect to the same ghost
+  !                            cell.
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
   !

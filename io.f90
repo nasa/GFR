@@ -33,18 +33,13 @@ module io_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  integer, parameter :: inpt  =  7
-  integer, parameter :: iorst =  8
-  integer, parameter :: iotec =  9
-  integer, parameter :: iobnd = 10
-  integer, parameter :: iogrd = 11
-  integer, parameter :: iomat = 12
-  integer, parameter :: iosp  = 13
-  integer, parameter :: ioxyd = 14
-  integer, parameter :: iocnd = 15
-  integer, parameter :: iobcd = 16
-  integer, parameter :: iores = 17
-  integer, parameter :: iodir = 18
+  integer, parameter :: iorst = 10
+  integer, parameter :: iotec = 11
+  integer, parameter :: ioxyd = 12
+  integer, parameter :: iocnd = 13
+  integer, parameter :: iobcd = 14
+  integer, parameter :: iores = 15
+  integer, parameter :: iodir = 16
   !
   integer, parameter :: patran_neutral = 1
   integer, parameter :: gambit_neutral = 2
@@ -1131,6 +1126,9 @@ end subroutine check_output_dir
 !
 subroutine read_grid_file()
   !
+  !.. Use Statements ..
+  use gmsh_module, only : read_gmsh_gridfile
+  !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
   !        
@@ -1141,7 +1139,7 @@ continue
   else if (grid_format == gambit_neutral) then
     call read_gambit_neutral_gridfile
   else if (grid_format == gmsh_file) then
-    call read_gmsh_gridfile
+    call read_gmsh_gridfile( gridfile )
   end if
   !
   ! Check that all the nodes are in counter-clockwise
@@ -1155,124 +1153,6 @@ continue
   call adjust_for_ghost_cells
   !
 end subroutine read_grid_file
-!
-!###############################################################################
-!
-subroutine read_gmsh_gridfile()
-  !
-  ! Routine to read in a grid file using GMSH formatting
-  !
-  ! Explanation of values given in array cell_nodes
-  !
-  ! 1  : 2-node line
-  ! 2  : 3-node triangle
-  ! 3  : 4-node quadrangle
-  ! 4  : 4-node tetrahedron
-  ! 5  : 8-node hexahedron
-  ! 6  : 6-node prism
-  ! 7  : 5-node pyramid
-  ! 8  : 3-node second order line
-  !        2 nodes associated with the vertices
-  !        1 with the edge
-  ! 9  : 6-node second order triangle
-  !        3 nodes associated with the vertices
-  !        3 with the edges
-  ! 10 : 9-node second order quadrangle
-  !        4 nodes associated with the vertices
-  !        4 with the edges
-  !        1 with the face
-  ! 11 : 10-node second order tetrahedron
-  !        4 nodes associated with the vertices
-  !        6 with the edges
-  ! 12 : 27-node second order hexahedron
-  !        8 nodes associated with the vertices
-  !        12 with the edges
-  !        6 with the faces
-  !        1 with the volume
-  ! 13 : 18-node second order prism
-  !        6 nodes associated with the vertices
-  !        9 with the edges
-  !        3 with the quadrangular faces
-  ! 14 : 14-node second order pyramid
-  !        5 nodes associated with the vertices
-  !        8 with the edges
-  !        1 with the quadrangular face
-  ! 15 : 1-node point
-  ! 16 : 8-node second order quadrangle
-  !        4 nodes associated with the vertices
-  !        4 with the edges
-  ! 17 : 20-node second order hexahedron
-  !        8 nodes associated with the vertices
-  !        12 with the edges
-  ! 18 : 15-node second order prism
-  !        6 nodes associated with the vertices
-  !        9 with the edges
-  ! 19 : 13-node second order pyramid
-  !        5 nodes associated with the vertices
-  !        8 with the edges
-  ! 20 : 9-node third order incomplete triangle
-  !        3 nodes associated with the vertices
-  !        6 with the edges
-  ! 21 : 10-node third order triangle
-  !        3 nodes associated with the vertices
-  !        6 with the edges
-  !        1 with the face
-  ! 22 : 12-node fourth order incomplete triangle
-  !        3 nodes associated with the vertices
-  !        9 with the edges
-  ! 23 : 15-node fourth order triangle
-  !        3 nodes associated with the vertices
-  !        9 with the edges
-  !        3 with the face
-  ! 24 : 15-node fifth order incomplete triangle
-  !        3 nodes associated with the vertices
-  !        12 with the edges
-  ! 25 : 21-node fifth order complete triangle
-  !        3 nodes associated with the vertices
-  !        12 with the edges
-  !        6 with the face
-  ! 26 : 4-node third order edge
-  !        2 nodes associated with the vertices
-  !        2 internal to the edge
-  ! 27 : 5-node fourth order edge
-  !        2 nodes associated with the vertices
-  !        3 internal to the edge
-  ! 28 : 6-node fifth order edge 
-  !        2 nodes associated with the vertices
-  !        4 internal to the edge
-  ! 29 : 20-node third order tetrahedron
-  !        4 nodes associated with the vertices
-  !        12 with the edges
-  !        4 with the faces
-  ! 30 : 35-node fourth order tetrahedron
-  !        4 nodes associated with the vertices
-  !        18 with the edges
-  !        12 with the faces
-  !        1 in the volume
-  ! 31 : 56-node fifth order tetrahedron
-  !        4 nodes associated with the vertices
-  !        24 with the edges
-  !        24 with the faces
-  !        4 in the volume
-  ! 92 : 64-node third order hexahedron
-  !        8 nodes associated with the vertices
-  !        24 with the edges
-  !        24 with the faces
-  !        8 in the volume
-  ! 93 : 125-node fourth order hexahedron
-  !        8 nodes associated with the vertices
-  !        36 with the edges
-  !        54 with the faces
-  !        27 in the volume
-  !
-  integer, parameter, dimension(1:33) :: &
-      cell_nodes = [ 2,  3,   4,  4,  8, 6,  5,  3,  6,  9, &
-                    10, 27,  18, 14,  1, 8, 20, 15, 13,  9, &
-                    10, 12,  15, 15, 21, 4,  5,  6, 20, 35, &
-                    56, 64, 125]
-continue
-  !
-end subroutine read_gmsh_gridfile
 !
 !###############################################################################
 !
@@ -4303,3 +4183,908 @@ include "Functions/vortex.f90"
 !###############################################################################
 !
 end module io_mod
+!
+!###############################################################################
+!
+!module gmsh_module
+!  !
+!  !.. Use Statements ..
+!  use module_kind_types
+!  !
+!  implicit none
+!  !
+!  private
+!  !
+!  ! ##################################
+!  ! ###  Module Public Procedures  ###
+!  ! ##################################
+!  !
+!  public :: read_gmsh_gridfile
+!  !
+!  ! ###########################
+!  ! ###  Module Parameters  ###
+!  ! ###########################
+!  !
+!  ! CELL_NODES: gives the number of nodes defining each type of grid cell
+!  !
+!  ! Explanation of values given in array cell_nodes
+!  !
+!  ! 1  : 2-node line
+!  ! 2  : 3-node triangle
+!  ! 3  : 4-node quadrangle
+!  ! 4  : 4-node tetrahedron
+!  ! 5  : 8-node hexahedron
+!  ! 6  : 6-node prism
+!  ! 7  : 5-node pyramid
+!  ! 8  : 3-node second order line
+!  !        2 nodes associated with the vertices
+!  !        1 with the edge
+!  ! 9  : 6-node second order triangle
+!  !        3 nodes associated with the vertices
+!  !        3 with the edges
+!  ! 10 : 9-node second order quadrangle
+!  !        4 nodes associated with the vertices
+!  !        4 with the edges
+!  !        1 with the face
+!  ! 11 : 10-node second order tetrahedron
+!  !        4 nodes associated with the vertices
+!  !        6 with the edges
+!  ! 12 : 27-node second order hexahedron
+!  !        8 nodes associated with the vertices
+!  !        12 with the edges
+!  !        6 with the faces
+!  !        1 with the volume
+!  ! 13 : 18-node second order prism
+!  !        6 nodes associated with the vertices
+!  !        9 with the edges
+!  !        3 with the quadrangular faces
+!  ! 14 : 14-node second order pyramid
+!  !        5 nodes associated with the vertices
+!  !        8 with the edges
+!  !        1 with the quadrangular face
+!  ! 15 : 1-node point
+!  ! 16 : 8-node second order quadrangle
+!  !        4 nodes associated with the vertices
+!  !        4 with the edges
+!  ! 17 : 20-node second order hexahedron
+!  !        8 nodes associated with the vertices
+!  !        12 with the edges
+!  ! 18 : 15-node second order prism
+!  !        6 nodes associated with the vertices
+!  !        9 with the edges
+!  ! 19 : 13-node second order pyramid
+!  !        5 nodes associated with the vertices
+!  !        8 with the edges
+!  ! 20 : 9-node third order incomplete triangle
+!  !        3 nodes associated with the vertices
+!  !        6 with the edges
+!  ! 21 : 10-node third order triangle
+!  !        3 nodes associated with the vertices
+!  !        6 with the edges
+!  !        1 with the face
+!  ! 22 : 12-node fourth order incomplete triangle
+!  !        3 nodes associated with the vertices
+!  !        9 with the edges
+!  ! 23 : 15-node fourth order triangle
+!  !        3 nodes associated with the vertices
+!  !        9 with the edges
+!  !        3 with the face
+!  ! 24 : 15-node fifth order incomplete triangle
+!  !        3 nodes associated with the vertices
+!  !        12 with the edges
+!  ! 25 : 21-node fifth order complete triangle
+!  !        3 nodes associated with the vertices
+!  !        12 with the edges
+!  !        6 with the face
+!  ! 26 : 4-node third order edge
+!  !        2 nodes associated with the vertices
+!  !        2 internal to the edge
+!  ! 27 : 5-node fourth order edge
+!  !        2 nodes associated with the vertices
+!  !        3 internal to the edge
+!  ! 28 : 6-node fifth order edge 
+!  !        2 nodes associated with the vertices
+!  !        4 internal to the edge
+!  ! 29 : 20-node third order tetrahedron
+!  !        4 nodes associated with the vertices
+!  !        12 with the edges
+!  !        4 with the faces
+!  ! 30 : 35-node fourth order tetrahedron
+!  !        4 nodes associated with the vertices
+!  !        18 with the edges
+!  !        12 with the faces
+!  !        1 in the volume
+!  ! 31 : 56-node fifth order tetrahedron
+!  !        4 nodes associated with the vertices
+!  !        24 with the edges
+!  !        24 with the faces
+!  !        4 in the volume
+!  ! 92 : 64-node third order hexahedron
+!  !        8 nodes associated with the vertices
+!  !        24 with the edges
+!  !        24 with the faces
+!  !        8 in the volume
+!  ! 93 : 125-node fourth order hexahedron
+!  !        8 nodes associated with the vertices
+!  !        36 with the edges
+!  !        54 with the faces
+!  !        27 in the volume
+!  !
+!  integer, parameter, dimension(1:33) :: &
+!      cell_nodes = [ 2,  3,   4,  4,  8, 6,  5,  3,  6,  9, &
+!                    10, 27,  18, 14,  1, 8, 20, 15, 13,  9, &
+!                    10, 12,  15, 15, 21, 4,  5,  6, 20, 35, &
+!                    56, 64, 125]
+!  !
+!  ! ###################################
+!  ! ###  Module Derived Data Types  ###
+!  ! ###################################
+!  !
+!  type cell_t
+!    integer :: cell_type
+!    integer :: num_tags
+!    integer :: num_nodes
+!    integer, allocatable, dimension(:) :: nodes
+!    integer, allocatable, dimension(:) :: tags
+!  end type cell_t
+!  !
+!  type phys_t
+!    integer :: phys_dim
+!    integer :: phys_id
+!    character(len=80) :: phys_nam
+!  end type phys_t
+!  !
+!  ! ################################
+!  ! ###  Module Local Variables  ###
+!  ! ################################
+!  !
+!  logical, save :: meshformat_successful
+!  logical, save :: nodes_successful
+!  logical, save :: elements_successful
+!  logical, save :: physicalnames_successful
+!  !
+!  ! ###################################
+!  ! ###  Module Allocatable Arrays  ###
+!  ! ###################################
+!  !
+!  type(cell_t), allocatable, dimension(:) :: cell_data
+!  type(phys_t), allocatable, dimension(:) :: phys_grps
+!  !
+!contains
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_gridfile( gridfile )
+!  !
+!  ! Routine to read in a grid file using GMSH formatting
+!  !
+!  !.. Formal Arguments ..
+!  character(len=*), intent(in) :: gridfile
+!  !
+!  !.. Local Scalars ..
+!  integer :: ierr
+!  logical :: end_of_file
+!  character(len=80) :: section_header
+!  !
+!  !.. Local Allocatable Arrays ..
+!  !
+!continue
+!  !
+!  meshformat_successful = fals
+!  nodes_successful = fals
+!  elements_successful = fals
+!  physicalnames_successful = fals
+!  !
+!  ! Open the grid file
+!  !
+!  open (iogrd,file=gridfile,status="old",action="read", &
+!       position="rewind",iostat=ierr)
+!  call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),1,ierr)
+!  !
+!  ! Reading the grid file sections, looping until reaching the end of the file
+!  !
+!  do
+!    !
+!    call find_gmsh_section(section_header,end_of_file)
+!    !
+!    ! If the end_of_file flag was set, exit the read loop
+!    !
+!    if (end_of_file) exit
+!    !
+!    ! Read the next section based on the section header
+!    !
+!    if (section_header == "MESHFORMAT") then
+!      call read_gmsh_section_meshformat
+!    else if (section_header == "NODES") then
+!      call read_gmsh_section_nodes
+!    else if (section_header == "ELEMENTS") then
+!      call read_gmsh_section_elements
+!    else if (section_header == "PHYSICALNAMES") then
+!      call read_gmsh_section_physicalnames
+!    else if (section_header == "PERIODIC") then
+!      call read_gmsh_section_periodic
+!    else if (section_header == "NODEDATA") then
+!      call read_gmsh_section_nodedata
+!    else if (section_header == "ELEMENTDATA") then
+!      call read_gmsh_section_elementdata
+!    else if (section_header == "ELEMENTNODEDATA") then
+!      call read_gmsh_section_elementnodedata
+!    else if (section_header == "INTERPOLATIONSCHEME") then
+!      call read_gmsh_section_interpolationscheme
+!    else
+!      !
+!      ! The section header wasnt recognized so continue reading
+!      ! the grid file until a valid section header is found
+!      !
+!      cycle
+!      !
+!    end if
+!    !
+!  end do
+!  !
+!  ! Check that all the necessary sections were successfully read
+!  !
+!  if ( .not. meshformat_successful ) then
+!    !
+!    write (iout,2) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
+!    !
+!  else if ( .not. nodes_successful ) then
+!    !
+!    write (iout,3) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
+!    !
+!  else if ( .not. elements_successful ) then
+!    !
+!    write (iout,4) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
+!    !
+!  else if ( .not. physicalnames_successful ) then
+!    !
+!    write (iout,5) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
+!    !
+!  else
+!    !
+!    ! We are done reading the grid file so close it
+!    !
+!    close (iogrd,iostat=ierr)
+!    call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),2,ierr)
+!    !
+!  end if
+!  !
+!  ! Finish creating the arrays defining the grid geometry.
+!  ! bface, nodes_of_cell_ptr, nodes_of_cell, etc.
+!  !
+!  call create_gmsh_grid_arrays
+!  !
+!  ! Format statements
+!  !
+!  1 format (a)
+!  2 format (/,"******************** ERROR! *********************",/, &
+!              "  Aborting because there was an error reading the",/, &
+!              "  'MeshFormat' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  3 format (/,"******************** ERROR! *********************",/, &
+!              "  Aborting because there was an error reading the",/, &
+!              "  'Nodes' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  4 format (/,"******************** ERROR! *********************",/, &
+!              "  Aborting because there was an error reading the",/, &
+!              "  'Elements' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  5 format (/,"******************** ERROR! *********************",/, &
+!              "  Aborting because there was an error reading the",/, &
+!              "  'PhysicalNames' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  !
+!end subroutine read_gmsh_gridfile
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_meshformat
+!  !
+!  !.. Local Scalars ..
+!  integer :: ierr,gmsh_file_type,gmsh_data_size
+!  logical :: end_of_file
+!  real(wp) :: gmsh_version_num
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! Read the MeshFormat section of the GMSH grid file
+!  !
+!  read (iogrd,*,iostat=ierr,end=100,err=101) gmsh_version_num, &
+!                                             gmsh_file_type, &
+!                                             gmsh_data_size
+!  !
+!  ! Check that the GMSH version number is supported
+!  !
+!  gmsh_version_num = gmsh_version_num * ten
+!  !
+!  if (nint(gmsh_version_num) /= 22) then
+!    write (iout,1)
+!    call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+!  end if
+!  !
+!  ! Return if the line marking the end of the MeshFormat section is found
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDMESHFORMAT") then
+!    meshformat_successful = true
+!    return
+!  else if (end_of_file) then
+!    write (iout,2)
+!  else
+!    write (iout,3)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+!  !
+!  ! Read error continuation statements
+!  !
+!  100 write (iout,2) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_meshformat")
+!  101 write (iout,4) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_meshformat")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  The version of the GMSH grid file is",/, &
+!              "  not supported! Currently, only version",/, &
+!              "  2.2 of the GMSH format is supported!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'MeshFormat' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  3 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'MeshFormat' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndMeshFormat'",/, &
+!              "  line signifiying the end of the 'MeshFormat' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  4 format (/,"******************** ERROR! *********************",/, &
+!              "  Error trying to read the 'MeshFormat'",/, &
+!              "  section of the GMSH grid file!", &
+!              "       IO Error = ",i0,/, &
+!              "******************** ERROR! *********************",/)
+!  !
+!end subroutine read_gmsh_section_meshformat
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_nodes
+!  !
+!  !.. Use Statements ..
+!  use geovar, only : nr,nnode,xyz_nodes
+!  !
+!  !.. Local Scalars ..
+!  integer :: i,j,n,ierr
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! Read the Nodes section of the GMSH grid file
+!  !
+!  read (iogrd,*,iostat=ierr,end=100,err=101) nnode
+!  !
+!  ! Allocate the array containing the coordinates of the grid nodes
+!  !
+!  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
+!  call alloc_error("read_gmsh_section_nodes","xyz_nodes",1,ierr)
+!  !
+!  ! Read the coordinates of the grid nodes
+!  !
+!  do n = 1,nnode
+!    read (iogrd,*,iostat=ierr,end=100,err=101) i, (xyz_nodes(j,i), j=1,nr)
+!  end do
+!  !
+!  ! Return if the line marking the end of the Nodes section is found
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDNODES") then
+!    nodes_successful = true
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_nodes")
+!  !
+!  ! Read error continuation statements
+!  !
+!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_nodes")
+!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_nodes")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'Nodes' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'Nodes' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndNodes'",/, &
+!              "  line signifiying the end of the 'Nodes' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  3 format (/,"******************** ERROR! *********************",/, &
+!              "  Error trying to read the 'Nodes'",/, &
+!              "  section of the GMSH grid file!", &
+!              "       IO Error = ",i0,/, &
+!              "******************** ERROR! *********************",/)
+!  !
+!end subroutine read_gmsh_section_nodes
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_elements
+!  !
+!  !.. Use Statements ..
+!  use geovar, only : ncell
+!  !
+!  !.. Local Scalars ..
+!  integer :: i,j,m,n,ierr
+!  integer :: ntype,ntags,nnods
+!  logical :: end_of_file
+!  character(len=80) :: text,array_name
+!  !
+!continue
+!  !
+!  ! Read the Elements section of the GMSH grid file
+!  !
+!  read (iogrd,*,iostat=ierr,end=100,err=101) ncell
+!  !
+!  ! Allocate the array for the element definitions
+!  !
+!  allocate ( cell_data(1:ncell) , stat=ierr )
+!  call alloc_error("read_gmsh_section_elements","cell_data",1,ierr)
+!  !
+!  ! Read the element definitions
+!  !
+!  do n = 1,ncell
+!    !
+!    ! Read the first three values on the line for the current cell
+!    ! and do not advance to the next record. We need to allocate
+!    ! some memory based on the second two values and then we will
+!    ! read the remaining information on this line.
+!    !
+!    read (iogrd,*,iostat=ierr,end=100,err=101) i, ntype, ntags
+!    backspace (iogrd)
+!    !
+!    ! Corrections for Hex-64 and Hex-125 cells to change the cell_type
+!    ! variable to a value applicable to the cell_nodes array.
+!    !
+!    if (ntype == 92) then
+!      ntype = 32 ! Hex-64
+!    else if (ntype == 93) then
+!      ntype = 33 ! Hex-125
+!    end if
+!    !
+!    nnods = cell_nodes(ntype)
+!    !
+!    ! Allocate the tags and nodes arrays within cell_data for the
+!    ! current cell and store the cell type and number of tags as well
+!    !
+!    cell_data(i)%cell_type = ntype
+!    cell_data(i)%num_tags = ntags
+!    cell_data(i)%num_nodes = nnods
+!    !
+!    write (array_name,4) "cell_data(", i, ")%nodes"
+!    allocate ( cell_data(i)%nodes(1:nnods) , source=0 , stat=ierr )
+!    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
+!    !
+!    write (array_name,4) "cell_data(", i, ")%tags "
+!    allocate ( cell_data(i)%tags(1:ntags) , source=0 , stat=ierr )
+!    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
+!    !
+!    ! Continue reading the remaining information for this cell
+!    !
+!    read (iogrd,*,iostat=ierr,end=100,err=101) m, m, m, &
+!                              (cell_data(i)%tags(j),  j=1,ntags), &
+!                              (cell_data(i)%nodes(j), j=1,nnods)
+!    !
+!  end do
+!  !
+!  ! Return if the line marking the end of the Elements section is found
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDELEMENTS") then
+!    elements_successful = true
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_elements")
+!  !
+!  ! Read error continuation statements
+!  !
+!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_elements")
+!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_elements")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'Elements' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'Elements' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndElements'",/, &
+!              "  line signifiying the end of the 'Elements' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  3 format (/,"******************** ERROR! *********************",/, &
+!              "  Error trying to read the 'Elements'",/, &
+!              "  section of the GMSH grid file!", &
+!              "       IO Error = ",i0,/, &
+!              "******************** ERROR! *********************",/)
+!  4 format (a,i0,a)
+!  !
+!end subroutine read_gmsh_section_elements
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_physicalnames
+!  !
+!  !.. Local Scalars ..
+!  integer :: i,n,ierr
+!  integer :: num_names,phys_dim,phys_id
+!  logical :: end_of_file
+!  character(len=80) :: text,phys_nam
+!  !
+!  !.. Local Parameters ..
+!  character(len=*), parameter :: delimiters(1:4) = (/"'",'"',",",achar(9)/)
+!  !
+!continue
+!  !
+!  ! Read the PhysicalNames section of the GMSH grid file
+!  !
+!  read (iogrd,*,iostat=ierr,end=100,err=101) num_names
+!  !
+!  ! Allocate the array for the element definitions
+!  !
+!  allocate ( phys_grps(1:num_names) , stat=ierr )
+!  call alloc_error("read_gmsh_section_physicalnames","phys_grps",1,ierr)
+!  !
+!  ! Read the element definitions
+!  !
+!  do n = 1,num_names
+!    !
+!    read (iogrd,*,iostat=ierr,end=100,err=101) phys_dim, phys_id, phys_nam
+!    !
+!    ! Change all delimiters in phys_name to spaces
+!    !
+!    forall ( i=1:len_trim(phys_nam) , any(phys_nam(i:i)==delimiters) ) &
+!      phys_nam(i:i) = " "
+!    !
+!    ! Assign these values to the phys_grps array
+!    !
+!    phys_grps(n)%phys_nam = uppercase( trim(adjustl(phys_nam)) )
+!    phys_grps(n)%phys_dim = phys_dim
+!    phys_grps(n)%phys_id  = phys_id
+!    !
+!  end do
+!  !
+!  ! Return if the line marking the end of the PhysicalNames section is found
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDPHYSICALNAMES") then
+!    physicalnames_successful = true
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_physicalnames")
+!  !
+!  ! Read error continuation statements
+!  !
+!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_physicalnames")
+!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
+!                                           "read_gmsh_section_physicalnames")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'PhysicalNames' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'PhysicalNames' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndPhysicalNames'",/, &
+!              "  line signifiying the end of the 'PhysicalNames' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  3 format (/,"******************** ERROR! *********************",/, &
+!              "  Error trying to read the 'PhysicalNames'",/, &
+!              "  section of the GMSH grid file!", &
+!              "       IO Error = ",i0,/, &
+!              "******************** ERROR! *********************",/)
+!  !
+!end subroutine read_gmsh_section_physicalnames
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_periodic
+!  !
+!  !.. Local Scalars ..
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! The code is not currently set up to read the gmsh
+!  ! Periodic section. Continue reading the grid file
+!  ! until the end of the Periodic section is found.
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDPERIODIC") then
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_periodic")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'Periodic' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'Periodic' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndPeriodic'",/, &
+!              "  line signifiying the end of the 'Periodic' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  !
+!end subroutine read_gmsh_section_periodic
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_nodedata
+!  !
+!  !.. Local Scalars ..
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! The code is not currently set up to read the gmsh
+!  ! NodeData section. Continue reading the grid file
+!  ! until the end of the NodeData section is found.
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDNODEDATA") then
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_nodedata")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'NodeData' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'NodeData' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndNodeData'",/, &
+!              "  line signifiying the end of the 'NodeData' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  !
+!end subroutine read_gmsh_section_nodedata
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_elementdata
+!  !
+!  !.. Local Scalars ..
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! The code is not currently set up to read the gmsh
+!  ! ElementData section. Continue reading the grid file
+!  ! until the end of the ElementData section is found.
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDELEMENTDATA") then
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_elementdata")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'ElementData' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'ElementData' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndElementData'",/, &
+!              "  line signifiying the end of the 'ElementData' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  !
+!end subroutine read_gmsh_section_elementdata
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_elementnodedata
+!  !
+!  !.. Local Scalars ..
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! The code is not currently set up to read the gmsh
+!  ! ElementNodeData section. Continue reading the grid file
+!  ! until the end of the ElementNodeData section is found.
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDELEMENTNODEDATA") then
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_elementnodedata")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'ElementNodeData' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'ElementNodeData' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndElementNodeData'",/, &
+!              "  line signifiying the end of the 'ElementNodeData' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  !
+!end subroutine read_gmsh_section_elementnodedata
+!!
+!!###############################################################################
+!!
+!subroutine read_gmsh_section_interpolationscheme
+!  !
+!  !.. Local Scalars ..
+!  logical :: end_of_file
+!  character(len=80) :: text
+!  !
+!continue
+!  !
+!  ! The code is not currently set up to read the gmsh
+!  ! InterpolationScheme section. Continue reading the grid file
+!  ! until the end of the InterpolationScheme section is found.
+!  !
+!  call find_gmsh_section(text,end_of_file)
+!  !
+!  if (text == "ENDINTERPOLATIONSCHEME") then
+!    return
+!  else if (end_of_file) then
+!    write (iout,1)
+!  else
+!    write (iout,2)
+!  end if
+!  !
+!  call stop_recon(stop_mpi,"read_gmsh_section_interpolationscheme")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (/,"******************** ERROR! *********************",/, &
+!              "  Pre-mature end-of-file while trying to read",/, &
+!              "  the 'InterpolationScheme' section of the GMSH grid file!",/, &
+!              "******************** ERROR! *********************",/)
+!  2 format (/,"*********************** ERROR! ************************",/, &
+!              "  While trying to read the 'InterpolationScheme' section of the",/, &
+!              "  GMSH grid file, an unknown and invalid section",/, &
+!              "  header was found before the required '$EndInterpolationScheme'",/, &
+!              "  line signifiying the end of the 'InterpolationScheme' section!",/, &
+!              "*********************** ERROR! ************************",/)
+!  !
+!end subroutine read_gmsh_section_interpolationscheme
+!!
+!!###############################################################################
+!!
+!subroutine find_gmsh_section(text_out,end_of_file)
+!  !
+!  !.. Formal Arguments ..
+!  logical,          intent(out) :: end_of_file
+!  character(len=*), intent(out) :: text_out
+!  !
+!  !.. Local Scalars ..
+!  integer :: ierr,n
+!  character(len=len(text_out)) :: text
+!  !
+!continue
+!  !
+!  end_of_file = fals
+!  text_out = ""
+!  !
+!  ! Find the next line beginning with "$"
+!  !
+!  do
+!    !
+!    read (iogrd,1,iostat=ierr,end=100,err=101) text
+!    text = trim(adjustl(text))
+!    !
+!    if (text(1:1) == "$") then
+!      n = len_trim(text)
+!      text_out = uppercase(text(2:n))
+!      exit
+!    else
+!      cycle
+!    end if
+!    !
+!  end do
+!  !
+!  ! Return if successfully found a new section header
+!  !
+!  return
+!  !
+!  ! Read error continuation statements
+!  !
+!  100 end_of_file = true; return
+!  101 write (iout,2) ierr; call stop_recon(stop_mpi,"find_gmsh_section")
+!  !
+!  ! Format Statements
+!  !
+!  1 format (a)
+!  2 format (/,"******************** ERROR! *********************",/, &
+!              "    Error trying to read the input grid file!", &
+!              "       IO Error = ",i0,/, &
+!              "******************** ERROR! *********************",/)
+!  !
+!end subroutine find_gmsh_section
+!!
+!!###############################################################################
+!!
+!subroutine create_gmsh_grid_arrays
+!  !
+!continue
+!  !
+!end subroutine create_gmsh_grid_arrays
+!!
+!!###############################################################################
+!!
+!end module gmsh_module
