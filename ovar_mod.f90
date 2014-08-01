@@ -39,6 +39,7 @@ module ovar
   !       for 1 period using Ga-LP, SSP-RK3, and Roe flux with entropy fix.
   !
   !.. Input Variables ..
+  integer,  public, save :: all_points      = -1
   integer,  public, save :: iop_solpts      = 1
   integer,  public, save :: iop_flxpts      = 1
   integer,  public, save :: iop_tripts      = 2
@@ -69,14 +70,22 @@ module ovar
   integer,  public, save :: output_interval   = 0
   integer,  public, save :: results_interval  = 0
   !
-  real(wp), public, save :: rhoref  =     -1.00_wp
+  real(wp), public, save :: rhoref  =     -1.00_wp ! should evaluate to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.00_wp
   real(wp), public, save :: pref    = 100000.00_wp
   real(wp), public, save :: machref =      0.40_wp
   real(wp), public, save :: aoaref  =     45.00_wp
   real(wp), public, save :: gam     =      1.40_wp
   real(wp), public, save :: rgasref =    287.15_wp
-  real(wp), public, save :: muref   =  1.716e-5_wp
+  real(wp), public, save :: muref   ! default evaluates to 1.84671531762365e-5_wp
+  real(wp), public, save :: reyref  ! default evaluates to 8.7319053606e+6
+  !
+  real(wp), public, save :: pref_nd
+  real(wp), public, save :: vxref_nd
+  real(wp), public, save :: vyref_nd
+  real(wp), public, save :: rgasref_nd
+  real(wp), public, save :: muref_nd
+  real(wp), public, save :: cpref_nd
   !
   real(wp), public, save :: Pr = 0.72_wp
   real(wp), public, save :: Prt = 0.72_wp
