@@ -2168,17 +2168,19 @@ continue
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        ! Inward pointing unit normal at this flux point
         !
         rnrm(:) = -unit_vector( geofa(:,k,nf) )
+        !
+        ! Unit tangent at this flux point computed from unit normal
+        ! NOTE: Usually t = (tx,ty) = (ny,-nx) but we computed the inward
+        !       pointing unit normal so here (tx,ty) = (-ny,nx).
+        !       
+       !rtan(1) = -rnrm(2)
+       !rtan(2) =  rnrm(1)
+        write (101,2) nf,k,rnrm(:),rtan(:)
+        2 format ("nf=",i0,"; k=",i0,"; rnrm(:)=(",es13.6,",",es13.6,")", &
+                                     "; rtan(:)=(",es13.6,",",es13.6,")")
         !
         hk = hkb-1 + k ! index for current host  cell flux point
         gk = gkb+1 - k ! index for current ghost cell flux point
@@ -2604,6 +2606,8 @@ continue
         !
         rnrm(:) =  unit_vector( geofa(:,k,nf) )
         !
+        rtan(:) = [rnrm(2),-rnrm(1)]
+        !
         hk = hkb-1 + k ! index for current host  cell flux point
         gk = gkb+1 - k ! index for current ghost cell flux point
         kg = g1-1 + gk ! index for current ghost cell solution point
@@ -2628,7 +2632,7 @@ continue
         !
         vsp(1,kg) = vsp(1,hk)
         vsp(2,kg) = -un*rnrm(1) + ut*rnrm(2)
-        vsp(3,kg) = -un*rnrm(2) - ut*rnrm(1)
+        vsp(3,kg) = -un*rtan(1) + ut*rtan(2)
         vsp(4,kg) = vsp(4,hk)
         !
         faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )

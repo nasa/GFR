@@ -1226,6 +1226,7 @@ subroutine initialize_reference
   use ovar,   only : cv_in,pv_in
   !
   !.. Local Scalars ..
+  integer  :: ierr
   real(wp) :: rhoa,rhoa2,tda2
   !
 continue
