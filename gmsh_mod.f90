@@ -466,24 +466,50 @@ subroutine read_gmsh_section_nodes
   !.. Local Scalars ..
   integer :: i,j,n,ierr
   logical :: end_of_file
+  real(wp) :: coord_ave
   character(len=80) :: text
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable, dimension(:,:) :: temp_nodes
+  !
 continue
+  !
+  ! Default the number of grid dimensions to 3D since GMSH grid files
+  ! seem to always contain three coordinate values for each node.
+  !
+  nr = 3
   !
   ! Read the Nodes section of the GMSH grid file
   !
   read (iogrd,*,iostat=ierr,end=100,err=101) nnode
   !
-  ! Allocate the array containing the coordinates of the grid nodes
+  ! Allocate the temporary array to read in the coordinates of the grid nodes
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error("read_gmsh_section_nodes","xyz_nodes",1,ierr)
+  allocate ( temp_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
+  call alloc_error("read_gmsh_section_nodes","temp_nodes",1,ierr)
   !
   ! Read the coordinates of the grid nodes
   !
   do n = 1,nnode
-    read (iogrd,*,iostat=ierr,end=100,err=101) i, (xyz_nodes(j,i), j=1,nr)
+    read (iogrd,*,iostat=ierr,end=100,err=101) i, (temp_nodes(j,i), j=1,nr)
   end do
+  !
+  ! If all the nodes coordinates for the third dimensions
+  ! are zero, reduce nr to 2 since this is a 2D grid.
+  !
+  coord_ave = sum( abs(temp_nodes(nr,1:nnode)) ) / real(nnode,kind=wp)
+  !
+  if (coord_ave <= eps14) nr = 2
+  !
+  ! Allocate the xyz_nodes array and use the temp_nodes array as the data source
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=temp_nodes(1:nr,1:nnode) , stat=ierr )
+  call alloc_error("read_gmsh_section_nodes","xyz_nodes",1,ierr)
+  !
+  ! Deallocate temp_nodes now that we no longer need it
+  !
+  deallocate ( temp_nodes , stat=ierr )
+  call alloc_error("read_gmsh_section_nodes","temp_nodes",2,ierr)
   !
   ! Return if the line marking the end of the Nodes section is found
   !
@@ -781,8 +807,8 @@ continue
   allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr)
   call alloc_error("create_gmsh_grid_arrays","bnd_grps",1,ierr)
   !
-  int_grps(1:igrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr)
-  bnd_grps(1:bgrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr-1)
+  int_grps(1:igrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr )
+  bnd_grps(1:bgrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr-1 )
   !
   ! Check that the total number of interior and boundary groups is correct
   !
@@ -845,11 +871,13 @@ continue
   do i = 1,igrps
     ncell = ncell + size( phys_grps(int_grps(i))%cells )
   end do
+  write (iout,*) "ncell = ",ncell
   !
   nfbnd = 0
   do i = 1,bgrps
     nfbnd = nfbnd + size( phys_grps(bnd_grps(i))%cells )
   end do
+  write (iout,*) "nfbnd = ",nfbnd
   !
   ! Check that the number of interior cells and boundary faces are correct
   !
@@ -1028,13 +1056,13 @@ continue
       !
       bface( 1,nf) = phys_grps(np)%ibc
       bface( 2,nf) = nh
-      bface( 3,nf) = cell_data(n)%cell_geom
+      bface( 3,nf) = cell_data(nh)%cell_geom
       bface(10,nf) = ncell + nf
       !
       ! Find which face of the host cell is on the boundary
       !
-      b1 = nodes_of_cell_ptr(nb)+1 ! beginning index for boundary element nodes
-      b2 = nodes_of_cell_ptr(nb+1) ! ending    index for boundary element nodes
+     !b1 = nodes_of_cell_ptr(nb)+1 ! beginning index for boundary element nodes
+     !b2 = nodes_of_cell_ptr(nb+1) ! ending    index for boundary element nodes
       !
       h1 = nodes_of_cell_ptr(nh)+1 ! beginning index for host cell nodes
       h2 = nodes_of_cell_ptr(nh+1) ! ending    index for host cell nodes
@@ -1049,17 +1077,23 @@ continue
         case (1)
           ifa = -2
         case (2)
-          ifa = host_face_quad( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_quad( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_quad( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case (3)
-          ifa = host_face_tria( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_tria( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_tria( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case (4)
-          ifa = host_face_tetr( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_tetr( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_tetr( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case (5)
-          ifa = host_face_pyra( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_pyra( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_pyra( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case (6)
-          ifa = host_face_pris( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_pris( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_pris( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case (8)
-          ifa = host_face_hexa( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+         !ifa = host_face_hexa( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+          ifa = host_face_hexa( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case default
           ifa = -10
       end select
