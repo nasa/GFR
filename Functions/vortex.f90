@@ -78,5 +78,49 @@ continue
   return_value(4) = return_value(4) / rhoa2
   !
 end function vortex2D
+!
+!###############################################################################
+!
+pure subroutine vortex_position(delx,dely)
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,vxref,vyref,aref
+  use ovar, only : Period_Timesteps,Period_Time
+  use ovar, only : Grid_Length_X,Grid_Length_Y
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: delx
+  real(wp), intent(out) :: dely
+  !
+  !.. Local Scalars ..
+  real(wp) :: delt_since_lastperiod
+  !
+continue
+  !
+  ! Compute the time that has elapsed since the start of the current period
+  !
+  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),wp) &
+                        / real(Period_Timesteps,wp)
+  delt_since_lastperiod = delt_since_lastperiod * Period_Time
+  !
+  ! Find the x and y distances the vortex has
+  ! traveled since the start of the current period
+  !
+  delx = deltafun(vxref>eps3) * (vxref/aref) * delt_since_lastperiod
+  dely = deltafun(vyref>eps3) * (vyref/aref) * delt_since_lastperiod
+  !
+  ! Now translate these into a periodic domain
+  ! with the grid lengths for each direction
+  !
+  delx = mod(delx,Grid_Length_X)
+  dely = mod(dely,Grid_Length_Y)
+  !
+end subroutine vortex_position
+!
+!###############################################################################
+!
 !pure function vortex3D(xyz) result(return_value)
 !end function vortex3D
+!
+!###############################################################################
+!
