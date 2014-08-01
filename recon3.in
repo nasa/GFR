@@ -1,8 +1,17 @@
 &input
-gridfile = "grid_files/meilin/quad.20x20.2X.neu"
-Final_Time = 1.0
-itestcase = 5
-output_interval = 125
+all_orders = 1
+all_points = 2
+grid_format = 3
+gridfile = "grid_files/flat_plate/a2-125-2s.msh"
+!gridfile = "grid_files/freeflow_test/a2-125-2s.msh"
+Final_Time = 0.01
+dt_in = 0.00001
+itestcase = 1
+aoaref = 0.0
+pref = 10000.0
+machref = 0.2
+flux_divergence = 10
+!suth_muref = 0.0
 /
 
 #####################################
@@ -27,6 +36,8 @@ p_order = 3
 q_order = 3
 iop_qdtpts = 1
 dflux_opt = 2
+all_orders = -3
+all_points = -1
 metis_option = 2
 itestcase = 5
 irestart = 0
@@ -44,6 +55,11 @@ machref = 0.4
 aoaref = 45.0
 gam = 1.4
 rgasref = 287.15
+Pr = 0.72
+Prt = 0.72
+suth_muref = 1.716e-5
+suth_Tref = 273.0
+suth_Sref = 110.4
 Filter_Option = 0
 Filter_etac = 0.0
 Filter_Order = 16
@@ -52,6 +68,8 @@ Bound_Error = .false.
 Error_Bound_Limit = 2.0
 init_loc = 0
 error_loc = 0
+vortex_bigR = 1.0
+vortex_bigGam = 5.0
 #####################################
 #######    END OF DEFAULTS    #######
 #####################################

@@ -50,11 +50,14 @@ subroutine initialize_flow()
   use ovar
   use flowvar
   use io_mod,      only : read_restart_file
-  use generic_mod, only : usp2v,project_to_porder
+  use generic_mod, only : usp2v,vsp2u_sp,project_to_porder
   !
   !.. Local Scalars ..
   integer  :: n1,n2,n,np,m,ierr
   real(wp) :: rhoa2
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:neqns) :: bc_in_usp
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable, dimension(:,:) :: uspstart
@@ -103,27 +106,19 @@ continue
   allocate ( rssprk(1:neqns,1:n_solpts,1:n) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","rssprk",1,ierr)
   !
-  ! Initialize the viscosity model
-  !
-  call initialize_viscosity
-  !
   ! Initialize uspstart depending on the test case requested
   !
-  if (any(itestcase == Transport_Problems)) then
+  if (itestcase == Generic_MeanFlow) then
     !
-    ! Initialize the inflow boundary conditions to the reference conditions
+    ! Initialize the solution to free-stream conditions
     !
-    bc_in(1) = rhoref
-    bc_in(2) = vxref
-    bc_in(3) = vyref
-    bc_in(4) = pref
+    bc_in_usp(:) = vsp2u_sp( bc_in(:) )
     !
-    ! Nondimensionalize the inflow boundary conditions
+    do n = 1,n_solpts
+      uspstart(:,n) = bc_in_usp(:)
+    end do
     !
-    bc_in(1) = bc_in(1) / rhoref
-    bc_in(2) = bc_in(2) / aref
-    bc_in(3) = bc_in(3) / aref
-    bc_in(4) = bc_in(4) / rhoa2
+  else if (any(itestcase == Transport_Problems)) then
     !
     ! Compute the initial solution for the vortex problem
     !
@@ -231,15 +226,15 @@ continue
   if (mypnum == 0) then
     if (itestcase /= Density_Transport .and. itestcase /= Entropy_Transport) then
       !
-      write (iout,1) rhoref,pref,tref,machref,aref, &
-                     vxref,vyref,aoaref,gam,rgasref
-      write (iout,2) rhoref/rhoref,pref/rhoa2,tref/tref,aref/aref, &
-                     vxref/aref,vyref/aref,rgasref*tref/aref/aref
+      write (iout,1) rhoref,pref,tref,machref,aref,vxref,vyref, &
+                     aoaref,gam,rgasref,cpref,muref,reyref
+      write (iout,2) rhoref/rhoref,pref_nd,tref/tref,aref/aref, &
+                     vxref_nd,vyref_nd,rgasref_nd,cpref_nd,muref_nd
       !
     else
       !
       write (iout,3) rhoref,pref,tref,machref,uref/machref, &
-                     vxref,vyref,aoaref,gam,rgasref
+                     vxref,vyref,aoaref,gam,rgasref,muref,reyref
       !
     end if
     !
@@ -262,7 +257,10 @@ continue
               " Y-Velocity      = ",es14.6," m/s",/, &
               " Angle of Attack = ",es14.6," degrees"/, &
               " Gamma           = ",es14.6,/, &
-              " Gas Constant    = ",es14.6," J/(kg*K)",/)
+              " Gas Constant    = ",es14.6," J/(kg*K)",/, &
+              " Cp              = ",es14.6," J/(kg*K)",/, &
+              " Viscosity       = ",es14.6," kg/(m*s)",/, &
+              " Reynolds #      = ",es14.6,/)
   2 format (/," Non-dimensional Free-stream conditions",/, &
               " Density         = ",es14.6,/, &
               " Pressure        = ",es14.6,/, &
@@ -270,7 +268,9 @@ continue
               " Speed of Sound  = ",es14.6,/, &
               " X-Velocity      = ",es14.6,/, &
               " Y-Velocity      = ",es14.6,/, &
-              " Gas Constant    = ",es14.6,/)
+              " Gas Constant    = ",es14.6,/, &
+              " Cp              = ",es14.6,/, &
+              " Viscosity       = ",es14.6,/)
   3 format (/," The density vortex transport problem is being",/, &
               " used to model the linear 2D advection equation.",//, &
               " The Non-dimensional Free-stream conditions are",/, &
@@ -290,22 +290,6 @@ continue
               " ***************** ERROR! ****************",/)
   !
 end subroutine initialize_flow
-!
-!###############################################################################
-!
-subroutine initialize_viscosity
-  !
-  use ovar, only : rgasref, cpref, gam
-  use ovar, only : suth_muref, suth_c1
-  use ovar, only : suth_Tref, suth_Sref
-  !
-continue
-  !
-  suth_c1 = suth_muref * (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
-  !
-  cpref = rgasref * gam / (gam - one)
-  !
-end subroutine initialize_viscosity
 !
 !###############################################################################
 !

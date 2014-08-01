@@ -246,7 +246,7 @@ end function pressure_cv_sp
 pure function temperature_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -260,7 +260,7 @@ pure function temperature_cv(uu) result(return_value)
   !
 continue
   !
-  rgas_inv = one/rgasref
+  rgas_inv = one/rgasref_nd
   !
   do n = 1,size(uu,2)
     return_value(n) = pressure_cv_sp(uu(:,n)) * rgas_inv/uu(1,n)
@@ -273,7 +273,7 @@ end function temperature_cv
 pure function temperature_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -283,7 +283,7 @@ pure function temperature_cv_sp(uu) result(return_value)
   !
 continue
   !
-  return_value = pressure_cv_sp(uu)/uu(1)/rgasref
+  return_value = pressure_cv_sp(uu)/uu(1)/rgasref_nd
   !
 end function temperature_cv_sp
 !
@@ -292,7 +292,7 @@ end function temperature_cv_sp
 pure function temperature_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: vv
@@ -307,7 +307,7 @@ pure function temperature_pv(vv) result(return_value)
 continue
   !
   nq = size(vv,1)
-  rgas_inv = one/rgasref
+  rgas_inv = one/rgasref_nd
   !
   do n = 1,size(vv,2)
     return_value(n) = vv(nq,n) * rgas_inv / vv(1,n)
@@ -320,7 +320,7 @@ end function temperature_pv
 pure function temperature_pv_sp(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv
@@ -334,7 +334,7 @@ pure function temperature_pv_sp(vv) result(return_value)
 continue
   !
   nq = size(vv)
-  return_value = vv(nq)/vv(1)/rgasref
+  return_value = vv(nq)/vv(1)/rgasref_nd
   !
 end function temperature_pv_sp
 !
@@ -398,7 +398,7 @@ end function viscosity_cv_sp
 pure function viscosity_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : tref,rhoref,aref,rgasref
+  use ovar, only : tref,rhoref,aref,rgasref_nd
   use ovar, only : suth_c1,suth_sref
   !
   !.. Formal Arguments ..
@@ -409,16 +409,16 @@ pure function viscosity_pv(vv) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: n,nq
-  real(wp) :: tdim,mudim,muref_inv,ref_const
+  real(wp) :: tdim,mudim,muref_inv,rgas_inv
   !
 continue
   !
   nq = size(vv,1)
   muref_inv = one/rhoref/aref
-  ref_const = tref / rgasref
+  rgas_inv = one/rgasref_nd
   !
   do n = 1,size(vv,2)
-    tdim = (vv(nq,n) / vv(1,n)) * ref_const
+    tdim = (vv(nq,n) * rgas_inv / vv(1,n)) * tref
     mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
     return_value(n) = mudim * muref_inv
   end do
@@ -430,7 +430,7 @@ end function viscosity_pv
 pure function viscosity_pv_sp(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : tref,rhoref,aref,rgasref
+  use ovar, only : tref,rhoref,aref,rgasref_nd
   use ovar, only : suth_c1,suth_sref
   !
   !.. Formal Arguments ..
@@ -447,7 +447,7 @@ continue
   !
   nq = size(vv)
   !
-  tdim = (vv(nq) / rgasref / vv(1)) * tref
+  tdim = (vv(nq) / rgasref_nd / vv(1)) * tref
   mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
   return_value = mudim / rhoref / aref
   !
@@ -980,33 +980,26 @@ subroutine compute_final_error()
   !
   !.. Use Statements ..
   use geovar,  only : nr,neqns,ncell,pts_in_cell_ptr,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar,  only : weights2d,xyz,xyz_error,exact2numer,numer2exact
+  use geovar,  only : weights2d,numer2gauss,gauss_wts_2d
   use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume,bc_in,gam, &
-                      ulinf,ulone,ultwo,unloc,ukloc,itestcase,itcur, &
-                      Period_Timesteps,Grid_Min_Y,Grid_Length_Y, &
-                      Grid_Min_X,Grid_Length_X,vxref,vyref,aref, &
-                      Density_Maximum_Residual,vortex_has_collapsed, &
-                      error_loc,Period_Time
+                      ulinf,ulone,ultwo,unloc,ukloc,vxref,vyref,aref
   use metvar,  only : jacobian
-  use flowvar, only : usp,vsp
+  use flowvar, only : usp,uoldsp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
-  integer   :: n,n1,n2,np,k,l,w1,m,nc1,ierr
-  real(vbp) :: rho_ratio,pres_ratio,c1,weight
-  real(vbp) :: delx,dely,xoffset,yoffset,sn,se
-  real(vbp) :: delt_since_lastperiod
+  integer  :: n,n1,n2,np,k,l,w1,m,nc1,ierr
+  real(wp) :: rho_ratio,pres_ratio,weight
+  real(wp) :: delx,dely,xoffset,yoffset,sn,se
   !
   !.. Local Arrays ..
- !real(vbp), dimension(1:neqns) :: uexact
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_cell
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: uexact
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vexact
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: unumer
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vnumer
-  real(vbp), dimension(1:neqns+1,1:2) :: ett
-  real(vbp), dimension(1:neqns+1,1:2,1:5) :: error
-  real(vbp), dimension(1:neqns+1,1:2,1:5,1:ncpu) :: all_error
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: uold
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vold
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: unew
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vnew
+  real(wp), dimension(1:neqns+1,1:2) :: ett
+  real(wp), dimension(1:neqns+1,1:2,1:5) :: error
+  real(wp), dimension(1:neqns+1,1:2,1:5,1:ncpu) :: all_error
   !
   ! error(1:neqns+1,:,:) = error value for each flow equation + extra variable
   ! error(:,1,:) = error for conserved variables [rho,rho(u,v,..),rhoe,entropy]
@@ -1060,29 +1053,8 @@ continue
     call alloc_error("compute_final_error","vltwo",1,ierr)
   end if
   !
-  ! Compute the time that has elapsed since the start of the current period
-  !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        / real(Period_Timesteps,vbp)
-  delt_since_lastperiod = delt_since_lastperiod * Period_Time
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  delx = deltafun(vxref>eps3) * (vxref/aref) * delt_since_lastperiod
-  dely = deltafun(vyref>eps3) * (vyref/aref) * delt_since_lastperiod
- !write (iout,*) mypnum,delx,dely
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
-  delx = mod(delx,Grid_Length_X)
-  dely = mod(dely,Grid_Length_Y)
-  !
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
-  !
-  c1 = deltafun(itestcase==Density_Transport)
   !
   nc1 = cell_map_ptr(mypnum+1)
   !
@@ -1094,51 +1066,19 @@ continue
     !
     w1 = merge(1,2,np==n_sp2dt)
     !
-    ! Copy the numerical solution to a local array
+    ! Interpolate the new and old solution to the Gauss points
+    ! to use Gaussian quadrature to integrate the change in the
+    ! solution since the previous time step
     !
-    unumer(:,1:np) = usp(:,n1:n2)
-    !
-    ! Copy the solution point coordinates into a temporary array to
-    ! simplify the coding for getting the exact solution on this cell
-    !
-    xyz_cell(:,1:np) = merge( xyz_error(:,n1:n2) , &
-                              xyz(:,n1:n2), &
-                              abs(error_loc) == 1 )
-    !
-    ! Get the exact solution for this cell
-    !
-    do k = 1,np
-      !
-      ! NOTE: This might need some tweaking if the grid
-      !       is not square and centered at the origin.
-      !
-      xoffset = merge(delx,delx-Grid_Length_X,xyz_cell(1,k)-delx >= Grid_Min_X)
-      yoffset = merge(dely,dely-Grid_Length_Y,xyz_cell(2,k)-dely >= Grid_Min_Y)
-      !
-      ! Get the time-dependent analytical solution for this solution point
-      !
-      uexact(:,k) = vortex2D( xyz_cell(1,k)-xoffset , xyz_cell(2,k)-yoffset )
-      !
+    do m = 1,neqns
+      unew(m,1:np) = matmul( numer2gauss , usp(m,n1:n2) )
+      uold(m,1:np) = matmul( numer2gauss , uoldsp(m,n1:n2) )
     end do
-    !
-    ! Project the exact solution to p_order
-    !
-    call project_to_porder(1,[0,np],uexact(1:neqns,1:np))
-    !
-    ! If using the depending on the error_loc flag, either covert the
-    ! analytical solution from the solution points or convert the numerical
-    ! solution to the solution points used for the exact solution
-    !
-    if (abs(error_loc) == 1) then
-      do m = 1,neqns
-        unumer(m,1:np) = matmul( numer2exact , unumer(m,1:np) )
-      end do
-    end if
     !
     ! Get the primitive variables for the numerical and analytical solutions
     !
-    vexact = usp2v(uexact)
-    vnumer = usp2v(unumer)
+    vold = usp2v(uold)
+    vnew = usp2v(unew)
     !
     ! Now loop through the solution points of this cell to compute
     ! the error between the simulation and analytical solutions.
@@ -1149,24 +1089,38 @@ continue
       !
       ! Error for conserved variables at the current solution point
       !
-     !rho_ratio  = unumer(    1,k)/bc_in(    1)
-     !pres_ratio = vnumer(neqns,k)/bc_in(neqns)
-      sn = entropy_pv_sp( vnumer(:,k) )
-      se = entropy_pv_sp( vexact(:,k) )
+      sn = entropy_pv_sp( vnew(:,k) )
+      se = entropy_pv_sp( vold(:,k) )
       !
-      ett(1:neqns,1) = abs( unumer(:,k) - uexact(:,k) )
-     !ett(neqns+1,1) = log( (c1+pres_ratio) / (rho_ratio**gam) )
+      ett(1:neqns,1) = abs( unew(:,k) - uold(:,k) )
       ett(neqns+1,1) = sn - se
       !
       ! Error for primitive variables at the current solution point
       !
-      ett(1:neqns,2) = abs( vnumer(:,k) - vexact(:,k) )
+      ett(1:neqns,2) = abs( vnew(:,k) - vold(:,k) )
       ett(neqns+1,2) = rnorm2( ett(2:neqns-1,2) )
       !
       ! Now add the error for all variables at the current solution
       ! point to the running integral sum for the L1 and L2 error norms
       !
-      weight = jacobian(l)*weights2d(k,w1)
+      ! ##############################################################
+      ! ##############################################################
+      ! ##############################################################
+      ! ####################  !!!! WARNING !!!!  #####################
+      ! ##############################################################
+      ! ##############################################################
+      ! ##############################################################
+      ! ###   GAUSS_WTS_2D NEEDS TO BE SET UP FOR TRIANGLE CELLS   ###
+      ! ##############################################################
+      ! ##############################################################
+      ! ##############################################################
+      ! ####################  !!!! WARNING !!!!  #####################
+      ! ##############################################################
+      ! ##############################################################
+      ! ##############################################################
+      !
+     !weight = jacobian(l)*weights2d(k,w1)
+      weight = jacobian(l)*gauss_wts_2d(k)
       !
       error(:,:,1) = error(:,:,1) + weight*ett(:,:)
       error(:,:,2) = error(:,:,2) + weight*ett(:,:)*ett(:,:)
@@ -1207,26 +1161,12 @@ continue
   !
   ! Get the location of the max infinity norm for each variable
   !
- !unloc(:) = nint( all_error(:,1,4,maxloc(all_error(:,1,3,:),dim=2)) )
- !ukloc(:) = nint( all_error(:,1,5,maxloc(all_error(:,1,3,:),dim=2)) )
- !vnloc(:) = nint( all_error(:,2,4,maxloc(all_error(:,2,3,:),dim=2)) )
- !vkloc(:) = nint( all_error(:,2,5,maxloc(all_error(:,2,3,:),dim=2)) )
   do m = 1,neqns+1
     unloc(m) = nint( all_error(m,1,4,maxloc(all_error(m,1,3,:),dim=1)) )
     ukloc(m) = nint( all_error(m,1,5,maxloc(all_error(m,1,3,:),dim=1)) )
     vnloc(m) = nint( all_error(m,2,4,maxloc(all_error(m,2,3,:),dim=1)) )
     vkloc(m) = nint( all_error(m,2,5,maxloc(all_error(m,2,3,:),dim=1)) )
   end do
-  !
-  ! Check for Vortex Collapse
-  !
- !if (ultwo(1) < Density_Minimum_Residual) Density_Minimum_Residual = ultwo(1)
-  if (ultwo(1) > zero) then
-    if (log10(ultwo(1)) > Density_Maximum_Residual) then
-      Density_Maximum_Residual = log10(ultwo(1))
-    end if
-    vortex_has_collapsed = Density_Maximum_Residual > -two
-  end if
   !
 end subroutine compute_final_error
 !
@@ -1268,7 +1208,7 @@ subroutine compute_final_vortex_error()
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
   real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
   real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: delt_since_lastperiod,sn,se
+  real(vbp) :: sn,se
   real(vbp) :: my_volume,error_volume
   !
   !.. Local Arrays ..
@@ -1291,24 +1231,10 @@ continue
   my_volume = zero
   error_volume = zero
   !
-  ! Compute the time that has elapsed since the start of the current period
+  ! If running one of the vortex transport problems, compute the change
+  ! in position of the vortex since the start of the current period.
   !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        / real(Period_Timesteps,vbp)
-  delt_since_lastperiod = delt_since_lastperiod * Period_Time
- !delt_since_lastperiod = zero
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  delx = deltafun(vxref>eps3) * (vxref/aref) * delt_since_lastperiod 
-  dely = deltafun(vyref>eps3) * (vyref/aref) * delt_since_lastperiod
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
-  delx = mod(delx,Grid_Length_X)
-  dely = mod(dely,Grid_Length_Y)
+  if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
   !
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
@@ -1524,7 +1450,7 @@ subroutine compute_final_advec_error()
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
   real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
   real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: delt_since_lastperiod,sn,se
+  real(vbp) :: sn,se
   !
   !.. Local Arrays ..
   real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_r
@@ -1545,22 +1471,10 @@ subroutine compute_final_advec_error()
   !
 continue
   !
-  ! Compute the time that has elapsed since the start of the current period
+  ! If running one of the vortex transport problems, compute the change
+  ! in position of the vortex since the start of the current period.
   !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        / real(Period_Timesteps,vbp)
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  delx = (vxref/aref) * delt_since_lastperiod 
-  dely = (vyref/aref) * delt_since_lastperiod
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
-  delx = Grid_Length_X * mod(delx,Grid_Length_X)
-  dely = Grid_Length_Y * mod(dely,Grid_Length_Y)
+  if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
   !
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
@@ -1943,6 +1857,8 @@ continue
       !
      !rho_ratio = vsp(1,k)/bc_in(1)
      !pres_ratio = vsp(neqns,k)/bc_in(neqns)
+      if (any(vsp([1,neqns],k) <= zero)) write (iout,111) n,k,vsp([1,neqns],k)
+      111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
       sn = entropy_pv_sp( vsp(:,k) )
       se = entropy_pv_sp( bc_in(:) )
       !
@@ -2015,7 +1931,7 @@ continue
     sec_left = 99
 #endif
     !
-    write (iout,1) itcur,d_t,time,entL2,nloc, &
+    write (iout,1) itcur,d_t,time,entL2,rltwo,nloc, &
                    global_cell_offset(nloc)+kloc, &
                    global_xyz(1,global_cell_offset(nloc)+kloc), &
                    global_xyz(2,global_cell_offset(nloc)+kloc), &
@@ -2029,7 +1945,7 @@ continue
   !
   call mpi_bcast(walltime_expiring,1,mpi_logical,0,mpi_comm_world,mpierr)
   !
-  1 format (i9,3(1x,es11.4),2i8,1x,2es11.3,1x,i3,2(":",i2.2))
+  1 format (i9,4(1x,es11.4),2i8,1x,2es11.3,1x,i3,2(":",i2.2))
   2 format (/,"*******************************************************",/, &
               " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
@@ -2138,10 +2054,10 @@ subroutine getbc
   !
   !.. Use Statements ..
   use geovar
-  use ovar,         only : gam,p_exit,bc_invar,bc_in
+  use ovar,         only : gam,bc_in
   use ovar,         only : flux_divergence
   use metvar,       only : dx,dy,geofa
-  use flowvar,      only : vsp,usp,faceusp
+  use flowvar,      only : vsp,usp,faceusp,facedusp
   use parallel_mod, only : nonblocking_exchange
   !
   !.. Local Scalars ..
@@ -2171,7 +2087,7 @@ continue
   !
   ! First exchange information between adjacent partitions
   !
-  if (ncpu > 1 .and. flux_divergence/=TestQuadrature) then
+  if (ncpu > 1 .and. all(flux_divergence/=[TestQuadrature,TestViscous])) then
     call nonblocking_exchange(vsp)
   end if
   !
@@ -2205,17 +2121,31 @@ continue
     !
     if (bface(1,nf) == bc_freestream) then
       !
-      ! Free stream boundary condition
+      ! #####################################################
+      ! #####################################################
+      ! ##  Free stream boundary condition
+      ! #####################################################
+      ! #####################################################
       !
       do k = g1,g2
         vsp(:,k) = bc_in(:)
       end do
       !
       do k = 1,n_fp1de
+        !
         faceusp(:,k,2,nf) = vsp2u_sp( bc_in(:) )
+        !
+        facedusp(:,:,k,2,nf) = zero
+        !
       end do
       !
     else if (bface(1,nf) == bc_characteristic) then
+      !
+      ! #####################################################
+      ! #####################################################
+      ! ##  Characteristic boundary condition
+      ! #####################################################
+      ! #####################################################
       !
       n1 = nodes_of_cell_ptr(hc)+1
       !
@@ -2294,6 +2224,8 @@ continue
           !
           faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
+          facedusp(:,:,k,2,nf) = zero
+          !
         else if (mach <= -one) then ! Supersonic outflow
           !
           ! Extrapolate interior to ghost cell flux point
@@ -2301,6 +2233,8 @@ continue
           vsp(:,kg) = varh(:) ! sup-out
           !
           faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+          !
+          facedusp(:,:,k,2,nf) = zero
           !
         else ! Subsonic inflow/outflow using Riemann invariants
           !
@@ -2330,161 +2264,446 @@ continue
           !
           faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
+          facedusp(:,:,k,2,nf) = zero
+          !
         end if
+        !
+      end do
+      !
+    else if (bface(1,nf) == bc_generic_inflow) then
+      !
+      ! #####################################################
+      ! #####################################################
+      ! ##  Generic inflow boundary condition
+      ! ##    - Use subsonic or supersonic inflow boundary
+      ! ##      conditions based on the Mach number of the
+      ! ##      normal inflow velocity
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
+      !
+      do k = 1,n_fp1de
+        !
+        ! Unit normal and tangent at this flux point
+        !
+        rnrm(:) = unit_vector( geofa(:,k,nf) )
+        !
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
+        !
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
+        !
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
+        !
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        ! Compute the speed of sound at this flux point
+        !
+        ai = sqrt(max(gam*varh(neqns)/varh(1),rndoff))
+        !
+        ! Compute the Mach number of the normal velocity at this flux point
+        !
+        mach = dot_product( varh(2:neqns-1) , rnrm(1:nr) ) / ai
+        !
+        if (mach > -one .and. mach <= zero) then
+          !
+          ! Subsonic inflow
+          !
+          vsp(1:neqns-1,kg) = bc_in(1:neqns-1)
+          vsp(neqns,kg) = varh(neqns)
+          !
+        else if (mach <= -one) then
+          !
+          ! Supersonic inflow
+          !
+          vsp(1:neqns,kg) = bc_in(1:neqns)
+          !
+        else
+          !
+          write (iout,*) "Error with bc_generic_inflow boundary condition!"
+          !
+        end if
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
+        !
+      end do
+      !
+    else if (bface(1,nf) == bc_generic_outflow) then
+      !
+      ! #####################################################
+      ! #####################################################
+      ! ##  Generic outflow boundary condition
+      ! ##    - Use subsonic or supersonic outflow boundary
+      ! ##      conditions based on the Mach number of the
+      ! ##      normal outflow velocity
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
+      !
+      do k = 1,n_fp1de
+        !
+        ! Unit normal and tangent at this flux point
+        !
+        rnrm(:) = unit_vector( geofa(:,k,nf) )
+        !
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
+        !
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
+        !
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
+        !
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        ! Compute the speed of sound at this flux point
+        !
+        ai = sqrt(max(gam*varh(neqns)/varh(1),rndoff))
+        !
+        ! Compute the Mach number of the normal velocity at this flux point
+        !
+        mach = dot_product( varh(2:neqns-1) , rnrm(1:nr) ) / ai
+        !
+        if (mach < one .and. mach >= zero) then
+          !
+          ! Subsonic outflow
+          !
+          vsp(1:neqns-1,kg) = varh(1:neqns-1)
+          vsp(neqns,kg) = bc_in(neqns)
+          !
+        else if (mach >= one) then
+          !
+          ! Supersonic outflow
+          !
+          vsp(1:neqns,kg) = varh(1:neqns)
+          !
+        else
+          !
+          write (iout,*) "Error with bc_generic_outflow boundary condition!"
+          !
+        end if
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
       !
     else if (bface(1,nf) == bc_sub_inflow) then
       !
-      ! Subsonic inflow boundary condition
-      !   - Fix density to free stream
-      !   - Fix velocities to free stream
-      !   - Extrapolate pressure
+      ! #####################################################
+      ! #####################################################
+      ! ##  Subsonic inflow boundary condition
+      ! ##    - Fix density to free stream
+      ! ##    - Fix velocities to free stream
+      ! ##    - Extrapolate pressure
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        hk = pts_on_face(1,k,nf)
-        gk = pts_on_face(2,k,nf)
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
         !
-        vsp(1:neqns-1,gk) = bc_in(1:neqns-1)
-        vsp(neqns,gk) = vsp(neqns,hk)
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        vsp(1:neqns-1,kg) = bc_in(1:neqns-1)
+        vsp(neqns,kg) = varh(neqns)
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
       !
     else if (bface(1,nf) == bc_sub_outflow) then
       !
-      ! Subsonic outflow boundary condition
-      !   - Extrapolate density
-      !   - Extrapolate velocities
-      !   - Fix pressure to free stream
+      ! #####################################################
+      ! #####################################################
+      ! ##  Subsonic outflow boundary condition
+      ! ##    - Extrapolate density
+      ! ##    - Extrapolate velocities
+      ! ##    - Fix pressure to free stream
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        hk = pts_on_face(1,k,nf)
-        gk = pts_on_face(2,k,nf)
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
         !
-        vsp(1:neqns-1,gk) = vsp(1:neqns-1,hk)
-        vsp(neqns,gk) = bc_in(neqns)
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        vsp(1:neqns-1,kg) = varh(1:neqns-1)
+        vsp(neqns,kg) = bc_in(neqns)
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
       !
     else if (bface(1,nf) == bc_sup_inflow) then
       !
-      ! Supersonic inflow boundary condition
-      !   - Fix all variables to free stream
+      ! #####################################################
+      ! #####################################################
+      ! ##  Supersonic inflow boundary condition
+      ! ##    - Fix all variables to free stream
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        hk = pts_on_face(1,k,nf)
-        gk = pts_on_face(2,k,nf)
+        vsp(:,kg) = bc_in(:)
         !
-        vsp(:,gk) = bc_in(:)
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
       !
     else if (bface(1,nf) == bc_sup_outflow) then
       !
-      ! Supersonic outflow boundary condition
-      !   - Extrapolate all variables
+      ! #####################################################
+      ! #####################################################
+      ! ##  Supersonic outflow boundary condition
+      ! ##    - Extrapolate all variables
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        hk = pts_on_face(1,k,nf)
-        gk = pts_on_face(2,k,nf)
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
         !
-        vsp(:,gk) = vsp(:,hk)
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        vsp(:,kg) = usp2v_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
       !
-    else if (bface(1,nf) == bc_wall) then
+    else if ( any(bface(1,nf) == [bc_slip_wall,bc_wall,bc_symmetry]) ) then
       !
-      ! Slip wall / symmetry boundary condition
+      ! #####################################################
+      ! #####################################################
+      ! ##  Slip wall / symmetry boundary condition
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
       !
       do k = 1,n_fp1de
         !
-        !###############################################################
-        !###############################################################
-        ! WE NEED TO BE CAREFUL WHEN USING GAUSS SOLUTION POINTS BECAUSE
-        ! THERE WONT BE ANY SOLUTION POINTS ON THE BOUNDARY FACE. WE
-        ! WILL NEED TO INTERPOLATE THE INFORMATION FROM THE SOLUTION
-        ! POINTS OF INTERIOR CELL TO THE FLUX POINTS ON THE BOUNDARY
-        ! FACE AND THEN USE THAT TO SET THE SOLUTION IN THE GHOST CELL.
-        !###############################################################
-        !###############################################################
+        ! Unit normal and tangent at this flux point
         !
-        hk = pts_on_face(1,k,nf)
-        gk = pts_on_face(2,k,nf)
+        rnrm(:) =  unit_vector( geofa(:,k,nf) )
         !
-        rnrm(1) = dx(hk)%dr
-        rnrm(2) = dy(hk)%dr
-        rnrm(:) = unit_vector(rnrm)
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        u = vsp(2,hk)
-        v = vsp(3,hk)
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
         !
-        ut =  u*rnrm(1) + v*rnrm(2)
-        un = -u*rnrm(2) + v*rnrm(1)
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
         !
-        vsp(1,gk) = vsp(1,hk)
-        vsp(2,gk) =  un*rnrm(2) + ut*rnrm(1)
-        vsp(3,gk) = -un*rnrm(1) + ut*rnrm(2)
-        vsp(4,gk) = vsp(4,hk)
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,gk) )
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        u = varh(2) ! host cell x-velocity at flux point
+        v = varh(3) ! host cell y-velocity at flux point
+        !
+        un = u*rnrm(1) + v*rnrm(2) ! host cell normal  velocity at flux point
+        ut = u*rnrm(2) - v*rnrm(1) ! host cell tangent velocity at flux point
+        !
+        vsp(1,kg) = vsp(1,hk)
+        vsp(2,kg) = -un*rnrm(1) + ut*rnrm(2)
+        vsp(3,kg) = -un*rnrm(2) - ut*rnrm(1)
+        vsp(4,kg) = vsp(4,hk)
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
         !
       end do
+      !
+    else if (bface(1,nf) == bc_adiabatic_wall) then
+      !
+      ! #####################################################
+      ! #####################################################
+      ! ##  No-slip adiabatic wall
+      ! #####################################################
+      ! #####################################################
+      !
+      ! Store the transpose of usp for the host cell to reduce cache misses
+      !
+      do k = h1,h2
+        tusp(k-h1+1,:) = usp(:,k)
+      end do
+      !
+      ! Now loop through the boundary face flux points to get the boundary
+      ! condition solution at each flux point
+      !
+      do k = 1,n_fp1de
+        !
+        ! Unit normal and tangent at this flux point
+        !
+        rnrm(:) =  unit_vector( geofa(:,k,nf) )
+        !
+        hk = hkb-1 + k ! index for current host  cell flux point
+        gk = gkb+1 - k ! index for current ghost cell flux point
+        kg = g1-1 + gk ! index for current ghost cell solution point
+        !
+        ! Interpolate the conservative variables for the host cell
+        ! solution points to the current host cell flux point.
+        !
+        do m = 1,neqns
+          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+        end do
+        !
+        ! Now convert the current host cell flux point
+        ! conservative variables to primitive variables
+        !
+        varh(:) = usp2v_sp( varh(:) )
+        !
+        vsp(1,kg) = vsp(1,hk)
+        vsp(2,kg) = zero
+        vsp(3,kg) = zero
+        vsp(4,kg) = vsp(4,hk)
+        !
+        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        !
+        facedusp(:,:,k,2,nf) = zero
+        !
+      end do
+      !
+    else if (bface(1,nf) == bc_isothermal_wall) then
+      !
+      ! #####################################################
+      ! #####################################################
+      ! ##  No-slip isothermal wall
+      ! #####################################################
+      ! #####################################################
+      !
+      ! THIS NEEDS TO BE SET UP!!!
       !
     else if (bface(1,nf) == bc_periodic) then
       !
-      ! Periodic boundary condition
+      ! #####################################################
+      ! #####################################################
+      ! ##  Periodic boundary condition
+      ! #####################################################
+      ! #####################################################
       !
       p1 = pts_of_periodic_ptr(nf)+1
       p2 = pts_of_periodic_ptr(nf+1)
@@ -2498,7 +2717,7 @@ continue
         !
         gk = gkb+1 - k ! index for current ghost cell flux point
         !
-        ! Use the Lagrange polynomial to project the conservative variables from
+        ! Use the Lagrange polynomial to interpolate the conservative variables from
         ! the ghost cell solution points to the current ghost cell flux point.
         !
         do m = 1,neqns

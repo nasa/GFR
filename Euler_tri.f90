@@ -254,6 +254,7 @@ continue
     d_t = dt_in
     if (abs(dt_in) <= eps12) then
       call rgetdtmax
+     !write (iout,'("Maximum time step should be <= ",es13.6)') dt_global
       d_t = dt_global*cfl
     end if
     !
@@ -334,6 +335,12 @@ continue
       else if (flux_divergence == TestQuadrature) then
         !
         call interp_cv_to_flxpts
+        call derflux1_qdtr
+        call correct_interface_flux_qdtr
+        !
+      else if (flux_divergence == TestViscous) then
+        !
+        call interp_cv_to_flxpts
         call discontinuous_gradient_at_solpts
         call correct_gradients_at_solpts
         call interp_dusp_to_flxpts
@@ -367,6 +374,27 @@ continue
     ! Compute the residual error from the density and output to terminal
     !
     if (mod(iter,iter_out_interval) == 0) call rgeterr
+    !
+    ! Output the error at the specified interval
+    !
+    if (mod(iter,results_interval)==0 .and. iter/=num_ts) then
+      !
+      end_wall_time = mpi_wtime()
+      wall_time = end_wall_time-beg_wall_time
+      work_units = wall_time/one_work_unit
+      !
+      if (any(itestcase == Advec_Problems)) then
+        call compute_final_advec_error
+        if (mypnum == 0) call write_advec_results_file(0,itcur)
+      else if (any(itestcase == Vortex_Problems)) then
+        call compute_final_vortex_error
+        if (mypnum == 0) call write_vortex_results_file(0,itcur)
+      else
+        call compute_final_error
+        if (mypnum == 0) call write_results_file(0,itcur)
+      end if
+      !
+    end if
     !
     ! Store the new solution as the backup for the next iteration
     !
@@ -437,27 +465,6 @@ continue
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
         call write_cgns_solution(0)
       end if
-    end if
-    !
-    ! Output the error at the specified interval
-    !
-    if (mod(iter,results_interval)==0 .and. iter/=num_ts) then
-      !
-      end_wall_time = mpi_wtime()
-      wall_time = end_wall_time-beg_wall_time
-      work_units = wall_time/one_work_unit
-      !
-      if (any(itestcase == Advec_Problems)) then
-        call compute_final_advec_error
-        if (mypnum == 0) call write_advec_results_file(0,itcur)
-      else if (any(itestcase == Vortex_Problems)) then
-        call compute_final_vortex_error
-        if (mypnum == 0) call write_vortex_results_file(0,itcur)
-      else
-        call compute_final_error
-        if (mypnum == 0) call write_results_file(0,itcur)
-      end if
-      !
     end if
     !
     ! Continue the final countdown if the vortex has collapsed

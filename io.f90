@@ -171,7 +171,7 @@ subroutine read_nml_input_file
   !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
   !
   use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
-  use geovar, only : o_order
+  use geovar, only : o_order,all_orders
   use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
   use ovar,   only : itestcase,num_stages,irestart, &
                      flux_divergence,iop_correction, &
@@ -179,7 +179,7 @@ subroutine read_nml_input_file
                      output_interval,restart_interval, &
                      results_interval,flux_method,dflux_opt, &
                      iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
-                     Final_Time,Total_Periods, &
+                     Final_Time,Total_Periods,all_points, &
                      iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
                      Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha,Filter_etac, &
@@ -187,7 +187,7 @@ subroutine read_nml_input_file
                      vxref,vyref,aref,uref,rgasref, &
                      metis_option,init_loc,error_loc, &
                      Period_Timesteps,Period_Time,iter_out_interval, &
-                     suth_muref,suth_Tref,suth_Sref
+                     suth_muref,suth_Tref,suth_Sref,Pr,Prt
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
   use ovar,   only : vortex_bigR,vortex_bigGam
@@ -215,6 +215,8 @@ subroutine read_nml_input_file
   namelist / input / num_ts, Final_Time, cfl, dt_in
   ! OVER-INTEGRATION OPTIONS
   namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
+  namelist / input / all_orders, all_points
   ! PARALLEL OPTIONS
   namelist / input / metis_option
   ! INITIALIZATION / TEST CASE
@@ -226,6 +228,8 @@ subroutine read_nml_input_file
                      output_interval, results_interval, o_order
   ! REFERENCE CONDITIONS
   namelist / input / rhoref, tref, pref, machref, aoaref, gam, rgasref
+  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
+  namelist / input / Pr, Prt
   ! SUTHERLANDS LAW COEFFICIENTS
   namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
@@ -268,6 +272,26 @@ continue
   ! Adjust the name of the grid file
   !
   gridfile = trim(adjustl(gridfile))
+  !
+  ! Allow for the use of the variable all_orders to make
+  ! n_order, p_order, and q_order all the same value without
+  ! having to explicitly specify each one individually.
+  !
+  if (all_orders > 0) then
+    n_order = all_orders
+    p_order = all_orders
+    q_order = all_orders
+  end if
+  !
+  ! Allow for the use of the variable all_points to make
+  ! iop_solpts, iop_flxpts, and iop_qdtpts all the same value
+  ! without having to explicitly specify each one individually.
+  !
+  if ( any(all_points == [1,2]) ) then
+    iop_solpts = all_points
+    iop_flxpts = all_points
+    iop_qdtpts = all_points
+  end if
   !
   ! Adjust the solution order and compute the number
   ! of solution points for the different cell shapes
@@ -387,6 +411,14 @@ continue
     !
   end if
   !
+  ! Initialize the remaining reference conditions
+  !
+  call initialize_reference
+  !
+  ! Initialize the viscosity model
+  !
+  call initialize_viscosity
+  !
   ! Compute periodic information for the transport problems
   !
   if (any(itestcase == Transport_Problems)) then
@@ -454,6 +486,10 @@ continue
     !
     num_ts = nint( Final_Time / dt_in )
     !
+  else
+    !
+    num_ts = nint( Final_Time / dt_in )
+    !
   end if
   !
   ! Determine the frequency of dumping the results and solution files
@@ -477,6 +513,29 @@ continue
     else if (iter_out_interval < 0) then
       iter_out_interval = max(Period_Timesteps/abs(iter_out_interval),1)
     end if
+    !
+  else
+    !
+    if (results_interval == 0) then
+      results_interval = num_ts/500
+    else if (results_interval < 0) then
+      results_interval = num_ts/abs(results_interval)
+    end if
+    results_interval = max(results_interval,1)
+    !
+    if (output_interval == 0) then
+      output_interval = num_ts/50
+    else if (output_interval < 0) then
+      output_interval = num_ts/abs(output_interval)
+    end if
+    output_interval = max(output_interval,1)
+    !
+    if (iter_out_interval == 0) then
+      iter_out_interval = 1
+    else if (iter_out_interval < 0) then
+      iter_out_interval = num_ts/abs(iter_out_interval)
+    end if
+    iter_out_interval = max(iter_out_interval,1)
     !
   end if
   !
@@ -838,6 +897,14 @@ continue
     !
   end if
   !
+  ! Initialize the remaining reference conditions
+  !
+  call initialize_reference
+  !
+  ! Initialize the viscosity model
+  !
+  call initialize_viscosity
+  !
   ! Compute periodic information for the transport problems
   !
   if (any(itestcase == Transport_Problems)) then
@@ -1121,6 +1188,79 @@ continue
               "******************** ERROR! *********************",/)
   !
 end subroutine check_output_dir
+!
+!###############################################################################
+!
+subroutine initialize_viscosity
+  !
+  use ovar, only : muref, muref_nd, reyref
+  use ovar, only : bc_in, rhoref, aref, machref
+  use ovar, only : suth_muref, suth_c1
+  use ovar, only : suth_Tref, suth_Sref
+  !
+  use generic_mod, only : viscosity_pv_sp
+  !
+continue
+  !
+  suth_c1 = suth_muref * (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+  !
+  muref_nd = viscosity_pv_sp(bc_in)
+  muref    = muref_nd * rhoref * aref
+  !
+  reyref = rhoref * machref * aref / muref
+  !
+end subroutine initialize_viscosity
+!
+!###############################################################################
+!
+subroutine initialize_reference
+  !
+  use ovar, only : rhoref,aref,tref,gam
+  use ovar, only : vxref,vxref_nd
+  use ovar, only : vyref,vyref_nd
+  use ovar, only : pref,pref_nd
+  use ovar, only : rgasref,rgasref_nd
+  use ovar, only : cpref,cpref_nd
+  use ovar, only : bc_in
+  !
+  real(wp) :: a2,rhoa2,tda2
+  !
+continue
+  !
+  a2 = aref * aref
+  rhoa2 = rhoref * a2
+  tda2 = tref / a2
+  !
+  ! Initialize the inflow boundary conditions to the reference conditions
+  !
+  bc_in(1) = rhoref
+  bc_in(2) = vxref
+  bc_in(3) = vyref
+  bc_in(4) = pref
+  !
+  ! Nondimensional reference velocities
+  vxref_nd = vxref / aref
+  vyref_nd = vyref / aref
+  !
+  ! Nondimensional reference pressure
+  pref_nd = pref / rhoa2
+  !
+  ! Nondimensional reference gas constant
+  rgasref_nd = rgasref * tda2
+  !
+  ! Dimensional reference specific heat at constant pressure
+  cpref    = rgasref * gam / (gam - one)
+  ! Nondimensional reference specific heat at constant pressure
+  cpref_nd = cpref * tda2
+  !
+  ! Finally, nondimensionalize the inflow boundary conditions
+  !
+  bc_in(1) = bc_in(1) / rhoref
+  bc_in(2) = bc_in(2) / aref
+  bc_in(3) = bc_in(3) / aref
+  bc_in(4) = bc_in(4) / rhoa2
+  !
+end subroutine initialize_reference
 !
 !###############################################################################
 !
@@ -2405,7 +2545,7 @@ subroutine write_tecplot_exact_sol()
   use geovar,  only : nr,neqns,n_order,tria_connectivity,quad_connectivity
   use ovar,    only : itcur,Period_Timesteps,vxref,vyref,aref,time, &
                       Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y, &
-                      Period_Time
+                      Period_Time,itestcase
   !
   !.. Aliased Use Statements ..
   use geovar,  only : ncell => n_global_cell
@@ -2416,7 +2556,6 @@ subroutine write_tecplot_exact_sol()
   !
   !.. Local Scalars ..
   integer :: i,k,n,n1,n2,p1,ierr
-  real(vbp) :: delt_since_lastperiod
   real(vbp) :: delx,dely,xoffset,yoffset
   logical, save :: is_first_write = true
   !
@@ -2438,25 +2577,10 @@ continue
   allocate ( exact(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("write_tecplot_exact_sol","exact",1,ierr)
   !
-  ! Compute the time that has elapsed since the start of the current period
+  ! If running one of the vortex transport problems, compute the change
+  ! in position of the vortex since the start of the current period.
   !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        / real(Period_Timesteps,vbp)
-  delt_since_lastperiod = delt_since_lastperiod * Period_Time
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  delx = (vxref/aref) * delt_since_lastperiod
-  dely = (vyref/aref) * delt_since_lastperiod
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
- !write (iout,'(5es16.4)') delt_since_lastperiod,delx,dely, &
- !                         mod(delx,Grid_Length_X),mod(dely,Grid_Length_Y)
-  delx = mod(delx,Grid_Length_X)
-  dely = mod(dely,Grid_Length_Y)
+  if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
   !
   ! Get the exact solution at the current time
   !
@@ -2758,37 +2882,36 @@ end subroutine write_entropy_error
 !
 subroutine write_results_file(iflag,icount)
   !
-  use geovar,  only : neqns,n_global_solpts,n_order
+  use geovar,  only : neqns,n_global_solpts,p_order
   use ovar,    only : ultwo,vltwo,work_units
-  use ovar,    only : Period_Timesteps
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
   integer, intent(in) :: icount
   !
   !.. Local Scalars ..
-  integer   :: i,ierr
-  real(vbp) :: h,comp_cost,p,period
+  integer  :: i,ierr
+  real(wp) :: comp_cost
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:neqns+1) :: u2,v2
+  real(wp), dimension(1:neqns+1) :: u2,v2
   !
 continue
   !
+  ! Open the results file only if iflag is +1
+  !
   if (iflag == 1) then
+    !
     open (iores,file="results.dat",status="replace",action="write",iostat=ierr)
     call io_error("write_results_file","results.dat",1,ierr)
-    write (iores,'(a)') 'VARIABLES= "h" "rho" "rhou" "rhov" "Energy" &
-                                   &"Entropy" "rho_copy" "u" "v" &
-                                   &"Pressure" "||V||" "Work units" &
-                                   &"p" "Period"'
+    !
+    write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    !
     return
+    !
   end if
   !
-  h = log10(one/sqrt(real(n_global_solpts,vbp)))
   comp_cost = log10(merge(work_units,one,work_units > zero))
-  p = real(n_order,vbp)
-  period = real(icount,vbp)/real(Period_Timesteps,vbp)
   !
   u2(:) = ultwo(:)
   v2(:) = vltwo(:)
@@ -2800,9 +2923,11 @@ continue
     v2 = one
   end where
   !
-  write (iores,1) h,(log10(u2(i)),i=1,neqns+1), &
-                    (log10(v2(i)),i=1,neqns+1), &
-                  comp_cost,p,period
+  write (iores,2) icount,(log10(u2(i)),i=1,neqns+1), &
+                         (log10(v2(i)),i=2,neqns+1), &
+                         comp_cost
+  !
+  ! Close the results file only if iflag is -1
   !
   if (iflag == -1) then
     close (iores,iostat=ierr)
@@ -2811,7 +2936,12 @@ continue
   !
  !call write_tecplot_exact_sol
   !
-  1 format (es14.6,10es17.9,es14.6,f6.1,es14.6)
+  1 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "Energy" &
+           &"Entropy" "u" "v" "Pressure" "||V||" "Work units"',/, &
+            'Zone T="Residual Error"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA h="',f10.6,'"')
+  2 format (i10,*(es17.9))
   !
 end subroutine write_results_file
 !
@@ -3144,8 +3274,8 @@ subroutine write_nodal_cgns(iflag)
   !.. Use Statements ..
   use geovar,  only : p_order,n_order,n_sp2dt,n_sp2dq,neqns
   use geovar,  only : tria_connectivity,quad_connectivity
-  use ovar,    only : time,aref,uref,vxref,vyref,gam
-  use ovar,    only : itcur,Period_Timesteps,Period_Time
+  use ovar,    only : time,aref,uref,vxref,vyref,gam,rhoref
+  use ovar,    only : itcur,Period_Timesteps,Period_Time,itestcase
   use ovar,    only : Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y
   use generic_mod, only : usp2v,project_to_porder,entropy_pv_sp
   !
@@ -3167,7 +3297,6 @@ subroutine write_nodal_cgns(iflag)
   integer   :: nelem,kind_real,nsp,nw,np
   integer   :: n_outpts,no1d,noc,nopt,nopq
   real(vbp) :: cvel,sn,se
-  real(vbp) :: delt_since_lastperiod
   real(vbp) :: delx,dely,xoffset,yoffset
   !
   character(len=32) :: tname
@@ -3200,27 +3329,22 @@ continue
     n_outpts = n_outpts + merge(nopt,nopq,np==3)
   end do
   !
-  ! Compute the time that has elapsed since the start of the current period
+  ! Variables specific to the Vortex transport cases
   !
-  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),vbp) &
-                        * reciprocal( real(Period_Timesteps,vbp) )
-  delt_since_lastperiod = delt_since_lastperiod * Period_Time
- !delt_since_lastperiod = zero
-  !
-  ! Find the x and y distances the vortex has
-  ! traveled since the start of the current period
-  !
-  delx = deltafun(vxref>eps3) * (vxref/aref) * delt_since_lastperiod
-  dely = deltafun(vyref>eps3) * (vyref/aref) * delt_since_lastperiod
-  !
-  ! Now translate these into a periodic domain
-  ! with the grid lengths for each direction
-  !
-  delx = mod(delx,Grid_Length_X)
-  dely = mod(dely,Grid_Length_Y)
-  !
-  cvel = aref*reciprocal(uref)
- !cvel = one
+  if ( any(itestcase == Transport_Problems) ) then
+    !
+    ! If running one of the vortex transport problems, compute the change
+    ! in position of the vortex since the start of the current period.
+    !
+    if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
+    !
+    cvel = aref*reciprocal(uref)
+    !
+  else
+    !
+    cvel = one
+    !
+  end if
   !
   kind_real = merge(RealDouble,RealSingle,kind(var)==vbp)
   !
@@ -3430,43 +3554,43 @@ continue
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
                           var(1:n_outpts),ifld_n,ierr)
     !
+    ! Pressure
+    !
+    do i = 1,n_solpts
+      vartmp(i) = vsp(4,i)*cvel**2
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! Mach number
+    !
+    do i = 1,n_solpts
+      vartmp(i) = usp(1,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! Entropy
+    !
+    do i = 1,n_solpts
+      vartmp(i) = usp(4,i)
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
+    ! Vorticity
+    !
+    do i = 1,n_solpts
+      vartmp(i) = usp(2,i)*cvel
+    end do
+    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
+                          var(1:n_outpts),ifld_n,ierr)
+    !
   end if
-  !
-  ! Pressure
-  !
- !do i = 1,n_solpts
- !  vartmp(i) = vsp(4,i)*cvel**2
- !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
- !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
- !                      var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Mach number
-  !
- !do i = 1,n_solpts
- !  vartmp(i) = usp(1,i)
- !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
- !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
- !                      var(1:n_outpts),ifld_n,ierr)
-! !
-! ! Entropy
-! !
-! do i = 1,n_solpts
-!   vartmp(i) = usp(4,i)
-! end do
-! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
-!                       var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Vorticity
-  !
-! do i = 1,n_solpts
-!   vartmp(i) = usp(2,i)*cvel
-! end do
-! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
-! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
-!                       var(1:n_outpts),ifld_n,ierr)
 ! !
 ! ! Create the exact solution at each solution point
 ! !
@@ -4186,905 +4310,3 @@ end module io_mod
 !
 !###############################################################################
 !
-!module gmsh_module
-!  !
-!  !.. Use Statements ..
-!  use module_kind_types
-!  !
-!  implicit none
-!  !
-!  private
-!  !
-!  ! ##################################
-!  ! ###  Module Public Procedures  ###
-!  ! ##################################
-!  !
-!  public :: read_gmsh_gridfile
-!  !
-!  ! ###########################
-!  ! ###  Module Parameters  ###
-!  ! ###########################
-!  !
-!  ! CELL_NODES: gives the number of nodes defining each type of grid cell
-!  !
-!  ! Explanation of values given in array cell_nodes
-!  !
-!  ! 1  : 2-node line
-!  ! 2  : 3-node triangle
-!  ! 3  : 4-node quadrangle
-!  ! 4  : 4-node tetrahedron
-!  ! 5  : 8-node hexahedron
-!  ! 6  : 6-node prism
-!  ! 7  : 5-node pyramid
-!  ! 8  : 3-node second order line
-!  !        2 nodes associated with the vertices
-!  !        1 with the edge
-!  ! 9  : 6-node second order triangle
-!  !        3 nodes associated with the vertices
-!  !        3 with the edges
-!  ! 10 : 9-node second order quadrangle
-!  !        4 nodes associated with the vertices
-!  !        4 with the edges
-!  !        1 with the face
-!  ! 11 : 10-node second order tetrahedron
-!  !        4 nodes associated with the vertices
-!  !        6 with the edges
-!  ! 12 : 27-node second order hexahedron
-!  !        8 nodes associated with the vertices
-!  !        12 with the edges
-!  !        6 with the faces
-!  !        1 with the volume
-!  ! 13 : 18-node second order prism
-!  !        6 nodes associated with the vertices
-!  !        9 with the edges
-!  !        3 with the quadrangular faces
-!  ! 14 : 14-node second order pyramid
-!  !        5 nodes associated with the vertices
-!  !        8 with the edges
-!  !        1 with the quadrangular face
-!  ! 15 : 1-node point
-!  ! 16 : 8-node second order quadrangle
-!  !        4 nodes associated with the vertices
-!  !        4 with the edges
-!  ! 17 : 20-node second order hexahedron
-!  !        8 nodes associated with the vertices
-!  !        12 with the edges
-!  ! 18 : 15-node second order prism
-!  !        6 nodes associated with the vertices
-!  !        9 with the edges
-!  ! 19 : 13-node second order pyramid
-!  !        5 nodes associated with the vertices
-!  !        8 with the edges
-!  ! 20 : 9-node third order incomplete triangle
-!  !        3 nodes associated with the vertices
-!  !        6 with the edges
-!  ! 21 : 10-node third order triangle
-!  !        3 nodes associated with the vertices
-!  !        6 with the edges
-!  !        1 with the face
-!  ! 22 : 12-node fourth order incomplete triangle
-!  !        3 nodes associated with the vertices
-!  !        9 with the edges
-!  ! 23 : 15-node fourth order triangle
-!  !        3 nodes associated with the vertices
-!  !        9 with the edges
-!  !        3 with the face
-!  ! 24 : 15-node fifth order incomplete triangle
-!  !        3 nodes associated with the vertices
-!  !        12 with the edges
-!  ! 25 : 21-node fifth order complete triangle
-!  !        3 nodes associated with the vertices
-!  !        12 with the edges
-!  !        6 with the face
-!  ! 26 : 4-node third order edge
-!  !        2 nodes associated with the vertices
-!  !        2 internal to the edge
-!  ! 27 : 5-node fourth order edge
-!  !        2 nodes associated with the vertices
-!  !        3 internal to the edge
-!  ! 28 : 6-node fifth order edge 
-!  !        2 nodes associated with the vertices
-!  !        4 internal to the edge
-!  ! 29 : 20-node third order tetrahedron
-!  !        4 nodes associated with the vertices
-!  !        12 with the edges
-!  !        4 with the faces
-!  ! 30 : 35-node fourth order tetrahedron
-!  !        4 nodes associated with the vertices
-!  !        18 with the edges
-!  !        12 with the faces
-!  !        1 in the volume
-!  ! 31 : 56-node fifth order tetrahedron
-!  !        4 nodes associated with the vertices
-!  !        24 with the edges
-!  !        24 with the faces
-!  !        4 in the volume
-!  ! 92 : 64-node third order hexahedron
-!  !        8 nodes associated with the vertices
-!  !        24 with the edges
-!  !        24 with the faces
-!  !        8 in the volume
-!  ! 93 : 125-node fourth order hexahedron
-!  !        8 nodes associated with the vertices
-!  !        36 with the edges
-!  !        54 with the faces
-!  !        27 in the volume
-!  !
-!  integer, parameter, dimension(1:33) :: &
-!      cell_nodes = [ 2,  3,   4,  4,  8, 6,  5,  3,  6,  9, &
-!                    10, 27,  18, 14,  1, 8, 20, 15, 13,  9, &
-!                    10, 12,  15, 15, 21, 4,  5,  6, 20, 35, &
-!                    56, 64, 125]
-!  !
-!  ! ###################################
-!  ! ###  Module Derived Data Types  ###
-!  ! ###################################
-!  !
-!  type cell_t
-!    integer :: cell_type
-!    integer :: num_tags
-!    integer :: num_nodes
-!    integer, allocatable, dimension(:) :: nodes
-!    integer, allocatable, dimension(:) :: tags
-!  end type cell_t
-!  !
-!  type phys_t
-!    integer :: phys_dim
-!    integer :: phys_id
-!    character(len=80) :: phys_nam
-!  end type phys_t
-!  !
-!  ! ################################
-!  ! ###  Module Local Variables  ###
-!  ! ################################
-!  !
-!  logical, save :: meshformat_successful
-!  logical, save :: nodes_successful
-!  logical, save :: elements_successful
-!  logical, save :: physicalnames_successful
-!  !
-!  ! ###################################
-!  ! ###  Module Allocatable Arrays  ###
-!  ! ###################################
-!  !
-!  type(cell_t), allocatable, dimension(:) :: cell_data
-!  type(phys_t), allocatable, dimension(:) :: phys_grps
-!  !
-!contains
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_gridfile( gridfile )
-!  !
-!  ! Routine to read in a grid file using GMSH formatting
-!  !
-!  !.. Formal Arguments ..
-!  character(len=*), intent(in) :: gridfile
-!  !
-!  !.. Local Scalars ..
-!  integer :: ierr
-!  logical :: end_of_file
-!  character(len=80) :: section_header
-!  !
-!  !.. Local Allocatable Arrays ..
-!  !
-!continue
-!  !
-!  meshformat_successful = fals
-!  nodes_successful = fals
-!  elements_successful = fals
-!  physicalnames_successful = fals
-!  !
-!  ! Open the grid file
-!  !
-!  open (iogrd,file=gridfile,status="old",action="read", &
-!       position="rewind",iostat=ierr)
-!  call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),1,ierr)
-!  !
-!  ! Reading the grid file sections, looping until reaching the end of the file
-!  !
-!  do
-!    !
-!    call find_gmsh_section(section_header,end_of_file)
-!    !
-!    ! If the end_of_file flag was set, exit the read loop
-!    !
-!    if (end_of_file) exit
-!    !
-!    ! Read the next section based on the section header
-!    !
-!    if (section_header == "MESHFORMAT") then
-!      call read_gmsh_section_meshformat
-!    else if (section_header == "NODES") then
-!      call read_gmsh_section_nodes
-!    else if (section_header == "ELEMENTS") then
-!      call read_gmsh_section_elements
-!    else if (section_header == "PHYSICALNAMES") then
-!      call read_gmsh_section_physicalnames
-!    else if (section_header == "PERIODIC") then
-!      call read_gmsh_section_periodic
-!    else if (section_header == "NODEDATA") then
-!      call read_gmsh_section_nodedata
-!    else if (section_header == "ELEMENTDATA") then
-!      call read_gmsh_section_elementdata
-!    else if (section_header == "ELEMENTNODEDATA") then
-!      call read_gmsh_section_elementnodedata
-!    else if (section_header == "INTERPOLATIONSCHEME") then
-!      call read_gmsh_section_interpolationscheme
-!    else
-!      !
-!      ! The section header wasnt recognized so continue reading
-!      ! the grid file until a valid section header is found
-!      !
-!      cycle
-!      !
-!    end if
-!    !
-!  end do
-!  !
-!  ! Check that all the necessary sections were successfully read
-!  !
-!  if ( .not. meshformat_successful ) then
-!    !
-!    write (iout,2) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
-!    !
-!  else if ( .not. nodes_successful ) then
-!    !
-!    write (iout,3) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
-!    !
-!  else if ( .not. elements_successful ) then
-!    !
-!    write (iout,4) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
-!    !
-!  else if ( .not. physicalnames_successful ) then
-!    !
-!    write (iout,5) ; call stop_recon(stop_mpi,"read_gmsh_gridfile")
-!    !
-!  else
-!    !
-!    ! We are done reading the grid file so close it
-!    !
-!    close (iogrd,iostat=ierr)
-!    call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),2,ierr)
-!    !
-!  end if
-!  !
-!  ! Finish creating the arrays defining the grid geometry.
-!  ! bface, nodes_of_cell_ptr, nodes_of_cell, etc.
-!  !
-!  call create_gmsh_grid_arrays
-!  !
-!  ! Format statements
-!  !
-!  1 format (a)
-!  2 format (/,"******************** ERROR! *********************",/, &
-!              "  Aborting because there was an error reading the",/, &
-!              "  'MeshFormat' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  3 format (/,"******************** ERROR! *********************",/, &
-!              "  Aborting because there was an error reading the",/, &
-!              "  'Nodes' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  4 format (/,"******************** ERROR! *********************",/, &
-!              "  Aborting because there was an error reading the",/, &
-!              "  'Elements' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  5 format (/,"******************** ERROR! *********************",/, &
-!              "  Aborting because there was an error reading the",/, &
-!              "  'PhysicalNames' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  !
-!end subroutine read_gmsh_gridfile
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_meshformat
-!  !
-!  !.. Local Scalars ..
-!  integer :: ierr,gmsh_file_type,gmsh_data_size
-!  logical :: end_of_file
-!  real(wp) :: gmsh_version_num
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! Read the MeshFormat section of the GMSH grid file
-!  !
-!  read (iogrd,*,iostat=ierr,end=100,err=101) gmsh_version_num, &
-!                                             gmsh_file_type, &
-!                                             gmsh_data_size
-!  !
-!  ! Check that the GMSH version number is supported
-!  !
-!  gmsh_version_num = gmsh_version_num * ten
-!  !
-!  if (nint(gmsh_version_num) /= 22) then
-!    write (iout,1)
-!    call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
-!  end if
-!  !
-!  ! Return if the line marking the end of the MeshFormat section is found
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDMESHFORMAT") then
-!    meshformat_successful = true
-!    return
-!  else if (end_of_file) then
-!    write (iout,2)
-!  else
-!    write (iout,3)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
-!  !
-!  ! Read error continuation statements
-!  !
-!  100 write (iout,2) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_meshformat")
-!  101 write (iout,4) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_meshformat")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  The version of the GMSH grid file is",/, &
-!              "  not supported! Currently, only version",/, &
-!              "  2.2 of the GMSH format is supported!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'MeshFormat' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  3 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'MeshFormat' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndMeshFormat'",/, &
-!              "  line signifiying the end of the 'MeshFormat' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  4 format (/,"******************** ERROR! *********************",/, &
-!              "  Error trying to read the 'MeshFormat'",/, &
-!              "  section of the GMSH grid file!", &
-!              "       IO Error = ",i0,/, &
-!              "******************** ERROR! *********************",/)
-!  !
-!end subroutine read_gmsh_section_meshformat
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_nodes
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : nr,nnode,xyz_nodes
-!  !
-!  !.. Local Scalars ..
-!  integer :: i,j,n,ierr
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! Read the Nodes section of the GMSH grid file
-!  !
-!  read (iogrd,*,iostat=ierr,end=100,err=101) nnode
-!  !
-!  ! Allocate the array containing the coordinates of the grid nodes
-!  !
-!  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-!  call alloc_error("read_gmsh_section_nodes","xyz_nodes",1,ierr)
-!  !
-!  ! Read the coordinates of the grid nodes
-!  !
-!  do n = 1,nnode
-!    read (iogrd,*,iostat=ierr,end=100,err=101) i, (xyz_nodes(j,i), j=1,nr)
-!  end do
-!  !
-!  ! Return if the line marking the end of the Nodes section is found
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDNODES") then
-!    nodes_successful = true
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_nodes")
-!  !
-!  ! Read error continuation statements
-!  !
-!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_nodes")
-!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_nodes")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'Nodes' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'Nodes' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndNodes'",/, &
-!              "  line signifiying the end of the 'Nodes' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  3 format (/,"******************** ERROR! *********************",/, &
-!              "  Error trying to read the 'Nodes'",/, &
-!              "  section of the GMSH grid file!", &
-!              "       IO Error = ",i0,/, &
-!              "******************** ERROR! *********************",/)
-!  !
-!end subroutine read_gmsh_section_nodes
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_elements
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : ncell
-!  !
-!  !.. Local Scalars ..
-!  integer :: i,j,m,n,ierr
-!  integer :: ntype,ntags,nnods
-!  logical :: end_of_file
-!  character(len=80) :: text,array_name
-!  !
-!continue
-!  !
-!  ! Read the Elements section of the GMSH grid file
-!  !
-!  read (iogrd,*,iostat=ierr,end=100,err=101) ncell
-!  !
-!  ! Allocate the array for the element definitions
-!  !
-!  allocate ( cell_data(1:ncell) , stat=ierr )
-!  call alloc_error("read_gmsh_section_elements","cell_data",1,ierr)
-!  !
-!  ! Read the element definitions
-!  !
-!  do n = 1,ncell
-!    !
-!    ! Read the first three values on the line for the current cell
-!    ! and do not advance to the next record. We need to allocate
-!    ! some memory based on the second two values and then we will
-!    ! read the remaining information on this line.
-!    !
-!    read (iogrd,*,iostat=ierr,end=100,err=101) i, ntype, ntags
-!    backspace (iogrd)
-!    !
-!    ! Corrections for Hex-64 and Hex-125 cells to change the cell_type
-!    ! variable to a value applicable to the cell_nodes array.
-!    !
-!    if (ntype == 92) then
-!      ntype = 32 ! Hex-64
-!    else if (ntype == 93) then
-!      ntype = 33 ! Hex-125
-!    end if
-!    !
-!    nnods = cell_nodes(ntype)
-!    !
-!    ! Allocate the tags and nodes arrays within cell_data for the
-!    ! current cell and store the cell type and number of tags as well
-!    !
-!    cell_data(i)%cell_type = ntype
-!    cell_data(i)%num_tags = ntags
-!    cell_data(i)%num_nodes = nnods
-!    !
-!    write (array_name,4) "cell_data(", i, ")%nodes"
-!    allocate ( cell_data(i)%nodes(1:nnods) , source=0 , stat=ierr )
-!    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
-!    !
-!    write (array_name,4) "cell_data(", i, ")%tags "
-!    allocate ( cell_data(i)%tags(1:ntags) , source=0 , stat=ierr )
-!    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
-!    !
-!    ! Continue reading the remaining information for this cell
-!    !
-!    read (iogrd,*,iostat=ierr,end=100,err=101) m, m, m, &
-!                              (cell_data(i)%tags(j),  j=1,ntags), &
-!                              (cell_data(i)%nodes(j), j=1,nnods)
-!    !
-!  end do
-!  !
-!  ! Return if the line marking the end of the Elements section is found
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDELEMENTS") then
-!    elements_successful = true
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_elements")
-!  !
-!  ! Read error continuation statements
-!  !
-!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_elements")
-!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_elements")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'Elements' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'Elements' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndElements'",/, &
-!              "  line signifiying the end of the 'Elements' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  3 format (/,"******************** ERROR! *********************",/, &
-!              "  Error trying to read the 'Elements'",/, &
-!              "  section of the GMSH grid file!", &
-!              "       IO Error = ",i0,/, &
-!              "******************** ERROR! *********************",/)
-!  4 format (a,i0,a)
-!  !
-!end subroutine read_gmsh_section_elements
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_physicalnames
-!  !
-!  !.. Local Scalars ..
-!  integer :: i,n,ierr
-!  integer :: num_names,phys_dim,phys_id
-!  logical :: end_of_file
-!  character(len=80) :: text,phys_nam
-!  !
-!  !.. Local Parameters ..
-!  character(len=*), parameter :: delimiters(1:4) = (/"'",'"',",",achar(9)/)
-!  !
-!continue
-!  !
-!  ! Read the PhysicalNames section of the GMSH grid file
-!  !
-!  read (iogrd,*,iostat=ierr,end=100,err=101) num_names
-!  !
-!  ! Allocate the array for the element definitions
-!  !
-!  allocate ( phys_grps(1:num_names) , stat=ierr )
-!  call alloc_error("read_gmsh_section_physicalnames","phys_grps",1,ierr)
-!  !
-!  ! Read the element definitions
-!  !
-!  do n = 1,num_names
-!    !
-!    read (iogrd,*,iostat=ierr,end=100,err=101) phys_dim, phys_id, phys_nam
-!    !
-!    ! Change all delimiters in phys_name to spaces
-!    !
-!    forall ( i=1:len_trim(phys_nam) , any(phys_nam(i:i)==delimiters) ) &
-!      phys_nam(i:i) = " "
-!    !
-!    ! Assign these values to the phys_grps array
-!    !
-!    phys_grps(n)%phys_nam = uppercase( trim(adjustl(phys_nam)) )
-!    phys_grps(n)%phys_dim = phys_dim
-!    phys_grps(n)%phys_id  = phys_id
-!    !
-!  end do
-!  !
-!  ! Return if the line marking the end of the PhysicalNames section is found
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDPHYSICALNAMES") then
-!    physicalnames_successful = true
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_physicalnames")
-!  !
-!  ! Read error continuation statements
-!  !
-!  100 write (iout,1) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_physicalnames")
-!  101 write (iout,3) ierr; call stop_recon(stop_mpi, &
-!                                           "read_gmsh_section_physicalnames")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'PhysicalNames' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'PhysicalNames' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndPhysicalNames'",/, &
-!              "  line signifiying the end of the 'PhysicalNames' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  3 format (/,"******************** ERROR! *********************",/, &
-!              "  Error trying to read the 'PhysicalNames'",/, &
-!              "  section of the GMSH grid file!", &
-!              "       IO Error = ",i0,/, &
-!              "******************** ERROR! *********************",/)
-!  !
-!end subroutine read_gmsh_section_physicalnames
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_periodic
-!  !
-!  !.. Local Scalars ..
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! The code is not currently set up to read the gmsh
-!  ! Periodic section. Continue reading the grid file
-!  ! until the end of the Periodic section is found.
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDPERIODIC") then
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_periodic")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'Periodic' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'Periodic' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndPeriodic'",/, &
-!              "  line signifiying the end of the 'Periodic' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  !
-!end subroutine read_gmsh_section_periodic
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_nodedata
-!  !
-!  !.. Local Scalars ..
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! The code is not currently set up to read the gmsh
-!  ! NodeData section. Continue reading the grid file
-!  ! until the end of the NodeData section is found.
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDNODEDATA") then
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_nodedata")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'NodeData' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'NodeData' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndNodeData'",/, &
-!              "  line signifiying the end of the 'NodeData' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  !
-!end subroutine read_gmsh_section_nodedata
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_elementdata
-!  !
-!  !.. Local Scalars ..
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! The code is not currently set up to read the gmsh
-!  ! ElementData section. Continue reading the grid file
-!  ! until the end of the ElementData section is found.
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDELEMENTDATA") then
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_elementdata")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'ElementData' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'ElementData' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndElementData'",/, &
-!              "  line signifiying the end of the 'ElementData' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  !
-!end subroutine read_gmsh_section_elementdata
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_elementnodedata
-!  !
-!  !.. Local Scalars ..
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! The code is not currently set up to read the gmsh
-!  ! ElementNodeData section. Continue reading the grid file
-!  ! until the end of the ElementNodeData section is found.
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDELEMENTNODEDATA") then
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_elementnodedata")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'ElementNodeData' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'ElementNodeData' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndElementNodeData'",/, &
-!              "  line signifiying the end of the 'ElementNodeData' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  !
-!end subroutine read_gmsh_section_elementnodedata
-!!
-!!###############################################################################
-!!
-!subroutine read_gmsh_section_interpolationscheme
-!  !
-!  !.. Local Scalars ..
-!  logical :: end_of_file
-!  character(len=80) :: text
-!  !
-!continue
-!  !
-!  ! The code is not currently set up to read the gmsh
-!  ! InterpolationScheme section. Continue reading the grid file
-!  ! until the end of the InterpolationScheme section is found.
-!  !
-!  call find_gmsh_section(text,end_of_file)
-!  !
-!  if (text == "ENDINTERPOLATIONSCHEME") then
-!    return
-!  else if (end_of_file) then
-!    write (iout,1)
-!  else
-!    write (iout,2)
-!  end if
-!  !
-!  call stop_recon(stop_mpi,"read_gmsh_section_interpolationscheme")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (/,"******************** ERROR! *********************",/, &
-!              "  Pre-mature end-of-file while trying to read",/, &
-!              "  the 'InterpolationScheme' section of the GMSH grid file!",/, &
-!              "******************** ERROR! *********************",/)
-!  2 format (/,"*********************** ERROR! ************************",/, &
-!              "  While trying to read the 'InterpolationScheme' section of the",/, &
-!              "  GMSH grid file, an unknown and invalid section",/, &
-!              "  header was found before the required '$EndInterpolationScheme'",/, &
-!              "  line signifiying the end of the 'InterpolationScheme' section!",/, &
-!              "*********************** ERROR! ************************",/)
-!  !
-!end subroutine read_gmsh_section_interpolationscheme
-!!
-!!###############################################################################
-!!
-!subroutine find_gmsh_section(text_out,end_of_file)
-!  !
-!  !.. Formal Arguments ..
-!  logical,          intent(out) :: end_of_file
-!  character(len=*), intent(out) :: text_out
-!  !
-!  !.. Local Scalars ..
-!  integer :: ierr,n
-!  character(len=len(text_out)) :: text
-!  !
-!continue
-!  !
-!  end_of_file = fals
-!  text_out = ""
-!  !
-!  ! Find the next line beginning with "$"
-!  !
-!  do
-!    !
-!    read (iogrd,1,iostat=ierr,end=100,err=101) text
-!    text = trim(adjustl(text))
-!    !
-!    if (text(1:1) == "$") then
-!      n = len_trim(text)
-!      text_out = uppercase(text(2:n))
-!      exit
-!    else
-!      cycle
-!    end if
-!    !
-!  end do
-!  !
-!  ! Return if successfully found a new section header
-!  !
-!  return
-!  !
-!  ! Read error continuation statements
-!  !
-!  100 end_of_file = true; return
-!  101 write (iout,2) ierr; call stop_recon(stop_mpi,"find_gmsh_section")
-!  !
-!  ! Format Statements
-!  !
-!  1 format (a)
-!  2 format (/,"******************** ERROR! *********************",/, &
-!              "    Error trying to read the input grid file!", &
-!              "       IO Error = ",i0,/, &
-!              "******************** ERROR! *********************",/)
-!  !
-!end subroutine find_gmsh_section
-!!
-!!###############################################################################
-!!
-!subroutine create_gmsh_grid_arrays
-!  !
-!continue
-!  !
-!end subroutine create_gmsh_grid_arrays
-!!
-!!###############################################################################
-!!
-!end module gmsh_module

@@ -2488,7 +2488,7 @@ subroutine create_face_nonblocking_datatypes(bface)
 continue
   !
   !
-  call stop_recon(stop_mpi,"NEED TO SET UP FACEDUSP COMMUNICATION FIRST!!!")
+ !call stop_recon(stop_mpi,"NEED TO SET UP FACEDUSP COMMUNICATION FIRST!!!")
   !
  !call get_solution_points_2d
  !do n = 1,ncpu
@@ -2709,7 +2709,7 @@ continue
   !
   ! Set the block size for this MPI datatype
   !
-  block_size = 2*nq
+  block_size = nr*nq
   !
   ! Adjust send_pts and recv_pts for the solution arrays
   !
@@ -2772,8 +2772,10 @@ continue
  !  !
  !end do
   !
-  send_pts(:) = send_pts(:) * 2
-  recv_pts(:) = recv_pts(:) * 2
+  block_size = nr
+  !
+  send_pts(:) = send_pts(:) * block_size
+  recv_pts(:) = recv_pts(:) * block_size
   !
   ! Create the test MPI datatypes
   !
@@ -2788,7 +2790,7 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,2,send_pts(s1:s2),mpi_flttyp, &
+    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2),mpi_flttyp, &
                                        testf_send(i),mpierr)
     call mpi_type_commit(testf_send(i),mpierr)
     !
@@ -2796,7 +2798,7 @@ continue
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,2,recv_pts(r1:r2),mpi_flttyp, &
+    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2),mpi_flttyp, &
                                        testf_recv(i),mpierr)
     call mpi_type_commit(testf_recv(i),mpierr)
     !

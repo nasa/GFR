@@ -48,6 +48,9 @@ module flux_mod
   integer, parameter :: HLLC = 2
   integer, parameter :: LDFSS = 3
   !
+  logical, parameter :: output_boundary_fluxes = fals
+  logical, save :: first_output_done = fals
+  !
 contains
 !
 !###############################################################################
@@ -1032,10 +1035,11 @@ subroutine correct_interface_flux_qdtr()
   use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_fp1de,n_sp2dt,n_sp2dq,nr
   use geovar,  only : bface,cells_on_face,pts_in_cell_ptr,xyz,flxwts_1d
   use geovar,  only : interp_s2f,n_qp1de,interp_f2g,projct_g2f,using_quadrature
-  use ovar,    only : flux_divergence,dflux_opt
+  use ovar,    only : flux_divergence,dflux_opt,itcur,nst
   use metvar,  only : cormat,geofa,volj
   use flowvar, only : usp,residual,faceflx,faceusp
   !
+  use generic_mod,  only : pressure_cv_sp
   use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
@@ -1067,6 +1071,8 @@ continue
   !
   ! Loop over all the faces and reconstruct the
   ! interface fluxes at each cell solution point
+  !
+  if (output_boundary_fluxes) write (102,110) itcur,nst
   !
   do nf = 1,nface
     !
@@ -1111,6 +1117,16 @@ continue
       ruqp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,2,nf)
       rnrm(1:nr,1:nsp) = geofa(1:nr,1:nsp,nf)
       !
+    end if
+    !
+    if (output_boundary_fluxes) then
+      if (nf <= nfbnd) then
+        write (102,111) nf,trim(bc_string(bface(1,nf)))
+        do k = 1,nsp
+          write (102,112) k,luqp(1:neqns,k),pressure_cv_sp(luqp(1:neqns,k))
+          write (102,113) k,ruqp(1:neqns,k),pressure_cv_sp(ruqp(1:neqns,k))
+        end do
+      end if
     end if
     !
     ! Get the discontinuous fluxes at the interface
@@ -1284,6 +1300,11 @@ continue
     !
   end do
   !
+  110 format (//"itcur = ",i0,"; rkstep = ",i0)
+  111 format ("Boundary face ",i0," with BC = ",a)
+  112 format ("FP-",i0,"; Left : ",*(es14.6))
+  113 format ("FP-",i0,"; Right: ",*(es14.6))
+  !
 end subroutine correct_interface_flux_qdtr
 !
 !###############################################################################
@@ -1318,6 +1339,7 @@ subroutine derflux1_qdtr_with_visc
   !.. Local Arrays ..
   real(vbp), dimension(1:nr)      :: unrm
   real(vbp), dimension(1:neqns)   :: ff,gg
+  real(wp), dimension(1:neqns,1:nr)   :: vflx
   real(vbp), dimension(1:n_sp2dq) :: lmat
   real(vbp), dimension(1:n_qp2dq) :: dxdr,dxds
   real(vbp), dimension(1:n_qp2dq) :: dydr,dyds
@@ -1360,6 +1382,16 @@ continue
     dydr(1:np) = dy(n1:n2)%dr
     dyds(1:np) = dy(n1:n2)%ds
     !
+    if (.not. first_output_done .and. output_boundary_fluxes) then
+      write (120,110) n
+      do k = n1,n2
+        write (120,111) k,dx(k)%dr,dx(k)%ds,dy(k)%dr,dy(k)%ds,jacobian(k) 
+      end do
+    end if
+    110 format ("Cell ",i0)
+    111 format ("SP = ",i0,"; dxdr=",es14.6,", dxds=",es14.6, &
+                ", dydr=",es14.6,", dyds=",es14.6,", jacobian=",es14.6)
+    !
     ! Get the flux at each quadrature point in the current cell
     !
     do k = 1,np
@@ -1371,8 +1403,9 @@ continue
       !
       ! Viscous fluxes
       !
-      xyflx(k,1:nq,1:nr) = xyflx(k,1:nq,1:nr) - &
-                              visc_flx_cv( rusp(1:nq,k) , dusp(1:nr,1:nq,k) )
+      vflx(1:nq,1:nr) = visc_flx_cv( rusp(1:nq,k) , dusp(1:nr,1:nq,k) )
+      !
+      xyflx(k,1:nq,1:nr) = xyflx(k,1:nq,1:nr) - vflx(1:nq,1:nr)
       !
       ! Transform the fluxes in the x-y physical
       ! domain to the r-s computational domain
@@ -1439,6 +1472,8 @@ continue
     !
   end do
   !
+  first_output_done = true
+  !
 end subroutine derflux1_qdtr_with_visc
 !
 !###############################################################################
@@ -1448,10 +1483,11 @@ subroutine correct_interface_flux_qdtr_with_visc()
   use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_fp1de,n_sp2dt,n_sp2dq,nr
   use geovar,  only : bface,cells_on_face,pts_in_cell_ptr,xyz,flxwts_1d
   use geovar,  only : interp_s2f,n_qp1de,interp_f2g,projct_g2f,using_quadrature
-  use ovar,    only : flux_divergence,dflux_opt
+  use ovar,    only : flux_divergence,dflux_opt,itcur,nst
   use metvar,  only : cormat,geofa,volj
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
+  use generic_mod, only : pressure_cv_sp
   use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
@@ -1467,6 +1503,7 @@ subroutine correct_interface_flux_qdtr_with_visc()
   real(vbp), dimension(1:neqns) :: dgl,dgr
   real(vbp), dimension(1:neqns) :: fnl,fnr,fnc
   real(vbp), dimension(1:neqns) :: srcl,srcr
+  real(wp), dimension(1:neqns) :: vflx
   real(vbp), dimension(1:nr,1:n_sp1de)    :: rnrm
   real(vbp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
   real(vbp), dimension(1:neqns,1:n_sp1de) :: lflx,rflx
@@ -1483,6 +1520,8 @@ continue
   !
   ! Loop over all the faces and reconstruct the
   ! interface fluxes at each cell solution point
+  !
+  if (output_boundary_fluxes) write (101,110) itcur,nst
   !
   do nf = 1,nface
     !
@@ -1507,8 +1546,22 @@ continue
     luqp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,1,nf)
     ruqp(1:neqns,1:nsp) = faceusp(1:neqns,1:nsp,2,nf)
     !
+    if (output_boundary_fluxes) then
+      if (nf <= nfbnd) then
+        write (101,111) nf,trim(bc_string(bface(1,nf)))
+        do k = 1,nsp
+          write (101,112) k,luqp(1:neqns,k),pressure_cv_sp(luqp(1:neqns,k))
+          write (101,113) k,ruqp(1:neqns,k),pressure_cv_sp(ruqp(1:neqns,k))
+        end do
+      end if
+    end if
+    !
     lduqp(1:nr,1:neqns,1:nsp) = facedusp(1:nr,1:neqns,1:nsp,1,nf)
-    rduqp(1:nr,1:neqns,1:nsp) = facedusp(1:nr,1:neqns,1:nsp,2,nf)
+    if (nf <= nfbnd) then
+      rduqp(1:nr,1:neqns,1:nsp) = lduqp(1:nr,1:neqns,1:nsp)
+    else
+      rduqp(1:nr,1:neqns,1:nsp) = facedusp(1:nr,1:neqns,1:nsp,2,nf)
+    end if
     !
     rnrm(1:nr,1:nsp) = geofa(1:nr,1:nsp,nf)
     !
@@ -1532,9 +1585,9 @@ continue
       !
       ! Get the common viscous flux at the current flux point
       !
-      fncq(:,k) = fncq(:,k) - common_visc_flx_cv( unrm(:), &
-                                                  luqp(:,k), lduqp(:,:,k), &
-                                                  ruqp(:,k), rduqp(:,:,k) )
+      vflx(:) = common_visc_flx_cv( unrm(:), luqp(:,k), lduqp(:,:,k), &
+                                             ruqp(:,k), rduqp(:,:,k) )
+      fncq(:,k) = fncq(:,k) - vflx(:)
       !
     end do
     !
@@ -1613,6 +1666,11 @@ continue
    !end if
     !
   end do
+  !
+  110 format (//"itcur = ",i0,"; rkstep = ",i0)
+  111 format ("Boundary face ",i0," with BC = ",a)
+  112 format ("FP-",i0,"; Left : ",*(es14.6))
+  113 format ("FP-",i0,"; Right: ",*(es14.6))
   !
 end subroutine correct_interface_flux_qdtr_with_visc
 !
@@ -3381,7 +3439,7 @@ pure function visc_flx_cv(uu,dcvdx) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr,neqns
-  use ovar,   only : cpref,Pr
+  use ovar,   only : cpref_nd,Pr
   !
   use generic_mod, only : viscosity_cv_sp
   !
@@ -3417,7 +3475,7 @@ continue
   vel(:) = uu(vb:ve)/uu(1)
   !
   mvsc = viscosity_cv_sp(uu)
-  mcdt = cpref * mvsc / Pr
+  mcdt = cpref_nd * mvsc / Pr
   !
   dudx = dpvdx(1,2)
   dudy = dpvdx(2,2)
@@ -3521,7 +3579,7 @@ pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr,neqns
-  use ovar,   only : rgasref,gam
+  use ovar,   only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rusp
@@ -3540,7 +3598,7 @@ pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
   !
 continue
   !
-  cv_inv = (gam - one) / rgasref
+  cv_inv = (gam - one) / rgasref_nd
   !
   ! Get the number of solution points for the current cell
   !
@@ -3606,7 +3664,7 @@ pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr,neqns
-  use ovar,   only : rgasref,gam
+  use ovar,   only : rgasref_nd,gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:),   intent(in) :: rusp
@@ -3621,7 +3679,7 @@ pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
   !
 continue
   !
-  cv_inv = (gam - one) / rgasref
+  cv_inv = (gam - one) / rgasref_nd
   !
   rho_inv = one/rusp(1)
   rho_inv2 = rho_inv * rho_inv
