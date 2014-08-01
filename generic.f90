@@ -981,7 +981,7 @@ subroutine compute_final_error()
   !.. Use Statements ..
   use geovar,  only : nr,neqns,ncell,pts_in_cell_ptr,n_sp1de,n_sp2dt,n_sp2dq
   use geovar,  only : weights2d,numer2gauss,gauss_wts_2d
-  use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume,bc_in,gam, &
+  use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume, &
                       ulinf,ulone,ultwo,unloc,ukloc,vxref,vyref,aref
   use metvar,  only : jacobian
   use flowvar, only : usp,uoldsp
@@ -1195,7 +1195,7 @@ subroutine compute_final_vortex_error()
   use geovar,  only : xyz,xyz_gauss,xyz_lobatto
   use geovar,  only : numer2gauss,numer2lobatto
   use geovar,  only : weights2d,gauss_wts_2d,lobatto_wts_2d
-  use ovar,    only : total_volume,bc_in,gam,itestcase,itcur,vortex_error, &
+  use ovar,    only : total_volume,pv_in,gam,itestcase,itcur,vortex_error, &
                       Period_Timesteps,Period_Time,Grid_Min_Y,Grid_Length_Y, &
                       Grid_Min_X,Grid_Length_X,vxref,vyref,aref, &
                       Density_Maximum_Residual,vortex_has_collapsed
@@ -1326,8 +1326,8 @@ continue
         !
         ! Gauss error
         !
-       !rho_ratio  = vgn(    1,k)/bc_in(    1)
-       !pres_ratio = vgn(neqns,k)/bc_in(neqns)
+       !rho_ratio  = vgn(    1,k)/pv_in(    1)
+       !pres_ratio = vgn(neqns,k)/pv_in(neqns)
         sn = entropy_pv_sp( vgn(:,k) )
         se = entropy_pv_sp( vge(:,k) )
         !
@@ -1337,8 +1337,8 @@ continue
         !
         ! Lobatto error
         !
-       !rho_ratio  = vln(    1,k)/bc_in(    1)
-       !pres_ratio = vln(neqns,k)/bc_in(neqns)
+       !rho_ratio  = vln(    1,k)/pv_in(    1)
+       !pres_ratio = vln(neqns,k)/pv_in(neqns)
         sn = entropy_pv_sp( vln(:,k) )
         se = entropy_pv_sp( vle(:,k) )
         !
@@ -1438,7 +1438,7 @@ subroutine compute_final_advec_error()
   use geovar,  only : xyz,xyz_radau,xyz_gauss,xyz_lobatto
   use geovar,  only : numer2radau,numer2gauss,numer2lobatto
   use geovar,  only : weights2d,radau_wts_2d,gauss_wts_2d,lobatto_wts_2d
-  use ovar,    only : total_volume,bc_in,gam,itestcase,itcur,advec_error, &
+  use ovar,    only : total_volume,pv_in,gam,itestcase,itcur,advec_error, &
                       Period_Timesteps,Grid_Min_Y,Grid_Length_Y, &
                       Grid_Min_X,Grid_Length_X,vxref,vyref,aref, &
                       Density_Maximum_Residual,vortex_has_collapsed
@@ -1567,8 +1567,8 @@ continue
       !
       ! Gauss error
       !
-     !rho_ratio  = vgn(    1,k)/bc_in(    1)
-     !pres_ratio = vgn(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vgn(    1,k)/pv_in(    1)
+     !pres_ratio = vgn(neqns,k)/pv_in(neqns)
       sn = entropy_pv_sp( vgn(:,k) )
       se = entropy_pv_sp( vge(:,k) )
       !
@@ -1579,8 +1579,8 @@ continue
       !
       ! Radau error
       !
-     !rho_ratio  = vrn(    1,k)/bc_in(    1)
-     !pres_ratio = vrn(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vrn(    1,k)/pv_in(    1)
+     !pres_ratio = vrn(neqns,k)/pv_in(neqns)
       sn = entropy_pv_sp( vrn(:,k) )
       se = entropy_pv_sp( vre(:,k) )
       !
@@ -1591,8 +1591,8 @@ continue
       !
       ! Lobatto error
       !
-     !rho_ratio  = vln(    1,k)/bc_in(    1)
-     !pres_ratio = vln(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vln(    1,k)/pv_in(    1)
+     !pres_ratio = vln(neqns,k)/pv_in(neqns)
       sn = entropy_pv_sp( vln(:,k) )
       se = entropy_pv_sp( vle(:,k) )
       !
@@ -1799,7 +1799,7 @@ subroutine rgeterr()
   !.. Use Statements ..
   use geovar,  only : neqns,ncell,pts_in_cell_ptr,n_sp2dt,weights2d,xyz
   use geovar,  only : global_cell_offset,global_xyz
-  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in, &
+  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,pv_in, &
                       nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time
   use ovar,    only : max_wall_time,wall_time_left
@@ -1855,12 +1855,12 @@ continue
       !
       ! Compute the entropy at this solution point
       !
-     !rho_ratio = vsp(1,k)/bc_in(1)
-     !pres_ratio = vsp(neqns,k)/bc_in(neqns)
+     !rho_ratio = vsp(1,k)/pv_in(1)
+     !pres_ratio = vsp(neqns,k)/pv_in(neqns)
       if (any(vsp([1,neqns],k) <= zero)) write (iout,111) n,k,vsp([1,neqns],k)
       111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
       sn = entropy_pv_sp( vsp(:,k) )
-      se = entropy_pv_sp( bc_in(:) )
+      se = entropy_pv_sp( pv_in(:) )
       !
      !write (*,'(3es14.6)') rho_ratio,pres_ratio,c1
      !ett(2) = log( (pres_ratio+c1) / (rho_ratio**gam) )
@@ -1961,7 +1961,7 @@ subroutine getmaxent
   !
   !.. Use Statements ..
   use geovar,  only : neqns,ncell,pts_in_cell_ptr,n_sp2dt,weights2d,xyz
-  use ovar,    only : nentmax,kentmax,entmax,gam,bc_in, &
+  use ovar,    only : nentmax,kentmax,entmax,gam,pv_in, &
                       xentmax,yentmax,entL2,total_volume,itestcase
   use metvar,  only : jacobian
   use flowvar, only : vsp
@@ -1993,10 +1993,10 @@ continue
     !
     do k = n1,n2
       !
-     !rho_ratio  = vsp(1,k)/bc_in(1)
-     !pres_ratio = vsp(neqns,k)/bc_in(neqns)
+     !rho_ratio  = vsp(1,k)/pv_in(1)
+     !pres_ratio = vsp(neqns,k)/pv_in(neqns)
       sn = entropy_pv_sp( vsp(:,k) )
-      se = entropy_pv_sp( bc_in(:) )
+      se = entropy_pv_sp( pv_in(:) )
       !
      !ett = log( (c1+pres_ratio) / (rho_ratio**gam) )
       ett = sn - se
@@ -2054,7 +2054,7 @@ subroutine getbc
   !
   !.. Use Statements ..
   use geovar
-  use ovar,         only : gam,bc_in
+  use ovar,         only : gam,pv_in
   use ovar,         only : flux_divergence
   use metvar,       only : dx,dy,geofa
   use flowvar,      only : vsp,usp,faceusp,facedusp
@@ -2128,12 +2128,12 @@ continue
       ! #####################################################
       !
       do k = g1,g2
-        vsp(:,k) = bc_in(:)
+        vsp(:,k) = pv_in(:)
       end do
       !
       do k = 1,n_fp1de
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( bc_in(:) )
+        faceusp(:,k,2,nf) = vsp2u_sp( pv_in(:) )
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2156,7 +2156,7 @@ continue
       end do
       !
       do k = g1,g2
-        vsp(:,k) = bc_in(:)
+        vsp(:,k) = pv_in(:)
       end do
       !
       ! Get the unit tangent vector for this face
@@ -2199,17 +2199,17 @@ continue
         ! Compute the speed of sound in the host and ghost cells
         !
         ai = sqrt(max(gam*varh(neqns)/varh(1),rndoff))
-        ao = sqrt(max(gam*bc_in(neqns)/bc_in(1),rndoff))
+        ao = sqrt(max(gam*pv_in(neqns)/pv_in(1),rndoff))
         !
         ! Compute the interior and free stream normal velocity
         !
         vni = dot_product(rnrm,varh(2:neqns-1))
-        vno = dot_product(rnrm,bc_in(2:neqns-1))
+        vno = dot_product(rnrm,pv_in(2:neqns-1))
         !
         ! Compute the interior and free stream tangent velocity
         !
         vti = dot_product(rtan,varh(2:neqns-1))
-        vto = dot_product(rtan,bc_in(2:neqns-1))
+        vto = dot_product(rtan,pv_in(2:neqns-1))
         !
         ! Apply boundary conditions based on the
         ! normal Mach number to the boundary face
@@ -2220,7 +2220,7 @@ continue
           !
           ! Set ghost cell flux point to free stream conditions
           !
-          vsp(:,kg) = bc_in(:) ! sup-in
+          vsp(:,kg) = pv_in(:) ! sup-in
           !
           faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
           !
@@ -2245,7 +2245,7 @@ continue
             unc = half*(rp+rm)
             utc = vto
             ac = one4*gm1*(rp-rm)
-            sc = bc_in(neqns)/(bc_in(1)**gam)
+            sc = pv_in(neqns)/(pv_in(1)**gam)
             !
           else ! this is an outflow boundary
             !
@@ -2324,14 +2324,14 @@ continue
           !
           ! Subsonic inflow
           !
-          vsp(1:neqns-1,kg) = bc_in(1:neqns-1)
+          vsp(1:neqns-1,kg) = pv_in(1:neqns-1)
           vsp(neqns,kg) = varh(neqns)
           !
         else if (mach <= -one) then
           !
           ! Supersonic inflow
           !
-          vsp(1:neqns,kg) = bc_in(1:neqns)
+          vsp(1:neqns,kg) = pv_in(1:neqns)
           !
         else
           !
@@ -2400,7 +2400,7 @@ continue
           ! Subsonic outflow
           !
           vsp(1:neqns-1,kg) = varh(1:neqns-1)
-          vsp(neqns,kg) = bc_in(neqns)
+          vsp(neqns,kg) = pv_in(neqns)
           !
         else if (mach >= one) then
           !
@@ -2458,7 +2458,7 @@ continue
         !
         varh(:) = usp2v_sp( varh(:) )
         !
-        vsp(1:neqns-1,kg) = bc_in(1:neqns-1)
+        vsp(1:neqns-1,kg) = pv_in(1:neqns-1)
         vsp(neqns,kg) = varh(neqns)
         !
         faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
@@ -2506,7 +2506,7 @@ continue
         varh(:) = usp2v_sp( varh(:) )
         !
         vsp(1:neqns-1,kg) = varh(1:neqns-1)
-        vsp(neqns,kg) = bc_in(neqns)
+        vsp(neqns,kg) = pv_in(neqns)
         !
         faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
         !
@@ -2531,7 +2531,7 @@ continue
         gk = gkb+1 - k ! index for current ghost cell flux point
         kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        vsp(:,kg) = bc_in(:)
+        vsp(:,kg) = pv_in(:)
         !
         faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
         !

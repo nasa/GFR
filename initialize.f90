@@ -50,14 +50,11 @@ subroutine initialize_flow()
   use ovar
   use flowvar
   use io_mod,      only : read_restart_file
-  use generic_mod, only : usp2v,vsp2u_sp,project_to_porder
+  use generic_mod, only : usp2v,project_to_porder
   !
   !.. Local Scalars ..
   integer  :: n1,n2,n,np,m,ierr
   real(wp) :: rhoa2
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:neqns) :: bc_in_usp
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable, dimension(:,:) :: uspstart
@@ -112,10 +109,8 @@ continue
     !
     ! Initialize the solution to free-stream conditions
     !
-    bc_in_usp(:) = vsp2u_sp( bc_in(:) )
-    !
     do n = 1,n_solpts
-      uspstart(:,n) = bc_in_usp(:)
+      uspstart(:,n) = cv_in(:)
     end do
     !
   else if (any(itestcase == Transport_Problems)) then

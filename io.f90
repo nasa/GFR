@@ -1194,7 +1194,7 @@ end subroutine check_output_dir
 subroutine initialize_viscosity
   !
   use ovar, only : muref, muref_nd, reyref
-  use ovar, only : bc_in, rhoref, aref, machref
+  use ovar, only : pv_in, rhoref, aref, machref
   use ovar, only : suth_muref, suth_c1
   use ovar, only : suth_Tref, suth_Sref
   !
@@ -1204,7 +1204,7 @@ continue
   !
   suth_c1 = suth_muref * (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
   !
-  muref_nd = viscosity_pv_sp(bc_in)
+  muref_nd = viscosity_pv_sp(pv_in)
   muref    = muref_nd * rhoref * aref
   !
   reyref = rhoref * machref * aref / muref
@@ -1215,28 +1215,43 @@ end subroutine initialize_viscosity
 !
 subroutine initialize_reference
   !
-  use ovar, only : rhoref,aref,tref,gam
-  use ovar, only : vxref,vxref_nd
-  use ovar, only : vyref,vyref_nd
-  use ovar, only : pref,pref_nd
-  use ovar, only : rgasref,rgasref_nd
-  use ovar, only : cpref,cpref_nd
-  use ovar, only : bc_in
+  !.. Use Statements ..
+  use geovar, only : nq => neqns
+  use ovar,   only : rhoref,aref,tref,gam
+  use ovar,   only : vxref,vxref_nd
+  use ovar,   only : vyref,vyref_nd
+  use ovar,   only : pref,pref_nd
+  use ovar,   only : rgasref,rgasref_nd
+  use ovar,   only : cpref,cpref_nd
+  use ovar,   only : cv_in,pv_in
   !
-  real(wp) :: a2,rhoa2,tda2
+  !.. Local Scalars ..
+  real(wp) :: rhoa,rhoa2,tda2
   !
 continue
   !
-  a2 = aref * aref
-  rhoa2 = rhoref * a2
-  tda2 = tref / a2
+  rhoa = rhoref * aref
+  rhoa2 = rhoa * aref
+  tda2 = tref / aref / aref
+  !
+  ! Allocate the free stream inflow arrays
+  !
+  allocate ( cv_in(1:nq) , source=zero , stat=ierr )
+  call alloc_error("initialize_reference","cv_in",1,ierr)
+  allocate ( pv_in(1:nq) , source=zero , stat=ierr )
+  call alloc_error("initialize_reference","pv_in",1,ierr)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
+  ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
   !
-  bc_in(1) = rhoref
-  bc_in(2) = vxref
-  bc_in(3) = vyref
-  bc_in(4) = pref
+  pv_in(1) = rhoref
+  pv_in(2) = vxref
+  pv_in(3) = vyref
+  pv_in(4) = pref
+  !
+  cv_in(1) = pv_in(1)
+  cv_in(2:nq-1) = pv_in(1) * pv_in(2:nq-1)
+  cv_in(nq) = pv_in(nq)/(gam-one) + half*pv_in(1)*selfdot(pv_in(2:nq-1))
   !
   ! Nondimensional reference velocities
   vxref_nd = vxref / aref
@@ -1255,10 +1270,13 @@ continue
   !
   ! Finally, nondimensionalize the inflow boundary conditions
   !
-  bc_in(1) = bc_in(1) / rhoref
-  bc_in(2) = bc_in(2) / aref
-  bc_in(3) = bc_in(3) / aref
-  bc_in(4) = bc_in(4) / rhoa2
+  cv_in(1) = cv_in(1) / rhoref
+  cv_in(2:nq-1) = cv_in(2:nq-1) / rhoa
+  cv_in(nq) = cv_in(nq) / rhoa2
+  !
+  pv_in(1) = pv_in(1) / rhoref
+  pv_in(2:nq-1) = pv_in(2:nq-1) / aref
+  pv_in(nq) = pv_in(nq) / rhoa2
   !
 end subroutine initialize_reference
 !
@@ -2463,7 +2481,7 @@ subroutine write_tecplot_file(itnum)
   !.. Use Statements ..
   use geovar,  only : ncell,nr,neqns,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
                       pts_in_cell_ptr,tria_connectivity,quad_connectivity
-  use ovar,    only : gam,bc_in
+  use ovar,    only : gam,pv_in
   use flowvar, only : vsp
   !
   !.. Formal Arguments ..
@@ -2503,8 +2521,8 @@ continue
   write (iotec,3) (vsp(neqns,i), i=1,n_solpts)
   write (iotec,3) ( sqrt( selfdot(vsp(2:neqns-1,i))*vsp(1,i) / &
                          (gam*vsp(neqns,i))                  ), i=1,n_solpts)
-  write (iotec,3) ( log( (vsp(neqns,i)/bc_in(neqns)) / &
-                         ((vsp(1,i)/bc_in(1))**gam)  ), i=1,n_solpts)
+  write (iotec,3) ( log( (vsp(neqns,i)/pv_in(neqns)) / &
+                         ((vsp(1,i)/pv_in(1))**gam)  ), i=1,n_solpts)
   !
   ! Write out the connectivity matrix
   !
@@ -3156,7 +3174,7 @@ subroutine write_cgns_solution(iflag)
   !
   !.. Use Statements ..
   use geovar,       only : neqns,n_sp2dt,ncell,n_solpts,pts_in_cell_ptr
-  use ovar,         only : gam,bc_in,itestcase,output_solution
+  use ovar,         only : gam,pv_in,itestcase,output_solution
   use metvar,       only : dx,dy,dr_mat,ds_mat,jacobian
   use flowvar,      only : usp,vsp,uoldsp,dusp
   use parallel_mod, only : collect_global_solution
@@ -3244,8 +3262,8 @@ continue
   ! Output the nodal and/or modal solution to the cgns file(s)
   !
   if (mypnum == 0) then
-   !do n = 1,size(bc_in)
-   !  write (iout,'(" bc_in(",i0,") = ",g12.4)') n,bc_in(n)
+   !do n = 1,size(pv_in)
+   !  write (iout,'(" pv_in(",i0,") = ",g12.4)') n,pv_in(n)
    !end do
     if (output_solution == 1) then
       call write_nodal_cgns(iflag)
