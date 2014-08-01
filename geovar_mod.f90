@@ -31,6 +31,7 @@ module geovar
   integer, public, save :: p_order = 3
   integer, public, save :: q_order = 3
   integer, public, save :: o_order = -3
+  integer, public, save :: all_orders = -3
   !
   integer, public, save :: n_sp1de
   integer, public, save :: n_fp1de
