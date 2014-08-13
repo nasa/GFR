@@ -22,6 +22,25 @@ module module_bc
   !
   !
   !
+  ! ###########################
+  ! ###  Module Parameters  ###
+  ! ###########################
+  !
+  ! WALL_SOLUTION_LOCATION : Factor to determine the location of the
+  !                          solution for wall boundaries.
+  !
+  ! with u_int   being the interior velocity at the wall flux point
+  !  and u_wall  being the boundary velocity at the wall flux point
+  !  and u_exact being the exact    velocity at the wall flux point,
+  !
+  ! wall_solution_location = 0 : u_wall = u_exact
+  ! wall_solution_location = 1 : u_exact = 1/2 * (u_int + u_wall)
+  !
+  real(wp), parameter :: wall_solution_location = zero
+ !real(wp), parameter :: wall_solution_location = one
+  !
+  !
+  !
   ! ###################################
   ! ###  Module Allocatable Arrays  ###
   ! ###################################
@@ -1018,19 +1037,6 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
-  ! WALL_VELOCITY_FACTOR : Factor to determine what velocity to
-  !                        compute for the wall boundary condition.
-  !
-  ! with u_int   being the interior velocity at the wall flux point
-  !  and u_wall  being the boundary velocity at the wall flux point
-  !  and u_exact being the exact, tangent-only velocity at the wall flux point,
-  !
-  ! wall_velocity_factor = 1 : u_wall = u_exact
-  ! wall_velocity_factor = 2 : u_exact = 1/2 * (u_int + u_wall)
-  !
- !real(wp), parameter :: wall_velocity_factor = one
-  real(wp), parameter :: wall_velocity_factor = two
-  !
 continue
   !
   nq = size(gufp,dim=1)
@@ -1049,11 +1055,11 @@ continue
     !
     vn = dot_product( hvfp(2:nq-1) , rnrm )
     !
-    ! For velocities, subtract (wall_velocity_factor) * (the wall
+    ! For velocities, subtract (wall_solution_location+one) * (the wall
     ! normal velocity) from the interior velocity to get the wall
     ! boundary velocity.
     !
-    hvfp(2:nq-1) = hvfp(2:nq-1) - wall_velocity_factor*vn*rnrm(:)
+    hvfp(2:nq-1) = hvfp(2:nq-1) - (wall_solution_location+one)*vn*rnrm(:)
     !
     ! Convert the primitive variables to conservative.
     ! This ensures that the interior density and pressure are
@@ -1093,20 +1099,6 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
-  !
-  ! WALL_VELOCITY_FACTOR : Factor to determine what velocity to
-  !                        compute for the wall boundary condition.
-  !
-  ! with u_int   being the interior velocity at the wall flux point
-  !  and u_wall  being the boundary velocity at the wall flux point
-  !  and u_exact being the exact, no-slip velocity at the wall flux point,
-  !
-  ! wall_velocity_factor = 0 : u_wall = u_exact
-  ! wall_velocity_factor = 1 : u_exact = 1/2 * (u_int + u_wall)
-  !
- !real(wp), parameter :: wall_velocity_factor = zero
-  real(wp), parameter :: wall_velocity_factor = one
-  !
 continue
   !
   nq = size(gufp,dim=1)
@@ -1119,7 +1111,7 @@ continue
     !
     ! Apply the no-slip condition to the boundary velocities
     !
-    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_velocity_factor
+    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_solution_location
     !
     ! Convert the primitive variables to conservative.
     ! This ensures that the interior density and pressure are
@@ -1161,20 +1153,6 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
-  !
-  ! WALL_VELOCITY_FACTOR : Factor to determine what velocity to
-  !                        compute for the wall boundary condition.
-  !
-  ! with u_int   being the interior velocity at the wall flux point
-  !  and u_wall  being the boundary velocity at the wall flux point
-  !  and u_exact being the exact, no-slip velocity at the wall flux point,
-  !
-  ! wall_velocity_factor = 0 : u_wall = u_exact
-  ! wall_velocity_factor = 1 : u_exact = 1/2 * (u_int + u_wall)
-  !
- !real(wp), parameter :: wall_velocity_factor = zero
-  real(wp), parameter :: wall_velocity_factor = one
-  !
 continue
   !
   nq = size(gufp,dim=1)
@@ -1189,7 +1167,7 @@ continue
     !
     ! Apply the no-slip condition to the boundary velocities
     !
-    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_velocity_factor
+    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_solution_location
     !
     ! Keeping the wall pressure constant, compute the wall
     ! density using the isothermal wall temperature.
