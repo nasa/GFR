@@ -29,9 +29,9 @@ module flux_mod
   public :: discontinuous_gradient_at_solpts
   public :: correct_gradients_at_solpts
   !
-  real(vbp), parameter :: amco2m = 1.0e-4_vbp
-  real(vbp), parameter :: alphax = 0.1875_vbp
-  real(vbp), parameter :: betax  = 0.125_vbp
+  real(wp), parameter :: amco2m = 1.0e-4_wp
+  real(wp), parameter :: alphax = 0.1875_wp
+  real(wp), parameter :: betax  = 0.125_wp
   !
   ! CL : coefficient for the length of the face. This is needed because of
   !      the difference between how the reference triangle and reference
@@ -39,10 +39,21 @@ module flux_mod
   !      = 1.0 for triangles
   !      = 0.5 for quads
   !
-  real(vbp), dimension(1:2), parameter :: cl = (/ one , half /)
+  real(wp), dimension(1:2), parameter :: cl = (/ one , half /)
   !
-  real(wp), parameter :: LDG_tau = zero
+  ! Generalization parameters for the diffusion scheme
+  !
+  ! LDG_BETA : Constant that determines the directional bias of
+  !            the diffusion scheme for each coordinate direction
+  !        = [0,0,0] -> Results in BR2, a centered biased scheme
+  !   
   real(wp), parameter :: LDG_beta(3) = (/ zero, zero, zero /)
+  !
+  ! LDG_TAU : Constant that controls the penalty term
+  !           term of the common diffusive flux
+  !        = 
+  real(wp), parameter :: LDG_tau = zero
+
   !
   integer, parameter :: ROEFLUX = 1
   integer, parameter :: HLLC = 2
@@ -64,19 +75,19 @@ pure function upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   use geovar, only : neqns,nr
   use ovar, only : gam
   !
-  real(vbp), dimension(1:nr), intent(in) :: unrm
-  real(vbp), dimension(1:neqns), intent(in) :: cvl
-  real(vbp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nr), intent(in) :: unrm
+  real(wp), dimension(1:neqns), intent(in) :: cvl
+  real(wp), dimension(1:neqns), intent(in) :: cvr
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: gm1,gp1,unx,uny
-  real(vbp) :: rl,ul,vl,pl,hl,ql,rql,betal
-  real(vbp) :: rr,ur,vr,pr,hr,qr,rqr,betar
-  real(vbp) :: dw1,hsr1,eta1,udw1
-  real(vbp) :: dw4,hsr4,eta4,udw4
-  real(vbp) :: rtd,utd,vtd,htd,atd2,atd,qtd
-  real(vbp) :: atd2nz,atd2rt,atdnz,atdrt
+  real(wp) :: gm1,gp1,unx,uny
+  real(wp) :: rl,ul,vl,pl,hl,ql,rql,betal
+  real(wp) :: rr,ur,vr,pr,hr,qr,rqr,betar
+  real(wp) :: dw1,hsr1,eta1,udw1
+  real(wp) :: dw4,hsr4,eta4,udw4
+  real(wp) :: rtd,utd,vtd,htd,atd2,atd,qtd
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
   !
 continue
   !
@@ -158,18 +169,18 @@ pure function upwind_flux_pv(unrm,pvl,pvr) result(return_value)
   use geovar, only : neqns,nr
   use ovar, only : gam
   !
-  real(vbp), dimension(1:nr), intent(in) :: unrm
-  real(vbp), dimension(1:neqns), intent(in) :: pvl
-  real(vbp), dimension(1:neqns), intent(in) :: pvr
+  real(wp), dimension(1:nr), intent(in) :: unrm
+  real(wp), dimension(1:neqns), intent(in) :: pvl
+  real(wp), dimension(1:neqns), intent(in) :: pvr
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: gm1,gp1,unx,uny
-  real(vbp) :: rl,ul,vl,pl,hl,ql,rql,betal
-  real(vbp) :: rr,ur,vr,pr,hr,qr,rqr,betar
-  real(vbp) :: dw1,hsr1,eta1,udw1
-  real(vbp) :: dw4,hsr4,eta4,udw4
-  real(vbp) :: rtd,utd,vtd,htd,atd2,atd,qtd
+  real(wp) :: gm1,gp1,unx,uny
+  real(wp) :: rl,ul,vl,pl,hl,ql,rql,betal
+  real(wp) :: rr,ur,vr,pr,hr,qr,rqr,betar
+  real(wp) :: dw1,hsr1,eta1,udw1
+  real(wp) :: dw4,hsr4,eta4,udw4
+  real(wp) :: rtd,utd,vtd,htd,atd2,atd,qtd
   !
 continue
   !
@@ -246,19 +257,19 @@ pure function hllc_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   use geovar, only : neqns,nr
   use ovar, only : gam
   !
-  real(vbp), dimension(1:nr), intent(in) :: unrm
-  real(vbp), dimension(1:neqns), intent(in) :: cvl
-  real(vbp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nr), intent(in) :: unrm
+  real(wp), dimension(1:neqns), intent(in) :: cvl
+  real(wp), dimension(1:neqns), intent(in) :: cvr
   !
   !.. Function Return Value ..
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
   !.. Local Scalars ..
-  real(vbp) :: gm1,unx,uny
-  real(vbp) :: rl,ul,vl,pl,hl,al,vnl,rhoel,wgl,sl,dsl
-  real(vbp) :: rr,ur,vr,pr,hr,ar,vnr,rhoer,wgr,sr,dsr
-  real(vbp) :: srt,ra,ua,va,ha,q2a,vna,aa
-  real(vbp) :: rho,rhou,rhov,rhoe,pstar,sm
+  real(wp) :: gm1,unx,uny
+  real(wp) :: rl,ul,vl,pl,hl,al,vnl,rhoel,wgl,sl,dsl
+  real(wp) :: rr,ur,vr,pr,hr,ar,vnr,rhoer,wgr,sr,dsr
+  real(wp) :: srt,ra,ua,va,ha,q2a,vna,aa
+  real(wp) :: rho,rhou,rhov,rhoe,pstar,sm
   !
 continue
   !
@@ -364,21 +375,21 @@ pure function ldfss_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   use geovar, only : neqns,nr
   use ovar, only : gam
   !
-  real(vbp), dimension(1:nr), intent(in) :: unrm
-  real(vbp), dimension(1:neqns), intent(in) :: cvl
-  real(vbp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nr), intent(in) :: unrm
+  real(wp), dimension(1:neqns), intent(in) :: cvl
+  real(wp), dimension(1:neqns), intent(in) :: cvr
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: gm1,unx,uny,ahalf
-  real(vbp) :: rl,ul,vl,pl,hl,al
-  real(vbp) :: rr,ur,vr,pr,hr,ar
-  real(vbp) :: alpha_l,beta_l,mach_l,mstar_l
-  real(vbp) :: alpha_r,beta_r,mach_r,mstar_r
-  real(vbp) :: machp_half,uc_l,flux_l,pplus_l
-  real(vbp) :: machm_half,uc_r,flux_r,pplus_r
-  real(vbp) :: m_half,mstar_half
-  real(vbp) :: del_p,sum_p,p_net
+  real(wp) :: gm1,unx,uny,ahalf
+  real(wp) :: rl,ul,vl,pl,hl,al
+  real(wp) :: rr,ur,vr,pr,hr,ar
+  real(wp) :: alpha_l,beta_l,mach_l,mstar_l
+  real(wp) :: alpha_r,beta_r,mach_r,mstar_r
+  real(wp) :: machp_half,uc_l,flux_l,pplus_l
+  real(wp) :: machm_half,uc_r,flux_r,pplus_r
+  real(wp) :: m_half,mstar_half
+  real(wp) :: del_p,sum_p,p_net
   !
 continue
   !
@@ -409,8 +420,8 @@ continue
   alpha_l = half*(one + sign(one,mach_l))
   alpha_r = half*(one - sign(one,mach_r))
   !
-  beta_l = -max( zero , one-real(int(abs(mach_l)),vbp) )
-  beta_r = -max( zero , one-real(int(abs(mach_r)),vbp) )
+  beta_l = -max( zero , one-real(int(abs(mach_l)),kind=wp) )
+  beta_r = -max( zero , one-real(int(abs(mach_r)),kind=wp) )
   !
   mstar_l =  one4*(mach_l + one)**2
   mstar_r = -one4*(mach_r - one)**2
@@ -455,19 +466,19 @@ pure function ausm_plus_upwind_flux(unrm,pvl,pvr) result(return_value)
   use geovar, only : neqns,nr
   use ovar, only : gam
   !
-  real(vbp), dimension(1:nr), intent(in) :: unrm
-  real(vbp), dimension(1:neqns), intent(in) :: pvl
-  real(vbp), dimension(1:neqns), intent(in) :: pvr
+  real(wp), dimension(1:nr), intent(in) :: unrm
+  real(wp), dimension(1:neqns), intent(in) :: pvl
+  real(wp), dimension(1:neqns), intent(in) :: pvr
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: gm1,unx,uny
-  real(vbp) :: rl,ul,vl,pl,hl,al,v2l,a2l,h0l,uul,f1l
-  real(vbp) :: rr,ur,vr,pr,hr,ar,v2r,a2r,h0r,uur,f1r
-  real(vbp) :: alr,alr2,rm2,rmref2,coef1,coef2,prec_f
-  real(vbp) :: aml,absml,am1p,aml1,addp,aml2,ampl,ppl
-  real(vbp) :: amr,absmr,am1m,amr1,addm,amr2,ammr,pmr
-  real(vbp) :: amhalf,denom,amhalfp,amhalfm,phalf,amco2
+  real(wp) :: gm1,unx,uny
+  real(wp) :: rl,ul,vl,pl,hl,al,v2l,a2l,h0l,uul,f1l
+  real(wp) :: rr,ur,vr,pr,hr,ar,v2r,a2r,h0r,uur,f1r
+  real(wp) :: alr,alr2,rm2,rmref2,coef1,coef2,prec_f
+  real(wp) :: aml,absml,am1p,aml1,addp,aml2,ampl,ppl
+  real(wp) :: amr,absmr,am1m,amr1,addm,amr2,ammr,pmr
+  real(wp) :: amhalf,denom,amhalfp,amhalfm,phalf,amco2
   !
 continue
   !
@@ -793,21 +804,21 @@ subroutine derflux1_qdtr
   integer :: f1,f2,nf,sf,kf,lf
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr)      :: unrm
-  real(vbp), dimension(1:neqns)   :: ff,gg
-  real(vbp), dimension(1:n_sp2dq) :: lmat
-  real(vbp), dimension(1:n_qp2dq) :: dxdr,dxds
-  real(vbp), dimension(1:n_qp2dq) :: dydr,dyds
-  real(vbp), dimension(1:n_qp2dq) :: qjac
+  real(wp), dimension(1:nr)      :: unrm
+  real(wp), dimension(1:neqns)   :: ff,gg
+  real(wp), dimension(1:n_sp2dq) :: lmat
+  real(wp), dimension(1:n_qp2dq) :: dxdr,dxds
+  real(wp), dimension(1:n_qp2dq) :: dydr,dyds
+  real(wp), dimension(1:n_qp2dq) :: qjac
   !
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
-  real(vbp), dimension(1:neqns,1:n_qp2dq) :: uqp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:neqns,1:n_qp2dq) :: uqp
   !
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: rsflx_sp
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: xyflx_sp
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: dflx_sp
-  real(vbp), dimension(1:n_qp2dq,1:neqns,1:nr) :: rsflx_qp
-  real(vbp), dimension(1:n_qp2dq,1:neqns,1:nr) :: xyflx_qp
+  real(wp), dimension(1:n_sp2dq,1:neqns,1:nr) :: rsflx_sp
+  real(wp), dimension(1:n_sp2dq,1:neqns,1:nr) :: xyflx_sp
+  real(wp), dimension(1:n_sp2dq,1:neqns,1:nr) :: dflx_sp
+  real(wp), dimension(1:n_qp2dq,1:neqns,1:nr) :: rsflx_qp
+  real(wp), dimension(1:n_qp2dq,1:neqns,1:nr) :: xyflx_qp
   !
 continue
   !
@@ -1046,19 +1057,19 @@ subroutine correct_interface_flux_qdtr()
   integer   :: k,l,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,wl,wr,nsp,nqp
   integer   :: kbl,kbr,kl,kr,iu
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr)    :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr,fnc
-  real(vbp), dimension(1:neqns) :: srcl,srcr
-  real(vbp), dimension(1:nr,1:n_qp1de)    :: rnrm
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
-  real(vbp), dimension(1:neqns,1:n_fp1de) :: lflx,rflx
-  real(vbp), dimension(1:neqns,1:n_qp1de) :: luqp,ruqp,fncq
+  real(wp), dimension(1:nr)    :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr,fnc
+  real(wp), dimension(1:neqns) :: srcl,srcr
+  real(wp), dimension(1:nr,1:n_qp1de)    :: rnrm
+  real(wp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
+  real(wp), dimension(1:neqns,1:n_fp1de) :: lflx,rflx
+  real(wp), dimension(1:neqns,1:n_qp1de) :: luqp,ruqp,fncq
   !
 continue
   !
@@ -1337,19 +1348,12 @@ subroutine derflux1_qdtr_with_visc
   integer :: f1,f2,nf,sf,kf,lf
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr)      :: unrm
-  real(vbp), dimension(1:neqns)   :: ff,gg
+  real(wp), dimension(1:nr)      :: unrm
   real(wp), dimension(1:neqns,1:nr)   :: vflx
-  real(vbp), dimension(1:n_sp2dq) :: lmat
-  real(vbp), dimension(1:n_qp2dq) :: dxdr,dxds
-  real(vbp), dimension(1:n_qp2dq) :: dydr,dyds
+  real(wp), dimension(1:n_sp2dq) :: lmat
   !
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
-  real(vbp), dimension(1:neqns,1:n_qp2dq) :: rusp
-  !
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: rsflx
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: xyflx
-  real(vbp), dimension(1:n_sp2dq,1:neqns,1:nr) :: dflx
+  real(wp), dimension(1:n_sp2dq,1:neqns,1:nr) :: rsflx
+  real(wp), dimension(1:n_sp2dq,1:neqns,1:nr) :: xyflx
   !
 continue
   !
@@ -1373,15 +1377,6 @@ continue
     f1 = flxpts_of_cell_ptr(n)+1
     f2 = flxpts_of_cell_ptr(n+1)
     !
-    ! Get the information local to this cell
-    !
-    rusp(1:nq,1:np) = usp(1:nq,n1:n2)
-    !
-    dxdr(1:np) = dx(n1:n2)%dr
-    dxds(1:np) = dx(n1:n2)%ds
-    dydr(1:np) = dy(n1:n2)%dr
-    dyds(1:np) = dy(n1:n2)%ds
-    !
     if (.not. first_output_done .and. output_boundary_fluxes) then
       write (120,110) n
       do k = n1,n2
@@ -1396,22 +1391,24 @@ continue
     !
     do k = 1,np
       !
+      l = k + n1-1
+      !
       ! Inviscid fluxes
       !
-      xyflx(k,:,1) = f_invs_flx_cv( rusp(:,k) ) ! x-directional flux
-      xyflx(k,:,2) = g_invs_flx_cv( rusp(:,k) ) ! y-directional flux
+      xyflx(k,:,1) = f_invs_flx_cv( usp(:,l) ) ! x-directional flux
+      xyflx(k,:,2) = g_invs_flx_cv( usp(:,l) ) ! y-directional flux
       !
       ! Viscous fluxes
       !
-      vflx(1:nq,1:nr) = visc_flx_cv( rusp(1:nq,k) , dusp(1:nr,1:nq,k) )
+      vflx(1:nq,1:nr) = visc_flx_cv( usp(1:nq,l) , dusp(1:nr,1:nq,l) )
       !
       xyflx(k,1:nq,1:nr) = xyflx(k,1:nq,1:nr) - vflx(1:nq,1:nr)
       !
       ! Transform the fluxes in the x-y physical
       ! domain to the r-s computational domain
       !
-      rsflx(k,:,1) =  xyflx(k,:,1)*dyds(k) - xyflx(k,:,2)*dxds(k)
-      rsflx(k,:,2) = -xyflx(k,:,1)*dydr(k) + xyflx(k,:,2)*dxdr(k)
+      rsflx(k,:,1) =  xyflx(k,:,1)*dy(l)%ds - xyflx(k,:,2)*dx(l)%ds
+      rsflx(k,:,2) = -xyflx(k,:,1)*dy(l)%dr + xyflx(k,:,2)*dx(l)%dr
       !
     end do
     !
@@ -1494,20 +1491,20 @@ subroutine correct_interface_flux_qdtr_with_visc()
   integer   :: k,l,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,wl,wr,nsp
   integer   :: kbl,kbr,kl,kr,iu
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr)    :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr,fnc
-  real(vbp), dimension(1:neqns) :: srcl,srcr
+  real(wp), dimension(1:nr)    :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr,fnc
+  real(wp), dimension(1:neqns) :: srcl,srcr
   real(wp), dimension(1:neqns) :: vflx
-  real(vbp), dimension(1:nr,1:n_sp1de)    :: rnrm
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: lflx,rflx
-  real(vbp), dimension(1:neqns,1:n_sp1de) :: luqp,ruqp,fncq
+  real(wp), dimension(1:nr,1:n_sp1de)    :: rnrm
+  real(wp), dimension(1:neqns,1:n_sp1de) :: fjl,fjr
+  real(wp), dimension(1:neqns,1:n_sp1de) :: lflx,rflx
+  real(wp), dimension(1:neqns,1:n_sp1de) :: luqp,ruqp,fncq
   real(wp), dimension(1:nr,1:neqns,1:n_sp1de) :: lduqp,rduqp
   !
 continue
@@ -1690,19 +1687,19 @@ subroutine correct_flux_project_cv()
   integer   :: k,l,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,nl,nr,wl,wr
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
-  real(vbp), dimension(1:neqns) :: fjl,fjr
-  real(vbp), dimension(1:neqns) :: fnc
-  real(vbp), dimension(1:neqns) :: srcl,srcr
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rusp
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr
+  real(wp), dimension(1:neqns) :: fjl,fjr
+  real(wp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:neqns) :: srcl,srcr
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rusp
   !
 continue
   !
@@ -1896,16 +1893,16 @@ subroutine correct_flux_project_pv()
   integer   :: k,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,nl,nr,wl,wr
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: vl,vr
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
-  real(vbp), dimension(1:neqns) :: fjl,fjr
-  real(vbp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: vl,vr
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr
+  real(wp), dimension(1:neqns) :: fjl,fjr
+  real(wp), dimension(1:neqns) :: fnc
   !
 continue
   !
@@ -2028,22 +2025,22 @@ subroutine correct_flux_project_flx()
   integer   :: k,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,nl,nr,wl,wr,iu
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
-  real(vbp), dimension(1:neqns) :: fjl,fjr
-  real(vbp), dimension(1:neqns) :: fnc
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxg
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxg
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr
+  real(wp), dimension(1:neqns) :: fjl,fjr
+  real(wp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxg
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxg
   !
 continue
   !
@@ -2244,8 +2241,8 @@ subroutine derflux1
   integer :: k,m,n,nw,n1,n2,np
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:neqns)           :: ff,gg
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: ftdc,gtdc
+  real(wp), dimension(1:neqns)           :: ff,gg
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: ftdc,gtdc
   !
 continue
   !
@@ -2308,11 +2305,11 @@ subroutine derflux2
   integer :: k,m,n,n1,n2,nw,np,ip
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:neqns)           :: src
-  real(vbp), dimension(1:neqns,1:neqns)   :: dfdu,dgdu
-  real(vbp), dimension(1:neqns,1:neqns)   :: c_f,c_g
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: ucr,ucs
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:neqns)           :: src
+  real(wp), dimension(1:neqns,1:neqns)   :: dfdu,dgdu
+  real(wp), dimension(1:neqns,1:neqns)   :: c_f,c_g
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: ucr,ucs
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
   !
 continue
   !
@@ -2411,11 +2408,11 @@ subroutine derflux3
   integer :: k,m,n,nw,n1,n2,np,ip
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:neqns,1:neqns)      :: dfdu,dgdu
-  real(vbp), dimension(1:neqns,1:neqns)      :: c_f,c_g
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: ucr,ucs
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: uja
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: ujar,ujas
+  real(wp), dimension(1:neqns,1:neqns)      :: dfdu,dgdu
+  real(wp), dimension(1:neqns,1:neqns)      :: c_f,c_g
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: ucr,ucs
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: uja
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: ujar,ujas
   !
 continue
   !
@@ -2505,25 +2502,25 @@ subroutine dg_strong_form_old()
   integer   :: k,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,nl,nr,nw,n1,n2,np,wl,wr
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
-  real(vbp), dimension(1:neqns) :: fjl,fjr
-  real(vbp), dimension(1:neqns) :: fnc
-  real(vbp), dimension(1:neqns) :: ff,gg
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: ftdc
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: gtdc
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxg
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxg
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr
+  real(wp), dimension(1:neqns) :: fjl,fjr
+  real(wp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:neqns) :: ff,gg
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: ftdc
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: gtdc
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxg
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxg
   !
 continue
   !
@@ -2712,32 +2709,32 @@ subroutine dg_strong_form()
   integer   :: k,m,n,nf,r1,r2,l1,l2,nsp,nqp
   integer   :: jl,jr,nl,nr,nw,n1,n2,np,wl,wr
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: ul,ur
-  real(vbp), dimension(1:neqns) :: dfl,dfr
-  real(vbp), dimension(1:neqns) :: dgl,dgr
-  real(vbp), dimension(1:neqns) :: fnl,fnr
-  real(vbp), dimension(1:neqns) :: fjl,fjr
-  real(vbp), dimension(1:neqns) :: fnc
-  real(vbp), dimension(1:neqns) :: ff,gg
-  real(vbp), dimension(1:n_qp2dq) :: dxdr
-  real(vbp), dimension(1:n_qp2dq) :: dxds
-  real(vbp), dimension(1:n_qp2dq) :: dydr
-  real(vbp), dimension(1:n_qp2dq) :: dyds
-  real(vbp), dimension(1:neqns,1:n_qp2dq) :: uqp
-  real(vbp), dimension(1:n_qp2dq,1:neqns) :: ftdc
-  real(vbp), dimension(1:n_qp2dq,1:neqns) :: gtdc
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rusp
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: lflxg
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxf
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: rflxg
-  real(vbp), dimension(1:n_qp2dq) :: qjac
-  real(vbp), dimension(1:2,1:n_qp1de) :: facenorms
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: ul,ur
+  real(wp), dimension(1:neqns) :: dfl,dfr
+  real(wp), dimension(1:neqns) :: dgl,dgr
+  real(wp), dimension(1:neqns) :: fnl,fnr
+  real(wp), dimension(1:neqns) :: fjl,fjr
+  real(wp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:neqns) :: ff,gg
+  real(wp), dimension(1:n_qp2dq) :: dxdr
+  real(wp), dimension(1:n_qp2dq) :: dxds
+  real(wp), dimension(1:n_qp2dq) :: dydr
+  real(wp), dimension(1:n_qp2dq) :: dyds
+  real(wp), dimension(1:neqns,1:n_qp2dq) :: uqp
+  real(wp), dimension(1:n_qp2dq,1:neqns) :: ftdc
+  real(wp), dimension(1:n_qp2dq,1:neqns) :: gtdc
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rusp
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: lflxg
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxf
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: rflxg
+  real(wp), dimension(1:n_qp2dq) :: qjac
+  real(wp), dimension(1:2,1:n_qp1de) :: facenorms
   !
 continue
   !
@@ -2963,15 +2960,15 @@ subroutine dg_weak_form()
   integer   :: k,l,m,n,nf,r1,r2,l1,l2
   integer   :: jl,jr,nl,nr,nw,n1,n2,np,wl,wr
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)            :: unrm
-  real(vbp), dimension(1:neqns)           :: fnc
-  real(vbp), dimension(1:neqns)           :: ul,ur
-  real(vbp), dimension(1:neqns)           :: ff,gg
-  real(vbp), dimension(1:neqns)           :: fjl,fjr
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: ftdc,gtdc
+  real(wp), dimension(1:2)            :: unrm
+  real(wp), dimension(1:neqns)           :: fnc
+  real(wp), dimension(1:neqns)           :: ul,ur
+  real(wp), dimension(1:neqns)           :: ff,gg
+  real(wp), dimension(1:neqns)           :: fjl,fjr
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: ftdc,gtdc
   !
 continue
   !
@@ -3144,11 +3141,11 @@ pure function f_invs_flx_cv(uu) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:neqns), intent(in) :: uu
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: pres
+  real(wp) :: pres
   !
 continue
   !
@@ -3168,11 +3165,11 @@ pure function g_invs_flx_cv(uu) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:neqns), intent(in) :: uu
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: pres
+  real(wp) :: pres
   !
 continue
   !
@@ -3192,11 +3189,11 @@ pure function f_invs_flx_pv(vv) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:neqns), intent(in) :: vv
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: ener
+  real(wp) :: ener
   !
 continue
   !
@@ -3216,11 +3213,11 @@ pure function g_invs_flx_pv(vv) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:neqns), intent(in) :: vv
   !
-  real(vbp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:neqns) :: return_value
   !
-  real(vbp) :: ener
+  real(wp) :: ener
   !
 continue
   !
@@ -3240,11 +3237,11 @@ pure function f_invs_flx_jacobian_cv(uu) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:neqns), intent(in) :: uu
   !
-  real(vbp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:neqns,1:neqns) :: return_value
   !
-  real(vbp) :: r,u,u2,v,v2,e,gm1,gm3
+  real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
 continue
   !
@@ -3288,11 +3285,11 @@ pure function g_invs_flx_jacobian_cv(uu) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:neqns), intent(in) :: uu
   !
-  real(vbp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:neqns,1:neqns) :: return_value
   !
-  real(vbp) :: r,u,u2,v,v2,e,gm1,gm3
+  real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
 continue
   !
@@ -3336,11 +3333,11 @@ pure function f_invs_flx_jacobian_pv(vv) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:neqns), intent(in) :: vv
   !
-  real(vbp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:neqns,1:neqns) :: return_value
   !
-  real(vbp) :: r,u,u2,v,v2,e,gm1,gm3
+  real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
 continue
   !
@@ -3384,11 +3381,11 @@ pure function g_invs_flx_jacobian_pv(vv) result(return_value)
   use geovar, only : neqns
   use ovar, only : gam
   !
-  real(vbp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:neqns), intent(in) :: vv
   !
-  real(vbp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:neqns,1:neqns) :: return_value
   !
-  real(vbp) :: r,u,u2,v,v2,e,gm1,gm3
+  real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
 continue
   !
@@ -3948,12 +3945,12 @@ subroutine correctd
   !.. Local Scalars ..
   integer   :: nf,k,i,jl,jr,kl,kr,l1,l2,r1,r2,wl,wr,m
   integer   :: kcorbl,kcorbr,kcorl,kcorr
-  real(vbp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2)  :: unrm
-  real(vbp), dimension(1:neqns) :: vl,vr
-  real(vbp), dimension(1:neqns) :: fnl,fnr,fjl,fjr,fnc
+  real(wp), dimension(1:2)  :: unrm
+  real(wp), dimension(1:neqns) :: vl,vr
+  real(wp), dimension(1:neqns) :: fnl,fnr,fjl,fjr,fnc
   !
 continue
   !
