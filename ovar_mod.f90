@@ -128,6 +128,8 @@ module ovar
   real(wp), public, save, allocatable, dimension(:) :: cv_in
   real(wp), public, save, allocatable, dimension(:) :: pv_in
   !
+  real(wp), public, save :: iso_wall_temp = 300.0_wp
+  !
   real(wp), public, save, dimension(4) :: bc_in
   real(wp), public, save, dimension(4) :: bc_top
   real(wp), public, save, dimension(4) :: bc_left

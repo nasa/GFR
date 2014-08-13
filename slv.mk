@@ -62,7 +62,7 @@ OPTIM = -O3 -ipo -xSSE4.2 #-ipo-jobs4
 
  FPP = -fpp
 #FPP += -DPBS_ENV 
- FPP += -DIO_FOR_NAS
+#FPP += -DIO_FOR_NAS
  FPP += -DCGNS_ADF
 
 ##############################
@@ -122,6 +122,7 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/startup.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/generic.o \
+       $(OBJDIR)/bc_mod.o \
        $(OBJDIR)/triangle.o \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/parallel.o
@@ -215,6 +216,7 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
                $(OBJDIR)/startup.o \
                $(OBJDIR)/initialize.o \
                $(OBJDIR)/generic.o \
+               $(OBJDIR)/bc_mod.o \
                $(OBJDIR)/flux.o \
                $(OBJDIR)/parallel.o
 $(OBJDIR)/metvar_mod.o : metvar_mod.f90 $(OBJDIR)/kind_types.o
@@ -285,3 +287,10 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/flowvar_mod.o \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/generic.o
+$(OBJDIR)/bc_mod.o : bc_mod.f90 \
+           $(OBJDIR)/kind_types.o \
+           $(OBJDIR)/geovar_mod.o \
+           $(OBJDIR)/ovar_mod.o \
+           $(OBJDIR)/metvar_mod.o \
+           $(OBJDIR)/flowvar_mod.o \
+           $(OBJDIR)/generic.o

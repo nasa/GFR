@@ -1755,6 +1755,19 @@ continue
     !
   end do
   !
+ !write (110,*)
+ !write (110,*) "Boundary Faces"
+ !write (110,*)
+ !do nf = 1,nface
+ !  write (110,1000) nf, cells_on_face(1:5:2,nf),cells_on_face(2:6:2,nf)
+ !  if (nf == nfbnd) then
+ !    write (110,*)
+ !    write (110,*) "Interior Faces"
+ !    write (110,*)
+ !  end if
+ !end do
+ !1000 format ("Face ",i4,": ",2(6x,i4,1x,i1,1x,i2))
+  !
 end subroutine find_cells_on_each_face
 !
 !###############################################################################

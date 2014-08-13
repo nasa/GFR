@@ -41,6 +41,8 @@ program Euler_tri
   use startup_mod, only : get_quadrature_data
   use startup_mod, only : old_get_quadrature_data
   use initialization_mod, only : initialize_flow
+  use module_bc,   only : get_faceusp_bc
+  use module_bc,   only : get_facedusp_bc
   use generic_mod, only : rgetdtmax,getbc,rresi, &
                           rgeterr,getmaxent, &
                           compute_final_error, &
@@ -201,7 +203,12 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
-  call getbc
+  if (any(flux_divergence == [TestQuadrature,TestViscous])) then
+    call interp_cv_to_flxpts
+    call get_faceusp_bc
+  else
+    call getbc
+  end if
   !
   ! Output the initialized solution
   !
@@ -270,14 +277,14 @@ continue
     !
     rk_loop: do nst = 1,num_stages
       !
-      call getbc
-      !
       ! Apply a correction to the flux derivatives by
       ! interpolating the interior fluxes to the interface
       !
       ! Compute the derivative of the discontinuous flux function
       !
       if (flux_divergence == LagrangePolynomial) then
+        !
+        call getbc
         !
         ! Use the derivative of the Lagrange polynomial
         !
@@ -296,6 +303,8 @@ continue
         !
       else if (flux_divergence == ChainRuleCV) then
         !
+        call getbc
+        !
         ! Use the chain rule on the conserved variables
         !
         call derflux2
@@ -308,6 +317,8 @@ continue
         end if
         !
       else if (flux_divergence == ChainRuleUtd) then
+        !
+        call getbc
         !
         ! Use the chain rule on u*J
         !
@@ -322,11 +333,15 @@ continue
         !
       else if (flux_divergence == DGWeakForm) then
         !
+        call getbc
+        !
         ! Use the weak form of the DG method
         !
         call dg_weak_form
         !
       else if (flux_divergence == DGStrongForm) then
+        !
+        call getbc
         !
         ! Use the weak form of the DG method
         !
@@ -335,15 +350,18 @@ continue
       else if (flux_divergence == TestQuadrature) then
         !
         call interp_cv_to_flxpts
+        call get_faceusp_bc
         call derflux1_qdtr
         call correct_interface_flux_qdtr
         !
       else if (flux_divergence == TestViscous) then
         !
         call interp_cv_to_flxpts
+        call get_faceusp_bc
         call discontinuous_gradient_at_solpts
         call correct_gradients_at_solpts
         call interp_dusp_to_flxpts
+        call get_facedusp_bc
         call derflux1_qdtr_with_visc
         call correct_interface_flux_qdtr_with_visc
        !call correct_flux_project_flx
@@ -495,7 +513,9 @@ continue
   wall_time = end_wall_time-beg_wall_time
   work_units = wall_time/one_work_unit
   !
-  call getbc
+  if (all(flux_divergence /= [TestQuadrature,TestViscous])) then
+    call getbc
+  end if
   !
   !.. get min and max entropy value and location
   call getmaxent

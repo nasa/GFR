@@ -3928,6 +3928,160 @@ end subroutine correct_gradients_at_solpts
 !###############################################################################
 !###############################################################################
 !
+! Functions for computing exact common fluxes for certain boundary conditions
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!pure function adiwall_bc_visc_flx_cv(uint,uwall,dcvdx) result(return_value)
+!  !
+!
+!  !.. Use Statements ..
+!  use geovar, only : nr,neqns
+!  use ovar,   only : cpref_nd,Pr
+!  !
+!  use generic_mod, only : viscosity_cv_sp
+!  !
+!  !.. Formal Arguments ..
+!  real(wp), dimension(1:neqns),      intent(in) :: uu
+!  real(wp), dimension(1:nr,1:neqns), intent(in) :: dcvdx
+!  !
+!  !.. Function Result ..
+!  real(wp), dimension(1:neqns,1:nr) :: return_value
+!  !
+!  !.. Local Scalars ..
+!  integer  :: nq,vb,ve
+!  real(wp) :: dudx,dudy,dvdx,dvdy
+!  real(wp) :: mvsc,mcdt,dTdx,dTdy
+!  !
+!  !.. Local Arrays ..
+!  real(wp), dimension(1:nr) :: vel
+!  real(wp), dimension(1:nr,1:neqns) :: dpvdx
+!  !
+!continue
+!  !
+!  nq = neqns ! alias for neqns
+!  vb = 2     ! first momentum equation
+!  ve = nq-1  ! last  momentum equation 
+!  !
+!  ! Get the gradients of the primitive variables using the 
+!  ! gradients of the conservative variables and the product rule
+!  ! ##### NOT SURE ABOUT THE NEXT PART BECAUSE OF RECONSTRUCTION
+!  ! NOTE: We need to use the solution at the interior flux point to
+!  !       to convert these conservative variable gradients to primitive
+!  !       variable gradients. Using the common
+!  !
+!  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
+! !dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(ucom,dcvdx)
+!  !
+!  mvsc = viscosity_cv_sp(uu)
+!  !
+!  dudx = dpvdx(1,2)
+!  dudy = dpvdx(2,2)
+!  dvdx = dpvdx(1,3)
+!  dvdy = dpvdx(2,3)
+!  !
+!  ! The viscous fluxes for the energy equation are zero because the
+!  ! temperature gradient and the velocity vector are both zero
+!  ! at the boundary interface.
+!  !
+!  ! x-directional viscous fluxes
+!  !
+!  return_value( 1,1) = zero
+!  return_value( 2,1) = mvsc * two3 * (two*dudx - dvdy)
+!  return_value( 3,1) = mvsc * (dudy + dvdx)
+!  return_value(nq,1) = zero
+!  !
+!  ! y-directional viscous fluxes
+!  !
+!  return_value( 1,2) = zero
+!  return_value( 2,2) = mvsc * (dudy + dvdx)
+!  return_value( 3,2) = mvsc * two3 * (two*dvdy - dudx)
+!  return_value(nq,2) = zero
+!  !
+!end function adiwall_bc_visc_flx_cv
+!!
+!!###############################################################################
+!!
+!pure function bc_visc_flx_cv(ucom,dcvdx) result(return_value)
+!  !
+!  ! UCOM  : Common/corrected conservative variables at boundary interface
+!  ! DCVDX : Gradients of conservative variables at interface
+!  !
+!  !.. Use Statements ..
+!  use geovar, only : nr,neqns
+!  use ovar,   only : cpref_nd,Pr
+!  !
+!  use generic_mod, only : viscosity_cv_sp
+!  !
+!  !.. Formal Arguments ..
+!  real(wp), dimension(1:neqns),      intent(in) :: ucom
+!  real(wp), dimension(1:nr,1:neqns), intent(in) :: dcvdx
+!  !
+!  !.. Function Result ..
+!  real(wp), dimension(1:neqns,1:nr) :: return_value
+!  !
+!  !.. Local Scalars ..
+!  integer  :: nq,vb,ve
+!  real(wp) :: dudx,dudy,dvdx,dvdy
+!  real(wp) :: mvsc,mcdt,dTdx,dTdy
+!  !
+!  !.. Local Arrays ..
+!  real(wp), dimension(1:nr) :: vel
+!  real(wp), dimension(1:nr,1:neqns) :: dpvdx
+!  !
+!continue
+!  !
+!  nq = neqns ! alias for neqns
+!  vb = 2     ! first momentum equation
+!  ve = nq-1  ! last  momentum equation 
+!  !
+!  ! Get the gradients of the primitive variables using the 
+!  ! gradients of the conservative variables and the product rule
+!  !
+!  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(ucom,dcvdx)
+!  !
+!  ! Get the velocity vector
+!  !
+!  vel(:) = ucom(vb:ve)/ucom(1)
+!  !
+!  mvsc = viscosity_cv_sp(ucom)
+!  mcdt = cpref_nd * mvsc / Pr
+!  !
+!  dudx = dpvdx(1,2)
+!  dudy = dpvdx(2,2)
+!  dvdx = dpvdx(1,3)
+!  dvdy = dpvdx(2,3)
+!  dTdx = dpvdx(1,nq)
+!  dTdy = dpvdx(2,nq)
+!  !
+!  ! x-directional viscous fluxes
+!  !
+!  return_value( 1,1) = zero
+!  return_value( 2,1) = mvsc * two3 * (two*dudx - dvdy)
+!  return_value( 3,1) = mvsc * (dudy + dvdx)
+!  return_value(nq,1) = mcdt*dTdx + dot_product( vel , return_value(vb:ve,1) )
+!  !
+!  ! y-directional viscous fluxes
+!  !
+!  return_value( 1,2) = zero
+!  return_value( 2,2) = mvsc * (dudy + dvdx)
+!  return_value( 3,2) = mvsc * two3 * (two*dvdy - dudx)
+!  return_value(nq,2) = mcdt*dTdy + dot_product( vel , return_value(vb:ve,2) )
+!  !
+!end function bc_visc_flx_cv
+!
+!###############################################################################
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 subroutine correctd
   !
   !... this subroutine corrects the derivatives

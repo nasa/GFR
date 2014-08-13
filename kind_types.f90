@@ -173,8 +173,9 @@ module module_kind_types
   integer, parameter :: bc_mdot_outflow = 14
   ! Generic Inflow/Outflow BCs
   integer, parameter :: bc_characteristic = 21
-  integer, parameter :: bc_freestream = 22
-  integer, parameter :: bc_fixed = 23
+  integer, parameter :: bc_generic_freeflow = 22
+  integer, parameter :: bc_freestream = 23
+  integer, parameter :: bc_fixed = 24
   ! Wall BCs
   integer, parameter :: bc_slip_wall = 50
   integer, parameter :: bc_euler_wall = 51
@@ -190,6 +191,18 @@ module module_kind_types
   integer, parameter :: bc_unknown = -9999
   ! BC Groups
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
+  integer, parameter :: bc_flowthrough(1:12) = [ bc_generic_inflow, &
+                                                 bc_sub_inflow, &
+                                                 bc_sup_inflow, &
+                                                 bc_mdot_inflow, &
+                                                 bc_generic_outflow, &
+                                                 bc_sub_outflow, &
+                                                 bc_sup_outflow, &
+                                                 bc_mdot_outflow, &
+                                                 bc_characteristic, &
+                                                 bc_generic_freeflow, &
+                                                 bc_freestream, &
+                                                 bc_fixed ]
   !
   ! Parameters defining workshop test cases
   !
