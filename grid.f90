@@ -307,7 +307,7 @@ continue
     else if (trim(adjustl(text)) == "Characteristic") then
       itype = bc_characteristic
     else if (trim(adjustl(text)) == "Wall") then
-      itype = bc_wall
+      itype = bc_slip_wall
     else if (trim(adjustl(text)) == "FreeStream") then
       itype = bc_freestream
     else if (trim(adjustl(text)) == "Periodic") then

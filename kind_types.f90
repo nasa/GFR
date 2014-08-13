@@ -181,7 +181,6 @@ module module_kind_types
   integer, parameter :: bc_euler_wall = 51
   integer, parameter :: bc_adiabatic_wall = 52
   integer, parameter :: bc_isothermal_wall = 53
-  integer, parameter :: bc_wall = bc_slip_wall
   integer, parameter :: bc_default_wall = bc_adiabatic_wall
   ! Other BCs
   integer, parameter :: not_a_bc = 0
@@ -191,7 +190,7 @@ module module_kind_types
   integer, parameter :: bc_unknown = -9999
   ! BC Groups
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
-  integer, parameter :: bc_flowthrough(1:12) = [ bc_generic_inflow, &
+  integer, parameter :: bc_flowthrough(1:14) = [ bc_generic_inflow, &
                                                  bc_sub_inflow, &
                                                  bc_sup_inflow, &
                                                  bc_mdot_inflow, &
@@ -202,7 +201,14 @@ module module_kind_types
                                                  bc_characteristic, &
                                                  bc_generic_freeflow, &
                                                  bc_freestream, &
-                                                 bc_fixed ]
+                                                 bc_fixed, &
+                                                 bc_periodic, &
+                                                 bc_cpu_bnd ]
+  integer, parameter :: bc_walls(1:5) = [ bc_slip_wall, &
+                                          bc_euler_wall, &
+                                          bc_symmetry, &
+                                          bc_adiabatic_wall, &
+                                          bc_isothermal_wall ]
   !
   ! Parameters defining workshop test cases
   !

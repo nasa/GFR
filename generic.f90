@@ -2583,7 +2583,7 @@ continue
         !
       end do
       !
-    else if ( any(bface(1,nf) == [bc_slip_wall,bc_wall,bc_symmetry]) ) then
+    else if ( any(bface(1,nf) == [bc_slip_wall,bc_symmetry]) ) then
       !
       ! #####################################################
       ! #####################################################
