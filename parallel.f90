@@ -3548,10 +3548,13 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp(faceusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd
+  use geovar, only : nfbnd,bface
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:,:,:), intent(inout) :: faceusp
+  !
+  !.. Local Scalars ..
+  integer :: nf
   !
 continue
   !
@@ -3559,9 +3562,11 @@ continue
   !
   call mpi_waitall(2*ncomm,fusp_rqst,fusp_istat,mpierr)
   !
-  ! Update the right states for all the boundary faces
+  ! Update the right states for only the communication boundary faces
   !
-  faceusp(:,:,2,1:nfbnd) = real(fusp_buffer(:,:,2,1:nfbnd),kind=wp)
+  forall (nf = 1:nfbnd, bface(1,nf) == bc_cpu_bnd)
+    faceusp(:,:,2,nf) = real(fusp_buffer(:,:,2,nf),kind=wp)
+  end forall
   !
 end subroutine wait_faceusp
 !
@@ -3613,10 +3618,13 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp(facedusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd
+  use geovar, only : nfbnd,bface
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:,:,:,:), intent(inout) :: facedusp
+  !
+  !.. Local Scalars ..
+  integer :: nf
   !
 continue
   !
@@ -3624,9 +3632,11 @@ continue
   !
   call mpi_waitall(2*ncomm,fdusp_rqst,fdusp_istat,mpierr)
   !
-  ! Update the right states for all the boundary faces
+  ! Update the right states for only the communication boundary faces
   !
-  facedusp(:,:,:,2,1:nfbnd) = real(fdusp_buffer(:,:,:,2,1:nfbnd),kind=wp)
+  forall (nf = 1:nfbnd, bface(1,nf) == bc_cpu_bnd)
+    facedusp(:,:,:,2,nf) = real(fdusp_buffer(:,:,:,2,nf),kind=wp)
+  end forall
   !
 end subroutine wait_facedusp
 !
