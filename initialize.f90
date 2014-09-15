@@ -75,6 +75,8 @@ continue
   call alloc_error("initialize_flow","dusp",1,ierr)
   allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","residual",1,ierr)
+  allocate ( dtsp(1:n_solpts) , source=zero , stat=ierr )
+  call alloc_error("initialize_flow","dtsp",1,ierr)
   allocate ( uoldsp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uoldsp",1,ierr)
   allocate ( faceusp(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
@@ -82,7 +84,7 @@ continue
   allocate ( facedusp(1:2,1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","facedusp",1,ierr)
   allocate ( faceflx(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
-  call alloc_error("initialize_flow","faceusp",1,ierr)
+  call alloc_error("initialize_flow","faceflx",1,ierr)
   !
   allocate ( uspstart(1:neqns,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uspstart",1,ierr)

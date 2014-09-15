@@ -44,6 +44,10 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:,:)   :: usp_sum
   real(wp), public, save, allocatable, dimension(:,:,:) :: rssprk
   !
+  ! DTSP : Time step for each solution point
+  !
+  real(wp), public, save, allocatable, dimension(:) :: dtsp
+  !
 end module flowvar
 !
 !###############################################################################
