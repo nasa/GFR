@@ -63,6 +63,7 @@ module module_kind_types
   real(wp), parameter :: eps2  = 1.0e-02_wp
   real(wp), parameter :: eps3  = 1.0e-03_wp
   real(wp), parameter :: eps6  = 1.0e-06_wp
+  real(wp), parameter :: eps7  = 1.0e-07_wp
   real(wp), parameter :: eps9  = 1.0e-09_wp
   real(wp), parameter :: eps10 = 1.0e-10_wp
   real(wp), parameter :: eps11 = 1.0e-11_wp
@@ -190,20 +191,6 @@ module module_kind_types
   integer, parameter :: bc_unknown = -9999
   ! BC Groups
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
-  integer, parameter :: bc_flowthrough(1:14) = [ bc_generic_inflow, &
-                                                 bc_sub_inflow, &
-                                                 bc_sup_inflow, &
-                                                 bc_mdot_inflow, &
-                                                 bc_generic_outflow, &
-                                                 bc_sub_outflow, &
-                                                 bc_sup_outflow, &
-                                                 bc_mdot_outflow, &
-                                                 bc_characteristic, &
-                                                 bc_generic_freeflow, &
-                                                 bc_freestream, &
-                                                 bc_fixed, &
-                                                 bc_periodic, &
-                                                 bc_cpu_bnd ]
   integer, parameter :: bc_walls(1:5) = [ bc_slip_wall, &
                                           bc_euler_wall, &
                                           bc_symmetry, &
@@ -246,6 +233,29 @@ module module_kind_types
   !
   integer, parameter :: project_derivatives = 1
   integer, parameter :: derivative_of_proj_fluxes = 2
+  !
+  integer, parameter :: visc_flux_BR1 = 1
+  integer, parameter :: visc_flux_BR2 = 2
+  !
+  ! Constants for timestepping method
+  !
+  integer, parameter :: Constant_Timestep = 0
+  !
+  integer, parameter :: Cell_Timestep = 1
+  integer, parameter :: Global_Cell_Timestep = Cell_Timestep
+  integer, parameter :: Local_Cell_Timestep = -Cell_Timestep
+  !
+  integer, parameter :: Point_Timestep = 2
+  integer, parameter :: Global_Point_Timestep = Point_Timestep
+  integer, parameter :: Local_Point_Timestep = -Point_Timestep
+  !
+  ! CL : coefficient for the length of the face. This is needed because of
+  !      the difference between how the reference triangle and reference
+  !      quad are defined. 
+  !      = 1.0 for triangles
+  !      = 0.5 for quads
+  !
+  real(wp), dimension(1:2), parameter :: cl = (/ one , half /)
   !
   ! MPI Scalars 
   !
@@ -391,14 +401,18 @@ subroutine reallocate1_i4(array,new_size)
   integer, intent(in) :: new_size
   integer(i4), allocatable, dimension(:), intent(inout) :: array
   integer(i4), allocatable, dimension(:) :: temp_array
-  integer :: ierr
+  integer :: ierr,num_copy
 continue
   ! Allocate the temporary array to store the old contents of array
   allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
   call alloc_error("reallocate1_i4","temp_array",1,ierr)
-  ! If array is allocated, copy the old contents
-  ! of array into the temporary array
-  if (allocated(array)) temp_array(1:size(array)) = array
+  ! If array is allocated, copy the old contents of array into the temporary
+  ! array. If decreasing the size of array, make sure to limit the amount of
+  ! information copied over from array to the size of temp_array.
+  if (allocated(array)) then
+    num_copy = min( size(temp_array) , size(array) )
+    temp_array(1:num_copy) = array(1:num_copy)
+  end if
   ! move_alloc does:
   !     1. deallocates array if it is allocated
   !     2. allocates array with the same type, type parameters,
@@ -413,11 +427,14 @@ subroutine reallocate1_i8(array,new_size)
   integer, intent(in) :: new_size
   integer(i8), allocatable, dimension(:), intent(inout) :: array
   integer(i8), allocatable, dimension(:) :: temp_array
-  integer :: ierr
+  integer :: ierr,num_copy
 continue
   allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
   call alloc_error("reallocate1_i8","temp_array",1,ierr)
-  if (allocated(array)) temp_array(1:size(array)) = array
+  if (allocated(array)) then
+    num_copy = min( size(temp_array) , size(array) )
+    temp_array(1:num_copy) = array(1:num_copy)
+  end if
   call move_alloc( from=temp_array , to=array )
 end subroutine reallocate1_i8
 !
@@ -427,11 +444,14 @@ subroutine reallocate1_r4(array,new_size)
   integer, intent(in) :: new_size
   real(r4), allocatable, dimension(:), intent(inout) :: array
   real(r4), allocatable, dimension(:) :: temp_array
-  integer :: ierr
+  integer :: ierr,num_copy
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
   call alloc_error("reallocate1_r4","temp_array",1,ierr)
-  if (allocated(array)) temp_array(1:size(array)) = array
+  if (allocated(array)) then
+    num_copy = min( size(temp_array) , size(array) )
+    temp_array(1:num_copy) = array(1:num_copy)
+  end if
   call move_alloc( from=temp_array , to=array )
 end subroutine reallocate1_r4
 !
@@ -441,11 +461,14 @@ subroutine reallocate1_r8(array,new_size)
   integer, intent(in) :: new_size
   real(r8), allocatable, dimension(:), intent(inout) :: array
   real(r8), allocatable, dimension(:) :: temp_array
-  integer :: ierr
+  integer :: ierr,num_copy
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
   call alloc_error("reallocate1_r8","temp_array",1,ierr)
-  if (allocated(array)) temp_array(1:size(array)) = array
+  if (allocated(array)) then
+    num_copy = min( size(temp_array) , size(array) )
+    temp_array(1:num_copy) = array(1:num_copy)
+  end if
   call move_alloc( from=temp_array , to=array )
 end subroutine reallocate1_r8
 !
@@ -455,12 +478,17 @@ subroutine reallocate1_c(array,new_size)
   integer, intent(in) :: new_size
   character(len=*), allocatable, dimension(:), intent(inout) :: array
   character(len=len(array)), allocatable, dimension(:) :: temp_array
-  integer :: ierr
+  integer :: ierr,num_copy
 continue
+ !write (iout,1) size(array),new_size
   allocate ( temp_array(1:new_size) , stat=ierr )
   call alloc_error("reallocate1_c","temp_array",1,ierr)
-  if (allocated(array)) temp_array(1:size(array)) = array
+  if (allocated(array)) then
+    num_copy = min( size(temp_array) , size(array) )
+    temp_array(1:num_copy) = array(1:num_copy)
+  end if
   call move_alloc( from=temp_array , to=array )
+  1 format ("size(array) = ",i0,"; new_size = ",i0)
 end subroutine reallocate1_c
 !
 !###############################################################################
@@ -558,7 +586,7 @@ end subroutine alloc_error
 !
 !###############################################################################
 !
-subroutine io_error(procedure_name,file_name,ioptype,iemessag)
+subroutine io_error(procedure_name,file_name,ioptype,iemessag,optmessag)
   !
   ! Subroutine to generate an error message when
   ! an open or close returns an error code
@@ -569,11 +597,16 @@ subroutine io_error(procedure_name,file_name,ioptype,iemessag)
   integer,          intent(in) :: ioptype
   integer,          intent(in) :: iemessag
   !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: optmessag
+  !
 continue
   !
   if (iemessag /= 0) then
     !
     write (iout,10)
+    !
+    ! Open/Close errors
     !
     if (ioptype == 1) then
       write (iout,1) trim(adjustl(file_name))
@@ -581,8 +614,27 @@ continue
       write (iout,2) trim(adjustl(file_name))
     else if (ioptype == 3) then
       write (iout,3) trim(adjustl(file_name))
-    else
+    else if (ioptype == 4) then
       write (iout,4) trim(adjustl(file_name))
+      !
+      ! Read/Write errors 
+      ! Use the value of iemessag to determine the type of error
+      !
+    else if (ioptype == -1) then
+      !
+      if (iemessag > 0) then
+        write (iout,5) trim(adjustl(file_name))
+      else if (iemessag < 0) then
+        write (iout,6) trim(adjustl(file_name))
+      end if
+      if (present(optmessag)) then
+        write (iout,7) trim(adjustl(optmessag))
+      end if
+      !
+      ! Generic unknown error
+      !
+    else
+      write (iout,99) trim(adjustl(file_name))
     end if
     !
     write (iout,11) trim(adjustl(procedure_name)),iemessag
@@ -592,10 +644,14 @@ continue
   !
   ! Format Statements
   !
-  1 format (" ERROR OPENING FILE '",a,"'")
-  2 format (" ERROR CLOSING FILE '",a,"'")
-  3 format (" ERROR REOPENING CGNS FILE '",a,"'")
-  4 format (" UNKNOWN ERROR WITH FILE '",a,"'")
+  1  format (" ERROR OPENING FILE '",a,"'")
+  2  format (" ERROR CLOSING FILE '",a,"'")
+  3  format (" ERROR REOPENING CGNS FILE '",a,"'")
+  4  format (" UNABLE TO DETERMINE FORMAT OF PLOT3D FILE '",a,"'")
+  5  format (" UNEXPECTED INPUT/OUTPUT ERROR WITH FILE '",a,"'")
+  6  format (" UNEXPECTED END OF FILE/RECORD ERROR WITH FILE '",a,"'")
+  7  format (" ERROR OCCURED TRYING TO READ IN '",a,"'")
+  99 format (" UNKNOWN ERROR WITH FILE '",a,"'")
   10 format (/," ***************************************************** ")
   11 format (" INSIDE PROCEDURE: ",a,/, &
              " ERROR INDICATOR = ",i0,/, &
@@ -691,11 +747,12 @@ end subroutine finalize_mpi_environment
 !
 !###############################################################################
 !
-subroutine stop_recon(iend,procedure_name)
+subroutine stop_recon(iend,procedure_name,optional_message)
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iend
-  character(len=*), optional, intent(in) :: procedure_name 
+  character(len=*), optional, intent(in) :: procedure_name
+  character(len=*), optional, intent(in) :: optional_message
   !
   !.. Local Scalars ..
   integer :: iflag
@@ -717,7 +774,9 @@ continue
         write (iout,2)
         if (present(procedure_name)) &
           write (iout,4) trim(adjustl(procedure_name))
-        write (iout,5)
+        if (present(optional_message)) &
+          write (iout,5) trim(adjustl(optional_message))
+        write (iout,6)
       end if
       !
       ! Stop all MPI processes
@@ -731,7 +790,9 @@ continue
       write (iout,3) mypnum
       if (present(procedure_name)) &
         write (iout,4) trim(adjustl(procedure_name))
-      write (iout,5)
+      if (present(optional_message)) &
+        write (iout,5) trim(adjustl(optional_message))
+      write (iout,6)
       !
       call mpi_abort(mpi_comm_world,iflag,mpierr)
       !
@@ -749,7 +810,8 @@ continue
   2 format (   "    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
   3 format (   "           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
   4 format (   " STOP ISSUED FROM PROCEDURE '",a,"'")
-  5 format (   "#########################################################",//)
+  5 format (   " ERROR MESSAGE: '",a,"'")
+  6 format (   "#########################################################",//)
   !
 end subroutine stop_recon
 !
@@ -766,7 +828,7 @@ include "Functions/rotate_2d.f90"
 include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
 include "Functions/uppercase.f90"
-include "Functions/bc_string.f90"
+include "Functions/bc_integer_to_string.f90"
 !
 !###############################################################################
 !

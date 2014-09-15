@@ -23,6 +23,7 @@ module generic_mod
   public :: entropy_pv, entropy_pv_sp
   public :: getbc
   public :: rgetdtmax
+  public :: get_dtsp
   public :: rresi
   public :: rupdate_Classic_RK
   public :: rupdate_CK4_RK
@@ -37,11 +38,11 @@ module generic_mod
   public :: test_error
   public :: project_to_porder
   !
-  real(vbp), parameter :: o = zero
+  real(wp), parameter :: o = zero
   !
   ! Classic N stage Runge-Kutta coefficients
   !
-  real(vbp), parameter, dimension(4,4,4) :: &
+  real(wp), parameter, dimension(4,4,4) :: &
   alphaRK = reshape( &                                                  ! Coefficients
        (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   & ! 1-Stage
          HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   & ! 2-Stage
@@ -51,27 +52,27 @@ module generic_mod
   !
   ! TVD 4th-order/5-stage Runge-Kutta coefficients
   !
-  real(vbp), parameter, dimension(1:2,1:5) :: &
-    betaRK_TVD = reshape( (/ 0.00000000000000_vbp,0.39175222700395_vbp, &
-                             0.00000000000000_vbp,0.36841059262959_vbp, &
-                             0.00000000000000_vbp,0.25189177424738_vbp, &
-                             0.00000000000000_vbp,0.54497475021237_vbp, &
-                             0.08460416338212_vbp,0.22600748319395_vbp  /), &
+  real(wp), parameter, dimension(1:2,1:5) :: &
+    betaRK_TVD = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
+                             0.00000000000000_wp,0.36841059262959_wp, &
+                             0.00000000000000_wp,0.25189177424738_wp, &
+                             0.00000000000000_wp,0.54497475021237_wp, &
+                             0.08460416338212_wp,0.22600748319395_wp  /), &
                           (/2,5/) )
   !
-  real(vbp), parameter, dimension(1:3,1:5) :: &
-    alphaRK_TVD = reshape( (/ 1.00000000000000_vbp,0.00000000000000_vbp,0.0_vbp, &
-                              0.44437049406734_vbp,0.55562950593266_vbp,0.0_vbp, &
-                              0.62010185138540_vbp,0.37989814861460_vbp,0.0_vbp, &
-                              0.17807995410773_vbp,0.82192004589227_vbp,0.0_vbp, &
-                              0.00683325884039_vbp,0.34833675773694_vbp,1.0_vbp  /), &
+  real(wp), parameter, dimension(1:3,1:5) :: &
+    alphaRK_TVD = reshape( (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
+                              0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
+                              0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
+                              0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
+                              0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
                            (/3,5/) )
   !
-  real(vbp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_vbp, &
-                                                           0.51723167208978_vbp, &
-                                                           0.12759831133288_vbp, &
-                                                           0.00000000000000_vbp, &
-                                                           0.00000000000000_vbp /)
+  real(wp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_wp, &
+                                                           0.51723167208978_wp, &
+                                                           0.12759831133288_wp, &
+                                                           0.00000000000000_wp, &
+                                                           0.00000000000000_wp /)
   !
 contains
 !
@@ -80,11 +81,11 @@ contains
 pure function usp2utd(uu,jacobian) result(return_value)
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:),   intent(in) :: jacobian
-  real(vbp), dimension(:,:), intent(in) :: uu
+  real(wp), dimension(:),   intent(in) :: jacobian
+  real(wp), dimension(:,:), intent(in) :: uu
   !
   !.. Function Results ..
-  real(vbp), dimension(1:size(uu,1),1:size(uu,2)) :: return_value
+  real(wp), dimension(1:size(uu,1),1:size(uu,2)) :: return_value
   !
   !.. Local Scalars ..
   integer :: n
@@ -102,10 +103,10 @@ end function usp2utd
 pure function usp2v(uu) result(return_value)
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:), intent(in) :: uu
+  real(wp), dimension(:,:), intent(in) :: uu
   !
   !.. Function Result ..
-  real(vbp), dimension(1:size(uu,1),1:size(uu,2)) :: return_value
+  real(wp), dimension(1:size(uu,1),1:size(uu,2)) :: return_value
   !
   !.. Local Scalars ..
   integer :: n
@@ -126,10 +127,10 @@ pure function usp2v_sp(uu) result(return_value)
   use ovar,   only : gam
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:), intent(in) :: uu
+  real(wp), dimension(:), intent(in) :: uu
   !
   !.. Function Result ..
-  real(vbp), dimension(1:size(uu)) :: return_value
+  real(wp), dimension(1:size(uu)) :: return_value
   !
   !.. Local Scalars ..
   integer :: nq
@@ -149,10 +150,10 @@ end function usp2v_sp
 pure function vsp2u(vv) result(return_value)
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:), intent(in) :: vv
+  real(wp), dimension(:,:), intent(in) :: vv
   !
   !.. Function Result ..
-  real(vbp), dimension(1:size(vv,1),1:size(vv,2)) :: return_value
+  real(wp), dimension(1:size(vv,1),1:size(vv,2)) :: return_value
   !
   !.. Local Scalars ..
   integer :: n
@@ -173,10 +174,10 @@ pure function vsp2u_sp(vv) result(return_value)
   use ovar, only : gam
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:), intent(in) :: vv
+  real(wp), dimension(:), intent(in) :: vv
   !
   !.. Function Result ..
-  real(vbp), dimension(1:size(vv)) :: return_value
+  real(wp), dimension(1:size(vv)) :: return_value
   !
   !.. Local Scalars ..
   integer :: nq
@@ -553,9 +554,9 @@ subroutine rgetdtmax
   !
   !.. Local Scalars ..
   integer   :: n
-  real(vbp) :: dxdr,dydr,dxds,dyds
-  real(vbp) :: rho,vx,vy,pres,aspd
-  real(vbp) :: alfa,beta,gama,dttemp
+  real(wp) :: dxdr,dydr,dxds,dyds
+  real(wp) :: rho,vx,vy,pres,aspd
+  real(wp) :: alfa,beta,gama,dttemp
   !
 continue
   !
@@ -593,6 +594,340 @@ continue
   end if
   !
 end subroutine rgetdtmax
+!
+!###############################################################################
+!
+subroutine get_dtsp(dtmin)
+  !
+  !.. Use Statements ..
+  use ovar, only : Timestep_Type,time,d_t
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+continue
+  !
+  if (Timestep_Type == Constant_Timestep) then
+    !
+    call get_constant_timestep(dtmin)
+    !
+  else if (abs(Timestep_Type) == Cell_Timestep) then
+    !
+    call get_cell_timestep(dtmin)
+    !
+  else if (abs(Timestep_Type) == Point_Timestep) then
+    !
+    call get_point_timestep(dtmin)
+    !
+  end if
+  !
+  time = time + dtmin
+  d_t = dtmin
+  !
+end subroutine get_dtsp
+!
+!###############################################################################
+!
+subroutine get_constant_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use ovar,    only : dt_in,Final_Time,time,CFL
+  use flowvar, only : dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+continue
+  !
+  dtmin = CFL * dt_in
+  !
+  if (Final_Time > zero) then
+    if (time + dtmin > Final_Time + eps9) then
+      dtmin = Final_Time - time
+    end if
+  end if
+  !
+  dtsp(:) = dtmin
+  !
+end subroutine get_constant_timestep
+!
+!###############################################################################
+!
+subroutine get_cell_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_sp2dt,nfbnd,nface,interp_s2f
+  use geovar,  only : cells_on_face,pts_in_cell_ptr
+  use ovar,    only : gam,Timestep_Type,Final_Time,time,CFL
+  use metvar,  only : geofa,jacobian
+  use flowvar, only : dtsp,faceusp
+  use geovar,  only : nq => neqns
+  use geovar,  only : nsp => n_sp1de
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: nf,k
+  integer  :: jl,kbl,l1,l2,npl,wl,kl
+  integer  :: jr,kbr,r1,r2,npr,wr,kr
+  real(wp) :: ds,eigni,eignv,dttemp,pp1sq
+  real(wp) :: dsl,vell,al,jacl,dtl,mul,hl
+  real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nq) :: vl,vr
+  !
+continue
+  !
+  pp1sq = real( nsp**2 , kind=wp )
+  !
+  dtmin = huge(zero)
+  dtsp(:) = dtmin
+  !
+  do nf = 1,nfbnd
+    !
+    jl = cells_on_face(1,nf) ! left cell on face
+    !
+    kbl = cells_on_face(5,nf) ! beginning flux point for left cell
+    !
+    l1 = pts_in_cell_ptr(jl)+1 ! beginning index for sol-pts in left cell
+    l2 = pts_in_cell_ptr(jl+1) ! ending    index for sol-pts in left cell
+    !
+    npl = l2-l1+1 ! number of solution points in left cell
+    !
+    wl = merge( 1 , 2 , npl == n_sp2dt ) ! check if jl is a tria or quad
+    !
+    do k = 1,nsp
+      !
+      kl = kbl-1 + k ! index for left cell
+      !
+      vl(1:nq) = usp2v_sp( faceusp(1:nq,k,1,nf) )
+      !
+      mul = viscosity_cv_sp( faceusp(1:nq,k,1,nf) )
+      !
+      ds = rnorm2( geofa(1:nr,k,nf) )
+      dsl = ds * cl(wl) ! face length/area for left cell
+      !
+      ! Normal velocity at this flux point
+      !
+     !vell = dot_product( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+      vell = selfdot( vl(2:nq-1) )
+      !
+      ! Speed of sound at this face
+      !
+      al = max( gam*vl(nq)/vl(1) , rndoff )
+      !
+      ! Interpolate the jacobian to the flux point
+      !
+      jacl = dot_product( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
+      !
+      hl = half * dsl / jacl
+      !
+      eigni = abs(vell) + al
+      eignv = pp1sq * hl * mul
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv)) )
+      !
+      ! Store the minimum timestep for this cell in the location
+      ! of the first solution point for this cell
+      !
+      dtsp(l1:l2) = dtl
+      !
+      dtmin = min( dtmin , dtl )
+      !
+    end do
+    !
+  end do
+  !
+  do nf = nfbnd+1,nface
+    !
+    jl = cells_on_face(1,nf) ! left  cell on face
+    jr = cells_on_face(2,nf) ! right cell on face
+    !
+    kbl = cells_on_face(5,nf) ! beginning flux point for left  cell
+    kbr = cells_on_face(6,nf) ! beginning flux point for right cell
+    !
+    l1 = pts_in_cell_ptr(jl)+1 ! beginning index for sol-pts in left  cell
+    l2 = pts_in_cell_ptr(jl+1) ! ending    index for sol-pts in right cell
+    !
+    r1 = pts_in_cell_ptr(jr)+1 ! beginning index for sol-pts in left  cell
+    r2 = pts_in_cell_ptr(jr+1) ! ending    index for sol-pts in right cell
+    !
+    npl = l2-l1+1 ! number of solution points in left  cell
+    npr = r2-r1+1 ! number of solution points in right cell
+    !
+    wl = merge( 1 , 2 , npl == n_sp2dt ) ! check if jl is a tria or quad
+    wr = merge( 1 , 2 , npr == n_sp2dt ) ! check if jr is a tria or quad
+    !
+    do k = 1,nsp
+      !
+      kl = kbl-1 + k ! index for left  cell
+      kr = kbr+1 - k ! index for right cell
+      !
+      vl(1:nq) = usp2v_sp( faceusp(1:nq,k,1,nf) )
+      vr(1:nq) = usp2v_sp( faceusp(1:nq,k,2,nf) )
+      !
+      mul = viscosity_cv_sp( faceusp(1:nq,k,1,nf) )
+      mur = viscosity_cv_sp( faceusp(1:nq,k,2,nf) )
+      !
+      ds = rnorm2( geofa(1:nr,k,nf) )
+      dsl = ds * cl(wl) ! face length/area for left  cell
+      dsr = ds * cl(wr) ! face length/area for right cell
+      !
+      ! Normal velocity at this flux point
+      !
+     !vell = dot_product( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+     !velr = dot_product( vr(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+      vell = selfdot( vl(2:nq-1) )
+      velr = selfdot( vr(2:nq-1) )
+      !
+      ! Speed of sound at this face
+      !
+      al = max( gam*vl(nq)/vl(1) , rndoff )
+      ar = max( gam*vr(nq)/vr(1) , rndoff )
+      !
+      ! Interpolate the jacobian to the flux point
+      !
+      jacl = dot_product( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
+      jacr = dot_product( interp_s2f(1:npr,kr,wr) , jacobian(r1:r2) )
+      !
+      hl = half * dsl / jacl
+      hr = half * dsr / jacr
+      !
+      eigni = max( abs(vell) + al , abs(velr) + ar )
+      eignv = pp1sq * max( hl * mul , hr * mur )
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv) ) )
+      dtr = min( dtsp(r1) , CFL / (pp1sq * hr * (eigni + eignv) ) )
+      !
+      ! Store the minimum timestep for all solution points in both cells
+      !
+      dtsp(l1:l2) = dtl
+      dtsp(r1:r2) = dtr
+      !
+      dtmin = min( dtmin , dtl , dtr )
+      !
+    end do
+    !
+  end do
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    dttemp = dtmin
+    call mpi_allreduce(dttemp,dtmin,1,mpi_flttyp, &
+                       mpi_min,mpi_comm_world,mpierr)
+  end if
+  !
+  ! Limit the local timesteps if using a global timestepping
+  !
+  if (Timestep_Type == Global_Cell_Timestep) then
+    !
+    ! Set all time step sizes to the global minimum timestep
+    !
+    dtsp(:) = dtmin
+    !
+    ! Make sure the timestep size doesnt make the final time exceed Final_Time
+    !
+    if (Final_Time > zero) then
+      if (time + dtmin > Final_Time + eps9) then
+        dtsp(:) = Final_Time - time
+      end if
+    end if
+    !
+  end if
+  !
+end subroutine get_cell_timestep
+!
+!###############################################################################
+!
+subroutine get_point_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts,n_sp1de
+  use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
+  use metvar,  only : jacobian,dx,dy
+  use flowvar, only : usp,dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: dtpt,gm1,dtc,eign
+  real(wp) :: dxdr,dydr,dxds,dyds
+  real(wp) :: rho,vx,vy,pres,aspd
+  real(wp) :: alfa,beta,gama,dttemp
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  dtmin = huge(zero)
+  !
+  dtc = CFL * two / real( n_sp1de**2 , kind=wp )
+  !
+  do n = 1,n_solpts
+    !
+    dxdr = dx(n)%dr
+    dydr = dy(n)%dr
+    dxds = dx(n)%ds
+    dyds = dy(n)%ds
+    !
+    rho  = usp(1,n)
+    vx   = usp(2,n)/rho
+    vy   = usp(3,n)/rho
+    pres = gm1 * (usp(4,n) - half*rho*(vx*vx + vy*vy))
+    !
+    aspd = sqrt( max( gam*pres/rho , rndoff ) )
+    !
+    alfa = abs( vx*dydr - vy*dxdr )
+    beta = abs( vx*dyds - vy*dxds )
+    !
+    gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
+    !
+    eign = alfa + beta + gama
+    !
+    dtpt = dtc * jacobian(n) / eign
+    !
+    dtmin = min( dtpt , dtmin )
+    !
+    dtsp(n) = dtpt
+    !
+  end do
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    dttemp = dtmin
+    call mpi_allreduce(dttemp,dtmin,1,mpi_flttyp, &
+                       mpi_min,mpi_comm_world,mpierr)
+  end if
+  !
+  ! Limit the local timesteps if using a global timestepping
+  !
+  if (Timestep_Type == Global_Point_Timestep) then
+    !
+    ! Set all time step sizes to the minimum timestep
+    !
+    dtsp(:) = dtmin
+    !
+    ! Make sure the timestep size doesnt make the final time exceed Final_Time
+    !
+    if (Final_Time > zero) then
+      if (time + dtmin > Final_Time + eps9) then
+        dtsp(:) = Final_Time - time
+      end if
+    end if
+    !
+  end if
+  !
+end subroutine get_point_timestep
 !
 !###############################################################################
 !
@@ -707,12 +1042,12 @@ subroutine rupdate_Classic_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,neqns,write_variable
-  use ovar,    only : nst,d_t,num_stages,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp,uoldsp
+  use ovar,    only : nst,num_stages,Filter_Option
+  use flowvar, only : rssprk,residual,usp,vsp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer   :: n,m,nt
-  real(vbp) :: temp
+  real(wp) :: temp
   !
 continue
   !
@@ -730,9 +1065,9 @@ continue
       do nt = 1,nst
         temp = temp + alphark(nt,nst,num_stages)*rssprk(m,n,nt)
       end do
-      usp(m,n) = uoldsp(m,n) + d_t*temp
+      usp(m,n) = uoldsp(m,n) + dtsp(n)*temp
      !usp(m,n) = uoldsp(m,n) &
-     !         + d_t*sum( alphark(1:nst,nst,num_stages)*rssprk(m,n,1:nst) )
+     !         + dtsp(n)*sum( alphark(1:nst,nst,num_stages)*rssprk(m,n,1:nst) )
     end do
   end do
   !
@@ -752,33 +1087,33 @@ subroutine rupdate_CK4_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,d_t,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp
+  use ovar,    only : nst,Filter_Option
+  use flowvar, only : rssprk,residual,usp,vsp,dtsp
   !
   !.. Local Scalars ..
   integer :: n
   !
   ! Carpenter-Kennedy 4th-order/5-stage Runge-Kutta coefficients
   !
-  real(vbp), parameter, dimension(1:5) :: &
-             alfa = (/                                   0.0_vbp, &
-                        -567301805773.0_vbp/ 1357537059087.0_vbp, &
-                       -2404267990393.0_vbp/ 2016746695238.0_vbp, &
-                       -3550918686646.0_vbp/ 2091501179385.0_vbp, &
-                       -1275806237668.0_vbp/  842570457699.0_vbp  /)
+  real(wp), parameter, dimension(1:5) :: &
+             alfa = (/                                   0.0_wp, &
+                        -567301805773.0_wp/ 1357537059087.0_wp, &
+                       -2404267990393.0_wp/ 2016746695238.0_wp, &
+                       -3550918686646.0_wp/ 2091501179385.0_wp, &
+                       -1275806237668.0_wp/  842570457699.0_wp  /)
 
-  real(vbp), parameter, dimension(1:5) :: &
-             beta = (/  1432997174477.0_vbp/ 9575080441755.0_vbp, &
-                        5161836677717.0_vbp/13612068292357.0_vbp, &
-                        1720146321549.0_vbp/ 2090206949498.0_vbp, &
-                        3134564353537.0_vbp/ 4481467310338.0_vbp, &
-                        2277821191437.0_vbp/14882151754819.0_vbp  /)
+  real(wp), parameter, dimension(1:5) :: &
+             beta = (/  1432997174477.0_wp/ 9575080441755.0_wp, &
+                        5161836677717.0_wp/13612068292357.0_wp, &
+                        1720146321549.0_wp/ 2090206949498.0_wp, &
+                        3134564353537.0_wp/ 4481467310338.0_wp, &
+                        2277821191437.0_wp/14882151754819.0_wp  /)
   !
 continue
   !
   do n = 1,n_solpts
     !
-    rssprk(:,n,1) = alfa(nst)*rssprk(:,n,1) + d_t*residual(:,n)
+    rssprk(:,n,1) = alfa(nst)*rssprk(:,n,1) + dtsp(n)*residual(:,n)
     !
     usp(:,n) = usp(:,n) + beta(nst)*rssprk(:,n,1)
     !
@@ -800,22 +1135,22 @@ subroutine rupdate_TVD2_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,d_t,Filter_Option
-  use flowvar, only : residual,usp,vsp,uoldsp
+  use ovar,    only : nst,Filter_Option
+  use flowvar, only : residual,usp,vsp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer   :: n
   !
   ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
   !
-  real(vbp), parameter, dimension(1:2) :: alfa = (/ zero,one  /)
-  real(vbp), parameter, dimension(1:2) :: beta = (/ one ,half /)
+  real(wp), parameter, dimension(1:2) :: alfa = (/ zero,one  /)
+  real(wp), parameter, dimension(1:2) :: beta = (/ one ,half /)
   !
 continue
   !
   do n = 1,n_solpts
     !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + d_t*residual(:,n))
+    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + dtsp(n)*residual(:,n))
     !
   end do
   !
@@ -835,22 +1170,22 @@ subroutine rupdate_TVD3_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,d_t,Filter_Option
-  use flowvar, only : residual,usp,vsp,uoldsp
+  use ovar,    only : nst,Filter_Option
+  use flowvar, only : residual,usp,vsp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer :: n
   !
   ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
   !
-  real(vbp), parameter, dimension(1:3) :: alfa = (/ zero,three,half /)
-  real(vbp), parameter, dimension(1:3) :: beta = (/ one ,one4 ,two3 /)
+  real(wp), parameter, dimension(1:3) :: alfa = (/ zero,three,half /)
+  real(wp), parameter, dimension(1:3) :: beta = (/ one ,one4 ,two3 /)
   !
 continue
   !
   do n = 1,n_solpts
     !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + d_t*residual(:,n))
+    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + dtsp(n)*residual(:,n))
     !
   end do
   !
@@ -870,35 +1205,35 @@ subroutine rupdate_TVD4_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,d_t,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp,uoldsp,usp_sum
+  use ovar,    only : nst,Filter_Option
+  use flowvar, only : rssprk,residual,usp,vsp,uoldsp,usp_sum,dtsp
   !
   !.. Local Scalars ..
   integer :: n
   !
   ! TVD 4th-order/5-stage Runge-Kutta Coefficients
   !
-  real(vbp), parameter, dimension(1:2,1:5) :: &
-    beta = reshape( (/ 0.00000000000000_vbp,0.39175222700395_vbp, &
-                       0.00000000000000_vbp,0.36841059262959_vbp, &
-                       0.00000000000000_vbp,0.25189177424738_vbp, &
-                       0.00000000000000_vbp,0.54497475021237_vbp, &
-                       0.08460416338212_vbp,0.22600748319395_vbp  /), &
+  real(wp), parameter, dimension(1:2,1:5) :: &
+    beta = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
+                       0.00000000000000_wp,0.36841059262959_wp, &
+                       0.00000000000000_wp,0.25189177424738_wp, &
+                       0.00000000000000_wp,0.54497475021237_wp, &
+                       0.08460416338212_wp,0.22600748319395_wp  /), &
                     (/2,5/) )
   !
-  real(vbp), parameter, dimension(1:3,1:5) :: &
-    alfa = reshape( (/ 1.00000000000000_vbp,0.00000000000000_vbp,0.0_vbp, &
-                       0.44437049406734_vbp,0.55562950593266_vbp,0.0_vbp, &
-                       0.62010185138540_vbp,0.37989814861460_vbp,0.0_vbp, &
-                       0.17807995410773_vbp,0.82192004589227_vbp,0.0_vbp, &
-                       0.00683325884039_vbp,0.34833675773694_vbp,1.0_vbp  /), &
+  real(wp), parameter, dimension(1:3,1:5) :: &
+    alfa = reshape( (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
+                       0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
+                       0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
+                       0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
+                       0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
                     (/3,5/) )
   !
-  real(vbp), parameter, dimension(1:5) :: gama = (/ 0.00000000000000_vbp, &
-                                                    0.51723167208978_vbp, &
-                                                    0.12759831133288_vbp, &
-                                                    0.00000000000000_vbp, &
-                                                    0.00000000000000_vbp  /)
+  real(wp), parameter, dimension(1:5) :: gama = (/ 0.00000000000000_wp, &
+                                                    0.51723167208978_wp, &
+                                                    0.12759831133288_wp, &
+                                                    0.00000000000000_wp, &
+                                                    0.00000000000000_wp  /)
   !
 continue
   !
@@ -910,7 +1245,7 @@ continue
     !
     usp(:,n) = alfa(1,nst)* uoldsp(:,n) + &
                alfa(2,nst)*    usp(:,n) + &
-               alfa(3,nst)*usp_sum(:,n) + d_t*rssprk(:,n,1)
+               alfa(3,nst)*usp_sum(:,n) + dtsp(n)*rssprk(:,n,1)
     !
     usp_sum(:,n) = usp_sum(:,n) + gama(nst)*usp(:,n)
     !
@@ -939,7 +1274,7 @@ subroutine filter_usp
   integer :: n,n1,n2,np,m,w1
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:n_sp2dq) :: var
+  real(wp), dimension(1:n_sp2dq) :: var
   !
 continue
   !
@@ -1130,8 +1465,8 @@ continue
       !
       where (abs(ett(:,:)) > error(:,:,3))
         error(:,:,3) = abs(ett(:,:))
-        error(:,:,4) = real(cell_map(nc1+n),vbp)
-        error(:,:,5) = real(k,vbp)
+        error(:,:,4) = real(cell_map(nc1+n),kind=wp)
+        error(:,:,5) = real(k,kind=wp)
       end where
       !
     end do
@@ -1206,25 +1541,25 @@ subroutine compute_final_vortex_error()
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
-  real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
-  real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: sn,se
-  real(vbp) :: my_volume,error_volume
+  real(wp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
+  real(wp) :: delx,dely,xoffset,yoffset
+  real(wp) :: sn,se
+  real(wp) :: my_volume,error_volume
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr) :: cell_center
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_g
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_l
+  real(wp), dimension(1:nr) :: cell_center
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyz_g
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyz_l
   !
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vge
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vle
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vge
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vle
   !
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vgn
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vln
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vgn
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vln
   !
-  real(vbp), dimension(1:neqns+1,1:2) :: ett
-  real(vbp), dimension(1:neqns+1,1:2,1:5) :: error
-  real(vbp), dimension(1:neqns+1,1:2,1:5,1:ncpu) :: all_error
+  real(wp), dimension(1:neqns+1,1:2) :: ett
+  real(wp), dimension(1:neqns+1,1:2,1:5) :: error
+  real(wp), dimension(1:neqns+1,1:2,1:5,1:ncpu) :: all_error
   !
 continue
   !
@@ -1263,7 +1598,7 @@ continue
     xyz_l(:,1:np) = xyz_lobatto(:,n1:n2)
     !
     if (bound_error) then
-      cell_center(:) = sum(xyz_g(:,1:np),dim=2)/real(np,vbp)
+      cell_center(:) = sum(xyz_g(:,1:np),dim=2)/real(np,kind=wp)
       cell_center(1) = cell_center(1) - &
                        merge(delx,delx-Grid_Length_X,cell_center(1)-delx >= Grid_Min_X)
       cell_center(2) = cell_center(2) - &
@@ -1363,8 +1698,8 @@ continue
         !
         where (abs(ett(:,:)) > error(:,:,3))
           error(:,:,3) = abs(ett(:,:))
-          error(:,:,4) = real(cell_map(nc1+n),vbp)
-          error(:,:,5) = real(k,vbp)
+          error(:,:,4) = real(cell_map(nc1+n),kind=wp)
+          error(:,:,5) = real(k,kind=wp)
         end where
         !
       end do
@@ -1448,26 +1783,26 @@ subroutine compute_final_advec_error()
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,np,k,l,w1,m,nc1
-  real(vbp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
-  real(vbp) :: delx,dely,xoffset,yoffset
-  real(vbp) :: sn,se
+  real(wp) :: rho_ratio,pres_ratio,c1,wg,wr,wl
+  real(wp) :: delx,dely,xoffset,yoffset
+  real(wp) :: sn,se
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_r
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_g
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyz_l
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyz_r
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyz_g
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyz_l
   !
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vre
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vge
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vle
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vre
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vge
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vle
   !
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vrn
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vgn
-  real(vbp), dimension(1:neqns,1:n_sp2dq) :: vln
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vrn
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vgn
+  real(wp), dimension(1:neqns,1:n_sp2dq) :: vln
   !
-  real(vbp), dimension(1:3,1:3) :: ett
-  real(vbp), dimension(1:3,1:3,1:5) :: error
-  real(vbp), dimension(1:3,1:3,1:5,1:ncpu) :: all_error
+  real(wp), dimension(1:3,1:3) :: ett
+  real(wp), dimension(1:3,1:3,1:5) :: error
+  real(wp), dimension(1:3,1:3,1:5,1:ncpu) :: all_error
   !
 continue
   !
@@ -1622,8 +1957,8 @@ continue
       !
       where (abs(ett(:,:)) > error(:,:,3))
         error(:,:,3) = abs(ett(:,:))
-        error(:,:,4) = real(cell_map(nc1+n),vbp)
-        error(:,:,5) = real(k,vbp)
+        error(:,:,4) = real(cell_map(nc1+n),kind=wp)
+        error(:,:,5) = real(k,kind=wp)
       end where
       !
     end do
@@ -1689,12 +2024,12 @@ subroutine test_error()
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,np,k,l
-  real(vbp) :: ett,wg,wr,wl,j,e
+  real(wp) :: ett,wg,wr,wl,j,e
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:3,1:2) :: error
-  real(vbp), dimension(1:3,1:4) :: final_error
-  real(vbp), dimension(1:3,1:2,1:ncpu) :: all_error
+  real(wp), dimension(1:3,1:2) :: error
+  real(wp), dimension(1:3,1:4) :: final_error
+  real(wp), dimension(1:3,1:2,1:ncpu) :: all_error
   !
 continue
   !
@@ -1812,14 +2147,14 @@ subroutine rgeterr()
   !.. Local Scalars ..
   integer   :: n,n1,n2,k,w1,nc1
   integer   :: hrs_left,min_left,sec_left
-  real(vbp) :: rho_ratio,pres_ratio,c1,sn,se
-  real(vbp) :: next_time_est
-  real(vbp) :: wall_time_last
+  real(wp) :: rho_ratio,pres_ratio,c1,sn,se
+  real(wp) :: next_time_est
+  real(wp) :: wall_time_last
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2) :: ett
-  real(vbp), dimension(1:2,1:7) :: error
-  real(vbp), dimension(1:2,1:7,1:ncpu) :: all_error
+  real(wp), dimension(1:2) :: ett
+  real(wp), dimension(1:2,1:7) :: error
+  real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
   !
   ! error(:,1) = L1 norm of total error for all solution points
   ! error(:,2) = L2 norm of total error for all solution points
@@ -1873,8 +2208,8 @@ continue
       !
       where (abs(ett(:)) > error(:,3))
         error(:,3) = abs(ett)
-        error(:,4) = real(cell_map(nc1+n),vbp)
-        error(:,5) = real(k-n1+1,vbp)
+        error(:,4) = real(cell_map(nc1+n),kind=wp)
+        error(:,5) = real(k-n1+1,kind=wp)
         error(:,6) = xyz(1,k)
         error(:,7) = xyz(2,k)
       end where
@@ -1969,11 +2304,11 @@ subroutine getmaxent
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,k,w1,nc1
-  real(vbp) :: rho_ratio,pres_ratio,ett,c1,sn,se
+  real(wp) :: rho_ratio,pres_ratio,ett,c1,sn,se
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:6) :: error
-  real(vbp), dimension(1:6,1:ncpu) :: all_error
+  real(wp), dimension(1:6) :: error
+  real(wp), dimension(1:6,1:ncpu) :: all_error
   !
 continue
   !
@@ -2007,8 +2342,8 @@ continue
       !
       if (abs(ett) > error(2)) then
         error(2) = abs(ett)
-        error(3) = real(cell_map(nc1+n),vbp)
-        error(4) = real(k-n1+1,vbp)
+        error(3) = real(cell_map(nc1+n),kind=wp)
+        error(4) = real(k-n1+1,kind=wp)
         error(5) = xyz(1,k)
         error(6) = xyz(2,k)
       end if
@@ -2063,16 +2398,16 @@ subroutine getbc
   !.. Local Scalars ..
   integer   :: gc,g1,g2,gp,gw,gkb,gk,k,p1,p2,ip1,nf
   integer   :: hc,h1,h2,hp,hw,hkb,hk,m,n1,n2,ip2,kg
-  real(vbp) :: ai,ao,vni,vno,rp,rm,uc,ac,vti,vto
-  real(vbp) :: u,v,ut,un,gm1,mach,utc,unc,sc
+  real(wp) :: ai,ao,vni,vno,rp,rm,uc,ac,vti,vto
+  real(wp) :: u,v,ut,un,gm1,mach,utc,unc,sc
   character(len=8) :: flow
   character(len=6) :: side
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr) :: rnrm
-  real(vbp), dimension(1:nr) :: rtan
-  real(vbp), dimension(1:neqns) :: varh
-  real(vbp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:nr) :: rnrm
+  real(wp), dimension(1:nr) :: rtan
+  real(wp), dimension(1:neqns) :: varh
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
   real(wp), dimension(1:n_sp2dq,1:4*n_fp1de,1:2) :: interp_mat
   !
 continue

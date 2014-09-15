@@ -36,7 +36,7 @@ module module_bc
   ! wall_solution_location = 0 : u_wall = u_exact
   ! wall_solution_location = 1 : u_exact = 1/2 * (u_int + u_wall)
   !
-  real(wp), parameter :: wall_solution_location = zero
+ !real(wp), parameter :: wall_solution_location = zero
  !real(wp), parameter :: wall_solution_location = one
   !
   !
@@ -83,6 +83,8 @@ subroutine get_faceusp_bc
   use geovar,  only : bface,nfbnd
   use metvar,  only : geofa
   use flowvar, only : faceusp
+  !
+  use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
   integer  :: nf,pf
@@ -210,6 +212,12 @@ continue
     !
   end do
   !
+  ! Now that we have finished getting the boundary conditions local to
+  ! this cell, make sure that the communication of faceusp between
+  ! processors has completed before continuing onwards.
+  !
+  if (ncpu > 1) call wait_faceusp(faceusp)
+  !
   ! Format Statements
   !
   1 format (/," ********************* ERROR! **********************",/, &
@@ -232,11 +240,15 @@ subroutine get_facedusp_bc
   !
   !.. Use Statements ..
   use geovar,  only : bface,nfbnd
-  use metvar,  only : geofa
-  use flowvar, only : facedusp
+  use flowvar, only : faceusp,facedusp
   !
   !.. Local Scalars ..
   integer  :: nf,pf
+  !
+  !.. Local Parameters ..
+  integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
+                                                 bc_unknown, &
+                                                 not_a_bc ]
   !
 continue
   !
@@ -248,57 +260,52 @@ continue
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
-    select case (bface(1,nf))
+    if (any(bface(1,nf) == bc_walls)) then
       !
-     !case (bc_flowthrough)
+      ! Wall boundary condition
+      !
+      if (bface(1,nf) == bc_adiabatic_wall) then
         !
-        ! General flow-through boundary conditions
+        ! No-slip adiabatic wall boundary conditions
         !
-       !call get_bc_flowthrough_gradient(facedusp(:,:,:,1,nf), &
-       !                                 facedusp(:,:,:,2,nf))
+        call get_bc_adiabatic_wall_gradient(faceusp(:,:,1,nf), &
+                                            facedusp(:,:,:,1,nf), &
+                                            facedusp(:,:,:,2,nf))
         !
-      case (bc_slip_wall,bc_symmetry)
+      else
         !
-        ! Slip wall / symmetry boundary condition
+        ! Non-adiabatic wall boundary condition
         !
-       !call get_bc_slip_wall_gradient(facedusp(:,:,:,1,nf), &
-       !                               facedusp(:,:,:,2,nf))
+        call get_bc_wall_gradient(faceusp(:,:,1,nf), &
+                                  facedusp(:,:,:,1,nf), &
+                                  facedusp(:,:,:,2,nf))
         !
-      case (bc_adiabatic_wall)
-        !
-        ! No-slip adiabatic wall
-        !
-       !call get_bc_adiabatic_wall_gradient(facedusp(:,:,:,1,nf), &
-       !                                    facedusp(:,:,:,2,nf))
-        !
-      case (bc_isothermal_wall)
-        !
-        ! No-slip isothermal wall
-        !
-       !call get_bc_isothermal_wall_gradient(facedusp(:,:,:,1,nf), &
-       !                                     facedusp(:,:,:,2,nf))
-        !
-      case (bc_periodic)
-        !
-        ! Periodic boundary condition
-        !
-        pf = bface(5,nf) ! index of connecting periodic boundary face
-        !
-       !call get_bc_periodic_gradient(facedusp(:,:,:,1,pf), &
-       !                              facedusp(:,:,:,2,nf))
-        !
-      case (bc_cpu_bnd)
-        !
-        ! We dont need to do anything here for communication boundaries
-        !
-      case default
-        !
-        ! This shouldn't be here and is an unknown boundary condition
-        !
-        write (iout,1) bface(1,nf)
-        call stop_recon(abort,"get_facedusp_bc")
-        !
-    end select
+      end if
+      !
+    else if (bface(1,nf) == bc_periodic) then
+      !
+      ! Periodic boundary condition
+      !
+      pf = bface(5,nf) ! index of connecting periodic boundary face
+      !
+      call get_bc_flowthrough_gradient(facedusp(:,:,:,1,pf), &
+                                       facedusp(:,:,:,2,nf))
+      !
+    else if (all(bface(1,nf) /= local_bc_ignore)) then
+      !
+      ! General flow-through boundary conditions
+      !
+      call get_bc_flowthrough_gradient(facedusp(:,:,:,1,nf), &
+                                       facedusp(:,:,:,2,nf))
+      !
+   !else
+   !  !
+   !  ! This shouldn't be here and is an unknown boundary condition
+   !  !
+   !  write (iout,1) bface(1,nf)
+   !  call stop_recon(abort,"get_facedusp_bc")
+   !  !
+    end if
     !
   end do
   !
@@ -1022,6 +1029,7 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Use Statements ..
+  use ovar,        only : walls_are_exact
   use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
@@ -1031,7 +1039,7 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   !
   !.. Local Scalars ..
   integer :: nq,k
-  real(wp) :: vn
+  real(wp) :: vn,wall_solution_location
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
@@ -1040,6 +1048,8 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
 continue
   !
   nq = size(gufp,dim=1)
+  !
+  wall_solution_location = merge(zero,one,walls_are_exact)
   !
   do k = 1,size(gufp,dim=2)
     !
@@ -1087,6 +1097,7 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Use Statements ..
+  use ovar,        only : walls_are_exact
   use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
@@ -1095,6 +1106,7 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   !
   !.. Local Scalars ..
   integer :: nq,k
+  real(wp) :: wall_solution_location
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
@@ -1102,6 +1114,8 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
 continue
   !
   nq = size(gufp,dim=1)
+  !
+  wall_solution_location = merge(zero,one,walls_are_exact)
   !
   do k = 1,size(gufp,dim=2)
     !
@@ -1140,6 +1154,7 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   !
   !.. Use Statements ..
   use ovar,        only : iso_wall_temp,tref,rgasref_nd
+  use ovar,        only : walls_are_exact
   use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
@@ -1148,7 +1163,7 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   !
   !.. Local Scalars ..
   integer :: nq,k
-  real(wp) :: iso_wall_temp_nd
+  real(wp) :: iso_wall_temp_nd,wall_solution_location
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
@@ -1158,6 +1173,8 @@ continue
   nq = size(gufp,dim=1)
   !
   iso_wall_temp_nd = iso_wall_temp / tref
+  !
+  wall_solution_location = merge(zero,one,walls_are_exact)
   !
   do k = 1,size(gufp,dim=2)
     !
@@ -1272,86 +1289,7 @@ end subroutine get_bc_flowthrough_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_slip_wall_gradient(hufp,gufp,fnrm)
-  !
-  ! #####################################################
-  ! #####################################################
-  ! ##  Slip wall / symmetry boundary condition
-  ! #####################################################
-  ! #####################################################
-  !
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use generic_mod, only : usp2v_sp,vsp2u_sp
-  !
-  !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
-  !
-  !.. Local Scalars ..
-  integer :: nq,k
-  real(wp) :: vn
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
-  !
-  ! WALL_VELOCITY_FACTOR : Factor to determine what velocity to
-  !                        compute for the wall boundary condition.
-  !
-  ! with u_int   being the interior velocity at the wall flux point
-  !  and u_wall  being the boundary velocity at the wall flux point
-  !  and u_exact being the exact, tangent-only velocity at the wall flux point,
-  !
-  ! wall_velocity_factor = 1 : u_wall = u_exact
-  ! wall_velocity_factor = 2 : u_exact = 1/2 * (u_int + u_wall)
-  !
- !real(wp), parameter :: wall_velocity_factor = one
-  real(wp), parameter :: wall_velocity_factor = two
-  !
-continue
-  !
-  nq = size(gufp,dim=1)
-  !
-  do k = 1,size(gufp,dim=2)
-    !
-    ! Unit normal at this flux point
-    !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Get the interior primitive variables
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the normal velocity at this boundary flux point
-    !
-    vn = dot_product( hvfp(2:nq-1) , rnrm )
-    !
-    ! For velocities, subtract (wall_velocity_factor) * (the wall
-    ! normal velocity) from the interior velocity to get the wall
-    ! boundary velocity.
-    !
-    hvfp(2:nq-1) = hvfp(2:nq-1) - wall_velocity_factor*vn*rnrm(:)
-    !
-    ! Convert the primitive variables to conservative.
-    ! This ensures that the interior density and pressure are
-    ! extrapolated to the boundary and the total energy at the
-    ! boundary is consistent with these two states and the
-    ! computed boundary velocity.
-    !
-    gufp(:,k) = vsp2u_sp( hvfp(:) )
-    !
-  end do
-  !
-end subroutine get_bc_slip_wall_gradient
-!
-!###############################################################################
-!
-subroutine get_bc_adiabatic_wall_gradient(hdufp,gdufp)
+subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
   !
   ! #####################################################
   ! #####################################################
@@ -1359,160 +1297,173 @@ subroutine get_bc_adiabatic_wall_gradient(hdufp,gdufp)
   ! #####################################################
   ! #####################################################
   !
+  ! HUFP  : Conservative variables at the host cell flux points
   ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
-  !.. Use Statements ..
-  use generic_mod, only : usp2v_sp,vsp2u_sp
-  !
   !.. Formal Arguments ..
+  real(wp), dimension(:,:),      intent(in) :: hufp
   real(wp), dimension(:,:,:),    intent(in) :: hdufp
   real(wp), dimension(:,:,:), intent(inout) :: gdufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(gdufp,dim=1)) :: hvfp
+  integer :: nr,nq,k,m,l
+  real(wp) :: rho_inv,vel
+ !real(wp) :: rho_inv2,vel_over_rho
   !
 continue
   !
- !nr = size(gdufp,dim=1)
+  nr = size(gdufp,dim=1)
   nq = size(gdufp,dim=2)
   !
   do k = 1,size(gdufp,dim=3)
+    !
+    ! Copy over the density gradients
+    !
+    gdufp(1:nr,1,k) = hdufp(1:nr,1,k)
+    !
+    ! Convert the momentum gradients to velocity gradients
+    !
+    rho_inv = one/hufp(1,k)
+    !
+    do m = 2,nq-1
+      vel = rho_inv * hufp(m,k)
+      do l = 1,nr
+        gdufp(l,m,k) = hdufp(l,m,k) - vel*hdufp(l,1,k)
+        gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
+      end do
+    end do
+    !
+    ! Another algorithm to compute the velocity gradients. Unsure if
+    ! performing the above subtraction step first before multiplying
+    ! through by rho_inv could cause any precision errors.
+    !
+   !rho_inv = one/hufp(1,k)
+   !rho_inv2 = rho_inv*rho_inv
    !!
-   !! Get the interior primitive variables
-   !!
-   !hvfp(:) = usp2v_sp( hufp(:,k) )
-   !!
-   !! Apply the no-slip condition to the boundary velocities
-   !!
-   !hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_velocity_factor
-   !!
-   !! Convert the primitive variables to conservative.
-   !! This ensures that the interior density and pressure are
-   !! extrapolated to the boundary and the total energy at the
-   !! boundary is consistent with these two states and the
-   !! computed boundary velocity.
-   !!
-   !gufp(:,k) = vsp2u_sp( hvfp(:) )
-   !!
+   !do m = 2,nq-1
+   !  vel_over_rho = rho_inv2 * hufp(m,k)
+   !  do l = 1,nr
+   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - vel_over_rho*hdufp(l,1,k)
+   !  end do
+   !end do
+    !
+    ! Finally, since this is an adiabatic wall boundary,
+    ! set the temperature gradients to zero.
+    !
+    gdufp(1:nr,nq,k) = zero
+    !
   end do
   !
 end subroutine get_bc_adiabatic_wall_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_isothermal_wall_gradient(hufp,gufp)
+subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
   !
   ! #####################################################
   ! #####################################################
-  ! ##  No-slip isothermal wall
+  ! ##  Non-adiabatic wall
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
+  ! HUFP  : Conservative variables at the host cell flux points
+  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
+  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Use Statements ..
-  use ovar,        only : iso_wall_temp,tref,rgasref_nd
-  use generic_mod, only : usp2v_sp,vsp2u_sp
+  use ovar, only : gam,rgasref_nd
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp), dimension(:,:),      intent(in) :: hufp
+  real(wp), dimension(:,:,:),    intent(in) :: hdufp
+  real(wp), dimension(:,:,:), intent(inout) :: gdufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
-  real(wp) :: iso_wall_temp_nd
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
-  !
-  !
-  ! WALL_VELOCITY_FACTOR : Factor to determine what velocity to
-  !                        compute for the wall boundary condition.
-  !
-  ! with u_int   being the interior velocity at the wall flux point
-  !  and u_wall  being the boundary velocity at the wall flux point
-  !  and u_exact being the exact, no-slip velocity at the wall flux point,
-  !
-  ! wall_velocity_factor = 0 : u_wall = u_exact
-  ! wall_velocity_factor = 1 : u_exact = 1/2 * (u_int + u_wall)
-  !
- !real(wp), parameter :: wall_velocity_factor = zero
-  real(wp), parameter :: wall_velocity_factor = one
+  integer :: np,nr,nq,k,m,l
+  real(wp) :: rho_inv,vel,pvar,cv_inv
+ !real(wp) :: rho_inv2,pvar_over_rho
   !
 continue
   !
-  nq = size(gufp,dim=1)
+  nr = size(gdufp,dim=1)
+  nq = size(gdufp,dim=2)
+  np = size(gdufp,dim=3)
   !
-  iso_wall_temp_nd = iso_wall_temp / tref
+  ! Precompute the inverse of specific heat at constant volume
   !
-  do k = 1,size(gufp,dim=2)
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  do k = 1,np
+    do l = 1,nr
+      gdufp(l,1,k) = hdufp(l,1,k)
+    end do
+  end do
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  do k = 1,np
     !
-    ! Get the interior primitive variables
+    ! Compute the inverse of density
     !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
+    rho_inv = one/hufp(1,k)
     !
-    ! Apply the no-slip condition to the boundary velocities
+    ! Using the chain rule:
     !
-    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_velocity_factor
+    ! 1. Compute the velocity gradients (m = 2,neqns-1)
+    ! 2. Compute the total energy gradient and store in the
+    !    location for the temperature gradient (m = neqns)
     !
-    ! Keeping the wall pressure constant, compute the wall
-    ! density using the isothermal wall temperature.
+    do m = 2,nq
+      pvar = rho_inv * hufp(m,k)
+      do l = 1,nr
+        gdufp(l,m,k) = hdufp(l,m,k) - pvar*hdufp(l,1,k)
+        gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
+      end do
+    end do
+   !!
+   !! Another algorithm to compute the velocity gradients. Unsure if
+   !! performing the above subtraction step first before multiplying
+   !! through by rho_inv could cause any precision errors.
+   !!
+   !rho_inv = one/hufp(1,k)
+   !rho_inv2 = rho_inv*rho_inv
+   !!
+   !do m = 2,nq
+   !  pvar_over_rho = rho_inv2 * hufp(m,k)
+   !  do l = 1,nr
+   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - pvar_over_rho*hdufp(l,1,k)
+   !  end do
+   !end do
     !
-    hvfp(1) = hvfp(nq) / rgasref_nd / iso_wall_temp_nd
+    ! The location for the temperature gradient currently contains
+    ! the total energy gradient from the previous loop.
+    ! Now use the velocity gradients to subtract the gradient of
+    ! kinetic-energy-per-unit-mass from the total energy gradient.
+    ! 
+    do m = 2,nq-1
+      vel = rho_inv * hufp(m,k)
+      do l = 1,nr
+        gdufp(l,nq,k) = gdufp(l,nq,k) - vel * gdufp(l,m,k)
+      end do
+    end do
     !
-    ! Convert the primitive variables to conservative.
-    ! This ensures that the total energy at the boundary is
-    ! consistent with the extrapolated internal pressure, the
-    ! isothermal wall temperature, and the computed boundary
-    ! velocity.
+    ! Finish computing the temperature gradient by dividing through by
+    ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
     !
-    gufp(:,k) = vsp2u_sp( hvfp(:) )
+    gdufp(1:nr,nq,k) = gdufp(1:nr,nq,k) * cv_inv
     !
   end do
   !
-end subroutine get_bc_isothermal_wall_gradient
-!
-!###############################################################################
-!
-subroutine get_bc_periodic_gradient(pufp,gufp)
-  !
-  ! #####################################################
-  ! #####################################################
-  ! ##  Periodic boundary condition
-  ! #####################################################
-  ! #####################################################
-  !
-  ! PUFP : Conservative variables at the periodic cell flux points
-  ! GUFP : Conservative variables at the ghost    cell flux points
-  !
-  !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(inout) :: pufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
-  !
-  !.. Local Scalars ..
-  integer :: k
-  !
-continue
-  !
-  do k = 1,size(gufp,dim=2)
-    !
-    ! The conservative variables at this boundary flux point correspond
-    ! to the conservative variables at the interior boundary flux points
-    ! within the matching periodic cell. Therefore just copy these
-    ! values over.
-    ! NOTE: We may need to reverse the copy order, i.e., 
-    !          gufp(:,k) = pufp(:,size(gufp,dim=2)+1-k)
-    !
-    gufp(:,k) = pufp(:,k)
-    !
-  end do
-  !
-end subroutine get_bc_periodic_gradient
+end subroutine get_bc_wall_gradient
 !
 !###############################################################################
 !

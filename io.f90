@@ -2,6 +2,11 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
+  use ovar, only : grid_format
+  use ovar, only : gridfile
+  use ovar, only : output_dir
+  use ovar, only : plot3d_cutfile
+  use ovar, only : plot3d_bcsfile
   !
   implicit none
   !
@@ -28,6 +33,7 @@ module io_mod
   public :: write_advec_results_file
   public :: write_vortex_results_file
   public :: write_tecplot_partitions
+  public :: create_output_arrays
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -45,6 +51,12 @@ module io_mod
   integer, parameter :: gambit_neutral = 2
   integer, parameter :: gmsh_file = 3
   !
+  ! Plot3D grid formats
+  !
+  integer, parameter :: plot2d_file = 4
+  integer, parameter :: plot3d_file = 5
+  integer, parameter :: plot3d_formats(1:2) = [ plot2d_file, plot3d_file ]
+  !
   character(len=11), parameter :: clas_rk(1:4) = ["RK1-Classic","RK2-Classic", &
                                                   "RK3-Classic","RK4-Classic"]
   character(len=11), parameter :: char_rk(1:5) = ["           ", &
@@ -53,21 +65,26 @@ module io_mod
   character(len=3), parameter :: char_init(-1:2) = ["iRa","iSP","iGa","iLo"]
   !
 #ifdef DCGNS_ADF
+  integer, parameter :: file_type = CG_FILE_ADF
+#elif DCGNS_ADF2
   integer, parameter :: file_type = CG_FILE_ADF2
 #else
   integer, parameter :: file_type = CG_FILE_HDF5
 #endif
   !
   logical, parameter :: check_gradients = fals
+ !logical, parameter :: check_gradients = true
   !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
   !
   !.. Input Variables ..
-  integer,            public, save :: grid_format = gambit_neutral
-  character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
-  character(len=150), public, save :: output_dir = "."
+ !integer,            public, save :: grid_format = gambit_neutral
+ !character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
+ !character(len=150), public, save :: output_dir = "."
+ !character(len=150), public, save :: plot3d_cutfile = ""
+ !character(len=150), public, save :: plot3d_bcsfile = ""
   !
   !.. Output File Names ..
   character(len=170), public, save :: fname_nodal = "solution.nodal.cgns"
@@ -176,22 +193,25 @@ subroutine read_nml_input_file
   use ovar,   only : itestcase,num_stages,irestart, &
                      flux_divergence,iop_correction, &
                      num_ts,cfl,dt_in,gam,output_solution, &
-                     output_interval,restart_interval, &
-                     results_interval,flux_method,dflux_opt, &
+                     output_interval,restart_interval,dflux_opt, &
+                     results_interval,invs_flux_method,visc_flux_method, &
                      iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
                      Final_Time,Total_Periods,all_points, &
-                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
+                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts,iop_outpts, &
                      Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha,Filter_etac, &
                      rhoref,tref,pref,machref,aoaref, &
-                     vxref,vyref,aref,uref,rgasref, &
+                     vxref,vyref,aref,uref,rgasref,reyref, &
                      metis_option,init_loc,error_loc, &
                      Period_Timesteps,Period_Time,iter_out_interval, &
                      suth_muref,suth_Tref,suth_Sref,Pr,Prt
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
   use ovar,   only : vortex_bigR,vortex_bigGam
- !use ovar,   only : input
+  use ovar,   only : Timestep_Type
+  use ovar,   only : output_plot3d_to_tecplot
+  use ovar,   only : walls_are_exact
+  use ovar,   only : input
   !
   !.. Local Scalars ..
   integer   :: it1,it2,ierr,ival
@@ -203,43 +223,49 @@ subroutine read_nml_input_file
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
   !
-  !.. Input Namelist ..
-  ! GRID INFORMATION
-  namelist / input / grid_format, gridfile
-  ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, &
-                     flux_divergence, iop_correction
-  ! SOLVER OPTIONS
-  namelist / input / iRKtype, num_stages, flux_method
-  ! TIME STEPPING INFORMATION
-  namelist / input / num_ts, Final_Time, cfl, dt_in
-  ! OVER-INTEGRATION OPTIONS
-  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
-  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
-  namelist / input / all_orders, all_points
-  ! PARALLEL OPTIONS
-  namelist / input / metis_option
-  ! INITIALIZATION / TEST CASE
-  namelist / input / itestcase
-  ! RESTART OPTIONS
-  namelist / input / irestart, restart_interval
-  ! OUTPUT OPTIONS
-  namelist / input / output_dir, iter_out_interval, output_solution, &
-                     output_interval, results_interval, o_order
-  ! REFERENCE CONDITIONS
-  namelist / input / rhoref, tref, pref, machref, aoaref, gam, rgasref
-  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
-  namelist / input / Pr, Prt
-  ! SUTHERLANDS LAW COEFFICIENTS
-  namelist / input / suth_muref, suth_Tref, suth_Sref
-  ! FILTER OPTIONS
-  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
-  ! BOUNDING ERROR OPTIONS
-  namelist / input / bound_error, error_bound_limit
-  ! INITIALIZATION/ERROR LOCATIONS
-  namelist / input / init_loc, error_loc
-  ! VORTEX CONSTANTS
-  namelist / input / vortex_bigR, vortex_bigGam
+ !!.. Input Namelist ..
+ !! GRID INFORMATION
+ !namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+ !! BASE FR OPTIONS
+ !namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, iop_outpts, &
+ !                   flux_divergence, iop_correction
+ !! SOLVER OPTIONS
+ !namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
+ !! TIME STEPPING INFORMATION
+ !namelist / input / num_ts, Final_Time, cfl, dt_in, Timestep_Type
+ !! OVER-INTEGRATION OPTIONS
+ !namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+ !! FORCE GLOBAL ORDER AND SOLUTION POINTS
+ !namelist / input / all_orders, all_points
+ !! PARALLEL OPTIONS
+ !namelist / input / metis_option
+ !! INITIALIZATION / TEST CASE
+ !namelist / input / itestcase
+ !! RESTART OPTIONS
+ !namelist / input / irestart, restart_interval
+ !! OUTPUT OPTIONS
+ !namelist / input / output_dir, iter_out_interval, output_solution, &
+ !                   output_interval, results_interval, o_order
+ !! NONDIMENSIONAL REFERENCE CONDITIONS
+ !namelist / input / machref, reyref, gam
+ !! REFERENCE CONDITIONS
+ !namelist / input / rhoref, tref, pref, aoaref, rgasref
+ !! LAMINAR AND TURBULENT PRANDTL NUMBERS
+ !namelist / input / Pr, Prt
+ !! SUTHERLANDS LAW COEFFICIENTS
+ !namelist / input / suth_muref, suth_Tref, suth_Sref
+ !! FILTER OPTIONS
+ !namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+ !! BOUNDING ERROR OPTIONS
+ !namelist / input / bound_error, error_bound_limit
+ !! INITIALIZATION/ERROR LOCATIONS
+ !namelist / input / init_loc, error_loc
+ !! VORTEX CONSTANTS
+ !namelist / input / vortex_bigR, vortex_bigGam
+ !! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+ !namelist / input / output_plot3d_to_tecplot
+ !! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
+ !namelist / input / walls_are_exact
   !
 continue
   !
@@ -291,6 +317,11 @@ continue
     iop_solpts = all_points
     iop_flxpts = all_points
     iop_qdtpts = all_points
+  end if
+  !
+  if (iop_solpts /= iop_flxpts) then
+    if (mypnum == 0) write (iout,101)
+    call stop_recon(stop_mpi,"read_nml_input_file")
   end if
   !
   ! Adjust the solution order and compute the number
@@ -488,7 +519,9 @@ continue
     !
   else
     !
-    num_ts = nint( Final_Time / dt_in )
+    if (Final_Time > zero) then
+      num_ts = nint( Final_Time / dt_in )
+    end if
     !
   end if
   !
@@ -557,7 +590,7 @@ continue
    !write (iout,1) trim(input_text(5))
    !write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
    !write (iout,1) trim(input_text(6))
-   !write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method, iter_out_interval
+   !write (iout,54) num_ts, Final_Time, cfl, dt_in, invs_flux_method, iter_out_interval
    !write (iout,1) trim(input_text(7))
    !write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
    !                Filter_Order, Filter_Alpha
@@ -611,6 +644,14 @@ continue
               "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
               "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
               " ********************* WARNING!!! *********************",/)
+  101 format (/, &
+     "***************************** ERROR *****************************",/, &
+     "   THE REQUESTED LOCATIONS FOR SOLUTION POINTS AND FLUX POINTS",/, &
+     "   DO NOT MATCH. CURRENTLY, THE PROCEDURES USED TO CREATE THE",/, &
+     "   CORRECTION MATRICES ASSUMES THESE TWO POINTS LOCATIONS ARE",/, &
+     "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
+     "   TO ALLOW FOR THIS CAPABILITY.",/, &
+     "***************************** ERROR *****************************",/)
   !
 end subroutine read_nml_input_file
 !
@@ -648,7 +689,7 @@ subroutine read_old_input_file
                      flux_divergence,iop_correction, &
                      num_ts,cfl,dt_in,gam,output_solution, &
                      output_interval,restart_interval, &
-                     results_interval,flux_method,dflux_opt, &
+                     results_interval,invs_flux_method,dflux_opt, &
                      iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
                      Final_Time,Total_Periods, &
                      iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
@@ -679,7 +720,7 @@ subroutine read_old_input_file
   namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, &
                      flux_divergence, iop_correction
   ! SOLVER OPTIONS
-  namelist / input / iRKtype, num_stages, flux_method
+  namelist / input / iRKtype, num_stages, invs_flux_method
   ! TIME STEPPING INFORMATION
   namelist / input / num_ts, Final_Time, cfl, dt_in
   ! OVER-INTEGRATION OPTIONS
@@ -735,6 +776,11 @@ continue
   !
   read (inpt,1) input_text(3)
   read (inpt,*) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
+  !
+  if (iop_solpts /= iop_flxpts) then
+    if (mypnum == 0) write (iout,101)
+    call stop_recon(stop_mpi,"read_old_input_file")
+  end if
   !
   n_order = max(p_order,n_order)
   n_sp1de = n_order + 1
@@ -792,7 +838,7 @@ continue
   ! Read the time step information and the method for computing the interface fluxes
   !
   read (inpt,1) input_text(6)
-  read (inpt,*) num_ts, Final_Time, cfl, dt_in, flux_method, iter_out_interval
+  read (inpt,*) num_ts, Final_Time, cfl, dt_in, invs_flux_method, iter_out_interval
   !
   ! Read the filter options
   !
@@ -1015,7 +1061,8 @@ continue
     write (iout,1) trim(input_text(5))
     write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
     write (iout,1) trim(input_text(6))
-    write (iout,54) num_ts, Final_Time, cfl, dt_in, flux_method, iter_out_interval
+    write (iout,54) num_ts, Final_Time, cfl, dt_in, &
+                    invs_flux_method, iter_out_interval
     write (iout,1) trim(input_text(7))
     write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
                     Filter_Order, Filter_Alpha
@@ -1063,6 +1110,14 @@ continue
               "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
               "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
               " ********************* WARNING!!! *********************",/)
+  101 format (/, &
+     "***************************** ERROR *****************************",/, &
+     "   THE REQUESTED LOCATIONS FOR SOLUTION POINTS AND FLUX POINTS",/, &
+     "   DO NOT MATCH. CURRENTLY, THE PROCEDURES USED TO CREATE THE",/, &
+     "   CORRECTION MATRICES ASSUMES THESE TWO POINTS LOCATIONS ARE",/, &
+     "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
+     "   TO ALLOW FOR THIS CAPABILITY.",/, &
+     "***************************** ERROR *****************************",/)
   !
 end subroutine read_old_input_file
 !
@@ -1194,20 +1249,41 @@ end subroutine check_output_dir
 subroutine initialize_viscosity
   !
   use ovar, only : muref, muref_nd, reyref
-  use ovar, only : pv_in, rhoref, aref, machref
+  use ovar, only : pv_in, rhoref, aref, machref, tref
   use ovar, only : suth_muref, suth_c1
   use ovar, only : suth_Tref, suth_Sref
   !
   use generic_mod, only : viscosity_pv_sp
   !
+  !.. Local Scalars ..
+  real(wp) :: muref_scale,tref_scale
+  !
 continue
   !
-  suth_c1 = suth_muref * (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+  muref_scale = (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
   !
-  muref_nd = viscosity_pv_sp(pv_in)
-  muref    = muref_nd * rhoref * aref
-  !
-  reyref = rhoref * machref * aref / muref
+  if (reyref <= zero) then
+    !
+    suth_c1 = suth_muref * muref_scale
+    !
+    muref_nd = viscosity_pv_sp(pv_in)
+    muref    = muref_nd * rhoref * aref
+    !
+    reyref = rhoref * machref * aref / muref
+    !
+  else
+    !
+    muref = rhoref * machref * aref / reyref
+    !
+    muref_nd = muref / (rhoref * aref)
+    !
+    tref_scale = tref * sqrt(tref) / (tref + suth_Sref)
+    !
+    suth_muref = muref / muref_scale / tref_scale
+    !
+    suth_c1 = suth_muref * muref_scale
+    !
+  end if
   !
 end subroutine initialize_viscosity
 !
@@ -1286,7 +1362,8 @@ end subroutine initialize_reference
 subroutine read_grid_file()
   !
   !.. Use Statements ..
-  use gmsh_module, only : read_gmsh_gridfile
+  use module_gmsh,   only : read_gmsh_gridfile
+  use module_plot3d, only : read_plot3d_gridfile
   !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
@@ -1299,6 +1376,9 @@ continue
     call read_gambit_neutral_gridfile
   else if (grid_format == gmsh_file) then
     call read_gmsh_gridfile( gridfile )
+  else if (any(grid_format == plot3d_formats)) then
+    call read_plot3d_gridfile( grid_format , gridfile , plot3d_cutfile , &
+                                                        plot3d_bcsfile )
   end if
   !
   ! Check that all the nodes are in counter-clockwise
@@ -3420,7 +3500,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = xyz(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts,2) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateX", &
                           var(1:n_outpts),icoord_n,ierr)
     !
@@ -3429,7 +3509,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = xyz(2,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts,2) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateY", &
                           var(1:n_outpts),icoord_n,ierr)
     !
@@ -3495,7 +3575,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = usp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density dx", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3504,7 +3584,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = (usp(2,i) - uoldsp(2,i)/uoldsp(1,i)*usp(1,i)) / uoldsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX dx", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3513,7 +3593,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = (usp(3,i) - uoldsp(3,i)/uoldsp(1,i)*usp(1,i)) / uoldsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY dx", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3522,7 +3602,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = vsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density dy", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3531,7 +3611,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = (vsp(2,i) - uoldsp(2,i)/uoldsp(1,i)*vsp(1,i)) / uoldsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX dy", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3540,7 +3620,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = (vsp(3,i) - uoldsp(3,i)/uoldsp(1,i)*vsp(1,i)) / uoldsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY dy", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3551,7 +3631,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = vsp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3560,7 +3640,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = vsp(2,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3569,7 +3649,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = vsp(3,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3578,7 +3658,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = vsp(4,i)*cvel**2
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3587,7 +3667,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = usp(1,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3596,7 +3676,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = usp(4,i)
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3605,7 +3685,7 @@ continue
     do i = 1,n_solpts
       vartmp(i) = usp(2,i)*cvel
     end do
-    var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
                           var(1:n_outpts),ifld_n,ierr)
     !
@@ -3630,7 +3710,7 @@ continue
 ! do i = 1,n_solpts
 !   vartmp(i) = usp(1,i)-vsp(1,i)
 ! end do
-! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! var(:) = real( interpolate_for_output(vartmp) , kind(var) )
 ! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Density", &
 !                       var(1:n_outpts),ifld_n,ierr)
   !
@@ -3639,7 +3719,7 @@ continue
 ! do i = 1,n_solpts
 !   vartmp(i) = usp(2,i)-vsp(2,i)
 ! end do
-! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! var(:) = real( interpolate_for_output(vartmp) , kind(var) )
 ! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityX", &
 !                       var(1:n_outpts),ifld_n,ierr)
   !
@@ -3648,7 +3728,7 @@ continue
 ! do i = 1,n_solpts
 !   vartmp(i) = usp(3,i)-vsp(3,i)
 ! end do
-! var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+! var(:) = real( interpolate_for_output(vartmp) , kind(var) )
 ! call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error VelocityY", &
 !                       var(1:n_outpts),ifld_n,ierr)
   !
@@ -3659,7 +3739,7 @@ continue
  !  se = entropy_pv_sp( usp(:,i) )
  !  vartmp(i) = sn-se
  !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+ !var(:) = real( interpolate_for_output(vartmp) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Entropy", &
  !                      var(1:n_outpts),ifld_n,ierr)
   !
@@ -3668,7 +3748,7 @@ continue
  !do i = 1,n_solpts
  !  vartmp(i) = usp(4,i)-vsp(4,i)
  !end do
- !var(:) = real( interpolate_for_output(vartmp,n_outpts) , kind(var) )
+ !var(:) = real( interpolate_for_output(vartmp) , kind(var) )
  !call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Error Pressure", &
  !                      var(1:n_outpts),ifld_n,ierr)
   !
@@ -4179,72 +4259,130 @@ end subroutine write_tecplot_partitions
 !
 !###############################################################################
 !
-pure function interpolate_for_output(array,npts,ityp) result(return_value)
+subroutine create_output_arrays
+  !
+continue
+  !
+end subroutine create_output_arrays
+!
+!###############################################################################
+!
+!pure function interpolate_for_output(array,npts,ityp) result(return_value)
+pure function interpolate_for_output(array) result(return_value)
   !
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use geovar,  only : n_sp2dt,o_order
-  use geovar,  only : interp_s2o
+  use geovar,  only : n_sp2dq
   use geovar,  only : ncell => n_global_cell
   use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
-  !
-  ! PTYPE : gives the location of the variables needing projection
-  !         = 1 -> at solution points
-  !         = 2 -> at Gauss    points
-  !         = 3 -> at Lobatto  points
-  !         = 4 -> at Radau    points
+  use geovar,  only : numer2gauss,numer2lobatto
+  use ovar,    only : iop_outpts,iop_solpts
+ !use geovar,  only : n_sp2dt,o_order
+ !use geovar,  only : interp_s2o
   !
   !.. Formal Arguments ..
-  integer,                intent(in) :: npts
   real(wp), dimension(:), intent(in) :: array
-  integer,  optional,     intent(in) :: ityp
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:npts) :: return_value
+  real(wp), dimension(1:size(array)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
+  integer :: nc,n1,n2,np,n
+ !integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
   !
 continue 
   !
-  k1 = 0
   !
-  if (npts == size(array)) then
+  !
+  if (iop_outpts == iop_solpts) then
     !
-    do n = 1,npts
+    !
+    !
+    do n = 1,size(array)
       return_value(n) = array(n)
     end do
     !
   else
     !
-    if (present(ityp)) then
-      iloc = max(1,min(ityp,2))
+    !
+    !
+    if (iop_outpts == Legendre_Gauss_Lobatto) then
+      !
+      interp_mat(:,:) = numer2lobatto(:,:)
+      !
+    else if (iop_outpts == Legendre_Gauss) then
+      !
+      interp_mat(:,:) = numer2gauss(:,:)
+      !
     else
-      iloc = 1
-    end if
-    !
-    nopt = (o_order+1)*(o_order+2)/2
-    nopq = (o_order+1)*(o_order+1)
-    !
-    do n = 1,ncell
       !
-      n1 = pts_in_cell_ptr(n)+1
-      n2 = pts_in_cell_ptr(n+1)
-      nsp = n2-n1+1
-      nw = merge(1,2,nsp==n_sp2dt)
-      !
-      nop = merge(nopt,nopq,nsp==n_sp2dt)
-      !
-      do k = 1,nop
-        return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+      do n = 1,size(array)
+        return_value(n) = array(n)
       end do
       !
-      k1 = k1 + nop
+      return
+      !
+    end if
+    !
+    !
+    !
+    do nc = 1,ncell
+      !
+      n1 = pts_in_cell_ptr(nc)+1
+      n2 = pts_in_cell_ptr(nc+1)
+      np = n2-n1+1
+      !
+      if (np == n_sp2dq) then
+        return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
+      else
+        return_value(n1:n2) = array(n1:n2)
+      end if
       !
     end do
     !
   end if
+  !
+ !k1 = 0
+ !!
+ !if (npts == size(array)) then
+ !  !
+ !  do n = 1,npts
+ !    return_value(n) = array(n)
+ !  end do
+ !  !
+ !else
+ !  !
+ !  if (present(ityp)) then
+ !    iloc = max(1,min(ityp,2))
+ !  else
+ !    iloc = 1
+ !  end if
+ !  !
+ !  nopt = (o_order+1)*(o_order+2)/2
+ !  nopq = (o_order+1)*(o_order+1)
+ !  !
+ !  do n = 1,ncell
+ !    !
+ !    n1 = pts_in_cell_ptr(n)+1
+ !    n2 = pts_in_cell_ptr(n+1)
+ !    nsp = n2-n1+1
+ !    nw = merge(1,2,nsp==n_sp2dt)
+ !    !
+ !    nop = merge(nopt,nopq,nsp==n_sp2dt)
+ !    !
+ !    do k = 1,nop
+ !      return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+ !    end do
+ !    !
+ !    k1 = k1 + nop
+ !    !
+ !  end do
+ !  !
+ !end if
   !
 end function interpolate_for_output
 !

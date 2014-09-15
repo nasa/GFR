@@ -34,7 +34,8 @@ program Euler_tri
                      write_results_file, &
                      write_advec_results_file, &
                      write_vortex_results_file, &
-                     write_tecplot_partitions
+                     write_tecplot_partitions, &
+                     create_output_arrays
   use metrics_mod, only : get_solution_points_2d, &
                           get_grid_connectivity, &
                           get_metrics
@@ -43,7 +44,8 @@ program Euler_tri
   use initialization_mod, only : initialize_flow
   use module_bc,   only : get_faceusp_bc
   use module_bc,   only : get_facedusp_bc
-  use generic_mod, only : rgetdtmax,getbc,rresi, &
+  use generic_mod, only : rgetdtmax,get_dtsp, &
+                          getbc,rresi, &
                           rgeterr,getmaxent, &
                           compute_final_error, &
                           compute_final_advec_error, &
@@ -54,8 +56,9 @@ program Euler_tri
                           rupdate_TVD3_RK, &
                           rupdate_TVD4_RK, &
                           test_error
-  use flux_mod, only : derflux1,derflux2, &
-                       derflux3,correctd, &
+  use flux_mod, only : flux_divergence_lp, &
+                       flux_divergence_cr, &
+                       flux_divergence_jac_cr, &
                        correct_flux_project_cv, &
                        correct_flux_project_pv, &
                        correct_flux_project_flx, &
@@ -68,7 +71,8 @@ program Euler_tri
                        correct_interface_flux_qdtr, &
                        correct_interface_flux_qdtr_with_visc, &
                        discontinuous_gradient_at_solpts, &
-                       correct_gradients_at_solpts
+                       correct_gradients_at_solpts, &
+                       correct_gradients_br2
   use parallel_mod, only : partition_grid, &
                            create_serial_cell_map, &
                            test_nonblocking_fexchange
@@ -80,7 +84,8 @@ program Euler_tri
  !include "kind_defs.h"
  !include "constants.h"
   !
-  integer :: iter,i,ierr,k
+  integer  :: iter,i,ierr,k
+  real(wp) :: dtmin
   !
   integer, parameter :: iostp = 2683
   !
@@ -176,6 +181,11 @@ continue
   !
   call get_metrics
   !
+  ! Create the information necessary to extract
+  ! quantitative results from the flow
+  !
+  call create_output_arrays
+  !
   ! Output information about each partition
   !
   do i = 0,ncpu-1
@@ -258,20 +268,13 @@ continue
     !
     ! Update the global time step
     !
-    d_t = dt_in
-    if (abs(dt_in) <= eps12) then
-      call rgetdtmax
-     !write (iout,'("Maximum time step should be <= ",es13.6)') dt_global
-      d_t = dt_global*cfl
-    end if
-    !
-    if (Final_Time > zero .and. time+d_t > Final_Time+eps9) then
-      d_t = Final_Time - time
-    end if
-    !
-    ! Update elapsed time
-    !
-    time = time + d_t
+   !call get_dtsp(dtmin)
+   !!
+   !! Update elapsed time
+   !! NOTE: This is only time accurate when using a global timestep
+   !!
+   !time = time + dtmin
+   !d_t = dtmin
     !
     ! Loop over the Runge-Kutta stages
     !
@@ -291,7 +294,7 @@ continue
         if (q_order > n_order) then
           call derflux1_qdtr
         else
-          call derflux1
+          call flux_divergence_lp
         end if
         if (iop_correction == OnPrimitiveVariables) then
           call correct_flux_project_pv
@@ -307,7 +310,7 @@ continue
         !
         ! Use the chain rule on the conserved variables
         !
-        call derflux2
+        call flux_divergence_cr
         if (iop_correction == OnPrimitiveVariables) then
           call correct_flux_project_pv
         else if (iop_correction == OnConservativeVariables) then
@@ -322,7 +325,7 @@ continue
         !
         ! Use the chain rule on u*J
         !
-        call derflux3
+        call flux_divergence_jac_cr
         if (iop_correction == OnPrimitiveVariables) then
           call correct_flux_project_pv
         else if (iop_correction == OnConservativeVariables) then
@@ -351,6 +354,7 @@ continue
         !
         call interp_cv_to_flxpts
         call get_faceusp_bc
+        if (nst == 1) call get_dtsp(dtmin)
         call derflux1_qdtr
         call correct_interface_flux_qdtr
         !
@@ -358,9 +362,14 @@ continue
         !
         call interp_cv_to_flxpts
         call get_faceusp_bc
+        if (nst == 1) call get_dtsp(dtmin)
         call discontinuous_gradient_at_solpts
-        call correct_gradients_at_solpts
-        call interp_dusp_to_flxpts
+        if (visc_flux_method == visc_flux_BR2) then
+          call correct_gradients_br2
+        else if (visc_flux_method == visc_flux_BR1) then
+          call correct_gradients_at_solpts
+          call interp_dusp_to_flxpts
+        end if
         call get_facedusp_bc
         call derflux1_qdtr_with_visc
         call correct_interface_flux_qdtr_with_visc
@@ -580,7 +589,7 @@ continue
                ' n_qp2dt = ',i4,/, &
                ' n_sp2dq = ',i4,/, &
                ' n_qp2dq = ',i4,/)
-  20 format (/,5x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy', &
+  20 format (/,5x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy',2x,'L2-Density', &
                4x,'Cell',3x,'Solpt',6x,'x',10x,'y',6x,'Time Left')
   !
   40 format (//' Final iteration count   = ',i12,/, &

@@ -1,19 +1,32 @@
 &input
-all_orders = 1
-all_points = 2
+all_orders = 2
+all_points = 1
 grid_format = 3
-gridfile = "grid_files/flat_plate/a2-125-2s.msh"
-!gridfile = "grid_files/freeflow_test/a2-125-2s.msh"
-Final_Time = 0.01
-dt_in = 0.00001
+gridfile = "grid_files/flat_plate/a0-125-2s.scaled.msh"
+!  grid_format = 4
+!  gridfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.chopped.grd"
+!  plot3d_bcsfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.bcs.grd"
+!  plot3d_cutfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.cut.grd"
+Timestep_Type =  0
+CFL = 1.0
+num_ts = 19200
+!Final_Time = 0.10
+dt_in = 1.0E-08
+restart_interval = 500000
+output_interval = -100
+results_interval = 100
+iter_out_interval = 100
 itestcase = 1
 aoaref = 0.0
-rhoref = 0.096385947
-tref = 216.69758
-pref = -1.0
-machref = 0.5
+rhoref = -1.0
+tref = 200
+pref = 500
+machref = 0.1
 flux_divergence = 10
-!suth_muref = 0.0
+visc_flux_method = 2
+reyref = 10000.0
+walls_are_exact = T
+visc_variables_to_ave = 1
 /
 
 #####################################
@@ -30,6 +43,7 @@ iop_correction = 3
 iRKtype = 3
 num_stages = 3
 Flux_Method = 1
+visc_flux_method = 1
 num_ts = 25000
 Final_Time = -1.0
 CFL = 1.0
@@ -54,6 +68,7 @@ rhoref = -1.0
 tref = 300.0
 pref = 100000.0
 machref = 0.4
+reyref = -1.0 ! if positive, suth_muref is computed using reyref
 aoaref = 45.0
 gam = 1.4
 rgasref = 287.15
@@ -110,6 +125,9 @@ vortex_bigGam = 5.0
 ! Flux_Method = 1 -> Roe Flux with entropy fix
 ! Flux_Method = 2 -> HLLC
 ! Flux_Method = 3 -> LDFSS
+!
+! visc_flux_method = 1 -> BR1 and possibly LDG using LDG_beta and LDG_tau parameters
+! visc_flux_method = 2 -> BR2
 !
 ! init_loc =  0 -> init. sol. computed on solution points (SP)
 ! init_loc =  1 -> init. sol. computed on Gauss   pts (GP) then projected to SP

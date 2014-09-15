@@ -1,11 +1,15 @@
 module ovar
   !
-  use module_kind_types, only : wp
+  use module_kind_types, only : wp,true
+  use geovar, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
   !
   private
   !
+  ! Public Input Namelist
+  !
+  public :: input
   !
   !
   ! ###########################
@@ -39,21 +43,26 @@ module ovar
   !       for 1 period using Ga-LP, SSP-RK3, and Roe flux with entropy fix.
   !
   !.. Input Variables ..
-  integer,  public, save :: all_points      = -1
-  integer,  public, save :: iop_solpts      = 1
-  integer,  public, save :: iop_flxpts      = 1
-  integer,  public, save :: iop_tripts      = 2
-  integer,  public, save :: flux_divergence = 0
-  integer,  public, save :: iop_correction  = 3
+  integer,  public, save :: all_points       = -1
+  integer,  public, save :: iop_solpts       = 1
+  integer,  public, save :: iop_flxpts       = 1
+  integer,  public, save :: iop_tripts       = 2
+  integer,  public, save :: iop_outpts       = 2
+  integer,  public, save :: flux_divergence  = 0
+  integer,  public, save :: iop_correction   = 3
   !
   integer,  public, save :: iRKtype     = 3
   integer,  public, save :: num_stages  = 3
-  integer,  public, save :: flux_method = 1
+  integer,  public, save :: invs_flux_method = 1
+  integer,  public, save :: visc_flux_method = 1
+  logical,  public, save :: walls_are_exact = true
+  integer,  public, save :: visc_variables_to_ave = 1
   !
   integer,  public, save :: num_ts     = 25000
   real(wp), public, save :: Final_Time = -1.0_wp
   real(wp), public, save :: cfl        = 1.0_wp
   real(wp), public, save :: dt_in      = 0.0008_wp
+  integer,  public, save :: Timestep_Type = 0
   !
   integer,  public, save :: iop_qdtpts = 1
   integer,  public, save :: dflux_opt  = 2
@@ -78,7 +87,7 @@ module ovar
   real(wp), public, save :: gam     =      1.40_wp
   real(wp), public, save :: rgasref =    287.15_wp
   real(wp), public, save :: muref   ! default evaluates to 1.84671531762365e-5_wp
-  real(wp), public, save :: reyref  ! default evaluates to 8.7319053606e+6
+  real(wp), public, save :: reyref  =     -1.00_wp ! default evaluates to 8.7319053606e+6
   !
   real(wp), public, save :: pref_nd
   real(wp), public, save :: vxref_nd
@@ -199,6 +208,64 @@ module ovar
   integer,  public, save :: final_countdown
   !
   real(wp), public, save :: suth_c1
+  !
+  integer, public, save :: output_plot3d_to_tecplot = 0
+  !
+  integer,            public, save :: grid_format = 2
+  character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
+  character(len=150), public, save :: output_dir = "."
+  character(len=150), public, save :: plot3d_cutfile = ""
+  character(len=150), public, save :: plot3d_bcsfile = ""
+  !
+  !
+  ! ########################
+  ! ###  Input Namelist  ###
+  ! ########################
+  !
+  ! GRID INFORMATION
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+  ! BASE FR OPTIONS
+  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, iop_outpts, &
+                     flux_divergence, iop_correction
+  ! SOLVER OPTIONS
+  namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
+  ! VISCOUS OPTIONS
+  namelist / input / visc_variables_to_ave
+  ! TIME STEPPING INFORMATION
+  namelist / input / num_ts, Final_Time, cfl, dt_in, Timestep_Type
+  ! OVER-INTEGRATION OPTIONS
+  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
+  namelist / input / all_orders, all_points
+  ! PARALLEL OPTIONS
+  namelist / input / metis_option
+  ! INITIALIZATION / TEST CASE
+  namelist / input / itestcase
+  ! RESTART OPTIONS
+  namelist / input / irestart, restart_interval
+  ! OUTPUT OPTIONS
+  namelist / input / output_dir, iter_out_interval, output_solution, &
+                     output_interval, results_interval, o_order
+  ! NONDIMENSIONAL REFERENCE CONDITIONS
+  namelist / input / machref, reyref, gam
+  ! REFERENCE CONDITIONS
+  namelist / input / rhoref, tref, pref, aoaref, rgasref
+  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
+  namelist / input / Pr, Prt
+  ! SUTHERLANDS LAW COEFFICIENTS
+  namelist / input / suth_muref, suth_Tref, suth_Sref
+  ! FILTER OPTIONS
+  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+  ! BOUNDING ERROR OPTIONS
+  namelist / input / bound_error, error_bound_limit
+  ! INITIALIZATION/ERROR LOCATIONS
+  namelist / input / init_loc, error_loc
+  ! VORTEX CONSTANTS
+  namelist / input / vortex_bigR, vortex_bigGam
+  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+  namelist / input / output_plot3d_to_tecplot
+  ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
+  namelist / input / walls_are_exact
   !
 end module ovar
 !
