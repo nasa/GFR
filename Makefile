@@ -3,15 +3,28 @@
 
 MAKE = make -j 4
 
-all:
-	$(MAKE) -B -f slv.mk "EXECUTABLE=debug_recon" debug
-	$(MAKE) -B -f slv.mk "EXECUTABLE=recon" optimize
+#MAKEOPT = -B
+
+OPERATING_SYSTEM = $(shell uname)
+ARCH = $(shell uname -m)
+
+all: both
+#all: optimize
+#all: debug
+
+both:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" debug
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
 
 debug:
-	$(MAKE) -B -f slv.mk "EXECUTABLE=debug_recon" debug
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" debug
 
 optimize:
-	$(MAKE) -B -f slv.mk "EXECUTABLE=recon" optimize
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
+
+systeminfo:
+	@echo "Operating system = " $(OPERATING_SYSTEM)
+	@echo "Architecture = " $(ARCH)
 
 clean:
 	make -f slv.mk "EXECUTABLE=recon" clean
