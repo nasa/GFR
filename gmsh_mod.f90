@@ -1,4 +1,4 @@
-module gmsh_module
+module module_gmsh
   !
   !.. Use Statements ..
   use module_kind_types
@@ -708,7 +708,7 @@ continue
     phys_grps(n)%phys_nam = phys_nam
     phys_grps(n)%phys_dim = phys_dim
     phys_grps(n)%phys_id  = phys_id
-    phys_grps(n)%ibc = get_ibc_from_phys_nam( phys_nam )
+    phys_grps(n)%ibc = bc_string_to_integer( phys_nam )
     !
   end do
   !
@@ -1184,7 +1184,7 @@ continue
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
     if (n2-n1+1 == 3) then
-      if (mypnum == 0) write (iout,7)
+      if (mypnum == 0) write (iout,8)
       call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
     end if
   end do
@@ -1194,7 +1194,7 @@ continue
       n1 = nodes_of_cell_ptr(n)+1
       n2 = nodes_of_cell_ptr(n+1)
       if (n2-n1+1 == 3) then
-        if (mypnum == 0) write (iout,8)
+        if (mypnum == 0) write (iout,7)
         call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
       end if
     end do
@@ -1785,106 +1785,12 @@ end function host_face_hexa
 !
 !###############################################################################
 !
-pure function get_ibc_from_phys_nam(bc_text) result(return_value)
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: bc_text
-  !
-  !.. Function Return Value ..
-  integer :: return_value
-  !
-  !.. Local Scalars ..
-  integer :: n,nb,ne
-  character(len=len_trim(bc_text)) :: text
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: cbnd = "BOUNDARY"
-  !
-continue
-  !
-  ! Copy the input BC string into text so we can manipulate it
-  !
-  text = trim(adjustl(bc_text))
-  !
-  nb = 1
-  ne = len_trim(text)
-  !
-  ! Remove all spaces from the character string
-  !
-  do
-    n = index(text(nb:ne)," ")
-    if (n == 0) exit
-    text = text(nb:n-1) // text(n+1:ne)
-    ne = len_trim(text)
-  end do
-  !
-  ! Remove the substring "BOUNDARY" if it exists
-  !
-  n = index(text(nb:ne),cbnd)
-  if (n > 0) then
-    text = text(nb:n-1) // text(n+len_trim(cbnd):ne)
-    ne = len_trim(text)
-  end if
-  !
-  ! Use the character string given in the PhysicalName
-  ! section to set the value of the boundary condition\
-  !
-  select case (trim(adjustl(text)))
-    !
-    case ("MESHINTERIOR")
-      return_value = not_a_bc
-      !
-    case ("INFLOW","INLET")
-      return_value = bc_generic_inflow
-    case ("SUBINFLOW")
-      return_value = bc_sub_inflow
-    case ("SUPINFLOW")
-      return_value = bc_sup_inflow
-      !
-    case ("OUTFLOW","EXIT")
-      return_value = bc_generic_outflow
-    case ("SUBOUTFLOW")
-      return_value = bc_sub_outflow
-    case ("SUPOUTFLOW")
-      return_value = bc_sup_outflow
-      !
-    case ("CHARACTERISTIC","CHAR","CHARACTER")
-      return_value = bc_characteristic
-    case ("FREESTREAM","FARFIELD")
-      return_value = bc_freestream
-    case ("FIXED")
-      return_value = bc_fixed
-      !
-    case ("WALL")
-      return_value = bc_default_wall
-    case ("SWALL","SLIP","SLIPWALL")
-      return_value = bc_slip_wall
-    case ("EWALL","EULER","EULERWALL")
-      return_value = bc_euler_wall
-    case ("AWALL","ADIABATIC")
-      return_value = bc_adiabatic_wall
-    case ("IWALL","ISOTHERMAL")
-      return_value = bc_isothermal_wall
-      !
-    case ("SYMM","SYMMETRY")
-      return_value = bc_symmetry
-    case ("PERIODIC")
-      return_value = bc_periodic
-      !
-    case default
-      return_value = bc_unknown
-      !
-  end select
-  !
-end function get_ibc_from_phys_nam
-!
-!###############################################################################
-!
+include "Functions/bc_string_to_integer.f90"
 include "Functions/last.f90"
 !
 !###############################################################################
 !
-end module gmsh_module
+end module module_gmsh
 !
 !###############################################################################
 !
