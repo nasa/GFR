@@ -1,4 +1,5 @@
-pure function bc_integer_to_string(ibc) result(return_value)
+!pure function bc_integer_to_string(ibc) result(return_value)
+elemental function bc_integer_to_string(ibc) result(return_value)
   !
   integer, intent(in) :: ibc
   !
