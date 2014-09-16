@@ -1,9 +1,8 @@
-!pure function bc_integer_to_string(ibc) result(return_value)
 elemental function bc_integer_to_string(ibc) result(return_value)
   !
   integer, intent(in) :: ibc
   !
-  character(len=20) :: return_value
+  character(len=28) :: return_value
   !
 continue
   !
