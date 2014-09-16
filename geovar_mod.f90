@@ -185,7 +185,14 @@ module geovar
   ! bface : Boundary face information
   !        bface( 1,:) = Type of boundary condition
   !        bface( 2,:) = Host cell of boundary face
-  !        bface( 3,:) = Type of cell on boundary (1-edge,2-quad,3-triangle,etc.)
+  !        bface( 3,:) = Type of cell on boundary
+  !                       = 1 -> edge
+  !                       = 2 -> quad
+  !                       = 3 -> triangle
+  !                       = 4 -> tetrahedra
+  !                       = 5 -> pyramid
+  !                       = 6 -> prism
+  !                       = 8 -> hexahedra
   !        bface( 4,:) = Face of host cell on boundary
   !                      for triangles: 1 -> nodes 1 and 2 of cell are on the boundary
   !                      for triangles: 2 -> nodes 2 and 3 of cell are on the boundary
@@ -218,7 +225,7 @@ module geovar
   !                      host cell.
   !        bface(10,:) = Index of ghost cell for current boundary face
   !                      NOTE: For a grid with only one partition, this is
-  !                            simply bface(10,i_face) = bface(2,i_face)+i_face.
+  !                            simply bface(10,i_face) = ncell + i_face.
   !                            However, for multiple partitions, two boundary
   !                            faces can connect to the same cell on an adjacent
   !                            partition and therefore connect to the same ghost
