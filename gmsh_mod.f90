@@ -1054,10 +1054,11 @@ continue
       nh = cell_data(nb)%host_cell
       nf = nf + 1
       !
-      bface( 1,nf) = phys_grps(np)%ibc
-      bface( 2,nf) = nh
-      bface( 3,nf) = cell_data(nh)%cell_geom
-      bface(10,nf) = ncell + nf
+      bface( 1,nf) = phys_grps(np)%ibc       ! face boundary condition
+      bface( 2,nf) = nh                      ! host cell of boundary face
+      bface( 3,nf) = cell_data(nh)%cell_geom ! host cell geometry
+      bface( 5,nf) = i                       ! group for boundary face
+      bface(10,nf) = ncell + nf              ! ghost cell of boundary face
       !
       ! Find which face of the host cell is on the boundary
       !

@@ -1571,6 +1571,9 @@ continue
       n = n + 1
       bface(1,n) = itype
       read (iogrd,*) (bface(k,n),k=2,4),(bface(4+k,n),k=1,nvalues)
+      if (itype /= bc_periodic) then
+        bface(5,n) = i ! boundary condition group for this boundary face
+      end if
     end do
     !
     read (iogrd,1) text

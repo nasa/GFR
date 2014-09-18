@@ -2029,6 +2029,7 @@ continue
           bface( 2,nf) = host_cell 
           bface( 3,nf) = merge(2,8,nr==2) ! geometry of host cell (2=quad,8=hex)
           bface( 4,nf) = merge(hostface2d(loc),hostface3d(loc),nr==2)
+          bface( 5,nf) = nb ! boundary condition group for this boundary face
           bface(10,nf) = ncell + nf ! ghost cell number
           !
         end do

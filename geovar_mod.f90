@@ -201,10 +201,15 @@ module geovar
   !                      for quads: 2 -> nodes 2 and 3 of cell are on the boundary
   !                      for quads: 3 -> nodes 3 and 4 of cell are on the boundary
   !                      for quads: 4 -> nodes 4 and 1 of cell are on the boundary
-  !        bface( 5,:) = For a periodic or partition boundary face i_face with
-  !                      host cell i_cell, this gives the boundary face j_face
-  !                      that links to i_face. To find host cell j_cell for
-  !                      periodic face j_face, use bface(2,bface(5,i_face)).
+  !        bface( 5,:) = A) For a non-communication (i.e., physical boundary)
+  !                         boundary face i_face, this gives the boundary condition
+  !                         group to which i_face belongs. This is used to group
+  !                         together boundary faces for analysis during the
+  !                         output/post-processing parts of the simulation.
+  !                      B) For a periodic or partition boundary face i_face with
+  !                         host cell i_cell, this gives the boundary face j_face
+  !                         that links to i_face. To find host cell j_cell for
+  !                         periodic face j_face, use bface(2,bface(5,i_face)).
   !        bface( 6,:) = For a periodic or partition boundary face i_face
   !                      with host cell i_cell, this gives the host cell
   !                      j_cell (i.e., bface(2,bface(5,i_face)) if they are
