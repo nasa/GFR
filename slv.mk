@@ -118,9 +118,9 @@ FCFLAG += $(MOD) $(INCLUDE)
 OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/Euler_tri.o \
        $(OBJDIR)/metvar_mod.o \
-       $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/geovar_mod.o \
        $(OBJDIR)/flowvar_mod.o \
+       $(OBJDIR)/ovar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
        $(OBJDIR)/io.o \
@@ -223,7 +223,8 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/matrix_ops.f90 \
                $(FUNDIR)/random.f90 \
                $(FUNDIR)/uppercase.f90 \
-               $(FUNDIR)/bc_integer_to_string.f90
+               $(FUNDIR)/bc_integer_to_string.f90 \
+	       $(FUNDIR)/all_are_equal.f90
 $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
@@ -239,9 +240,11 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/flux.o \
               $(OBJDIR)/parallel.o
 $(OBJDIR)/metvar_mod.o : metvar_mod.f90 $(OBJDIR)/kind_types.o
-$(OBJDIR)/ovar_mod.o : ovar_mod.f90 $(OBJDIR)/kind_types.o
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 $(OBJDIR)/kind_types.o
 $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 $(OBJDIR)/kind_types.o
+$(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
+             $(OBJDIR)/kind_types.o \
+	     $(OBJDIR)/geovar_mod.o
 $(OBJDIR)/poly.o : poly.f90 $(OBJDIR)/kind_types.o
 $(OBJDIR)/triangle.o : triangle.f90 \
              $(OBJDIR)/kind_types.o \
@@ -322,7 +325,8 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/parallel.o \
          $(OBJDIR)/generic.o \
          $(FUNDIR)/upwind_fluxes.f90 \
-         $(FUNDIR)/inviscid_fluxes.f90
+         $(FUNDIR)/inviscid_fluxes.f90 \
+	 $(FUNDIR)/grad_cv_to_grad_pv.f90
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/geovar_mod.o \
@@ -330,4 +334,6 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/metvar_mod.o \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/generic.o \
-           $(OBJDIR)/parallel.o
+           $(OBJDIR)/parallel.o \
+	   $(FUNDIR)/grad_cv_to_grad_pv.f90 \
+	   $(FUNDIR)/normal_streamwise_velocity_gradient.f90

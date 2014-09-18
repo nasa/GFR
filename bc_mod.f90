@@ -18,6 +18,7 @@ module module_bc
   !
   public :: get_faceusp_bc
   public :: get_facedusp_bc
+  public :: compute_bc_profiles
  !public :: init_bc_module
   !
   !
@@ -81,6 +82,7 @@ subroutine get_faceusp_bc
   !
   !.. Use Statements ..
   use geovar,  only : bface,nfbnd
+  use ovar,    only : output_bface_array
   use metvar,  only : geofa
   use flowvar, only : faceusp
   !
@@ -90,6 +92,8 @@ subroutine get_faceusp_bc
   integer  :: nf,pf
   !
 continue
+  !
+  if (output_bface_array) call output_bface
   !
   ! Loop over the boundary faces and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
@@ -1464,6 +1468,272 @@ continue
   end do
   !
 end subroutine get_bc_wall_gradient
+!
+!###############################################################################
+!
+subroutine output_bface
+  !
+  !.. Use Statements ..
+  use geovar, only : bface
+  !
+  !.. Local Scalars ..
+  integer :: i,n,maxint,myio,ierr
+  character(len=100) :: write_format
+  character(len=100) :: file_format
+  character(len=100) :: my_file
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(bface,dim=1)+1) :: intlen
+  !
+continue
+  !
+  myio = 1456 + mypnum
+  !
+  ! Get the maximum length of the string containing the name of the BC types
+  !
+  intlen(1) = maxval( len_trim( bc_integer_to_string(bface(1,:)) ) )
+  !
+  do i = 1,size(intlen)-1
+    n = 1
+    maxint = maxval(bface(i,:))
+    check_bface_size: do
+      if (maxint/(10**n) == 0) then
+        intlen(i+1) = n+1
+        exit check_bface_size
+      else
+        n = n + 1
+        cycle check_bface_size
+      end if
+    end do check_bface_size
+  end do
+  !
+  ! Primary write of the format statement which has an unlimited 
+  ! '*' repetition multiplier on the last quantity to allow for
+  ! an arbitrarily large number of values contained in intlen.
+  ! The ":" within the part that is unlimitedly repeated serves
+  ! to terminate the format statement at that point preventing 
+  ! it from going back and adding on an extra ',3x,i' at the end.
+  !
+  write (write_format,1) (intlen(i),i=1,size(intlen))
+ !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+  !
+  ! Finally, add on the parentheses to the format statement
+  !
+  write (write_format,2) trim(write_format)
+ !write (iout,'(a,a,a)') "write_format = '",trim(write_format),"'"
+  !
+  ! Get the number of digits of the integer for the number of cpus
+  !
+  n = 1
+  check_ncpu_size: do
+    if (ncpu/(10**n) == 0) then
+      write (file_format,3) n
+      exit check_ncpu_size
+    else
+      n = n + 1
+      cycle check_ncpu_size
+    end if
+  end do check_ncpu_size
+  !
+  ! Create the name of the output file
+  !
+  write (my_file,fmt=trim(file_format)) mypnum
+  !
+  ! Open the output file
+  !
+  open (myio,file=trim(my_file),status="replace",action="write", &
+             form="formatted",position="rewind",iostat=ierr)
+  call io_error("output_bface",trim(my_file),1,ierr)
+  !
+  ! Output the bface array
+  !
+  do n = 1,size(bface,dim=2)
+    write (myio,fmt=trim(write_format)) trim(bc_integer_to_string(bface(1,n))), &
+                                        (bface(i,n),i=1,size(bface,dim=1))
+  end do
+  !
+  ! Close the output file
+  !
+  close (myio,iostat=ierr)
+  call io_error("output_bface",trim(my_file),2,ierr)
+  !
+  ! Format Statements
+  !
+  1 format ('a',i0,',i',i0,',": ",1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            ',5x,1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0,',1x,i',i0, &
+            *(',3x,i',i0,:))
+  2 format ('(',a,')')
+  3 format ('("bface.",i0.',i0,',".dat")')
+  !
+end subroutine output_bface
+!
+!###############################################################################
+!
+subroutine compute_bc_profiles
+  !
+  !.. Use Statements ..
+  use geovar,  only : bface,pts_in_cell_ptr,interp_s2f
+  use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,neqns,nr
+  use ovar,    only : machref,rhoref,aref,muref,cpref_nd,Pr
+  use metvar,  only : geofa
+  use flowvar, only : bnd_prof,usp,dusp
+  use generic_mod, only : usp2v_sp
+  use generic_mod, only : temperature_pv_sp
+  use generic_mod, only : viscosity_pv_sp
+  !
+  !.. Local Scalars ..
+  integer :: i,k,l,m,n,nf,np,nw,n1,n2
+  integer :: host_cell,cell_face,ierr
+  integer :: begfp,begbp,flxpt,bndpt
+  real(wp) :: temp,visc,xloc,yloc,tauwall
+  real(wp) :: cfmag,rex,utau,yplus,qdot
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:neqns) :: cvfp
+  real(wp), dimension(1:neqns) :: pvfp
+  real(wp), dimension(1:n_sp2dq) :: lmat
+  real(wp), dimension(1:nr,1:neqns) :: dcvdx
+  real(wp), dimension(1:nr,1:neqns) :: dpvdx
+  !
+continue 
+  !
+  do n = 1,size(bnd_prof)
+    !
+    do i = 1,size(bnd_prof(n)%faces)
+      !
+      nf = bnd_prof(n)%faces(i) ! boundary face of current profile
+      !
+      host_cell = bface(2,nf) ! host cell on current boundary face
+      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
+      !
+      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
+      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
+      np = n2-n1+1                      ! number of sol-pts in host cell
+      nw = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
+      !
+      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
+      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
+      !
+      do k = 1,n_fp1de
+        !
+        flxpt = begfp + k ! Index of flx-pt local to the current host cell
+        bndpt = begbp + k ! Index within qty_data for current flx-pt
+        !
+        unrm(1:nr) = geofa(1:nr,k,nf)
+        !
+        lmat(1:np) = interp_s2f(1:np,flxpt,nw)
+        !
+        ! Interpolate the conservative variables from the interior sol-pts
+        ! to the current flux point on face nf
+        !
+        do m = 1,neqns
+          cvfp(m) = dot_product( lmat(1:np) , usp(m,n1:n2) )
+          do l = 1,nr
+            dcvdx(l,m) = dot_product( lmat(1:np) , dusp(l,m,n1:n2) )
+          end do
+        end do
+        !
+        ! Compute the primitive variables and their
+        ! gradients at the current flux point
+        !
+        pvfp(1:neqns) = usp2v_sp( cvfp(1:neqns) )
+        dpvdx(1:nr,1:neqns) = grad_cv_to_grad_pv_sp( cvfp(1:neqns) , &
+                                                     dcvdx(1:nr,1:neqns) )
+        !
+        do m = 1,neqns
+          bnd_prof(n)%qty(nr+m)%qty_data(bndpt) = pvfp(m)
+        end do
+        !
+        temp = temperature_pv_sp(pvfp)
+        visc = viscosity_pv_sp(pvfp)
+        !
+        bnd_prof(n)%qty(nr+neqns+1)%qty_data(bndpt) = temp
+        bnd_prof(n)%qty(nr+neqns+2)%qty_data(bndpt) = visc
+        !
+        ! Compute the other flow variables for the profile
+        !
+        if (any(bface(1,nf) == bc_walls)) then
+          !
+          xloc = bnd_prof(n)%qty(1)%qty_data(bndpt)
+          yloc = bnd_prof(n)%qty(2)%qty_data(bndpt)
+          !
+          tauwall = visc * normal_streamwise_velocity_gradient_pv(pvfp,dpvdx,unrm)
+          tauwall = abs(tauwall)
+          cfmag = two * tauwall / (machref*machref)
+          rex = rhoref * machref * aref * xloc / muref
+          utau = sqrt( tauwall / cvfp(1) )
+          yplus = cvfp(1) * utau * yloc / visc
+          qdot = -dot_product(dpvdx(1:nr,neqns),unrm(1:nr)) &
+                  * cpref_nd * visc / Pr
+          !
+          bnd_prof(n)%qty(nr+neqns+3)%qty_data(bndpt) = cfmag
+          bnd_prof(n)%qty(nr+neqns+4)%qty_data(bndpt) = rex
+          bnd_prof(n)%qty(nr+neqns+5)%qty_data(bndpt) = yplus
+          bnd_prof(n)%qty(nr+neqns+6)%qty_data(bndpt) = tauwall
+          bnd_prof(n)%qty(nr+neqns+7)%qty_data(bndpt) = utau
+          bnd_prof(n)%qty(nr+neqns+8)%qty_data(bndpt) = qdot
+          !
+        else
+          !
+          bnd_prof(n)%qty(nr+neqns+3)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+neqns+4)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+neqns+5)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+neqns+6)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+neqns+7)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+neqns+8)%qty_data(bndpt) = zero
+          !
+        end if
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Output the profiles in Tecplot format
+  !
+  open (iogrd,file="bndprof.tec.dat",status="replace",action="write", &
+              form="formatted",position="rewind",iostat=ierr)
+  call io_error("compute_bc_profiles","bndprof.tec.dat",1,ierr)
+  !
+  write (iogrd,100) (trim(bnd_prof(1)%qty(m)%qty_name), &
+                          m=1,size(bnd_prof(1)%qty) )
+  !
+  do n = 1,size(bnd_prof)
+    !
+    np = size(bnd_prof(n)%qty(1)%qty_data)
+    !
+    nf = bnd_prof(n)%faces(1)
+    if (any(bface(1,nf) == bc_walls)) then
+      write (iogrd,102) trim(bnd_prof(n)%prof_name),np
+    else
+      write (iogrd,102) trim(bnd_prof(n)%prof_name),np,nr+neqns+3,nr+neqns+8
+    end if
+    !
+    do m = 1,size(bnd_prof(n)%qty)
+      write (iogrd,103) (bnd_prof(n)%qty(m)%qty_data(i), i=1,np)
+    end do
+    !
+  end do
+  !
+  close (iogrd,iostat=ierr)
+  call io_error("compute_bc_profiles","bndprof.tec.dat",2,ierr)
+  !
+  ! Format Statements
+  !
+  100 format ('VARIABLES =',*(' "',a,'"',:))
+  101 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK')
+  102 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK',:, &
+              ', PASSIVEVARLIST=[',i0,'-',i0,']')
+  103 format (5es18.10)
+  !
+end subroutine compute_bc_profiles
+!
+!###############################################################################
+!
+include "Functions/grad_cv_to_grad_pv.f90"
+include "Functions/normal_streamwise_velocity_gradient.f90"
 !
 !###############################################################################
 !

@@ -242,6 +242,10 @@ continue
   deallocate ( uspstart , stat=ierr )
   call alloc_error("initialize_flow","uspstart",2,ierr)
   !
+  ! Create the profile structures
+  !
+  call create_profile_structures
+  !
   ! Format Statements
   !
   1 format (/," Dimensional Free-stream conditions",/, &
@@ -290,206 +294,281 @@ end subroutine initialize_flow
 !
 !###############################################################################
 !
-!subroutine initialize_solution(EquationType,option,nsolpt,nq,x,q)
-!
-!  integer,  intent(in) :: EquationType
-!  integer,  intent(in) :: option
-!  integer,  intent(in) :: nsolpt
-!  integer, intent(out) :: nq
-!
-!  real(wp),              dimension(1:nsolpt), intent(in) :: x
-!  real(wp), allocatable, dimension(:,:),   intent(inout) :: q
-!
-!  real(wp) :: xmin,xmax,xlen,xcen,xhw
-!
-!continue
-!
-!  xmin = x(1)
-!  xmax = x(nsolpt)
-!  xlen = xmax-xmin
-!  xcen = xmin + half*xlen
-!  xhw  = xlen/four
-!
-!  if (EquationType == AdvectionEquation) then
-!    nq = 1
-!  else if (EquationType == BurgersEquation) then
-!    nq = 1
-!  else if (EquationType == EulerEquations) then
-!    nq = 3
-!  end if
-!
-!  if (allocated(q)) deallocate(q)
-!  allocate ( q(1:nsolpt,1:nq) )
-!  q(:,:) = zero
-!
-!  if (EquationType == AdvectionEquation .or. &
-!      EquationType == BurgersEquation ) then
-!
-!    if (option == SineWave) then
-!      q(:,1) =  sine_wave(x)
-!    else if (option == CosineWave) then
-!      q(:,1) =  cosine_wave(x)
-!    else if (option == SinePlusOneWave) then
-!      q(:,1) =  sine_wave(x) + one
-!    else if (option == CosinePlusOneWave) then
-!      q(:,1) =  cosine_wave(x) + one
-!    else if (option == CosineSquaredWave) then
-!      q(:,1) = -cosine_wave(x)*half + half
-!    else if (option == SquareWave) then
-!      q(:,1) = square_wave(x,xcen,xhw)
-!    else if (option == GaussianWave) then
-!      q(:,1) = gaussian_wave(x,xcen,c0_10*c0_75)*half
-!    else if (option == EllipseWave) then
-!      q(:,1) = ellipse_wave(x,xcen,xhw)
-!    else if (option == ComboWave) then
-!      q(:,1) = gaussian_wave(x,xmin+c0_15*xlen,c0_03*xlen) + &
-!               square_wave  (x,xmin+c0_45*xlen,c0_10*xlen) + &
-!               ellipse_wave (x,xmin+c0_80*xlen,c0_10*xlen)
-!    else if (option == ZJsComboWave) then
-!      q(:,1) = gaussian_wave(x,xmin+c0_15*xlen,c0_03/two*xlen) + &
-!               square_wave  (x,xmin+c0_35*xlen,c0_10/two*xlen) + &
-!               triangle_wave(x,xmin+c0_55*xlen,c0_10/two*xlen) + &
-!               ellipse_wave (x,xmin+c0_75*xlen,c0_10/two*xlen)
-!    else if (option == AliasingWave) then
-!      q(:,1) = sine_wave(x,four)
-!    end if
-!
-!! else if (EquationType == EulerEquations) then
-!
-!!   if (option == SodsProblem) then
-!!     
-!!   else if (option == LaxsProblem) then
-!!     
-!!   else if (option == ShuOsherProblem) then
-!!     
-!!   end if
-!
-!  end if
-!
-!end subroutine initialize_solution
-!!
-!!###############################################################################
-!!
-!pure function sine_wave(x,freq) result(return_value)
-!
-!  real(wp), optional,     intent(in) :: freq
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!  real(wp) :: xmin,xmax,xhw
-!
-!continue
-!
-!  xmin = x(lbound(x,1))
-!  xmax = x(ubound(x,1))
-!  xhw  = half*(xmax-xmin)
-!  if (present(freq)) xhw = xhw/freq
-!
-!  return_value = sin(pi*(x-xmin)/xhw)
-!
-!end function sine_wave
-!!
-!!###############################################################################
-!!
-!pure function cosine_wave(x,freq) result(return_value)
-!
-!  real(wp), optional,     intent(in) :: freq
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!  real(wp) :: xmin,xmax,xhw
-!
-!continue
-!
-!  xmin = x(lbound(x,1))
-!  xmax = x(ubound(x,1))
-!  xhw  = half*(xmax-xmin)
-!  if (present(freq)) xhw = xhw/freq
-!
-!  return_value = cos(pi*(x-xmin)/xhw)
-!
-!end function cosine_wave
-!!
-!!###############################################################################
-!!
-!pure function square_wave(x,xcen,hw) result(return_value)
-!
-!  real(wp),               intent(in) :: xcen
-!  real(wp),               intent(in) :: hw
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!  integer :: i
-!
-!continue
-!
-!  return_value = zero
-!  forall (i = 1:size(x), abs(x(i)-xcen) < hw)
-!    return_value(i) = one
-!  end forall
-!
-!end function square_wave
-!!
-!!###############################################################################
-!!
-!pure function gaussian_wave(x,xcen,hw) result(return_value)
-!
-!  real(wp),               intent(in) :: xcen
-!  real(wp),               intent(in) :: hw
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!continue
-!
-!  return_value = exp( -log(two) * ((x-xcen)/hw)**2 )
-!
-!end function gaussian_wave
-!!
-!!###############################################################################
-!!
-!pure function ellipse_wave(x,xcen,hw) result(return_value)
-!
-!  real(wp),               intent(in) :: xcen
-!  real(wp),               intent(in) :: hw
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!  integer :: i
-!
-!continue
-!
-!  return_value = zero
-!  forall (i = 1:size(x), abs(x(i)-xcen) < hw)
-!    return_value(i) = sqrt( max( zero, one-((x(i)-xcen)/hw)**2 ) )
-!  end forall
-!
-!end function ellipse_wave
-!!
-!!###############################################################################
-!!
-!pure function triangle_wave(x,xcen,hw) result(return_value)
-!
-!  real(wp),               intent(in) :: xcen
-!  real(wp),               intent(in) :: hw
-!  real(wp), dimension(:), intent(in) :: x
-!
-!  real(wp), dimension(size(x)) :: return_value
-!
-!  integer :: i
-!
-!continue
-!
-!  return_value = zero
-!  forall (i = 1:size(x), abs(x(i)-xcen) < hw)
-!    return_value(i) = one - abs((x(i)-xcen)/hw)
-!  end forall
-!
-!end function triangle_wave
+subroutine create_profile_structures
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,xyz
+  use geovar,  only : nfbnd,nbfai,neqns,nr,bface
+  use geovar,  only : interp_s2f,pts_in_cell_ptr
+  use flowvar, only : bnd_prof
+  !
+  !.. Local Scalars ..
+  integer :: host_cell,cell_face,ndata,ierr
+  integer :: begfp,begbp,flxpt,bndpt,nqty
+  integer :: min_grp,max_grp,nbcgrps,nfbnd_nc
+  integer :: i,k,l,n,nf,np,nw,n1,n2,gid,ngf
+  integer :: wall_qtys,flow_qtys
+  character(len=100) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_sp2dq) :: lmat
+  !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable, dimension(:) :: msk
+  integer, allocatable, dimension(:) :: grp_ids
+  integer, allocatable, dimension(:) :: bface_map
+  integer, allocatable, dimension(:,:) :: bface_nc
+  character(len=100), allocatable, dimension(:) :: flow_var
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  !
+continue
+  !
+  ! Get the number of flow quantities and their names
+  !
+  flow_qtys = nr + neqns + 2
+  wall_qtys = flow_qtys + 6
+  !
+  allocate ( flow_var(1:wall_qtys) , stat=ierr )
+  call alloc_error("create_profile_structures","flow_var",1,ierr)
+  !
+  do n = 1,nr
+    flow_var(n) = "Coordinate"//char_xyz(n)
+  end do
+  flow_var(nr+1) = "Density"
+  do n = 1,nr
+    flow_var(nr+n+1) = "Velocity"//char_xyz(n)
+  end do
+  flow_var(nr+neqns+0) = "Pressure"
+  flow_var(nr+neqns+1) = "Temperature"
+  flow_var(nr+neqns+2) = "Viscosity"
+  flow_var(flow_qtys+1) = "SkinFrictionMagnitude"
+  flow_var(flow_qtys+2) = "ReynoldsX"
+  flow_var(flow_qtys+3) = "YPlus"
+  flow_var(flow_qtys+4) = "WallStress"
+  flow_var(flow_qtys+5) = "VelocityFriction"
+  flow_var(flow_qtys+6) = "WallHeatFlux"
+  !
+  ! Create the non-communication boundary face msk array
+  !
+  allocate ( msk(1:nfbnd) , source=fals , stat=ierr )
+  call alloc_error("create_profile_structures","msk",1,ierr)
+  !
+  msk(:) = (bface(1,:)/=bc_periodic .and. bface(1,:)/=bc_cpu_bnd)
+  !
+  ! Count the number of non-communication boundary faces
+  !
+  nfbnd_nc = count( msk )
+  !
+  ! Create the bface array for only non-communication type boundaries
+  !
+  allocate ( bface_nc(1:nbfai,1:nfbnd_nc) , source=0 , stat=ierr )
+  call alloc_error("create_profile_structures","bface_nc",1,ierr)
+  do n = 1,nbfai
+    bface_nc(n,:) = pack( bface(n,:) , mask = msk(:) )
+  end do
+  !
+  ! Create the non-communication boundary face mapping array. We need this
+  ! to give us the original index for the boundary face (i.e., from 1:nfbnd)
+  ! when working on the bface_nc array since the face index within bface_nc
+  ! is not necessarily the same as its corresponding index in bface.
+  !
+  allocate ( bface_map(1:nfbnd_nc) , source=0 , stat=ierr )
+  call alloc_error("create_profile_structures","bface_map",1,ierr)
+  bface_map = pack( [1:nfbnd] , mask = msk )
+  !
+  ! Find the number of different boundary condition groups on this processor.
+  !
+  ! Get minimum and maximum group IDs in bface(5,:)
+  ! for the non-communication boundaries.
+  !
+  min_grp = minval( bface_nc(5,:) )
+  max_grp = maxval( bface_nc(5,:) )
+  !
+  ! Loop through the possible group IDs to see how many BC groups are
+  ! present on this processor. At the same time, store any group IDs
+  ! that are present.
+  !
+  nbcgrps = 0
+  do n = min_grp,max_grp
+    if (any(bface(5,:) == n)) then
+      nbcgrps = nbcgrps + 1
+      call reallocate( grp_ids , nbcgrps )
+      grp_ids(nbcgrps) = n
+    end if
+  end do
+  !
+  ! Allocate the top level of the bnd_prof array now that we
+  ! know how many BC groups are on this processor
+  !
+  allocate ( bnd_prof(1:nbcgrps) , stat=ierr )
+  call alloc_error("create_profile_structures","bnd_prof",1,ierr)
+  !
+  ! Loop back through the boundary groups and get the indices
+  ! of the boundary faces belonging to each group ID.
+  !
+  do n = 1,size(grp_ids)
+    !
+    ! Store this group ID in the bnd_prof array
+    !
+    gid = grp_ids(n)
+    bnd_prof(n)%group_num = gid
+    !
+    ! Count the number of boundary faces with this group ID. Also get
+    ! the number of data points that will be needed for this group ID.
+    ! #########################################################
+    ! #########################################################
+    ! #####################  WARNING!!!!  #####################
+    ! #########################################################
+    ! #########################################################
+    ! ###  THE VALUE ndata IS ONLY VALID FOR 2D WHERE THE   ###
+    ! ###  NUMBER OF FACE POINTS IS THE NUMBER OF EDGE      ###
+    ! ###  POINTS REGARDLESS OF THE HOST CELL GEOMETRY.     ###
+    ! ###  FOR 3D, WE WILL HAVE TO WORRY ABOUT DIFFERING    ###
+    ! ###  NUMBERS OF FACE POINTS DUE TO TRIANGLE AND       ###
+    ! ###  QUADRILATERAL BOUNDARY FACES. WE WILL ALSO HAVE  ###
+    ! ###  TO WORRY ABOUT PROVIDING THE MESH CONNECTIVITY   ###
+    ! ###  OF THE BOUNDARY FACES FOR 3D.                    ###
+    ! #########################################################
+    ! #########################################################
+    ! #####################  WARNING!!!!  #####################
+    ! #########################################################
+    ! #########################################################
+    !
+    !
+    ngf = count(bface_nc(5,:) == gid)
+    ndata = ngf * n_fp1de
+    !
+    ! Allocate the faces part of the bnd_prof array for this group ID
+    !
+    allocate ( bnd_prof(n)%faces(1:ngf) , source=0 , stat=ierr )
+    write (array_name,1) "bnd_prof(",n,")%faces"
+   !write (iout,2) 1,trim(array_name)
+    call alloc_error("create_profile_structures",array_name,1,ierr)
+    !
+    ! Store the indices for the boundary faces that have this group ID
+    ! NOTE: We need to use bface_map as the packing array to map the face
+    !       index within bface_nc back to the index for bface.
+    !
+    bnd_prof(n)%faces = pack( bface_map , mask = (bface_nc(5,:) == gid) )
+    !
+    ! Get the name of the BC for this group ID using the first face in the group.
+    !
+    nf = bnd_prof(n)%faces(1)
+    bnd_prof(n)%prof_name = trim( bc_integer_to_string(bface(1,nf)) )
+    !
+    ! Allocate the number of flow quantities
+    !
+    nqty = wall_qtys
+   !nqty = merge( wall_qtys , flow_qtys , any(bface(1,nf) == bc_walls) )
+    !
+    allocate ( bnd_prof(n)%qty(1:nqty) , stat=ierr )
+    write (array_name,1) "bnd_prof(",n,")%qty"
+   !write (iout,2) 2,trim(array_name)
+    call alloc_error("create_profile_structures",array_name,1,ierr)
+    !
+    ! Loop over the number of flow quantities and
+    ! allocate the data locations for each quantity.
+    !
+    do i = 1,nqty
+      !
+      ! Store the name of the flow quantity
+      !
+      bnd_prof(n)%qty(i)%qty_name = flow_var(i)
+      !
+      ! Allocate the arrays containing the actual data for each flow quantity
+      !
+      allocate ( bnd_prof(n)%qty(i)%qty_data(1:ndata) , &
+                 source=zero , stat=ierr )
+      write (array_name,1) "bnd_prof(",n,")%qty(",i,")%qty_data"
+     !write (iout,2) 3,trim(array_name)
+      call alloc_error("create_profile_structures",array_name,1,ierr)
+      !
+    end do
+    !
+  end do
+  !
+ !do n = 1,size(bnd_prof)
+ !  write (mypnum+120,3) bnd_prof(n)%group_num, &
+ !                      trim(bnd_prof(n)%prof_name)
+ !  do nf = 1,size(bnd_prof(n)%faces)
+ !    write (mypnum+120,*) bnd_prof(n)%faces(nf)
+ !  end do
+ !end do
+  !
+  ! Fill the coordinate quantity sections of boundary profile
+  !
+  do n = 1,size(bnd_prof)
+    !
+    do i = 1,size(bnd_prof(n)%faces)
+      !
+      nf = bnd_prof(n)%faces(i) ! boundary face of current profile
+      !
+      host_cell = bface(2,nf) ! host cell on current boundary face
+      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
+      !
+      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
+      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
+      np = n2-n1+1                      ! number of sol-pts in host cell
+      nw = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
+      !
+      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
+      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
+      !
+      do k = 1,n_fp1de
+        !
+        flxpt = begfp + k ! Index of flx-pt local to the current host cell
+        bndpt = begbp + k ! Index within qty_data for current flx-pt
+        !
+        lmat(1:np) = interp_s2f(1:np,flxpt,nw)
+        !
+        ! Interpolate the coordinates of the interior sol-pts to the
+        ! current flux point on face nf
+        !
+        do l = 1,nr
+          bnd_prof(n)%qty(l)%qty_data(bndpt) = dot_product( lmat(1:np) , &
+                                                            xyz(l,n1:n2) )
+        end do
+        !
+      end do
+      !
+    end do
+    !
+  end do
+ !!
+ !! Output the interpolated coordinates to Tecplot for debugging
+ !!
+ !open (iogrd,file="bndprof.tec.dat",status="replace",action="write", &
+ !            form="formatted",position="rewind",iostat=ierr)
+ !call io_error("create_profile_structures","bndprof.tec.dat",1,ierr)
+ !!
+ !write (iogrd,100) (trim(bnd_prof(1)%qty(l)%qty_name), l=1,nr)
+ !do n = 1,size(bnd_prof)
+ !  !
+ !  np = size(bnd_prof(n)%qty(1)%qty_data)
+ !  !
+ !  write (iogrd,101) trim(bnd_prof(n)%prof_name),np
+ !  !
+ !  do l = 1,nr
+ !    write (iogrd,102) (bnd_prof(n)%qty(l)%qty_data(i), i=1,np)
+ !  end do
+ !  !
+ !end do
+ !!
+ !close (iogrd,iostat=ierr)
+ !call io_error("create_profile_structures","bndprof.tec.dat",2,ierr)
+  !
+  ! Format Statements
+  !
+  1 format (a,*(i0,a,:))
+  2 format (2x,i0,5x,"'",a,"'")
+  3 format ("BC Group# = ",i0,": ",a)
+  100 format ('VARIABLES = "',a,'" "',a,'"')
+  101 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK')
+  102 format (5es18.10)
+  !
+end subroutine create_profile_structures
 !
 !###############################################################################
 !

@@ -44,6 +44,7 @@ program Euler_tri
   use initialization_mod, only : initialize_flow
   use module_bc,   only : get_faceusp_bc
   use module_bc,   only : get_facedusp_bc
+  use module_bc,   only : compute_bc_profiles
   use generic_mod, only : rgetdtmax,get_dtsp, &
                           getbc,rresi, &
                           rgeterr,getmaxent, &
@@ -542,6 +543,7 @@ continue
     call compute_final_error
   end if
   !
+  call compute_bc_profiles
   if (mypnum == 0) then
     !
     write (iout,40) itcur,time

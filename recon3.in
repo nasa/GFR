@@ -2,20 +2,20 @@
 all_orders = 2
 all_points = 1
 grid_format = 3
-gridfile = "grid_files/flat_plate/a0-125-2s.scaled.msh"
+gridfile = "grid_files/flat_plate/a5-125-2s.scaled.cutoff.msh"
 !  grid_format = 4
 !  gridfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.chopped.grd"
 !  plot3d_bcsfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.bcs.grd"
 !  plot3d_cutfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.cut.grd"
 Timestep_Type =  0
 CFL = 1.0
-num_ts = 19200
+num_ts = 0
 !Final_Time = 0.10
 dt_in = 1.0E-08
 restart_interval = 500000
 output_interval = -100
 results_interval = 100
-iter_out_interval = 100
+iter_out_interval = 1
 itestcase = 1
 aoaref = 0.0
 rhoref = -1.0
@@ -27,6 +27,7 @@ visc_flux_method = 2
 reyref = 10000.0
 walls_are_exact = T
 visc_variables_to_ave = 1
+!output_bface_array = T
 /
 
 #####################################
@@ -87,6 +88,7 @@ init_loc = 0
 error_loc = 0
 vortex_bigR = 1.0
 vortex_bigGam = 5.0
+output_bface_array = F
 #####################################
 #######    END OF DEFAULTS    #######
 #####################################
