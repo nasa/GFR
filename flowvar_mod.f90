@@ -48,6 +48,29 @@ module flowvar
   !
   real(wp), public, save, allocatable, dimension(:) :: dtsp
   !
+  ! PROFILE_QUANTITY: Derived type containing the name of a profile
+  !                   quantity and the corresponding data
+  !
+  type, public :: profile_quantity
+    character(len=100) :: qty_name
+    real(wp), allocatable, dimension(:) :: qty_data
+  end type profile_quantity
+  !
+  ! PROFILE: Derived type of a single profile containing multiple quantities
+  !
+  type, public :: profile
+    character(len=100) :: prof_name
+    integer :: group_num
+    integer, allocatable, dimension(:) :: faces
+    type(profile_quantity), allocatable, dimension(:) :: qty
+  end type profile
+  !
+  ! BND_PROF : Solution profiles along each boundary
+  ! SOL_PROF : Solution profiles within the interior
+  !
+  type(profile), public, save, allocatable, dimension(:) :: bnd_prof
+  type(profile), public, save, allocatable, dimension(:) :: sol_prof
+  !
 end module flowvar
 !
 !###############################################################################
