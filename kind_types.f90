@@ -829,6 +829,7 @@ include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
 include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
+include "Functions/all_are_equal.f90"
 !
 !###############################################################################
 !
