@@ -1,6 +1,6 @@
 module ovar
   !
-  use module_kind_types, only : wp,true
+  use module_kind_types, only : wp,fals,true
   use geovar, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -210,6 +210,7 @@ module ovar
   real(wp), public, save :: suth_c1
   !
   integer, public, save :: output_plot3d_to_tecplot = 0
+  logical, public, save :: output_bface_array = fals
   !
   integer,            public, save :: grid_format = 2
   character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
@@ -266,6 +267,8 @@ module ovar
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
   namelist / input / walls_are_exact
+  ! VARIOUS DEBUG TYPE variables
+  namelist / input / output_bface_array
   !
 end module ovar
 !
