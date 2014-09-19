@@ -1391,6 +1391,11 @@ continue
   !
   call adjust_for_ghost_cells
   !
+  ! Find any grid nodes on the boundaries that separate two boundary
+  ! faces with non-matching boundary conditions
+  !
+  call find_bc_conflicts
+  !
 end subroutine read_grid_file
 !
 !###############################################################################
@@ -2446,6 +2451,186 @@ continue
   end do
   !
 end subroutine save_global_grid
+!
+!###############################################################################
+!
+subroutine find_bc_conflicts
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface,nnode
+  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : bc_conflict
+  !
+  !.. Local Scalars ..
+  integer :: n,nf,i,ip,is,n1,n2,nf1,nf2,ierr
+  integer :: host_cell,cell_type,face_loc
+  integer :: n_2bc_nodes
+  character(len=100) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable, dimension(:) :: mskp
+  integer, allocatable, dimension(:) :: faces_with_node_ptr
+  integer, allocatable, dimension(:) :: faces_with_node
+  integer, allocatable, dimension(:,:) :: bface_nodes
+  !
+continue
+  !
+  allocate ( bface_nodes(1:4,1:nfbnd) , source=0 , stat=ierr )
+  call alloc_error("find_bc_conflicts","bface_nodes",1,ierr)
+  !
+  ! Find the nodes that define each boundary face
+  !
+  do nf = 1,nfbnd
+    !
+    host_cell = bface(2,nf) ! host cell of boundary face
+    cell_type = bface(3,nf) ! geometry type of host cell
+    face_loc = bface(4,nf)  ! face of host cell on boundary
+    !
+    n1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index for host cell nodes
+    n2 = nodes_of_cell_ptr(host_cell+1) ! ending    index for host cell nodes
+    !
+    ! Get the nodes of the host cell on the boundary face
+    !
+    select case (cell_type)
+      case (2)
+        bface_nodes(1:2,nf) = face_nodes_quad( face_loc , nodes_of_cell(n1:n2) )
+      case (3)
+        bface_nodes(1:2,nf) = face_nodes_tria( face_loc , nodes_of_cell(n1:n2) )
+      case (4)
+        bface_nodes(1:3,nf) = face_nodes_tetr( face_loc , nodes_of_cell(n1:n2) )
+      case (5)
+        bface_nodes(1:4,nf) = face_nodes_pyra( face_loc , nodes_of_cell(n1:n2) )
+      case (6)
+        bface_nodes(1:4,nf) = face_nodes_pris( face_loc , nodes_of_cell(n1:n2) )
+      case (8)
+        bface_nodes(1:4,nf) = face_nodes_hexa( face_loc , nodes_of_cell(n1:n2) )
+      case default
+        bface_nodes(:,nf) = -99
+    end select
+    !
+  end do
+  !
+  ! Check for any bad nodes
+  !
+  if (any(bface_nodes < 0)) then
+    call stop_recon(stop_mpi,"find_bc_conflicts", &
+         "ERROR FINDING THE NODES OF THE HOST CELL ON THE BOUNDARY FACE!")
+  end if
+  !
+  ! Mark the nodes defining each boundary face, storing ahead 
+  !
+  allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , stat=ierr )
+  call alloc_error("find_bc_conflicts","faces_with_node_ptr",1,ierr)
+  !
+  do nf = 1,nfbnd
+    do i = 1,count(bface_nodes(:,nf) > 0)
+      ip = bface_nodes(i,nf) + 1
+      faces_with_node_ptr(ip) = faces_with_node_ptr(ip) + 1
+    end do
+  end do
+  !
+  ! Reshuffle faces_with_node_ptr
+  !
+  do n = 2,size(faces_with_node_ptr)
+    faces_with_node_ptr(n) = faces_with_node_ptr(n) + faces_with_node_ptr(n-1)
+  end do
+  !
+  allocate ( faces_with_node(1:last(faces_with_node_ptr)) , source=0 , stat=ierr )
+  call alloc_error("find_bc_conflicts","faces_with_node",1,ierr)
+  !
+  ! Now store the faces surrounding each node in faces_with_node
+  !
+  do nf = 1,nfbnd
+    do i = 1,count(bface_nodes(:,nf) > 0)
+      ip = bface_nodes(i,nf)
+      is = faces_with_node_ptr(ip) + 1
+      faces_with_node_ptr(ip) = is
+      faces_with_node(is) = nf
+    end do
+  end do
+  !
+  ! Deallocate bface_nodes because it is no longer needed
+  !
+  deallocate ( bface_nodes , stat=ierr )
+  call alloc_error("find_bc_conflicts","bface_nodes",2,ierr)
+  !
+  ! Finally, reorder faces_with_node_ptr
+  !
+  do n = size(faces_with_node_ptr),2,-1
+    faces_with_node_ptr(n) = faces_with_node_ptr(n-1)
+  end do
+  faces_with_node_ptr(1) = 0
+  !
+  ! Now go through each node and see if any of the boundary faces
+  ! containing the node have non-matching boundary conditions.
+  ! Mark any nodes that are found.
+  !
+  allocate ( mskp(1:nnode) , source=fals , stat=ierr )
+  call alloc_error("find_bc_conflicts","mskp",1,ierr)
+  !
+  do n = 1,size(faces_with_node_ptr)-1
+    nf1 = faces_with_node_ptr(n)+1
+    nf2 = faces_with_node_ptr(n+1)
+   !write (iout,'(1x,i0,":",i0,3x,l1,3x,*(1x,i0,:))') &
+   !         nf1,nf2,all_not_equal( bface(1,faces_with_node(nf1:nf2)) ), &
+   !         (faces_with_node(i),i=nf1,nf2)
+    mskp(n) = all_not_equal( bface(1,faces_with_node(nf1:nf2)) )
+  end do
+  !
+  allocate ( bc_conflict(1:count(mskp)) , stat=ierr )
+  call alloc_error("find_bc_conflicts","bc_conflict",1,ierr)
+  !
+  ! Use the mask and faces_with_node arrays to extract the nodes
+  ! and corresponding boundary faces that have non-matching
+  ! boundary conditions.
+  !
+  i = 0
+  do n = 1,size(faces_with_node_ptr)-1
+    !
+    if (.not. mskp(n)) cycle
+    !
+    i = i + 1
+    !
+    nf1 = faces_with_node_ptr(n)+1
+    nf2 = faces_with_node_ptr(n+1)
+    !
+    bc_conflict(i)%node = n
+    !
+    allocate ( bc_conflict(i)%faces(1:nf2-nf1+1) , stat=ierr )
+    write (array_name,1) "bc_conflict(",i,")%faces"
+    call alloc_error("find_bc_conflicts",array_name,1,ierr)
+    !
+    bc_conflict(i)%faces = faces_with_node(nf1:nf2)
+   !write (iout,'(1x,i0,":",i0,3x,l1,3x,*(1x,i0,:))') &
+   !         nf1,nf2,all_not_equal( bface(1,faces_with_node(nf1:nf2)) ), &
+   !         (faces_with_node(nf),nf=nf1,nf2)
+    !
+  end do
+  !
+  ! Deallocate the local arrays before leaving
+  !
+  deallocate ( faces_with_node_ptr , stat=ierr )
+  call alloc_error("find_bc_conflicts","faces_with_node_ptr",2,ierr)
+  deallocate ( faces_with_node , stat=ierr )
+  call alloc_error("find_bc_conflicts","faces_with_node",2,ierr)
+  deallocate ( mskp , stat=ierr )
+  call alloc_error("find_bc_conflicts","mskp",2,ierr)
+  !
+  ! Output the results for debugging
+  !
+ !write (iout,2) size(bc_conflict)
+ !do n = 1,size(bc_conflict)
+ !  write (iout,3) n,bc_conflict(n)%node, &
+ !                (bc_conflict(n)%faces(i), i=1,size(bc_conflict(n)%faces))
+ !end do
+  !
+  ! Format Statements
+  !
+  1 format (a,i0,a)
+  2 format (//," Number of BC Conflicts = ",i0,/)
+  3 format (" Conflict #",i0,": Node = ",i0,"; Faces = ",*(i0,:,", "))
+  !
+end subroutine find_bc_conflicts
 !
 !###############################################################################
 !
@@ -4463,6 +4648,7 @@ end subroutine reallocate1_c
 !
 include "Functions/last.f90"
 include "Functions/vortex.f90"
+include "Functions/face_nodes.f90"
 !
 !###############################################################################
 !

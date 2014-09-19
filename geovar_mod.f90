@@ -238,6 +238,36 @@ module geovar
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
   !
+  ! CONFLICT : A data type that provides the node and face indices for any
+  !            boundary condition conflicts. A boundary condition conflict
+  !            is where two adjacent boundary faces have non-matching / 
+  !            conflicting boundary conditions. These conflicts are located
+  !            at a single node for a 2D grid and along an edge for a 3D grid.
+  !            NOTE: This data type might need to be tweaked for 3D. The whole
+  !                  point of it is to exchange the computed solution at a
+  !                  boundary flux point so that they are consistent. This is
+  !                  straight forward for 2D because we only need to exchange
+  !                  this information for a single point. However, for 3D,
+  !                  we will need to exchange information along the entire
+  !                  edge meaning we will have multiple points instead of
+  !                  just the one. I have added the allocatable component
+  !                  flxpts as a possible solution to this potential flaw.
+  !                  For 2D, flxpts is allocated to flxpts(1:2,1:1) where
+  !                  the first rank is for which face the flux point is
+  !                  from while the second rank gives the actual flux point.
+  !                  ??? For 3D, this could be allocated to something like
+  !                  flxpts(1:size(faces),1:n_sp1de) ???
+  !
+  type, public :: conflict
+    integer :: node
+    integer, allocatable, dimension(:) :: faces
+    integer, allocatable, dimension(:,:) :: flxpts
+  end type conflict
+  !
+  ! BC_CONFLICT : Array for storing all the boundary condition conflicts.
+  !
+  type(conflict), public, save, allocatable, dimension(:) :: bc_conflict
+  !
   ! For face i_face,
   ! pts_on_face(1,1:n_sp1de,i_face) : solution points of the left  cell on i_face
   ! pts_on_face(2,1:n_sp1de,i_face) : solution points of the right cell on i_face

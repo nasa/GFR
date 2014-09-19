@@ -290,6 +290,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/generic.o \
        $(FUNDIR)/vortex.f90 \
+       $(FUNDIR)/face_nodes.f90 \
        $(FUNDIR)/last.f90
 $(OBJDIR)/startup.o : startup.f90 \
             $(OBJDIR)/kind_types.o \
