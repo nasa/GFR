@@ -271,6 +271,7 @@ $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
+             $(FUNDIR)/host_face.f90 \
              $(FUNDIR)/last.f90
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
