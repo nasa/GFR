@@ -543,7 +543,7 @@ continue
     call compute_final_error
   end if
   !
-  call compute_bc_profiles
+  if (ncpu == 1) call compute_bc_profiles
   if (mypnum == 0) then
     !
     write (iout,40) itcur,time

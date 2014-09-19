@@ -244,7 +244,7 @@ continue
   !
   ! Create the profile structures
   !
-  call create_profile_structures
+  if (ncpu == 1) call create_profile_structures
   !
   ! Format Statements
   !
