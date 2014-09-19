@@ -305,7 +305,7 @@ subroutine partition_grid(npart,n_order,metis_option,bface,nodes_of_cell, &
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell_ptr
   integer,   allocatable, dimension(:,:), intent(inout) :: bface
-  real(vbp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
+  real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ierr
@@ -1451,7 +1451,7 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell_ptr
   integer,   allocatable, dimension(:,:), intent(inout) :: bface
-  real(vbp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
+  real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
   integer :: n,nf,nc,np,n1,n2,g1,g2,gc,gp
@@ -1476,7 +1476,7 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
   integer,   allocatable, dimension(:)   :: global_nofc
   integer,   allocatable, dimension(:)   :: global_nofc_ptr
   integer,   allocatable, dimension(:,:) :: global_bface
-  real(vbp), allocatable, dimension(:,:) :: global_xyz
+  real(wp), allocatable, dimension(:,:) :: global_xyz
   !
 continue
   !
@@ -3449,7 +3449,7 @@ end subroutine create_geometry_offsets
 subroutine blocking_exchange(usp)
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:), intent(inout) :: usp
+  real(wp), dimension(:,:), intent(inout) :: usp
   !
   !.. Local Scalars ..
   integer :: i,n,lcpu,rcpu,ltag,rtag
@@ -3509,7 +3509,7 @@ subroutine exchange_faceusp(faceusp)
   use geovar, only : nfbnd
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:,:,:), intent(in) :: faceusp
+  real(wp), dimension(:,:,:,:), intent(in) :: faceusp
   !
   !.. Local Scalars..
   integer :: n,s,r,dtype
@@ -3578,7 +3578,7 @@ subroutine exchange_facedusp(facedusp)
   use geovar, only : nfbnd
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:,:,:,:), intent(in) :: facedusp
+  real(wp), dimension(:,:,:,:,:), intent(in) :: facedusp
   !
   !.. Local Scalars..
   integer :: n,s,r,dtype
@@ -3647,7 +3647,7 @@ subroutine nonblocking_exchange(usp)
   use geovar, only : n_totpts,n_solpts
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:,:), intent(inout) :: usp
+  real(wp), dimension(:,:), intent(inout) :: usp
   !
   !.. Local Scalars..
   integer :: n,s,r,dtype
@@ -3685,7 +3685,7 @@ continue
   !
   ! Update the adjacent elements
   !
-  usp(:,n_solpts+1:n_totpts) = real(exch_buffer(:,n_solpts+1:n_totpts),vbp)
+  usp(:,n_solpts+1:n_totpts) = real(exch_buffer(:,n_solpts+1:n_totpts),kind=wp)
   !
 end subroutine nonblocking_exchange
 !
@@ -3783,7 +3783,7 @@ end subroutine test_nonblocking_fexchange
 subroutine test_nonblocking_exchange(array)
   !
   !.. Formal Arguments ..
-  real(vbp), dimension(:), intent(inout) :: array
+  real(wp), dimension(:), intent(inout) :: array
   !
   !.. Local Scalars..
   integer :: i,n,s,r,dtype,ierr
@@ -3793,7 +3793,7 @@ subroutine test_nonblocking_exchange(array)
   integer, dimension(1:mpi_status_size,1:2*ncomm) :: istat
   !
   !.. Local Allocatable Arrays ..
-  real(vbp), allocatable, dimension(:) :: buffer
+  real(wp), allocatable, dimension(:) :: buffer
   !
 continue
   !
@@ -3886,7 +3886,7 @@ continue
     call mpi_bcast(global_xyz_r8,size(global_xyz_r8),mpi_flttyp, &
                    0,mpi_comm_world,mpierr)
     !
-    global_xyz(:,:) = real( global_xyz_r8(:,:) , vbp )
+    global_xyz(:,:) = real( global_xyz_r8(:,:) , kind=wp )
     !
     deallocate ( xyz_r8 , stat=ierr )
     call alloc_error("collect_global_solpts","xyz_r8",2,ierr)
@@ -3957,7 +3957,7 @@ continue
     !
     call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
     !
-    global_usp(:,:) = real( global_r8(:,:) , vbp )
+    global_usp(:,:) = real( global_r8(:,:) , kind=wp )
     !
     ! Collect the global vsp array on all processors
     !
@@ -3989,7 +3989,7 @@ continue
     !
     call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
     !
-    global_vsp(:,:) = real( global_r8(:,:) , vbp )
+    global_vsp(:,:) = real( global_r8(:,:) , kind=wp )
     !
     deallocate ( sp_r8 , stat=ierr )
     call alloc_error("collect_global_solution","sp_r8",2,ierr)
@@ -4112,7 +4112,7 @@ subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   integer,                           intent(in) :: id
   integer,   dimension(:),           intent(in) :: nodes_of_cell
   integer,   dimension(:),           intent(in) :: nodes_of_cell_ptr
-  real(vbp), dimension(:,:),         intent(in) :: xyz_nodes
+  real(wp), dimension(:,:),         intent(in) :: xyz_nodes
   integer,   dimension(:), optional, intent(in) :: epart
   !
   !.. Local Scalars ..
