@@ -203,12 +203,6 @@ module parallel_mod
   integer, save, allocatable, dimension(:) :: recv_pts_ptr
   integer, save, allocatable, dimension(:) :: recv_pts
   !
-  ! Array that contains the offsets for the solution points
-  ! within a boundary cell depending on cell geometry type
-  ! and the face of the cell on the boundary face.
-  !
-  integer, save, allocatable, dimension(:,:,:) :: geom_offset
-  !
   ! Array to store the orientation of each local ghost
   ! cell with respect to its corresponding global cell
   !
@@ -539,11 +533,6 @@ continue
                      face_map,face_map_ptr,face_rmap, &
                      nodes_of_cell,nodes_of_cell_ptr, &
                      bface,xyz_nodes)
-  !
-  ! Before creating the MPI datatypes, we need to create
-  ! the offset array for the solution points within a cell
-  !
-  call create_geometry_offsets
   !
   ! Finally, create MPI datatypes for exchanging data between processes
   !
@@ -1996,6 +1985,12 @@ subroutine create_nonblocking_exchange_datatypes(nodes_of_cell, &
   integer, allocatable, dimension(:) :: recv_temp
   integer, allocatable, dimension(:) :: cell_offset
   !
+  ! Array that contains the offsets for the solution points
+  ! within a boundary cell depending on cell geometry type
+  ! and the face of the cell on the boundary face.
+  !
+  integer, allocatable, dimension(:,:,:) :: geom_offset
+  !
 continue
   !
   nfbnd = size(bface,dim=2)
@@ -2221,6 +2216,14 @@ continue
     !
   end do
   !
+  ! Before we create the send and receive solution point maps, we need
+  ! to create the offset array for the solution points within a cell
+  !
+  allocate ( geom_offset(1:n_sp2dq,1:4,1:2) , source=0 , stat=ierr )
+  call alloc_error("create_nonblocking_exchange_datatypes","geom_offset",1,ierr)
+  !
+  call create_geometry_offsets(geom_offset)
+  !
   ! Create the send and receive solution point maps
   !
   allocate ( send_pts(1:last(send_pts_ptr)) , source=0 , stat=ierr )
@@ -2277,10 +2280,12 @@ continue
     !
   end do
   !
-  ! We no longer need ghost_face so deallocate
+  ! We no longer need ghost_face or geom_offset so deallocate
   !
   deallocate ( ghost_face , stat=ierr )
   call alloc_error("create_nonblocking_exchange_datatypes","ghost_face",2,ierr)
+  deallocate ( geom_offset , stat=ierr )
+  call alloc_error("create_nonblocking_exchange_datatypes","geom_offset",2,ierr)
   !
   ! Finally create the MPI datatypes for exchanging
   ! solution data between adjacent partitions
@@ -2363,11 +2368,6 @@ continue
  !  write (*,6) mypnum,icpu,r2,recv_pts_ptr(i+1),recv_pts_ptr(i+1)-recv_pts_ptr(i)
  !  !
  !end do
-  !
-  ! I don't think we need geom_offset anymore so deallocate
-  !
-  deallocate ( geom_offset , stat=ierr )
-  call alloc_error("create_nonblocking_exchange_datatypes","geom_offset",2,ierr)
   !
   ! Create the test MPI datatypes
   !
@@ -2852,15 +2852,15 @@ end subroutine create_face_nonblocking_datatypes
 !
 !###############################################################################
 !
-subroutine create_geometry_offsets()
+subroutine create_geometry_offsets(geom_offset)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:,:,:), intent(inout) :: geom_offset
   !
   !.. Local Scalars ..
   integer :: i,j,n,lp,gp,ierr
   !
 continue
-  !
-  allocate ( geom_offset(1:n_sp2dq,1:4,1:2) , source=0 , stat=ierr )
-  call alloc_error("create_geometry_offsets","geom_offset",1,ierr)
   !
   ! #######
   ! ## 1 ##
