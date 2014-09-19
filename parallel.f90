@@ -189,20 +189,6 @@ module parallel_mod
   integer, save, allocatable, dimension(:) :: exch_cpu
   integer, save, allocatable, dimension(:) :: exchf_cpu
   !
-  ! Send and receive cell maps and pointers
-  !
-  integer, save, allocatable, dimension(:) :: send_cell_ptr
-  integer, save, allocatable, dimension(:) :: send_cell
-  integer, save, allocatable, dimension(:) :: recv_cell_ptr
-  integer, save, allocatable, dimension(:) :: recv_cell
-  !
-  ! Send and receive solution point maps and pointers
-  !
-  integer, save, allocatable, dimension(:) :: send_pts_ptr
-  integer, save, allocatable, dimension(:) :: send_pts
-  integer, save, allocatable, dimension(:) :: recv_pts_ptr
-  integer, save, allocatable, dimension(:) :: recv_pts
-  !
   ! Array to store the orientation of each local ghost
   ! cell with respect to its corresponding global cell
   !
@@ -1985,6 +1971,20 @@ subroutine create_nonblocking_exchange_datatypes(nodes_of_cell, &
   integer, allocatable, dimension(:) :: recv_temp
   integer, allocatable, dimension(:) :: cell_offset
   !
+  ! Send and receive cell maps and pointers
+  !
+  integer, allocatable, dimension(:) :: send_cell_ptr
+  integer, allocatable, dimension(:) :: send_cell
+  integer, allocatable, dimension(:) :: recv_cell_ptr
+  integer, allocatable, dimension(:) :: recv_cell
+  !
+  ! Send and receive solution point maps and pointers
+  !
+  integer, allocatable, dimension(:) :: send_pts_ptr
+  integer, allocatable, dimension(:) :: send_pts
+  integer, allocatable, dimension(:) :: recv_pts_ptr
+  integer, allocatable, dimension(:) :: recv_pts
+  !
   ! Array that contains the offsets for the solution points
   ! within a boundary cell depending on cell geometry type
   ! and the face of the cell on the boundary face.
@@ -2475,6 +2475,13 @@ subroutine create_face_nonblocking_datatypes(bface)
   integer, allocatable, dimension(:) :: recv_map
   integer, allocatable, dimension(:) :: send_temp
   integer, allocatable, dimension(:) :: recv_temp
+  !
+  ! Send and receive solution point maps and pointers
+  !
+  integer, allocatable, dimension(:) :: send_pts_ptr
+  integer, allocatable, dimension(:) :: send_pts
+  integer, allocatable, dimension(:) :: recv_pts_ptr
+  integer, allocatable, dimension(:) :: recv_pts
   !
  !real(r8), dimension(1:nr,1:n_global_totpts,1:ncpu) :: gxyz
   !
