@@ -260,13 +260,6 @@ module parallel_mod
   !
   integer, public, save, allocatable, dimension(:) :: cell_map
   integer, public, save, allocatable, dimension(:) :: cell_map_ptr
- !!
- !! Generic interface for routine to reallocate an array and increase its size
- !!
- !interface reallocate
- !  module procedure reallocate_1, &
- !                   reallocate_2
- !end interface reallocate
   !
 contains
 !
@@ -4004,105 +3997,6 @@ continue
   end if
   !
 end subroutine collect_global_solution
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!
-! Routines to expand an array while keeping its data intact. This module
-! contains a generic interface for these two routines to allow use through
-! a single routine name for either a rank one or rank two array.
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!
-subroutine reallocate_1(array,new_size)
-  !
-  !.. Formal Arguments ..
-  integer,                               intent(in) :: new_size
-  integer, allocatable, dimension(:), intent(inout) :: array
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:) :: temp_array
-  !
-  !.. Local Scalars ..
-  integer :: ierr
-  !
-continue
-  !
-  ! Allocate the temporary array to store the old contents of array
-  !
-  allocate ( temp_array(1:new_size) , source=0 , stat=ierr )
-  call alloc_error("reallocate_1","temp_array",1,ierr)
-  !
-  ! If array is allocated, copy the old contents
-  ! of array into the temporary array
-  !
-  if (allocated(array)) temp_array(1:size(array)) = array
-  !
-  ! move_alloc does:
-  !     1. deallocates array if it is allocated
-  !     2. allocates array with the same type, type parameters,
-  !        array bounds, and value as temp_array
-  !     3. deallocates temp_array
-  !
-  call move_alloc( from=temp_array , to=array )
-  !
-end subroutine reallocate_1
-!
-!###############################################################################
-!
-subroutine reallocate_2(array,new_size1,new_size2)
-  !
-  !.. Formal Arguments ..
-  integer, optional,                       intent(in) :: new_size1
-  integer, optional,                       intent(in) :: new_size2
-  integer, allocatable, dimension(:,:), intent(inout) :: array
-  !
-  !.. Local Scalars ..
-  integer :: old_size1,old_size2,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:,:) :: temp_array
-  !
-continue
-  !
-  ! Get the old dimensions of array
-  !
-  old_size1 = 1
-  old_size2 = 1
-  if (allocated(array)) then
-    old_size1 = size(array,1)
-    old_size2 = size(array,2)
-  end if
-  !
-  ! Allocate the temporary array to store the old contents of array
-  !
-  if (present(new_size1) .and. present(new_size2)) then
-    allocate ( temp_array(1:new_size1,1:new_size2) , source=0 , stat=ierr )
-  else if (present(new_size1)) then
-    allocate ( temp_array(1:new_size1,1:old_size2) , source=0 , stat=ierr )
-  else if (present(new_size2)) then
-    allocate ( temp_array(1:old_size1,1:new_size2) , source=0 , stat=ierr )
-  else
-    allocate ( temp_array(1:old_size1,1:old_size2) , source=0 , stat=ierr )
-  end if
-  call alloc_error("reallocate_2","temp_array",1,ierr)
-  !
-  ! Copy the old contents of array into the temporary array
-  !
-  if (allocated(array)) temp_array(1:old_size1,1:old_size2) = array
-  !
-  ! move_alloc does:
-  !     1. deallocates array
-  !     2. allocates array with the same type, type parameters,
-  !        array bounds, and value as temp_array
-  !     3. deallocates temp_array
-  !
-  call move_alloc( from=temp_array , to=array )
-  !
-end subroutine reallocate_2
 !
 !###############################################################################
 !
