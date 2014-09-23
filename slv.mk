@@ -224,7 +224,8 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/random.f90 \
                $(FUNDIR)/uppercase.f90 \
                $(FUNDIR)/bc_integer_to_string.f90 \
-	       $(FUNDIR)/all_are_equal.f90
+	       $(FUNDIR)/all_are_equal.f90 \
+	       $(FUNDIR)/findloc.f90
 $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
@@ -291,7 +292,8 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/generic.o \
        $(FUNDIR)/vortex.f90 \
        $(FUNDIR)/face_nodes.f90 \
-       $(FUNDIR)/last.f90
+       $(FUNDIR)/last.f90 \
+       $(FUNDIR)/bc_priority.f90
 $(OBJDIR)/startup.o : startup.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \

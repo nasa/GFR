@@ -197,6 +197,24 @@ module module_kind_types
                                           bc_adiabatic_wall, &
                                           bc_isothermal_wall ]
   !
+  integer, parameter :: bc_heirarchy(1:17) = [ bc_isothermal_wall, &
+                                               bc_adiabatic_wall, &
+                                               bc_euler_wall, &
+                                               bc_slip_wall, &
+                                               bc_symmetry, &
+                                               bc_fixed, &
+                                               bc_freestream, &
+                                               bc_sub_inflow, &
+                                               bc_sup_inflow, &
+                                               bc_mdot_inflow, &
+                                               bc_generic_inflow, &
+                                               bc_sub_outflow, &
+                                               bc_sup_outflow, &
+                                               bc_mdot_outflow, &
+                                               bc_generic_outflow, &
+                                               bc_characteristic, &
+                                               bc_generic_freeflow ]
+  !
   ! Parameters defining workshop test cases
   !
   integer, parameter :: Generic_MeanFlow = 1
@@ -219,6 +237,8 @@ module module_kind_types
   integer, parameter :: Legendre_Gauss_Lobatto  = 2
   integer, parameter :: Chebyshev_Gauss         = 3
   integer, parameter :: Chebyshev_Gauss_Lobatto = 4
+  integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
+                                              Chebyshev_Gauss_Lobatto]
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
@@ -346,6 +366,10 @@ module module_kind_types
   interface random
     module procedure random_i4,random_sp,random_dp,random_qp
   end interface random
+  !
+  interface findloc
+    module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8
+  end interface findloc
   !
   ! Make the non-generic functions private
   !
@@ -830,6 +854,7 @@ include "Functions/random.f90"
 include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
+include "Functions/findloc.f90"
 !
 !###############################################################################
 !
