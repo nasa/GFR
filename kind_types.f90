@@ -841,6 +841,8 @@ end subroutine stop_recon
 !
 !###############################################################################
 !
+! Include statements for functions that have a generic interface
+!
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"
@@ -851,10 +853,13 @@ include "Functions/rotate.f90"
 include "Functions/rotate_2d.f90"
 include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
+include "Functions/findloc.f90"
+!
+! Include statements for functions that DO NOT have a generic interface
+!
 include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
-include "Functions/findloc.f90"
 !
 !###############################################################################
 !
