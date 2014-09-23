@@ -1012,7 +1012,7 @@ subroutine correct_interface_flux_qdtr_with_visc()
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
   use generic_mod, only : pressure_cv_sp
-  use parallel_mod, only : wait_facedusp
+ !use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
   integer   :: k,l,m,n,nf,r1,r2,l1,l2
@@ -1040,7 +1040,7 @@ continue
   !
   ! Make sure that the non-blocking exchange of faceusp has completed
   !
-  if (ncpu > 1) call wait_facedusp(facedusp)
+ !if (ncpu > 1) call wait_facedusp(facedusp)
   !
   ! ##############################################################
   ! ##############################################################

@@ -250,7 +250,7 @@ module geovar
   !                  this information for a single point. However, for 3D,
   !                  we will need to exchange information along the entire
   !                  edge meaning we will have multiple points instead of
-  !                  just the one. I have added the allocatable component
+  !                  just the one. Example, add the allocatable component
   !                  flxpts as a possible solution to this potential flaw.
   !                  For 2D, flxpts is allocated to flxpts(1:2,1:1) where
   !                  the first rank is for which face the flux point is
@@ -258,10 +258,17 @@ module geovar
   !                  ??? For 3D, this could be allocated to something like
   !                  flxpts(1:size(faces),1:n_sp1de) ???
   !
+  type, public :: point
+    integer :: flux_point
+    integer :: face
+    integer :: cpu
+  end type point
+  !
   type, public :: conflict
-    integer :: node
-    integer, allocatable, dimension(:) :: faces
-    integer, allocatable, dimension(:,:) :: flxpts
+    logical :: is_local ! true if conflict not on a partition boundary
+    logical :: not_my_conflict ! true if processor has no involvement with conflict
+    type(point) :: master
+    type(point), allocatable, dimension(:) :: slave
   end type conflict
   !
   ! BC_CONFLICT : Array for storing all the boundary condition conflicts.

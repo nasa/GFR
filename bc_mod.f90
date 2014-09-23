@@ -222,6 +222,8 @@ continue
   !
   if (ncpu > 1) call wait_faceusp(faceusp)
   !
+  call exchange_bc_conflicts_usp(faceusp)
+  !
   ! Format Statements
   !
   1 format (/," ********************* ERROR! **********************",/, &
@@ -245,6 +247,8 @@ subroutine get_facedusp_bc
   !.. Use Statements ..
   use geovar,  only : bface,nfbnd
   use flowvar, only : faceusp,facedusp
+  !
+  use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
   integer  :: nf,pf
@@ -312,6 +316,14 @@ continue
     end if
     !
   end do
+  !
+  ! Now that we have finished getting the boundary conditions local to
+  ! this cell, make sure that the communication of facedusp between
+  ! processors has completed before continuing onwards.
+  !
+  if (ncpu > 1) call wait_facedusp(facedusp)
+  !
+  call exchange_bc_conflicts_dusp(facedusp)
   !
   ! Format Statements
   !
@@ -1729,6 +1741,299 @@ continue
   103 format (5es18.10)
   !
 end subroutine compute_bc_profiles
+!
+!###############################################################################
+!
+subroutine exchange_bc_conflicts_usp(faceusp,override)
+  !
+  !.. Use Statements ..
+  use geovar, only : bc_conflict
+  use ovar,   only : iop_flxpts
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:,:,:), intent(inout) :: faceusp
+  logical,  optional,              intent(in) :: override
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nf,km,ks,nfm,nfs
+  integer :: itag,send_cpu,recv_cpu
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:mpi_status_size) :: istat
+  real(r8), dimension(1:size(faceusp,dim=1)) :: exch_send,exch_recv
+  !
+continue
+  !
+  ! We have finished computing the gradients on the non-communication
+  ! boundary faces and the communication of all other gradients between
+  ! processors of adjacent partitions has completed. Now we have to
+  ! correct any flux points on boundary faces that have conflicting
+  ! boundary conditions.
+  !
+  ! This only needs to be done if we are using flux points that include
+  ! the end points of the face (e.g., Lobatto) so skip all of this and
+  ! return if we are not using a quadrature with flux points at the
+  ! end points UNLESS override is present. If override is present, only
+  ! exit return_loop if it is true. If it is not true, we dont care
+  ! that it is present and we only care if we are using Lobatto points.
+  !
+  return_loop: do i = 1,1
+    !
+    if (present(override)) then
+      if (override) exit return_loop
+    end if
+    !
+    if (any(iop_flxpts == Gauss_Lobatto)) exit return_loop
+    !
+    ! Return if we have reached this point
+    !
+    return
+    !
+  end do return_loop
+  !
+  ! Now go through and exchange faceusp at bc conflicts
+  !
+  do n = 1,size(bc_conflict)
+    !
+    ! Continue to the next bc_conflict if this processor
+    ! has zero involvment with this conflict.
+    ! 
+    if (bc_conflict(n)%not_my_conflict) cycle
+    !
+    ! Overwrite the boundary gradient depending on if this conflict
+    ! is local or needs to be sent to another processor via MPI.
+    !
+    if (bc_conflict(n)%is_local) then
+      !
+      ! This conflict is local to this processor so just
+      ! overwrite the boundary gradient in the slave flux points
+      ! with the boundary gradient in the master flux point.
+      !
+      km = bc_conflict(n)%master%flux_point
+      nfm = bc_conflict(n)%master%face
+      !
+      do i = 1,size(bc_conflict(n)%slave)
+        !
+        ks = bc_conflict(n)%slave(i)%flux_point
+        nfs = bc_conflict(n)%slave(i)%face
+        !
+        faceusp(:,ks,2,nfs) = faceusp(:,km,2,nfm)
+        !
+      end do
+      !
+    else
+      !
+      ! This conflict is on a partition boundary so we need to
+      ! use MPI to exchange the boundary gradients.
+      !
+      send_cpu = bc_conflict(n)%master%cpu
+      !
+      if (mypnum == send_cpu) then
+        !
+        km = bc_conflict(n)%master%flux_point
+        nfm = bc_conflict(n)%master%face
+        !
+        exch_send = real(faceusp(:,km,2,nfm),kind=r8)
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          ! Off-chance that we have multiple slaves on a conflict
+          ! but some are local and some need MPI communication
+          !
+          if (mypnum == recv_cpu) then
+            !
+            ks = bc_conflict(n)%slave(i)%flux_point
+            nfs = bc_conflict(n)%slave(i)%face
+            !
+            faceusp(:,ks,2,nfs) = real(exch_send,kind=wp)
+            !
+          else
+            !
+            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
+            call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
+                          itag,mpi_comm_world,mpierr)
+            !
+          end if
+          !
+        end do
+        !
+      else
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          if (mypnum == recv_cpu) then
+            !
+            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
+            call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
+                          itag,mpi_comm_world,istat,mpierr)
+            !
+            ks = bc_conflict(n)%slave(i)%flux_point
+            nfs = bc_conflict(n)%slave(i)%face
+            !
+            faceusp(:,ks,2,nfs) = real(exch_recv,kind=wp)
+            !
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine exchange_bc_conflicts_usp
+!
+!###############################################################################
+!
+subroutine exchange_bc_conflicts_dusp(facedusp,override)
+  !
+  !.. Use Statements ..
+  use geovar, only : bc_conflict
+  use ovar,   only : iop_flxpts
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:,:,:,:), intent(inout) :: facedusp
+  logical,  optional,                intent(in) :: override
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nf,km,ks,nfm,nfs
+  integer :: itag,send_cpu,recv_cpu
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:mpi_status_size) :: istat
+  real(r8), dimension(1:size(facedusp,dim=1), &
+                      1:size(facedusp,dim=2)) :: exch_send,exch_recv
+  !
+continue
+  !
+  ! We have finished computing the gradients on the non-communication
+  ! boundary faces and the communication of all other gradients between
+  ! processors of adjacent partitions has completed. Now we have to
+  ! correct any flux points on boundary faces that have conflicting
+  ! boundary conditions.
+  !
+  ! This only needs to be done if we are using flux points that include
+  ! the end points of the face (e.g., Lobatto) so skip all of this and
+  ! return if we are not using a quadrature with flux points at the
+  ! end points UNLESS override is present. If override is present, only
+  ! exit return_loop if it is true. If it is not true, we dont care
+  ! that it is present and we only care if we are using Lobatto points.
+  !
+  return_loop: do i = 1,1
+    !
+    if (present(override)) then
+      if (override) exit return_loop
+    end if
+    !
+    if (any(iop_flxpts == Gauss_Lobatto)) exit return_loop
+    !
+    ! Return if we have reached this point
+    !
+    return
+    !
+  end do return_loop
+  !
+  ! Now go through and exchange facedusp at bc conflicts
+  !
+  do n = 1,size(bc_conflict)
+    !
+    ! Continue to the next bc_conflict if this processor
+    ! has zero involvment with this conflict.
+    ! 
+    if (bc_conflict(n)%not_my_conflict) cycle
+    !
+    ! Overwrite the boundary gradient depending on if this conflict
+    ! is local or needs to be sent to another processor via MPI.
+    !
+    if (bc_conflict(n)%is_local) then
+      !
+      ! This conflict is local to this processor so just
+      ! overwrite the boundary gradient in the slave flux points
+      ! with the boundary gradient in the master flux point.
+      !
+      km = bc_conflict(n)%master%flux_point
+      nfm = bc_conflict(n)%master%face
+      !
+      do i = 1,size(bc_conflict(n)%slave)
+        !
+        ks = bc_conflict(n)%slave(i)%flux_point
+        nfs = bc_conflict(n)%slave(i)%face
+        !
+        facedusp(:,:,ks,2,nfs) = facedusp(:,:,km,2,nfm)
+        !
+      end do
+      !
+    else
+      !
+      ! This conflict is on a partition boundary so we need to
+      ! use MPI to exchange the boundary gradients.
+      !
+      send_cpu = bc_conflict(n)%master%cpu
+      !
+      if (mypnum == send_cpu) then
+        !
+        km = bc_conflict(n)%master%flux_point
+        nfm = bc_conflict(n)%master%face
+        !
+        exch_send = real(facedusp(:,:,km,2,nfm),kind=r8)
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          ! Off-chance that we have multiple slaves on a conflict
+          ! but some are local and some need MPI communication
+          !
+          if (mypnum == recv_cpu) then
+            !
+            ks = bc_conflict(n)%slave(i)%flux_point
+            nfs = bc_conflict(n)%slave(i)%face
+            !
+            facedusp(:,:,ks,2,nfs) = real(exch_send,kind=wp)
+            !
+          else
+            !
+            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
+            call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
+                          itag,mpi_comm_world,mpierr)
+            !
+          end if
+          !
+        end do
+        !
+      else
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          if (mypnum == recv_cpu) then
+            !
+            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
+            call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
+                          itag,mpi_comm_world,istat,mpierr)
+            !
+            ks = bc_conflict(n)%slave(i)%flux_point
+            nfs = bc_conflict(n)%slave(i)%face
+            !
+            facedusp(:,:,ks,2,nfs) = real(exch_recv,kind=wp)
+            !
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine exchange_bc_conflicts_dusp
 !
 !###############################################################################
 !

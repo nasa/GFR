@@ -511,6 +511,13 @@ continue
                             node_map,node_map_ptr,node_rmap, &
                             face_map,face_map_ptr,face_rmap)
   !
+  ! Deallocate cells_on_face since it is no longer needed
+  !
+  if (allocated(cells_on_face)) then
+    deallocate ( cells_on_face , stat=ierr )
+    call alloc_error("partition_grid","cells_on_face",2,ierr)
+  end if
+  !
   ! Now that the mappings have been created, we
   ! need to localize the grid on each processor
   !
@@ -518,7 +525,42 @@ continue
                      node_map,node_map_ptr,node_rmap, &
                      face_map,face_map_ptr,face_rmap, &
                      nodes_of_cell,nodes_of_cell_ptr, &
-                     bface,xyz_nodes)
+                     bface,xyz_nodes,epart)
+  !
+  ! Deallocate the mapping arrays since they are no longer needed
+  !
+  if (allocated(epart)) then
+    deallocate ( epart , stat=ierr )
+    call alloc_error("partition_grid","epart",2,ierr)
+  end if
+  if (allocated(cell_rmap)) then
+    deallocate ( cell_rmap , stat=ierr )
+    call alloc_error("partition_grid","cell_rmap",2,ierr)
+  end if
+  if (allocated(node_map)) then
+    deallocate ( node_map , stat=ierr )
+    call alloc_error("partition_grid","node_map",2,ierr)
+  end if
+  if (allocated(node_map_ptr)) then
+    deallocate ( node_map_ptr , stat=ierr )
+    call alloc_error("partition_grid","node_map_ptr",2,ierr)
+  end if
+  if (allocated(node_rmap)) then
+    deallocate ( node_rmap , stat=ierr )
+    call alloc_error("partition_grid","node_rmap",2,ierr)
+  end if
+  if (allocated(face_map)) then
+    deallocate ( face_map , stat=ierr )
+    call alloc_error("partition_grid","face_map",2,ierr)
+  end if
+  if (allocated(face_map_ptr)) then
+    deallocate ( face_map_ptr , stat=ierr )
+    call alloc_error("partition_grid","face_map_ptr",2,ierr)
+  end if
+  if (allocated(face_rmap)) then
+    deallocate ( face_rmap , stat=ierr )
+    call alloc_error("partition_grid","face_rmap",2,ierr)
+  end if
   !
   ! Finally, create MPI datatypes for exchanging data between processes
   !
@@ -1404,7 +1446,10 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
                          node_map,node_map_ptr,node_rmap, &
                          face_map,face_map_ptr,face_rmap, &
                          nodes_of_cell,nodes_of_cell_ptr, &
-                         bface,xyz_nodes)
+                         bface,xyz_nodes,epart)
+  !
+  !.. Use Statements ..
+  use geovar, only : bc_conflict
   !
   !.. Formal Arguments ..
   integer,                dimension(:),      intent(in) :: cell_map
@@ -1416,10 +1461,11 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
   integer,                dimension(:),      intent(in) :: face_map
   integer,                dimension(:),      intent(in) :: face_map_ptr
   integer,                dimension(:,:),    intent(in) :: face_rmap
+  integer,                dimension(:),      intent(in) :: epart
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell_ptr
   integer,   allocatable, dimension(:,:), intent(inout) :: bface
-  real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
+  real(wp),  allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
   integer :: n,nf,nc,np,n1,n2,g1,g2,gc,gp
@@ -1428,7 +1474,7 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
   integer :: n_totcel,n_totnod,nmin,nmax,gn,rev_gn,gbf
   integer :: inbeg,inend,igbeg,igend
   integer :: lhc,lhg,lgg,lfa,lgc,lh1,lg1,gfa
-  integer :: my_part,ierr
+  integer :: my_part,master_cpu,slave_cpu,ierr
   !
   !.. Local Arrays ..
   integer, dimension(1:1) :: li
@@ -1444,9 +1490,101 @@ subroutine localize_grid(cell_map,cell_map_ptr,cell_rmap, &
   integer,   allocatable, dimension(:)   :: global_nofc
   integer,   allocatable, dimension(:)   :: global_nofc_ptr
   integer,   allocatable, dimension(:,:) :: global_bface
-  real(wp), allocatable, dimension(:,:) :: global_xyz
+  real(wp),  allocatable, dimension(:,:) :: global_xyz
   !
 continue
+  !
+  ! Before we start localizing everything, localize bc_conflict.
+  ! Go through each bc conflict and get the partition to which the
+  ! boundary face belongs and then localize the boundary face indices.
+  ! If we find a face that is on our partition, mark the conflict so
+  ! that we know we are involved in the communication for this conflict.
+  !
+  if (allocated(bc_conflict)) then
+    !
+    do n = 1,size(bc_conflict)
+      !
+      ! Reinitialize bc_conflict(n)%not_my_conflict to true and only
+      ! change if we find a face on this conflict for this partition.
+      !
+      bc_conflict(n)%not_my_conflict = true
+      !
+      ! First get the partition for the master face
+      !
+      gfa = bc_conflict(n)%master%face
+      !
+      master_cpu = epart( bface(2,gfa) )
+      !
+      lfa = face_rmap(gfa,master_cpu)
+      !
+      bc_conflict(n)%master%face = lfa
+      bc_conflict(n)%master%cpu = master_cpu
+      !
+      ! Mark this conflict if this processor is involved with it
+      !
+      if (master_cpu == mypnum) bc_conflict(n)%not_my_conflict = fals
+      !
+      ! Now do the same for the slave faces
+      !
+      do nf = 1,size(bc_conflict(n)%slave)
+        !
+        gfa = bc_conflict(n)%slave(nf)%face
+        !
+        slave_cpu = epart( bface(2,gfa) )
+        !
+        lfa = face_rmap(gfa,slave_cpu)
+        !
+        bc_conflict(n)%slave(nf)%face = lfa
+        bc_conflict(n)%slave(nf)%cpu = slave_cpu
+        !
+        ! Mark this conflict if this processor is involved with it
+        !
+        if (slave_cpu == mypnum) bc_conflict(n)%not_my_conflict = fals
+        !
+        ! Check if this conflict is local to only one partition.
+        ! NOTE: We first check bc_conflict(n)%is_local to see if it is true
+        !       before checking if the master and slave processors are the 
+        !       same. This way, if we already determined that this conflict
+        !       is not local, we dont have to worry about the following
+        !       logical assignment overwriting the value in is_local with
+        !       the value 'true'. For example:
+        !       master_cpu = 1
+        !       slave_cpu #1 = 2
+        !       bc_conflict(n)%is_local = (master_cpu == slave_cpu #1) = .false.
+        !       slave_cpu #2 = 1
+        !       bc_conflict(n)%is_local = (master_cpu == slave_cpu #2) = .true.
+        !
+        if (bc_conflict(n)%is_local) then
+          bc_conflict(n)%is_local = (master_cpu == slave_cpu)
+        end if
+        !
+      end do
+      !
+    end do
+    !
+   !do n = 1,size(bc_conflict)
+   !  write (mypnum+200,1) n,bc_conflict(n)%is_local, &
+   !                         bc_conflict(n)%not_my_conflict, &
+   !                         bc_conflict(n)%master%face, &
+   !                         bc_conflict(n)%master%flux_point, &
+   !                         bc_conflict(n)%master%cpu, &
+   !                         trim(bc_integer_to_string(bface(1,bc_conflict(n)%master%face)))
+   !  do nf = 1,size(bc_conflict(n)%slave)
+   !    write (mypnum+200,2) nf,bc_conflict(n)%slave(nf)%face, &
+   !                            bc_conflict(n)%slave(nf)%flux_point, &
+   !                            bc_conflict(n)%slave(nf)%cpu, &
+   !                            trim(bc_integer_to_string(bface(1,bc_conflict(n)%slave(nf)%face)))
+   !  end do
+   !end do
+   !1 format ("Conflict #",i0," - is_local=",l1,", not_my_conflict=",l1,/, &
+   !          "MF :   Face=",i5,",  FluxPoint=",i2,",  CPU=",i0, &
+   !          "    BC=",a)
+   !2 format ("SF",i0,":   Face=",i5,",  FluxPoint=",i2,",  CPU=",i0, &
+   !          "    BC=",a)
+    !
+  end if
+  !
+  !
   !
   ! We need to make copies of the global grid arrays nodes_of_cell,
   ! nodes_of_cell_ptr, bface, and xyz_nodes before we localize them.

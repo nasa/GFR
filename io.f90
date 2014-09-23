@@ -332,11 +332,6 @@ continue
   n_sp2dt = n_sp1de*(n_sp1de+1)/2
   n_sp2dq = n_sp1de*n_sp1de
   !
-  ! Now that we have the name of the grid file and the location
-  ! of the flux and solution points, read in the grid file
-  !
-  call read_grid_file
-  !
   ! Make sure the quadrature order is at least the same as the
   ! solution order and other quadrature variables are valid
   !
@@ -353,6 +348,11 @@ continue
   else
     n_fp1de = n_sp1de
   end if
+  !
+  ! Now that we have the name of the grid file and the location
+  ! of the flux and solution points, read in the grid file
+  !
+  call read_grid_file
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
@@ -787,11 +787,6 @@ continue
   n_sp2dt = n_sp1de*(n_sp1de+1)/2
   n_sp2dq = n_sp1de*n_sp1de
   !
-  ! Now that we have the name of the grid file and the location
-  ! of the flux and solution points, read in the grid file
-  !
-  call read_grid_file
-  !
   ! Read the option for computing the discontinuous flux derivatives
   ! and the option of what variables to use when computing the flux corrections
   !
@@ -814,6 +809,11 @@ continue
   else
     n_fp1de = n_sp1de
   end if
+  !
+  ! Now that we have the name of the grid file and the location
+  ! of the flux and solution points, read in the grid file
+  !
+  call read_grid_file
   !
   ! Read the testcase, Runge-Kutta options, restart, etc
   !
@@ -2457,14 +2457,14 @@ end subroutine save_global_grid
 subroutine find_bc_conflicts
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface,nnode
+  use geovar, only : nfbnd,bface,nnode,n_fp1de
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : bc_conflict
   !
   !.. Local Scalars ..
-  integer :: n,nf,i,ip,is,n1,n2,nf1,nf2,ierr
+  integer :: n,nf,i,ip,is,j,n1,n2,nf1,nf2,ierr
   integer :: host_cell,cell_type,face_loc
-  integer :: n_2bc_nodes
+  integer :: n_2bc_nodes,nfm
   character(len=100) :: array_name
   !
   !.. Local Allocatable Arrays ..
@@ -2517,12 +2517,14 @@ continue
          "ERROR FINDING THE NODES OF THE HOST CELL ON THE BOUNDARY FACE!")
   end if
   !
-  ! Mark the nodes defining each boundary face, storing ahead 
+  ! Mark the nodes defining each boundary face, storing ahead
+  ! NOTE: Skip all communication type boundary faces
   !
   allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , stat=ierr )
   call alloc_error("find_bc_conflicts","faces_with_node_ptr",1,ierr)
   !
   do nf = 1,nfbnd
+    if (any(bface(1,nf) == bc_comm)) cycle ! skip all communication boundaries
     do i = 1,count(bface_nodes(:,nf) > 0)
       ip = bface_nodes(i,nf) + 1
       faces_with_node_ptr(ip) = faces_with_node_ptr(ip) + 1
@@ -2539,8 +2541,10 @@ continue
   call alloc_error("find_bc_conflicts","faces_with_node",1,ierr)
   !
   ! Now store the faces surrounding each node in faces_with_node
+  ! NOTE: Skip all communication type boundary faces
   !
   do nf = 1,nfbnd
+    if (any(bface(1,nf) == bc_comm)) cycle ! skip all communication boundaries
     do i = 1,count(bface_nodes(:,nf) > 0)
       ip = bface_nodes(i,nf)
       is = faces_with_node_ptr(ip) + 1
@@ -2548,11 +2552,6 @@ continue
       faces_with_node(is) = nf
     end do
   end do
-  !
-  ! Deallocate bface_nodes because it is no longer needed
-  !
-  deallocate ( bface_nodes , stat=ierr )
-  call alloc_error("find_bc_conflicts","bface_nodes",2,ierr)
   !
   ! Finally, reorder faces_with_node_ptr
   !
@@ -2594,21 +2593,86 @@ continue
     nf1 = faces_with_node_ptr(n)+1
     nf2 = faces_with_node_ptr(n+1)
     !
-    bc_conflict(i)%node = n
+    ! Find the "master" boundary face with this node, i.e., the face
+    ! that will contain the flux point that overrides the other flux
+    ! point solutions at this node.
     !
-    allocate ( bc_conflict(i)%faces(1:nf2-nf1+1) , stat=ierr )
-    write (array_name,1) "bc_conflict(",i,")%faces"
+    nfm = bc_priority(bface(1,faces_with_node(nf1:nf2)))
+    if (nfm == 0) then
+      write (iout,*) "Error: Function bc_priority returned value 0!"
+    end if
+    !
+    allocate ( bc_conflict(i)%slave(1:nf2-nf1) , stat=ierr )
+    write (array_name,1) "bc_conflict(",i,")%slave"
     call alloc_error("find_bc_conflicts",array_name,1,ierr)
     !
-    bc_conflict(i)%faces = faces_with_node(nf1:nf2)
-   !write (iout,'(1x,i0,":",i0,3x,l1,3x,*(1x,i0,:))') &
-   !         nf1,nf2,all_not_equal( bface(1,faces_with_node(nf1:nf2)) ), &
-   !         (faces_with_node(nf),nf=nf1,nf2)
+    ! Save the master boundary face information and set the
+    ! partition number to the root partition number (zero).
+    !
+    bc_conflict(i)%master%face = faces_with_node(nf1-1+nfm)
+    bc_conflict(i)%master%cpu = 0
+    !
+    ! Automatically mark that this partition is part of the communication
+    ! for this conflict and is only local to this processor. This is the
+    ! required default for the serial case and will be altered as necessary
+    ! if running in parallel.
+    !
+    bc_conflict(i)%not_my_conflict = fals
+    bc_conflict(i)%is_local = true
+    !
+    ! Store all faces for the "slave" boundary faces.
+    ! NOTE: The merge function skips the index "nf1-1+nfm"
+    !       within the array faces_with_node.
+    !
+    do nf = 1,nf2-nf1
+      if (nf < nfm) then
+        bc_conflict(i)%slave(nf)%face = faces_with_node(nf1-1+nf)
+      else if (nf >= nfm) then
+        bc_conflict(i)%slave(nf)%face = faces_with_node(nf1  +nf)
+      end if
+      bc_conflict(i)%slave(nf)%cpu = 0
+    end do
+    !
+    ! Using the node for this conflict, determine which flux point
+    ! of the boundary face will need to be exchanged.
+    ! NOTE: This will need to be generalized for 3D grids where
+    !       the conflicts will be along a cell edge and not just
+    !       at a single node.
+    !
+    ! Start with the master face
+    !
+    nf = bc_conflict(i)%master%face
+    !
+    if (n == bface_nodes(1,nf)) then
+      bc_conflict(i)%master%flux_point = 1
+    else if (n == bface_nodes(2,nf)) then
+      bc_conflict(i)%master%flux_point = n_fp1de
+    else
+      write (iout,*) "ERROR: Conflict node doesn't seem to match a boundary node!"
+    end if
+    !
+    ! Now do the same for the slave faces
+    !
+    do j = 1,size(bc_conflict(i)%slave)
+      !
+      nf = bc_conflict(i)%slave(j)%face
+      !
+      if (n == bface_nodes(1,nf)) then
+        bc_conflict(i)%slave(j)%flux_point = 1
+      else if (n == bface_nodes(2,nf)) then
+        bc_conflict(i)%slave(j)%flux_point = n_fp1de
+      else
+        write (iout,*) "ERROR: Conflict node doesn't seem to match a boundary node!"
+      end if
+      !
+    end do
     !
   end do
   !
   ! Deallocate the local arrays before leaving
   !
+  deallocate ( bface_nodes , stat=ierr )
+  call alloc_error("find_bc_conflicts","bface_nodes",2,ierr)
   deallocate ( faces_with_node_ptr , stat=ierr )
   call alloc_error("find_bc_conflicts","faces_with_node_ptr",2,ierr)
   deallocate ( faces_with_node , stat=ierr )
@@ -3817,7 +3881,7 @@ continue
     ! Density
     !
     do i = 1,n_solpts
-      vartmp(i) = vsp(1,i)
+      vartmp(i) = vsp(1,i) * rhoref
     end do
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
@@ -3826,7 +3890,7 @@ continue
     ! x-velocity
     !
     do i = 1,n_solpts
-      vartmp(i) = vsp(2,i)
+      vartmp(i) = vsp(2,i) * aref
     end do
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
@@ -3835,7 +3899,7 @@ continue
     ! y-velocity
     !
     do i = 1,n_solpts
-      vartmp(i) = vsp(3,i)
+      vartmp(i) = vsp(3,i) * aref
     end do
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
@@ -3844,7 +3908,7 @@ continue
     ! Pressure
     !
     do i = 1,n_solpts
-      vartmp(i) = vsp(4,i)*cvel**2
+      vartmp(i) = vsp(4,i)*(rhoref*aref*aref)*cvel**2
     end do
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
@@ -4649,6 +4713,7 @@ end subroutine reallocate1_c
 include "Functions/last.f90"
 include "Functions/vortex.f90"
 include "Functions/face_nodes.f90"
+include "Functions/bc_priority.f90"
 !
 !###############################################################################
 !
