@@ -396,7 +396,6 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   !
   !.. Use Statements ..
   use ovar,        only : pv_in,cv_in,gam
-  use generic_mod, only : usp2v_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: fnrm
@@ -553,7 +552,6 @@ subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm)
   !
   !.. Use Statements ..
   use ovar,        only : pv_in,cv_in,gam
-  use generic_mod, only : usp2v_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: fnrm
@@ -651,7 +649,6 @@ subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm)
   !
   !.. Use Statements ..
   use ovar,        only : pv_in,gam
-  use generic_mod, only : usp2v_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: fnrm
@@ -752,7 +749,6 @@ subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm)
   !
   !.. Use Statements ..
   use ovar,        only : pv_in,cv_in,gam
-  use generic_mod, only : usp2v_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: fnrm
@@ -867,7 +863,6 @@ subroutine get_bc_sub_inflow_solution(hufp,gufp)
   !
   !.. Use Statements ..
   use ovar,        only : pv_in,cv_in,gam
-  use generic_mod, only : pressure_cv_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: hufp
@@ -1046,7 +1041,6 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   !
   !.. Use Statements ..
   use ovar,        only : walls_are_exact
-  use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: fnrm
@@ -1114,7 +1108,6 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   !
   !.. Use Statements ..
   use ovar,        only : walls_are_exact
-  use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: hufp
@@ -1171,7 +1164,6 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   !.. Use Statements ..
   use ovar,        only : iso_wall_temp,tref,rgasref_nd
   use ovar,        only : walls_are_exact
-  use generic_mod, only : usp2v_sp,vsp2u_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:),    intent(in) :: hufp
@@ -1589,9 +1581,6 @@ subroutine compute_bc_profiles
   use ovar,    only : machref,rhoref,aref,muref,cpref_nd,Pr
   use metvar,  only : geofa
   use flowvar, only : bnd_prof,usp,dusp
-  use generic_mod, only : usp2v_sp
-  use generic_mod, only : temperature_pv_sp
-  use generic_mod, only : viscosity_pv_sp
   !
   !.. Local Scalars ..
   integer :: i,k,l,m,n,nf,np,nw,n1,n2
@@ -2039,6 +2028,11 @@ end subroutine exchange_bc_conflicts_dusp
 !
 include "Functions/grad_cv_to_grad_pv.f90"
 include "Functions/normal_streamwise_velocity_gradient.f90"
+include "Functions/pressure.f90"
+include "Functions/temperature.f90"
+include "Functions/viscosity.f90"
+include "Functions/usp2v.f90"
+include "Functions/vsp2u.f90"
 !
 !###############################################################################
 !

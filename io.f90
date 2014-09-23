@@ -1253,8 +1253,6 @@ subroutine initialize_viscosity
   use ovar, only : suth_muref, suth_c1
   use ovar, only : suth_Tref, suth_Sref
   !
-  use generic_mod, only : viscosity_pv_sp
-  !
   !.. Local Scalars ..
   real(wp) :: muref_scale,tref_scale
   !
@@ -3511,7 +3509,6 @@ subroutine write_cgns_solution(iflag)
   use metvar,       only : dx,dy,dr_mat,ds_mat,jacobian
   use flowvar,      only : usp,vsp,uoldsp,dusp
   use parallel_mod, only : collect_global_solution
-  use generic_mod,  only : vsp2u,usp2v,entropy_pv_sp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -3628,7 +3625,7 @@ subroutine write_nodal_cgns(iflag)
   use ovar,    only : time,aref,uref,vxref,vyref,gam,rhoref
   use ovar,    only : itcur,Period_Timesteps,Period_Time,itestcase
   use ovar,    only : Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y
-  use generic_mod, only : usp2v,project_to_porder,entropy_pv_sp
+  use generic_mod, only : project_to_porder
   !
   !.. Aliased Use Statements ..
   use geovar,  only : ncell => n_global_cell
@@ -4714,6 +4711,10 @@ include "Functions/last.f90"
 include "Functions/vortex.f90"
 include "Functions/face_nodes.f90"
 include "Functions/bc_priority.f90"
+include "Functions/viscosity.f90"
+include "Functions/entropy.f90"
+include "Functions/usp2v.f90"
+include "Functions/vsp2u.f90"
 !
 !###############################################################################
 !

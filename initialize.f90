@@ -50,7 +50,7 @@ subroutine initialize_flow()
   use ovar
   use flowvar
   use io_mod,      only : read_restart_file
-  use generic_mod, only : usp2v,project_to_porder
+  use generic_mod, only : project_to_porder
   !
   !.. Local Scalars ..
   integer  :: n1,n2,n,np,m,ierr
@@ -573,6 +573,7 @@ end subroutine create_profile_structures
 !###############################################################################
 !
 include "Functions/vortex.f90"
+include "Functions/usp2v.f90"
 !
 !###############################################################################
 !

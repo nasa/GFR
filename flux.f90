@@ -590,7 +590,6 @@ subroutine correct_interface_flux_qdtr()
   use metvar,  only : cormat,geofa,volj
   use flowvar, only : usp,residual,faceflx,faceusp
   !
-  use generic_mod,  only : pressure_cv_sp
  !use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
@@ -1011,7 +1010,6 @@ subroutine correct_interface_flux_qdtr_with_visc()
   use metvar,  only : cormat,geofa,volj
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
-  use generic_mod, only : pressure_cv_sp
  !use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
@@ -1527,7 +1525,6 @@ subroutine correct_flux_project_pv()
   use geovar,  only : interp_s2f
   use metvar,  only : cormat,geofa
   use flowvar, only : vsp,residual
-  use generic_mod, only : vsp2u_sp
   !
   !.. Local Scalars ..
   integer   :: k,m,n,nf,r1,r2,l1,l2
@@ -2769,8 +2766,6 @@ pure function visc_flx_cv(uu,dcvdx) result(return_value)
   use geovar, only : nr,neqns
   use ovar,   only : cpref_nd,Pr
   !
-  use generic_mod, only : viscosity_cv_sp
-  !
   !.. Formal Arguments ..
   real(wp), dimension(1:neqns),      intent(in) :: uu
   real(wp), dimension(1:nr,1:neqns), intent(in) :: dcvdx
@@ -2879,8 +2874,6 @@ pure function visc_wall_flx_cv(unrm,uwall,dpvdx) result(return_value)
   !.. Use Statements ..
   use geovar, only : nr,neqns
   use ovar,   only : cpref_nd,Pr
-  !
-  use generic_mod, only : viscosity_cv_sp
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nr),         intent(in) :: unrm
@@ -3737,6 +3730,9 @@ end subroutine test_face_connectivity
 !###############################################################################
 !
 include "Functions/grad_cv_to_grad_pv.f90"
+include "Functions/vsp2u.f90"
+include "Functions/pressure.f90"
+include "Functions/viscosity.f90"
 !
 !###############################################################################
 !

@@ -293,7 +293,11 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/vortex.f90 \
        $(FUNDIR)/face_nodes.f90 \
        $(FUNDIR)/last.f90 \
-       $(FUNDIR)/bc_priority.f90
+       $(FUNDIR)/bc_priority.f90 \
+       $(FUNDIR)/viscosity.f90 \
+       $(FUNDIR)/entropy.f90 \
+       $(FUNDIR)/usp2v.f90 \
+       $(FUNDIR)/vsp2u.f90
 $(OBJDIR)/startup.o : startup.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \
@@ -311,7 +315,8 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/generic.o \
                $(OBJDIR)/io.o \
-               $(FUNDIR)/vortex.f90
+               $(FUNDIR)/vortex.f90 \
+               $(FUNDIR)/usp2v.f90
 $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \
@@ -319,7 +324,11 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/metvar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/parallel.o \
-            $(FUNDIR)/vortex.f90
+            $(FUNDIR)/vortex.f90 \
+            $(FUNDIR)/viscosity.f90 \
+            $(FUNDIR)/entropy.f90 \
+            $(FUNDIR)/usp2v.f90 \
+            $(FUNDIR)/vsp2u.f90
 $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/geovar_mod.o \
@@ -327,17 +336,23 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/metvar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
          $(OBJDIR)/parallel.o \
-         $(OBJDIR)/generic.o \
          $(FUNDIR)/upwind_fluxes.f90 \
          $(FUNDIR)/inviscid_fluxes.f90 \
-	 $(FUNDIR)/grad_cv_to_grad_pv.f90
+	 $(FUNDIR)/grad_cv_to_grad_pv.f90 \
+         $(FUNDIR)/pressure.f90 \
+         $(FUNDIR)/viscosity.f90 \
+         $(FUNDIR)/vsp2u.f90
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/geovar_mod.o \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/metvar_mod.o \
            $(OBJDIR)/flowvar_mod.o \
-           $(OBJDIR)/generic.o \
            $(OBJDIR)/parallel.o \
 	   $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-	   $(FUNDIR)/normal_streamwise_velocity_gradient.f90
+	   $(FUNDIR)/normal_streamwise_velocity_gradient.f90 \
+           $(FUNDIR)/pressure.f90 \
+           $(FUNDIR)/temperature.f90 \
+           $(FUNDIR)/viscosity.f90 \
+           $(FUNDIR)/usp2v.f90 \
+           $(FUNDIR)/vsp2u.f90
