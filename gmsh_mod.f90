@@ -303,6 +303,18 @@ continue
   !
   call create_gmsh_grid_arrays
   !
+  ! Deallocate the allocatable module arrays cell_data and phys_grps
+  ! before we leave this subroutine.
+  !
+  if (allocated(cell_data)) then
+    deallocate ( cell_data , stat=ierr )
+    call alloc_error("read_gmsh_gridfile","cell_data",2,ierr)
+  end if
+  if (allocated(phys_grps)) then
+    deallocate ( phys_grps , stat=ierr )
+    call alloc_error("read_gmsh_gridfile","phys_grps",2,ierr)
+  end if
+  !
   ! Format statements
   !
   1 format (a)
