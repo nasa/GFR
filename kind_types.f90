@@ -685,6 +685,55 @@ end subroutine io_error
 !
 !###############################################################################
 !
+subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
+                      optmessag,optinteger)
+  !
+  !.. Include Statements ..
+  include "cgnslib_f95.h"
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: procedure_name
+  character(len=*), intent(in) :: file_name
+  character(len=*), intent(in) :: cgns_routine
+  integer,          intent(in) :: iemessag
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: optmessag
+  integer,          optional, intent(in) :: optinteger
+  !
+continue
+  !
+  if (iemessag == CG_OK) return
+  !
+  write (iout,10)
+  !
+  if (present(optmessag) .and. present(optinteger)) then
+    write (iout,1) trim(adjustl(optmessag)),optinteger
+  else if (present(optmessag)) then
+    write (iout,2) trim(adjustl(optmessag))
+  else if (present(optinteger)) then
+    write (iout,3) optinteger
+  end if
+  !
+  write (iout,11) trim(adjustl(procedure_name)),iemessag, &
+                  trim(adjustl(cgns_routine))
+  call cgp_error_exit_f
+  !
+  ! Format Statements
+  !
+  1  format (" ",a," = ",i0)
+  2  format (" ",a)
+  3  format (" ",i0)
+  10 format (/," ***************************************************** ")
+  11 format (" INSIDE PROCEDURE: ",a,/, &
+             " ERROR INDICATOR = ",i0,/, &
+             " ERROR RETURNED FROM CGNS PROCEDURE: ",a,/, &
+             " ***************************************************** ",//)
+  !
+end subroutine cgns_error
+!
+!###############################################################################
+!
 subroutine initialize_mpi_environment
   !
   !.. Local Scalars ..
@@ -864,3 +913,92 @@ include "Functions/all_are_equal.f90"
 !###############################################################################
 !
 end module module_kind_types
+!
+!###############################################################################
+!
+module module_memory
+  !
+  implicit none
+  !
+  private
+  !
+  ! Derived type for working with memory information
+  !
+  type, public :: memory
+    character(len=6) :: units
+    integer :: mem
+    integer :: siz
+  contains
+    procedure :: get_units
+    procedure :: memout
+    generic :: write(formatted) => memout
+  end type memory
+  !
+contains
+!
+!###############################################################################
+!
+pure function get_units(a) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(memory), intent(in) :: a
+  !
+  !.. Function Result ..
+  type(memory) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i
+  character(len=6) :: c
+  !
+continue
+  !
+  i = a%mem / 8
+  c = " Bytes"
+  !
+  if (i/1024 > 0) then
+    i = i/1024
+    c(1:1) = "k"
+  end if
+  !
+  if (i/1024 > 0) then
+    i = i/1024
+    c(1:1) = "M"
+  end if
+  !
+  if (i/1024 > 0) then
+    i = i/1024
+    c(1:1) = "G"
+  end if
+  !
+  return_value%mem = i
+  return_value%units = c
+  return_value%siz = a%siz
+  !
+end function get_units
+!
+!###############################################################################
+!
+subroutine memout(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
+  !
+  !.. Formal Arguments ..
+  class(memory), intent(in) :: dtv
+  integer, intent(in) :: iunit
+  character(len=*), intent(in) :: iotype
+  integer, intent(in) :: vlist(:)
+  integer, intent(out) :: my_iostat
+  character(len=*), intent(inout) :: my_iomsg
+  !
+continue
+  !
+  write (iunit,1,iostat=my_iostat) dtv%siz, dtv%mem, trim(dtv%units)
+  !
+  1 format (" - size = ",i8,", memory = ",i4,1x,a)
+  !
+end subroutine memout
+!
+!###############################################################################
+!
+end module module_memory
+!
+!###############################################################################
+!
