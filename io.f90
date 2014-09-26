@@ -2835,7 +2835,7 @@ subroutine write_tecplot_file(itnum)
   use geovar,  only : ncell,nr,neqns,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
                       pts_in_cell_ptr,tria_connectivity,quad_connectivity
   use ovar,    only : gam,pv_in
-  use flowvar, only : vsp
+  use flowvar, only : usp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: itnum
@@ -2867,15 +2867,13 @@ continue
   !
   ! Write the flow variables
   !
-  write (iotec,3) (vsp(1,i), i=1,n_solpts)
+  write (iotec,3) ( usp(1,i) , i=1,n_solpts)
   do n = 2,neqns-1
-    write (iotec,3) (vsp(n,i), i=1,n_solpts)
+    write (iotec,3) ( usp(n,i)/usp(1,i) , i=1,n_solpts)
   end do
-  write (iotec,3) (vsp(neqns,i), i=1,n_solpts)
-  write (iotec,3) ( sqrt( selfdot(vsp(2:neqns-1,i))*vsp(1,i) / &
-                         (gam*vsp(neqns,i))                  ), i=1,n_solpts)
-  write (iotec,3) ( log( (vsp(neqns,i)/pv_in(neqns)) / &
-                         ((vsp(1,i)/pv_in(1))**gam)  ), i=1,n_solpts)
+  write (iotec,3) ( pressure_cv_sp( usp(:,i) ) , i=1,n_solpts)
+  write (iotec,3) ( mach_number_cv_sp( usp(:,i) ) , i=1,n_solpts)
+  write (iotec,3) ( entropy_cv_sp( usp(:,i) ) , i=1,n_solpts)
   !
   ! Write out the connectivity matrix
   !
@@ -4999,7 +4997,7 @@ subroutine write_tecplot_partitions()
                      pts_in_cell_ptr,tria_connectivity,quad_connectivity, &
                      n_totpts,n_totcel
   use ovar,    only : aref,uref
-  use flowvar, only : vsp
+  use flowvar, only : usp
   use parallel_mod, only : nonblocking_exchange
   !
   !.. Local Scalars ..
@@ -5028,10 +5026,10 @@ continue
     write (iotec,4) (xyz(n,i),i=1,n_totpts)
   end do
   !
-  write (iotec,4) (vsp(1,i),i=1,n_totpts)
-  write (iotec,4) (vsp(2,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (vsp(3,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (vsp(4,i)*cvel**2,i=1,n_totpts)
+  write (iotec,4) (usp(1,i),i=1,n_totpts)
+  write (iotec,4) (usp(2,i)/usp(1,i)*cvel,i=1,n_totpts)
+  write (iotec,4) (usp(3,i)/usp(1,i)*cvel,i=1,n_totpts)
+  write (iotec,4) (pressure_cv_sp(usp(:,i))*cvel**2,i=1,n_totpts)
   !
   do n = 1,n_totcel
     n1 = nodes_of_cell_ptr(n)+1
@@ -5044,14 +5042,14 @@ continue
     end do
   end do
   !
-  call nonblocking_exchange(vsp)
+  call nonblocking_exchange(usp)
   !
   write (iotec,10) mypnum,n_totpts,n_totcel*n_order*n_order
   !
-  write (iotec,4) (vsp(1,i),i=1,n_totpts)
-  write (iotec,4) (vsp(2,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (vsp(3,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (vsp(4,i)*cvel**2,i=1,n_totpts)
+  write (iotec,4) (usp(1,i),i=1,n_totpts)
+  write (iotec,4) (usp(2,i)/usp(1,i)*cvel,i=1,n_totpts)
+  write (iotec,4) (usp(3,i)/usp(1,i)*cvel,i=1,n_totpts)
+  write (iotec,4) (pressure_cv_sp(usp(:,i))*cvel**2,i=1,n_totpts)
   !
   close (iotec,iostat=ierr)
   call io_error("write_tecplot_partitions",trim(adjustl(fname)),2,ierr)
