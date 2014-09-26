@@ -61,6 +61,7 @@ OTHERLIB =
  OPTIM = -O3 -ipo -xSSE4.2 #-ipo-jobs4
 #OPTIM = -O2 -xSSE4.2 #-ipo-jobs4
 #OPTIM = -O3 -ip -xSSE4.2
+#OPTIM += -align array32byte
 
  FPP = -fpp
 #FPP += -DPBS_ENV 
@@ -104,7 +105,7 @@ F90STD = -std90
 FCFLAG = $(FCBASE)
 #FCFLAG += -multiple-processes=4
 FCFLAG += $(FPP)
-FCFLAG += $(F08STD)
+#FCFLAG += $(F08STD)
 FCFLAG += $(MOD) $(INCLUDE)
 #FCFLAG += -shared-intel
 
@@ -296,8 +297,10 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/viscosity.f90 \
        $(FUNDIR)/entropy.f90 \
+       $(FUNDIR)/pressure.f90 \
        $(FUNDIR)/usp2v.f90 \
-       $(FUNDIR)/vsp2u.f90
+       $(FUNDIR)/vsp2u.f90 \
+       $(FUNDIR)/mach_number.f90
 $(OBJDIR)/startup.o : startup.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \

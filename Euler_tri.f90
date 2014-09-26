@@ -31,11 +31,11 @@ program Euler_tri
                      write_final_vortex_error, &
                      write_entropy_error, &
                      write_cgns_solution, &
+                     write_nodal_parallel_cgns, &
                      write_results_file, &
                      write_advec_results_file, &
                      write_vortex_results_file, &
-                     write_tecplot_partitions, &
-                     create_output_arrays
+                     write_tecplot_partitions
   use metrics_mod, only : get_solution_points_2d, &
                           get_grid_connectivity, &
                           get_metrics
@@ -182,11 +182,6 @@ continue
   !
   call get_metrics
   !
-  ! Create the information necessary to extract
-  ! quantitative results from the flow
-  !
-  call create_output_arrays
-  !
   ! Output information about each partition
   !
   do i = 0,ncpu-1
@@ -223,7 +218,11 @@ continue
   !
   ! Output the initialized solution
   !
-  call write_cgns_solution(1)
+  if (cgns_is_parallel) then
+    call write_nodal_parallel_cgns(1)
+  else
+    call write_cgns_solution(1)
+  end if
   !
   work_units = zero
   if (any(itestcase == Advec_Problems)) then
@@ -491,7 +490,11 @@ continue
     !
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
-        call write_cgns_solution(0)
+        if (cgns_is_parallel) then
+          call write_nodal_parallel_cgns(0)
+        else
+          call write_cgns_solution(0)
+        end if
       end if
     end if
     !
@@ -531,7 +534,11 @@ continue
   call getmaxent
   !
  !call write_tecplot_file(-1)
-  call write_cgns_solution(-1)
+  if (cgns_is_parallel) then
+    call write_nodal_parallel_cgns(-1)
+  else
+    call write_cgns_solution(-1)
+  end if
   !
   call write_restart_file(-1)
   !

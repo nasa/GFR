@@ -29,11 +29,11 @@ module io_mod
   public :: write_final_vortex_error
   public :: write_entropy_error
   public :: write_cgns_solution
+  public :: write_nodal_parallel_cgns
   public :: write_results_file
   public :: write_advec_results_file
   public :: write_vortex_results_file
   public :: write_tecplot_partitions
-  public :: create_output_arrays
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -116,6 +116,14 @@ module io_mod
   real(vhp),         save, allocatable, dimension(:) :: modtime
   character(len=32), save, allocatable, dimension(:) :: solname
   character(len=32), save, allocatable, dimension(:) :: modname
+  !
+  !.. CGNS Kind Types ..
+  integer, save :: cgns_kind_real
+  !
+  !.. CGNS Parallel Point Indices ..
+  integer, save :: n_my_output_pts
+  integer, save :: my_pts_beg
+  integer, save :: my_pts_end
   !
 contains
 !
@@ -211,6 +219,7 @@ subroutine read_nml_input_file
   use ovar,   only : Timestep_Type
   use ovar,   only : output_plot3d_to_tecplot
   use ovar,   only : walls_are_exact
+  use ovar,   only : force_parallel_cgns,force_serial_cgns,cgns_is_parallel
   use ovar,   only : input
   !
   !.. Local Scalars ..
@@ -570,6 +579,19 @@ continue
     end if
     iter_out_interval = max(iter_out_interval,1)
     !
+  end if
+  !
+  ! Determine if CGNS output will be serial or parallel. The
+  ! default is the same as the simulation, i.e. serial for serial
+  ! and parallel for parallel unless either force_serial_cgns or
+  ! force_parallel_cgns is set.
+  !
+  if ((ncpu > 1) .and. force_serial_cgns) then
+    cgns_is_parallel = fals
+  else if ((ncpu == 1) .and. force_parallel_cgns) then
+    cgns_is_parallel = true
+  else
+    cgns_is_parallel = (ncpu > 1)
   end if
   !
   ! Now write out a copy of the input file to standard output
@@ -3501,6 +3523,570 @@ end subroutine write_advec_results_file
 !
 !###############################################################################
 !
+subroutine write_nodal_parallel_cgns(iflag)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts,ncell,nodes_of_cell_ptr,xyz
+  use geovar,  only : tria_connectivity,quad_connectivity
+  use geovar,  only : n_global_cell,global_nofc_ptr
+  use ovar,    only : time,aref,uref,rhoref
+  use ovar,    only : itestcase,cgns_use_queue
+  use flowvar, only : usp,dusp
+  !
+  use geovar,  only : geovar_alloc_status
+  use ovar,    only : ovar_alloc_status
+  use flowvar, only : flowvar_alloc_status
+  use metvar,  only : metvar_alloc_status
+  !
+  use parallel_mod, only : cell_map_ptr,cell_map
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iflag
+  !
+  !.. Local Scalars ..
+  integer :: i,j,l,n,n1,n2,nc,nc1,nc2,np,np1,np2,ierr,p1,ndr,npv
+  integer :: n_total_output_cells,n_total_output_pts,n_sub_cells
+  integer :: n_output_pts_edge,n_output_pts_tria,n_output_pts_quad
+  integer :: n_my_output_cells,my_cells_beg,my_cells_end
+  !
+  character(len=32) :: tname
+  character(len=32) :: varname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_nodal_parallel_cgns"
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  character(len=*), parameter :: char_dname(1:6) = ["Density_dx  ", &
+                                                    "VelocityX_dx", &
+                                                    "VelocityY_dx", &
+                                                    "Density_dy  ", &
+                                                    "VelocityX_dy", &
+                                                    "VelocityY_dy"]
+  character(len=*), parameter :: char_sname(1:7) = ["Density  ", &
+                                                    "VelocityX", &
+                                                    "VelocityY", &
+                                                    "Pressure ", &
+                                                    "Mach     ", &
+                                                    "Entropy  ", &
+                                                    "Vorticity" ]
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: idata
+  integer, dimension(1:3) :: idim1
+  integer, dimension(1:nr) :: ixyz_n
+  integer, dimension(1:size(char_dname)) :: idvar_n
+  integer, dimension(1:size(char_sname)) :: isvar_n
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable, dimension(:,:) :: ipelem
+  real(wp), allocatable, dimension(:)   :: vartmp
+  real(r4), allocatable, dimension(:)   :: var
+  !
+continue
+  !
+  if (iflag == 1) then
+    !
+   !call ovar_alloc_status(mypnum+200)
+   !call geovar_alloc_status(mypnum+200)
+   !call metvar_alloc_status(mypnum+200)
+   !call flowvar_alloc_status(mypnum+200)
+    !
+    ! Get the number of sub-cells per grid cell
+    ! NOTE: It is the same for both triangles and quadrilaterals
+    !
+    n_sub_cells = size(tria_connectivity,dim=2)
+    !
+    ! n_output_pts_edge: number of output points per edge of grid cell
+    n_output_pts_edge = nint(sqrt(real(n_sub_cells,kind=wp)))
+    ! n_output_pts_tria: number of output points per triangle grid cell
+    n_output_pts_tria = (n_output_pts_edge+1)*(n_output_pts_edge+2)/2
+    ! n_output_pts_quad: number of output points per quadrilateral grid cell
+    n_output_pts_quad = (n_output_pts_edge+1)*(n_output_pts_edge+1)
+    !
+    ! n_total_output_cells: total number of output cells for the global grid
+    n_total_output_cells = n_global_cell*n_sub_cells
+    !
+    ! n_total_output_pts: total number of output points for the global grid
+    n_total_output_pts = 0
+    nc2 = 0
+    !
+    do n = 1,ncpu
+      !
+      if (n-1 == mypnum) then
+        my_pts_beg = n_total_output_pts + 1
+        my_cells_beg = nc2*n_sub_cells + 1
+      end if
+      !
+      nc1 = cell_map_ptr(n)+1
+      nc2 = cell_map_ptr(n+1)
+      !
+      do i = nc1,nc2
+        nc = cell_map(i)
+        np = global_nofc_ptr(n+1) - global_nofc_ptr(n)
+        n_total_output_pts = n_total_output_pts + &
+                             merge(n_output_pts_tria,n_output_pts_quad,np==3)
+      end do
+      !
+      if (n-1 == mypnum) then
+        my_pts_end = n_total_output_pts
+        my_cells_end = nc2*n_sub_cells
+      end if
+      !
+    end do
+    !
+    ! n_my_output_pts: number of output points for this processor
+    n_my_output_pts = my_pts_end - my_pts_beg + 1
+    ! n_my_output_cells: number of output cell for this processor
+    n_my_output_cells = my_cells_end - my_cells_beg + 1
+    !
+    cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
+    !
+    call mpi_barrier(mpi_comm_world,mpierr)
+    do n = 0,ncpu-1
+      call mpi_barrier(mpi_comm_world,mpierr)
+      do i = 0,ncpu-1
+        call mpi_barrier(mpi_comm_world,mpierr)
+      end do
+      if (mypnum == n) then
+        write (iout,1) mypnum
+        write (iout,2) "my_cells_beg",my_cells_beg
+        write (iout,2) "my_cells_end",my_cells_end
+        write (iout,2) "n_my_output_cells",n_my_output_cells
+        write (iout,2) "n_total_output_cells",n_total_output_cells
+        write (iout,2) "my_pts_beg",my_pts_beg
+        write (iout,2) "my_pts_end",my_pts_end
+        write (iout,2) "n_my_output_pts",n_my_output_pts
+        write (iout,2) "n_total_output_pts",n_total_output_pts
+      end if
+      do i = 0,ncpu-1
+        call mpi_barrier(mpi_comm_world,mpierr)
+      end do
+      call mpi_barrier(mpi_comm_world,mpierr)
+    end do
+    !
+    ! Allocate the temporary variable arrays
+    !
+    allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
+    call alloc_error(pname,"vartmp",1,ierr)
+    allocate ( var(1:n_my_output_pts) , source=real(0,r4) , stat=ierr )
+    call alloc_error(pname,"var",1,ierr)
+    !
+    ! Open the cgns output file if iflag is 1
+    !
+    ! NEED: n_total_output_pts
+    !       n_total_output_cells
+    !       my_pts_beg
+    !       my_pts_end
+    !       my_cells_beg
+    !       my_cells_end
+    !       n_my_output_pts
+    !       n_my_output_cells
+    !
+    ! Initialize the zone counter
+    !
+    cgnsnodalzone_counter = 0
+    !
+    call cgp_open_f(fname_nodal,CG_MODE_WRITE,ifile_n,ierr)
+    call io_error(pname,trim(fname_nodal),1,ierr)
+    !
+    ! Set the CGNS base (who knows what this is for)
+    !
+    call cg_base_write_f(ifile_n,"recon_base",nr,nr,ibase_n,ierr)
+    call cgns_error(pname,fname_nodal,"cg_base_write_f",ierr)
+    !
+    ! Write the title for this solution
+    !
+    idim1(:) = [n_total_output_pts,n_total_output_cells,0]
+    call cg_zone_write_f(ifile_n,ibase_n,"Solution",idim1, &
+                         Unstructured,izone_n,ierr)
+    call cgns_error(pname,fname_nodal,"cg_zone_write_f",ierr)
+    !
+    ! Create data nodes for the coordinates
+    !
+    do l = 1,nr
+      varname = "Coordinate"//char_xyz(l)
+      call cgp_coord_write_f(ifile_n,ibase_n,izone_n,cgns_kind_real, &
+                             trim(varname),ixyz_n(l),ierr)
+      call cgns_error(pname,fname_nodal,"cgp_coord_write_f",ierr, &
+                      "Write node: Coordinate",n)
+    end do
+    !
+    ! Now create and write the coordinate data in parallel
+    !
+    if (.not. cgns_use_queue) then
+      call cgp_queue_set_f(0,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+    end if
+    !
+    do l = 1,nr
+      !
+      ! Save the current coordinate to the local array vartmp
+      !
+      vartmp(1:n_solpts) = xyz(l,1:n_solpts)
+      !
+      ! Interpolate vartmp to the desired output locations and
+      ! convert to the real type required for the CGNS file.
+      !
+      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+      !
+      ! Reset the queue.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_set_f(1,ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+      end if
+      !
+      ! Add the data for current coordinate variable to the output queue.
+      !
+      call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(l), &
+                                  my_pts_beg,my_pts_end,var,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_coord_write_data_f",ierr, &
+                      "Write data: Coordinate",n)
+      !
+      ! Finally, flush the queue containing the
+      ! current coordinate variable to the CGNS file.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_flush_f(ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+      end if
+      !
+    end do
+    !
+    ! Create the connectivity array
+    !
+    allocate ( ipelem(1:4,1:n_my_output_cells) , source=0 , stat=ierr )
+    call alloc_error(pname,"ipelem",1,ierr)
+    !
+    j = 0
+    p1 = my_pts_beg
+    do n = 1,ncell
+      n1 = nodes_of_cell_ptr(n)+1
+      n2 = nodes_of_cell_ptr(n+1)
+      do i = 1,n_sub_cells
+        j = j + 1
+        ipelem(:,j) = p1 + merge(tria_connectivity(:,i), &
+                                 quad_connectivity(:,i), &
+                                 n2-n1+1 == 3)
+      end do
+      p1 = p1 + merge(n_output_pts_tria,n_output_pts_quad,n2-n1+1 == 3)
+    end do
+    !
+    ! Create the data node for the grid connectivity
+    !
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
+                             QUAD_4,1,n_total_output_cells,0,isect_n,ierr)
+    call cgns_error(pname,fname_nodal,"cgp_section_write_f",ierr)
+    !
+    ! Write the element connectivity in parallel
+    !
+    ! Reset the queue.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_set_f(1,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+    end if
+    !
+    ! Add the element connectivity data to the output queue.
+    !
+    call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
+                                   my_cells_beg,my_cells_end,ipelem,ierr)
+    call cgns_error(pname,fname_nodal,"cgp_elements_write_data_f",ierr)
+    !
+    ! Finally, flush the queue containing the
+    ! element connectivity to the CGNS file.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_flush_f(ierr)
+      call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+    end if
+    !
+    ! Deallocate ipelem since we are done with it
+    !
+    deallocate ( ipelem , stat=ierr )
+    call alloc_error(pname,"ipelem",2,ierr)
+    !
+#ifndef IO_FOR_NAS
+    !
+    ! If not using NAS, we want to possibly look at the solution as the simulation
+    ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
+    ! solution file if we keep it open during the whole simulation so we need to
+    ! close it each time after we are done writing to it.
+    !
+    ! Close the CGNS file temporarily
+    !
+    call cgp_close_f(ifile_n,ierr)
+    call io_error(pname,trim(fname_nodal),2,ierr)
+    !
+#endif
+    !
+  end if
+  !
+  ! Allocate var and vartmp if they arent already allocated
+  !
+  if (.not. allocated(vartmp)) then
+    allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
+    call alloc_error(pname,"vartmp",1,ierr)
+  end if
+  if (.not. allocated(var)) then
+    allocate ( var(1:n_my_output_pts) , source=real(0,r4) , stat=ierr )
+    call alloc_error(pname,"var",1,ierr)
+  end if
+  !
+  ! Get the name for the current solution node
+  !
+  write (tname,'("FlowSolution",i0)') cgnsnodalzone_counter
+  !
+  ! Reallocate the soltime and solname arrays so we
+  ! can concatenate this solution onto those arrays
+  !
+  call reallocate(soltime,cgnsnodalzone_counter+1)
+  call reallocate(solname,cgnsnodalzone_counter+1)
+  soltime(size(soltime)) = real(time,kind(soltime))
+  solname(size(solname)) = tname
+  !
+#ifndef IO_FOR_NAS
+  !
+  ! If not using NAS, we want to possibly look at the solution as the simulation
+  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
+  ! solution file if we keep it open during the whole simulation so we need to
+  ! close it each time after we are done writing to it.
+  !
+  ! Reopen the CGNS file in modification mode
+  !
+  call cgp_open_f(fname_nodal,CG_MODE_MODIFY,ifile_n,ierr)
+  call io_error(pname,trim(fname_nodal),3,ierr)
+  !
+#endif
+  !
+  ! Write the flow variables
+  !
+  call cg_sol_write_f(ifile_n,ibase_n,izone_n,tname,Vertex,isol_n,ierr)
+  call cgns_error(pname,fname_nodal,"cg_sol_write_f",ierr)
+  !
+  if (check_gradients) then
+    !
+    ! Create data nodes for the solution variables
+    !
+    do n = 1,size(char_dname)
+      call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                             trim(char_dname(n)),idvar_n(n),ierr)
+      call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                      "Write node: Gradient variable",n)
+    end do
+    !
+    ! Now create the output data and write it to the CGNS file in parallel
+    !
+    do n = 1,size(char_dname)
+      !
+      ndr = (n-1)/3
+      npv = mod( n-1 , 3 ) + 1
+      !
+      vartmp(1:n_solpts) = grad_of_selected_pv(ndr,npv,usp(:,1:n_solpts), &
+                                                    dusp(:,:,1:n_solpts))
+      !
+      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+      !
+      ! Reset the queue.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_set_f(1,ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+      end if
+      !
+      ! Add the data for current variable to the output queue.
+      !
+      call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,idvar_n(n), &
+                                  my_pts_beg,my_pts_end,var,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
+                      "Write data: Gradient variable",n)
+      !
+      ! Finally, flush the queue containing
+      ! the current variable to the CGNS file.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_flush_f(ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+      end if
+      !
+    end do
+    !
+  else
+    !
+    ! Create data nodes for the solution variables
+    !
+    do n = 1,size(char_sname)
+      call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                             trim(char_sname(n)),isvar_n(n),ierr)
+      call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                      "Write node: Solution variable",n)
+    end do
+    !
+    ! Now create the output data and write it to the CGNS file in parallel
+    !
+    do n = 1,size(char_sname)
+      !
+      select case (trim(char_sname(n)))
+        case ("Density") ! Density
+          vartmp(1:n_solpts) = usp(1,1:n_solpts)
+          vartmp = vartmp * rhoref
+        case ("VelocityX") ! x-velocity
+          vartmp(1:n_solpts) = usp(2,1:n_solpts)/usp(1,1:n_solpts)
+          vartmp = vartmp * aref
+        case ("VelocityY") ! y-velocity
+          vartmp(1:n_solpts) = usp(3,1:n_solpts)/usp(1,1:n_solpts)
+          vartmp = vartmp * aref
+        case ("Pressure") ! Pressure
+          vartmp(1:n_solpts) = pressure_cv( usp(:,1:n_solpts) )
+          vartmp = vartmp * rhoref * aref * aref
+        case ("Mach") ! Mach number
+          vartmp(1:n_solpts) = mach_number_cv( usp(:,1:n_solpts) )
+        case ("Entropy") ! Entropy
+          vartmp(1:n_solpts) = entropy_cv( usp(:,1:n_solpts) )
+        case ("Vorticity") ! Vorticity
+          vartmp(1:n_solpts) = vorticity_cv( usp(:,1:n_solpts) )
+        case default
+          vartmp(1:n_solpts) = usp(1,1:n_solpts)
+      end select
+      !
+      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+      !
+      ! Reset the queue.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_set_f(1,ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+      end if
+      !
+      ! Add the data for current variable to the output queue.
+      !
+      call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,isvar_n(n), &
+                                  my_pts_beg,my_pts_end,var,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
+                      "Write data: Solution variable",n)
+      !
+      ! Finally, flush the queue containing
+      ! the current variable to the CGNS file.
+      !
+      if (cgns_use_queue) then
+        call cgp_queue_flush_f(ierr)
+        call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+      end if
+      !
+    end do
+    !
+  end if
+  !
+  if (cgns_use_queue) then
+    call cgp_queue_set_f(0,ierr)
+    call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+  end if
+  !
+  ! Deallocate the arrays var and vartmp
+  !
+  deallocate ( var , stat=ierr )
+  call alloc_error(pname,"var",2,ierr)
+  deallocate ( vartmp , stat=ierr )
+  call alloc_error(pname,"vartmp",2,ierr)
+  !
+#ifdef IO_FOR_NAS
+  !
+  ! If last iteration, close CGNS file
+  !
+  if (iflag == -1) then
+    !
+    ! Update the base iterative node
+    !
+    call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
+    call cgns_error(pname,fname_nodal,"cg_biter_write_f",ierr)
+    !
+    call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
+    call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
+    !
+    call cg_array_write_f("TimeValues",cgns_kind_real,1,size(soltime),soltime,ierr)
+    call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
+    !
+    ! Update the zone iterative node
+    !
+    call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
+    call cgns_error(pname,fname_nodal,"cg_ziter_write_f",ierr)
+    !
+    call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
+                                        "ZoneIterativeData_t",1,"end")
+    call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
+    !
+    idata(:) = [32,size(solname)]
+    call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
+    call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
+    !
+    ! Identify the flow solution within the CGNS file as time dependent
+    !
+    call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
+    call cgns_error(pname,fname_nodal,"cg_simulation_type_write_f",ierr)
+    !
+    ! Close the CGNS FILE
+    !
+    call cgp_close_f(ifile_n,ierr)
+    call io_error(pname,trim(fname_nodal),2,ierr)
+    !
+  end if
+  !
+#else
+  !
+  ! Update the base iterative node
+  !
+  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
+  call cgns_error(pname,fname_nodal,"cg_biter_write_f",ierr)
+  !
+  call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
+  call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
+  !
+  call cg_array_write_f("TimeValues",cgns_kind_real,1,size(soltime),soltime,ierr)
+  call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
+  !
+  ! Update the zone iterative node
+  !
+  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
+  call cgns_error(pname,fname_nodal,"cg_ziter_write_f",ierr)
+  !
+  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
+                                      "ZoneIterativeData_t",1,"end")
+  call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
+  !
+  idata(:) = [32,size(solname)]
+  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
+  call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
+  !
+  ! Identify the flow solution within the CGNS file as time dependent
+  !
+  call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
+  call cgns_error(pname,fname_nodal,"cg_simulation_type_write_f",ierr)
+  !
+  ! If not using NAS, we want to possibly look at the solution as the simulation
+  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
+  ! solution file if we keep it open during the whole simulation so we need to
+  ! close it each time after we are done writing to it.
+  !
+  ! Close the CGNS FILE
+  !
+  call cgp_close_f(ifile_n,ierr)
+  call io_error(pname,trim(fname_nodal),2,ierr)
+  !
+#endif
+  !
+  ! Update the zone counter
+  !
+  cgnsnodalzone_counter = cgnsnodalzone_counter + 1
+  !
+  ! Format Statements
+  !
+  1 format ("#############################################",/, &
+            "    FOR PROCESSOR #",i0)
+  2 format (a," = ",i0)
+  !
+end subroutine write_nodal_parallel_cgns
+!
+!###############################################################################
+!
 subroutine write_cgns_solution(iflag)
   !
   !.. Use Statements ..
@@ -3538,6 +4124,7 @@ continue
       end do
     end do
     !
+ !end if
   else
     !
     if (itestcase /= Density_Transport) then
@@ -3879,7 +4466,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = vsp(1,i) * rhoref
+     !vartmp(i) = usp(1,i) * rhoref
     end do
+   !vartmp(1:n_solpts) = usp(1,1:n_solpts) * rhoref
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3888,7 +4477,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = vsp(2,i) * aref
+     !vartmp(i) = usp(2,i)/usp(1,i) * aref
     end do
+   !vartmp(1:n_solpts) = usp(2,1:n_solpts)/usp(1,1:n_solpts) * aref
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3897,7 +4488,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = vsp(3,i) * aref
+     !vartmp(i) = usp(3,i)/usp(1,i) * aref
     end do
+   !vartmp(1:n_solpts) = usp(3,1:n_solpts)/usp(1,1:n_solpts) * aref
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3906,7 +4499,10 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = vsp(4,i)*(rhoref*aref*aref)*cvel**2
+     !vartmp(i) = pressure_cv_sp( usp(:,i) ) * (rhoref*aref*aref)*cvel**2
     end do
+   !vartmp(1:n_solpts) = pressure_cv( usp(:,1:n_solpts) ) &
+   !                   * (rhoref*aref*aref)*cvel**2
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3915,7 +4511,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = usp(1,i)
+     !vartmp(i) = mach_number_cv_sp( usp(:,i) )
     end do
+   !vartmp(1:n_solpts) = mach_number_cv( usp(:,1:n_solpts) )
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3924,7 +4522,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = usp(4,i)
+     !vartmp(i) = entropy_cv_sp( usp(:,i) )
     end do
+   !vartmp(1:n_solpts) = entropy_cv( usp(:,1:n_solpts) )
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -3933,7 +4533,9 @@ continue
     !
     do i = 1,n_solpts
       vartmp(i) = usp(2,i)*cvel
+     !vartmp(i) = usp(2,i)*cvel
     end do
+   !vartmp(1:n_solpts) = vorticity_cv( usp(:,1:n_solpts) )*cvel
     var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Vorticity", &
                           var(1:n_outpts),ifld_n,ierr)
@@ -4508,11 +5110,73 @@ end subroutine write_tecplot_partitions
 !
 !###############################################################################
 !
-subroutine create_output_arrays
+pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref_nd,gam
+  !
+  !.. Formal Arguments ..
+  integer,                    intent(in) :: ndr ! index for derivative direction
+  integer,                    intent(in) :: npv ! index for primitive variable
+  real(wp), dimension(:,:),   intent(in) :: uu  ! conservative solution
+  real(wp), dimension(:,:,:), intent(in) :: dcvdx ! conservative variable gradients
+  !
+  !.. Function Results ..
+  real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nr,nq,np,n
+  real(wp) :: cv_inv,rho_inv,rho_inv2,q2
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(dcvdx,dim=2)) :: coef
   !
 continue
   !
-end subroutine create_output_arrays
+  nr = size(dcvdx,dim=1)
+  nq = size(dcvdx,dim=2)
+  np = size(dcvdx,dim=3)
+  !
+  if (npv == 1) then
+    !
+    do n = 1,np
+      return_value(n) = dcvdx(ndr,npv,n)
+    end do
+    !
+  else if (npv == nq) then
+    !
+    cv_inv = (gam - one) / rgasref_nd
+    !
+    do n = 1,np
+      !
+      rho_inv = one/uu(1,n)
+      rho_inv2 = rho_inv*rho_inv
+      !
+      q2 = dot_product( uu(2:nq-1,n) , uu(2:nq-1,n) )
+      !
+      coef(1) = -rho_inv2 * (uu(nq,n) - rho_inv*q2)
+      coef(2:nq-1) = -rho_inv2 * uu(2:nq-1,n)
+      coef(nq) = rho_inv
+      !
+      return_value(n) = cv_inv * dot_product( coef , dcvdx(ndr,1:nq,n) )
+      !
+    end do
+    !
+  else
+    !
+    do n = 1,np
+      !
+      rho_inv = one/uu(1,n)
+      rho_inv2 = rho_inv*rho_inv
+      !
+      return_value(n) = rho_inv  * dcvdx(ndr,npv,n) - &
+                        rho_inv2 * dcvdx(ndr, 1 ,n) * uu(npv,n)
+      !
+    end do
+    !
+  end if
+  !
+end function grad_of_selected_pv
 !
 !###############################################################################
 !
@@ -4522,9 +5186,9 @@ pure function interpolate_for_output(array) result(return_value)
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use geovar,  only : n_sp2dq
-  use geovar,  only : ncell => n_global_cell
-  use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
+  use geovar,  only : n_sp2dq,n_solpts,n_global_solpts
+  use geovar,  only : ncell,n_global_cell
+  use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
   use geovar,  only : numer2gauss,numer2lobatto
   use ovar,    only : iop_outpts,iop_solpts
  !use geovar,  only : n_sp2dt,o_order
@@ -4545,7 +5209,7 @@ pure function interpolate_for_output(array) result(return_value)
   !
 continue 
   !
-  !
+  ! 
   !
   if (iop_outpts == iop_solpts) then
     !
@@ -4557,7 +5221,8 @@ continue
     !
   else
     !
-    !
+    ! Save the desired interpolation matrix to prevent if
+    ! statements for the matrix multiply in the following loops
     !
     if (iop_outpts == Legendre_Gauss_Lobatto) then
       !
@@ -4577,21 +5242,48 @@ continue
       !
     end if
     !
+    ! Interpolate the data depending on if we are working on
+    ! a local or global data array.
     !
-    !
-    do nc = 1,ncell
+    if (size(array) == n_solpts) then
       !
-      n1 = pts_in_cell_ptr(nc)+1
-      n2 = pts_in_cell_ptr(nc+1)
-      np = n2-n1+1
+      do nc = 1,ncell
+        !
+        n1 = pts_in_cell_ptr(nc)+1
+        n2 = pts_in_cell_ptr(nc+1)
+        np = n2-n1+1
+        !
+        if (np == n_sp2dq) then
+          return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
+        else
+          return_value(n1:n2) = array(n1:n2)
+        end if
+        !
+      end do
       !
-      if (np == n_sp2dq) then
-        return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
-      else
-        return_value(n1:n2) = array(n1:n2)
-      end if
+    else if (size(array) == n_global_solpts) then
       !
-    end do
+      do nc = 1,n_global_cell
+        !
+        n1 = global_pinc_ptr(nc)+1
+        n2 = global_pinc_ptr(nc+1)
+        np = n2-n1+1
+        !
+        if (np == n_sp2dq) then
+          return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
+        else
+          return_value(n1:n2) = array(n1:n2)
+        end if
+        !
+      end do
+      !
+    else
+      !
+      do n = 1,size(array)
+        return_value(n) = array(n)
+      end do
+      !
+    end if
     !
   end if
   !
@@ -4614,7 +5306,7 @@ continue
  !  nopt = (o_order+1)*(o_order+2)/2
  !  nopq = (o_order+1)*(o_order+1)
  !  !
- !  do n = 1,ncell
+ !  do n = 1,size(pts_in_cell_ptr)-1
  !    !
  !    n1 = pts_in_cell_ptr(n)+1
  !    n2 = pts_in_cell_ptr(n+1)
@@ -4637,14 +5329,109 @@ end function interpolate_for_output
 !
 !###############################################################################
 !
+pure function vorticity_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,n_sp2dt,n_sp2dq,ncell,pts_in_cell_ptr
+  use metvar, only : dx,dy,dr_mat,ds_mat,jacobian
+  !
+  real(wp), dimension(:,:), intent(in) :: uu
+  !
+  real(wp), dimension(1:size(uu,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,nq,n1,n2,np,nw,k
+  real(wp) :: dudr,duds,dvdr,dvds
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr,1:n_sp2dq) :: vel
+  !
+continue
+  !
+  nq = size(uu,dim=1)
+  !
+  do n = 1,ncell
+    !
+    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
+    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
+    np = n2-n1+1
+    !
+    nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    !
+    do k = n1,n2
+      vel(1:nr,k-n1+1) = uu(2:nq-1,k)/uu(1,k)
+    end do
+    !
+    do k = n1,n2
+      !
+      dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vel(1,1:np))
+      duds = dot_product(ds_mat(1:np,k-n1+1,nw),vel(1,1:np))
+      dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vel(2,1:np))
+      dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vel(2,1:np))
+      !
+      return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
+                          ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+      !                   
+    end do
+    !
+  end do
+  !
+end function vorticity_cv
+!
+!###############################################################################
+!
+pure function vorticity_pv(vv) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : n_sp2dt,ncell,pts_in_cell_ptr
+  use metvar, only : dx,dy,dr_mat,ds_mat,jacobian
+  !
+  real(wp), dimension(:,:), intent(in) :: vv
+  !
+  real(wp), dimension(1:size(vv,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,np,nw,k
+  real(wp) :: dudr,duds,dvdr,dvds
+  !
+continue
+  !
+  do n = 1,ncell
+    !
+    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
+    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
+    np = n2-n1+1
+    !
+    nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    !
+    do k = n1,n2
+      !
+      dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
+      duds = dot_product(ds_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
+      dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
+      dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
+      !
+      return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
+                          ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+      !                   
+    end do                
+    !
+  end do
+  !
+end function vorticity_pv
+!
+!###############################################################################
+!
 include "Functions/last.f90"
 include "Functions/vortex.f90"
 include "Functions/face_nodes.f90"
 include "Functions/bc_priority.f90"
 include "Functions/viscosity.f90"
 include "Functions/entropy.f90"
+include "Functions/pressure.f90"
 include "Functions/usp2v.f90"
 include "Functions/vsp2u.f90"
+include "Functions/mach_number.f90"
 !
 !###############################################################################
 !
