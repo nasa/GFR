@@ -1520,11 +1520,11 @@ end subroutine correct_flux_project_cv
 !
 subroutine correct_flux_project_pv()
   !
-  use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_sp2dt, &
+  use geovar,  only : neqns,nfbnd,nface,n_sp1de,n_sp2dt,n_sp2dq, &
                       cells_on_face,pts_in_cell_ptr
   use geovar,  only : interp_s2f
   use metvar,  only : cormat,geofa
-  use flowvar, only : vsp,residual
+  use flowvar, only : usp,residual
   !
   !.. Local Scalars ..
   integer   :: k,m,n,nf,r1,r2,l1,l2
@@ -1540,6 +1540,7 @@ subroutine correct_flux_project_pv()
   real(wp), dimension(1:neqns) :: fnl,fnr
   real(wp), dimension(1:neqns) :: fjl,fjr
   real(wp), dimension(1:neqns) :: fnc
+  real(wp), dimension(1:n_sp2dq,1:neqns) :: pvl,pvr
   !
 continue
   !
@@ -1566,6 +1567,17 @@ continue
     wl = merge( 1 , 2 , nl == n_sp2dt ) ! check if jl is a tria or quad
     wr = merge( 1 , 2 , nr == n_sp2dt ) ! check if jr is a tria or quad
     !
+    ! Get the primitive variable solution for the left and right cells.
+    ! Flip the rank ordering to help prevent cache misses.
+    !
+    do n = 1,nl
+      pvl(n,1:neqns) = usp2v_sp( usp(1:neqns,l1-1+n) )
+    end do
+    !
+    do n = 1,nr
+      pvr(n,1:neqns) = usp2v_sp( usp(1:neqns,r1-1+n) )
+    end do
+    !
     ! Loop through the flux points on the current face
     !
     do k = 1,n_sp1de
@@ -1590,8 +1602,8 @@ continue
       ! the left and right cells to the current flux point on the interface
       !
       do m = 1,neqns
-        vl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),vsp(m,l1:l2)) ! left  state
-        vr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),vsp(m,r1:r2)) ! right state
+        vl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),pvl(l1:l2,m)) ! left  state
+        vr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),pvr(r1:r2,m)) ! right state
       end do
       !
       ! Get the numerical flux at the current flux point
@@ -1872,7 +1884,7 @@ subroutine flux_divergence_lp
   use geovar,  only : neqns,ncell,n_sp2dt,n_sp2dq, &
                       pts_in_cell_ptr,write_variable
   use metvar,  only : dx,dy,dr_mat,ds_mat
-  use flowvar, only : usp,vsp,residual
+  use flowvar, only : usp,residual
   !
   !.. Local Scalars ..
   integer :: k,m,n,nw,n1,n2,np
@@ -3731,6 +3743,7 @@ end subroutine test_face_connectivity
 !
 include "Functions/grad_cv_to_grad_pv.f90"
 include "Functions/vsp2u.f90"
+include "Functions/usp2v.f90"
 include "Functions/pressure.f90"
 include "Functions/viscosity.f90"
 !
