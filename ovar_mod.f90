@@ -220,6 +220,11 @@ module ovar
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
+  logical, public, save :: force_parallel_cgns = fals
+  logical, public, save :: force_serial_cgns = fals
+  logical, public, save :: cgns_use_queue = true
+  logical, public, save :: cgns_is_parallel
+  !
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -269,8 +274,10 @@ module ovar
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
   namelist / input / walls_are_exact
-  ! VARIOUS DEBUG TYPE variables
+  ! VARIOUS DEBUG TYPE VARIABLES
   namelist / input / output_bface_array
+  ! CGNS OUTPUT OPTIONS
+  namelist / input / force_parallel_cgns,force_serial_cgns,cgns_use_queue
   !
 contains
 !
