@@ -105,7 +105,7 @@ continue
   !
   ! Initialize uspstart depending on the test case requested
   !
-  if (itestcase == Generic_MeanFlow) then
+  if (any(itestcase == [Generic_MeanFlow,Laminar_BndLyr])) then
     !
     ! Initialize the solution to free-stream conditions
     !
@@ -207,10 +207,6 @@ continue
     time  = zero
     !
   end if
-  !
-  ! Initialize the backup conserved variables solution arrays
-  !
-  uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
   !
   ! Output the free-stream conditions
   !

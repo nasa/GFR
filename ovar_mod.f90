@@ -158,6 +158,7 @@ module ovar
   real(wp), public, save :: rlinf
   real(wp), public, save :: rlone
   real(wp), public, save :: rltwo
+  real(wp), public, save :: rl2mx
   !
   integer,  public, save, allocatable, dimension(:) :: unloc
   integer,  public, save, allocatable, dimension(:) :: ukloc

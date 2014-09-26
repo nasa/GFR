@@ -265,6 +265,10 @@ continue
     !
     itcur = itcur + 1
     !
+    ! Store a copy of the solution from the previous time step
+    !
+    uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
+    !
     ! Update the global time step
     !
    !call get_dtsp(dtmin)
@@ -430,10 +434,6 @@ continue
       end if
       !
     end if
-    !
-    ! Store the new solution as the backup for the next iteration
-    !
-    uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
     !
     ! Every 50 (1000 for NAS) iterations
     !    1. Compute the residual error for this time step and exit

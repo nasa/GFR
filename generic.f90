@@ -1664,7 +1664,7 @@ subroutine rgeterr()
   use geovar,  only : global_cell_offset,global_xyz
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in, &
                       nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
-  use ovar,    only : itcur,d_t,time
+  use ovar,    only : itcur,d_t,time,rl2mx
   use ovar,    only : max_wall_time,wall_time_left
   use ovar,    only : beg_wall_time,wall_time
   use ovar,    only : walltime_expiring
@@ -1718,7 +1718,11 @@ continue
       !
       ! Get the change in density for this solution point
       !
-      ett(1) = abs( usp(1,k) - uoldsp(1,k) )
+      if (itestcase == Laminar_BndLyr) then
+        ett(1) = abs( usp(2,k) - uoldsp(2,k) )
+      else
+        ett(1) = abs( usp(1,k) - uoldsp(1,k) )
+      end if
       !
       ! Compute the entropy at this solution point
       !
@@ -1727,6 +1731,7 @@ continue
       !
       if (any([rho,pres] <= zero)) write (iout,111) n,k,rho,pres
       111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
+      !
       sn = entropy_cv_sp( usp(:,k) )
       se = entropy_cv_sp( cv_in(:) )
       !
@@ -1769,7 +1774,14 @@ continue
   !
   rlone =       sum(all_error(1,1,:)) / total_volume
   rltwo = sqrt( sum(all_error(1,2,:)) / total_volume )
-  entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
+  !
+  rl2mx = max( rltwo , rl2mx )
+  !
+  if (any(itestcase == Transport_Problems)) then
+    entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
+  else
+    entL2 = log10(rl2mx) - log10(rltwo)
+  end if
   !
   ! Output the results for the current time step
   !
@@ -1792,7 +1804,7 @@ continue
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,entL2,rltwo,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,nloc, &
                               global_cell_offset(nloc)+kloc, &
                               global_xyz(1,global_cell_offset(nloc)+kloc), &
                               global_xyz(2,global_cell_offset(nloc)+kloc), &
@@ -1802,7 +1814,7 @@ continue
     !
     walltime_expiring = fals
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,entL2,rltwo,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,nloc, &
                               global_cell_offset(nloc)+kloc, &
                               global_xyz(1,global_cell_offset(nloc)+kloc), &
                               global_xyz(2,global_cell_offset(nloc)+kloc)
@@ -1832,7 +1844,7 @@ subroutine init_generic_mod
   !
   !.. Use Statements ..
   use geovar, only : n_global_cell,n_global_solpts
-  use ovar,   only : itcur,num_ts
+  use ovar,   only : itcur,num_ts,rl2mx,itestcase
   !
   !.. Local Scalars ..
   integer :: final_iter_digits
@@ -1842,6 +1854,8 @@ subroutine init_generic_mod
   character(len=1000) :: iter_header
   !
 continue
+  !
+  rl2mx = -huge(zero)
   !
   write (char_num,1) itcur + num_ts
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
@@ -1867,9 +1881,19 @@ continue
   !
   ! Now get the format for the header
   !
-  write (iter_header,200) final_iter_digits-3, &
-                          max_cell_digits-2, &
-                          max_solpt_digits-3
+  if (any(itestcase == Transport_Problems)) then
+    write (iter_header,200) final_iter_digits-3, &
+                            max_cell_digits-2, &
+                            max_solpt_digits-3
+  else if (itestcase == Laminar_BndLyr) then
+    write (iter_header,201) final_iter_digits-3, &
+                            max_cell_digits-2, &
+                            max_solpt_digits-3
+  else
+    write (iter_header,202) final_iter_digits-3, &
+                            max_cell_digits-2, &
+                            max_solpt_digits-3
+  end if
   !
 #ifdef PBS_ENV
   iter_header = iter_header(1:len_trim(iter_header)) // ",4x,'Time Left'"
@@ -1887,8 +1911,12 @@ continue
   !
   1 format (i0)
   100 format ("(1x,i",i0,",4es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
-  200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy',2x,", &
-              "'L2-Density',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+  200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
+              "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+  201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
+              "'OrdersDrop',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+  202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
+              "'OrdersDrop',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   !
 end subroutine init_generic_mod
 !
