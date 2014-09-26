@@ -4086,9 +4086,7 @@ end subroutine write_nodal_parallel_cgns
 subroutine write_cgns_solution(iflag)
   !
   !.. Use Statements ..
-  use geovar,       only : n_solpts
   use ovar,         only : output_solution
-  use flowvar,      only : usp,uoldsp
   use parallel_mod, only : collect_global_solution
   !
   !.. Formal Arguments ..
@@ -4116,10 +4114,6 @@ continue
   !
   call mpi_barrier(mpi_comm_world,mpierr)
   !
-  ! Copy the saved conserved variables back into usp
-  !
-  usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
-  !
 end subroutine write_cgns_solution
 !
 !###############################################################################
@@ -4141,7 +4135,6 @@ subroutine write_nodal_cgns(iflag)
   use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
   use geovar,  only : xyz => global_xyz
   use flowvar, only : usp => global_usp
-  use flowvar, only : uoldsp
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
