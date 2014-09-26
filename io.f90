@@ -3636,28 +3636,28 @@ continue
     !
     cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
     !
-    call mpi_barrier(mpi_comm_world,mpierr)
-    do n = 0,ncpu-1
-      call mpi_barrier(mpi_comm_world,mpierr)
-      do i = 0,ncpu-1
-        call mpi_barrier(mpi_comm_world,mpierr)
-      end do
-      if (mypnum == n) then
-        write (iout,1) mypnum
-        write (iout,2) "my_cells_beg",my_cells_beg
-        write (iout,2) "my_cells_end",my_cells_end
-        write (iout,2) "n_my_output_cells",n_my_output_cells
-        write (iout,2) "n_total_output_cells",n_total_output_cells
-        write (iout,2) "my_pts_beg",my_pts_beg
-        write (iout,2) "my_pts_end",my_pts_end
-        write (iout,2) "n_my_output_pts",n_my_output_pts
-        write (iout,2) "n_total_output_pts",n_total_output_pts
-      end if
-      do i = 0,ncpu-1
-        call mpi_barrier(mpi_comm_world,mpierr)
-      end do
-      call mpi_barrier(mpi_comm_world,mpierr)
-    end do
+   !call mpi_barrier(mpi_comm_world,mpierr)
+   !do n = 0,ncpu-1
+   !  call mpi_barrier(mpi_comm_world,mpierr)
+   !  do i = 0,ncpu-1
+   !    call mpi_barrier(mpi_comm_world,mpierr)
+   !  end do
+   !  if (mypnum == n) then
+   !    write (iout,1) mypnum
+   !    write (iout,2) "my_cells_beg",my_cells_beg
+   !    write (iout,2) "my_cells_end",my_cells_end
+   !    write (iout,2) "n_my_output_cells",n_my_output_cells
+   !    write (iout,2) "n_total_output_cells",n_total_output_cells
+   !    write (iout,2) "my_pts_beg",my_pts_beg
+   !    write (iout,2) "my_pts_end",my_pts_end
+   !    write (iout,2) "n_my_output_pts",n_my_output_pts
+   !    write (iout,2) "n_total_output_pts",n_total_output_pts
+   !  end if
+   !  do i = 0,ncpu-1
+   !    call mpi_barrier(mpi_comm_world,mpierr)
+   !  end do
+   !  call mpi_barrier(mpi_comm_world,mpierr)
+   !end do
     !
     ! Allocate the temporary variable arrays
     !

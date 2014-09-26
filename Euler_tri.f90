@@ -56,7 +56,8 @@ program Euler_tri
                           rupdate_TVD2_RK, &
                           rupdate_TVD3_RK, &
                           rupdate_TVD4_RK, &
-                          test_error
+                          test_error, &
+                          init_generic_mod
   use flux_mod, only : flux_divergence_lp, &
                        flux_divergence_cr, &
                        flux_divergence_jac_cr, &
@@ -246,11 +247,9 @@ continue
                     n_sp2dt,n_qp2dt,n_sp2dq,n_qp2dq
   end if
   !
-  ! Write the header for the terminal output 
+  ! Initialize any necessary information for use in the module generic_mod
   !
- !call test_nonblocking_fexchange
- !call stop_recon(stop_mpi,"main: before starting main iteration loop")
-  if (mypnum == 0) write (iout,20)
+  call init_generic_mod
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -607,8 +606,6 @@ continue
                ' n_qp2dt = ',i4,/, &
                ' n_sp2dq = ',i4,/, &
                ' n_qp2dq = ',i4,/)
-  20 format (/,5x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy',2x,'L2-Density', &
-               4x,'Cell',3x,'Solpt',6x,'x',10x,'y',6x,'Time Left')
   !
   40 format (//' Final iteration count   = ',i12,/, &
                ' Simulation elapsed time = ',f12.3)

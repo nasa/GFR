@@ -26,6 +26,7 @@ module generic_mod
   public :: compute_final_vortex_error
   public :: test_error
   public :: project_to_porder
+  public :: init_generic_mod
   !
   real(wp), parameter :: o = zero
   !
@@ -62,6 +63,8 @@ module generic_mod
                                                            0.12759831133288_wp, &
                                                            0.00000000000000_wp, &
                                                            0.00000000000000_wp /)
+  !
+  character(len=100), save :: iter_out_fmt
   !
 contains
 !
@@ -1682,6 +1685,9 @@ subroutine rgeterr()
   real(wp), dimension(1:2,1:7) :: error
   real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
   !
+  !.. Local Parameters ..
+  real(wp), parameter :: max_sec = real( 1000*3600-1 , kind=wp )
+  !
   ! error(:,1) = L1 norm of total error for all solution points
   ! error(:,2) = L2 norm of total error for all solution points
   ! error(:,3) = maximum value of error for all solution points
@@ -1770,9 +1776,10 @@ continue
   if (mypnum == 0) then
     !
 #ifdef PBS_ENV
+    !
     wall_time_last = wall_time_left
     wall_time = mpi_wtime() - beg_wall_time
-    wall_time_left = max_wall_time - wall_time
+    wall_time_left = min( max_wall_time - wall_time , max_sec )
     !
     next_time_est = (wall_time_last - wall_time_left) * (one+eps1)
     walltime_expiring = (wall_time_left-next_time_est <= zero)
@@ -1784,18 +1791,23 @@ continue
     sec_left = sec_left - hrs_left*3600 - min_left*60
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
-#else
-    walltime_expiring = fals
-    hrs_left = 999
-    min_left = 99
-    sec_left = 99
-#endif
     !
-    write (iout,1) itcur,d_t,time,entL2,rltwo,nloc, &
-                   global_cell_offset(nloc)+kloc, &
-                   global_xyz(1,global_cell_offset(nloc)+kloc), &
-                   global_xyz(2,global_cell_offset(nloc)+kloc), &
-                   hrs_left,min_left,sec_left
+    write (iout,iter_out_fmt) itcur,d_t,time,entL2,rltwo,nloc, &
+                              global_cell_offset(nloc)+kloc, &
+                              global_xyz(1,global_cell_offset(nloc)+kloc), &
+                              global_xyz(2,global_cell_offset(nloc)+kloc), &
+                              hrs_left,min_left,sec_left
+    !
+#else
+    !
+    walltime_expiring = fals
+    !
+    write (iout,iter_out_fmt) itcur,d_t,time,entL2,rltwo,nloc, &
+                              global_cell_offset(nloc)+kloc, &
+                              global_xyz(1,global_cell_offset(nloc)+kloc), &
+                              global_xyz(2,global_cell_offset(nloc)+kloc)
+    !
+#endif
     !
     if (walltime_expiring) write (iout,2)
     !
@@ -1805,13 +1817,80 @@ continue
   !
   call mpi_bcast(walltime_expiring,1,mpi_logical,0,mpi_comm_world,mpierr)
   !
-  1 format (i9,4(1x,es11.4),2i8,1x,2es11.3,1x,i3,2(":",i2.2))
+
+  1 format (i9,4(1x,es11.4),2i8,2es9.1,1x,i3,2(":",i2.2))
   2 format (/,"*******************************************************",/, &
               " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
               "*******************************************************",/)
   !
 end subroutine rgeterr
+!
+!###############################################################################
+!
+subroutine init_generic_mod
+  !
+  !.. Use Statements ..
+  use geovar, only : n_global_cell,n_global_solpts
+  use ovar,   only : itcur,num_ts
+  !
+  !.. Local Scalars ..
+  integer :: final_iter_digits
+  integer :: max_cell_digits
+  integer :: max_solpt_digits
+  character(len=100) :: char_num
+  character(len=1000) :: iter_header
+  !
+continue
+  !
+  write (char_num,1) itcur + num_ts
+  final_iter_digits = max(4,len_trim(adjustl(char_num)))
+  !
+  write (char_num,1) n_global_cell
+  max_cell_digits = max(4,len_trim(adjustl(char_num)))
+  !
+  write (char_num,1) n_global_solpts
+  max_solpt_digits = max(5,len_trim(adjustl(char_num)))
+  !
+  write (iter_out_fmt,100) final_iter_digits,max_cell_digits,max_solpt_digits
+  !
+  ! Add on the remaining simulation time to the output if
+  ! running in the PBS environment
+  !
+#ifdef PBS_ENV
+  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ',1x,i3,2(":",i2.2)'
+#endif
+  !
+  ! Put the last ')' onto iter_out_fmt
+  !
+  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ")"
+  !
+  ! Now get the format for the header
+  !
+  write (iter_header,200) final_iter_digits-3, &
+                          max_cell_digits-2, &
+                          max_solpt_digits-3
+  !
+#ifdef PBS_ENV
+  iter_header = iter_header(1:len_trim(iter_header)) // ",4x,'Time Left'"
+#endif
+  !
+  ! Put the last ')' onto iter_header
+  !
+  iter_header = iter_header(1:len_trim(iter_header)) // ")"
+  !
+  ! Write the header for the terminal output
+  !
+  if (mypnum == 0) write (iout,iter_header)
+  !
+  ! Format Statements
+  !
+  1 format (i0)
+  100 format ("(1x,i",i0,",4es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
+  200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Entropy',2x,", &
+              "'L2-Density',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+  !
+end subroutine init_generic_mod
 !
 !###############################################################################
 !
