@@ -2,7 +2,7 @@
 all_orders = 2
 all_points = 1
 grid_format = 3
-gridfile = "grid_files/flat_plate/a5-125-2s.scaled.cutoff.msh"
+gridfile = "grid_files/flat_plate/a2-125-2s.scaled.cutoff.msh"
 !  grid_format = 4
 !  gridfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.chopped.grd"
 !  plot3d_bcsfile = "grid_files/plot3d/formatted/2D_SB/plate_2d.bcs.grd"

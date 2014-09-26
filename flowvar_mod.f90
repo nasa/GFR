@@ -9,11 +9,9 @@ module flowvar
   public :: flowvar_alloc_status
   !
   ! USP  : conservative variables at the solution points (@SP)
-  ! VSP  : primitive variables @SP
   ! DUSP : gradient of primitive variables @SP
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp
-  real(wp), public, save, allocatable, dimension(:,:)   :: vsp
   real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
   !
   ! UOLDSP   : conservative variables of previous time step @SP 
@@ -23,11 +21,9 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:,:) :: residual
   !
   ! GLOBAL_USP : conservative variables @SP across all processors
-  ! GLOBAL_VSP : primitive    variables @SP across all processors
   ! GLOBAL_VAR : arbitrary    variable  @SP across all processors
   !
   real(wp), public, save, allocatable, dimension(:,:) :: global_usp
-  real(wp), public, save, allocatable, dimension(:,:) :: global_vsp
   real(wp), public, save, allocatable, dimension(:)   :: global_var
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
@@ -103,12 +99,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'usp'",array%get_units()
   end if
-  if (allocated(vsp)) then
-    array%siz = size(vsp)
-    array%mem = array%siz*storage_size(vsp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vsp'",array%get_units()
-  end if
   if (allocated(dusp)) then
     array%siz = size(dusp)
     array%mem = array%siz*storage_size(dusp)
@@ -132,12 +122,6 @@ continue
     array%mem = array%siz*storage_size(global_usp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'global_usp'",array%get_units()
-  end if
-  if (allocated(global_vsp)) then
-    array%siz = size(global_vsp)
-    array%mem = array%siz*storage_size(global_vsp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_vsp'",array%get_units()
   end if
   if (allocated(global_var)) then
     array%siz = size(global_var)

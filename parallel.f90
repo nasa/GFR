@@ -4062,7 +4062,6 @@ subroutine collect_global_solution
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : usp,global_usp
-  use flowvar, only : vsp,global_vsp
   !
   !.. Local Scalars ..
   integer :: i,icpu,n,ierr
@@ -4113,38 +4112,6 @@ continue
     !
     global_usp(:,:) = real( global_r8(:,:) , kind=wp )
     !
-    ! Collect the global vsp array on all processors
-    !
-    sp_r8(:,:) = real( vsp(:,:) , r8 )
-    global_r8(:,:) = 0.0_r8
-    !
-    n = size(sp_r8(:,1:n_solpts))
-    !
-    if (mypnum /= 0) then
-      !
-      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
-      !
-    else
-      !
-      call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
-                        global_r8,1,recv_sol(1),0,n, &
-                        mpi_comm_world,istat,mpierr)
-      !
-      do i = 2,ncpu
-        !
-        icpu = i-1
-        !
-        call mpi_recv(global_r8,1,recv_sol(i),icpu,icpu, &
-                      mpi_comm_world,istat,mpierr)
-        !
-      end do
-      !
-    end if
-    !
-    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
-    !
-    global_vsp(:,:) = real( global_r8(:,:) , kind=wp )
-    !
     deallocate ( sp_r8 , stat=ierr )
     call alloc_error("collect_global_solution","sp_r8",2,ierr)
     deallocate ( global_r8 , stat=ierr )
@@ -4153,7 +4120,6 @@ continue
   else
     !
     global_usp(:,:) = usp(:,:)
-    global_vsp(:,:) = vsp(:,:)
     !
   end if
   !

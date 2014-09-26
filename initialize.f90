@@ -69,8 +69,6 @@ continue
   !
   allocate ( usp(1:neqns,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","usp",1,ierr)
-  allocate ( vsp(1:neqns,1:n_totpts) , source=zero , stat=ierr )
-  call alloc_error("initialize_flow","vsp",1,ierr)
   allocate ( dusp(1:nr,1:neqns,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","dusp",1,ierr)
   allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
@@ -213,10 +211,6 @@ continue
   ! Initialize the backup conserved variables solution arrays
   !
   uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
-  !
-  ! Initialize the primitive variables solution array
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
   !
   ! Output the free-stream conditions
   !
