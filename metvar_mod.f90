@@ -1,37 +1,32 @@
 module metvar
   !
-  use module_kind_types, only : vbp,wp
+  use module_kind_types, only : wp
   !
   implicit none
   !
   private
   !
- !include "kind_defs.h"
-  !
-  public :: derivative
-  public :: second_derivative
-  !
-  type derivative
-    real(vbp) :: dr
-    real(vbp) :: ds
+  type, public :: derivative
+    real(wp) :: dr
+    real(wp) :: ds
   end type derivative
   !
   ! NEED NEWER COMPILER FOR THIS
   !
  !type, extends(derivative) :: second_derivative
- !  real(vbp) :: dr2
- !  real(vbp) :: ds2
- !  real(vbp) :: drds
+ !  real(wp) :: dr2
+ !  real(wp) :: ds2
+ !  real(wp) :: drds
  !end type second_derivative
   !
   ! FOR OLDER COMPILER
   !
-  type second_derivative
-    real(vbp) :: dr
-    real(vbp) :: ds
-    real(vbp) :: dr2
-    real(vbp) :: ds2
-    real(vbp) :: drds
+  type, public :: second_derivative
+    real(wp) :: dr
+    real(wp) :: ds
+    real(wp) :: dr2
+    real(wp) :: ds2
+    real(wp) :: drds
   end type second_derivative
   !
   ! spmat : solution points matrix
@@ -51,13 +46,13 @@ module metvar
   ! detmat = Ds
   ! cormat = LIFT
   !
-  real(vbp), public, save, allocatable, dimension(:,:)   :: d1_mat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: dr_mat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: ds_mat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: dr_hat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: ds_hat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: cormat
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: cormat_dg
+  real(wp), public, save, allocatable, dimension(:,:)   :: d1_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dr_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: ds_mat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: dr_hat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: ds_hat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: cormat
+  real(wp), public, save, allocatable, dimension(:,:,:) :: cormat_dg
   !
   ! lagrange : gives the Lagrange polynomial coefficients to project
   !            variables/fluxes from the solution points in the cell
@@ -71,13 +66,13 @@ module metvar
   real(wp), public, save, allocatable, dimension(:,:,:) :: dqr_CRmat
   real(wp), public, save, allocatable, dimension(:,:,:) :: dqs_CRmat
   ! 
- !real(vbp), public, save, allocatable, dimension(:,:) :: spmat       !(3,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spcemat     !(ksp1d+1,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spceximat   !(ksp1d+1,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spceetmat   !(ksp1d+1,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spcexi2mat  !(ksp1d+1,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spceet2mat  !(ksp1d+1,ksp2d)
- !real(vbp), public, save, allocatable, dimension(:,:) :: spcexietmat !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spmat       !(3,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcemat     !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceximat   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceetmat   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcexi2mat  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceet2mat  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcexietmat !(ksp1d+1,ksp2d)
   !
   ! wsp  : quadrature weights
   ! xiSP : xi coordinates of the edge solution points
@@ -87,9 +82,9 @@ module metvar
   ! Hesthaven and Warburton equivalencies
   ! wsp = weights
   !
- !real(vbp), public, save, allocatable, dimension(:) :: wsp  !(ksp2d)
- !real(vbp), public, save, allocatable, dimension(:) :: xiSP !(ksp1d)
- !real(vbp), public, save, allocatable, dimension(:) :: xiCE !(ksp1d)
+ !real(wp), public, save, allocatable, dimension(:) :: wsp  !(ksp2d)
+ !real(wp), public, save, allocatable, dimension(:) :: xiSP !(ksp1d)
+ !real(wp), public, save, allocatable, dimension(:) :: xiCE !(ksp1d)
   !
   ! XYSP    : x,y coordinates of the cell solution points
   ! XYSPxi  : d_(x,y)/d_xi  of the cell solution points (i.e. d_x/d_xi and d_y/d_xi)
@@ -105,22 +100,22 @@ module metvar
   ! XYSPet(1,:,:) = xs = matmul(Ds,x) -> sx = -yr/J
   ! XYSPet(2,:,:) = ys = matmul(Ds,y) -> sy =  xr/J
   !
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: XYSP    !(2,ksp2d,-nfbnd:ncell)
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: XYSPxi  !(2,ksp2d,-nfbnd:ncell)
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: XYSPet  !(2,ksp2d,-nfbnd:ncell)
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: XYeSP   !(2,ksp1d,1:nface)
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: XYeSPxi !(2,ksp1d,1:nface)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSP    !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPxi  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPet  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSP   !(2,ksp1d,1:nface)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSPxi !(2,ksp1d,1:nface)
   !
   ! DxyDrs : d_(x,y)/d_(r,s) of the cell solution points
   !
- !real(vbp), public, save, allocatable, dimension(:,:,:) :: DxyDrs
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: DxyDrs
   !
   type(second_derivative), public, save, allocatable, dimension(:) :: dx
   type(second_derivative), public, save, allocatable, dimension(:) :: dy
   !
   ! geofa : normal of the face at each of the solution points on the face
   !
-  real(vbp), public, save, allocatable, dimension(:,:,:) :: geofa
+  real(wp), public, save, allocatable, dimension(:,:,:) :: geofa
   !
   ! rjaSP   : jacobian of the solution points
   ! rjaSPxi : d_jacobian/d_xi of the solution points
@@ -129,22 +124,22 @@ module metvar
   ! Hesthaven and Warburthon equivalencies
   ! rjaSP = J = -xs*yr + xr*ys
   !
- !real(vbp), public, save, allocatable, dimension(:,:) :: rjaSP   !(ksp2d,-nfbnd:ncell)
- !real(vbp), public, save, allocatable, dimension(:,:) :: rjaSPxi !(ksp2d,-nfbnd:ncell)
- !real(vbp), public, save, allocatable, dimension(:,:) :: rjaSPet !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSP   !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPxi !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPet !(ksp2d,-nfbnd:ncell)
   !
   ! jacobian : jacobian of the solution points
   ! dJdr     : d_jacobian/d_r of the solution points
   ! dJds     : d_jacobian/d_s of the solution points
   !
-  real(vbp), public, save, allocatable, dimension(:) :: jacobian
- !real(vbp), public, save, allocatable, dimension(:) :: dJdr
- !real(vbp), public, save, allocatable, dimension(:) :: dJds
+  real(wp), public, save, allocatable, dimension(:) :: jacobian
+ !real(wp), public, save, allocatable, dimension(:) :: dJdr
+ !real(wp), public, save, allocatable, dimension(:) :: dJds
   type(derivative), public, save, allocatable, dimension(:) :: dJ
   !
   ! volj : Volume of the grid cells evaluated using the jacobian of the solution points
   !
-  real(vbp), public, save, allocatable, dimension(:) :: volj  !(-nfbnd:ncell)
+  real(wp), public, save, allocatable, dimension(:) :: volj  !(-nfbnd:ncell)
   !
   !... for boundary cells, if id_be(j) = 0, then the cell has a curved edge
   !
