@@ -24,9 +24,11 @@ module flowvar
   !
   ! GLOBAL_USP : conservative variables @SP across all processors
   ! GLOBAL_VSP : primitive    variables @SP across all processors
+  ! GLOBAL_VAR : arbitrary    variable  @SP across all processors
   !
   real(wp), public, save, allocatable, dimension(:,:) :: global_usp
   real(wp), public, save, allocatable, dimension(:,:) :: global_vsp
+  real(wp), public, save, allocatable, dimension(:)   :: global_var
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
   ! FACEUSP  : conservative variables at the interface flux points

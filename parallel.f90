@@ -235,6 +235,10 @@ module parallel_mod
   !
   integer, save, allocatable, dimension(:) :: recv_sol
   !
+  ! MPI datatype for collecting a global variable on all processors
+  !
+  integer, save, allocatable, dimension(:) :: recv_var
+  !
   ! Local to global cell mappings - These need to be saved
   ! for use at various points (e.g., reading a restart file)
   !
@@ -1898,6 +1902,8 @@ continue
   call alloc_error("localize_grid","recv_xyz",1,ierr)
   allocate ( recv_sol(1:ncpu) , source=mpi_datatype_null , stat=ierr )
   call alloc_error("localize_grid","recv_sol",1,ierr)
+  allocate ( recv_var(1:ncpu) , source=mpi_datatype_null , stat=ierr )
+  call alloc_error("localize_grid","recv_var",1,ierr)
   !
   do n = 1,ncpu
     !
@@ -1937,6 +1943,16 @@ continue
     call mpi_type_indexed(np,recv_blklen(1:np),recv_offset(1:np), &
                           mpi_flttyp,recv_sol(n),mpierr)
     call mpi_type_commit(recv_sol(n),mpierr)
+    !
+    ! Now create the receive MPI datatype for an arbitrary
+    ! variable at the solution points on the current processor
+    !
+    recv_offset(1:np) = recv_offset(1:np)/nq ! cancel out the nq adjustment above
+    recv_blklen(1:np) = recv_blklen(1:np)/nq ! cancel out the nq adjustment above
+    !
+    call mpi_type_indexed(np,recv_blklen(1:np),recv_offset(1:np), &
+                          mpi_flttyp,recv_var(n),mpierr)
+    call mpi_type_commit(recv_var(n),mpierr)
     !
   end do
   !
@@ -4142,6 +4158,83 @@ continue
   end if
   !
 end subroutine collect_global_solution
+!
+!###############################################################################
+!
+subroutine collect_global_variable(var)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts,n_global_solpts
+  use flowvar, only : global_var
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: var
+  !
+  !.. Local Scalars ..
+  integer :: i,icpu,npts,ierr
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:mpi_status_size) :: istat
+  !
+  !.. Local Allocatable Arrays ..
+  real(r8), allocatable, dimension(:) :: sp_r8
+  real(r8), allocatable, dimension(:) :: global_r8
+  !
+continue
+  !
+  if (.not. allocated(global_var)) then
+    allocate ( global_var(1:n_global_solpts) , source=zero , stat=ierr )
+    call alloc_error("collect_global_variable","global_var",1,ierr)
+  end if
+  !
+  if (ncpu > 1) then
+    !
+    allocate ( sp_r8(1:size(var)) , source=real(var,r8) , stat=ierr )
+    call alloc_error("collect_global_solution","sp_r8",1,ierr)
+    allocate ( global_r8(1:size(global_var)) , source=0.0_r8 , stat=ierr )
+    call alloc_error("collect_global_solution","global_r8",1,ierr)
+    !
+    ! Collect the global variable array on all processors
+    !
+    npts = n_solpts
+    !
+    if (mypnum /= 0) then
+      !
+      call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
+      !
+    else
+      !
+      call mpi_sendrecv(sp_r8(1:n_solpts),npts,mpi_flttyp,0,npts, &
+                        global_r8,1,recv_var(1),0,npts, &
+                        mpi_comm_world,istat,mpierr)
+      !
+      do i = 2,ncpu
+        !
+        icpu = i-1
+        !
+        call mpi_recv(global_r8,1,recv_var(i),icpu,icpu, &
+                      mpi_comm_world,istat,mpierr)
+        !
+      end do
+      !
+    end if
+    !
+    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
+    !
+    global_var(:) = real( global_r8(:) , kind=wp )
+    !
+    deallocate ( sp_r8 , stat=ierr )
+    call alloc_error("collect_global_solution","sp_r8",2,ierr)
+    deallocate ( global_r8 , stat=ierr )
+    call alloc_error("collect_global_solution","global_r8",2,ierr)
+    !
+  else
+    !
+    global_var(:) = var(:)
+    !
+  end if
+  !
+end subroutine collect_global_variable
 !
 !###############################################################################
 !
