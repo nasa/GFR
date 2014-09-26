@@ -6,6 +6,8 @@ module metvar
   !
   private
   !
+  public :: metvar_alloc_status
+  !
   type, public :: derivative
     real(wp) :: dr
     real(wp) :: ds
@@ -151,6 +153,163 @@ module metvar
  !integer, public, save, allocatable, dimension(:,:,:) :: e_cSPind  !(2,ksp1d,nface)
  !integer, public, save, allocatable, dimension(:,:,:) :: be_cSPind !(3,ksp1d,nfbnd)
   !
+contains
+!
+!###############################################################################
+!
+subroutine metvar_alloc_status(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  type(memory) :: total
+  type(memory) :: array
+  !
+continue
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iunit,1)
+  !
+  if (allocated(d1_mat)) then
+    array%siz = size(d1_mat)
+    array%mem = array%siz*storage_size(d1_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'d1_mat'",array%get_units()
+  end if
+  if (allocated(dr_mat)) then
+    array%siz = size(dr_mat)
+    array%mem = array%siz*storage_size(dr_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dr_mat'",array%get_units()
+  end if
+  if (allocated(ds_mat)) then
+    array%siz = size(ds_mat)
+    array%mem = array%siz*storage_size(ds_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ds_mat'",array%get_units()
+  end if
+  if (allocated(dr_hat)) then
+    array%siz = size(dr_hat)
+    array%mem = array%siz*storage_size(dr_hat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dr_hat'",array%get_units()
+  end if
+  if (allocated(ds_hat)) then
+    array%siz = size(ds_hat)
+    array%mem = array%siz*storage_size(ds_hat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ds_hat'",array%get_units()
+  end if
+  if (allocated(cormat)) then
+    array%siz = size(cormat)
+    array%mem = array%siz*storage_size(cormat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'cormat'",array%get_units()
+  end if
+  if (allocated(cormat_dg)) then
+    array%siz = size(cormat_dg)
+    array%mem = array%siz*storage_size(cormat_dg)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'cormat_dg'",array%get_units()
+  end if
+  if (allocated(dq1D_mat)) then
+    array%siz = size(dq1D_mat)
+    array%mem = array%siz*storage_size(dq1D_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dq1D_mat'",array%get_units()
+  end if
+  if (allocated(dqr_mat)) then
+    array%siz = size(dqr_mat)
+    array%mem = array%siz*storage_size(dqr_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqr_mat'",array%get_units()
+  end if
+  if (allocated(dqs_mat)) then
+    array%siz = size(dqs_mat)
+    array%mem = array%siz*storage_size(dqs_mat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqs_mat'",array%get_units()
+  end if
+  if (allocated(dqr_LPmat)) then
+    array%siz = size(dqr_LPmat)
+    array%mem = array%siz*storage_size(dqr_LPmat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqr_LPmat'",array%get_units()
+  end if
+  if (allocated(dqs_LPmat)) then
+    array%siz = size(dqs_LPmat)
+    array%mem = array%siz*storage_size(dqs_LPmat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqs_LPmat'",array%get_units()
+  end if
+  if (allocated(dqr_CRmat)) then
+    array%siz = size(dqr_CRmat)
+    array%mem = array%siz*storage_size(dqr_CRmat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqr_CRmat'",array%get_units()
+  end if
+  if (allocated(dqs_CRmat)) then
+    array%siz = size(dqs_CRmat)
+    array%mem = array%siz*storage_size(dqs_CRmat)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dqs_CRmat'",array%get_units()
+  end if
+  if (allocated(dx)) then
+    array%siz = size(dx)
+    array%mem = array%siz*storage_size(dx)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dx'",array%get_units()
+  end if
+  if (allocated(dy)) then
+    array%siz = size(dy)
+    array%mem = array%siz*storage_size(dy)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dy'",array%get_units()
+  end if
+  if (allocated(geofa)) then
+    array%siz = size(geofa)
+    array%mem = array%siz*storage_size(geofa)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'geofa'",array%get_units()
+  end if
+  if (allocated(jacobian)) then
+    array%siz = size(jacobian)
+    array%mem = array%siz*storage_size(jacobian)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'jacobian'",array%get_units()
+  end if
+  if (allocated(dJ)) then
+    array%siz = size(dJ)
+    array%mem = array%siz*storage_size(dJ)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dJ'",array%get_units()
+  end if
+  if (allocated(volj)) then
+    array%siz = size(volj)
+    array%mem = array%siz*storage_size(volj)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'volj'",array%get_units()
+  end if
+  !
+  total = total%get_units()
+  write (iunit,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module metvar")
+  2 format (" Array: ",a11,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  !
+end subroutine metvar_alloc_status
+!
+!###############################################################################
+!
 end module metvar
 !
 !###############################################################################

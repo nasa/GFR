@@ -6,6 +6,8 @@ module flowvar
   !
   private
   !
+  public :: flowvar_alloc_status
+  !
   ! USP  : conservative variables at the solution points (@SP)
   ! VSP  : primitive variables @SP
   ! DUSP : gradient of primitive variables @SP
@@ -71,6 +73,138 @@ module flowvar
   type(profile), public, save, allocatable, dimension(:) :: bnd_prof
   type(profile), public, save, allocatable, dimension(:) :: sol_prof
   !
+contains
+!
+!###############################################################################
+!
+subroutine flowvar_alloc_status(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  type(memory) :: total
+  type(memory) :: array
+  !
+continue
+  !
+  total%mem = 0
+  !
+  write (iunit,1)
+  !
+  if (allocated(usp)) then
+    array%siz = size(usp)
+    array%mem = array%siz*storage_size(usp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'usp'",array%get_units()
+  end if
+  if (allocated(vsp)) then
+    array%siz = size(vsp)
+    array%mem = array%siz*storage_size(vsp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vsp'",array%get_units()
+  end if
+  if (allocated(dusp)) then
+    array%siz = size(dusp)
+    array%mem = array%siz*storage_size(dusp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dusp'",array%get_units()
+  end if
+  if (allocated(uoldsp)) then
+    array%siz = size(uoldsp)
+    array%mem = array%siz*storage_size(uoldsp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'uoldsp'",array%get_units()
+  end if
+  if (allocated(residual)) then
+    array%siz = size(residual)
+    array%mem = array%siz*storage_size(residual)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'residual'",array%get_units()
+  end if
+  if (allocated(global_usp)) then
+    array%siz = size(global_usp)
+    array%mem = array%siz*storage_size(global_usp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'global_usp'",array%get_units()
+  end if
+  if (allocated(global_vsp)) then
+    array%siz = size(global_vsp)
+    array%mem = array%siz*storage_size(global_vsp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'global_vsp'",array%get_units()
+  end if
+  if (allocated(global_var)) then
+    array%siz = size(global_var)
+    array%mem = array%siz*storage_size(global_var)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'global_var'",array%get_units()
+  end if
+  if (allocated(faceusp)) then
+    array%siz = size(faceusp)
+    array%mem = array%siz*storage_size(faceusp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'faceusp'",array%get_units()
+  end if
+  if (allocated(facedusp)) then
+    array%siz = size(facedusp)
+    array%mem = array%siz*storage_size(facedusp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'facedusp'",array%get_units()
+  end if
+  if (allocated(faceflx)) then
+    array%siz = size(faceflx)
+    array%mem = array%siz*storage_size(faceflx)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'faceflx'",array%get_units()
+  end if
+  if (allocated(usp_sum)) then
+    array%siz = size(usp_sum)
+    array%mem = array%siz*storage_size(usp_sum)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'usp_sum'",array%get_units()
+  end if
+  if (allocated(rssprk)) then
+    array%siz = size(rssprk)
+    array%mem = array%siz*storage_size(rssprk)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'rssprk'",array%get_units()
+  end if
+  if (allocated(dtsp)) then
+    array%siz = size(dtsp)
+    array%mem = array%siz*storage_size(dtsp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dtsp'",array%get_units()
+  end if
+  if (allocated(bnd_prof)) then
+    array%siz = size(bnd_prof)
+    array%mem = array%siz*storage_size(bnd_prof)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'bnd_prof'",array%get_units()
+  end if
+  if (allocated(sol_prof)) then
+    array%siz = size(sol_prof)
+    array%mem = array%siz*storage_size(sol_prof)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'sol_prof'",array%get_units()
+  end if
+  !
+  total = total%get_units()
+  write (iunit,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module flowvar")
+  2 format (" Array: ",a12,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  !
+end subroutine flowvar_alloc_status
+!
+!###############################################################################
+!
 end module flowvar
 !
 !###############################################################################

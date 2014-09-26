@@ -7,6 +7,8 @@ module ovar
   !
   private
   !
+  public :: ovar_alloc_status
+  !
   ! Public Input Namelist
   !
   public :: input
@@ -270,6 +272,115 @@ module ovar
   ! VARIOUS DEBUG TYPE variables
   namelist / input / output_bface_array
   !
+contains
+!
+!###############################################################################
+!
+subroutine ovar_alloc_status(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  type(memory) :: array
+  type(memory) :: total
+  !
+continue
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iunit,1)
+  !
+  if (allocated(cv_in)) then
+    array%siz = size(cv_in)
+    array%mem = array%siz*storage_size(cv_in)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'cv_in'",array%get_units()
+  end if
+  if (allocated(pv_in)) then
+    array%siz = size(pv_in)
+    array%mem = array%siz*storage_size(pv_in)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'pv_in'",array%get_units()
+  end if
+  if (allocated(unloc)) then
+    array%siz = size(unloc)
+    array%mem = array%siz*storage_size(unloc)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'unloc'",array%get_units()
+  end if
+  if (allocated(ukloc)) then
+    array%siz = size(ukloc)
+    array%mem = array%siz*storage_size(ukloc)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ukloc'",array%get_units()
+  end if
+  if (allocated(ulinf)) then
+    array%siz = size(ulinf)
+    array%mem = array%siz*storage_size(ulinf)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ulinf'",array%get_units()
+  end if
+  if (allocated(ulone)) then
+    array%siz = size(ulone)
+    array%mem = array%siz*storage_size(ulone)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ulone'",array%get_units()
+  end if
+  if (allocated(ultwo)) then
+    array%siz = size(ultwo)
+    array%mem = array%siz*storage_size(ultwo)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'ultwo'",array%get_units()
+  end if
+  if (allocated(vnloc)) then
+    array%siz = size(vnloc)
+    array%mem = array%siz*storage_size(vnloc)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vnloc'",array%get_units()
+  end if
+  if (allocated(vkloc)) then
+    array%siz = size(vkloc)
+    array%mem = array%siz*storage_size(vkloc)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vkloc'",array%get_units()
+  end if
+  if (allocated(vlinf)) then
+    array%siz = size(vlinf)
+    array%mem = array%siz*storage_size(vlinf)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vlinf'",array%get_units()
+  end if
+  if (allocated(vlone)) then
+    array%siz = size(vlone)
+    array%mem = array%siz*storage_size(vlone)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vlone'",array%get_units()
+  end if
+  if (allocated(vltwo)) then
+    array%siz = size(vltwo)
+    array%mem = array%siz*storage_size(vltwo)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'vltwo'",array%get_units()
+  end if
+  !
+  total = total%get_units()
+  write (iunit,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module ovar")
+  2 format (" Array: ",a7,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  !
+end subroutine ovar_alloc_status
+!
+!###############################################################################
+!
 end module ovar
 !
 !###############################################################################
