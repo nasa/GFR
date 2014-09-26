@@ -330,6 +330,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(FUNDIR)/vortex.f90 \
             $(FUNDIR)/viscosity.f90 \
             $(FUNDIR)/entropy.f90 \
+            $(FUNDIR)/pressure.f90 \
             $(FUNDIR)/usp2v.f90 \
             $(FUNDIR)/vsp2u.f90
 $(OBJDIR)/flux.o : flux.f90 \

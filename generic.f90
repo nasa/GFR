@@ -71,50 +71,72 @@ subroutine rgetdtmax
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : dt_global,gam
+  use ovar,    only : gam,Final_Time,CFL,time,dt_in,d_t
   use metvar,  only : jacobian,dx,dy
-  use flowvar, only : vsp
+  use flowvar, only : usp,dtsp
   !
   !.. Local Scalars ..
   integer   :: n
   real(wp) :: dxdr,dydr,dxds,dyds
   real(wp) :: rho,vx,vy,pres,aspd
   real(wp) :: alfa,beta,gama,dttemp
+  real(wp) :: dt_global
   !
 continue
   !
   !... time step for cfl = 1
-  dt_global = huge(zero)
   !
-  do n = 1,n_solpts
+  if (abs(dt_in) <= eps12) then
     !
-    dxdr = dx(n)%dr
-    dydr = dy(n)%dr
-    dxds = dx(n)%ds
-    dyds = dy(n)%ds
+    dt_global = huge(zero)
     !
-    rho  = vsp(1,n)
-    vx   = vsp(2,n)
-    vy   = vsp(3,n)
-    pres = vsp(4,n)
+    do n = 1,n_solpts
+      !
+      dxdr = dx(n)%dr
+      dydr = dy(n)%dr
+      dxds = dx(n)%ds
+      dyds = dy(n)%ds
+      !
+      rho  = usp(1,n)
+      vx   = usp(2,n)/usp(1,n)
+      vy   = usp(3,n)/usp(1,n)
+      pres = pressure_cv_sp( usp(:,n) )
+      !
+      aspd = sqrt(gam*pres/rho)
+      !
+      alfa = abs( vx*dydr - vy*dxdr )
+      beta = abs( vx*dyds - vy*dxds )
+      !
+      gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
+      !
+      dttemp = two * jacobian(n) / (alfa + beta + gama)
+      dt_global = min(dt_global,dttemp)
+      !
+    end do
     !
-    aspd = sqrt(gam*pres/rho)
+    dttemp = dt_global
+    if (ncpu > 1) then
+      call mpi_allreduce(dttemp,dt_global,1,mpi_flttyp, &
+                         mpi_min,mpi_comm_world,mpierr)
+    end if
     !
-    alfa = abs( vx*dydr - vy*dxdr )
-    beta = abs( vx*dyds - vy*dxds )
+    d_t = dt_global*CFL
     !
-    gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
+  else
     !
-    dttemp = two * jacobian(n) / (alfa + beta + gama)
-    dt_global = min(dt_global,dttemp)
+    d_t = dt_in
     !
-  end do
-  !
-  dttemp = dt_global
-  if (ncpu > 1) then
-    call mpi_allreduce(dttemp,dt_global,1,mpi_flttyp, &
-                       mpi_min,mpi_comm_world,mpierr)
   end if
+  !
+  if (Final_Time > zero) then
+    if (time + d_t > Final_Time + eps9) then
+      d_t = Final_Time - time
+    end if
+  end if
+  !
+  dtsp(:) = d_t
+  !
+  time = time + d_t
   !
 end subroutine rgetdtmax
 !
@@ -125,7 +147,7 @@ subroutine get_dtsp(dtmin)
   !.. Use Statements ..
   use ovar, only : Timestep_Type,time,d_t
   !
-  !.. Formal Arguments ..
+  !.. rmal Arguments ..
   real(wp), intent(out) :: dtmin
   !
 continue
@@ -561,12 +583,12 @@ end subroutine project_to_porder
 subroutine rupdate_Classic_RK
   !
   ! First, store d(utd)/dt for runge kutta time
-  ! stepping then update usp and then vsp
+  ! stepping then update usp
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,neqns,write_variable
   use ovar,    only : nst,num_stages,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp,uoldsp,dtsp
+  use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer   :: n,m,nt
@@ -598,10 +620,6 @@ continue
   !
   if (Filter_Option > 0) call filter_usp
   !
-  ! Update vsp
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
-  !
 end subroutine rupdate_Classic_RK
 !
 !###############################################################################
@@ -611,7 +629,7 @@ subroutine rupdate_CK4_RK
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use ovar,    only : nst,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp,dtsp
+  use flowvar, only : rssprk,residual,usp,dtsp
   !
   !.. Local Scalars ..
   integer :: n
@@ -646,10 +664,6 @@ continue
   !
   if (Filter_Option > 0) call filter_usp
   !
-  ! Update vsp
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
-  !
 end subroutine rupdate_CK4_RK
 !
 !###############################################################################
@@ -659,7 +673,7 @@ subroutine rupdate_TVD2_RK
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use ovar,    only : nst,Filter_Option
-  use flowvar, only : residual,usp,vsp,uoldsp,dtsp
+  use flowvar, only : residual,usp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer   :: n
@@ -681,10 +695,6 @@ continue
   !
   if (Filter_Option > 0) call filter_usp
   !
-  ! Update vsp
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
-  !
 end subroutine rupdate_TVD2_RK
 !
 !###############################################################################
@@ -694,7 +704,7 @@ subroutine rupdate_TVD3_RK
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use ovar,    only : nst,Filter_Option
-  use flowvar, only : residual,usp,vsp,uoldsp,dtsp
+  use flowvar, only : residual,usp,uoldsp,dtsp
   !
   !.. Local Scalars ..
   integer :: n
@@ -716,10 +726,6 @@ continue
   !
   if (Filter_Option > 0) call filter_usp
   !
-  ! Update vsp
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
-  !
 end subroutine rupdate_TVD3_RK
 !
 !###############################################################################
@@ -729,7 +735,7 @@ subroutine rupdate_TVD4_RK
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use ovar,    only : nst,Filter_Option
-  use flowvar, only : rssprk,residual,usp,vsp,uoldsp,usp_sum,dtsp
+  use flowvar, only : rssprk,residual,usp,uoldsp,usp_sum,dtsp
   !
   !.. Local Scalars ..
   integer :: n
@@ -777,10 +783,6 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) call filter_usp
-  !
-  ! Update vsp
-  !
-  vsp(:,1:n_solpts) = usp2v( usp(:,1:n_solpts) )
   !
 end subroutine rupdate_TVD4_RK
 !
@@ -1059,7 +1061,7 @@ subroutine compute_final_vortex_error()
                       Density_Maximum_Residual,vortex_has_collapsed
   use ovar,    only : bound_error,error_bound_limit
   use metvar,  only : jacobian,volj
-  use flowvar, only : usp,vsp
+  use flowvar, only : usp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
@@ -1301,7 +1303,7 @@ subroutine compute_final_advec_error()
                       Grid_Min_X,Grid_Length_X,vxref,vyref,aref, &
                       Density_Maximum_Residual,vortex_has_collapsed
   use metvar,  only : jacobian
-  use flowvar, only : usp,vsp
+  use flowvar, only : usp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
@@ -1657,24 +1659,25 @@ subroutine rgeterr()
   !.. Use Statements ..
   use geovar,  only : neqns,ncell,pts_in_cell_ptr,n_sp2dt,weights2d,xyz
   use geovar,  only : global_cell_offset,global_xyz
-  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,pv_in, &
+  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in, &
                       nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time
   use ovar,    only : max_wall_time,wall_time_left
   use ovar,    only : beg_wall_time,wall_time
   use ovar,    only : walltime_expiring
   use metvar,  only : jacobian
-  use flowvar, only : usp,vsp,uoldsp
+  use flowvar, only : usp,uoldsp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
   integer   :: n,n1,n2,k,w1,nc1
   integer   :: hrs_left,min_left,sec_left
-  real(wp) :: rho_ratio,pres_ratio,c1,sn,se
+  real(wp) :: rho,pres,c1,sn,se
   real(wp) :: next_time_est
   real(wp) :: wall_time_last
   !
   !.. Local Arrays ..
+  real(wp), dimension(1:neqns) :: vv
   real(wp), dimension(1:2) :: ett
   real(wp), dimension(1:2,1:7) :: error
   real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
@@ -1713,15 +1716,14 @@ continue
       !
       ! Compute the entropy at this solution point
       !
-     !rho_ratio = vsp(1,k)/pv_in(1)
-     !pres_ratio = vsp(neqns,k)/pv_in(neqns)
-      if (any(vsp([1,neqns],k) <= zero)) write (iout,111) n,k,vsp([1,neqns],k)
-      111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
-      sn = entropy_pv_sp( vsp(:,k) )
-      se = entropy_pv_sp( pv_in(:) )
+      rho = usp(1,k)
+      pres = pressure_cv_sp( usp(:,k) )
       !
-     !write (*,'(3es14.6)') rho_ratio,pres_ratio,c1
-     !ett(2) = log( (pres_ratio+c1) / (rho_ratio**gam) )
+      if (any([rho,pres] <= zero)) write (iout,111) n,k,rho,pres
+      111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
+      sn = entropy_cv_sp( usp(:,k) )
+      se = entropy_cv_sp( cv_in(:) )
+      !
       ett(2) = sn - se
       !
       ! Get the norms of density and entropy
@@ -1819,15 +1821,15 @@ subroutine getmaxent
   !
   !.. Use Statements ..
   use geovar,  only : neqns,ncell,pts_in_cell_ptr,n_sp2dt,weights2d,xyz
-  use ovar,    only : nentmax,kentmax,entmax,gam,pv_in, &
+  use ovar,    only : nentmax,kentmax,entmax,gam,cv_in, &
                       xentmax,yentmax,entL2,total_volume,itestcase
   use metvar,  only : jacobian
-  use flowvar, only : vsp
+  use flowvar, only : usp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
-  integer   :: n,n1,n2,k,w1,nc1
-  real(wp) :: rho_ratio,pres_ratio,ett,c1,sn,se
+  integer  :: n,n1,n2,k,w1,nc1
+  real(wp) :: ett,c1,sn,se
   !
   !.. Local Arrays ..
   real(wp), dimension(1:6) :: error
@@ -1851,12 +1853,9 @@ continue
     !
     do k = n1,n2
       !
-     !rho_ratio  = vsp(1,k)/pv_in(1)
-     !pres_ratio = vsp(neqns,k)/pv_in(neqns)
-      sn = entropy_pv_sp( vsp(:,k) )
-      se = entropy_pv_sp( pv_in(:) )
+      sn = entropy_cv_sp( usp(:,k) )
+      se = entropy_cv_sp( cv_in(:) )
       !
-     !ett = log( (c1+pres_ratio) / (rho_ratio**gam) )
       ett = sn - se
       !
       ! L2 norm of entropy
@@ -1890,7 +1889,7 @@ continue
   xentmax =       all_error(5,maxloc(all_error(2,:),dim=1))
   yentmax =       all_error(6,maxloc(all_error(2,:),dim=1))
   !
-  entL2 = sqrt( sum(all_error(1,:)) /total_volume )
+  entL2 = sqrt( sum(all_error(1,:)) / total_volume )
   !
 end subroutine getmaxent
 !
@@ -1907,15 +1906,15 @@ subroutine getbc
   !...      4 supersonic outflow (extrapolate all 4 quantities) ;
   !...      7 periodic bc ;
   !
-  !... get boundary conditions, i.e., values vsp and usp
+  !... get boundary conditions, i.e., usp, faceusp, and facedusp
   !... just outside the domain
   !
   !.. Use Statements ..
   use geovar
-  use ovar,         only : gam,pv_in
+  use ovar,         only : gam,cv_in,pv_in
   use ovar,         only : flux_divergence
   use metvar,       only : dx,dy,geofa
-  use flowvar,      only : vsp,usp,faceusp,facedusp
+  use flowvar,      only : usp,faceusp,facedusp
   use parallel_mod, only : nonblocking_exchange
   !
   !.. Local Scalars ..
@@ -1946,7 +1945,7 @@ continue
   ! First exchange information between adjacent partitions
   !
   if (ncpu > 1 .and. all(flux_divergence/=[TestQuadrature,TestViscous])) then
-    call nonblocking_exchange(vsp)
+    call nonblocking_exchange(usp)
   end if
   !
   do nf = 1,nfbnd
@@ -1986,12 +1985,12 @@ continue
       ! #####################################################
       !
       do k = g1,g2
-        vsp(:,k) = pv_in(:)
+        usp(:,k) = cv_in(:)
       end do
       !
       do k = 1,n_fp1de
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( pv_in(:) )
+        faceusp(:,k,2,nf) = cv_in(:)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2014,7 +2013,7 @@ continue
       end do
       !
       do k = g1,g2
-        vsp(:,k) = pv_in(:)
+        usp(:,k) = cv_in(:)
       end do
       !
       ! Get the unit tangent vector for this face
@@ -2036,9 +2035,9 @@ continue
         !       
        !rtan(1) = -rnrm(2)
        !rtan(2) =  rnrm(1)
-        write (101,2) nf,k,rnrm(:),rtan(:)
-        2 format ("nf=",i0,"; k=",i0,"; rnrm(:)=(",es13.6,",",es13.6,")", &
-                                     "; rtan(:)=(",es13.6,",",es13.6,")")
+       !write (101,2) nf,k,rnrm(:),rtan(:)
+       !2 format ("nf=",i0,"; k=",i0,"; rnrm(:)=(",es13.6,",",es13.6,")", &
+       !                             "; rtan(:)=(",es13.6,",",es13.6,")")
         !
         hk = hkb-1 + k ! index for current host  cell flux point
         gk = gkb+1 - k ! index for current ghost cell flux point
@@ -2080,9 +2079,9 @@ continue
           !
           ! Set ghost cell flux point to free stream conditions
           !
-          vsp(:,kg) = pv_in(:) ! sup-in
+          usp(:,kg) = cv_in(:) ! sup-in
           !
-          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+          faceusp(:,k,2,nf) = usp(:,kg)
           !
           facedusp(:,:,k,2,nf) = zero
           !
@@ -2090,9 +2089,9 @@ continue
           !
           ! Extrapolate interior to ghost cell flux point
           !
-          vsp(:,kg) = varh(:) ! sup-out
+          usp(:,kg) = vsp2u_sp( varh(:) ) ! sup-out
           !
-          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+          faceusp(:,k,2,nf) = usp(:,kg)
           !
           facedusp(:,:,k,2,nf) = zero
           !
@@ -2118,11 +2117,13 @@ continue
             !
           end if
           !
-          vsp(1,kg) = ((ac*ac)/(gam*sc))**(one/gm1)
-          vsp(neqns,kg) = sc*(vsp(1,kg)**gam)
-          vsp(2:neqns-1,kg) = unc*rnrm(:) + utc*rtan(:)
+          varh(1) = ((ac*ac)/(gam*sc))**(one/gm1)
+          varh(neqns) = sc*(varh(1)**gam)
+          varh(2:neqns-1) = unc*rnrm(:) + utc*rtan(:)
           !
-          faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+          usp(:,kg) = vsp2u_sp( varh(:) )
+          !
+          faceusp(:,k,2,nf) = usp(:,kg)
           !
           facedusp(:,:,k,2,nf) = zero
           !
@@ -2184,14 +2185,14 @@ continue
           !
           ! Subsonic inflow
           !
-          vsp(1:neqns-1,kg) = pv_in(1:neqns-1)
-          vsp(neqns,kg) = varh(neqns)
+          varh(1:neqns-1) = pv_in(1:neqns-1)
+         !varh(neqns) = varh(neqns)
           !
         else if (mach <= -one) then
           !
           ! Supersonic inflow
           !
-          vsp(1:neqns,kg) = pv_in(1:neqns)
+          varh(1:neqns) = pv_in(1:neqns)
           !
         else
           !
@@ -2199,7 +2200,9 @@ continue
           !
         end if
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2259,14 +2262,14 @@ continue
           !
           ! Subsonic outflow
           !
-          vsp(1:neqns-1,kg) = varh(1:neqns-1)
-          vsp(neqns,kg) = pv_in(neqns)
+         !varh(1:neqns-1) = varh(1:neqns-1)
+          varh(neqns) = pv_in(neqns)
           !
         else if (mach >= one) then
           !
           ! Supersonic outflow
           !
-          vsp(1:neqns,kg) = varh(1:neqns)
+         !varh(1:neqns) = varh(1:neqns)
           !
         else
           !
@@ -2274,7 +2277,9 @@ continue
           !
         end if
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2318,10 +2323,12 @@ continue
         !
         varh(:) = usp2v_sp( varh(:) )
         !
-        vsp(1:neqns-1,kg) = pv_in(1:neqns-1)
-        vsp(neqns,kg) = varh(neqns)
+        varh(1:neqns-1) = pv_in(1:neqns-1)
+       !varh(neqns) = varh(neqns)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2365,10 +2372,12 @@ continue
         !
         varh(:) = usp2v_sp( varh(:) )
         !
-        vsp(1:neqns-1,kg) = varh(1:neqns-1)
-        vsp(neqns,kg) = pv_in(neqns)
+       !varh(1:neqns-1) = varh(1:neqns-1)
+        varh(neqns) = pv_in(neqns)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2391,9 +2400,9 @@ continue
         gk = gkb+1 - k ! index for current ghost cell flux point
         kg = g1-1 + gk ! index for current ghost cell solution point
         !
-        vsp(:,kg) = pv_in(:)
+        usp(:,kg) = cv_in(:)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2433,9 +2442,9 @@ continue
         ! Now convert the current host cell flux point
         ! conservative variables to primitive variables
         !
-        vsp(:,kg) = usp2v_sp( varh(:) )
+        usp(:,kg) = varh(:)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2488,12 +2497,14 @@ continue
         un = u*rnrm(1) + v*rnrm(2) ! host cell normal  velocity at flux point
         ut = u*rnrm(2) - v*rnrm(1) ! host cell tangent velocity at flux point
         !
-        vsp(1,kg) = vsp(1,hk)
-        vsp(2,kg) = -un*rnrm(1) + ut*rnrm(2)
-        vsp(3,kg) = -un*rtan(1) + ut*rtan(2)
-        vsp(4,kg) = vsp(4,hk)
+       !varh(1) = varh(1)
+        varh(2) = -un*rnrm(1) + ut*rnrm(2)
+        varh(3) = -un*rtan(1) + ut*rtan(2)
+       !varh(4) = varh(4)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2538,12 +2549,14 @@ continue
         !
         varh(:) = usp2v_sp( varh(:) )
         !
-        vsp(1,kg) = vsp(1,hk)
-        vsp(2,kg) = zero
-        vsp(3,kg) = zero
-        vsp(4,kg) = vsp(4,hk)
+       !varh(1) = varh(1)
+        varh(2) = zero
+        varh(3) = zero
+       !varh(4) = varh(4)
         !
-        faceusp(:,k,2,nf) = vsp2u_sp( vsp(:,kg) )
+        usp(:,kg) = vsp2u_sp( varh(:) )
+        !
+        faceusp(:,k,2,nf) = usp(:,kg)
         !
         facedusp(:,:,k,2,nf) = zero
         !
@@ -2570,9 +2583,9 @@ continue
       p1 = pts_of_periodic_ptr(nf)+1
       p2 = pts_of_periodic_ptr(nf+1)
       !
-      vsp(:,g1:g2) = vsp(:,pts_of_periodic(p1:p2))
+      usp(:,g1:g2) = usp(:,pts_of_periodic(p1:p2))
       do k = g1,g2
-        tusp(k-g1+1,:) = vsp2u_sp( vsp(:,k) )
+        tusp(k-g1+1,:) = usp(:,k)
       end do
       !
       do k = 1,n_fp1de
@@ -2611,10 +2624,6 @@ continue
     !
   end do
   !
-  ! Update the conserved variables in the ghost cells
-  !
-  usp(:,n_solpts+1:n_totpts) = vsp2u( vsp(:,n_solpts+1:n_totpts) )
-  !
   1 format (/," ***************** ERROR! *****************",/, &
               "  UNKNOWN BOUNDARY CONDITION IN SUB GETBC!",/, &
               "  BOUNDARY CONDITION VALUE IS: ",i0,/, &
@@ -2629,6 +2638,7 @@ include "Functions/usp2v.f90"
 include "Functions/vsp2u.f90"
 include "Functions/viscosity.f90"
 include "Functions/entropy.f90"
+include "Functions/pressure.f90"
 !
 !###############################################################################
 !
