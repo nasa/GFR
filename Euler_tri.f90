@@ -287,6 +287,8 @@ continue
       !
       if (flux_divergence == LagrangePolynomial) then
         !
+        if (nst == 1) call rgetdtmax
+        !
         call getbc
         !
         ! Use the derivative of the Lagrange polynomial
@@ -306,6 +308,8 @@ continue
         !
       else if (flux_divergence == ChainRuleCV) then
         !
+        if (nst == 1) call rgetdtmax
+        !
         call getbc
         !
         ! Use the chain rule on the conserved variables
@@ -320,6 +324,8 @@ continue
         end if
         !
       else if (flux_divergence == ChainRuleUtd) then
+        !
+        if (nst == 1) call rgetdtmax
         !
         call getbc
         !
@@ -336,6 +342,8 @@ continue
         !
       else if (flux_divergence == DGWeakForm) then
         !
+        if (nst == 1) call rgetdtmax
+        !
         call getbc
         !
         ! Use the weak form of the DG method
@@ -343,6 +351,8 @@ continue
         call dg_weak_form
         !
       else if (flux_divergence == DGStrongForm) then
+        !
+        if (nst == 1) call rgetdtmax
         !
         call getbc
         !
@@ -381,8 +391,7 @@ continue
       !
       call rresi
       !
-      ! Store residual in rssprk(:,:,nst) and
-      ! update the solutions in usp and vsp
+      ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
       if (iRKtype == Classic_RK) then
         call rupdate_Classic_RK
