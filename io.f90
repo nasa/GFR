@@ -125,6 +125,11 @@ module io_mod
   integer, save :: my_pts_beg
   integer, save :: my_pts_end
   !
+  interface interpolate_for_output
+    module procedure interpolate_for_output_1d, &
+                     interpolate_for_output_2d
+  end interface interpolate_for_output
+  !
 contains
 !
 !###############################################################################
@@ -3522,11 +3527,12 @@ end subroutine write_advec_results_file
 subroutine write_nodal_parallel_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,ncell,nodes_of_cell_ptr,xyz
+  use geovar,  only : nr,neqns,n_solpts,ncell,nodes_of_cell_ptr,xyz
   use geovar,  only : tria_connectivity,quad_connectivity
   use geovar,  only : n_global_cell,global_nofc_ptr
   use ovar,    only : time,aref,uref,rhoref
   use ovar,    only : itestcase,cgns_use_queue
+  use ovar,    only : interpolate_before_output_variable
   use flowvar, only : usp,dusp
   !
   use geovar,  only : geovar_alloc_status
@@ -3576,6 +3582,7 @@ subroutine write_nodal_parallel_cgns(iflag)
   integer,  allocatable, dimension(:,:) :: ipelem
   real(wp), allocatable, dimension(:)   :: vartmp
   real(r4), allocatable, dimension(:)   :: var
+  real(wp), allocatable, dimension(:,:) :: interp_usp
   !
 continue
   !
@@ -3827,6 +3834,10 @@ continue
     allocate ( var(1:n_my_output_pts) , source=real(0,r4) , stat=ierr )
     call alloc_error(pname,"var",1,ierr)
   end if
+  if (.not. allocated(interp_usp)) then
+    allocate ( interp_usp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+    call alloc_error(pname,"interp_usp",1,ierr)
+  end if
   !
   ! Get the name for the current solution node
   !
@@ -3917,34 +3928,47 @@ continue
                       "Write node: Solution variable",n)
     end do
     !
+    ! Interpolate the conservative variables for output
+    !
+    if (interpolate_before_output_variable) then
+      interp_usp(1:neqns,1:n_solpts) = &
+                           interpolate_for_output( usp(1:neqns,1:n_solpts) )
+    else
+      interp_usp(1:neqns,1:n_solpts) = usp(1:neqns,1:n_solpts)
+    end if
+    !
     ! Now create the output data and write it to the CGNS file in parallel
     !
     do n = 1,size(char_sname)
       !
       select case (trim(char_sname(n)))
         case ("Density") ! Density
-          vartmp(1:n_solpts) = usp(1,1:n_solpts)
+          vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
           vartmp = vartmp * rhoref
         case ("VelocityX") ! x-velocity
-          vartmp(1:n_solpts) = usp(2,1:n_solpts)/usp(1,1:n_solpts)
+          vartmp(1:n_solpts) = interp_usp(2,1:n_solpts)/interp_usp(1,1:n_solpts)
           vartmp = vartmp * aref
         case ("VelocityY") ! y-velocity
-          vartmp(1:n_solpts) = usp(3,1:n_solpts)/usp(1,1:n_solpts)
+          vartmp(1:n_solpts) = interp_usp(3,1:n_solpts)/interp_usp(1,1:n_solpts)
           vartmp = vartmp * aref
         case ("Pressure") ! Pressure
-          vartmp(1:n_solpts) = pressure_cv( usp(:,1:n_solpts) )
+          vartmp = pressure_cv( interp_usp )
           vartmp = vartmp * rhoref * aref * aref
         case ("Mach") ! Mach number
-          vartmp(1:n_solpts) = mach_number_cv( usp(:,1:n_solpts) )
+          vartmp = mach_number_cv( interp_usp )
         case ("Entropy") ! Entropy
-          vartmp(1:n_solpts) = entropy_cv( usp(:,1:n_solpts) )
+          vartmp = entropy_cv( interp_usp )
         case ("Vorticity") ! Vorticity
-          vartmp(1:n_solpts) = vorticity_cv( usp(:,1:n_solpts) )
+          vartmp = vorticity_cv( interp_usp )
         case default
-          vartmp(1:n_solpts) = usp(1,1:n_solpts)
+          vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
       end select
       !
-      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+      if (interpolate_before_output_variable) then
+        var = real( vartmp , kind(var) )
+      else
+        var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+      end if
       !
       ! Reset the queue.
       !
@@ -3979,10 +4003,18 @@ continue
   !
   ! Deallocate the arrays var and vartmp
   !
-  deallocate ( var , stat=ierr )
-  call alloc_error(pname,"var",2,ierr)
-  deallocate ( vartmp , stat=ierr )
-  call alloc_error(pname,"vartmp",2,ierr)
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr )
+    call alloc_error(pname,"var",2,ierr)
+  end if
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr )
+    call alloc_error(pname,"vartmp",2,ierr)
+  end if
+  if (allocated(interp_usp)) then
+    deallocate ( interp_usp , stat=ierr )
+    call alloc_error(pname,"interp_usp",2,ierr)
+  end if
   !
 #ifdef IO_FOR_NAS
   !
@@ -4950,8 +4982,8 @@ end function grad_of_selected_pv
 !
 !###############################################################################
 !
-!pure function interpolate_for_output(array,npts,ityp) result(return_value)
-pure function interpolate_for_output(array) result(return_value)
+!pure function interpolate_for_output_1d(array,npts,ityp) result(return_value)
+pure function interpolate_for_output_1d(array) result(return_value)
   !
   !... calculates d(utd)/dt
   !
@@ -5095,7 +5127,173 @@ continue
  !  !
  !end if
   !
-end function interpolate_for_output
+end function interpolate_for_output_1d
+!
+!###############################################################################
+!
+!pure function interpolate_for_output_2d(array,npts,ityp) result(return_value)
+pure function interpolate_for_output_2d(array) result(return_value)
+  !
+  !... calculates d(utd)/dt
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_sp2dq,n_solpts,n_global_solpts
+  use geovar,  only : ncell,n_global_cell
+  use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
+  use geovar,  only : numer2gauss,numer2lobatto
+  use ovar,    only : iop_outpts,iop_solpts
+ !use geovar,  only : n_sp2dt,o_order
+ !use geovar,  only : interp_s2o
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: array
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(array,dim=1), &
+                      1:size(array,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nc,n1,n2,np,n,nq,npts,m
+ !integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
+  !
+continue 
+  !
+  nq = size(array,dim=1)
+  npts = size(array,dim=2)
+  ! 
+  !
+  if (iop_outpts == iop_solpts) then
+    !
+    !
+    !
+    do n = 1,npts
+      do m = 1,nq
+        return_value(m,n) = array(m,n)
+      end do
+    end do
+    !
+  else
+    !
+    ! Save the desired interpolation matrix to prevent if
+    ! statements for the matrix multiply in the following loops
+    !
+    if (iop_outpts == Legendre_Gauss_Lobatto) then
+      !
+      interp_mat(:,:) = numer2lobatto(:,:)
+      !
+    else if (iop_outpts == Legendre_Gauss) then
+      !
+      interp_mat(:,:) = numer2gauss(:,:)
+      !
+    else
+      !
+      do n = 1,npts
+        do m = 1,nq
+          return_value(m,n) = array(m,n)
+        end do
+      end do
+      !
+      return
+      !
+    end if
+    !
+    ! Interpolate the data depending on if we are working on
+    ! a local or global data array.
+    !
+    if (npts == n_solpts) then
+      !
+      do nc = 1,ncell
+        !
+        n1 = pts_in_cell_ptr(nc)+1
+        n2 = pts_in_cell_ptr(nc+1)
+        np = n2-n1+1
+        !
+        if (np == n_sp2dq) then
+          do m = 1,nq
+            return_value(m,n1:n2) = matmul( interp_mat , array(m,n1:n2) )
+          end do
+        else
+          do m = 1,nq
+            return_value(m,n1:n2) = array(m,n1:n2)
+          end do
+        end if
+        !
+      end do
+      !
+    else if (npts == n_global_solpts) then
+      !
+      do nc = 1,n_global_cell
+        !
+        n1 = global_pinc_ptr(nc)+1
+        n2 = global_pinc_ptr(nc+1)
+        np = n2-n1+1
+        !
+        if (np == n_sp2dq) then
+          do m = 1,nq
+            return_value(m,n1:n2) = matmul( interp_mat , array(m,n1:n2) )
+          end do
+        else
+          do m = 1,nq
+            return_value(m,n1:n2) = array(m,n1:n2)
+          end do
+        end if
+        !
+      end do
+      !
+    else
+      !
+      do n = 1,npts
+        do m = 1,nq
+          return_value(m,n) = array(m,n)
+        end do
+      end do
+      !
+    end if
+    !
+  end if
+  !
+ !k1 = 0
+ !!
+ !if (npts == size(array)) then
+ !  !
+ !  do n = 1,npts
+ !    return_value(n) = array(n)
+ !  end do
+ !  !
+ !else
+ !  !
+ !  if (present(ityp)) then
+ !    iloc = max(1,min(ityp,2))
+ !  else
+ !    iloc = 1
+ !  end if
+ !  !
+ !  nopt = (o_order+1)*(o_order+2)/2
+ !  nopq = (o_order+1)*(o_order+1)
+ !  !
+ !  do n = 1,size(pts_in_cell_ptr)-1
+ !    !
+ !    n1 = pts_in_cell_ptr(n)+1
+ !    n2 = pts_in_cell_ptr(n+1)
+ !    nsp = n2-n1+1
+ !    nw = merge(1,2,nsp==n_sp2dt)
+ !    !
+ !    nop = merge(nopt,nopq,nsp==n_sp2dt)
+ !    !
+ !    do k = 1,nop
+ !      return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+ !    end do
+ !    !
+ !    k1 = k1 + nop
+ !    !
+ !  end do
+ !  !
+ !end if
+  !
+end function interpolate_for_output_2d
 !
 !###############################################################################
 !
