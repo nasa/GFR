@@ -412,7 +412,15 @@ continue
     !
     ! Compute the residual error from the density and output to terminal
     !
-    if (mod(iter,iter_out_interval) == 0) call rgeterr
+    if (mod(iter,iter_out_interval) == 0) then
+      !
+      call rgeterr
+      !
+      ! Exit the main loop if the convergence criteria were met
+      !
+      if (convergence_reached) exit main_loop
+      !
+    end if
     !
     ! Output the error at the specified interval
     !

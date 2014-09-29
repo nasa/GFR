@@ -1667,7 +1667,8 @@ subroutine rgeterr()
   use ovar,    only : itcur,d_t,time,rl2mx
   use ovar,    only : max_wall_time,wall_time_left
   use ovar,    only : beg_wall_time,wall_time
-  use ovar,    only : walltime_expiring
+  use ovar,    only : walltime_expiring,convergence_reached
+  use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use metvar,  only : jacobian
   use flowvar, only : usp,uoldsp
   use parallel_mod, only : cell_map,cell_map_ptr
@@ -1781,6 +1782,8 @@ continue
     entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
   else
     entL2 = log10(rl2mx) - log10(rltwo)
+    convergence_reached = (entL2 <= convergence_order_max_res) .or. &
+                          (log10(rltwo) <= convergence_order_abs_res)
   end if
   !
   ! Output the results for the current time step
@@ -1819,7 +1822,13 @@ continue
                               global_xyz(1,global_cell_offset(nloc)+kloc), &
                               global_xyz(2,global_cell_offset(nloc)+kloc)
     !
+    !
 #endif
+    !
+    if (convergence_reached) then
+      if (entL2 <= convergence_order_max_res) write (iout,3)
+      if (log10(rltwo) <= convergence_order_abs_res) write (iout,4)
+    end if
     !
     if (walltime_expiring) write (iout,2)
     !
@@ -1834,6 +1843,15 @@ continue
   2 format (/,"*******************************************************",/, &
               " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
+              "*******************************************************",/)
+  3 format (/,"*******************************************************",/, &
+              " THE CONVERGENCE CRITERION FOR THE ORDERS OF",/, &
+              " MAGNITUDE REDUCTION OF THE RESIDUAL ERROR",/, &
+              " RELATIVE TO THE MAXIMUM RESIDUAL ERROR HAS BEEN MET!",/, &
+              "*******************************************************",/)
+  4 format (/,"*******************************************************",/, &
+              " THE CONVERGENCE CRITERION FOR THE ORDER OF MAGNITUDE",/, &
+              " REDUCTION OF THE ABSOLUTE RESIDUAL ERROR HAS BEEN MET!",/, &
               "*******************************************************",/)
   !
 end subroutine rgeterr
