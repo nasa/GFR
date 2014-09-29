@@ -2929,6 +2929,7 @@ pure function Filter2D_tria_DP(vand,vand_inv) result(return_value)
   !.. Use Statements ..
   use geovar, only : n_order,n_sp2dt
   use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
+  use ovar,   only : Filter_etac
   !
   !.. Formal Arguments ..
   real(dp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
@@ -2939,7 +2940,7 @@ pure function Filter2D_tria_DP(vand,vand_inv) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,k
-  real(dp) :: rd,rn,falpha
+  real(dp) :: rd,rn,falpha,fetac
   !
   integer, parameter :: lp = dp
   !
@@ -2951,6 +2952,7 @@ continue
   ! Covert Filter_Alpha to local precision
   !
   falpha = real( Filter_Alpha , kind=lp )
+  fetac  = real( Filter_etac , kind=lp )
   !
   ! Initialize the local filter matrices to identity matrices
   !
@@ -2967,8 +2969,8 @@ continue
       !
       if (i+j >= Filter_Cutoff) then
         !
-        rn = real(i+j-Filter_Cutoff,kind=lp)
-        rd = real(n_order-Filter_Cutoff,kind=lp)
+        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+        rd = one - fetac
         !
         return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
         !
@@ -2995,6 +2997,7 @@ pure function Filter2D_tria_QP(vand,vand_inv) result(return_value)
   !.. Use Statements ..
   use geovar, only : n_order,n_sp2dt
   use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
+  use ovar,   only : Filter_etac
   !
   !.. Formal Arguments ..
   real(qp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
@@ -3005,7 +3008,7 @@ pure function Filter2D_tria_QP(vand,vand_inv) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,k
-  real(qp) :: rd,rn,falpha
+  real(qp) :: rd,rn,falpha,fetac
   !
   integer, parameter :: lp = qp
   !
@@ -3017,6 +3020,7 @@ continue
   ! Covert Filter_Alpha to local precision
   !
   falpha = real( Filter_Alpha , kind=lp )
+  fetac  = real( Filter_etac , kind=lp )
   !
   ! Initialize the local filter matrices to identity matrices
   !
@@ -3033,8 +3037,8 @@ continue
       !
       if (i+j >= Filter_Cutoff) then
         !
-        rn = real(i+j-Filter_Cutoff,kind=lp)
-        rd = real(n_order-Filter_Cutoff,kind=lp)
+        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+        rd = one - fetac
         !
         return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
         !
@@ -3062,6 +3066,7 @@ pure function Filter2D_quad_DP(vand,vand_inv) result(return_value)
   use geovar, only : n_order,n_sp1de,n_sp2dq
   use ovar,   only : Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha
+  use ovar,   only : Filter_etac
   !
   !.. Formal Arguments ..
   real(dp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand
@@ -3072,7 +3077,7 @@ pure function Filter2D_quad_DP(vand,vand_inv) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,k
-  real(dp) :: rd,rn,falpha
+  real(dp) :: rd,rn,falpha,fetac
   !
   !.. Local Arrays ..
   real(dp), dimension(1:n_sp1de) :: filter_1D
@@ -3087,6 +3092,7 @@ continue
   ! Covert Filter_Alpha to local precision
   !
   falpha = real( Filter_Alpha , kind=lp )
+  fetac  = real( Filter_etac , kind=lp )
   !
   ! Initialize the local filter matrices to identity matrices
   !
@@ -3109,8 +3115,8 @@ continue
     do i = 0,n_order
       if (i >= Filter_Cutoff) then
         !
-        rn = real(i-Filter_Cutoff,kind=lp)
-        rd = real(n_order-Filter_Cutoff,kind=lp)
+        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+        rd = one - fetac
         !
         filter_1D(i+1) = exp(-falpha * (rn/rd)**Filter_Order)
         !
@@ -3172,6 +3178,7 @@ pure function Filter2D_quad_QP(vand,vand_inv) result(return_value)
   use geovar, only : n_order,n_sp1de,n_sp2dq
   use ovar,   only : Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha
+  use ovar,   only : Filter_etac
   !
   !.. Formal Arguments ..
   real(qp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand
@@ -3182,7 +3189,7 @@ pure function Filter2D_quad_QP(vand,vand_inv) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,k
-  real(qp) :: rd,rn,falpha
+  real(qp) :: rd,rn,falpha,fetac
   !
   !.. Local Arrays ..
   real(qp), dimension(1:n_sp1de) :: filter_1D
@@ -3197,6 +3204,7 @@ continue
   ! Covert Filter_Alpha to local precision
   !
   falpha = real( Filter_Alpha , kind=lp )
+  fetac  = real( Filter_etac , kind=lp )
   !
   ! Initialize the local filter matrices to identity matrices
   !
@@ -3219,8 +3227,8 @@ continue
     do i = 0,n_order
       if (i >= Filter_Cutoff) then
         !
-        rn = real(i-Filter_Cutoff,kind=lp)
-        rd = real(n_order-Filter_Cutoff,kind=lp)
+        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+        rd = one - fetac
         !
         filter_1D(i+1) = exp(-falpha * (rn/rd)**Filter_Order)
         !
