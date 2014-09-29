@@ -48,6 +48,11 @@ module flowvar
   !
   real(wp), public, save, allocatable, dimension(:) :: dtsp
   !
+  ! TROUBLED_CELL : Mask/Marker array identifying troubled cells
+  !
+  logical, public, save, allocatable, dimension(:) :: troubled_cell
+  !
+  !
   ! PROFILE_QUANTITY: Derived type containing the name of a profile
   !                   quantity and the corresponding data
   !
