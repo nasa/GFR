@@ -225,6 +225,7 @@ module ovar
   logical, public, save :: force_serial_cgns = fals
   logical, public, save :: cgns_use_queue = true
   logical, public, save :: cgns_is_parallel
+  logical, public, save :: interpolate_before_output_variable = true
   !
   !
   ! ########################
@@ -278,7 +279,8 @@ module ovar
   ! VARIOUS DEBUG TYPE VARIABLES
   namelist / input / output_bface_array
   ! CGNS OUTPUT OPTIONS
-  namelist / input / force_parallel_cgns,force_serial_cgns,cgns_use_queue
+  namelist / input / force_parallel_cgns,force_serial_cgns,cgns_use_queue, &
+                     interpolate_before_output_variable
   !
 contains
 !
