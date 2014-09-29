@@ -227,6 +227,10 @@ module ovar
   logical, public, save :: cgns_is_parallel
   logical, public, save :: interpolate_before_output_variable = true
   !
+  real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
+  real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
+  logical,  public, save :: convergence_reached = fals
+  !
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -281,6 +285,8 @@ module ovar
   ! CGNS OUTPUT OPTIONS
   namelist / input / force_parallel_cgns,force_serial_cgns,cgns_use_queue, &
                      interpolate_before_output_variable
+  ! CONVERGENCE CRITERIA
+  namelist / input / convergence_order_abs_res, convergence_order_max_res
   !
 contains
 !
