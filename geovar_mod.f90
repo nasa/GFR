@@ -353,6 +353,7 @@ module geovar
   real(wp), public, save, allocatable, dimension(:,:) :: vand_tria_inv
   real(wp), public, save, allocatable, dimension(:,:) :: vand_quad
   real(wp), public, save, allocatable, dimension(:,:) :: vand_quad_inv
+  real(wp), public, save, allocatable, dimension(:,:,:) :: vand_inv
   !
   real(wp), public, save, allocatable, dimension(:,:,:) :: invM_mat
   !

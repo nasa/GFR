@@ -153,7 +153,7 @@ subroutine get_quadrature_data()
   use geovar, only : nr,n_order,n_sp1de,n_sp2dt,n_sp2dq
   use geovar, only : solpts_1d,solwts_1d
   use geovar, only : rs,flxpts_1d,interp_s2f,filter
-  use geovar, only : vand_1d,vand_1d_inv
+  use geovar, only : vand_1d,vand_1d_inv,vand_inv
   use geovar, only : vand_quad,vand_quad_inv
   use geovar, only : vand_tria,vand_tria_inv
   use metvar, only : cormat,d1_mat,dr_mat,ds_mat,dr_hat,ds_hat,cormat_dg
@@ -346,6 +346,8 @@ continue
   call alloc_error("get_quadrature_data","vand_tria_inv",1,ierr)
   allocate ( vand_quad_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
   call alloc_error("get_quadrature_data","vand_quad_inv",1,ierr)
+  allocate ( vand_inv(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
+  call alloc_error("get_quadrature_data","vand_inv",1,ierr)
   !
   allocate ( d1_mat(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
   call alloc_error("get_quadrature_data","d1_mat",1,ierr)
@@ -392,6 +394,9 @@ continue
   interp_s2f     = chop( interp_s2f_qp )
   cormat_dg      = chop( cormat_dg_qp )
   filter         = chop( filter_qp )
+  !
+  vand_inv(1:n_sp2dt,1:n_sp2dt,1) = vand_tria_inv
+  vand_inv(1:n_sp2dq,1:n_sp2dq,2) = vand_quad_inv
   !
   ! Output some of the arrays if debugging
   !
