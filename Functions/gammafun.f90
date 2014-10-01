@@ -67,15 +67,3 @@ end function log_gammafun
 !
 !###############################################################################
 !
-elemental function binomial(power,term) result(return_value)
-  integer, intent(in) :: power,term
-  real(vbp) :: return_value
-continue
-  return_value = log_gammafun( real(power     +1,vbp) ) - &
-                 log_gammafun( real(      term+1,vbp) ) - &
-                 log_gammafun( real(power-term+1,vbp) )
-  return_value = anint( exp(return_value) )
-end function binomial
-!
-!###############################################################################
-!
