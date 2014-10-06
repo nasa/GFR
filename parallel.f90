@@ -23,6 +23,7 @@ module parallel_mod
   public :: exchange_faceusp
   public :: wait_facedusp
   public :: exchange_facedusp
+  public :: exchange_modes
   !
   ! IDEA: 1. all processors send in their global versions of bface, xyz_nodes, 
   !          nodes_of_cell, nodes_of_cell_ptr, etc. to a single subroutine
@@ -196,29 +197,29 @@ module parallel_mod
   !
   ! Test MPI datatypes for exchanging information
   !
-  integer, save, allocatable, dimension(:) :: test_send
-  integer, save, allocatable, dimension(:) :: test_recv
-  integer, save, allocatable, dimension(:) :: testf_send
-  integer, save, allocatable, dimension(:) :: testf_recv
+  integer(int_mpi), save, allocatable, dimension(:) :: test_send
+  integer(int_mpi), save, allocatable, dimension(:) :: test_recv
+  integer(int_mpi), save, allocatable, dimension(:) :: testf_send
+  integer(int_mpi), save, allocatable, dimension(:) :: testf_recv
   !
   ! MPI datatypes for exchanging solution data between adjacent partitions
   !
-  integer, save, allocatable, dimension(:) :: send_usp
-  integer, save, allocatable, dimension(:) :: recv_usp
+  integer(int_mpi), save, allocatable, dimension(:) :: send_usp
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_usp
   !
-  integer, save, allocatable, dimension(:) :: send_fusp
-  integer, save, allocatable, dimension(:) :: recv_fusp
+  integer(int_mpi), save, allocatable, dimension(:) :: send_fusp
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_fusp
   !
-  integer, save, allocatable, dimension(:) :: send_fdusp
-  integer, save, allocatable, dimension(:) :: recv_fdusp
+  integer(int_mpi), save, allocatable, dimension(:) :: send_fdusp
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_fdusp
   !
   ! Request and status arrays for non-blocking exchanges
   !
-  integer, save, allocatable, dimension(:)   :: fusp_rqst
-  integer, save, allocatable, dimension(:,:) :: fusp_istat
+  integer(int_mpi), save, allocatable, dimension(:)   :: fusp_rqst
+  integer(int_mpi), save, allocatable, dimension(:,:) :: fusp_istat
   !
-  integer, save, allocatable, dimension(:)   :: fdusp_rqst
-  integer, save, allocatable, dimension(:,:) :: fdusp_istat
+  integer(int_mpi), save, allocatable, dimension(:)   :: fdusp_rqst
+  integer(int_mpi), save, allocatable, dimension(:,:) :: fdusp_istat
   !
   ! Exchange buffer
   !
@@ -229,21 +230,25 @@ module parallel_mod
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
   !
-  integer, save, allocatable, dimension(:) :: recv_xyz
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_xyz
   !
   ! MPI datatype for collecting the global solution on all processors
   !
-  integer, save, allocatable, dimension(:) :: recv_sol
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_sol
   !
   ! MPI datatype for collecting a global variable on all processors
   !
-  integer, save, allocatable, dimension(:) :: recv_var
+  integer(int_mpi), save, allocatable, dimension(:) :: recv_var
   !
   ! Local to global cell mappings - These need to be saved
   ! for use at various points (e.g., reading a restart file)
   !
   integer, public, save, allocatable, dimension(:) :: cell_map
   integer, public, save, allocatable, dimension(:) :: cell_map_ptr
+  !
+  interface exchange_modes
+    module procedure exchange_modes_r4, exchange_modes_r8
+  end interface exchange_modes
   !
 contains
 !
@@ -485,7 +490,8 @@ continue
   !
   ! Distribute partitions across all processors
   !
-  call mpi_bcast(epart,ngcell,mpi_inttyp,0,mpi_comm_world,mpierr)
+  call mpi_bcast(epart,int(ngcell,kind=kind(int_mpi)), &
+                 mpi_inttyp,0,mpi_comm_world,mpierr)
   !
   ! Output the partition grid to a tecplot file
   !
@@ -1927,7 +1933,9 @@ continue
     recv_offset(1:np) = recv_offset(1:np)*nr ! adjust the offset for nr dimensions
     recv_blklen(1:np) = recv_blklen(1:np)*nr ! adjust the offset for nr dimensions
     !
-    call mpi_type_indexed(np,recv_blklen(1:np),recv_offset(1:np), &
+    call mpi_type_indexed(int( np , kind=int_mpi ), &
+                          int( recv_blklen(1:np) , kind=int_mpi ), &
+                          int( recv_offset(1:np) , kind=int_mpi ), &
                           mpi_flttyp,recv_xyz(n),mpierr)
     call mpi_type_commit(recv_xyz(n),mpierr)
     !
@@ -1940,7 +1948,9 @@ continue
     recv_offset(1:np) = recv_offset(1:np)*nq ! adjust the offset for nq flow equations
     recv_blklen(1:np) = recv_blklen(1:np)*nq ! adjust the offset for nq flow equations
     !
-    call mpi_type_indexed(np,recv_blklen(1:np),recv_offset(1:np), &
+    call mpi_type_indexed(int( np , kind=int_mpi ), &
+                          int( recv_blklen(1:np) , kind=int_mpi ), &
+                          int( recv_offset(1:np) , kind=int_mpi ), &
                           mpi_flttyp,recv_sol(n),mpierr)
     call mpi_type_commit(recv_sol(n),mpierr)
     !
@@ -1950,7 +1960,9 @@ continue
     recv_offset(1:np) = recv_offset(1:np)/nq ! cancel out the nq adjustment above
     recv_blklen(1:np) = recv_blklen(1:np)/nq ! cancel out the nq adjustment above
     !
-    call mpi_type_indexed(np,recv_blklen(1:np),recv_offset(1:np), &
+    call mpi_type_indexed(int( np , kind=int_mpi ), &
+                          int( recv_blklen(1:np) , kind=int_mpi ), &
+                          int( recv_offset(1:np) , kind=int_mpi ), &
                           mpi_flttyp,recv_var(n),mpierr)
     call mpi_type_commit(recv_var(n),mpierr)
     !
@@ -2460,16 +2472,20 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,nq,send_pts(s1:s2),mpi_flttyp, &
-                                       send_usp(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( nq , kind=int_mpi ), &
+                                       int( send_pts(s1:s2) , kind=int_mpi ), &
+                                       mpi_flttyp,send_usp(i),mpierr)
     call mpi_type_commit(send_usp(i),mpierr)
     !
     r1 = recv_pts_ptr(i)+1
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,nq,recv_pts(r1:r2),mpi_flttyp, &
-                                       recv_usp(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( nq , kind=int_mpi ), &
+                                       int( recv_pts(r1:r2) , kind=int_mpi ), &
+                                       mpi_flttyp,recv_usp(i),mpierr)
     call mpi_type_commit(recv_usp(i),mpierr)
     !
   end do
@@ -2536,16 +2552,20 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,1,send_pts(s1:s2),mpi_flttyp, &
-                                       test_send(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( 1 , kind=int_mpi ), &
+                                       int( send_pts(s1:s2) , kind=int_mpi ), &
+                                       mpi_flttyp,test_send(i),mpierr)
     call mpi_type_commit(test_send(i),mpierr)
     !
     r1 = recv_pts_ptr(i)+1
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,1,recv_pts(r1:r2),mpi_flttyp, &
-                                       test_recv(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( 1 , kind=int_mpi ), &
+                                       int( recv_pts(r1:r2) , kind=int_mpi ), &
+                                       mpi_flttyp,test_recv(i),mpierr)
     call mpi_type_commit(test_recv(i),mpierr)
     !
   end do
@@ -2830,7 +2850,9 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2), &
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( send_pts(s1:s2) , kind=int_mpi ), &
                                        mpi_flttyp,send_fusp(i),mpierr)
     call mpi_type_commit(send_fusp(i),mpierr)
     !
@@ -2838,7 +2860,9 @@ continue
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2), &
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( recv_pts(r1:r2) , kind=int_mpi ), &
                                        mpi_flttyp,recv_fusp(i),mpierr)
     call mpi_type_commit(recv_fusp(i),mpierr)
     !
@@ -2876,7 +2900,9 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2), &
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( send_pts(s1:s2) , kind=int_mpi ), &
                                        mpi_flttyp,send_fdusp(i),mpierr)
     call mpi_type_commit(send_fdusp(i),mpierr)
     !
@@ -2884,7 +2910,9 @@ continue
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2), &
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( recv_pts(r1:r2) , kind=int_mpi ), &
                                        mpi_flttyp,recv_fdusp(i),mpierr)
     call mpi_type_commit(recv_fdusp(i),mpierr)
     !
@@ -2944,16 +2972,20 @@ continue
     s2 = send_pts_ptr(i+1)
     np = s2-s1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,send_pts(s1:s2),mpi_flttyp, &
-                                       testf_send(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( send_pts(s1:s2) , kind=int_mpi ), &
+                                       mpi_flttyp,testf_send(i),mpierr)
     call mpi_type_commit(testf_send(i),mpierr)
     !
     r1 = recv_pts_ptr(i)+1
     r2 = recv_pts_ptr(i+1)
     np = r2-r1+1
     !
-    call mpi_type_create_indexed_block(np,block_size,recv_pts(r1:r2),mpi_flttyp, &
-                                       testf_recv(i),mpierr)
+    call mpi_type_create_indexed_block(int( np , kind=int_mpi ), &
+                                       int( block_size , kind=int_mpi ), &
+                                       int( recv_pts(r1:r2) , kind=int_mpi ), &
+                                       mpi_flttyp,testf_recv(i),mpierr)
     call mpi_type_commit(testf_recv(i),mpierr)
     !
   end do
@@ -2988,16 +3020,16 @@ continue
   !
   allocate ( fusp_buffer(1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_buffer",1,ierr)
-  allocate ( fusp_rqst(1:2*ncomm) , source=0 , stat=ierr )
+  allocate ( fusp_rqst(1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_rqst",1,ierr)
-  allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0 , stat=ierr )
+  allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_istat",1,ierr)
   !
   allocate ( fdusp_buffer(1:nr,1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fdusp_buffer",1,ierr)
-  allocate ( fdusp_rqst(1:2*ncomm) , source=0 , stat=ierr )
+  allocate ( fdusp_rqst(1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fdusp_rqst",1,ierr)
-  allocate ( fdusp_istat(1:mpi_status_size,1:2*ncomm) , source=0 , stat=ierr )
+  allocate ( fdusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fdusp_istat",1,ierr)
   !
   1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
@@ -3606,10 +3638,10 @@ subroutine blocking_exchange(usp)
   real(wp), dimension(:,:), intent(inout) :: usp
   !
   !.. Local Scalars ..
-  integer :: i,n,lcpu,rcpu,ltag,rtag
+  integer(int_mpi) :: i,n,lcpu,rcpu,ltag,rtag
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer(int_mpi), dimension(1:mpi_status_size) :: istat
   !
 continue
   !
@@ -3666,7 +3698,8 @@ subroutine exchange_faceusp(faceusp)
   real(wp), dimension(:,:,:,:), intent(in) :: faceusp
   !
   !.. Local Scalars..
-  integer :: n,s,r,dtype
+  integer :: n
+  integer(int_mpi) :: s,r,dtype
   !
   !.. Local Arrays ..
   real(r8), dimension(1:size(faceusp,1),1:size(faceusp,2), &
@@ -3681,7 +3714,7 @@ continue
   ! is ready once the send is posted
   !
   do n = 1,ncomm
-    s = exchf_cpu(n)
+    s = int( exchf_cpu(n) , kind=int_mpi )
     dtype = recv_fusp(n)
     call mpi_irecv(fusp_buffer,1,dtype,s,s,mpi_comm_world,fusp_rqst(n),mpierr)
   end do
@@ -3689,7 +3722,7 @@ continue
   ! Send out the adjacent cells
   !
   do n = 1,ncomm
-    r = exchf_cpu(n)
+    r = int( exchf_cpu(n) , kind=int_mpi )
     dtype = send_fusp(n)
     call mpi_isend(exch_send,1,dtype,r,mypnum, &
                    mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
@@ -3714,7 +3747,7 @@ continue
   !
   ! Wait for all faceusp sends and receives to complete
   !
-  call mpi_waitall(2*ncomm,fusp_rqst,fusp_istat,mpierr)
+  call mpi_waitall(int(2*ncomm,kind=int_mpi),fusp_rqst,fusp_istat,mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -3735,7 +3768,8 @@ subroutine exchange_facedusp(facedusp)
   real(wp), dimension(:,:,:,:,:), intent(in) :: facedusp
   !
   !.. Local Scalars..
-  integer :: n,s,r,dtype
+  integer :: n
+  integer(int_mpi) :: s,r,dtype
   !
   !.. Local Arrays ..
   real(r8), dimension(1:size(facedusp,1),1:size(facedusp,2), &
@@ -3751,7 +3785,7 @@ continue
   ! is ready once the send is posted
   !
   do n = 1,ncomm
-    s = exchf_cpu(n)
+    s = int( exchf_cpu(n) , kind=int_mpi )
     dtype = recv_fdusp(n)
     call mpi_irecv(fdusp_buffer,1,dtype,s,s,mpi_comm_world,fdusp_rqst(n),mpierr)
   end do
@@ -3759,7 +3793,7 @@ continue
   ! Send out the adjacent cells
   !
   do n = 1,ncomm
-    r = exchf_cpu(n)
+    r = int( exchf_cpu(n) , kind=int_mpi )
     dtype = send_fdusp(n)
     call mpi_isend(exch_send,1,dtype,r,mypnum, &
                    mpi_comm_world,fdusp_rqst(n+ncomm),mpierr)
@@ -3784,7 +3818,7 @@ continue
   !
   ! Wait for all facedusp sends and receives to complete
   !
-  call mpi_waitall(2*ncomm,fdusp_rqst,fdusp_istat,mpierr)
+  call mpi_waitall(int(2*ncomm,kind=int_mpi),fdusp_rqst,fdusp_istat,mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -3793,6 +3827,100 @@ continue
   end forall
   !
 end subroutine wait_facedusp
+!
+!###############################################################################
+!
+subroutine exchange_modes_r4(umodes)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(r4), dimension(:,:), intent(inout) :: umodes
+  !
+  !.. Local Scalars..
+  integer :: n
+  integer(int_mpi) :: s,r,dtype
+  !
+  !.. Local Arrays ..
+  real(r4), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
+  integer(int_mpi), dimension(1:2*ncomm) :: rqst
+  integer(int_mpi), dimension(1:mpi_status_size,1:2*ncomm) :: istat
+  !
+continue
+  !
+  exch_send = umodes
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    s = int( exchf_cpu(n) , kind=int_mpi )
+    dtype = recv_fdusp(n)
+    call mpi_irecv(umodes,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    r = int( exchf_cpu(n) , kind=int_mpi )
+    dtype = send_fdusp(n)
+    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+                   mpi_comm_world,rqst(n+ncomm),mpierr)
+  end do
+  !
+  ! Wait for all sends and receives to complete
+  !
+  call mpi_waitall(int(2*ncomm,kind=int_mpi),rqst,istat,mpierr)
+  !
+end subroutine exchange_modes_r4
+!
+!###############################################################################
+!
+subroutine exchange_modes_r8(umodes)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd
+  !
+  !.. Formal Arguments ..
+  real(r8), dimension(:,:), intent(inout) :: umodes
+  !
+  !.. Local Scalars..
+  integer :: n
+  integer(int_mpi) :: s,r,dtype
+  !
+  !.. Local Arrays ..
+  real(r8), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
+  integer(int_mpi), dimension(1:2*ncomm) :: rqst
+  integer(int_mpi), dimension(1:mpi_status_size,1:2*ncomm) :: istat
+  !
+continue
+  !
+  exch_send = umodes
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    s = int( exchf_cpu(n) , kind=int_mpi )
+    dtype = recv_fdusp(n)
+    call mpi_irecv(umodes,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    r = int( exchf_cpu(n) , kind=int_mpi )
+    dtype = send_fdusp(n)
+    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+                   mpi_comm_world,rqst(n+ncomm),mpierr)
+  end do
+  !
+  ! Wait for all sends and receives to complete
+  !
+  call mpi_waitall(int(2*ncomm,kind=int_mpi),rqst,istat,mpierr)
+  !
+end subroutine exchange_modes_r8
 !
 !###############################################################################
 !
