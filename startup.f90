@@ -566,6 +566,7 @@ subroutine interp2quadrature()
   use geovar, only : interp_f2g,projct_g2f,vand_qdtr
   use geovar, only : interp_s2q,projct_q2s,vand_qdtr_inv
   use geovar, only : interp_s2g,using_quadrature,projct_s2p
+  use geovar, only : projct_limiter
   use ovar,   only : iop_qdtpts
   use metvar, only : dr_mat,ds_mat,dq1D_mat
   use metvar, only : dqr_mat,dqr_LPmat,dqr_CRmat
@@ -579,7 +580,7 @@ subroutine interp2quadrature()
   use qpvar, only : interp_f2g_qp,projct_g2f_qp,vand_qdtr_qp
   use qpvar, only : interp_s2q_qp,projct_q2s_qp,vand_qdtr_inv_qp
   use qpvar, only : interp_s2g_qp,projct_s2p_qp,weights2d_qp
-  use qpvar, only : interp_s2o_qp
+  use qpvar, only : interp_s2o_qp,projct_limiter_qp
   use qpvar, only : dr_mat_qp,ds_mat_qp,dq1D_mat_qp
   use qpvar, only : dqr_mat_qp,dqr_LPmat_qp,dqr_CRmat_qp
   use qpvar, only : dqs_mat_qp,dqs_LPmat_qp,dqs_CRmat_qp
@@ -590,8 +591,10 @@ subroutine interp2quadrature()
                              weights_legendre_gauss_lobatto
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l,ierr
+  integer :: i,j,k,l,n,ierr
   integer :: li,lj,ki,kj,nsp,nqp,npp,nop
+  integer :: limit_order
+  character(len=32) :: array_name
   !
   !.. Local Arrays ..
   real(qp), dimension(1:n_qp1de) :: vp_qdtr_qp
@@ -602,6 +605,7 @@ subroutine interp2quadrature()
   real(qp), dimension(1:n_qp1de,1:n_qp1de) :: grad_vand1D_qdtr_qp
   real(qp), dimension(1:n_qp1de,1:n_sp1de) :: vand1D_f2g_qp
   real(qp), dimension(1:n_sp2dq,1:n_sp2dq) :: wt_mat_qp
+  real(qp), dimension(1:n_sp2dq,1:n_sp2dq) :: vand2D_lim_qp
   real(qp), dimension(1:n_qp2dq,1:n_sp2dq,1:2) :: vand2D_s2q_qp
   real(qp), dimension(1:n_sp2dq,1:(p_order+1)**2,1:2) :: vand2D_p2s_qp
   real(qp), dimension(1:(abs(o_order)+1)**2,1:n_sp2dq,1:2) :: vand2D_s2o_qp
@@ -670,6 +674,9 @@ continue
   call alloc_error("interp2quadrature","projct_q2s_qp",1,ierr)
   allocate ( projct_s2p_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=qzero , stat=ierr )
   call alloc_error("interp2quadrature","projct_s2p_qp",1,ierr)
+  allocate ( projct_limiter_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:n_order) , &
+             source=qzero , stat=ierr )
+  call alloc_error("interp2quadrature","projct_limiter_qp",1,ierr)
   allocate ( dqr_mat_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
   call alloc_error("interp2quadrature","dqr_mat_qp",1,ierr)
   allocate ( dqs_mat_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
@@ -854,6 +861,42 @@ continue
   projct_s2p_qp(1:nsp,1:nsp,2,5) = projection_matrix(vand2d_p2s_qp(1:nsp,1:npp,2), &
                                                      wt_mat_qp(1:nsp,1:nsp))
   !
+  ! ###########################################
+  ! Create the projection limiter matrices
+  ! ###########################################
+  !
+  do n = 1,n_order
+    !
+    limit_order = n_order - n
+    !
+    ! ------------------
+    ! For quadrilaterals
+    ! ------------------
+    !
+    nsp = n_sp2dq
+    npp = (limit_order+1)**2
+    !
+    ! Get the 2D Vandermonde matrix for the current projection limiter order
+    !
+    vand2D_lim_qp(1:nsp,1:npp) = Vandermonde2D_quad_N(solpts_1d_qp,limit_order)
+    vand2D_lim_qp = chop_qp( vand2D_lim_qp )
+    !
+    ! Compute the matrix multiplication of Vand*transpose(Vand)
+    !
+    projct_limiter_qp(1:nsp,1:nsp,2,n) = &
+      matmul( vand2D_lim_qp(1:nsp,1:npp) , transpose(vand2D_lim_qp(1:nsp,1:npp)) )
+    projct_limiter_qp = chop_qp( projct_limiter_qp )
+    !
+    ! Finally add in the quadrature weights for the solution points to
+    ! complete the projection matrices for the current limiter order
+    !
+    do i = 1,nsp
+      projct_limiter_qp(i,1:nsp,2,n) = projct_limiter_qp(i,1:nsp,2,n) * &
+                                            weights2d_qp(i,2)
+    end do
+    projct_limiter_qp = chop_qp( projct_limiter_qp )
+    !
+  end do
   !
   ! ###########################################
   ! 2D matrix for interpolating nodal values at SPs to QPs
@@ -981,6 +1024,9 @@ continue
   call alloc_error("interp2quadrature","projct_q2s",1,ierr)
   allocate ( projct_s2p(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=zero , stat=ierr )
   call alloc_error("interp2quadrature","projct_s2p",1,ierr)
+  allocate ( projct_limiter(1:n_sp2dq,1:n_sp2dq,1:2,1:n_order) , &
+             source=zero , stat=ierr )
+  call alloc_error("interp2quadrature","projct_limiter",1,ierr)
   allocate ( dqr_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
   call alloc_error("interp2quadrature","dqr_mat",1,ierr)
   allocate ( dqs_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
@@ -998,26 +1044,27 @@ continue
   allocate ( interp_s2g(1:n_sp2dq,1:4*n_qp1de,1:2) , source=zero , stat=ierr )
   call alloc_error("interp2quadrature","interp_s2g",1,ierr)
   !
-  qdtpts_1d     = chop( qdtpts_1d_qp )
-  qdtwts_1d     = chop( qdtwts_1d_qp )
-  dq1D_mat      = chop( dq1D_mat_qp )
-  interp_f2g    = chop( interp_f2g_qp )
-  projct_g2f    = chop( projct_g2f_qp )
-  qdtwts_2d     = chop( qdtwts_2d_qp )
-  vand_qdtr     = chop( vand_qdtr_qp )
-  vand_qdtr_inv = chop( vand_qdtr_inv_qp )
-  interp_s2q    = chop( interp_s2q_qp )
-  interp_s2o    = chop( interp_s2o_qp )
-  interp_s2g    = chop( interp_s2g_qp )
-  projct_q2s    = chop( projct_q2s_qp )
-  projct_s2p    = chop( projct_s2p_qp )
-  dqr_mat       = chop( dqr_mat_qp )
-  dqs_mat       = chop( dqs_mat_qp )
-  dqr_LPmat     = chop( dqr_LPmat_qp )
-  dqs_LPmat     = chop( dqs_LPmat_qp )
-  dqr_CRmat     = chop( dqr_CRmat_qp )
-  dqs_CRmat     = chop( dqs_CRmat_qp )
-  invM_mat      = chop( invM_mat_qp )
+  qdtpts_1d      = chop( qdtpts_1d_qp )
+  qdtwts_1d      = chop( qdtwts_1d_qp )
+  dq1D_mat       = chop( dq1D_mat_qp )
+  interp_f2g     = chop( interp_f2g_qp )
+  projct_g2f     = chop( projct_g2f_qp )
+  qdtwts_2d      = chop( qdtwts_2d_qp )
+  vand_qdtr      = chop( vand_qdtr_qp )
+  vand_qdtr_inv  = chop( vand_qdtr_inv_qp )
+  interp_s2q     = chop( interp_s2q_qp )
+  interp_s2o     = chop( interp_s2o_qp )
+  interp_s2g     = chop( interp_s2g_qp )
+  projct_q2s     = chop( projct_q2s_qp )
+  projct_s2p     = chop( projct_s2p_qp )
+  projct_limiter = chop( projct_limiter_qp )
+  dqr_mat        = chop( dqr_mat_qp )
+  dqs_mat        = chop( dqs_mat_qp )
+  dqr_LPmat      = chop( dqr_LPmat_qp )
+  dqs_LPmat      = chop( dqs_LPmat_qp )
+  dqr_CRmat      = chop( dqr_CRmat_qp )
+  dqs_CRmat      = chop( dqs_CRmat_qp )
+  invM_mat       = chop( invM_mat_qp )
   !
   call output2d(array_debugging,interp_f2g(:,:),2,2,3,'interp_f2g')
   call output2d(array_debugging,projct_g2f(:,:),2,2,3,'projct_g2f')
@@ -1031,6 +1078,11 @@ continue
   call output2d(array_debugging,projct_s2p(1:nsp,1:nsp,2,1),2,2,2,'projct_s2p')
  !call output2d(true,projct_s2p(1:nsp,1:nsp,2,1),2,2,2,'projct_s2p1')
  !call output2d(true,projct_s2p(1:nsp,1:nsp,2,5),2,2,2,'projct_s2p5')
+  do n = n_order,1,-1
+    write (array_name,'("projct_limiter",i0)') n
+   !call output2d(true,           projct_limiter(1:nsp,1:nsp,2,n),2,2,2,array_name)
+    call output2d(array_debugging,projct_limiter(1:nsp,1:nsp,2,n),2,2,2,array_name)
+  end do
   call output2d(array_debugging,dr_mat(1:nsp,1:nsp,2),2,2,2,'dr_mat')
   call output2d(array_debugging,ds_mat(1:nsp,1:nsp,2),2,2,2,'ds_mat')
   call output2d(array_debugging,dqr_mat(1:nqp,1:nqp,2),2,2,2,'dqr_mat')
