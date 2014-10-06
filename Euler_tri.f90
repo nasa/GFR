@@ -135,7 +135,7 @@ continue
     current_wtl = huge(int(0,kind=c_long))
 #endif
     write (iout,16) current_wtl
-    max_wall_time = real(current_wtl,kind=vbp)
+    max_wall_time = real(current_wtl,kind=wp)
   end if
   !
   ! Broadcast the maximum wall time to all processors
@@ -567,6 +567,7 @@ continue
   end if
   !
   if (ncpu == 1) call compute_bc_profiles
+  !
   if (mypnum == 0) then
     !
     write (iout,40) itcur,time
