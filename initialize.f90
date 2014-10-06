@@ -208,6 +208,10 @@ continue
     !
   end if
   !
+  ! Initialize the solution at previous timestep array
+  !
+  uoldsp(1:neqns,1:n_solpts) = usp(1:neqns,1:n_solpts)
+  !
   ! Output the free-stream conditions
   !
   if (mypnum == 0) then
@@ -517,8 +521,7 @@ continue
         ! current flux point on face nf
         !
         do l = 1,nr
-          bnd_prof(n)%qty(l)%qty_data(bndpt) = dot_product( lmat(1:np) , &
-                                                            xyz(l,n1:n2) )
+          bnd_prof(n)%qty(l)%qty_data(bndpt) = dot_product( lmat(1:np) , xyz(l,n1:n2) )
         end do
         !
       end do
