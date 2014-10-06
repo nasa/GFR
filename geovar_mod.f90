@@ -370,6 +370,8 @@ module geovar
   real(wp), public, save, allocatable, dimension(:,:,:) :: projct_q2s
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: projct_s2p
   !
+  real(wp), public, save, allocatable, dimension(:,:,:,:) :: projct_limiter
+  !
 contains
 !
 !###############################################################################
@@ -848,6 +850,12 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'projct_s2p'",array%get_units()
   end if
+  if (allocated(projct_limiter)) then
+    array%siz = size(projct_limiter)
+    array%mem = array%siz*storage_size(projct_limiter)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'projct_limiter'",array%get_units()
+  end if
   !
   total = total%get_units()
   write (iunit,3) total%mem,trim(adjustl(total%units))
@@ -977,6 +985,8 @@ module qpvar
   real(qp), public, save, allocatable, dimension(:,:,:,:) :: interp_s2o_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: projct_q2s_qp
   real(qp), public, save, allocatable, dimension(:,:,:,:) :: projct_s2p_qp
+  !
+  real(qp), public, save, allocatable, dimension(:,:,:,:) :: projct_limiter_qp
   !
   ! Collocation derivative matrices
   !
@@ -1232,6 +1242,11 @@ continue
   if (allocated(projct_s2p_qp)) then
     deallocate ( projct_s2p_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","projct_s2p_qp",2,ierr)
+  end if
+  !
+  if (allocated(projct_limiter_qp)) then
+    deallocate ( projct_limiter_qp , stat=ierr )
+    call alloc_error("deallocate_all_qp_arrays","projct_limiter_qp",2,ierr)
   end if
   !
   if (allocated(d1_mat_qp)) then
@@ -1597,6 +1612,12 @@ continue
     array%mem = array%siz*storage_size(projct_s2p_qp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'projct_s2p_qp'",array%get_units()
+  end if
+  if (allocated(projct_limiter_qp)) then
+    array%siz = size(projct_limiter_qp)
+    array%mem = array%siz*storage_size(projct_limiter_qp)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'projct_limiter_qp'",array%get_units()
   end if
   if (allocated(d1_mat_qp)) then
     array%siz = size(d1_mat_qp)
