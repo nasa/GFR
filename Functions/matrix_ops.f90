@@ -64,7 +64,7 @@ continue
       summ = return_value(ll,k)
       return_value(ll,k) = return_value(i,k)
       if (ii /= 0) then
-        summ = summ - dot_product(b(i,ii:i-1),return_value(ii:i-1,k))
+        summ = summ - dot(b(i,ii:i-1),return_value(ii:i-1,k))
       else if (summ /= zero) then
         ii = i
       end if
@@ -72,7 +72,7 @@ continue
     end do
     !
     do i = np,1,-1
-      summ = dot_product(b(i,i+1:np),return_value(i+1:np,k))
+      summ = dot(b(i,i+1:np),return_value(i+1:np,k))
       return_value(i,k) = (return_value(i,k) - summ)/b(i,i)
     end do
     !
@@ -367,7 +367,7 @@ continue
     summ = y(ll)
     y(ll) = y(i)
     if (ii /= 0) then
-      summ = summ - dot_product(a(i,ii:i-1),y(ii:i-1))
+      summ = summ - dot(a(i,ii:i-1),y(ii:i-1))
     else if (summ /= zero) then
       ii = i
     end if
@@ -375,7 +375,7 @@ continue
   end do
   !
   do i = np,1,-1
-    y(i) = (y(i) - dot_product(a(i,i+1:np),y(i+1:np)))/a(i,i)
+    y(i) = (y(i) - dot(a(i,i+1:np),y(i+1:np)))/a(i,i)
   end do
   !
 end subroutine lubksb_DP

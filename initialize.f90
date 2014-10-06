@@ -521,7 +521,7 @@ continue
         ! current flux point on face nf
         !
         do l = 1,nr
-          bnd_prof(n)%qty(l)%qty_data(bndpt) = dot_product( lmat(1:np) , xyz(l,n1:n2) )
+          bnd_prof(n)%qty(l)%qty_data(bndpt) = dot( lmat(1:np) , xyz(l,n1:n2) )
         end do
         !
       end do

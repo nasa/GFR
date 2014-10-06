@@ -1,7 +1,7 @@
 pure function selfdot_DP(xyz) result(return_value)
   real(dp), dimension(:), intent(in) :: xyz
   real(dp) :: return_value
-  return_value = dot_product(xyz,xyz)
+  return_value = dot(xyz,xyz)
 end function selfdot_DP
 !
 pure function selfdot_QP(xyz) result(return_value)

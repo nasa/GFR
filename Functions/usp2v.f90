@@ -39,7 +39,7 @@ continue
   nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot_product( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
   !
   return_value(1)      = uu(1)
   return_value(2:nq-1) = uu(2:nq-1)/uu(1)

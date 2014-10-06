@@ -2341,7 +2341,7 @@ continue
       !
       ! Get the angle between the two outward unit normals
       !
-      theta = acos(dot_product(pnrm,inrm))
+      theta = acos(dot(pnrm,inrm))
       !
       ! Translation of the pcell nodes so that ptf is at the origin
       !
@@ -4953,13 +4953,13 @@ continue
       rho_inv = one/uu(1,n)
       rho_inv2 = rho_inv*rho_inv
       !
-      q2 = dot_product( uu(2:nq-1,n) , uu(2:nq-1,n) )
+      q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
       !
       coef(1) = -rho_inv2 * (uu(nq,n) - rho_inv*q2)
       coef(2:nq-1) = -rho_inv2 * uu(2:nq-1,n)
       coef(nq) = rho_inv
       !
-      return_value(n) = cv_inv * dot_product( coef , dcvdx(ndr,1:nq,n) )
+      return_value(n) = cv_inv * dot( coef , dcvdx(ndr,1:nq,n) )
       !
     end do
     !
@@ -5117,7 +5117,7 @@ continue
  !    nop = merge(nopt,nopq,nsp==n_sp2dt)
  !    !
  !    do k = 1,nop
- !      return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+ !      return_value(k1+k) = dot( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
  !    end do
  !    !
  !    k1 = k1 + nop
@@ -5283,7 +5283,7 @@ continue
  !    nop = merge(nopt,nopq,nsp==n_sp2dt)
  !    !
  !    do k = 1,nop
- !      return_value(k1+k) = dot_product( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
+ !      return_value(k1+k) = dot( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
  !    end do
  !    !
  !    k1 = k1 + nop
@@ -5331,10 +5331,10 @@ continue
     !
     do k = n1,n2
       !
-      dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vel(1,1:np))
-      duds = dot_product(ds_mat(1:np,k-n1+1,nw),vel(1,1:np))
-      dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vel(2,1:np))
-      dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vel(2,1:np))
+      dudr = dot(dr_mat(1:np,k-n1+1,nw),vel(1,1:np))
+      duds = dot(ds_mat(1:np,k-n1+1,nw),vel(1,1:np))
+      dvdr = dot(dr_mat(1:np,k-n1+1,nw),vel(2,1:np))
+      dvds = dot(ds_mat(1:np,k-n1+1,nw),vel(2,1:np))
       !
       return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
                           ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
@@ -5373,10 +5373,10 @@ continue
     !
     do k = n1,n2
       !
-      dudr = dot_product(dr_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
-      duds = dot_product(ds_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
-      dvdr = dot_product(dr_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
-      dvds = dot_product(ds_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
+      dudr = dot(dr_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
+      duds = dot(ds_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
+      dvdr = dot(dr_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
+      dvds = dot(ds_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
       !
       return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
                           ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)

@@ -24,7 +24,7 @@ continue
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot_product( uu(2:nq-1,n) , uu(2:nq-1,n) )
+    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
     !
     temp = cv_inv * (uu(nq,n) - half*q2/uu(1,n)) / uu(1,n)
     !
@@ -60,7 +60,7 @@ continue
   nq = size(uu)
   cv_inv = (gam-one)/rgasref_nd
   !
-  q2 = dot_product( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
   !
   temp = cv_inv * (uu(nq) - half*q2/uu(1)) / uu(1)
   !

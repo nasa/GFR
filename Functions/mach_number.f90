@@ -20,7 +20,7 @@ continue
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot_product( uu(2:nq-1,n) , uu(2:nq-1,n) )
+    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
     !
     pres = gm1 * (uu(nq,n) - half*q2/uu(1,n))
     !
@@ -54,7 +54,7 @@ continue
   nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot_product( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
   !
   pres = gm1 * (uu(nq) - half*q2/uu(1))
   !
@@ -87,7 +87,7 @@ continue
   !
   do n = 1,size(vv,dim=2)
     !
-    q2 = dot_product( vv(2:nq-1,n) , vv(2:nq-1,n) )
+    q2 = dot( vv(2:nq-1,n) , vv(2:nq-1,n) )
     !
     mach = q2 / (gam*vv(nq,n)*vv(1,n))
     !
@@ -118,7 +118,7 @@ continue
   !
   nq = size(vv)
   !
-  q2 = dot_product( vv(2:nq-1) , vv(2:nq-1) )
+  q2 = dot( vv(2:nq-1) , vv(2:nq-1) )
   !
   mach = q2 / (gam*vv(nq)*vv(1))
   !

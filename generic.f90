@@ -259,7 +259,7 @@ continue
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot_product( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+     !vell = dot( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
       vell = selfdot( vl(2:nq-1) )
       !
       ! Speed of sound at this face
@@ -268,7 +268,7 @@ continue
       !
       ! Interpolate the jacobian to the flux point
       !
-      jacl = dot_product( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
+      jacl = dot( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
       !
       hl = half * dsl / jacl
       !
@@ -327,8 +327,8 @@ continue
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot_product( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
-     !velr = dot_product( vr(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+     !vell = dot( vl(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
+     !velr = dot( vr(2:nq-1) , unit_vector(geofa(1:nr,k,nf)) )
       vell = selfdot( vl(2:nq-1) )
       velr = selfdot( vr(2:nq-1) )
       !
@@ -339,8 +339,8 @@ continue
       !
       ! Interpolate the jacobian to the flux point
       !
-      jacl = dot_product( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
-      jacr = dot_product( interp_s2f(1:npr,kr,wr) , jacobian(r1:r2) )
+      jacl = dot( interp_s2f(1:npl,kl,wl) , jacobian(l1:l2) )
+      jacr = dot( interp_s2f(1:npr,kr,wr) , jacobian(r1:r2) )
       !
       hl = half * dsl / jacl
       hr = half * dsr / jacr
@@ -571,7 +571,7 @@ continue
       !
       do k = 1,nsp
         do l = 1,ndim
-          array(l,n1-1+k) = dot_product( projct_s2p(1:nsp,k,nw,ploc) , tmp(1:nsp,l) )
+          array(l,n1-1+k) = dot( projct_s2p(1:nsp,k,nw,ploc) , tmp(1:nsp,l) )
         end do
       end do
       !
@@ -2172,7 +2172,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2187,13 +2187,13 @@ continue
         !
         ! Compute the interior and free stream normal velocity
         !
-        vni = dot_product(rnrm,varh(2:neqns-1))
-        vno = dot_product(rnrm,pv_in(2:neqns-1))
+        vni = dot(rnrm,varh(2:neqns-1))
+        vno = dot(rnrm,pv_in(2:neqns-1))
         !
         ! Compute the interior and free stream tangent velocity
         !
-        vti = dot_product(rtan,varh(2:neqns-1))
-        vto = dot_product(rtan,pv_in(2:neqns-1))
+        vti = dot(rtan,varh(2:neqns-1))
+        vto = dot(rtan,pv_in(2:neqns-1))
         !
         ! Apply boundary conditions based on the
         ! normal Mach number to the boundary face
@@ -2290,7 +2290,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2304,7 +2304,7 @@ continue
         !
         ! Compute the Mach number of the normal velocity at this flux point
         !
-        mach = dot_product( varh(2:neqns-1) , rnrm(1:nr) ) / ai
+        mach = dot( varh(2:neqns-1) , rnrm(1:nr) ) / ai
         !
         if (mach > -one .and. mach <= zero) then
           !
@@ -2367,7 +2367,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2381,7 +2381,7 @@ continue
         !
         ! Compute the Mach number of the normal velocity at this flux point
         !
-        mach = dot_product( varh(2:neqns-1) , rnrm(1:nr) ) / ai
+        mach = dot( varh(2:neqns-1) , rnrm(1:nr) ) / ai
         !
         if (mach < one .and. mach >= zero) then
           !
@@ -2440,7 +2440,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2489,7 +2489,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2561,7 +2561,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2608,7 +2608,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2666,7 +2666,7 @@ continue
         ! solution points to the current host cell flux point.
         !
         do m = 1,neqns
-          varh(m) = dot_product(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
+          varh(m) = dot(interp_mat(1:hp,hk,hw),tusp(1:hp,m))
         end do
         !
         ! Now convert the current host cell flux point
@@ -2721,7 +2721,7 @@ continue
         ! the ghost cell solution points to the current ghost cell flux point.
         !
         do m = 1,neqns
-          faceusp(m,k,2,nf) = dot_product(interp_mat(1:gp,gk,gw),tusp(1:gp,m))
+          faceusp(m,k,2,nf) = dot(interp_mat(1:gp,gk,gw),tusp(1:gp,m))
         end do
         !
       end do
@@ -2733,7 +2733,7 @@ continue
      !  gk = gkb+1 - k ! index for current ghost cell flux point
      !  !
      !  do m = 1,neqns
-     !    faceusp(m,k,2,nf) = dot_product(interp_s2f(1:gp,gk,gw),usp(m,g1:g2))
+     !    faceusp(m,k,2,nf) = dot(interp_s2f(1:gp,gk,gw),usp(m,g1:g2))
      !  end do
      !  !
      !end do

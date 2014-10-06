@@ -66,7 +66,8 @@ OTHERLIB =
  FPP = -fpp
 #FPP += -DPBS_ENV 
  FPP += -DIO_FOR_NAS
- FPP += -DCGNS_ADF
+#FPP += -DCGNS_ADF
+#FPP += -DUSE_INTEL_MKL
 #FPP += -DCGNS_ADF2
 
 ##############################
@@ -93,6 +94,7 @@ FLIB = $(LIBRARY) $(METISLIB) $(CGNSLIB) $(OTHERLIB)
 # Various compiler flag options
 
 FCBASE = -vec-report0 -ftrapuv -traceback -g #-warn stderrors
+#FCBASE += -i8
 
 TUNE  = -prof-gen $(OPTIM)
 RETUNE = -prof-use $(OPTIM) $(IPOPT)
@@ -114,6 +116,15 @@ FCFLAG += $(MOD) $(INCLUDE)
 #FCFLAG += -multiple-processes=6
 #
 
+# MKL options
+#BLASLIB  = -lmkl_blas95_lp64
+#MKLLIB += -lmkl_intel_lp64
+#MKLLIB += -lmkl_sequential
+#MKLLIB += -lmkl_intel_thread
+#MKLLIB += -lmkl_core
+#OPENMP = -openmp
+#FLIB += -mkl $(BLASLIB) -Wl,--start-group $(MKLLIB) -Wl,--end-group  $(OPENMP) -lpthread
+#FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
 
 #
 OBJS = $(OBJDIR)/kind_types.o \
@@ -133,7 +144,8 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/bc_mod.o \
        $(OBJDIR)/triangle.o \
        $(OBJDIR)/flux.o \
-       $(OBJDIR)/parallel.o
+       $(OBJDIR)/parallel.o \
+       $(OBJDIR)/limiters.o
 #
 optimize: FCFLAG += $(OPTIM)
 optimize: all
@@ -240,7 +252,8 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/generic.o \
               $(OBJDIR)/bc_mod.o \
               $(OBJDIR)/flux.o \
-              $(OBJDIR)/parallel.o
+              $(OBJDIR)/parallel.o \
+	      $(OBJDIR)/limiters.o
 $(OBJDIR)/metvar_mod.o : metvar_mod.f90 $(OBJDIR)/kind_types.o
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 $(OBJDIR)/kind_types.o
 $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 $(OBJDIR)/kind_types.o
@@ -360,3 +373,9 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(FUNDIR)/viscosity.f90 \
            $(FUNDIR)/usp2v.f90 \
            $(FUNDIR)/vsp2u.f90
+$(OBJDIR)/limiters.o : limiters.f90 \
+                       kind_types.o \
+		       geovar_mod.o \
+		       ovar_mod.o \
+		       flowvar_mod.o \
+		       parallel.o

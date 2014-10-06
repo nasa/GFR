@@ -15,6 +15,11 @@ module module_kind_types
   !
   !.. Use Statements ..
   use mpi
+#ifdef USE_INTEL_MKL
+  use blas95, only : dot
+#else
+  use rename_intrinsics, only : dot => dot_product
+#endif
   !
   implicit none
   !

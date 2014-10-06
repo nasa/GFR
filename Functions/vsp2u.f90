@@ -39,7 +39,7 @@ continue
   nq = size(vv)
   gm1 = gam - one
   !
-  q2 = dot_product( vv(2:nq-1) , vv(2:nq-1) )
+  q2 = dot( vv(2:nq-1) , vv(2:nq-1) )
   !
   return_value(1) = vv(1)
   return_value(2:nq-1) = vv(1)*vv(2:nq-1)

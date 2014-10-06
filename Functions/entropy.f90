@@ -20,7 +20,7 @@ continue
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot_product( uu(2:nq-1,n) , uu(2:nq-1,n) )
+    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
     pres = gm1 * (uu(nq,n) - half*q2/uu(1,n))
     !
     return_value(n) = log(pres) - gam*log(uu(1,n))
@@ -51,7 +51,7 @@ continue
   nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot_product( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
   pres = gm1 * (uu(nq) - half*q2/uu(1))
   !
   return_value = log(pres) - gam*log(uu(1))

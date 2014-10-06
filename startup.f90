@@ -1474,7 +1474,7 @@ pure function CellVolume1D_DP(nk,np,x,Dr) result(return_value)
 continue
   !
   do i = 1,nk
-    return_value(i) = dot_product(Dr(1,:),x(:,i))
+    return_value(i) = dot(Dr(1,:),x(:,i))
   end do
   !
 end function CellVolume1D_DP

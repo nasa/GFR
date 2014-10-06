@@ -91,7 +91,7 @@ continue
     inv_vand(1:np) = vand_inv(1,1:np,nw)
     !
     do m = 1,neqns
-      cell_ave_sol(m,nc) = half * dot_product( inv_vand(1:np) , usp(m,n1:n2) )
+      cell_ave_sol(m,nc) = half * dot( inv_vand(1:np) , usp(m,n1:n2) )
     end do
     !
   end do
@@ -201,7 +201,7 @@ continue
       !
       do k = 1,nsp
         do m = 1,neqns
-          usp(m,n1-1+k) = dot_product( projct_limiter(1:nsp,k,nw,n) , &
+          usp(m,n1-1+k) = dot( projct_limiter(1:nsp,k,nw,n) , &
                                        tusp(1:nsp,m) )
         end do
       end do

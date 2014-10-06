@@ -12,7 +12,7 @@ continue
   !
   ds = face_center - node
   !
-  return_value = node + 2.0_dp*dot_product(ds,normal)*normal
+  return_value = node + 2.0_dp*dot(ds,normal)*normal
   !
 end function reflect_DP
 !

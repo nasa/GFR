@@ -4007,7 +4007,7 @@ continue
     do k = 1,n_sp1de
       kl = kbl-1 + k
       do n = 1,nr
-        tmp = dot_product(interp_s2f(1:nl,kl,wl),xyz(n,l1:l2))
+        tmp = dot(interp_s2f(1:nl,kl,wl),xyz(n,l1:l2))
         send_buffer(n,k,1,nf) = real(tmp,kind=r8)
       end do
     end do

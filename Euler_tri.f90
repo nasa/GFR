@@ -78,6 +78,8 @@ program Euler_tri
   use parallel_mod, only : partition_grid, &
                            create_serial_cell_map, &
                            test_nonblocking_fexchange
+  use module_limiters, only : initialize_limiters, &
+                              compute_cell_ave
   !
   use iso_c_binding, only : c_long
   !
@@ -258,6 +260,9 @@ continue
   !%%%                                    %%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !
+ !call initialize_limiters
+ !call compute_cell_ave
   !
   main_loop: do iter = 1, num_ts
     !
@@ -566,7 +571,7 @@ continue
     call compute_final_error
   end if
   !
-  if (ncpu == 1) call compute_bc_profiles
+  if (ncpu == 1 .and. fals) call compute_bc_profiles
   !
   if (mypnum == 0) then
     !

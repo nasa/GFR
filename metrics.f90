@@ -1077,7 +1077,7 @@ end function get_quad_weights_at_solpts_QP
 !      !
 !      ! Get the angle between the two outward unit normals
 !      !
-!      theta = acos(dot_product(pnrm,inrm))
+!      theta = acos(dot(pnrm,inrm))
 !      !
 !      ! Translation of the pcell nodes so that ptf is at the origin
 !      !
@@ -2140,7 +2140,7 @@ continue
     !
     ! The angle between the two unit normals
     !
-    theta = acos(dot_product(rnrmg,rnrmp))
+    theta = acos(dot(rnrmg,rnrmp))
     !
     ! Rotate the ghost cell solution points (theta+180) degrees
     ! around the origin (also the boundary face center). After
@@ -2665,10 +2665,10 @@ continue
   do j = 1,size(xy,3)
     do i = 1,size(xy,2)
       !
-      xr = dot_product(Drs(1,i,:),xy(1,:,j)) ! dx/dr
-      xs = dot_product(Drs(2,i,:),xy(1,:,j)) ! dx/ds
-      yr = dot_product(Drs(1,i,:),xy(2,:,j)) ! dy/dr
-      ys = dot_product(Drs(2,i,:),xy(2,:,j)) ! dy/ds
+      xr = dot(Drs(1,i,:),xy(1,:,j)) ! dx/dr
+      xs = dot(Drs(2,i,:),xy(1,:,j)) ! dx/ds
+      yr = dot(Drs(1,i,:),xy(2,:,j)) ! dy/dr
+      ys = dot(Drs(2,i,:),xy(2,:,j)) ! dy/ds
       !
       jacobian = xr*ys - xs*yr
       !
@@ -2701,10 +2701,10 @@ continue
   do j = 1,size(xy,3)
     do i = 1,size(xy,2)
       !
-      xr = dot_product(Drs(i,:,1),xy(1,:,j)) ! dx/dr
-      xs = dot_product(Drs(i,:,2),xy(1,:,j)) ! dx/ds
-      yr = dot_product(Drs(i,:,1),xy(2,:,j)) ! dy/dr
-      ys = dot_product(Drs(i,:,2),xy(2,:,j)) ! dy/ds
+      xr = dot(Drs(i,:,1),xy(1,:,j)) ! dx/dr
+      xs = dot(Drs(i,:,2),xy(1,:,j)) ! dx/ds
+      yr = dot(Drs(i,:,1),xy(2,:,j)) ! dy/dr
+      ys = dot(Drs(i,:,2),xy(2,:,j)) ! dy/ds
       !
       jacobian = xr*ys - xs*yr
       !

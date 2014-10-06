@@ -439,7 +439,7 @@ continue
     !
     ! Compute the interior normal velocity at this flux point
     !
-    vn_int = dot_product( rnrm , hvfp(2:nq-1) )
+    vn_int = dot( rnrm , hvfp(2:nq-1) )
     !
     ! Apply boundary conditions based on the
     ! normal Mach number to the boundary face
@@ -472,14 +472,14 @@ continue
       !
       ! Compute the exterior normal velocity at this flux point
       !
-      vn_ext = dot_product( rnrm , pv_in(2:nq-1) )
+      vn_ext = dot( rnrm , pv_in(2:nq-1) )
       !
      !if (mach_int > zero) then ! this is an inflow boundary
      !  !
      !  rp = vn_ext + two*aspd_ext*gm1_inv
      !  rm = vn_int - two*aspd_int*gm1_inv
      !  unc = half*(rp+rm)
-     !  utc = dot_product( rtan , pv_in(2:nq-1) )
+     !  utc = dot( rtan , pv_in(2:nq-1) )
      !  ac = one4*gm1*(rp-rm)
      !  sc = pv_in(nq)/(pv_in(1)**gam)
      !  !
@@ -488,7 +488,7 @@ continue
      !  rp = -abs(vn_ext) + two*aspd_ext*gm1_inv
      !  rm =      vn_int  - two*aspd_int*gm1_inv
      !  unc = half*(rp+rm)
-     !  utc = dot_product( rtan , hvfp(2:nq-1) )
+     !  utc = dot( rtan , hvfp(2:nq-1) )
      !  ac = one4*gm1*(rp-rm)
      !  sc = hvfp(nq)/(hvfp(1)**gam)
      !  !
@@ -498,12 +498,12 @@ continue
       !
       if (mach_int > zero) then
         rp   = vn_ext
-        utc  = dot_product( rtan , pv_in(2:nq-1) )
+        utc  = dot( rtan , pv_in(2:nq-1) )
         rho  = pv_in(1)
         pres = pv_in(nq)
       else
         rp   = -abs(vn_ext)
-        utc  = dot_product( rtan , hvfp(2:nq-1) )
+        utc  = dot( rtan , hvfp(2:nq-1) )
         rho  = hvfp(1)
         pres = hvfp(nq)
       end if
@@ -594,7 +594,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot_product( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int > -one .and. mach_int <= zero) then
       !
@@ -689,7 +689,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot_product( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int < one .and. mach_int >= zero) then
       !
@@ -791,7 +791,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot_product( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int >= one) then
       !
@@ -1073,7 +1073,7 @@ continue
     !
     ! Compute the normal velocity at this boundary flux point
     !
-    vn = dot_product( hvfp(2:nq-1) , rnrm )
+    vn = dot( hvfp(2:nq-1) , rnrm )
     !
     ! For velocities, subtract (wall_solution_location+one) * (the wall
     ! normal velocity) from the interior velocity to get the wall
@@ -1629,9 +1629,9 @@ continue
         ! to the current flux point on face nf
         !
         do m = 1,neqns
-          cvfp(m) = dot_product( lmat(1:np) , usp(m,n1:n2) )
+          cvfp(m) = dot( lmat(1:np) , usp(m,n1:n2) )
           do l = 1,nr
-            dcvdx(l,m) = dot_product( lmat(1:np) , dusp(l,m,n1:n2) )
+            dcvdx(l,m) = dot( lmat(1:np) , dusp(l,m,n1:n2) )
           end do
         end do
         !
@@ -1665,7 +1665,7 @@ continue
           rex = rhoref * machref * aref * xloc / muref
           utau = sqrt( tauwall / cvfp(1) )
           yplus = cvfp(1) * utau * yloc / visc
-          qdot = -dot_product(dpvdx(1:nr,neqns),unrm(1:nr)) &
+          qdot = -dot(dpvdx(1:nr,neqns),unrm(1:nr)) &
                   * cpref_nd * visc / Pr
           !
           bnd_prof(n)%qty(nr+neqns+3)%qty_data(bndpt) = cfmag

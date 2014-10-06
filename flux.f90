@@ -179,7 +179,7 @@ continue
       lmat(1:np) = interp_mat(1:np,lf,nl)
       !
       do m = 1,neqns
-        faceusp(m,kf,sf,nf) = dot_product(lmat(1:np),tusp(1:np,m))
+        faceusp(m,kf,sf,nf) = dot(lmat(1:np),tusp(1:np,m))
       end do
       !
     end do
@@ -299,7 +299,7 @@ continue
       !
       do m = 1,neqns
         do l = 1,nr
-          facedusp(l,m,kf,sf,nf) = dot_product(lmat(1:np),tdusp(1:np,l,m))
+          facedusp(l,m,kf,sf,nf) = dot(lmat(1:np),tdusp(1:np,l,m))
         end do
       end do
       !
@@ -394,16 +394,16 @@ continue
         ! Get the conservative solution at the quadrature points
         !
         do m = 1,neqns
-          uqp(m,k) = dot_product( interp_s2q(1:nsp,k,nw) , tusp(1:nsp,m) )
+          uqp(m,k) = dot( interp_s2q(1:nsp,k,nw) , tusp(1:nsp,m) )
         end do
         !
         ! Get the metrics for this cell
         !
-        dxdr(k) = dot_product( interp_s2q(1:nsp,k,nw) , dx(n1:n2)%dr )
-        dxds(k) = dot_product( interp_s2q(1:nsp,k,nw) , dx(n1:n2)%ds )
-        dydr(k) = dot_product( interp_s2q(1:nsp,k,nw) , dy(n1:n2)%dr )
-        dyds(k) = dot_product( interp_s2q(1:nsp,k,nw) , dy(n1:n2)%ds )
-        qjac(k) = dot_product( interp_s2q(1:nsp,k,nw) , jacobian(n1:n2) )
+        dxdr(k) = dot( interp_s2q(1:nsp,k,nw) , dx(n1:n2)%dr )
+        dxds(k) = dot( interp_s2q(1:nsp,k,nw) , dx(n1:n2)%ds )
+        dydr(k) = dot( interp_s2q(1:nsp,k,nw) , dy(n1:n2)%dr )
+        dyds(k) = dot( interp_s2q(1:nsp,k,nw) , dy(n1:n2)%ds )
+        qjac(k) = dot( interp_s2q(1:nsp,k,nw) , jacobian(n1:n2) )
         !
       end do
       !
@@ -445,8 +445,8 @@ continue
         do l = 1,nr
           do m = 1,neqns
             do k = 1,nsp
-              xyflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , xyflx_qp(1:nqp,m,l) )
-              rsflx_sp(k,m,l) = dot_product( projct_q2s(1:nqp,k,nw) , rsflx_qp(1:nqp,m,l) )
+              xyflx_sp(k,m,l) = dot( projct_q2s(1:nqp,k,nw) , xyflx_qp(1:nqp,m,l) )
+              rsflx_sp(k,m,l) = dot( projct_q2s(1:nqp,k,nw) , rsflx_qp(1:nqp,m,l) )
             end do
           end do
         end do
@@ -462,8 +462,8 @@ continue
       !
       do m = 1,neqns
         do k = 1,nsp
-          dflx_sp(k,m,1) = dot_product( dr_mat(1:nsp,k,nw) , rsflx_sp(1:nsp,m,1) )
-          dflx_sp(k,m,2) = dot_product( ds_mat(1:nsp,k,nw) , rsflx_sp(1:nsp,m,2) )
+          dflx_sp(k,m,1) = dot( dr_mat(1:nsp,k,nw) , rsflx_sp(1:nsp,m,1) )
+          dflx_sp(k,m,2) = dot( ds_mat(1:nsp,k,nw) , rsflx_sp(1:nsp,m,2) )
         end do
       end do
       !
@@ -492,7 +492,7 @@ continue
         do l = 1,nr
           do m = 1,neqns
             faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
-                                  dot_product(lmat(1:nsp),xyflx_sp(1:nsp,m,l))*unrm(l)
+                                  dot(lmat(1:nsp),xyflx_sp(1:nsp,m,l))*unrm(l)
           end do
         end do
         !
@@ -505,8 +505,8 @@ continue
       !
       do k = 1,nsp
         do m = 1,neqns
-          dflx_sp(k,m,1) = dot_product( dqr_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,1) )
-          dflx_sp(k,m,2) = dot_product( dqs_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,2) )
+          dflx_sp(k,m,1) = dot( dqr_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,1) )
+          dflx_sp(k,m,2) = dot( dqs_LPmat(1:nqp,k,nw) , rsflx_qp(1:nqp,m,2) )
         end do
       end do
       !
@@ -544,7 +544,7 @@ continue
      !  do l = 1,nr
      !    do m = 1,neqns
      !      faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
-     !                            dot_product(lmat(1:nsp),xyflx_qp(1:nsp,m,l))*unrm(l)
+     !                            dot(lmat(1:nsp),xyflx_qp(1:nsp,m,l))*unrm(l)
      !    end do
      !  end do
      !  !
@@ -562,12 +562,12 @@ continue
     !
    !do k = 1,nsp
    !  do m = 1,neqns
-   !   !residual(m,k+n1-1) = dot_product(dr_mat(1:nsp,k,nw),ftdc(1:nsp,m)) - &
-   !   !                     dot_product(ds_mat(1:nsp,k,nw),gtdc(1:nsp,m))
-   !   !residual(m,k+n1-1) = dot_product(dqr_mat(:,k,nw),ftdc(:,m)) - &
-   !   !                     dot_product(dqs_mat(:,k,nw),gtdc(:,m))
-   !    residual(m,k+n1-1) = dot_product(dr_mat(1:nsp,k,nw),dfsp(1:nsp,m)) - &
-   !                         dot_product(ds_mat(1:nsp,k,nw),dgsp(1:nsp,m))
+   !   !residual(m,k+n1-1) = dot(dr_mat(1:nsp,k,nw),ftdc(1:nsp,m)) - &
+   !   !                     dot(ds_mat(1:nsp,k,nw),gtdc(1:nsp,m))
+   !   !residual(m,k+n1-1) = dot(dqr_mat(:,k,nw),ftdc(:,m)) - &
+   !   !                     dot(dqs_mat(:,k,nw),gtdc(:,m))
+   !    residual(m,k+n1-1) = dot(dr_mat(1:nsp,k,nw),dfsp(1:nsp,m)) - &
+   !                         dot(ds_mat(1:nsp,k,nw),dgsp(1:nsp,m))
    !  end do
    !end do
     !
@@ -649,12 +649,12 @@ continue
       do k = 1,nqp
         !
         do m = 1,neqns
-          luqp(m,k) = dot_product( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,1,nf) )
-          ruqp(m,k) = dot_product( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,2,nf) )
+          luqp(m,k) = dot( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,1,nf) )
+          ruqp(m,k) = dot( interp_f2g(1:nsp,k) , faceusp(m,1:nsp,2,nf) )
         end do
         !
         do l = 1,nr
-          rnrm(l,k) = dot_product( interp_f2g(1:nsp,k) , geofa(l,1:nsp,nf) )
+          rnrm(l,k) = dot( interp_f2g(1:nsp,k) , geofa(l,1:nsp,nf) )
         end do
         !
       end do
@@ -730,8 +730,8 @@ continue
         !
         do k = 1,nsp
           do m = 1,neqns
-            fjl(m,k) = dot_product( projct_g2f(1:nqp,k) , lflx(m,1:nqp) )
-            fjr(m,k) = dot_product( projct_g2f(1:nqp,k) , rflx(m,1:nqp) )
+            fjl(m,k) = dot( projct_g2f(1:nqp,k) , lflx(m,1:nqp) )
+            fjr(m,k) = dot( projct_g2f(1:nqp,k) , rflx(m,1:nqp) )
           end do
         end do
         !
@@ -740,7 +740,7 @@ continue
         do k = 1,nsp
           !
           do m = 1,neqns
-            fnc(m) = dot_product( projct_g2f(1:nqp,k) , fncq(m,1:nqp) )
+            fnc(m) = dot( projct_g2f(1:nqp,k) , fncq(m,1:nqp) )
           end do
           !
           fjl(:,k) = fnc(:) - lflx(:,k)
@@ -957,8 +957,8 @@ continue
     !
     do m = 1,nq
       do k = 1,np
-        residual(m,k+n1-1) = dot_product( dr_mat(1:np,k,nw) , rsflx(1:np,m,1) ) + &
-                             dot_product( ds_mat(1:np,k,nw) , rsflx(1:np,m,2) )
+        residual(m,k+n1-1) = dot( dr_mat(1:np,k,nw) , rsflx(1:np,m,1) ) + &
+                             dot( ds_mat(1:np,k,nw) , rsflx(1:np,m,2) )
       end do
     end do
     !
@@ -987,7 +987,7 @@ continue
       do l = 1,nr
         do m = 1,nq
           faceflx(m,kf,sf,nf) = faceflx(m,kf,sf,nf) + &
-                                dot_product(lmat(1:np),xyflx(1:np,m,l))*unrm(l)
+                                dot(lmat(1:np),xyflx(1:np,m,l))*unrm(l)
         end do
       end do
       !
@@ -1409,7 +1409,7 @@ continue
       ! from the left cells to the current flux point on the interface
       !
       do m = 1,neqns
-        ul(m) = dot_product(interp_s2f(1:nl,kcorl,wl),usp(m,l1:l2)) ! left  state
+        ul(m) = dot(interp_s2f(1:nl,kcorl,wl),usp(m,l1:l2)) ! left  state
       end do
       !
       ! Now get the information at flux point on the right side
@@ -1428,7 +1428,7 @@ continue
         ! cell to the current flux point on the interface.
         !
         do m = 1,neqns
-          ur(m)  = dot_product(interp_s2f(1:nr,kcorr,wr), rusp(1:nr,m)) ! right solution
+          ur(m)  = dot(interp_s2f(1:nr,kcorr,wr), rusp(1:nr,m)) ! right solution
         end do
         !
       end if
@@ -1602,8 +1602,8 @@ continue
       ! the left and right cells to the current flux point on the interface
       !
       do m = 1,neqns
-        vl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),pvl(l1:l2,m)) ! left  state
-        vr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),pvr(r1:r2,m)) ! right state
+        vl(m) = dot(interp_s2f(1:nl,kcorl,wl),pvl(l1:l2,m)) ! left  state
+        vr(m) = dot(interp_s2f(1:nr,kcorr,wr),pvr(r1:r2,m)) ! right state
       end do
       !
       ! Get the numerical flux at the current flux point
@@ -1782,9 +1782,9 @@ continue
       ! left cell to the current flux point on the interface
       !
       do m = 1,neqns
-        ul(m)  = dot_product(interp_s2f(1:nl,kcorl,wl), lusp(1:nl,m)) ! left solution
-        dfl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m)) ! left f flux
-        dgl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m)) ! left g flux
+        ul(m)  = dot(interp_s2f(1:nl,kcorl,wl), lusp(1:nl,m)) ! left solution
+        dfl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m)) ! left f flux
+        dgl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m)) ! left g flux
       end do
       !
       ! Now get the information at flux point on the right side
@@ -1814,9 +1814,9 @@ continue
         ! cell to the current flux point on the interface.
         !
         do m = 1,neqns
-          ur(m)  = dot_product(interp_s2f(1:nr,kcorr,wr), rusp(1:nr,m)) ! right solution
-          dfr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m)) ! right f flux
-          dgr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m)) ! right g flux
+          ur(m)  = dot(interp_s2f(1:nr,kcorr,wr), rusp(1:nr,m)) ! right solution
+          dfr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m)) ! right f flux
+          dgr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m)) ! right g flux
         end do
         !
       end if
@@ -1926,8 +1926,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        residual(m,k+n1-1) = dot_product(dr_mat(1:np,k,nw),ftdc(1:np,m)) - &
-                             dot_product(ds_mat(1:np,k,nw),gtdc(1:np,m))
+        residual(m,k+n1-1) = dot(dr_mat(1:np,k,nw),ftdc(1:np,m)) - &
+                             dot(ds_mat(1:np,k,nw),gtdc(1:np,m))
       end do
     end do
     !
@@ -1985,8 +1985,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        ucr(m,k) = dot_product( dr_mat(1:np,k,nw) , tusp(1:np,m) )
-        ucs(m,k) = dot_product( ds_mat(1:np,k,nw) , tusp(1:np,m) )
+        ucr(m,k) = dot( dr_mat(1:np,k,nw) , tusp(1:np,m) )
+        ucs(m,k) = dot( ds_mat(1:np,k,nw) , tusp(1:np,m) )
       end do
     end do
    !!
@@ -2013,8 +2013,8 @@ continue
       ! Use the chain rule and add to the residual
       !
       do m = 1,neqns
-        residual(m,k) = dot_product(ucr(:,ip),c_f(:,m)) - &
-                        dot_product(ucs(:,ip),c_g(:,m))
+        residual(m,k) = dot(ucr(:,ip),c_f(:,m)) - &
+                        dot(ucs(:,ip),c_g(:,m))
       end do
    !  !
    !  ! From ZJ, to ensure conservation with chain-rule approach
@@ -2086,8 +2086,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        ujar(m,k) = dot_product( dr_mat(1:np,k,nw) , uja(1:np,m) )
-        ujas(m,k) = dot_product( ds_mat(1:np,k,nw) , uja(1:np,m) )
+        ujar(m,k) = dot( dr_mat(1:np,k,nw) , uja(1:np,m) )
+        ujas(m,k) = dot( ds_mat(1:np,k,nw) , uja(1:np,m) )
       end do
     end do
     !
@@ -2121,8 +2121,8 @@ continue
       ! Use the chain rule and add to the residual
       !
       do m = 1,neqns
-        residual(m,k) = dot_product(ucr(:,ip), c_f(:,m)) - &
-                        dot_product(ucs(:,ip), c_g(:,m))
+        residual(m,k) = dot(ucr(:,ip), c_f(:,m)) - &
+                        dot(ucs(:,ip), c_g(:,m))
       end do
       !
     end do
@@ -2204,8 +2204,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        residual(m,k+n1-1) = dot_product(dr_mat(1:np,k,nw),ftdc(1:np,m)) - &
-                             dot_product(ds_mat(1:np,k,nw),gtdc(1:np,m))
+        residual(m,k+n1-1) = dot(dr_mat(1:np,k,nw),ftdc(1:np,m)) - &
+                             dot(ds_mat(1:np,k,nw),gtdc(1:np,m))
       end do
     end do
     !
@@ -2277,8 +2277,8 @@ continue
       ! in order to compute the numerical flux at the current flux point
       !
       do m = 1,neqns
-        ul(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
-        ur(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
+        ul(m) = dot(interp_s2f(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
+        ur(m) = dot(interp_s2f(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
       end do
       !
       ! Get the numerical flux at the current flux point
@@ -2294,10 +2294,10 @@ continue
       ! Get left and right discontinuous fluxes at the current flux point
       !
       do m = 1,neqns
-        dfl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m))
-        dgl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m))
-        dfr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m))
-        dgr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m))
+        dfl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m))
+        dgl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m))
+        dfr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m))
+        dgr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m))
       end do
       !
       ! Get the discontinuous flux function at the current
@@ -2406,16 +2406,16 @@ continue
       ! Get the conservative solution at the quadrature points
       !
       do m = 1,neqns
-        uqp(m,k) = dot_product( interp_s2q(1:np,k,nw) , usp(m,n1:n2) )
+        uqp(m,k) = dot( interp_s2q(1:np,k,nw) , usp(m,n1:n2) )
       end do
       !
       ! Get the metrics for this cell
       !
-      dxdr(k) = dot_product( interp_s2q(1:np,k,nw) , dx(n1:n2)%dr )
-      dxds(k) = dot_product( interp_s2q(1:np,k,nw) , dx(n1:n2)%ds )
-      dydr(k) = dot_product( interp_s2q(1:np,k,nw) , dy(n1:n2)%dr )
-      dyds(k) = dot_product( interp_s2q(1:np,k,nw) , dy(n1:n2)%ds )
-      qjac(k) = dot_product( interp_s2q(1:np,k,nw) , jacobian(n1:n2) )
+      dxdr(k) = dot( interp_s2q(1:np,k,nw) , dx(n1:n2)%dr )
+      dxds(k) = dot( interp_s2q(1:np,k,nw) , dx(n1:n2)%ds )
+      dydr(k) = dot( interp_s2q(1:np,k,nw) , dy(n1:n2)%dr )
+      dyds(k) = dot( interp_s2q(1:np,k,nw) , dy(n1:n2)%ds )
+      qjac(k) = dot( interp_s2q(1:np,k,nw) , jacobian(n1:n2) )
       !
     end do
     !
@@ -2443,8 +2443,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        residual(m,k+n1-1) = dot_product(dqr_mat(:,k,nw),ftdc(:,m)) - &
-                             dot_product(dqs_mat(:,k,nw),gtdc(:,m))
+        residual(m,k+n1-1) = dot(dqr_mat(:,k,nw),ftdc(:,m)) - &
+                             dot(dqs_mat(:,k,nw),gtdc(:,m))
       end do
     end do
     !
@@ -2495,7 +2495,7 @@ continue
     !
     do k = 1,n_qp1de
       do n = 1,2
-        facenorms(n,k) = dot_product( interp_f2g(1:nsp,k) , geofa(n,1:nsp,nf) )
+        facenorms(n,k) = dot( interp_f2g(1:nsp,k) , geofa(n,1:nsp,nf) )
       end do
     end do
     !
@@ -2523,10 +2523,10 @@ continue
       ! in order to compute the numerical flux at the current flux point
       !
       do m = 1,neqns
-       !ul(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
-        ul(m) = dot_product(interp_s2g(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
-       !ur(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
-        ur(m) = dot_product(interp_s2g(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
+       !ul(m) = dot(interp_s2f(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
+        ul(m) = dot(interp_s2g(1:nl,kcorl,wl),lusp(1:nl,m)) ! left  state
+       !ur(m) = dot(interp_s2f(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
+        ur(m) = dot(interp_s2g(1:nr,kcorr,wr),rusp(1:nr,m)) ! right state
       end do
       !
       ! Get the numerical flux at the current flux point
@@ -2542,14 +2542,14 @@ continue
       ! Get left and right discontinuous fluxes at the current flux point
       !
       do m = 1,neqns
-       !dfl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m))
-        dfl(m) = dot_product(interp_s2g(1:nl,kcorl,wl),lflxf(1:nl,m))
-       !dgl(m) = dot_product(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m))
-        dgl(m) = dot_product(interp_s2g(1:nl,kcorl,wl),lflxg(1:nl,m))
-       !dfr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m))
-        dfr(m) = dot_product(interp_s2g(1:nr,kcorr,wr),rflxf(1:nr,m))
-       !dgr(m) = dot_product(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m))
-        dgr(m) = dot_product(interp_s2g(1:nr,kcorr,wr),rflxg(1:nr,m))
+       !dfl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxf(1:nl,m))
+        dfl(m) = dot(interp_s2g(1:nl,kcorl,wl),lflxf(1:nl,m))
+       !dgl(m) = dot(interp_s2f(1:nl,kcorl,wl),lflxg(1:nl,m))
+        dgl(m) = dot(interp_s2g(1:nl,kcorl,wl),lflxg(1:nl,m))
+       !dfr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxf(1:nr,m))
+        dfr(m) = dot(interp_s2g(1:nr,kcorr,wr),rflxf(1:nr,m))
+       !dgr(m) = dot(interp_s2f(1:nr,kcorr,wr),rflxg(1:nr,m))
+        dgr(m) = dot(interp_s2g(1:nr,kcorr,wr),rflxg(1:nr,m))
       end do
       !
       ! Get the discontinuous flux function at the current
@@ -2652,8 +2652,8 @@ continue
     !
     do k = 1,np
       do m = 1,neqns
-        residual(m,k+n1-1) = dot_product(dr_hat(1:np,k,nw),ftdc(1:np,m)) - &
-                             dot_product(ds_hat(1:np,k,nw),gtdc(1:np,m))
+        residual(m,k+n1-1) = dot(dr_hat(1:np,k,nw),ftdc(1:np,m)) - &
+                             dot(ds_hat(1:np,k,nw),gtdc(1:np,m))
       end do
     end do
     !
@@ -2711,8 +2711,8 @@ continue
       ! the left and right cells to the current flux point on the interface
       !
       do m = 1,neqns
-        ul(m) = dot_product(interp_s2f(1:nl,kcorl,wl),usp(m,l1:l2)) ! left  state
-        ur(m) = dot_product(interp_s2f(1:nr,kcorr,wr),usp(m,r1:r2)) ! right state
+        ul(m) = dot(interp_s2f(1:nl,kcorl,wl),usp(m,l1:l2)) ! left  state
+        ur(m) = dot(interp_s2f(1:nr,kcorr,wr),usp(m,r1:r2)) ! right state
       end do
       !
       ! Get the numerical flux at the current flux point
@@ -2824,14 +2824,14 @@ continue
   return_value( 1,1) = zero
   return_value( 2,1) = mvsc * two3 * (two*dudx - dvdy)
   return_value( 3,1) = mvsc * (dudy + dvdx)
-  return_value(nq,1) = mcdt*dTdx + dot_product( vel , return_value(vb:ve,1) )
+  return_value(nq,1) = mcdt*dTdx + dot( vel , return_value(vb:ve,1) )
   !
   ! y-directional viscous fluxes
   !
   return_value( 1,2) = zero
   return_value( 2,2) = mvsc * (dudy + dvdx)
   return_value( 3,2) = mvsc * two3 * (two*dvdy - dudx)
-  return_value(nq,2) = mcdt*dTdy + dot_product( vel , return_value(vb:ve,2) )
+  return_value(nq,2) = mcdt*dTdy + dot( vel , return_value(vb:ve,2) )
   !
 end function visc_flx_cv
 !
@@ -2945,14 +2945,14 @@ continue
   xflx( 1) = zero
   xflx( 2) = mvsc * two3 * (two*dudx - dvdy)
   xflx( 3) = mvsc * (dudy + dvdx)
-  xflx(nq) = mcdt*dTdx + dot_product( vel , xflx(vb:ve) )
+  xflx(nq) = mcdt*dTdx + dot( vel , xflx(vb:ve) )
   !
   ! y-directional viscous fluxes
   !
   yflx( 1) = zero
   yflx( 2) = mvsc * (dudy + dvdx)
   yflx( 3) = mvsc * two3 * (two*dvdy - dudx)
-  yflx(nq) = mcdt*dTdy + dot_product( vel , yflx(vb:ve) )
+  yflx(nq) = mcdt*dTdy + dot( vel , yflx(vb:ve) )
   !
   return_value(1:nq) = xflx(1:nq)*unrm(1) + yflx(1:nq)*unrm(2)
   !
@@ -3010,7 +3010,7 @@ continue
     !
     do m = 1,neqns
       !
-      vjump = dot_product( unrm(1:nr) , lvflx(m,1:nr)-rvflx(m,1:nr) )
+      vjump = dot( unrm(1:nr) , lvflx(m,1:nr)-rvflx(m,1:nr) )
       !
       do l = 1,nr
         vflux(l,m) = vflux(l,m) + LDG_beta(l)*vjump
@@ -3031,7 +3031,7 @@ continue
     ! Finally, dot the common viscous flux vector with the face unit normal
     !
     do m = 1,neqns
-      return_value(m) = dot_product( vflux(1:nr,m) , unrm(1:nr) )
+      return_value(m) = dot( vflux(1:nr,m) , unrm(1:nr) )
     end do
     !
   else if (visc_variables_to_ave == visc_solution_and_gradients) then
@@ -3057,7 +3057,7 @@ continue
     !
     do m = 1,neqns
       !
-      qjump = dot_product( unrm(1:nr) , duldx(1:nr,m)-durdx(1:nr,m) )
+      qjump = dot( unrm(1:nr) , duldx(1:nr,m)-durdx(1:nr,m) )
       !
       do l = 1,nr
         qcom(l,m) = qcom(l,m) + LDG_beta(l)*qjump
@@ -3083,7 +3083,7 @@ continue
     ! Finally, dot the common viscous flux vector with the face unit normal
     !
     do m = 1,neqns
-      return_value(m) = dot_product( fvcom(m,1:nr) , unrm(1:nr) )
+      return_value(m) = dot( fvcom(m,1:nr) , unrm(1:nr) )
     end do
     !
   end if
@@ -3163,8 +3163,8 @@ continue
         !
         ! Compute the derivatives in r-s space
         !
-        dudr = dot_product( dr_mat(1:np,k,nw) , tusp(1:np,m) )
-        duds = dot_product( ds_mat(1:np,k,nw) , tusp(1:np,m) )
+        dudr = dot( dr_mat(1:np,k,nw) , tusp(1:np,m) )
+        duds = dot( ds_mat(1:np,k,nw) , tusp(1:np,m) )
         !
         ! Transform the derivatives back to x-y space
         !
@@ -3240,7 +3240,7 @@ continue
     !
     ! Use the LDG flux formulation for computing the common interface solutions
     !   u_com = half*(u_left + u_right) - &
-    !                (u_left - u_right)*dot_product(LDG_beta,unit_normal)
+    !                (u_left - u_right)*dot(LDG_beta,unit_normal)
     !
     do k = 1,nsp
       !
@@ -3264,7 +3264,7 @@ continue
       !       treated the same as an interior face except that we dont
       !       need to worry about correcting the right cell.
       !
-      cbias = dot_product( LDG_beta(1:nr) , unrm(1:nr) )
+      cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
       !
       ! Reset cbias if this is a wall boundary
       !
@@ -3346,7 +3346,7 @@ continue
     !
     ! Use the LDG flux formulation for computing the common interface solutions
     !   u_com = half*(u_left + u_right) - &
-    !                (u_left - u_right)*dot_product(LDG_beta,unit_normal)
+    !                (u_left - u_right)*dot(LDG_beta,unit_normal)
     !
     do k = 1,nsp
       !
@@ -3368,7 +3368,7 @@ continue
       !
       ! Compute the LDG directional parameters
       !
-      cbias = dot_product( LDG_beta(1:nr) , unrm(1:nr) )
+      cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
       !
       hfpb = half + cbias
       hfmb = half - cbias
@@ -3523,7 +3523,7 @@ continue
         !       For wall boundaries, jump_left should reduce to:
         !         jump_left = (u_right - u_left) where u_right = u_wall
         !
-        cbias = dot_product( LDG_beta(1:nr) , unrm(1:nr) )
+        cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
         !
         ! Reset cbias if this is a wall boundary
         !
@@ -3569,7 +3569,7 @@ continue
         !
         do m = 1,neqns
           do l = 1,nr
-            facedusp(l,m,kf,sf,nf) = dot_product(lmat(1:np),face_dusp(1:np,l,m))
+            facedusp(l,m,kf,sf,nf) = dot(lmat(1:np),face_dusp(1:np,l,m))
           end do
         end do
         !

@@ -40,7 +40,7 @@ continue
   !
   ! Compute the normal velocity
   !
-  vnrm = dot_product( vel , unrm )
+  vnrm = dot( vel , unrm )
   !
   ! Compute the reciprocal of the streamwise/tangent velocity
   ! NOTE: For a given vector incident to a face, a right triangle can
@@ -70,12 +70,12 @@ continue
   ! Compute the directional derivatives of the streamwise velocity
   !
   do l = 1,nr
-    dvtdx(l) = vtan_inv * dot_product( dpvdx(l,1:nr) , vcoef(1:nr) )
+    dvtdx(l) = vtan_inv * dot( dpvdx(l,1:nr) , vcoef(1:nr) )
   end do
   !
   ! Finally get the normal of the streamwise velocity gradient
   !
-  return_value = dot_product( dvtdx , unrm )
+  return_value = dot( dvtdx , unrm )
   !
 end function normal_streamwise_velocity_gradient_cv
 !
@@ -117,7 +117,7 @@ continue
   !
   ! Compute the normal velocity
   !
-  vnrm = dot_product( pv(vb:ve) , unrm )
+  vnrm = dot( pv(vb:ve) , unrm )
   !
   ! Compute the reciprocal of the streamwise/tangent velocity
   ! NOTE: For a given vector incident to a face, a right triangle can
@@ -138,12 +138,12 @@ continue
   ! Compute the directional derivatives of the streamwise velocity
   !
   do l = 1,nr
-    dvtdx(l) = vtan_inv * dot_product( dpvdx(l,vb:ve) , vcoef(1:nr) )
+    dvtdx(l) = vtan_inv * dot( dpvdx(l,vb:ve) , vcoef(1:nr) )
   end do
   !
   ! Finally get the normal of the streamwise velocity gradient
   !
-  return_value = dot_product( dvtdx , unrm )
+  return_value = dot( dvtdx , unrm )
   !
 end function normal_streamwise_velocity_gradient_pv
 !
