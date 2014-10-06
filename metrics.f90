@@ -48,10 +48,10 @@ contains
 !
 pure function get_solution_points_1d(xi,xnodes) result(return_value)
   !
-  real(vbp), dimension(:), intent(in) :: xi
-  real(vbp), dimension(:), intent(in) :: xnodes
+  real(wp), dimension(:), intent(in) :: xi
+  real(wp), dimension(:), intent(in) :: xnodes
   !
-  real(vbp), dimension(size(xi),size(xnodes)-1) :: return_value
+  real(wp), dimension(size(xi),size(xnodes)-1) :: return_value
   !
   integer :: np,nc,i,j
   !
@@ -439,13 +439,13 @@ end subroutine get_solution_points_2d
 !
 pure function get_solution_points_tria(rs,xy) result(return_value)
   !
-  real(vbp), dimension(:,:), intent(in) :: rs
-  real(vbp), dimension(:,:), intent(in) :: xy
+  real(wp), dimension(:,:), intent(in) :: rs
+  real(wp), dimension(:,:), intent(in) :: xy
   !
-  real(vbp), dimension(1:size(rs,1),1:size(rs,2)) :: return_value
+  real(wp), dimension(1:size(rs,1),1:size(rs,2)) :: return_value
   !
   integer   :: i
-  real(vbp) :: r,s
+  real(wp) :: r,s
   !
 continue
   !
@@ -466,13 +466,13 @@ end function get_solution_points_tria
 !
 pure function get_solution_points_quad(xi,xy) result(return_value)
   !
-  real(vbp), dimension(:),   intent(in) :: xi
-  real(vbp), dimension(:,:), intent(in) :: xy
+  real(wp), dimension(:),   intent(in) :: xi
+  real(wp), dimension(:,:), intent(in) :: xy
   !
-  real(vbp), dimension(1:size(xy,1),1:size(xi)**2) :: return_value
+  real(wp), dimension(1:size(xy,1),1:size(xi)**2) :: return_value
   !
   integer   :: i,j,l
-  real(vbp) :: etam1,etap1,xim1,xip1
+  real(wp) :: etam1,etap1,xim1,xip1
   !
 continue
   !
@@ -802,16 +802,16 @@ end function get_quad_weights_at_solpts_QP
 !  integer   :: gcell,icell,igeom,inode,iside
 !  integer   :: pf,pcell,p1,p2,pgeom,pside
 !  integer   :: np1,np2,ni1,ni2,ierr
-!  real(vbp) :: theta
+!  real(wp) :: theta
 !  !
 !  !.. Local Arrays ..
-!  real(vbp), dimension(1:nr)     :: ptf,rnrm,ds
-!  real(vbp), dimension(1:nr)     :: ds1,ds2,pnrm,inrm
-!  real(vbp), dimension(1:nr,1:4) :: xyp
+!  real(wp), dimension(1:nr)     :: ptf,rnrm,ds
+!  real(wp), dimension(1:nr)     :: ds1,ds2,pnrm,inrm
+!  real(wp), dimension(1:nr,1:4) :: xyp
 !  !
 !  !.. Local Allocatable Arrays ..
 !  integer,   allocatable, dimension(:)   :: tmp_int
-!  real(vbp), allocatable, dimension(:,:) :: tmp_real
+!  real(wp), allocatable, dimension(:,:) :: tmp_real
 !  !
 !  integer, parameter :: rotation = 0
 !  !
@@ -1467,7 +1467,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   integer :: n,n1,n2,nf,ierr
   integer :: i,ic,ifa,ip1,ip2,ip3,jc
   !
-  real(vbp) :: x1,y1,x2,y2,dl,unx,uny,x13,y13,dot
+  real(wp) :: x1,y1,x2,y2,dl,unx,uny,x13,y13,dot
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: lnode
@@ -1786,7 +1786,7 @@ subroutine find_points_on_each_face()
   integer :: kp,n1,n2,nf,p1,p2
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2) :: dxy,xyfp,xykp
+  real(wp), dimension(1:2) :: dxy,xyfp,xykp
   !
 continue
   !
@@ -2042,12 +2042,12 @@ subroutine get_periodic_connectivity()
   !.. Local Scalars ..
   integer   :: g1,g2,gc,nf,kg,gbeg,ierr
   integer   :: p1,p2,pc,pf,kp,kpts
-  real(vbp) :: theta
+  real(wp) :: theta
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr) :: rgfc,rnrmg
-  real(vbp), dimension(1:nr) :: rpfc,rnrmp
-  real(vbp), dimension(1:nr,1:n_sp2dq) :: xyg,xyp
+  real(wp), dimension(1:nr) :: rgfc,rnrmg
+  real(wp), dimension(1:nr) :: rpfc,rnrmp
+  real(wp), dimension(1:nr,1:n_sp2dq) :: xyg,xyp
   !
 continue
   !
@@ -2274,19 +2274,19 @@ subroutine get_metrics()
   !.. Local Scalars ..
   integer   :: i,j,k,l,ierr
   integer   :: n1,n2,nf,np,p1,p2
-  real(vbp) :: tvol
+  real(wp) :: tvol
   real(r8)  :: loc_vol,tot_vol
   real(wp) :: val
  !real(wp)  :: dxdr,dxds,dydr,dyds
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:2,1:4) :: xy
- !real(vbp), dimension(1:n_qp2dq) :: qdtr_jac
- !real(vbp), dimension(1:n_qp2dq) :: qdtr_wts
- !real(vbp), dimension(1:n_qp2dq) :: dxdr
- !real(vbp), dimension(1:n_qp2dq) :: dxds
- !real(vbp), dimension(1:n_qp2dq) :: dydr
- !real(vbp), dimension(1:n_qp2dq) :: dyds
+  real(wp), dimension(1:2,1:4) :: xy
+ !real(wp), dimension(1:n_qp2dq) :: qdtr_jac
+ !real(wp), dimension(1:n_qp2dq) :: qdtr_wts
+ !real(wp), dimension(1:n_qp2dq) :: dxdr
+ !real(wp), dimension(1:n_qp2dq) :: dxds
+ !real(wp), dimension(1:n_qp2dq) :: dydr
+ !real(wp), dimension(1:n_qp2dq) :: dyds
   !
 continue
   !
@@ -2614,8 +2614,8 @@ continue
                        mpi_sum,mpi_comm_world,mpierr)
   end if
   !
-  total_volume = real(tot_vol,vbp)
-  local_volume = real(loc_vol,vbp)
+  total_volume = real(tot_vol,kind=wp)
+  local_volume = real(loc_vol,kind=wp)
   !
  !tot_vol = 1.0e-7_wp
  !do
@@ -2650,15 +2650,15 @@ end subroutine get_metrics
 !
 pure function GeometricFactors2D(xy,Drs) result(return_value)
   !
-  real(vbp), dimension(:,:,:), intent(in) :: xy
-  real(vbp), dimension(:,:,:), intent(in) :: Drs
+  real(wp), dimension(:,:,:), intent(in) :: xy
+  real(wp), dimension(:,:,:), intent(in) :: Drs
   !
-  real(vbp), dimension(1:2,1:2,1:size(xy,2),1:size(xy,3)) :: return_value
+  real(wp), dimension(1:2,1:2,1:size(xy,2),1:size(xy,3)) :: return_value
   !
   !.. Local Scalars ..
   integer   :: i,j
-  real(vbp) :: xr,xs,yr,ys
-  real(vbp) :: jacobian
+  real(wp) :: xr,xs,yr,ys
+  real(wp) :: jacobian
   !
 continue
   !
@@ -2686,15 +2686,15 @@ end function GeometricFactors2D
 !
 pure function FaceNormals2D(xy,Drs) result(return_value)
   !
-  real(vbp), dimension(:,:,:), intent(in) :: xy
-  real(vbp), dimension(:,:,:), intent(in) :: Drs
+  real(wp), dimension(:,:,:), intent(in) :: xy
+  real(wp), dimension(:,:,:), intent(in) :: Drs
   !
-  real(vbp), dimension(1:2,1:np2nfp(size(xy,2)),1:size(xy,3)) :: return_value
+  real(wp), dimension(1:2,1:np2nfp(size(xy,2)),1:size(xy,3)) :: return_value
   !
   !.. Local Scalars ..
   integer   :: i,j
-  real(vbp) :: xr,xs,yr,ys
-  real(vbp) :: jacobian
+  real(wp) :: xr,xs,yr,ys
+  real(wp) :: jacobian
   !
 continue
   !

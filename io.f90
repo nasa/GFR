@@ -64,9 +64,9 @@ module io_mod
                                                   "RK4-SSP    ","RK4-CK     "]
   character(len=3), parameter :: char_init(-1:2) = ["iRa","iSP","iGa","iLo"]
   !
-#ifdef DCGNS_ADF
+#ifdef CGNS_ADF
   integer, parameter :: file_type = CG_FILE_ADF
-#elif DCGNS_ADF2
+#elif CGNS_ADF2
   integer, parameter :: file_type = CG_FILE_ADF2
 #else
   integer, parameter :: file_type = CG_FILE_HDF5
@@ -112,8 +112,8 @@ module io_mod
   integer, save :: cgnsnodalzone_counter
   integer, save :: cgnsmodalzone_counter
   !
-  real(vhp),         save, allocatable, dimension(:) :: soltime
-  real(vhp),         save, allocatable, dimension(:) :: modtime
+  real(sp),         save, allocatable, dimension(:) :: soltime
+  real(sp),         save, allocatable, dimension(:) :: modtime
   character(len=32), save, allocatable, dimension(:) :: solname
   character(len=32), save, allocatable, dimension(:) :: modname
   !
@@ -230,9 +230,9 @@ subroutine read_nml_input_file
   !.. Local Scalars ..
   integer   :: it1,it2,ierr,ival
   integer   :: Period_Timesteps_X,Period_Timesteps_Y
-  real(vbp) :: Period_Time_X,Period_Time_Y
-  real(vbp) :: real_Total_Periods
-  real(vbp) :: aoa_radians,pres_check
+  real(wp) :: Period_Time_X,Period_Time_Y
+  real(wp) :: real_Total_Periods
+  real(wp) :: aoa_radians,pres_check
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -387,7 +387,7 @@ continue
   !
   ! Compute the filter cutoff level
   !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,vbp) )
+  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,kind=wp) )
   !
   ! Make sure the output order is greater than or
   ! equal to the solution order if it is positive
@@ -431,17 +431,17 @@ continue
     ! y-direction only instead of in both x and y directions
     !
     if (itestcase == -Shu_Vortex) then
-      aoaref = 90.0_vbp
+      aoaref = 90.0_wp
       vxref = zero
       vyref = zero
       itestcase = abs(itestcase)
     else if (itestcase == -Vortex_Transport) then
-      aoaref = 90.0_vbp
+      aoaref = 90.0_wp
       vxref = zero
       vyref = one
       itestcase = Shu_Vortex
     else
-      aoaref = 45.0_vbp
+      aoaref = 45.0_wp
       vxref = one
       vyref = one
     end if
@@ -512,18 +512,18 @@ continue
       !
     end if
     !
-    Period_Time = dt_in*real(Period_Timesteps,vbp)
+    Period_Time = dt_in*real(Period_Timesteps,kind=wp)
     !
     ! If Final_Time is negative, it is giving the total
     ! number of periods that the simulation will run
     !
     if (Final_Time < zero) then
       Total_Periods = nint( abs(Final_Time) )
-      Final_Time = Period_Time * real(Total_Periods,vbp)
+      Final_Time = Period_Time * real(Total_Periods,kind=wp)
     else
       real_Total_Periods = Final_Time*reciprocal(Period_Time)
       Total_Periods = nint(real_Total_Periods)
-      if (abs(real_Total_Periods-real(Total_Periods,vbp)) > ten*eps6) then
+      if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
         if (mypnum == 0) write (iout,2) real_Total_Periods
       end if
     end if
@@ -733,9 +733,9 @@ subroutine read_old_input_file
   !.. Local Scalars ..
   integer   :: it1,it2,ierr,ival
   integer   :: Period_Timesteps_X,Period_Timesteps_Y
-  real(vbp) :: Period_Time_X,Period_Time_Y
-  real(vbp) :: real_Total_Periods
-  real(vbp) :: aoa_radians,pres_check
+  real(wp) :: Period_Time_X,Period_Time_Y
+  real(wp) :: real_Total_Periods
+  real(wp) :: aoa_radians,pres_check
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -872,7 +872,7 @@ continue
   read (inpt,1) input_text(7)
   read (inpt,*) Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
   !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,vbp) )
+  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,kind=wp) )
   !
   ! Read the output options and intervals
   !
@@ -945,17 +945,17 @@ continue
     ! y-direction only instead of in both x and y directions
     !
     if (itestcase == -Shu_Vortex) then
-      aoaref = 90.0_vbp
+      aoaref = 90.0_wp
       vxref = zero
       vyref = zero
       itestcase = abs(itestcase)
     else if (itestcase == -Vortex_Transport) then
-      aoaref = 90.0_vbp
+      aoaref = 90.0_wp
       vxref = zero
       vyref = one
       itestcase = Shu_Vortex
     else
-      aoaref = 45.0_vbp
+      aoaref = 45.0_wp
       vxref = one
       vyref = one
     end if
@@ -1026,18 +1026,18 @@ continue
       !
     end if
     !
-    Period_Time = dt_in*real(Period_Timesteps,vbp)
+    Period_Time = dt_in*real(Period_Timesteps,kind=wp)
     !
     ! If Final_Time is negative, it is giving the total
     ! number of periods that the simulation will run
     !
     if (Final_Time < zero) then
       Total_Periods = nint( abs(Final_Time) )
-      Final_Time = Period_Time * real(Total_Periods,vbp)
+      Final_Time = Period_Time * real(Total_Periods,kind=wp)
     else
       real_Total_Periods = Final_Time*reciprocal(Period_Time)
       Total_Periods = nint(real_Total_Periods)
-      if (abs(real_Total_Periods-real(Total_Periods,vbp)) > ten*eps6) then
+      if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
         if (mypnum == 0) write (iout,2) real_Total_Periods
       end if
     end if
@@ -1709,11 +1709,11 @@ subroutine read_patran_neutral_gridfile
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: edge,c_vtemp
-  real(vbp), allocatable, dimension(:)   :: x,y,area_
+  real(wp), allocatable, dimension(:)   :: x,y,area_
   !
   !.. Local Scalars ..
   integer   :: ndum,i,k,ierr
-  real(vbp) :: rdum
+  real(wp) :: rdum
   !
 continue
   !
@@ -1881,7 +1881,7 @@ subroutine check_node_ordering()
   !
   !.. Local Scalars ..
   integer   :: i,n,nf,n1,n2,ip1,ip2,ip3,ip4
-  real(vbp) :: x31,y31,x42,y42,ss
+  real(wp) :: x31,y31,x42,y42,ss
   !
 continue
   !
@@ -2009,17 +2009,17 @@ subroutine adjust_for_ghost_cells()
   integer   :: pf,pcell,p1,p2,pgeom,pside
   integer   :: np1,np2,ni1,ni2,ierr
   integer   :: Period_Timesteps_X,Period_Timesteps_Y
-  real(vbp) :: Period_Time_X,Period_Time_Y
-  real(vbp) :: theta,real_Total_Periods
+  real(wp) :: Period_Time_X,Period_Time_Y
+  real(wp) :: theta,real_Total_Periods
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:nr)     :: ptf,rnrm,ds
-  real(vbp), dimension(1:nr)     :: ds1,ds2,pnrm,inrm
-  real(vbp), dimension(1:nr,1:4) :: xyp
+  real(wp), dimension(1:nr)     :: ptf,rnrm,ds
+  real(wp), dimension(1:nr)     :: ds1,ds2,pnrm,inrm
+  real(wp), dimension(1:nr,1:4) :: xyp
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:)   :: tmp_int
-  real(vbp), allocatable, dimension(:,:) :: tmp_real
+  real(wp), allocatable, dimension(:,:) :: tmp_real
   !
   integer, parameter :: rotation = 0
   !
@@ -2069,14 +2069,14 @@ continue
  !  !
  !end if
  !!
- !Period_Time = dt_in*real(Period_Timesteps,vbp)
+ !Period_Time = dt_in*real(Period_Timesteps,kind=wp)
  !!
  !if (Total_Periods /= 0) then
- !  Final_Time = Period_Time*real(Total_Periods,vbp)
+ !  Final_Time = Period_Time*real(Total_Periods,kind=wp)
  !else
  !  real_Total_Periods = Final_Time/Period_Time
  !  Total_Periods = nint(real_Total_Periods)
- !  if (abs(real_Total_Periods-real(Total_Periods,vbp)) > ten*eps6) then
+ !  if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
  !    write (iout,2) real_Total_Periods
  !  end if
  !end if
@@ -2928,11 +2928,11 @@ subroutine write_tecplot_exact_sol()
   !
   !.. Local Scalars ..
   integer :: i,k,n,n1,n2,p1,ierr
-  real(vbp) :: delx,dely,xoffset,yoffset
+  real(wp) :: delx,dely,xoffset,yoffset
   logical, save :: is_first_write = true
   !
   !.. Local Allocatable Arrays ..
-  real(vbp), allocatable, dimension(:,:) :: exact
+  real(wp), allocatable, dimension(:,:) :: exact
   !
   !.. Local Parameters ..
   integer, parameter :: io = 21
@@ -3332,16 +3332,16 @@ subroutine write_vortex_results_file(iflag,icount)
   !
   !.. Local Scalars ..
   integer   :: i,n,m,ierr
-  real(vbp) :: h,comp_cost,period
+  real(wp) :: h,comp_cost,period
  !character(len=11) :: rk_string
  !character(len=15) :: zonetitle
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:neqns+1,1:2,1:3) :: e2
+  real(wp), dimension(1:neqns+1,1:2,1:3) :: e2
   !
 continue
   !
-  h = log10(one/sqrt(real(n_global_solpts,vbp)))
+  h = log10(one/sqrt(real(n_global_solpts,kind=wp)))
   !
  !write (zonetitle,2) n_order, merge("Gauss","Lobatto",iop_solpts==Gauss_Legendre)
  !rk_string = merge(char_rk(iRKtype),clas_rk(num_stages),iRKtype==1)
@@ -3353,14 +3353,14 @@ continue
     write (iores,4)
     write (iores,3) n_order, &
                     trim(merge("Gauss  ","Lobatto",iop_solpts==Legendre_Gauss)), &
-                    nint(sqrt(real(n_global_cell,vbp))),char_init(init_loc), &
+                    nint(sqrt(real(n_global_cell,kind=wp))),char_init(init_loc), &
                     n_order, h, dt_in, &
                     trim(merge(clas_rk(num_stages),char_rk(iRKtype),iRKtype==1))
     return
   end if
   !
   comp_cost = work_units
-  period = real(icount,vbp)/real(Period_Timesteps,vbp)
+  period = real(icount,kind=wp)/real(Period_Timesteps,kind=wp)
   !
   e2(:,:,:) = vortex_error(:,:,1:3)
   !
@@ -3436,16 +3436,16 @@ subroutine write_advec_results_file(iflag,icount)
   !
   !.. Local Scalars ..
   integer   :: i,n,m,ierr
-  real(vbp) :: h,comp_cost,period
+  real(wp) :: h,comp_cost,period
  !character(len=11) :: rk_string
  !character(len=15) :: zonetitle
   !
   !.. Local Arrays ..
-  real(vbp), dimension(1:3,1:3,1:3) :: e2
+  real(wp), dimension(1:3,1:3,1:3) :: e2
   !
 continue
   !
-  h = log10(one/sqrt(real(n_global_solpts,vbp)))
+  h = log10(one/sqrt(real(n_global_solpts,kind=wp)))
   !
  !write (zonetitle,2) n_order, merge("Gauss","Lobatto",iop_solpts==Gauss_Legendre)
  !rk_string = merge(char_rk(iRKtype),clas_rk(num_stages),iRKtype==1)
@@ -3457,14 +3457,14 @@ continue
     write (iores,4)
     write (iores,3) n_order, &
                     trim(merge("Gauss  ","Lobatto",iop_solpts==Legendre_Gauss)), &
-                    nint(sqrt(real(n_global_cell,vbp))),char_init(init_loc), &
+                    nint(sqrt(real(n_global_cell,kind=wp))),char_init(init_loc), &
                     n_order, h, dt_in, &
                     trim(merge(clas_rk(num_stages),char_rk(iRKtype),iRKtype==1))
     return
   end if
   !
   comp_cost = work_units
-  period = real(icount,vbp)/real(Period_Timesteps,vbp)
+  period = real(icount,kind=wp)/real(Period_Timesteps,kind=wp)
   !
   e2(:,:,:) = advec_error(:,:,1:3)
   !
@@ -4175,8 +4175,8 @@ subroutine write_nodal_cgns(iflag)
   integer   :: i,j,n,n1,n2,ierr,p1,k,m
   integer   :: nelem,kind_real,nsp,nw,np
   integer   :: n_outpts,no1d,noc,nopt,nopq
-  real(vbp) :: cvel,sn,se
-  real(vbp) :: delx,dely,xoffset,yoffset
+  real(wp) :: cvel,sn,se
+  real(wp) :: delx,dely,xoffset,yoffset
   !
   character(len=32) :: tname
   !
@@ -4188,7 +4188,7 @@ subroutine write_nodal_cgns(iflag)
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: ipelem
   real(wp),  allocatable, dimension(:)   :: vartmp
-  real(vhp), allocatable, dimension(:)   :: var
+  real(sp), allocatable, dimension(:)   :: var
   !
 continue
   !
@@ -4225,11 +4225,11 @@ continue
     !
   end if
   !
-  kind_real = merge(RealDouble,RealSingle,kind(var)==vbp)
+  kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
   !
   allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("write_nodal_cgns","vartmp",1,ierr)
-  allocate ( var(1:n_outpts) , source=real(0,vhp) , stat=ierr )
+  allocate ( var(1:n_outpts) , source=real(0,sp) , stat=ierr )
   call alloc_error("write_nodal_cgns","var",1,ierr)
   !
   ! Open the cgns output file if iflag is 1
@@ -4505,19 +4505,18 @@ subroutine write_modal_cgns(iflag)
   !.. Local Arrays ..
   integer,   dimension(1:2) :: idata
   integer,   dimension(1:3) :: idim1
-  real(vbp), dimension(1:n_sp1de+1) :: x1d
-  real(vbp), dimension(1:nr,1:4) :: xy
-  real(vhp), dimension(1:n_sp2dq) :: var2
+  real(wp), dimension(1:n_sp1de+1) :: x1d
+  real(wp), dimension(1:nr,1:4) :: xy
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: ipelem
-  real(vhp), allocatable, dimension(:)   :: var
-  real(vbp), allocatable, dimension(:,:) :: coord
+  real(sp), allocatable, dimension(:)   :: var
+  real(wp), allocatable, dimension(:,:) :: coord
   !
 continue
   !
   npoin = ncell*(n_sp1de+1)*(n_sp1de+1)
-  kind_real = merge(RealDouble,RealSingle,kind(var)==vbp)
+  kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
   !
   ! If triangle cells exist, return
   !
@@ -4525,7 +4524,7 @@ continue
   !
   ! Allocate var for cell-centered data
   !
-  allocate ( var(1:npoin) , source=real(0,vhp) , stat=ierr )
+  allocate ( var(1:npoin) , source=real(0,sp) , stat=ierr )
   call alloc_error("write_modal_cgns","var",1,ierr)
   !
   ! Open the cgns output file
@@ -4569,7 +4568,7 @@ continue
     ! Create the coordinates
     !
     do i = 1,n_sp1de+1
-      x1d(i) = -one + two*real(i-1,vbp)/real(n_sp1de,vbp)
+      x1d(i) = -one + two*real(i-1,kind=wp)/real(n_sp1de,kind=wp)
     end do
     !
     k = 1
@@ -4806,11 +4805,11 @@ subroutine write_tecplot_partitions()
   !
   !.. Local Scalars ..
   integer   :: i,k,n,n1,n2,p1,p2,ierr
-  real(vbp) :: cvel
+  real(wp) :: cvel
   character(len=40) :: fname
   !
   !.. Local Allocatable Arrays ..
-  real(vbp), allocatable, dimension(:) :: test_array
+  real(wp), allocatable, dimension(:) :: test_array
   !
 continue
   !
