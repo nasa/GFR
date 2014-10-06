@@ -1,3 +1,16 @@
+module rename_intrinsics
+  !
+  implicit none
+  !
+  public
+  !
+  intrinsic dot_product
+  intrinsic matmul
+  !
+end module rename_intrinsics
+!
+!###############################################################################
+!
 module module_kind_types
   !
   !.. Use Statements ..
@@ -6,8 +19,6 @@ module module_kind_types
   implicit none
   !
   public
-  !
- !include "mpif.h"
   !
   ! KIND definitions for single or double precision real variables (IEEE 754)
   !
@@ -23,12 +34,11 @@ module module_kind_types
   integer, parameter :: DP = r8
   integer, parameter :: QP = r16
   integer, parameter :: WP = r8
- !integer, parameter :: vhp = r4
- !integer, parameter :: vbp = r8
- !integer, parameter :: vdp = r16
-  integer, parameter :: vhp = r4
-  integer, parameter :: vbp = WP
-  integer, parameter :: vdp = r16
+  !
+  integer, parameter :: WIP = i4
+  integer, parameter :: INT_MPI = kind(MPI_INTEGER_KIND)
+  integer, parameter :: INT_CGNS = i4
+  integer, parameter :: INT_METIS = i4
   !
   ! Definitions for numerical contants
   !
@@ -279,19 +289,19 @@ module module_kind_types
   !
   ! MPI Scalars 
   !
-  integer, protected, save :: mypnum
-  integer, protected, save :: ncpu
-  integer,            save :: mpierr
+  integer(int_mpi), protected, save :: mypnum
+  integer(int_mpi), protected, save :: ncpu
+  integer(int_mpi),            save :: mpierr
   !
-  integer, parameter :: abort = 8
-  integer, parameter :: stop_mpi = 9
+  integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )
+  integer(int_mpi), parameter :: stop_mpi = int( 9 , kind=kind(stop_mpi) )
   !
   ! MPI datatypes to match Fortran intrinsic datatypes
   !
-  integer, protected, save :: mpi_flttyp ! working real precision
-  integer, protected, save :: mpi_hlftyp ! half working real precision
-  integer, protected, save :: mpi_dbltyp ! double working real precision
-  integer, protected, save :: mpi_inttyp ! working integer precision
+  integer(int_mpi), protected, save :: mpi_flttyp ! working real precision
+  integer(int_mpi), protected, save :: mpi_hlftyp ! half working real precision
+  integer(int_mpi), protected, save :: mpi_dbltyp ! double working real precision
+  integer(int_mpi), protected, save :: mpi_inttyp ! working integer precision
   !
   logical, private, save :: random_is_initialized = fals
   !
@@ -300,7 +310,8 @@ module module_kind_types
   interface reallocate
     module procedure reallocate1_i4, reallocate1_i8, &
                      reallocate1_r4, reallocate1_r8, &
-                     reallocate1_c,  reallocate2_i4
+                     reallocate1_c,  reallocate2_i4, &
+                     reallocate2_i8
   end interface reallocate
   !
   interface cross_product
@@ -416,6 +427,7 @@ module module_kind_types
   private :: reallocate1_r8
   private :: reallocate1_c
   private :: reallocate2_i4
+  private :: reallocate2_i8
   !
 contains
 !
@@ -567,6 +579,59 @@ continue
   call move_alloc( from=temp_array , to=array )
   !
 end subroutine reallocate2_i4
+!
+!###############################################################################
+!
+subroutine reallocate2_i8(array,new_size1,new_size2)
+  !
+  !.. Formal Arguments ..
+  integer, optional,                       intent(in) :: new_size1
+  integer, optional,                       intent(in) :: new_size2
+  integer(i8), allocatable, dimension(:,:), intent(inout) :: array
+  !
+  !.. Local Scalars ..
+  integer :: old_size1,old_size2,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer(i8), allocatable, dimension(:,:) :: temp_array
+  !
+continue
+  !
+  ! Get the old dimensions of array
+  !
+  old_size1 = 1
+  old_size2 = 1
+  if (allocated(array)) then
+    old_size1 = size(array,1)
+    old_size2 = size(array,2)
+  end if
+  !
+  ! Allocate the temporary array to store the old contents of array
+  !
+  if (present(new_size1) .and. present(new_size2)) then
+    allocate ( temp_array(1:new_size1,1:new_size2) , source=0_i8 , stat=ierr )
+  else if (present(new_size1)) then
+    allocate ( temp_array(1:new_size1,1:old_size2) , source=0_i8 , stat=ierr )
+  else if (present(new_size2)) then
+    allocate ( temp_array(1:old_size1,1:new_size2) , source=0_i8 , stat=ierr )
+  else
+    allocate ( temp_array(1:old_size1,1:old_size2) , source=0_i8 , stat=ierr )
+  end if
+  call alloc_error("reallocate2_i4","temp_array",1,ierr)
+  !
+  ! Copy the old contents of array into the temporary array
+  !
+  if (allocated(array)) temp_array(1:old_size1,1:old_size2) = array
+  !
+  ! move_alloc does:
+  !     1. deallocates array
+  !     2. allocates array with the same type, type parameters,
+  !        array bounds, and value as temp_array
+  !     3. deallocates temp_array
+  !
+  call move_alloc( from=temp_array , to=array )
+  !
+end subroutine reallocate2_i8
 !
 !###############################################################################
 !
@@ -755,27 +820,27 @@ continue
  !write (*,*) selected_int_kind(r)
  !call mpi_type_create_f90_integer(r,mpi_inttyp,mpierr)
  !write (*,*) mpi_inttyp
-  mpi_inttyp = mpi_integer
+  mpi_inttyp = merge(mpi_integer8,mpi_integer,wip==i8)
   !
   ! MPI datatype for half working real precision
   !
- !r = range( 0.0_vhp )
- !p = precision( 0.0_vhp )
+ !r = range( 0.0_sp )
+ !p = precision( 0.0_sp )
  !write (*,*) "half working precision"
  !write (*,*) r,p
- !write (*,*) vhp
+ !write (*,*) sp
  !call mpi_type_create_f90_real(p,r,mpi_hlftyp,mpierr)
  !write (*,*) mpi_hlftyp
-  mpi_hlftyp = merge(mpi_real,mpi_double_precision,vhp<r8)
-  mpi_flttyp = merge(mpi_real,mpi_double_precision,vbp<r8)
+  mpi_hlftyp = merge(mpi_real,mpi_double_precision,sp<r8)
+  mpi_flttyp = merge(mpi_real,mpi_double_precision,wp<r8)
   !
   ! MPI datatype for working real precision
   !
- !r = range( 0.0_vbp )
- !p = precision( 0.0_vbp )
+ !r = range( 0.0_wp )
+ !p = precision( 0.0_wp )
  !write (*,*) "working precision"
  !write (*,*) r,p
- !write (*,*) vbp
+ !write (*,*) wp
  !call mpi_type_create_f90_real(p,r,mpi_flttyp,mpierr)
  !write (*,*) mpi_flttyp
  !mpi_flttyp = mpi_double_precision
@@ -783,11 +848,11 @@ continue
   ! MPI datatype for double working real precision
   ! NOTE: mpi_type_create_f90_real doesnt seem to support quad precision
   !
- !r = range( 0.0_vdp )
- !p = precision ( 0.0_vdp )
+ !r = range( 0.0_qp )
+ !p = precision ( 0.0_qp )
  !write (*,*) "double working precision"
  !write (*,*) r,p
- !write (*,*) vdp
+ !write (*,*) qp
  !call mpi_type_create_f90_real(p,r,mpi_dbltyp,mpierr)
  !write (*,*) mpi_dbltyp
  !!
@@ -828,12 +893,12 @@ subroutine stop_recon(iend,procedure_name,optional_message)
   character(len=*), optional, intent(in) :: optional_message
   !
   !.. Local Scalars ..
-  integer :: iflag
+  integer(int_mpi) :: iflag
   !
 continue
   !
   iflag = abort
-  if (present(iend)) iflag = iend
+  if (present(iend)) iflag = int( iend , kind=kind(iflag) )
   !
   if (mypnum == 0) write (iout,1)
   !
