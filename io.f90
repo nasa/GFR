@@ -317,7 +317,7 @@ continue
   ! n_order, p_order, and q_order all the same value without
   ! having to explicitly specify each one individually.
   !
-  if (all_orders > 0) then
+  if (all_orders >= 0) then
     n_order = all_orders
     p_order = all_orders
     q_order = all_orders
@@ -3595,8 +3595,9 @@ continue
     !
     ! Get the number of sub-cells per grid cell
     ! NOTE: It is the same for both triangles and quadrilaterals
+    !       If n_order is 0, n_sub_cells needs to be 1
     !
-    n_sub_cells = size(tria_connectivity,dim=2)
+    n_sub_cells = max(1,size(tria_connectivity,dim=2))
     !
     ! n_output_pts_edge: number of output points per edge of grid cell
     n_output_pts_edge = nint(sqrt(real(n_sub_cells,kind=wp)))

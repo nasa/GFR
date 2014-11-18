@@ -2190,6 +2190,8 @@ continue
     no1d = o_order
   end if
   !
+  no1d = max(1,no1d)
+  !
   noc = no1d*no1d
   !
   ! Allocate tria_connectivity and quad_connectivity
