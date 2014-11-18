@@ -2986,7 +2986,7 @@ pure function Filter2D_tria_DP(vand,vand_inv) result(return_value)
   !.. Use Statements ..
   use geovar, only : n_order,n_sp2dt
   use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac
+  use ovar,   only : Filter_etac,Filter_Option
   !
   !.. Formal Arguments ..
   real(dp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
@@ -3020,23 +3020,27 @@ continue
   !
   ! Compute the filter diagonal for triangles
   !
-  k = 1
-  do i = 0,n_order
-    do j = 0,n_order-i
-      !
-      if (i+j >= Filter_Cutoff) then
+  if (Filter_Option /= 0) then
+    !
+    k = 1
+    do i = 0,n_order
+      do j = 0,n_order-i
         !
-        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-        rd = one - fetac
+        if (i+j >= Filter_Cutoff) then
+          !
+          rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+          rd = one - fetac
+          !
+          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
+          !
+        end if
         !
-        return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
+        k = k + 1
         !
-      end if
-      !
-      k = k + 1
-      !
+      end do
     end do
-  end do
+    !
+  end if
   !
   ! Compute the final filter matrix for triangles
   !
@@ -3054,7 +3058,7 @@ pure function Filter2D_tria_QP(vand,vand_inv) result(return_value)
   !.. Use Statements ..
   use geovar, only : n_order,n_sp2dt
   use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac
+  use ovar,   only : Filter_etac,Filter_Option
   !
   !.. Formal Arguments ..
   real(qp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
@@ -3088,23 +3092,27 @@ continue
   !
   ! Compute the filter diagonal for triangles
   !
-  k = 1
-  do i = 0,n_order
-    do j = 0,n_order-i
-      !
-      if (i+j >= Filter_Cutoff) then
+  if (Filter_Option /= 0) then
+    !
+    k = 1
+    do i = 0,n_order
+      do j = 0,n_order-i
         !
-        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-        rd = one - fetac
+        if (i+j >= Filter_Cutoff) then
+          !
+          rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
+          rd = one - fetac
+          !
+          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
+          !
+        end if
         !
-        return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
+        k = k + 1
         !
-      end if
-      !
-      k = k + 1
-      !
+      end do
     end do
-  end do
+    !
+  end if
   !
   ! Compute the final filter matrix for triangles
   !
