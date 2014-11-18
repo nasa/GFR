@@ -93,7 +93,7 @@ FLIB = $(LIBRARY) $(METISLIB) $(CGNSLIB) $(OTHERLIB)
 
 # Various compiler flag options
 
-FCBASE = -vec-report0 -ftrapuv -traceback -g #-warn stderrors
+FCBASE = -ftrapuv -traceback -g #-warn stderrors
 #FCBASE += -i8
 
 TUNE  = -prof-gen $(OPTIM)
@@ -110,6 +110,7 @@ FCFLAG += $(FPP)
 #FCFLAG += $(F08STD)
 FCFLAG += $(MOD) $(INCLUDE)
 #FCFLAG += -shared-intel
+#FCFLAG += -parallel
 
 #
 #FCFLAG += -opt-report=2 -opt-report-file=medium.opt.log
@@ -170,14 +171,17 @@ precise: optimize
 #
 deplist: FCFLAG += -gen-dep=deplist.txt
 deplist: debug
+
+guide: FCFLAG += -parallel -O3 -ip -xSSE4.2 -guide=4 -guide-file=guide_files/$(*F).txt
+guide: $(OBJS)
 #
 all: $(OBJS)
 	$(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 #
 %.o:%$(FSFXFLG)
-	@echo $(FC) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
-	$(FC) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG)
+	@echo $(FC) $(FCFLAG) -c -o $@ $< | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
+	$(FC) $(FCFLAG) -c -o $@ $<
 #
 $(OBJS):
 	@echo $(FC) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\

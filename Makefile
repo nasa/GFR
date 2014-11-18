@@ -1,7 +1,9 @@
 #
 #
 
-MAKE = make -j 4
+ MAKE = make -j 4
+#MAKE = make
+#MAKE = make --debug
 
 #MAKEOPT = -B
 
@@ -21,6 +23,10 @@ debug:
 
 optimize:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
+
+guide:
+	mkdir -p guide_files
+	@echo $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" guide
 
 systeminfo:
 	@echo "Operating system = " $(OPERATING_SYSTEM)
