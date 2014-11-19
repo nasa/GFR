@@ -1,7 +1,7 @@
 pure function vortex2D(x,y) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : vxref,vyref,aref,uref,machref
+  use ovar, only : velref,aref,uref,machref
   use ovar, only : gam,rhoref,tref,pref,itestcase
   use ovar, only : vortex_bigR,vortex_bigGam
   !
@@ -51,8 +51,8 @@ continue
   ! Only add on the velocity pertubations if doing vortex transport
   ! i.e., the velocity is constant if doing density/entropy transport
   !
-  vx   = vxref + du*deltafun(any(itestcase==Vortex_Problems))
-  vy   = vyref + dv*deltafun(any(itestcase==Vortex_Problems))
+  vx   = velref(1) + du*deltafun(any(itestcase==Vortex_Problems))
+  vy   = velref(2) + dv*deltafun(any(itestcase==Vortex_Problems))
   temp = tref  + dT
   !
   rho = rhoref * (temp/tref)**(one/gm1)
@@ -84,7 +84,7 @@ end function vortex2D
 pure subroutine vortex_position(delx,dely)
   !
   !.. Use Statements ..
-  use ovar, only : itcur,vxref,vyref,aref
+  use ovar, only : itcur,velref,aref
   use ovar, only : Period_Timesteps,Period_Time
   use ovar, only : Grid_Length_X,Grid_Length_Y
   !
@@ -106,8 +106,8 @@ continue
   ! Find the x and y distances the vortex has
   ! traveled since the start of the current period
   !
-  delx = deltafun(vxref>eps3) * (vxref/aref) * delt_since_lastperiod
-  dely = deltafun(vyref>eps3) * (vyref/aref) * delt_since_lastperiod
+  delx = deltafun(velref(1)>eps3) * (velref(1)/aref) * delt_since_lastperiod
+  dely = deltafun(velref(2)>eps3) * (velref(2)/aref) * delt_since_lastperiod
   !
   ! Now translate these into a periodic domain
   ! with the grid lengths for each direction

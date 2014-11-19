@@ -2,11 +2,12 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use ovar, only : grid_format
-  use ovar, only : gridfile
-  use ovar, only : output_dir
-  use ovar, only : plot3d_cutfile
-  use ovar, only : plot3d_bcsfile
+  use eqn_idx
+  use ovar,    only : grid_format
+  use ovar,    only : gridfile
+  use ovar,    only : output_dir
+  use ovar,    only : plot3d_cutfile
+  use ovar,    only : plot3d_bcsfile
   !
   implicit none
   !
@@ -177,32 +178,13 @@ end subroutine read_input_file
 !
 subroutine read_nml_input_file
   !
-  !... kCE: number of points on each Curved Edge
-  !...(linear edge = 2; parabolic edge = 3)
-  !
-  !... itestcase = 3 for Shu's vortex problem;
-  !...           = 0 or 1 for bump problem
-  !...           = 2 Ringleb
-  !... iopSP = 1 Gauss points for SP; = 2 Lobatto points for SP;
-  !...       = 3 equi distant including two boundaries for SP
-  !... iopCE = 1 Gauss points for SP; = 2 Lobatto points for SP;
-  !...       = 3 equi distant including two boundaries for SP
-  !... we only use Lobatto and equidistant points here
-  !... irestart = 1 for restart run; = 0 for fresh start
-  !... flux_divergence = 1 calculate derivative (no interaction) using
-  !...               Lagrange polynomials
-  !...          = 2 calculate derivative (no interaction) using
-  !...               the chain rule for U
-  !...          = 3 calculate derivative (no interaction) using
-  !...               the chain rule for Uja
-  !... isupersonic = 1 for supersonic flow (bump problem),
-  !...             = 0 for subsonic
-  !...
-  !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
-  !
+  !.. Use Statements ..
   use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
   use geovar, only : o_order,all_orders
   use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
+  use geovar, only : n_fp2dt,n_fp2dq
+  use geovar, only : n_sptet,n_sppyr,n_sppri,n_sphex
+  use geovar, only : n_qptet,n_qppyr,n_qppri,n_qphex
   use ovar,   only : itestcase,num_stages,irestart, &
                      flux_divergence,iop_correction, &
                      num_ts,cfl,dt_in,gam,output_solution, &
@@ -213,8 +195,9 @@ subroutine read_nml_input_file
                      iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts,iop_outpts, &
                      Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha,Filter_etac, &
-                     rhoref,tref,pref,machref,aoaref, &
-                     vxref,vyref,aref,uref,rgasref,reyref, &
+                     rhoref,tref,pref,machref, &
+                     alpha_aoaref,beta_aoaref, &
+                     velref,aref,uref,rgasref,reyref, &
                      metis_option,init_loc,error_loc, &
                      Period_Timesteps,Period_Time,iter_out_interval, &
                      suth_muref,suth_Tref,suth_Sref,Pr,Prt
@@ -228,58 +211,14 @@ subroutine read_nml_input_file
   use ovar,   only : input
   !
   !.. Local Scalars ..
-  integer   :: it1,it2,ierr,ival
-  integer   :: Period_Timesteps_X,Period_Timesteps_Y
+  integer  :: it1,it2,ierr,ival
+  integer  :: Period_Timesteps_X,Period_Timesteps_Y
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians,pres_check
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
-  !
- !!.. Input Namelist ..
- !! GRID INFORMATION
- !namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
- !! BASE FR OPTIONS
- !namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, iop_outpts, &
- !                   flux_divergence, iop_correction
- !! SOLVER OPTIONS
- !namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
- !! TIME STEPPING INFORMATION
- !namelist / input / num_ts, Final_Time, cfl, dt_in, Timestep_Type
- !! OVER-INTEGRATION OPTIONS
- !namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
- !! FORCE GLOBAL ORDER AND SOLUTION POINTS
- !namelist / input / all_orders, all_points
- !! PARALLEL OPTIONS
- !namelist / input / metis_option
- !! INITIALIZATION / TEST CASE
- !namelist / input / itestcase
- !! RESTART OPTIONS
- !namelist / input / irestart, restart_interval
- !! OUTPUT OPTIONS
- !namelist / input / output_dir, iter_out_interval, output_solution, &
- !                   output_interval, results_interval, o_order
- !! NONDIMENSIONAL REFERENCE CONDITIONS
- !namelist / input / machref, reyref, gam
- !! REFERENCE CONDITIONS
- !namelist / input / rhoref, tref, pref, aoaref, rgasref
- !! LAMINAR AND TURBULENT PRANDTL NUMBERS
- !namelist / input / Pr, Prt
- !! SUTHERLANDS LAW COEFFICIENTS
- !namelist / input / suth_muref, suth_Tref, suth_Sref
- !! FILTER OPTIONS
- !namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
- !! BOUNDING ERROR OPTIONS
- !namelist / input / bound_error, error_bound_limit
- !! INITIALIZATION/ERROR LOCATIONS
- !namelist / input / init_loc, error_loc
- !! VORTEX CONSTANTS
- !namelist / input / vortex_bigR, vortex_bigGam
- !! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
- !namelist / input / output_plot3d_to_tecplot
- !! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
- !namelist / input / walls_are_exact
   !
 continue
   !
@@ -345,6 +284,10 @@ continue
   n_sp1de = n_order + 1
   n_sp2dt = n_sp1de*(n_sp1de+1)/2
   n_sp2dq = n_sp1de*n_sp1de
+  n_sptet = n_sp1de*(n_sp1de+1)*(n_sp1de+2)/6
+  n_sppyr = n_sp2dt*(2*n_sp1de+1)/3
+  n_sppri = n_sp2dt*n_sp1de
+  n_sphex = n_sp1de*n_sp1de*n_sp1de
   !
   ! Make sure the quadrature order is at least the same as the
   ! solution order and other quadrature variables are valid
@@ -354,19 +297,31 @@ continue
   n_qp1de = q_order + 1
   n_qp2dt = n_qp1de*(n_qp1de+1)/2
   n_qp2dq = n_qp1de*n_qp1de
+  n_qptet = n_qp1de*(n_qp1de+1)*(n_qp1de+2)/6
+  n_qppyr = n_qp2dt*(2*n_qp1de+1)/3
+  n_qppri = n_qp2dt*n_qp1de
+  n_qphex = n_qp1de*n_qp1de*n_qp1de
   !
   using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
   !
   if (using_quadrature .and. dflux_opt == project_derivatives) then
     n_fp1de = n_qp1de
+    n_fp2dt = n_qp2dt
+    n_fp2dq = n_qp2dq
   else
     n_fp1de = n_sp1de
+    n_fp2dt = n_sp2dt
+    n_fp2dq = n_sp2dq
   end if
   !
   ! Now that we have the name of the grid file and the location
   ! of the flux and solution points, read in the grid file
   !
   call read_grid_file
+  !
+  ! Create the equation indices now that we know the dimension of the grid
+  !
+  call create_equation_indices(2)
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
@@ -407,7 +362,7 @@ continue
   else
     pres_check = rhoref*rgasref*tref
     if (abs(pres_check-pref) > eps6) then
-      write (iout,99) pref,pres_check
+      write (iout,102) pref,pres_check
       call stop_recon(stop_mpi,"read_nml_input_file")
     end if
   end if
@@ -416,8 +371,11 @@ continue
   !
   aref = sqrt( gam * pref / rhoref )
   uref = machref * aref
-  vxref = uref * cos(aoaref * degrees2radians)
-  vyref = uref * sin(aoaref * degrees2radians)
+  velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
+                     cos(alpha_aoaref * degrees2radians)
+  velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
+                     sin(alpha_aoaref * degrees2radians)
+  velref(3) = uref * sin(beta_aoaref  * degrees2radians)
   !
   ! Redefine the reference conditions for the linear advection problems
   ! and the original Shu vortex problem because using the dimensional speed
@@ -431,19 +389,25 @@ continue
     ! y-direction only instead of in both x and y directions
     !
     if (itestcase == -Shu_Vortex) then
-      aoaref = 90.0_wp
-      vxref = zero
-      vyref = zero
+      alpha_aoaref = 90.0_wp
+      beta_aoaref = 0.0_wp
+      velref(1) = zero
+      velref(2) = zero
+      velref(3) = zero
       itestcase = abs(itestcase)
     else if (itestcase == -Vortex_Transport) then
-      aoaref = 90.0_wp
-      vxref = zero
-      vyref = one
+      alpha_aoaref = 90.0_wp
+      beta_aoaref = 0.0_wp
+      velref(1) = zero
+      velref(2) = one
+      velref(3) = zero
       itestcase = Shu_Vortex
     else
-      aoaref = 45.0_wp
-      vxref = one
-      vyref = one
+      alpha_aoaref = 45.0_wp
+      beta_aoaref = 0.0_wp
+      velref(1) = one
+      velref(2) = one
+      velref(3) = zero
     end if
     !
     machref = one/sqrt(gam)
@@ -470,18 +434,18 @@ continue
     !
     cfl = one
     !
-    if (abs(vxref) < eps3) then
+    if (abs(velref(1)) < eps3) then
       !
-      Period_Time_Y = Grid_Length_Y * reciprocal(vyref/aref)
+      Period_Time_Y = Grid_Length_Y * reciprocal(velref(2)/aref)
       Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
       Period_Timesteps = Period_Timesteps_Y
       !
      !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
       !
-    else if (abs(vyref) < eps3) then
+    else if (abs(velref(2)) < eps3) then
       !
-      Period_Time_X = Grid_Length_X * reciprocal(vxref/aref)
+      Period_Time_X = Grid_Length_X * reciprocal(velref(1)/aref)
       Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps = Period_Timesteps_X
@@ -490,8 +454,8 @@ continue
       !
     else
       !
-      Period_Time_X = Grid_Length_X / (vxref/aref)
-      Period_Time_Y = Grid_Length_Y / (vyref/aref)
+      Period_Time_X = Grid_Length_X / (velref(1)/aref)
+      Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
       !
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
@@ -524,7 +488,7 @@ continue
       real_Total_Periods = Final_Time*reciprocal(Period_Time)
       Total_Periods = nint(real_Total_Periods)
       if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
-        if (mypnum == 0) write (iout,2) real_Total_Periods
+        if (mypnum == 0) write (iout,103) real_Total_Periods
       end if
     end if
    !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
@@ -603,74 +567,14 @@ continue
   !
   if (mypnum == 0) then
     !
-    write (iout,5)
+    write (iout,104)
     write (iout,nml=input)
-   !write (iout,1) trim(input_text(1))
-   !write (iout,1) trim(output_dir)
-   !write (iout,1) trim(input_text(2))
-   !write (iout,50) grid_format, trim(gridfile)
-   !write (iout,1) trim(input_text(3))
-   !write (iout,51) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
-   !write (iout,1) trim(input_text(4))
-   !write (iout,52) flux_divergence, iop_correction, &
-   !                q_order, iop_qdtpts, dflux_opt
-   !write (iout,1) trim(input_text(5))
-   !write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
-   !write (iout,1) trim(input_text(6))
-   !write (iout,54) num_ts, Final_Time, cfl, dt_in, invs_flux_method, iter_out_interval
-   !write (iout,1) trim(input_text(7))
-   !write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
-   !                Filter_Order, Filter_Alpha
-   !write (iout,1) trim(input_text(8))
-   !write (iout,56) output_solution, output_interval, &
-   !                restart_interval, results_interval
-   !write (iout,1) trim(input_text(11))
-   !write (iout,57) bound_error,error_bound_limit
-   !write (iout,1) trim(input_text(12))
-   !write (iout,58) o_order
-    write (iout,6)
+    write (iout,105)
     !
   end if
   !
-  1  format (a)
-  5  format (/,"#######################################",/, &
-               "#####      INPUT PARAMETERS       #####",/, &
-               "#######################################",/)
-  6  format (/,"#######################################",/, &
-               "#####   END OF INPUT PARAMETERS   #####",/, &
-               "#######################################",/)
-  50 format (i8,8x,a)
-  51 format (3x,i2,7x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
-  52 format (7x,i2,15x,i2,2x,3(10x,i2))
-  53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
-  54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0,8x,i10)
-  55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
-  56 format (1x,i8,9x,i8,9x,i8,9x,i8)
-  57 format (6x,l1,12x,f8.3)
-  58 format (i7)
-  78 format (" Dimensional Free-stream conditions",/, &
-             " Density         = ",es14.6," kg/m^3",/, &
-             " Pressure        = ",es14.6," N/m^2",/, &
-             " Temperature     = ",es14.6," K",/, &
-             " Mach Number     = ",es14.6,/, &
-             " Speed of Sound  = ",es14.6," m/s",/, &
-             " Velocity        = ",es14.6," m/s",/, &
-             " Angle of Attack = ",es14.6," degrees"/, &
-             " Gamma           = ",es14.6,/, &
-             " Gas Constant    = ",es14.6," J/(kg*K)",/)
-  99 format (/, &
-     "****************************** ERROR ******************************",/, &
-     " Free-stream conditions in the input file are not consistent! ",/, &
-     " Reference pressure given    : ",es14.6,/, &
-     " Reference pressure computed : ",es14.6,/, &
-     " Please correct the input file or set one of density, pressure, ",/, &
-     " and temperature to a negative value so it is explicitly computed. ",/, &
-     "****************************** ERROR ******************************",/)
-  2 format (/," ********************* WARNING!!! *********************",/, &
-              "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
-              "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
-              "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
-              " ********************* WARNING!!! *********************",/)
+  ! Format Statements
+  !
   101 format (/, &
      "***************************** ERROR *****************************",/, &
      "   THE REQUESTED LOCATIONS FOR SOLUTION POINTS AND FLUX POINTS",/, &
@@ -679,6 +583,26 @@ continue
      "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
      "   TO ALLOW FOR THIS CAPABILITY.",/, &
      "***************************** ERROR *****************************",/)
+  102 format (/, &
+     "****************************** ERROR ******************************",/, &
+     " Free-stream conditions in the input file are not consistent! ",/, &
+     " Reference pressure given    : ",es14.6,/, &
+     " Reference pressure computed : ",es14.6,/, &
+     " Please correct the input file or set one of density, pressure, ",/, &
+     " and temperature to a negative value so it is explicitly computed. ",/, &
+     "****************************** ERROR ******************************",/)
+  103 format (/, &
+     " ********************* WARNING!!! *********************",/, &
+     "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
+     "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
+     "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
+     " ********************* WARNING!!! *********************",/)
+  104 format (/,"#######################################",/, &
+                "#####      INPUT PARAMETERS       #####",/, &
+                "#######################################",/)
+  105 format (/,"#######################################",/, &
+                "#####   END OF INPUT PARAMETERS   #####",/, &
+                "#######################################",/)
   !
 end subroutine read_nml_input_file
 !
@@ -686,29 +610,7 @@ end subroutine read_nml_input_file
 !
 subroutine read_old_input_file
   !
-  !... kCE: number of points on each Curved Edge
-  !...(linear edge = 2; parabolic edge = 3)
-  !
-  !... itestcase = 3 for Shu's vortex problem;
-  !...           = 0 or 1 for bump problem
-  !...           = 2 Ringleb
-  !... iopSP = 1 Gauss points for SP; = 2 Lobatto points for SP;
-  !...       = 3 equi distant including two boundaries for SP
-  !... iopCE = 1 Gauss points for SP; = 2 Lobatto points for SP;
-  !...       = 3 equi distant including two boundaries for SP
-  !... we only use Lobatto and equidistant points here
-  !... irestart = 1 for restart run; = 0 for fresh start
-  !... flux_divergence = 1 calculate derivative (no interaction) using
-  !...               Lagrange polynomials
-  !...          = 2 calculate derivative (no interaction) using
-  !...               the chain rule for U
-  !...          = 3 calculate derivative (no interaction) using
-  !...               the chain rule for Uja
-  !... isupersonic = 1 for supersonic flow (bump problem),
-  !...             = 0 for subsonic
-  !...
-  !... it1 was iopSP and it2, kSP1d (but we do not need these anymore)
-  !
+  !.. Use Statements ..
   use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
   use geovar, only : o_order
   use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
@@ -722,53 +624,23 @@ subroutine read_old_input_file
                      iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
                      Filter_Option,Filter_Order, &
                      Filter_Cutoff,Filter_Alpha,Filter_etac, &
-                     rhoref,tref,pref,machref,aoaref, &
-                     vxref,vyref,aref,uref,rgasref, &
+                     rhoref,tref,pref,machref, &
+                     alpha_aoaref,beta_aoaref, &
+                     velref,aref,uref,rgasref, &
                      metis_option,init_loc,error_loc, &
                      Period_Timesteps,Period_Time,iter_out_interval
   use ovar,   only : Grid_Length_X,Grid_Length_Y
   use ovar,   only : bound_error,error_bound_limit
- !use ovar,   only : input
   !
   !.. Local Scalars ..
-  integer   :: it1,it2,ierr,ival
-  integer   :: Period_Timesteps_X,Period_Timesteps_Y
+  integer  :: it1,it2,ierr,ival
+  integer  :: Period_Timesteps_X,Period_Timesteps_Y
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians,pres_check
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
-  !
-  !.. Input Namelist ..
-  ! GRID INFORMATION
-  namelist / input / grid_format, gridfile
-  ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, &
-                     flux_divergence, iop_correction
-  ! SOLVER OPTIONS
-  namelist / input / iRKtype, num_stages, invs_flux_method
-  ! TIME STEPPING INFORMATION
-  namelist / input / num_ts, Final_Time, cfl, dt_in
-  ! OVER-INTEGRATION OPTIONS
-  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
-  ! PARALLEL OPTIONS
-  namelist / input / metis_option
-  ! INITIALIZATION / TEST CASE
-  namelist / input / itestcase
-  ! RESTART OPTIONS
-  namelist / input / irestart, restart_interval
-  ! OUTPUT OPTIONS
-  namelist / input / output_dir, iter_out_interval, output_solution, &
-                     output_interval, results_interval, o_order
-  ! REFERENCE CONDITIONS
-  namelist / input / rhoref, tref, pref, machref, aoaref, gam, rgasref
-  ! FILTER OPTIONS
-  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
-  ! BOUNDING ERROR OPTIONS
-  namelist / input / bound_error, error_bound_limit
-  ! INITIALIZATION/ERROR LOCATIONS
-  namelist / input / init_loc, error_loc
   !
 continue
   !
@@ -884,7 +756,7 @@ continue
   !
   read (inpt,1) input_text(9)
   read (inpt,1) input_text(10)
-  read (inpt,*) rhoref, tref, pref, machref, aoaref, gam, rgasref
+  read (inpt,*) rhoref, tref, pref, machref, alpha_aoaref, gam, rgasref
   !
   ! Read the information on bounding the region to compute error
   !
@@ -930,8 +802,8 @@ continue
   !
   aref = sqrt( gam * pref / rhoref )
   uref = machref * aref
-  vxref = uref * cos(aoaref * degrees2radians)
-  vyref = uref * sin(aoaref * degrees2radians)
+  velref(1) = uref * cos(alpha_aoaref * degrees2radians)
+  velref(2) = uref * sin(alpha_aoaref * degrees2radians)
   !
   ! Redefine the reference conditions for the linear advection problems
   ! and the original Shu vortex problem because using the dimensional speed
@@ -945,19 +817,19 @@ continue
     ! y-direction only instead of in both x and y directions
     !
     if (itestcase == -Shu_Vortex) then
-      aoaref = 90.0_wp
-      vxref = zero
-      vyref = zero
+      alpha_aoaref = 90.0_wp
+      velref(1) = zero
+      velref(2) = zero
       itestcase = abs(itestcase)
     else if (itestcase == -Vortex_Transport) then
-      aoaref = 90.0_wp
-      vxref = zero
-      vyref = one
+      alpha_aoaref = 90.0_wp
+      velref(1) = zero
+      velref(2) = one
       itestcase = Shu_Vortex
     else
-      aoaref = 45.0_wp
-      vxref = one
-      vyref = one
+      alpha_aoaref = 45.0_wp
+      velref(1) = one
+      velref(2) = one
     end if
     !
     machref = one/sqrt(gam)
@@ -984,18 +856,18 @@ continue
     !
     cfl = one
     !
-    if (abs(vxref) < eps3) then
+    if (abs(velref(1)) < eps3) then
       !
-      Period_Time_Y = Grid_Length_Y * reciprocal(vyref/aref)
+      Period_Time_Y = Grid_Length_Y * reciprocal(velref(2)/aref)
       Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
       Period_Timesteps = Period_Timesteps_Y
       !
      !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
       !
-    else if (abs(vyref) < eps3) then
+    else if (abs(velref(2)) < eps3) then
       !
-      Period_Time_X = Grid_Length_X * reciprocal(vxref/aref)
+      Period_Time_X = Grid_Length_X * reciprocal(velref(1)/aref)
       Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps = Period_Timesteps_X
@@ -1004,8 +876,8 @@ continue
       !
     else
       !
-      Period_Time_X = Grid_Length_X / (vxref/aref)
-      Period_Time_Y = Grid_Length_Y / (vyref/aref)
+      Period_Time_X = Grid_Length_X / (velref(1)/aref)
+      Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
       !
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
@@ -1317,10 +1189,8 @@ end subroutine initialize_viscosity
 subroutine initialize_reference
   !
   !.. Use Statements ..
-  use geovar, only : nq => neqns
   use ovar,   only : rhoref,aref,tref,gam
-  use ovar,   only : vxref,vxref_nd
-  use ovar,   only : vyref,vyref_nd
+  use ovar,   only : velref,velref_nd
   use ovar,   only : pref,pref_nd
   use ovar,   only : rgasref,rgasref_nd
   use ovar,   only : cpref,cpref_nd
@@ -1347,8 +1217,8 @@ continue
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
   !
   pv_in(1) = rhoref
-  pv_in(2) = vxref
-  pv_in(3) = vyref
+  pv_in(2) = velref(1)
+  pv_in(3) = velref(2)
   pv_in(4) = pref
   !
   cv_in(1) = pv_in(1)
@@ -1356,8 +1226,8 @@ continue
   cv_in(nq) = pv_in(nq)/(gam-one) + half*pv_in(1)*selfdot(pv_in(2:nq-1))
   !
   ! Nondimensional reference velocities
-  vxref_nd = vxref / aref
-  vyref_nd = vyref / aref
+  velref_nd(1) = velref(1) / aref
+  velref_nd(2) = velref(2) / aref
   !
   ! Nondimensional reference pressure
   pref_nd = pref / rhoa2
@@ -1999,7 +1869,7 @@ subroutine adjust_for_ghost_cells()
                      bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
  !use ovar,   only : Period_Time,Period_Timesteps
  !use ovar,   only : Final_Time,Total_Periods
- !use ovar,   only : vxref,vyref,aref,dt_in,machref
+ !use ovar,   only : velref,aref,dt_in,machref
   use ovar,   only : Grid_Min_X,Grid_Max_X,Grid_Length_X
   use ovar,   only : Grid_Min_Y,Grid_Max_Y,Grid_Length_Y
   !
@@ -2035,7 +1905,7 @@ continue
   Grid_Length_X = Grid_Max_X - Grid_Min_X
   Grid_Length_Y = Grid_Max_Y - Grid_Min_Y
   !
- !if (vxref < eps3) then
+ !if (velref(1) < eps3) then
  !  !
  !  Period_Time_Y = Grid_Length_Y / machref
  !  !
@@ -2043,7 +1913,7 @@ continue
  !  !
  !  Period_Timesteps = Period_Timesteps_Y
  !  !
- !else if (vyref < eps3) then
+ !else if (velref(2) < eps3) then
  !  !
  !  Period_Time_X = Grid_Length_X / machref
  !  !
@@ -2053,8 +1923,8 @@ continue
  !  !
  !else
  !  !
- !  Period_Time_X = Grid_Length_X / (vxref/aref)
- !  Period_Time_Y = Grid_Length_Y / (vyref/aref)
+ !  Period_Time_X = Grid_Length_X / (velref(1)/aref)
+ !  Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
  !  !
  !  Period_Timesteps_X = nint(Period_Time_X/dt_in)
  !  Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
@@ -2459,7 +2329,7 @@ continue
   !
   ! Also allocate the global solution arrays for use later
   !
-  allocate ( global_usp(1:neqns,1:n_global_totpts) , source=zero , stat=ierr )
+  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
   call alloc_error("save_global_grid","global_usp",1,ierr)
   !
   ! Create the global cell offset array
@@ -2835,7 +2705,7 @@ subroutine write_tecplot_file(itnum)
   ! Output the solution in tecplot format
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,nr,neqns,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
+  use geovar,  only : ncell,nr,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
                       pts_in_cell_ptr,tria_connectivity,quad_connectivity
   use ovar,    only : gam,pv_in
   use flowvar, only : usp
@@ -2871,7 +2741,7 @@ continue
   ! Write the flow variables
   !
   write (iotec,3) ( usp(1,i) , i=1,n_solpts)
-  do n = 2,neqns-1
+  do n = 2,nq-1
     write (iotec,3) ( usp(n,i)/usp(1,i) , i=1,n_solpts)
   end do
   write (iotec,3) ( pressure_cv_sp( usp(:,i) ) , i=1,n_solpts)
@@ -2914,8 +2784,8 @@ subroutine write_tecplot_exact_sol()
   ! Output the solution in tecplot format
   !
   !.. Use Statements ..
-  use geovar,  only : nr,neqns,n_order,tria_connectivity,quad_connectivity
-  use ovar,    only : itcur,Period_Timesteps,vxref,vyref,aref,time, &
+  use geovar,  only : nr,n_order,tria_connectivity,quad_connectivity
+  use ovar,    only : itcur,Period_Timesteps,velref,aref,time, &
                       Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y, &
                       Period_Time,itestcase
   !
@@ -2946,7 +2816,7 @@ continue
     write (io,1)
   end if
   !
-  allocate ( exact(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+  allocate ( exact(1:nq,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("write_tecplot_exact_sol","exact",1,ierr)
   !
   ! If running one of the vortex transport problems, compute the change
@@ -3022,7 +2892,7 @@ end subroutine write_tecplot_exact_sol
 !
 subroutine write_final_error
   !
-  use geovar, only : neqns,n_order,n_global_cell, &
+  use geovar, only : n_order,n_global_cell, &
                      n_global_solpts,global_cell_offset
   use ovar,   only : itestcase,flux_divergence, &
                      vnloc,vkloc,vlone,vlinf,vltwo, &
@@ -3050,17 +2920,17 @@ continue
                    vlinf(i), &
                    vltwo(i), &
                    xyz(1,global_cell_offset(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=1,neqns-1)
+                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=1,nq-1)
   write (iout,36) (ulone(i), &
                    ulinf(i), &
                    ultwo(i), &
                    xyz(1,global_cell_offset(unloc(i))+ukloc(i)), &
-                   xyz(2,global_cell_offset(unloc(i))+ukloc(i)), i=neqns+1,neqns+1)
+                   xyz(2,global_cell_offset(unloc(i))+ukloc(i)), i=nq+1,nq+1)
   write (iout,37) (vlone(i), &
                    vlinf(i), &
                    vltwo(i), &
                    xyz(1,global_cell_offset(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=neqns+1,neqns+1)
+                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=nq+1,nq+1)
   !
  !33 format (/'itestcase =',i2,', iopSP,CE =',2i2,', kSP,CE =',2i2, &
  !           ', ibdvu =',i2,', flux_divergence =',i2,/,'ncell ',i7,', itcur ', i7, &
@@ -3091,7 +2961,7 @@ end subroutine write_final_error
 !
 subroutine write_final_vortex_error
   !
-  use geovar, only : neqns,n_order,n_global_cell, &
+  use geovar, only : n_order,n_global_cell, &
                      n_global_solpts,global_cell_offset
   use ovar,   only : itestcase,flux_divergence,vortex_error
   !
@@ -3103,14 +2973,14 @@ subroutine write_final_vortex_error
   integer :: nloc,kloc,gloc
   !
   !.. Local Arrays ..
-  integer, dimension(1:neqns+1,1:2) :: loc
+  integer, dimension(1:nq+1,1:2) :: loc
   !
 continue
   !
   write (iout,*)
   !
   do n = 1,2
-    do m = 1,neqns+1
+    do m = 1,nq+1
       loc(m,n) = global_cell_offset(nint(vortex_error(m,n,4))) + vortex_error(m,n,5)
     end do
   end do
@@ -3127,13 +2997,13 @@ continue
   !
   write (iout,35) "Gauss  ", &
                   (vortex_error(m,1,1),vortex_error(m,1,3),vortex_error(m,1,2), &
-                  xyz(1,loc(m,1)),xyz(2,loc(m,1)), m=1,neqns+1)
+                  xyz(1,loc(m,1)),xyz(2,loc(m,1)), m=1,nq+1)
   !
   ! Write out Lobatto quadrature error
   !
   write (iout,35) "Lobatto", &
                   (vortex_error(m,2,1),vortex_error(m,2,3),vortex_error(m,2,2), &
-                  xyz(1,loc(m,2)),xyz(2,loc(m,2)), m=1,neqns+1)
+                  xyz(1,loc(m,2)),xyz(2,loc(m,2)), m=1,nq+1)
   !
   34 format ('itestcase =',i2,/, &
              'flux_divergence  =',i2,//, &
@@ -3158,7 +3028,7 @@ end subroutine write_final_vortex_error
 !
 subroutine write_final_advec_error
   !
-  use geovar, only : neqns,n_order,n_global_cell, &
+  use geovar, only : n_order,n_global_cell, &
                      n_global_solpts,global_cell_offset
   use ovar,   only : itestcase,flux_divergence,advec_error
   !
@@ -3254,7 +3124,7 @@ end subroutine write_entropy_error
 !
 subroutine write_results_file(iflag,icount)
   !
-  use geovar,  only : neqns,n_global_solpts,p_order
+  use geovar,  only : n_global_solpts,p_order
   use ovar,    only : ultwo,vltwo,work_units
   !
   !.. Formal Arguments ..
@@ -3266,7 +3136,7 @@ subroutine write_results_file(iflag,icount)
   real(wp) :: comp_cost
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:neqns+1) :: u2,v2
+  real(wp), dimension(1:nq+1) :: u2,v2
   !
 continue
   !
@@ -3295,8 +3165,8 @@ continue
     v2 = one
   end where
   !
-  write (iores,2) icount,(log10(u2(i)),i=1,neqns+1), &
-                         (log10(v2(i)),i=2,neqns+1), &
+  write (iores,2) icount,(log10(u2(i)),i=1,nq+1), &
+                         (log10(v2(i)),i=2,nq+1), &
                          comp_cost
   !
   ! Close the results file only if iflag is -1
@@ -3321,7 +3191,7 @@ end subroutine write_results_file
 !
 subroutine write_vortex_results_file(iflag,icount)
   !
-  use geovar,  only : neqns,n_global_solpts,n_order,n_global_cell
+  use geovar,  only : n_global_solpts,n_order,n_global_cell
   use ovar,    only : vortex_error,work_units,Period_Timesteps
   use ovar,    only : iop_solpts,dt_in,iRKtype,num_stages
   use ovar,    only : init_loc
@@ -3337,7 +3207,7 @@ subroutine write_vortex_results_file(iflag,icount)
  !character(len=15) :: zonetitle
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:neqns+1,1:2,1:3) :: e2
+  real(wp), dimension(1:nq+1,1:2,1:3) :: e2
   !
 continue
   !
@@ -3366,9 +3236,9 @@ continue
   !
   where (e2 <= zero) e2 = one
   !
-  write (iores,1) period,((log10(e2(m,n,2)), m=1,neqns+1), n=1,2), &
-                         ((log10(e2(m,n,1)), m=1,neqns+1), n=1,2), &
-                         ((log10(e2(m,n,3)), m=1,neqns+1), n=1,2), &
+  write (iores,1) period,((log10(e2(m,n,2)), m=1,nq+1), n=1,2), &
+                         ((log10(e2(m,n,1)), m=1,nq+1), n=1,2), &
+                         ((log10(e2(m,n,3)), m=1,nq+1), n=1,2), &
                          comp_cost
   !
   if (iflag == -1) then
@@ -3527,7 +3397,7 @@ end subroutine write_advec_results_file
 subroutine write_nodal_parallel_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,neqns,n_solpts,ncell,nodes_of_cell_ptr,xyz
+  use geovar,  only : nr,n_solpts,ncell,nodes_of_cell_ptr,xyz
   use geovar,  only : tria_connectivity,quad_connectivity
   use geovar,  only : n_global_cell,global_nofc_ptr
   use ovar,    only : time,aref,uref,rhoref
@@ -3836,7 +3706,7 @@ continue
     call alloc_error(pname,"var",1,ierr)
   end if
   if (.not. allocated(interp_usp)) then
-    allocate ( interp_usp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+    allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , stat=ierr )
     call alloc_error(pname,"interp_usp",1,ierr)
   end if
   !
@@ -3932,10 +3802,10 @@ continue
     ! Interpolate the conservative variables for output
     !
     if (interpolate_before_output_variable) then
-      interp_usp(1:neqns,1:n_solpts) = &
-                           interpolate_for_output( usp(1:neqns,1:n_solpts) )
+      interp_usp(1:nq,1:n_solpts) = &
+                           interpolate_for_output( usp(1:nq,1:n_solpts) )
     else
-      interp_usp(1:neqns,1:n_solpts) = usp(1:neqns,1:n_solpts)
+      interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
     end if
     !
     ! Now create the output data and write it to the CGNS file in parallel
@@ -4154,9 +4024,9 @@ end subroutine write_cgns_solution
 subroutine write_nodal_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : p_order,n_order,n_sp2dt,n_sp2dq,neqns
+  use geovar,  only : p_order,n_order,n_sp2dt,n_sp2dq
   use geovar,  only : tria_connectivity,quad_connectivity
-  use ovar,    only : time,aref,uref,vxref,vyref,gam,rhoref
+  use ovar,    only : time,aref,uref,velref,gam,rhoref
   use ovar,    only : itcur,Period_Timesteps,Period_Time,itestcase
   use ovar,    only : Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y
   use generic_mod, only : project_to_porder
@@ -4184,7 +4054,7 @@ subroutine write_nodal_cgns(iflag)
   !.. Local Arrays ..
   integer, dimension(1:2) :: idata
   integer, dimension(1:3) :: idim1
-  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:n_sp2dq,1:nq) :: tusp
   !
   !.. Local Allocatable Arrays ..
   integer,   allocatable, dimension(:,:) :: ipelem
@@ -4927,7 +4797,7 @@ pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
   real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nr,nq,np,n
+  integer :: nr,np,n
   real(wp) :: cv_inv,rho_inv,rho_inv2,q2
   !
   !.. Local Arrays ..
@@ -4936,7 +4806,6 @@ pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
 continue
   !
   nr = size(dcvdx,dim=1)
-  nq = size(dcvdx,dim=2)
   np = size(dcvdx,dim=3)
   !
   if (npv == 1) then
@@ -5153,7 +5022,7 @@ pure function interpolate_for_output_2d(array) result(return_value)
                       1:size(array,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,np,n,nq,npts,m
+  integer :: nc,n1,n2,np,n,npts,m
  !integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
   !
   !.. Local Arrays ..
@@ -5161,7 +5030,6 @@ pure function interpolate_for_output_2d(array) result(return_value)
   !
 continue 
   !
-  nq = size(array,dim=1)
   npts = size(array,dim=2)
   ! 
   !
@@ -5308,15 +5176,13 @@ pure function vorticity_cv(uu) result(return_value)
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,nq,n1,n2,np,nw,k
+  integer :: n,n1,n2,np,nw,k
   real(wp) :: dudr,duds,dvdr,dvds
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr,1:n_sp2dq) :: vel
   !
 continue
-  !
-  nq = size(uu,dim=1)
   !
   do n = 1,ncell
     !

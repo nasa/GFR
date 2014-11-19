@@ -30,9 +30,9 @@ module flowvar
   ! FACEUSP  : conservative variables at the interface flux points
   ! FACEDUSP : conservative variable gradients at the interface flux points
   !
-  ! faceflx(1:neqns,1:2,1:n_sp1de,1:nface) ! this is the normal face flux
-  ! faceusp(1:neqns,1:2,1:n_sp1de,1:nface)
-  ! facedusp(1:2,1:neqns,1:2,1:n_sp1de,1:nface)
+  ! faceflx(1:nq,1:2,1:n_sp1de,1:nface) ! this is the normal face flux
+  ! faceusp(1:nq,1:2,1:n_sp1de,1:nface)
+  ! facedusp(1:2,1:nq,1:2,1:n_sp1de,1:nface)
   !
   real(wp), public, save, allocatable, dimension(:,:,:,:)   :: faceusp
   real(wp), public, save, allocatable, dimension(:,:,:,:,:) :: facedusp

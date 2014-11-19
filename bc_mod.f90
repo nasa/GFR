@@ -5,6 +5,7 @@ module module_bc
   !
   !.. Use Statements ..
   use module_kind_types
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !
@@ -60,7 +61,7 @@ contains
 !subroutine init_bc_module
 !  !
 !  !.. Use Statements ..
-!  use geovar, only : n_sp1de,n_fp1de,neqns,n_sp2dq
+!  use geovar, only : n_sp1de,n_fp1de,n_sp2dq
 !  use geovar, only : interp_s2g,interp_s2f
 !  !
 !  !.. Local Scalars ..
@@ -403,7 +404,7 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   real(wp) :: rp,rm,utc,unc,ac,sc,rho,pres
   real(wp) :: mach_int,gm1,gm1_inv
   real(wp) :: aspd_int,vt_int,vn_int
@@ -415,8 +416,6 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   ! Precompute gamma-1 and its inverse
   !
@@ -559,7 +558,7 @@ subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nr,nq,k
+  integer :: nr,k
   real(wp) :: gm1_inv,ske_inf,mach_int,aspd_int
   !
   !.. Local Arrays ..
@@ -569,7 +568,6 @@ subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm)
 continue
   !
   nr = size(fnrm,dim=1)
-  nq = size(gufp,dim=1)
   !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
@@ -656,7 +654,7 @@ subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nr,nq,k
+  integer :: nr,k
   real(wp) :: gm1_inv,ske_int,mach_int,aspd_int
   !
   !.. Local Arrays ..
@@ -666,7 +664,6 @@ subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm)
 continue
   !
   nr = size(fnrm,dim=1)
-  nq = size(gufp,dim=1)
   !
   ! Precompute the inverse of gamma-1
   !
@@ -756,7 +753,7 @@ subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nr,nq,k
+  integer :: nr,k
   real(wp) :: gm1_inv,ske_inf,ske_int,mach_int,aspd_int
   !
   !.. Local Arrays ..
@@ -766,7 +763,6 @@ subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm)
 continue
   !
   nr = size(fnrm,dim=1)
-  nq = size(gufp,dim=1)
   !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
@@ -869,12 +865,10 @@ subroutine get_bc_sub_inflow_solution(hufp,gufp)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer  :: nq,k
+  integer  :: k
   real(wp) :: pres_int,ske_inf,gm1_inv
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
@@ -926,12 +920,10 @@ subroutine get_bc_sub_outflow_solution(hufp,gufp)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   real(wp) :: gm1_inv,ske_int
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   ! Precompute the inverse of gamma-1
   !
@@ -1009,11 +1001,9 @@ subroutine get_bc_sup_outflow_solution(hufp,gufp)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   do k = 1,size(gufp,dim=2)
     !
@@ -1048,7 +1038,7 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   real(wp) :: vn,wall_solution_location
   !
   !.. Local Arrays ..
@@ -1056,8 +1046,6 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
   !
@@ -1114,15 +1102,13 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   real(wp) :: wall_solution_location
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
   !
@@ -1170,15 +1156,13 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
-  integer :: nq,k
+  integer :: k
   real(wp) :: iso_wall_temp_nd,wall_solution_location
   !
   !.. Local Arrays ..
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
   !
 continue
-  !
-  nq = size(gufp,dim=1)
   !
   iso_wall_temp_nd = iso_wall_temp / tref
   !
@@ -1315,14 +1299,13 @@ subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
   real(wp), dimension(:,:,:), intent(inout) :: gdufp
   !
   !.. Local Scalars ..
-  integer :: nr,nq,k,m,l
+  integer :: nr,k,m,l
   real(wp) :: rho_inv,vel
  !real(wp) :: rho_inv2,vel_over_rho
   !
 continue
   !
   nr = size(gdufp,dim=1)
-  nq = size(gdufp,dim=2)
   !
   do k = 1,size(gdufp,dim=3)
     !
@@ -1388,14 +1371,13 @@ subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
   real(wp), dimension(:,:,:), intent(inout) :: gdufp
   !
   !.. Local Scalars ..
-  integer :: np,nr,nq,k,m,l
+  integer :: np,nr,k,m,l
   real(wp) :: rho_inv,vel,pvar,cv_inv
  !real(wp) :: rho_inv2,pvar_over_rho
   !
 continue
   !
   nr = size(gdufp,dim=1)
-  nq = size(gdufp,dim=2)
   np = size(gdufp,dim=3)
   !
   ! Precompute the inverse of specific heat at constant volume
@@ -1426,9 +1408,9 @@ continue
     !
     ! Using the chain rule:
     !
-    ! 1. Compute the velocity gradients (m = 2,neqns-1)
+    ! 1. Compute the velocity gradients (m = 2,nq-1)
     ! 2. Compute the total energy gradient and store in the
-    !    location for the temperature gradient (m = neqns)
+    !    location for the temperature gradient (m = nq)
     !
     do m = 2,nq
       pvar = rho_inv * hufp(m,k)
@@ -1577,7 +1559,7 @@ subroutine compute_bc_profiles
   !
   !.. Use Statements ..
   use geovar,  only : bface,pts_in_cell_ptr,interp_s2f
-  use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,neqns,nr
+  use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,nr
   use ovar,    only : machref,rhoref,aref,muref,cpref_nd,Pr
   use metvar,  only : geofa
   use flowvar, only : bnd_prof,usp,dusp
@@ -1591,11 +1573,11 @@ subroutine compute_bc_profiles
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:neqns) :: cvfp
-  real(wp), dimension(1:neqns) :: pvfp
+  real(wp), dimension(1:nq) :: cvfp
+  real(wp), dimension(1:nq) :: pvfp
   real(wp), dimension(1:n_sp2dq) :: lmat
-  real(wp), dimension(1:nr,1:neqns) :: dcvdx
-  real(wp), dimension(1:nr,1:neqns) :: dpvdx
+  real(wp), dimension(1:nr,1:nq) :: dcvdx
+  real(wp), dimension(1:nr,1:nq) :: dpvdx
   !
 continue 
   !
@@ -1628,7 +1610,7 @@ continue
         ! Interpolate the conservative variables from the interior sol-pts
         ! to the current flux point on face nf
         !
-        do m = 1,neqns
+        do m = 1,nq
           cvfp(m) = dot( lmat(1:np) , usp(m,n1:n2) )
           do l = 1,nr
             dcvdx(l,m) = dot( lmat(1:np) , dusp(l,m,n1:n2) )
@@ -1638,19 +1620,19 @@ continue
         ! Compute the primitive variables and their
         ! gradients at the current flux point
         !
-        pvfp(1:neqns) = usp2v_sp( cvfp(1:neqns) )
-        dpvdx(1:nr,1:neqns) = grad_cv_to_grad_pv_sp( cvfp(1:neqns) , &
-                                                     dcvdx(1:nr,1:neqns) )
+        pvfp(1:nq) = usp2v_sp( cvfp(1:nq) )
+        dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq) , &
+                                                     dcvdx(1:nr,1:nq) )
         !
-        do m = 1,neqns
+        do m = 1,nq
           bnd_prof(n)%qty(nr+m)%qty_data(bndpt) = pvfp(m)
         end do
         !
         temp = temperature_pv_sp(pvfp)
         visc = viscosity_pv_sp(pvfp)
         !
-        bnd_prof(n)%qty(nr+neqns+1)%qty_data(bndpt) = temp
-        bnd_prof(n)%qty(nr+neqns+2)%qty_data(bndpt) = visc
+        bnd_prof(n)%qty(nr+nq+1)%qty_data(bndpt) = temp
+        bnd_prof(n)%qty(nr+nq+2)%qty_data(bndpt) = visc
         !
         ! Compute the other flow variables for the profile
         !
@@ -1665,24 +1647,24 @@ continue
           rex = rhoref * machref * aref * xloc / muref
           utau = sqrt( tauwall / cvfp(1) )
           yplus = cvfp(1) * utau * yloc / visc
-          qdot = -dot(dpvdx(1:nr,neqns),unrm(1:nr)) &
+          qdot = -dot(dpvdx(1:nr,nq),unrm(1:nr)) &
                   * cpref_nd * visc / Pr
           !
-          bnd_prof(n)%qty(nr+neqns+3)%qty_data(bndpt) = cfmag
-          bnd_prof(n)%qty(nr+neqns+4)%qty_data(bndpt) = rex
-          bnd_prof(n)%qty(nr+neqns+5)%qty_data(bndpt) = yplus
-          bnd_prof(n)%qty(nr+neqns+6)%qty_data(bndpt) = tauwall
-          bnd_prof(n)%qty(nr+neqns+7)%qty_data(bndpt) = utau
-          bnd_prof(n)%qty(nr+neqns+8)%qty_data(bndpt) = qdot
+          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = cfmag
+          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = rex
+          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = yplus
+          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = tauwall
+          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = utau
+          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = qdot
           !
         else
           !
-          bnd_prof(n)%qty(nr+neqns+3)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+neqns+4)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+neqns+5)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+neqns+6)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+neqns+7)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+neqns+8)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = zero
+          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = zero
           !
         end if
         !
@@ -1709,7 +1691,7 @@ continue
     if (any(bface(1,nf) == bc_walls)) then
       write (iogrd,102) trim(bnd_prof(n)%prof_name),np
     else
-      write (iogrd,102) trim(bnd_prof(n)%prof_name),np,nr+neqns+3,nr+neqns+8
+      write (iogrd,102) trim(bnd_prof(n)%prof_name),np,nr+nq+3,nr+nq+8
     end if
     !
     do m = 1,size(bnd_prof(n)%qty)

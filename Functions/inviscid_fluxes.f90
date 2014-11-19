@@ -1,14 +1,14 @@
 pure function normal_invs_flx_cv(uu,rnrm) result(return_value)
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   !
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   real(wp), dimension(1:nr),    intent(in) :: rnrm
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp), dimension(1:nr)    :: unrm
-  real(wp), dimension(1:neqns) :: f_flx,g_flx
+  real(wp), dimension(1:nq) :: f_flx,g_flx
   !
 continue
   !
@@ -25,23 +25,22 @@ end function normal_invs_flx_cv
 !
 pure function f_invs_flx_cv(uu) result(return_value) 
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: pres
   !
 continue
   !
-  pres = (gam-one)*(uu(neqns) - half*selfdot(uu(2:neqns-1))/uu(1))
+  pres = (gam-one)*(uu(nq) - half*selfdot(uu(2:nq-1))/uu(1))
   !
   return_value(1) = uu(2)
-  return_value(2:neqns-1) = uu(2)*uu(2:neqns-1)/uu(1)
+  return_value(2:nq-1) = uu(2)*uu(2:nq-1)/uu(1)
   return_value(2) = return_value(2) + pres
-  return_value(neqns) = uu(2)/uu(1) * (uu(neqns) + pres)
+  return_value(nq) = uu(2)/uu(1) * (uu(nq) + pres)
   !
 end function f_invs_flx_cv
 !
@@ -49,23 +48,22 @@ end function f_invs_flx_cv
 !
 pure function g_invs_flx_cv(uu) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: pres
   !
 continue
   !
-  pres = (gam-one)*(uu(neqns) - half*selfdot(uu(2:neqns-1))/uu(1))
+  pres = (gam-one)*(uu(nq) - half*selfdot(uu(2:nq-1))/uu(1))
   !
   return_value(1) = uu(3)
-  return_value(2:neqns-1) = uu(3)*uu(2:neqns-1)/uu(1)
+  return_value(2:nq-1) = uu(3)*uu(2:nq-1)/uu(1)
   return_value(3) = return_value(3) + pres
-  return_value(neqns) = uu(3)/uu(1) * (uu(neqns) + pres)
+  return_value(nq) = uu(3)/uu(1) * (uu(nq) + pres)
   !
 end function g_invs_flx_cv
 !
@@ -73,23 +71,22 @@ end function g_invs_flx_cv
 !
 pure function f_invs_flx_pv(vv) result(return_value) 
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:nq), intent(in) :: vv
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: ener
   !
 continue
   !
-  ener = vv(neqns)/(gam-one) + half*vv(1)*selfdot(vv(2:neqns-1))
+  ener = vv(nq)/(gam-one) + half*vv(1)*selfdot(vv(2:nq-1))
   !
   return_value(1) = vv(1)*vv(2)
-  return_value(2:neqns-1) = vv(1)*vv(2:neqns-1) * vv(2)
-  return_value(2) = return_value(2) + vv(neqns)
-  return_value(neqns) = (ener + vv(neqns)) * vv(2)
+  return_value(2:nq-1) = vv(1)*vv(2:nq-1) * vv(2)
+  return_value(2) = return_value(2) + vv(nq)
+  return_value(nq) = (ener + vv(nq)) * vv(2)
   !
 end function f_invs_flx_pv
 !
@@ -97,23 +94,22 @@ end function f_invs_flx_pv
 !
 pure function g_invs_flx_pv(vv) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:nq), intent(in) :: vv
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: ener
   !
 continue
   !
-  ener = vv(neqns)/(gam-one) + half*vv(1)*selfdot(vv(2:neqns-1))
+  ener = vv(nq)/(gam-one) + half*vv(1)*selfdot(vv(2:nq-1))
   !
   return_value(1) = vv(1)*vv(3)
-  return_value(2:neqns-1) = vv(1)*vv(2:neqns-1) * vv(3)
-  return_value(3) = return_value(3) + vv(neqns)
-  return_value(neqns) = (ener + vv(neqns)) * vv(3)
+  return_value(2:nq-1) = vv(1)*vv(2:nq-1) * vv(3)
+  return_value(3) = return_value(3) + vv(nq)
+  return_value(nq) = (ener + vv(nq)) * vv(3)
   !
 end function g_invs_flx_pv
 !
@@ -121,12 +117,11 @@ end function g_invs_flx_pv
 !
 pure function f_invs_flx_jacobian_cv(uu) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:nq,1:nq) :: return_value
   !
   real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
@@ -169,12 +164,11 @@ end function f_invs_flx_jacobian_cv
 !
 pure function g_invs_flx_jacobian_cv(uu) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:nq,1:nq) :: return_value
   !
   real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
@@ -217,12 +211,11 @@ end function g_invs_flx_jacobian_cv
 !
 pure function f_invs_flx_jacobian_pv(vv) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:nq), intent(in) :: vv
   !
-  real(wp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:nq,1:nq) :: return_value
   !
   real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
@@ -265,12 +258,11 @@ end function f_invs_flx_jacobian_pv
 !
 pure function g_invs_flx_jacobian_pv(vv) result(return_value)
   !
-  use geovar, only : neqns
   use ovar, only : gam
   !
-  real(wp), dimension(1:neqns), intent(in) :: vv
+  real(wp), dimension(1:nq), intent(in) :: vv
   !
-  real(wp), dimension(1:neqns,1:neqns) :: return_value
+  real(wp), dimension(1:nq,1:nq) :: return_value
   !
   real(wp) :: r,u,u2,v,v2,e,gm1,gm3
   !
@@ -313,13 +305,13 @@ end function g_invs_flx_jacobian_pv
 !
 pure function invs_wall_flx_cv(unrm,uu) result(return_value) 
   !
-  use geovar, only : nr,neqns
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr),    intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: pres
   !
@@ -334,11 +326,11 @@ continue
   ! Get the interior pressure at the wall
   ! NOTE: The interior velocity/momentum at the wall is NOT necessarily zero
   !
-  pres = (gam-one)*(uu(neqns) - half*selfdot(uu(2:neqns-1))/uu(1))
+  pres = (gam-one)*(uu(nq) - half*selfdot(uu(2:nq-1))/uu(1))
   !
   ! All momentum fluxes are just the pressure normal to the wall
   !
-  return_value(2:neqns-1) = unrm(1:nr)*pres
+  return_value(2:nq-1) = unrm(1:nr)*pres
   !
 end function invs_wall_flx_cv
 !

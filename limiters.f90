@@ -2,6 +2,7 @@ module module_limiters
   !
   !.. Use Statements ..
   use module_kind_types
+  use eqn_idx, only : nq
   !
   implicit none
   !
@@ -27,7 +28,7 @@ contains
 subroutine initialize_limiters
   !
   !.. Use Statements ..
-  use geovar, only : neqns,ncell,n_totpts
+  use geovar, only : ncell,n_totpts
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -38,7 +39,7 @@ continue
     !
     ! Create the array for storing the cell averaged solutions
     !
-    allocate ( cell_ave_sol(1:neqns,1:ncell) , source=zero , stat=ierr )
+    allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , stat=ierr )
     call alloc_error("initialize_limiters","cell_ave_sol",1,ierr)
     !
     !
@@ -53,7 +54,7 @@ continue
   !
   if (using_moment_limiter) then
     !
-    allocate ( umodes(1:n_totpts,1:neqns) , source=zero , stat=ierr )
+    allocate ( umodes(1:n_totpts,1:nq) , source=zero , stat=ierr )
     call alloc_error("initialize_limiters","umodes",1,ierr)
     !
     allocate ( needs_limiting(1:ncell) , stat=ierr )
@@ -68,7 +69,7 @@ end subroutine initialize_limiters
 subroutine compute_cell_ave
   !
   !.. Use Statements ..
-  use geovar, only : neqns,ncell,pts_in_cell_ptr
+  use geovar, only : ncell,pts_in_cell_ptr
   use geovar, only : vand_inv
   use geovar, only : n_sp2dt,n_sp2dq
   use flowvar, only : usp
@@ -90,7 +91,7 @@ continue
     !
     inv_vand(1:np) = vand_inv(1,1:np,nw)
     !
-    do m = 1,neqns
+    do m = 1,nq
       cell_ave_sol(m,nc) = half * dot( inv_vand(1:np) , usp(m,n1:n2) )
     end do
     !
@@ -105,7 +106,7 @@ end subroutine compute_cell_ave
 subroutine moment_limiter
   !
   !.. Use Statements ..
-  use geovar, only : neqns,ncell,n_sp2dt
+  use geovar, only : ncell,n_sp2dt
   use geovar, only : pts_in_cell_ptr,vand_inv
   use flowvar, only : usp
   !
@@ -127,7 +128,7 @@ continue
     np = n2-n1+1
     nw = merge(1,2,np==n_sp2dt)
     !
-    do m = 1,neqns
+    do m = 1,nq
       umodes(n1:n2,m) = matmul( vand_inv(1:np,1:np,nw) , usp(m,n1:n2) )
     end do
     !
@@ -146,7 +147,7 @@ end subroutine moment_limiter
 subroutine limit_by_projecting
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,neqns,n_order,n_sp2dt,n_sp2dq
+  use geovar,  only : ncell,n_order,n_sp2dt,n_sp2dq
   use geovar,  only : pts_in_cell_ptr,projct_limiter
   use flowvar, only : usp
   !
@@ -154,7 +155,7 @@ subroutine limit_by_projecting
   integer :: k,m,n,n1,n2,nc,nsp,nw
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:n_sp2dq,1:neqns) :: tusp
+  real(wp), dimension(1:n_sp2dq,1:nq) :: tusp
   !
 continue
   !
@@ -194,13 +195,13 @@ continue
       ! cache misses.
       !
       do k = 1,nsp
-        do m = 1,neqns
+        do m = 1,nq
           tusp(k,m) = usp(m,n1-1+k)
         end do
       end do
       !
       do k = 1,nsp
-        do m = 1,neqns
+        do m = 1,nq
           usp(m,n1-1+k) = dot( projct_limiter(1:nsp,k,nw,n) , &
                                        tusp(1:nsp,m) )
         end do

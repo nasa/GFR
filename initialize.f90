@@ -4,6 +4,7 @@ module initialization_mod
   ! initialize the solution
   !
   use module_kind_types
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
  !use mpivar
   !
   implicit none
@@ -67,24 +68,24 @@ continue
   !
   ! Allocate the solution arrays
   !
-  allocate ( usp(1:neqns,1:n_totpts) , source=zero , stat=ierr )
+  allocate ( usp(1:nq,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","usp",1,ierr)
-  allocate ( dusp(1:nr,1:neqns,1:n_totpts) , source=zero , stat=ierr )
+  allocate ( dusp(1:nr,1:nq,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","dusp",1,ierr)
-  allocate ( residual(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+  allocate ( residual(1:nq,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","residual",1,ierr)
   allocate ( dtsp(1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","dtsp",1,ierr)
-  allocate ( uoldsp(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+  allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uoldsp",1,ierr)
-  allocate ( faceusp(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
+  allocate ( faceusp(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceusp",1,ierr)
-  allocate ( facedusp(1:2,1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
+  allocate ( facedusp(1:2,1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","facedusp",1,ierr)
-  allocate ( faceflx(1:neqns,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
+  allocate ( faceflx(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","faceflx",1,ierr)
   !
-  allocate ( uspstart(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+  allocate ( uspstart(1:nq,1:n_solpts) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","uspstart",1,ierr)
   !
   ! Allocate the storage for the Runge-Kutta methods
@@ -95,12 +96,12 @@ continue
   else if (iRKtype == CK4_RK .or. iRKtype == TVD4_RK) then
     n = 1
     if (iRKtype == TVD4_RK) then
-      allocate ( usp_sum(1:neqns,1:n_solpts) , source=zero , stat=ierr )
+      allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , stat=ierr )
       call alloc_error("initialize_flow","usp_sum",1,ierr)
     end if
   end if
   !
-  allocate ( rssprk(1:neqns,1:n_solpts,1:n) , source=zero , stat=ierr )
+  allocate ( rssprk(1:nq,1:n_solpts,1:n) , source=zero , stat=ierr )
   call alloc_error("initialize_flow","rssprk",1,ierr)
   !
   ! Initialize uspstart depending on the test case requested
@@ -126,7 +127,7 @@ continue
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_gauss(1,np) , xyz_gauss(2,np) )
         end do
-        do m = 1,neqns
+        do m = 1,nq
           uspstart(m,n1:n2) = matmul( gauss2numer , uspstart(m,n1:n2) )
         end do
       end do
@@ -140,7 +141,7 @@ continue
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_lobatto(1,np) , xyz_lobatto(2,np) )
         end do
-        do m = 1,neqns
+        do m = 1,nq
           uspstart(m,n1:n2) = matmul( lobatto2numer , uspstart(m,n1:n2) )
         end do
       end do
@@ -154,7 +155,7 @@ continue
         do np = n1,n2
           uspstart(:,np) = vortex2D( xyz_radau(1,np) , xyz_radau(2,np) )
         end do
-        do m = 1,neqns
+        do m = 1,nq
           uspstart(m,n1:n2) = matmul( radau2numer , uspstart(m,n1:n2) )
         end do
       end do
@@ -210,22 +211,23 @@ continue
   !
   ! Initialize the solution at previous timestep array
   !
-  uoldsp(1:neqns,1:n_solpts) = usp(1:neqns,1:n_solpts)
+  uoldsp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
   !
   ! Output the free-stream conditions
   !
   if (mypnum == 0) then
     if (itestcase /= Density_Transport .and. itestcase /= Entropy_Transport) then
       !
-      write (iout,1) rhoref,pref,tref,machref,aref,vxref,vyref, &
-                     aoaref,gam,rgasref,cpref,muref,reyref
+      write (iout,1) rhoref,pref,tref,machref,aref,velref(1),velref(2), &
+                     alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref
       write (iout,2) rhoref/rhoref,pref_nd,tref/tref,aref/aref, &
-                     vxref_nd,vyref_nd,rgasref_nd,cpref_nd,muref_nd
+                     velref_nd(1),velref_nd(2),rgasref_nd,cpref_nd,muref_nd
       !
     else
       !
       write (iout,3) rhoref,pref,tref,machref,uref/machref, &
-                     vxref,vyref,aoaref,gam,rgasref,muref,reyref
+                     velref(1),velref(2),alpha_aoaref,beta_aoaref,gam, &
+                     rgasref,muref,reyref
       !
     end if
     !
@@ -243,19 +245,20 @@ continue
   ! Format Statements
   !
   1 format (/," Dimensional Free-stream conditions",/, &
-              " Density         = ",es14.6," kg/m^3",/, &
-              " Pressure        = ",es14.6," N/m^2",/, &
-              " Temperature     = ",es14.6," K",/, &
-              " Mach Number     = ",es14.6,/, &
-              " Speed of Sound  = ",es14.6," m/s",/, &
-              " X-Velocity      = ",es14.6," m/s",/, &
-              " Y-Velocity      = ",es14.6," m/s",/, &
-              " Angle of Attack = ",es14.6," degrees"/, &
-              " Gamma           = ",es14.6,/, &
-              " Gas Constant    = ",es14.6," J/(kg*K)",/, &
-              " Cp              = ",es14.6," J/(kg*K)",/, &
-              " Viscosity       = ",es14.6," kg/(m*s)",/, &
-              " Reynolds #      = ",es14.6,/)
+              " Density          = ",es14.6," kg/m^3",/, &
+              " Pressure         = ",es14.6," N/m^2",/, &
+              " Temperature      = ",es14.6," K",/, &
+              " Mach Number      = ",es14.6,/, &
+              " Speed of Sound   = ",es14.6," m/s",/, &
+              " X-Velocity       = ",es14.6," m/s",/, &
+              " Y-Velocity       = ",es14.6," m/s",/, &
+              " Alpha A.o.Attack = ",es14.6," degrees"/, &
+              " Beta  A.o.Attack = ",es14.6," degrees"/, &
+              " Gamma            = ",es14.6,/, &
+              " Gas Constant     = ",es14.6," J/(kg*K)",/, &
+              " Cp               = ",es14.6," J/(kg*K)",/, &
+              " Viscosity        = ",es14.6," kg/(m*s)",/, &
+              " Reynolds #       = ",es14.6,/)
   2 format (/," Non-dimensional Free-stream conditions",/, &
               " Density         = ",es14.6,/, &
               " Pressure        = ",es14.6,/, &
@@ -269,16 +272,17 @@ continue
   3 format (/," The density vortex transport problem is being",/, &
               " used to model the linear 2D advection equation.",//, &
               " The Non-dimensional Free-stream conditions are",/, &
-              " Density         = ",es14.6,/, &
-              " Pressure        = ",es14.6,/, &
-              " Temperature     = ",es14.6,/, &
-              " Mach Number     = ",es14.6,/, &
-              " Speed of Sound  = ",es14.6,/, &
-              " X-Velocity      = ",es14.6,/, &
-              " Y-Velocity      = ",es14.6,/, &
-              " Angle of Attack = ",es14.6,/, &
-              " Gamma           = ",es14.6,/, &
-              " Gas Constant    = ",es14.6,/)
+              " Density          = ",es14.6,/, &
+              " Pressure         = ",es14.6,/, &
+              " Temperature      = ",es14.6,/, &
+              " Mach Number      = ",es14.6,/, &
+              " Speed of Sound   = ",es14.6,/, &
+              " X-Velocity       = ",es14.6,/, &
+              " Y-Velocity       = ",es14.6,/, &
+              " Alpha A.o.Attack = ",es14.6," degrees"/, &
+              " Beta  A.o.Attack = ",es14.6," degrees"/, &
+              " Gamma            = ",es14.6,/, &
+              " Gas Constant     = ",es14.6,/)
   4 format (/," Computing the initial solution at the ",a," points.",/)
   5 format (/," ***************** ERROR! ****************",/, &
               "  THIS TEST CASE IS CURRENTLY NOT SET UP!",/, &
@@ -292,7 +296,7 @@ subroutine create_profile_structures
   !
   !.. Use Statements ..
   use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,xyz
-  use geovar,  only : nfbnd,nbfai,neqns,nr,bface
+  use geovar,  only : nfbnd,nbfai,nr,bface
   use geovar,  only : interp_s2f,pts_in_cell_ptr
   use flowvar, only : bnd_prof
   !
@@ -321,7 +325,7 @@ continue
   !
   ! Get the number of flow quantities and their names
   !
-  flow_qtys = nr + neqns + 2
+  flow_qtys = nr + nq + 2
   wall_qtys = flow_qtys + 6
   !
   allocate ( flow_var(1:wall_qtys) , stat=ierr )
@@ -334,9 +338,9 @@ continue
   do n = 1,nr
     flow_var(nr+n+1) = "Velocity"//char_xyz(n)
   end do
-  flow_var(nr+neqns+0) = "Pressure"
-  flow_var(nr+neqns+1) = "Temperature"
-  flow_var(nr+neqns+2) = "Viscosity"
+  flow_var(nr+nq+0) = "Pressure"
+  flow_var(nr+nq+1) = "Temperature"
+  flow_var(nr+nq+2) = "Viscosity"
   flow_var(flow_qtys+1) = "SkinFrictionMagnitude"
   flow_var(flow_qtys+2) = "ReynoldsX"
   flow_var(flow_qtys+3) = "YPlus"

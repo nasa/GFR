@@ -58,7 +58,8 @@ HOMEDIR = /home/sspiegel
 LOCALLIB =
 OTHERLIB =
 
- OPTIM = -O3 -ipo -xSSE4.2 #-ipo-jobs4
+ OPTIM = -O2 -ip -xSSE4.2
+ IPO_OPT = -O3 -ipo #-ipo-jobs4
 #OPTIM = -O2 -xSSE4.2 #-ipo-jobs4
 #OPTIM = -O3 -ip -xSSE4.2
 #OPTIM += -align array32byte
@@ -150,6 +151,9 @@ OBJS = $(OBJDIR)/kind_types.o \
 #
 optimize: FCFLAG += $(OPTIM)
 optimize: all
+#
+ipo-opt: FCFLAG += $(OPTIM) $(IPO_OPT)
+ipo-opt: all
 #
 debug: FCFLAG += -check all -debug -fp-stack-check
 debug: all

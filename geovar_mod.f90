@@ -35,11 +35,24 @@ module geovar
   integer, public, save :: all_orders = -3
   !
   integer, public, save :: n_sp1de
-  integer, public, save :: n_fp1de
   integer, public, save :: n_sp2dt
   integer, public, save :: n_sp2dq
   integer, public, save :: n_solpts
+  !
+  integer, public, save :: n_fp1de
+  integer, public, save :: n_fp2dt
+  integer, public, save :: n_fp2dq
   integer, public, save :: n_flxpts
+  !
+  integer, public, save :: n_sptet
+  integer, public, save :: n_sppyr
+  integer, public, save :: n_sppri
+  integer, public, save :: n_sphex
+  !
+  integer, public, save :: n_qptet
+  integer, public, save :: n_qppyr
+  integer, public, save :: n_qppri
+  integer, public, save :: n_qphex
   !
   ! over-integration parameters
   !
@@ -47,10 +60,6 @@ module geovar
   integer, public, save :: n_qp1de
   integer, public, save :: n_qp2dt
   integer, public, save :: n_qp2dq
-  !
-  ! neqns : number of governing equations
-  !
-  integer, public, parameter :: neqns = 4
   !
   ! nbfai : number of storage locations needed for each boundary face in array bface
   !
@@ -143,6 +152,16 @@ module geovar
   ! pts_in_cell_ptr(i_cell+1) gives the last  solution point within i_cell
   !
   integer, public, save, allocatable, dimension(:) :: pts_in_cell_ptr
+  !
+  ! cell_geom : this gives the geometry of each cell
+  !
+  integer, public, save, allocatable, dimension(:) :: cell_geom
+  !
+  ! cell_order : gives the order of the solution for each cell
+  !              This if for future use if we want the solution order
+  !              to not be constant across all cells
+  !
+  integer, public, save, allocatable, dimension(:) :: cell_order
   !
   ! xyz_nodes : x,y coordinates of the vertices
   ! xyz       : x,y coordinates of all solution points

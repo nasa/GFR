@@ -24,6 +24,9 @@ debug:
 optimize:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
 
+ipo-opt:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" ipo-opt
+
 guide:
 	mkdir -p guide_files
 	@echo $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" guide

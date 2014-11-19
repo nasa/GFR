@@ -4,14 +4,14 @@ pure function upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: cvl
-  real(wp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nq), intent(in) :: cvl
+  real(wp), dimension(1:nq), intent(in) :: cvr
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: gm1,gp1,unx,uny
   real(wp) :: rl,ul,vl,pl,hl,ql,rql,betal
@@ -98,14 +98,14 @@ pure function upwind_flux_pv(unrm,pvl,pvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: pvl
-  real(wp), dimension(1:neqns), intent(in) :: pvr
+  real(wp), dimension(1:nq), intent(in) :: pvl
+  real(wp), dimension(1:nq), intent(in) :: pvr
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: gm1,gp1,unx,uny
   real(wp) :: rl,ul,vl,pl,hl,ql,rql,betal
@@ -186,15 +186,15 @@ pure function hllc_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: cvl
-  real(wp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nq), intent(in) :: cvl
+  real(wp), dimension(1:nq), intent(in) :: cvr
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   !.. Local Scalars ..
   real(wp) :: gm1,unx,uny
@@ -304,14 +304,14 @@ pure function ldfss_upwind_flux_cv(unrm,cvl,cvr) result(return_value)
   !... output: f1,f2,f3,f4 : fluxes.
   !... Roe's flux with Osher's simple wave model (Huynh, SIAM J. Num. 1995)
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: cvl
-  real(wp), dimension(1:neqns), intent(in) :: cvr
+  real(wp), dimension(1:nq), intent(in) :: cvl
+  real(wp), dimension(1:nq), intent(in) :: cvr
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: gm1,unx,uny,ahalf
   real(wp) :: rl,ul,vl,pl,hl,al
@@ -395,14 +395,14 @@ pure function ausm_plus_upwind_flux(unrm,pvl,pvr) result(return_value)
   !... input unit normal unx,uny, edge length ds, rl,ul,vl,pl, rr,ur,vr,pr
   !... output: f1,f2,f3,f4 : fluxes
   !
-  use geovar, only : neqns,nr
+  use geovar, only : nr
   use ovar, only : gam
   !
   real(wp), dimension(1:nr), intent(in) :: unrm
-  real(wp), dimension(1:neqns), intent(in) :: pvl
-  real(wp), dimension(1:neqns), intent(in) :: pvr
+  real(wp), dimension(1:nq), intent(in) :: pvl
+  real(wp), dimension(1:nq), intent(in) :: pvr
   !
-  real(wp), dimension(1:neqns) :: return_value
+  real(wp), dimension(1:nq) :: return_value
   !
   real(wp) :: gm1,unx,uny
   real(wp) :: rl,ul,vl,pl,hl,al,v2l,a2l,h0l,uul,f1l
