@@ -86,7 +86,7 @@ pure subroutine vortex_position(delx,dely)
   !.. Use Statements ..
   use ovar, only : itcur,velref,aref
   use ovar, only : Period_Timesteps,Period_Time
-  use ovar, only : Grid_Length_X,Grid_Length_Y
+  use ovar, only : Grid_Length
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: delx
@@ -112,8 +112,8 @@ continue
   ! Now translate these into a periodic domain
   ! with the grid lengths for each direction
   !
-  delx = mod(delx,Grid_Length_X)
-  dely = mod(dely,Grid_Length_Y)
+  delx = mod(delx,Grid_Length(1))
+  dely = mod(dely,Grid_Length(2))
   !
 end subroutine vortex_position
 !

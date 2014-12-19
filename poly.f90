@@ -212,7 +212,7 @@ contains
 !###############################################################################
 !###############################################################################
 !
-subroutine JacobiGL_DP(alpha,beta,n,xi,weights)
+pure subroutine JacobiGL_DP(alpha,beta,n,xi,weights)
   !
   integer,                      intent(in) :: n
   !
@@ -320,7 +320,7 @@ end function normalized_jacobi_poly_DP
 !
 !###############################################################################
 !
-subroutine eval_normalized_jacobi_poly_DP(n,alpha,beta,x,y,dy)
+pure subroutine eval_normalized_jacobi_poly_DP(n,alpha,beta,x,y,dy)
   !
   integer,    intent(in) :: n
   !
@@ -417,7 +417,7 @@ end subroutine eval_jacobi_poly_DP
 !
 !###############################################################################
 !
-subroutine eval_chebyshev_poly_DP(n,x,y,dy,d2y)
+pure subroutine eval_chebyshev_poly_DP(n,x,y,dy,d2y)
   !
   integer,    intent(in) :: n
   !
@@ -540,7 +540,7 @@ end subroutine nodes_legendre_gauss_DP
 !
 !###############################################################################
 !
-subroutine nodes_right_radau_DP(n,xi)
+pure subroutine nodes_right_radau_DP(n,xi)
   !
   integer,                        intent(in) :: n
   !
@@ -657,7 +657,7 @@ end function coefle_DP
 !
 !###############################################################################
 !
-subroutine nodes_chebyshev_gauss_DP(n,xi)
+pure subroutine nodes_chebyshev_gauss_DP(n,xi)
   !
   integer,                    intent(in) :: n
   !
@@ -677,7 +677,7 @@ end subroutine nodes_chebyshev_gauss_DP
 !
 !###############################################################################
 !
-subroutine nodes_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,vn)
+pure subroutine nodes_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,vn)
   !
   integer,                     intent(in) :: n
   !
@@ -806,7 +806,7 @@ end subroutine nodes_legendre_gauss_lobatto_DP
 !
 !###############################################################################
 !
-subroutine nodes_chebyshev_gauss_lobatto_DP(n,xi)
+pure subroutine nodes_chebyshev_gauss_lobatto_DP(n,xi)
   !
   integer,                      intent(in) :: n
   !
@@ -904,7 +904,7 @@ end function log_gammafun_DP
 !
 !###############################################################################
 !
-subroutine weights_jacobi_gauss_DP(n,alpha,beta,xi,dy,weights)
+pure subroutine weights_jacobi_gauss_DP(n,alpha,beta,xi,dy,weights)
   !***************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -978,7 +978,7 @@ end subroutine weights_legendre_gauss_DP
 !
 !################################################################################
 !
-subroutine weights_chebyshev_gauss_DP(n,weights)
+pure subroutine weights_chebyshev_gauss_DP(n,weights)
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1002,7 +1002,7 @@ end subroutine weights_chebyshev_gauss_DP
 !
 !################################################################################
 !
-subroutine weights_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
+pure subroutine weights_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1079,7 +1079,7 @@ end subroutine weights_jacobi_gauss_lobatto_DP
 !
 !################################################################################
 !
-subroutine weights_legendre_gauss_lobatto_DP(n,vn,weights)
+pure subroutine weights_legendre_gauss_lobatto_DP(n,vn,weights)
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1111,7 +1111,7 @@ end subroutine weights_legendre_gauss_lobatto_DP
 !
 !################################################################################
 !
-subroutine weights_right_radau_DP(n,xi,weights)
+pure subroutine weights_right_radau_DP(n,xi,weights)
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1147,7 +1147,7 @@ end subroutine weights_right_radau_DP
 !
 !################################################################################
 !
-subroutine weights_chebyshev_gauss_lobatto_DP(n,weights)
+pure subroutine weights_chebyshev_gauss_lobatto_DP(n,weights)
   !***********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1176,7 +1176,7 @@ end subroutine weights_chebyshev_gauss_lobatto_DP
 !
 !###############################################################################
 !
-subroutine weights_dgbook_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
+pure subroutine weights_dgbook_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -1252,7 +1252,7 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_DP
 !
 !################################################################################
 !
-subroutine derivative_matrix_legendre_gauss_DP(n,cs,dz,dma)
+pure subroutine derivative_matrix_legendre_gauss_DP(n,cs,dz,dma)
   !
   !*************************************************************
   !*************************************************************
@@ -1305,7 +1305,7 @@ end subroutine derivative_matrix_legendre_gauss_DP
 !
 !################################################################################
 !
-subroutine derivative_matrix_jacobi_gauss_lobatto_DP(n,alpha,beta,et,vn,dma)
+pure subroutine derivative_matrix_jacobi_gauss_lobatto_DP(n,alpha,beta,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -1377,7 +1377,7 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_DP
 !
 !################################################################################
 !
-subroutine derivative_matrix_legendre_gauss_lobatto_DP(n,et,vn,dma)
+pure subroutine derivative_matrix_legendre_gauss_lobatto_DP(n,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -1425,7 +1425,7 @@ end subroutine derivative_matrix_legendre_gauss_lobatto_DP
 !
 !################################################################################
 !
-subroutine derivative_matrix_chebyshev_gauss_lobatto_DP(n,et,dma)
+pure subroutine derivative_matrix_chebyshev_gauss_lobatto_DP(n,et,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -1501,7 +1501,7 @@ end subroutine derivative_matrix_chebyshev_gauss_lobatto_DP
 !###############################################################################
 !###############################################################################
 !
-subroutine JacobiGL_QP(alpha,beta,n,xi,weights)
+pure subroutine JacobiGL_QP(alpha,beta,n,xi,weights)
   !
   integer,                      intent(in) :: n
   !
@@ -1609,7 +1609,7 @@ end function normalized_jacobi_poly_QP
 !
 !###############################################################################
 !
-subroutine eval_normalized_jacobi_poly_QP(n,alpha,beta,x,y,dy)
+pure subroutine eval_normalized_jacobi_poly_QP(n,alpha,beta,x,y,dy)
   !
   integer,    intent(in) :: n
   !
@@ -1706,7 +1706,7 @@ end subroutine eval_jacobi_poly_QP
 !
 !###############################################################################
 !
-subroutine eval_chebyshev_poly_QP(n,x,y,dy,d2y)
+pure subroutine eval_chebyshev_poly_QP(n,x,y,dy,d2y)
   !
   integer,    intent(in) :: n
   !
@@ -1829,7 +1829,7 @@ end subroutine nodes_legendre_gauss_QP
 !
 !###############################################################################
 !
-subroutine nodes_right_radau_QP(n,xi)
+pure subroutine nodes_right_radau_QP(n,xi)
   !
   integer,                        intent(in) :: n
   !
@@ -1946,7 +1946,7 @@ end function coefle_QP
 !
 !###############################################################################
 !
-subroutine nodes_chebyshev_gauss_QP(n,xi)
+pure subroutine nodes_chebyshev_gauss_QP(n,xi)
   !
   integer,                    intent(in) :: n
   !
@@ -1966,7 +1966,7 @@ end subroutine nodes_chebyshev_gauss_QP
 !
 !###############################################################################
 !
-subroutine nodes_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,vn)
+pure subroutine nodes_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,vn)
   !
   integer,                     intent(in) :: n
   !
@@ -2095,7 +2095,7 @@ end subroutine nodes_legendre_gauss_lobatto_QP
 !
 !###############################################################################
 !
-subroutine nodes_chebyshev_gauss_lobatto_QP(n,xi)
+pure subroutine nodes_chebyshev_gauss_lobatto_QP(n,xi)
   !
   integer,                      intent(in) :: n
   !
@@ -2194,7 +2194,7 @@ end function log_gammafun_QP
 !
 !###############################################################################
 !
-subroutine weights_jacobi_gauss_QP(n,alpha,beta,xi,dy,weights)
+pure subroutine weights_jacobi_gauss_QP(n,alpha,beta,xi,dy,weights)
   !***************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2268,7 +2268,7 @@ end subroutine weights_legendre_gauss_QP
 !
 !################################################################################
 !
-subroutine weights_chebyshev_gauss_QP(n,weights)
+pure subroutine weights_chebyshev_gauss_QP(n,weights)
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2292,7 +2292,7 @@ end subroutine weights_chebyshev_gauss_QP
 !
 !################################################################################
 !
-subroutine weights_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
+pure subroutine weights_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2369,7 +2369,7 @@ end subroutine weights_jacobi_gauss_lobatto_QP
 !
 !################################################################################
 !
-subroutine weights_legendre_gauss_lobatto_QP(n,vn,weights)
+pure subroutine weights_legendre_gauss_lobatto_QP(n,vn,weights)
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2401,7 +2401,7 @@ end subroutine weights_legendre_gauss_lobatto_QP
 !
 !################################################################################
 !
-subroutine weights_right_radau_QP(n,xi,weights)
+pure subroutine weights_right_radau_QP(n,xi,weights)
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2437,7 +2437,7 @@ end subroutine weights_right_radau_QP
 !
 !################################################################################
 !
-subroutine weights_chebyshev_gauss_lobatto_QP(n,weights)
+pure subroutine weights_chebyshev_gauss_lobatto_QP(n,weights)
   !***********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2466,7 +2466,7 @@ end subroutine weights_chebyshev_gauss_lobatto_QP
 !
 !###############################################################################
 !
-subroutine weights_dgbook_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
+pure subroutine weights_dgbook_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
   !   N  = ORDER OF THE FORMULA
@@ -2542,7 +2542,7 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_QP
 !
 !################################################################################
 !
-subroutine derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
+pure subroutine derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
   !
   !*************************************************************
   !*************************************************************
@@ -2595,7 +2595,7 @@ end subroutine derivative_matrix_legendre_gauss_QP
 !
 !################################################################################
 !
-subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta,et,vn,dma)
+pure subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -2667,7 +2667,7 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_QP
 !
 !################################################################################
 !
-subroutine derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
+pure subroutine derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -2715,7 +2715,7 @@ end subroutine derivative_matrix_legendre_gauss_lobatto_QP
 !
 !################################################################################
 !
-subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
+pure subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE

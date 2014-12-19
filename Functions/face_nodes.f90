@@ -62,11 +62,6 @@ continue
   !
   return_value = cell_nodes(fnodes(:,face_loc))
   !
-  ! Tetrahedron elements are not currently set up so set
-  ! return_value to the currently not set up error value of -4
-  !
-  return_value = -4
-  !
 end function face_nodes_tetr
 !
 !###############################################################################
@@ -90,11 +85,6 @@ pure function face_nodes_pyra(face_loc,cell_nodes) result(return_value)
 continue
   !
   return_value = cell_nodes(fnodes(:,face_loc))
-  !
-  ! Pyramid elements are not currently set up so set
-  ! return_value to the currently not set up error value of -5
-  !
-  return_value = -5
   !
 end function face_nodes_pyra
 !
@@ -120,11 +110,6 @@ continue
   !
   return_value = cell_nodes(fnodes(:,face_loc))
   !
-  ! Prism elements are not currently set up so set
-  ! return_value to the currently not set up error value of -6
-  !
-  return_value = -6
-  !
 end function face_nodes_pris
 !
 !###############################################################################
@@ -149,11 +134,6 @@ pure function face_nodes_hexa(face_loc,cell_nodes) result(return_value)
 continue
   !
   return_value = cell_nodes(fnodes(:,face_loc))
-  !
-  ! Hexahedron elements are not currently set up so set
-  ! return_value to the currently not set up error value of -8
-  !
-  return_value = -8
   !
 end function face_nodes_hexa
 !

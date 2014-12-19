@@ -20,7 +20,7 @@ module module_gmsh
   ! CELL_NODES: gives the number of nodes defining each type of grid cell
   ! CELL_DIMEN: gives the dimensions of the cell-type (i.e., [0,1,2,3]-D)
   ! CELL_ORDER: gives the order of the cell-type
-  ! CELL_GEOM : gives the shape/geometry of the cell type
+  ! CONVERT_GEOM : gives the shape/geometry of the cell type
   !              0 -> node/point
   !              1 -> line/edge
   !              3 -> triangle
@@ -148,11 +148,14 @@ module module_gmsh
                      2, 2, 3, 3, 4, 4, 5, 5, 3, 4, 5, 3, 4, 5, 3, 4 ]
   !
   integer, parameter, dimension(1:33) :: &
-      cell_geom  = [ 1, 3, 2, 4, 8, 6, 5, 1, 3, 2, 4, 8, 6, 5, 0, 2, 8, &
-                     6, 5, 3, 3, 3, 3, 3, 3, 1, 1, 1, 4, 4, 4, 8, 8 ]
+    convert_geom  = [ Geom_Edge, Geom_Tria, Geom_Quad, Geom_Tetr, Geom_Hexa, &
+                      Geom_Pris, Geom_Pyra, Geom_Edge, Geom_Tria, Geom_Quad, &
+                      Geom_Tetr, Geom_Hexa, Geom_Pris, Geom_Pyra, Geom_Node, &
+                      Geom_Quad, Geom_Hexa, Geom_Pris, Geom_Pyra, Geom_Tria, &
+                      Geom_Tria, Geom_Tria, Geom_Tria, Geom_Tria, Geom_Tria, &
+                      Geom_Edge, Geom_Edge, Geom_Edge, Geom_Tetr, Geom_Tetr, &
+                      Geom_Tetr, Geom_Hexa, Geom_Hexa ]
   !
-  !                  1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,
-  !                 18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33
   !
   ! ###################################
   ! ###  Module Derived Data Types  ###
@@ -188,6 +191,8 @@ module module_gmsh
   integer, save :: num_phys_grps
   integer, save :: num_cell_data
   !
+  integer, save :: iogmsh
+  !
   ! ###################################
   ! ###  Module Allocatable Arrays  ###
   ! ###################################
@@ -211,7 +216,8 @@ subroutine read_gmsh_gridfile( gridfile )
   logical :: end_of_file
   character(len=80) :: section_header
   !
-  !.. Local Allocatable Arrays ..
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_gridfile"
   !
 continue
   !
@@ -222,9 +228,9 @@ continue
   !
   ! Open the grid file
   !
-  open (iogrd,file=gridfile,status="old",action="read", &
-       position="rewind",iostat=ierr)
-  call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),1,ierr)
+  open (newunit=iogmsh,file=gridfile,status="old",action="read", &
+                       position="rewind",iostat=ierr)
+  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
   !
   ! Reading the grid file sections, looping until reaching the end of the file
   !
@@ -272,29 +278,29 @@ continue
   if ( .not. meshformat_successful ) then
     !
     if (mypnum == 0) write (iout,2)
-    call stop_recon(stop_mpi,"read_gmsh_gridfile")
+    call stop_recon(stop_mpi,pname)
     !
   else if ( .not. nodes_successful ) then
     !
     if (mypnum == 0) write (iout,3)
-    call stop_recon(stop_mpi,"read_gmsh_gridfile")
+    call stop_recon(stop_mpi,pname)
     !
   else if ( .not. elements_successful ) then
     !
     if (mypnum == 0) write (iout,4)
-    call stop_recon(stop_mpi,"read_gmsh_gridfile")
+    call stop_recon(stop_mpi,pname)
     !
   else if ( .not. physicalnames_successful ) then
     !
     if (mypnum == 0) write (iout,5)
-    call stop_recon(stop_mpi,"read_gmsh_gridfile")
+    call stop_recon(stop_mpi,pname)
     !
   else
     !
     ! We are done reading the grid file so close it
     !
-    close (iogrd,iostat=ierr)
-    call io_error("read_gmsh_gridfile",trim(adjustl(gridfile)),2,ierr)
+    close (iogmsh,iostat=ierr)
+    call io_error(pname,trim(adjustl(gridfile)),2,ierr)
     !
   end if
   !
@@ -308,11 +314,11 @@ continue
   !
   if (allocated(cell_data)) then
     deallocate ( cell_data , stat=ierr )
-    call alloc_error("read_gmsh_gridfile","cell_data",2,ierr)
+    call alloc_error(pname,"cell_data",2,ierr)
   end if
   if (allocated(phys_grps)) then
     deallocate ( phys_grps , stat=ierr )
-    call alloc_error("read_gmsh_gridfile","phys_grps",2,ierr)
+    call alloc_error(pname,"phys_grps",2,ierr)
   end if
   !
   ! Format statements
@@ -349,6 +355,9 @@ subroutine find_gmsh_section(text_out,end_of_file)
   integer :: ierr,n
   character(len=len(text_out)) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section"
+  !
 continue
   !
   end_of_file = fals
@@ -358,7 +367,7 @@ continue
   !
   do
     !
-    read (iogrd,1,iostat=ierr,end=100,err=101) text
+    read (iogmsh,1,iostat=ierr,end=100,err=101) text
     text = trim(adjustl(text))
     !
     if (text(1:1) == "$") then
@@ -403,13 +412,16 @@ subroutine read_gmsh_section_meshformat
   real(wp) :: gmsh_version_num
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_meshformat"
+  !
 continue
   !
   ! Read the MeshFormat section of the GMSH grid file
   !
-  read (iogrd,*,iostat=ierr,end=100,err=101) gmsh_version_num, &
-                                             gmsh_file_type, &
-                                             gmsh_data_size
+  read (iogmsh,*,iostat=ierr,end=100,err=101) gmsh_version_num, &
+                                              gmsh_file_type, &
+                                              gmsh_data_size
   !
   ! Check that the GMSH version number is supported
   !
@@ -417,7 +429,7 @@ continue
   !
   if (nint(gmsh_version_num) /= 22) then
     if (mypnum == 0) write (iout,1)
-    call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+    call stop_recon(stop_mpi,pname)
   end if
   !
   ! Return if the line marking the end of the MeshFormat section is found
@@ -433,15 +445,15 @@ continue
     if (mypnum == 0) write (iout,3)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+  call stop_recon(stop_mpi,pname)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,2) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+      call stop_recon(stop_mpi,pname)
   !
   101 if (mypnum == 0) write (iout,4) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_meshformat")
+      call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -478,11 +490,14 @@ subroutine read_gmsh_section_nodes
   !.. Local Scalars ..
   integer :: i,j,n,ierr
   logical :: end_of_file
-  real(wp) :: coord_ave
+  real(wp) :: minz,maxz
   character(len=80) :: text
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable, dimension(:,:) :: temp_nodes
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_nodes"
   !
 continue
   !
@@ -493,35 +508,36 @@ continue
   !
   ! Read the Nodes section of the GMSH grid file
   !
-  read (iogrd,*,iostat=ierr,end=100,err=101) nnode
+  read (iogmsh,*,iostat=ierr,end=100,err=101) nnode
   !
   ! Allocate the temporary array to read in the coordinates of the grid nodes
   !
   allocate ( temp_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error("read_gmsh_section_nodes","temp_nodes",1,ierr)
+  call alloc_error(pname,"temp_nodes",1,ierr)
   !
   ! Read the coordinates of the grid nodes
   !
   do n = 1,nnode
-    read (iogrd,*,iostat=ierr,end=100,err=101) i, (temp_nodes(j,i), j=1,nr)
+    read (iogmsh,*,iostat=ierr,end=100,err=101) i, (temp_nodes(j,i), j=1,nr)
   end do
   !
-  ! If all the nodes coordinates for the third dimensions
-  ! are zero, reduce nr to 2 since this is a 2D grid.
+  ! If the minimum and maximum values of the coordinate in the third
+  ! dimension are equal, reduce nr to 2 since this is a 2D grid.
   !
-  coord_ave = sum( abs(temp_nodes(nr,1:nnode)) ) / real(nnode,kind=wp)
+  minz = minval(temp_nodes(nr,:))
+  maxz = maxval(temp_nodes(nr,:))
   !
-  if (coord_ave <= eps14) nr = 2
+  if (abs(maxz-minz) <= eps6) nr = 2
   !
   ! Allocate the xyz_nodes array and use the temp_nodes array as the data source
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=temp_nodes(1:nr,1:nnode) , stat=ierr )
-  call alloc_error("read_gmsh_section_nodes","xyz_nodes",1,ierr)
+  call alloc_error(pname,"xyz_nodes",1,ierr)
   !
   ! Deallocate temp_nodes now that we no longer need it
   !
   deallocate ( temp_nodes , stat=ierr )
-  call alloc_error("read_gmsh_section_nodes","temp_nodes",2,ierr)
+  call alloc_error(pname,"temp_nodes",2,ierr)
   !
   ! Return if the line marking the end of the Nodes section is found
   !
@@ -536,15 +552,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_nodes")
+  call stop_recon(stop_mpi,pname)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_nodes")
+      call stop_recon(stop_mpi,pname)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_nodes")
+      call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -576,16 +592,19 @@ subroutine read_gmsh_section_elements
   logical :: end_of_file
   character(len=80) :: text,array_name
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_elements"
+  !
 continue
   !
   ! Read the Elements section of the GMSH grid file
   !
-  read (iogrd,*,iostat=ierr,end=100,err=101) num_cell_data
+  read (iogmsh,*,iostat=ierr,end=100,err=101) num_cell_data
   !
   ! Allocate the array for the element definitions
   !
   allocate ( cell_data(1:num_cell_data) , stat=ierr )
-  call alloc_error("read_gmsh_section_elements","cell_data",1,ierr)
+  call alloc_error(pname,"cell_data",1,ierr)
   !
   ! Read the element definitions
   !
@@ -596,8 +615,8 @@ continue
     ! some memory based on the second two values and then we will
     ! read the remaining information on this line.
     !
-    read (iogrd,*,iostat=ierr,end=100,err=101) i, ntype, ntags
-    backspace (iogrd)
+    read (iogmsh,*,iostat=ierr,end=100,err=101) i, ntype, ntags
+    backspace (iogmsh)
     !
     ! Corrections for Hex-64 and Hex-125 cells to change the cell_type
     ! variable to a value applicable to the cell_nodes array.
@@ -609,7 +628,7 @@ continue
     end if
     !
     nnods = cell_nodes(ntype)
-    ngeom = cell_geom(ntype)
+    ngeom = convert_geom(ntype)
     !
     ! Allocate the tags and nodes arrays within cell_data for the
     ! current cell and store the cell type and number of tags as well
@@ -621,15 +640,15 @@ continue
     !
     write (array_name,4) "cell_data(", i, ")%nodes"
     allocate ( cell_data(i)%nodes(1:nnods) , source=0 , stat=ierr )
-    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
+    call alloc_error(pname,array_name,1,ierr)
     !
     write (array_name,4) "cell_data(", i, ")%tags "
     allocate ( cell_data(i)%tags(1:ntags) , source=0 , stat=ierr )
-    call alloc_error("read_gmsh_section_elements",array_name,1,ierr)
+    call alloc_error(pname,array_name,1,ierr)
     !
     ! Continue reading the remaining information for this cell
     !
-    read (iogrd,*,iostat=ierr,end=100,err=101) m, m, m, &
+    read (iogmsh,*,iostat=ierr,end=100,err=101) m, m, m, &
                               (cell_data(i)%tags(j),  j=1,ntags), &
                               (cell_data(i)%nodes(j), j=1,nnods)
     !
@@ -648,15 +667,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_elements")
+  call stop_recon(stop_mpi,pname)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_elements")
+      call stop_recon(stop_mpi,pname)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_elements")
+      call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -692,22 +711,25 @@ subroutine read_gmsh_section_physicalnames
   !.. Local Parameters ..
   character(len=*), parameter :: delimiters(1:4) = (/"'",'"',",",achar(9)/)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_physicalnames"
+  !
 continue
   !
   ! Read the PhysicalNames section of the GMSH grid file
   !
-  read (iogrd,*,iostat=ierr,end=100,err=101) num_phys_grps
+  read (iogmsh,*,iostat=ierr,end=100,err=101) num_phys_grps
   !
   ! Allocate the array for the element definitions
   !
   allocate ( phys_grps(1:num_phys_grps) , stat=ierr )
-  call alloc_error("read_gmsh_section_physicalnames","phys_grps",1,ierr)
+  call alloc_error(pname,"phys_grps",1,ierr)
   !
   ! Read the element definitions
   !
   do n = 1,num_phys_grps
     !
-    read (iogrd,*,iostat=ierr,end=100,err=101) phys_dim, phys_id, phys_nam
+    read (iogmsh,*,iostat=ierr,end=100,err=101) phys_dim, phys_id, phys_nam
     !
     ! Change all delimiters in phys_name to spaces
     !
@@ -737,15 +759,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_physicalnames")
+  call stop_recon(stop_mpi,pname)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_physicalnames")
+      call stop_recon(stop_mpi,pname)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,"read_gmsh_section_physicalnames")
+      call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -775,8 +797,10 @@ subroutine create_gmsh_grid_arrays
   ! the information stored in the arrays cell_data and phys_grps.
   !
   !.. Use Statements ..
+  use order_mod, only : n_order
   use geovar, only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : cell_geom,cell_order
   use ovar,   only : iop_solpts,iop_flxpts
   !
   !.. Local Scalars ..
@@ -796,6 +820,9 @@ subroutine create_gmsh_grid_arrays
   integer, allocatable, dimension(:) :: lpoin
   logical, allocatable, dimension(:) :: bc_done
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_gmsh_grid_arrays"
+  !
 continue
   !
   error_found = fals
@@ -812,21 +839,21 @@ continue
   ! Count the number of and collect the interior and boundary physical groups
   !
   igrps = count(phys_grps(:)%phys_dim == nr)
-  bgrps = count(phys_grps(:)%phys_dim == nr-1)
+  bgrps = count(phys_grps(:)%phys_dim < nr)
   !
   allocate ( int_grps(1:igrps) , source=0 , stat=ierr)
-  call alloc_error("create_gmsh_grid_arrays","int_grps",1,ierr)
+  call alloc_error(pname,"int_grps",1,ierr)
   allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr)
-  call alloc_error("create_gmsh_grid_arrays","bnd_grps",1,ierr)
+  call alloc_error(pname,"bnd_grps",1,ierr)
   !
   int_grps(1:igrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr )
-  bnd_grps(1:bgrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr-1 )
+  bnd_grps(1:bgrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim < nr )
   !
   ! Check that the total number of interior and boundary groups is correct
   !
   if ( igrps+bgrps /= num_phys_grps ) then
     if (mypnum == 0) write (iout,1) igrps,bgrps,num_phys_grps
-    call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
+    call stop_recon(stop_mpi,pname)
   end if
   !
   ! #######
@@ -855,7 +882,7 @@ continue
     !
     write (array_name,3) "phys_grps(", i, ")%cells "
     allocate ( phys_grps(i)%cells(1:inum) , source=0 , stat=ierr )
-    call alloc_error("create_gmsh_grid_arrays",array_name,1,ierr)
+    call alloc_error(pname,array_name,1,ierr)
     !
     ! Create the list of elements that are in this physical group
     !
@@ -895,7 +922,7 @@ continue
   !
   if ( ncell+nfbnd /= num_cell_data ) then
     if (mypnum == 0) write (iout,2) ncell,nfbnd,num_cell_data
-    call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
+    call stop_recon(stop_mpi,pname)
   end if
   !
   ! #######
@@ -905,16 +932,38 @@ continue
   ! Allocate the nodes_of_cell_ptr array
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","nodes_of_cell_ptr",1,ierr)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  !
+  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
+  call alloc_error(pname,"cell_geom",1,ierr)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
+  call alloc_error(pname,"cell_order",1,ierr)
   !
   ! Loop through the cells for each interior physical
   ! group and use cell_data to create nodes_of_cell_ptr
+  !
+ !n = 0
+ !do i = 1,igrps
+ !  np = int_grps(i)
+ !  do j = 1,size(phys_grps(np)%cells)
+ !    n = n + 1
+ !    nc = phys_grps(np)%cells(j)
+ !    nodes_of_cell_ptr(n+1) = cell_data(nc)%num_nodes
+ !    cell_geom(n) = cell_data(nc)%cell_geom
+ !  end do
+ !end do
+  !
+  ! NOTE: THERE MIGHT BE A BUG HERE BECAUSE IT SEEMS TO ASSUME THAT THE
+  !       ORDERING WITHIN NODES_OF_CELL_POINTER IS RELATED TO THE ORDERING
+  !       IN CELL_DATA. THE COMMENTED CODE ABOVE REMOVES THIS ASSUMPTION.
   !
   do i = 1,igrps
     np = int_grps(i)
     do j = 1,size(phys_grps(np)%cells)
       n = phys_grps(np)%cells(j)
       nodes_of_cell_ptr(n+1) = cell_data(n)%num_nodes
+      cell_geom(n) = cell_data(n)%cell_geom
     end do
   end do
   !
@@ -931,7 +980,7 @@ continue
   ! Allocate the nodes_of_cell array
   !
   allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","nodes_of_cell",1,ierr)
+  call alloc_error(pname,"nodes_of_cell",1,ierr)
   !
   ! Loop over the interior cells and fill in the node connectivity
   ! for that cell from the information in cell_data
@@ -952,9 +1001,9 @@ continue
   ! Allocate mask arrays for all the grid cells and nodes
   !
   allocate ( mskp(1:nnode) , source=fals , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","mskp",1,ierr)
+  call alloc_error(pname,"mskp",1,ierr)
   allocate ( mske(1:ncell) , source=fals , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","mske",1,ierr)
+  call alloc_error(pname,"mske",1,ierr)
   !
   ! Identify the nodes that are on boundary faces
   !
@@ -979,14 +1028,14 @@ continue
   ! Deallocate mskp and int_grps since we dont need them anymore
   !
   deallocate ( mskp , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","mskp",2,ierr)
+  call alloc_error(pname,"mskp",2,ierr)
   deallocate ( int_grps , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","int_grps",2,ierr)
+  call alloc_error(pname,"int_grps",2,ierr)
   !
   ! Allocate the point counting array, lpoin, and the host_cell array
   !
   allocate ( lpoin(1:nnode) , source=0 , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","lpoin",1,ierr)
+  call alloc_error(pname,"lpoin",1,ierr)
   !
   ! Find the host cells for each boundary face
   !
@@ -1025,12 +1074,12 @@ continue
   ! Deallocate mske and lpoin since we no longer need them
   !
   deallocate ( mske , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","mske",2,ierr)
+  call alloc_error(pname,"mske",2,ierr)
   deallocate ( lpoin , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","lpoin",2,ierr)
+  call alloc_error(pname,"lpoin",2,ierr)
   !
   ! #######
-  ! ## 6 ##
+  ! ## 7 ##
   ! #######
   !
   ! Create and fill out bface with data from the
@@ -1050,7 +1099,7 @@ continue
   ! Allocate the bface array
   !
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","bface",1,ierr)
+  call alloc_error(pname,"bface",1,ierr)
   !
   ! Loop through the faces for each boundary physical
   ! group and use cell_data to create bface
@@ -1085,27 +1134,21 @@ continue
       !
       ifa = 0
       select case (bface(3,nf))
-        case (0)
+        case (Geom_Node)
           ifa = -1
-        case (1)
+        case (Geom_Edge)
           ifa = -2
-        case (2)
-         !ifa = host_face_quad( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Quad)
           ifa = host_face_quad( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (3)
-         !ifa = host_face_tria( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Tria)
           ifa = host_face_tria( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (4)
-         !ifa = host_face_tetr( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Tetr)
           ifa = host_face_tetr( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (5)
-         !ifa = host_face_pyra( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Pyra)
           ifa = host_face_pyra( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (6)
-         !ifa = host_face_pris( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Pris)
           ifa = host_face_pris( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (8)
-         !ifa = host_face_hexa( nodes_of_cell(h1:h2) , nodes_of_cell(b1:b2) )
+        case (Geom_Hexa)
           ifa = host_face_hexa( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
         case default
           ifa = -10
@@ -1129,14 +1172,6 @@ continue
             write (iout,5) "A 0-D 'Point'-type",nh,nb
           else if (ifa == -2) then
             write (iout,5) "A 1-D 'Edge'-type",nh,nb
-          else if (ifa == -4) then
-            write (iout,5) "A 3-D tetrahedron",nh,nb
-          else if (ifa == -5) then
-            write (iout,5) "A 3-D pyramid",nh,nb
-          else if (ifa == -6) then
-            write (iout,5) "A 3-D prism",nh,nb
-          else if (ifa == -8) then
-            write (iout,5) "A 3-D hexahedron",nh,nb
           else if (ifa == -10) then
             write (iout,5) "An unknown type of",nh,nb
           else if (ifa == -99) then
@@ -1159,10 +1194,10 @@ continue
   ! Deallocate bnd_grps since we dont need it anymore
   !
   deallocate ( bnd_grps , stat=ierr )
-  call alloc_error("create_gmsh_grid_arrays","bnd_grps",2,ierr)
+  call alloc_error(pname,"bnd_grps",2,ierr)
   !
   ! #######
-  ! ## 7 ##
+  ! ## 8 ##
   ! #######
   !
   ! Finish any remaining tasks for the grid geometry
@@ -1187,30 +1222,23 @@ continue
   !
   if (error_found) then
     if (mypnum == 0) write (iout,4)
-    call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
+    call stop_recon(stop_mpi,pname)
   end if
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
-  do n = 1,ncell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    if (n2-n1+1 == 3) then
-      if (mypnum == 0) write (iout,8)
-      call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
-    end if
-  end do
+  if (any(cell_geom == Geom_Tria)) then
+    if (mypnum == 0) write (iout,8)
+    call stop_recon(stop_mpi,pname)
+  end if
+  !
   if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
       iop_flxpts /= Legendre_Gauss_Lobatto) then
-    do n = 1,ncell
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-      if (n2-n1+1 == 3) then
-        if (mypnum == 0) write (iout,7)
-        call stop_recon(stop_mpi,"create_gmsh_grid_arrays")
-      end if
-    end do
+    if (any(cell_geom == Geom_Tria)) then
+      if (mypnum == 0) write (iout,7)
+      call stop_recon(stop_mpi,pname)
+    end if
   end if
   !
   ! Format Statements
@@ -1262,6 +1290,9 @@ subroutine read_gmsh_section_periodic
   logical :: end_of_file
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_periodic"
+  !
 continue
   !
   ! The code is not currently set up to read the gmsh
@@ -1278,7 +1309,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_periodic")
+  call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -1303,6 +1334,9 @@ subroutine read_gmsh_section_nodedata
   logical :: end_of_file
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_nodedata"
+  !
 continue
   !
   ! The code is not currently set up to read the gmsh
@@ -1319,7 +1353,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_nodedata")
+  call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -1344,6 +1378,9 @@ subroutine read_gmsh_section_elementdata
   logical :: end_of_file
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_elementdata"
+  !
 continue
   !
   ! The code is not currently set up to read the gmsh
@@ -1360,7 +1397,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_elementdata")
+  call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -1385,6 +1422,9 @@ subroutine read_gmsh_section_elementnodedata
   logical :: end_of_file
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_section_elementnodedata"
+  !
 continue
   !
   ! The code is not currently set up to read the gmsh
@@ -1401,7 +1441,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_elementnodedata")
+  call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -1426,6 +1466,9 @@ subroutine read_gmsh_section_interpolationscheme
   logical :: end_of_file
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gmsh_interpolationscheme"
+  !
 continue
   !
   ! The code is not currently set up to read the gmsh
@@ -1442,7 +1485,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,"read_gmsh_section_interpolationscheme")
+  call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !

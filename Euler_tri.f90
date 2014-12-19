@@ -1,108 +1,92 @@
-!include "geovar_mod.f90"
-!include "metvar_mod.f90"
-!include "ovar_mod.f90"
-!include "flowvar_mod.f90"
-!include "mpivar_mod.f90"
-!include "parallel.f90"
-!include "poly.f90"
-!include "generic.f90"
-!include "io.f90"
-!include "initialize.f90"
-!include "startup.f90"
-!include "triangle.f90"
-!include "metrics.f90"
-!include "flux.f90"
-!
 program Euler_tri
   !
   use module_kind_types
-  use geovar
-  use ovar
-  use metvar
-  use flowvar
- !use mpivar
-  use io_mod, only : read_input_file, &
-                    !read_input_file_test, &
-                     read_grid_file, &
-                     write_tecplot_file, &
-                     write_restart_file, &
-                     write_final_error, &
-                     write_final_advec_error, &
-                     write_final_vortex_error, &
-                     write_entropy_error, &
-                     write_cgns_solution, &
-                     write_nodal_parallel_cgns, &
-                     write_results_file, &
-                     write_advec_results_file, &
-                     write_vortex_results_file, &
-                     write_tecplot_partitions
-  use metrics_mod, only : get_solution_points_2d, &
-                          get_grid_connectivity, &
-                          get_metrics
+  !
+  use geovar, only : ncell,n_global_cell
+  use geovar, only : nnode,n_global_node
+  use geovar, only : nfbnd,n_global_fbnd
+  use geovar, only : n_solpts,n_global_solpts
+  use geovar, only : bface,xyz_nodes,solpts_1d
+  use geovar, only : cell_geom,cell_order,global_cell_order
+  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  !
+  use ovar, only : beg_wall_time,end_wall_time,max_wall_time
+  use ovar, only : work_units,wall_time,walltime_expiring
+  use ovar, only : vortex_has_collapsed,Density_Maximum_Residual
+  use ovar, only : final_countdown,Period_Timesteps
+  use ovar, only : metis_option,convergence_reached
+  use ovar, only : total_volume,local_volume,itestcase
+  use ovar, only : nst,num_stages,iRKtype,time,itcur,num_ts
+  use ovar, only : governing_equations,visc_flux_method
+  use ovar, only : results_interval,iter_out_interval
+  use ovar, only : restart_interval,output_interval
+  use ovar, only : cgns_is_parallel
+  !
+  use flowvar, only : usp,uoldsp
+  !
+  use io_mod, only : read_input_file
+  use io_mod, only : write_restart_file
+  use io_mod, only : write_final_error
+  use io_mod, only : write_nodal_parallel_cgns
+  use io_mod, only : write_results_file
+  !
+  use mappings_mod, only : get_solution_points
+  !
+  use connectivity_mod, only : get_grid_connectivity
+  !
+  use metrics_mod, only : get_metrics
+  !
   use startup_mod, only : get_quadrature_data
-  use startup_mod, only : old_get_quadrature_data
+  !
   use initialization_mod, only : initialize_flow
+  !
   use module_bc,   only : get_faceusp_bc
   use module_bc,   only : get_facedusp_bc
-  use module_bc,   only : compute_bc_profiles
-  use generic_mod, only : rgetdtmax,get_dtsp, &
-                          getbc,rresi, &
-                          rgeterr,getmaxent, &
-                          compute_final_error, &
-                          compute_final_advec_error, &
-                          compute_final_vortex_error, &
-                          rupdate_Classic_RK, &
-                          rupdate_CK4_RK, &
-                          rupdate_TVD2_RK, &
-                          rupdate_TVD3_RK, &
-                          rupdate_TVD4_RK, &
-                          test_error, &
-                          init_generic_mod
-  use flux_mod, only : flux_divergence_lp, &
-                       flux_divergence_cr, &
-                       flux_divergence_jac_cr, &
-                       correct_flux_project_cv, &
-                       correct_flux_project_pv, &
-                       correct_flux_project_flx, &
-                       dg_weak_form, &
-                       dg_strong_form, &
-                       interp_cv_to_flxpts, &
-                       interp_dusp_to_flxpts, &
-                       derflux1_qdtr, &
-                       derflux1_qdtr_with_visc, &
-                       correct_interface_flux_qdtr, &
-                       correct_interface_flux_qdtr_with_visc, &
-                       discontinuous_gradient_at_solpts, &
-                       correct_gradients_at_solpts, &
-                       correct_gradients_br2
-  use parallel_mod, only : partition_grid, &
-                           create_serial_cell_map, &
-                           test_nonblocking_fexchange
-  use module_limiters, only : initialize_limiters, &
-                              compute_cell_ave
+!!  use module_bc,   only : compute_bc_profiles
+  !
+  use generic_mod, only : get_dtsp
+  use generic_mod, only : rresi
+  use generic_mod, only : rgeterr
+  use generic_mod, only : getmaxent
+  use generic_mod, only : compute_final_error
+  use generic_mod, only : rupdate_Classic_RK
+  use generic_mod, only : rupdate_CK4_RK
+  use generic_mod, only : rupdate_TVD2_RK
+  use generic_mod, only : rupdate_TVD3_RK
+  use generic_mod, only : rupdate_TVD4_RK
+  use generic_mod, only : init_generic_mod
+  !
+  use flux_mod, only : interp_cv_to_flxpts
+  use flux_mod, only : interp_dusp_to_flxpts
+  use flux_mod, only : derflux1_qdtr
+  use flux_mod, only : derflux1_qdtr_with_visc
+  use flux_mod, only : correct_interface_flux_qdtr
+  use flux_mod, only : correct_interface_flux_qdtr_with_visc
+  use flux_mod, only : discontinuous_gradient_at_solpts
+  use flux_mod, only : correct_gradients_at_solpts
+  use flux_mod, only : correct_gradients_br2
+  !
+  use parallel_mod, only : partition_grid
+  use parallel_mod, only : create_serial_cell_map
+  !
+  use module_limiters, only : initialize_limiters
+  use module_limiters, only : compute_cell_ave
   !
   use iso_c_binding, only : c_long
   !
   implicit none
-  !
- !include "kind_defs.h"
- !include "constants.h"
   !
   integer  :: iter,i,ierr,k
   real(wp) :: dtmin
   !
   integer, parameter :: iostp = 2683
   !
- !integer, parameter :: LagrangePolynomial = 1
- !integer, parameter :: ChainRuleCV = 2
- !integer, parameter :: ChainRuleUtd = 3
- !integer, parameter :: DGWeakForm = 4
- !integer, parameter :: DGStrongForm = 5
- !integer, parameter :: OnPrimitiveVariables = 1
- !integer, parameter :: OnConservativeVariables = 2
- !integer, parameter :: OnFluxes = 3
-  !
   logical :: request_stop
+  !
+  logical, parameter :: ignore_errors = true
+ !logical, parameter :: ignore_errors = false
+  !
+  integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
   integer(c_long) :: current_wtl
   !
@@ -144,6 +128,10 @@ continue
   !
   call mpi_bcast(max_wall_time,1,mpi_flttyp,0,mpi_comm_world,mpierr)
   !
+  ! Initialize all the random constants that must be initialized at run time
+  !
+  call initialize_runtime_parameters
+  !
   ! Initialize the Vortex collapsing stuff
   !
   vortex_has_collapsed = fals
@@ -161,15 +149,15 @@ continue
   !              connectivities for the partition boundaries
   !
   if (ncpu > 1) then
-    call partition_grid(ncpu,n_order,metis_option,bface,nodes_of_cell, &
-                        nodes_of_cell_ptr,xyz_nodes)
+    call partition_grid(ncpu,metis_option,bface,nodes_of_cell, &
+                        nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
   else
     call create_serial_cell_map(ncell)
   end if
   !
   ! Get the coordinates of the solution points within each grid cell
   !
-  call get_solution_points_2d
+  call get_solution_points
   !
   ! Get the grid connectivity and metrics
   !
@@ -179,7 +167,6 @@ continue
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
   call get_quadrature_data
- !call old_get_quadrature_data
   !
   ! Get the grid metrics
   !
@@ -203,7 +190,7 @@ continue
     write (iout,11)
     write (iout,12) n_global_cell,n_global_node,n_global_fbnd,n_global_solpts
     write (iout,14) total_volume
-    write (iout,15) (solpts_1d(k), k=1,n_sp1de)
+    write (iout,15) (solpts_1d(k), k=1,size(solpts_1d))
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
  !call stop_recon(stop_mpi,"main: before initialize_flow")
@@ -212,41 +199,16 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
-  if (any(flux_divergence == [TestQuadrature,TestViscous])) then
-    call interp_cv_to_flxpts
-    call get_faceusp_bc
-  else
-    call getbc
-  end if
   !
   ! Output the initialized solution
   !
-  if (cgns_is_parallel) then
-    call write_nodal_parallel_cgns(1)
-  else
-    call write_cgns_solution(1)
-  end if
+  call write_nodal_parallel_cgns(1)
   !
   work_units = zero
-  if (any(itestcase == Advec_Problems)) then
-    if (mypnum == 0) call write_advec_results_file(1,itcur)
-  else if (any(itestcase == Vortex_Problems)) then
-    if (mypnum == 0) call write_vortex_results_file(1,itcur)
-  else
-    if (mypnum == 0) call write_results_file(1,itcur)
-  end if
-  !
-  ! If running the vortex or density problem,
-  ! reset results_interval if it is set to zero
-  !
- !if (any(itestcase == Transport_Problems)) then
- !  if (results_interval == 0) results_interval = max(Period_Timesteps/500,1)
- !  if (output_interval == 0) output_interval = Period_Timesteps
- !end if
+  if (mypnum == 0) call write_results_file(1,itcur)
   !
   if (mypnum == 0) then
-    write (iout,19) p_order,n_order,q_order,n_sp1de,n_qp1de, &
-                    n_sp2dt,n_qp2dt,n_sp2dq,n_qp2dq
+    write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
   !
   ! Initialize any necessary information for use in the module generic_mod
@@ -263,6 +225,12 @@ continue
   !
  !call initialize_limiters
  !call compute_cell_ave
+  !
+  !
+  if (num_ts > 0) then
+    call interp_cv_to_flxpts
+    call get_faceusp_bc
+  end if
   !
   main_loop: do iter = 1, num_ts
     !
@@ -288,99 +256,17 @@ continue
     !
     rk_loop: do nst = 1,num_stages
       !
-      ! Apply a correction to the flux derivatives by
-      ! interpolating the interior fluxes to the interface
+      call interp_cv_to_flxpts
+      call get_faceusp_bc
+      if (nst == 1) call get_dtsp(dtmin)
       !
-      ! Compute the derivative of the discontinuous flux function
-      !
-      if (flux_divergence == LagrangePolynomial) then
+      if (governing_equations == Euler_Eqns) then
         !
-        if (nst == 1) call rgetdtmax
-        !
-        call getbc
-        !
-        ! Use the derivative of the Lagrange polynomial
-        !
-        if (q_order > n_order) then
-          call derflux1_qdtr
-        else
-          call flux_divergence_lp
-        end if
-        if (iop_correction == OnPrimitiveVariables) then
-          call correct_flux_project_pv
-        else if (iop_correction == OnConservativeVariables) then
-          call correct_flux_project_cv
-        else if (iop_correction == OnFluxes) then
-          call correct_flux_project_flx
-        end if
-        !
-      else if (flux_divergence == ChainRuleCV) then
-        !
-        if (nst == 1) call rgetdtmax
-        !
-        call getbc
-        !
-        ! Use the chain rule on the conserved variables
-        !
-        call flux_divergence_cr
-        if (iop_correction == OnPrimitiveVariables) then
-          call correct_flux_project_pv
-        else if (iop_correction == OnConservativeVariables) then
-          call correct_flux_project_cv
-        else if (iop_correction == OnFluxes) then
-          call correct_flux_project_flx
-        end if
-        !
-      else if (flux_divergence == ChainRuleUtd) then
-        !
-        if (nst == 1) call rgetdtmax
-        !
-        call getbc
-        !
-        ! Use the chain rule on u*J
-        !
-        call flux_divergence_jac_cr
-        if (iop_correction == OnPrimitiveVariables) then
-          call correct_flux_project_pv
-        else if (iop_correction == OnConservativeVariables) then
-          call correct_flux_project_cv
-        else if (iop_correction == OnFluxes) then
-          call correct_flux_project_flx
-        end if
-        !
-      else if (flux_divergence == DGWeakForm) then
-        !
-        if (nst == 1) call rgetdtmax
-        !
-        call getbc
-        !
-        ! Use the weak form of the DG method
-        !
-        call dg_weak_form
-        !
-      else if (flux_divergence == DGStrongForm) then
-        !
-        if (nst == 1) call rgetdtmax
-        !
-        call getbc
-        !
-        ! Use the weak form of the DG method
-        !
-        call dg_strong_form
-        !
-      else if (flux_divergence == TestQuadrature) then
-        !
-        call interp_cv_to_flxpts
-        call get_faceusp_bc
-        if (nst == 1) call get_dtsp(dtmin)
         call derflux1_qdtr
         call correct_interface_flux_qdtr
         !
-      else if (flux_divergence == TestViscous) then
+      else if (governing_equations == NavierStokes_Eqns) then
         !
-        call interp_cv_to_flxpts
-        call get_faceusp_bc
-        if (nst == 1) call get_dtsp(dtmin)
         call discontinuous_gradient_at_solpts
         if (visc_flux_method == visc_flux_BR2) then
           call correct_gradients_br2
@@ -391,7 +277,6 @@ continue
         call get_facedusp_bc
         call derflux1_qdtr_with_visc
         call correct_interface_flux_qdtr_with_visc
-       !call correct_flux_project_flx
         !
       end if
       !
@@ -435,16 +320,8 @@ continue
       wall_time = end_wall_time-beg_wall_time
       work_units = wall_time/one_work_unit
       !
-      if (any(itestcase == Advec_Problems)) then
-        call compute_final_advec_error
-        if (mypnum == 0) call write_advec_results_file(0,itcur)
-      else if (any(itestcase == Vortex_Problems)) then
-        call compute_final_vortex_error
-        if (mypnum == 0) call write_vortex_results_file(0,itcur)
-      else
-        call compute_final_error
-        if (mypnum == 0) call write_results_file(0,itcur)
-      end if
+      call compute_final_error
+      if (mypnum == 0) call write_results_file(0,itcur)
       !
     end if
     !
@@ -511,11 +388,7 @@ continue
     !
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
-        if (cgns_is_parallel) then
-          call write_nodal_parallel_cgns(0)
-        else
-          call write_cgns_solution(0)
-        end if
+        call write_nodal_parallel_cgns(0)
       end if
     end if
     !
@@ -547,55 +420,32 @@ continue
   wall_time = end_wall_time-beg_wall_time
   work_units = wall_time/one_work_unit
   !
-  if (all(flux_divergence /= [TestQuadrature,TestViscous])) then
-    call getbc
-  end if
-  !
   !.. get min and max entropy value and location
-  call getmaxent
+  if (.not. ignore_errors) call getmaxent
   !
- !call write_tecplot_file(-1)
-  if (cgns_is_parallel) then
-    call write_nodal_parallel_cgns(-1)
-  else
-    call write_cgns_solution(-1)
-  end if
+  call write_nodal_parallel_cgns(-1)
   !
   call write_restart_file(-1)
   !
-  if (any(itestcase == Advec_Problems)) then
-    call compute_final_advec_error
-  else if (any(itestcase == Vortex_Problems)) then
-    call compute_final_vortex_error
-  else
+  if (.not. ignore_errors) then
+    !
     call compute_final_error
-  end if
-  !
-  if (ncpu == 1 .and. fals) call compute_bc_profiles
-  !
-  if (mypnum == 0) then
     !
-    write (iout,40) itcur,time
-    write (iout,41) wall_time,work_units
+   !if (ncpu == 1 .and. fals) call compute_bc_profiles
     !
-    if (any(itestcase == Advec_Problems)) then
-      call write_final_advec_error
-      call write_advec_results_file(-1,itcur)
-    else if (any(itestcase == Vortex_Problems)) then
-      call write_final_vortex_error
-      call write_vortex_results_file(-1,itcur)
-    else
+    if (mypnum == 0) then
+      !
+      write (iout,40) itcur,time
+      write (iout,41) wall_time,work_units
+      !
       call write_final_error
       call write_results_file(-1,itcur)
+      !
     end if
     !
-   !if (itestcase <= 1 .or. itestcase == 6) then
-   !  call write_entropy_error
-   !end if
-    !
-    write (iout,50)
-    !
   end if
+  !
+  write (iout,50)
   !
   ! Finalize the overall MPI session and stop execution
   !
@@ -611,15 +461,8 @@ continue
   15 format ('  1D Solution Points = ',8f9.5)
   16 format (/," Allocated Wall Time = ",i0," s.",/)
   !
-  19 format (/,' p_order = ',i4,/, &
-               ' n_order = ',i4,/, &
-               ' q_order = ',i4,/, &
-               ' n_sp1de = ',i4,/, &
-               ' n_qp1de = ',i4,/, &
-               ' n_sp2dt = ',i4,/, &
-               ' n_qp2dt = ',i4,/, &
-               ' n_sp2dq = ',i4,/, &
-               ' n_qp2dq = ',i4,/)
+  19 format (/,' Lowest  Cell Order = ',i4,/, &
+               ' Highest Cell Order = ',i4,/)
   !
   40 format (//' Final iteration count   = ',i12,/, &
                ' Simulation elapsed time = ',f12.3)

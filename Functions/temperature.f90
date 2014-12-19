@@ -10,19 +10,18 @@ pure function temperature_cv(uu) result(return_value)
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: n,nq
+  integer  :: n
   real(wp) :: q2,cv_inv
   !
 continue
   !
-  nq = size(uu,dim=1)
   cv_inv = (gam-one)/rgasref_nd
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
+    q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
     !
-    return_value(n) = cv_inv * (uu(nq,n) - half*q2/uu(1,n)) / uu(1,n)
+    return_value(n) = cv_inv * (uu(nee,n) - half*q2/uu(nec,n)) / uu(nec,n)
     !
   end do
   !
@@ -42,17 +41,15 @@ pure function temperature_cv_sp(uu) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nq
   real(wp) :: q2,cv_inv
   !
 continue
   !
-  nq = size(uu)
   cv_inv = (gam-one)/rgasref_nd
   !
-  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
-  return_value = cv_inv * (uu(nq) - half*q2/uu(1)) / uu(1)
+  return_value = cv_inv * (uu(nee) - half*q2/uu(nec)) / uu(nec)
   !
 end function temperature_cv_sp
 !
@@ -70,16 +67,15 @@ pure function temperature_pv(vv) result(return_value)
   real(wp), dimension(1:size(vv,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: n,nq
+  integer  :: n
   real(wp) :: rgas_inv
   !
 continue
   !
-  nq = size(vv,dim=1)
   rgas_inv = one/rgasref_nd
   !
   do n = 1,size(vv,dim=2)
-    return_value(n) = vv(nq,n) * rgas_inv / vv(1,n)
+    return_value(n) = vv(nee,n) * rgas_inv / vv(nec,n)
   end do
   !
 end function temperature_pv
@@ -97,13 +93,9 @@ pure function temperature_pv_sp(vv) result(return_value)
   !.. Function Result ..
   real(wp) :: return_value
   !
-  !.. Local Scalars ..
-  integer :: nq
-  !
 continue
   !
-  nq = size(vv)
-  return_value = vv(nq)/vv(1)/rgasref_nd
+  return_value = vv(nee)/vv(nec)/rgasref_nd
   !
 end function temperature_pv_sp
 !

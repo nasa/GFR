@@ -1,6 +1,6 @@
 module geovar
   !
-  use module_kind_types, only : wp
+  use module_kind_types, only : wp,Geom_Min,Geom_Max
   !
   implicit none
   !
@@ -21,45 +21,15 @@ module geovar
   !
   !  allocate in subroutine ncc2cese
   !
-  ! n_order  : order of the solution polynomial requested in input file
-  ! n_sp1dl  : number of solution points on a 1D edge/face
-  ! n_sp2dt  : number of solution points within a 2D triangular cell
-  ! n_sp2dq  : number of solution points within a 2d quadrilateral cell
   ! n_solpts : total number of solution points across all cells
   ! n_flxpts : total number of flux points across all cells
   !
-  integer, public, save :: n_order = 3
-  integer, public, save :: p_order = 3
-  integer, public, save :: q_order = 3
-  integer, public, save :: o_order = -3
-  integer, public, save :: all_orders = -3
-  !
-  integer, public, save :: n_sp1de
-  integer, public, save :: n_sp2dt
-  integer, public, save :: n_sp2dq
   integer, public, save :: n_solpts
-  !
-  integer, public, save :: n_fp1de
-  integer, public, save :: n_fp2dt
-  integer, public, save :: n_fp2dq
   integer, public, save :: n_flxpts
-  !
-  integer, public, save :: n_sptet
-  integer, public, save :: n_sppyr
-  integer, public, save :: n_sppri
-  integer, public, save :: n_sphex
-  !
-  integer, public, save :: n_qptet
-  integer, public, save :: n_qppyr
-  integer, public, save :: n_qppri
-  integer, public, save :: n_qphex
   !
   ! over-integration parameters
   !
   logical, public, save :: using_quadrature
-  integer, public, save :: n_qp1de
-  integer, public, save :: n_qp2dt
-  integer, public, save :: n_qp2dq
   !
   ! nbfai : number of storage locations needed for each boundary face in array bface
   !
@@ -70,26 +40,15 @@ module geovar
   ! ncell : total number of grid cells
   ! nface : total number of edges/faces
   ! nfbnd : total number of boundary edges/faces
-  ! nptpf : number of solution points per face
   !
   integer, public, save :: nr
   integer, public, save :: nnode
   integer, public, save :: ncell
   integer, public, save :: nface
   integer, public, save :: nfbnd
-  integer, public, save :: nptpf
-  integer, public, save :: nghost
   integer, public, save :: n_totcel
   integer, public, save :: n_totnod
   integer, public, save :: n_totpts
-  !
-  ! radau_1d       : coordinates of 1D Radau solution points of order n_order
-  ! radau_wts_1d   : weights     of 1D Radau solution points of order n_order
-  ! radau_wts_2d   : weights     of 2D Radau solution points of order n_order
-  !
-  real(wp), public, save, allocatable, dimension(:) :: radau_1d
-  real(wp), public, save, allocatable, dimension(:) :: radau_wts_1d
-  real(wp), public, save, allocatable, dimension(:) :: radau_wts_2d
   !
   ! gauss_1d       : coordinates of 1D Gauss solution points of order n_order
   ! gauss_wts_1d   : weights     of 1D Gauss solution points of order n_order
@@ -111,42 +70,29 @@ module geovar
   ! flxpts_1d : coordinates of 1D flux points of order n_order
   ! solwts_1d : weights of the 1D solution points of order n_order
   ! flxwts_1d : weights of the 1D flux points of order n_order
-  ! weights2d : weights of the solution points of order n_order
   ! rs        : 2D Lobatto nodes of triangle in r-s space
   ! 
   real(wp), public, save, allocatable, dimension(:)   :: solpts_1d
   real(wp), public, save, allocatable, dimension(:)   :: flxpts_1d
   real(wp), public, save, allocatable, dimension(:)   :: solwts_1d
   real(wp), public, save, allocatable, dimension(:)   :: flxwts_1d
-  real(wp), public, save, allocatable, dimension(:,:) :: weights2d
   real(wp), public, save, allocatable, dimension(:,:) :: rs
   !
   real(wp), public, save, allocatable, dimension(:)   :: qdtpts_1d
   real(wp), public, save, allocatable, dimension(:)   :: qdtwts_1d
-  real(wp), public, save, allocatable, dimension(:,:) :: qdtwts_2d
   !
-  ! radau2numer   : matrix to move from Radau   SP to the numerical SP
   ! gauss2numer   : matrix to move from Gauss   SP to the numerical SP
   ! lobatto2numer : matrix to move from Lobatto SP to the numerical SP
   !
-  real(wp), public, save, allocatable, dimension(:,:) :: radau2numer
   real(wp), public, save, allocatable, dimension(:,:) :: gauss2numer
   real(wp), public, save, allocatable, dimension(:,:) :: lobatto2numer
   !
-  ! numer2radau   : matrix to move from the numerical SP to Radau   SP
   ! numer2gauss   : matrix to move from the numerical SP to Gauss   SP
   ! numer2lobatto : matrix to move from the numerical SP to Lobatto SP
   !
-  real(wp), public, save, allocatable, dimension(:,:) :: numer2radau
   real(wp), public, save, allocatable, dimension(:,:) :: numer2gauss
   real(wp), public, save, allocatable, dimension(:,:) :: numer2lobatto
   !
-  ! exact2numer : matrix to move from the exact SP to the numerical SP
-  ! numer2exact : matrix to move from the numerical SP to the exact SP
-  !
-  real(wp), public, save, allocatable, dimension(:,:) :: exact2numer
-  real(wp), public, save, allocatable, dimension(:,:) :: numer2exact
-  ! 
   ! For cell i_cell
   ! pts_in_cell_ptr(i_cell)+1 gives the first solution point within i_cell
   ! pts_in_cell_ptr(i_cell+1) gives the last  solution point within i_cell
@@ -165,19 +111,9 @@ module geovar
   !
   ! xyz_nodes : x,y coordinates of the vertices
   ! xyz       : x,y coordinates of all solution points
-  ! xyz_error : x,y coordinates of all error quadrature points
   !
   real(wp), public, save, allocatable, dimension(:,:) :: xyz_nodes
   real(wp), public, save, allocatable, dimension(:,:) :: xyz
-  real(wp), public, save, allocatable, dimension(:,:) :: xyz_error
-  !
-  ! xyz_radau   : x,y coordinates of all the Radau   SP
-  ! xyz_gauss   : x,y coordinates of all the Gauss   SP
-  ! xyz_lobatto : x,y coordinates of all the Lobatto SP
-  !
-  real(wp), public, save, allocatable, dimension(:,:) :: xyz_radau
-  real(wp), public, save, allocatable, dimension(:,:) :: xyz_gauss
-  real(wp), public, save, allocatable, dimension(:,:) :: xyz_lobatto
   !
   ! xyz_flxpts : x,y coordinates of all flux points
   !
@@ -200,7 +136,8 @@ module geovar
   integer,  public, save, allocatable, dimension(:)   :: global_nofc_ptr
   integer,  public, save, allocatable, dimension(:)   :: global_nofc
   integer,  public, save, allocatable, dimension(:)   :: global_pinc_ptr
-  integer,  public, save, allocatable, dimension(:)   :: global_cell_offset
+  integer,  public, save, allocatable, dimension(:)   :: global_cell_geom
+  integer,  public, save, allocatable, dimension(:)   :: global_cell_order
   !
   ! bface : Boundary face information
   !        bface( 1,:) = Type of boundary condition
@@ -295,12 +232,6 @@ module geovar
   !
   type(conflict), public, save, allocatable, dimension(:) :: bc_conflict
   !
-  ! For face i_face,
-  ! pts_on_face(1,1:n_sp1de,i_face) : solution points of the left  cell on i_face
-  ! pts_on_face(2,1:n_sp1de,i_face) : solution points of the right cell on i_face
-  !
-  integer, public, save, allocatable, dimension(:,:,:) :: pts_on_face
-  !
   ! For cell i_cell,
   ! nodes_of_cell(ibeg:iend) gives the grid nodes that define i_cell
   ! where : ibeg = nodes_of_cell_ptr(i_cell)+1
@@ -332,6 +263,10 @@ module geovar
   integer, public, save, allocatable, dimension(:,:) :: nodes_on_face
   integer, public, save, allocatable, dimension(:,:) :: cells_on_face
   !
+  ! faces_of_cell : gives the global face index for each local face of each cell
+  !
+  integer, public, save, allocatable, dimension(:,:) :: faces_of_cell
+  !
   ! For cell i_cell, 
   !    flxpts_of_cell_ptr(i_cell)+1 = first flux point for i_cell
   !    flxpts_of_cell_ptr(i_cell+1) = last  flux point for i_cell
@@ -347,37 +282,9 @@ module geovar
   integer, public, save, allocatable, dimension(:)   :: flxpts_of_cell_ptr
   integer, public, save, allocatable, dimension(:,:) :: flxpts_of_cell
   !
-  ! For boundary face i_face, ...
-  ! pts_of_periodic(ibeg:iend) gives the matching periodic solution points for
-  !                            the solution points within the ghost cell on
-  !                            the periodic boundary face i_face
-  ! where : ibeg = pts_of_periodic_ptr(i_face)+1
-  !         iend = pts_of_periodic_ptr(i_face+1)
-  !
-  integer, public, save, allocatable, dimension(:) :: pts_of_periodic_ptr
-  integer, public, save, allocatable, dimension(:) :: pts_of_periodic
-  !
-  integer, public, save, allocatable, dimension(:,:) :: tria_connectivity
-  integer, public, save, allocatable, dimension(:,:) :: quad_connectivity
-  !
-  ! Exponential filter matrices
-  !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: filter
-  !
   ! Various Vandermonde matrices
   !
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_1d
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_1d_inv
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_tria
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_tria_inv
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_quad
-  real(wp), public, save, allocatable, dimension(:,:) :: vand_quad_inv
   real(wp), public, save, allocatable, dimension(:,:,:) :: vand_inv
-  !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: invM_mat
-  !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr
-  real(wp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr_inv
   !
   real(wp), public, save, allocatable, dimension(:,:) :: interp_f2g
   real(wp), public, save, allocatable, dimension(:,:) :: projct_g2f
@@ -385,11 +292,17 @@ module geovar
   real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2f
   real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2g
   real(wp), public, save, allocatable, dimension(:,:,:) :: interp_s2q
-  real(wp), public, save, allocatable, dimension(:,:,:,:) :: interp_s2o
   real(wp), public, save, allocatable, dimension(:,:,:) :: projct_q2s
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: projct_s2p
   !
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: projct_limiter
+  !
+  !
+  type, public :: geom_conn
+    integer, allocatable, dimension(:,:) :: connectivity
+  end type geom_conn
+  !
+  type(geom_conn), public, save, allocatable, dimension(:,:) :: pst_geom
   !
 contains
 !
@@ -443,24 +356,6 @@ continue
   !
   write (iunit,1)
   !
-  if (allocated(radau_1d)) then
-    array%siz = size(radau_1d)
-    array%mem = array%siz*storage_size(radau_1d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_1d'",array%get_units()
-  end if
-  if (allocated(radau_wts_1d)) then
-    array%siz = size(radau_wts_1d)
-    array%mem = array%siz*storage_size(radau_wts_1d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_wts_1d'",array%get_units()
-  end if
-  if (allocated(radau_wts_2d)) then
-    array%siz = size(radau_wts_2d)
-    array%mem = array%siz*storage_size(radau_wts_2d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_wts_2d'",array%get_units()
-  end if
   if (allocated(gauss_1d)) then
     array%siz = size(gauss_1d)
     array%mem = array%siz*storage_size(gauss_1d)
@@ -521,12 +416,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'flxwts_1d'",array%get_units()
   end if
-  if (allocated(weights2d)) then
-    array%siz = size(weights2d)
-    array%mem = array%siz*storage_size(weights2d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'weights2d'",array%get_units()
-  end if
   if (allocated(rs)) then
     array%siz = size(rs)
     array%mem = array%siz*storage_size(rs)
@@ -545,18 +434,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'qdtwts_1d'",array%get_units()
   end if
-  if (allocated(qdtwts_2d)) then
-    array%siz = size(qdtwts_2d)
-    array%mem = array%siz*storage_size(qdtwts_2d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'qdtwts_2d'",array%get_units()
-  end if
-  if (allocated(radau2numer)) then
-    array%siz = size(radau2numer)
-    array%mem = array%siz*storage_size(radau2numer)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau2numer'",array%get_units()
-  end if
   if (allocated(gauss2numer)) then
     array%siz = size(gauss2numer)
     array%mem = array%siz*storage_size(gauss2numer)
@@ -569,12 +446,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'lobatto2numer'",array%get_units()
   end if
-  if (allocated(numer2radau)) then
-    array%siz = size(numer2radau)
-    array%mem = array%siz*storage_size(numer2radau)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'numer2radau'",array%get_units()
-  end if
   if (allocated(numer2gauss)) then
     array%siz = size(numer2gauss)
     array%mem = array%siz*storage_size(numer2gauss)
@@ -586,18 +457,6 @@ continue
     array%mem = array%siz*storage_size(numer2lobatto)
     total%mem = total%mem + array%mem
     write (iunit,2) "'numer2lobatto'",array%get_units()
-  end if
-  if (allocated(exact2numer)) then
-    array%siz = size(exact2numer)
-    array%mem = array%siz*storage_size(exact2numer)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'exact2numer'",array%get_units()
-  end if
-  if (allocated(numer2exact)) then
-    array%siz = size(numer2exact)
-    array%mem = array%siz*storage_size(numer2exact)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'numer2exact'",array%get_units()
   end if
   if (allocated(pts_in_cell_ptr)) then
     array%siz = size(pts_in_cell_ptr)
@@ -616,30 +475,6 @@ continue
     array%mem = array%siz*storage_size(xyz)
     total%mem = total%mem + array%mem
     write (iunit,2) "'xyz'",array%get_units()
-  end if
-  if (allocated(xyz_error)) then
-    array%siz = size(xyz_error)
-    array%mem = array%siz*storage_size(xyz_error)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz_error'",array%get_units()
-  end if
-  if (allocated(xyz_radau)) then
-    array%siz = size(xyz_radau)
-    array%mem = array%siz*storage_size(xyz_radau)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz_radau'",array%get_units()
-  end if
-  if (allocated(xyz_gauss)) then
-    array%siz = size(xyz_gauss)
-    array%mem = array%siz*storage_size(xyz_gauss)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz_gauss'",array%get_units()
-  end if
-  if (allocated(xyz_lobatto)) then
-    array%siz = size(xyz_lobatto)
-    array%mem = array%siz*storage_size(xyz_lobatto)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz_lobatto'",array%get_units()
   end if
   if (allocated(xyz_flxpts)) then
     array%siz = size(xyz_flxpts)
@@ -677,11 +512,17 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'global_pinc_ptr'",array%get_units()
   end if
-  if (allocated(global_cell_offset)) then
-    array%siz = size(global_cell_offset)
-    array%mem = array%siz*storage_size(global_cell_offset)
+  if (allocated(global_cell_order)) then
+    array%siz = size(global_cell_order)
+    array%mem = array%siz*storage_size(global_cell_order)
     total%mem = total%mem + array%mem
-    write (iunit,2) "'global_cell_offset'",array%get_units()
+    write (iunit,2) "'global_cell_order'",array%get_units()
+  end if
+  if (allocated(global_cell_geom)) then
+    array%siz = size(global_cell_geom)
+    array%mem = array%siz*storage_size(global_cell_geom)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'global_cell_geom'",array%get_units()
   end if
   if (allocated(bface)) then
     array%siz = size(bface)
@@ -695,11 +536,17 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'bc_conflict'",array%get_units()
   end if
-  if (allocated(pts_on_face)) then
-    array%siz = size(pts_on_face)
-    array%mem = array%siz*storage_size(pts_on_face)
+  if (allocated(cell_order)) then
+    array%siz = size(cell_order)
+    array%mem = array%siz*storage_size(cell_order)
     total%mem = total%mem + array%mem
-    write (iunit,2) "'pts_on_face'",array%get_units()
+    write (iunit,2) "'cell_order'",array%get_units()
+  end if
+  if (allocated(cell_geom)) then
+    array%siz = size(cell_geom)
+    array%mem = array%siz*storage_size(cell_geom)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'cell_geom'",array%get_units()
   end if
   if (allocated(nodes_of_cell_ptr)) then
     array%siz = size(nodes_of_cell_ptr)
@@ -725,6 +572,12 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'cells_on_face'",array%get_units()
   end if
+  if (allocated(faces_of_cell)) then
+    array%siz = size(faces_of_cell)
+    array%mem = array%siz*storage_size(faces_of_cell)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'faces_of_cell'",array%get_units()
+  end if
   if (allocated(flxpts_of_cell_ptr)) then
     array%siz = size(flxpts_of_cell_ptr)
     array%mem = array%siz*storage_size(flxpts_of_cell_ptr)
@@ -736,90 +589,6 @@ continue
     array%mem = array%siz*storage_size(flxpts_of_cell)
     total%mem = total%mem + array%mem
     write (iunit,2) "'flxpts_of_cell'",array%get_units()
-  end if
-  if (allocated(pts_of_periodic_ptr)) then
-    array%siz = size(pts_of_periodic_ptr)
-    array%mem = array%siz*storage_size(pts_of_periodic_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'pts_of_periodic_ptr'",array%get_units()
-  end if
-  if (allocated(pts_of_periodic)) then
-    array%siz = size(pts_of_periodic)
-    array%mem = array%siz*storage_size(pts_of_periodic)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'pts_of_periodic'",array%get_units()
-  end if
-  if (allocated(tria_connectivity)) then
-    array%siz = size(tria_connectivity)
-    array%mem = array%siz*storage_size(tria_connectivity)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'tria_connectivity'",array%get_units()
-  end if
-  if (allocated(quad_connectivity)) then
-    array%siz = size(quad_connectivity)
-    array%mem = array%siz*storage_size(quad_connectivity)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'quad_connectivity'",array%get_units()
-  end if
-  if (allocated(filter)) then
-    array%siz = size(filter)
-    array%mem = array%siz*storage_size(filter)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'filter'",array%get_units()
-  end if
-  if (allocated(vand_1d)) then
-    array%siz = size(vand_1d)
-    array%mem = array%siz*storage_size(vand_1d)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_1d'",array%get_units()
-  end if
-  if (allocated(vand_1d_inv)) then
-    array%siz = size(vand_1d_inv)
-    array%mem = array%siz*storage_size(vand_1d_inv)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_1d_inv'",array%get_units()
-  end if
-  if (allocated(vand_tria)) then
-    array%siz = size(vand_tria)
-    array%mem = array%siz*storage_size(vand_tria)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_tria'",array%get_units()
-  end if
-  if (allocated(vand_tria_inv)) then
-    array%siz = size(vand_tria_inv)
-    array%mem = array%siz*storage_size(vand_tria_inv)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_tria_inv'",array%get_units()
-  end if
-  if (allocated(vand_quad)) then
-    array%siz = size(vand_quad)
-    array%mem = array%siz*storage_size(vand_quad)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_quad'",array%get_units()
-  end if
-  if (allocated(vand_quad_inv)) then
-    array%siz = size(vand_quad_inv)
-    array%mem = array%siz*storage_size(vand_quad_inv)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_quad_inv'",array%get_units()
-  end if
-  if (allocated(invM_mat)) then
-    array%siz = size(invM_mat)
-    array%mem = array%siz*storage_size(invM_mat)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'invM_mat'",array%get_units()
-  end if
-  if (allocated(vand_qdtr)) then
-    array%siz = size(vand_qdtr)
-    array%mem = array%siz*storage_size(vand_qdtr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_qdtr'",array%get_units()
-  end if
-  if (allocated(vand_qdtr_inv)) then
-    array%siz = size(vand_qdtr_inv)
-    array%mem = array%siz*storage_size(vand_qdtr_inv)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_qdtr_inv'",array%get_units()
   end if
   if (allocated(interp_f2g)) then
     array%siz = size(interp_f2g)
@@ -850,12 +619,6 @@ continue
     array%mem = array%siz*storage_size(interp_s2q)
     total%mem = total%mem + array%mem
     write (iunit,2) "'interp_s2q'",array%get_units()
-  end if
-  if (allocated(interp_s2o)) then
-    array%siz = size(interp_s2o)
-    array%mem = array%siz*storage_size(interp_s2o)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'interp_s2o'",array%get_units()
   end if
   if (allocated(projct_q2s)) then
     array%siz = size(projct_q2s)
@@ -903,16 +666,10 @@ module qpvar
   !
   implicit none
   !
+  private
+  !
   public :: deallocate_all_qp_arrays
   public :: qpvar_alloc_status
-  !
-  ! radau_1d       : coordinates of 1D Radau solution points of order n_order
-  ! radau_wts_1d   : weights     of 1D Radau solution points of order n_order
-  ! radau_wts_2d   : weights     of 2D Radau solution points of order n_order
-  !
-  real(qp), public, save, allocatable, dimension(:) :: radau_1d_qp
-  real(qp), public, save, allocatable, dimension(:) :: radau_wts_1d_qp
-  real(qp), public, save, allocatable, dimension(:) :: radau_wts_2d_qp
   !
   ! gauss_1d       : coordinates of 1D Gauss solution points of order n_order
   ! gauss_wts_1d   : weights     of 1D Gauss solution points of order n_order
@@ -934,7 +691,6 @@ module qpvar
   ! flxpts_1d : coordinates of 1D flux points of order n_order
   ! solwts_1d : weights of the 1D solution points of order n_order
   ! flxwts_1d : weights of the 1D flux points of order n_order
-  ! weights2d : weights of the solution points of order n_order
   ! rs        : 2D Lobatto nodes of triangle in r-s space
   !
   real(qp), public, save, allocatable, dimension(:)   :: vp_qp
@@ -942,56 +698,22 @@ module qpvar
   real(qp), public, save, allocatable, dimension(:)   :: flxpts_1d_qp
   real(qp), public, save, allocatable, dimension(:)   :: solwts_1d_qp
   real(qp), public, save, allocatable, dimension(:)   :: flxwts_1d_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: weights2d_qp
   real(qp), public, save, allocatable, dimension(:,:) :: rs_qp
   !
   real(qp), public, save, allocatable, dimension(:)   :: qdtpts_1d_qp
   real(qp), public, save, allocatable, dimension(:)   :: qdtwts_1d_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: qdtwts_2d_qp
   !
-  ! radau2numer   : matrix to move from Radau   SP to the numerical SP
   ! gauss2numer   : matrix to move from Gauss   SP to the numerical SP
   ! lobatto2numer : matrix to move from Lobatto SP to the numerical SP
   !
-  real(qp), public, save, allocatable, dimension(:,:) :: radau2numer_qp
   real(qp), public, save, allocatable, dimension(:,:) :: gauss2numer_qp
   real(qp), public, save, allocatable, dimension(:,:) :: lobatto2numer_qp
   !
-  ! numer2radau   : matrix to move from the numerical SP to Radau   SP
   ! numer2gauss   : matrix to move from the numerical SP to Gauss   SP
   ! numer2lobatto : matrix to move from the numerical SP to Lobatto SP
   !
-  real(qp), public, save, allocatable, dimension(:,:) :: numer2radau_qp
   real(qp), public, save, allocatable, dimension(:,:) :: numer2gauss_qp
   real(qp), public, save, allocatable, dimension(:,:) :: numer2lobatto_qp
-  !
-  ! exact2numer : matrix to move from the exact SP to the numerical SP
-  ! numer2exact : matrix to move from the numerical SP to the exact SP
-  !
-  real(qp), public, save, allocatable, dimension(:,:) :: exact2numer_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: numer2exact_qp
-  ! 
-  ! Exponential filter matrices
-  !
-  real(qp), public, save, allocatable, dimension(:,:,:) :: filter_qp
-  !
-  ! Various Vandermonde matrices
-  !
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_1d_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_1d_inv_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_tria_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_tria_inv_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_quad_qp
-  real(qp), public, save, allocatable, dimension(:,:) :: vand_quad_inv_qp
-  !
-  ! Inverse mass matrix
-  !
-  real(qp), public, save, allocatable, dimension(:,:,:) :: invM_mat_qp
-  !
-  ! Quadrature Vandermonde matrices
-  !
-  real(qp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: vand_qdtr_inv_qp
   !
   ! Various projection/interpolation matrices
   !
@@ -1001,7 +723,6 @@ module qpvar
   real(qp), public, save, allocatable, dimension(:,:,:) :: interp_s2f_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: interp_s2g_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: interp_s2q_qp
-  real(qp), public, save, allocatable, dimension(:,:,:,:) :: interp_s2o_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: projct_q2s_qp
   real(qp), public, save, allocatable, dimension(:,:,:,:) :: projct_s2p_qp
   !
@@ -1009,23 +730,14 @@ module qpvar
   !
   ! Collocation derivative matrices
   !
-  real(qp), public, save, allocatable, dimension(:,:)   :: d1_mat_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: dr_mat_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: ds_mat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: dr_hat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: ds_hat_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: cormat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: cormat_dg_qp
   !
   ! Quadrature derivative matrices
   !
-  real(qp), public, save, allocatable, dimension(:,:)   :: dq1D_mat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: dqr_mat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: dqs_mat_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: dqr_LPmat_qp
   real(qp), public, save, allocatable, dimension(:,:,:) :: dqs_LPmat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: dqr_CRmat_qp
-  real(qp), public, save, allocatable, dimension(:,:,:) :: dqs_CRmat_qp
   !
 contains
 !
@@ -1037,21 +749,6 @@ subroutine deallocate_all_qp_arrays()
   integer :: ierr
   !
 continue
-  !
-  if (allocated(radau_1d_qp)) then
-    deallocate ( radau_1d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","radau_1d_qp",2,ierr)
-  end if
-  !
-  if (allocated(radau_wts_1d_qp)) then
-    deallocate ( radau_wts_1d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","radau_wts_1d_qp",2,ierr)
-  end if
-  !
-  if (allocated(radau_wts_2d_qp)) then
-    deallocate ( radau_wts_2d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","radau_wts_2d_qp",2,ierr)
-  end if
   !
   if (allocated(gauss_1d_qp)) then
     deallocate ( gauss_1d_qp , stat=ierr )
@@ -1108,11 +805,6 @@ continue
     call alloc_error("deallocate_all_qp_arrays","flxwts_1d_qp",2,ierr)
   end if
   !
-  if (allocated(weights2d_qp)) then
-    deallocate ( weights2d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","weights2d_qp",2,ierr)
-  end if
-  !
   if (allocated(rs_qp)) then
     deallocate ( rs_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","rs_qp",2,ierr)
@@ -1128,16 +820,6 @@ continue
     call alloc_error("deallocate_all_qp_arrays","qdtwts_1d_qp",2,ierr)
   end if
   !
-  if (allocated(qdtwts_2d_qp)) then
-    deallocate ( qdtwts_2d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","qdtwts_2d_qp",2,ierr)
-  end if
-  !
-  if (allocated(radau2numer_qp)) then
-    deallocate ( radau2numer_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","radau2numer_qp",2,ierr)
-  end if
-  !
   if (allocated(gauss2numer_qp)) then
     deallocate ( gauss2numer_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","gauss2numer_qp",2,ierr)
@@ -1148,11 +830,6 @@ continue
     call alloc_error("deallocate_all_qp_arrays","lobatto2numer_qp",2,ierr)
   end if
   !
-  if (allocated(numer2radau_qp)) then
-    deallocate ( numer2radau_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","numer2radau_qp",2,ierr)
-  end if
-  !
   if (allocated(numer2gauss_qp)) then
     deallocate ( numer2gauss_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","numer2gauss_qp",2,ierr)
@@ -1161,66 +838,6 @@ continue
   if (allocated(numer2lobatto_qp)) then
     deallocate ( numer2lobatto_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","numer2lobatto_qp",2,ierr)
-  end if
-  !
-  if (allocated(exact2numer_qp)) then
-    deallocate ( exact2numer_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","exact2numer_qp",2,ierr)
-  end if
-  !
-  if (allocated(numer2exact_qp)) then
-    deallocate ( numer2exact_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","numer2exact_qp",2,ierr)
-  end if
-  !
-  if (allocated(filter_qp)) then
-    deallocate ( filter_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","filter_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_1d_qp)) then
-    deallocate ( vand_1d_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_1d_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_1d_inv_qp)) then
-    deallocate ( vand_1d_inv_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_1d_inv_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_tria_qp)) then
-    deallocate ( vand_tria_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_tria_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_tria_inv_qp)) then
-    deallocate ( vand_tria_inv_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_tria_inv_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_quad_qp)) then
-    deallocate ( vand_quad_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_quad_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_quad_inv_qp)) then
-    deallocate ( vand_quad_inv_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_quad_inv_qp",2,ierr)
-  end if
-  !
-  if (allocated(invM_mat_qp)) then
-    deallocate ( invM_mat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","invM_mat_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_qdtr_qp)) then
-    deallocate ( vand_qdtr_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_qdtr_qp",2,ierr)
-  end if
-  !
-  if (allocated(vand_qdtr_inv_qp)) then
-    deallocate ( vand_qdtr_inv_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","vand_qdtr_inv_qp",2,ierr)
   end if
   !
   if (allocated(interp_f2g_qp)) then
@@ -1243,11 +860,6 @@ continue
     call alloc_error("deallocate_all_qp_arrays","interp_s2g_qp",2,ierr)
   end if
   !
-  if (allocated(interp_s2o_qp)) then
-    deallocate ( interp_s2o_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","interp_s2o_qp",2,ierr)
-  end if
-  !
   if (allocated(interp_s2q_qp)) then
     deallocate ( interp_s2q_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","interp_s2q_qp",2,ierr)
@@ -1268,11 +880,6 @@ continue
     call alloc_error("deallocate_all_qp_arrays","projct_limiter_qp",2,ierr)
   end if
   !
-  if (allocated(d1_mat_qp)) then
-    deallocate ( d1_mat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","d1_mat_qp",2,ierr)
-  end if
-  !
   if (allocated(dr_mat_qp)) then
     deallocate ( dr_mat_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","dr_mat_qp",2,ierr)
@@ -1283,39 +890,9 @@ continue
     call alloc_error("deallocate_all_qp_arrays","ds_mat_qp",2,ierr)
   end if
   !
-  if (allocated(dr_hat_qp)) then
-    deallocate ( dr_hat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dr_hat_qp",2,ierr)
-  end if
-  !
-  if (allocated(ds_hat_qp)) then
-    deallocate ( ds_hat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","ds_hat_qp",2,ierr)
-  end if
-  !
   if (allocated(cormat_qp)) then
     deallocate ( cormat_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","cormat_qp",2,ierr)
-  end if
-  !
-  if (allocated(cormat_dg_qp)) then
-    deallocate ( cormat_dg_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","cormat_dg_qp",2,ierr)
-  end if
-  !
-  if (allocated(dq1D_mat_qp)) then
-    deallocate ( dq1D_mat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dq1D_mat_qp",2,ierr)
-  end if
-  !
-  if (allocated(dqr_mat_qp)) then
-    deallocate ( dqr_mat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dqr_mat_qp",2,ierr)
-  end if
-  !
-  if (allocated(dqs_mat_qp)) then
-    deallocate ( dqs_mat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dqs_mat_qp",2,ierr)
   end if
   !
   if (allocated(dqr_LPmat_qp)) then
@@ -1327,17 +904,6 @@ continue
     deallocate ( dqs_LPmat_qp , stat=ierr )
     call alloc_error("deallocate_all_qp_arrays","dqs_LPmat_qp",2,ierr)
   end if
-  !
-  if (allocated(dqr_CRmat_qp)) then
-    deallocate ( dqr_CRmat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dqr_CRmat_qp",2,ierr)
-  end if
-  !
-  if (allocated(dqs_CRmat_qp)) then
-    deallocate ( dqs_CRmat_qp , stat=ierr )
-    call alloc_error("deallocate_all_qp_arrays","dqs_CRmat_qp",2,ierr)
-  end if
-  !
   !
 end subroutine deallocate_all_qp_arrays
 !
@@ -1362,24 +928,6 @@ continue
   !
   write (iunit,1)
   !
-  if (allocated(radau_1d_qp)) then
-    array%siz = size(radau_1d_qp)
-    array%mem = array%siz*storage_size(radau_1d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_1d_qp'",array%get_units()
-  end if
-  if (allocated(radau_wts_1d_qp)) then
-    array%siz = size(radau_wts_1d_qp)
-    array%mem = array%siz*storage_size(radau_wts_1d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_wts_1d_qp'",array%get_units()
-  end if
-  if (allocated(radau_wts_2d_qp)) then
-    array%siz = size(radau_wts_2d_qp)
-    array%mem = array%siz*storage_size(radau_wts_2d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau_wts_2d_qp'",array%get_units()
-  end if
   if (allocated(gauss_1d_qp)) then
     array%siz = size(gauss_1d_qp)
     array%mem = array%siz*storage_size(gauss_1d_qp)
@@ -1446,12 +994,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'flxwts_1d_qp'",array%get_units()
   end if
-  if (allocated(weights2d_qp)) then
-    array%siz = size(weights2d_qp)
-    array%mem = array%siz*storage_size(weights2d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'weights2d_qp'",array%get_units()
-  end if
   if (allocated(rs_qp)) then
     array%siz = size(rs_qp)
     array%mem = array%siz*storage_size(rs_qp)
@@ -1470,18 +1012,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'qdtwts_1d_qp'",array%get_units()
   end if
-  if (allocated(qdtwts_2d_qp)) then
-    array%siz = size(qdtwts_2d_qp)
-    array%mem = array%siz*storage_size(qdtwts_2d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'qdtwts_2d_qp'",array%get_units()
-  end if
-  if (allocated(radau2numer_qp)) then
-    array%siz = size(radau2numer_qp)
-    array%mem = array%siz*storage_size(radau2numer_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'radau2numer_qp'",array%get_units()
-  end if
   if (allocated(gauss2numer_qp)) then
     array%siz = size(gauss2numer_qp)
     array%mem = array%siz*storage_size(gauss2numer_qp)
@@ -1494,12 +1024,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'lobatto2numer_qp'",array%get_units()
   end if
-  if (allocated(numer2radau_qp)) then
-    array%siz = size(numer2radau_qp)
-    array%mem = array%siz*storage_size(numer2radau_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'numer2radau_qp'",array%get_units()
-  end if
   if (allocated(numer2gauss_qp)) then
     array%siz = size(numer2gauss_qp)
     array%mem = array%siz*storage_size(numer2gauss_qp)
@@ -1511,78 +1035,6 @@ continue
     array%mem = array%siz*storage_size(numer2lobatto_qp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'numer2lobatto_qp'",array%get_units()
-  end if
-  if (allocated(exact2numer_qp)) then
-    array%siz = size(exact2numer_qp)
-    array%mem = array%siz*storage_size(exact2numer_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'exact2numer_qp'",array%get_units()
-  end if
-  if (allocated(numer2exact_qp)) then
-    array%siz = size(numer2exact_qp)
-    array%mem = array%siz*storage_size(numer2exact_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'numer2exact_qp'",array%get_units()
-  end if
-  if (allocated(filter_qp)) then
-    array%siz = size(filter_qp)
-    array%mem = array%siz*storage_size(filter_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'filter_qp'",array%get_units()
-  end if
-  if (allocated(vand_1d_qp)) then
-    array%siz = size(vand_1d_qp)
-    array%mem = array%siz*storage_size(vand_1d_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_1d_qp'",array%get_units()
-  end if
-  if (allocated(vand_1d_inv_qp)) then
-    array%siz = size(vand_1d_inv_qp)
-    array%mem = array%siz*storage_size(vand_1d_inv_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_1d_inv_qp'",array%get_units()
-  end if
-  if (allocated(vand_tria_qp)) then
-    array%siz = size(vand_tria_qp)
-    array%mem = array%siz*storage_size(vand_tria_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_tria_qp'",array%get_units()
-  end if
-  if (allocated(vand_tria_inv_qp)) then
-    array%siz = size(vand_tria_inv_qp)
-    array%mem = array%siz*storage_size(vand_tria_inv_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_tria_inv_qp'",array%get_units()
-  end if
-  if (allocated(vand_quad_qp)) then
-    array%siz = size(vand_quad_qp)
-    array%mem = array%siz*storage_size(vand_quad_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_quad_qp'",array%get_units()
-  end if
-  if (allocated(vand_quad_inv_qp)) then
-    array%siz = size(vand_quad_inv_qp)
-    array%mem = array%siz*storage_size(vand_quad_inv_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_quad_inv_qp'",array%get_units()
-  end if
-  if (allocated(invM_mat_qp)) then
-    array%siz = size(invM_mat_qp)
-    array%mem = array%siz*storage_size(invM_mat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'invM_mat_qp'",array%get_units()
-  end if
-  if (allocated(vand_qdtr_qp)) then
-    array%siz = size(vand_qdtr_qp)
-    array%mem = array%siz*storage_size(vand_qdtr_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_qdtr_qp'",array%get_units()
-  end if
-  if (allocated(vand_qdtr_inv_qp)) then
-    array%siz = size(vand_qdtr_inv_qp)
-    array%mem = array%siz*storage_size(vand_qdtr_inv_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vand_qdtr_inv_qp'",array%get_units()
   end if
   if (allocated(interp_f2g_qp)) then
     array%siz = size(interp_f2g_qp)
@@ -1614,12 +1066,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'interp_s2q_qp'",array%get_units()
   end if
-  if (allocated(interp_s2o_qp)) then
-    array%siz = size(interp_s2o_qp)
-    array%mem = array%siz*storage_size(interp_s2o_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'interp_s2o_qp'",array%get_units()
-  end if
   if (allocated(projct_q2s_qp)) then
     array%siz = size(projct_q2s_qp)
     array%mem = array%siz*storage_size(projct_q2s_qp)
@@ -1638,12 +1084,6 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'projct_limiter_qp'",array%get_units()
   end if
-  if (allocated(d1_mat_qp)) then
-    array%siz = size(d1_mat_qp)
-    array%mem = array%siz*storage_size(d1_mat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'d1_mat_qp'",array%get_units()
-  end if
   if (allocated(dr_mat_qp)) then
     array%siz = size(dr_mat_qp)
     array%mem = array%siz*storage_size(dr_mat_qp)
@@ -1656,47 +1096,11 @@ continue
     total%mem = total%mem + array%mem
     write (iunit,2) "'ds_mat_qp'",array%get_units()
   end if
-  if (allocated(dr_hat_qp)) then
-    array%siz = size(dr_hat_qp)
-    array%mem = array%siz*storage_size(dr_hat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dr_hat_qp'",array%get_units()
-  end if
-  if (allocated(ds_hat_qp)) then
-    array%siz = size(ds_hat_qp)
-    array%mem = array%siz*storage_size(ds_hat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'ds_hat_qp'",array%get_units()
-  end if
   if (allocated(cormat_qp)) then
     array%siz = size(cormat_qp)
     array%mem = array%siz*storage_size(cormat_qp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'cormat_qp'",array%get_units()
-  end if
-  if (allocated(cormat_dg_qp)) then
-    array%siz = size(cormat_dg_qp)
-    array%mem = array%siz*storage_size(cormat_dg_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'cormat_dg_qp'",array%get_units()
-  end if
-  if (allocated(dq1D_mat_qp)) then
-    array%siz = size(dq1D_mat_qp)
-    array%mem = array%siz*storage_size(dq1D_mat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dq1D_mat_qp'",array%get_units()
-  end if
-  if (allocated(dqr_mat_qp)) then
-    array%siz = size(dqr_mat_qp)
-    array%mem = array%siz*storage_size(dqr_mat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dqr_mat_qp'",array%get_units()
-  end if
-  if (allocated(dqs_mat_qp)) then
-    array%siz = size(dqs_mat_qp)
-    array%mem = array%siz*storage_size(dqs_mat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dqs_mat_qp'",array%get_units()
   end if
   if (allocated(dqr_LPmat_qp)) then
     array%siz = size(dqr_LPmat_qp)
@@ -1709,18 +1113,6 @@ continue
     array%mem = array%siz*storage_size(dqs_LPmat_qp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'dqs_LPmat_qp'",array%get_units()
-  end if
-  if (allocated(dqr_CRmat_qp)) then
-    array%siz = size(dqr_CRmat_qp)
-    array%mem = array%siz*storage_size(dqr_CRmat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dqr_CRmat_qp'",array%get_units()
-  end if
-  if (allocated(dqs_CRmat_qp)) then
-    array%siz = size(dqs_CRmat_qp)
-    array%mem = array%siz*storage_size(dqs_CRmat_qp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dqs_CRmat_qp'",array%get_units()
   end if
   !
   total = total%get_units()

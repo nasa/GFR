@@ -10,19 +10,18 @@ pure function pressure_cv(uu) result(return_value)
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,nq
+  integer :: n
   real(wp) :: gm1,q2
   !
 continue
   !
-  nq = size(uu,dim=1)
   gm1 = gam - one
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
+    q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
     !
-    return_value(n) = gm1 * (uu(nq,n) - half*q2/uu(1,n))
+    return_value(n) = gm1 * (uu(nee,n) - half*q2/uu(nec,n))
     !
   end do
   !
@@ -42,17 +41,15 @@ pure function pressure_cv_sp(uu) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: nq
   real(wp) :: gm1,q2
   !
 continue
   !
-  nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
-  return_value = gm1 * (uu(nq) - half*q2/uu(1))
+  return_value = gm1 * (uu(nee) - half*q2/uu(nec))
   !
 end function pressure_cv_sp
 !

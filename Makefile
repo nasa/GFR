@@ -16,6 +16,7 @@ all: both
 
 both:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" debug
+	@echo "-----------------------------------------------------"
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
 
 debug:

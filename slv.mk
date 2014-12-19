@@ -58,7 +58,7 @@ HOMEDIR = /home/sspiegel
 LOCALLIB =
 OTHERLIB =
 
- OPTIM = -O2 -ip -xSSE4.2
+ OPTIM = -O2 -ip -xSSE4.2 #-v #-watch
  IPO_OPT = -O3 -ipo #-ipo-jobs4
 #OPTIM = -O2 -xSSE4.2 #-ipo-jobs4
 #OPTIM = -O3 -ip -xSSE4.2
@@ -132,6 +132,8 @@ FCFLAG += $(MOD) $(INCLUDE)
 OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/Euler_tri.o \
        $(OBJDIR)/metvar_mod.o \
+       $(OBJDIR)/order_mod.o \
+       $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/geovar_mod.o \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/ovar_mod.o \
@@ -146,16 +148,26 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/bc_mod.o \
        $(OBJDIR)/triangle.o \
        $(OBJDIR)/flux.o \
+       $(OBJDIR)/filter_mod.o \
+       $(OBJDIR)/typesgen_mod.o \
+       $(OBJDIR)/eqn_idx_mod.o \
+       $(OBJDIR)/correction_mod.o \
+       $(OBJDIR)/derivatives_mod.o \
+       $(OBJDIR)/interpolation_mod.o \
+       $(OBJDIR)/projection_mod.o \
+       $(OBJDIR)/vandermonde_mod.o \
        $(OBJDIR)/parallel.o \
+       $(OBJDIR)/mappings.o \
+       $(OBJDIR)/connectivity.o \
        $(OBJDIR)/limiters.o
 #
-optimize: FCFLAG += $(OPTIM)
+optimize: FCFLAG += $(OPTIM) $(ADDFLAGS)
 optimize: all
 #
 ipo-opt: FCFLAG += $(OPTIM) $(IPO_OPT)
 ipo-opt: all
 #
-debug: FCFLAG += -check all -debug -fp-stack-check
+debug: FCFLAG += -check all -debug -fp-stack-check -DDEBUG_ON
 debug: all
 #
 optprofile: FCFLAG += -p -debug inline-debug-info
@@ -232,158 +244,4 @@ test_poly: test_poly.f90 kind_types.f90 poly.f90
 clean:
 	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
 #
-$(OBJDIR)/kind_types.o : kind_types.f90 \
-               $(FUNDIR)/cross_product.f90 \
-               $(FUNDIR)/deltafun.f90 \
-               $(FUNDIR)/norms.f90 \
-               $(FUNDIR)/outerprod.f90 \
-               $(FUNDIR)/reciprocal.f90 \
-               $(FUNDIR)/reflect.f90 \
-               $(FUNDIR)/rotate.f90 \
-               $(FUNDIR)/rotate_2d.f90 \
-               $(FUNDIR)/matrix_ops.f90 \
-               $(FUNDIR)/random.f90 \
-               $(FUNDIR)/uppercase.f90 \
-               $(FUNDIR)/bc_integer_to_string.f90 \
-	       $(FUNDIR)/all_are_equal.f90 \
-	       $(FUNDIR)/findloc.f90
-$(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
-              $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/geovar_mod.o \
-              $(OBJDIR)/ovar_mod.o \
-              $(OBJDIR)/metvar_mod.o \
-              $(OBJDIR)/flowvar_mod.o \
-              $(OBJDIR)/io.o \
-              $(OBJDIR)/metrics.o \
-              $(OBJDIR)/startup.o \
-              $(OBJDIR)/initialize.o \
-              $(OBJDIR)/generic.o \
-              $(OBJDIR)/bc_mod.o \
-              $(OBJDIR)/flux.o \
-              $(OBJDIR)/parallel.o \
-	      $(OBJDIR)/limiters.o
-$(OBJDIR)/metvar_mod.o : metvar_mod.f90 $(OBJDIR)/kind_types.o
-$(OBJDIR)/geovar_mod.o : geovar_mod.f90 $(OBJDIR)/kind_types.o
-$(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 $(OBJDIR)/kind_types.o
-$(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
-             $(OBJDIR)/kind_types.o \
-	     $(OBJDIR)/geovar_mod.o
-$(OBJDIR)/poly.o : poly.f90 $(OBJDIR)/kind_types.o
-$(OBJDIR)/triangle.o : triangle.f90 \
-             $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/startup.o \
-             $(OBJDIR)/poly.o
-$(OBJDIR)/parallel.o : parallel.f90 \
-             $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/geovar_mod.o \
-             $(OBJDIR)/flowvar_mod.o \
-             $(FUNDIR)/last.f90
-$(OBJDIR)/metrics.o : metrics.f90 \
-            $(OBJDIR)/kind_types.o \
-            $(OBJDIR)/geovar_mod.o \
-            $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/metvar_mod.o \
-            $(OBJDIR)/poly.o \
-            $(OBJDIR)/triangle.o \
-            $(OBJDIR)/parallel.o \
-            $(FUNDIR)/chop.f90 \
-            $(FUNDIR)/np2nfp.f90 \
-            $(FUNDIR)/last.f90
-$(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
-             $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/geovar_mod.o \
-             $(OBJDIR)/ovar_mod.o \
-             $(FUNDIR)/bc_string_to_integer.f90 \
-             $(FUNDIR)/host_face.f90 \
-             $(FUNDIR)/last.f90
-$(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
-               $(OBJDIR)/kind_types.o \
-               $(OBJDIR)/geovar_mod.o \
-               $(OBJDIR)/ovar_mod.o \
-               $(FUNDIR)/bc_string_to_integer.f90 \
-               $(FUNDIR)/last.f90
-$(OBJDIR)/io.o : io.f90 \
-       $(OBJDIR)/kind_types.o \
-       $(OBJDIR)/geovar_mod.o \
-       $(OBJDIR)/ovar_mod.o \
-       $(OBJDIR)/metvar_mod.o \
-       $(OBJDIR)/flowvar_mod.o \
-       $(OBJDIR)/gmsh_mod.o \
-       $(OBJDIR)/plot3d_mod.o \
-       $(OBJDIR)/parallel.o \
-       $(OBJDIR)/generic.o \
-       $(FUNDIR)/vortex.f90 \
-       $(FUNDIR)/face_nodes.f90 \
-       $(FUNDIR)/last.f90 \
-       $(FUNDIR)/bc_priority.f90 \
-       $(FUNDIR)/viscosity.f90 \
-       $(FUNDIR)/entropy.f90 \
-       $(FUNDIR)/pressure.f90 \
-       $(FUNDIR)/usp2v.f90 \
-       $(FUNDIR)/vsp2u.f90 \
-       $(FUNDIR)/mach_number.f90
-$(OBJDIR)/startup.o : startup.f90 \
-            $(OBJDIR)/kind_types.o \
-            $(OBJDIR)/geovar_mod.o \
-            $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/metvar_mod.o \
-            $(OBJDIR)/poly.o \
-            $(FUNDIR)/chop.f90 \
-            $(FUNDIR)/np2n.f90 \
-            $(FUNDIR)/np2nfp.f90
-$(OBJDIR)/initialize.o : initialize.f90 \
-               $(OBJDIR)/kind_types.o \
-               $(OBJDIR)/geovar_mod.o \
-               $(OBJDIR)/ovar_mod.o \
-               $(OBJDIR)/metvar_mod.o \
-               $(OBJDIR)/flowvar_mod.o \
-               $(OBJDIR)/generic.o \
-               $(OBJDIR)/io.o \
-               $(FUNDIR)/vortex.f90 \
-               $(FUNDIR)/usp2v.f90
-$(OBJDIR)/generic.o : generic.f90 \
-            $(OBJDIR)/kind_types.o \
-            $(OBJDIR)/geovar_mod.o \
-            $(OBJDIR)/ovar_mod.o \
-            $(OBJDIR)/metvar_mod.o \
-            $(OBJDIR)/flowvar_mod.o \
-            $(OBJDIR)/parallel.o \
-            $(FUNDIR)/vortex.f90 \
-            $(FUNDIR)/viscosity.f90 \
-            $(FUNDIR)/entropy.f90 \
-            $(FUNDIR)/pressure.f90 \
-            $(FUNDIR)/usp2v.f90 \
-            $(FUNDIR)/vsp2u.f90
-$(OBJDIR)/flux.o : flux.f90 \
-         $(OBJDIR)/kind_types.o \
-         $(OBJDIR)/geovar_mod.o \
-         $(OBJDIR)/ovar_mod.o \
-         $(OBJDIR)/metvar_mod.o \
-         $(OBJDIR)/flowvar_mod.o \
-         $(OBJDIR)/parallel.o \
-         $(FUNDIR)/upwind_fluxes.f90 \
-         $(FUNDIR)/inviscid_fluxes.f90 \
-	 $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-         $(FUNDIR)/pressure.f90 \
-         $(FUNDIR)/viscosity.f90 \
-         $(FUNDIR)/vsp2u.f90
-$(OBJDIR)/bc_mod.o : bc_mod.f90 \
-           $(OBJDIR)/kind_types.o \
-           $(OBJDIR)/geovar_mod.o \
-           $(OBJDIR)/ovar_mod.o \
-           $(OBJDIR)/metvar_mod.o \
-           $(OBJDIR)/flowvar_mod.o \
-           $(OBJDIR)/parallel.o \
-	   $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-	   $(FUNDIR)/normal_streamwise_velocity_gradient.f90 \
-           $(FUNDIR)/pressure.f90 \
-           $(FUNDIR)/temperature.f90 \
-           $(FUNDIR)/viscosity.f90 \
-           $(FUNDIR)/usp2v.f90 \
-           $(FUNDIR)/vsp2u.f90
-$(OBJDIR)/limiters.o : limiters.f90 \
-                       kind_types.o \
-		       geovar_mod.o \
-		       ovar_mod.o \
-		       flowvar_mod.o \
-		       parallel.o
+include dep.mk

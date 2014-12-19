@@ -31,19 +31,17 @@ pure function usp2v_sp(uu) result(return_value)
   real(wp), dimension(1:size(uu)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nq
   real(wp) :: gm1,q2
   !
 continue
   !
-  nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
+  q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
-  return_value(1)      = uu(1)
-  return_value(2:nq-1) = uu(2:nq-1)/uu(1)
-  return_value(nq)     = gm1 * (uu(nq) - half*q2/uu(1))
+  return_value(nec)     = uu(nec)
+  return_value(nmb:nme) = uu(nmb:nme)/uu(nec)
+  return_value(nee)     = gm1 * (uu(nee) - half*q2/uu(nec))
   !
 end function usp2v_sp
 !

@@ -33,13 +33,13 @@ continue
   !
   do k = 1,np
     !
-    rho_inv = one/rusp(1,k)
+    rho_inv = one/rusp(nec,k)
     rho_inv2 = rho_inv * rho_inv
     !
     ! Copy the density gradient
     !
-    dpdx(1,k) = dcdx(1,k)
-    dpdy(1,k) = dcdy(1,k)
+    dpdx(nec,k) = dcdx(nec,k)
+    dpdy(nec,k) = dcdy(nec,k)
     !
     ! Using the chain rule:
     !
@@ -47,9 +47,9 @@ continue
     ! 2. Compute the total energy gradient and store in the
     !    location for the temperature gradient (m = nq)
     !
-    do m = 2,nq
-      dpdx(m,k) = rho_inv*dcdx(m,k) - rho_inv2*rusp(m,k)*dcdx(1,k)
-      dpdy(m,k) = rho_inv*dcdy(m,k) - rho_inv2*rusp(m,k)*dcdy(1,k)
+    do m = nmb,nee
+      dpdx(m,k) = rho_inv*dcdx(m,k) - rho_inv2*rusp(m,k)*dcdx(nec,k)
+      dpdy(m,k) = rho_inv*dcdy(m,k) - rho_inv2*rusp(m,k)*dcdy(nec,k)
     end do
     !
     ! The location for the temperature gradient currently contains
@@ -57,16 +57,16 @@ continue
     ! Now use the velocity gradients to subtract the gradient of
     ! kinetic-energy-per-unit-mass from the total energy gradient.
     ! 
-    do m = 2,nq-1
-      dpdx(nq,k) = dpdx(nq,k) - rho_inv*rusp(m,k)*dpdx(m,k)
-      dpdy(nq,k) = dpdy(nq,k) - rho_inv*rusp(m,k)*dpdy(m,k)
+    do m = nmb,nme
+      dpdx(nee,k) = dpdx(nee,k) - rho_inv*rusp(m,k)*dpdx(m,k)
+      dpdy(nee,k) = dpdy(nee,k) - rho_inv*rusp(m,k)*dpdy(m,k)
     end do
     !
     ! Finish computing the temperature gradient by dividing through by
     ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
     !
-    dpdx(nq,k) = dpdx(nq,k) * cv_inv
-    dpdy(nq,k) = dpdy(nq,k) * cv_inv
+    dpdx(nee,k) = dpdx(nee,k) * cv_inv
+    dpdy(nee,k) = dpdy(nee,k) * cv_inv
     !
   end do
   !
@@ -106,12 +106,12 @@ continue
   !
   cv_inv = (gam - one) / rgasref_nd
   !
-  rho_inv = one/rusp(1)
+  rho_inv = one/rusp(nec)
   rho_inv2 = rho_inv * rho_inv
   !
   ! Copy the density gradient
   !
-  return_value(1:nr,1) = dcvdx(1:nr,1)
+  return_value(1:nr,nec) = dcvdx(1:nr,nec)
   !
   ! Using the chain rule:
   !
@@ -119,9 +119,9 @@ continue
   ! 2. Compute the total energy gradient and store in the
   !    location for the temperature gradient (m = nq)
   !
-  do m = 2,nq
+  do m = nmb,nee
     do l = 1,nr
-      return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv2*rusp(m)*dcvdx(l,1)
+      return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv2*rusp(m)*dcvdx(l,nec)
     end do
   end do
   !
@@ -130,16 +130,16 @@ continue
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   ! 
-  do m = 2,nq-1
+  do m = nmb,nme
     do l = 1,nr
-      return_value(l,nq) = return_value(l,nq) - rho_inv*rusp(m)*return_value(l,m)
+      return_value(l,nee) = return_value(l,nee) - rho_inv*rusp(m)*return_value(l,m)
     end do
   end do
   !
   ! Finish computing the temperature gradient by dividing through by
   ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
   !
-  return_value(1:nr,nq) = return_value(1:nr,nq) * cv_inv
+  return_value(1:nr,nee) = return_value(1:nr,nee) * cv_inv
   !
 end function grad_cv_to_grad_pv_sp
 !

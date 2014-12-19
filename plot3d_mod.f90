@@ -81,7 +81,7 @@ contains
 !
 !###############################################################################
 !
-subroutine read_plot3d_gridfile ( grid_format , gridfile , cutfile , bcsfile )
+subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   !
   ! This routine reads in a multi-block grid in plot3d
   ! format and converts it to an unstructured grid.
@@ -91,11 +91,6 @@ subroutine read_plot3d_gridfile ( grid_format , gridfile , cutfile , bcsfile )
   !               conditions for block boundaries
   ! CUTFILE     : Gives the name of the file that specifies the cut conditions
   !               for a multiblock Plot3D file
-  ! GRID_FORMAT : Gives the Plot3D format for gridfile
-  !           =  4 -> Single block grid in Plot2D format (x,y coordinates only)
-  !           = -4 -> Multi  block grid in Plot2D format (x,y coordinates only)
-  !           =  5 -> Single block grid in Plot3D format (x,y,z coordinates)
-  !           = -5 -> Multi  block grid in Plot3D format (x,y,z coordinates)
   ! NOTE: Single block format means the first line of the grid file does not
   !       give the number of blocks and immediately gives the dimensions of
   !       the one and only block.
@@ -118,13 +113,16 @@ subroutine read_plot3d_gridfile ( grid_format , gridfile , cutfile , bcsfile )
   !             NODES_OF_CELL : Gives the nodes that define each grid cell
   !
   !.. Formal Arguments ..
-  integer,             intent(in) :: grid_format
   character(len=*),    intent(in) :: gridfile
   character(len=*), intent(inout) :: cutfile
   character(len=*), intent(inout) :: bcsfile
   !
   !.. Local Scalars ..
   integer :: ierr,itest
+  integer :: iotst
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_plot3d_gridfile"
   !
 continue
   !
@@ -135,36 +133,36 @@ continue
   ! Check to see if the Plot3D grid file can be
   ! opened and read as a formatted file.
   !
-  open (iogrd,file=gridfile,form="formatted",status="old", &
-        action="read",position="rewind",iostat=ierr)
-  call io_error("read_plot3d_gridfile",trim(adjustl(gridfile)),1,ierr)
+  open (newunit=iotst,file=gridfile,form="formatted",status="old", &
+                      action="read",position="rewind",iostat=ierr)
+  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
   !
-  read (iogrd,*,iostat=ierr) itest
+  read (iotst,*,iostat=ierr) itest
   if (ierr == 0) then
     is_formatted = true
   end if
   !
-  close (iogrd,iostat=ierr)
-  call io_error("read_plot3d_gridfile",trim(adjustl(gridfile)),2,ierr)
+  close (iotst,iostat=ierr)
+  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
   !
   ! If the Plot3D grid file could not be read as a formatted file,
   ! check to see if it can be opened and read as an unformatted file.
   !
   if (.not.is_formatted) then
     !
-    open (unit=iogrd,file=gridfile,form="unformatted",status="old", &
-          action="read",position="rewind",iostat=ierr)
-    call io_error("read_plot3d_gridfile",trim(adjustl(gridfile)),1,ierr)
+    open (unit=iotst,file=gridfile,form="unformatted",status="old", &
+                     action="read",position="rewind",iostat=ierr)
+    call io_error(pname,trim(adjustl(gridfile)),1,ierr)
     !
-    read (iogrd,iostat=ierr) itest
+    read (iotst,iostat=ierr) itest
     if (ierr == 0) then
       is_formatted = fals
     else
-      call io_error("read_plot3d_gridfile",trim(adjustl(gridfile)),4,ierr)
+      call io_error(pname,trim(adjustl(gridfile)),4,ierr)
     end if
     !
-    close (iogrd,iostat=ierr)
-    call io_error("read_plot3d_gridfile",trim(adjustl(gridfile)),2,ierr)
+    close (iotst,iostat=ierr)
+    call io_error(pname,trim(adjustl(gridfile)),2,ierr)
     !
   end if
   !
@@ -207,14 +205,6 @@ continue
   ! Get the boundary face information
   !
   call getbface
- !!
- !! Write the face output file for tecplot
- !!
- !call writebface
- !!
- !! Write the output file for fvflo code
- !!
- !call writefvflo
   !
   ! Write the output file for tecplot
   !
@@ -227,27 +217,27 @@ continue
   !
   if (allocated(bcs_info)) then
     deallocate ( bcs_info , stat=ierr )
-    call alloc_error("read_plot3d_gridfile","bcs_info",2,ierr)
+    call alloc_error(pname,"bcs_info",2,ierr)
   end if
   !
   if (allocated(cut_info)) then
     deallocate ( cut_info , stat=ierr )
-    call alloc_error("read_plot3d_gridfile","cut_info",2,ierr)
+    call alloc_error(pname,"cut_info",2,ierr)
   end if
   !
   if (allocated(ijkpts)) then
     deallocate ( ijkpts , stat=ierr )
-    call alloc_error("read_plot3d_gridfile","ijkpts",2,ierr)
+    call alloc_error(pname,"ijkpts",2,ierr)
   end if
   !
   if (allocated(offset)) then
     deallocate ( offset , stat=ierr )
-    call alloc_error("read_plot3d_gridfile","offset",2,ierr)
+    call alloc_error(pname,"offset",2,ierr)
   end if
   !
   if (allocated(lpnew)) then
     deallocate ( lpnew , stat=ierr )
-    call alloc_error("read_plot3d_gridfile","lpnew",2,ierr)
+    call alloc_error(pname,"lpnew",2,ierr)
   end if
   !
 end subroutine read_plot3d_gridfile
@@ -271,9 +261,13 @@ subroutine readplot3d(gridfile)
   !
   !.. Local Scalars ..
   integer :: i,l,iblk,ierr,cpos,recl_max,noff,npts
+  integer :: iogrd
   !
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: r4_nodes
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "readplot3d"
   !
 continue
   !
@@ -287,26 +281,26 @@ continue
   ! Open the file for multi-block grid
   !
   if (is_formatted) then
-    open (unit=iogrd,file=gridfile,form="formatted",status="old", &
-          action="read",position="rewind",iostat=ierr)
+    open (newunit=iogrd,file=gridfile,form="formatted",status="old", &
+                        action="read",position="rewind",iostat=ierr)
   else
-    open (unit=iogrd,file=gridfile,form="unformatted",status="old", &
-          action="read",position="rewind",iostat=ierr)
+    open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
+                        action="read",position="rewind",iostat=ierr)
   end if
-  call io_error("readplot3d",trim(adjustl(gridfile)),1,ierr)
+  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
   !
   ! If this is a multiblock file, read in the number of blocks
   !
   if (is_formatted) then
-    call read_p3d_formatted_header(gridfile)
+    call read_p3d_formatted_header(iogrd,gridfile)
   else
-    call read_p3d_unformatted_header(gridfile)
+    call read_p3d_unformatted_header(iogrd,gridfile)
   end if
   !
   ! Allocate the node and cell offset array
   !
   allocate ( offset(1:2,1:nblk) , source=0 , stat=ierr )
-  call alloc_error("readplot3d","offset",1,ierr)
+  call alloc_error(pname,"offset",1,ierr)
   !
   ! Create the offset arrays for each block
   !
@@ -328,7 +322,7 @@ continue
   ! Allocate the node coordinate array
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error("readplot3d","xyz_nodes",1,ierr)
+  call alloc_error(pname,"xyz_nodes",1,ierr)
   !
   ! Read in the node coordinates
   !
@@ -367,14 +361,14 @@ continue
       ! Allocate the single precision coordinate array
       !
       allocate ( r4_nodes(1:nr,1:nnode) , source=0.0_r4 , stat=ierr )
-      call alloc_error("readplot3d","r4_nodes",1,ierr)
+      call alloc_error(pname,"r4_nodes",1,ierr)
       !
       backspace (iogrd)
       do iblk = 1,nblk
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
         read (iogrd,iostat=ierr) ((r4_nodes(l,i+noff), i=1,npts), l=1,nr)
-        call io_error("readplot3d",gridfile,-1,ierr,"r4_nodes")
+        call io_error(pname,gridfile,-1,ierr,"r4_nodes")
       end do
       !
       is_dbl_precision = fals
@@ -387,7 +381,7 @@ continue
       ! Finish by deallocate the single precision array
       !
       deallocate ( r4_nodes , stat=ierr )
-      call alloc_error("readplot3d","r4_nodes",2,ierr)
+      call alloc_error(pname,"r4_nodes",2,ierr)
       !
     else
       !
@@ -398,7 +392,7 @@ continue
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
         read (iogrd,iostat=ierr) ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
-        call io_error("readplot3d",gridfile,-1,ierr,"xyz_nodes")
+        call io_error(pname,gridfile,-1,ierr,"xyz_nodes")
       end do
       !
       is_dbl_precision = true
@@ -410,7 +404,7 @@ continue
   ! Close the Plot3D grid file since we are finished reading it
   !
   close (iogrd,iostat=ierr)
-  call io_error("readplot3d",trim(adjustl(gridfile)),2,ierr)
+  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
   !
   if (mypnum == 0) then
     !
@@ -440,11 +434,7 @@ continue
     !
   end if
   !
-  ! Stop if the grid is 3D
-  !
-  if (nr == 3) call stop_recon(stop_mpi,"readplot3d","3D Grids are not yet supported")
-  !
- !call stop_recon(stop_mpi,"readplot3d","multiblock testing in readplot3d")
+ !call stop_recon(stop_mpi,pname,"multiblock testing in readplot3d")
   !
   ! Format Statements
   !
@@ -456,12 +446,13 @@ end subroutine readplot3d
 !
 !###############################################################################
 !
-subroutine read_p3d_formatted_header(gridfile)
+subroutine read_p3d_formatted_header(iogrd,gridfile)
   !
   !.. Use Statements ..
   use geovar, only : nr
   !
   !.. Formal Arguments ..
+  integer,          intent(in) :: iogrd
   character(len=*), intent(in) :: gridfile
   !
   !.. Local Scalars ..
@@ -471,12 +462,15 @@ subroutine read_p3d_formatted_header(gridfile)
   !.. Local Allocatable Arrays ..
   character(len=50), allocatable, dimension(:) :: clist
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_p3d_formatted_header"
+  !
 continue
   !
   ! Read the first line as text to see how many values it contains
   !
   read (iogrd,1,iostat=ierr) text
-  call io_error("read_p3d_format_header",gridfile,-1,ierr,"text (1)")
+  call io_error(pname,gridfile,-1,ierr,"text (1)")
   !
   ! Parse text to see how many values are contained on the first line
   !
@@ -500,7 +494,7 @@ continue
     ! Allocate ijkpts, and initialize to 1 node in each direction
     !
     allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-    call alloc_error("read_p3d_formatted_header","ijkpts (SB)",1,ierr)
+    call alloc_error(pname,"ijkpts (SB)",1,ierr)
     !
     ! Make sure that num_val is equal to either 2 or 3
     !
@@ -510,7 +504,7 @@ continue
     !
     do l = 1,num_val
       read (clist(l),*,iostat=ierr) ijkpts(l,1)
-      call io_error("read_p3d_format_header","clist(l)",-1,ierr,"ijkpts")
+      call io_error(pname,"clist(l)",-1,ierr,"ijkpts")
     end do
     !
     ! If we have reached this point, it probably safe
@@ -523,7 +517,7 @@ continue
     ! This is probably a multi block grid
     !
     read (clist(1),*,iostat=ierr) nblk
-    call io_error("read_p3d_formatted_header","clist(1)",-1,ierr,"nblk")
+    call io_error(pname,"clist(1)",-1,ierr,"nblk")
     !
     ! Make sure that nblk is a valid number of blocks
     !
@@ -532,7 +526,7 @@ continue
     ! Allocate ijkpts, and initialize to 1 node in each direction
     !
     allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-    call alloc_error("read_p3d_formatted_header","ijkpts (MB)",1,ierr)
+    call alloc_error(pname,"ijkpts (MB)",1,ierr)
     !
     ! We need to get the dimensions of each block but we dont know
     ! if this is a 3D or 2D grid. Therefore, we must continue reading
@@ -552,7 +546,7 @@ continue
     l = 0
     blk_dims: do
       read (iogrd,1,iostat=ierr) text
-      call io_error("read_p3d_formatted_header",gridfile,-1,ierr,"text (2)")
+      call io_error(pname,gridfile,-1,ierr,"text (2)")
       call parse_list(text,clist)
       num_val = size(clist)
       do n = 1,num_val
@@ -579,12 +573,12 @@ continue
     ! Skip the first line containing the number of blocks
     !
     read (iogrd,1,iostat=ierr) text
-    call io_error("read_p3d_formatted_header",gridfile,-1,ierr,"text (3)")
+    call io_error(pname,gridfile,-1,ierr,"text (3)")
     !
     ! Now read in the block dimensions
     !
     read (iogrd,*,iostat=ierr) ((ijkpts(l,n), l=1,nr), n=1,nblk)
-    call io_error("read_p3d_formatted_header",gridfile,-1,ierr,"ijkpts")
+    call io_error(pname,gridfile,-1,ierr,"ijkpts")
     !
     ! If we have reached this point, it probably safe
     ! to say this is a single block grid file
@@ -617,7 +611,7 @@ continue
   !
   if (allocated(clist)) then
     deallocate ( clist , stat=ierr )
-    call alloc_error("read_p3d_formatted_header","clist",2,ierr)
+    call alloc_error(pname,"clist",2,ierr)
   end if
   !
   ! Return statement to ignore the remaining error crap
@@ -632,7 +626,7 @@ continue
   103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
   104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,"read_p3d_formatted_header")
+  999 call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -659,12 +653,13 @@ end subroutine read_p3d_formatted_header
 !
 !###############################################################################
 !
-subroutine read_p3d_unformatted_header(gridfile)
+subroutine read_p3d_unformatted_header(iogrd,gridfile)
   !
   !.. Use Statements ..
   use geovar, only : nr
   !
   !.. Formal Arguments ..
+  integer,          intent(in) :: iogrd
   character(len=*), intent(in) :: gridfile
   !
   !.. Local Scalars ..
@@ -673,13 +668,16 @@ subroutine read_p3d_unformatted_header(gridfile)
   real(r4) :: rl4_rec2
   real(r8) :: rl8_rec2
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_p3d_unformatted_header"
+  !
 continue
   !
   ! Whatever the Plot3D format, the first record
   ! should contain at least one integer
   !
   read (iogrd,iostat=ierr) int_rec1
-  call io_error("read_p3d_unformatted_header",gridfile,-1,ierr,"int_rec1")
+  call io_error(pname,gridfile,-1,ierr,"int_rec1")
   !
   ! #######
   ! ## 1 ##
@@ -709,58 +707,12 @@ continue
     backspace (iogrd)
     !
   end if int_check
- !!
- !! #######
- !! ## 2 ##
- !! #######
- !!
- !! Determine whether this grid is in single or double precision format
- !! NOTE: If this is a multiblock file, we are now reading the third record
- !!       to see if the grid coordinates are in single or double precision.
- !!       If this is a single block file, the previous backspace in the int_check
- !!       if-construct means we are still trying to read the second record.
- !!
- !read (iogrd,iostat=ierr) rl4_rec2
- !!
- !rl4_check: if (ierr == 0) then
- !  !
- !  ! This seems to be a single block grid file with the grid
- !  ! coordinates stored in single precision
- !  !
- !  is_dbl_precision = fals
- !  !
- !else
- !  !
- !  ! Failed to read the second record as an integer or single
- !  ! precision real. Backspace and try to read it one last time,
- !  ! this time as a double precision real
- !  !
- !  backspace (iogrd)
- !  !
- !  read (iogrd,iostat=ierr) rl8_rec2
- !  !
- !  rl8_check: if (ierr == 0) then
- !    !
- !    ! This seems to be a single block grid file with the grid
- !    ! coordinates stored in double precision
- !    !
- !    is_dbl_precision = true
- !    !
- !  else
- !    !
- !    ! Who knows whats going on in this file
- !    !
- !    goto 100 ! go to 100 error statement
- !    !
- !  end if rl8_check
- !  !
- !end if rl4_check
   !
   ! #######
-  ! ## 3 ##
+  ! ## 2 ##
   ! #######
   !
-  ! Determine whether this is a 2D or 3D grid
+  ! Determine whether this is a 2D or 3D grid by reading the block dimensions
   !
   ! Rewind the grid file to start over
   !
@@ -771,7 +723,7 @@ continue
   if (is_multiblock) then
     !
     read (iogrd,iostat=ierr) nblk
-    call io_error("read_p3d_unformatted_header",gridfile,-1,ierr,"nblk")
+    call io_error(pname,gridfile,-1,ierr,"nblk")
     !
     ! Make sure that nblk is a valid number of blocks
     !
@@ -786,7 +738,7 @@ continue
   ! Allocate ijkpts, and initialize to 1 node in each direction
   !
   allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-  call alloc_error("read_p3d_unformatted_header","ijkpts",1,ierr)
+  call alloc_error(pname,"ijkpts",1,ierr)
   !
   ! Read the grid dimensions, assuming it is a 3D grid
   !
@@ -830,7 +782,7 @@ continue
   102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
   103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,"read_p3d_unformatted_header")
+  999 call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
@@ -862,10 +814,14 @@ subroutine readbcsinfo( bcsfile )
   !
   !.. Local Scalars ..
   integer :: nb,ierr,dir,dir1,dir2,beg1,end1,beg2,end2,idx1,loc,iblk
+  integer :: iobcs
   character(len=150) :: text
   !
   !.. Local Allocatable Arrays ..
   character(len=50), allocatable, dimension(:) :: clist
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "readbcsinfo"
   !
 continue
   !
@@ -878,11 +834,11 @@ continue
   !
   call check_supplementary_file(bcsfile,bcs_default)
   !
-  ! Open the file for the input file for cut information
+  ! Open the input file for bcs information
   !
-  open (unit=iogrd,file=bcsfile,form="formatted",status="old", &
-        action="read",position="rewind",iostat=ierr)
-  call io_error("readbcsinfo",trim(adjustl(bcsfile)),1,ierr)
+  open (newunit=iobcs,file=bcsfile,form="formatted",status="old", &
+                      action="read",position="rewind",iostat=ierr)
+  call io_error(pname,trim(adjustl(bcsfile)),1,ierr)
   !
   ! Read through the file and see how many lines of
   ! boundary conditions there are.
@@ -891,11 +847,11 @@ continue
   !
   nbc = -1
   find_nbc: do
-    read (iogrd,1,iostat=ierr) text
+    read (iobcs,1,iostat=ierr) text
     if (ierr < 0) then
       exit find_nbc
     else if (ierr > 0) then
-      call io_error("readbcsinfo",trim(adjustl(bcsfile)),-1,ierr)
+      call io_error(pname,trim(adjustl(bcsfile)),-1,ierr)
     else
       nbc = nbc + 1
     end if
@@ -904,21 +860,21 @@ continue
   ! Allocate the boundary condition array
   !
   allocate ( bcs_info(1:nbc) , stat=ierr )
-  call alloc_error("readbcsinfo","bcs_info",1,ierr)
+  call alloc_error(pname,"bcs_info",1,ierr)
   !
   ! Rewind back to the beginning of the BC file and
   ! skip/read the header line.
   !
-  rewind (iogrd)
+  rewind (iobcs)
   !
-  read (iogrd,1,iostat=ierr) text
+  read (iobcs,1,iostat=ierr) text
   !
   ! Now actually read the boundary condition information
   ! contained in the BC file
   !
   do nb = 1,nbc
     !
-    read (iogrd,1,iostat=ierr) text
+    read (iobcs,1,iostat=ierr) text
     !
     call parse_list(text,clist,list_min_size=10)
     !
@@ -929,7 +885,7 @@ continue
     ! Read the block this BC belongs to
     !
     read (clist(2),*,iostat=ierr) iblk
-    call io_error("readbcsinfo","bcs_info(nb)%block",-1,ierr)
+    call io_error(pname,"bcs_info(nb)%block",-1,ierr)
     !
     bcs_info(nb)%bc%block = iblk
     !
@@ -950,7 +906,7 @@ continue
       bcs_info(nb)%bc%endpt(dir) = ijkpts(dir,iblk)
     else
       read (clist(4),*,iostat=ierr) loc
-      call io_error("readbcsinfo","bcs_info(nb)%bc%begpt(dir)",-1,ierr)
+      call io_error(pname,"bcs_info(nb)%bc%begpt(dir)",-1,ierr)
       if (loc == 1) then
         bcs_info(nb)%bc%begpt(dir) = 1
         bcs_info(nb)%bc%endpt(dir) = 1
@@ -980,7 +936,7 @@ continue
       !
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
         if (mypnum == 0) write (iout,1000) nb,dir,dir1
-        call stop_recon(stop_mpi,"readbcsinfo")
+        call stop_recon(stop_mpi,pname)
       end if
       !
       beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -1036,14 +992,14 @@ continue
     !
   end do
   !
-  close (iogrd,iostat=ierr)
-  call io_error("readbcsinfo",trim(adjustl(bcsfile)),2,ierr)
+  close (iobcs,iostat=ierr)
+  call io_error(pname,trim(adjustl(bcsfile)),2,ierr)
   !
   ! Deallocate clist if it is still allocated
   !
   if (allocated(clist)) then
     deallocate ( clist , stat=ierr )
-    call alloc_error("readbcsinfo","clist",2,ierr)
+    call alloc_error(pname,"clist",2,ierr)
   end if
   !
   ! Format Statements
@@ -1070,6 +1026,7 @@ subroutine readcutinfo( cutfile )
   !
   !.. Local Scalars ..
   integer :: n,m,ierr,dir,dir1,dir2,beg1,beg2,end1,end2,idx1,loc,iblk
+  integer :: iocut
   character(len=150) :: text
   !
   !.. Local Arrays ..
@@ -1078,6 +1035,9 @@ subroutine readcutinfo( cutfile )
   !.. Local Allocatable Arrays ..
   character(len=50), allocatable, dimension(:) :: clist
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "readcutinfo"
+  !
 continue
   !
   ! Check the name of the cut file specified in the input file
@@ -1085,11 +1045,11 @@ continue
   !
   call check_supplementary_file(cutfile,cut_default)
   !
-  ! Open the file for the input file for cut information
+  ! Open the input file for cut information
   !
-  open (unit=iogrd,file=cutfile,form="formatted",status="old", &
-        action="read",position="rewind",iostat=ierr)
-  call io_error("readcutinfo",trim(adjustl(cutfile)),1,ierr)
+  open (newunit=iocut,file=cutfile,form="formatted",status="old", &
+                      action="read",position="rewind",iostat=ierr)
+  call io_error(pname,trim(adjustl(cutfile)),1,ierr)
   !
   ! Read through the file and see how many lines of
   ! cut conditions there are.
@@ -1098,11 +1058,11 @@ continue
   !
   ncut = -1
   find_ncut: do
-    read (iogrd,1,iostat=ierr) text
+    read (iocut,1,iostat=ierr) text
     if (ierr < 0) then
       exit find_ncut
     else if (ierr > 0) then
-      call io_error("readcutinfo",trim(adjustl(cutfile)),-1,ierr)
+      call io_error(pname,trim(adjustl(cutfile)),-1,ierr)
     else
       ncut = ncut + 1
     end if
@@ -1111,14 +1071,14 @@ continue
   ! Allocate the cut condition array
   !
   allocate ( cut_info(1:ncut) , stat=ierr )
-  call alloc_error("readcutinfo","cut_info",1,ierr)
+  call alloc_error(pname,"cut_info",1,ierr)
   !
   ! Rewind back to the beginning of the cut file and
   ! skip/read the header line.
   !
-  rewind (iogrd)
+  rewind (iocut)
   !
-  read (iogrd,1,iostat=ierr) text
+  read (iocut,1,iostat=ierr) text
   !
   ! Now actually read the cut condition information
   ! contained in the cut file
@@ -1127,7 +1087,7 @@ continue
     !
     side_of_cut_loop: do m = 1,2
       !
-      read (iogrd,1,iostat=ierr) text
+      read (iocut,1,iostat=ierr) text
       !
       call parse_list(text,clist,list_min_size=10)
       !
@@ -1138,7 +1098,7 @@ continue
       ! Read the block this cut belongs to
       !
       read (clist(2),*,iostat=ierr) iblk
-      call io_error("readcutinfo","cut_info(n)%side(m)%block",-1,ierr)
+      call io_error(pname,"cut_info(n)%side(m)%block",-1,ierr)
       !
       cut_info(n)%side(m)%block = iblk
       !
@@ -1159,7 +1119,7 @@ continue
         cut_info(n)%side(m)%endpt(dir) = ijkpts(dir,iblk)
       else
         read (clist(4),*,iostat=ierr) loc
-        call io_error("readcutinfo","cut_info(n)%side(m)%begpt(dir)",-1,ierr)
+        call io_error(pname,"cut_info(n)%side(m)%begpt(dir)",-1,ierr)
         if (loc == 1) then
           cut_info(n)%side(m)%begpt(dir) = 1
           cut_info(n)%side(m)%endpt(dir) = 1
@@ -1189,7 +1149,7 @@ continue
         !
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
           if (mypnum == 0) write (iout,1000) n,m,dir,dir1
-          call stop_recon(stop_mpi,"readcutinfo")
+          call stop_recon(stop_mpi,pname)
         end if
         !
         beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -1240,21 +1200,21 @@ continue
     if (cut_points(1) /= cut_points(2)) then
       if (mypnum == 0) write (iout,2) trim(cut_info(n)%cut_name(1)), &
                                            cut_points(1),cut_points(2)
-      call stop_recon(stop_mpi,"findcutpoints")
+      call stop_recon(stop_mpi,pname)
     else
       cut_info(n)%points = cut_points(1)
     end if
     !
   end do cut_loop
   !
-  close (iogrd,iostat=ierr)
-  call io_error("readcutinfo",trim(adjustl(cutfile)),2,ierr)
+  close (iocut,iostat=ierr)
+  call io_error(pname,trim(adjustl(cutfile)),2,ierr)
   !
   ! Deallocate clist if it is still allocated
   !
   if (allocated(clist)) then
     deallocate ( clist , stat=ierr )
-    call alloc_error("readcutinfo","clist",2,ierr)
+    call alloc_error(pname,"clist",2,ierr)
   end if
   !
   ! Format Statements
@@ -1290,11 +1250,13 @@ subroutine findcutpoints()
   integer :: ipcut,ip1,ip2,ib1,ib2
   integer :: loc,dir,dir1,dir2
   integer :: beg1,beg2,end1,end2,stp1,stp2,n1,n2
- !integer :: ibeg,iend,istp,jbeg,jend,jstp,kbeg,kend,kstp
   real(wp) :: diff
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: ijk,ijk1,ijk2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "findcutpoints"
   !
 continue
   !
@@ -1309,7 +1271,7 @@ continue
     ! Allocate the cut_info(n)%nodes array
     !
     allocate ( cut_info(n)%nodes(1:2,1:np) , source=0 , stat=ierr )
-    call alloc_error("findcutpoints","cut_info(n)%nodes",1,ierr)
+    call alloc_error(pname,"cut_info(n)%nodes",1,ierr)
     !
     ! Loop over the two blocks
     !
@@ -1366,202 +1328,9 @@ continue
         end do
       end do
       !
-     !if (dir == 1) then
-     !  !
-     !  ! Cut is in x-direction
-     !  !
-     !  ! Get the location i=1 or i=imax
-     !  !
-     !  ijk(dir) = merge(1,ijkpts(dir,iblk),loc==1)
-     !  !
-     !  ! Case a, the first direction is in the y-direction
-     !  !
-     !  if (dir1 == 2) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    jbeg = cut_info(n)%side(m)%begpt(dir1)
-     !    jend = cut_info(n)%side(m)%endpt(dir1)
-     !    jstp = (jend-jbeg)/abs(jend-jbeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    kbeg = cut_info(n)%side(m)%begpt(dir2)
-     !    kend = cut_info(n)%side(m)%endpt(dir2)
-     !    kstp = (kend-kbeg)/abs(kend-kbeg)
-     !    !
-     !    do j = jbeg,jend,jstp
-     !      do k = kbeg,kend,kstp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case b, the first direction is in the z-direction
-     !    !
-     !  else if (dir1 == 3) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    kbeg = cut_info(n)%side(m)%begpt(dir1)
-     !    kend = cut_info(n)%side(m)%endpt(dir1)
-     !    kstp = (kend-kbeg)/abs(kend-kbeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    jbeg = cut_info(n)%side(m)%begpt(dir2)
-     !    jend = cut_info(n)%side(m)%endpt(dir2)
-     !    jstp = (jend-jbeg)/abs(jend-jbeg)
-     !    !
-     !    do k = kbeg,kend,kstp
-     !      do j = jbeg,jend,jstp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case c, error
-     !    !
-     !  else
-     !    write (iout,*) "error: should not be here case c"
-     !    stop
-     !  end if
-     !  !
-     !  !
-     !  !
-     !else if (dir == 2) then
-     !  !
-     !  ! Cut is in y-direction
-     !  !
-     !  ! Get the location j=1 or j=jmax
-     !  !
-     !  j = merge(1,ijkpts(dir,iblk),loc==1)
-     !  !
-     !  ! Case a, the first direction is in the x-direction
-     !  !
-     !  if (dir1 == 1) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    ibeg = cut_info(n)%side(m)%begpt(dir1)
-     !    iend = cut_info(n)%side(m)%endpt(dir1)
-     !    istp = (iend-ibeg)/abs(iend-ibeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    kbeg = cut_info(n)%side(m)%begpt(dir2)
-     !    kend = cut_info(n)%side(m)%endpt(dir2)
-     !    kstp = (kend-kbeg)/abs(kend-kbeg)
-     !    !
-     !    do i = ibeg,iend,istp
-     !      do k = kbeg,kend,kstp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case b, the first direction is in the z-direction
-     !    !
-     !  else if (dir1 == 3) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    kbeg = cut_info(n)%side(m)%begpt(dir1)
-     !    kend = cut_info(n)%side(m)%endpt(dir1)
-     !    kstp = (kend-kbeg)/abs(kend-kbeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    ibeg = cut_info(n)%side(m)%begpt(dir2)
-     !    iend = cut_info(n)%side(m)%endpt(dir2)
-     !    istp = (iend-ibeg)/abs(iend-ibeg)
-     !    !
-     !    do k = kbeg,kend,kstp
-     !      do i = ibeg,iend,istp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case c, error
-     !    !
-     !  else
-     !    write (iout,*) "error: should not be here case c"
-     !    stop
-     !  end if
-     !  !
-     !  !
-     !  !
-     !else if (dir == 3) then
-     !  !
-     !  ! Cut is in z-direction
-     !  !
-     !  ! Get the location k=1 or k=kmax
-     !  !
-     !  k = merge(1,ijkpts(dir,iblk),loc==1)
-     !  !
-     !  ! Case a, the first direction is in the x-direction
-     !  !
-     !  if (dir1 == 1) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    ibeg = cut_info(n)%side(m)%begpt(dir1)
-     !    iend = cut_info(n)%side(m)%endpt(dir1)
-     !    istp = (iend-ibeg)/abs(iend-ibeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    jbeg = cut_info(n)%side(m)%begpt(dir2)
-     !    jend = cut_info(n)%side(m)%endpt(dir2)
-     !    jstp = (jend-jbeg)/abs(jend-jbeg)
-     !    !
-     !    do i = ibeg,iend,istp
-     !      do j = jbeg,jend,jstp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case b, the first direction is in the y-direction
-     !    !
-     !  else if (dir1 == 2) then
-     !    !
-     !    ! Get the first direction
-     !    !
-     !    jbeg = cut_info(n)%side(m)%begpt(dir1)
-     !    jend = cut_info(n)%side(m)%endpt(dir1)
-     !    jstp = (jend-jbeg)/abs(jend-jbeg)
-     !    !
-     !    ! Get the second direction
-     !    !
-     !    ibeg = cut_info(n)%side(m)%begpt(dir2)
-     !    iend = cut_info(n)%side(m)%endpt(dir2)
-     !    istp = (iend-ibeg)/abs(iend-ibeg)
-     !    !
-     !    do j = jbeg,jend,jstp
-     !      do i = ibeg,iend,istp
-     !        np = np+1
-     !        cut_info(n)%nodes(m,np) = map3dto1d([i,j,k],iblk,1)
-     !      end do
-     !    end do
-     !    !
-     !    ! Case c, error
-     !    !
-     !  else
-     !    write (iout,*) "error: should not be here case c"
-     !    stop
-     !  end if
-     !  !
-     !end if
-      !
-      ! End of loops over the blocks
-      !
     end do two_blocks
     !
     ! Check the consistency of data
-    !
-   !write (iout,*) "check the consistency of data for cuts"
     !
     ! Loop over the number of points in this cut
     !
@@ -1620,6 +1389,9 @@ subroutine remove_duplicate_nodes()
   integer,  allocatable, dimension(:)   :: lpold
   real(wp), allocatable, dimension(:,:) :: temp_xyz
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "remove_duplicate_nodes"
+  !
 continue
   !
   first_line_not_output = true
@@ -1629,7 +1401,7 @@ continue
   nnode_old = nnode
   !
   allocate ( lpoin(1:nnode_old) , source=0 , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","lpoin",1,ierr)
+  call alloc_error(pname,"lpoin",1,ierr)
   !
   do ip = 1,nnode_old
     lpoin(ip) = ip
@@ -1705,9 +1477,9 @@ continue
   nnode_new = count( lpoin(:) > 0 )
   !
   allocate ( lpold(1:nnode_new) , source=0 , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","lpold",1,ierr)
+  call alloc_error(pname,"lpold",1,ierr)
   allocate ( lpnew(1:nnode_old) , source=0 , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","lpnew",1,ierr)
+  call alloc_error(pname,"lpnew",1,ierr)
   !
   new_node = 0
   do old_node = 1,nnode_old
@@ -1777,14 +1549,14 @@ continue
   ! Deallocate lpoin since we are done with it
   !
   deallocate ( lpoin , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","lpoin",2,ierr)
+  call alloc_error(pname,"lpoin",2,ierr)
   !
   ! Adjust xyz_nodes to reflect the nodal set without any duplicates
   !
   ! Allocate the temporary nodal array
   !
   allocate( temp_xyz(1:nr,1:nnode_new) , source=zero , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","temp_xyz",1,ierr)
+  call alloc_error(pname,"temp_xyz",1,ierr)
   !
   ! Copy over the non-duplicate nodes from xyz_nodes into temp_xyz
   !
@@ -1793,7 +1565,6 @@ continue
       temp_xyz(l,n) = xyz_nodes(l,lpold(n))
     end do
    !ipold = lpold(n)
-   !write (iogrd,21) (xyz_nodes(l,ipold),l=1,nr)
   end do
   !
   ! Use move_alloc to reallocate xyz_nodes. This does the following:
@@ -1811,7 +1582,7 @@ continue
   ! Before we leave, deallocate lpold
   !
   deallocate ( lpold , stat=ierr )
-  call alloc_error("remove_duplicate_nodes","lpold",2,ierr)
+  call alloc_error(pname,"lpold",2,ierr)
   !
   ! Format Statements
   !
@@ -1832,8 +1603,10 @@ end subroutine remove_duplicate_nodes
 subroutine create_nodes_of_cells()
   !
   !.. Use Statements ..
+  use order_mod, only : n_order
   use geovar, only : ncell,nr
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : cell_geom,cell_order
   !
   !.. Local Scalars ..
   integer :: n,cell_pts,ierr,iblk,nc,npx,npy,npz,i,j,k,n1,n2
@@ -1841,17 +1614,30 @@ subroutine create_nodes_of_cells()
   !.. Local Arrays ..
   integer, dimension(1:8) :: ip
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_nodes_of_cells"
+  !
 continue
   !
   ! Allocate the nodes_of_cell pointer array
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error("create_nodes_of_cells","nodes_of_cell_ptr",1,ierr)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
   !
-  ! The number of nodes for all cell will be the same with it being
+  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
+  call alloc_error(pname,"cell_geom",1,ierr)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
+  call alloc_error(pname,"cell_order",1,ierr)
+  !
+  ! Set the cell geometry type for all the cells
+  !
+  cell_geom(:) = merge(Geom_Hexa,Geom_Quad,nr==3)
+  !
+  ! The number of nodes for all cells will be the same with it being
   ! either 4 (quads) for a 2D grid or 8 (hexes) for a 3D grid.
   !
-  cell_pts = merge(4,8,nr==2)
+  cell_pts = merge(8,4,nr==3)
   !
   ! Set up the pointer array for nodes_of_cell
   !
@@ -1862,7 +1648,7 @@ continue
   ! Allocate the nodes_of_cell array based on the last pointer value
   !
   allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error("create_nodes_of_cells","nodes_of_cell",1,ierr)
+  call alloc_error(pname,"nodes_of_cell",1,ierr)
   !
   ! Initialize the cell counter
   !
@@ -1910,7 +1696,7 @@ continue
   ! Deallocate lpnew since it is no longer needed
   !
   deallocate ( lpnew , stat=ierr )
-  call alloc_error("create_nodes_of_cells","lpnew",2,ierr)
+  call alloc_error(pname,"lpnew",2,ierr)
   !
 end subroutine create_nodes_of_cells
 !
@@ -1931,10 +1717,11 @@ subroutine getbface()
   integer, dimension(1:3) :: ijk
   !
   !.. Local Parameters ..
+  character(len=*), parameter :: pname = "getbface"
   character(len=*), parameter :: cface(1:6) = ["IMIN","IMAX", &
                                                "JMIN","JMAX", &
                                                "KMIN","KMAX"]
-  integer, parameter :: hostface2d(1:4) = [4,2,1,3]
+  integer, parameter :: hostface2d(1:6) = [4,2,1,3,0,0]
   integer, parameter :: hostface3d(1:6) = [4,3,5,6,1,2]
   !
   ! The variable loc is in the range 1:4 for 2D and 1:6 in 3D and gives
@@ -1949,7 +1736,7 @@ continue
   ! Allocate the bface array
   !
   allocate ( bface(1:nbfai,1:nfbnd), source=0 , stat=ierr )
-  call alloc_error("getbface","bface",1,ierr)
+  call alloc_error(pname,"bface",1,ierr)
   !
   ! Initialize the face counter
   !
@@ -2027,8 +1814,8 @@ continue
           !
           bface( 1,nf) = bc_type ! actual boundary condition for this face
           bface( 2,nf) = host_cell 
-          bface( 3,nf) = merge(2,8,nr==2) ! geometry of host cell (2=quad,8=hex)
-          bface( 4,nf) = merge(hostface2d(loc),hostface3d(loc),nr==2)
+          bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geometry of host cell
+          bface( 4,nf) = merge(hostface3d(loc),hostface2d(loc),nr==3)
           bface( 5,nf) = nb ! boundary condition group for this boundary face
           bface(10,nf) = ncell + nf ! ghost cell number
           !
@@ -2042,7 +1829,7 @@ continue
   !
   if (nfbnd /= nf) then
     if (mypnum == 0) write (iout,2) nfbnd,nf
-    call stop_recon(stop_mpi,"getbface")
+    call stop_recon(stop_mpi,pname)
   end if
   !
  !do nf = 1,nfbnd
@@ -2065,203 +1852,6 @@ end subroutine getbface
 !
 !###############################################################################
 !
-!subroutine writebface()
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : nr,xyz_nodes
-!  use geovar, only : nfbnd,bface
-!  !
-!  !.. Local Scalars ..
-!  integer :: ip,nbndp,nf,k,ib,old_node,new_bnd_node,ierr
-!  !
-!  !.. Local Allocatable Arrays ..
-!  integer, allocatable, dimension(:) :: lboun
-!  !
-!continue
-!  !
-!  ! Compute the number of boundary points
-!  !
-!  do ip = 1,size(lpold)
-!    lpoin(ip) = 0
-!  end do
-!  !
-!  nbndp = count( lpoin( reshape(bface(6:9,1:nfbnd),[4*nfbnd]) ) == 0 )
-!  !
-!  allocate ( lboun(1:nbndp) , source=0 , stat=ierr )
-!  call alloc_error("writebface","lboun",1,ierr)
-!  !
-!  new_bnd_node = 0
-!  do nf = 1,nfbnd
-!    do k = 6,9
-!      old_node = bface(k,nf)
-!      if (lpoin(old_node) == 0) then
-!        new_bnd_node = new_bnd_node + 1
-!        lboun(new_bnd_node) = old_node
-!        lpoin(old_node) = new_bnd_node
-!      end if
-!    end do
-!  end do
-!  !
-!  write (iout,*) "nbndp = ", nbndp
-!  !
-!  ! Open a file for an unstructured grid in tecplot format
-!  !
-!  open (unit=iogrd,file="fvflo_face.tec.dat",form="formatted",status="replace", &
-!        action="write",position="rewind",iostat=ierr)
-!  call io_error("writebface","fvflo_face.tec.dat",1,ierr)
-!  !
-!  ! Write the file for tecplot format
-!  !
-!  write (iogrd,10) nbndp,nfbnd
-!  do ib = 1,nbndp
-!    ip = lboun(ib)
-!    old_node = lpold(ip)
-!    write (iogrd,11) (xyz_nodes(k,old_node),k=1,nr)
-!  end do
-!  !
-!  ! Write the connectivity matrix
-!  !
-!  do nf = 1,nfbnd
-!    write (iogrd,12) ( lpoin(bface(k,nf)) , k=6,9 )
-!  end do
-!  !
-!  close (iogrd,iostat=ierr)
-!  call io_error("writebface","fvflo_face.tec.dat",2,ierr)
-!  !
-!  ! Deallocate lboun before we leave
-!  !
-!  deallocate ( lboun , stat=ierr )
-!  call alloc_error("writebface","lboun",2,ierr)
-!  !
-!  ! Format Statements
-!  !
-!  10 format ('TITLE = "Tecplot data generated from fvflo"',/, &
-!             'VARIABLES = "X", "Y", "Z"',/, &
-!             'ZONE T="Z1", N=',i0,', E=',i0, &
-!             ', DATAPACKING=POINT, ZONETYPE=FEQUADRILATERAL')
-!  11 format (8e15.7)
-!  12 format (8i10)
-!  !
-!end subroutine writebface
-!
-!###############################################################################
-!
-!subroutine writefvflo()
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : nr,xyz_nodes
-!  use geovar, only : nfbnd,bface
-!  use geovar, only : ncell
-!  !
-!  integer :: ntetr,npyra,npris,nhexa,ntria,nquad,ielem,iblk
-!  integer :: npx,npy,npz
-!  integer :: i,j,k,ip1,ip2,ip3,ip4,ip5,ip6,ip7,ip8
-!  integer :: ipn1,ipn2,ipn3,ipn4,ipn5,ipn6,ipn7,ipn8
-!  integer :: ifa,ip,old_node,l,ierr
-!  !
-!  !     ijkpts(1,iblk) : number of points in the x-direction for iblk
-!  !     ijkpts(2,iblk) : number of points in the y-direction for iblk
-!  !     ijkpts(3,iblk) : number of points in the z-direction for iblk
-!  !
-!  ! Lpold(ip) = the old point number for a new point ip
-!  ! Lpnew(ip) = the new point number for a old point ip
-!  !
-!  write (iout,*) "write a hexahedral grid in fvflo format"
-!  !
-!  ! Open a file for an unstructured grid in tecplot format
-!  !
-!  open (unit=iogrd,file="fvflo.domn",form="formatted",status="replace", &
-!        action="read",position="rewind",iostat=ierr)
-!  call io_error("writefvflo","fvflo.domn",1,ierr)
-!  !
-!  ! Get the number of different elements for this grid
-!  !
-!  ntetr = 0
-!  npyra = 0
-!  npris = 0
-!  nhexa = ncell
-!  ntria = 0
-!  nquad = nfbnd
-!  !
-!  write (iogrd,*) "nnode, ntetr, npyra, npris, nhexa, ntria, nquad"
-!  write (iogrd,2) nnode,ntetr,npyra,npris,nhexa,ntria,nquad
-!  !
-!  write (iogrd,*) "element connectivity"
-!  !
-!  ! 1. write the connectivity matrix
-!  !
-!  ielem = 0
-!  do iblk = 1,nblk
-!    !
-!    npx = ijkpts(1,iblk)
-!    npy = ijkpts(2,iblk)
-!    npz = ijkpts(3,iblk)
-!    !
-!    do k = 1,(npz-1)
-!      do j = 1,(npy-1)
-!        do i = 1,(npx-1)
-!          !
-!          ielem = ielem + 1
-!          !
-!          ip1 = map3dto1d([i,j,k],iblk,1)
-!          ip2 = ip1 + 1
-!          ip3 = ip2 + npx
-!          ip4 = ip1 + npx
-!          ip5 = ip1 + npx*npy
-!          ip6 = ip2 + npx*npy
-!          ip7 = ip3 + npx*npy
-!          ip8 = ip4 + npx*npy
-!          !
-!          ipn1 = lpnew(ip1)
-!          ipn2 = lpnew(ip2)
-!          ipn3 = lpnew(ip3)
-!          ipn4 = lpnew(ip4)
-!          ipn5 = lpnew(ip5)
-!          ipn6 = lpnew(ip6)
-!          ipn7 = lpnew(ip7)
-!          ipn8 = lpnew(ip8)
-!          !
-!          write (iogrd,3) ielem, ipn1, ipn2, ipn3, ipn4, ipn5, ipn6, ipn7, ipn8
-!          !
-!          write (44,3) ielem, iblk, i, j, k
-!          !
-!        end do
-!      end do
-!    end do
-!  end do
-!  !
-!  ! Write the boundary face information
-!  !
-!  write (iogrd,*) "boundary conditions and connectivity for boundary faces"
-!  do ifa = 1,nfbnd
-!    write (iogrd,4) ifa, (bface(l,ifa),l=1,9)
-!  end do
-!  !
-!  ! Write the coordinates of grid points
-!  !
-!  write (iogrd,*) "grid point coordinates"
-!  do ip = 1,size(lpold)
-!    old_node = lpold(ip)
-!    ! Alteration to invert plot3d grid file about y axis
-!   !write (iogrd,5) ip,(xyz_nodes(l,old_node)*merge(-1,1,l==2),l=1,nr)
-!    write (iogrd,5) ip, (xyz_nodes(l,old_node),l=1,nr)
-!  end do
-!  !
-!  ! Close the file
-!  !
-!  close (iogrd,iostat=ierr)
-!  call io_error("writefvflo","fvflo.domn",2,ierr)
-!  !
-!  !
-!  2 format (5i9,2i8,e14.6)
-!  3 format (i9,8i8)
-!  4 format (i8,4i5,i9,4i9)
-!  5 format (i9,8e14.6)
-!  !
-!end subroutine writefvflo
-!
-!###############################################################################
-!
 subroutine writetecplot()
   !
   !.. Use Statements ..
@@ -2270,27 +1860,32 @@ subroutine writetecplot()
   !
   !.. Local Scalars ..
   integer :: l,n,n1,n2,ierr
+  integer :: iotec
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "writetecplot"
+  character(len=*), parameter :: fname = "unst_plot3d.tec.dat"
   !
 continue
   !
   ! Open a file for an unstructured grid in tecplot format
   !
-  open (unit=iogrd,file="unst_plot3d.tec.dat",form="formatted", &
-        status="replace",action="write",position="rewind",iostat=ierr)
-  call io_error("writetecplot","fvflo.tec.dat",1,ierr)
+  open (newunit=iotec,file=fname,form="formatted",status="replace", &
+                      action="write",position="rewind",iostat=ierr)
+  call io_error(pname,fname,1,ierr)
   !
   ! Write the Tecplot file header
   !
   if (nr == 2) then
-    write (iogrd,10) nnode,ncell
+    write (iotec,10) nnode,ncell
   else
-    write (iogrd,11) nnode,ncell
+    write (iotec,11) nnode,ncell
   end if
   !
   ! Write the nodal coordinates
   !
   do l = 1,nr
-    write (iogrd,21) (xyz_nodes(l,n), n=1,nnode)
+    write (iotec,21) (xyz_nodes(l,n), n=1,nnode)
   end do
   !
   ! Write the connectivity matrix
@@ -2298,13 +1893,13 @@ continue
   do n = 1,ncell
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
-    write (iogrd,22) (nodes_of_cell(l), l=n1,n2)
+    write (iotec,22) (nodes_of_cell(l), l=n1,n2)
   end do
   !
   ! Close the Tecplot file
   !
-  close (iogrd,iostat=ierr)
-  call io_error("writetecplot","unst_plot3d.tec.dat",2,ierr)
+  close (iotec,iostat=ierr)
+  call io_error(pname,fname,2,ierr)
   !
   ! Format Statements
   !
@@ -2332,6 +1927,9 @@ subroutine check_supplementary_file(filename,file_default)
   !.. Local Scalars ..
   character(len=len(grid_folder)+len(filename)) :: test_file
   logical :: found
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_supplementary_file"
   !
 continue
   !
@@ -2426,6 +2024,7 @@ subroutine parse_list(strng,clist,list_min_size)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: delimiters(1:4) = ["'",'"',",",achar(9)]
+  character(len=*), parameter :: pname = "parse_list"
   !
 continue
   !
@@ -2498,7 +2097,7 @@ continue
     ! and the array giving the number of repeat counts for those elements
     !
     allocate ( ast_loc(1:num_str) , source=0 , stat=ierr )
-    call alloc_error("parse_list","ast_loc",1,ierr)
+    call alloc_error(pname,"ast_loc",1,ierr)
     !
     ! Loop through the elements of clist and find the location of any asterisks
     !
@@ -2567,7 +2166,7 @@ continue
     ! Deallocate ast_loc since we are done expanding the repeat counts
     !
     deallocate ( ast_loc , stat=ierr )
-    call alloc_error("parse_list","ast_loc",2,ierr)
+    call alloc_error(pname,"ast_loc",2,ierr)
     !
   end if
   !
@@ -2696,13 +2295,16 @@ function get_direction(strng) result(return_value)
   !.. Local Scalars ..
   integer :: dir,ierr
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_direction"
+  !
 continue
   !
   dir = index( "IJK" , trim(uppercase(strng)) )
   !
   if (dir == 0) then
     read (strng,*,iostat=ierr) dir
-    call io_error("get_direction","strng",-1,ierr)
+    call io_error(pname,"strng",-1,ierr)
   end if
   !
   return_value = dir
@@ -2723,6 +2325,9 @@ function get_dir_limit(strng,mxpts) result(return_value)
   !.. Local Scalars ..
   integer :: ipt,ierr
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_dir_limit"
+  !
 continue
   !
   if (uppercase(strng) == "MIN") then
@@ -2731,7 +2336,7 @@ continue
     return_value = mxpts
   else
     read (strng,*,iostat=ierr) ipt
-    call io_error("get_dir_limit","strng",-1,ierr)
+    call io_error(pname,"strng",-1,ierr)
     if (ipt == 0) then
       return_value = mxpts
     else
@@ -2852,136 +2457,6 @@ continue
   return_value = [i,j,k]
   !
 end function map1dto3d
-!
-!###############################################################################
-!
-pure function volume_tet(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                         xp3 ,yp3, zp3, xp4, yp4, zp4 ) result(return_value)
-  !
-  real(wp), intent(in) :: xp1,yp1,zp1
-  real(wp), intent(in) :: xp2,yp2,zp2
-  real(wp), intent(in) :: xp3,yp3,zp3
-  real(wp), intent(in) :: xp4,yp4,zp4
-  !
-  real(wp) :: return_value
-  !
-  real(wp) :: x21,y21,z21
-  real(wp) :: x31,y31,z31
-  real(wp) :: x41,y41,z41
-  !
-  ! This sub computes the volume of a tetrahedral element
-  !
-  x21 = xp2 - xp1
-  y21 = yp2 - yp1
-  z21 = zp2 - zp1
-  !
-  x31 = xp3 - xp1
-  y31 = yp3 - yp1
-  z31 = zp3 - zp1
-  !
-  x41 = xp4 - xp1
-  y41 = yp4 - yp1
-  z41 = zp4 - zp1
-  !
-  ! Get the volume form the jacobian
-  !
-  return_value = ( x21 * (y31*z41 - z31*y41) + &
-                   x31 * (z21*y41 - y21*z41) + &
-                   x41 * (y21*z31 - z21*y31) )/six
-  !
-end function volume_tet
-!
-!###############################################################################
-!
-pure function volume_pyr(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                         xp3 ,yp3, zp3, xp4, yp4, zp4 , &
-                         xp5 ,yp5, zp5) result(return_value)
-  !
-  real(wp), intent(in) :: xp1,yp1,zp1
-  real(wp), intent(in) :: xp2,yp2,zp2
-  real(wp), intent(in) :: xp3,yp3,zp3
-  real(wp), intent(in) :: xp4,yp4,zp4
-  real(wp), intent(in) :: xp5,yp5,zp5
-  !
-  real(wp) :: return_value
-  !
-  real(wp) :: vol1,vol2
-  !
-  ! This sub computes the volume of a pyramidical element
-  !
-  vol1 = volume_tet(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                    xp3 ,yp3, zp3, xp5, yp5, zp5 )
-  !
-  vol2 = volume_tet(xp1 ,yp1, zp1, xp3, yp3, zp3 , &
-                    xp4 ,yp4, zp4, xp5, yp5, zp5 )
-  !
-  return_value = vol1 + vol2
-  !
-end function volume_pyr
-!
-!###############################################################################
-!
-pure function volume_pri(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                         xp3 ,yp3, zp3, xp4, yp4, zp4 , &
-                         xp5 ,yp5, zp5, xp6, yp6, zp6 ) result(return_value)
-  !
-  real(wp), intent(in) :: xp1,yp1,zp1
-  real(wp), intent(in) :: xp2,yp2,zp2
-  real(wp), intent(in) :: xp3,yp3,zp3
-  real(wp), intent(in) :: xp4,yp4,zp4
-  real(wp), intent(in) :: xp5,yp5,zp5
-  real(wp), intent(in) :: xp6,yp6,zp6
-  !
-  real(wp) :: return_value
-  !
-  real(wp) :: vol1,vol2
-  !
-  ! This sub computes the volume of a prismatic element
-  !
-  vol1 = volume_tet(xp1 ,yp1, zp1, xp6, yp6, zp6 , &
-                    xp4 ,yp4, zp4, xp5, yp5, zp5 )
-  !
-  vol2 = volume_pyr(xp2 ,yp2, zp2, xp5, yp5, zp5 , &
-                    xp6 ,yp6, zp6, xp3, yp3, zp3 , &
-                    xp1 ,yp1, zp1)
-  !
-  return_value = vol1 + vol2
-  !
-end function volume_pri
-!
-!###############################################################################
-!
-pure function volume_hex(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                         xp3 ,yp3, zp3, xp4, yp4, zp4 , &
-                         xp5 ,yp5, zp5, xp6, yp6, zp6 , &
-                         xp7 ,yp7, zp7, xp8, yp8, zp8 ) result(return_value)
-  !
-  real(wp), intent(in) :: xp1,yp1,zp1
-  real(wp), intent(in) :: xp2,yp2,zp2
-  real(wp), intent(in) :: xp3,yp3,zp3
-  real(wp), intent(in) :: xp4,yp4,zp4
-  real(wp), intent(in) :: xp5,yp5,zp5
-  real(wp), intent(in) :: xp6,yp6,zp6
-  real(wp), intent(in) :: xp7,yp7,zp7
-  real(wp), intent(in) :: xp8,yp8,zp8
-  !
-  real(wp) :: return_value
-  !
-  real(wp) :: vol1,vol2
-  !
-  ! This sub computes the volume of a prismatic element
-  !
-  vol1 = volume_pri(xp1 ,yp1, zp1, xp2, yp2, zp2 , &
-                    xp3 ,yp3, zp3, xp5, yp5, zp5 , &
-                    xp6 ,yp6, zp6, xp7, yp7, zp7 )
-  !
-  vol2 = volume_pri(xp1 ,yp1, zp1, xp3, yp3, zp3 , &
-                    xp4 ,yp4, zp4, xp5, yp5, zp5 , &
-                    xp7 ,yp7, zp7, xp8, yp8, zp8 )
-  !
-  return_value = vol1 + vol2
-  !
-end function volume_hex
 !
 !###############################################################################
 !

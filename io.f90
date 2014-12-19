@@ -2,7 +2,7 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx
+  use eqn_idx, only : nec,nmb,nme,nee,nq
   use ovar,    only : grid_format
   use ovar,    only : gridfile
   use ovar,    only : output_dir
@@ -20,43 +20,18 @@ module io_mod
   ! ##################################
   !
   public :: read_input_file
- !public :: read_input_file_test
   public :: read_grid_file
   public :: read_restart_file
   public :: write_restart_file
-  public :: write_tecplot_file
   public :: write_final_error
-  public :: write_final_advec_error
-  public :: write_final_vortex_error
-  public :: write_entropy_error
-  public :: write_cgns_solution
   public :: write_nodal_parallel_cgns
   public :: write_results_file
-  public :: write_advec_results_file
-  public :: write_vortex_results_file
-  public :: write_tecplot_partitions
   !
   ! ###########################
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  integer, parameter :: iorst = 10
-  integer, parameter :: iotec = 11
-  integer, parameter :: ioxyd = 12
-  integer, parameter :: iocnd = 13
-  integer, parameter :: iobcd = 14
-  integer, parameter :: iores = 15
-  integer, parameter :: iodir = 16
-  !
-  integer, parameter :: patran_neutral = 1
-  integer, parameter :: gambit_neutral = 2
-  integer, parameter :: gmsh_file = 3
-  !
   ! Plot3D grid formats
-  !
-  integer, parameter :: plot2d_file = 4
-  integer, parameter :: plot3d_file = 5
-  integer, parameter :: plot3d_formats(1:2) = [ plot2d_file, plot3d_file ]
   !
   character(len=11), parameter :: clas_rk(1:4) = ["RK1-Classic","RK2-Classic", &
                                                   "RK3-Classic","RK4-Classic"]
@@ -79,13 +54,6 @@ module io_mod
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
-  !
-  !.. Input Variables ..
- !integer,            public, save :: grid_format = gambit_neutral
- !character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
- !character(len=150), public, save :: output_dir = "."
- !character(len=150), public, save :: plot3d_cutfile = ""
- !character(len=150), public, save :: plot3d_bcsfile = ""
   !
   !.. Output File Names ..
   character(len=170), public, save :: fname_nodal = "solution.nodal.cgns"
@@ -113,8 +81,8 @@ module io_mod
   integer, save :: cgnsnodalzone_counter
   integer, save :: cgnsmodalzone_counter
   !
-  real(sp),         save, allocatable, dimension(:) :: soltime
-  real(sp),         save, allocatable, dimension(:) :: modtime
+  real(sp),          save, allocatable, dimension(:) :: soltime
+  real(sp),          save, allocatable, dimension(:) :: modtime
   character(len=32), save, allocatable, dimension(:) :: solname
   character(len=32), save, allocatable, dimension(:) :: modname
   !
@@ -141,16 +109,20 @@ subroutine read_input_file
   integer :: ierr
   character(len=80) :: text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_input_file"
+  character(len=*), parameter :: fname = "recon3.in"
+  !
 continue
   !
-  open (inpt,file="recon3.in",status="old",action="read", &
+  open (inpt,file=fname,status="old",action="read", &
              form="formatted",iostat=ierr)
-  call io_error("read_input_file","recon3.in",1,ierr)
+  call io_error(pname,fname,1,ierr)
   !
   read (inpt,*,iostat=ierr,err=100,end=100) text
   !
   close (inpt,iostat=ierr)
-  call io_error("read_input_file","recon3.in",2,ierr)
+  call io_error(pname,fname,2,ierr)
   !
   text = trim(adjustl(text))
   text = uppercase( text )
@@ -158,14 +130,14 @@ continue
   if (text(1:6) == "&INPUT") then
     call read_nml_input_file
   else
-    call read_old_input_file
+    goto 100
   end if
   !
   return
   !
   ! Read error continuation statements
   !
-  100 write (iout,10) ierr ; call stop_recon(stop_mpi,"read_input_file")
+  100 write (iout,10) ierr ; call stop_recon(stop_mpi,pname)
   !
   ! Format statements
   !
@@ -179,40 +151,40 @@ end subroutine read_input_file
 subroutine read_nml_input_file
   !
   !.. Use Statements ..
-  use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
-  use geovar, only : o_order,all_orders
-  use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
-  use geovar, only : n_fp2dt,n_fp2dq
-  use geovar, only : n_sptet,n_sppyr,n_sppri,n_sphex
-  use geovar, only : n_qptet,n_qppyr,n_qppri,n_qphex
-  use ovar,   only : itestcase,num_stages,irestart, &
-                     flux_divergence,iop_correction, &
-                     num_ts,cfl,dt_in,gam,output_solution, &
-                     output_interval,restart_interval,dflux_opt, &
-                     results_interval,invs_flux_method,visc_flux_method, &
-                     iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
-                     Final_Time,Total_Periods,all_points, &
-                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts,iop_outpts, &
-                     Filter_Option,Filter_Order, &
-                     Filter_Cutoff,Filter_Alpha,Filter_etac, &
-                     rhoref,tref,pref,machref, &
-                     alpha_aoaref,beta_aoaref, &
-                     velref,aref,uref,rgasref,reyref, &
-                     metis_option,init_loc,error_loc, &
-                     Period_Timesteps,Period_Time,iter_out_interval, &
-                     suth_muref,suth_Tref,suth_Sref,Pr,Prt
-  use ovar,   only : Grid_Length_X,Grid_Length_Y
-  use ovar,   only : bound_error,error_bound_limit
-  use ovar,   only : vortex_bigR,vortex_bigGam
-  use ovar,   only : Timestep_Type
-  use ovar,   only : output_plot3d_to_tecplot
-  use ovar,   only : walls_are_exact
+  use order_mod, only : p_order,n_order,q_order,o_order,all_orders
+  use order_mod, only : initialize_geom_solpts
+  !
+  use geovar, only : nr,using_quadrature
+  !
+  use ovar,   only : itestcase,num_stages,irestart
+  use ovar,   only : flux_divergence,iop_correction
+  use ovar,   only : num_ts,cfl,dt_in,gam,output_solution
+  use ovar,   only : output_interval,restart_interval,dflux_opt
+  use ovar,   only : results_interval,invs_flux_method,visc_flux_method
+  use ovar,   only : iRKtype,Timestep_Type
+  use ovar,   only : Final_Time,Total_Periods,all_points,metis_option
+  use ovar,   only : iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts,iop_outpts
+  use ovar,   only : Filter_Option,Filter_Order
+  use ovar,   only : Filter_Alpha,Filter_etac
+  use ovar,   only : rhoref,tref,pref,machref,alpha_aoaref,beta_aoaref,Pr,Prt
+  use ovar,   only : suth_muref,suth_Tref,suth_Sref
+  use ovar,   only : velref,aref,uref,rgasref,reyref
+  use ovar,   only : Period_Timesteps,Period_Time,iter_out_interval
+  use ovar,   only : Grid_Length,vortex_bigR,vortex_bigGam
+  use ovar,   only : bound_error,error_bound_limit,init_loc,error_loc
+  use ovar,   only : output_plot3d_to_tecplot,walls_are_exact
   use ovar,   only : force_parallel_cgns,force_serial_cgns,cgns_is_parallel
   use ovar,   only : input
+  !
+  use quadrature_mod, only : init_geom_quadrature_rules
+  use quadrature_mod, only : init_face_quadrature_rules
+  !
+  use eqn_idx, only : create_equation_indices
   !
   !.. Local Scalars ..
   integer  :: it1,it2,ierr,ival
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
+  logical  :: use_qdtr_face_pts
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians,pres_check
@@ -220,13 +192,17 @@ subroutine read_nml_input_file
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_nml_input_file"
+  character(len=*), parameter :: fname = "recon3.in"
+  !
 continue
   !
   ! Open the input file
   !
-  open (inpt,file="recon3.in",status="old",action="read", &
+  open (inpt,file=fname,status="old",action="read", &
              form="formatted",iostat=ierr)
-  call io_error("read_nml_input_file","recon3.in",1,ierr)
+  call io_error(pname,fname,1,ierr)
   !
   ! Read in the input file using the input namelist
   !
@@ -235,7 +211,7 @@ continue
   ! Close the input file now that we are finished reading it
   !
   close (inpt,iostat=ierr)
-  call io_error("read_nml_input_file","recon3.in",2,ierr)
+  call io_error(pname,fname,2,ierr)
   !
   ! Check the output directory
   !
@@ -274,54 +250,39 @@ continue
   !
   if (iop_solpts /= iop_flxpts) then
     if (mypnum == 0) write (iout,101)
-    call stop_recon(stop_mpi,"read_nml_input_file")
+    call stop_recon(stop_mpi,pname)
   end if
   !
   ! Adjust the solution order and compute the number
   ! of solution points for the different cell shapes
   !
   n_order = max(p_order,n_order)
-  n_sp1de = n_order + 1
-  n_sp2dt = n_sp1de*(n_sp1de+1)/2
-  n_sp2dq = n_sp1de*n_sp1de
-  n_sptet = n_sp1de*(n_sp1de+1)*(n_sp1de+2)/6
-  n_sppyr = n_sp2dt*(2*n_sp1de+1)/3
-  n_sppri = n_sp2dt*n_sp1de
-  n_sphex = n_sp1de*n_sp1de*n_sp1de
   !
   ! Make sure the quadrature order is at least the same as the
   ! solution order and other quadrature variables are valid
   !
   q_order = max(n_order,q_order)
   !
-  n_qp1de = q_order + 1
-  n_qp2dt = n_qp1de*(n_qp1de+1)/2
-  n_qp2dq = n_qp1de*n_qp1de
-  n_qptet = n_qp1de*(n_qp1de+1)*(n_qp1de+2)/6
-  n_qppyr = n_qp2dt*(2*n_qp1de+1)/3
-  n_qppri = n_qp2dt*n_qp1de
-  n_qphex = n_qp1de*n_qp1de*n_qp1de
-  !
   using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
   !
-  if (using_quadrature .and. dflux_opt == project_derivatives) then
-    n_fp1de = n_qp1de
-    n_fp2dt = n_qp2dt
-    n_fp2dq = n_qp2dq
-  else
-    n_fp1de = n_sp1de
-    n_fp2dt = n_sp2dt
-    n_fp2dq = n_sp2dq
-  end if
+  ! Get the number of solution points for each of the different geometry types
+  ! This includes quadrature and face values
+  !
+  use_qdtr_face_pts = using_quadrature .and. dflux_opt==project_derivatives
+  !
+  call initialize_geom_solpts(use_qdtr_face_pts)
   !
   ! Now that we have the name of the grid file and the location
   ! of the flux and solution points, read in the grid file
   !
   call read_grid_file
   !
+  call init_geom_quadrature_rules
+  call init_face_quadrature_rules
+  !
   ! Create the equation indices now that we know the dimension of the grid
   !
-  call create_equation_indices(2)
+  call create_equation_indices(nr)
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
@@ -339,10 +300,6 @@ continue
   !
   if (all(abs(init_loc) /= [1,2])) init_loc = 0
   if (abs(error_loc) /= 1) error_loc = 0
-  !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,kind=wp) )
   !
   ! Make sure the output order is greater than or
   ! equal to the solution order if it is positive
@@ -363,7 +320,7 @@ continue
     pres_check = rhoref*rgasref*tref
     if (abs(pres_check-pref) > eps6) then
       write (iout,102) pref,pres_check
-      call stop_recon(stop_mpi,"read_nml_input_file")
+      call stop_recon(stop_mpi,pname)
     end if
   end if
   !
@@ -436,8 +393,8 @@ continue
     !
     if (abs(velref(1)) < eps3) then
       !
-      Period_Time_Y = Grid_Length_Y * reciprocal(velref(2)/aref)
-      Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
+      Period_Time_Y = Grid_Length(2) * reciprocal(velref(2)/aref)
+      Period_Time_Y = merge( Period_Time_Y , Grid_Length(2) , Period_Time_Y > eps3 )
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
       Period_Timesteps = Period_Timesteps_Y
       !
@@ -445,8 +402,8 @@ continue
       !
     else if (abs(velref(2)) < eps3) then
       !
-      Period_Time_X = Grid_Length_X * reciprocal(velref(1)/aref)
-      Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
+      Period_Time_X = Grid_Length(1) * reciprocal(velref(1)/aref)
+      Period_Time_X = merge( Period_Time_X , Grid_Length(1) , Period_Time_X > eps3 )
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps = Period_Timesteps_X
       !
@@ -454,8 +411,8 @@ continue
       !
     else
       !
-      Period_Time_X = Grid_Length_X / (velref(1)/aref)
-      Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
+      Period_Time_X = Grid_Length(1) / (velref(1)/aref)
+      Period_Time_Y = Grid_Length(2) / (velref(2)/aref)
       !
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
@@ -608,425 +565,14 @@ end subroutine read_nml_input_file
 !
 !###############################################################################
 !
-subroutine read_old_input_file
-  !
-  !.. Use Statements ..
-  use geovar, only : p_order,n_order,n_sp1de,n_sp2dt,n_sp2dq,n_fp1de
-  use geovar, only : o_order
-  use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq,using_quadrature
-  use ovar,   only : itestcase,num_stages,irestart, &
-                     flux_divergence,iop_correction, &
-                     num_ts,cfl,dt_in,gam,output_solution, &
-                     output_interval,restart_interval, &
-                     results_interval,invs_flux_method,dflux_opt, &
-                     iRKtype,CK4_RK,TVD2_RK,TVD3_RK,TVD4_RK, &
-                     Final_Time,Total_Periods, &
-                     iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts, &
-                     Filter_Option,Filter_Order, &
-                     Filter_Cutoff,Filter_Alpha,Filter_etac, &
-                     rhoref,tref,pref,machref, &
-                     alpha_aoaref,beta_aoaref, &
-                     velref,aref,uref,rgasref, &
-                     metis_option,init_loc,error_loc, &
-                     Period_Timesteps,Period_Time,iter_out_interval
-  use ovar,   only : Grid_Length_X,Grid_Length_Y
-  use ovar,   only : bound_error,error_bound_limit
-  !
-  !.. Local Scalars ..
-  integer  :: it1,it2,ierr,ival
-  integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  real(wp) :: Period_Time_X,Period_Time_Y
-  real(wp) :: real_Total_Periods
-  real(wp) :: aoa_radians,pres_check
-  !
-  !.. Local Arrays ..
-  character(len=80), dimension(12) :: input_text
-  !
-continue
-  !
-  ! Open the input file
-  !
-  open (inpt,file="recon3.in",status="old",action="read", &
-             form="formatted",iostat=ierr)
-  call io_error("read_old_input_file","recon3.in",1,ierr)
-  !
-  ! Read the title line of the input file and the output directory
-  !
-  read (inpt,1) input_text(1)
-  read (inpt,*) output_dir
-  !
-  output_dir = trim(adjustl(output_dir))
-  call check_output_dir
-  !
-  ! Append the name of the solution and error files to output_dir
-  !
-  fname_nodal = trim(output_dir)//"solution.nodal.cgns"
-  fname_modal = trim(output_dir)//"solution.modal.cgns"
-  error_file = trim(output_dir)//"error.dat"
-  !
-  ! Read the name of the grid file and its format
-  !
-  read (inpt,1) input_text(2)
-  read (inpt,*) grid_format, gridfile
-  !
-  gridfile = trim(adjustl(gridfile))
-  !
-  ! Read the polynomial order, node locations, and MeTiS option
-  !
-  read (inpt,1) input_text(3)
-  read (inpt,*) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
-  !
-  if (iop_solpts /= iop_flxpts) then
-    if (mypnum == 0) write (iout,101)
-    call stop_recon(stop_mpi,"read_old_input_file")
-  end if
-  !
-  n_order = max(p_order,n_order)
-  n_sp1de = n_order + 1
-  n_sp2dt = n_sp1de*(n_sp1de+1)/2
-  n_sp2dq = n_sp1de*n_sp1de
-  !
-  ! Read the option for computing the discontinuous flux derivatives
-  ! and the option of what variables to use when computing the flux corrections
-  !
-  read (inpt,1) input_text(4)
-  read (inpt,*) flux_divergence, iop_correction, &
-                q_order, iop_qdtpts, dflux_opt
-  !
-  ! Make sure the quadrature order is at least the same as the solution order
-  !
-  q_order = max(n_order,q_order)
-  !
-  n_qp1de = q_order + 1
-  n_qp2dt = n_qp1de*(n_qp1de+1)/2
-  n_qp2dq = n_qp1de*n_qp1de
-  !
-  using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
-  !
-  if (using_quadrature .and. dflux_opt == project_derivatives) then
-    n_fp1de = n_qp1de
-  else
-    n_fp1de = n_sp1de
-  end if
-  !
-  ! Now that we have the name of the grid file and the location
-  ! of the flux and solution points, read in the grid file
-  !
-  call read_grid_file
-  !
-  ! Read the testcase, Runge-Kutta options, restart, etc
-  !
-  read (inpt,1) input_text(5)
-  read (inpt,*) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
-  !
-  ! Make sure the number of RK stages is correct for some RK types
-  !
-  if (iRKtype == TVD2_RK) then
-    num_stages = 2
-  else if (iRKtype == TVD3_RK) then
-    num_stages = 3
-  else if (iRKtype == TVD4_RK) then
-    num_stages = 5
-  else if (iRKtype == CK4_RK) then
-    num_stages = 5
-  end if
-  !
-  if (all(abs(init_loc) /= [1,2])) init_loc = 0
-  if (abs(error_loc) /= 1) error_loc = 0
-  !
-  ! Read the time step information and the method for computing the interface fluxes
-  !
-  read (inpt,1) input_text(6)
-  read (inpt,*) num_ts, Final_Time, cfl, dt_in, invs_flux_method, iter_out_interval
-  !
-  ! Read the filter options
-  !
-  read (inpt,1) input_text(7)
-  read (inpt,*) Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(n_order,kind=wp) )
-  !
-  ! Read the output options and intervals
-  !
-  read (inpt,1) input_text(8)
-  read (inpt,*) output_solution, output_interval, &
-                restart_interval, results_interval
-  !
-  ! Read the reference conditions for the flow variables
-  !
-  read (inpt,1) input_text(9)
-  read (inpt,1) input_text(10)
-  read (inpt,*) rhoref, tref, pref, machref, alpha_aoaref, gam, rgasref
-  !
-  ! Read the information on bounding the region to compute error
-  !
-  read (inpt,1) input_text(11)
-  read (inpt,*) ival,error_bound_limit
-  bound_error = (ival /= 0)
-  !
-  ! Read the output order
-  !
-  read (inpt,1) input_text(12)
-  if (input_text(12)(1:1) /= "!") then
-    read (inpt,*) o_order
-    if (o_order > 0) o_order = max(o_order,n_order+0)
-  else
-    input_text(12) = " Output_Order"
-    o_order = -n_order
-  end if
-  !
-  ! Close the input file now that we are finished reading it
-  !
-  close (inpt,iostat=ierr)
-  call io_error("read_old_input_file","recon3.in",2,ierr)
-  !
-  ! Make any necessary adjustments to the input parameters
-  !
-  ! Check the reference conditions for consistency
-  !
-  if (rhoref < zero) then
-    rhoref = pref/(rgasref*tref)
-  else if (pref < zero) then
-    pref = rhoref*rgasref*tref
-  else if (tref < zero) then
-    tref = pref/(rgasref*rhoref)
-  else
-    pres_check = rhoref*rgasref*tref
-    if (abs(pres_check-pref) > eps6) then
-      write (iout,99) pref,pres_check
-      call stop_recon(stop_mpi,"read_old_input_file")
-    end if
-  end if
-  !
-  ! Compute some of the remaining reference conditions
-  !
-  aref = sqrt( gam * pref / rhoref )
-  uref = machref * aref
-  velref(1) = uref * cos(alpha_aoaref * degrees2radians)
-  velref(2) = uref * sin(alpha_aoaref * degrees2radians)
-  !
-  ! Redefine the reference conditions for the linear advection problems
-  ! and the original Shu vortex problem because using the dimensional speed
-  ! of sound for nondimensionalizing velocity will cause issues
-  !
-  if (any(itestcase == Advec_Problems) .or. &
-      abs(itestcase) == Shu_Vortex .or. &
-      itestcase == -Vortex_Transport) then
-    !
-    ! Alteration to make the Shu case propagate in the
-    ! y-direction only instead of in both x and y directions
-    !
-    if (itestcase == -Shu_Vortex) then
-      alpha_aoaref = 90.0_wp
-      velref(1) = zero
-      velref(2) = zero
-      itestcase = abs(itestcase)
-    else if (itestcase == -Vortex_Transport) then
-      alpha_aoaref = 90.0_wp
-      velref(1) = zero
-      velref(2) = one
-      itestcase = Shu_Vortex
-    else
-      alpha_aoaref = 45.0_wp
-      velref(1) = one
-      velref(2) = one
-    end if
-    !
-    machref = one/sqrt(gam)
-    aref = one
-    uref = one
-    rhoref = one
-    pref = one
-    tref = one
-    rgasref = one
-    !
-  end if
-  !
-  ! Initialize the remaining reference conditions
-  !
-  call initialize_reference
-  !
-  ! Initialize the viscosity model
-  !
-  call initialize_viscosity
-  !
-  ! Compute periodic information for the transport problems
-  !
-  if (any(itestcase == Transport_Problems)) then
-    !
-    cfl = one
-    !
-    if (abs(velref(1)) < eps3) then
-      !
-      Period_Time_Y = Grid_Length_Y * reciprocal(velref(2)/aref)
-      Period_Time_Y = merge( Period_Time_Y , Grid_Length_Y , Period_Time_Y > eps3 )
-      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
-      Period_Timesteps = Period_Timesteps_Y
-      !
-     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
-      !
-    else if (abs(velref(2)) < eps3) then
-      !
-      Period_Time_X = Grid_Length_X * reciprocal(velref(1)/aref)
-      Period_Time_X = merge( Period_Time_X , Grid_Length_X , Period_Time_X > eps3 )
-      Period_Timesteps_X = nint(Period_Time_X/dt_in)
-      Period_Timesteps = Period_Timesteps_X
-      !
-     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
-      !
-    else
-      !
-      Period_Time_X = Grid_Length_X / (velref(1)/aref)
-      Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
-      !
-      Period_Timesteps_X = nint(Period_Time_X/dt_in)
-      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
-      !
-      if (Period_Timesteps_X == Period_Timesteps_Y) then
-        Period_Timesteps = Period_Timesteps_X
-      else
-        Period_Timesteps = Period_Timesteps_X * Period_Timesteps_Y &
-                         / mod( max(Period_Timesteps_X,Period_Timesteps_Y), &
-                                min(Period_Timesteps_X,Period_Timesteps_Y) )
-      end if
-      !
-     !if (mypnum == 0) then
-     !write (*,*) Period_Time_X,Period_Time_Y
-     !write (*,*) Period_Timesteps_X,Period_Timesteps_Y
-     !write (*,*) Period_Timesteps
-     !end if
-      !
-    end if
-    !
-    Period_Time = dt_in*real(Period_Timesteps,kind=wp)
-    !
-    ! If Final_Time is negative, it is giving the total
-    ! number of periods that the simulation will run
-    !
-    if (Final_Time < zero) then
-      Total_Periods = nint( abs(Final_Time) )
-      Final_Time = Period_Time * real(Total_Periods,kind=wp)
-    else
-      real_Total_Periods = Final_Time*reciprocal(Period_Time)
-      Total_Periods = nint(real_Total_Periods)
-      if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
-        if (mypnum == 0) write (iout,2) real_Total_Periods
-      end if
-    end if
-   !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
-    !
-    num_ts = nint( Final_Time / dt_in )
-    !
-  end if
-  !
-  ! Determine the frequency of dumping the results and solution files
-  !
-  if (any(itestcase == Transport_Problems)) then
-    !
-    if (results_interval == 0) then
-      results_interval = max(Period_Timesteps/500,1)
-    else if (results_interval < 0) then
-      results_interval = max(Period_Timesteps/abs(results_interval),1)
-    end if
-    !
-    if (output_interval == 0) then
-      output_interval = Period_Timesteps
-    else if (output_interval < 0) then
-      output_interval = abs(output_interval)*Period_Timesteps
-    end if
-    !
-    if (iter_out_interval == 0) then
-      iter_out_interval = Period_Timesteps
-    else if (iter_out_interval < 0) then
-      iter_out_interval = max(Period_Timesteps/abs(iter_out_interval),1)
-    end if
-    !
-  end if
-  !
-  ! Now write out a copy of the input file to standard output
-  !
-  if (mypnum == 0) then
-    !
-    write (iout,*)
-    write (iout,1) trim(input_text(1))
-    write (iout,1) trim(output_dir)
-    write (iout,1) trim(input_text(2))
-    write (iout,50) grid_format, trim(gridfile)
-    write (iout,1) trim(input_text(3))
-    write (iout,51) p_order, n_order, iop_solpts, iop_flxpts, iop_tripts, metis_option
-    write (iout,1) trim(input_text(4))
-    write (iout,52) flux_divergence, iop_correction, &
-                    q_order, iop_qdtpts, dflux_opt
-    write (iout,1) trim(input_text(5))
-    write (iout,53) itestcase, iRKtype, num_stages, irestart, init_loc, error_loc
-    write (iout,1) trim(input_text(6))
-    write (iout,54) num_ts, Final_Time, cfl, dt_in, &
-                    invs_flux_method, iter_out_interval
-    write (iout,1) trim(input_text(7))
-    write (iout,55) Filter_Option, Filter_etac, Filter_Cutoff, &
-                    Filter_Order, Filter_Alpha
-    write (iout,1) trim(input_text(8))
-    write (iout,56) output_solution, output_interval, &
-                    restart_interval, results_interval
-    write (iout,1) trim(input_text(11))
-    write (iout,57) bound_error,error_bound_limit
-    write (iout,1) trim(input_text(12))
-    write (iout,58) o_order
-    write (iout,*)
-    !
-  end if
-  !
-  1  format (a)
-  50 format (i8,8x,a)
-  51 format (3x,i2,7x,i2,8x,i2,10x,i2,10x,i2,11x,i2)
-  52 format (7x,i2,15x,i2,2x,3(10x,i2))
-  53 format (3x,i2,7x,i2,8x,i2,8x,i2,9x,i2,8x,i2)
-  54 format (i10,2x,f10.3,3x,f8.4,3x,f9.6,9x,i0,8x,i10)
-  55 format (i8,2x,f7.3,3x,i8,3x,i8,3x,f7.3)
-  56 format (1x,i8,9x,i8,9x,i8,9x,i8)
-  57 format (6x,l1,12x,f8.3)
-  58 format (i7)
-  78 format (" Dimensional Free-stream conditions",/, &
-             " Density         = ",es14.6," kg/m^3",/, &
-             " Pressure        = ",es14.6," N/m^2",/, &
-             " Temperature     = ",es14.6," K",/, &
-             " Mach Number     = ",es14.6,/, &
-             " Speed of Sound  = ",es14.6," m/s",/, &
-             " Velocity        = ",es14.6," m/s",/, &
-             " Angle of Attack = ",es14.6," degrees"/, &
-             " Gamma           = ",es14.6,/, &
-             " Gas Constant    = ",es14.6," J/(kg*K)",/)
-  99 format (/, &
-     "****************************** ERROR ******************************",/, &
-     " Free-stream conditions in the input file are not consistent! ",/, &
-     " Reference pressure given    : ",es14.6,/, &
-     " Reference pressure computed : ",es14.6,/, &
-     " Please correct the input file or set one of density, pressure, ",/, &
-     " and temperature to a negative value so it is explicitly computed. ",/, &
-     "****************************** ERROR ******************************",/)
-  2 format (/," ********************* WARNING!!! *********************",/, &
-              "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
-              "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
-              "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
-              " ********************* WARNING!!! *********************",/)
-  101 format (/, &
-     "***************************** ERROR *****************************",/, &
-     "   THE REQUESTED LOCATIONS FOR SOLUTION POINTS AND FLUX POINTS",/, &
-     "   DO NOT MATCH. CURRENTLY, THE PROCEDURES USED TO CREATE THE",/, &
-     "   CORRECTION MATRICES ASSUMES THESE TWO POINTS LOCATIONS ARE",/, &
-     "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
-     "   TO ALLOW FOR THIS CAPABILITY.",/, &
-     "***************************** ERROR *****************************",/)
-  !
-end subroutine read_old_input_file
-!
-!###############################################################################
-!
 subroutine check_output_dir
   !
-  integer :: clen,ierr
+  integer :: clen,ierr,iodir
   character(len=200) :: test_file
   character(len=200) :: test_dir
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_output_dir"
   !
   character(len=*), parameter :: nobackup = "/nobackup/sspiegel"
   character(len=*), parameter :: homedir = "/u/sspiegel"
@@ -1053,7 +599,8 @@ continue
   !
   test_file = trim(output_dir)//"output_dir.test_file.dat"
   !
-  open (iodir,file=trim(test_file),status="replace",action="write",iostat=ierr)
+  open (newunit=iodir,file=trim(test_file),status="replace", &
+                      action="write",iostat=ierr)
   !
   ! If the open was successful, close and delete the test file and return
   !
@@ -1081,7 +628,8 @@ continue
     !
     test_file = trim(test_dir)//"output_dir.test_file.dat"
     !
-    open (iodir,file=trim(test_file),status="replace",action="write",iostat=ierr)
+    open (newunit=iodir,file=trim(test_file),status="replace", &
+                        action="write",iostat=ierr)
     !
     ! If the open was successfull, close and delete the test file,
     ! set output_dir to test_dir, and return
@@ -1114,7 +662,8 @@ continue
     !
     test_file = trim(test_dir)//"output_dir.test_file.dat"
     !
-    open (iodir,file=trim(test_file),status="replace",action="write",iostat=ierr)
+    open (newunit=iodir,file=trim(test_file),status="replace", &
+                        action="write",iostat=ierr)
     !
     ! If the open was successfull, close and delete the test file,
     ! set output_dir to test_dir, and return
@@ -1131,7 +680,7 @@ continue
   ! that was given in the input file so exit
   !
   write (iout,1) trim(output_dir)
-  call stop_recon(stop_mpi)
+  call stop_recon(stop_mpi,pname)
   !
   1 format (/,"******************** ERROR! *********************",/, &
               "     CANT SEEM TO FIND THE OUTPUT DIRECTORY",/, &
@@ -1166,7 +715,7 @@ continue
     muref_nd = viscosity_pv_sp(pv_in)
     muref    = muref_nd * rhoref * aref
     !
-    reyref = rhoref * machref * aref / muref
+    reyref = rhoref * machref * aref * reciprocal( muref )
     !
   else
     !
@@ -1200,6 +749,9 @@ subroutine initialize_reference
   integer  :: ierr
   real(wp) :: rhoa,rhoa2,tda2
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_reference"
+  !
 continue
   !
   rhoa = rhoref * aref
@@ -1209,25 +761,23 @@ continue
   ! Allocate the free stream inflow arrays
   !
   allocate ( cv_in(1:nq) , source=zero , stat=ierr )
-  call alloc_error("initialize_reference","cv_in",1,ierr)
+  call alloc_error(pname,"cv_in",1,ierr)
   allocate ( pv_in(1:nq) , source=zero , stat=ierr )
-  call alloc_error("initialize_reference","pv_in",1,ierr)
+  call alloc_error(pname,"pv_in",1,ierr)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
   !
-  pv_in(1) = rhoref
-  pv_in(2) = velref(1)
-  pv_in(3) = velref(2)
-  pv_in(4) = pref
+  pv_in(nec) = rhoref
+  pv_in(nmb:nme) = velref
+  pv_in(nee) = pref
   !
-  cv_in(1) = pv_in(1)
-  cv_in(2:nq-1) = pv_in(1) * pv_in(2:nq-1)
-  cv_in(nq) = pv_in(nq)/(gam-one) + half*pv_in(1)*selfdot(pv_in(2:nq-1))
+  cv_in(nec) = pv_in(nec)
+  cv_in(nmb:nme) = pv_in(nec) * pv_in(nmb:nme)
+  cv_in(nee) = pv_in(nee)/(gam-one) + half*pv_in(nec)*selfdot(pv_in(nmb:nme))
   !
   ! Nondimensional reference velocities
-  velref_nd(1) = velref(1) / aref
-  velref_nd(2) = velref(2) / aref
+  velref_nd = velref / aref
   !
   ! Nondimensional reference pressure
   pref_nd = pref / rhoa2
@@ -1242,13 +792,13 @@ continue
   !
   ! Finally, nondimensionalize the inflow boundary conditions
   !
-  cv_in(1) = cv_in(1) / rhoref
-  cv_in(2:nq-1) = cv_in(2:nq-1) / rhoa
-  cv_in(nq) = cv_in(nq) / rhoa2
+  cv_in(nec)     = cv_in(nec) / rhoref
+  cv_in(nmb:nme) = cv_in(nmb:nme) / rhoa
+  cv_in(nee)     = cv_in(nee) / rhoa2
   !
-  pv_in(1) = pv_in(1) / rhoref
-  pv_in(2:nq-1) = pv_in(2:nq-1) / aref
-  pv_in(nq) = pv_in(nq) / rhoa2
+  pv_in(nec)     = pv_in(nec) / rhoref
+  pv_in(nmb:nme) = pv_in(nmb:nme) / aref
+  pv_in(nee)     = pv_in(nee) / rhoa2
   !
 end subroutine initialize_reference
 !
@@ -1259,21 +809,19 @@ subroutine read_grid_file()
   !.. Use Statements ..
   use module_gmsh,   only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
+  use quadrature_mod, only : find_valid_geometries
   !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
   !        
 continue
   !
-  if (grid_format == patran_neutral) then
-    call read_patran_neutral_gridfile
-  else if (grid_format == gambit_neutral) then
+  if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
-  else if (grid_format == gmsh_file) then
+  else if (grid_format == Gmsh_Format) then
     call read_gmsh_gridfile( gridfile )
-  else if (any(grid_format == plot3d_formats)) then
-    call read_plot3d_gridfile( grid_format , gridfile , plot3d_cutfile , &
-                                                        plot3d_bcsfile )
+  else if (grid_format == Plot3D_Format) then
+    call read_plot3d_gridfile( gridfile , plot3d_cutfile , plot3d_bcsfile )
   end if
   !
   ! Check that all the nodes are in counter-clockwise
@@ -1291,6 +839,11 @@ continue
   !
   call find_bc_conflicts
   !
+  ! Go through the grid and find which geometries are valid for
+  ! the current simulation
+  !
+  call find_valid_geometries
+  !
 end subroutine read_grid_file
 !
 !###############################################################################
@@ -1301,25 +854,35 @@ subroutine read_gambit_neutral_gridfile()
   !
   use geovar, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : cell_geom,cell_order
   use ovar,   only : iop_solpts,iop_flxpts
+  use order_mod, only : n_order
   !
   !.. Local Scalars ..
-  integer   :: i,j,k,n,nf,n1,n2,i1,nc,pc,pf
-  integer   :: icell,inode,iside,ierr,itype
-  integer   :: ngrps,nbsets,ndfvl,nentry,nvalues
+  integer :: i,j,k,n,nf,n1,n2,i1,nc,pc,pf
+  integer :: icell,inode,iside,ierr,itype
+  integer :: ngrps,nbsets,ndfvl,nentry,nvalues
+  integer :: iogrd
   !
   character(len=80) :: text
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: bc_done
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_gambit_neutral_gridfile"
+  integer, dimension(1:7), parameter :: convert_geom = [Geom_Edge,Geom_Quad, &
+                                                        Geom_Tria,Geom_Hexa, &
+                                                        Geom_Pris,Geom_Tetr, &
+                                                        Geom_Pyra]
+  !
 continue
   !
   ! Open the grid file
   !
-  open (iogrd,file=gridfile,status="old",action="read", &
-        position="rewind",iostat=ierr)
-  call io_error("read_gambit_neutral_gridfile",trim(adjustl(gridfile)),1,ierr)
+  open (newunit=iogrd,file=gridfile,status="old",action="read", &
+                      position="rewind",iostat=ierr)
+  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
   !
   ! Skip the file header
   !
@@ -1332,7 +895,13 @@ continue
   read (iogrd,*) nnode,ncell,ngrps,nbsets,nr,ndfvl
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","nodes_of_cell_ptr",1,ierr)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  !
+  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
+  call alloc_error(pname,"cell_geom",1,ierr)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
+  call alloc_error(pname,"cell_order",1,ierr)
   !
   ! Skip some lines
   !
@@ -1354,7 +923,31 @@ continue
   ! find the number of nodes defining each cell
   !
   do i = 1,ncell
-    read (iogrd,*) n,itype,nodes_of_cell_ptr(n+1)
+    read (iogrd,*) n,cell_geom(i),nodes_of_cell_ptr(n+1)
+  end do
+  !
+  ! Convert the cell geometry values from the Gambit neutral grid file
+  !
+  !   If 'igeom' is the value given in the grid file
+  !       igeom = 1  -> edge
+  !       igeom = 2  -> quadrilateral
+  !       igeom = 3  -> triangle
+  !       igeom = 4  -> brick/hexahedron
+  !       igeom = 5  -> wedge/prism
+  !       igeom = 6  -> tetrahedron
+  !       igeom = 7  -> pyramid
+  !
+  !   We need them stored as
+  !       cell_geom(i) = 1  -> edge
+  !       cell_geom(i) = 2  -> quadrilateral
+  !       cell_geom(i) = 3  -> triangle
+  !       cell_geom(i) = 4  -> tetrahedron
+  !       cell_geom(i) = 5  -> pyramid
+  !       cell_geom(i) = 6  -> wedge/prism
+  !       cell_geom(i) = 8  -> brick/hexahedron
+  !
+  do i = 1,ncell
+    cell_geom(i) = convert_geom( cell_geom(i) )
   end do
   !
   ! Reshuffle nodes_of_cell_ptr
@@ -1395,13 +988,13 @@ continue
   ! Allocate the arrays needed to store this data
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","xyz_nodes",1,ierr)
+  call alloc_error(pname,"xyz_nodes",1,ierr)
   allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","nodes_of_cell",1,ierr)
+  call alloc_error(pname,"nodes_of_cell",1,ierr)
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","bface",1,ierr)
+  call alloc_error(pname,"bface",1,ierr)
   allocate ( bc_done(1:nfbnd) , source=true , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","bc_done",1,ierr)
+  call alloc_error(pname,"bc_done",1,ierr)
   !
   ! Skip the header and other data that is already known
   !
@@ -1446,25 +1039,14 @@ continue
     read (iogrd,1) text
     read (iogrd,*) text,itype,nentry,nvalues
     !
-    if (trim(adjustl(text)) == "SubInflow") then
-      itype = bc_sub_inflow
-    else if (trim(adjustl(text)) == "SubOutflow") then
-      itype = bc_sub_outflow
-    else if (trim(adjustl(text)) == "SupInflow") then
-      itype = bc_sup_inflow
-    else if (trim(adjustl(text)) == "SupOutflow") then
-      itype = bc_sup_outflow
-    else if (trim(adjustl(text)) == "Characteristic") then
-      itype = bc_characteristic
-    else if (trim(adjustl(text)) == "Wall") then
-      itype = bc_slip_wall
-    else if (trim(adjustl(text)) == "FreeStream") then
-      itype = bc_freestream
-    else if (trim(adjustl(text)) == "Periodic") then
-      itype = bc_periodic
+    ! Convert the BC string to itts respective integer value
+    !
+    itype = bc_string_to_integer(text)
+    !
+    ! Mark these boundaries as not finished if this is a periodic boundary
+    !
+    if (itype == bc_periodic) then
       bc_done(n+1:n+nentry) = fals
-    else
-      itype = bc_unknown
     end if
     !
     do j = 1,nentry
@@ -1481,7 +1063,13 @@ continue
   end do
   !
   close (iogrd,iostat=ierr)
-  call io_error("read_gambit_neutral_gridfile",trim(adjustl(gridfile)),2,ierr)
+  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
+  !
+  ! Convert the cell geometry values from the Gambit neutral grid file
+  !
+  do nf = 1,nfbnd
+    bface(3,n) = convert_geom( bface(3,n) )
+  end do
   !
   ! Save the index for the ghost cell on the face in bface(10,:)
   !
@@ -1532,29 +1120,22 @@ continue
   end do
   !
   deallocate ( bc_done , stat=ierr )
-  call alloc_error("read_gambit_neutral_gridfile","bc_done",2,ierr)
+  call alloc_error(pname,"bc_done",2,ierr)
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
-  do n = 1,ncell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    if (n2-n1+1 == 3) then
-      write (*,3)
-      call stop_recon(stop_mpi,"read_gambit_neutral_gridfile")
-    end if
-  end do
+  if (any(cell_geom == Geom_Tria)) then
+    write (*,3)
+    call stop_recon(stop_mpi,pname)
+  end if
+  !
   if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
       iop_flxpts /= Legendre_Gauss_Lobatto) then
-    do n = 1,ncell
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-      if (n2-n1+1 == 3) then
-        write (*,2)
-        call stop_recon(stop_mpi,"read_gambit_neutral_gridfile")
-      end if
-    end do
+    if (any(cell_geom == Geom_Tria)) then
+      write (*,2)
+      call stop_recon(stop_mpi,pname)
+    end if
   end if
   !
   ! Format statements
@@ -1570,188 +1151,21 @@ end subroutine read_gambit_neutral_gridfile
 !
 !###############################################################################
 !
-subroutine read_patran_neutral_gridfile
-  !
-  use geovar
-  !
-  !  converts a patran neutral file generated by Gridgen using the
-  !  NCC Analysis SoftWare selection to geometry output for our purpose
-  !
-  !.. Local Allocatable Arrays ..
-  integer,   allocatable, dimension(:,:) :: edge,c_vtemp
-  real(wp), allocatable, dimension(:)   :: x,y,area_
-  !
-  !.. Local Scalars ..
-  integer   :: ndum,i,k,ierr
-  real(wp) :: rdum
-  !
-continue
-  !
-  open(iogrd,file=trim(adjustl(gridfile)),status="old",action="read", &
-             position="rewind",iostat=ierr)
-  call io_error("read_patran_neutral_gridfile",trim(adjustl(gridfile)),1,ierr)
-  !
- !open(ioxyd,file="x_y.data",      status="replace",action="write")
- !open(iocnd,file="cell_node.data",status="replace",action="write")
- !open(iobcd,file="b_c.data",      status="replace",action="write")
- !!
- !!  read patran neutral file to get nnode, ncell, and nfbnd
- !!
- !read (iogrd,*)
- !read (iogrd,*)
- !read (iogrd,*) ndum,ndum,ndum,ndum, nnode, ncell
- !read (iogrd,*)
- !!
- !!   allocate memory for x and y and c_vtemp
- !allocate (x(nnode))
- !allocate (y(nnode))
- !allocate (c_vtemp(3,ncell))
- !!
- !do i = 1,nnode
- !  read (iogrd,*)
- !  read (iogrd,11) x(i),y(i)
- !  read (iogrd,*)
- !end do
- !!
- !do i = 1,ncell
- !  read (iogrd,*)
- !  read (iogrd,*)
- !  read (iogrd,*) c_vtemp(1,i),c_vtemp(2,i),c_vtemp(3,i)
- !end do
- !!
- !nfbnd = 0
- !do
- !  read (iogrd,*,end = 20)
- !  read (iogrd,*)
- !  read (iogrd,*)
- !  nfbnd = nfbnd+1
- !end do
- !20 continue
- !!
- !deallocate (x, y, c_vtemp)
- !!
- !!.. with nnode, ncell, and nfbnd known, now allocate memory
- !!... for geovar
- !allocate (xyz_nodes(2,-nfbnd:nnode))
- !allocate (c_v(3,-nfbnd:ncell), c_e(3,-nfbnd:ncell),c_nbr(3,ncell))
- !allocate (be_v(2,nfbnd), be_ic(nfbnd), be_e(nfbnd), &
- !          be_pe(nfbnd), be_pc(nfbnd), id_be(nfbnd))
- !!
- !!now local memory
- !allocate (area_(-nfbnd:ncell))
- !!...
- !rewind(iogrd)
- !read (iogrd,*)
- !read (iogrd,*)
- !read (iogrd,*)
- !read (iogrd,*)
- !!
- !do i = 1,nnode
- !  read (iogrd,*)
- !  read (iogrd,11)xyz_nodes(1,i),xyz_nodes(2,i)
- !  read (iogrd,*)
- !end do
- !!
- !do i = 1,ncell
- !  read (iogrd,*)
- !  read (iogrd,*)
- !  read (iogrd,*) c_v(1,i),c_v(2,i),c_v(3,i)
- !end do
- !!
- !!... we do not use the value i = 0, but initialze anyway
- !xyz_nodes(1,0) = zero
- !xyz_nodes(2,0) = zero
- !!
- !!   allocate memory for edge
- !allocate (edge(3,nfbnd))
- !!
- !do i = 1,nfbnd
- !  read (iogrd,*) ndum,be_ic(i)
- !  read (iogrd,10) ndum,edge(1,i),edge(2,i),edge(3,i)
- !  read (iogrd,*) rdum
- !  id_be(i) = int(rdum)
- !end do
- !!
- !!   determine which edge is on boundary
- !do i = 1,nfbnd
- !  !
- !  if (edge(3,i) == 0) then
- !    be_v(1,i) = c_v(1,be_ic(i))
- !    be_v(2,i) = c_v(2,be_ic(i))
- !  else
- !    if (edge(2,i) == 0) then
- !      be_v(1,i) = c_v(3,be_ic(i))
- !      be_v(2,i) = c_v(1,be_ic(i))
- !    else
- !      if (edge(1,i) == 0) then
- !        be_v(1,i) = c_v(2,be_ic(i))
- !        be_v(2,i) = c_v(3,be_ic(i))
- !      end if
- !    end if
- !  end if
- !  !
- !end do
- !!
- !!  write output for x and y coordinate data; cell to vertex data;
- !!  and boundary condition data.
- !!
- !write (ioxyd,*) nnode
- !do i = 1,nnode
- !  write (ioxyd,15) xyz_nodes(1,i),xyz_nodes(2,i)
- !end do
- !!
- !write (iocnd,*) ncell
- !do i = 1,ncell
- !  write (iocnd,211) c_v(1,i),c_v(2,i),c_v(3,i)
- !end do
- !!
- !! reset id_be to match cese convention
- !do i = 1,nfbnd
- !  !
- !  if (id_be(i) == 1) then ! inflow
- !    id_be(i) = 1
- !  else if (id_be(i) == 10) then ! inside wall
- !    id_be(i) = 0
- !  else if (id_be(i) == 11) then ! outside wall
- !    id_be(i) = 3
- !  else if (id_be(i) == 12) then ! outflow
- !    id_be(i) = 2
- !  end if
- !  !
- !end do
- !!
- !write (iobcd,*) nfbnd,0
- !write (iobcd,222) (id_be(i),i = 1,nfbnd)
- !write (iobcd,222) (be_ic(i),i = 1,nfbnd)
- !write (iobcd,222) ((be_v(k,i),k = 1,2),i = 1,nfbnd)
- !!
- !deallocate (edge)
- !!
- !close (ioxyd)
- !close (iocnd)
- !close (iobcd)
-  close (iogrd,iostat=ierr)
-  call io_error("read_patran_neutral_gridfile",trim(adjustl(gridfile)),2,ierr)
-  !
-  11 format (2e16.8)
-  10 format (i9,i1,i1,i1)
-  15 format (2e16.8)
-  211 format (1x,3i10)
-  222 format (1x,10i8)
-  !
-end subroutine read_patran_neutral_gridfile
-!
-!###############################################################################
-!
 subroutine check_node_ordering()
   !
   !.. Use Statements ..
-  use geovar, only : ncell,nfbnd,nodes_of_cell_ptr, &
-                     xyz_nodes,nodes_of_cell,bface
+  use geovar, only : nr,ncell,nfbnd,nodes_of_cell_ptr,cell_geom
+  use geovar, only : xyz_nodes,nodes_of_cell,bface
   !
   !.. Local Scalars ..
-  integer   :: i,n,nf,n1,n2,ip1,ip2,ip3,ip4
-  real(wp) :: x31,y31,x42,y42,ss
+  integer  :: i,n,nf,np,n1,n2,ip2,ip4
+  real(wp) :: cell_vol
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr,1:8) :: cell_nodes
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_node_ordering"
   !
 continue
   !
@@ -1768,51 +1182,71 @@ continue
     !
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
+    np = n2-n1+1
     !
-    ip1 = nodes_of_cell(n1+0)
-    ip2 = nodes_of_cell(n1+1)
-    ip3 = nodes_of_cell(n1+2)
-    ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
+    ! Compute the signed area/volume of the current host cell
     !
-    x31 = xyz_nodes(1,ip3) - xyz_nodes(1,ip1)
-    y31 = xyz_nodes(2,ip3) - xyz_nodes(2,ip1)
+    cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
     !
-    x42 = xyz_nodes(1,ip4) - xyz_nodes(1,ip2) ! for triangles x42 = x3-x2
-    y42 = xyz_nodes(2,ip4) - xyz_nodes(2,ip2) ! for triangles y42 = y3-y2
+    select case (cell_geom(n))
+      case (Geom_Quad)
+        cell_vol = area_quad( cell_nodes(1:nr,1:np) )
+      case (Geom_Tria)
+        cell_vol = area_tria( cell_nodes(1:nr,1:np) )
+      case (Geom_Tetr)
+        cell_vol = vol_tet( cell_nodes(1:nr,1:np) )
+      case (Geom_Pyra)
+        cell_vol = vol_pyr( cell_nodes(1:nr,1:np) )
+      case (Geom_Pris)
+        cell_vol = vol_pri( cell_nodes(1:nr,1:np) )
+      case (Geom_Hexa)
+        cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
+      case default
+        write (iout,1)
+        call stop_recon(stop_mpi,pname)
+    end select
     !
-    ! Take the cross product - x31 X x42
-    !
-    ss = x31*y42 - x42*y31
-    !
-    ! If the cross product is negative, this means the cell is in clockwise
+    ! If the cell volume is negative, this means the cell is in clockwise
     ! ordering.  Switch two nodes (2 and 3 for triangles; 2 and 4 for quads)
     ! to change the cell to counter-clockwise ordering.
     !
-    if (ss < zero) then
+    if (cell_vol < zero) then
       !
-      nodes_of_cell(n1+1) = ip4 ! for triangles, ip4 = ip3
-      nodes_of_cell(n2  ) = ip2
-      !
-      ! We also need to adjust the value in bface(4,nf) depending on cell type
-      ! For triangles, faces need to go from 1,2,3 to 3,2,1 ordering.
-      !                This is done using:  bface(4) = 4 - bface(4)
-      ! For quad, faces need to go from 1,2,3,4 to 4,3,2,1 ordering.
-      !                This is done using:  bface(4) = 5 - bface(4)
-      !
-      bface(4,nf) = merge(4,5,bface(3,nf)==3) - bface(4,nf)
-      !
-      ! Now we have to loop through the remaining boundary faces
-      ! and apply this correction to bface(4) for any other boundary
-      ! faces that have this same host cell. Otherwise, when it gets
-      ! to the other boundary face > nf with this same host cell, the
-      ! node ordering will already be fixed and it will not make it
-      ! into this ss<zero conditional to apply a correction to bface(4).
-      !
-      do i = nf+1,nfbnd
-        if (bface(2,i) == n) then
-          bface(4,i) = merge(4,5,bface(3,i)==3) - bface(4,i)
-        end if
-      end do
+      if (any(cell_geom(n) == Geom_2D)) then
+        !
+        ip2 = nodes_of_cell(n1+1)
+        ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
+        !
+        nodes_of_cell(n1+1) = ip4 ! for triangles, ip4 = ip3
+        nodes_of_cell(n2  ) = ip2
+        !
+        ! We also need to adjust the value in bface(4,nf) depending on cell type
+        ! For triangles, faces need to go from 1,2,3 to 3,2,1 ordering.
+        !                This is done using:  bface(4) = 4 - bface(4)
+        ! For quad, faces need to go from 1,2,3,4 to 4,3,2,1 ordering.
+        !                This is done using:  bface(4) = 5 - bface(4)
+        !
+        bface(4,nf) = merge(4,5,cell_geom(n)==Geom_Tria) - bface(4,nf)
+        !
+        ! Now we have to loop through the remaining boundary faces
+        ! and apply this correction to bface(4) for any other boundary
+        ! faces that have this same host cell. Otherwise, when it gets
+        ! to the other boundary face > nf with this same host cell, the
+        ! node ordering will already be fixed and it will not make it into
+        ! this cell_vol<zero conditional to apply a correction to bface(4).
+        !
+        do i = nf+1,nfbnd
+          if (bface(2,i) == n) then
+            bface(4,i) = merge(4,5,cell_geom(n)==Geom_Tria) - bface(4,i)
+          end if
+        end do
+        !
+      else
+        !
+        write (iout,2)
+        call stop_recon(stop_mpi,pname)
+        !
+      end if
       !
     end if
     !
@@ -1827,33 +1261,64 @@ continue
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
     !
-    ip1 = nodes_of_cell(n1+0)
-    ip2 = nodes_of_cell(n1+1)
-    ip3 = nodes_of_cell(n1+2)
-    ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
+    ! Compute the signed area/volume of the current host cell
     !
-    x31 = xyz_nodes(1,ip3) - xyz_nodes(1,ip1)
-    y31 = xyz_nodes(2,ip3) - xyz_nodes(2,ip1)
+    cell_nodes(1:nr,1:np) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
     !
-    x42 = xyz_nodes(1,ip4) - xyz_nodes(1,ip2) ! for triangles x42 = x3-x2
-    y42 = xyz_nodes(2,ip4) - xyz_nodes(2,ip2) ! for triangles y42 = y3-y2
+    select case (cell_geom(n))
+      case (Geom_Quad)
+        cell_vol = area_quad( cell_nodes(1:nr,1:np) )
+      case (Geom_Tria)
+        cell_vol = area_tria( cell_nodes(1:nr,1:np) )
+      case (Geom_Tetr)
+        cell_vol = vol_tet( cell_nodes(1:nr,1:np) )
+      case (Geom_Pyra)
+        cell_vol = vol_pyr( cell_nodes(1:nr,1:np) )
+      case (Geom_Pris)
+        cell_vol = vol_pri( cell_nodes(1:nr,1:np) )
+      case (Geom_Hexa)
+        cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
+      case default
+        write (iout,1)
+        call stop_recon(stop_mpi,pname)
+    end select
     !
-    ! Take the cross product - x31 X x42
-    !
-    ss = x31*y42 - x42*y31
-    !
-    ! If the cross product is negative, this means the cell is in clockwise
+    ! If the cell volume is negative, this means the cell is in clockwise
     ! ordering.  Switch two nodes (2 and 3 for triangles; 2 and 4 for quads)
-    ! to change the cell have counter-clockwise ordering.
+    ! to change the cell to counter-clockwise ordering.
     !
-    if (ss < zero) then
+    if (cell_vol < zero) then
       !
-      nodes_of_cell(n1+1) = ip4 ! for triangles, ip4 = ip3
-      nodes_of_cell(n2  ) = ip2
-      !
+      if (any(cell_geom(n) == Geom_2D)) then
+        !
+        ip2 = nodes_of_cell(n1+1)
+        ip4 = nodes_of_cell(n2  ) ! for triangles, ip4 = ip3 because n2 = n1+2
+        !
+        nodes_of_cell(n1+1) = ip4 ! for triangles, ip4 = ip3
+        nodes_of_cell(n2  ) = ip2
+        !
+      else
+        !
+        write (iout,2)
+        call stop_recon(stop_mpi,pname)
+        !
+      end if
     end if
     !
   end do
+  !
+  ! Format Statements
+  !
+  1 format (/, &
+    " ############################## ERROR! ##############################",/, &
+    "     INVALID CELL GEOMETRY WHEN CHECKING THE CELL NODE ORDERINGS!",/, &
+    " ############################## ERROR! ##############################",/)
+  2 format (/, &
+    " ############################## ERROR! ##############################",/, &
+    "   NEGATIVE VOLUME DETECTED WHEN CHECKING THE CELL NODE ORDERINGS!",/, &
+    "         UNFORTUNATELY, THE NODES CANNOT BE REARRANGED",/, &
+    "         TO FIX THIS FOR 3D SIMULATIONS!",/, &
+    " ############################## ERROR! ##############################",/)
   !
 end subroutine check_node_ordering
 !
@@ -1865,91 +1330,34 @@ subroutine adjust_for_ghost_cells()
   ! to account for ghost cells and new nodes associated with them 
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod, &
-                     bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
- !use ovar,   only : Period_Time,Period_Timesteps
- !use ovar,   only : Final_Time,Total_Periods
- !use ovar,   only : velref,aref,dt_in,machref
-  use ovar,   only : Grid_Min_X,Grid_Max_X,Grid_Length_X
-  use ovar,   only : Grid_Min_Y,Grid_Max_Y,Grid_Length_Y
+  use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
+  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
+  use geovar, only : cell_geom,cell_order
+  use ovar,   only : Grid_Min,Grid_Max,Grid_Length
   !
   !.. Local Scalars ..
-  integer   :: g1,g2,i,i1,i2,n1,n2,nf,ng,ni,np
-  integer   :: gcell,icell,igeom,inode,iside
-  integer   :: pf,pcell,p1,p2,pgeom,pside
-  integer   :: np1,np2,ni1,ni2,ierr
-  integer   :: Period_Timesteps_X,Period_Timesteps_Y
-  real(wp) :: Period_Time_X,Period_Time_Y
-  real(wp) :: theta,real_Total_Periods
+  integer :: g1,g2,h1,nf,nfnods,switch_index
+  integer :: ghost_cell,host_cell,host_geom,host_side
+  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr)     :: ptf,rnrm,ds
-  real(wp), dimension(1:nr)     :: ds1,ds2,pnrm,inrm
-  real(wp), dimension(1:nr,1:4) :: xyp
+  integer, dimension(1:4) :: ip
+  integer, dimension(1:4) :: face_nodes
   !
-  !.. Local Allocatable Arrays ..
-  integer,   allocatable, dimension(:)   :: tmp_int
-  real(wp), allocatable, dimension(:,:) :: tmp_real
-  !
-  integer, parameter :: rotation = 0
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "adjust_for_ghost_cells"
   !
 continue
   !
   ! Before we start adding ghost cells, lets get the extents of the grid domain
   ! NOTE: ASSUME GRID BOUNDARIES OF CONSTANT X AND Y
   !
-  Grid_Min_X = minval(xyz_nodes(1,:))
-  Grid_Max_X = maxval(xyz_nodes(1,:))
-  Grid_Min_Y = minval(xyz_nodes(2,:))
-  Grid_Max_Y = maxval(xyz_nodes(2,:))
-  Grid_Length_X = Grid_Max_X - Grid_Min_X
-  Grid_Length_Y = Grid_Max_Y - Grid_Min_Y
+  Grid_Min = zero
+  Grid_Max = zero
   !
- !if (velref(1) < eps3) then
- !  !
- !  Period_Time_Y = Grid_Length_Y / machref
- !  !
- !  Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
- !  !
- !  Period_Timesteps = Period_Timesteps_Y
- !  !
- !else if (velref(2) < eps3) then
- !  !
- !  Period_Time_X = Grid_Length_X / machref
- !  !
- !  Period_Timesteps_X = nint(Period_Time_X/dt_in)
- !  !
- !  Period_Timesteps = Period_Timesteps_X
- !  !
- !else
- !  !
- !  Period_Time_X = Grid_Length_X / (velref(1)/aref)
- !  Period_Time_Y = Grid_Length_Y / (velref(2)/aref)
- !  !
- !  Period_Timesteps_X = nint(Period_Time_X/dt_in)
- !  Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
- !  !
- !  if (Period_Timesteps_X == Period_Timesteps_Y) then
- !    Period_Timesteps = Period_Timesteps_X
- !  else
- !    Period_Timesteps = Period_Timesteps_X * Period_Timesteps_Y &
- !                     / mod( max(Period_Timesteps_X,Period_Timesteps_Y), &
- !                            min(Period_Timesteps_X,Period_Timesteps_Y) )
- !  end if
- !  !
- !end if
- !!
- !Period_Time = dt_in*real(Period_Timesteps,kind=wp)
- !!
- !if (Total_Periods /= 0) then
- !  Final_Time = Period_Time*real(Total_Periods,kind=wp)
- !else
- !  real_Total_Periods = Final_Time/Period_Time
- !  Total_Periods = nint(real_Total_Periods)
- !  if (abs(real_Total_Periods-real(Total_Periods,kind=wp)) > ten*eps6) then
- !    write (iout,2) real_Total_Periods
- !  end if
- !end if
+  Grid_Min(1:nr) = minval(xyz_nodes(1:nr,:),dim=2)
+  Grid_Max(1:nr) = maxval(xyz_nodes(1:nr,:),dim=2)
+  Grid_Length = Grid_Max - Grid_Min
   !
   ! #######
   ! ## 1 ##
@@ -1961,11 +1369,299 @@ continue
   !
   ! Reallocate nodes_of_cell_ptr to account for ghost cells
   !
-  allocate ( tmp_int(1:n_totcel+1) , source=0 , stat=ierr )
-  call alloc_error("adjust_for_ghost_cells","tmp_int",1,ierr)
-  ! 
-  tmp_int(1:size(nodes_of_cell_ptr)) = nodes_of_cell_ptr
-  call move_alloc( from=tmp_int , to=nodes_of_cell_ptr )
+  call reallocate( nodes_of_cell_ptr , n_totcel+1 )
+  !
+  ! Set the number of nodes for each ghost cell.
+  ! NOTE: The geometry of the ghost cells is one dimension less than the host
+  !       cells. For example, the ghost cell geometry will be an edge for a 2D
+  !       grid, and it will be either a triangle or a quadrilateral for a 3D
+  !       grid.
+  !
+  do nf = 1,nfbnd
+    !
+    host_geom = bface(3,nf)
+    host_side = bface(4,nf)
+    !
+    ! Make sure the host geometry is valid
+    !
+    if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
+      write (error_message,100)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
+    nodes_of_cell_ptr(ncell+nf+1) = num_face_nodes(host_side,host_geom)
+    !
+  end do
+  !
+  ! Reshuffle the ghost cell portion of nodes_of_cell_ptr
+  !
+  do nf = ncell+2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(nf) = nodes_of_cell_ptr(nf) + nodes_of_cell_ptr(nf-1)
+  end do
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Reallocate nodes_of_cell to account for ghost cells
+  !
+  call reallocate( nodes_of_cell , last(nodes_of_cell_ptr) )
+  !
+  ! Reallocate cell_geom to account for ghost cells
+  !
+  call reallocate( cell_geom , n_totcel )
+  !
+  ! Reallocate cell_order to account for ghost cells
+  !
+  call reallocate( cell_order , n_totcel )
+  !
+  ! Loop over the boundary faces and find the nodes of each ghost cell.
+  ! The nodes are in counter-clockwise ordering. Also, while we have the
+  ! information available, fill in the ghost cell data for the arrays
+  ! cell_geom and cell_order.
+  !
+  do nf = 1,nfbnd
+    !
+    ghost_cell = nf + ncell
+    !
+    ! Node indices for the ghost cell
+    !
+    g1 = nodes_of_cell_ptr(ghost_cell)+1
+    g2 = nodes_of_cell_ptr(ghost_cell+1)
+    !
+    ! Information about boundary face
+    !
+    host_cell = bface(2,nf)
+    host_geom = bface(3,nf)
+    host_side = bface(4,nf)
+    !
+    ! Starting node index for the interior cell
+    !
+    h1 = nodes_of_cell_ptr(host_cell)+1
+    !
+    ! Get the number of nodes defining this face
+    !
+    nfnods = num_face_nodes(host_side,host_geom)
+    !
+    ! Check that the face geometry matches the number of ghost nodes
+    !
+    if (g2-g1+1 /= nfnods) then
+      write (error_message,102)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
+    ! Node offsets for this face of the host cell
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    ! Use the node offsets to get the actual indices for these nodes
+    !
+    face_nodes(1:nfnods) = nodes_of_cell( h1 + ip(1:nfnods) )
+    !
+    ! Assign nodes defining boundary face from the host cell to the ghost cell
+    ! NOTE: We have to reverse the rotation/ordering of the face nodes so that
+    !       the nodes of the ghost cell are defined such that the normal of
+    !       each of its faces points outwards (this is the same as the interior
+    !       cells). For a 2D host cell, there are only two nodes so we just
+    !       need to switch them, i.e. node1 <=> node2.  For a 3D host cell,
+    !       switching either nodes 1 & 3 or nodes 3 & 4 will do the trick.
+    !       Since triangle faces only have three nodes, we will switch nodes
+    !       1 & 3 for both triangle and quad faces so that we dont have to
+    !       distinguish between the two.
+    !
+    ! Copy over the face nodes to the ghost cell,
+    ! keeping the same ordering as the host cell.
+    !
+    nodes_of_cell(g1:g2) = face_nodes(1:nfnods)
+    !
+    ! Get the index of the node to switch with node 1.
+    ! NOTE: switch_index evaluates to nfnods (i.e. 2) for a 2D host cell
+    !       switch_index evaluates to nfnods (i.e. 3) for a triangular boundary face
+    !       switch_index evaluates to 3 for a quadrilateral boundary face
+    ! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
+    !                  a 1D host cell which is the correct value if the 
+    !                  rest of the code is ever set up to run 1D.
+    !
+    switch_index = min( nfnods , 3 )
+    !
+    ! Switch the two face nodes required to reverse the face node ordering
+    !
+    nodes_of_cell(g1) = face_nodes(switch_index)
+    nodes_of_cell(g1-1+switch_index) = face_nodes(1)
+    !
+    ! Get the geometry of the ghost cell (i.e. face geometry) and set the order
+    ! of the ghost cell to the same as the host cell.
+    !
+    cell_geom(ghost_cell) = geom_of_face(nfnods)
+    cell_order(ghost_cell) = cell_order(host_cell)
+    !
+  end do
+  !
+  n_totnod = nnode
+  !
+  ! If using multiple processors, save the global grid arrays
+  !
+  call save_global_grid
+  !
+  1 format ("HOSTCELL = ",i0,"  PCELL = ",i0,"   (delta x,delta y) = ",2es24.11)
+  2 format (/," ********************* WARNING!!! *********************",/, &
+              "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
+              "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
+              "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
+              " ********************* WARNING!!! *********************",/)
+  100 format ("Not sure what nodes to use for the ghost cell based on ", &
+              "the host cell geometry encountered.")
+  101 format ("The face geometry across a periodic boundary does not match!")
+  102 format ("The number of ghost nodes does not match this face geometry!")
+  !
+end subroutine adjust_for_ghost_cells
+!
+!###############################################################################
+!
+subroutine save_global_grid
+  !
+  !.. Use Statements ..
+  use geovar,    only : nr,nnode,ncell,nfbnd,n_totnod,n_totcel
+  use geovar,    only : n_global_node,n_global_cell,n_global_fbnd
+  use geovar,    only : n_global_totnod,n_global_totcel
+  use geovar,    only : n_global_solpts,n_global_totpts
+  use geovar,    only : xyz_nodes,global_xyz_nodes
+  use geovar,    only : nodes_of_cell_ptr,global_nofc_ptr
+  use geovar,    only : nodes_of_cell,global_nofc
+  use geovar,    only : global_pinc_ptr,global_xyz
+  use geovar,    only : cell_geom,global_cell_geom
+  use geovar,    only : cell_order,global_cell_order
+  use flowvar,   only : global_usp
+  use order_mod, only : geom_solpts
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,this_geom,this_order,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "save_global_grid"
+  !
+continue
+  !
+  n_global_node = nnode
+  n_global_cell = ncell
+  n_global_fbnd = nfbnd
+  n_global_totnod = n_totnod
+  n_global_totcel = n_totcel
+  !
+  n1 = size(xyz_nodes,dim=1)
+  n2 = size(xyz_nodes,dim=2)
+  allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , stat=ierr )
+  call alloc_error(pname,"global_xyz_nodes",1,ierr)
+  !
+  n1 = size(nodes_of_cell_ptr)
+  allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , stat=ierr )
+  call alloc_error(pname,"global_nofc_ptr",1,ierr)
+  !
+  n1 = size(nodes_of_cell)
+  allocate ( global_nofc(1:n1) , source=nodes_of_cell , stat=ierr )
+  call alloc_error(pname,"global_nofc",1,ierr)
+  !
+  n1 = size(cell_geom)
+  allocate ( global_cell_geom(1:n1) , source=cell_geom , stat=ierr )
+  call alloc_error(pname,"global_cell_geom",1,ierr)
+  !
+  n1 = size(cell_order)
+  allocate ( global_cell_order(1:n1) , source=cell_order , stat=ierr )
+  call alloc_error(pname,"global_cell_order",1,ierr)
+  !
+  ! Create the global pts_in_cell_ptr. This will be done later
+  ! but a global version is never made before the global grid
+  ! is partitioned and each processor creates its own separate
+  ! local grid.
+  !
+  allocate ( global_pinc_ptr(1:n_global_totcel+1) , source=0 , stat=ierr )
+  call alloc_error(pname,"global_pinc_ptr",1,ierr)
+  !
+  do n = 1,n_global_totcel
+    !
+    this_geom = global_cell_geom(n)
+    this_order = global_cell_order(n)
+    !
+    global_pinc_ptr(n+1) = global_pinc_ptr(n) + geom_solpts(this_geom,this_order)
+    !
+  end do
+  !
+  n_global_solpts = global_pinc_ptr(ncell+1)
+  n_global_totpts = last(global_pinc_ptr)
+  !
+  ! Now the only remaining global grid arrays to create are global_xyz
+  ! and global_usp. We will have to do a collective communication of the
+  ! local arrays to accomplish this after they are created. We will only
+  ! allocate the array here since we have the parameters needed to do so.
+  !
+  allocate ( global_xyz(1:nr,1:n_global_totpts) , source=zero , stat=ierr )
+  call alloc_error(pname,"global_xyz",1,ierr)
+  !
+  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
+  call alloc_error(pname,"global_usp",1,ierr)
+  !
+end subroutine save_global_grid
+!
+!###############################################################################
+!
+subroutine adjust_for_same_dimension_ghost_cells()
+  !
+  ! Routine to make some adjustments to the data from the grid file
+  ! to account for ghost cells and new nodes associated with them 
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
+  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell,xyz_nodes
+  use geovar, only : cell_geom,cell_order
+  use ovar,   only : Grid_Min,Grid_Max,Grid_Length
+  !
+  !.. Local Scalars ..
+  integer  :: g1,g2,i,h1,h2,nf,ng,ni,np
+  integer  :: ghost_cell,host_cell,host_geom,inode,host_side
+  integer  :: pf,p1,p2
+  integer  :: ni1,ni2,ierr
+  integer  :: periodic_cell,periodic_geom,periodic_side,pcnods
+  real(wp) :: theta
+  character(len=1000) :: error_message
+  integer :: nfnods
+  !
+  !.. Local Arrays ..
+  integer,  dimension(1:4)      :: ip,periodic_ip
+  integer,  dimension(1:4)      :: face_nodes
+  integer,  dimension(1:4)      :: pface_nodes
+  real(wp), dimension(1:nr)     :: ptf
+  real(wp), dimension(1:nr)     :: ds,ds1,ds2
+  real(wp), dimension(1:nr)     :: rnrm,pnrm
+  real(wp), dimension(1:nr,1:8) :: periodic_nodes
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "adjust_for_same_dimension_ghost_cells"
+  !
+  integer, parameter :: rotation = 0
+  !
+continue
+  !
+  ! Before we start adding ghost cells, lets get the extents of the grid domain
+  ! NOTE: ASSUME GRID BOUNDARIES OF CONSTANT X AND Y
+  !
+  Grid_Min = zero
+  Grid_Max = zero
+  !
+  Grid_Min(1:nr) = minval(xyz_nodes(1:nr,:),dim=2)
+  Grid_Max(1:nr) = maxval(xyz_nodes(1:nr,:),dim=2)
+  Grid_Length = Grid_Max - Grid_Min
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Total number of interior plus ghost cells
+  !
+  n_totcel = ncell + nfbnd
+  !
+  ! Reallocate nodes_of_cell_ptr to account for ghost cells
+  !
+  call reallocate( nodes_of_cell_ptr , n_totcel+1 )
   !
   ! Set the number of nodes for each ghost cell
   !
@@ -1975,17 +1671,16 @@ continue
       !
       ! Not a periodic boundary, number of nodes is the same as interior
       !
-      inode = merge(3,4,bface(3,nf)==3)
+      inode = geom_nodes( bface(3,nf) )
       !
     else
       !
+      ! Periodic boundary, get the number of
+      ! nodes for the connected periodic cell
+      !
       pf = bface(5,nf)
-      pcell = bface(2,pf)
       !
-      n1 = nodes_of_cell_ptr(pcell)+1
-      n2 = nodes_of_cell_ptr(pcell+1)
-      !
-      inode = merge(3,4,n2-n1+1==3)
+      inode = geom_nodes( bface(3,pf) )
       !
     end if
     !
@@ -2004,12 +1699,8 @@ continue
   ! #######
   !
   ! Reallocate nodes_of_cell to account for ghost cells
-  ! 
-  allocate ( tmp_int(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error("adjust_for_ghost_cells","tmp_int",1,ierr)
   !
-  tmp_int(1:size(nodes_of_cell)) = nodes_of_cell
-  call move_alloc( from=tmp_int , to=nodes_of_cell )
+  call reallocate( nodes_of_cell , last(nodes_of_cell_ptr) )
   !
   ! Loop over the boundary faces and find the nodes of each ghost cell.
   ! The first two nodes are on the boundary face while the other nodes
@@ -2020,33 +1711,82 @@ continue
   !
   do nf = 1,nfbnd
     !
-    gcell = nf + ncell
+    ghost_cell = nf + ncell
     !
     ! Node indices for the ghost cell
     !
-    g1 = nodes_of_cell_ptr(gcell)+1
-    g2 = nodes_of_cell_ptr(gcell+1)
+    g1 = nodes_of_cell_ptr(ghost_cell)+1
+    g2 = nodes_of_cell_ptr(ghost_cell+1)
     !
     ! Information about boundary face
     !
-    icell = bface(2,nf)
-    igeom = merge(3,4,bface(3,nf)==3)
-    iside = bface(4,nf)
+    host_cell = bface(2,nf)
+    host_geom = bface(3,nf)
+    host_side = bface(4,nf)
     !
     ! Starting node index for the interior cell
     !
-    i1 = nodes_of_cell_ptr(icell)+1
+    h1 = nodes_of_cell_ptr(host_cell)+1
     !
-    ! Assign nodes on boundary from interior cell
+    ! Get the number of nodes defining this face
     !
-    nodes_of_cell(g1+0) = nodes_of_cell(i1+mod(iside,igeom))
-    nodes_of_cell(g1+1) = nodes_of_cell(i1+iside-1)
+    nfnods = num_face_nodes(host_side,host_geom)
+    !
+    ! Node offsets for this face of the host cell
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    ! Use the node offsets to get the actual indices for these nodes
+    !
+    face_nodes(1:nfnods) = nodes_of_cell( h1 + ip(1:nfnods) )
+    !
+    ! Copy the face node indices into their correct locations for the ghost cell
+    !
+    nodes_of_cell(g1:g2) = ghost_nodes(face_nodes(1:nfnods),host_geom,host_side)
+   !!
+   !! Assign nodes defining boundary face from the host cell to the ghost cell
+   !! NOTE: We have to reverse the rotation/ordering of the face nodes so that
+   !!       the nodes of the ghost cell are defined such that the normal of
+   !!       each of its faces points outwards (this is the same as the interior
+   !!       cells). For a 2D host cell, there are only two nodes so we just
+   !!       need to switch them, i.e. node1 <=> node2.  For a 3D host cell,
+   !!       switching either nodes 1 & 3 or nodes 3 & 4 will do the trick.
+   !!       Since triangle faces only have three nodes, we will switch nodes
+   !!       1 & 3 for both triangle and quad faces so that we dont have to
+   !!       distinguish between the two.
+   !!
+   !! Copy over the face nodes to the ghost cell,
+   !! keeping the same ordering as the host cell.
+   !!
+   !nodes_of_cell(g1:g1-1+nfnods) = face_nodes(1:nfnods)
+   !!
+   !! Get the index of the node to switch with node 1.
+   !! NOTE: switch_index evaluates to nfnods (i.e. 2) for a 2D host cell
+   !!       switch_index evaluates to nfnods (i.e. 3) for a triangular boundary face
+   !!       switch_index evaluates to 3 for a quadrilateral boundary face
+   !! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
+   !!                  a 1D host cell which is the correct value if the 
+   !!                  rest of the code is ever set up to run 1D.
+   !!
+   !switch_index = min( nfnods , 3 )
+   !!
+   !! Switch the two face nodes required to reverse the face node ordering
+   !!
+   !nodes_of_cell(g1) = face_nodes(switch_index)
+   !nodes_of_cell(g1-1+switch_index) = face_nodes(1)
+    !
+    if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
+      write (error_message,100)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
     !
     ! Create new nodes for the remaining ghost cell nodes
     !
-    do i = g1+2,g2
-      inode = inode + 1
-      nodes_of_cell(i) = inode
+    do i = g1,g2
+      if (nodes_of_cell(i) < 0) then
+        inode = inode + 1
+        nodes_of_cell(i) = inode
+      end if
     end do
     !
   end do
@@ -2060,13 +1800,28 @@ continue
   ! ## 3 ##
   ! #######
   !
+  ! Reallocate cell_geom to account for ghost cells
+  !
+  call reallocate( cell_geom , n_totcel )
+  !
+  ! Reallocate cell_order to account for ghost cells
+  !
+  call reallocate( cell_order , n_totcel )
+  !
+  ! Fill in the information for the ghost cells
+  !
+  do nf = 1,nfbnd
+    cell_geom(nf+ncell) = cell_geom(bface(2,nf))
+    cell_order(nf+ncell) = cell_order(bface(2,nf))
+  end do
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
   ! Reallocate xyz_nodes to account for ghost nodes
   !
-  allocate ( tmp_real(1:nr,1:n_totnod) , source=zero , stat=ierr )
-  call alloc_error("adjust_for_ghost_cells","tmp_real",1,ierr)
-  !
-  tmp_real(1:nr,1:nnode) = xyz_nodes
-  call move_alloc( from=tmp_real , to=xyz_nodes )
+  call reallocate( xyz_nodes , new_size2=n_totnod )
   !
   ! Loop over boundary faces to compute the
   ! coordinates of the newly created ghost nodes
@@ -2075,22 +1830,39 @@ continue
     !
     ! Ghost cell and the corresponding node indices
     !
-    gcell = nf + ncell
+    ghost_cell = nf + ncell
     !
-    g1 = nodes_of_cell_ptr(gcell)+1
-    g2 = nodes_of_cell_ptr(gcell+1)
+    g1 = nodes_of_cell_ptr(ghost_cell)+1
+    g2 = nodes_of_cell_ptr(ghost_cell+1)
     !
     ! Interior cell and the corresponding node indices
     !
-    icell = bface(2,nf)
+    host_cell = bface(2,nf)
     !
-    i1 = nodes_of_cell_ptr(icell)+1
-    i2 = nodes_of_cell_ptr(icell+1)
+    h1 = nodes_of_cell_ptr(host_cell)+1
+    h2 = nodes_of_cell_ptr(host_cell+1)
     !
     ! Information about boundary face
     !
-    igeom = merge(3,4,bface(3,nf)==3)
-    iside = bface(4,nf)
+    host_geom = bface(3,nf)
+    host_side = bface(4,nf)
+    !
+    ! Get the number of nodes defining this face
+    !
+    nfnods = num_face_nodes(host_side,host_geom)
+    !
+    ! Node offsets for this face of the host cell
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    ! Use the node offsets to get the actual indices for these nodes
+    !
+    face_nodes(1:nfnods) = nodes_of_cell( h1 + ip(1:nfnods) )
+    !
+    ! Outward unit normal to boundary face.
+    !
+    rnrm = face_normal( xyz_nodes(1:nr,face_nodes(1:nfnods)) )
+    rnrm = unit_vector( rnrm )
     !
     ! Conditional to treat periodic boundary conditions separately
     !
@@ -2098,62 +1870,47 @@ continue
       !
       ! This is not a periodic boundary face
       !
-      ! Nodes on face
-      !
-      n1 = nodes_of_cell(g1)
-      n2 = nodes_of_cell(g1+1)
-      !
       ! Center of boundary face by averaging the coordinates of the two boundary nodes
       !
-      ptf(:) = half*(xyz_nodes(:,n1)+xyz_nodes(:,n2))
+      ptf(1:nr) = node_center( xyz_nodes(1:nr,face_nodes(1:nfnods)) )
       !
-      ! Outward unit normal to boundary face. NOTE, we are using the
-      ! ordering of the boundary nodes for the ghost cell which is
-      ! opposite that of the interior cell so the normal is the negative
-      ! of the regular normal equation. (We are essentially finding the
-      ! inward unit normal of the boundary face within the ghost cell)
+      ! Coordinates for nodes g1 to g1-1+nfnods of the ghost cell have already
+      ! been defined so we need to define nodes g1+nfnods to g2.
       !
-      rnrm(1) = xyz_nodes(2,n1) - xyz_nodes(2,n2)
-      rnrm(2) = xyz_nodes(1,n2) - xyz_nodes(1,n1)
-      rnrm = unit_vector(rnrm)
-      !
-      ! Coordinates for nodes g1 and g1+1 of the ghost cell have already been defined
-      ! so we need to define nodes g1+2 and g2 (g1+2==g2 for triangular cells).
-      !
-      if (igeom == 3) then
+      if (host_geom == 3) then
         !
         ! Ghost node 3 for triangle
         !
-        ni = nodes_of_cell( i1 + mod(iside+1,igeom) )
+        ni = nodes_of_cell( h1 + mod(host_side+1,host_geom) )
         ng = nodes_of_cell( g1 + 2 )
         !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,n1),xyz_nodes(:,n2),xyz_nodes(:,ni)), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
                                 reflect(xyz_nodes(:,ni),ptf,rnrm), &
                                 rotation == 1)
         !
-      else if (igeom == 4) then
+      else if (host_geom == 4) then
         !
         ! Ghost node 3 for quadrilateral
         !
         ng = nodes_of_cell( g1 + 2 )
-        ni = nodes_of_cell( i1 + mod(iside+2-max(0,min(1,rotation)),igeom) )
+        ni = nodes_of_cell( h1 + mod(host_side+2-max(0,min(1,rotation)),host_geom) )
         !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,n1),xyz_nodes(:,n2),xyz_nodes(:,ni)), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
                                 reflect(xyz_nodes(:,ni),ptf,rnrm), &
                                 rotation == 1)
         !
         ! Ghost node 4 for quadrilateral
         !
         ng = nodes_of_cell( g1 + 3 )
-        ni = nodes_of_cell( i1 + mod(iside+1+max(0,min(1,rotation)),igeom) )
+        ni = nodes_of_cell( h1 + mod(host_side+1+max(0,min(1,rotation)),host_geom) )
         !
         ! Get the coordinates of ghost node 4
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,n1),xyz_nodes(:,n2),xyz_nodes(:,ni)), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
                                 reflect(xyz_nodes(:,ni),ptf,rnrm), &
                                 rotation == 1)
         !
@@ -2169,66 +1926,82 @@ continue
       !
       ! Linked cell and the corresponding node indices
       !
-      pcell = bface(2,pf)
+      periodic_cell = bface(2,pf)
       !
-      p1 = nodes_of_cell_ptr(pcell)+1
-      p2 = nodes_of_cell_ptr(pcell+1)
+      p1 = nodes_of_cell_ptr(periodic_cell)+1
+      p2 = nodes_of_cell_ptr(periodic_cell+1)
       !
       ! Information about the linked face
       !
-      pgeom = merge(3,4,bface(3,pf)==3)
-      pside = bface(4,pf)
+      periodic_geom = bface(3,pf)
+      periodic_side = bface(4,pf)
+      !
+      ! Check that the face geometry matches across this periodic boundary
+      !
+      if (num_face_nodes(periodic_side,periodic_geom) /= nfnods) then
+        write (error_message,101)
+        call stop_recon(stop_mpi,pname,error_message)
+      end if
+      !
+      ! Get the number of nodes defining the periodic cell
+      !
+      pcnods = geom_nodes(periodic_geom)
       !
       ! Node coordinates for periodic cell
       !
-      xyp(:,1:pgeom) = xyz_nodes(:,nodes_of_cell(p1:p2))
+      periodic_nodes(1:nr,1:pcnods) = xyz_nodes(1:nr,nodes_of_cell(p1:p2))
       !
-      ! Nodes on the boundary face for pcell
+      ! Node offsets for this face of the periodic cell
       !
-      np1 = nodes_of_cell( p1 + pside - 1 )
-      np2 = nodes_of_cell( p1 + mod(pside,pgeom) )
+      periodic_ip(1:nfnods) = side_nodes(1:nfnods,periodic_side,periodic_geom)
       !
-      ! Nodes on the boundary face for icell
+      ! Use the node offsets to get the actual indices for these nodes
       !
-      ni1 = nodes_of_cell( i1 + iside - 1)
-      ni2 = nodes_of_cell( i1 + mod(iside,igeom) )
+      pface_nodes(1:nfnods) = nodes_of_cell( p1 + periodic_ip(1:nfnods) )
       !
-      ! Center of boundary face for pcell
+      ! Outward unit normal to boundary face.
       !
-      ptf(:) = half * (xyz_nodes(:,np1) + xyz_nodes(:,np2))
+      pnrm = face_normal( xyz_nodes(1:nr,pface_nodes(1:nfnods)) )
+      pnrm = unit_vector( pnrm )
       !
-      ! Outward unit normal for boundary face of pcell
+      ! Center of boundary face for periodic_cell
       !
-      pnrm(1) = xyz_nodes(2,np2) - xyz_nodes(2,np1)
-      pnrm(2) = xyz_nodes(1,np1) - xyz_nodes(1,np2)
-      pnrm = unit_vector(pnrm)
+      ptf(1:nr) = node_center( xyz_nodes(1:nr,pface_nodes(1:nfnods)) )
       !
-      ! Outward unit normal for boundary face of icell
+      ! Nodes on the boundary face for periodic_cell ! NOW STORED IN pface_nodes(1:nfnods)
       !
-      inrm(1) = xyz_nodes(2,ni2) - xyz_nodes(2,ni1)
-      inrm(2) = xyz_nodes(1,ni1) - xyz_nodes(1,ni2)
-      inrm = unit_vector(inrm)
+      ! Nodes on the boundary face for host_cell ! NOW STORED IN face_nodes(1:nfnods)
+      !
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ###############  ||||||||||                   ||||||||||  ################
+      ! ###############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ################
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ##########################################################################
       !
       ! Get the angle between the two outward unit normals
       !
-      theta = acos(dot(pnrm,inrm))
+      theta = acos(dot(pnrm,rnrm))
+      ! NEED ANOTHER ANGLE FOR 3D !!!!!!
       !
-      ! Translation of the pcell nodes so that ptf is at the origin
+      ! Translation of the periodic_cell nodes so that ptf is at the origin
       !
-      do i = 1,pgeom
-        xyp(:,i) = xyp(:,i) - ptf(:)
+      do i = 1,pcnods
+        periodic_nodes(1:nr,i) = periodic_nodes(1:nr,i) - ptf(1:nr)
       end do
       !
-      ! Rotate xyp about ptf theta+180 degrees
+      ! Rotate the nodes of periodic_cell about ptf theta+180 degrees
       !
-      do i = 1,pgeom
-        xyp(:,i) = rotate_2d( xyp(:,i) , theta+pi )
+      do i = 1,pcnods
+        periodic_nodes(1:nr,i) = rotate_2d( periodic_nodes(1:nr,i) , theta+pi )
       end do
       !
-      ! Translation of the pcell nodes back to original ptf
+      ! Translation of the periodic_cell nodes back to original ptf
       !
-      do i = 1,pgeom
-        xyp(:,i) = xyp(:,i) + ptf(:)
+      do i = 1,pcnods
+        periodic_nodes(1:nr,i) = periodic_nodes(1:nr,i) + ptf(1:nr)
       end do
       !
       ! Find the distances between the two corresponding nodes of
@@ -2236,23 +2009,32 @@ continue
       ! parallel to each other but with opposite outward unit normals
       ! and therefore the distances should be equal. 
       !
-      ds1(:) = xyz_nodes(:,ni1) - xyp(:,1+mod(pside,pgeom))
-      ds2(:) = xyz_nodes(:,ni2) - xyp(:,pside)
+     !ds1(:) = xyz_nodes(:,ni1) - periodic_nodes(:,1+mod(periodic_side,pcnods))
+     !ds2(:) = xyz_nodes(:,ni2) - periodic_nodes(:,periodic_side)
+     !!
+     !if (abs(ds1(1)-ds2(1))>eps6 .or. abs(ds1(2)-ds2(2))>eps6) then
+     !  write (*,1) host_cell,periodic_cell,abs(ds1-ds2)
+     !end if
+     !!
+     !! Move the interior nodes of periodic_cell to the ghost nodes of host_cell
+     !!
+     !do i = nfnods+1,pcnods
+     !  !
+     !  ng = nodes_of_cell( g1 + i-1 )
+     !  np = nodes_of_cell( p1 + mod(periodic_side+i-2,pcnods) )
+     !  !
+     !  xyz_nodes(:,ng) = xyz_nodes(:,np) + ds1(:)
+     !  !
+     !end do
       !
-      if (abs(ds1(1)-ds2(1))>eps6 .or. abs(ds1(2)-ds2(2))>eps6) then
-        write (*,1) icell,pcell,abs(ds1-ds2)
-      end if
-      !
-      ! Move the interior nodes of pcell to the ghost nodes of icell
-      !
-      do i = 3,pgeom
-        !
-        ng = nodes_of_cell( g1 + i-1 )
-        np = nodes_of_cell( p1 + mod(pside+i-2,pgeom) )
-        !
-        xyz_nodes(:,ng) = xyz_nodes(:,np) + ds1(:)
-        !
-      end do
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ###############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ################
+      ! ###############  ||||||||||                   ||||||||||  ################
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ##########################################################################
       !
     end if
     !
@@ -2262,103 +2044,38 @@ continue
   !
   call save_global_grid
   !
-  1 format ("ICELL = ",i0,"  PCELL = ",i0,"   (delta x,delta y) = ",2es24.11)
+  1 format ("HOSTCELL = ",i0,"  PCELL = ",i0,"   (delta x,delta y) = ",2es24.11)
   2 format (/," ********************* WARNING!!! *********************",/, &
               "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
               "  EXACT END OF A PERIOD FOR THE VORTEX PROBLEM. THE",/, &
               "  FINAL TIME CORRESPONDS TO",f12.5," TOTAL PERIODS.",/, &
               " ********************* WARNING!!! *********************",/)
+  100 format ("Not sure what nodes to use for the ghost cell based on ", &
+              "the host cell geometry encountered.")
+  101 format ("The face geometry across a periodic boundary does not match!")
   !
-end subroutine adjust_for_ghost_cells
-!
-!###############################################################################
-!
-subroutine save_global_grid
-  !
-  !.. Use Statements ..
-  use geovar
-  use flowvar, only : global_usp
-  !
-  !.. Local Scalars ..
-  integer :: n,np,n1,n2,ierr
-  !
-continue
-  !
-  n_global_node = nnode
-  n_global_cell = ncell
-  n_global_fbnd = nfbnd
-  n_global_totnod = n_totnod
-  n_global_totcel = n_totcel
-  !
-  n1 = size(xyz_nodes,dim=1)
-  n2 = size(xyz_nodes,dim=2)
-  allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , stat=ierr )
-  call alloc_error("save_global_grid","global_xyz_nodes",1,ierr)
-  !
-  n1 = size(nodes_of_cell_ptr)
-  allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , stat=ierr )
-  call alloc_error("save_global_grid","global_nofc_ptr",1,ierr)
-  !
-  n1 = size(nodes_of_cell)
-  allocate ( global_nofc(1:n1) , source=nodes_of_cell , stat=ierr )
-  call alloc_error("save_global_grid","global_nofc",1,ierr)
-  !
-  ! Create the global pts_in_cell_ptr. This will be done later
-  ! but a global version is never made before the global grid
-  ! is partitioned and each processor creates its own separate
-  ! local grid.
-  !
-  allocate ( global_pinc_ptr(1:n_totcel+1) , source=0 , stat=ierr )
-  call alloc_error("save_global_grid","global_pinc_ptr",1,ierr)
-  !
-  do n = 1,n_totcel
-    np = nodes_of_cell_ptr(n+1) - nodes_of_cell_ptr(n)
-    global_pinc_ptr(n+1) = global_pinc_ptr(n) + merge(n_sp2dt,n_sp2dq,np==3)
-  end do
-  !
-  n_global_solpts = global_pinc_ptr(ncell+1)
-  n_global_totpts = last(global_pinc_ptr)
-  !
-  ! Now the only remaining global grid array to create is global_xyz
-  ! We will have to do a collective communication of the local xyz
-  ! arrays to accomplish this after they are created. We will allocate
-  ! the array here though since we have the parameters needed to do so.
-  !
-  allocate ( global_xyz(1:nr,1:n_global_totpts) , source=zero , stat=ierr )
-  call alloc_error("save_global_grid","global_xyz",1,ierr)
-  !
-  ! Also allocate the global solution arrays for use later
-  !
-  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
-  call alloc_error("save_global_grid","global_usp",1,ierr)
-  !
-  ! Create the global cell offset array
-  !
-  allocate ( global_cell_offset(1:n_global_totcel) , source=0 , stat=ierr )
-  call alloc_error("save_global_grid","global_cell_offset",1,ierr)
-  !
-  do n = 1,n_global_totcel-1
-    np = global_nofc_ptr(n+1) - global_nofc_ptr(n)
-    global_cell_offset(n+1) = global_cell_offset(n) + &
-                              merge(n_sp2dt,n_sp2dq,np==3)
-  end do
-  !
-end subroutine save_global_grid
+end subroutine adjust_for_same_dimension_ghost_cells
 !
 !###############################################################################
 !
 subroutine find_bc_conflicts
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface,nnode,n_fp1de
+  use geovar, only : nfbnd,bface,nnode
+  use order_mod, only : n_fp1de
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : bc_conflict
+  use geovar, only : cell_geom
   !
   !.. Local Scalars ..
   integer :: n,nf,i,ip,is,j,n1,n2,nf1,nf2,ierr
   integer :: host_cell,cell_type,face_loc
   integer :: n_2bc_nodes,nfm
   character(len=100) :: array_name
+  character(len=1000) :: error_message
+  !
+  !.. Local Arrays ..
+  integer, dimension(Geom_Min:Geom_Max) :: error_count
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: mskp
@@ -2366,10 +2083,15 @@ subroutine find_bc_conflicts
   integer, allocatable, dimension(:) :: faces_with_node
   integer, allocatable, dimension(:,:) :: bface_nodes
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_bc_conflicts"
+  !
 continue
   !
+  error_count = 0
+  !
   allocate ( bface_nodes(1:4,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error("find_bc_conflicts","bface_nodes",1,ierr)
+  call alloc_error(pname,"bface_nodes",1,ierr)
   !
   ! Find the nodes that define each boundary face
   !
@@ -2385,20 +2107,20 @@ continue
     ! Get the nodes of the host cell on the boundary face
     !
     select case (cell_type)
-      case (2)
+      case (Geom_Quad)
         bface_nodes(1:2,nf) = face_nodes_quad( face_loc , nodes_of_cell(n1:n2) )
-      case (3)
+      case (Geom_Tria)
         bface_nodes(1:2,nf) = face_nodes_tria( face_loc , nodes_of_cell(n1:n2) )
-      case (4)
+      case (Geom_Tetr)
         bface_nodes(1:3,nf) = face_nodes_tetr( face_loc , nodes_of_cell(n1:n2) )
-      case (5)
+      case (Geom_Pyra)
         bface_nodes(1:4,nf) = face_nodes_pyra( face_loc , nodes_of_cell(n1:n2) )
-      case (6)
+      case (Geom_Pris)
         bface_nodes(1:4,nf) = face_nodes_pris( face_loc , nodes_of_cell(n1:n2) )
-      case (8)
+      case (Geom_Hexa)
         bface_nodes(1:4,nf) = face_nodes_hexa( face_loc , nodes_of_cell(n1:n2) )
       case default
-        bface_nodes(:,nf) = -99
+        bface_nodes(:,nf) = -Geom_Unknown
     end select
     !
   end do
@@ -2406,15 +2128,35 @@ continue
   ! Check for any bad nodes
   !
   if (any(bface_nodes < 0)) then
-    call stop_recon(stop_mpi,"find_bc_conflicts", &
-         "ERROR FINDING THE NODES OF THE HOST CELL ON THE BOUNDARY FACE!")
+    !
+    error_count(Geom_Node) = count(bface_nodes(1,:) == -Geom_Node)
+    error_count(Geom_Edge) = count(bface_nodes(1,:) == -Geom_Edge)
+    error_count(Geom_Tria) = count(bface_nodes(1,:) == -Geom_Tria)
+    error_count(Geom_Quad) = count(bface_nodes(1,:) == -Geom_Quad)
+    error_count(Geom_Tetr) = count(bface_nodes(1,:) == -Geom_Tetr)
+    error_count(Geom_Pyra) = count(bface_nodes(1,:) == -Geom_Pyra)
+    error_count(Geom_Pris) = count(bface_nodes(1,:) == -Geom_Pris)
+    error_count(Geom_Hexa) = count(bface_nodes(1,:) == -Geom_Hexa)
+    error_count(Geom_Unknown) = count(bface_nodes(1,:) == -Geom_Unknown)
+    !
+    write (error_message,4)
+    do n = Geom_Min,Geom_Max
+      if (error_count(n) > 0) then
+        write (error_message,5) trim(error_message)//new_line('a'), &
+                                error_count(n),trim(Geom_String(n))
+      end if
+    end do
+    write (error_message,6) trim(error_message)//new_line('a'),sum(error_count)
+    !
+    call stop_recon(stop_mpi,pname,error_message)
+    !
   end if
   !
   ! Mark the nodes defining each boundary face, storing ahead
   ! NOTE: Skip all communication type boundary faces
   !
   allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , stat=ierr )
-  call alloc_error("find_bc_conflicts","faces_with_node_ptr",1,ierr)
+  call alloc_error(pname,"faces_with_node_ptr",1,ierr)
   !
   do nf = 1,nfbnd
     if (any(bface(1,nf) == bc_comm)) cycle ! skip all communication boundaries
@@ -2431,7 +2173,7 @@ continue
   end do
   !
   allocate ( faces_with_node(1:last(faces_with_node_ptr)) , source=0 , stat=ierr )
-  call alloc_error("find_bc_conflicts","faces_with_node",1,ierr)
+  call alloc_error(pname,"faces_with_node",1,ierr)
   !
   ! Now store the faces surrounding each node in faces_with_node
   ! NOTE: Skip all communication type boundary faces
@@ -2458,7 +2200,7 @@ continue
   ! Mark any nodes that are found.
   !
   allocate ( mskp(1:nnode) , source=fals , stat=ierr )
-  call alloc_error("find_bc_conflicts","mskp",1,ierr)
+  call alloc_error(pname,"mskp",1,ierr)
   !
   do n = 1,size(faces_with_node_ptr)-1
     nf1 = faces_with_node_ptr(n)+1
@@ -2470,7 +2212,7 @@ continue
   end do
   !
   allocate ( bc_conflict(1:count(mskp)) , stat=ierr )
-  call alloc_error("find_bc_conflicts","bc_conflict",1,ierr)
+  call alloc_error(pname,"bc_conflict",1,ierr)
   !
   ! Use the mask and faces_with_node arrays to extract the nodes
   ! and corresponding boundary faces that have non-matching
@@ -2497,7 +2239,7 @@ continue
     !
     allocate ( bc_conflict(i)%slave(1:nf2-nf1) , stat=ierr )
     write (array_name,1) "bc_conflict(",i,")%slave"
-    call alloc_error("find_bc_conflicts",array_name,1,ierr)
+    call alloc_error(pname,array_name,1,ierr)
     !
     ! Save the master boundary face information and set the
     ! partition number to the root partition number (zero).
@@ -2514,8 +2256,8 @@ continue
     bc_conflict(i)%is_local = true
     !
     ! Store all faces for the "slave" boundary faces.
-    ! NOTE: The merge function skips the index "nf1-1+nfm"
-    !       within the array faces_with_node.
+    ! NOTE: When nf >= nfm, omitting the "-1" in the index to faces_with_node
+    !       is necessary to skip the index "nf1-1+nfm" within the array.
     !
     do nf = 1,nf2-nf1
       if (nf < nfm) then
@@ -2536,6 +2278,27 @@ continue
     !
     nf = bc_conflict(i)%master%face
     !
+    ! ##########################################################################
+    ! ##########################################################################
+    ! ###################### !!!! START OF TEMPORARY !!!! ######################
+    ! ##########################################################################
+    ! ##########################################################################
+    !
+    ! Quick check to see if the host cell geometry is not 2D. The following
+    ! conditional statements need to be altered before they are valid
+    ! for non-2D cells so kill the program if the host cell is not 2D.
+    !
+    if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
+      write (error_message,7)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
+    ! ##########################################################################
+    ! ##########################################################################
+    ! ####################### !!!! END OF TEMPORARY !!!! #######################
+    ! ##########################################################################
+    ! ##########################################################################
+    !
     if (n == bface_nodes(1,nf)) then
       bc_conflict(i)%master%flux_point = 1
     else if (n == bface_nodes(2,nf)) then
@@ -2549,6 +2312,27 @@ continue
     do j = 1,size(bc_conflict(i)%slave)
       !
       nf = bc_conflict(i)%slave(j)%face
+      !
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ###################### !!!! START OF TEMPORARY !!!! ######################
+      ! ##########################################################################
+      ! ##########################################################################
+      !
+      ! Quick check to see if the host cell geometry is not 2D. The following
+      ! conditional statements need to be altered before they are valid
+      ! for non-2D cells so kill the program if the host cell is not 2D.
+      !
+      if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
+        write (error_message,7)
+        call stop_recon(stop_mpi,pname,error_message)
+      end if
+      !
+      ! ##########################################################################
+      ! ##########################################################################
+      ! ####################### !!!! END OF TEMPORARY !!!! #######################
+      ! ##########################################################################
+      ! ##########################################################################
       !
       if (n == bface_nodes(1,nf)) then
         bc_conflict(i)%slave(j)%flux_point = 1
@@ -2565,27 +2349,23 @@ continue
   ! Deallocate the local arrays before leaving
   !
   deallocate ( bface_nodes , stat=ierr )
-  call alloc_error("find_bc_conflicts","bface_nodes",2,ierr)
+  call alloc_error(pname,"bface_nodes",2,ierr)
   deallocate ( faces_with_node_ptr , stat=ierr )
-  call alloc_error("find_bc_conflicts","faces_with_node_ptr",2,ierr)
+  call alloc_error(pname,"faces_with_node_ptr",2,ierr)
   deallocate ( faces_with_node , stat=ierr )
-  call alloc_error("find_bc_conflicts","faces_with_node",2,ierr)
+  call alloc_error(pname,"faces_with_node",2,ierr)
   deallocate ( mskp , stat=ierr )
-  call alloc_error("find_bc_conflicts","mskp",2,ierr)
-  !
-  ! Output the results for debugging
-  !
- !write (iout,2) size(bc_conflict)
- !do n = 1,size(bc_conflict)
- !  write (iout,3) n,bc_conflict(n)%node, &
- !                (bc_conflict(n)%faces(i), i=1,size(bc_conflict(n)%faces))
- !end do
+  call alloc_error(pname,"mskp",2,ierr)
   !
   ! Format Statements
   !
   1 format (a,i0,a)
   2 format (//," Number of BC Conflicts = ",i0,/)
   3 format (" Conflict #",i0,": Node = ",i0,"; Faces = ",*(i0,:,", "))
+  4 format ("ERROR FINDING THE NODES OF")
+  5 format (a,20x,i10,' - ',a)
+  6 format (a,23x,"HOST CELLS ON ",i0," BOUNDARY FACES!")
+  7 format ("The following conditionals need updating for non-2D Geometries.")
   !
 end subroutine find_bc_conflicts
 !
@@ -2594,26 +2374,31 @@ end subroutine find_bc_conflicts
 subroutine read_restart_file
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,n_sp2dt,n_sp2dq,pts_in_cell_ptr, &
-                           n_global_cell,global_nofc_ptr,global_cell_offset
+  use geovar,       only : ncell,pts_in_cell_ptr
+  use geovar,       only : n_global_cell,global_nofc_ptr,global_pinc_ptr
   use ovar,         only : itrst,tmrst,dtrst
   use flowvar,      only : usp,global_usp
   use parallel_mod, only : cell_map,cell_map_ptr
   !
   !.. Local Scalars ..
   integer :: n,nc,nc1,n1,n2,np,gp,ierr
+  integer :: iorst
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_restart_file"
+  character(len=*), parameter :: fname = "out.rst"
   !
 continue
   !
-  open(iorst,file="out.rst",status="old",action="read", &
-             form="unformatted",iostat=ierr)
-  call io_error("read_restart_file","out.rst",1,ierr)
+  open(newunit=iorst,file=fname,status="old",action="read", &
+                     form="unformatted",iostat=ierr)
+  call io_error(pname,fname,1,ierr)
   !
   read (iorst) itrst, tmrst, dtrst
   read (iorst) global_usp
   !
   close (iorst,iostat=ierr)
-  call io_error("read_restart_file","out.rst",2,ierr)
+  call io_error(pname,fname,2,ierr)
   !
   ! If using multiple processors, copy the solution data from 
   ! only those cells that are local to this processor into usp
@@ -2632,7 +2417,7 @@ continue
       !
       ! Starting point of the data for this cell in the global_usp array
       !
-      gp = global_cell_offset( cell_map(nc1+nc) )
+      gp = global_pinc_ptr( cell_map(nc1+nc) )
       !
       ! Copy the solution data from the global_usp array for this cell
       !
@@ -2663,8 +2448,11 @@ subroutine write_restart_file(itnum)
   integer, intent(in) :: itnum
   !
   !.. Local Scalars ..
-  integer :: ierr
+  integer :: ierr,iorst
   character(len=40) :: fname
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_restart_file"
   !
 continue
   !
@@ -2682,15 +2470,15 @@ continue
       write (fname,'("out.",i0.8,".done.rst")') itcur
     end if
     !
-    open (iorst,file=trim(adjustl(fname)),status="replace",action="write", &
-                form='unformatted',iostat=ierr)
-    call io_error("write_restart_file",trim(adjustl(fname)),1,ierr)
+    open (newunit=iorst,file=trim(adjustl(fname)),status="replace", &
+                        action="write",form='unformatted',iostat=ierr)
+    call io_error(pname,trim(adjustl(fname)),1,ierr)
     !
     write (iorst) itcur, time, d_t
     write (iorst) global_usp
     !
     close (iorst,iostat=ierr)
-    call io_error("write_restart_file",trim(adjustl(fname)),2,ierr)
+    call io_error(pname,trim(adjustl(fname)),2,ierr)
     !
   end if
   !
@@ -2700,203 +2488,14 @@ end subroutine write_restart_file
 !
 !###############################################################################
 !
-subroutine write_tecplot_file(itnum)
-  !
-  ! Output the solution in tecplot format
-  !
-  !.. Use Statements ..
-  use geovar,  only : ncell,nr,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
-                      pts_in_cell_ptr,tria_connectivity,quad_connectivity
-  use ovar,    only : gam,pv_in
-  use flowvar, only : usp
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: itnum
-  !
-  !.. Local Scalars ..
-  integer :: i,k,n,n1,n2,p1,ierr
-  character(len=40) :: fname
-  !
-continue
-  !
-  if (itnum >= 0) then
-    write (fname,'("out.tp.",i0.8,".dat")') itnum
-  else
-    fname = "out.tp.final.dat"
-  end if
-  !
-  open (iotec,file=trim(adjustl(fname)),status="replace", &
-              action="write",form="formatted",iostat=ierr)
-  call io_error("write_tecplot_file",trim(adjustl(fname)),1,ierr)
-  !
-  write (iotec,1)
-  write (iotec,2) n_solpts,ncell*n_order*n_order
-  !
-  ! Write the coordinates of the solution points
-  !
-  do n = 1,nr
-    write (iotec,3) (xyz(n,i), i=1,n_solpts)
-  end do
-  !
-  ! Write the flow variables
-  !
-  write (iotec,3) ( usp(1,i) , i=1,n_solpts)
-  do n = 2,nq-1
-    write (iotec,3) ( usp(n,i)/usp(1,i) , i=1,n_solpts)
-  end do
-  write (iotec,3) ( pressure_cv_sp( usp(:,i) ) , i=1,n_solpts)
-  write (iotec,3) ( mach_number_cv_sp( usp(:,i) ) , i=1,n_solpts)
-  write (iotec,3) ( entropy_cv_sp( usp(:,i) ) , i=1,n_solpts)
-  !
-  ! Write out the connectivity matrix
-  !
-  do n = 1,ncell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    p1 = pts_in_cell_ptr(n)+1
-    do i = 1,n_order*n_order
-      write (iotec,4) (p1+merge(tria_connectivity(k,i), &
-                                quad_connectivity(k,i), &
-                                n2-n1+1 == 3), k=1,4)
-    end do
-  end do
-  !
-  ! Finished writing tecplot solution file
-  !
-  close (iotec,iostat=ierr)
-  call io_error("write_tecplot_file",trim(adjustl(fname)),2,ierr)
-  !
-  ! Format Statements
-  !
-  1 format ('VARIABLES = "X", "Y", "RHO", "u", "v", ', &
-            '"Pressure", "Mach", "Entropy"')
-  2 format ('ZONE T="Solution", N=',i8,', E=',i8, &
-            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL' )
-  3 format (5es18.10)
-  4 format (10i8)
-  !
-end subroutine write_tecplot_file
-!
-!###############################################################################
-!
-subroutine write_tecplot_exact_sol()
-  !
-  ! Output the solution in tecplot format
-  !
-  !.. Use Statements ..
-  use geovar,  only : nr,n_order,tria_connectivity,quad_connectivity
-  use ovar,    only : itcur,Period_Timesteps,velref,aref,time, &
-                      Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y, &
-                      Period_Time,itestcase
-  !
-  !.. Aliased Use Statements ..
-  use geovar,  only : ncell => n_global_cell
-  use geovar,  only : n_solpts => n_global_solpts
-  use geovar,  only : nodes_of_cell_ptr => global_nofc_ptr
-  use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
-  use geovar,  only : xyz => global_xyz
-  !
-  !.. Local Scalars ..
-  integer :: i,k,n,n1,n2,p1,ierr
-  real(wp) :: delx,dely,xoffset,yoffset
-  logical, save :: is_first_write = true
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable, dimension(:,:) :: exact
-  !
-  !.. Local Parameters ..
-  integer, parameter :: io = 21
-  !
-continue
-  !
-  if (is_first_write) then
-    open (io,file="out.exact.tec.dat",status="replace", &
-             action="write",iostat=ierr)
-    call io_error("write_tecplot_exact_sol","out.exact.tec.dat",1,ierr)
-    write (io,1)
-  end if
-  !
-  allocate ( exact(1:nq,1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error("write_tecplot_exact_sol","exact",1,ierr)
-  !
-  ! If running one of the vortex transport problems, compute the change
-  ! in position of the vortex since the start of the current period.
-  !
-  if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
-  !
-  ! Get the exact solution at the current time
-  !
-  do n = 1,n_solpts
-    !
-    xoffset = merge( delx , delx-Grid_Length_X , xyz(1,n)-delx >= Grid_Min_X )
-    yoffset = merge( dely , dely-Grid_Length_Y , xyz(2,n)-dely >= Grid_Min_Y )
-    !
-    exact(:,n) = vortex2D( xyz(1,n)-xoffset , xyz(2,n)-yoffset )
-    !
-  end do
-  !
-  if (is_first_write) then
-    write (io,2) time,n_solpts,ncell*n_order*n_order
-  else
-    write (io,3) time,n_solpts,ncell*n_order*n_order
-  end if
-  !
-  ! Write the coordinates of the solution points
-  !
-  if (is_first_write) then
-    do n = 1,nr
-      write (io,4) (xyz(n,i), i=1,n_solpts)
-    end do
-  end if
-  !
-  ! Write the density
-  !
-  write (io,4) (exact(1,i), i=1,n_solpts)
-  !
-  ! Write out the connectivity matrix
-  !
-  if (is_first_write) then
-    do n = 1,ncell
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-      p1 = pts_in_cell_ptr(n)+1
-      do i = 1,n_order*n_order
-        write (io,5) (p1+merge(tria_connectivity(k,i), &
-                               quad_connectivity(k,i), &
-                               n2-n1+1 == 3), k=1,4)
-      end do
-    end do
-  end if
-  !
-  ! Finished writing tecplot solution file
-  !
-  deallocate ( exact , stat=ierr )
-  call alloc_error("write_tecplot_exact_sol","exact",2,ierr)
-  !
-  is_first_write = fals
-  !
-  ! Format Statements
-  !
-  1 format ('VARIABLES = "X", "Y", "RHO"')
-  2 format ('ZONE T="t=',f6.2,'", N=',i0,', E=',i0, &
-            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL' )
-  3 format ('ZONE T="t=',f6.2,'", N=',i0,', E=',i0, &
-            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL', &
-            ', VARSHARELIST = ([1,2]=1), CONNECTIVITYSHAREZONE = 1')
-  4 format (5es18.10)
-  5 format (10i8)
-  !
-end subroutine write_tecplot_exact_sol
-!
-!###############################################################################
-!
 subroutine write_final_error
   !
-  use geovar, only : n_order,n_global_cell, &
-                     n_global_solpts,global_cell_offset
-  use ovar,   only : itestcase,flux_divergence, &
-                     vnloc,vkloc,vlone,vlinf,vltwo, &
-                     unloc,ukloc,ulone,ulinf,ultwo
+  use geovar, only : n_global_cell
+  use geovar, only : n_global_solpts,global_pinc_ptr
+  use ovar,   only : itestcase,flux_divergence
+  use ovar,   only : vnloc,vkloc,vlone,vlinf,vltwo
+  use ovar,   only : unloc,ukloc,ulone,ulinf,ultwo
+  use order_mod, only : n_order
   !
   !.. Aliased Use Statements ..
   use geovar, only : xyz => global_xyz
@@ -2904,40 +2503,35 @@ subroutine write_final_error
   !.. Local Scalars ..
   integer :: i
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_final_error"
+  !
 continue
   !
   write (iout,*)
   !
- !write (iout,33) itestcase,iopSP,iopCE,kSP,kCE,ibdvu,flux_divergence,ncell, &
- !                itcur,time,nloc,kloc,xyz(1,kloc),xyz(2,kloc)
   write (iout,34) itestcase,flux_divergence, &
                   n_order,n_global_cell,n_global_solpts, &
-                  vnloc(1),global_cell_offset(vnloc(1))+vkloc(1), &
-                  xyz(1,global_cell_offset(vnloc(1))+vkloc(1)), &
-                  xyz(2,global_cell_offset(vnloc(1))+vkloc(1))
+                  vnloc(1),global_pinc_ptr(vnloc(1))+vkloc(1), &
+                  xyz(1,global_pinc_ptr(vnloc(1))+vkloc(1)), &
+                  xyz(2,global_pinc_ptr(vnloc(1))+vkloc(1))
   !
   write (iout,35) (vlone(i), &
                    vlinf(i), &
                    vltwo(i), &
-                   xyz(1,global_cell_offset(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=1,nq-1)
+                   xyz(1,global_pinc_ptr(vnloc(i))+vkloc(i)), &
+                   xyz(2,global_pinc_ptr(vnloc(i))+vkloc(i)), i=1,nq-1)
   write (iout,36) (ulone(i), &
                    ulinf(i), &
                    ultwo(i), &
-                   xyz(1,global_cell_offset(unloc(i))+ukloc(i)), &
-                   xyz(2,global_cell_offset(unloc(i))+ukloc(i)), i=nq+1,nq+1)
+                   xyz(1,global_pinc_ptr(unloc(i))+ukloc(i)), &
+                   xyz(2,global_pinc_ptr(unloc(i))+ukloc(i)), i=nq+1,nq+1)
   write (iout,37) (vlone(i), &
                    vlinf(i), &
                    vltwo(i), &
-                   xyz(1,global_cell_offset(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_cell_offset(vnloc(i))+vkloc(i)), i=nq+1,nq+1)
+                   xyz(1,global_pinc_ptr(vnloc(i))+vkloc(i)), &
+                   xyz(2,global_pinc_ptr(vnloc(i))+vkloc(i)), i=nq+1,nq+1)
   !
- !33 format (/'itestcase =',i2,', iopSP,CE =',2i2,', kSP,CE =',2i2, &
- !           ', ibdvu =',i2,', flux_divergence =',i2,/,'ncell ',i7,', itcur ', i7, &
- !           ', time',f8.2, /,'max density err at k,j = ', i7, i7,'  at x, y ', 2e10.2)
- !34 format (/'itestcase =',i2,', kSP =',i2,', flux_divergence =',i2,/, &
- !            'ncell ',i7,', itcur ',i7,', time',f8.2, /, &
- !            'max density err at k,j = ', i7, i4,'  at x, y ', 2e10.2)
   34 format ('itestcase =',i2,/, &
              'flux_divergence  =',i2,//, &
              'Order of solution polynomial = ',i10,/, &
@@ -2959,173 +2553,11 @@ end subroutine write_final_error
 !
 !###############################################################################
 !
-subroutine write_final_vortex_error
-  !
-  use geovar, only : n_order,n_global_cell, &
-                     n_global_solpts,global_cell_offset
-  use ovar,   only : itestcase,flux_divergence,vortex_error
-  !
-  !.. Aliased Use Statements ..
-  use geovar, only : xyz => global_xyz
-  !
-  !.. Local Scalars ..
-  integer :: i,n,m
-  integer :: nloc,kloc,gloc
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:nq+1,1:2) :: loc
-  !
-continue
-  !
-  write (iout,*)
-  !
-  do n = 1,2
-    do m = 1,nq+1
-      loc(m,n) = global_cell_offset(nint(vortex_error(m,n,4))) + vortex_error(m,n,5)
-    end do
-  end do
-  !
-  nloc = nint(vortex_error(1,1,4))
-  kloc = nint(vortex_error(1,1,5))
-  gloc = global_cell_offset(nloc) + kloc
-  !
-  write (iout,34) itestcase,flux_divergence, &
-                  n_order,n_global_cell,n_global_solpts, &
-                  nloc,gloc, xyz(1,gloc), xyz(2,gloc)
-  !
-  ! Write out Gauss quadrature error
-  !
-  write (iout,35) "Gauss  ", &
-                  (vortex_error(m,1,1),vortex_error(m,1,3),vortex_error(m,1,2), &
-                  xyz(1,loc(m,1)),xyz(2,loc(m,1)), m=1,nq+1)
-  !
-  ! Write out Lobatto quadrature error
-  !
-  write (iout,35) "Lobatto", &
-                  (vortex_error(m,2,1),vortex_error(m,2,3),vortex_error(m,2,2), &
-                  xyz(1,loc(m,2)),xyz(2,loc(m,2)), m=1,nq+1)
-  !
-  34 format ('itestcase =',i2,/, &
-             'flux_divergence  =',i2,//, &
-             'Order of solution polynomial = ',i10,/, &
-             'Number of grid cells         = ',i10,/, &
-             'Number of solution points    = ',i10,//, &
-             'Max density error in cell = ',i10,/, &
-             '        at solution point = ',i10,/, &
-             '         with coordinates = ',2es14.6,/)
-  35 format (/,' ',a,'  -       L1           Max            L2     @      x             y',/,&
-  ' ------------------------------------------------------------------------------',/,&
-  ' Density  ',5es14.6,/,&
-  ' Vx       ',5es14.6,/,&
-  ' Vy       ',5es14.6,/,&
-  ' Pressure ',5es14.6,/,&
-  ' Entropy  ',5es14.6,/,&
-  ' ------------------------------------------------------------------------------',/)
-  !
-end subroutine write_final_vortex_error
-!
-!###############################################################################
-!
-subroutine write_final_advec_error
-  !
-  use geovar, only : n_order,n_global_cell, &
-                     n_global_solpts,global_cell_offset
-  use ovar,   only : itestcase,flux_divergence,advec_error
-  !
-  !.. Aliased Use Statements ..
-  use geovar, only : xyz => global_xyz
-  !
-  !.. Local Scalars ..
-  integer :: i,n,m
-  integer :: nloc,kloc,gloc
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:3,1:3) :: loc
-  !
-continue
-  !
-  write (iout,*)
-  !
-  do n = 1,3
-    do m = 1,3
-      loc(m,n) = global_cell_offset(nint(advec_error(m,n,4))) + advec_error(m,n,5)
-    end do
-  end do
-  !
-  nloc = nint(advec_error(1,1,4))
-  kloc = nint(advec_error(1,1,5))
-  gloc = global_cell_offset(nloc) + kloc
-  !
-  write (iout,34) itestcase,flux_divergence, &
-                  n_order,n_global_cell,n_global_solpts, &
-                  nloc,gloc, xyz(1,gloc), xyz(2,gloc)
-  !
-  ! Write out Gauss quadrature error
-  !
-  write (iout,35) "Gauss  ", &
-                  (advec_error(m,1,1),advec_error(m,1,3),advec_error(m,1,2), &
-                  xyz(1,loc(m,1)),xyz(2,loc(m,1)), m=1,3)
-  !
-  ! Write out Radau quadrature error
-  !
-  write (iout,35) "Radau  ", &
-                  (advec_error(m,2,1),advec_error(m,2,3),advec_error(m,2,2), &
-                  xyz(1,loc(m,2)),xyz(2,loc(m,2)), m=1,3)
-  !
-  ! Write out Lobatto quadrature error
-  !
-  write (iout,35) "Lobatto", &
-                  (advec_error(m,3,1),advec_error(m,3,3),advec_error(m,3,2), &
-                  xyz(1,loc(m,3)),xyz(2,loc(m,3)), m=1,3)
-  !
-  34 format ('itestcase =',i2,/, &
-             'flux_divergence  =',i2,//, &
-             'Order of solution polynomial = ',i10,/, &
-             'Number of grid cells         = ',i10,/, &
-             'Number of solution points    = ',i10,//, &
-             'Max density error in cell = ',i10,/, &
-             '        at solution point = ',i10,/, &
-             '         with coordinates = ',2es14.6,/)
-  35 format (/,' ',a,'  -       L1           Max            L2     @      x             y',/,&
-  ' ------------------------------------------------------------------------------',/,&
-  ' Density  ',5es14.6,/,&
-  ' Pressure ',5es14.6,/,&
-  ' Entropy  ',5es14.6,/,&
-  ' ------------------------------------------------------------------------------',/)
-  !
-end subroutine write_final_advec_error
-!
-!###############################################################################
-!
-subroutine write_entropy_error
-  !
-  use geovar, only : ncell,n_sp1de
-  use ovar
-  !
-  !
-continue
-  !
- !write (iout,34) itestcase,iopSP,iopCE,ioparcL,kSP,kCE,ibdvu,flux_divergence
-  write (iout,35) itestcase,n_sp1de,flux_divergence
-  !
-  write (iout,38) ncell,nentmax,kentmax,xentmax,yentmax
-  !
-  write (iout,40) entmax,entL2
-  !
-  34 format (/'case',i2,', op SP CE',2i2,', arcL',i2, &
-              ', kSP CE',2i2, ', ibdvu',i2,' flux_divergence',i2)
-  35 format (/'case',i2,', kSP ',i2,' flux_divergence',i2)
-  38 format ('ncell',i7, ' max En at j,k ',2i8, ', x,y ', 2f8.3)
-  40 format ('max en', e10.3, ', L2 en', e10.3/)
-  !
-end subroutine write_entropy_error
-!
-!###############################################################################
-!
 subroutine write_results_file(iflag,icount)
   !
-  use geovar,  only : n_global_solpts,p_order
+  use geovar,  only : n_global_solpts
   use ovar,    only : ultwo,vltwo,work_units
+  use order_mod, only : p_order
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -3135,8 +2567,15 @@ subroutine write_results_file(iflag,icount)
   integer  :: i,ierr
   real(wp) :: comp_cost
   !
+  !.. Local Saved Scalars ..
+  integer, save :: iores
+  !
   !.. Local Arrays ..
   real(wp), dimension(1:nq+1) :: u2,v2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_results_file"
+  character(len=*), parameter :: fname = "results.dat"
   !
 continue
   !
@@ -3144,8 +2583,8 @@ continue
   !
   if (iflag == 1) then
     !
-    open (iores,file="results.dat",status="replace",action="write",iostat=ierr)
-    call io_error("write_results_file","results.dat",1,ierr)
+    open (newunit=iores,file=fname,status="replace",action="write",iostat=ierr)
+    call io_error(pname,fname,1,ierr)
     !
     write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     !
@@ -3173,10 +2612,10 @@ continue
   !
   if (iflag == -1) then
     close (iores,iostat=ierr)
-    call io_error("write_results_file","results.dat",2,ierr)
+    call io_error(pname,fname,2,ierr)
   end if
   !
- !call write_tecplot_exact_sol
+  ! Format Statements
   !
   1 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "Energy" &
            &"Entropy" "u" "v" "Pressure" "||V||" "Work units"',/, &
@@ -3189,217 +2628,10 @@ end subroutine write_results_file
 !
 !###############################################################################
 !
-subroutine write_vortex_results_file(iflag,icount)
-  !
-  use geovar,  only : n_global_solpts,n_order,n_global_cell
-  use ovar,    only : vortex_error,work_units,Period_Timesteps
-  use ovar,    only : iop_solpts,dt_in,iRKtype,num_stages
-  use ovar,    only : init_loc
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iflag
-  integer, intent(in) :: icount
-  !
-  !.. Local Scalars ..
-  integer   :: i,n,m,ierr
-  real(wp) :: h,comp_cost,period
- !character(len=11) :: rk_string
- !character(len=15) :: zonetitle
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nq+1,1:2,1:3) :: e2
-  !
-continue
-  !
-  h = log10(one/sqrt(real(n_global_solpts,kind=wp)))
-  !
- !write (zonetitle,2) n_order, merge("Gauss","Lobatto",iop_solpts==Gauss_Legendre)
- !rk_string = merge(char_rk(iRKtype),clas_rk(num_stages),iRKtype==1)
-  !
-  if (iflag == 1) then
-    open (iores,file=trim(error_file),status="replace", &
-                action="write",iostat=ierr)
-    call io_error("write_vortex_results_file",trim(error_file),1,ierr)
-    write (iores,4)
-    write (iores,3) n_order, &
-                    trim(merge("Gauss  ","Lobatto",iop_solpts==Legendre_Gauss)), &
-                    nint(sqrt(real(n_global_cell,kind=wp))),char_init(init_loc), &
-                    n_order, h, dt_in, &
-                    trim(merge(clas_rk(num_stages),char_rk(iRKtype),iRKtype==1))
-    return
-  end if
-  !
-  comp_cost = work_units
-  period = real(icount,kind=wp)/real(Period_Timesteps,kind=wp)
-  !
-  e2(:,:,:) = vortex_error(:,:,1:3)
-  !
-  where (e2 <= zero) e2 = one
-  !
-  write (iores,1) period,((log10(e2(m,n,2)), m=1,nq+1), n=1,2), &
-                         ((log10(e2(m,n,1)), m=1,nq+1), n=1,2), &
-                         ((log10(e2(m,n,3)), m=1,nq+1), n=1,2), &
-                         comp_cost
-  !
-  if (iflag == -1) then
-    close (iores,iostat=ierr)
-    call io_error("write_vortex_results_file",trim(error_file),2,ierr)
-  end if
-  !
- !call write_tecplot_exact_sol
-  !
-  1 format (es14.6,30es17.9,es14.6)
-  2 format ("P",i0," - ",a)
-  3 format ('ZONE',/, &
-            'T="P',i0,' - ',a,' ',i0,' ',a,'"',/, &
-            'AUXDATA p="',i0,'"',/, &
-            'AUXDATA h="',es14.7,'"',/, &
-            'AUXDATA dt="',es14.6,'"',/, &
-            'AUXDATA TimeMethod="',a,'"')
-  4 format ('VARIABLES = "Period"',/, &
-            '"L<sub>2</sub> Density Gauss"',/, &
-            '"L<sub>2</sub> V<sub>x</sub> Gauss"',/, &
-            '"L<sub>2</sub> V<sub>y</sub> Gauss"',/, &
-            '"L<sub>2</sub> Pressure Gauss"',/, &
-            '"L<sub>2</sub> Entropy Gauss"',/, &
-            '"L<sub>2</sub> Density Lobatto"',/, &
-            '"L<sub>2</sub> V<sub>x</sub> Lobatto"',/, &
-            '"L<sub>2</sub> V<sub>y</sub> Lobatto"',/, &
-            '"L<sub>2</sub> Pressure Lobatto"',/, &
-            '"L<sub>2</sub> Entropy Lobatto"',/, &
-            '"L<sub>1</sub> Density Gauss"',/, &
-            '"L<sub>1</sub> V<sub>x</sub> Gauss"',/, &
-            '"L<sub>1</sub> V<sub>y</sub> Gauss"',/, &
-            '"L<sub>1</sub> Pressure Gauss"',/, &
-            '"L<sub>1</sub> Entropy Gauss"',/, &
-            '"L<sub>1</sub> Density Lobatto"',/, &
-            '"L<sub>1</sub> V<sub>x</sub> Lobatto"',/, &
-            '"L<sub>1</sub> V<sub>y</sub> Lobatto"',/, &
-            '"L<sub>1</sub> Pressure Lobatto"',/, &
-            '"L<sub>1</sub> Entropy Lobatto"',/, &
-            '"L<math>%</math> Density Gauss"',/, &
-            '"L<math>%</math> V<sub>x</sub> Gauss"',/, &
-            '"L<math>%</math> V<sub>y</sub> Gauss"',/, &
-            '"L<math>%</math> Pressure Gauss"',/, &
-            '"L<math>%</math> Entropy Gauss"',/, &
-            '"L<math>%</math> Density Lobatto"',/, &
-            '"L<math>%</math> V<sub>x</sub> Lobatto"',/, &
-            '"L<math>%</math> V<sub>y</sub> Lobatto"',/, &
-            '"L<math>%</math> Pressure Lobatto"',/, &
-            '"L<math>%</math> Entropy Lobatto"',/, &
-            '"Work Units"')
-  !
-end subroutine write_vortex_results_file
-!
-!###############################################################################
-!
-subroutine write_advec_results_file(iflag,icount)
-  !
-  use geovar,  only : n_global_solpts,n_order,n_global_cell
-  use ovar,    only : advec_error,work_units,Period_Timesteps
-  use ovar,    only : iop_solpts,dt_in,iRKtype,num_stages
-  use ovar,    only : init_loc
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iflag
-  integer, intent(in) :: icount
-  !
-  !.. Local Scalars ..
-  integer   :: i,n,m,ierr
-  real(wp) :: h,comp_cost,period
- !character(len=11) :: rk_string
- !character(len=15) :: zonetitle
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:3,1:3,1:3) :: e2
-  !
-continue
-  !
-  h = log10(one/sqrt(real(n_global_solpts,kind=wp)))
-  !
- !write (zonetitle,2) n_order, merge("Gauss","Lobatto",iop_solpts==Gauss_Legendre)
- !rk_string = merge(char_rk(iRKtype),clas_rk(num_stages),iRKtype==1)
-  !
-  if (iflag == 1) then
-    open (iores,file=trim(error_file),status="replace", &
-                action="write",iostat=ierr)
-    call io_error("write_advec_results_file",trim(error_file),1,ierr)
-    write (iores,4)
-    write (iores,3) n_order, &
-                    trim(merge("Gauss  ","Lobatto",iop_solpts==Legendre_Gauss)), &
-                    nint(sqrt(real(n_global_cell,kind=wp))),char_init(init_loc), &
-                    n_order, h, dt_in, &
-                    trim(merge(clas_rk(num_stages),char_rk(iRKtype),iRKtype==1))
-    return
-  end if
-  !
-  comp_cost = work_units
-  period = real(icount,kind=wp)/real(Period_Timesteps,kind=wp)
-  !
-  e2(:,:,:) = advec_error(:,:,1:3)
-  !
-  where (e2 <= zero) e2 = one
-  !
-  write (iores,1) period,((e2(m,n,2), n=1,3), m=1,3), &
-                         ((e2(m,n,1), n=1,3), m=1,3), &
-                         ((e2(m,n,3), n=1,3), m=1,3), &
-                         comp_cost
-  !
-  if (iflag == -1) then
-    close (iores,iostat=ierr)
-    call io_error("write_advec_results_file",trim(error_file),2,ierr)
-  end if
-  !
- !call write_tecplot_exact_sol
-  !
-  1 format (es14.6,27es17.9,es14.6)
-  2 format ("P",i0," - ",a)
-  3 format ('ZONE',/, &
-            'T="P',i0,' - ',a,' ',i0,' ',a,'"',/, &
-            'AUXDATA p="',i0,'"',/, &
-            'AUXDATA h="',es14.7,'"',/, &
-            'AUXDATA dt="',es14.6,'"',/, &
-            'AUXDATA TimeMethod="',a,'"')
-  4 format ('VARIABLES = "Period"',/, &
-            '"L<sub>2</sub> Density Gauss"',/, &
-            '"L<sub>2</sub> Density Radau"',/, &
-            '"L<sub>2</sub> Density Lobatto"',/, &
-            '"L<sub>2</sub> Pressure Gauss"',/, &
-            '"L<sub>2</sub> Pressure Radau"',/, &
-            '"L<sub>2</sub> Pressure Lobatto"',/, &
-            '"L<sub>2</sub> Entropy Gauss"',/, &
-            '"L<sub>2</sub> Entropy Radau"',/, &
-            '"L<sub>2</sub> Entropy Lobatto"',/, &
-            '"L<sub>1</sub> Density Gauss"',/, &
-            '"L<sub>1</sub> Density Radau"',/, &
-            '"L<sub>1</sub> Density Lobatto"',/, &
-            '"L<sub>1</sub> Pressure Gauss"',/, &
-            '"L<sub>1</sub> Pressure Radau"',/, &
-            '"L<sub>1</sub> Pressure Lobatto"',/, &
-            '"L<sub>1</sub> Entropy Gauss"',/, &
-            '"L<sub>1</sub> Entropy Radau"',/, &
-            '"L<sub>1</sub> Entropy Lobatto"',/, &
-            '"L<math>%</math> Density Gauss"',/, &
-            '"L<math>%</math> Density Radau"',/, &
-            '"L<math>%</math> Density Lobatto"',/, &
-            '"L<math>%</math> Pressure Gauss"',/, &
-            '"L<math>%</math> Pressure Radau"',/, &
-            '"L<math>%</math> Pressure Lobatto"',/, &
-            '"L<math>%</math> Entropy Gauss"',/, &
-            '"L<math>%</math> Entropy Radau"',/, &
-            '"L<math>%</math> Entropy Lobatto"',/, &
-            '"Work Units"')
-  !
-end subroutine write_advec_results_file
-!
-!###############################################################################
-!
 subroutine write_nodal_parallel_cgns(iflag)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts,ncell,nodes_of_cell_ptr,xyz
-  use geovar,  only : tria_connectivity,quad_connectivity
-  use geovar,  only : n_global_cell,global_nofc_ptr
+  use geovar,  only : nr,n_solpts,xyz
   use ovar,    only : time,aref,uref,rhoref
   use ovar,    only : itestcase,cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
@@ -3410,16 +2642,14 @@ subroutine write_nodal_parallel_cgns(iflag)
   use flowvar, only : flowvar_alloc_status
   use metvar,  only : metvar_alloc_status
   !
-  use parallel_mod, only : cell_map_ptr,cell_map
-  !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
   !
   !.. Local Scalars ..
-  integer :: i,j,l,n,n1,n2,nc,nc1,nc2,np,np1,np2,ierr,p1,ndr,npv
-  integer :: n_total_output_cells,n_total_output_pts,n_sub_cells
-  integer :: n_output_pts_edge,n_output_pts_tria,n_output_pts_quad
-  integer :: n_my_output_cells,my_cells_beg,my_cells_end
+  integer :: l,m,n,ierr
+  integer :: my_cells_beg,my_cells_end
+  integer :: n_total_output_pts
+  integer :: n_total_output_cells
   !
   character(len=32) :: tname
   character(len=32) :: varname
@@ -3427,15 +2657,8 @@ subroutine write_nodal_parallel_cgns(iflag)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nodal_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_dname(1:6) = ["Density_dx  ", &
-                                                    "VelocityX_dx", &
-                                                    "VelocityY_dx", &
-                                                    "Density_dy  ", &
-                                                    "VelocityX_dy", &
-                                                    "VelocityY_dy"]
-  character(len=*), parameter :: char_sname(1:7) = ["Density  ", &
-                                                    "VelocityX", &
-                                                    "VelocityY", &
+  character(len=*), parameter :: char_sname(1:6) = ["Density  ", &
+                                                    "Velocity", &
                                                     "Pressure ", &
                                                     "Mach     ", &
                                                     "Entropy  ", &
@@ -3445,8 +2668,8 @@ subroutine write_nodal_parallel_cgns(iflag)
   integer, dimension(1:2) :: idata
   integer, dimension(1:3) :: idim1
   integer, dimension(1:nr) :: ixyz_n
-  integer, dimension(1:size(char_dname)) :: idvar_n
-  integer, dimension(1:size(char_sname)) :: isvar_n
+  integer, dimension(1:(nme-nec)*nr) :: idvar_n
+  integer, dimension(1:size(char_sname)+nr-1) :: isvar_n
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable, dimension(:,:) :: ipelem
@@ -3458,84 +2681,23 @@ continue
   !
   if (iflag == 1) then
     !
+    cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
+    !
    !call ovar_alloc_status(mypnum+200)
    !call geovar_alloc_status(mypnum+200)
    !call metvar_alloc_status(mypnum+200)
    !call flowvar_alloc_status(mypnum+200)
     !
-    ! Get the number of sub-cells per grid cell
-    ! NOTE: It is the same for both triangles and quadrilaterals
-    !       If n_order is 0, n_sub_cells needs to be 1
+    ! Initialize the variables and data arrays needed for CGNS output
+    ! NOTE: This call to routine get_initial_data_for_cgns will initialize
+    !       the module variables my_pts_beg, my_pts_end, and n_my_output_pts.
     !
-    n_sub_cells = max(1,size(tria_connectivity,dim=2))
+    call get_initial_data_for_cgns(my_cells_beg,my_cells_end,idim1,ipelem)
     !
-    ! n_output_pts_edge: number of output points per edge of grid cell
-    n_output_pts_edge = nint(sqrt(real(n_sub_cells,kind=wp)))
-    ! n_output_pts_tria: number of output points per triangle grid cell
-    n_output_pts_tria = (n_output_pts_edge+1)*(n_output_pts_edge+2)/2
-    ! n_output_pts_quad: number of output points per quadrilateral grid cell
-    n_output_pts_quad = (n_output_pts_edge+1)*(n_output_pts_edge+1)
+    ! Extract the total number of pts and cells from the idim1 array
     !
-    ! n_total_output_cells: total number of output cells for the global grid
-    n_total_output_cells = n_global_cell*n_sub_cells
-    !
-    ! n_total_output_pts: total number of output points for the global grid
-    n_total_output_pts = 0
-    nc2 = 0
-    !
-    do n = 1,ncpu
-      !
-      if (n-1 == mypnum) then
-        my_pts_beg = n_total_output_pts + 1
-        my_cells_beg = nc2*n_sub_cells + 1
-      end if
-      !
-      nc1 = cell_map_ptr(n)+1
-      nc2 = cell_map_ptr(n+1)
-      !
-      do i = nc1,nc2
-        nc = cell_map(i)
-        np = global_nofc_ptr(n+1) - global_nofc_ptr(n)
-        n_total_output_pts = n_total_output_pts + &
-                             merge(n_output_pts_tria,n_output_pts_quad,np==3)
-      end do
-      !
-      if (n-1 == mypnum) then
-        my_pts_end = n_total_output_pts
-        my_cells_end = nc2*n_sub_cells
-      end if
-      !
-    end do
-    !
-    ! n_my_output_pts: number of output points for this processor
-    n_my_output_pts = my_pts_end - my_pts_beg + 1
-    ! n_my_output_cells: number of output cell for this processor
-    n_my_output_cells = my_cells_end - my_cells_beg + 1
-    !
-    cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
-    !
-   !call mpi_barrier(mpi_comm_world,mpierr)
-   !do n = 0,ncpu-1
-   !  call mpi_barrier(mpi_comm_world,mpierr)
-   !  do i = 0,ncpu-1
-   !    call mpi_barrier(mpi_comm_world,mpierr)
-   !  end do
-   !  if (mypnum == n) then
-   !    write (iout,1) mypnum
-   !    write (iout,2) "my_cells_beg",my_cells_beg
-   !    write (iout,2) "my_cells_end",my_cells_end
-   !    write (iout,2) "n_my_output_cells",n_my_output_cells
-   !    write (iout,2) "n_total_output_cells",n_total_output_cells
-   !    write (iout,2) "my_pts_beg",my_pts_beg
-   !    write (iout,2) "my_pts_end",my_pts_end
-   !    write (iout,2) "n_my_output_pts",n_my_output_pts
-   !    write (iout,2) "n_total_output_pts",n_total_output_pts
-   !  end if
-   !  do i = 0,ncpu-1
-   !    call mpi_barrier(mpi_comm_world,mpierr)
-   !  end do
-   !  call mpi_barrier(mpi_comm_world,mpierr)
-   !end do
+    n_total_output_pts = idim1(1)
+    n_total_output_cells = idim1(2)
     !
     ! Allocate the temporary variable arrays
     !
@@ -3545,15 +2707,6 @@ continue
     call alloc_error(pname,"var",1,ierr)
     !
     ! Open the cgns output file if iflag is 1
-    !
-    ! NEED: n_total_output_pts
-    !       n_total_output_cells
-    !       my_pts_beg
-    !       my_pts_end
-    !       my_cells_beg
-    !       my_cells_end
-    !       n_my_output_pts
-    !       n_my_output_cells
     !
     ! Initialize the zone counter
     !
@@ -3569,7 +2722,6 @@ continue
     !
     ! Write the title for this solution
     !
-    idim1(:) = [n_total_output_pts,n_total_output_cells,0]
     call cg_zone_write_f(ifile_n,ibase_n,"Solution",idim1, &
                          Unstructured,izone_n,ierr)
     call cgns_error(pname,fname_nodal,"cg_zone_write_f",ierr)
@@ -3626,29 +2778,15 @@ continue
       !
     end do
     !
-    ! Create the connectivity array
-    !
-    allocate ( ipelem(1:4,1:n_my_output_cells) , source=0 , stat=ierr )
-    call alloc_error(pname,"ipelem",1,ierr)
-    !
-    j = 0
-    p1 = my_pts_beg
-    do n = 1,ncell
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-      do i = 1,n_sub_cells
-        j = j + 1
-        ipelem(:,j) = p1 + merge(tria_connectivity(:,i), &
-                                 quad_connectivity(:,i), &
-                                 n2-n1+1 == 3)
-      end do
-      p1 = p1 + merge(n_output_pts_tria,n_output_pts_quad,n2-n1+1 == 3)
-    end do
-    !
     ! Create the data node for the grid connectivity
     !
-    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
-                             QUAD_4,1,n_total_output_cells,0,isect_n,ierr)
+    if (nr == 2) then
+      call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
+                               QUAD_4,1,n_total_output_cells,0,isect_n,ierr)
+    else if (nr == 3) then
+      call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
+                               HEXA_8,1,n_total_output_cells,0,isect_n,ierr)
+    end if
     call cgns_error(pname,fname_nodal,"cgp_section_write_f",ierr)
     !
     ! Write the element connectivity in parallel
@@ -3741,62 +2879,106 @@ continue
   call cg_sol_write_f(ifile_n,ibase_n,izone_n,tname,Vertex,isol_n,ierr)
   call cgns_error(pname,fname_nodal,"cg_sol_write_f",ierr)
   !
+  ! #######################################
+  ! #####   WRITING FIELD VARIABLES   #####
+  ! #######################################
+  !
   if (check_gradients) then
+    !
+    ! ################################################
+    ! #####   WRITING GRADIENT FIELD VARIABLES   #####
+    ! ################################################
     !
     ! Create data nodes for the solution variables
     !
-    do n = 1,size(char_dname)
+    ! Density Gradients
+    !
+    do l = 1,nr
+      varname = "Density_d"//char_xyz(l)
       call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
-                             trim(char_dname(n)),idvar_n(n),ierr)
+                             trim(varname),idvar_n(l),ierr)
       call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
-                      "Write node: Gradient variable",n)
+                      "Write node: Gradient variable",l)
+    end do
+    !
+    ! Velocity Gradients
+    !
+    do m = 1,nr
+      do l = 1,nr
+        n = m*nr + l
+        varname = "Velocity"//char_xyz(m)//"_d"//char_xyz(l)
+        call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                               trim(varname),idvar_n(n),ierr)
+        call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                        "Write node: Gradient variable",n)
+      end do
     end do
     !
     ! Now create the output data and write it to the CGNS file in parallel
     !
-    do n = 1,size(char_dname)
+    grad_eqn: do m = nec,nme
       !
-      ndr = (n-1)/3
-      npv = mod( n-1 , 3 ) + 1
+      grad_dir: do l = 1,nr
+        !
+        n = (m-nec)*nr + l
+        !
+        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts), &
+                                                  dusp(:,:,1:n_solpts))
+        !
+        var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+        !
+        ! Reset the queue.
+        !
+        if (cgns_use_queue) then
+          call cgp_queue_set_f(1,ierr)
+          call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+        end if
+        !
+        ! Add the data for current variable to the output queue.
+        !
+        call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,idvar_n(n), &
+                                    my_pts_beg,my_pts_end,var,ierr)
+        call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
+                        "Write data: Gradient variable",n)
+        !
+        ! Finally, flush the queue containing
+        ! the current variable to the CGNS file.
+        !
+        if (cgns_use_queue) then
+          call cgp_queue_flush_f(ierr)
+          call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+        end if
+        !
+      end do grad_dir
       !
-      vartmp(1:n_solpts) = grad_of_selected_pv(ndr,npv,usp(:,1:n_solpts), &
-                                                    dusp(:,:,1:n_solpts))
-      !
-      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-      !
-      ! Reset the queue.
-      !
-      if (cgns_use_queue) then
-        call cgp_queue_set_f(1,ierr)
-        call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
-      end if
-      !
-      ! Add the data for current variable to the output queue.
-      !
-      call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,idvar_n(n), &
-                                  my_pts_beg,my_pts_end,var,ierr)
-      call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
-                      "Write data: Gradient variable",n)
-      !
-      ! Finally, flush the queue containing
-      ! the current variable to the CGNS file.
-      !
-      if (cgns_use_queue) then
-        call cgp_queue_flush_f(ierr)
-        call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
-      end if
-      !
-    end do
+    end do grad_eqn
     !
   else
     !
+    ! ################################################
+    ! #####   WRITING SOLUTION FIELD VARIABLES   #####
+    ! ################################################
+    !
     ! Create data nodes for the solution variables
     !
-    do n = 1,size(char_sname)
-      call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
-                             trim(char_sname(n)),isvar_n(n),ierr)
-      call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
-                      "Write node: Solution variable",n)
+    n = 0
+    do l = 1,size(char_sname)
+      if (trim(char_sname(l)) == "Velocity") then
+        do m = 1,nr
+          n = n + 1
+          varname = "Velocity"//char_xyz(m)
+          call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                                 trim(varname),isvar_n(n),ierr)
+          call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end do
+      else
+        n = n + 1
+        call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                               trim(char_sname(l)),isvar_n(n),ierr)
+        call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                        "Write node: Solution variable",n)
+      end if
     end do
     !
     ! Interpolate the conservative variables for output
@@ -3810,62 +2992,53 @@ continue
     !
     ! Now create the output data and write it to the CGNS file in parallel
     !
-    do n = 1,size(char_sname)
+    n = 0
+    do l = 1,size(char_sname)
       !
-      select case (trim(char_sname(n)))
+      select case (trim(char_sname(l)))
         case ("Density") ! Density
-          vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
+          n = n + 1
+          vartmp(1:n_solpts) = interp_usp(nec,1:n_solpts)
           vartmp = vartmp * rhoref
-        case ("VelocityX") ! x-velocity
-          vartmp(1:n_solpts) = interp_usp(2,1:n_solpts)/interp_usp(1,1:n_solpts)
-          vartmp = vartmp * aref
-        case ("VelocityY") ! y-velocity
-          vartmp(1:n_solpts) = interp_usp(3,1:n_solpts)/interp_usp(1,1:n_solpts)
-          vartmp = vartmp * aref
+          call cgns_write_field_parallel
+        case ("Velocity") ! Velocity
+          do m = nmb,nme
+            n = n + 1
+            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts)/interp_usp(nec,1:n_solpts)
+            vartmp = vartmp * aref
+            call cgns_write_field_parallel
+          end do
         case ("Pressure") ! Pressure
+          n = n + 1
           vartmp = pressure_cv( interp_usp )
           vartmp = vartmp * rhoref * aref * aref
+          call cgns_write_field_parallel
         case ("Mach") ! Mach number
+          n = n + 1
           vartmp = mach_number_cv( interp_usp )
+          call cgns_write_field_parallel
         case ("Entropy") ! Entropy
+          n = n + 1
           vartmp = entropy_cv( interp_usp )
+          call cgns_write_field_parallel
         case ("Vorticity") ! Vorticity
-          vartmp = vorticity_cv( interp_usp )
+          n = n + 1
+          vartmp = entropy_cv( interp_usp )
+         !vartmp = vorticity_cv( interp_usp )
+          call cgns_write_field_parallel
         case default
+          n = n + 1
           vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
+          call cgns_write_field_parallel
       end select
-      !
-      if (interpolate_before_output_variable) then
-        var = real( vartmp , kind(var) )
-      else
-        var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-      end if
-      !
-      ! Reset the queue.
-      !
-      if (cgns_use_queue) then
-        call cgp_queue_set_f(1,ierr)
-        call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
-      end if
-      !
-      ! Add the data for current variable to the output queue.
-      !
-      call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,isvar_n(n), &
-                                  my_pts_beg,my_pts_end,var,ierr)
-      call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
-                      "Write data: Solution variable",n)
-      !
-      ! Finally, flush the queue containing
-      ! the current variable to the CGNS file.
-      !
-      if (cgns_use_queue) then
-        call cgp_queue_flush_f(ierr)
-        call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
-      end if
       !
     end do
     !
   end if
+  !
+  ! ################################################
+  ! #####   FINISHED WRITING FIELD VARIABLES   #####
+  ! ################################################
   !
   if (cgns_use_queue) then
     call cgp_queue_set_f(0,ierr)
@@ -3982,803 +3155,246 @@ continue
             "    FOR PROCESSOR #",i0)
   2 format (a," = ",i0)
   !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+  subroutine cgns_write_field_parallel()
+    !
+    ! This routine is placed here simply to prevent from having to place this
+    ! whole chunk of code after each variable that needs to be written to the
+    ! CGNS file. Everything used here is inherited from the parent routine.
+    !
+  continue
+    !
+    if (interpolate_before_output_variable) then
+      var = real( vartmp , kind(var) )
+    else
+      var(:) = real( interpolate_for_output(vartmp) , kind(var) )
+    end if
+    !
+    ! Reset the queue.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_set_f(1,ierr)
+      call cgns_error(pname,fname_nodal,"cgp_queue_set_f",ierr)
+    end if
+    !
+    ! Add the data for current variable to the output queue.
+    !
+    call cgp_field_write_data_f(ifile_n,ibase_n,izone_n,isol_n,isvar_n(n), &
+                                my_pts_beg,my_pts_end,var,ierr)
+    call cgns_error(pname,fname_nodal,"cgp_field_write_data_f",ierr, &
+                    "Write data: Solution variable",n)
+    !
+    ! Finally, flush the queue containing
+    ! the current variable to the CGNS file.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_flush_f(ierr)
+      call cgns_error(pname,fname_nodal,"cgp_queue_flush_f",ierr)
+    end if
+    !
+  end subroutine cgns_write_field_parallel
+  !
+  !-----------------------------------------------------------------------------
+  !
 end subroutine write_nodal_parallel_cgns
 !
 !###############################################################################
 !
-subroutine write_cgns_solution(iflag)
+subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,idim1,ipelem)
   !
   !.. Use Statements ..
-  use ovar,         only : output_solution
-  use parallel_mod, only : collect_global_solution
+  use geovar,       only : ncell,nodes_of_cell_ptr
+  use geovar,       only : n_global_cell,global_nofc_ptr
+  use geovar,       only : pst_geom,geom_conn
+  use geovar,       only : cell_geom,global_cell_geom
+  use geovar,       only : cell_order,global_cell_order
+  use parallel_mod, only : cell_map_ptr,cell_map
+  use order_mod,    only : geom_solpts
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: iflag
+  integer,                              intent(inout) :: my_cells_beg
+  integer,                              intent(inout) :: my_cells_end
+  integer,              dimension(:),   intent(inout) :: idim1
+  integer, allocatable, dimension(:,:), intent(inout) :: ipelem
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,nc1,nc2,np,ierr,p1,icpu
+  integer :: gmin,gmax,this_npts,this_subcells
+  integer :: this_cell,this_geom,this_order
+  integer :: n_total_output_cells
+  integer :: n_total_output_pts
+  integer :: n_my_output_cells
+  character(len=200) :: error_message
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_initial_data_for_cgns"
   !
 continue
   !
-  ! Collect the global solution arrays into global_usp
+  ! Initialize n_total output_cells and n_total_output_pts which give:
   !
-  call collect_global_solution
+  ! n_total_output_cells: total number of output cells for the global grid
+  ! n_total_output_pts: total number of output points for the global grid
   !
-  ! Output the nodal and/or modal solution to the cgns file(s)
+  n_total_output_pts = 0
+  n_total_output_cells = 0
   !
-  if (mypnum == 0) then
-    if (output_solution == 1) then
-      call write_nodal_cgns(iflag)
-    else if (output_solution == 2) then
-      call write_modal_cgns(iflag)
-    else
-      call write_modal_cgns(iflag)
-      call write_nodal_cgns(iflag)
+  do icpu = 1,ncpu
+    !
+    if (icpu-1 == mypnum) then
+      my_pts_beg = n_total_output_pts + 1
+      my_cells_beg = n_total_output_cells + 1
     end if
-   !call write_tecplot_exact_sol
-  end if
-  !
-  call mpi_barrier(mpi_comm_world,mpierr)
-  !
-end subroutine write_cgns_solution
-!
-!###############################################################################
-!
-subroutine write_nodal_cgns(iflag)
-  !
-  !.. Use Statements ..
-  use geovar,  only : p_order,n_order,n_sp2dt,n_sp2dq
-  use geovar,  only : tria_connectivity,quad_connectivity
-  use ovar,    only : time,aref,uref,velref,gam,rhoref
-  use ovar,    only : itcur,Period_Timesteps,Period_Time,itestcase
-  use ovar,    only : Grid_Length_X,Grid_Length_Y,Grid_Min_X,Grid_Min_Y
-  use generic_mod, only : project_to_porder
-  !
-  !.. Aliased Use Statements ..
-  use geovar,  only : ncell => n_global_cell
-  use geovar,  only : n_solpts => n_global_solpts
-  use geovar,  only : nodes_of_cell_ptr => global_nofc_ptr
-  use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
-  use geovar,  only : xyz => global_xyz
-  use flowvar, only : usp => global_usp
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iflag
-  !
-  !.. Local Scalars ..
-  integer   :: i,j,n,n1,n2,ierr,p1,k,m
-  integer   :: nelem,kind_real,nsp,nw,np
-  integer   :: n_outpts,no1d,noc,nopt,nopq
-  real(wp) :: cvel,sn,se
-  real(wp) :: delx,dely,xoffset,yoffset
-  !
-  character(len=32) :: tname
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: idata
-  integer, dimension(1:3) :: idim1
-  real(wp), dimension(1:n_sp2dq,1:nq) :: tusp
-  !
-  !.. Local Allocatable Arrays ..
-  integer,   allocatable, dimension(:,:) :: ipelem
-  real(wp),  allocatable, dimension(:)   :: vartmp
-  real(sp), allocatable, dimension(:)   :: var
-  !
-continue
-  !
-  noc = size(tria_connectivity,2)
-  !
-  no1d = nint(sqrt(real(noc,kind=wp)))
- !no1d = n_order
-  !
- !noc = no1d*no1d
-  nopt = (no1d+1)*(no1d+2)/2
-  nopq = (no1d+1)*(no1d+1)
-  nelem = ncell*noc
-  !
-  n_outpts = 0
-  do n = 1,ncell
-    np = nodes_of_cell_ptr(n+1) - nodes_of_cell_ptr(n)
-    n_outpts = n_outpts + merge(nopt,nopq,np==3)
-  end do
-  !
-  ! Variables specific to the Vortex transport cases
-  !
-  if ( any(itestcase == Transport_Problems) ) then
     !
-    ! If running one of the vortex transport problems, compute the change
-    ! in position of the vortex since the start of the current period.
+    nc1 = cell_map_ptr(icpu)+1 ! starting index of cells on this processor
+    nc2 = cell_map_ptr(icpu+1) ! ending   index of cells on this processor
     !
-    if (any(itestcase == Transport_Problems)) call vortex_position(delx,dely)
-    !
-    cvel = aref*reciprocal(uref)
-    !
-  else
-    !
-    cvel = one
-    !
-  end if
-  !
-  kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
-  !
-  allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error("write_nodal_cgns","vartmp",1,ierr)
-  allocate ( var(1:n_outpts) , source=real(0,sp) , stat=ierr )
-  call alloc_error("write_nodal_cgns","var",1,ierr)
-  !
-  ! Open the cgns output file if iflag is 1
-  !
-  if (iflag == 1) then
-    !
-    ! Initialize the zone counter
-    !
-    cgnsnodalzone_counter = 0
-    !
-    call cg_set_file_type_f(file_type,ierr)
-    call cg_open_f(fname_nodal,MODE_WRITE,ifile_n,ierr)
-    call io_error("write_nodal_cgns",trim(fname_nodal),1,ierr)
-    !
-    ! Set the CGNS base (who knows what this is for)
-    !
-    call cg_base_write_f(ifile_n,"recon_base",2,2,ibase_n,ierr)
-    !
-    ! Create the connectivity array
-    !
-    allocate ( ipelem(1:4,1:nelem) , source=0 , stat=ierr )
-    call alloc_error("write_nodal_cgns","ipelem",1,ierr)
-    !
-    j = 0
-    p1 = 1
-    do n = 1,ncell
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-     !p1 = pts_in_cell_ptr(n)+1
-     !do i = 1,n_order*n_order
-      do i = 1,noc
-        j = j + 1
-        ipelem(:,j) = p1 + merge(tria_connectivity(:,i), &
-                                 quad_connectivity(:,i), &
-                                 n2-n1+1 == 3)
-      end do
-      p1 = p1 + merge(nopt,nopq,n2-n1+1 == 3)
-    end do
-    !
-    ! Write the title for this solution
-    !
-    idim1(:) = [n_outpts,nelem,0]
-    call cg_zone_write_f(ifile_n,ibase_n,"Solution",idim1, &
-                         Unstructured,izone_n,ierr)
-    !
-    ! Write the x-coordinates
-    !
-    do i = 1,n_solpts
-      vartmp(i) = xyz(1,i)
-    end do
-    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-    call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateX", &
-                          var(1:n_outpts),icoord_n,ierr)
-    !
-    ! Write the y-coordinates
-    !
-    do i = 1,n_solpts
-      vartmp(i) = xyz(2,i)
-    end do
-    var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-    call cg_coord_write_f(ifile_n,ibase_n,izone_n,kind_real,"CoordinateY", &
-                          var(1:n_outpts),icoord_n,ierr)
-    !
-    ! Write the grid connectivity
-    !
-    call cg_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
-                            QUAD_4,1,nelem,0,ipelem(1:4,1:nelem),isect_n,ierr)
-    !
-    ! Deallocate ipelem since we are done with it
-    !
-    deallocate ( ipelem , stat=ierr )
-    call alloc_error("write_nodal_cgns","ipelem",2,ierr)
-    !
-#ifndef IO_FOR_NAS
-    !
-    ! If not using NAS, we want to possibly look at the solution as the simulation
-    ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-    ! solution file if we keep it open during the whole simulation so we need to
-    ! close it each time after we are done writing to it.
-    !
-    ! Close the CGNS file temporarily
-    !
-    call cg_close_f(ifile_n,ierr)
-    call io_error("write_nodal_cgns",trim(fname_nodal),2,ierr)
-    !
-#endif
-    !
-  end if
-  !
- !write (tname,'(i0.4," Time = ",es9.2)') cgnsnodalzone_counter,time
-  write (tname,'("FlowSolution",i0)') cgnsnodalzone_counter
-  !
-  ! Reallocate the soltime and solname arrays so we
-  ! can concatenate this solution onto those arrays
-  !
-  call reallocate(soltime,cgnsnodalzone_counter+1)
-  call reallocate(solname,cgnsnodalzone_counter+1)
-  soltime(size(soltime)) = real(time,kind(soltime))
-  solname(size(solname)) = tname
-  !
-#ifndef IO_FOR_NAS
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Reopen the CGNS file in modification mode
-  !
-  call cg_open_f(fname_nodal,CG_MODE_MODIFY,ifile_n,ierr)
-  call io_error("write_nodal_cgns",trim(fname_nodal),3,ierr)
-  !
-#endif
-  !
-  ! Write the flow variables
-  !
-  call cg_sol_write_f(ifile_n,ibase_n,izone_n,tname,Vertex,isol_n,ierr)
-  !
-  ! Density
-  !
-  do i = 1,n_solpts
-    vartmp(i) = usp(1,i) * rhoref
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Density", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! x-velocity
-  !
-  do i = 1,n_solpts
-    vartmp(i) = usp(2,i)/usp(1,i) * aref
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityX", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! y-velocity
-  !
-  do i = 1,n_solpts
-    vartmp(i) = usp(3,i)/usp(1,i) * aref
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"VelocityY", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Pressure
-  !
-  do i = 1,n_solpts
-    vartmp(i) = pressure_cv_sp( usp(:,i) ) * (rhoref*aref*aref)*cvel**2
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Pressure", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Mach number
-  !
-  do i = 1,n_solpts
-    vartmp(i) = mach_number_cv_sp( usp(:,i) )
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Mach", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Entropy
-  !
-  do i = 1,n_solpts
-    vartmp(i) = entropy_cv_sp( usp(:,i) )
-  end do
-  var(:) = real( interpolate_for_output(vartmp) , kind(var) )
-  call cg_field_write_f(ifile_n,ibase_n,izone_n,isol_n,kind_real,"Entropy", &
-                        var(1:n_outpts),ifld_n,ierr)
-  !
-  ! Deallocate var array
-  !
-  deallocate ( var , stat=ierr )
-  call alloc_error("write_nodal_cgns","var",2,ierr)
-  !
-#ifdef IO_FOR_NAS
-  !
-  ! If last iteration, close CGNS file
-  !
-  if (iflag == -1) then
-    !
-    ! Update the base iterative node
-    !
-    call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
-    call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
-    call cg_array_write_f("TimeValues",kind_real,1,size(soltime),soltime,ierr)
-    !
-    ! Update the zone iterative node
-    !
-    call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
-    call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
-                                        "ZoneIterativeData_t",1,"end")
-    idata(:) = [32,size(solname)]
-    call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
-    !
-    ! Identify the flow solution within the CGNS file as time dependent
-    !
-    call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
-    !
-    ! Close the CGNS FILE
-    !
-    call cg_close_f(ifile_n,ierr)
-    call io_error("write_nodal_cgns",trim(fname_nodal),2,ierr)
-    !
-  end if
-  !
-#else
-  !
-  ! Update the base iterative node
-  !
-  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
-  call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
-  call cg_array_write_f("TimeValues",kind_real,1,size(soltime),soltime,ierr)
-  !
-  ! Update the zone iterative node
-  !
-  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
-  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
-                                      "ZoneIterativeData_t",1,"end")
-  idata(:) = [32,size(solname)]
-  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
-  !
-  ! Identify the flow solution within the CGNS file as time dependent
-  !
-  call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Close the CGNS FILE
-  !
-  call cg_close_f(ifile_n,ierr)
-  call io_error("write_nodal_cgns",trim(fname_nodal),2,ierr)
-  !
-#endif
-  !
-  ! Update the zone counter
-  !
-  cgnsnodalzone_counter = cgnsnodalzone_counter + 1
-  !
-end subroutine write_nodal_cgns
-!
-!###############################################################################
-!
-subroutine write_modal_cgns(iflag)
-  !
-  !.. Use Statements ..
-  use geovar,  only : nr,n_sp1de,n_sp2dq,vand_quad_inv,vand_quad
-  use ovar,    only : time
-  !
-  !.. Aliased Use Statements ..
-  use geovar,  only : ncell => n_global_cell
-  use geovar,  only : n_solpts => n_global_solpts
-  use geovar,  only : nodes_of_cell => global_nofc
-  use geovar,  only : nodes_of_cell_ptr => global_nofc_ptr
-  use geovar,  only : pts_in_cell_ptr => global_pinc_ptr
-  use geovar,  only : xyz_nodes => global_xyz_nodes
-  use flowvar, only : usp => global_usp
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iflag
-  !
-  !.. Local Scalars ..
-  integer   :: i,j,k,n,n1,n2,ierr,p1
-  integer   :: npoin,kind_real
-  !
-  character(len=32) :: tname
-  !
-  !.. Local Arrays ..
-  integer,   dimension(1:2) :: idata
-  integer,   dimension(1:3) :: idim1
-  real(wp), dimension(1:n_sp1de+1) :: x1d
-  real(wp), dimension(1:nr,1:4) :: xy
-  !
-  !.. Local Allocatable Arrays ..
-  integer,   allocatable, dimension(:,:) :: ipelem
-  real(sp), allocatable, dimension(:)   :: var
-  real(wp), allocatable, dimension(:,:) :: coord
-  !
-continue
-  !
-  npoin = ncell*(n_sp1de+1)*(n_sp1de+1)
-  kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
-  !
-  ! If triangle cells exist, return
-  !
-  if (n_solpts /= ncell*n_sp2dq) return
-  !
-  ! Allocate var for cell-centered data
-  !
-  allocate ( var(1:npoin) , source=real(0,sp) , stat=ierr )
-  call alloc_error("write_modal_cgns","var",1,ierr)
-  !
-  ! Open the cgns output file
-  !
-  if (iflag == 1) then
-    !
-    ! Initialize the zone counter
-    !
-    cgnsmodalzone_counter = 0
-    !
-    call cg_set_file_type_f(file_type,ierr)
-    call cg_open_f(fname_modal,MODE_WRITE,ifile_m,ierr)
-    call io_error("write_modal_cgns",trim(fname_modal),1,ierr)
-    !
-    ! Set the CGNS base (who knows what this is for)
-    !
-    call cg_base_write_f(ifile_m,"recon_base",2,2,ibase_m,ierr)
-    !
-    ! Create the connectivity array
-    !
-    allocate ( ipelem(1:4,1:n_solpts) , source=0 , stat=ierr )
-    call alloc_error("write_modal_cgns","ipelem",1,ierr)
-    allocate ( coord(1:nr,1:npoin) , source=zero , stat=ierr )
-    call alloc_error("write_modal_cgns","coord",1,ierr)
-    !
-    ! Create the connectivity array
-    !
-    k = 1
-    do n = 1,ncell
-      do j = 1,n_sp1de
-        do i = 1,n_sp1de
-          ipelem(1,k) = (n_sp1de+1)*(n_sp1de+1)*(n-1) + (n_sp1de+1)*(j-1) + i
-          ipelem(2,k) = (n_sp1de+1)*(n_sp1de+1)*(n-1) + (n_sp1de+1)*(j-1) + i + 1
-          ipelem(3,k) = (n_sp1de+1)*(n_sp1de+1)*(n-1) + (n_sp1de+1)*j + i + 1
-          ipelem(4,k) = (n_sp1de+1)*(n_sp1de+1)*(n-1) + (n_sp1de+1)*j + i
-          k = k + 1
-        end do
-      end do
-    end do
-    !
-    ! Create the coordinates
-    !
-    do i = 1,n_sp1de+1
-      x1d(i) = -one + two*real(i-1,kind=wp)/real(n_sp1de,kind=wp)
-    end do
-    !
-    k = 1
-    do n = 1,ncell
+    do nc = nc1,nc2
       !
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
+      ! Index for grid cell on the current processor
       !
-      do j = n1,n2
-        xy(:,j-n1+1) = xyz_nodes(:,nodes_of_cell(j))
-      end do
+      this_cell = cell_map(nc)
       !
-      do j = 1,n_sp1de+1
-        do i = 1,n_sp1de+1
-          coord(:,k) = c0_25 * ( (one-x1d(j)) * (one-x1d(i)) * xy(:,1) + &
-                                 (one-x1d(j)) * (one+x1d(i)) * xy(:,2) + &
-                                 (one+x1d(j)) * (one+x1d(i)) * xy(:,3) + &
-                                 (one+x1d(j)) * (one-x1d(i)) * xy(:,4) )
-          k = k + 1
-        end do
-      end do
+      ! Geometry of this grid cell
+      !
+      this_geom = global_cell_geom(this_cell)
+      !
+      ! Polynomial order for this grid cell
+      !
+      this_order = global_cell_order(this_cell)
+      !
+      ! Number of solution points for this cell geometry at this order
+      !
+      this_npts = geom_solpts(this_geom,this_order)
+      !
+      ! Get the number of subcells for this cell geometry at this order.
+      ! The number of subcells is basically:
+      !     this_order**(spatial dimension of this_geom) or
+      ! NOTE: Make sure that the number of subcells is at least 1,
+      !       particularly for the case of this_order=0
+      !
+      this_subcells = max( 1 , this_order**geom_dimen(this_geom) )
+      !
+      ! Add the number of solution points for this cell geometry at
+      ! this order to the running count of the global total number of
+      ! output solution points.
+      !
+      n_total_output_pts = n_total_output_pts + this_npts
+      !
+      ! Add the number of subcells for this cell geometry at this order
+      ! to the running count of the global total number of output
+      ! subcells.
+      !
+      n_total_output_cells = n_total_output_cells + this_subcells
       !
     end do
     !
-    ! Write the title for this solution
+    if (icpu-1 == mypnum) then
+      my_pts_end = n_total_output_pts
+      my_cells_end = n_total_output_cells
+    end if
     !
-    idim1(:) = [npoin,n_solpts,0]
-    call cg_zone_write_f(ifile_m,ibase_m,"Solution",idim1,Unstructured,izone_m,ierr)
-    !
-    ! Write the x-coordinates
-    !
-    do i = 1,npoin
-      var(i) = real(coord(1,i),kind(var))
-    end do
-    call cg_coord_write_f(ifile_m,ibase_m,izone_m,kind_real,"CoordinateX", &
-                          var(1:npoin),icoord_m,ierr)
-    !
-    ! Write the y-coordinates
-    !
-    do i = 1,npoin
-      var(i) = real(coord(2,i),kind(var))
-    end do
-    call cg_coord_write_f(ifile_m,ibase_m,izone_m,kind_real,"CoordinateY", &
-                          var(1:npoin),icoord_m,ierr)
-    !
-    ! Write the grid connectivity
-    !
-    call cg_section_write_f(ifile_m,ibase_m,izone_m,"Quadrilaterals",QUAD_4,1,n_solpts,0, &
-                            ipelem(1:4,1:n_solpts),isect_m,ierr)
-    !
-    deallocate ( ipelem , stat=ierr )
-    call alloc_error("write_modal_cgns","ipelem",2,ierr)
-    deallocate ( coord , stat=ierr )
-    call alloc_error("write_modal_cgns","coord",2,ierr)
-    !
-#ifndef IO_FOR_NAS
-    !
-    ! If not using NAS, we want to possibly look at the solution as the simulation
-    ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-    ! solution file if we keep it open during the whole simulation so we need to
-    ! close it each time after we are done writing to it.
-    !
-    ! Close the CGNS file temporarily
-    !
-    call cg_close_f(ifile_m,ierr)
-    call io_error("write_modal_cgns",trim(fname_modal),2,ierr)
-    !
-#endif
-    !
+  end do
+  !
+  ! Save n_total_output_pts and n_total_output_cells to idim1
+  !
+  idim1 = [n_total_output_pts,n_total_output_cells,0]
+  !
+  ! n_my_output_pts: number of output points for this processor
+  !
+  n_my_output_pts = my_pts_end - my_pts_beg + 1
+  !
+  ! n_my_output_cells: number of output cell for this processor
+  !
+  n_my_output_cells = my_cells_end - my_cells_beg + 1
+  !
+  ! Some quick stuff needed before creating the connectivity array
+  !
+  gmin = minval( global_cell_geom(1:n_global_cell) )
+  gmax = maxval( global_cell_geom(1:n_global_cell) )
+  !
+  if (any(Geom_Unknown == [gmin,gmax])) then
+    write (error_message,1)
+    call stop_recon(stop_mpi,pname,error_message)
+  else if (geom_dimen(gmin) /= geom_dimen(gmax)) then
+    write (error_message,2)
+    call stop_recon(stop_mpi,pname,error_message)
   end if
   !
- !write (tname,'(i0.4," Time = ",es9.2)') cgnsmodalzone_counter,time
-  write (tname,'("FlowSolution",i0)') cgnsmodalzone_counter
+  ! Get the number of nodes needed to define grid cells of this dimension
+  ! NOTE: We will be creating degenerate grid cells for unstructured type
+  !       cells such as Geom_Tria,Geom_Tetr,Geom_Pyra,Geom_Pris.
+  ! Therefore, the number of nodes needed are:
+  !         Geom_0D  => 2**0 = 1
+  !         Geom_1D  => 2**1 = 2
+  !         Geom_2D  => 2**2 = 4
+  !         Geom_3D  => 2**3 = 8
   !
-  ! Reallocate the modtime and modname arrays so we
-  ! can concatenate this solution onto those arrays
+  np = 2**geom_dimen(gmin)
   !
-  call reallocate(modtime,cgnsmodalzone_counter+1)
-  call reallocate(modname,cgnsmodalzone_counter+1)
-  modtime(size(modtime)) = real(time,kind(modtime))
-  modname(size(modname)) = tname
+  ! Create the connectivity array
   !
-#ifndef IO_FOR_NAS
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Reopen the CGNS file in modification mode
-  !
-  call cg_open_f(fname_modal,CG_MODE_MODIFY,ifile_m,ierr)
-  call io_error("write_modal_cgns",trim(fname_modal),3,ierr)
-  !
-#endif
-  !
-  ! Write the flow variables
-  !
-  call cg_sol_write_f(ifile_m,ibase_m,izone_m,tname,CellCenter,isol_m,ierr)
-  !
-  ! Convert solution variables to modal form by multiplying it
-  ! with the inverse of the Vandermonde matrix and then output
-  ! the modal form to the CGNS file
-  !
-  ! Density
-  !
-  do n = 1,ncell
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
-    var(n1:n2) = real( matmul( vand_quad_inv , usp(1,n1:n2) ) , &
-                       kind = kind(var) )
-  end do
-  call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Density", &
-                        var(1:n_solpts),ifld_m,ierr)
-  !
-  ! x-velocity
-  !
-  do n = 1,ncell
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
-    var(n1:n2) = real( matmul( vand_quad_inv , usp(2,n1:n2)/usp(1,n1:n2) ) , &
-                       kind = kind(var) )
-  end do
-  call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"VelocityX", &
-                        var(1:n_solpts),ifld_m,ierr)
-  !
-  ! Entropy
-  !
-  do n = 1,ncell
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
-    var(n1:n2) = real( matmul( vand_quad_inv , entropy_cv(usp(:,n1:n2)) ) , &
-                       kind = kind(var) )
-  end do
-  call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Entropy", &
-                        var(1:n_solpts),ifld_m,ierr)
-  !
-  ! y-velocity
-  !
-  do n = 1,ncell
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
-    var(n1:n2) = real( matmul( vand_quad_inv , usp(3,n1:n2)/usp(1,n1:n2) ) , &
-                       kind = kind(var) )
-  end do
-  call cg_field_write_f(ifile_m,ibase_m,izone_m,isol_m,kind_real,"Vorticity", &
-                        var(1:n_solpts),ifld_m,ierr)
-  !
-  ! Deallocate var array
-  !
-  deallocate ( var , stat=ierr )
-  call alloc_error("write_modal_cgns","var",2,ierr)
-  !
-#ifdef IO_FOR_NAS
-  !
-  ! If last iteration, close CGNS file
-  !
-  if (iflag == -1) then
-    !
-    ! Update the base iterative node
-    !
-    call cg_biter_write_f(ifile_m,ibase_m,"TimeIterValues",size(modtime),ierr)
-    call cg_goto_f(ifile_m,ibase_m,ierr,"BaseIterativeData_t",1,"end")
-    call cg_array_write_f("TimeValues",kind_real,1,size(modtime),modtime,ierr)
-    !
-    ! Update the zone iterative node
-    !
-    call cg_ziter_write_f(ifile_m,ibase_m,izone_m,"ZoneIterativeData",ierr)
-    call cg_goto_f(ifile_m,ibase_m,ierr,"Zone_t",izone_m, &
-                                        "ZoneIterativeData_t",1,"end")
-    idata(:) = [32,size(modname)]
-    call cg_array_write_f("FlowSolutionPointers",Character,2,idata,modname,ierr)
-    !
-    ! Identify the flow solution within the CGNS file as time dependent
-    !
-    call cg_simulation_type_write_f(ifile_m,ibase_m,TimeAccurate,ierr)
-    !
-    ! Close the CGNS file
-    !
-    call cg_close_f(ifile_m,ierr)
-    call io_error("write_modal_cgns",trim(fname_modal),2,ierr)
-    !
+  if (allocated(ipelem)) then
+    deallocate ( ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",1,ierr,error_message)
   end if
   !
-#else
+  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipelem",1,ierr,error_message)
   !
-  ! Update the base iterative node
+  nc = 0
+  p1 = my_pts_beg
   !
-  call cg_biter_write_f(ifile_m,ibase_m,"TimeIterValues",size(modtime),ierr)
-  call cg_goto_f(ifile_m,ibase_m,ierr,"BaseIterativeData_t",1,"end")
-  call cg_array_write_f("TimeValues",kind_real,1,size(modtime),modtime,ierr)
-  !
-  ! Update the zone iterative node
-  !
-  call cg_ziter_write_f(ifile_m,ibase_m,izone_m,"ZoneIterativeData",ierr)
-  call cg_goto_f(ifile_m,ibase_m,ierr,"Zone_t",izone_m, &
-                                      "ZoneIterativeData_t",1,"end")
-  idata(:) = [32,size(modname)]
-  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,modname,ierr)
-  !
-  ! Identify the flow solution within the CGNS file as time dependent
-  !
-  call cg_simulation_type_write_f(ifile_m,ibase_m,TimeAccurate,ierr)
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Close the CGNS file
-  !
-  call cg_close_f(ifile_m,ierr)
-  call io_error("write_modal_cgns",trim(fname_modal),2,ierr)
-  !
-#endif
-  !
-  ! Update the zone counter
-  !
-  cgnsmodalzone_counter = cgnsmodalzone_counter + 1
-  !
-end subroutine write_modal_cgns
-!
-!###############################################################################
-!
-subroutine write_tecplot_partitions()
-  !
-  !.. Use Statements ..
-  use geovar, only : ncell,nr,n_solpts,n_order,nodes_of_cell_ptr,xyz, &
-                     pts_in_cell_ptr,tria_connectivity,quad_connectivity, &
-                     n_totpts,n_totcel
-  use ovar,    only : aref,uref
-  use flowvar, only : usp
-  use parallel_mod, only : nonblocking_exchange
-  !
-  !.. Local Scalars ..
-  integer   :: i,k,n,n1,n2,p1,p2,ierr
-  real(wp) :: cvel
-  character(len=40) :: fname
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable, dimension(:) :: test_array
-  !
-continue
-  !
-  cvel = aref/uref
-  !
-  write (fname,6) mypnum
-  !
-  open (iotec,file=trim(adjustl(fname)),status="replace", &
-              action="write",form="formatted",iostat=ierr)
-  call io_error("write_tecplot_partitions",trim(adjustl(fname)),1,ierr)
-  !
-  write (iotec,9)
-  !
-  write (iotec,2) mypnum,n_totpts,n_totcel*n_order*n_order
-  !
-  do n = 1,nr
-    write (iotec,4) (xyz(n,i),i=1,n_totpts)
-  end do
-  !
-  write (iotec,4) (usp(1,i),i=1,n_totpts)
-  write (iotec,4) (usp(2,i)/usp(1,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (usp(3,i)/usp(1,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (pressure_cv_sp(usp(:,i))*cvel**2,i=1,n_totpts)
-  !
-  do n = 1,n_totcel
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    p1 = pts_in_cell_ptr(n)+1
-    do i = 1,n_order*n_order
-      write (iotec,5) (p1+merge(tria_connectivity(k,i), &
-                                quad_connectivity(k,i), &
-                                n2-n1+1 == 3), k=1,4)
+  do this_cell = 1,ncell
+    !
+    ! Geometry of this grid cell
+    !
+    this_geom = cell_geom(this_cell)
+    !
+    ! Polynomial order for this grid cell
+    !
+    this_order = cell_order(this_cell)
+    !
+    ! Number of solution points for this cell geometry at this order
+    !
+    this_npts = geom_solpts(this_geom,this_order)
+    !
+    ! Get the number of subcells for this cell geometry at this order.
+    ! The number of subcells is basically:
+    !     this_order**(spatial dimension of this_geom) or
+    ! NOTE: Make sure that the number of subcells is at least 1,
+    !       particularly for the case of this_order=0
+    !
+    this_subcells = max( 1 , this_order**geom_dimen(this_geom) )
+    !
+    ! Loop through the number of subcells and add the subconnectivity
+    ! to the first solution point of the current grid cell to get the
+    ! connectivity for the current subcell.
+    !
+    do n = 1,this_subcells
+      !
+      nc = nc + 1
+      !
+      ipelem(:,nc) = p1 + pst_geom(this_geom,this_order)%connectivity(:,n)
+      !
     end do
+    !
+    p1 = p1 + this_npts
+    !
   end do
   !
-  call nonblocking_exchange(usp)
+  ! Format Statements
   !
-  write (iotec,10) mypnum,n_totpts,n_totcel*n_order*n_order
+  1 format (" A grid cell of an unknown geometry type was found!")
+  2 format (" The minimum and maximum dimensions of the grid cells do not", &
+            " match. For example, this would happen if there is a 2D cell", &
+            " within a 3D grid. This configuration is currently not supported.")
   !
-  write (iotec,4) (usp(1,i),i=1,n_totpts)
-  write (iotec,4) (usp(2,i)/usp(1,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (usp(3,i)/usp(1,i)*cvel,i=1,n_totpts)
-  write (iotec,4) (pressure_cv_sp(usp(:,i))*cvel**2,i=1,n_totpts)
-  !
-  close (iotec,iostat=ierr)
-  call io_error("write_tecplot_partitions",trim(adjustl(fname)),2,ierr)
- !!
- !! Write individual cells as zones
- !!
- !write (fname,7) mypnum
- !!
- !open (iotec,file=trim(adjustl(fname)),status="replace", &
- !            action="write",form="formatted",iostat=ierr)
- !!
- !write (iotec,1)
- !write (iotec,9)
- !!
- !do n = 1,n_totcel
- !  !
- !  write (iotec,8) mypnum,n,n_totpts,n_order*n_order
- !  !
- !  do i = 1,nr
- !    write (iotec,4) (xyz(i,k),k=1,n_totpts)
- !  end do
- ! !write (iotec,4) (test_array(k),k=1,n_totpts)
- !  !
- !  n1 = nodes_of_cell_ptr(n)+1
- !  n2 = nodes_of_cell_ptr(n+1)
- !  p1 = pts_in_cell_ptr(n)+1
- !  do i = 1,n_order*n_order
- !    write (iotec,5) (p1+merge(tria_connectivity(k,i), &
- !                              quad_connectivity(k,i), &
- !                              n2-n1+1 == 3), k=1,4)
- !  end do
- !  !
- !end do
- !!
- !close (iotec,iostat=ierr)
-  !
- !deallocate ( test_array , stat=ierr )
-  !
-  1 format ('VARIABLES = "X", "Y"')
-  2  format ('ZONE T="Block ',i0,'", N=',i0,', E=',i0, &
-             ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL')
-  10 format ('ZONE T="Block ',i0,'", N=',i0,', E=',i0, &
-             ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL', &
-             ', VARSHARELIST=([1,2]=1), CONNECTIVITYSHAREZONE=1')
-  3 format ('ZONE T="Ghost ',i0,'", N=',i0,', E=',i0, &
-            ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL')
-  4 format (5es18.10)
-  5 format (10i8)
-  6 format ("partition_sp.",i0,".tec")
-  7 format ("partition_cell_sp.",i0,".tec")
-  8  format ('ZONE T="Block ',i0,', Cell ',i0,'", N=',i0,', E=',i0, &
-             ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL')
-  9 format ('VARIABLES = "X", "Y", "Density", "Vx", "Vy", "Pressure"')
-  !
-end subroutine write_tecplot_partitions
+end subroutine get_initial_data_for_cgns
 !
 !###############################################################################
 !
@@ -4808,26 +3424,26 @@ continue
   nr = size(dcvdx,dim=1)
   np = size(dcvdx,dim=3)
   !
-  if (npv == 1) then
+  if (npv == nec) then
     !
     do n = 1,np
       return_value(n) = dcvdx(ndr,npv,n)
     end do
     !
-  else if (npv == nq) then
+  else if (npv == nee) then
     !
     cv_inv = (gam - one) / rgasref_nd
     !
     do n = 1,np
       !
-      rho_inv = one/uu(1,n)
+      rho_inv = one/uu(nec,n)
       rho_inv2 = rho_inv*rho_inv
       !
-      q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
+      q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
       !
-      coef(1) = -rho_inv2 * (uu(nq,n) - rho_inv*q2)
-      coef(2:nq-1) = -rho_inv2 * uu(2:nq-1,n)
-      coef(nq) = rho_inv
+      coef(nec)     = -rho_inv2 * (uu(nee,n) - rho_inv*q2)
+      coef(nmb:nme) = -rho_inv2 * uu(nmb:nme,n)
+      coef(nee)     =  rho_inv
       !
       return_value(n) = cv_inv * dot( coef , dcvdx(ndr,1:nq,n) )
       !
@@ -4837,11 +3453,11 @@ continue
     !
     do n = 1,np
       !
-      rho_inv = one/uu(1,n)
+      rho_inv = one/uu(nec,n)
       rho_inv2 = rho_inv*rho_inv
       !
       return_value(n) = rho_inv  * dcvdx(ndr,npv,n) - &
-                        rho_inv2 * dcvdx(ndr, 1 ,n) * uu(npv,n)
+                        rho_inv2 * dcvdx(ndr,nec,n) * uu(npv,n)
       !
     end do
     !
@@ -4851,19 +3467,17 @@ end function grad_of_selected_pv
 !
 !###############################################################################
 !
-!pure function interpolate_for_output_1d(array,npts,ityp) result(return_value)
 pure function interpolate_for_output_1d(array) result(return_value)
   !
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use geovar,  only : n_sp2dq,n_solpts,n_global_solpts
+  use order_mod,  only : n_sp2dq
+  use geovar,  only : n_solpts,n_global_solpts
   use geovar,  only : ncell,n_global_cell
   use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
   use geovar,  only : numer2gauss,numer2lobatto
   use ovar,    only : iop_outpts,iop_solpts
- !use geovar,  only : n_sp2dt,o_order
- !use geovar,  only : interp_s2o
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: array
@@ -4873,7 +3487,6 @@ pure function interpolate_for_output_1d(array) result(return_value)
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,np,n
- !integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
   !
   !.. Local Arrays ..
   real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
@@ -4884,7 +3497,7 @@ continue
   !
   if (iop_outpts == iop_solpts) then
     !
-    !
+    ! No interpolation, just copy the array
     !
     do n = 1,size(array)
       return_value(n) = array(n)
@@ -4958,61 +3571,21 @@ continue
     !
   end if
   !
- !k1 = 0
- !!
- !if (npts == size(array)) then
- !  !
- !  do n = 1,npts
- !    return_value(n) = array(n)
- !  end do
- !  !
- !else
- !  !
- !  if (present(ityp)) then
- !    iloc = max(1,min(ityp,2))
- !  else
- !    iloc = 1
- !  end if
- !  !
- !  nopt = (o_order+1)*(o_order+2)/2
- !  nopq = (o_order+1)*(o_order+1)
- !  !
- !  do n = 1,size(pts_in_cell_ptr)-1
- !    !
- !    n1 = pts_in_cell_ptr(n)+1
- !    n2 = pts_in_cell_ptr(n+1)
- !    nsp = n2-n1+1
- !    nw = merge(1,2,nsp==n_sp2dt)
- !    !
- !    nop = merge(nopt,nopq,nsp==n_sp2dt)
- !    !
- !    do k = 1,nop
- !      return_value(k1+k) = dot( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
- !    end do
- !    !
- !    k1 = k1 + nop
- !    !
- !  end do
- !  !
- !end if
-  !
 end function interpolate_for_output_1d
 !
 !###############################################################################
 !
-!pure function interpolate_for_output_2d(array,npts,ityp) result(return_value)
 pure function interpolate_for_output_2d(array) result(return_value)
   !
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use geovar,  only : n_sp2dq,n_solpts,n_global_solpts
+  use order_mod,  only : n_sp2dq
+  use geovar,  only : n_solpts,n_global_solpts
   use geovar,  only : ncell,n_global_cell
   use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
   use geovar,  only : numer2gauss,numer2lobatto
   use ovar,    only : iop_outpts,iop_solpts
- !use geovar,  only : n_sp2dt,o_order
- !use geovar,  only : interp_s2o
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: array
@@ -5023,7 +3596,6 @@ pure function interpolate_for_output_2d(array) result(return_value)
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,np,n,npts,m
- !integer :: k,k1,n,n1,n2,nsp,nw,nop,nopq,nopt,iloc
   !
   !.. Local Arrays ..
   real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
@@ -5035,7 +3607,7 @@ continue
   !
   if (iop_outpts == iop_solpts) then
     !
-    !
+    ! No interpolation, just copy the array
     !
     do n = 1,npts
       do m = 1,nq
@@ -5123,44 +3695,6 @@ continue
     !
   end if
   !
- !k1 = 0
- !!
- !if (npts == size(array)) then
- !  !
- !  do n = 1,npts
- !    return_value(n) = array(n)
- !  end do
- !  !
- !else
- !  !
- !  if (present(ityp)) then
- !    iloc = max(1,min(ityp,2))
- !  else
- !    iloc = 1
- !  end if
- !  !
- !  nopt = (o_order+1)*(o_order+2)/2
- !  nopq = (o_order+1)*(o_order+1)
- !  !
- !  do n = 1,size(pts_in_cell_ptr)-1
- !    !
- !    n1 = pts_in_cell_ptr(n)+1
- !    n2 = pts_in_cell_ptr(n+1)
- !    nsp = n2-n1+1
- !    nw = merge(1,2,nsp==n_sp2dt)
- !    !
- !    nop = merge(nopt,nopq,nsp==n_sp2dt)
- !    !
- !    do k = 1,nop
- !      return_value(k1+k) = dot( interp_s2o(1:nsp,k,nw,iloc) , array(n1:n2) )
- !    end do
- !    !
- !    k1 = k1 + nop
- !    !
- !  end do
- !  !
- !end if
-  !
 end function interpolate_for_output_2d
 !
 !###############################################################################
@@ -5168,16 +3702,19 @@ end function interpolate_for_output_2d
 pure function vorticity_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_sp2dt,n_sp2dq,ncell,pts_in_cell_ptr
-  use metvar, only : dx,dy,dr_mat,ds_mat,jacobian
+  use order_mod, only : n_sp2dt,n_sp2dq
+  use geovar, only : nr,ncell,pts_in_cell_ptr
+  use metvar, only : dr_mat,ds_mat
+  use metvar, only : jacobian,metrics
   !
   real(wp), dimension(:,:), intent(in) :: uu
   !
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,nw,k
+  integer :: n,n1,n2,np,wlocl,k
   real(wp) :: dudr,duds,dvdr,dvds
+  real(wp) :: drdx,dsdx,drdy,dsdy
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr,1:n_sp2dq) :: vel
@@ -5190,21 +3727,33 @@ continue
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    wlocl = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
     !
     do k = n1,n2
-      vel(1:nr,k-n1+1) = uu(2:nq-1,k)/uu(1,k)
+      vel(1:nr,k-n1+1) = uu(nmb:nme,k)/uu(1,k)
     end do
     !
     do k = n1,n2
       !
-      dudr = dot(dr_mat(1:np,k-n1+1,nw),vel(1,1:np))
-      duds = dot(ds_mat(1:np,k-n1+1,nw),vel(1,1:np))
-      dvdr = dot(dr_mat(1:np,k-n1+1,nw),vel(2,1:np))
-      dvds = dot(ds_mat(1:np,k-n1+1,nw),vel(2,1:np))
+      dudr = dot(dr_mat(1:np,k-n1+1,wlocl),vel(1,1:np))
+      duds = dot(ds_mat(1:np,k-n1+1,wlocl),vel(1,1:np))
+      dvdr = dot(dr_mat(1:np,k-n1+1,wlocl),vel(2,1:np))
+      dvds = dot(ds_mat(1:np,k-n1+1,wlocl),vel(2,1:np))
       !
-      return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
-                          ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+      drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
+      dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J
+      drdy = -metrics(1,2,k)/jacobian(k) ! = -dxds/J
+      dsdy =  metrics(2,2,k)/jacobian(k) ! =  dyds/J
+      !
+      ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
+      !
+      !         and using chain rule gives
+      !
+      ! 2D vorticity = ( (dr/dx)*(dv/dr) + (ds/dx)*(dv/ds) ) - 
+      !                ( (dr/dy)*(du/dr) + (ds/dy)*(du/ds) )
+      !
+      return_value(k) = (drdx*dvdr + dsdx*dvds) - &
+                        (drdy*dudr + dsdy*duds)
       !                   
     end do
     !
@@ -5217,16 +3766,19 @@ end function vorticity_cv
 pure function vorticity_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : n_sp2dt,ncell,pts_in_cell_ptr
-  use metvar, only : dx,dy,dr_mat,ds_mat,jacobian
+  use order_mod, only : n_sp2dt
+  use geovar, only : ncell,pts_in_cell_ptr
+  use metvar, only : dr_mat,ds_mat
+  use metvar, only : jacobian,metrics
   !
   real(wp), dimension(:,:), intent(in) :: vv
   !
   real(wp), dimension(1:size(vv,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,nw,k
+  integer :: n,n1,n2,np,wlocl,k
   real(wp) :: dudr,duds,dvdr,dvds
+  real(wp) :: drdx,dsdx,drdy,dsdy
   !
 continue
   !
@@ -5236,17 +3788,29 @@ continue
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    nw = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    wlocl = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
     !
     do k = n1,n2
       !
-      dudr = dot(dr_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
-      duds = dot(ds_mat(1:np,k-n1+1,nw),vv(2,n1:n2))
-      dvdr = dot(dr_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
-      dvds = dot(ds_mat(1:np,k-n1+1,nw),vv(3,n1:n2))
+      dudr = dot(dr_mat(1:np,k-n1+1,wlocl),vv(2,n1:n2))
+      duds = dot(ds_mat(1:np,k-n1+1,wlocl),vv(2,n1:n2))
+      dvdr = dot(dr_mat(1:np,k-n1+1,wlocl),vv(3,n1:n2))
+      dvds = dot(ds_mat(1:np,k-n1+1,wlocl),vv(3,n1:n2))
       !
-      return_value(k) = ( ( dy(k)%ds*dvdr - dy(k)%dr*dvds ) - &
-                          ( dx(k)%dr*duds - dx(k)%ds*dudr ) ) / jacobian(k)
+      drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
+      dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J
+      drdy = -metrics(1,2,k)/jacobian(k) ! = -dxds/J
+      dsdy =  metrics(2,2,k)/jacobian(k) ! =  dyds/J
+      !
+      ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
+      !
+      !         and using chain rule gives
+      !
+      ! 2D vorticity = ( (dr/dx)*(dv/dr) + (ds/dx)*(dv/ds) ) - 
+      !                ( (dr/dy)*(du/dr) + (ds/dy)*(du/ds) )
+      !
+      return_value(k) = (drdx*dvdr + dsdx*dvds) - &
+                        (drdy*dudr + dsdy*duds)
       !                   
     end do                
     !
@@ -5266,6 +3830,8 @@ include "Functions/pressure.f90"
 include "Functions/usp2v.f90"
 include "Functions/vsp2u.f90"
 include "Functions/mach_number.f90"
+include "Functions/cell_vol.f90"
+include "Functions/bc_string_to_integer.f90"
 !
 !###############################################################################
 !

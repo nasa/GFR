@@ -1,7 +1,9 @@
 module ovar
   !
   use module_kind_types, only : wp,fals,true
-  use geovar, only : p_order,n_order,o_order,all_orders,q_order
+  use module_kind_types, only : Euler_Eqns
+  use module_kind_types, only : Gambit_Neutral
+  use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
   !
@@ -14,27 +16,15 @@ module ovar
   public :: input
   !
   !
-  ! ###########################
-  ! ###  Module Parameters  ###
-  ! ###########################
+  ! #######################################
+  ! ###  Use Associated Public Scalars  ###
+  ! #######################################
   !
-  integer,  public, parameter :: Classic_RK = 1
-  integer,  public, parameter :: TVD2_RK    = 2
-  integer,  public, parameter :: TVD3_RK    = 3
-  integer,  public, parameter :: TVD4_RK    = 4
-  integer,  public, parameter :: CK4_RK     = 5
-  !
-  ! Using Intel 2013 compilers
-  real(wp), public, parameter :: one_work_unit = 6.9205_wp
-  ! Westmere nodes
- !real(wp), public, parameter :: one_work_unit = 25.551_wp/3.0_wp
-  ! Sandy Bridge nodes
- !real(wp), public, parameter :: one_work_unit = 22.808_wp/3.0_wp
-  ! Ivy Bridge nodes
- !real(wp), public, parameter :: one_work_unit = 19.096_wp/3.0_wp
-  ! Using Intel version 10 compilers
- !real(wp), public, parameter :: one_work_unit = 7.026_wp
-  !
+  public :: p_order
+  public :: n_order
+  public :: q_order
+  public :: o_order
+  public :: all_orders
   !
   !
   ! ################################
@@ -52,6 +42,8 @@ module ovar
   integer,  public, save :: iop_outpts       = 2
   integer,  public, save :: flux_divergence  = 0
   integer,  public, save :: iop_correction   = 3
+  !
+  integer,  public, save :: governing_equations = Euler_Eqns
   !
   integer,  public, save :: iRKtype     = 3
   integer,  public, save :: num_stages  = 3
@@ -114,7 +106,7 @@ module ovar
   integer,  public, save :: init_loc  = 0
   integer,  public, save :: error_loc = 0
   !
-  logical,  public, save :: bound_error       = .false.
+  logical,  public, save :: bound_error       = fals
   real(wp), public, save :: error_bound_limit = 2.0_wp
   !
   real(wp), public, save :: vortex_bigR = 1.0_wp
@@ -184,8 +176,6 @@ module ovar
   !
   integer,  public, save :: nst
   !
-  integer,  public, save :: Filter_Cutoff
-  !
   integer,  public, save :: Total_Periods
   !
   logical,  public, save :: walltime_expiring
@@ -198,12 +188,9 @@ module ovar
   !
   real(wp), public, save :: Period_Time
   integer,  public, save :: Period_Timesteps
-  real(wp), public, save :: Grid_Max_X
-  real(wp), public, save :: Grid_Max_Y
-  real(wp), public, save :: Grid_Min_X
-  real(wp), public, save :: Grid_Min_Y
-  real(wp), public, save :: Grid_Length_X
-  real(wp), public, save :: Grid_Length_Y
+  real(wp), public, save, dimension(1:3) :: Grid_Max
+  real(wp), public, save, dimension(1:3) :: Grid_Min
+  real(wp), public, save, dimension(1:3) :: Grid_Length
   !
   real(wp), public, save :: Density_Minimum_Residual
   real(wp), public, save :: Density_Maximum_Residual
@@ -215,7 +202,7 @@ module ovar
   integer, public, save :: output_plot3d_to_tecplot = 0
   logical, public, save :: output_bface_array = fals
   !
-  integer,            public, save :: grid_format = 2
+  integer,            public, save :: grid_format = Gambit_Neutral
   character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
   character(len=150), public, save :: output_dir = "."
   character(len=150), public, save :: plot3d_cutfile = ""
@@ -230,6 +217,9 @@ module ovar
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
   real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
   logical,  public, save :: convergence_reached = fals
+  !
+  logical, public, save :: using_curved_boundaries = fals
+  logical, public, save :: use_3rd_derivative_metrics = fals
   !
   !
   ! ########################
@@ -260,6 +250,8 @@ module ovar
   ! OUTPUT OPTIONS
   namelist / input / output_dir, iter_out_interval, output_solution, &
                      output_interval, results_interval, o_order
+  ! GOVERNING EQUATIONS
+  namelist / input / governing_equations
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! REFERENCE CONDITIONS
@@ -289,6 +281,8 @@ module ovar
                      interpolate_before_output_variable
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
+  ! ADVANCED METRICS TERMS
+  namelist / input / using_curved_boundaries,use_3rd_derivative_metrics
   !
 contains
 !
@@ -400,165 +394,6 @@ end subroutine ovar_alloc_status
 !###############################################################################
 !
 end module ovar
-!
-!###############################################################################
-!
-module eqn_idx
-  !
-  use module_kind_types
-  !
-  implicit none
-  !
-  private
-  !
-  ! Public Procedures
-  !
-  public :: create_equation_indices
-  !
-  ! NEC : index for continuity equation
-  !
-  integer, public, protected, save :: nec
-  !
-  ! NMX : index for x-momentum equation
-  ! NMY : index for y-momentum equation
-  ! NMZ : index for z-momentum equation
-  !
-  integer, public, protected, save :: nmx
-  integer, public, protected, save :: nmy
-  integer, public, protected, save :: nmz
-  !
-  ! NMB : index for first momentum equation
-  ! NME : index for last  momentum equation
-  !
-  integer, public, protected, save :: nmb
-  integer, public, protected, save :: nme
-  !
-  ! NEC : index for energy equation
-  !
-  integer, public, protected, save :: nee
-  !
-  ! NQ : total number of equations
-  !
-  integer, public, protected, save :: nq = 4
-  !
-  ! NGOV : Equation control parameters 
-  !
-  !        NOTE: THIS IS COPIED FROM VULCAN MOST IS NOT USED
-  !
-  !        NGOV(1,1) = starting index of continuity equations
-  !        NGOV(2,1) = ending   index of continuity equations
-  !                    and the sum of all densities preceeding
-  !        NGOV(3,1) = number of continuity equations
-  !                  = 1 when thermally and calorically perfect
-  !                  = no. of chemical species+1 when thermally perfect
-  !                  = no. of chemical species+1 when thermally imperfect
-  !        NGOV(4,1) = starting index of continuity equation source terms
-  !        NGOV(5,1) = ending   index of continuity equation source terms
-  !        NGOV(6,1) = no. of continuity equation source terms
-  !                  = 0 for thermally and calorically perfect gas
-  !        NGOV(7,1) = equation RHS solution procedure
-  !                    0 = explicit
-  !                    1 = point implicit
-  !        NGOV(1,2) = starting index of momentum equations
-  !        NGOV(2,2) = ending   index of momentum equations
-  !        NGOV(3,2) = number of momentum equations
-  !        NGOV(6,2) = no. of momentum equation source terms
-  !                  = 0
-  !        NGOV(7,2) = equation RHS solution procedure
-  !                    0 = explicit
-  !                    1 = point implicit
-  !        NGOV(1,3) = starting index of energy equations
-  !        NGOV(2,3) = ending   index of energy equations
-  !        NGOV(3,3) = number of energy equations
-  !                  = 1 when thermally and calorically perfect
-  !                  = 1 when thermally perfect calorically imperfect
-  !                  = 2 when thermally imperfect
-  !        NGOV(6,3) = no. of energy equation source terms
-  !                  = 0 when thermally and calorically perfect
-  !                  = 0 when thermally and calorically imperfect
-  !                  = N when thermally imperfect
-  !        NGOV(1,4) = starting index of turbulence equations
-  !        NGOV(2,4) = ending   index of turbulence equations
-  !        NGOV(3,4) = number of turbulence equations
-  !        NGOV(4,4) = starting index of turbulence equation source terms
-  !        NGOV(5,4) = ending   index of turbulence equation source terms
-  !        NGOV(6,4) = no. of turbulence equation source terms
-  !        NGOV(7,4) = equation RHS solution procedure
-  !                    0 = explicit
-  !        NGOV(1,5) = starting index of "G" equations
-  !        NGOV(2,5) = ending   index of "G" equations
-  !        NGOV(3,5) = number of "G" equations
-  !        NGOV(4,5) = starting index of "G" equation source terms
-  !        NGOV(5,5) = ending   index of "G" equation source terms
-  !        NGOV(6,5) = no. of "G" equation source terms
-  !        NGOV(7,5) = equation RHS solution procedure
-  !                    0 = explicit
-  !                    1 = point implicit
-  !
-  integer, public, protected, save, dimension(3,4) :: ngov
-  !
-contains
-!
-!###############################################################################
-!
-subroutine create_equation_indices(num_dim)
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: num_dim
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_equation_indices"
-  !
-continue
-  !
-  if (num_dim == 1) then
-    !
-    call stop_recon(stop_mpi,pname,"1D is not supported")
-    !
-  end if
-  !
-  ! Continuity equations
-  !
-  ngov(1:3,1) = 1
-  !
-  ! Momentum equations
-  !
-  ngov(3,2) = num_dim
-  ngov(1,2) = ngov(2,1) + 1
-  ngov(2,2) = ngov(1,2) + ngov(3,2) - 1
-  !
-  ! Energy equations
-  !
-  ngov(3,3) = 1
-  ngov(1,3) = ngov(2,2) + 1
-  ngov(2,3) = ngov(1,3) + ngov(3,3) - 1
-  !
-  ! Turbulence equations (NOT WORKING)
-  !
-  ngov(3,4) = 0
-  ngov(1,4) = ngov(2,3) + 1
-  ngov(2,4) = ngov(1,4) + ngov(3,4) - 1
-  !
-  ! Set the total number of equations
-  !
-  nq = ngov(3,1) + ngov(3,2) + ngov(3,3) + ngov(3,4)
-  !
-  ! Set the indices that will be used through the code
-  !
-  nec = ngov(2,1)
-  nmx = ngov(1,2)
-  nmy = ngov(1,2) + 1
-  nmz = merge( ngov(1,2) + 2 , 0 , num_dim == 3 )
-  nee = ngov(2,3)
-  !
-  nmb = nmx
-  nme = nec + ngov(3,2)
-  !
-end subroutine create_equation_indices
-!
-!###############################################################################
-!
-end module eqn_idx
 !
 !###############################################################################
 !

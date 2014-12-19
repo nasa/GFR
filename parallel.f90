@@ -2,7 +2,7 @@ module parallel_mod
   !
   !.. Use Statements ..
   use module_kind_types
- !use mpivar
+  use eqn_idx, only : nq
   !
   implicit none
   !
@@ -13,7 +13,6 @@ module parallel_mod
   !
   public :: create_serial_cell_map
   public :: partition_grid
-  public :: blocking_exchange
   public :: nonblocking_exchange
   public :: test_nonblocking_exchange
   public :: test_nonblocking_fexchange
@@ -42,7 +41,6 @@ module parallel_mod
   integer, parameter :: nifac = 4
   !
   integer, save :: nr
-  integer, save :: nq
   integer, save :: nbfai
   !
   ! Dimensions of the global grid
@@ -59,127 +57,6 @@ module parallel_mod
   integer, save :: n_sp1de
   integer, save :: n_sp2dt
   integer, save :: n_sp2dq
-  !
-  ! MPI user-defined datatypes
-  !
-  integer, public, allocatable, dimension(:) :: snd_usp
-  integer, public, allocatable, dimension(:) :: rcv_usp
-  !
-  ! Definitions of communication data
-  !
-  !         partition boundary faces shared
-  !            by left_cpu and right_cpu
-  !                        |
-  !                        V
-  !    __________________________________________
-  !   |                    |                     |
-  !   |   Left Partition   |   Right Partition   |
-  !   |    on left_cpu     |    on right_cpu     |
-  !   |____________________|_____________________|
-  !                           
-  !
-  !     Left Partition ( comm_links_ptr(1) ) view
-  !
-  !           partition boundary face (lfa)
-  !                        |
-  !                        v
-  !            x-----------o------------o
-  !            |           |/           |
-  !            |    lhc    |/    lgc    |
-  !            |           |/           |
-  !            x-----------o------------o
-  !            <-interior->|<---ghost--->
-  !
-  !
-  !    Right Partition ( comm_links_ptr(2) ) view
-  !
-  !           partition boundary face (rfa)
-  !                        |
-  !                        v
-  !            x-----------o------------o
-  !            |           |/           |
-  !            |    rgc    |/    rhc    |
-  !            |           |/           |
-  !            x-----------o------------o
-  !            <---ghost-->|<--interior->
-  !
-  ! n_com_bnd : number of unique communication boundaries
-  ! n_com_lnk : number of individual communication "links" on a processor
-  !             NOTE: A "link" is defined as a boundary face that
-  !                   requires communication to another partition.
-  !
-  integer, save :: n_com_bnd
-  integer, save :: n_com_lnk
-  !
-  ! comm_links_ptr : defines the communication parameters for a
-  !                  partition boundary i_bnd. The data in this
-  !                  array is identical across all processors.
-  !     comm_links_ptr(1,i_bnd) = left_cpu  = left  partition number - 1
-  !     comm_links_ptr(2,i_bnd) = right_cpu = right partition number - 1
-  !     comm_links_ptr(3,i_bnd) = partition boundary faces shared
-  !                               by left_cpu and right_cpu
-  !
-  integer, save, allocatable, dimension(:,:) :: comm_links_ptr
-  !
-  !  Example: 4 partitions
-  !
-  !      o---o---o---o   o---o---o---o---o
-  !      |   |   |   |   |   |   |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !      |   | 1 |   |   |   | 2 |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !      |   |   |   |   |   |   |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !
-  !      o---o---o---o   o---o---o---o---o
-  !      |   |   |   |   |   |   |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !      |   | 3 |   |   |   | 4 |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !      |   |   |   |   |   |   |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !      |   |   |   |   |   |   |   |   |
-  !      o---o---o---o   o---o---o---o---o
-  !
-  ! n_com_bnd = 4  [(1-2),(3-4),(1-3),(2-4)]
-  !
-  ! comm_links_ptr(1,1) = 0
-  ! comm_links_ptr(2,1) = 1
-  ! comm_links_ptr(3,1) = 3
-  !
-  ! comm_links_ptr(1,2) = 2
-  ! comm_links_ptr(2,2) = 3
-  ! comm_links_ptr(3,2) = 4
-  !
-  ! comm_links_ptr(1,3) = 0
-  ! comm_links_ptr(2,3) = 2
-  ! comm_links_ptr(3,3) = 3
-  !
-  ! comm_links_ptr(1,4) = 1
-  ! comm_links_ptr(2,4) = 3
-  ! comm_links_ptr(3,4) = 4
-  !
-  ! For processor 0 -> n_com_lnk = 6
-  ! For processor 1 -> n_com_lnk = 7
-  ! For processor 2 -> n_com_lnk = 7
-  ! For processor 3 -> n_com_lnk = 8
-  !
-  ! comm_links : defines the connectivity of each partition boundary
-  !              face, i_link. Only data relative to each processor
-  !              is stored in this array. Therefore, for partition
-  !              boundary face i_link which is shared by left_cpu and
-  !              right_cpu, the data for i_link is identical between
-  !              these two processors but the location of this data
-  !              within the comm_links array is processor independent.
-  !
-  ! comm_links(1,1,i_link) = lfa = left face
-  ! comm_links(2,1,i_link) = lhc = left host cell
-  ! comm_links(3,1,i_link) = lgc = left ghost cell
-  ! comm_links(1,2,i_link) = rfa = right face
-  ! comm_links(2,2,i_link) = rhc = right host cell
-  ! comm_links(3,2,i_link) = rgc = right ghost cell
-  !
-  integer, save, allocatable, dimension(:,:,:) :: comm_links
   !
   ! Number of communication partners
   !
@@ -273,24 +150,25 @@ end subroutine create_serial_cell_map
 !
 !###############################################################################
 !
-subroutine partition_grid(npart,n_order,metis_option,bface,nodes_of_cell, &
-                          nodes_of_cell_ptr,xyz_nodes)
+subroutine partition_grid(npart,metis_option,bface,nodes_of_cell, &
+                          nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
   !
   !.. Use Statements ..
   use iso_c_binding, only : c_float
   use iso_c_binding, only : c_double
   !
   !.. Formal Arguments ..
-  integer,                                   intent(in) :: npart
-  integer,                                   intent(in) :: n_order
-  integer,                                   intent(in) :: metis_option
-  integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell
-  integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell_ptr
-  integer,   allocatable, dimension(:,:), intent(inout) :: bface
+  integer,                                  intent(in) :: npart
+  integer,                                  intent(in) :: metis_option
+  integer,  allocatable, dimension(:),   intent(inout) :: cell_geom
+  integer,  allocatable, dimension(:),   intent(inout) :: cell_order
+  integer,  allocatable, dimension(:),   intent(inout) :: nodes_of_cell
+  integer,  allocatable, dimension(:),   intent(inout) :: nodes_of_cell_ptr
+  integer,  allocatable, dimension(:,:), intent(inout) :: bface
   real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,ierr
+  integer :: n,n1,n2,n_order,ierr
   integer :: wgtflag,numflag,vol
   character(len=19) :: method
   character(len=12) :: weight
@@ -329,6 +207,7 @@ continue
   !
   ! Get the number of solution points based on n_order
   !
+  n_order = maxval(cell_order)
   n_sp1de = n_order+1
   n_sp2dt = n_sp1de*(n_sp1de+1)/2
   n_sp2dq = n_sp1de*n_sp1de
@@ -336,7 +215,6 @@ continue
   ! Get the size of the global grid
   !
   nr = size(xyz_nodes,dim=1)
-  nq = nr + 2
   nbfai = size(bface,dim=1)
   !
   ! The total number of nodes and cells, including ghost cells
@@ -362,7 +240,7 @@ continue
   ! Create the weights for the vertices of the dual graph
   !
   call create_grid_weights(metis_option,last(xadj)-1,vwgt,adjwgt, &
-                           nodes_of_cell_ptr)
+                           cell_geom,cell_order)
   !
   ! Allocate the epart array to store the cell partition numbers
   !
@@ -898,13 +776,14 @@ end subroutine create_dual_graph
 !
 !###############################################################################
 !
-subroutine create_grid_weights(metis_option,nadjfac, &
-                               vwgt,adjwgt,nodes_of_cell_ptr)
+subroutine create_grid_weights(metis_option,nadjfac,vwgt,adjwgt, &
+                               cell_geom,cell_order)
   !
   !.. Formal Arguments ..
   integer,                               intent(in) :: nadjfac
   integer,                               intent(in) :: metis_option
-  integer,              dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,              dimension(:),    intent(in) :: cell_geom
+  integer,              dimension(:),    intent(in) :: cell_order
   integer, allocatable, dimension(:), intent(inout) :: vwgt
   integer, allocatable, dimension(:), intent(inout) :: adjwgt
   !
@@ -951,15 +830,7 @@ continue
     ! Set the communication weight of the cells to
     ! the number of solution points for each cell
     !
-    do n = 1,ngcell
-      !
-      n1 = nodes_of_cell_ptr(n)+1
-      n2 = nodes_of_cell_ptr(n+1)
-      np = n2-n1+1
-      !
-      adjwgt(n) = merge(n_sp2dt,n_sp2dq,np==3)
-      !
-    end do
+    adjwgt = Cell_Solpts( cell_geom , cell_order )
     !
   end if
   !
@@ -2105,14 +1976,6 @@ end subroutine localize_grid
 !
 !###############################################################################
 !
-! WHEN CREATING THE EXCHANGE DATATYPES, A POSSIBLE METHOD WOULD BE TO USE MPI
-! COLLECTIVE COMMUNICATION TO GATHER IDENTICAL ARRAYS ACROSS ALL PROCESSORS
-! CONTAINING CONCATENATED COPIES OF THE ARRAYS LOCAL TO EACH PROCESSOR.
-! E.G., GATHER A GLOBAL BFACE ARRAY, gbface, ON ALL PROCESSORS CONTAINING
-! gbface = [bface from cpu 0,bface from cpu 1,...,bface from cpu ncpu]
-!
-!###############################################################################
-!
 subroutine create_nonblocking_exchange_datatypes(nodes_of_cell, &
                                                  nodes_of_cell_ptr,bface)
   !
@@ -2124,7 +1987,7 @@ subroutine create_nonblocking_exchange_datatypes(nodes_of_cell, &
   !.. Local Scalars ..
   integer :: n,nf,np,scnt,rcnt,i,icpu,ierr
   integer :: smin,smax,rmin,rmax,s1,s2,r1,r2
-  integer :: p1,p2,nc,rfa,rge
+  integer :: p1,p2,nc,rfa,wlocl
   integer :: nfbnd,ncell,n_totcel,n_totpts
   !
   !.. Local Arrays ..
@@ -2436,9 +2299,9 @@ continue
       np = merge(n_sp2dt,n_sp2dq,np==3)
       !
       rfa = ghost_face(nc)
-      rge = merge(1,2,np==n_sp2dt)
+      wlocl = merge(1,2,np==n_sp2dt)
       !
-      recv_pts(rcnt+1:rcnt+np) = cell_offset(nc) + geom_offset(1:np,rfa,rge)
+      recv_pts(rcnt+1:rcnt+np) = cell_offset(nc) + geom_offset(1:np,rfa,wlocl)
       !
       rcnt = rcnt + np
       !
@@ -2628,7 +2491,7 @@ end subroutine create_nonblocking_exchange_datatypes
 !
 subroutine create_face_nonblocking_datatypes(bface)
   !
-  use geovar, only : n_fp1de
+  use order_mod, only : n_fp1de
  !use metrics_mod, only : get_solution_points_2d
  !use geovar, only : xyz,n_global_totpts,nr,n_totpts
   !
@@ -3186,509 +3049,6 @@ end subroutine create_geometry_offsets
 !
 !###############################################################################
 !
-!subroutine create_nonblocking_exchange_datatypes()
-!  !
-!  !.. Formal Arguments ..
-!  !
-!  !.. Local Scalars ..
-!  !
-!  !.. Local Allocatable Arrays ..
-!  logical, allocatable, dimension(:) :: send_msk
-!  logical, allocatable, dimension(:) :: recv_msk
-!  integer, allocatable, dimension(:) :: send_offsets
-!  integer, allocatable, dimension(:) :: recv_offsets
-!  !
-!continue
-!  !
-!  ! Allocate the send and receive mask arrays
-!  !
-!  mxcell = maxval( comm_cpu(2,:) )
-!  !
-!  rmin = minval( comm_links(2,1,:) )
-!  rmax = maxval( comm_links(2,1,:) )
-!  smin = minval( comm_links(2,2,:) )
-!  smax = maxval( comm_links(2,2,:) )
-!  !
-!  allocate ( send_msk(smin:smax) , source=fals , stat=ierr )
-!  allocate ( recv_msk(rmin:rmax) , source=fals , stat=ierr )
-!  !
-!  ! Loop through the communication partners
-!  !
-!  iend = 0
-!  send_count = 0
-!  recv_count = 0
-!  !
-!  do npb = 1,ncomm
-!    !
-!    rcpu = comm_cpu(1,npb)
-!    !
-!    ibeg = iend + 1
-!    iend = iend + comm_cpu(2,npb)
-!    !
-!    ! Mark the send and receive data locations
-!    !
-!    do i = ibeg,iend
-!      !
-!      if (comm_links(3,2,i) == rcpu) then
-!        send_msk(comm_links(2,2,i)) = true
-!        recv_msk(comm_links(2,1,i)) = true
-!      end if
-!      !
-!    end do
-!    !
-!    ! Create the sending offsets
-!    !
-!    do i = smin,smax
-!      if (.not. send_msk(i)) cycle
-!      send_count = send_count + 1
-!      send_offsets(send_count) = i - 1
-!    end do
-!    !
-!    ! Create the receiving offsets
-!    !
-!    do i = rmin,rmax
-!      if (.not. recv_msk(i)) cycle
-!      recv_count = recv_count + 1
-!      recv_offsets(recv_count) = i - 1
-!    end do
-!    !
-!  end do
-!  !
-!end subroutine create_nonblocking_exchange_datatypes
-!!
-!!###############################################################################
-!!
-!subroutine create_blocking_exchange_datatypes()
-!  !
-!  !.. Local Scalars ..
-!  integer :: nbp,lcpu,rcpu,block,nsnd,nrcv
-!  !
-!  !.. Local Allocatable Arrays ..
-!  integer, allocatable, dimension(:) :: send_offsets
-!  integer, allocatable, dimension(:) :: recv_offsets
-!  !
-!continue
-!  !
-!  ! Block size assuming <nr> momentum equations
-!  ! plus one density plus one energy equation
-!  !
-!  block = nq
-!  ! 
-!  ! Allocate the sending and receiving datatypes
-!  !
-!  allocate ( snd_usp(1:n_com_bnd) , source=mpi_datatype_null , stat=ierr )
-!  allocate ( rcv_usp(1:n_com_bnd) , source=mpi_datatype_null , stat=ierr )
-!  !
-!  ! Allocate and initialize the offset arrays
-!  !
-!  offmax = n_sp2dq*maxval(comm_links_ptr(3,:))
-!  !
-!  allocate ( send_offsets(1:offmax) , source=0 , stat=ierr )
-!  allocate ( recv_offsets(1:offmax) , source=0 , stat=ierr )
-!  !
-!  ! Create the MPI datatypes to communicate data across partition boundaries
-!  !
-!  do npb = 1,n_com_bnd
-!    !
-!    lcpu = comm_links_ptr(1,npb)
-!    rcpu = comm_links_ptr(2,npb)
-!    !
-!    ! For this partition boundary, find the number of solution points
-!    ! that require the exchange of information on each processor.
-!    !
-!    if (mypnum == lcpu) then
-!      !
-!      ! Processor for the left partition on the current boundary
-!      !
-!    else if (mypnum == rcpu) then
-!      !
-!      ! Processor for the right partition on the current boundary
-!      !
-!    end if
-!    !
-!    ! Create the send datatype for the solution array usp
-!    !
-!    call mpi_type_create_indexed_block(nsnd,block,send_offsets(1:nsnd), &
-!                                       mpi_fltval,snd_usp(npb),mpierr)
-!    call mpi_type_commit(snd_usp(npb),mpierr)
-!    !
-!    ! Create the receive datatype for the solution array usp
-!    !
-!    call mpi_type_create_indexed_block(nrcv,block,recv_offsets(1:nrcv), &
-!                                       mpi_fltval,rcv_usp(npb),mpierr)
-!    call mpi_type_commit(rcv_usp(npb),mpierr)
-!    !
-!  end do
-!  !
-!end subroutine create_blocking_exchange_datatypes
-!
-!###############################################################################
-!
-!subroutine create_communication_links2()
-!  !
-!  ! Create only those communication links relevant to each processor
-!  ! separately and combine into a global array once completed.
-!  !
-!  !.. Formal Arguments ..
-!  integer,                 intent(in) :: npart
-!  integer, dimension(:),   intent(in) :: epart
-!  integer, dimension(:,:), intent(in) :: bface
-!  !
-!  !.. Local Scalars ..
-!  integer :: nf
-!  !
-!  !.. Local Allocatable Arrays ..
-!  integer, allocatable, dimension(:) :: link_count
-!  !
-!continue
-!  !
-!  ! Loop through the boundary faces and find the number of
-!  ! processors the current processor has to communicate with.
-!  !
-!  allocate ( link_count(1:npart) , source=0 , stat=ierr )
-!  !
-!  do nf = 1,ngfbnd
-!    !
-!    ! Cycle if not a communication boundary face
-!    !
-!    if (.not. any(bface(1,nf) == bc_comm)) cycle
-!    !
-!    ! If applicable to the current processor, add one to the
-!    ! number of links for the adjacent processor.
-!    ! NOTE: Make sure that the communication is to an external
-!    !       processor and not for two cells on the current
-!    !       processor linked by a periodic boundary condition.
-!    !
-!    lcpu = epart(bface(2,nf))-1
-!    rcpu = bface(7,nf)
-!    !
-!    if (lcpu == mypnum .and. rcpu /= mypnum) &
-!      link_count(rcpu+1) = link_count(rcpu+1) + 1
-!    !
-!  end do
-!  !
-!  ! Count the number of processors to communicate with and the
-!  ! total number of communication links for all processors
-!  !
-!  ncomm = count( link_count(:) /= 0 )
-!  nlink = sum( link_count(:) )
-!  !
-!  ! Create the list of processors to communicate with
-!  !
-!  allocate ( comm_cpu(1:2,1:ncomm) , source=0 , stat=ierr )
-!  !
-!  i = 0
-!  do n = 1,npart
-!    if (link_count(n) /= 0) then
-!      i = i + 1
-!      comm_cpu(1,i) = n - 1
-!      comm_cpu(2,i) = link_count(n)
-!    end if
-!  end do
-!  !
-!  ! Now create the list of communication links for each processor
-!  !
-!  allocate ( comm_links(1:4,1:2,1:nlink) , source=0 , stat=ierr )
-!  !
-!  i = 0
-!  !
-!  do npb = 1,ncomm
-!    !
-!    rcpu = comm_cpu(1,npb)
-!    !
-!    do nf = 1,ngfbnd
-!      !
-!      ! Cycle if not a communication boundary face
-!      !
-!      if (.not. any(bface(1,nf) == bc_comm)) cycle
-!      !
-!      lcpu = epart(bface(2,nf))-1
-!      !
-!      if (lcpu == mypnum .and. rcpu == bface(7,nf)) then
-!        !
-!        ! Create the link information for this communication boundary face
-!        !
-!        ! for communication boudnary face i_lnk:
-!        !
-!        ! comm_links(1,1,i_lnk) = for lcpu, global boundary face
-!        ! comm_links(2,1,i_lnk) = for lcpu, global host  cell
-!        ! comm_links(3,1,i_lnk) = for lcpu, processor ID
-!        ! comm_links(4,1,i_lnk) = for lcpu, number of nodes defining host cell
-!        !
-!        ! comm_links(1,2,i_lnk) = for rcpu, global boundary face
-!        ! comm_links(2,2,i_lnk) = for rcpu, global host  cell
-!        ! comm_links(3,2,i_lnk) = for rcpu, processor ID
-!        ! comm_links(4,2,i_lnk) = for rcpu, number of nodes defining host cell
-!        !
-!        i = i + 1
-!        !
-!        ! Link information for left cell
-!        !
-!        comm_links(1,1,i) = nf
-!        comm_links(2,1,i) = bface(2,nf)
-!        comm_links(3,1,i) = lcpu
-!        comm_links(4,1,i) = nodes_of_cell_ptr(bface(2,nf)+1) - &
-!                            nodes_of_cell_ptr(bface(2,nf))
-!        !
-!        ! Link information for right cell
-!        !
-!        comm_links(1,2,i) = bface(5,nf)
-!        comm_links(2,2,i) = bface(6,nf)
-!        comm_links(3,2,i) = rcpu
-!        comm_links(4,2,i) = nodes_of_cell_ptr(bface(6,nf)+1) - &
-!                            nodes_of_cell_ptr(bface(6,nf))
-!        !
-!      end if
-!      !
-!    end do
-!    !
-!  end do
-!  !
-!  ! 
-!
-!
-!
-!end subroutine create_communication_links2
-!!
-!!###############################################################################
-!!
-!subroutine create_communication_links(npart,bface)
-!  !
-!  !.. Formal Arguments ..
-!  integer, intent(in) :: npart
-!  integer, dimension(:,:), intent(in) :: bface
-!  !
-!  !.. Local Scalars ..
-!  integer :: llnk,nlnk,mlnk,i,ierr,np1,np2,n,nf,lcpu,rcpu
-!  !
-!  !.. Local Arrays ..
-!  integer, dimension(1:npart,1:npart) :: link_count
-!  !
-!continue
-!  !
-!  ! Mark the number of links for each processor
-!  !
-!  link_count(:,:) = 0
-!  do n = 1,npart
-!    do nf = 1,ngfbnd
-!      if ( any(bface(1,nf) == bc_comm) ) then
-!        link_count(n,bface(7,nf)+1) = link_count(n,bface(7,nf)+1) + 1
-!      end if
-!    end do
-!  end do
-!  !
-!  ! Count the total number of communication boundaries excluding duplicates
-!  !
-!  n_com_bnd = 0
-!  do np1 = npart,1,-1
-!    do np2 = 1,np1-1
-!      if (link_count(np1,np2) /= 0) n_com_bnd = n_com_bnd + 1
-!    end do
-!  end do
-!  !
-!  ! Create the pointer for communication links
-!  !
-!  allocate ( comm_links_ptr(1:3,1:n_com_bnd) , source=0 , stat=ierr )
-!  !
-!  llnk = 0
-!  do np1 = npart,1,-1
-!    do np2 = 1,np1-1
-!      if (link_count(np1,np2) /= 0) then
-!        llnk = llnk + 1
-!        comm_links_ptr(1,llnk) = np1 - 1
-!        comm_links_ptr(2,llnk) = np2 - 1
-!        comm_links_ptr(3,llnk) = link_count(np1,np2)
-!      end if
-!    end do
-!  end do
-!  !
-!  ! Count the total number of communication links on each local processor
-!  !
-! !n_com_lnk = 0
-! !do n = 1,n_com_bnd
-! !  if ( any(mypnum == comm_links_ptr(1:2,n)) ) then
-! !    n_com_lnk = n_com_lnk + comm_links_ptr(3,n)
-! !  end if
-! !end do
-!  n_com_lnk = sum( comm_links_ptr(3,:) , &
-!                   mask = any(mypnum==comm_links_ptr(1:2,:),dim=1) )
-!  !
-!  ! Create the communication links on each local processor
-!  !
-!  allocate ( comm_links(1:3,1:2,1:n_com_lnk) , source=0 , stat=ierr )
-!  !
-!  nlnk = 0  ! count of total communication links on local processor
-!  mlnk = 0  ! count of total communication links on all   processors
-!  !
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !
-!  ! THIS NEEDS TO BE REWORKED BECAUSE I THINK THERE WILL BE DUPLICATE
-!  ! COMMUNICATION LINKS SINCE PARTITION BOUNDARY FACES WERE SPLIT FROM
-!  ! ONE INTERIOR FACE TO TWO BOUNDARY FACES WITH ONE DEFINED FOR EACH
-!  ! PARTITION. THIS NEXT LOOP NEEDS TO BE THOUGHT OUT A LITTLE MORE.
-!  !
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  !########################################################################
-!  do n = 1,n_com_bnd
-!    !
-!    lcpu = comm_links_ptr(1,n)
-!    rcpu = comm_links_ptr(2,n)
-!    !
-!    llnk = 0  ! count of total communication links for current boundary
-!    !
-!    if ( any(mypnum == [lcpu,rcpu]) ) then
-!      !
-!      do nf = 1,ngfbnd
-!        !
-!        if ( any(bface(1,nf) == bc_comm) .and. &
-!             any(bface(7,nf) == [lcpu,rcpu]) ) then
-!          llnk = llnk + 1
-!          nlnk = nlnk + 1
-!          if (bface(7,nf) == lcpu) then
-!            comm_links(1,1,nlnk) = bface(5,nf)
-!            comm_links(2,1,nlnk) = bface(6,nf)
-!            comm_links(3,1,nlnk) = 
-!            comm_links(1,2,nlnk) = nf
-!            comm_links(2,2,nlnk) = bface(2,nf)
-!            comm_links(3,2,nlnk) = 
-!          else
-!            comm_links(1,2,nlnk) = nf
-!            comm_links(2,2,nlnk) = bface(2,nf)
-!            comm_links(3,1,nlnk) = 
-!            comm_links(1,2,nlnk) = bface(5,nf)
-!            comm_links(2,2,nlnk) = bface(6,nf)
-!            comm_links(3,2,nlnk) = 
-!          end if
-!        end if
-!        !
-!      end do
-!      !
-!      if (llnk /= comm_links_ptr(3,n)) &
-!        write (iout,1) mypnum,n,llnk,comm_links_ptr(3,n)
-!      !
-!    end if
-!    !
-!    call mpi_bcast(llnk,1,mpi_inttyp,lcpu,mpi_comm_world,mpierr)
-!    !
-!    mlnk = mlnk + llnk
-!    !
-!  end do
-!  !
-!  ! Check that the number of communication
-!  ! links on each processor is as expected
-!  !
-!  i = 0
-!  do n = 0,npart-1
-!    if (mypnum == n) then
-!      if (nlnk /= n_com_lnk) then
-!        write (iout,5) mypnum,nlnk,n_com_lnk
-!        i = 1
-!      end if
-!    end if
-!    call mpi_barrier(mpi_comm_world,mpierr)
-!  end do
-!  !
-!  ! Check that the global number of links is as expected
-!  !
-!  if (mlnk /= sum(comm_links_ptr(3,:))) then
-!    if (mypnum == 0) then
-!      write (iout,6) mlnk,sum(comm_links_ptr(3,:))
-!    end if
-!    i = 1
-!  end if
-!  !
-!  ! Sync the error flag across all processors and kill if error detected
-!  !
-!  ierr = i
-!  call mpi_allreduce(i,ierr,1,mpi_inttyp,mpi_max,mpi_comm_world,mpierr)
-!  if (ierr /= 0) call stop_recon(stop_mpi,"create_communication_links")
-!  !
-!  ! Format Statements
-!  !
-!  4  format (/,"ERROR: On processor ",i0,",",/, &
-!               "The number of links found for communication",/, &
-!               "boundary ",i0," does not match what was expected!",/, &
-!               "Number of links found   : ",i0,/, &
-!               "Number of links expected: ",i0,/)
-!  5  format (/,"ERROR: On processor ",i0,",",/, &
-!               "The total number of communication links found on the",/, &
-!               "current processor does not match what was expected!",/, &
-!               "Total number of links found    on processor: ",i0,/, &
-!               "Total number of links expected on processor: ",i0,/)
-!  6  format (/,"ERROR COUNTING COMMUNICATION LINKS!",/, &
-!               "GLOBAL NUMBER OF LINKS FOUND   : ",i0,/, &
-!               "GLOBAL NUMBER OF LINKS EXPECTED: ",i0,/)
-!  !
-!end subroutine create_communication_links
-!
-!###############################################################################
-!
-subroutine blocking_exchange(usp)
-  !
-  !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(inout) :: usp
-  !
-  !.. Local Scalars ..
-  integer(int_mpi) :: i,n,lcpu,rcpu,ltag,rtag
-  !
-  !.. Local Arrays ..
-  integer(int_mpi), dimension(1:mpi_status_size) :: istat
-  !
-continue
-  !
-  ! Loop over the communication boundaries between partitions
-  !
-  i = 0
-  !
-  do n = 1,n_com_bnd
-    !
-    lcpu = comm_links_ptr(1,n)
-    rcpu = comm_links_ptr(2,n)
-    !
-    ! Put a barrier here to ensure against deadlock
-    ! NOTE: Not sure if this is needed
-    !
-    call mpi_barrier(mpi_comm_world,mpierr)
-    !
-    ! Have the processors associated with these two partitions
-    ! on the current partition boundary exchange variables
-    !
-    ltag = n + lcpu
-    rtag = n + rcpu
-    !
-    if (mypnum == lcpu) then
-      !
-      i = i + 1
-      !
-      call mpi_send(usp,1,snd_usp(i),rcpu,ltag,mpi_comm_world,mpierr)
-      !
-      call mpi_recv(usp,1,rcv_usp(i),rcpu,rtag,mpi_comm_world,istat,mpierr)
-      !
-    else if (mypnum == rcpu) then
-      !
-      i = i + 1
-      !
-      call mpi_recv(usp,1,rcv_usp(i),lcpu,ltag,mpi_comm_world,istat,mpierr)
-      !
-      call mpi_send(usp,1,snd_usp(i),lcpu,rtag,mpi_comm_world,mpierr)
-      !
-    end if
-    !
-  end do
-  !
-end subroutine blocking_exchange
-!
-!###############################################################################
-!
 subroutine exchange_faceusp(faceusp)
   !
   !.. Use Statements ..
@@ -3978,7 +3338,7 @@ subroutine test_nonblocking_fexchange()
   use geovar, only : nr,xyz,nfbnd,cells_on_face,pts_in_cell_ptr,interp_s2f,bface
   !
   !.. Local Scalars..
-  integer :: i,n,s,r,dtype,ierr,nf,jl,kbl,l1,l2,nl,wl,k,kl
+  integer :: i,n,s,r,dtype,ierr,nf,jl,kbl,l1,l2,nl,wlocl,k,kl
   real(wp) :: tmp
   !
   !.. Local Arrays ..
@@ -4002,12 +3362,12 @@ continue
     l2 = pts_in_cell_ptr(jl+1)
     !
     nl = l2-l1+1
-    wl = merge(1,2,nl==n_sp2dt)
+    wlocl = merge(1,2,nl==n_sp2dt)
     !
     do k = 1,n_sp1de
       kl = kbl-1 + k
       do n = 1,nr
-        tmp = dot(interp_s2f(1:nl,kl,wl),xyz(n,l1:l2))
+        tmp = dot(interp_s2f(1:nl,kl,wlocl),xyz(n,l1:l2))
         send_buffer(n,k,1,nf) = real(tmp,kind=r8)
       end do
     end do
@@ -4413,6 +3773,7 @@ end subroutine output_partitions
 !###############################################################################
 !
 include "Functions/last.f90"
+include "Functions/cell_solpts.f90"
 !
 !###############################################################################
 !

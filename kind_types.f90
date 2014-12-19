@@ -25,6 +25,12 @@ module module_kind_types
   !
   public
   !
+  ! ####################################
+  ! ####################################
+  ! #####   KIND TYPE PARAMETERS   #####
+  ! ####################################
+  ! ####################################
+  !
   ! KIND definitions for single or double precision real variables (IEEE 754)
   !
   integer, parameter :: i4 = selected_int_kind(9)
@@ -45,6 +51,12 @@ module module_kind_types
   integer, parameter :: INT_CGNS = i4
   integer, parameter :: INT_METIS = i4
   !
+  ! ###########################################
+  ! ###########################################
+  ! #####   NUMERICAL/LOGICAL CONSTANTS   #####
+  ! ###########################################
+  ! ###########################################
+  !
   ! Definitions for numerical contants
   !
   real(qp), parameter :: qzero   = 0.0_qp
@@ -64,12 +76,13 @@ module module_kind_types
   real(wp), parameter :: eight   = 8.0_wp
   real(wp), parameter :: nine    = 9.0_wp
   real(wp), parameter :: ten     = 10.0_wp
+  real(wp), parameter :: twelve  = 12.0_wp
   real(wp), parameter :: sixteen = 16.0_wp
   !
+  real(wp), parameter :: one8   = one/eight
   real(wp), parameter :: one6   = one/six
   real(wp), parameter :: one4   = one/four
   real(wp), parameter :: one3   = one/three
-  real(wp), parameter :: one2   = one/two
   real(wp), parameter :: two3   = two/three
   real(wp), parameter :: three4 = three/four
   real(wp), parameter :: four3  = four/three
@@ -90,14 +103,12 @@ module module_kind_types
   real(wp), parameter :: c0_10 = 0.10_wp
   real(wp), parameter :: c0_15 = 0.15_wp
   real(wp), parameter :: c0_20 = 0.20_wp
-  real(wp), parameter :: c0_25 = 0.25_wp
   real(wp), parameter :: c0_30 = 0.30_wp
   real(wp), parameter :: c0_35 = 0.35_wp
   real(wp), parameter :: c0_45 = 0.45_wp
   real(wp), parameter :: c0_55 = 0.55_wp
   real(wp), parameter :: c0_65 = 0.65_wp
   real(wp), parameter :: c0_70 = 0.70_wp
-  real(wp), parameter :: c0_75 = 0.75_wp
   real(wp), parameter :: c0_80 = 0.80_wp
   real(wp), parameter :: c2_50 = 2.50_wp
   real(wp), parameter :: c3_50 = 3.50_wp
@@ -114,66 +125,17 @@ module module_kind_types
   logical, parameter :: true = .true.
   logical, parameter :: fals = .false.
   !
-  ! Parameters controlled by pre-preprocessor directives
-  !
-#define p_order_fpp 2
-#define n_order_fpp 4
-#define q_order_fpp 4
-#define iop_solpts_fpp 2
-#define iop_flxpts_fpp 2
-#define iop_qdtpts_fpp 2
-#define iop_tripts_fpp 2
-#define metis_opt_fpp 2
-#define flux_div_fpp 0
-#define iop_corr_fpp 3
-#define dflux_opt_fpp 2
-#define filt_opt_fpp 0
-#define filt_ord_fpp 16
-#define filt_alph_fpp 36.0
-#define filt_etac_fpp 0.0
-#define err_bnd_lim_fpp 2.0
-#define err_val_fpp 0
-  !
-  integer, public, parameter :: p_order_ktmod = p_order_fpp
-  integer, public, parameter :: n_order_ktmod = max(n_order_fpp,p_order_fpp)
-  integer, public, parameter :: q_order_ktmod = max(n_order_fpp,q_order_fpp)
-  !
-  integer, public, parameter :: iop_solpts_ktmod = iop_solpts_fpp
-  integer, public, parameter :: iop_flxpts_ktmod = iop_flxpts_fpp
-  integer, public, parameter :: iop_qdtpts_ktmod = iop_qdtpts_fpp
-  integer, public, parameter :: iop_tripts_ktmod = iop_tripts_fpp
-  !
-  integer, public, parameter :: metis_opt_ktmod = metis_opt_fpp
-  !
-  integer, public, parameter :: flux_div_ktmod = flux_div_fpp
-  integer, public, parameter :: iop_corr_ktmod = iop_corr_fpp
-  !
-  integer, public, parameter :: dflux_opt_ktmod = dflux_opt_fpp
-  !
-  integer,  public, parameter :: Filter_Option_ktmod = filt_opt_fpp
-  integer,  public, parameter :: Filter_Order_ktmod = filt_ord_fpp
-  real(wp), public, parameter :: Filter_Alpha_ktmod = real(filt_alph_fpp,wp)
-  real(wp), public, parameter :: Filter_etac_ktmod = real(filt_etac_fpp,wp)
- !real(wp), public, parameter :: ft1_ktmod = max(zero, min(one,Filter_etac_ktmod))
- !real(wp), public, parameter :: ft2_ktmod = real(n_order_ktmod,wp)
- !real(wp), public, parameter :: ft3_ktmod = anint(ft1_ktmod*ft2_ktmod)!+ eps6
- !integer,  public, parameter :: Filter_Cutoff_ktmod = nint(ft3_ktmod)
- !integer,  public, parameter :: Filter_Cutoff_ktmod2 = int(ft3_ktmod)
- !integer,  public, parameter :: Filter_Cutoff_ktmod3 = floor(ft3_ktmod)
-  integer,  public, parameter :: &
-    Filter_Cutoff_ktmod = int( max(zero,min(one,Filter_etac_ktmod))*real(n_order_ktmod,wp) + eps6 )
-  !
-  real(wp), public, parameter :: err_bnd_lim_ktmod = real(err_bnd_lim_fpp,wp)
-  logical,  public, parameter :: bound_error_ktmod = (err_val_fpp /= 0)
-  !
-  logical, public, parameter :: &
-    using_quadrature_ktmod = .not.(q_order_ktmod==n_order_ktmod .and. iop_solpts_ktmod==iop_qdtpts_ktmod)
+  ! #########################################
+  ! #########################################
+  ! #####   GENERAL GLOBAL PARAMETERS   #####
+  ! #########################################
+  ! #########################################
   !
   ! I/O constants
   !
   integer, parameter :: iout = 6
   integer, parameter :: inpt = 7
-  integer, parameter :: iogrd = 8
+  integer, parameter :: iorst = 10
   !
   ! Boundary condition constants
   !
@@ -248,12 +210,17 @@ module module_kind_types
                                                     Vortex_Transport, &
                                                     Advec_Problems ]
   !
+  ! Location of 1D solution points
   integer, parameter :: Legendre_Gauss          = 1
   integer, parameter :: Legendre_Gauss_Lobatto  = 2
   integer, parameter :: Chebyshev_Gauss         = 3
   integer, parameter :: Chebyshev_Gauss_Lobatto = 4
   integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
                                               Chebyshev_Gauss_Lobatto]
+  !
+  ! Method for creating triangle solution points
+  integer, parameter :: DG_TriPoints = 1
+  integer, parameter :: HT_TriPoints = 2
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
@@ -284,13 +251,77 @@ module module_kind_types
   integer, parameter :: Global_Point_Timestep = Point_Timestep
   integer, parameter :: Local_Point_Timestep = -Point_Timestep
   !
+  ! RK Parameters
+  integer, parameter :: Classic_RK = 1
+  integer, parameter :: TVD2_RK    = 2
+  integer, parameter :: TVD3_RK    = 3
+  integer, parameter :: TVD4_RK    = 4
+  integer, parameter :: CK4_RK     = 5
+  !
+  ! Equation Types
+  integer, parameter :: Euler_Eqns = 1
+  integer, parameter :: NavierStokes_Eqns = 2
+  !
+  ! Grid Types
+  integer, parameter :: Gambit_Neutral = 1
+  integer, parameter :: Gmsh_Format = 2
+  integer, parameter :: Plot3D_Format = 3
+  !
+  ! Cell Geometry Types
+  integer, parameter :: Geom_Node = 0
+  integer, parameter :: Geom_Edge = 1
+  integer, parameter :: Geom_Tria = 2
+  integer, parameter :: Geom_Quad = 3
+  integer, parameter :: Geom_Tetr = 4
+  integer, parameter :: Geom_Pyra = 5
+  integer, parameter :: Geom_Pris = 6
+  integer, parameter :: Geom_Unknown = 7
+  integer, parameter :: Geom_Hexa = 8
+  !
+  integer, parameter :: Geom_Min = min(Geom_Unknown, &
+                                       Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad, &
+                                       Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa)
+  !
+  integer, parameter :: Geom_Max = max(Geom_Unknown, &
+                                       Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad, &
+                                       Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa)
+  !
+  integer, parameter :: Geom_0D(1:1) = [Geom_Node]
+  integer, parameter :: Geom_1D(1:1) = [Geom_Edge]
+  integer, parameter :: Geom_2D(1:2) = [Geom_Tria,Geom_Quad]
+  integer, parameter :: Geom_3D(1:4) = [Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa]
+  integer, parameter :: Geom_Valid(1:8) = [Geom_0D,Geom_1D,Geom_2D,Geom_3D]
+  !
+  integer, parameter :: geom_of_face(1:4) = [Geom_Node,Geom_Edge, &
+                                             Geom_Tria,Geom_Quad]
+  !
+  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_dimen
+  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_nodes
+  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_faces
+  integer, protected, save, dimension(1:6,Geom_Min:Geom_Max)     :: num_face_nodes
+  integer, protected, save, dimension(1:4,1:6,Geom_Min:Geom_Max) :: side_nodes
+  !
+  character(len=100), protected, save, dimension(Geom_Min:Geom_Max) :: Geom_String
+  character(len=9), protected, save, dimension(Geom_Min:Geom_Max) :: Geom_Name
+  !
+  ! Minimum/Maximum Order Allowed
+  integer, parameter :: Order_Min = 0
+  integer, parameter :: Order_Max = 25
+  !
+  ! tria_is_biunit : logical that changes the location of the reference
+  !                  nodes in the definition of the reference triangle
+  !         = true  -> defined by the three nodes (-1,-1) - ( 1,-1) - (-1, 1)
+  !         = false -> defined by the three nodes ( 0, 0) - ( 1, 0) - ( 0, 1)
+  !
+  logical, parameter :: tria_is_biunit = fals
+  !
   ! CL : coefficient for the length of the face. This is needed because of
   !      the difference between how the reference triangle and reference
   !      quad are defined. 
   !      = 1.0 for triangles
   !      = 0.5 for quads
   !
-  real(wp), dimension(1:2), parameter :: cl = (/ one , half /)
+  real(wp), protected, save :: cl(Geom_Min:Geom_Max)
   !
   ! MPI Scalars 
   !
@@ -310,371 +341,676 @@ module module_kind_types
   !
   logical, private, save :: random_is_initialized = fals
   !
+  ! Definition of 1 Work Unit using TauBench Benchmark Test
+  ! Using Intel 2013 compilers
+  real(wp), parameter :: one_work_unit = 6.9205_wp
+  ! Westmere nodes
+ !real(wp), parameter :: one_work_unit = 25.551_wp/3.0_wp
+  ! Sandy Bridge nodes
+ !real(wp), parameter :: one_work_unit = 22.808_wp/3.0_wp
+  ! Ivy Bridge nodes
+ !real(wp), parameter :: one_work_unit = 19.096_wp/3.0_wp
+  ! Using Intel version 10 compilers
+ !real(wp), parameter :: one_work_unit = 7.026_wp
+  !
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! ################                                             ###############
+  ! ################   GENERIC INTERFACES FOR GLOBAL FUNCTIONS   ###############
+  ! ################                                             ###############
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  !
   ! Generic interface for reallocating arrays of varying types and ranks
+  !
+  private :: reallocate1_i4,reallocate1_i8
+  private :: reallocate1_r4,reallocate1_r8
+  private :: reallocate1_c
+  private :: reallocate2_i4,reallocate2_i8
   !
   interface reallocate
     module procedure reallocate1_i4, reallocate1_i8, &
                      reallocate1_r4, reallocate1_r8, &
-                     reallocate1_c,  reallocate2_i4, &
-                     reallocate2_i8
+                     reallocate2_i4, reallocate2_i8, &
+                     reallocate2_r4, reallocate2_r8, &
+                     reallocate1_c
   end interface reallocate
   !
+  !
+  !
+  private :: cross_product_DP,cross_product_QP
+  !
   interface cross_product
-    module procedure cross_product_DP, cross_product_QP
+    module procedure cross_product_SP, cross_product_DP, cross_product_QP
   end interface cross_product
+  !
+  !
+  !
+  private :: deltafun_DP!,deltafun_QP
   !
   interface deltafun
     module procedure deltafun_DP!, deltafun_QP
   end interface deltafun
   !
+  !
+  !
+  private :: selfdot_SP,selfdot_DP,selfdot_QP
+  !
   interface selfdot
-    module procedure selfdot_DP, selfdot_QP
+    module procedure selfdot_SP, selfdot_DP, selfdot_QP
   end interface selfdot
   !
+  !
+  !
+  private :: rnorm2_SP,rnorm2_DP,rnorm2_QP
+  !
   interface rnorm2
-    module procedure rnorm2_DP, rnorm2_QP
+    module procedure rnorm2_SP, rnorm2_DP, rnorm2_QP
   end interface rnorm2
   !
+  !
+  !
+  private :: unit_vector_SP,unit_vector_DP,unit_vector_QP
+  !
   interface unit_vector
-    module procedure unit_vector_DP, unit_vector_QP
+    module procedure unit_vector_SP, unit_vector_DP, unit_vector_QP
   end interface unit_vector
+  !
+  !
+  !
+  private :: outerprod_DP,outerprod_QP
   !
   interface outerprod
     module procedure outerprod_DP, outerprod_QP
   end interface outerprod
   !
+  !
+  !
+  private :: reciprocal_SP, reciprocal_DP,reciprocal_QP
+  !
   interface reciprocal
-    module procedure reciprocal_DP, reciprocal_QP
+    module procedure reciprocal_SP, reciprocal_DP, reciprocal_QP
   end interface reciprocal
+  !
+  !
+  !
+  private :: chop_WP, chop_SP, chop_DP, chop_QP
+  !
+  interface chop
+    module procedure chop_WP, chop_SP, chop_DP, chop_QP
+  end interface chop
+  !
+  !
+  !
+  private :: reflect_DP,reflect_QP
   !
   interface reflect
     module procedure reflect_DP, reflect_QP
   end interface reflect
   !
+  !
+  !
+  private :: rotate_2d_DP,rotate_2d_QP
+  !
   interface rotate_2d
     module procedure rotate_2d_DP, rotate_2d_QP
   end interface rotate_2d
+  !
+  !
+  !
+  private :: rotate_DP,rotate_QP
   !
   interface rotate
     module procedure rotate_DP, rotate_QP
   end interface rotate
   !
+  !
+  !
+  private :: node_center_SP,node_center_DP,node_center_QP
+  !
+  interface node_center
+    module procedure node_center_SP, node_center_DP, node_center_QP
+  end interface node_center
+  !
+  !
+  !
+  private :: face_normal_SP,face_normal_DP,face_normal_QP
+  !
+  interface face_normal
+    module procedure face_normal_SP, face_normal_DP, face_normal_QP
+  end interface face_normal
+  !
+  !
+  !
+  private :: compute_jacobian_SP,compute_jacobian_DP,compute_jacobian_QP
+  !
+  interface compute_jacobian
+    module procedure compute_jacobian_SP, &
+                     compute_jacobian_DP, &
+                     compute_jacobian_QP
+  end interface compute_jacobian
+  !
+  !
+  !
+  private :: invert_matrix_DP,invert_matrix_QP
+  !
   interface invert_matrix
     module procedure invert_matrix_DP, invert_matrix_QP
   end interface invert_matrix
+  !
+  !
+  !
+  private :: invert_matrix90_DP,invert_matrix90_QP
   !
   interface invert_matrix90
     module procedure invert_matrix90_DP, invert_matrix90_QP
   end interface invert_matrix90
   !
+  !
+  !
+  private :: ludcmp_DP,ludcmp_QP
+  !
   interface ludcmp
     module procedure ludcmp_DP, ludcmp_QP
   end interface ludcmp
+  !
+  !
+  !
+  private :: lubksb_DP,lubksb_QP
   !
   interface lubksb
     module procedure lubksb_DP, lubksb_QP
   end interface lubksb
   !
+  !
+  !
+  private :: determinant_DP,determinant_QP
+  !
   interface determinant
     module procedure determinant_DP, determinant_QP
   end interface determinant
+  !
+  !
+  !
+  private :: random_i4,random_sp,random_dp,random_qp
   !
   interface random
     module procedure random_i4,random_sp,random_dp,random_qp
   end interface random
   !
+  !
+  !
+  private :: findloc_i4,findloc_i8,findloc_r4,findloc_r8
+  !
   interface findloc
     module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8
   end interface findloc
-  !
-  ! Make the non-generic functions private
-  !
-  private :: cross_product_DP
-  private :: cross_product_QP
-  private :: deltafun_DP
- !private :: deltafun_QP
-  private :: selfdot_DP
-  private :: selfdot_QP
-  private :: rnorm2_DP
-  private :: rnorm2_QP
-  private :: unit_vector_DP
-  private :: unit_vector_QP
-  private :: outerprod_DP
-  private :: outerprod_QP
-  private :: reciprocal_DP
-  private :: reciprocal_QP
-  private :: reflect_DP
-  private :: reflect_QP
-  private :: rotate_DP
-  private :: rotate_QP
-  private :: rotate_2d_DP
-  private :: rotate_2d_QP
-  private :: invert_matrix_DP
-  private :: invert_matrix_QP
-  private :: invert_matrix90_DP
-  private :: invert_matrix90_QP
-  private :: ludcmp_DP
-  private :: ludcmp_QP
-  private :: lubksb_DP
-  private :: lubksb_QP
-  private :: determinant_DP
-  private :: determinant_QP
-  private :: random_i4
-  private :: random_sp
-  private :: random_dp
-  private :: random_qp
-  !
-  ! Make the non-generic reallocation subroutines to private
-  !
-  private :: reallocate1_i4
-  private :: reallocate1_i8
-  private :: reallocate1_r4
-  private :: reallocate1_r8
-  private :: reallocate1_c
-  private :: reallocate2_i4
-  private :: reallocate2_i8
   !
 contains
 !
 !###############################################################################
 !
-subroutine reallocate1_i4(array,new_size)
-  integer, intent(in) :: new_size
-  integer(i4), allocatable, dimension(:), intent(inout) :: array
-  integer(i4), allocatable, dimension(:) :: temp_array
-  integer :: ierr,num_copy
-continue
-  ! Allocate the temporary array to store the old contents of array
-  allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
-  call alloc_error("reallocate1_i4","temp_array",1,ierr)
-  ! If array is allocated, copy the old contents of array into the temporary
-  ! array. If decreasing the size of array, make sure to limit the amount of
-  ! information copied over from array to the size of temp_array.
-  if (allocated(array)) then
-    num_copy = min( size(temp_array) , size(array) )
-    temp_array(1:num_copy) = array(1:num_copy)
-  end if
-  ! move_alloc does:
-  !     1. deallocates array if it is allocated
-  !     2. allocates array with the same type, type parameters,
-  !        array bounds, and value as temp_array
-  !     3. deallocates temp_array
-  call move_alloc( from=temp_array , to=array )
-end subroutine reallocate1_i4
-!
-!###############################################################################
-!
-subroutine reallocate1_i8(array,new_size)
-  integer, intent(in) :: new_size
-  integer(i8), allocatable, dimension(:), intent(inout) :: array
-  integer(i8), allocatable, dimension(:) :: temp_array
-  integer :: ierr,num_copy
-continue
-  allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
-  call alloc_error("reallocate1_i8","temp_array",1,ierr)
-  if (allocated(array)) then
-    num_copy = min( size(temp_array) , size(array) )
-    temp_array(1:num_copy) = array(1:num_copy)
-  end if
-  call move_alloc( from=temp_array , to=array )
-end subroutine reallocate1_i8
-!
-!###############################################################################
-!
-subroutine reallocate1_r4(array,new_size)
-  integer, intent(in) :: new_size
-  real(r4), allocatable, dimension(:), intent(inout) :: array
-  real(r4), allocatable, dimension(:) :: temp_array
-  integer :: ierr,num_copy
-continue
-  allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
-  call alloc_error("reallocate1_r4","temp_array",1,ierr)
-  if (allocated(array)) then
-    num_copy = min( size(temp_array) , size(array) )
-    temp_array(1:num_copy) = array(1:num_copy)
-  end if
-  call move_alloc( from=temp_array , to=array )
-end subroutine reallocate1_r4
-!
-!###############################################################################
-!
-subroutine reallocate1_r8(array,new_size)
-  integer, intent(in) :: new_size
-  real(r8), allocatable, dimension(:), intent(inout) :: array
-  real(r8), allocatable, dimension(:) :: temp_array
-  integer :: ierr,num_copy
-continue
-  allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
-  call alloc_error("reallocate1_r8","temp_array",1,ierr)
-  if (allocated(array)) then
-    num_copy = min( size(temp_array) , size(array) )
-    temp_array(1:num_copy) = array(1:num_copy)
-  end if
-  call move_alloc( from=temp_array , to=array )
-end subroutine reallocate1_r8
-!
-!###############################################################################
-!
-subroutine reallocate1_c(array,new_size)
-  integer, intent(in) :: new_size
-  character(len=*), allocatable, dimension(:), intent(inout) :: array
-  character(len=len(array)), allocatable, dimension(:) :: temp_array
-  integer :: ierr,num_copy
-continue
- !write (iout,1) size(array),new_size
-  allocate ( temp_array(1:new_size) , stat=ierr )
-  call alloc_error("reallocate1_c","temp_array",1,ierr)
-  if (allocated(array)) then
-    num_copy = min( size(temp_array) , size(array) )
-    temp_array(1:num_copy) = array(1:num_copy)
-  end if
-  call move_alloc( from=temp_array , to=array )
-  1 format ("size(array) = ",i0,"; new_size = ",i0)
-end subroutine reallocate1_c
-!
-!###############################################################################
-!
-subroutine reallocate2_i4(array,new_size1,new_size2)
+subroutine initialize_runtime_parameters
   !
-  !.. Formal Arguments ..
-  integer, optional,                       intent(in) :: new_size1
-  integer, optional,                       intent(in) :: new_size2
-  integer(i4), allocatable, dimension(:,:), intent(inout) :: array
-  !
-  !.. Local Scalars ..
-  integer :: old_size1,old_size2,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  integer(i4), allocatable, dimension(:,:) :: temp_array
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! #####   I SHOULD PROBABLY MAKE SOME ASCII FIGURES HERE FOR EACH CELL   #####
+  ! #####   TYPE TO HELP ILLUSTRATE THE DIFFERENT GEOMETRIES AND THE       #####
+  ! #####   REQUIREMENTS FOR THE NODE ORDERINGS OF EACH GEOMETRY TYPE.     #####
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
   !
 continue
   !
-  ! Get the old dimensions of array
+  Geom_Name(Geom_Node) = "Geom_Node"
+  Geom_Name(Geom_Edge) = "Geom_Edge"
+  Geom_Name(Geom_Tria) = "Geom_Tria"
+  Geom_Name(Geom_Quad) = "Geom_Quad"
+  Geom_Name(Geom_Tetr) = "Geom_Tetr"
+  Geom_Name(Geom_Pyra) = "Geom_Pyra"
+  Geom_Name(Geom_Pris) = "Geom_Pris"
+  Geom_Name(Geom_Unknown) = "Geom_Unkn"
+  Geom_Name(Geom_Hexa) = "Geom_Hexa"
   !
-  old_size1 = 1
-  old_size2 = 1
-  if (allocated(array)) then
-    old_size1 = size(array,1)
-    old_size2 = size(array,2)
-  end if
+  Geom_String(Geom_Node) = "Node (0-D)"
+  Geom_String(Geom_Edge) = "Edge (1-D)"
+  Geom_String(Geom_Tria) = "Triangle (2-D)"
+  Geom_String(Geom_Quad) = "Quadrilateral (2-D)"
+  Geom_String(Geom_Tetr) = "Tetrahedron (3-D)"
+  Geom_String(Geom_Pyra) = "Pyramid (3-D)"
+  Geom_String(Geom_Pris) = "Prism (3-D)"
+  Geom_String(Geom_Unknown) = "Unknown Geometry"
+  Geom_String(Geom_Hexa) = "Hexahedron (3-D)"
   !
-  ! Allocate the temporary array to store the old contents of array
+  geom_dimen = 0
+  geom_nodes = 0
+  geom_faces = 0
+  num_face_nodes = 0
+  side_nodes = 0
+  cl = one
   !
-  if (present(new_size1) .and. present(new_size2)) then
-    allocate ( temp_array(1:new_size1,1:new_size2) , source=0_i4 , stat=ierr )
-  else if (present(new_size1)) then
-    allocate ( temp_array(1:new_size1,1:old_size2) , source=0_i4 , stat=ierr )
-  else if (present(new_size2)) then
-    allocate ( temp_array(1:old_size1,1:new_size2) , source=0_i4 , stat=ierr )
-  else
-    allocate ( temp_array(1:old_size1,1:old_size2) , source=0_i4 , stat=ierr )
-  end if
-  call alloc_error("reallocate2_i4","temp_array",1,ierr)
+  geom_dimen(Geom_0D) = 0
+  geom_dimen(Geom_1D) = 1
+  geom_dimen(Geom_2D) = 2
+  geom_dimen(Geom_3D) = 3
   !
-  ! Copy the old contents of array into the temporary array
+  geom_nodes(Geom_Node) = 1
+  geom_nodes(Geom_Edge) = 2
+  geom_nodes(Geom_Tria) = 3
+  geom_nodes(Geom_Quad) = 4
+  geom_nodes(Geom_Tetr) = 4
+  geom_nodes(Geom_Pyra) = 5
+  geom_nodes(Geom_Pris) = 6
+  geom_nodes(Geom_Hexa) = 8
   !
-  if (allocated(array)) temp_array(1:old_size1,1:old_size2) = array
+  geom_faces(Geom_Edge) = 2
+  geom_faces(Geom_Tria) = 3
+  geom_faces(Geom_Quad) = 4
+  geom_faces(Geom_Tetr) = 4
+  geom_faces(Geom_Pyra) = 5
+  geom_faces(Geom_Pris) = 5
+  geom_faces(Geom_Hexa) = 6
   !
-  ! move_alloc does:
-  !     1. deallocates array
-  !     2. allocates array with the same type, type parameters,
-  !        array bounds, and value as temp_array
-  !     3. deallocates temp_array
+  num_face_nodes(1:2,Geom_Edge) = geom_nodes(Geom_Node)
+  num_face_nodes(1:3,Geom_Tria) = geom_nodes(Geom_Edge)
+  num_face_nodes(1:4,Geom_Quad) = geom_nodes(Geom_Edge)
+  num_face_nodes(1:4,Geom_Tetr) = geom_nodes(Geom_Tria)
+  num_face_nodes(1:4,Geom_Pyra) = geom_nodes(Geom_Tria)
+  num_face_nodes(5:5,Geom_Pyra) = geom_nodes(Geom_Quad)
+  num_face_nodes(1:2,Geom_Pris) = geom_nodes(Geom_Tria)
+  num_face_nodes(3:5,Geom_Pris) = geom_nodes(Geom_Quad)
+  num_face_nodes(1:6,Geom_Hexa) = geom_nodes(Geom_Quad)
   !
-  call move_alloc( from=temp_array , to=array )
+  side_nodes(1:1,1,Geom_Edge) = 0
+  side_nodes(1:1,2,Geom_Edge) = 1
   !
-end subroutine reallocate2_i4
+  side_nodes(1:2,1,Geom_Tria) = [0,1]
+  side_nodes(1:2,2,Geom_Tria) = [1,2]
+  side_nodes(1:2,3,Geom_Tria) = [2,0]
+  !
+  side_nodes(1:2,1,Geom_Quad) = [0,1]
+  side_nodes(1:2,2,Geom_Quad) = [1,2]
+  side_nodes(1:2,3,Geom_Quad) = [2,3]
+  side_nodes(1:2,4,Geom_Quad) = [3,0]
+  !
+  side_nodes(1:3,1,Geom_Tetr) = [1,2,3]
+  side_nodes(1:3,2,Geom_Tetr) = [2,0,3]
+  side_nodes(1:3,3,Geom_Tetr) = [3,0,1]
+  side_nodes(1:3,4,Geom_Tetr) = [0,2,1]
+  !
+  side_nodes(1:3,1,Geom_Pyra) = [1,2,4]
+  side_nodes(1:3,2,Geom_Pyra) = [2,3,4]
+  side_nodes(1:3,3,Geom_Pyra) = [3,0,4]
+  side_nodes(1:3,4,Geom_Pyra) = [0,1,4]
+  side_nodes(1:4,5,Geom_Pyra) = [0,3,2,1]
+  !
+  side_nodes(1:3,1,Geom_Pris) = [0,2,1]
+  side_nodes(1:3,2,Geom_Pris) = [3,4,5]
+  side_nodes(1:4,3,Geom_Pris) = [0,1,4,3]
+  side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
+  side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
+  !
+  side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1]
+  side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7]
+  side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5]
+  side_nodes(1:4,4,Geom_Hexa) = [4,7,3,0]
+  side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4]
+  side_nodes(1:4,6,Geom_Hexa) = [2,3,7,6]
+  !
+  if (.not. tria_is_biunit) cl(Geom_Tria) = half
+  !
+end subroutine initialize_runtime_parameters
 !
 !###############################################################################
 !
-subroutine reallocate2_i8(array,new_size1,new_size2)
-  !
-  !.. Formal Arguments ..
-  integer, optional,                       intent(in) :: new_size1
-  integer, optional,                       intent(in) :: new_size2
-  integer(i8), allocatable, dimension(:,:), intent(inout) :: array
-  !
-  !.. Local Scalars ..
-  integer :: old_size1,old_size2,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  integer(i8), allocatable, dimension(:,:) :: temp_array
-  !
-continue
-  !
-  ! Get the old dimensions of array
-  !
-  old_size1 = 1
-  old_size2 = 1
-  if (allocated(array)) then
-    old_size1 = size(array,1)
-    old_size2 = size(array,2)
-  end if
-  !
-  ! Allocate the temporary array to store the old contents of array
-  !
-  if (present(new_size1) .and. present(new_size2)) then
-    allocate ( temp_array(1:new_size1,1:new_size2) , source=0_i8 , stat=ierr )
-  else if (present(new_size1)) then
-    allocate ( temp_array(1:new_size1,1:old_size2) , source=0_i8 , stat=ierr )
-  else if (present(new_size2)) then
-    allocate ( temp_array(1:old_size1,1:new_size2) , source=0_i8 , stat=ierr )
-  else
-    allocate ( temp_array(1:old_size1,1:old_size2) , source=0_i8 , stat=ierr )
-  end if
-  call alloc_error("reallocate2_i4","temp_array",1,ierr)
-  !
-  ! Copy the old contents of array into the temporary array
-  !
-  if (allocated(array)) temp_array(1:old_size1,1:old_size2) = array
-  !
-  ! move_alloc does:
-  !     1. deallocates array
-  !     2. allocates array with the same type, type parameters,
-  !        array bounds, and value as temp_array
-  !     3. deallocates temp_array
-  !
-  call move_alloc( from=temp_array , to=array )
-  !
-end subroutine reallocate2_i8
-!
-!###############################################################################
-!
-subroutine alloc_error(procedure_name,variable_name,ioptype,iemessag)
+!!subroutine reallocate1_i4(array,new_size)
+!!  integer, intent(in) :: new_size
+!!  integer(i4), allocatable, dimension(:), intent(inout) :: array
+!!  integer(i4), allocatable, dimension(:) :: temp_array
+!!  integer :: ierr,num_copy
+!!continue
+!!  ! Allocate the temporary array to store the old contents of array
+!!  allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
+!!  call alloc_error("reallocate1_i4","temp_array",1,ierr)
+!!  ! If array is allocated, copy the old contents of array into the temporary
+!!  ! array. If decreasing the size of array, make sure to limit the amount of
+!!  ! information copied over from array to the size of temp_array.
+!!  if (allocated(array)) then
+!!    num_copy = min( size(temp_array) , size(array) )
+!!    temp_array(1:num_copy) = array(1:num_copy)
+!!  end if
+!!  ! move_alloc does:
+!!  !     1. deallocates array if it is allocated
+!!  !     2. allocates array with the same type, type parameters,
+!!  !        array bounds, and value as temp_array
+!!  !     3. deallocates temp_array
+!!  call move_alloc( from=temp_array , to=array )
+!!end subroutine reallocate1_i4
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate1_i8(array,new_size)
+!!  integer, intent(in) :: new_size
+!!  integer(i8), allocatable, dimension(:), intent(inout) :: array
+!!  integer(i8), allocatable, dimension(:) :: temp_array
+!!  integer :: ierr,num_copy
+!!continue
+!!  allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
+!!  call alloc_error("reallocate1_i8","temp_array",1,ierr)
+!!  if (allocated(array)) then
+!!    num_copy = min( size(temp_array) , size(array) )
+!!    temp_array(1:num_copy) = array(1:num_copy)
+!!  end if
+!!  call move_alloc( from=temp_array , to=array )
+!!end subroutine reallocate1_i8
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate1_r4(array,new_size)
+!!  integer, intent(in) :: new_size
+!!  real(r4), allocatable, dimension(:), intent(inout) :: array
+!!  real(r4), allocatable, dimension(:) :: temp_array
+!!  integer :: ierr,num_copy
+!!continue
+!!  allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
+!!  call alloc_error("reallocate1_r4","temp_array",1,ierr)
+!!  if (allocated(array)) then
+!!    num_copy = min( size(temp_array) , size(array) )
+!!    temp_array(1:num_copy) = array(1:num_copy)
+!!  end if
+!!  call move_alloc( from=temp_array , to=array )
+!!end subroutine reallocate1_r4
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate1_r8(array,new_size)
+!!  integer, intent(in) :: new_size
+!!  real(r8), allocatable, dimension(:), intent(inout) :: array
+!!  real(r8), allocatable, dimension(:) :: temp_array
+!!  integer :: ierr,num_copy
+!!continue
+!!  allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
+!!  call alloc_error("reallocate1_r8","temp_array",1,ierr)
+!!  if (allocated(array)) then
+!!    num_copy = min( size(temp_array) , size(array) )
+!!    temp_array(1:num_copy) = array(1:num_copy)
+!!  end if
+!!  call move_alloc( from=temp_array , to=array )
+!!end subroutine reallocate1_r8
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate1_c(array,new_size)
+!!  integer, intent(in) :: new_size
+!!  character(len=*), allocatable, dimension(:), intent(inout) :: array
+!!  character(len=len(array)), allocatable, dimension(:) :: temp_array
+!!  integer :: ierr,num_copy
+!!continue
+!! !write (iout,1) size(array),new_size
+!!  allocate ( temp_array(1:new_size) , stat=ierr )
+!!  call alloc_error("reallocate1_c","temp_array",1,ierr)
+!!  if (allocated(array)) then
+!!    num_copy = min( size(temp_array) , size(array) )
+!!    temp_array(1:num_copy) = array(1:num_copy)
+!!  end if
+!!  call move_alloc( from=temp_array , to=array )
+!!  1 format ("size(array) = ",i0,"; new_size = ",i0)
+!!end subroutine reallocate1_c
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate2_i4(array,new_size1,new_size2)
+!!  !
+!!  !.. Formal Arguments ..
+!!  integer, optional,                       intent(in) :: new_size1
+!!  integer, optional,                       intent(in) :: new_size2
+!!  integer(i4), allocatable, dimension(:,:), intent(inout) :: array
+!!  !
+!!  !.. Local Scalars ..
+!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+!!  !
+!!  !.. Local Allocatable Arrays ..
+!!  integer(i4), allocatable, dimension(:,:) :: temp_array
+!!  !
+!!continue
+!!  !
+!!  ! Get the old dimensions of array
+!!  !
+!!  temp_size1 = 1
+!!  temp_size2 = 1
+!!  if (allocated(array)) then
+!!    temp_size1 = size(array,1)
+!!    temp_size2 = size(array,2)
+!!  end if
+!!  !
+!!  if (present(new_size1)) temp_size1 = new_size1
+!!  if (present(new_size2)) temp_size2 = new_size2
+!!  !
+!!  ! Allocate the temporary array to store the old contents of array
+!!  !
+!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i4 , stat=ierr )
+!!  call alloc_error("reallocate2_i4","temp_array",1,ierr)
+!!  !
+!!  ! Copy the old contents of array into the temporary array
+!!  !
+!!  if (allocated(array)) then
+!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
+!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
+!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
+!!  end if
+!!  !
+!!  ! move_alloc does:
+!!  !     1. deallocates array
+!!  !     2. allocates array with the same type, type parameters,
+!!  !        array bounds, and value as temp_array
+!!  !     3. deallocates temp_array
+!!  !
+!!  call move_alloc( from=temp_array , to=array )
+!!  !
+!!end subroutine reallocate2_i4
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate2_i8(array,new_size1,new_size2)
+!!  !
+!!  !.. Formal Arguments ..
+!!  integer, optional,                       intent(in) :: new_size1
+!!  integer, optional,                       intent(in) :: new_size2
+!!  integer(i8), allocatable, dimension(:,:), intent(inout) :: array
+!!  !
+!!  !.. Local Scalars ..
+!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+!!  !
+!!  !.. Local Allocatable Arrays ..
+!!  integer(i8), allocatable, dimension(:,:) :: temp_array
+!!  !
+!!continue
+!!  !
+!!  ! Get the old dimensions of array
+!!  !
+!!  temp_size1 = 1
+!!  temp_size2 = 1
+!!  if (allocated(array)) then
+!!    temp_size1 = size(array,1)
+!!    temp_size2 = size(array,2)
+!!  end if
+!!  !
+!!  if (present(new_size1)) temp_size1 = new_size1
+!!  if (present(new_size2)) temp_size2 = new_size2
+!!  !
+!!  ! Allocate the temporary array to store the old contents of array
+!!  !
+!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i8 , stat=ierr )
+!!  call alloc_error("reallocate2_i8","temp_array",1,ierr)
+!!  !
+!!  ! Copy the old contents of array into the temporary array
+!!  !
+!!  if (allocated(array)) then
+!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
+!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
+!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
+!!  end if
+!!  !
+!!  ! move_alloc does:
+!!  !     1. deallocates array
+!!  !     2. allocates array with the same type, type parameters,
+!!  !        array bounds, and value as temp_array
+!!  !     3. deallocates temp_array
+!!  !
+!!  call move_alloc( from=temp_array , to=array )
+!!  !
+!!end subroutine reallocate2_i8
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate2_r4(array,new_size1,new_size2)
+!!  !
+!!  !.. Formal Arguments ..
+!!  integer,  optional,                       intent(in) :: new_size1
+!!  integer,  optional,                       intent(in) :: new_size2
+!!  real(r4), allocatable, dimension(:,:), intent(inout) :: array
+!!  !
+!!  !.. Local Scalars ..
+!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+!!  !
+!!  !.. Local Allocatable Arrays ..
+!!  real(r4), allocatable, dimension(:,:) :: temp_array
+!!  !
+!!continue
+!!  !
+!!  ! Get the old dimensions of array
+!!  !
+!!  temp_size1 = 1
+!!  temp_size2 = 1
+!!  if (allocated(array)) then
+!!    temp_size1 = size(array,1)
+!!    temp_size2 = size(array,2)
+!!  end if
+!!  !
+!!  if (present(new_size1)) temp_size1 = new_size1
+!!  if (present(new_size2)) temp_size2 = new_size2
+!!  !
+!!  ! Allocate the temporary array to store the old contents of array
+!!  !
+!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r4 , stat=ierr )
+!!  call alloc_error("reallocate2_r4","temp_array",1,ierr)
+!!  !
+!!  ! Copy the old contents of array into the temporary array
+!!  !
+!!  if (allocated(array)) then
+!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
+!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
+!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
+!!  end if
+!!  !
+!!  ! move_alloc does:
+!!  !     1. deallocates array
+!!  !     2. allocates array with the same type, type parameters,
+!!  !        array bounds, and value as temp_array
+!!  !     3. deallocates temp_array
+!!  !
+!!  call move_alloc( from=temp_array , to=array )
+!!  !
+!!end subroutine reallocate2_r4
+!!!
+!!!###############################################################################
+!!!
+!!subroutine reallocate2_r8(array,new_size1,new_size2)
+!!  !
+!!  !.. Formal Arguments ..
+!!  integer,  optional,                       intent(in) :: new_size1
+!!  integer,  optional,                       intent(in) :: new_size2
+!!  real(r8), allocatable, dimension(:,:), intent(inout) :: array
+!!  !
+!!  !.. Local Scalars ..
+!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+!!  !
+!!  !.. Local Allocatable Arrays ..
+!!  real(r8), allocatable, dimension(:,:) :: temp_array
+!!  !
+!!continue
+!!  !
+!!  ! Get the old dimensions of array
+!!  !
+!!  temp_size1 = 1
+!!  temp_size2 = 1
+!!  if (allocated(array)) then
+!!    temp_size1 = size(array,1)
+!!    temp_size2 = size(array,2)
+!!  end if
+!!  !
+!!  if (present(new_size1)) temp_size1 = new_size1
+!!  if (present(new_size2)) temp_size2 = new_size2
+!!  !
+!!  ! Allocate the temporary array to store the old contents of array
+!!  !
+!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r8 , stat=ierr )
+!!  call alloc_error("reallocate2_r8","temp_array",1,ierr)
+!!  !
+!!  ! Copy the old contents of array into the temporary array
+!!  !
+!!  if (allocated(array)) then
+!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
+!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
+!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
+!!  end if
+!!  !
+!!  ! move_alloc does:
+!!  !     1. deallocates array
+!!  !     2. allocates array with the same type, type parameters,
+!!  !        array bounds, and value as temp_array
+!!  !     3. deallocates temp_array
+!!  !
+!!  call move_alloc( from=temp_array , to=array )
+!!  !
+!!end subroutine reallocate2_r8
+!!!
+!!!###############################################################################
+!!!
+subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag,iemessag)
   !
   ! Subroutine to generate an error message when
   ! an allocate or deallocate returns an error code
   !
   !.. Formal Arguments ..
-  character(len=*), intent(in) :: procedure_name
-  character(len=*), intent(in) :: variable_name
-  integer,          intent(in) :: ioptype
-  integer,          intent(in) :: iemessag
+  character(len=*),           intent(in) :: procedure_name
+  character(len=*),           intent(in) :: variable_name
+  integer,                    intent(in) :: ioptype
+  integer,                    intent(in) :: error_flag
+  character(len=*), optional, intent(in) :: iemessag
   !
 continue
   !
-  if (iemessag /= 0) then
+  if (error_flag /= 0) then
     !
+    write (iout,1)
     if (ioptype == 1) then
-      write (iout,1) trim(adjustl(variable_name))
-    else
       write (iout,2) trim(adjustl(variable_name))
+    else
+      write (iout,3) trim(adjustl(variable_name))
     end if
     !
-    write (iout,3) trim(adjustl(procedure_name)),iemessag
+    write (iout,4) trim(adjustl(procedure_name)),error_flag
+    if (present(iemessag)) write (iout,5) trim(adjustl(iemessag))
+    write (iout,6)
+    !
     call stop_recon(abort,"alloc_error")
     !
   end if
   !
   ! Format statements
   !
-  1 format (/," ***************************************************** ",/, &
-              " UNABLE TO ALLOCATE MEMORY FOR VARIABLE ",a)
-  2 format (/," ***************************************************** ",/, &
-              " UNABLE TO DEALLOCATE MEMORY FOR VARIABLE ",a)
-  3 format (" INSIDE PROCEDURE: ",a,/, &
-            " ERROR INDICATOR = ",i0,/, &
-            " ***************************************************** ",//)
+  1 format (/," ***************************************************** ")
+  2 format (" UNABLE TO ALLOCATE MEMORY FOR VARIABLE ",a)
+  3 format (" UNABLE TO DEALLOCATE MEMORY FOR VARIABLE ",a)
+  4 format (" INSIDE PROCEDURE: ",a,/, &
+            " ERROR INDICATOR = ",i0)
+  5 format (" ERROR MESSAGE: ",a)
+  6 format (" ***************************************************** ",//)
   !
 end subroutine alloc_error
 !
@@ -899,17 +1235,44 @@ subroutine stop_recon(iend,procedure_name,optional_message)
   !
   !.. Local Scalars ..
   integer(int_mpi) :: iflag
+  character(len=10000) :: strng
+  character(len=10000) :: output_message
   !
 continue
   !
   iflag = abort
   if (present(iend)) iflag = int( iend , kind=kind(iflag) )
   !
+  ! Reformat optional_message
+  !
+  if (present(optional_message)) then
+    !
+    if (scan(optional_message,new_line('a')) == 0) then
+      !
+      ! optional_message does NOT contain any new line characters so reformat
+      ! the string so that it is multiple lines with a max of 50 characters
+      ! per line.
+      !
+      output_message = reformat_string( optional_message )
+      !
+    else
+      !
+      ! optional_message already contains new line characters so just copy
+      ! it straight into output_message
+      !
+      output_message = trim(adjustl(optional_message))
+      !
+    end if
+    !
+  end if
+  !
+  ! Write out the final information before stopping execution
+  !
   if (mypnum == 0) write (iout,1)
   !
   if (ncpu > 0) then
     !
-    ! First finalize the overall MPI session before stoping execution
+    ! First finalize the overall MPI session before stopping execution
     !
     if (ncpu == 1 .or. iflag == stop_mpi) then
       !
@@ -918,7 +1281,7 @@ continue
         if (present(procedure_name)) &
           write (iout,4) trim(adjustl(procedure_name))
         if (present(optional_message)) &
-          write (iout,5) trim(adjustl(optional_message))
+          write (iout,5) trim(adjustl(output_message))
         write (iout,6)
       end if
       !
@@ -934,7 +1297,7 @@ continue
       if (present(procedure_name)) &
         write (iout,4) trim(adjustl(procedure_name))
       if (present(optional_message)) &
-        write (iout,5) trim(adjustl(optional_message))
+        write (iout,5) trim(adjustl(output_message))
       write (iout,6)
       !
       call mpi_abort(mpi_comm_world,iflag,mpierr)
@@ -943,18 +1306,18 @@ continue
     !
   end if
   !
-  flush(iout)
+  flush (iout)
   !
   stop
   !
   ! Format Statements
   !
-  1 format (//,"#########################################################")
+  1 format (//,"##################################################################")
   2 format (   "    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
   3 format (   "           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
   4 format (   " STOP ISSUED FROM PROCEDURE '",a,"'")
   5 format (   " ERROR MESSAGE: '",a,"'")
-  6 format (   "#########################################################",//)
+  6 format (   "##################################################################",//)
   !
 end subroutine stop_recon
 !
@@ -962,6 +1325,7 @@ end subroutine stop_recon
 !
 ! Include statements for functions that have a generic interface
 !
+include "Functions/reallocate.f90"
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"
@@ -973,12 +1337,18 @@ include "Functions/rotate_2d.f90"
 include "Functions/matrix_ops.f90"
 include "Functions/random.f90"
 include "Functions/findloc.f90"
+include "Functions/node_center.f90"
+include "Functions/face_normal.f90"
+include "Functions/jacobians.f90"
+include "Functions/chop.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !
 include "Functions/uppercase.f90"
 include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
+include "Functions/reformat_string.f90"
+include "Functions/ghost_nodes.f90"
 !
 !###############################################################################
 !

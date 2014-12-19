@@ -70,15 +70,15 @@ subroutine compute_cell_ave
   !
   !.. Use Statements ..
   use geovar, only : ncell,pts_in_cell_ptr
-  use geovar, only : vand_inv
-  use geovar, only : n_sp2dt,n_sp2dq
+  use geovar, only : cell_geom,vand_inv
+  use order_mod, only : maxpts
   use flowvar, only : usp
   !
   !.. Local Scalars ..
-  integer :: i,j,nc,n1,n2,np,nw,m
+  integer :: nc,n1,n2,np,m,this_geom
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:n_sp2dq) :: inv_vand
+  real(wp), dimension(1:maxpts) :: inv_vand
   !
 continue
   !
@@ -87,9 +87,9 @@ continue
     n1 = pts_in_cell_ptr(nc)+1
     n2 = pts_in_cell_ptr(nc+1)
     np = n2-n1+1
-    nw = merge(1,2,np==n_sp2dt)
+    this_geom = cell_geom(nc)
     !
-    inv_vand(1:np) = vand_inv(1,1:np,nw)
+    inv_vand(1:np) = vand_inv(1,1:np,this_geom)
     !
     do m = 1,nq
       cell_ave_sol(m,nc) = half * dot( inv_vand(1:np) , usp(m,n1:n2) )
@@ -106,14 +106,14 @@ end subroutine compute_cell_ave
 subroutine moment_limiter
   !
   !.. Use Statements ..
-  use geovar, only : ncell,n_sp2dt
+  use geovar, only : ncell,cell_geom
   use geovar, only : pts_in_cell_ptr,vand_inv
   use flowvar, only : usp
   !
   use parallel_mod, only : exchange_modes
   !
   !.. Local Scalars
-  integer :: nc,n1,n2,np,nw,m
+  integer :: nc,n1,n2,np,m,this_geom
   !
 continue
   !
@@ -126,10 +126,10 @@ continue
     n1 = pts_in_cell_ptr(nc)+1
     n2 = pts_in_cell_ptr(nc+1)
     np = n2-n1+1
-    nw = merge(1,2,np==n_sp2dt)
+    this_geom = cell_geom(nc)
     !
     do m = 1,nq
-      umodes(n1:n2,m) = matmul( vand_inv(1:np,1:np,nw) , usp(m,n1:n2) )
+      umodes(n1:n2,m) = matmul( vand_inv(1:np,1:np,this_geom) , usp(m,n1:n2) )
     end do
     !
   end do
@@ -138,8 +138,6 @@ continue
   !
   if (ncpu > 1) call exchange_modes(umodes)
   !
-  
-  !
 end subroutine moment_limiter
 !
 !###############################################################################
@@ -147,15 +145,16 @@ end subroutine moment_limiter
 subroutine limit_by_projecting
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,n_order,n_sp2dt,n_sp2dq
-  use geovar,  only : pts_in_cell_ptr,projct_limiter
-  use flowvar, only : usp
+  use order_mod,  only : maxpts
+  use geovar,     only : ncell,cell_geom,cell_order
+  use geovar,     only : pts_in_cell_ptr,projct_limiter
+  use flowvar,    only : usp
   !
   !.. Local Scalars ..
-  integer :: k,m,n,n1,n2,nc,nsp,nw
+  integer :: k,m,n,n1,n2,nc,nsp,this_geom
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:n_sp2dq,1:nq) :: tusp
+  real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
 continue
   !
@@ -172,57 +171,50 @@ continue
   !              projct_limiter(:,:,:,n_order)   => projects cell solution to
   !                                                 a constant solution (P0 order)
   !
-  moment_loop: do n = 1,n_order
+  ! Loop through the cells applying the projection limiter to
+  ! any troubled cells.
+  !
+  cell_loop: do nc = 1,ncell
     !
-    ! Loop through the cells applying the projection limiter to
-    ! any troubled cells.
+    ! If the current cell is not troubled, skip to the next one
     !
-    cell_loop: do nc = 1,ncell
-      !
-      ! If the current cell is not troubled, skip to the next one
-      !
-      if (.not.troubled_cell(nc)) cycle cell_loop
-      !
-      n1 = pts_in_cell_ptr(nc)+1
-      n2 = pts_in_cell_ptr(nc+1)
-      nsp = n2-n1+1
-      nw = merge(1,2,nsp==n_sp2dt)
-      !
-      ! Store a copy of usp for this cell because the individual
-      ! solutions at the solution points within the cell will be
-      ! altered during the projection computation. While we are
-      ! doing this, store the copy as its transpose to reduce
-      ! cache misses.
+    if (.not.troubled_cell(nc)) cycle cell_loop
+    !
+    n1 = pts_in_cell_ptr(nc)+1
+    n2 = pts_in_cell_ptr(nc+1)
+    nsp = n2-n1+1
+    this_geom = cell_geom(nc)
+    !
+    ! Store a copy of usp for this cell because the individual
+    ! solutions at the solution points within the cell will be
+    ! altered during the projection computation. While we are
+    ! doing this, store the copy as its transpose to reduce
+    ! cache misses.
+    !
+    do k = 1,nsp
+      do m = 1,nq
+        tusp(k,m) = usp(m,n1-1+k)
+      end do
+    end do
+    !
+    moment_loop: do n = 1,cell_order(nc)
       !
       do k = 1,nsp
         do m = 1,nq
-          tusp(k,m) = usp(m,n1-1+k)
+          usp(m,n1-1+k) = dot( projct_limiter(1:nsp,k,this_geom,n) , &
+                                         tusp(1:nsp,m) )
         end do
       end do
-      !
-      do k = 1,nsp
-        do m = 1,nq
-          usp(m,n1-1+k) = dot( projct_limiter(1:nsp,k,nw,n) , &
-                                       tusp(1:nsp,m) )
-        end do
-      end do
-      !
-    end do cell_loop
+      ! 
+    end do moment_loop
     !
-    ! Recheck the troubled cells to see if they are no longer
-    ! troubled due to the previous projection.
-    !
-    call recheck_troubled_cells
-    !
-    ! If there are no more troubled cells, we no longer need to do
-    ! any projections so exit this outer moment loop.
-    !
-    if (.not. any(troubled_cell)) exit moment_loop
-    ! 
-  end do moment_loop
-  !
-  !
-  !
+  end do cell_loop
+ !!
+ !! Recheck the troubled cells to see if they are no longer
+ !! troubled due to the previous projection.
+ !!
+ !call recheck_troubled_cells
+ !!
 end subroutine limit_by_projecting
 !
 !###############################################################################
@@ -230,11 +222,12 @@ end subroutine limit_by_projecting
 subroutine recheck_troubled_cells
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,n_sp2dt,pts_in_cell_ptr
+  use geovar,  only : ncell,pts_in_cell_ptr
+  use geovar,  only : cell_geom,cell_order
   use flowvar, only : usp
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,nsp,nw
+  integer :: nc,n1,n2,this_geom,this_order
   !
 continue
   !
@@ -242,8 +235,8 @@ continue
     !
     n1 = pts_in_cell_ptr(nc)+1
     n2 = pts_in_cell_ptr(nc+1)
-    nsp = n2-n1+1
-    nw = merge(1,2,nsp==n_sp2dt)
+    this_geom = cell_geom(nc)
+    this_order = cell_order(nc)
     !
   end do
   !

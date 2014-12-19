@@ -13,8 +13,6 @@ module startup_mod
   ! Public Procedures
   !
   public :: get_quadrature_data
-  public :: old_get_quadrature_data
-  public :: Vandermonde1D
   !
   ! Local logical that controls whether array/debugging information is output
   !
@@ -22,10 +20,6 @@ module startup_mod
  !logical, parameter :: array_debugging = true
   !
   ! Generic Interfaces for the different Functions
-  !
-  interface CellVolume1D
-    module procedure CellVolume1D_DP, CellVolume1D_QP
-  end interface CellVolume1D
   !
   interface CorrectionMatrix1D
     module procedure CorrectionMatrix1D_DP, CorrectionMatrix1D_QP
@@ -78,14 +72,6 @@ module startup_mod
   interface eval_LagrangePoly2D
     module procedure eval_LagrangePoly2D_DP, eval_LagrangePoly2D_QP
   end interface eval_LagrangePoly2D
-  !
-  interface Filter2D_quad
-    module procedure Filter2D_quad_DP, Filter2D_quad_QP
-  end interface Filter2D_quad
-  !
-  interface Filter2D_tria
-    module procedure Filter2D_tria_DP, Filter2D_tria_QP
-  end interface Filter2D_tria
   !
   interface GradJacobiP
     module procedure GradJacobiP_DP, GradJacobiP_QP
@@ -150,22 +136,21 @@ contains
 subroutine get_quadrature_data()
   !
   !.. Use Statements ..
-  use geovar, only : nr,n_order,n_sp1de,n_sp2dt,n_sp2dq
+  use geovar, only : nr
   use geovar, only : solpts_1d,solwts_1d
-  use geovar, only : rs,flxpts_1d,interp_s2f,filter
-  use geovar, only : vand_1d,vand_1d_inv,vand_inv
-  use geovar, only : vand_quad,vand_quad_inv
-  use geovar, only : vand_tria,vand_tria_inv
-  use metvar, only : cormat,d1_mat,dr_mat,ds_mat,dr_hat,ds_hat,cormat_dg
+  use geovar, only : rs,flxpts_1d,interp_s2f
+  use geovar, only : vand_inv
   !
-  use qpvar,  only : d1_mat_qp,dr_mat_qp,ds_mat_qp,dr_hat_qp,ds_hat_qp
-  use qpvar,  only : vand_1d_qp,vand_1d_inv_qp
-  use qpvar,  only : vand_quad_qp,vand_quad_inv_qp
-  use qpvar,  only : vand_tria_qp,vand_tria_inv_qp
-  use qpvar,  only : filter_qp,cormat_qp,cormat_dg_qp
-  use qpvar,  only : rs_qp,interp_s2f_qp
-  use qpvar,  only : solpts_1d_qp,solwts_1d_qp,flxpts_1d_qp
+  use metvar, only : cormat,dr_mat,ds_mat
+  !
+  use order_mod, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
+  !
+  use qpvar,  only : dr_mat_qp,ds_mat_qp
+  use qpvar,  only : cormat_qp
+  use qpvar,  only : interp_s2f_qp
   use qpvar,  only : deallocate_all_qp_arrays
+  !
+  use filter_mod, only : initialize_filter_matrices
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,n,nf,ierr
@@ -175,6 +160,10 @@ subroutine get_quadrature_data()
   integer, allocatable, dimension(:) :: rseed
   !
   !.. Local Quad Precision Arrays ..
+  real(qp) :: solpts_1d_qp(1:n_sp1de)
+  real(qp) :: solwts_1d_qp(1:n_sp1de)
+  real(qp) :: flxpts_1d_qp(1:n_sp1de)
+  !
   real(qp), dimension(1:n_sp1de,1:n_sp1de)      :: vand_temp_qp
   real(qp), dimension(1:nr,1:n_sp2dt)           :: adjd_rs_qp
   real(qp), dimension(1:n_sp1de,1:n_sp1de)      :: grad_vand_1d_qp
@@ -185,6 +174,35 @@ subroutine get_quadrature_data()
   real(wp), dimension(1:n_sp1de,1:n_sp1de) :: vand_temp
   real(wp), dimension(1:n_sp1de,1:n_sp1de) :: grad_vand_1d
   !
+  !.. Local Allocatable Arrays From Module qpvar ..
+  real(qp), allocatable :: vand_1d_qp(:,:)
+  real(qp), allocatable :: vand_tria_qp(:,:)
+  real(qp), allocatable :: vand_quad_qp(:,:)
+  real(qp), allocatable :: vand_1d_inv_qp(:,:)
+  real(qp), allocatable :: vand_tria_inv_qp(:,:)
+  real(qp), allocatable :: vand_quad_inv_qp(:,:)
+  real(qp), allocatable :: d1_mat_qp(:,:)
+  real(qp), allocatable :: dr_hat_qp(:,:,:)
+  real(qp), allocatable :: ds_hat_qp(:,:,:)
+  real(qp), allocatable :: cormat_dg_qp(:,:,:)
+  !
+  !.. Local Allocatable Arrays From Module geovar ..
+  real(wp), allocatable :: vand_1d(:,:)
+  real(wp), allocatable :: vand_tria(:,:)
+  real(wp), allocatable :: vand_quad(:,:)
+  real(wp), allocatable :: vand_1d_inv(:,:)
+  real(wp), allocatable :: vand_tria_inv(:,:)
+  real(wp), allocatable :: vand_quad_inv(:,:)
+  !
+  !.. Local Allocatable Arrays From Module metvar ..
+  real(wp), allocatable :: d1_mat(:,:)
+  real(wp), allocatable :: dr_hat(:,:,:)
+  real(wp), allocatable :: ds_hat(:,:,:)
+  real(wp), allocatable :: cormat_dg(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_quadrature_data"
+  !
 continue
   !
   sol(:,:) = zero
@@ -194,6 +212,10 @@ continue
   grad_vand_tria_qp(:,:,:) = qzero
   !
   grad_vand_1d(:,:) = zero
+  !
+  solpts_1d_qp = real(solpts_1d,kind=qp)
+  solwts_1d_qp = real(solwts_1d,kind=qp)
+  flxpts_1d_qp = real(flxpts_1d,kind=qp)
   !
   ! #####################################################################
   ! #####################################################################
@@ -206,91 +228,88 @@ continue
   ! Allocate the quad precision arrays
   !
   allocate ( vand_1d_qp(1:n_sp1de,1:n_sp1de) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_1d_qp",1,ierr)
+  call alloc_error(pname,"vand_1d_qp",1,ierr)
   allocate ( vand_tria_qp(1:n_sp2dt,1:n_sp2dt) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_tria_qp",1,ierr)
+  call alloc_error(pname,"vand_tria_qp",1,ierr)
   allocate ( vand_quad_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_quad_qp",1,ierr)
+  call alloc_error(pname,"vand_quad_qp",1,ierr)
   allocate ( vand_1d_inv_qp(1:n_sp1de,1:n_sp1de) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_1d_inv_qp",1,ierr)
+  call alloc_error(pname,"vand_1d_inv_qp",1,ierr)
   allocate ( vand_tria_inv_qp(1:n_sp2dt,1:n_sp2dt) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_tria_inv_qp",1,ierr)
+  call alloc_error(pname,"vand_tria_inv_qp",1,ierr)
   allocate ( vand_quad_inv_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_quad_inv_qp",1,ierr)
+  call alloc_error(pname,"vand_quad_inv_qp",1,ierr)
   !
   allocate ( d1_mat_qp(1:n_sp1de,1:n_sp1de) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","d1_mat_qp",1,ierr)
+  call alloc_error(pname,"d1_mat_qp",1,ierr)
   allocate ( dr_mat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","dr_mat_qp",1,ierr)
+  call alloc_error(pname,"dr_mat_qp",1,ierr)
   allocate ( ds_mat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","ds_mat_qp",1,ierr)
+  call alloc_error(pname,"ds_mat_qp",1,ierr)
   allocate ( dr_hat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","dr_hat_qp",1,ierr)
+  call alloc_error(pname,"dr_hat_qp",1,ierr)
   allocate ( ds_hat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","ds_hat_qp",1,ierr)
+  call alloc_error(pname,"ds_hat_qp",1,ierr)
   !
   allocate ( interp_s2f_qp(1:n_sp2dq,1:4*n_sp1de,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","interp_s2f_qp",1,ierr)
+  call alloc_error(pname,"interp_s2f_qp",1,ierr)
   !
   allocate ( cormat_qp(1:n_sp2dq,1:4*n_sp1de,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","cormat_qp",1,ierr)
+  call alloc_error(pname,"cormat_qp",1,ierr)
   allocate ( cormat_dg_qp(1:n_sp2dq,1:4*n_sp1de,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","cormat_dg_qp",1,ierr)
-  !
-  allocate ( filter_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("get_quadrature_data","filter_qp",1,ierr)
+  call alloc_error(pname,"cormat_dg_qp",1,ierr)
   !
   ! Adjust r and s to be on the interval [-1,1]. The routines
   ! Vandermonde2d_tria, GradVandermonde2D, and CorrectionMatrix2D_tria
   ! need to be adjusted to work for r and s on the interval [0,1].
   !
-  adjd_rs_qp(:,:) = qtwo*rs_qp(:,:) - qone
-  adjd_rs_qp = chop_qp( adjd_rs_qp )
+  adjd_rs_qp(:,:) = qtwo*real(rs,kind=qp) - qone
+  adjd_rs_qp = chop( adjd_rs_qp , adjd_rs_qp )
   !
   ! 1D Vandermonde matrix and inverse
   !
   vand_1d_qp = Vandermonde1d(solpts_1d_qp)
-  vand_1d_qp = chop_qp( vand_1d_qp )
+  vand_1d_qp = chop( vand_1d_qp , vand_1d_qp )
   !
   vand_1d_inv_qp = invert_matrix(vand_1d_qp)
-  vand_1d_inv_qp = chop_qp( vand_1d_inv_qp )
+  vand_1d_inv_qp = chop( vand_1d_inv_qp , vand_1d_inv_qp )
   !
   ! 2D triangle Vandermonde matrix and inverse
   !
   vand_tria_qp = Vandermonde2d_tria(adjd_rs_qp)
-  vand_tria_qp = chop_qp( vand_tria_qp )
+  vand_tria_qp = chop( vand_tria_qp , vand_tria_qp )
   !
   vand_tria_inv_qp = invert_matrix(vand_tria_qp)
-  vand_tria_inv_qp = chop_qp( vand_tria_inv_qp )
+  vand_tria_inv_qp = chop( vand_tria_inv_qp , vand_tria_inv_qp )
   !
   ! 2D quadrilateral Vandermonde matrix and inverse
   !
   vand_quad_qp = Vandermonde2d_quad(solpts_1d_qp)
-  vand_quad_qp = chop_qp( vand_quad_qp )
+  vand_quad_qp = chop( vand_quad_qp , vand_quad_qp )
   !
   vand_quad_inv_qp = invert_matrix(vand_quad_qp)
-  vand_quad_inv_qp = chop_qp( vand_quad_inv_qp )
+  vand_quad_inv_qp = chop( vand_quad_inv_qp , vand_quad_inv_qp )
   !
   ! Get the derivative of the 1D Vandermonde matrix
   !
   grad_vand_1d_qp = GradVandermonde1D(solpts_1d_qp)
-  grad_vand_1d_qp = chop_qp( grad_vand_1d_qp )
+  grad_vand_1d_qp = chop( grad_vand_1d_qp , grad_vand_1d_qp )
   !
   ! Get the derivative of the Vandermonde matrix and store in return_value
   !
   grad_vand_tria_qp = GradVandermonde2D(adjd_rs_qp)
-  grad_vand_tria_qp = chop_qp( grad_vand_tria_qp )
+  grad_vand_tria_qp = chop( grad_vand_tria_qp , grad_vand_tria_qp )
   !
   ! Get the 1D derivative matrix
   !
   d1_mat_qp = matmul( grad_vand_1d_qp , vand_1d_inv_qp )
-  d1_mat_qp = chop_qp( d1_mat_qp )
+  d1_mat_qp = chop( d1_mat_qp , d1_mat_qp )
   !
   ! Allocation of arrays from the metvar module
   !
   cormat_qp(1:n_sp2dt,1:3*n_sp1de,1) = CorrectionMatrix2D_tria(adjd_rs_qp)
   cormat_qp(1:n_sp2dq,1:4*n_sp1de,2) = CorrectionMatrix2D_quad(solpts_1d_qp)
-  cormat_qp = chop_qp( cormat_qp )
+  cormat_qp = chop( cormat_qp , cormat_qp )
   !
   ! Get the derivative matrices for the strong form of the equations
   !
@@ -299,8 +318,8 @@ continue
                       ds_mat_qp(1:n_sp2dt,1:n_sp2dt,1))
   !
   call Dmatrix2d_quad(d1_mat_qp,dr_mat_qp(:,:,2),ds_mat_qp(:,:,2))
-  dr_mat_qp = chop_qp( dr_mat_qp )
-  ds_mat_qp = chop_qp( ds_mat_qp )
+  dr_mat_qp = chop( dr_mat_qp , dr_mat_qp )
+  ds_mat_qp = chop( ds_mat_qp , ds_mat_qp )
   !
   ! Get the derivative matrices for the weak form of the equations
   !
@@ -310,66 +329,57 @@ continue
   !
   call Dmatrix2d_quad_weak(solwts_1d_qp,d1_mat_qp, &
                            dr_hat_qp(:,:,2),ds_hat_qp(:,:,2))
-  dr_hat_qp = chop_qp( dr_hat_qp )
-  ds_hat_qp = chop_qp( ds_hat_qp )
+  dr_hat_qp = chop( dr_hat_qp , dr_hat_qp )
+  ds_hat_qp = chop( ds_hat_qp , ds_hat_qp )
   !
   ! Get the Lagrange polynomial to project the variables/fluxes from the
   ! solution points in the cell interior to the flux points on the cell face
   !
-  interp_s2f_qp(1:n_sp2dt,1:3*n_sp1de,1) = LagrangePoly2D_tria(rs_qp)
+  interp_s2f_qp(1:n_sp2dt,1:3*n_sp1de,1) = LagrangePoly2D_tria(real(rs,kind=qp))
   interp_s2f_qp(1:n_sp2dq,1:4*n_sp1de,2) = LagrangePoly2D_quad(flxpts_1d_qp,solpts_1d_qp)
-  interp_s2f_qp = chop_qp( interp_s2f_qp )
+  interp_s2f_qp = chop( interp_s2f_qp , interp_s2f_qp )
   !
   ! Get the correction matrix for DG methods
   !
   cormat_dg_qp(1:n_sp2dq,1:4*n_sp1de,2) = &
               CorrectionMatrix2D_quad_dg(solpts_1d_qp,solwts_1d_qp)
-  cormat_dg_qp = chop_qp( cormat_dg_qp )
-  !
-  ! Get the filter matrices
-  !
-  filter_qp(1:n_sp2dt,1:n_sp2dt,1) = Filter2D_tria(vand_tria_qp,vand_tria_inv_qp)
-  filter_qp(1:n_sp2dq,1:n_sp2dq,2) = Filter2D_quad(vand_quad_qp,vand_quad_inv_qp)
-  filter_qp = chop_qp( filter_qp )
+  cormat_dg_qp = chop( cormat_dg_qp , cormat_dg_qp )
   !
   ! Allocate the working precision arrays
   !
   allocate ( vand_1d(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_1d",1,ierr)
+  call alloc_error(pname,"vand_1d",1,ierr)
   allocate ( vand_tria(1:n_sp2dt,1:n_sp2dt) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_tria",1,ierr)
+  call alloc_error(pname,"vand_tria",1,ierr)
   allocate ( vand_quad(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_quad",1,ierr)
+  call alloc_error(pname,"vand_quad",1,ierr)
   allocate ( vand_1d_inv(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_1d_inv",1,ierr)
+  call alloc_error(pname,"vand_1d_inv",1,ierr)
   allocate ( vand_tria_inv(1:n_sp2dt,1:n_sp2dt) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_tria_inv",1,ierr)
+  call alloc_error(pname,"vand_tria_inv",1,ierr)
   allocate ( vand_quad_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_quad_inv",1,ierr)
+  call alloc_error(pname,"vand_quad_inv",1,ierr)
   allocate ( vand_inv(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","vand_inv",1,ierr)
+  call alloc_error(pname,"vand_inv",1,ierr)
   !
   allocate ( d1_mat(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","d1_mat",1,ierr)
+  call alloc_error(pname,"d1_mat",1,ierr)
   allocate ( dr_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","dr_mat",1,ierr)
+  call alloc_error(pname,"dr_mat",1,ierr)
   allocate ( ds_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","ds_mat",1,ierr)
+  call alloc_error(pname,"ds_mat",1,ierr)
   allocate ( dr_hat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","dr_hat",1,ierr)
+  call alloc_error(pname,"dr_hat",1,ierr)
   allocate ( ds_hat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","ds_hat",1,ierr)
+  call alloc_error(pname,"ds_hat",1,ierr)
   !
   allocate ( interp_s2f(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","interp_s2f",1,ierr)
+  call alloc_error(pname,"interp_s2f",1,ierr)
   !
   allocate ( cormat(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","cormat",1,ierr)
+  call alloc_error(pname,"cormat",1,ierr)
   allocate ( cormat_dg(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","cormat_dg",1,ierr)
-  !
-  allocate ( filter(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("get_quadrature_data","filter",1,ierr)
+  call alloc_error(pname,"cormat_dg",1,ierr)
   !
   ! ##############################################
   ! ##############################################
@@ -393,7 +403,6 @@ continue
   ds_hat         = chop( ds_hat_qp )
   interp_s2f     = chop( interp_s2f_qp )
   cormat_dg      = chop( cormat_dg_qp )
-  filter         = chop( filter_qp )
   !
   vand_inv(1:n_sp2dt,1:n_sp2dt,1) = vand_tria_inv
   vand_inv(1:n_sp2dq,1:n_sp2dq,2) = vand_quad_inv
@@ -415,15 +424,57 @@ continue
   call output2d(array_debugging,d1_mat(:,:),2,2,0,'d1_mat')
   call output2d(array_debugging,cormat(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'cormat')
   call output2d(array_debugging,cormat_dg(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'cormat_dg')
-  call output2d(array_debugging,filter(1:n_sp2dq,1:n_sp2dq,2),2,2,2,'filter')
   !
   ! Output the solution and flux points to a tecplot file for visualization
   !
  !call write_quadrature
   !
-  call gauss_lobatto_matrices
+  call gauss_lobatto_matrices(vand_quad_qp,vand_quad_inv_qp)
   !
-  call interp2quadrature
+  call interp2quadrature(vand_1d_qp,vand_1d_inv_qp,vand_quad_qp,vand_quad_inv_qp)
+  !
+  ! Deallocate the local arrays before we leave
+  !
+  deallocate ( vand_1d_qp , stat=ierr )
+  call alloc_error(pname,"vand_1d_qp",2,ierr)
+  deallocate ( vand_tria_qp , stat=ierr )
+  call alloc_error(pname,"vand_tria_qp",2,ierr)
+  deallocate ( vand_quad_qp , stat=ierr )
+  call alloc_error(pname,"vand_quad_qp",2,ierr)
+  deallocate ( vand_1d_inv_qp , stat=ierr )
+  call alloc_error(pname,"vand_1d_inv_qp",2,ierr)
+  deallocate ( vand_tria_inv_qp , stat=ierr )
+  call alloc_error(pname,"vand_tria_inv_qp",2,ierr)
+  deallocate ( vand_quad_inv_qp , stat=ierr )
+  call alloc_error(pname,"vand_quad_inv_qp",2,ierr)
+  deallocate ( d1_mat_qp , stat=ierr )
+  call alloc_error(pname,"d1_mat_qp",2,ierr)
+  deallocate ( dr_hat_qp , stat=ierr )
+  call alloc_error(pname,"dr_hat_qp",2,ierr)
+  deallocate ( ds_hat_qp , stat=ierr )
+  call alloc_error(pname,"ds_hat_qp",2,ierr)
+  deallocate ( cormat_dg_qp , stat=ierr )
+  call alloc_error(pname,"cormat_dg_qp",2,ierr)
+  deallocate ( vand_1d , stat=ierr )
+  call alloc_error(pname,"vand_1d",2,ierr)
+  deallocate ( vand_tria , stat=ierr )
+  call alloc_error(pname,"vand_tria",2,ierr)
+  deallocate ( vand_quad , stat=ierr )
+  call alloc_error(pname,"vand_quad",2,ierr)
+  deallocate ( vand_1d_inv , stat=ierr )
+  call alloc_error(pname,"vand_1d_inv",2,ierr)
+  deallocate ( vand_tria_inv , stat=ierr )
+  call alloc_error(pname,"vand_tria_inv",2,ierr)
+  deallocate ( vand_quad_inv , stat=ierr )
+  call alloc_error(pname,"vand_quad_inv",2,ierr)
+  deallocate ( d1_mat , stat=ierr )
+  call alloc_error(pname,"d1_mat",2,ierr)
+  deallocate ( dr_hat , stat=ierr )
+  call alloc_error(pname,"dr_hat",2,ierr)
+  deallocate ( ds_hat , stat=ierr )
+  call alloc_error(pname,"ds_hat",2,ierr)
+  deallocate ( cormat_dg , stat=ierr )
+  call alloc_error(pname,"cormat_dg",2,ierr)
   !
   ! #################################################################
   ! #################################################################
@@ -434,161 +485,54 @@ continue
   !
   call deallocate_all_qp_arrays()
   !
- !write (101,*) "Quad Vandermonde Matrix"
- !1 format (a,i0,a,i0,a)
- !2 format (*(es12.4))
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (101,*)
- !    write (101,1) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_sp1de,1,-1
- !      write (101,2) (vand_quad(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !!
- !!
- !write (100,*) "Inverse of Quad Vandermonde Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (100,*)
- !    write (100,1) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_sp1de,1,-1
- !      write (100,2) (vand_quad_inv(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !!
- !!
- !write (101,*) "Correction Function"
- !write (102,*) "DG Correction Function"
- !do nf = 1,4*n_sp1de
- !  !
- !  if (nf <= 1*n_sp1de) then
- !    write (101,5) nf
- !    write (102,5) nf
- !  else if (nf <= 2*n_sp1de) then
- !    write (101,6) nf - n_sp1de
- !    write (102,6) nf - n_sp1de
- !  else if (nf <= 3*n_sp1de) then
- !    write (101,7) n_sp1de+1-(nf-2*n_sp1de)
- !    write (102,7) n_sp1de+1-(nf-2*n_sp1de)
- !  else
- !    write (101,8) n_sp1de+1-(nf-3*n_sp1de)
- !    write (102,8) n_sp1de+1-(nf-3*n_sp1de)
- !  end if
- !  do j = n_sp1de,1,-1
- !    write (101,4) (cormat((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
- !    write (102,4) (cormat_dg((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
- !  end do
- !  !
- !end do
- !4 format (*(es12.4))
- !5 format (/," Bottom/South edge for xi = ",i0)
- !6 format (/," Right/East edge for eta = ",i0)
- !7 format (/," Top/North edge for xi = ",i0)
- !8 format (/," Left/West edge for eta = ",i0)
- !do j = 1,3*n_sp1de
- !  write (201,1) (cormat(i,j,1),i=1,n_sp2dt)
- !end do
- !write (102,*) "Dr matrix"
- !write (103,*) "Ds matrix"
- !do j = 1,n_sp2dq
- !  write (102,1) (dr_mat(i,j,2),i=1,n_sp2dq)
- !  write (103,1) (ds_mat(i,j,2),i=1,n_sp2dq)
- !end do
- !write (106,*) "Dr matrix"
- !write (107,*) "Ds matrix"
- !do l = 1,n_sp1de
- !  do k = 1,n_sp1de
- !    write (106,2) k,l
- !    write (107,2) k,l
- !    do j = 1,n_sp1de
- !      write (106,3) (dr_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !      write (107,3) (ds_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !2 format (/,"i = ",i2,", j = ",i2)
- !3 format (*(es12.4))
- !!
- !write (110,*) "interp_s2f"
- !do l = 1,4
- !  do k = 1,n_sp1de
- !    write (110,4) l,k
- !    do j = 1,n_sp1de
- !      write (110,3) (interp_s2f( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !4 format (/,"Face = ",i2,", i = ",i2)
- !!
- !write (108,*) "1D Dr"
- !write (109,*) "1D Ds"
- !do j = 1,n_sp1de
- !  write (108,3) (d1_mat(i,n_sp1de+1-j),i=1,n_sp1de)
- !  write (109,3) (d1_mat(n_sp1de+1-j,i),i=1,n_sp1de)
- !end do
- !write (*,*)
- !write (*,*)
- !do i = 1,n_sp1de
- !  write (*,3) (dlagrange(k,solpts_1d(i),solpts_1d),k=1,n_sp1de)
- !end do
- !write (*,*)
- !write (*,*)
- !!
- !do j = 1,n_sp2dt
- !  write (202,1) (dr_mat(i,j,1),i=1,n_sp2dt)
- !  write (203,1) (ds_mat(i,j,1),i=1,n_sp2dt)
- !end do
- !write (105,*) "interp_s2f matrix"
- !do j = 1,4*n_sp1de
- !  write (*,1) (interp_s2f(i,j,2),i=1,n_sp2dq)
- !end do
- !!
- !1 format (<n_sp2dq>es12.4)
- !!
- !call stop_recon(stop_mpi,"get_quadrature_data")
- !!
+  call initialize_filter_matrices
+  !
 end subroutine get_quadrature_data
 !
 !###############################################################################
 !
-subroutine interp2quadrature()
+subroutine interp2quadrature(vand_1d_qp,vand_1d_inv_qp,vand_quad_qp,vand_quad_inv_qp)
   !
   !.. Use Statements ..
-  use geovar, only : n_order,p_order,o_order,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq
-  use geovar, only : qdtpts_1d,qdtwts_1d,qdtwts_2d
-  use geovar, only : invM_mat,interp_s2o
-  use geovar, only : interp_f2g,projct_g2f,vand_qdtr
-  use geovar, only : interp_s2q,projct_q2s,vand_qdtr_inv
+  use order_mod, only : n_order,p_order,o_order,n_sp1de,n_sp2dt,n_sp2dq
+  use order_mod, only : q_order,n_qp1de,n_qp2dt,n_qp2dq
+  !
+  use geovar, only : qdtpts_1d,qdtwts_1d
+  use geovar, only : interp_f2g,projct_g2f
+  use geovar, only : interp_s2q,projct_q2s
   use geovar, only : interp_s2g,using_quadrature,projct_s2p
   use geovar, only : projct_limiter
+  use geovar, only : solpts_1d,solwts_1d
+  !
   use ovar,   only : iop_qdtpts
-  use metvar, only : dr_mat,ds_mat,dq1D_mat
-  use metvar, only : dqr_mat,dqr_LPmat,dqr_CRmat
-  use metvar, only : dqs_mat,dqs_LPmat,dqs_CRmat
   !
-  use qpvar, only : qdtpts_1d_qp,qdtwts_1d_qp,qdtwts_2d_qp
-  use qpvar, only : solpts_1d_qp,solwts_1d_qp,invM_mat_qp
-  use qpvar, only : gauss_1d_qp,lobatto_1d_qp,radau_1d_qp
-  use qpvar, only : gauss_wts_2d_qp,lobatto_wts_2d_qp,radau_wts_2d_qp
-  use qpvar, only : vand_1d_qp,vand_1d_inv_qp,vand_quad_qp,vand_quad_inv_qp
-  use qpvar, only : interp_f2g_qp,projct_g2f_qp,vand_qdtr_qp
-  use qpvar, only : interp_s2q_qp,projct_q2s_qp,vand_qdtr_inv_qp
-  use qpvar, only : interp_s2g_qp,projct_s2p_qp,weights2d_qp
-  use qpvar, only : interp_s2o_qp,projct_limiter_qp
-  use qpvar, only : dr_mat_qp,ds_mat_qp,dq1D_mat_qp
-  use qpvar, only : dqr_mat_qp,dqr_LPmat_qp,dqr_CRmat_qp
-  use qpvar, only : dqs_mat_qp,dqs_LPmat_qp,dqs_CRmat_qp
+  use metvar, only : dr_mat,ds_mat
+  use metvar, only : dqr_LPmat
+  use metvar, only : dqs_LPmat
   !
-  use polynomial_mod, only : nodes_legendre_gauss, &
-                             weights_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             weights_legendre_gauss_lobatto
+  use qpvar, only : qdtpts_1d_qp,qdtwts_1d_qp
+  use qpvar, only : gauss_1d_qp,lobatto_1d_qp
+  use qpvar, only : gauss_wts_2d_qp,lobatto_wts_2d_qp
+  use qpvar, only : interp_f2g_qp,projct_g2f_qp
+  use qpvar, only : interp_s2q_qp,projct_q2s_qp
+  use qpvar, only : interp_s2g_qp,projct_s2p_qp
+  use qpvar, only : projct_limiter_qp
+  use qpvar, only : dr_mat_qp,ds_mat_qp
+  use qpvar, only : dqr_LPmat_qp
+  use qpvar, only : dqs_LPmat_qp
+  !
+  use polynomial_mod, only : nodes_legendre_gauss
+  use polynomial_mod, only : weights_legendre_gauss
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use polynomial_mod, only : weights_legendre_gauss_lobatto
+  !
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  real(qp), dimension(:,:), intent(in) :: vand_1d_qp
+  real(qp), dimension(:,:), intent(in) :: vand_1d_inv_qp
+  real(qp), dimension(:,:), intent(in) :: vand_quad_qp
+  real(qp), dimension(:,:), intent(in) :: vand_quad_inv_qp
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,n,ierr
@@ -597,6 +541,8 @@ subroutine interp2quadrature()
   character(len=32) :: array_name
   !
   !.. Local Arrays ..
+  real(qp) :: solpts_1d_qp(1:n_sp1de)
+  real(qp) :: solwts_1d_qp(1:n_sp1de)
   real(qp), dimension(1:n_qp1de) :: vp_qdtr_qp
   real(qp), dimension(1:abs(o_order)+1) :: vp_out_qp
   real(qp), dimension(1:abs(o_order)+1) :: outpts_1d_qp
@@ -611,7 +557,41 @@ subroutine interp2quadrature()
   real(qp), dimension(1:(abs(o_order)+1)**2,1:n_sp2dq,1:2) :: vand2D_s2o_qp
   real(qp), dimension(1:(abs(o_order)+1)**2,1:(p_order+1)**2,1:2) :: vand2D_p2o_qp
   !
+  !.. Local Allocatable Arrays From Module qpvar ..
+  real(qp), allocatable :: invM_mat_qp(:,:,:)
+  real(qp), allocatable :: dq1D_mat_qp(:,:)
+  real(qp), allocatable :: qdtwts_2d_qp(:,:)
+  real(qp), allocatable :: vand_qdtr_qp(:,:,:)
+  real(qp), allocatable :: vand_qdtr_inv_qp(:,:,:)
+  real(qp), allocatable :: interp_s2o_qp(:,:,:,:)
+  real(qp), allocatable :: dqr_mat_qp(:,:,:)
+  real(qp), allocatable :: dqs_mat_qp(:,:,:)
+  real(qp), allocatable :: dqr_CRmat_qp(:,:,:)
+  real(qp), allocatable :: dqs_CRmat_qp(:,:,:)
+  !
+  !.. Local Allocatable Arrays From Module geovar ..
+  real(wp), allocatable :: invM_mat(:,:,:)
+  real(wp), allocatable :: qdtwts_2d(:,:)
+  real(wp), allocatable :: vand_qdtr(:,:,:)
+  real(wp), allocatable :: vand_qdtr_inv(:,:,:)
+  real(wp), allocatable :: interp_s2o(:,:,:,:)
+  !
+  !.. Local Allocatable Arrays From Module metvar ..
+  real(wp), allocatable :: dq1D_mat(:,:)
+  real(wp), allocatable :: dqr_mat(:,:,:)
+  real(wp), allocatable :: dqs_mat(:,:,:)
+  real(wp), allocatable :: dqr_CRmat(:,:,:)
+  real(wp), allocatable :: dqs_CRmat(:,:,:)
+  !
+  !.. Local Pointers ..
+  real(wp), pointer, contiguous :: weights(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp2quadrature"
+  !
 continue
+  !
+  weights => null()
   !
   vp_qdtr_qp(:) = qzero
   vp_out_qp(:) = qzero
@@ -628,6 +608,11 @@ continue
   !
   npp = (p_order+1)**2
   nop = (abs(o_order)+1)**2
+  !
+  solpts_1d_qp = real(solpts_1d,kind=qp)
+  solwts_1d_qp = real(solwts_1d,kind=qp)
+  !
+  weights => std_elem(Geom_Quad,n_order)%wts
   !
   if (using_quadrature .and. mypnum == 0) write (iout,1)
   !
@@ -650,49 +635,49 @@ continue
   ! Allocate the quad precision arrays
   !
   allocate ( qdtpts_1d_qp(1:n_qp1de) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtpts_1d_qp",1,ierr)
+  call alloc_error(pname,"qdtpts_1d_qp",1,ierr)
   allocate ( qdtwts_1d_qp(1:n_qp1de) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtwts_1d_qp",1,ierr)
+  call alloc_error(pname,"qdtwts_1d_qp",1,ierr)
   allocate ( dq1D_mat_qp(1:n_qp1de,1:n_qp1de), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dq1D_mat_qp",1,ierr)
+  call alloc_error(pname,"dq1D_mat_qp",1,ierr)
   allocate ( interp_f2g_qp(1:n_sp1de,1:n_qp1de) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_f2g_qp",1,ierr)
+  call alloc_error(pname,"interp_f2g_qp",1,ierr)
   allocate ( projct_g2f_qp(1:n_qp1de,1:n_sp1de) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_g2f_qp",1,ierr)
+  call alloc_error(pname,"projct_g2f_qp",1,ierr)
   !
   allocate ( qdtwts_2d_qp(1:n_qp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtwts_2d_qp",1,ierr)
+  call alloc_error(pname,"qdtwts_2d_qp",1,ierr)
   allocate ( vand_qdtr_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","vand_qdtr_qp",1,ierr)
+  call alloc_error(pname,"vand_qdtr_qp",1,ierr)
   allocate ( vand_qdtr_inv_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","vand_qdtr_inv_qp",1,ierr)
+  call alloc_error(pname,"vand_qdtr_inv_qp",1,ierr)
   allocate ( interp_s2q_qp(1:n_sp2dq,1:n_qp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2q_qp",1,ierr)
+  call alloc_error(pname,"interp_s2q_qp",1,ierr)
   allocate ( interp_s2o_qp(1:n_sp2dq,1:nop,1:2,1:3) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2o_qp",1,ierr)
+  call alloc_error(pname,"interp_s2o_qp",1,ierr)
   allocate ( projct_q2s_qp(1:n_qp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_q2s_qp",1,ierr)
+  call alloc_error(pname,"projct_q2s_qp",1,ierr)
   allocate ( projct_s2p_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_s2p_qp",1,ierr)
+  call alloc_error(pname,"projct_s2p_qp",1,ierr)
   allocate ( projct_limiter_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:n_order) , &
              source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_limiter_qp",1,ierr)
+  call alloc_error(pname,"projct_limiter_qp",1,ierr)
   allocate ( dqr_mat_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_mat_qp",1,ierr)
+  call alloc_error(pname,"dqr_mat_qp",1,ierr)
   allocate ( dqs_mat_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_mat_qp",1,ierr)
+  call alloc_error(pname,"dqs_mat_qp",1,ierr)
   allocate ( dqr_LPmat_qp(1:n_qp2dq,1:n_sp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_LPmat_qp",1,ierr)
+  call alloc_error(pname,"dqr_LPmat_qp",1,ierr)
   allocate ( dqs_LPmat_qp(1:n_qp2dq,1:n_sp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_LPmat_qp",1,ierr)
+  call alloc_error(pname,"dqs_LPmat_qp",1,ierr)
   allocate ( dqr_CRmat_qp(1:n_sp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_CRmat_qp",1,ierr)
+  call alloc_error(pname,"dqr_CRmat_qp",1,ierr)
   allocate ( dqs_CRmat_qp(1:n_sp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_CRmat_qp",1,ierr)
+  call alloc_error(pname,"dqs_CRmat_qp",1,ierr)
   allocate ( invM_mat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","invM_mat_qp",1,ierr)
+  call alloc_error(pname,"invM_mat_qp",1,ierr)
   allocate ( interp_s2g_qp(1:n_sp2dq,1:4*n_qp1de,1:2) , source=qzero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2g_qp",1,ierr)
+  call alloc_error(pname,"interp_s2g_qp",1,ierr)
   !
   ! ####################################
   ! ####################################
@@ -711,49 +696,49 @@ continue
     call nodes_legendre_gauss(n_qp1de,qdtpts_1d_qp,vp_qdtr_qp)
     call weights_legendre_gauss(n_qp1de,qdtpts_1d_qp,vp_qdtr_qp,qdtwts_1d_qp)
   end if
-  qdtpts_1d_qp = chop_qp( qdtpts_1d_qp )
-  qdtwts_1d_qp = chop_qp( qdtwts_1d_qp )
+  qdtpts_1d_qp = chop( qdtpts_1d_qp , qdtpts_1d_qp )
+  qdtwts_1d_qp = chop( qdtwts_1d_qp , qdtwts_1d_qp )
   !
   ! 1D output nodes
   !
   call nodes_legendre_gauss_lobatto(abs(o_order),outpts_1d_qp,vp_out_qp)
-  outpts_1d_qp = chop_qp( outpts_1d_qp )
+  outpts_1d_qp = chop( outpts_1d_qp , outpts_1d_qp )
   !
   ! 1D Derivative matrix for the quadrature points
   !
   vand1D_qdtr_qp(:,:) = Vandermonde1D(qdtpts_1d_qp)
-  vand1D_qdtr_qp = chop_qp( vand1D_qdtr_qp )
+  vand1D_qdtr_qp = chop( vand1D_qdtr_qp , vand1D_qdtr_qp )
   !
   vand1D_qdtr_inv_qp(:,:) = invert_matrix( vand1D_qdtr_qp )
-  vand1D_qdtr_inv_qp = chop_qp( vand1D_qdtr_inv_qp )
+  vand1D_qdtr_inv_qp = chop( vand1D_qdtr_inv_qp , vand1D_qdtr_inv_qp )
   !
   grad_vand1D_qdtr_qp(:,:) = GradVandermonde1D(qdtpts_1d_qp)
-  grad_vand1D_qdtr_qp = chop_qp( grad_vand1D_qdtr_qp )
+  grad_vand1D_qdtr_qp = chop( grad_vand1D_qdtr_qp , grad_vand1D_qdtr_qp )
   !
   dq1D_mat_qp(:,:) = matmul( grad_vand1D_qdtr_qp , vand1D_qdtr_inv_qp )
-  dq1D_mat_qp = chop_qp( dq1D_mat_qp )
+  dq1D_mat_qp = chop( dq1D_mat_qp , dq1D_mat_qp )
   !
   ! 1D Vandermonde matrix giving the value for each of the
   ! #(n_sp1de) modes at the #(n_qp1de) quadrature points
   !
   vand1d_f2g_qp(:,:) = Vandermonde1D_N(qdtpts_1d_qp,n_sp1de)
-  vand1d_f2g_qp = chop_qp( vand1d_f2g_qp )
+  vand1d_f2g_qp = chop( vand1d_f2g_qp , vand1d_f2g_qp )
   !
   ! Matrix for interpolating 1D nodal values at face
   ! flux/solution points to face quadrature points
   !
   interp_f2g_qp(:,:) = transpose( matmul( vand1d_f2g_qp , vand_1d_inv_qp ) )
-  interp_f2g_qp = chop_qp( interp_f2g_qp )
+  interp_f2g_qp = chop( interp_f2g_qp , interp_f2g_qp )
   !
   ! Matrix for projecting nodal values at face quadrature
   ! points to the face flux/solution points
   !
   projct_g2f_qp(:,:) = matmul( vand1D_f2g_qp , transpose(vand_1D_qp) )
-  projct_g2f_qp = chop_qp( projct_g2f_qp )
+  projct_g2f_qp = chop( projct_g2f_qp , projct_g2f_qp )
   do i = 1,n_sp1de
     projct_g2f_qp(:,i) = projct_g2f_qp(:,i) * qdtwts_1d_qp(:)
   end do
-  projct_g2f_qp = chop_qp( projct_g2f_qp )
+  projct_g2f_qp = chop( projct_g2f_qp , projct_g2f_qp )
   !
   !
   ! ################################################
@@ -787,20 +772,20 @@ continue
       qdtwts_2d_qp(k,2) = qdtwts_1d_qp(i)*qdtwts_1d_qp(j)
     end do
   end do
-  qdtwts_2d_qp = chop_qp( qdtwts_2d_qp )
+  qdtwts_2d_qp = chop( qdtwts_2d_qp , qdtwts_2d_qp )
   !
   do i = 1,n_qp2dq
     wt_mat_qp(i,i) = qdtwts_2d_qp(i,2)
   end do
-  wt_mat_qp = chop_qp( wt_mat_qp )
+  wt_mat_qp = chop( wt_mat_qp , wt_mat_qp )
   !
   ! Full Vandermonde matrix for the quadrature nodes and modes
   !
   vand_qdtr_qp(1:nqp,1:nqp,2) = Vandermonde2D_quad(qdtpts_1d_qp)
-  vand_qdtr_qp = chop_qp( vand_qdtr_qp )
+  vand_qdtr_qp = chop( vand_qdtr_qp , vand_qdtr_qp )
   !
   vand_qdtr_inv_qp(1:nqp,1:nqp,2) = invert_matrix(vand_qdtr_qp(1:nqp,1:nqp,2))
-  vand_qdtr_inv_qp = chop_qp( vand_qdtr_inv_qp )
+  vand_qdtr_inv_qp = chop( vand_qdtr_inv_qp , vand_qdtr_inv_qp )
   !
   ! ###########################################
   !  2D matrix for project solution to p_order
@@ -809,57 +794,48 @@ continue
   ! Project at solution points
   !
   vand2D_p2s_qp(1:nsp,1:npp,2) = Vandermonde2D_quad_N(solpts_1d_qp,p_order)
-  vand2D_p2s_qp = chop_qp( vand2D_p2s_qp )
+  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
   !
   projct_s2p_qp(1:nsp,1:nsp,2,1) = &
     matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   do i = 1,nsp
-    projct_s2p_qp(i,1:nsp,2,1) = projct_s2p_qp(i,1:nsp,2,1) * weights2d_qp(i,2)
+    projct_s2p_qp(i,1:nsp,2,1) = projct_s2p_qp(i,1:nsp,2,1) * &
+                                 real(weights(i),kind=qp)
   end do
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   !
   ! Project at Gauss points
   !
   vand2D_p2s_qp(1:nsp,1:npp,2) = Vandermonde2D_quad_N(gauss_1d_qp,p_order)
-  vand2D_p2s_qp = chop_qp( vand2D_p2s_qp )
+  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
   !
   projct_s2p_qp(1:nsp,1:nsp,2,2) = &
     matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   do i = 1,nsp
     projct_s2p_qp(i,1:nsp,2,2) = projct_s2p_qp(i,1:nsp,2,2) * gauss_wts_2d_qp(i)
   end do
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   !
   ! Project at Lobatto points
   !
   vand2D_p2s_qp(1:nsp,1:npp,2) = Vandermonde2D_quad_N(lobatto_1d_qp,p_order)
-  vand2D_p2s_qp = chop_qp( vand2D_p2s_qp )
+  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
   !
   projct_s2p_qp(1:nsp,1:nsp,2,3) = &
     matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   do i = 1,nsp
     projct_s2p_qp(i,1:nsp,2,3) = projct_s2p_qp(i,1:nsp,2,3) * lobatto_wts_2d_qp(i)
   end do
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
+  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
   !
-  ! Project at Radau points
+  ! Index 4 used to be radau projection, but Im not sure what index 5 was.
+  ! I just copied over the solution and Gauss projections, respectively.
   !
-  vand2D_p2s_qp(1:nsp,1:npp,2) = Vandermonde2D_quad_N(radau_1d_qp,p_order)
-  vand2D_p2s_qp = chop_qp( vand2D_p2s_qp )
-  !
-  projct_s2p_qp(1:nsp,1:nsp,2,4) = &
-    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
-  do i = 1,nsp
-    projct_s2p_qp(i,1:nsp,2,4) = projct_s2p_qp(i,1:nsp,2,4) * radau_wts_2d_qp(i)
-  end do
-  projct_s2p_qp = chop_qp( projct_s2p_qp )
-  !
-  projct_s2p_qp(1:nsp,1:nsp,2,5) = projection_matrix(vand2d_p2s_qp(1:nsp,1:npp,2), &
-                                                     wt_mat_qp(1:nsp,1:nsp))
+  projct_s2p_qp(1:nsp,1:nsp,2,4) = projct_s2p_qp(1:nsp,1:nsp,2,1)
+  projct_s2p_qp(1:nsp,1:nsp,2,5) = projct_s2p_qp(1:nsp,1:nsp,2,2)
   !
   ! ###########################################
   ! Create the projection limiter matrices
@@ -879,22 +855,22 @@ continue
     ! Get the 2D Vandermonde matrix for the current projection limiter order
     !
     vand2D_lim_qp(1:nsp,1:npp) = Vandermonde2D_quad_N(solpts_1d_qp,limit_order)
-    vand2D_lim_qp = chop_qp( vand2D_lim_qp )
+    vand2D_lim_qp = chop( vand2D_lim_qp , vand2D_lim_qp )
     !
     ! Compute the matrix multiplication of Vand*transpose(Vand)
     !
     projct_limiter_qp(1:nsp,1:nsp,2,n) = &
       matmul( vand2D_lim_qp(1:nsp,1:npp) , transpose(vand2D_lim_qp(1:nsp,1:npp)) )
-    projct_limiter_qp = chop_qp( projct_limiter_qp )
+    projct_limiter_qp = chop( projct_limiter_qp , projct_limiter_qp )
     !
     ! Finally add in the quadrature weights for the solution points to
     ! complete the projection matrices for the current limiter order
     !
     do i = 1,nsp
       projct_limiter_qp(i,1:nsp,2,n) = projct_limiter_qp(i,1:nsp,2,n) * &
-                                            weights2d_qp(i,2)
+                                       real(weights(i),kind=qp)
     end do
-    projct_limiter_qp = chop_qp( projct_limiter_qp )
+    projct_limiter_qp = chop( projct_limiter_qp , projct_limiter_qp )
     !
   end do
   !
@@ -903,25 +879,25 @@ continue
   ! ###########################################
   !
   vand2D_s2q_qp(1:nqp,1:nsp,2) = Vandermonde2D_quad_N(qdtpts_1d_qp,n_order)
-  vand2D_s2q_qp = chop_qp( vand2D_s2q_qp )
+  vand2D_s2q_qp = chop( vand2D_s2q_qp , vand2D_s2q_qp )
   !
   interp_s2q_qp(1:nsp,1:nqp,2) = &
         transpose( matmul( vand2D_s2q_qp(1:nqp,1:nsp,2) , vand_quad_inv_qp ) )
-  interp_s2q_qp = chop_qp( interp_s2q_qp )
+  interp_s2q_qp = chop( interp_s2q_qp , interp_s2q_qp )
   !
   ! ###########################################
   ! Matrix for interpolating cell nodal values at SPs to face QPs
   ! ###########################################
   !
   interp_s2g_qp(1:nsp,1:4*n_qp1de,2) = LagrangePoly2D_quad(qdtpts_1d_qp,solpts_1d_qp)
-  interp_s2g_qp = chop_qp( interp_s2g_qp )
+  interp_s2g_qp = chop( interp_s2g_qp , interp_s2g_qp )
   !
   ! ###########################################
   ! Matrix for interpolating cell nodal values at SPs to output SPs
   ! ###########################################
   !
   vand2D_p2o_qp(1:nop,1:npp,2) = Vandermonde2D_quad_N(outpts_1d_qp,p_order)
-  vand2D_p2o_qp = chop_qp( vand2D_p2o_qp )
+  vand2D_p2o_qp = chop( vand2D_p2o_qp , vand2D_p2o_qp )
  !call output2d(true,real(vand2D_p2o_qp(1:nop,1:npp,2),kind=wp),2,2,2,'vand2d_p2o')
  !call output2d(true,real(vand2D_p2s_qp(1:nsp,1:npp,2),kind=wp),2,2,2,'vand2d_p2s')
   !
@@ -930,20 +906,21 @@ continue
                                                         wt_mat_qp(1:nsp,1:nsp))
   !
   vand2D_s2o_qp(1:nop,1:nsp,2) = Vandermonde2D_quad_N(outpts_1d_qp,n_order)
-  vand2D_s2o_qp = chop_qp( vand2D_s2o_qp )
+  vand2D_s2o_qp = chop( vand2D_s2o_qp , vand2D_s2o_qp )
   !
   interp_s2o_qp(1:nsp,1:nop,2,2) = &
         transpose( matmul( vand2D_s2o_qp(1:nop,1:nsp,2) , vand_quad_inv_qp ) )
-  interp_s2o_qp = chop_qp( interp_s2o_qp )
+  interp_s2o_qp = chop( interp_s2o_qp , interp_s2o_qp )
   !
   interp_s2o_qp(1:nsp,1:nop,2,3) = &
    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2d_p2o_qp(1:nop,1:npp,2)) )
   !transpose(matmul( vand2D_p2o_qp(1:nop,1:npp,2) , transpose(vand2d_p2s_qp(1:nsp,1:npp,2)) ))
-  interp_s2o_qp = chop_qp( interp_s2o_qp )
+  interp_s2o_qp = chop( interp_s2o_qp , interp_s2o_qp )
   do i = 1,nop
-    interp_s2o_qp(1:nsp,i,2,3) = interp_s2o_qp(1:nsp,i,2,3)*weights2d_qp(1:nsp,2)
+    interp_s2o_qp(1:nsp,i,2,3) = interp_s2o_qp(1:nsp,i,2,3) * &
+                                 real(weights(1:nsp),kind=qp)
   end do
-  interp_s2o_qp = chop_qp( interp_s2o_qp )
+  interp_s2o_qp = chop( interp_s2o_qp , interp_s2o_qp )
   !
   ! ###########################################
   ! 2D matrix to project nodal values at QPs to SPs
@@ -951,19 +928,19 @@ continue
   !
   projct_q2s_qp(1:nqp,1:nsp,2) = &
         matmul( vand2D_s2q_qp(1:nqp,1:nsp,2) , transpose(vand_quad_qp) )
-  projct_q2s_qp = chop_qp( projct_q2s_qp )
+  projct_q2s_qp = chop( projct_q2s_qp , projct_q2s_qp )
   do i = 1,nsp
     projct_q2s_qp(1:nqp,i,2) = projct_q2s_qp(1:nqp,i,2) * qdtwts_2d_qp(1:nqp,2)
   end do
-  projct_q2s_qp = chop_qp( projct_q2s_qp )
+  projct_q2s_qp = chop( projct_q2s_qp , projct_q2s_qp )
   !
   ! ###########################################
   ! 2D Derivative matrix for the quadrature points
   ! ###########################################
   !
   call Dmatrix2D_quad(dq1d_mat_qp,dqr_mat_qp(1:nqp,1:nqp,2),dqs_mat_qp(1:nqp,1:nqp,2))
-  dqr_mat_qp = chop_qp( dqr_mat_qp )
-  dqs_mat_qp = chop_qp( dqs_mat_qp )
+  dqr_mat_qp = chop( dqr_mat_qp , dqr_mat_qp )
+  dqs_mat_qp = chop( dqs_mat_qp , dqs_mat_qp )
   !
   ! Pre-multiply the derivative matrices by the projection
   ! matrix for when using the derivative of the Lagrange polynomial
@@ -972,8 +949,8 @@ continue
       matmul( transpose(dqr_mat_qp(1:nqp,1:nqp,2)) , projct_q2s_qp(1:nqp,1:nsp,2) )
   dqs_LPmat_qp(1:nqp,1:nsp,2) = &
       matmul( transpose(dqs_mat_qp(1:nqp,1:nqp,2)) , projct_q2s_qp(1:nqp,1:nsp,2) )
-  dqr_LPmat_qp = chop_qp( dqr_LPmat_qp )
-  dqs_LPmat_qp = chop_qp( dqs_LPmat_qp )
+  dqr_LPmat_qp = chop( dqr_LPmat_qp , dqr_LPmat_qp )
+  dqs_LPmat_qp = chop( dqs_LPmat_qp , dqs_LPmat_qp )
   !
   ! Pre-multiply the derivative matrices by the
   ! interpolation matrix for when using the chain-rule
@@ -982,13 +959,13 @@ continue
       matmul( interp_s2q_qp(1:nsp,1:nqp,2) , transpose(dqr_mat_qp(1:nqp,1:nqp,2)) )
   dqs_CRmat_qp(1:nsp,1:nqp,2) = &
       matmul( interp_s2q_qp(1:nsp,1:nqp,2) , transpose(dqs_mat_qp(1:nqp,1:nqp,2)) )
-  dqr_CRmat_qp = chop_qp( dqr_CRmat_qp )
-  dqs_CRmat_qp = chop_qp( dqs_CRmat_qp )
+  dqr_CRmat_qp = chop( dqr_CRmat_qp , dqr_CRmat_qp )
+  dqs_CRmat_qp = chop( dqs_CRmat_qp , dqs_CRmat_qp )
   !
   ! Inverse of the mass matrix
   !
   invM_mat_qp(1:nsp,1:nsp,2) = matmul( vand_quad_qp , transpose(vand_quad_qp) )
-  invM_mat_qp = chop_qp( invM_mat_qp )
+  invM_mat_qp = chop( invM_mat_qp , invM_mat_qp )
   !
   ! ##############################################
   ! ##############################################
@@ -1000,49 +977,49 @@ continue
   ! Allocate the working precision arrays
   !
   allocate ( qdtpts_1d(1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtpts_1d",1,ierr)
+  call alloc_error(pname,"qdtpts_1d",1,ierr)
   allocate ( qdtwts_1d(1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtwts_1d",1,ierr)
+  call alloc_error(pname,"qdtwts_1d",1,ierr)
   allocate ( dq1D_mat(1:n_qp1de,1:n_qp1de), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dq1D_mat",1,ierr)
+  call alloc_error(pname,"dq1D_mat",1,ierr)
   allocate ( interp_f2g(1:n_sp1de,1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_f2g",1,ierr)
+  call alloc_error(pname,"interp_f2g",1,ierr)
   allocate ( projct_g2f(1:n_qp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_g2f",1,ierr)
+  call alloc_error(pname,"projct_g2f",1,ierr)
   !
   allocate ( qdtwts_2d(1:n_qp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","qdtwts_2d",1,ierr)
+  call alloc_error(pname,"qdtwts_2d",1,ierr)
   allocate ( vand_qdtr(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","vand_qdtr",1,ierr)
+  call alloc_error(pname,"vand_qdtr",1,ierr)
   allocate ( vand_qdtr_inv(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","vand_qdtr_inv",1,ierr)
+  call alloc_error(pname,"vand_qdtr_inv",1,ierr)
   allocate ( interp_s2q(1:n_sp2dq,1:n_qp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2q",1,ierr)
+  call alloc_error(pname,"interp_s2q",1,ierr)
   allocate ( interp_s2o(1:n_sp2dq,1:nop,1:2,1:3) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2o",1,ierr)
+  call alloc_error(pname,"interp_s2o",1,ierr)
   allocate ( projct_q2s(1:n_qp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_q2s",1,ierr)
+  call alloc_error(pname,"projct_q2s",1,ierr)
   allocate ( projct_s2p(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_s2p",1,ierr)
+  call alloc_error(pname,"projct_s2p",1,ierr)
   allocate ( projct_limiter(1:n_sp2dq,1:n_sp2dq,1:2,1:n_order) , &
              source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","projct_limiter",1,ierr)
+  call alloc_error(pname,"projct_limiter",1,ierr)
   allocate ( dqr_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_mat",1,ierr)
+  call alloc_error(pname,"dqr_mat",1,ierr)
   allocate ( dqs_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_mat",1,ierr)
+  call alloc_error(pname,"dqs_mat",1,ierr)
   allocate ( dqr_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_LPmat",1,ierr)
+  call alloc_error(pname,"dqr_LPmat",1,ierr)
   allocate ( dqs_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_LPmat",1,ierr)
+  call alloc_error(pname,"dqs_LPmat",1,ierr)
   allocate ( dqr_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqr_CRmat",1,ierr)
+  call alloc_error(pname,"dqr_CRmat",1,ierr)
   allocate ( dqs_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","dqs_CRmat",1,ierr)
+  call alloc_error(pname,"dqs_CRmat",1,ierr)
   allocate ( invM_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","invM_mat",1,ierr)
+  call alloc_error(pname,"invM_mat",1,ierr)
   allocate ( interp_s2g(1:n_sp2dq,1:4*n_qp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("interp2quadrature","interp_s2g",1,ierr)
+  call alloc_error(pname,"interp_s2g",1,ierr)
   !
   qdtpts_1d      = chop( qdtpts_1d_qp )
   qdtwts_1d      = chop( qdtwts_1d_qp )
@@ -1093,115 +1070,76 @@ continue
   call output2d(array_debugging,dqs_CRmat(1:nsp,1:nqp,2),2,2,2,'dqs_CRmat')
   call output2d(array_debugging,invM_mat(1:nsp,1:nsp,2),2,2,2,'invM_mat')
   !
- !write (121,5) "Solution point weights 1D"
- !write (121,4) (solwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Quadrature weights 1D"
- !write (121,4) (qdtwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Inverse solution point weights 1D"
- !write (121,4) (one/solwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Inverse quadrature weights 1D"
- !write (121,4) (one/qdtwts_1d(i),i=1,n_sp1de)
- !4 format (/,*(f12.6))
- !5 format (/,a)
- !!
- !write (104,*) "Dqr matrix"
- !write (105,*) "Dqs matrix"
- !!
- !write (120,*) "weights"
- !do j = 1,n_sp1de
- !  write (120,3) (weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
- !end do
- !write (120,*) "Inverse weights"
- !do j = 1,n_sp1de
- !  write (120,3) (one/weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
- !end do
- !write (120,*) "Quadrature weights"
- !do j = 1,n_qp1de
- !  write (120,3) (qdtwts_2d( (n_qp1de-j)*n_qp1de+i ),i=1,n_qp1de)
- !end do
- !write (120,*) "Inverse mass matrix"
- !do l = 1,n_sp1de
- !  do k = 1,n_sp1de
- !    write (104,2) k,l
- !    write (105,2) k,l
- !    write (120,2) k,l
- !    do j = 1,n_qp1de
- !      write (104,3) (dqr_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
- !      write (105,3) (dqs_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
- !    end do
- !    do j = 1,n_sp1de
- !      write (120,3) (invM_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !2 format (/,"i = ",i2,", j = ",i2)
- !3 format (*(es12.4))
- !flush(120)
- !!
- !write (111,*) "Lagrange on Quadrature Points"
- !do l = 1,4
- !  do k = 1,n_sp1de
- !    write (111,4) l,k
- !    do j = 1,n_qp1de
- !      write (111,3) (interp_s2g( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k ),i=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !4 format (/,"Face = ",i2,", i = ",i2)
- !write (102,*) "Quadrature Interpolation Vandermonde Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (102,*)
- !    write (102,11) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_qp1de,1,-1
- !      write (102,12) (vand_qdtr(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !!
- !write (103,*) "Quadrature Interpolation Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (103,*)
- !    write (103,11) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_qp1de,1,-1
- !      write (103,12) (interp_s2q(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !!
- !if (mypnum == 0) call write_lagrange_tecplot
- !!
- !10 format (100es14.6)
-  11 format (a,i0,a,i0,a)
-  12 format (*(es12.4))
+  ! Deallocate the local allocatable arrays before we leave
+  !
+  deallocate ( dq1D_mat_qp , stat=ierr )
+  call alloc_error(pname,"dq1D_mat_qp",2,ierr)
+  deallocate ( qdtwts_2d_qp , stat=ierr )
+  call alloc_error(pname,"qdtwts_2d_qp",2,ierr)
+  deallocate ( vand_qdtr_qp , stat=ierr )
+  call alloc_error(pname,"vand_qdtr_qp",2,ierr)
+  deallocate ( vand_qdtr_inv_qp , stat=ierr )
+  call alloc_error(pname,"vand_qdtr_inv_qp",2,ierr)
+  deallocate ( interp_s2o_qp , stat=ierr )
+  call alloc_error(pname,"interp_s2o_qp",2,ierr)
+  deallocate ( dqr_mat_qp , stat=ierr )
+  call alloc_error(pname,"dqr_mat_qp",2,ierr)
+  deallocate ( dqs_mat_qp , stat=ierr )
+  call alloc_error(pname,"dqs_mat_qp",2,ierr)
+  deallocate ( dqr_CRmat_qp , stat=ierr )
+  call alloc_error(pname,"dqr_CRmat_qp",2,ierr)
+  deallocate ( dqs_CRmat_qp , stat=ierr )
+  call alloc_error(pname,"dqs_CRmat_qp",2,ierr)
+  deallocate ( invM_mat_qp , stat=ierr )
+  call alloc_error(pname,"invM_mat_qp",2,ierr)
+  deallocate ( dq1D_mat , stat=ierr )
+  call alloc_error(pname,"dq1D_mat",2,ierr)
+  deallocate ( qdtwts_2d , stat=ierr )
+  call alloc_error(pname,"qdtwts_2d",2,ierr)
+  deallocate ( vand_qdtr , stat=ierr )
+  call alloc_error(pname,"vand_qdtr",2,ierr)
+  deallocate ( vand_qdtr_inv , stat=ierr )
+  call alloc_error(pname,"vand_qdtr_inv",2,ierr)
+  deallocate ( interp_s2o , stat=ierr )
+  call alloc_error(pname,"interp_s2o",2,ierr)
+  deallocate ( dqr_mat , stat=ierr )
+  call alloc_error(pname,"dqr_mat",2,ierr)
+  deallocate ( dqs_mat , stat=ierr )
+  call alloc_error(pname,"dqs_mat",2,ierr)
+  deallocate ( dqr_CRmat , stat=ierr )
+  call alloc_error(pname,"dqr_CRmat",2,ierr)
+  deallocate ( dqs_CRmat , stat=ierr )
+  call alloc_error(pname,"dqs_CRmat",2,ierr)
+  deallocate ( invM_mat , stat=ierr )
+  call alloc_error(pname,"invM_mat",2,ierr)
+  !
+  if (associated(weights)) weights => null()
+  !
+  ! Format Statements
   !
   1 format (/," ************************************************",/, &
               "     USING OVER-INTEGRATION FOR DE-ALIASING",/, &
               " ************************************************",/)
- !!
+  !
 end subroutine interp2quadrature
 !
 !###############################################################################
 !
-subroutine gauss_lobatto_matrices()
+subroutine gauss_lobatto_matrices(vand_quad_qp,vand_quad_inv_qp)
   !
   !.. Use Statements ..
-  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar, only : exact2numer,numer2exact
-  use geovar, only : radau2numer,numer2radau
+  use order_mod, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
+  !
   use geovar, only : gauss2numer,numer2gauss
   use geovar, only : lobatto2numer,numer2lobatto
-  use ovar,   only : error_loc,itestcase
   !
-  use qpvar, only : gauss_1d_qp,lobatto_1d_qp,radau_1d_qp
-  use qpvar, only : vand_quad_qp,vand_quad_inv_qp
-  use qpvar, only : exact2numer_qp,numer2exact_qp
-  use qpvar, only : radau2numer_qp,numer2radau_qp
+  use qpvar, only : gauss_1d_qp,lobatto_1d_qp
   use qpvar, only : gauss2numer_qp,numer2gauss_qp
   use qpvar, only : lobatto2numer_qp,numer2lobatto_qp
+  !
+  !.. Formal Arguments ..
+  real(qp), dimension(:,:), intent(in) :: vand_quad_qp
+  real(qp), dimension(:,:), intent(in) :: vand_quad_inv_qp
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -1211,164 +1149,96 @@ subroutine gauss_lobatto_matrices()
   real(qp), allocatable, dimension(:,:) :: gauss_vand_inv_qp
   real(qp), allocatable, dimension(:,:) :: lobatto_vand_qp
   real(qp), allocatable, dimension(:,:) :: lobatto_vand_inv_qp
-  real(qp), allocatable, dimension(:,:) :: radau_vand_qp
-  real(qp), allocatable, dimension(:,:) :: radau_vand_inv_qp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "gauss_lobatto_matrices"
   !
 continue
   !
   ! Allocate the quad precision arrays
   !
-  allocate ( radau_vand_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau_vand_qp",1,ierr)
-  allocate ( radau_vand_inv_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau_vand_inv_qp",1,ierr)
-  !
   allocate ( gauss_vand_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss_vand_qp",1,ierr)
+  call alloc_error(pname,"gauss_vand_qp",1,ierr)
   allocate ( gauss_vand_inv_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss_vand_inv_qp",1,ierr)
+  call alloc_error(pname,"gauss_vand_inv_qp",1,ierr)
   !
   allocate ( lobatto_vand_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto_vand_qp",1,ierr)
+  call alloc_error(pname,"lobatto_vand_qp",1,ierr)
   allocate ( lobatto_vand_inv_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto_vand_inv_qp",1,ierr)
-  !
-  allocate ( radau2numer_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau2numer_qp",1,ierr)
-  allocate ( numer2radau_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2radau_qp",1,ierr)
+  call alloc_error(pname,"lobatto_vand_inv_qp",1,ierr)
   !
   allocate ( gauss2numer_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss2numer_qp",1,ierr)
+  call alloc_error(pname,"gauss2numer_qp",1,ierr)
   allocate ( numer2gauss_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2gauss_qp",1,ierr)
+  call alloc_error(pname,"numer2gauss_qp",1,ierr)
   !
   allocate ( lobatto2numer_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto2numer_qp",1,ierr)
+  call alloc_error(pname,"lobatto2numer_qp",1,ierr)
   allocate ( numer2lobatto_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2lobatto_qp",1,ierr)
-  !
-  allocate ( exact2numer_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","exact2numer_qp",1,ierr)
-  allocate ( numer2exact_qp(1:n_sp2dq,1:n_sp2dq) , source=qzero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2exact_qp",1,ierr)
-  !
-  ! Get the Vandermonde matrix and its inverse for the right Radau nodes
-  !
-  radau_vand_qp = Vandermonde2d_quad(radau_1d_qp)
-  radau_vand_qp = chop_qp( radau_vand_qp )
-  !
-  radau_vand_inv_qp = invert_matrix(radau_vand_qp)
-  radau_vand_inv_qp = chop_qp( radau_vand_inv_qp )
+  call alloc_error(pname,"numer2lobatto_qp",1,ierr)
   !
   ! Get the Vandermonde matrix and its inverse for the Gauss nodes
   !
   gauss_vand_qp = Vandermonde2d_quad(gauss_1d_qp)
-  gauss_vand_qp = chop_qp( gauss_vand_qp )
+  gauss_vand_qp = chop( gauss_vand_qp , gauss_vand_qp )
   !
   gauss_vand_inv_qp = invert_matrix(gauss_vand_qp)
-  gauss_vand_inv_qp = chop_qp( gauss_vand_inv_qp )
+  gauss_vand_inv_qp = chop( gauss_vand_inv_qp , gauss_vand_inv_qp )
   !
   ! Get the Vandermonde matrix and its inverse for the Lobatto nodes
   !
   lobatto_vand_qp = Vandermonde2d_quad(lobatto_1d_qp)
-  lobatto_vand_qp = chop_qp( lobatto_vand_qp )
+  lobatto_vand_qp = chop( lobatto_vand_qp , lobatto_vand_qp )
   !
   lobatto_vand_inv_qp = invert_matrix(lobatto_vand_qp)
-  lobatto_vand_inv_qp = chop_qp( lobatto_vand_inv_qp )
+  lobatto_vand_inv_qp = chop( lobatto_vand_inv_qp , lobatto_vand_inv_qp )
   !
   ! Now get the conversion matrices through matrix multiplication
   !
- !if (any(itestcase == Advec_Problems)) then
-    !
-    radau2numer_qp = matmul( vand_quad_qp , radau_vand_inv_qp )
-    radau2numer_qp = chop_qp( radau2numer_qp )
-    !
-    numer2radau_qp = matmul( radau_vand_qp , vand_quad_inv_qp )
-    numer2radau_qp = chop_qp( numer2radau_qp )
-    !
-    gauss2numer_qp = matmul( vand_quad_qp , gauss_vand_inv_qp )
-    gauss2numer_qp = chop_qp( gauss2numer_qp )
-    !
-    numer2gauss_qp = matmul( gauss_vand_qp , vand_quad_inv_qp )
-    numer2gauss_qp = chop_qp( numer2gauss_qp )
-    !
-    lobatto2numer_qp = matmul( vand_quad_qp , lobatto_vand_inv_qp )
-    lobatto2numer_qp = chop_qp( lobatto2numer_qp )
-    !
-    numer2lobatto_qp = matmul( lobatto_vand_qp , vand_quad_inv_qp )
-    numer2lobatto_qp = chop_qp( numer2lobatto_qp )
-    !
- !else
-    !
-    numer2exact_qp = merge( matmul(gauss_vand_qp,vand_quad_inv_qp), &
-                            matmul(radau_vand_qp,vand_quad_inv_qp), &
-                            error_loc > 0 )
-    numer2exact_qp = chop_qp( numer2exact_qp )
-    !
-    exact2numer_qp = merge( matmul(vand_quad_qp,gauss_vand_inv_qp), &
-                            matmul(vand_quad_qp,radau_vand_inv_qp), &
-                            error_loc > 0 )
-    exact2numer_qp = chop_qp( exact2numer_qp )
-    !
- !end if
+  gauss2numer_qp = matmul( vand_quad_qp , gauss_vand_inv_qp )
+  gauss2numer_qp = chop( gauss2numer_qp , gauss2numer_qp )
+  !
+  numer2gauss_qp = matmul( gauss_vand_qp , vand_quad_inv_qp )
+  numer2gauss_qp = chop( numer2gauss_qp , numer2gauss_qp )
+  !
+  lobatto2numer_qp = matmul( vand_quad_qp , lobatto_vand_inv_qp )
+  lobatto2numer_qp = chop( lobatto2numer_qp , lobatto2numer_qp )
+  !
+  numer2lobatto_qp = matmul( lobatto_vand_qp , vand_quad_inv_qp )
+  numer2lobatto_qp = chop( numer2lobatto_qp , numer2lobatto_qp )
   !
   ! Deallocate the arrays that arent needed anymore
   !
   deallocate ( gauss_vand_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss_vand_qp",2,ierr)
+  call alloc_error(pname,"gauss_vand_qp",2,ierr)
   deallocate ( gauss_vand_inv_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss_vand_inv_qp",2,ierr)
+  call alloc_error(pname,"gauss_vand_inv_qp",2,ierr)
   deallocate ( lobatto_vand_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto_vand_qp",2,ierr)
+  call alloc_error(pname,"lobatto_vand_qp",2,ierr)
   deallocate ( lobatto_vand_inv_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto_vand_inv_qp",2,ierr)
-  deallocate ( radau_vand_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau_vand_qp",2,ierr)
-  deallocate ( radau_vand_inv_qp , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau_vand_inv_qp",2,ierr)
+  call alloc_error(pname,"lobatto_vand_inv_qp",2,ierr)
   !
   ! Allocate the working precision arrays
   !
-  allocate ( radau2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","radau2numer",1,ierr)
-  allocate ( numer2radau(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2radau",1,ierr)
-  !
   allocate ( gauss2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","gauss2numer",1,ierr)
+  call alloc_error(pname,"gauss2numer",1,ierr)
   allocate ( numer2gauss(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2gauss",1,ierr)
+  call alloc_error(pname,"numer2gauss",1,ierr)
   !
   allocate ( lobatto2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","lobatto2numer",1,ierr)
+  call alloc_error(pname,"lobatto2numer",1,ierr)
   allocate ( numer2lobatto(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2lobatto",1,ierr)
+  call alloc_error(pname,"numer2lobatto",1,ierr)
   !
-  allocate ( exact2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","exact2numer",1,ierr)
-  allocate ( numer2exact(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("gauss_lobatto_matrices","numer2exact",1,ierr)
+  gauss2numer   = chop( gauss2numer_qp )
+  numer2gauss   = chop( numer2gauss_qp )
+  lobatto2numer = chop( lobatto2numer_qp )
+  numer2lobatto = chop( numer2lobatto_qp )
   !
- !if (any(itestcase == Advec_Problems)) then
-    radau2numer   = chop( radau2numer_qp )
-    numer2radau   = chop( numer2radau_qp )
-    gauss2numer   = chop( gauss2numer_qp )
-    numer2gauss   = chop( numer2gauss_qp )
-    lobatto2numer = chop( lobatto2numer_qp )
-    numer2lobatto = chop( numer2lobatto_qp )
- !else
-    numer2exact   = chop( numer2exact_qp )
-    exact2numer   = chop( exact2numer_qp )
- !end if
-  call output2d(array_debugging,radau2numer(:,:),2,2,2,'radau2numer')
-  call output2d(array_debugging,numer2radau(:,:),2,2,2,'numer2radau')
   call output2d(array_debugging,gauss2numer(:,:),2,2,2,'gauss2numer')
   call output2d(array_debugging,numer2gauss(:,:),2,2,2,'numer2gauss')
   call output2d(array_debugging,lobatto2numer(:,:),2,2,2,'lobatto2numer')
   call output2d(array_debugging,numer2lobatto(:,:),2,2,2,'numer2lobatto')
-  call output2d(array_debugging,numer2exact(:,:),2,2,2,'numer2exact')
-  call output2d(array_debugging,exact2numer(:,:),2,2,2,'exact2numer')
   !
   1 format ('VARIABLES = "X" "Y"')
   2 format ('ZONE T="Reference Quad", I=2, J=2')
@@ -1402,19 +1272,19 @@ continue
   qmat(:,:) = qzero
   !
   basisT = matmul( transpose(basis) , wmat )
-  basisT = chop_qp( basisT )
+  basisT = chop( basisT , basisT )
   !
   pmat = matmul( basisT , basis )
-  pmat = chop_qp( pmat )
+  pmat = chop( pmat , pmat )
   !
   pmat = invert_matrix( pmat )
-  pmat = chop_qp( pmat )
+  pmat = chop( pmat , pmat )
   !
   qmat = matmul( basis , matmul( pmat , basisT ) )
-  qmat = chop_qp( qmat )
+  qmat = chop( qmat , qmat )
   !
   return_value = transpose( qmat )
-  return_value = chop_qp( return_value )
+  return_value = chop( return_value , return_value )
   !
 end function projection_matrix
 !
@@ -1439,69 +1309,21 @@ continue
   tmat(:,:) = qzero
   !
   basisT = matmul( transpose(basis) , wmat )
-  basisT = chop_qp( basisT )
+  basisT = chop( basisT , basisT )
   !
   pmat = matmul( basisT , basis )
-  pmat = chop_qp( pmat )
+  pmat = chop( pmat , pmat )
   !
   pmat = invert_matrix( pmat )
-  pmat = chop_qp( pmat )
+  pmat = chop( pmat , pmat )
   !
   tmat = matmul( pmat , basisT )
-  tmat = chop_qp( tmat )
+  tmat = chop( tmat , tmat )
   !
   return_value = transpose( matmul( newbasis , tmat ) )
-  return_value = chop_qp( return_value )
+  return_value = chop( return_value , return_value )
   !
 end function interpolation_matrix
-!
-!###############################################################################
-!
-pure function CellVolume1D_DP(nk,np,x,Dr) result(return_value)
-  !
-  integer, intent(in) :: nk
-  integer, intent(in) :: np
-  !
-  real(dp), dimension(1:np,1:nk), intent(in) :: x
-  real(dp), dimension(1:np,1:np), intent(in) :: Dr
-  !
-  real(dp), dimension(1:nk) :: return_value
-  !
-  integer :: i
-  !
-  integer, parameter :: lp = dp
-  !
-continue
-  !
-  do i = 1,nk
-    return_value(i) = dot(Dr(1,:),x(:,i))
-  end do
-  !
-end function CellVolume1D_DP
-!
-!###############################################################################
-!
-pure function CellVolume1D_QP(nk,np,x,Dr) result(return_value)
-  !
-  integer, intent(in) :: nk
-  integer, intent(in) :: np
-  !
-  real(qp), dimension(1:np,1:nk), intent(in) :: x
-  real(qp), dimension(1:np,1:np), intent(in) :: Dr
-  !
-  real(qp), dimension(1:nk) :: return_value
-  !
-  integer :: i
-  !
-  integer, parameter :: lp = qp
-  !
-continue
-  !
-  do i = 1,nk
-    return_value(i) = dot_product(Dr(1,:),x(:,i))
-  end do
-  !
-end function CellVolume1D_QP
 !
 !###############################################################################
 !
@@ -2979,374 +2801,6 @@ end function eval_LagrangePoly2D_QP
 !
 !###############################################################################
 !
-pure function Filter2D_tria_DP(vand,vand_inv) result(return_value)
-  !
-  ! Routine to compute the spectral filter matrices
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp2dt
-  use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac,Filter_Option
-  !
-  !.. Formal Arguments ..
-  real(dp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
-  real(dp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand_inv
-  !
-  !.. Function Return Value ..
-  real(dp), dimension(1:n_sp2dt,1:n_sp2dt) :: return_value
-  !
-  !.. Local Scalars ..
-  integer  :: i,j,k
-  real(dp) :: rd,rn,falpha,fetac
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one = 1.0_lp
-  !
-continue
-  !
-  ! Covert Filter_Alpha to local precision
-  !
-  falpha = real( Filter_Alpha , kind=lp )
-  fetac  = real( Filter_etac , kind=lp )
-  !
-  ! Initialize the local filter matrices to identity matrices
-  !
-  return_value(:,:) = zero
-  do i = 1,n_sp2dt
-    return_value(i,i) = one
-  end do
-  !
-  ! Compute the filter diagonal for triangles
-  !
-  if (Filter_Option /= 0) then
-    !
-    k = 1
-    do i = 0,n_order
-      do j = 0,n_order-i
-        !
-        if (i+j >= Filter_Cutoff) then
-          !
-          rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-          rd = one - fetac
-          !
-          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
-          !
-        end if
-        !
-        k = k + 1
-        !
-      end do
-    end do
-    !
-  end if
-  !
-  ! Compute the final filter matrix for triangles
-  !
-  return_value = matmul( vand , return_value )
-  return_value = matmul( return_value , vand_inv )
-  !
-end function Filter2D_tria_DP
-!
-!###############################################################################
-!
-pure function Filter2D_tria_QP(vand,vand_inv) result(return_value)
-  !
-  ! Routine to compute the spectral filter matrices
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp2dt
-  use ovar,   only : Filter_Order, Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac,Filter_Option
-  !
-  !.. Formal Arguments ..
-  real(qp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand
-  real(qp), dimension(1:n_sp2dt,1:n_sp2dt), intent(in) :: vand_inv
-  !
-  !.. Function Return Value ..
-  real(qp), dimension(1:n_sp2dt,1:n_sp2dt) :: return_value
-  !
-  !.. Local Scalars ..
-  integer  :: i,j,k
-  real(qp) :: rd,rn,falpha,fetac
-  !
-  integer, parameter :: lp = qp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one = 1.0_lp
-  !
-continue
-  !
-  ! Covert Filter_Alpha to local precision
-  !
-  falpha = real( Filter_Alpha , kind=lp )
-  fetac  = real( Filter_etac , kind=lp )
-  !
-  ! Initialize the local filter matrices to identity matrices
-  !
-  return_value(:,:) = zero
-  do i = 1,n_sp2dt
-    return_value(i,i) = one
-  end do
-  !
-  ! Compute the filter diagonal for triangles
-  !
-  if (Filter_Option /= 0) then
-    !
-    k = 1
-    do i = 0,n_order
-      do j = 0,n_order-i
-        !
-        if (i+j >= Filter_Cutoff) then
-          !
-          rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-          rd = one - fetac
-          !
-          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
-          !
-        end if
-        !
-        k = k + 1
-        !
-      end do
-    end do
-    !
-  end if
-  !
-  ! Compute the final filter matrix for triangles
-  !
-  return_value = matmul( vand , return_value )
-  return_value = matmul( return_value , vand_inv )
-  !
-end function Filter2D_tria_QP
-!
-!###############################################################################
-!
-pure function Filter2D_quad_DP(vand,vand_inv) result(return_value)
-  !
-  ! Routine to compute the spectral filter matrices
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp1de,n_sp2dq
-  use ovar,   only : Filter_Option,Filter_Order, &
-                     Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac
-  !
-  !.. Formal Arguments ..
-  real(dp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand
-  real(dp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand_inv
-  !
-  !.. Function Return Value ..
-  real(dp), dimension(1:n_sp2dq,1:n_sp2dq) :: return_value
-  !
-  !.. Local Scalars ..
-  integer  :: i,j,k
-  real(dp) :: rd,rn,falpha,fetac
-  !
-  !.. Local Arrays ..
-  real(dp), dimension(1:n_sp1de) :: filter_1D
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one = 1.0_lp
-  !
-continue
-  !
-  ! Covert Filter_Alpha to local precision
-  !
-  falpha = real( Filter_Alpha , kind=lp )
-  fetac  = real( Filter_etac , kind=lp )
-  !
-  ! Initialize the local filter matrices to identity matrices
-  !
-  filter_1D(:) = one
-  !
-  return_value(:,:) = zero
-  do i = 1,n_sp2dq
-    return_value(i,i) = one
-  end do
-  !
-  ! Compute the filter diagonal for quadrilaterals
-  !
-  if (Filter_Option == 1) then
-    !
-    ! Option 1 - Tensor product of the 1D filter
-    !           (Equivalent to using a 1D filter in each direction)
-    !
-    ! First get the 1D filter diagonal
-    !
-    do i = 0,n_order
-      if (i >= Filter_Cutoff) then
-        !
-        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-        rd = one - fetac
-        !
-        filter_1D(i+1) = exp(-falpha * (rn/rd)**Filter_Order)
-        !
-      end if
-    end do
-    !
-    ! Now fill the filter diagonal for quads
-    !
-    do j = 0,n_order
-      do i = 0,n_order
-        !
-        k = n_sp1de*j + i + 1
-        !
-        return_value(k,k) = filter_1D(i+1)*filter_1D(j+1)
-        !
-      end do
-    end do
-    !
-  else if (Filter_Option == 2) then
-    !
-    ! Option 2 - The quad basis functions actually contains cross polynomial
-    !            terms up to order 2*p (as opposed to just 1*p for triangles).
-    !            This filter applies the cut-off frequency based on 2*p as
-    !            opposed to basing it on just p in 1D like Option 1.
-    !
-    do i = 0,n_order
-      do j = 0,n_order
-        !
-        if (i+j >= Filter_Cutoff) then
-          !
-          k = n_sp1de*j + i + 1
-          !
-          rn = real(i+j-Filter_Cutoff,kind=lp)
-          rd = real(2*n_order-Filter_Cutoff,kind=lp)
-          !
-          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
-          !
-        end if
-        !
-      end do
-    end do
-    !
-  end if
-  !
-  ! Compute the final filter matrix for quadrilaterals
-  !
-  return_value = matmul( vand , return_value )
-  return_value = matmul( return_value , vand_inv )
-  !
-end function Filter2D_quad_DP
-!
-!###############################################################################
-!
-pure function Filter2D_quad_QP(vand,vand_inv) result(return_value)
-  !
-  ! Routine to compute the spectral filter matrices
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp1de,n_sp2dq
-  use ovar,   only : Filter_Option,Filter_Order, &
-                     Filter_Cutoff,Filter_Alpha
-  use ovar,   only : Filter_etac
-  !
-  !.. Formal Arguments ..
-  real(qp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand
-  real(qp), dimension(1:n_sp2dq,1:n_sp2dq), intent(in) :: vand_inv
-  !
-  !.. Function Return Value ..
-  real(qp), dimension(1:n_sp2dq,1:n_sp2dq) :: return_value
-  !
-  !.. Local Scalars ..
-  integer  :: i,j,k
-  real(qp) :: rd,rn,falpha,fetac
-  !
-  !.. Local Arrays ..
-  real(qp), dimension(1:n_sp1de) :: filter_1D
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one = 1.0_lp
-  !
-continue
-  !
-  ! Covert Filter_Alpha to local precision
-  !
-  falpha = real( Filter_Alpha , kind=lp )
-  fetac  = real( Filter_etac , kind=lp )
-  !
-  ! Initialize the local filter matrices to identity matrices
-  !
-  filter_1D(:) = one
-  !
-  return_value(:,:) = zero
-  do i = 1,n_sp2dq
-    return_value(i,i) = one
-  end do
-  !
-  ! Compute the filter diagonal for quadrilaterals
-  !
-  if (Filter_Option == 1) then
-    !
-    ! Option 1 - Tensor product of the 1D filter
-    !           (Equivalent to using a 1D filter in each direction)
-    !
-    ! First get the 1D filter diagonal
-    !
-    do i = 0,n_order
-      if (i >= Filter_Cutoff) then
-        !
-        rn = real(i,kind=lp)/real(n_order,kind=lp) - fetac
-        rd = one - fetac
-        !
-        filter_1D(i+1) = exp(-falpha * (rn/rd)**Filter_Order)
-        !
-      end if
-    end do
-    !
-    ! Now fill the filter diagonal for quads
-    !
-    do j = 0,n_order
-      do i = 0,n_order
-        !
-        k = n_sp1de*j + i + 1
-        !
-        return_value(k,k) = filter_1D(i+1)*filter_1D(j+1)
-        !
-      end do
-    end do
-    !
-  else if (Filter_Option == 2) then
-    !
-    ! Option 2 - The quad basis functions actually contains cross polynomial
-    !            terms up to order 2*p (as opposed to just 1*p for triangles).
-    !            This filter applies the cut-off frequency based on 2*p as
-    !            opposed to basing it on just p in 1D like Option 1.
-    !
-    do i = 0,n_order
-      do j = 0,n_order
-        !
-        if (i+j >= Filter_Cutoff) then
-          !
-          k = n_sp1de*j + i + 1
-          !
-          rn = real(i+j-Filter_Cutoff,kind=lp)
-          rd = real(2*n_order-Filter_Cutoff,kind=lp)
-          !
-          return_value(k,k) = exp(-falpha * (rn/rd)**Filter_Order)
-          !
-        end if
-        !
-      end do
-    end do
-    !
-  end if
-  !
-  ! Compute the final filter matrix for quadrilaterals
-  !
-  return_value = matmul( vand , return_value )
-  return_value = matmul( return_value , vand_inv )
-  !
-end function Filter2D_quad_QP
-!
-!###############################################################################
-!
 pure function GradJacobiP_DP(n,alpha,beta,x) result(return_value)
   !
   integer,   intent(in) :: n
@@ -4154,8 +3608,8 @@ pure function Vandermonde2D_quad_DP(xi) result(return_value)
   real(dp), dimension(1:size(xi)**2,1:size(xi)**2) :: return_value
   !
   !.. Local Scalars ..
-  integer   :: k,ki,kj,l,li,lj
-  integer   :: n_order,n_sp1de,n_sp2dq
+  integer  :: k,ki,kj,l,li,lj
+  integer  :: n_order,n_sp1de,n_sp2dq
   real(dp) :: x,y,hx,hy
   !
   integer, parameter :: lp = dp
@@ -4492,7 +3946,7 @@ end function Vandermonde2D_tria_QP
 subroutine output2d(output_requested,array,dim1,dim2,ctype,arrayname)
   !
   !.. Use Statements ..
-  use ifport
+ !use ifport, only : system
   !
   !.. Formal Arguments ..
   logical,                  intent(in) :: output_requested
@@ -4504,6 +3958,7 @@ subroutine output2d(output_requested,array,dim1,dim2,ctype,arrayname)
   integer :: i,j,k,l,np1,np2
   integer :: ni,nj,nk,nl,ierr
   integer :: exitstat,cmndstat
+  integer :: iu
   character(len=1000) :: cmndmsg,command
   character(len=6+len_trim(adjustl(arrayname))) :: fname
   !
@@ -4513,7 +3968,6 @@ subroutine output2d(output_requested,array,dim1,dim2,ctype,arrayname)
   !.. Local Constants ..
   integer, parameter :: face = 1
   integer, parameter :: cell = 2
-  integer, parameter :: iu = 18421
   !
 continue
   !
@@ -4524,7 +3978,8 @@ continue
   if (mypnum == 0 .and. (output_requested .or. array_debugging)) then
     !
     fname = "array."//trim(adjustl(arrayname))
-    open(iu,file=fname,status="replace",action="write",form="formatted",iostat=ierr)
+    open(newunit=iu,file=fname,status="replace",action="write", &
+                    form="formatted",iostat=ierr)
     call io_error('output2d',fname,1,ierr)
     !
     np1 = size(array,1)
@@ -4592,8 +4047,8 @@ continue
               trim(adjustl(fname))
     write (iout,4) "Executing: ",trim(adjustl(command))
     !
-    exitstat = system( trim(command) )
-   !call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
+   !exitstat = system( trim(command) )
+    call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
     !
     if (exitstat /= 0 .or. cmndstat /= 0) then
       write (iout,99) exitstat,cmndstat,trim(adjustl(cmndmsg))
@@ -4615,23 +4070,29 @@ end subroutine output2d
 !
 !###############################################################################
 !
-subroutine write_lagrange_tecplot()
+subroutine write_lagrange_tecplot(dqr_mat,dqs_mat)
   !
   !.. Use Statements ..
-  use geovar, only : n_sp1de,n_sp2dq,n_qp1de,n_qp2dq
-  use geovar, only : solpts_1d,qdtpts_1d,interp_s2f,interp_s2g
-  use metvar, only : dr_mat,ds_mat
-  use metvar, only : dqr_mat,dqs_mat
+  use order_mod, only : n_sp1de,n_sp2dq,n_qp1de,n_qp2dq
+  use geovar,    only : solpts_1d,qdtpts_1d,interp_s2f,interp_s2g
+  use metvar,    only : dr_mat,ds_mat
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:,:), intent(in) :: dqr_mat
+  real(wp), dimension(:,:,:), intent(in) :: dqs_mat
   !
   !.. Local Scalars ..
-  integer   :: i,j,k,ierr
-  integer, parameter :: iotec = 4928
+  integer :: i,j,k,ierr
+  integer :: iotec
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_lagrange_tecplot"
   !
 continue
   !
-  open (iotec,file="lagrange.tec.dat",status="replace", &
-              action="write",form="formatted",iostat=ierr)
-  call io_error("write_tecplot_partitions","lagrange.tec.dat",1,ierr)
+  open (newunit=iotec,file="lagrange.tec.dat",status="replace", &
+                      action="write",form="formatted",iostat=ierr)
+  call io_error(pname,"lagrange.tec.dat",1,ierr)
   !
   write (iotec,1)
   ! 
@@ -4676,7 +4137,7 @@ continue
   end do
   !
   close (iotec,iostat=ierr)
-  call io_error("write_tecplot_partitions","lagrange.tec.dat",2,ierr)
+  call io_error(pname,"lagrange.tec.dat",2,ierr)
   !
   !
   !
@@ -4704,31 +4165,31 @@ end subroutine write_lagrange_tecplot
 subroutine write_quadrature()
   !
   !.. Use Statements ..
-  use geovar, only : n_sp1de,solpts_1d,flxpts_1d
+  use order_mod, only : n_sp1de
+  use geovar,    only : solpts_1d,flxpts_1d
   !
   !.. Local Scalars ..
   integer :: i,j,ierr
-  !
-  !.. Local Constants ..
-  integer, parameter :: iqd = 18
+  integer :: iqd
   !
 continue
   !
-  open(iqd,file="quad.tec.dat",status="replace",action="write",iostat=ierr)
+  open(newunit=iqd,file="quad.tec.dat",status="replace", &
+                   action="write",iostat=ierr)
   call io_error("write_quadrature","quad.tec.dat",1,ierr)
   !
   write (iqd,*) 'VARIABLES = "X" "Y"'
   write (iqd,*) 'ZONE T="Solution Points"'
   do j = 1,n_sp1de
     do i = 1,n_sp1de
-      write (iqd,1) c0_25*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) + &
-                             one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
-                             one*(one+solpts_1d(j))*(one+solpts_1d(i)) - &
-                             one*(one+solpts_1d(j))*(one-solpts_1d(i)) ), &
-                    c0_25*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) - &
-                             one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
-                             one*(one+solpts_1d(j))*(one+solpts_1d(i)) + &
-                             one*(one+solpts_1d(j))*(one-solpts_1d(i)) )
+      write (iqd,1) one4*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) + &
+                            one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
+                            one*(one+solpts_1d(j))*(one+solpts_1d(i)) - &
+                            one*(one+solpts_1d(j))*(one-solpts_1d(i)) ), &
+                    one4*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) - &
+                            one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
+                            one*(one+solpts_1d(j))*(one+solpts_1d(i)) + &
+                            one*(one+solpts_1d(j))*(one-solpts_1d(i)) )
     end do
   end do
   write (iqd,*) 'ZONE T="Flux Points"'
@@ -4756,771 +4217,6 @@ end subroutine write_quadrature
 !
 include "Functions/np2n.f90"
 include "Functions/np2nfp.f90"
-include "Functions/chop.f90"
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!
-!  OLD (NON-QUAD PRECISION) VERSIONS OF:
-!         get_quadrature_data
-!         gauss_lobatto_matrices
-!         interp2quadrature
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!
-subroutine old_get_quadrature_data()
-  !
-  !.. Use Statements ..
-  use geovar, only : nr,n_sp1de,n_sp2dt,n_sp2dq,solpts_1d,solwts_1d
-  use geovar, only : rs,flxpts_1d,n_order,interp_s2f,filter
-  use geovar, only : vand_1d,vand_1d_inv
-  use geovar, only : vand_quad,vand_quad_inv
-  use geovar, only : vand_tria,vand_tria_inv
-  use metvar, only : cormat,d1_mat,dr_mat,ds_mat,dr_hat,ds_hat,cormat_dg
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,l,n,nf,ierr
-  integer :: li,lj,ki,kj
-  real(wp) :: time0,time1
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), dimension(1:nr,1:n_sp2dt) :: adjd_rs
-  real(wp), dimension(1:n_sp1de,1:n_sp1de) :: grad_vand_1d
-  real(wp), dimension(1:n_sp2dt,1:n_sp2dt,1:nr) :: grad_vand_tria
-  !
-continue
-  !
-  adjd_rs(:,:) = zero
-  grad_vand_1d(:,:) = zero
-  grad_vand_tria(:,:,:) = zero
-  !
-  ! Allocate the working precision arrays
-  !
-  allocate ( vand_1d(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_1d",1,ierr)
-  allocate ( vand_tria(1:n_sp2dt,1:n_sp2dt) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_tria",1,ierr)
-  allocate ( vand_quad(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_quad",1,ierr)
-  allocate ( vand_1d_inv(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_1d_inv",1,ierr)
-  allocate ( vand_tria_inv(1:n_sp2dt,1:n_sp2dt) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_tria_inv",1,ierr)
-  allocate ( vand_quad_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","vand_quad_inv",1,ierr)
-  !
-  allocate ( d1_mat(1:n_sp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","d1_mat",1,ierr)
-  allocate ( dr_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","dr_mat",1,ierr)
-  allocate ( ds_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","ds_mat",1,ierr)
-  allocate ( dr_hat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","dr_hat",1,ierr)
-  allocate ( ds_hat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","ds_hat",1,ierr)
-  !
-  allocate ( interp_s2f(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","interp_s2f",1,ierr)
-  !
-  allocate ( cormat(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","cormat",1,ierr)
-  allocate ( cormat_dg(1:n_sp2dq,1:4*n_sp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","cormat_dg",1,ierr)
-  !
-  allocate ( filter(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_get_quadrature_data","filter",1,ierr)
-  !
-  ! Adjust r and s to be on the interval [-1,1]. The routines
-  ! Vandermonde2d_tria, GradVandermonde2D, and CorrectionMatrix2D_tria
-  ! need to be adjusted to work for r and s on the interval [0,1].
-  !
-  adjd_rs(:,:) = two*rs(:,:) - one
-  !
-  ! 1D Vandermonde matrix and inverse
-  !
-  vand_1d = Vandermonde1d(solpts_1d)
-  vand_1d_inv = invert_matrix(vand_1d)
-  !
-  ! 2D triangle Vandermonde matrix and inverse
-  !
-  vand_tria = Vandermonde2d_tria(adjd_rs)
-  vand_tria_inv = invert_matrix(vand_tria)
-  !
-  ! 2D quadrilateral Vandermonde matrix and inverse
-  !
-  vand_quad = Vandermonde2d_quad(solpts_1d)
-  vand_quad_inv = invert_matrix(vand_quad)
-  call output2d(array_debugging,vand_quad(:,:),2,2,0,'vand_quad')
-  call output2d(array_debugging,vand_quad_inv(:,:),2,2,0,'vand_quad_inv')
-  !
-  ! Get the derivative of the 1D Vandermonde matrix
-  !
-  grad_vand_1d = GradVandermonde1D(solpts_1d)
-  !
-  ! Get the derivative of the Vandermonde matrix
-  !
-  grad_vand_tria = GradVandermonde2D(adjd_rs)
-  !
-  ! Get the 1D derivative matrix
-  !
-  d1_mat = matmul( grad_vand_1d , vand_1d_inv )
-  !
-  ! Get the derivative matrices for the strong form of the equations
-  !
-  call Dmatrix2d_tria(grad_vand_tria,vand_tria_inv, &
-                      dr_mat(1:n_sp2dt,1:n_sp2dt,1), &
-                      ds_mat(1:n_sp2dt,1:n_sp2dt,1))
-  !
-  call Dmatrix2d_quad(d1_mat,dr_mat(:,:,2),ds_mat(:,:,2))
-  !
-  ! Get the derivative matrices for the weak form of the equations
-  !
-  call Dmatrix2d_tria_weak(adjd_rs,vand_tria, &
-                           dr_hat(1:n_sp2dt,1:n_sp2dt,1), &
-                           ds_hat(1:n_sp2dt,1:n_sp2dt,1))
-  !
-  call Dmatrix2d_quad_weak(solwts_1d,d1_mat,dr_hat(:,:,2),ds_hat(:,:,2))
-  !
-  ! Get the Lagrange polynomial to project the variables/fluxes from the
-  ! solution points in the cell interior to the flux points on the cell face
-  !
-  interp_s2f(1:n_sp2dt,1:3*n_sp1de,1) = LagrangePoly2D_tria(rs)
-  interp_s2f(1:n_sp2dq,1:4*n_sp1de,2) = LagrangePoly2D_quad(flxpts_1d,solpts_1d)
-  !
-  call output2d(array_debugging,interp_s2f(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'interp_s2f')
-  !
-  ! Get the correction matrix 
-  !
-  cormat(1:n_sp2dt,1:3*n_sp1de,1) = CorrectionMatrix2D_tria(adjd_rs)
-  cormat(1:n_sp2dq,1:4*n_sp1de,2) = CorrectionMatrix2D_quad(solpts_1d)
-  !
-  ! Get the correction matrix for DG methods
-  !
-  cormat_dg(1:n_sp2dq,1:4*n_sp1de,2) = &
-           CorrectionMatrix2D_quad_dg(solpts_1d,solwts_1d)
-  !
-  ! Get the filter matrices
-  !
-  filter(1:n_sp2dt,1:n_sp2dt,1) = Filter2D_tria(vand_tria,vand_tria_inv)
-  filter(1:n_sp2dq,1:n_sp2dq,2) = Filter2D_quad(vand_quad,vand_quad_inv)
-  !
-  ! Get the matrices to switch between the Gauss and Lobatto nodes
-  !
-  call old_gauss_lobatto_matrices
-  !
-  call old_interp2quadrature
-  !
-  call output2d(array_debugging,vand_1d(:,:),2,2,0,'vand_1d')
-  call output2d(array_debugging,vand_1d_inv(:,:),2,2,0,'vand_1d_inv')
-  call output2d(array_debugging,grad_vand_1d(:,:),2,2,0,'grad_vand_1d')
-  call output2d(array_debugging,d1_mat(:,:),2,2,0,'d1_mat')
-  call output2d(array_debugging,cormat(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'cormat')
-  call output2d(array_debugging,cormat_dg(1:n_sp2dq,1:4*n_sp1de,2),2,1,2,'cormat_dg')
-  call output2d(array_debugging,filter(1:n_sp2dq,1:n_sp2dq,2),2,2,2,'filter')
-  !
- !!
- !! Output the solution and flux points to a tecplot file for visualization
- !!
- !call write_quadrature
- !!
- !write (101,*) "Quad Vandermonde Matrix"
- !1 format (a,i0,a,i0,a)
- !2 format (*(es12.4))
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (101,*)
- !    write (101,1) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_sp1de,1,-1
- !      write (101,2) (vand_quad(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !!
- !!
- !write (100,*) "Inverse of Quad Vandermonde Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (100,*)
- !    write (100,1) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_sp1de,1,-1
- !      write (100,2) (vand_quad_inv(n_sp1de*(kj-1)+ki,l),ki=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !!
- !!
- !write (101,*) "Correction Function"
- !write (102,*) "DG Correction Function"
- !do nf = 1,4*n_sp1de
- !  !
- !  if (nf <= 1*n_sp1de) then
- !    write (101,5) nf
- !    write (102,5) nf
- !  else if (nf <= 2*n_sp1de) then
- !    write (101,6) nf - n_sp1de
- !    write (102,6) nf - n_sp1de
- !  else if (nf <= 3*n_sp1de) then
- !    write (101,7) n_sp1de+1-(nf-2*n_sp1de)
- !    write (102,7) n_sp1de+1-(nf-2*n_sp1de)
- !  else
- !    write (101,8) n_sp1de+1-(nf-3*n_sp1de)
- !    write (102,8) n_sp1de+1-(nf-3*n_sp1de)
- !  end if
- !  do j = n_sp1de,1,-1
- !    write (101,4) (cormat((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
- !    write (102,4) (cormat_dg((j-1)*n_sp1de+i,nf,2),i=1,n_sp1de)
- !  end do
- !  !
- !end do
- !4 format (*(es12.4))
- !5 format (/," Bottom/South edge for xi = ",i0)
- !6 format (/," Right/East edge for eta = ",i0)
- !7 format (/," Top/North edge for xi = ",i0)
- !8 format (/," Left/West edge for eta = ",i0)
- !do j = 1,3*n_sp1de
- !  write (201,1) (cormat(i,j,1),i=1,n_sp2dt)
- !end do
- !write (102,*) "Dr matrix"
- !write (103,*) "Ds matrix"
- !do j = 1,n_sp2dq
- !  write (102,1) (dr_mat(i,j,2),i=1,n_sp2dq)
- !  write (103,1) (ds_mat(i,j,2),i=1,n_sp2dq)
- !end do
- !write (106,*) "Dr matrix"
- !write (107,*) "Ds matrix"
- !do l = 1,n_sp1de
- !  do k = 1,n_sp1de
- !    write (106,2) k,l
- !    write (107,2) k,l
- !    do j = 1,n_sp1de
- !      write (106,3) (dr_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !      write (107,3) (ds_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !2 format (/,"i = ",i2,", j = ",i2)
- !3 format (*(es12.4))
- !!
- !write (110,*) "interp_s2f"
- !do l = 1,4
- !  do k = 1,n_sp1de
- !    write (110,4) l,k
- !    do j = 1,n_sp1de
- !      write (110,3) (interp_s2f( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !4 format (/,"Face = ",i2,", i = ",i2)
- !!
- !write (108,*) "1D Dr"
- !write (109,*) "1D Ds"
- !do j = 1,n_sp1de
- !  write (108,3) (d1_mat(i,n_sp1de+1-j),i=1,n_sp1de)
- !  write (109,3) (d1_mat(n_sp1de+1-j,i),i=1,n_sp1de)
- !end do
- !write (*,*)
- !write (*,*)
- !do i = 1,n_sp1de
- !  write (*,3) (dlagrange(k,solpts_1d(i),solpts_1d),k=1,n_sp1de)
- !end do
- !write (*,*)
- !write (*,*)
- !!
- !do j = 1,n_sp2dt
- !  write (202,1) (dr_mat(i,j,1),i=1,n_sp2dt)
- !  write (203,1) (ds_mat(i,j,1),i=1,n_sp2dt)
- !end do
- !write (105,*) "interp_s2f matrix"
- !do j = 1,4*n_sp1de
- !  write (*,1) (interp_s2f(i,j,2),i=1,n_sp2dq)
- !end do
- !!
- !1 format (<n_sp2dq>es12.4)
- !!
- !call stop_recon(stop_mpi,"old_get_quadrature_data")
- !!
-end subroutine old_get_quadrature_data
-!
-!###############################################################################
-!
-subroutine old_gauss_lobatto_matrices()
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar, only : gauss_1d,lobatto_1d,radau_1d
-  use geovar, only : exact2numer,numer2exact
-  use geovar, only : radau2numer,numer2radau
-  use geovar, only : gauss2numer,numer2gauss
-  use geovar, only : lobatto2numer,numer2lobatto
-  use geovar, only : vand_quad,vand_quad_inv
-  use ovar,   only : error_loc,itestcase
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,l,ierr
-  !
-  !.. Local Allocatable Arrays ..
-  real(wp), allocatable, dimension(:,:) :: gauss_vand
-  real(wp), allocatable, dimension(:,:) :: gauss_vand_inv
-  real(wp), allocatable, dimension(:,:) :: lobatto_vand
-  real(wp), allocatable, dimension(:,:) :: lobatto_vand_inv
-  real(wp), allocatable, dimension(:,:) :: radau_vand
-  real(wp), allocatable, dimension(:,:) :: radau_vand_inv
-  !
-  !.. Local Parameters ..
-  real(wp), dimension(1:2,1:3) :: &
-        tnodes = reshape([zero,zero,one,zero,zero,one],[2,3])
-  real(wp), dimension(1:2,1:4) :: &
-        qnodes = reshape([-one,-one,one,-one,one,one,-one,one],[2,4])
-  !
-continue
-  !
-  ! Get the Vandermonde matrix and its inverse for the right Radau nodes
-  !
-  allocate ( radau_vand(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","radau_vand",1,ierr)
-  allocate ( radau_vand_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","radau_vand_inv",1,ierr)
-  !
-  radau_vand = Vandermonde2d_quad(radau_1d)
-  radau_vand_inv = invert_matrix(radau_vand)
-  !
-  ! Get the Vandermonde matrix and its inverse for the Gauss nodes
-  !
-  allocate ( gauss_vand(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","gauss_vand",1,ierr)
-  allocate ( gauss_vand_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","gauss_vand_inv",1,ierr)
-  !
-  gauss_vand = Vandermonde2d_quad(gauss_1d)
-  gauss_vand_inv = invert_matrix(gauss_vand)
-  !
-  ! Get the Vandermonde matrix and its inverse for the Lobatto nodes
-  !
-  allocate ( lobatto_vand(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","lobatto_vand",1,ierr)
-  allocate ( lobatto_vand_inv(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","lobatto_vand_inv",1,ierr)
-  !
-  lobatto_vand = Vandermonde2d_quad(lobatto_1d)
-  lobatto_vand_inv = invert_matrix(lobatto_vand)
-  !
-  ! Now get the conversion matrices through matrix multiplication
-  !
- !if (any(itestcase == Advec_Problems)) then
-    !
-    allocate ( radau2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","radau2numer",1,ierr)
-    allocate ( numer2radau(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","numer2radau",1,ierr)
-    !
-    radau2numer = matmul( vand_quad , radau_vand_inv )
-    numer2radau = matmul( radau_vand , vand_quad_inv )
-    !
-    allocate ( gauss2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","gauss2numer",1,ierr)
-    allocate ( numer2gauss(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","numer2gauss",1,ierr)
-    !
-    gauss2numer = matmul( vand_quad , gauss_vand_inv )
-    numer2gauss = matmul( gauss_vand , vand_quad_inv )
-    !
-    allocate ( lobatto2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","lobatto2numer",1,ierr)
-    allocate ( numer2lobatto(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","numer2lobatto",1,ierr)
-    !
-    lobatto2numer = matmul( vand_quad , lobatto_vand_inv )
-    numer2lobatto = matmul( lobatto_vand , vand_quad_inv )
-    !
- !else
-    !
-    allocate ( exact2numer(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","exact2numer",1,ierr)
-    allocate ( numer2exact(1:n_sp2dq,1:n_sp2dq) , source=zero , stat=ierr )
-    call alloc_error("old_gauss_lobatto_matrices","numer2exact",1,ierr)
-    !
-    numer2exact = merge( matmul(gauss_vand,vand_quad_inv), &
-                         matmul(radau_vand,vand_quad_inv), &
-                         error_loc > 0 )
-    !
-    exact2numer = merge( matmul(vand_quad,gauss_vand_inv), &
-                         matmul(vand_quad,radau_vand_inv), &
-                         error_loc > 0 )
-    !
- !end if
-  !
-  deallocate ( gauss_vand , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","gauss_vand",2,ierr)
-  deallocate ( gauss_vand_inv , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","gauss_vand_inv",2,ierr)
-  deallocate ( lobatto_vand , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","lobatto_vand",2,ierr)
-  deallocate ( lobatto_vand_inv , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","lobatto_vand_inv",2,ierr)
-  deallocate ( radau_vand , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","radau_vand",2,ierr)
-  deallocate ( radau_vand_inv , stat=ierr )
-  call alloc_error("old_gauss_lobatto_matrices","radau_vand_inv",2,ierr)
-  !
-  call output2d(array_debugging,radau2numer(:,:),2,2,2,'radau2numer')
-  call output2d(array_debugging,numer2radau(:,:),2,2,2,'numer2radau')
-  call output2d(array_debugging,gauss2numer(:,:),2,2,2,'gauss2numer')
-  call output2d(array_debugging,numer2gauss(:,:),2,2,2,'numer2gauss')
-  call output2d(array_debugging,lobatto2numer(:,:),2,2,2,'lobatto2numer')
-  call output2d(array_debugging,numer2lobatto(:,:),2,2,2,'numer2lobatto')
-  call output2d(array_debugging,numer2exact(:,:),2,2,2,'numer2exact')
-  call output2d(array_debugging,exact2numer(:,:),2,2,2,'exact2numer')
-  !
-  1 format ('VARIABLES = "X" "Y"')
-  2 format ('ZONE T="Reference Quad", I=2, J=2')
-  3 format ('ZONE T="Gauss Quad", I=',i0,', J=',i0)
-  4 format ('ZONE T="Lobatto Quad", I=',i0,', J=',i0)
-  5 format ('ZONE T="Reference Tri", N=3, E=1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE')
-  6 format ('ZONE T="Gauss Tri"')
-  7 format ('ZONE T="Lobatto Tri"')
-  8 format (2es23.15)
-  9 format (3i4)
-  !
-end subroutine old_gauss_lobatto_matrices
-!
-!###############################################################################
-!
-subroutine old_interp2quadrature()
-  !
-  !.. Use Statements ..
-  use geovar, only : n_order,n_sp1de,n_sp2dt,n_sp2dq
-  use geovar, only : q_order,n_qp1de,n_qp2dt,n_qp2dq
-  use geovar, only : qdtpts_1d,qdtwts_1d,qdtwts_2d
-  use geovar, only : solpts_1d,solwts_1d,invM_mat,weights2d
-  use geovar, only : interp_f2g,projct_g2f,vand_qdtr
-  use geovar, only : interp_s2q,projct_q2s,vand_qdtr_inv
-  use geovar, only : interp_s2g,using_quadrature
-  use geovar, only : vand_1d,vand_1d_inv
-  use geovar, only : vand_quad,vand_quad_inv
-  use ovar,   only : iop_qdtpts
-  use metvar, only : dr_mat,ds_mat,dq1D_mat
-  use metvar, only : dqr_mat,dqr_LPmat,dqr_CRmat
-  use metvar, only : dqs_mat,dqs_LPmat,dqs_CRmat
-  use polynomial_mod, only : nodes_legendre_gauss, &
-                             weights_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             weights_legendre_gauss_lobatto
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,l,ierr
-  integer :: li,lj,ki,kj,nsp,nqp
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:n_qp1de) :: vp
-  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: tmpmat
-  real(wp), dimension(1:n_qp1de,1:n_qp1de) :: vand1D_qp
-  real(wp), dimension(1:n_qp1de,1:n_qp1de) :: dv1D_qp
-  real(wp), dimension(1:n_qp1de,1:n_sp1de) :: vand1D_f2g
-  real(wp), dimension(1:n_qp2dq,1:n_sp2dq,1:2) :: vand2D_s2q
-  !
-continue
-  !
-  if (using_quadrature .and. mypnum == 0) write (iout,1)
-  !
-  ! ###########################################################
-  ! ###########################################################
-  ! ##                                                       ##
-  ! ##  Allocate all the arrays needed for quadrature in 2D  ##
-  ! ##                                                       ##
-  ! ###########################################################
-  ! ###########################################################
-  !
-  allocate ( qdtpts_1d(1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","qdtpts_1d",1,ierr)
-  allocate ( qdtwts_1d(1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","qdtwts_1d",1,ierr)
-  allocate ( dq1D_mat(1:n_qp1de,1:n_qp1de), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dq1D_mat",1,ierr)
-  allocate ( interp_f2g(1:n_sp1de,1:n_qp1de) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","interp_f2g",1,ierr)
-  allocate ( projct_g2f(1:n_qp1de,1:n_sp1de) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","projct_g2f",1,ierr)
-  !
-  ! ####################################
-  ! ####################################
-  ! ##                                ##
-  ! ##  Section for quadrature in 1D  ##
-  ! ##                                ##
-  ! ####################################
-  ! ####################################
-  !
-  ! 1D quadrature nodes and weights
-  !
-  if (iop_qdtpts == Legendre_Gauss_Lobatto) then
-    call nodes_legendre_gauss_lobatto(q_order,qdtpts_1d,vp)
-    call weights_legendre_gauss_lobatto(q_order,vp,qdtwts_1d)
-  else
-    call nodes_legendre_gauss(n_qp1de,qdtpts_1d,vp)
-    call weights_legendre_gauss(n_qp1de,qdtpts_1d,vp,qdtwts_1d)
-  end if
-  !
-  ! 1D Derivative matrix for the quadrature points
-  !
-  vand1d_qp(:,:) = Vandermonde1D(qdtpts_1d)
-  dv1d_qp(:,:) = GradVandermonde1D(qdtpts_1d)
-  dq1D_mat(:,:) = Dmatrix1D(vand1d_qp,dv1d_qp)
-  !
-  ! 1D Vandermonde matrix giving the value for each of the
-  ! #(n_sp1de) modes at the #(n_qp1de) quadrature points
-  !
-  vand1d_f2g(:,:) = Vandermonde1D_N(qdtpts_1d,n_sp1de)
-  !
-  ! Matrix for interpolating 1D nodal values at face
-  ! flux/solution points to face quadrature points
-  !
-  interp_f2g(:,:) = transpose( matmul( vand1d_f2g , vand_1d_inv ) )
-  !
-  call output2d(array_debugging,interp_f2g(:,:),2,2,3,'interp_f2g')
-  !
-  ! Matrix for projecting nodal values at face quadrature
-  ! points to the face flux/solution points
-  !
-  projct_g2f(:,:) = matmul( vand1D_f2g , transpose(vand_1D) )
-  do i = 1,n_sp1de
-    projct_g2f(:,i) = projct_g2f(:,i) * qdtwts_1d(:)
-  end do
-  !
-  call output2d(array_debugging,projct_g2f(:,:),2,2,3,'projct_g2f')
-  !
-  ! ###########################################################
-  ! ###########################################################
-  ! ##                                                       ##
-  ! ##  Allocate all the arrays needed for quadrature in 2D  ##
-  ! ##                                                       ##
-  ! ###########################################################
-  ! ###########################################################
-  !
-  allocate ( qdtwts_2d(1:n_qp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","qdtwts_2d",1,ierr)
-  allocate ( vand_qdtr(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","vand_qdtr",1,ierr)
-  allocate ( vand_qdtr_inv(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","vand_qdtr_inv",1,ierr)
-  allocate ( interp_s2q(1:n_sp2dq,1:n_qp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","interp_s2q",1,ierr)
-  allocate ( projct_q2s(1:n_qp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","projct_q2s",1,ierr)
-  allocate ( dqr_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqr_mat",1,ierr)
-  allocate ( dqs_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqs_mat",1,ierr)
-  allocate ( dqr_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqr_LPmat",1,ierr)
-  allocate ( dqs_LPmat(1:n_qp2dq,1:n_sp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqs_LPmat",1,ierr)
-  allocate ( dqr_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqr_CRmat",1,ierr)
-  allocate ( dqs_CRmat(1:n_sp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","dqs_CRmat",1,ierr)
-  allocate ( invM_mat(1:n_sp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","invM_mat",1,ierr)
-  allocate ( interp_s2g(1:n_sp2dq,1:4*n_qp1de,1:2) , source=zero , stat=ierr )
-  call alloc_error("old_interp2quadrature","interp_s2g",1,ierr)
-  !
-  ! ################################################
-  ! ################################################
-  ! ##                                            ##
-  ! ##  Section for quadrature on triangle cells  ##
-  ! ##                                            ##
-  ! ################################################
-  ! ################################################
-  !
-  nsp = n_sp2dt
-  nqp = n_qp2dt
-  !
-  ! #####################################################
-  ! #####################################################
-  ! ##                                                 ##
-  ! ##  Section for quadrature on quadrilateral cells  ##
-  ! ##                                                 ##
-  ! #####################################################
-  ! #####################################################
-  !
-  nsp = n_sp2dq
-  nqp = n_qp2dq
-  !
-  ! 2D quadrature weights for the quadrature points
-  !
-  k = 0
-  do i = 1,n_qp1de
-    do j = 1,n_qp1de
-      k = k + 1
-      qdtwts_2d(k,2) = qdtwts_1d(i)*qdtwts_1d(j)
-    end do
-  end do
-  !
-  ! Full Vandermonde matrix for the quadrature nodes and modes
-  !
-  vand_qdtr(1:nqp,1:nqp,2) = Vandermonde2D_quad(qdtpts_1d)
-  vand_qdtr_inv(1:nqp,1:nqp,2) = invert_matrix(vand_qdtr(1:nqp,1:nqp,2))
-  !
-  ! 2D matrix for interpolating nodal values at SPs to QPs
-  !
-  vand2D_s2q(1:nqp,1:nsp,2) = Vandermonde2D_quad_N(qdtpts_1d,n_order)
-  interp_s2q(1:nsp,1:nqp,2) = &
-        transpose( matmul( vand2D_s2q(1:nqp,1:nsp,2) , vand_quad_inv ) )
-  !
-  call output2d(array_debugging,interp_s2q(1:nsp,1:nqp,2),2,2,2,'interp_s2q')
-  !
-  ! Matrix for interpolating cell nodal values at SPs to face QPs
-  !
-  interp_s2g(1:nsp,1:4*n_qp1de,2) = LagrangePoly2D_quad(qdtpts_1d,solpts_1d)
-  !
-  call output2d(array_debugging,interp_s2g(1:nsp,1:4*n_qp1de,2),2,1,2,'interp_s2g')
-  !
-  ! 2D matrix to project nodal values at QPs to SPs
-  !
-  projct_q2s(1:nqp,1:nsp,2) = &
-        matmul( vand2D_s2q(1:nqp,1:nsp,2) , transpose(vand_quad) )
-  do i = 1,nsp
-    projct_q2s(1:nqp,i,2) = projct_q2s(1:nqp,i,2) * qdtwts_2d(1:nqp,2)
-  end do
-  !
-  call output2d(array_debugging,projct_q2s(1:nqp,1:nsp,2),2,2,2,'projct_q2s')
-  !
-  ! 2D Derivative matrix for the quadrature points
-  !
-  call output2d(array_debugging,dr_mat(1:nsp,1:nsp,2),2,2,2,'dr_mat')
-  call output2d(array_debugging,ds_mat(1:nsp,1:nsp,2),2,2,2,'ds_mat')
-  !
-  call Dmatrix2D_quad(dq1d_mat,dqr_mat(1:nqp,1:nqp,2),dqs_mat(1:nqp,1:nqp,2))
-  !
-  call output2d(array_debugging,dqr_mat(1:nqp,1:nqp,2),2,2,2,'dqr_mat')
-  call output2d(array_debugging,dqs_mat(1:nqp,1:nqp,2),2,2,2,'dqs_mat')
-  !
-  ! Pre-multiply the derivative matrices by the projection
-  ! matrix for when using the derivative of the Lagrange polynomial
-  !
-  dqr_LPmat(1:nqp,1:nsp,2) = &
-      matmul( transpose(dqr_mat(1:nqp,1:nqp,2)) , projct_q2s(1:nqp,1:nsp,2) )
-  dqs_LPmat(1:nqp,1:nsp,2) = &
-      matmul( transpose(dqs_mat(1:nqp,1:nqp,2)) , projct_q2s(1:nqp,1:nsp,2) )
-  !
-  call output2d(array_debugging,dqr_LPmat(1:nqp,1:nsp,2),2,2,2,'dqr_LPmat')
-  call output2d(array_debugging,dqs_LPmat(1:nqp,1:nsp,2),2,2,2,'dqs_LPmat')
-  !
-  ! Pre-multiply the derivative matrices by the
-  ! interpolation matrix for when using the chain-rule
-  !
-  dqr_CRmat(1:nsp,1:nqp,2) = &
-      matmul( interp_s2q(1:nsp,1:nqp,2) , transpose(dqr_mat(1:nqp,1:nqp,2)) )
-  dqs_CRmat(1:nsp,1:nqp,2) = &
-      matmul( interp_s2q(1:nsp,1:nqp,2) , transpose(dqs_mat(1:nqp,1:nqp,2)) )
-  !
-  call output2d(array_debugging,dqr_CRmat(1:nsp,1:nqp,2),2,2,2,'dqr_CRmat')
-  call output2d(array_debugging,dqs_CRmat(1:nsp,1:nqp,2),2,2,2,'dqs_CRmat')
-  !
-  ! Inverse of the mass matrix
-  !
-  invM_mat(1:nsp,1:nsp,2) = matmul( vand_quad , transpose(vand_quad) )
-  !
-  call output2d(array_debugging,invM_mat(1:nsp,1:nsp,2),2,2,2,'invM_mat')
-  !
- !write (121,5) "Solution point weights 1D"
- !write (121,4) (solwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Quadrature weights 1D"
- !write (121,4) (qdtwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Inverse solution point weights 1D"
- !write (121,4) (one/solwts_1d(i),i=1,n_sp1de)
- !write (121,5) "Inverse quadrature weights 1D"
- !write (121,4) (one/qdtwts_1d(i),i=1,n_sp1de)
- !4 format (/,*(f12.6))
- !5 format (/,a)
- !!
- !write (104,*) "Dqr matrix"
- !write (105,*) "Dqs matrix"
- !!
- !write (120,*) "weights"
- !do j = 1,n_sp1de
- !  write (120,3) (weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
- !end do
- !write (120,*) "Inverse weights"
- !do j = 1,n_sp1de
- !  write (120,3) (one/weights2d( (n_sp1de-j)*n_sp1de+i , 2 ),i=1,n_sp1de)
- !end do
- !write (120,*) "Quadrature weights"
- !do j = 1,n_qp1de
- !  write (120,3) (qdtwts_2d( (n_qp1de-j)*n_qp1de+i ),i=1,n_qp1de)
- !end do
- !write (120,*) "Inverse mass matrix"
- !do l = 1,n_sp1de
- !  do k = 1,n_sp1de
- !    write (104,2) k,l
- !    write (105,2) k,l
- !    write (120,2) k,l
- !    do j = 1,n_qp1de
- !      write (104,3) (dqr_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
- !      write (105,3) (dqs_mat( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_qp1de)
- !    end do
- !    do j = 1,n_sp1de
- !      write (120,3) (invM_mat( (n_sp1de-j)*n_sp1de+i , (l-1)*n_sp1de+k , 2 ),i=1,n_sp1de)
- !    end do
- !  end do
- !end do
- !2 format (/,"i = ",i2,", j = ",i2)
- !3 format (*(es12.4))
- !flush(120)
- !!
- !write (111,*) "Lagrange on Quadrature Points"
- !do l = 1,4
- !  do k = 1,n_sp1de
- !    write (111,4) l,k
- !    do j = 1,n_qp1de
- !      write (111,3) (interp_s2g( (n_qp1de-j)*n_qp1de+i , (l-1)*n_sp1de+k ),i=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !4 format (/,"Face = ",i2,", i = ",i2)
- !write (102,*) "Quadrature Interpolation Vandermonde Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (102,*)
- !    write (102,11) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_qp1de,1,-1
- !      write (102,12) (vand_qdtr(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !!
- !write (103,*) "Quadrature Interpolation Matrix"
- !do lj = 0,n_order
- !  do li = 0,n_order
- !    l = n_sp1de*lj + li + 1
- !    write (103,*)
- !    write (103,11) "Basis function for term (x^",li,")*(y^",lj,")"
- !    do kj = n_qp1de,1,-1
- !      write (103,12) (interp_s2q(n_qp1de*(kj-1)+ki,l),ki=1,n_qp1de)
- !    end do
- !  end do
- !end do
- !!
- !if (mypnum == 0) call write_lagrange_tecplot
- !!
- !10 format (100es14.6)
-  11 format (a,i0,a,i0,a)
-  12 format (*(es12.4))
-  !
-  1 format (/," ************************************************",/, &
-              "     USING OVER-INTEGRATION FOR DE-ALIASING",/, &
-              " ************************************************",/)
- !!
-end subroutine old_interp2quadrature
 !
 !###############################################################################
 !

@@ -10,20 +10,19 @@ pure function entropy_cv(uu) result(return_value)
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,nq
+  integer :: n
   real(wp) :: gm1,q2,pres
   !
 continue
   !
-  nq = size(uu,dim=1)
   gm1 = gam - one
   !
   do n = 1,size(uu,dim=2)
     !
-    q2 = dot( uu(2:nq-1,n) , uu(2:nq-1,n) )
-    pres = gm1 * (uu(nq,n) - half*q2/uu(1,n))
+    q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
+    pres = gm1 * (uu(nee,n) - half*q2/uu(nec,n))
     !
-    return_value(n) = log(pres) - gam*log(uu(1,n))
+    return_value(n) = log(pres) - gam*log(uu(nec,n))
     !
   end do
   !
@@ -43,18 +42,16 @@ pure function entropy_cv_sp(uu) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nq
   real(wp) :: gm1,q2,pres
   !
 continue
   !
-  nq = size(uu)
   gm1 = gam - one
   !
-  q2 = dot( uu(2:nq-1) , uu(2:nq-1) )
-  pres = gm1 * (uu(nq) - half*q2/uu(1))
+  q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
+  pres = gm1 * (uu(nee) - half*q2/uu(nec))
   !
-  return_value = log(pres) - gam*log(uu(1))
+  return_value = log(pres) - gam*log(uu(nec))
   !
 end function entropy_cv_sp
 !
@@ -72,14 +69,12 @@ pure function entropy_pv(vv) result(return_value)
   real(wp), dimension(1:size(vv,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,nq
+  integer :: n
   !
 continue
   !
-  nq = size(vv,dim=1)
-  !
   do n = 1,size(vv,dim=2)
-    return_value(n) = log(vv(nq,n)) - gam*log(vv(1,n)) 
+    return_value(n) = log(vv(nee,n)) - gam*log(vv(nec,n)) 
   end do
   !
 end function entropy_pv
@@ -99,7 +94,7 @@ pure function entropy_pv_sp(vv) result(return_value)
   !
 continue
   !
-  return_value = log(vv(size(vv))) - gam*log(vv(1))
+  return_value = log(vv(nee)) - gam*log(vv(nec))
   !
 end function entropy_pv_sp
 !

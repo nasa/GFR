@@ -19,8 +19,7 @@ module module_bc
   !
   public :: get_faceusp_bc
   public :: get_facedusp_bc
-  public :: compute_bc_profiles
- !public :: init_bc_module
+!!  public :: compute_bc_profiles
   !
   !
   !
@@ -55,21 +54,6 @@ module module_bc
   !
   !
 contains
-!
-!###############################################################################
-!
-!subroutine init_bc_module
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : n_sp1de,n_fp1de,n_sp2dq
-!  use geovar, only : interp_s2g,interp_s2f
-!  !
-!  !.. Local Scalars ..
-!  integer :: ierr
-!  !
-!continue
-!  !
-!end subroutine init_bc_module
 !
 !###############################################################################
 !
@@ -438,7 +422,7 @@ continue
     !
     ! Compute the interior normal velocity at this flux point
     !
-    vn_int = dot( rnrm , hvfp(2:nq-1) )
+    vn_int = dot( rnrm , hvfp(nmb:nme) )
     !
     ! Apply boundary conditions based on the
     ! normal Mach number to the boundary face
@@ -471,14 +455,14 @@ continue
       !
       ! Compute the exterior normal velocity at this flux point
       !
-      vn_ext = dot( rnrm , pv_in(2:nq-1) )
+      vn_ext = dot( rnrm , pv_in(nmb:nme) )
       !
      !if (mach_int > zero) then ! this is an inflow boundary
      !  !
      !  rp = vn_ext + two*aspd_ext*gm1_inv
      !  rm = vn_int - two*aspd_int*gm1_inv
      !  unc = half*(rp+rm)
-     !  utc = dot( rtan , pv_in(2:nq-1) )
+     !  utc = dot( rtan , pv_in(nmb:nme) )
      !  ac = one4*gm1*(rp-rm)
      !  sc = pv_in(nq)/(pv_in(1)**gam)
      !  !
@@ -487,7 +471,7 @@ continue
      !  rp = -abs(vn_ext) + two*aspd_ext*gm1_inv
      !  rm =      vn_int  - two*aspd_int*gm1_inv
      !  unc = half*(rp+rm)
-     !  utc = dot( rtan , hvfp(2:nq-1) )
+     !  utc = dot( rtan , hvfp(nmb:nme) )
      !  ac = one4*gm1*(rp-rm)
      !  sc = hvfp(nq)/(hvfp(1)**gam)
      !  !
@@ -497,12 +481,12 @@ continue
       !
       if (mach_int > zero) then
         rp   = vn_ext
-        utc  = dot( rtan , pv_in(2:nq-1) )
+        utc  = dot( rtan , pv_in(nmb:nme) )
         rho  = pv_in(1)
         pres = pv_in(nq)
       else
         rp   = -abs(vn_ext)
-        utc  = dot( rtan , hvfp(2:nq-1) )
+        utc  = dot( rtan , hvfp(nmb:nme) )
         rho  = hvfp(1)
         pres = hvfp(nq)
       end if
@@ -523,8 +507,8 @@ continue
       ! Compute the conservative variables at the boundary flux points
       !
       gufp(1,k) = rho
-      gufp(2:nq-1,k) = rho * (unc*rnrm(:) + utc*rtan(:))
-      gufp(nq,k) = pres*gm1_inv + half * selfdot( gufp(2:nq-1,k) ) / rho
+      gufp(nmb:nme,k) = rho * (unc*rnrm(:) + utc*rtan(:))
+      gufp(nq,k) = pres*gm1_inv + half * selfdot( gufp(nmb:nme,k) ) / rho
       !
     end if
     !
@@ -572,7 +556,7 @@ continue
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(2:nq-1) )
+  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
   !
   gm1_inv = one / (gam - one)
   !
@@ -592,7 +576,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int > -one .and. mach_int <= zero) then
       !
@@ -686,7 +670,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int < one .and. mach_int >= zero) then
       !
@@ -698,7 +682,7 @@ continue
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(2:nq-1,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
@@ -767,7 +751,7 @@ continue
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(2:nq-1) )
+  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
   !
   gm1_inv = one / (gam - one)
   !
@@ -787,7 +771,7 @@ continue
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot( hvfp(2:nq-1) , rnrm(1:nr) ) / aspd_int
+    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
     !
     if (mach_int >= one) then
       !
@@ -828,7 +812,7 @@ continue
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(2:nq-1,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
@@ -873,7 +857,7 @@ continue
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(2:nq-1) )
+  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
   !
   gm1_inv = one / (gam - one)
   !
@@ -937,7 +921,7 @@ continue
     !
     ! Compute the interior specific kinetic energy
     !
-    ske_int = half * selfdot( hufp(2:nq-1,k) ) / hufp(1,k)
+    ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
     !
     ! Compute the total energy using free stream pressure
     ! and interior specific kinetic energy
@@ -1061,13 +1045,13 @@ continue
     !
     ! Compute the normal velocity at this boundary flux point
     !
-    vn = dot( hvfp(2:nq-1) , rnrm )
+    vn = dot( hvfp(nmb:nme) , rnrm )
     !
     ! For velocities, subtract (wall_solution_location+one) * (the wall
     ! normal velocity) from the interior velocity to get the wall
     ! boundary velocity.
     !
-    hvfp(2:nq-1) = hvfp(2:nq-1) - (wall_solution_location+one)*vn*rnrm(:)
+    hvfp(nmb:nme) = hvfp(nmb:nme) - (wall_solution_location+one)*vn*rnrm(:)
     !
     ! Convert the primitive variables to conservative.
     ! This ensures that the interior density and pressure are
@@ -1120,7 +1104,7 @@ continue
     !
     ! Apply the no-slip condition to the boundary velocities
     !
-    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_solution_location
+    hvfp(nmb:nme) = -hvfp(nmb:nme) * wall_solution_location
     !
     ! Convert the primitive variables to conservative.
     ! This ensures that the interior density and pressure are
@@ -1176,7 +1160,7 @@ continue
     !
     ! Apply the no-slip condition to the boundary velocities
     !
-    hvfp(2:nq-1) = -hvfp(2:nq-1) * wall_solution_location
+    hvfp(nmb:nme) = -hvfp(nmb:nme) * wall_solution_location
     !
     ! Keeping the wall pressure constant, compute the wall
     ! density using the isothermal wall temperature.
@@ -1555,166 +1539,171 @@ end subroutine output_bface
 !
 !###############################################################################
 !
-subroutine compute_bc_profiles
-  !
-  !.. Use Statements ..
-  use geovar,  only : bface,pts_in_cell_ptr,interp_s2f
-  use geovar,  only : n_fp1de,n_sp2dt,n_sp2dq,nr
-  use ovar,    only : machref,rhoref,aref,muref,cpref_nd,Pr
-  use metvar,  only : geofa
-  use flowvar, only : bnd_prof,usp,dusp
-  !
-  !.. Local Scalars ..
-  integer :: i,k,l,m,n,nf,np,nw,n1,n2
-  integer :: host_cell,cell_face,ierr
-  integer :: begfp,begbp,flxpt,bndpt
-  real(wp) :: temp,visc,xloc,yloc,tauwall
-  real(wp) :: cfmag,rex,utau,yplus,qdot
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: cvfp
-  real(wp), dimension(1:nq) :: pvfp
-  real(wp), dimension(1:n_sp2dq) :: lmat
-  real(wp), dimension(1:nr,1:nq) :: dcvdx
-  real(wp), dimension(1:nr,1:nq) :: dpvdx
-  !
-continue 
-  !
-  do n = 1,size(bnd_prof)
-    !
-    do i = 1,size(bnd_prof(n)%faces)
-      !
-      nf = bnd_prof(n)%faces(i) ! boundary face of current profile
-      !
-      host_cell = bface(2,nf) ! host cell on current boundary face
-      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
-      !
-      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
-      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
-      np = n2-n1+1                      ! number of sol-pts in host cell
-      nw = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
-      !
-      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
-      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
-      !
-      do k = 1,n_fp1de
-        !
-        flxpt = begfp + k ! Index of flx-pt local to the current host cell
-        bndpt = begbp + k ! Index within qty_data for current flx-pt
-        !
-        unrm(1:nr) = geofa(1:nr,k,nf)
-        !
-        lmat(1:np) = interp_s2f(1:np,flxpt,nw)
-        !
-        ! Interpolate the conservative variables from the interior sol-pts
-        ! to the current flux point on face nf
-        !
-        do m = 1,nq
-          cvfp(m) = dot( lmat(1:np) , usp(m,n1:n2) )
-          do l = 1,nr
-            dcvdx(l,m) = dot( lmat(1:np) , dusp(l,m,n1:n2) )
-          end do
-        end do
-        !
-        ! Compute the primitive variables and their
-        ! gradients at the current flux point
-        !
-        pvfp(1:nq) = usp2v_sp( cvfp(1:nq) )
-        dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq) , &
-                                                     dcvdx(1:nr,1:nq) )
-        !
-        do m = 1,nq
-          bnd_prof(n)%qty(nr+m)%qty_data(bndpt) = pvfp(m)
-        end do
-        !
-        temp = temperature_pv_sp(pvfp)
-        visc = viscosity_pv_sp(pvfp)
-        !
-        bnd_prof(n)%qty(nr+nq+1)%qty_data(bndpt) = temp
-        bnd_prof(n)%qty(nr+nq+2)%qty_data(bndpt) = visc
-        !
-        ! Compute the other flow variables for the profile
-        !
-        if (any(bface(1,nf) == bc_walls)) then
-          !
-          xloc = bnd_prof(n)%qty(1)%qty_data(bndpt)
-          yloc = bnd_prof(n)%qty(2)%qty_data(bndpt)
-          !
-          tauwall = visc * normal_streamwise_velocity_gradient_pv(pvfp,dpvdx,unrm)
-          tauwall = abs(tauwall)
-          cfmag = two * tauwall / (machref*machref)
-          rex = rhoref * machref * aref * xloc / muref
-          utau = sqrt( tauwall / cvfp(1) )
-          yplus = cvfp(1) * utau * yloc / visc
-          qdot = -dot(dpvdx(1:nr,nq),unrm(1:nr)) &
-                  * cpref_nd * visc / Pr
-          !
-          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = cfmag
-          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = rex
-          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = yplus
-          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = tauwall
-          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = utau
-          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = qdot
-          !
-        else
-          !
-          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = zero
-          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = zero
-          !
-        end if
-        !
-      end do
-      !
-    end do
-    !
-  end do
-  !
-  ! Output the profiles in Tecplot format
-  !
-  open (iogrd,file="bndprof.tec.dat",status="replace",action="write", &
-              form="formatted",position="rewind",iostat=ierr)
-  call io_error("compute_bc_profiles","bndprof.tec.dat",1,ierr)
-  !
-  write (iogrd,100) (trim(bnd_prof(1)%qty(m)%qty_name), &
-                          m=1,size(bnd_prof(1)%qty) )
-  !
-  do n = 1,size(bnd_prof)
-    !
-    np = size(bnd_prof(n)%qty(1)%qty_data)
-    !
-    nf = bnd_prof(n)%faces(1)
-    if (any(bface(1,nf) == bc_walls)) then
-      write (iogrd,102) trim(bnd_prof(n)%prof_name),np
-    else
-      write (iogrd,102) trim(bnd_prof(n)%prof_name),np,nr+nq+3,nr+nq+8
-    end if
-    !
-    do m = 1,size(bnd_prof(n)%qty)
-      write (iogrd,103) (bnd_prof(n)%qty(m)%qty_data(i), i=1,np)
-    end do
-    !
-  end do
-  !
-  close (iogrd,iostat=ierr)
-  call io_error("compute_bc_profiles","bndprof.tec.dat",2,ierr)
-  !
-  ! Format Statements
-  !
-  100 format ('VARIABLES =',*(' "',a,'"',:))
-  101 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK')
-  102 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK',:, &
-              ', PASSIVEVARLIST=[',i0,'-',i0,']')
-  103 format (5es18.10)
-  !
-end subroutine compute_bc_profiles
-!
-!###############################################################################
-!
+!!subroutine compute_bc_profiles
+!!  !
+!!  !.. Use Statements ..
+!!  use order_mod, only : n_fp1de,n_sp2dt,n_sp2dq
+!!  use geovar,    only : nr,bface,pts_in_cell_ptr,interp_s2f
+!!  use ovar,      only : machref,rhoref,aref,muref,cpref_nd,Pr
+!!  use metvar,    only : geofa
+!!  use flowvar,   only : bnd_prof,usp,dusp
+!!  !
+!!  !.. Local Scalars ..
+!!  integer :: i,k,l,m,n,nf,np,wlocl,n1,n2
+!!  integer :: host_cell,cell_face,ierr
+!!  integer :: begfp,begbp,flxpt,bndpt
+!!  integer :: ioprf
+!!  real(wp) :: temp,visc,xloc,yloc,tauwall
+!!  real(wp) :: cfmag,rex,utau,yplus,qdot
+!!  !
+!!  !.. Local Arrays ..
+!!  real(wp), dimension(1:nr) :: unrm
+!!  real(wp), dimension(1:nq) :: cvfp
+!!  real(wp), dimension(1:nq) :: pvfp
+!!  real(wp), dimension(1:n_sp2dq) :: lmat
+!!  real(wp), dimension(1:nr,1:nq) :: dcvdx
+!!  real(wp), dimension(1:nr,1:nq) :: dpvdx
+!!  !
+!!  !.. Local Parameters ..
+!!  character(len=*), parameter :: fname = "bndprof.tec.dat"
+!!  character(len=*), parameter :: pname = "compute_bc_profiles"
+!!  !
+!!continue 
+!!  !
+!!  do n = 1,size(bnd_prof)
+!!    !
+!!    do i = 1,size(bnd_prof(n)%faces)
+!!      !
+!!      nf = bnd_prof(n)%faces(i) ! boundary face of current profile
+!!      !
+!!      host_cell = bface(2,nf) ! host cell on current boundary face
+!!      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
+!!      !
+!!      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
+!!      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
+!!      np = n2-n1+1                      ! number of sol-pts in host cell
+!!      wlocl = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
+!!      !
+!!      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
+!!      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
+!!      !
+!!      do k = 1,n_fp1de
+!!        !
+!!        flxpt = begfp + k ! Index of flx-pt local to the current host cell
+!!        bndpt = begbp + k ! Index within qty_data for current flx-pt
+!!        !
+!!        unrm(1:nr) = geofa(1:nr,k,nf)
+!!        !
+!!        lmat(1:np) = interp_s2f(1:np,flxpt,wlocl)
+!!        !
+!!        ! Interpolate the conservative variables from the interior sol-pts
+!!        ! to the current flux point on face nf
+!!        !
+!!        do m = 1,nq
+!!          cvfp(m) = dot( lmat(1:np) , usp(m,n1:n2) )
+!!          do l = 1,nr
+!!            dcvdx(l,m) = dot( lmat(1:np) , dusp(l,m,n1:n2) )
+!!          end do
+!!        end do
+!!        !
+!!        ! Compute the primitive variables and their
+!!        ! gradients at the current flux point
+!!        !
+!!        pvfp(1:nq) = usp2v_sp( cvfp(1:nq) )
+!!        dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq) , &
+!!                                                     dcvdx(1:nr,1:nq) )
+!!        !
+!!        do m = 1,nq
+!!          bnd_prof(n)%qty(nr+m)%qty_data(bndpt) = pvfp(m)
+!!        end do
+!!        !
+!!        temp = temperature_pv_sp(pvfp)
+!!        visc = viscosity_pv_sp(pvfp)
+!!        !
+!!        bnd_prof(n)%qty(nr+nq+1)%qty_data(bndpt) = temp
+!!        bnd_prof(n)%qty(nr+nq+2)%qty_data(bndpt) = visc
+!!        !
+!!        ! Compute the other flow variables for the profile
+!!        !
+!!        if (any(bface(1,nf) == bc_walls)) then
+!!          !
+!!          xloc = bnd_prof(n)%qty(1)%qty_data(bndpt)
+!!          yloc = bnd_prof(n)%qty(2)%qty_data(bndpt)
+!!          !
+!!          tauwall = visc * normal_streamwise_velocity_gradient_pv(pvfp,dpvdx,unrm)
+!!          tauwall = abs(tauwall)
+!!          cfmag = two * tauwall / (machref*machref)
+!!          rex = rhoref * machref * aref * xloc / muref
+!!          utau = sqrt( tauwall / cvfp(1) )
+!!          yplus = cvfp(1) * utau * yloc / visc
+!!          qdot = -dot(dpvdx(1:nr,nq),unrm(1:nr)) &
+!!                  * cpref_nd * visc / Pr
+!!          !
+!!          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = cfmag
+!!          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = rex
+!!          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = yplus
+!!          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = tauwall
+!!          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = utau
+!!          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = qdot
+!!          !
+!!        else
+!!          !
+!!          bnd_prof(n)%qty(nr+nq+3)%qty_data(bndpt) = zero
+!!          bnd_prof(n)%qty(nr+nq+4)%qty_data(bndpt) = zero
+!!          bnd_prof(n)%qty(nr+nq+5)%qty_data(bndpt) = zero
+!!          bnd_prof(n)%qty(nr+nq+6)%qty_data(bndpt) = zero
+!!          bnd_prof(n)%qty(nr+nq+7)%qty_data(bndpt) = zero
+!!          bnd_prof(n)%qty(nr+nq+8)%qty_data(bndpt) = zero
+!!          !
+!!        end if
+!!        !
+!!      end do
+!!      !
+!!    end do
+!!    !
+!!  end do
+!!  !
+!!  ! Output the profiles in Tecplot format
+!!  !
+!!  open (newunit=ioprf,file=fname,status="replace",action="write", &
+!!                      form="formatted",position="rewind",iostat=ierr)
+!!  call io_error(pname,fname,1,ierr)
+!!  !
+!!  write (ioprf,100) (trim(bnd_prof(1)%qty(m)%qty_name), &
+!!                          m=1,size(bnd_prof(1)%qty) )
+!!  !
+!!  do n = 1,size(bnd_prof)
+!!    !
+!!    np = size(bnd_prof(n)%qty(1)%qty_data)
+!!    !
+!!    nf = bnd_prof(n)%faces(1)
+!!    if (any(bface(1,nf) == bc_walls)) then
+!!      write (ioprf,102) trim(bnd_prof(n)%prof_name),np
+!!    else
+!!      write (ioprf,102) trim(bnd_prof(n)%prof_name),np,nr+nq+3,nr+nq+8
+!!    end if
+!!    !
+!!    do m = 1,size(bnd_prof(n)%qty)
+!!      write (ioprf,103) (bnd_prof(n)%qty(m)%qty_data(i), i=1,np)
+!!    end do
+!!    !
+!!  end do
+!!  !
+!!  close (ioprf,iostat=ierr)
+!!  call io_error(pname,fname,2,ierr)
+!!  !
+!!  ! Format Statements
+!!  !
+!!  100 format ('VARIABLES =',*(' "',a,'"',:))
+!!  101 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK')
+!!  102 format ('ZONE T="',a,'", I=',i0,', DATAPACKING=BLOCK',:, &
+!!              ', PASSIVEVARLIST=[',i0,'-',i0,']')
+!!  103 format (5es18.10)
+!!  !
+!!end subroutine compute_bc_profiles
+!!!
+!!!###############################################################################
+!!!
 subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Use Statements ..

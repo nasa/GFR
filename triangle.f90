@@ -150,9 +150,8 @@ end function EquiTriNodes2D_QP
 !
 pure function Warpfactor_DP(N,r) result(return_value)
   !
-  use startup_mod,    only : Vandermonde1D
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             JacobiP => normalized_jacobi_poly
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
   integer,  intent(in) :: N
   real(dp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
@@ -195,7 +194,12 @@ continue
   !
   ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
   !
-  V_EQD = transpose(Vandermonde1D(EQD_nodes))
+  do j = 1,np
+    do i = 1,np
+      V_EQD(i,j) = JacobiP(j-1,zero,zero,EQD_nodes(i))
+    end do
+  end do
+  V_EQD = transpose(V_EQD)
   !
   ! Evaluate Lagrange polynomial at r
   !
@@ -228,9 +232,8 @@ end function Warpfactor_DP
 !
 pure function Warpfactor_QP(N,r) result(return_value)
   !
-  use startup_mod,    only : Vandermonde1D
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             JacobiP => normalized_jacobi_poly
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto
+  use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
   integer,  intent(in) :: N
   real(qp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
@@ -273,7 +276,12 @@ continue
   !
   ! Compute the transpose of the Vandermonde matrix based on EQD_nodes
   !
-  V_EQD = transpose(Vandermonde1D(EQD_nodes))
+  do j = 1,np
+    do i = 1,np
+      V_EQD(i,j) = JacobiP(j-1,zero,zero,EQD_nodes(i))
+    end do
+  end do
+  V_EQD = transpose(V_EQD)
   !
   ! Evaluate Lagrange polynomial at r
   !
@@ -552,10 +560,9 @@ end function TriNodes2D_DG_QP
 !
 !###############################################################################
 !
-function TriNodes2D_HT_DP(N,val) result(return_value)
+pure function TriNodes2D_HT_DP(N,val) result(return_value)
   !
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             nodes_legendre_gauss
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
   integer,  intent(in) :: N
   real(dp), intent(in) :: val
@@ -583,7 +590,6 @@ continue
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
   call nodes_legendre_gauss_lobatto(N,xi,vp)
- !call nodes_legendre_gauss(np1d,xi,vp)
   !
   ! Adjust the 1D LGL nodes to lie on the interval [0,1]
   !
@@ -619,10 +625,9 @@ end function TriNodes2D_HT_DP
 !
 !###############################################################################
 !
-function TriNodes2D_HT_QP(N,val) result(return_value)
+pure function TriNodes2D_HT_QP(N,val) result(return_value)
   !
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto, &
-                             nodes_legendre_gauss
+  use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
   integer,  intent(in) :: N
   real(qp), intent(in) :: val
@@ -650,7 +655,6 @@ continue
   ! Get the 1D Legendre-Gauss-Lobatto nodes
   !
   call nodes_legendre_gauss_lobatto(N,xi,vp)
- !call nodes_legendre_gauss(np1d,xi,vp)
   !
   ! Adjust the 1D LGL nodes to lie on the interval [0,1]
   !

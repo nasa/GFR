@@ -31,19 +31,17 @@ pure function vsp2u_sp(vv) result(return_value)
   real(wp), dimension(1:size(vv)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nq
   real(wp) :: gm1,q2
   !
 continue
   !
-  nq = size(vv)
   gm1 = gam - one
   !
-  q2 = dot( vv(2:nq-1) , vv(2:nq-1) )
+  q2 = dot( vv(nmb:nme) , vv(nmb:nme) )
   !
-  return_value(1) = vv(1)
-  return_value(2:nq-1) = vv(1)*vv(2:nq-1)
-  return_value(nq) = vv(nq)/gm1 + half*vv(1)*q2
+  return_value(nec)     = vv(nec)
+  return_value(nmb:nme) = vv(nec)*vv(nmb:nme)
+  return_value(nee)     = vv(nee)/gm1 + half*vv(nec)*q2
   !
 end function vsp2u_sp
 !

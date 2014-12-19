@@ -146,11 +146,6 @@ continue
     end if
   end do
   !
-  ! Tetrahedron elements are not currently set up so set
-  ! return_value to the currently not set up error value of -4
-  !
-  return_value = -4
-  !
 end function host_face_tetr
 !
 !###############################################################################
@@ -206,11 +201,6 @@ continue
       exit
     end if
   end do
-  !
-  ! Pyramid elements are not currently set up so set
-  ! return_value to the currently not set up error value of -5
-  !
-  return_value = -5
   !
 end function host_face_pyra
 !
@@ -268,11 +258,6 @@ continue
     end if
   end do
   !
-  ! Prism elements are not currently set up so set
-  ! return_value to the currently not set up error value of -6
-  !
-  return_value = -6
-  !
 end function host_face_pris
 !
 !###############################################################################
@@ -325,11 +310,6 @@ continue
       exit
     end if
   end do
-  !
-  ! Hexahedron elements are not currently set up so set
-  ! return_value to the currently not set up error value of -8
-  !
-  return_value = -8
   !
 end function host_face_hexa
 !
