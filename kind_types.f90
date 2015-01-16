@@ -60,6 +60,7 @@ module module_kind_types
   ! Definitions for numerical contants
   !
   real(qp), parameter :: qzero   = 0.0_qp
+  real(qp), parameter :: qhalf   = 0.5_qp
   real(qp), parameter :: qone    = 1.0_qp
   real(qp), parameter :: qtwo    = 2.0_qp
   !

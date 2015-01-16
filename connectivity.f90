@@ -373,6 +373,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Use Statements ..
   use order_mod, only : geom_solpts
+  use order_mod, only : find_geom_max_interp_order
   use geovar,    only : nr,nfbnd,nface,ncell,n_totnod
   use geovar,    only : xyz_nodes,bface,cell_geom,cell_order
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
@@ -796,6 +797,18 @@ continue
    !cells_on_face(6,nf) = face_pts*right_side
     !
   end do
+  !
+  ! ###########
+  ! ###########
+  ! ###  8  ###
+  ! ###########
+  ! ###########
+  !
+  ! Now that we have finished creating cells_on_face, use it to find the 
+  ! the maximum interpolation order required for each combination of
+  ! cell geometry and cell order.
+  !
+  call find_geom_max_interp_order(cell_geom,cell_order,cells_on_face)
   !
  !write (110,*)
  !write (110,*) "Boundary Faces"

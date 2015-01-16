@@ -8,6 +8,15 @@ module vandermonde_mod
   !
   private
   !
+  !
+  !.. Public Procedures ..
+  !
+  public :: init_vandermonde_matrices
+  public :: Vandermonde_Edge
+  public :: Vandermonde_Tria
+  !
+  !
+  !
   ! vandermonde_matrix : derived type that stores the matrices for converting
   !                      the polynomial solution within a cell between the nodal
   !                      and modal forms (two matrices, one for converting in
@@ -22,8 +31,8 @@ module vandermonde_mod
   !       Vandermonde matrix
   !
   type, public :: vandermonde_matrix
-    type(matrix), allocatable :: nodal2modal
-    type(matrix), allocatable :: modal2nodal
+    type(matrix) :: nodal2modal
+    type(matrix) :: modal2nodal
   end type vandermonde_matrix
   !
   ! vand : projection matrix for all combinations of cell geometry and 
@@ -52,6 +61,682 @@ module vandermonde_mod
   !
   type(vandermonde_matrix), public, save, target, allocatable :: vand(:,:)
   !
+contains
+!
+!###############################################################################
+!
+subroutine init_vandermonde_matrices()
+  !
+  !.. Use Statements ..
+  use geovar,         only : cell_geom,cell_order
+  use order_mod,      only : geom_solpts
+  use order_mod,      only : n_min_geom,n_max_geom
+  use order_mod,      only : n_min_order,n_max_order
+  use quadrature_mod, only : geom_is_used
+  use quadrature_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: gmin,gmax,omin,omax,ierr
+  integer :: this_geom,this_order,npts
+  character(len=200) :: array_name
+  character(len=200) :: error_message
+  !
+  !.. Local Pointers ..
+  type(vandermonde_matrix), pointer :: this_vand
+  real(wp), pointer, contiguous :: solpts(:,:)
+  real(wp), pointer, contiguous :: vmat(:,:)
+  real(wp), pointer, contiguous :: vmat_inv(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_vandermonde_matrices"
+  !
+continue
+  !
+  ! Initialize the local pointers to disassociated
+  !
+  this_vand => null()
+  solpts => null()
+  vmat => null()
+  vmat_inv => null()
+  !
+  gmin = n_min_geom
+  gmax = n_max_geom
+  omin = n_min_order
+  omax = n_max_order
+  !
+  ! Allocate the vand array
+  !
+  allocate ( vand(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vand",1,ierr,error_message)
+  !
+  geom_loop: do this_geom = gmin,gmax
+    !
+    if (.not. geom_is_used(this_geom)) cycle geom_loop
+    if (all(this_geom /= Geom_Valid)) cycle geom_loop
+    if (this_geom == Geom_Node) cycle geom_loop
+    !
+    order_loop: do this_order = omin,omax
+      !
+      ! Assign local pointer as alias to simplify the code
+      !
+      this_vand => vand(this_geom,this_order)
+      !
+      ! Get the number of solution points for this cell
+      !
+      npts = geom_solpts(this_geom,this_order)
+      !
+      ! Allocate the modal2nodal / vandermonde matrix
+      !
+      allocate ( this_vand%modal2nodal%mat(1:npts,1:npts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"modal2nodal%mat"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Allocate the nodal2modal / vandermonde inverse matrix
+      !
+      allocate ( this_vand%nodal2modal%mat(1:npts,1:npts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"nodal2modal%mat"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Assign local pointers to these matrices as aliases to simplify the code
+      !
+      vmat => this_vand%modal2nodal%mat
+      vmat_inv => this_vand%nodal2modal%mat
+      !
+      ! Compute the Vandermonde matrices depending on geometry type
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          vmat = Vandermonde_Edge( solpts(1,:) )
+          !
+        case (Geom_Tria)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          vmat = Vandermonde_Tria( solpts )
+          !
+        case (Geom_Quad)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          vmat = Vandermonde_Quad( solpts(1,:) )
+          !
+        case (Geom_Tetr)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          vmat = Vandermonde_Tetr( solpts )
+          !
+        case (Geom_Pyra)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          vmat = Vandermonde_Pyra( solpts )
+          !
+        case (Geom_Pris)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          vmat = Vandermonde_Pris( solpts )
+          !
+        case (Geom_Hexa)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          vmat = Vandermonde_Hexa( solpts(1,:) )
+          !
+        case default
+          !
+          write (error_message,2)
+          call stop_recon(stop_mpi,pname,error_message)
+          !
+      end select
+      !
+      ! Compute the inverse of the Vandermonde matrix that was just computed
+      !
+      vmat_inv = Vandermonde_Inverse( vmat )
+      !
+      ! Remove all associations of the local pointers before continuing
+      !
+      if (associated(this_vand)) this_vand => null()
+      if (associated(solpts   )) solpts    => null()
+      if (associated(vmat     )) vmat      => null()
+      if (associated(vmat_inv )) vmat_inv  => null()
+      !
+    end do order_loop
+    !
+  end do geom_loop
+  !
+  1 format ("vand(",a,",",i0,")%",a)
+  2 format (" A grid cell of an unknown geometry type was found!")
+  !
+end subroutine init_vandermonde_matrices
+!
+!###############################################################################
+!
+pure function Vandermonde_Inverse(vand_mat) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vand_mat
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_inv_qp(:,:)
+  !
+continue
+  !
+  n1 = size(vand_mat,dim=1)
+  n2 = size(vand_mat,dim=2)
+  !
+  ! Allocate the return array containing the working
+  ! precision inverse of the Vandermonde matrix
+  !
+  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  !
+  ! Create the Vandermonde matrix and its inverse using quad precision
+  !
+  allocate ( vmat_inv_qp(1:n1,1:n2) , source=qzero , stat=ierr )
+  !
+  ! Convert the Vandermonde matrix to quad precision and temporarily
+  ! store in the array for the inverse Vandermonde matrix
+  !
+  vmat_inv_qp = real( vand_mat , kind=qp )
+  !
+  ! Compute the inverse of the Vandermonde matrix
+  !
+  vmat_inv_qp = invert_matrix( vmat_inv_qp )
+  !
+  ! Use the chop function to copy vmat_inv_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_inv_qp ) 
+  !
+end function Vandermonde_Inverse
+!
+!###############################################################################
+!
+pure function Vandermonde_Edge(xi,number_of_modes) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  integer,  optional,     intent(in) :: number_of_modes
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars
+  integer  :: i,j,n1,n2,ierr
+  real(qp) :: x
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  n1 = size(xi)
+  !
+  if (present(number_of_modes)) then
+    n2 = number_of_modes
+  else
+    n2 = n1
+  end if
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  allocate ( vmat_qp(1:n1,1:n2) , source=qzero , stat=ierr )
+  !
+  do j = 1,n2
+    do i = 1,n1
+      !
+      x = real( xi(i) , kind=qp )
+      !
+      vmat_qp(i,j) = normalized_jacobi_poly(j-1,qzero,qzero,x)
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp )
+  !
+end function Vandermonde_Edge
+!
+!###############################################################################
+!
+pure function Vandermonde_Quad(xi,number_of_modes) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  integer,  optional,     intent(in) :: number_of_modes
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,ni,nj,m,mi,mj,ierr
+  integer  :: nsp,nso,nsq,nqp,nqo,nqq
+  real(qp) :: x,y,hx,hy
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  nqp = size(xi)
+  nqo = nqp-1
+  nqq = nqp*nqp
+  !
+  if (present(number_of_modes)) then
+    nso = number_of_modes
+  else
+    nso = nqo
+  end if
+  nsp = nso+1
+  nsq = nsp*nsp
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:nqq,1:nsq) , source=zero , stat=ierr )
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
+  !
+  do nj = 1,nqp
+    do ni = 1,nqp
+      !
+      ! n is the 1D index of the solution point at
+      ! which each basis function is being evaluated
+      !
+      n = nqp*(nj-1) + ni
+      !
+      x = real( xi(ni) , kind=qp )
+      y = real( xi(nj) , kind=qp )
+      !
+      do mj = 0,nso
+        do mi = 0,nso
+          !
+          ! m is the index of the current basis function being evaluated
+          !
+          m = nsp*mj + mi + 1
+          !
+          hx = normalized_jacobi_poly(mi,qzero,qzero,x)
+          hy = normalized_jacobi_poly(mj,qzero,qzero,y)
+          !
+          vmat_qp(n,m) = hx*hy
+          !
+        end do
+      end do
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp )
+  !
+end function Vandermonde_Quad
+!
+!###############################################################################
+!
+pure function Vandermonde_Tria(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,n,np,m,ierr
+  real(qp) :: r,s,a,b,h1,h2,alpha,beta
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  np = size(rs,2)
+  n  = np2n(np)
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  allocate ( vmat_qp(1:np,1:np) , source=qzero , stat=ierr )
+  !
+  m = 1
+  do i = 0,n
+    do j = 0,n-i
+      !
+      ! Evaluate the basis function, psi(m), at the np solution points
+      ! where m = j + i*(n+1) + 1 - i*(i-1)/2
+      !
+      do k = 1,np
+        !
+        ! Get a,b from r,s
+        !
+        r = real( rs(1,k) , kind=qp )
+        s = real( rs(2,k) , kind=qp )
+        !
+        a = qtwo * (qone+r) * reciprocal(qone-s) - qone
+        b = s
+        !
+        ! Get the value of the Jacobi polynomial for a and b
+        !
+        alpha = qzero
+        beta  = qzero
+        h1 = normalized_jacobi_poly(i,alpha,beta,a)
+        !
+        alpha = real( 2*i+1 , kind=qp )
+        beta  = qzero
+        h2 = normalized_jacobi_poly(j,alpha,beta,b)
+        !
+        ! Evaluate the basis function psi(m) at node k
+        !
+        vmat_qp(k,m) = sqrt(qtwo) * h1 * h2 * (qone-b)**i
+        !
+      end do
+      !
+      m = m + 1
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp )
+  !
+end function Vandermonde_Tria
+!
+!###############################################################################
+!
+pure function Vandermonde_Tetr(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,n,np,m,ierr
+  real(qp) :: r,s,t,a,b,c,h1,h2,h3,alpha,beta
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  np = size(rs,dim=2)
+  !
+  ! Find the order for this tetrahedra
+  !
+  n = -1
+  do i = 0,256
+    if (Tetr_Solpts(i) == np) then
+      n = i
+      exit
+    end if
+  end do
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  !
+  ! If n is still -1, return with the Vandermonde matrix still being zero
+  !
+  if (n == -1) return
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  allocate ( vmat_qp(1:np,1:np) , source=qzero , stat=ierr )
+  !
+  m = 1
+  do i = 0,n
+    do j = 0,n-i
+      do k = 0,n-i-j
+        !
+        ! Evaluate the basis function, psi(m), at the np solution points
+        ! where m = j + i*(n+1) + 1 - i*(i-1)/2
+        !
+        do l = 1,np
+          !
+          ! Get a,b from r,s
+          !
+          r = real( rs(1,l) , kind=qp )
+          s = real( rs(2,l) , kind=qp )
+          t = real( rs(3,l) , kind=qp )
+          !
+          a = qtwo * (qone+r) * reciprocal(-s-t) - qone
+          b = qtwo * (qone+s) * reciprocal(qone-t) - qone
+          c = t
+          !
+          ! Get the value of the Jacobi polynomial for a and b
+          !
+          alpha = qzero
+          beta  = qzero
+          h1 = normalized_jacobi_poly(i,alpha,beta,a)
+          !
+          alpha = real( 2*i+1 , kind=qp )
+          beta  = qzero
+          h2 = normalized_jacobi_poly(j,alpha,beta,b)
+          !
+          alpha = real( 2*(i+j)+2 , kind=qp )
+          beta  = qzero
+          h3 = normalized_jacobi_poly(k,alpha,beta,c)
+          !
+          ! Evaluate the basis function psi(m) at node l
+          !
+          vmat_qp(l,m) = qtwo*sqrt(qtwo) * h1 * h2 * h3 * (qone-b)**i * (qone-c)**(i+j)
+          !
+        end do
+        !
+        m = m + 1
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp )
+  !
+end function Vandermonde_Tetr
+!
+!###############################################################################
+!
+pure function Vandermonde_Pyra(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,n,np,m,ierr
+  real(qp) :: r,s,a,b,h1,h2,alpha,beta
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  np = size(rs,2)
+  n  = np2n(np)
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  !
+end function Vandermonde_Pyra
+!
+!###############################################################################
+!
+pure function Vandermonde_Pris(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,n,np,m,ierr
+  real(qp) :: r,s,a,b,h1,h2,alpha,beta
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  np = size(rs,2)
+  n  = np2n(np)
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:np,1:np) , source=zero , stat=ierr )
+  !
+end function Vandermonde_Pris
+!
+!###############################################################################
+!
+pure function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  integer,  optional,     intent(in) :: number_of_modes
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,ni,nj,nk,m,mi,mj,mk,ierr
+  integer  :: nsp,nso,nsq,nqp,nqo,nqq
+  real(qp) :: x,y,z,hx,hy,hz
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: vmat_qp(:,:)
+  !
+continue
+  !
+  nqp = size(xi)
+  nqo = nqp-1
+  nqq = nqp*nqp*nqp
+  !
+  if (present(number_of_modes)) then
+    nso = number_of_modes
+  else
+    nso = nqo
+  end if
+  nsp = nso+1
+  nsq = nsp*nsp*nsp
+  !
+  ! Allocate the return array containing the
+  ! working precision Vandermonde matrix
+  !
+  allocate ( return_value(1:nqq,1:nsq) , source=zero , stat=ierr )
+  !
+  ! Create the Vandermonde matrix using quad precision
+  !
+  allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
+  !
+  do nk = 1,nqp
+    do nj = 1,nqp
+      do ni = 1,nqp
+        !
+        ! n is the 1D index of the solution point at
+        ! which each basis function is being evaluated
+        !
+        n = nqp*nqp*(nk-1) + nqp*(nj-1) + ni
+        !
+        x = real( xi(ni) , kind=qp )
+        y = real( xi(nj) , kind=qp )
+        z = real( xi(nk) , kind=qp )
+        !
+        do mk = 0,nso
+          do mj = 0,nso
+            do mi = 0,nso
+              !
+              ! m is the index of the current basis function being evaluated
+              !
+              m = nsp*nsp*mk + nsp*mj + mi + 1
+              !
+              hx = normalized_jacobi_poly(mi,qzero,qzero,x)
+              hy = normalized_jacobi_poly(mj,qzero,qzero,y)
+              hz = normalized_jacobi_poly(mk,qzero,qzero,z)
+              !
+              vmat_qp(n,m) = hx*hy*hz
+              !
+            end do
+          end do
+        end do
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy vmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( vmat_qp )
+  !
+end function Vandermonde_Hexa
+!
+!###############################################################################
+!
+include "Functions/np2n.f90"
+include "Functions/cell_solpts.f90"
+!
+!###############################################################################
+!
 end module vandermonde_mod
 !
 !###############################################################################

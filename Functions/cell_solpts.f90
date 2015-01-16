@@ -34,6 +34,42 @@ end function cell_solpts
 !
 !###############################################################################
 !
+elemental function cell_flxpts(cell_geom,cell_order) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: cell_geom
+  integer, intent(in) :: cell_order
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+continue
+  !
+  select case (cell_geom)
+    case (Geom_Node)
+      return_value = node_solpts(cell_order)
+    case (Geom_Edge)
+      return_value = 2 * node_solpts(cell_order)
+    case (Geom_Tria)
+      return_value = 3 * edge_solpts(cell_order)
+    case (Geom_Quad)
+      return_value = 4 * edge_solpts(cell_order)
+    case (Geom_Tetr)
+      return_value = 4 * tria_solpts(cell_order)
+    case (Geom_Pyra)
+      return_value = 4 * tria_solpts(cell_order) + 1 * quad_solpts(cell_order)
+    case (Geom_Pris)
+      return_value = 2 * tria_solpts(cell_order) + 3 * quad_solpts(cell_order)
+    case (Geom_Hexa)
+      return_value = 6 * quad_solpts(cell_order)
+    case default
+      return_value = 0
+  end select
+  !
+end function cell_flxpts
+!
+!###############################################################################
+!
 elemental function node_solpts(order) result(return_value)
   integer, intent(in) :: order
   integer :: return_value

@@ -8,6 +8,13 @@ module projection_mod
   !
   private
   !
+  !
+  !.. Public Procedures ..
+  !
+  public :: init_projection_matrices
+  !
+  !
+  !
   ! projection_matrix : derived type that stores the matrices for
   !                     projecting a polynomial quantity within a
   !                     cell to a face point or cell point for a given
@@ -40,6 +47,62 @@ module projection_mod
   !
   type(projection_matrix), public, save, target, allocatable :: projct(:,:)
   !
+contains
+!
+!###############################################################################
+!
+subroutine init_projection_matrices()
+  !
+  !.. Use Statements ..
+  use geovar,         only : cell_geom,cell_order
+  use quadrature_mod, only : geom_is_used
+  use quadrature_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+continue
+  !
+end subroutine init_projection_matrices
+!
+!###############################################################################
+!
+pure function generic_projection_matrix(basis,wmat) result(return_value)
+  !
+  real(qp), dimension(:,:), intent(in) :: basis
+  real(qp), dimension(:,:), intent(in) :: wmat
+  !
+  real(qp), dimension(1:size(wmat,1),1:size(wmat,2)) :: return_value
+  !
+  real(qp), dimension(1:size(basis,2),1:size(basis,1)) :: basisT
+  real(qp), dimension(1:size(basis,2),1:size(basis,2)) :: pmat
+  real(qp), dimension(1:size(wmat,1),1:size(wmat,2)) :: qmat
+  !
+continue
+  !
+  basisT(:,:) = qzero
+  pmat(:,:) = qzero
+  qmat(:,:) = qzero
+  !
+  basisT = matmul( transpose(basis) , wmat )
+  basisT = chop( basisT , basisT )
+  !
+  pmat = matmul( basisT , basis )
+  pmat = chop( pmat , pmat )
+  !
+  pmat = invert_matrix( pmat )
+  pmat = chop( pmat , pmat )
+  !
+  qmat = matmul( basis , matmul( pmat , basisT ) )
+  qmat = chop( qmat , qmat )
+  !
+  return_value = transpose( qmat )
+  return_value = chop( return_value , return_value )
+  !
+end function generic_projection_matrix
+!
+!###############################################################################
+!
 end module projection_mod
 !
 !###############################################################################

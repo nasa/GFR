@@ -39,11 +39,22 @@ $(OBJDIR)/connectivity.o : connectivity.f90 \
 
 $(OBJDIR)/correction_mod.o : correction_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/typesgen_mod.o
+              $(OBJDIR)/typesgen_mod.o \
+              $(OBJDIR)/order_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/quadrature_mod.o \
+              $(OBJDIR)/vandermonde_mod.o \
+              $(OBJDIR)/poly.o \
+              $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/typesgen_mod.o
+              $(OBJDIR)/typesgen_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/quadrature_mod.o \
+              $(OBJDIR)/poly.o \
+              $(FUNDIR)/rstoab.f90 \
+              $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
               $(OBJDIR)/kind_types.o
@@ -119,7 +130,11 @@ $(OBJDIR)/initialize.o : initialize.f90 \
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/typesgen_mod.o
+              $(OBJDIR)/typesgen_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/quadrature_mod.o \
+              $(OBJDIR)/poly.o \
+              $(FUNDIR)/np2nfp.f90
 
 $(OBJDIR)/io.o : io.f90 \
               $(OBJDIR)/kind_types.o \
@@ -228,7 +243,9 @@ $(OBJDIR)/poly.o : poly.f90 \
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/typesgen_mod.o
+              $(OBJDIR)/typesgen_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/quadrature_mod.o
 
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -260,5 +277,10 @@ $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
 
 $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
               $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/typesgen_mod.o
+              $(OBJDIR)/typesgen_mod.o \
+              $(OBJDIR)/order_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/quadrature_mod.o \
+              $(OBJDIR)/poly.o \
+              $(FUNDIR)/np2n.f90
 

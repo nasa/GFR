@@ -15,6 +15,7 @@ module polynomial_mod
   public :: eval_chebyshev_poly
   public :: eval_normalized_jacobi_poly
   public :: normalized_jacobi_poly
+  public :: grad_normalized_jacobi_poly
   public :: nodes_jacobi_gauss
   public :: nodes_legendre_gauss
   public :: nodes_right_radau
@@ -34,6 +35,11 @@ module polynomial_mod
   public :: derivative_matrix_legendre_gauss_lobatto
   public :: derivative_matrix_jacobi_gauss_lobatto
   public :: derivative_matrix_chebyshev_gauss_lobatto
+  public :: eval_LagrangePoly
+  public :: eval_LagrangePoly1D
+  public :: eval_LagrangePoly2D
+  public :: eval_D2LagrangeDx2
+  public :: eval_DLagrangeDx
   !
   interface JacobiGL
     module procedure JacobiGL_DP, & 
@@ -64,6 +70,11 @@ module polynomial_mod
     module procedure normalized_jacobi_poly_DP, & 
                      normalized_jacobi_poly_QP
   end interface normalized_jacobi_poly
+  !
+  interface grad_normalized_jacobi_poly
+    module procedure grad_normalized_jacobi_poly_DP, & 
+                     grad_normalized_jacobi_poly_QP
+  end interface grad_normalized_jacobi_poly
   !
   interface nodes_jacobi_gauss
     module procedure nodes_jacobi_gauss_DP, & 
@@ -169,6 +180,31 @@ module polynomial_mod
     module procedure log_gammafun_DP, &
                      log_gammafun_QP
   end interface log_gammafun
+  !
+  interface eval_LagrangePoly
+    module procedure eval_LagrangePoly_DP, &
+                     eval_LagrangePoly_QP
+  end interface eval_LagrangePoly
+  !
+  interface eval_LagrangePoly1D
+    module procedure eval_LagrangePoly1D_DP, &
+                     eval_LagrangePoly1D_QP
+  end interface eval_LagrangePoly1D
+  !
+  interface eval_LagrangePoly2D
+    module procedure eval_LagrangePoly2D_DP, &
+                     eval_LagrangePoly2D_QP
+  end interface eval_LagrangePoly2D
+  !
+  interface eval_D2LagrangeDx2
+    module procedure eval_D2LagrangeDx2_DP, &
+                     eval_D2LagrangeDx2_QP
+  end interface eval_D2LagrangeDx2
+  !
+  interface eval_DLagrangeDx
+    module procedure eval_DLagrangeDx_DP, &
+                     eval_DLagrangeDx_QP
+  end interface eval_DLagrangeDx
   !
   real(DP), parameter :: zero_DP  = 0.0_DP
   real(DP), parameter :: half_DP  = 0.5_DP
@@ -317,6 +353,40 @@ continue
   end if
   !
 end function normalized_jacobi_poly_DP
+!
+!###############################################################################
+!
+pure function grad_normalized_jacobi_poly_DP(n,alpha,beta,x) result(return_value)
+  !
+  integer,  parameter :: lp = dp
+  !
+  integer,   intent(in) :: n
+  real(lp), intent(in) :: alpha
+  real(lp), intent(in) :: beta
+  real(lp), intent(in) :: x
+  !
+  real(lp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(lp) :: rn,a1,b1,ab1
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+  if (n == 0) then
+    return_value = zero
+  else
+    !
+    rn  = real(n,kind=lp)
+    a1  = alpha + one
+    b1  = beta  + one
+    ab1 = alpha + b1
+    !
+    return_value = sqrt(rn*(rn+ab1)) * normalized_jacobi_poly(n-1,a1,b1,x)
+    !
+  end if
+  !
+end function grad_normalized_jacobi_poly_DP
 !
 !###############################################################################
 !
@@ -514,7 +584,7 @@ continue
     !
     do i = 1,n/2
       xi (n-i+1) = -xi (i)
-      dxi(n-i+1) = -dxi(i)
+     !dxi(n-i+1) = -dxi(i)
     end do
     !
   end if
@@ -1252,7 +1322,7 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_DP
 !
 !################################################################################
 !
-pure subroutine derivative_matrix_legendre_gauss_DP(n,cs,dz,dma)
+pure subroutine old_derivative_matrix_legendre_gauss_DP(n,cs,dz,dma)
   !
   !*************************************************************
   !*************************************************************
@@ -1301,7 +1371,7 @@ continue
     end do
   end do
   !
-end subroutine derivative_matrix_legendre_gauss_DP
+end subroutine old_derivative_matrix_legendre_gauss_DP
 !
 !################################################################################
 !
@@ -1377,7 +1447,7 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_DP
 !
 !################################################################################
 !
-pure subroutine derivative_matrix_legendre_gauss_lobatto_DP(n,et,vn,dma)
+pure subroutine old_derivative_matrix_legendre_gauss_lobatto_DP(n,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -1421,7 +1491,7 @@ continue
     dma(n,n) = c
   end if
   !
-end subroutine derivative_matrix_legendre_gauss_lobatto_DP
+end subroutine old_derivative_matrix_legendre_gauss_lobatto_DP
 !
 !################################################################################
 !
@@ -1486,6 +1556,380 @@ continue
   end do
   !
 end subroutine derivative_matrix_chebyshev_gauss_lobatto_DP
+!
+!###############################################################################
+!
+pure function derivative_matrix_legendre_gauss_DP(n,a) result(return_value)
+  !
+  !*************************************************************
+  !*************************************************************
+  !********************                       ******************
+  !********************     NOT IN MANUAL     ******************
+  !********************                       ******************
+  !*************************************************************
+  !*************************************************************
+  !
+  !***********************************************************************
+  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
+  !  LEGENDRE GAUSS NODES
+  !***********************************************************************
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS POLYNOMIAL
+  real(lp), intent(in) :: a ! REAL VALUE TO DISTINGUISH BETWEEN DP AND QP VERSIONS
+  !
+  !.. Function Result ..
+  real(lp), dimension(1:n+1,1:n+1) :: return_value ! DERIVATIVE MATRIX
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,np
+  real(lp) :: vi,zi,vj,zj
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:n+1) :: cs ! VECTOR OF THE ZEROES
+  real(lp), dimension(1:n+1) :: dz ! LEGENDRE DERIVATIVES AT THE ZEROES
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  np = n + 1
+  !
+  return_value(1,1) = zero
+  !
+  if (n <= 1) return
+  !
+  ! Compute the zeros of the Legendre Gauss polynomial of
+  ! order 'n' and the value of the derivative at each zero
+  !
+  call nodes_legendre_gauss(np,cs,dz)
+  !
+  do i = 1,np
+    vi = dz(i)
+    zi = cs(i)
+    do j = 1,np
+      if (i /= j) then
+        vj = dz(j)
+        zj = cs(j)
+        return_value(i,j) = vi/(vj*(zi-zj))
+      else
+        return_value(i,i) = zi/(one-zi*zi)
+      end if
+    end do
+  end do
+  !
+end function derivative_matrix_legendre_gauss_DP
+!
+!################################################################################
+!
+pure function derivative_matrix_legendre_gauss_lobatto_DP(n,a) result(return_value)
+  !
+  !***********************************************************************
+  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
+  !  LEGENDRE GAUSS-LOBATTO NODES
+  !***********************************************************************
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS-LOBATTO POLYNOMIAL
+  real(lp), intent(in) :: a ! REAL VALUE TO DISTINGUISH BETWEEN DP AND QP VERSIONS
+  !
+  !.. Function Result ..
+  real(lp), dimension(1:n+1,1:n+1) :: return_value ! DERIVATIVE MATRIX
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,np
+  real(lp) :: ei,ej,vi,vj,dn,c
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:n+1) :: et ! VECTOR OF THE NODES
+  real(lp), dimension(1:n+1) :: vn ! VALUES OF THE LEGENDRE POLYNOMIAL AT THE NODES
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one4 = 0.25_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  np = n + 1
+  !
+  ! Compute the zeros of the Legendre Gauss Lobatto polynomial of
+  ! order 'n' and the value of the Legendre Gauss polynomial of the
+  ! same order at each zero
+  !
+  call nodes_legendre_gauss_lobatto(n,et,vn)
+  !
+  do i = 1,np
+    vi = vn(i)
+    ei = et(i)
+    do j = 1,np
+      if (i /= j) then
+        vj = vn(j)
+        ej = et(j)
+        return_value(i,j) = vi/(vj*(ei-ej))
+      else
+        return_value(i,i) = zero
+      end if
+    end do
+  end do
+  !
+  if (np > 1) then
+    dn = real(np-1,kind=lp)
+    c  = one4 * dn * (dn+one)
+    return_value(1,1) = -c
+    return_value(np,np) = c
+  end if
+  !
+end function derivative_matrix_legendre_gauss_lobatto_DP
+!
+!################################################################################
+!
+pure function eval_LagrangePoly1D_DP(k,x,xi) result(return_value)
+  !
+  ! Get the value of the 1D Lagrange polynomial at point x
+  !
+  ! K  : The value of the Lagrange polynomial is 1 at xi(k)
+  ! X  : Location at which to evaluate the k-th Lagrange polynomial
+  ! XI : Array of all the interpolation points
+  !
+  ! This evaluates the Lagrange polynomial at the location x.
+  ! The Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points xi(i) for i=1,nfp
+  ! except at xi(k) where the function is equal to 1.
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: k
+  real(dp),               intent(in) :: x
+  real(dp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(dp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  !
+  integer, parameter :: lp = dp
+  !
+continue
+  !
+  nfp = size(xi)
+  imask(:) = (/ (i,i=1,nfp) /)
+  !
+  return_value = product( x    -xi(1:nfp) , imask /= k ) / &
+                 product( xi(k)-xi(1:nfp) , imask /= k )
+  !
+end function eval_LagrangePoly1D_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly2D_DP(k,l,x,y,xi,eta) result(return_value)
+  !
+  ! Get value of the 2D Lagrange polynomial at point x,y
+  !
+  ! K   : The value of the Lagrange polynomial in coordinate XI  is 1 at xi(k)
+  ! L   : The value of the Lagrange polynomial in coordinate ETA is 1 at eta(l)
+  ! X   : Location at which to evaluate the k-th Lagrange polynomial in coordinate XI
+  ! Y   : Location at which to evaluate the l-th Lagrange polynomial in coordinate ETA
+  ! XI  : Array of all the interpolation points in XI  coordinate
+  ! ETA : Array of all the interpolation points in ETA coordinate
+  !
+  ! This evaluates the 2D Lagrange polynomial at the location x,y.
+  ! The 2D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(i),eta(j)] for [i=1,ifp;j=1,jfp]
+  ! except at [xi(k),eta(l)] where the function is equal to 1.
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: k
+  integer,                 intent(in) :: l
+  real(dp),               intent(in) :: x
+  real(dp),               intent(in) :: y
+  real(dp), dimension(:), intent(in) :: xi
+  real(dp), dimension(:), intent(in) :: eta
+  !
+  !.. Function Return Value ..
+  real(dp) :: return_value
+  !
+  integer, parameter :: lp = dp
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(k,x,xi) * eval_LagrangePoly1D(l,y,eta)
+  !
+end function eval_LagrangePoly2D_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly_DP(ijk,xyz,xi) result(return_value)
+  !
+  ! Get the value of a tensor product of Lagrange polynomials of arbitrary dimension
+  !
+  ! IJK : The value of the Lagrange polynomial tensor product is 1 at ijk
+  ! XYZ : Location at which to evaluate the Lagrange polynomial
+  ! XI  : Array of the 1D solution points
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ijk
+  real(lp), dimension(:), intent(in) :: xyz
+  real(lp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(lp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  return_value = one
+  do i = 1,size(ijk)
+    return_value = return_value * eval_LagrangePoly1D(ijk(i),xyz(i),xi)
+  end do
+  !
+end function eval_LagrangePoly_DP
+!
+!###############################################################################
+!
+pure function eval_DLagrangeDx_DP(m,x,xi) result(return_value)
+  !
+  ! Get the value of the derivative of the
+  ! m-th Lagrange polynomial at the point x.
+  !
+  !                  nfp                nfp
+  !   d              ___               _____
+  !  -- [L_m (x)] =  \         1        | |   x   - x(j)
+  !  dx              /__  -----------   | |  -----------
+  !                       x(m) - x(l)   j=1  x(m) - x(j)
+  !                  l=1               j/=l
+  !                 l/=m               j/=m
+  !
+  ! m  : index where the value at xi(m) is 1
+  ! X  : x location at which to evaluate the derivative
+  !      of the m-th Lagrange polynomial 
+  ! XI : array of all the interpolation points
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: m
+  real(dp),               intent(in) :: x
+  real(dp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(dp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: l,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  logical, dimension(1:size(xi)) :: lmask
+  !
+  integer, parameter :: lp = dp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  !
+continue
+  !
+  nfp = size(xi)
+  !
+  imask(:) = (/ (l,l=1,nfp) /)
+  !
+  return_value = zero
+  !
+  if (nfp > 1) then
+    !
+    do l = 1,nfp
+      if (l == m) cycle
+      lmask = (imask/=m .and. imask/=l)
+      return_value = return_value + product( x    -xi(1:nfp) , lmask ) / &
+                                    product( xi(m)-xi(1:nfp) , lmask ) / &
+                                    (xi(m) - xi(l))
+    end do
+    !
+  end if
+  !
+end function eval_DLagrangeDx_DP
+!
+!###############################################################################
+!
+pure function eval_D2LagrangeDx2_DP(m,x,xi) result(return_value)
+  !
+  ! Get value of second derivative of
+  ! m-th Lagrange polynomial at point x.
+  !
+  !                   nfp                nfp                nfp
+  !  d2               ___                ___               _____
+  ! --- [L_m (x)]  =  \         1        \         1        | |   x   - x(j)
+  ! dx2               /__  -----------   /__  -----------   | |  -----------
+  !                        x(m) - x(l)        x(m) - x(n)   j=1  x(m) - x(j)
+  !                   l=1                n=1               j/=l
+  !                  l/=m               n/=l               j/=n
+  !                                     n/=m               j/=m
+  !
+  ! m  : index where the value at xi(m) is 1
+  ! X  : x location at which to evaluate the second
+  !      derivative of the m-th Lagrange polynomial 
+  ! XI : array of all the interpolation points
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: m
+  real(dp),               intent(in) :: x
+  real(dp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(dp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: l,n,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  logical, dimension(1:size(xi)) :: lmask
+  !
+  integer, parameter :: lp = dp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  !
+continue
+  !
+  nfp = size(xi)
+  !
+  imask(:) = (/ (l,l=1,nfp) /)
+  !
+  return_value = zero
+  !
+  if (nfp > 2) then
+    !
+    do l = 1,nfp
+      if (l == m) cycle
+      do n = 1,nfp
+        if ( (n == m) .or. (n == l) ) cycle
+        lmask = (imask/=m .and. imask/=l .and. imask/=n)
+        return_value = return_value + product( x    -xi(1:nfp) , lmask ) / &
+                                      product( xi(m)-xi(1:nfp) , lmask ) / &
+                                      (xi(m) - xi(n))
+      end do
+      return_value = return_value / (xi(m) - xi(l))
+    end do
+    !
+  end if
+  !
+end function eval_D2LagrangeDx2_DP
 !
 !###############################################################################
 !###############################################################################
@@ -1606,6 +2050,40 @@ continue
   end if
   !
 end function normalized_jacobi_poly_QP
+!
+!###############################################################################
+!
+pure function grad_normalized_jacobi_poly_QP(n,alpha,beta,x) result(return_value)
+  !
+  integer, parameter :: lp = qp
+  !
+  integer,  intent(in) :: n
+  real(lp), intent(in) :: alpha
+  real(lp), intent(in) :: beta
+  real(lp), intent(in) :: x
+  !
+  real(lp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(lp) :: rn,a1,b1,ab1
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+  if (n == 0) then
+    return_value = zero
+  else
+    !
+    rn  = real(n,kind=lp)
+    a1  = alpha + one
+    b1  = beta  + one
+    ab1 = alpha + b1
+    !
+    return_value = sqrt(rn*(rn+ab1)) * normalized_jacobi_poly(n-1,a1,b1,x)
+    !
+  end if
+  !
+end function grad_normalized_jacobi_poly_QP
 !
 !###############################################################################
 !
@@ -1803,7 +2281,7 @@ continue
     !
     do i = 1,n/2
       xi (n-i+1) = -xi (i)
-      dxi(n-i+1) = -dxi(i)
+     !dxi(n-i+1) = -dxi(i)
     end do
     !
   end if
@@ -2542,7 +3020,7 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_QP
 !
 !################################################################################
 !
-pure subroutine derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
+pure subroutine old_derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
   !
   !*************************************************************
   !*************************************************************
@@ -2591,7 +3069,7 @@ continue
     end do
   end do
   !
-end subroutine derivative_matrix_legendre_gauss_QP
+end subroutine old_derivative_matrix_legendre_gauss_QP
 !
 !################################################################################
 !
@@ -2667,7 +3145,7 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_QP
 !
 !################################################################################
 !
-pure subroutine derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
+pure subroutine old_derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -2711,7 +3189,7 @@ continue
     dma(n,n) = c
   end if
   !
-end subroutine derivative_matrix_legendre_gauss_lobatto_QP
+end subroutine old_derivative_matrix_legendre_gauss_lobatto_QP
 !
 !################################################################################
 !
@@ -2778,5 +3256,379 @@ continue
 end subroutine derivative_matrix_chebyshev_gauss_lobatto_QP
 !
 !################################################################################
+!
+pure function derivative_matrix_legendre_gauss_QP(n,a) result(return_value)
+  !
+  !*************************************************************
+  !*************************************************************
+  !********************                       ******************
+  !********************     NOT IN MANUAL     ******************
+  !********************                       ******************
+  !*************************************************************
+  !*************************************************************
+  !
+  !***********************************************************************
+  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
+  !  LEGENDRE GAUSS NODES
+  !***********************************************************************
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS POLYNOMIAL
+  real(lp), intent(in) :: a ! REAL VALUE TO DISTINGUISH BETWEEN DP AND QP VERSIONS
+  !
+  !.. Function Result ..
+  real(lp), dimension(1:n+1,1:n+1) :: return_value ! DERIVATIVE MATRIX
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,np
+  real(lp) :: vi,zi,vj,zj
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:n+1) :: cs ! VECTOR OF THE ZEROES
+  real(lp), dimension(1:n+1) :: dz ! LEGENDRE DERIVATIVES AT THE ZEROES
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  np = n + 1
+  !
+  return_value(1,1) = zero
+  !
+  if (n <= 1) return
+  !
+  ! Compute the zeros of the Legendre Gauss polynomial of
+  ! order 'n' and the value of the derivative at each zero
+  !
+  call nodes_legendre_gauss(np,cs,dz)
+  !
+  do i = 1,np
+    vi = dz(i)
+    zi = cs(i)
+    do j = 1,np
+      if (i /= j) then
+        vj = dz(j)
+        zj = cs(j)
+        return_value(i,j) = vi/(vj*(zi-zj))
+      else
+        return_value(i,i) = zi/(one-zi*zi)
+      end if
+    end do
+  end do
+  !
+end function derivative_matrix_legendre_gauss_QP
+!
+!################################################################################
+!
+pure function derivative_matrix_legendre_gauss_lobatto_QP(n,a) result(return_value)
+  !
+  !***********************************************************************
+  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
+  !  LEGENDRE GAUSS-LOBATTO NODES
+  !***********************************************************************
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS-LOBATTO POLYNOMIAL
+  real(lp), intent(in) :: a ! REAL VALUE TO DISTINGUISH BETWEEN DP AND QP VERSIONS
+  !
+  !.. Function Result ..
+  real(lp), dimension(1:n+1,1:n+1) :: return_value ! DERIVATIVE MATRIX
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,np
+  real(lp) :: ei,ej,vi,vj,dn,c
+  !
+  !.. Local Arrays ..
+  real(lp), dimension(1:n+1) :: et ! VECTOR OF THE NODES
+  real(lp), dimension(1:n+1) :: vn ! VALUES OF THE LEGENDRE POLYNOMIAL AT THE NODES
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one4 = 0.25_lp
+  real(lp), parameter :: one  = 1.0_lp
+  !
+continue
+  !
+  np = n + 1
+  !
+  ! Compute the zeros of the Legendre Gauss Lobatto polynomial of
+  ! order 'n' and the value of the Legendre Gauss polynomial of the
+  ! same order at each zero
+  !
+  call nodes_legendre_gauss_lobatto(n,et,vn)
+  !
+  do i = 1,np
+    vi = vn(i)
+    ei = et(i)
+    do j = 1,np
+      if (i /= j) then
+        vj = vn(j)
+        ej = et(j)
+        return_value(i,j) = vi/(vj*(ei-ej))
+      else
+        return_value(i,i) = zero
+      end if
+    end do
+  end do
+  !
+  if (np > 1) then
+    dn = real(np-1,kind=lp)
+    c  = one4 * dn * (dn+one)
+    return_value(1,1) = -c
+    return_value(np,np) = c
+  end if
+  !
+end function derivative_matrix_legendre_gauss_lobatto_QP
+!
+!################################################################################
+!
+pure function eval_LagrangePoly1D_QP(k,x,xi) result(return_value)
+  !
+  ! Get the value of the 1D Lagrange polynomial at point x
+  !
+  ! K  : The value of the Lagrange polynomial is 1 at xi(k)
+  ! X  : Location at which to evaluate the k-th Lagrange polynomial
+  ! XI : Array of all the interpolation points
+  !
+  ! This evaluates the Lagrange polynomial at the location x.
+  ! The Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points xi(i) for i=1,nfp
+  ! except at xi(k) where the function is equal to 1.
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: k
+  real(qp),               intent(in) :: x
+  real(qp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(qp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  !
+  integer, parameter :: lp = qp
+  !
+continue
+  !
+  nfp = size(xi)
+  imask(:) = (/ (i,i=1,nfp) /)
+  !
+  return_value = product( x    -xi(1:nfp) , imask /= k ) / &
+                 product( xi(k)-xi(1:nfp) , imask /= k )
+  !
+end function eval_LagrangePoly1D_QP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly2D_QP(k,l,x,y,xi,eta) result(return_value)
+  !
+  ! Get value of the 2D Lagrange polynomial at point x,y
+  !
+  ! K   : The value of the Lagrange polynomial in coordinate XI  is 1 at xi(k)
+  ! L   : The value of the Lagrange polynomial in coordinate ETA is 1 at eta(l)
+  ! X   : Location at which to evaluate the k-th Lagrange polynomial in coordinate XI
+  ! Y   : Location at which to evaluate the l-th Lagrange polynomial in coordinate ETA
+  ! XI  : Array of all the interpolation points in XI  coordinate
+  ! ETA : Array of all the interpolation points in ETA coordinate
+  !
+  ! This evaluates the 2D Lagrange polynomial at the location x,y.
+  ! The 2D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(i),eta(j)] for [i=1,ifp;j=1,jfp]
+  ! except at [xi(k),eta(l)] where the function is equal to 1.
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: k
+  integer,                 intent(in) :: l
+  real(qp),               intent(in) :: x
+  real(qp),               intent(in) :: y
+  real(qp), dimension(:), intent(in) :: xi
+  real(qp), dimension(:), intent(in) :: eta
+  !
+  !.. Function Return Value ..
+  real(qp) :: return_value
+  !
+  integer, parameter :: lp = qp
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(k,x,xi) * eval_LagrangePoly1D(l,y,eta)
+  !
+end function eval_LagrangePoly2D_QP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly_QP(ijk,xyz,xi) result(return_value)
+  !
+  ! Get the value of a tensor product of Lagrange polynomials of arbitrary dimension
+  !
+  ! IJK : The value of the Lagrange polynomial tensor product is 1 at ijk
+  ! XYZ : Location at which to evaluate the Lagrange polynomial
+  ! XI  : Array of the 1D solution points
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ijk
+  real(lp), dimension(:), intent(in) :: xyz
+  real(lp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(lp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+  !.. Local Constants ..
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  return_value = one
+  do i = 1,size(ijk)
+    return_value = return_value * eval_LagrangePoly1D(ijk(i),xyz(i),xi)
+  end do
+  !
+end function eval_LagrangePoly_QP
+!
+!###############################################################################
+!
+pure function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
+  !
+  ! Get the value of the derivative of the
+  ! m-th Lagrange polynomial at the point x.
+  !
+  !                  nfp                nfp
+  !   d              ___               _____
+  !  -- [L_m (x)] =  \         1        | |   x   - x(j)
+  !  dx              /__  -----------   | |  -----------
+  !                       x(m) - x(l)   j=1  x(m) - x(j)
+  !                  l=1               j/=l
+  !                 l/=m               j/=m
+  !
+  ! m  : index where the value at xi(m) is 1
+  ! X  : x location at which to evaluate the derivative
+  !      of the m-th Lagrange polynomial 
+  ! XI : array of all the interpolation points
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: m
+  real(qp),               intent(in) :: x
+  real(qp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(qp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: l,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  logical, dimension(1:size(xi)) :: lmask
+  !
+  integer, parameter :: lp = qp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  !
+continue
+  !
+  nfp = size(xi)
+  !
+  imask(:) = (/ (l,l=1,nfp) /)
+  !
+  return_value = zero
+  !
+  if (nfp > 1) then
+    !
+    do l = 1,nfp
+      if (l == m) cycle
+      lmask = (imask/=m .and. imask/=l)
+      return_value = return_value + product( x    -xi(1:nfp) , lmask ) / &
+                                    product( xi(m)-xi(1:nfp) , lmask ) / &
+                                    (xi(m) - xi(l))
+    end do
+    !
+  end if
+  !
+end function eval_DLagrangeDx_QP
+!
+!###############################################################################
+!
+pure function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
+  !
+  ! Get value of second derivative of
+  ! m-th Lagrange polynomial at point x.
+  !
+  !                   nfp                nfp                nfp
+  !  d2               ___                ___               _____
+  ! --- [L_m (x)]  =  \         1        \         1        | |   x   - x(j)
+  ! dx2               /__  -----------   /__  -----------   | |  -----------
+  !                        x(m) - x(l)        x(m) - x(n)   j=1  x(m) - x(j)
+  !                   l=1                n=1               j/=l
+  !                  l/=m               n/=l               j/=n
+  !                                     n/=m               j/=m
+  !
+  ! m  : index where the value at xi(m) is 1
+  ! X  : x location at which to evaluate the second
+  !      derivative of the m-th Lagrange polynomial 
+  ! XI : array of all the interpolation points
+  !
+  !.. Formal Arguments ..
+  integer,                 intent(in) :: m
+  real(qp),               intent(in) :: x
+  real(qp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(qp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: l,n,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  logical, dimension(1:size(xi)) :: lmask
+  !
+  integer, parameter :: lp = qp
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  !
+continue
+  !
+  nfp = size(xi)
+  !
+  imask(:) = (/ (l,l=1,nfp) /)
+  !
+  return_value = zero
+  !
+  if (nfp > 2) then
+    !
+    do l = 1,nfp
+      if (l == m) cycle
+      do n = 1,nfp
+        if ( (n == m) .or. (n == l) ) cycle
+        lmask = (imask/=m .and. imask/=l .and. imask/=n)
+        return_value = return_value + product( x    -xi(1:nfp) , lmask ) / &
+                                      product( xi(m)-xi(1:nfp) , lmask ) / &
+                                      (xi(m) - xi(n))
+      end do
+      return_value = return_value / (xi(m) - xi(l))
+    end do
+    !
+  end if
+  !
+end function eval_D2LagrangeDx2_QP
+!
+!###############################################################################
 !
 end module polynomial_mod

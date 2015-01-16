@@ -111,7 +111,7 @@ continue
   ! Mark Geom_Edge as used if any 2D elements are used
   ! NOTE: This should always be true for 2D or 3D
   !
-  if (any( geom_is_used([Geom_Tetr,Geom_Pyra,Geom_Pris]) )) then
+  if (any( geom_is_used([Geom_Tria,Geom_Quad]) )) then
     geom_is_used(Geom_Edge) = true
   end if
   !
@@ -199,13 +199,13 @@ continue
       ! Allocate the wts component of the current geometry/order combination
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) this_geom,this_order,"wts"
+      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) this_geom,this_order,"pts"
+      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
@@ -273,14 +273,14 @@ continue
       ! Allocate the wts component of the current geometry/order combination
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) this_geom,this_order,"wts"
+      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! We dont want to allocate the pts component for this geometry since
       ! it will never be used and will just be a waste of memory.
       !
      !allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-     !write (array_name,1) this_geom,this_order,"pts"
+     !write (array_name,1) Geom_Name(this_geom),this_order,"pts"
      !call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Fill in the quadrature weights for the current geometry/order combination
@@ -340,7 +340,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("std_elem(",i0,",",i0,")%",a)
+  1 format ("std_elem(",a,",",i0,")%",a)
   2 format (" A grid cell of an unknown geometry type was found!")
   3 format (" A grid cell of geometry type '",a,"' was encountered while", &
             " trying to compute the quadrature rules for each geometry type.", &
@@ -382,7 +382,7 @@ continue
   edge_elem => null()
   !
   ! Determine if there are any of the geometries used for this simulation
-  ! are 3D to see if we need to fine the quadrature rules for 2D faces.
+  ! are 3D to see if we need to find the quadrature rules for 2D faces.
   !
   gmin = Geom_Edge
   gmax = Geom_Edge
@@ -423,13 +423,13 @@ continue
     ! Allocate the wts component of the current geometry/order combination
     !
     allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-    write (array_name,1) Geom_Edge,this_order,"wts"
+    write (array_name,1) Geom_Name(Geom_Edge),this_order,"wts"
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Allocate the pts component of the current geometry/order combination
     !
     allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-    write (array_name,1) Geom_Edge,this_order,"pts"
+    write (array_name,1) Geom_Name(Geom_Edge),this_order,"pts"
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Fill in the solution points and quadrature weights
@@ -467,13 +467,13 @@ continue
       ! Allocate the wts component of the current geometry/order combination
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Tria,this_order,"wts"
+      write (array_name,1) Geom_Name(Geom_Tria),this_order,"wts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Tria,this_order,"pts"
+      write (array_name,1) Geom_Name(Geom_Tria),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
@@ -518,13 +518,13 @@ continue
       ! Allocate the wts component of the current geometry/order combination
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Quad,this_order,"wts"
+      write (array_name,1) Geom_Name(Geom_Quad),this_order,"wts"
       call alloc_error(pname,array_name,1,ierr,error_message)
      !!
      !! Allocate the pts component of the current geometry/order combination
      !!
      !allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
-     !write (array_name,1) Geom_Quad,this_order,"pts"
+     !write (array_name,1) Geom_Name(Geom_Quad),this_order,"pts"
      !call alloc_error(pname,array_name,1,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
@@ -543,7 +543,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("face_elem(",i0,",",i0,")%",a)
+  1 format ("face_elem(",a,",",i0,")%",a)
   !
 end subroutine init_face_quadrature_rules
 !

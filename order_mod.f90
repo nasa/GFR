@@ -14,6 +14,7 @@ module order_mod
   ! #########################
   !
   public :: initialize_geom_solpts
+  public :: find_geom_max_interp_order
   !
   ! #########################
   ! ### Module Parameters ###
@@ -67,6 +68,15 @@ module order_mod
   !
   integer, public, protected, save :: geom_solpts(Geom_Min:Geom_Max,Order_Min:Order_Max)
   !
+  ! Number of face/flux points for all geometries of orders 0 to max_order
+  !
+  integer, public, protected, save :: geom_flxpts(Geom_Min:Geom_Max,Order_Min:Order_Max)
+  !
+  ! geom_mio "geom_max_interp_order" gives the maximum interpolation order
+  ! required for a given combination of cell geometry and cell order
+  !
+  integer, public, protected, save :: geom_mio(Geom_Min:Geom_Max,Order_Min:Order_Max)
+  !
 contains
 !
 !###############################################################################
@@ -84,6 +94,7 @@ continue
   do j = lbound(geom_solpts,dim=2),ubound(geom_solpts,dim=2)
     do i = lbound(geom_solpts,dim=1),ubound(geom_solpts,dim=1)
       geom_solpts(i,j) = Cell_Solpts(i,j)
+      geom_flxpts(i,j) = Cell_Flxpts(i,j)
     end do
   end do
   !
@@ -122,6 +133,44 @@ continue
   end if
   !
 end subroutine initialize_geom_solpts
+!
+!###############################################################################
+!
+subroutine find_geom_max_interp_order(cell_geom,cell_order,cells_on_face)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),   intent(in) :: cell_geom
+  integer, dimension(:),   intent(in) :: cell_order
+  integer, dimension(:,:), intent(in) :: cells_on_face
+  !
+  !.. Local Scalars ..
+  integer :: nf,face_order
+  integer :: lgeom,lorder,left_cell
+  integer :: rgeom,rorder,right_cell
+  !
+continue
+  !
+  geom_mio = -1
+  !
+  do nf = 1,size(cells_on_face,dim=2)
+    !
+    left_cell = cells_on_face(1,nf)
+    right_cell = cells_on_face(2,nf)
+    !
+    lgeom = cell_geom(left_cell)
+    rgeom = cell_geom(right_cell)
+    !
+    lorder = cell_order(left_cell)
+    rorder = cell_order(right_cell)
+    !
+    face_order = cells_on_face(8,nf)
+    !
+    geom_mio(lgeom,lorder) = max( geom_mio(lgeom,lorder) , face_order )
+    geom_mio(rgeom,rorder) = max( geom_mio(rgeom,rorder) , face_order )
+    !
+  end do
+  !
+end subroutine find_geom_max_interp_order
 !
 !###############################################################################
 !

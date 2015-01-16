@@ -8,6 +8,13 @@ module correction_mod
   !
   private
   !
+  !
+  !.. Public Procedures ..
+  !
+  public :: init_correction_matrices
+  !
+  !
+  !
   ! correct : correction matrix for all combinations of cell geometry and 
   !           and cell order that are possible in the current simulation
   !
@@ -25,8 +32,1091 @@ module correction_mod
   !        this_order = cell_order(n)
   !        k = the flux point on a face of cell 'n' that is currently of interest
   !
-  type(matrix), public, save, target, allocatable :: correct
+  type(matrix), public, save, target, allocatable :: correct(:,:)
   !
+  ! Generic interfaces for functions within this module
+  !
+contains
+!
+!###############################################################################
+!
+subroutine init_correction_matrices()
+  !
+  !.. Use Statements ..
+  use geovar,         only : cell_geom,cell_order
+  use order_mod,      only : geom_solpts,geom_flxpts
+  use order_mod,      only : n_min_geom,n_max_geom
+  use order_mod,      only : n_min_order,n_max_order
+  use quadrature_mod, only : geom_is_used
+  use quadrature_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: gmin,gmax,omin,omax
+  integer :: this_geom,this_order
+  integer :: nsolpts,nflxpts,ierr
+  character(len=200) :: array_name
+  character(len=200) :: error_message
+  !
+  !.. Local Pointers ..
+  type(matrix), pointer :: this_correct
+  real(wp), pointer, contiguous :: solpts(:,:)
+  real(wp), pointer, contiguous :: cmat(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_correction_matrices"
+  !
+continue
+  !
+  ! Initialize the local pointers to disassociated
+  !
+  this_correct => null()
+  solpts => null()
+  cmat => null()
+  !
+  gmin = n_min_geom
+  gmax = n_max_geom
+  omin = n_min_order
+  omax = n_max_order
+  !
+  ! Allocate the correct array
+  !
+  allocate ( correct(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"correct",1,ierr,error_message)
+  !
+  geom_loop: do this_geom = gmin,gmax
+    !
+    if (.not. geom_is_used(this_geom)) cycle geom_loop
+    if (all(this_geom /= Geom_Valid)) cycle geom_loop
+    if (this_geom == Geom_Node) cycle geom_loop
+    !
+    order_loop: do this_order = omin,omax
+      !
+      ! Assign local pointer as alias to simplify the code
+      !
+      this_correct => correct(this_geom,this_order)
+      !
+      ! Get the number of solution points for this cell
+      !
+      nsolpts = geom_solpts(this_geom,this_order)
+      !
+      ! Get the number of face/flux points for this cell
+      !
+      nflxpts = geom_flxpts(this_geom,this_order)
+      !
+      ! Allocate the correction matrix
+      !
+      allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Assign local pointers to these matrices as aliases to simplify the code
+      !
+      cmat => this_correct%mat
+      !
+      ! Compute the correction matrices depending on geometry type
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          cmat(:,1) = CorrectionMatrix_Edge( solpts(1,:) )
+          cmat(:,2) = cmat(nsolpts:1:-1,1)
+          !
+        case (Geom_Tria)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Tria( solpts )
+          !
+        case (Geom_Quad)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Quad( solpts(1,:) )
+          !
+        case (Geom_Tetr)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Tetr( solpts )
+          !
+        case (Geom_Pyra)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Pyra( solpts )
+          !
+        case (Geom_Pris)
+          !
+          solpts => std_elem(this_geom,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Pris( solpts )
+          !
+        case (Geom_Hexa)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          cmat = CorrectionMatrix_Hexa( solpts(1,:) )
+          !
+        case default
+          !
+          write (error_message,2)
+          call stop_recon(stop_mpi,pname,error_message)
+          !
+      end select
+      !
+      ! Remove all associations of the local pointers before continuing
+      !
+      if (associated(this_correct)) this_correct => null()
+      if (associated(solpts   ))    solpts       => null()
+      if (associated(cmat     ))    cmat         => null()
+      !
+    end do order_loop
+    !
+  end do geom_loop
+  !
+  1 format ("correct(",i0,",",i0,")%mat")
+  2 format (" A grid cell of an unknown geometry type was found!")
+  !
+end subroutine init_correction_matrices
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Edge(xi) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,nfp,ierr
+  real(qp) :: c1,c2
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: cmat_qp(:)
+  real(qp), allocatable :: cdRR_qp(:)
+  real(qp), allocatable :: coefLe_qp(:,:)
+  !
+continue
+  !
+  nfp = size(xi)
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix and the polynomial
+  ! coefficient arrays using quad precision
+  !
+  allocate ( cmat_qp(1:nfp) , source=qzero , stat=ierr )
+  allocate ( cdRR_qp(0:nfp) , source=qzero , stat=ierr )
+  allocate ( coefLe_qp(-1:nfp,-1:nfp) , source=qzero , stat=ierr )
+  !
+  ! Initialize the coefficients of Legendre polynomial up to degree nfp
+  !
+  coefLe_qp(:,:) = qzero
+  coefLe_qp(0,0) = qone
+  coefLe_qp(1,1) = qone
+  !
+  ! Get the coefficients for every Legendre polynomial up to degree nfp
+  !
+  do i = 2,nfp
+    do j = 0,i
+      !
+      c1 = real( 2*i-1 , kind=qp ) / real( i , kind=qp )
+      c2 = real(   i-1 , kind=qp ) / real( i , kind=qp )
+      !
+      coefLe_qp(i,j) = c1*coefLe_qp(i-1,j-1) - c2*coefLe_qp(i-2,j)
+      !
+    end do
+  end do
+  !
+  ! Get the coefficients for the derivative of
+  ! the right Radau polynomial of degree nfp
+  !
+  c1 = qhalf * real( (-1)**nfp , kind=qp )
+  do i = 1,nfp
+    cdRR_qp(i-1) = c1 * real( i , kind=qp ) * (coefLe_qp(nfp,i) - coefLe_qp(nfp-1,i))
+  end do
+  !
+  ! Finally, get the value for the derivative of the
+  ! right Radau polynomial at each 1D solution point
+  !
+  do i = 1,nfp
+    cmat_qp(i) = -sum( (xi(i)**(/0:nfp-1/)) * cdRR_qp(0:nfp-1) )
+  end do
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Edge
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Quad_DG(pts1d,wts1d) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly1D
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: pts1d
+  real(wp), dimension(:), intent(in) :: wts1d
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,nf,np,nsp,nfp,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: pts1d_qp(:)
+  real(qp), allocatable :: wts1d_qp(:)
+  !
+continue
+  !
+  np = size(pts1d)
+  nsp = np*np
+  nfp = 4*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and make quad precision
+  ! copies of the 1D solution points and their corresponding quadrature weights
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  allocate ( pts1d_qp(1:np) , source=qzero , stat=ierr )
+  allocate ( wts1d_qp(1:np) , source=qzero , stat=ierr )
+  !
+  ! Face 1 - bottom/south edge of quad
+  !
+  nf = 1
+  do i = 1,np
+    do j = 1,np
+      k = (j-1)*np + i
+      cmat_qp(k,nf) = eval_LagrangePoly1D(j,-qone,pts1d_qp) / wts1d_qp(j)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 2 - right/east edge of quad
+  !
+  nf = np+1
+  do j = 1,np
+    do i = np,1,-1
+      k = (j-1)*np + i
+      cmat_qp(k,nf) = eval_LagrangePoly1D(i,qone,pts1d_qp) / wts1d_qp(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 3 - top/north edge of quad
+  !
+  nf = 2*np+1
+  do i = np,1,-1
+    do j = np,1,-1
+      k = (j-1)*np + i
+      cmat_qp(k,nf) = eval_LagrangePoly1D(j,qone,pts1d_qp) / wts1d_qp(j)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 4 - left/west edge of quad
+  !
+  nf = 3*np+1
+  do j = np,1,-1
+    do i = 1,np
+      k = (j-1)*np + i
+      cmat_qp(k,nf) = eval_LagrangePoly1D(i,-qone,pts1d_qp) / wts1d_qp(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Quad_DG
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Quad(xi) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,np,nf,nsp,nfp,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cmat1D(:)
+  !
+continue
+  !
+  ! ###########################################################################
+  ! ###########################################################################
+  ! ####  NOTE: No need to use chopping function in this procedure. The    ####
+  ! ####        quad correction matrix is really just the 1D correction    ####
+  ! ####        matrix applied to each face/flux point of the standard     ####
+  ! ####        quad element. The 1D correction matrix is obtained by the  ####
+  ! ####        function CorrectionMatrix_Edge which applies the chopping  ####
+  ! ####        function to its result so there is no need to repeat this  ####
+  ! ####        operation again.                                           ####
+  ! ###########################################################################
+  ! ###########################################################################
+  !
+  np = size(xi)
+  nsp = np*np
+  nfp = 4*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the 1D correction matrix
+  !
+  allocate ( cmat1D(1:np) , source=zero , stat=ierr )
+  !
+  ! 1D Correction matrix
+  !
+  cmat1D = CorrectionMatrix_Edge(xi)
+  !
+  ! Face 1 - y/eta min face of quad (bottom/south)
+  !
+  nf = 1
+  do j = 1,np
+    do i = 1,np
+      k = j + (i-1)*np
+      return_value(k,nf) = cmat1D(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 2 - x/xi max face of quad (right/east)
+  !
+  nf = np+1
+  do j = 1,np
+    do i = 1,np
+      k = (j-1)*np + np - i + 1
+      return_value(k,nf) = cmat1D(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 3 - y/eta max face of quad (top/north)
+  !
+  nf = 2*np+1
+  do j = 1,np
+    do i = 1,np
+      k = (np-i)*np + np - j + 1
+      return_value(k,nf) = cmat1D(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+  ! Face 4 - x/xi min face of quad (left/west)
+  !
+  nf = 3*np+1
+  do j = 1,np
+    do i = 1,np
+      k = (np-j)*np + i
+      return_value(k,nf) = cmat1D(i)
+    end do
+    nf = nf + 1
+  end do
+  !
+end function CorrectionMatrix_Quad
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Tria(rs) result(return_value)
+  !
+  ! RS : r and s coordinates for the standard
+  !      triangle element on the interval [-1,1]
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  !
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2,np,nsp,nfp
+  integer :: this_order,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: Fmask(:,:)
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: mmat1D_qp(:,:)
+  real(qp), allocatable :: vedge_qp(:,:)
+  real(qp), allocatable :: vtria_qp(:,:)
+  !
+continue
+  !
+  nsp = size(rs,dim=2)
+  this_order = np2n(nsp)
+  np = this_order+1
+  nfp = 3*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and allocate the
+  ! inverse mass matrix and Fmask arrays.
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  allocate ( mmat1D_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( Fmask(1:np,1:3) , source=0 , stat=ierr )
+  !
+  ! Make quad precision copies of the Edge and Tria Vandermonde matrices.
+  !
+  allocate ( vedge_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( vtria_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  vedge_qp = real( vand(Geom_Edge,this_order)%modal2nodal%mat , kind=qp )
+  vtria_qp = real( vand(Geom_Tria,this_order)%modal2nodal%mat , kind=qp )
+  !
+  ! Face 1 - bottom edge of triangle
+  !
+  do i = 1,np
+    Fmask(i,1) = i
+  end do
+  !
+  ! Face 2 - diagonal edge of triangle
+  !
+  j = 0
+  do i = 1,np
+    j = j + np + 1 - i
+    Fmask(i,2) = j
+  end do
+  !
+  ! Face 3 - vertical edge of triangle
+  !
+  j = nsp + 1
+  do i = 1,np
+    j = j - i
+    Fmask(i,3) = j
+  end do
+  !
+  ! DG Book's method for getting Fmask
+  !
+ !Fmask(:,1) = pack( (/(i,i=1,nsp)/) , abs(rs(2,:) + one    ) < eps12 )
+ !Fmask(:,2) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + rs(2,:)) < eps12 )
+ !Fmask(:,3) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + one    ) < eps12 )
+  !
+  ! Compute the inverse mass matrix along an edge
+  !
+  mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+  !
+  ! Face 1
+  !
+  n1 = 1  ! index of first node on this face
+  n2 = np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,1),n1:n2) = mmat1D_qp
+  !
+  ! Face 2
+  !
+  n1 = np+1 ! index of first node on this face
+  n2 = 2*np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,2),n1:n2) = mmat1D_qp
+  !
+  ! Face 3
+  !
+  n1 = 2*np+1 ! index of first node on this face
+  n2 = 3*np   ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,3),n1:n2) = mmat1D_qp
+  !
+  ! Finally, compute the correction matrix
+  !
+  cmat_qp = matmul( transpose(vtria_qp) , cmat_qp )
+  cmat_qp = qtwo*matmul( vtria_qp , cmat_qp )
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Tria
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Tetr(rs) result(return_value)
+  !
+  ! RS : r and s coordinates for the standard
+  !      triangle element on the interval [-1,1]
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  !
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2,np,nsp,nfp
+  integer :: this_order,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: Fmask(:,:)
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: mmat1D_qp(:,:)
+  real(qp), allocatable :: vedge_qp(:,:)
+  real(qp), allocatable :: vtria_qp(:,:)
+  !
+continue
+  !
+  nsp = size(rs,dim=2)
+  this_order = np2n(nsp)
+  np = this_order+1
+  nfp = 3*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and allocate the
+  ! inverse mass matrix and Fmask arrays.
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  allocate ( mmat1D_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( Fmask(1:np,1:3) , source=0 , stat=ierr )
+  !
+  ! Make quad precision copies of the Edge and Tria Vandermonde matrices.
+  !
+  allocate ( vedge_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( vtria_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  vedge_qp = real( vand(Geom_Edge,this_order)%modal2nodal%mat , kind=qp )
+  vtria_qp = real( vand(Geom_Tria,this_order)%modal2nodal%mat , kind=qp )
+  !
+  ! Face 1 - bottom edge of triangle
+  !
+  do i = 1,np
+    Fmask(i,1) = i
+  end do
+  !
+  ! Face 2 - diagonal edge of triangle
+  !
+  j = 0
+  do i = 1,np
+    j = j + np + 1 - i
+    Fmask(i,2) = j
+  end do
+  !
+  ! Face 3 - vertical edge of triangle
+  !
+  j = nsp + 1
+  do i = 1,np
+    j = j - i
+    Fmask(i,3) = j
+  end do
+  !
+  ! DG Book's method for getting Fmask
+  !
+ !Fmask(:,1) = pack( (/(i,i=1,nsp)/) , abs(rs(2,:) + one    ) < eps12 )
+ !Fmask(:,2) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + rs(2,:)) < eps12 )
+ !Fmask(:,3) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + one    ) < eps12 )
+  !
+  ! Compute the inverse mass matrix along an edge
+  !
+  mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+  !
+  ! Face 1
+  !
+  n1 = 1  ! index of first node on this face
+  n2 = np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,1),n1:n2) = mmat1D_qp
+  !
+  ! Face 2
+  !
+  n1 = np+1 ! index of first node on this face
+  n2 = 2*np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,2),n1:n2) = mmat1D_qp
+  !
+  ! Face 3
+  !
+  n1 = 2*np+1 ! index of first node on this face
+  n2 = 3*np   ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,3),n1:n2) = mmat1D_qp
+  !
+  ! Finally, compute the correction matrix
+  !
+  cmat_qp = matmul( transpose(vtria_qp) , cmat_qp )
+  cmat_qp = qtwo*matmul( vtria_qp , cmat_qp )
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Tetr
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Pyra(rs) result(return_value)
+  !
+  ! RS : r and s coordinates for the standard
+  !      triangle element on the interval [-1,1]
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  !
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2,np,nsp,nfp
+  integer :: this_order,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: Fmask(:,:)
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: mmat1D_qp(:,:)
+  real(qp), allocatable :: vedge_qp(:,:)
+  real(qp), allocatable :: vtria_qp(:,:)
+  !
+continue
+  !
+  nsp = size(rs,dim=2)
+  this_order = np2n(nsp)
+  np = this_order+1
+  nfp = 3*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and allocate the
+  ! inverse mass matrix and Fmask arrays.
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  allocate ( mmat1D_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( Fmask(1:np,1:3) , source=0 , stat=ierr )
+  !
+  ! Make quad precision copies of the Edge and Tria Vandermonde matrices.
+  !
+  allocate ( vedge_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( vtria_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  vedge_qp = real( vand(Geom_Edge,this_order)%modal2nodal%mat , kind=qp )
+  vtria_qp = real( vand(Geom_Tria,this_order)%modal2nodal%mat , kind=qp )
+  !
+  ! Face 1 - bottom edge of triangle
+  !
+  do i = 1,np
+    Fmask(i,1) = i
+  end do
+  !
+  ! Face 2 - diagonal edge of triangle
+  !
+  j = 0
+  do i = 1,np
+    j = j + np + 1 - i
+    Fmask(i,2) = j
+  end do
+  !
+  ! Face 3 - vertical edge of triangle
+  !
+  j = nsp + 1
+  do i = 1,np
+    j = j - i
+    Fmask(i,3) = j
+  end do
+  !
+  ! DG Book's method for getting Fmask
+  !
+ !Fmask(:,1) = pack( (/(i,i=1,nsp)/) , abs(rs(2,:) + one    ) < eps12 )
+ !Fmask(:,2) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + rs(2,:)) < eps12 )
+ !Fmask(:,3) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + one    ) < eps12 )
+  !
+  ! Compute the inverse mass matrix along an edge
+  !
+  mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+  !
+  ! Face 1
+  !
+  n1 = 1  ! index of first node on this face
+  n2 = np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,1),n1:n2) = mmat1D_qp
+  !
+  ! Face 2
+  !
+  n1 = np+1 ! index of first node on this face
+  n2 = 2*np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,2),n1:n2) = mmat1D_qp
+  !
+  ! Face 3
+  !
+  n1 = 2*np+1 ! index of first node on this face
+  n2 = 3*np   ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,3),n1:n2) = mmat1D_qp
+  !
+  ! Finally, compute the correction matrix
+  !
+  cmat_qp = matmul( transpose(vtria_qp) , cmat_qp )
+  cmat_qp = qtwo*matmul( vtria_qp , cmat_qp )
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Pyra
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Pris(rs) result(return_value)
+  !
+  ! RS : r and s coordinates for the standard
+  !      triangle element on the interval [-1,1]
+  !
+  !.. Use Statements ..
+  use vandermonde_mod, only : vand
+  !
+  real(wp), dimension(:,:), intent(in) :: rs
+  !
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2,np,nsp,nfp
+  integer :: this_order,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: Fmask(:,:)
+  real(qp), allocatable :: cmat_qp(:,:)
+  real(qp), allocatable :: mmat1D_qp(:,:)
+  real(qp), allocatable :: vedge_qp(:,:)
+  real(qp), allocatable :: vtria_qp(:,:)
+  !
+continue
+  !
+  nsp = size(rs,dim=2)
+  this_order = np2n(nsp)
+  np = this_order+1
+  nfp = 3*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nfp) , source=zero , stat=ierr )
+  !
+  ! Create the correction matrix using quad precision and allocate the
+  ! inverse mass matrix and Fmask arrays.
+  !
+  allocate ( cmat_qp(1:nsp,1:nfp) , source=qzero , stat=ierr )
+  allocate ( mmat1D_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( Fmask(1:np,1:3) , source=0 , stat=ierr )
+  !
+  ! Make quad precision copies of the Edge and Tria Vandermonde matrices.
+  !
+  allocate ( vedge_qp(1:np,1:np) , source=qzero , stat=ierr )
+  allocate ( vtria_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  vedge_qp = real( vand(Geom_Edge,this_order)%modal2nodal%mat , kind=qp )
+  vtria_qp = real( vand(Geom_Tria,this_order)%modal2nodal%mat , kind=qp )
+  !
+  ! Face 1 - bottom edge of triangle
+  !
+  do i = 1,np
+    Fmask(i,1) = i
+  end do
+  !
+  ! Face 2 - diagonal edge of triangle
+  !
+  j = 0
+  do i = 1,np
+    j = j + np + 1 - i
+    Fmask(i,2) = j
+  end do
+  !
+  ! Face 3 - vertical edge of triangle
+  !
+  j = nsp + 1
+  do i = 1,np
+    j = j - i
+    Fmask(i,3) = j
+  end do
+  !
+  ! DG Book's method for getting Fmask
+  !
+ !Fmask(:,1) = pack( (/(i,i=1,nsp)/) , abs(rs(2,:) + one    ) < eps12 )
+ !Fmask(:,2) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + rs(2,:)) < eps12 )
+ !Fmask(:,3) = pack( (/(i,i=1,nsp)/) , abs(rs(1,:) + one    ) < eps12 )
+  !
+  ! Compute the inverse mass matrix along an edge
+  !
+  mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+  !
+  ! Face 1
+  !
+  n1 = 1  ! index of first node on this face
+  n2 = np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,1),n1:n2) = mmat1D_qp
+  !
+  ! Face 2
+  !
+  n1 = np+1 ! index of first node on this face
+  n2 = 2*np ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,2),n1:n2) = mmat1D_qp
+  !
+  ! Face 3
+  !
+  n1 = 2*np+1 ! index of first node on this face
+  n2 = 3*np   ! index of last  node on this face
+  !
+  cmat_qp(Fmask(:,3),n1:n2) = mmat1D_qp
+  !
+  ! Finally, compute the correction matrix
+  !
+  cmat_qp = matmul( transpose(vtria_qp) , cmat_qp )
+  cmat_qp = qtwo*matmul( vtria_qp , cmat_qp )
+  !
+  ! Use the chop function to copy cmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( cmat_qp )
+  !
+end function CorrectionMatrix_Pris
+!
+!###############################################################################
+!
+pure function CorrectionMatrix_Hexa(xi) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: np,nf,nep,nfp,nbp,nsp
+  integer :: i,j,k,l,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: cmat1D(:)
+  !
+continue
+  !
+  ! ###########################################################################
+  ! ###########################################################################
+  ! ####  NOTE: No need to use chopping function in this procedure. The    ####
+  ! ####        hexa correction matrix is really just the 1D correction    ####
+  ! ####        matrix applied to each face/flux point of the standard     ####
+  ! ####        hexa element. The 1D correction matrix is obtained by the  ####
+  ! ####        function CorrectionMatrix_Edge which applies the chopping  ####
+  ! ####        function to its result so there is no need to repeat this  ####
+  ! ####        operation again.                                           ####
+  ! ###########################################################################
+  ! ###########################################################################
+  !
+  nep = size(xi)
+  nfp = np*np
+  nbp = 6*nfp
+  nsp = np*np*np
+  !
+  ! Allocate the return array containing the working
+  ! precision correction matrix
+  !
+  allocate ( return_value(1:nsp,1:nbp) , source=zero , stat=ierr )
+  !
+  ! Create the 1D correction matrix
+  !
+  allocate ( cmat1D(1:np) , source=zero , stat=ierr )
+  !
+  ! 1D Correction matrix
+  !
+  cmat1D = CorrectionMatrix_Edge(xi)
+  !
+  ! ############################################################
+  ! ############################################################
+  ! #####  Face 1 - z/zeta min face of quad (bottom/down)  #####
+  ! ############################################################
+  ! ############################################################
+  !
+  nf = 0*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do j = 1,nep
+    do i = 1,nep
+      !
+      ! Loop over interior solution points in z/zeta direction
+      !
+      do k = 1,nep
+        l = j + (i-1)*nep + (k-1)*nfp
+        return_value(l,nf) = cmat1D(k)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+  ! #######################################################
+  ! #######################################################
+  ! #####  Face 2 - z/zeta max face of quad (top/up)  #####
+  ! #######################################################
+  ! #######################################################
+  !
+  nf = 1*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do i = 1,nep
+    do j = 1,nep
+      !
+      ! Loop over interior solution points in z/zeta direction
+      !
+      do k = 1,nep
+        l = j + (i-1)*nep + nfp*(nep-k)
+        return_value(l,nf) = cmat1D(k)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+  ! #########################################################
+  ! #########################################################
+  ! #####  Face 3 - x/xi max face of quad (right/east)  #####
+  ! #########################################################
+  ! #########################################################
+  !
+  nf = 2*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do j = 1,nep
+    do k = 1,nep
+      !
+      ! Loop over interior solution points in x/xi direction
+      !
+      do i = 1,nep
+        l = k*nep + (j-1)*nfp - i + 1
+        return_value(l,nf) = cmat1D(i)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+  ! ########################################################
+  ! ########################################################
+  ! #####  Face 4 - x/xi min face of quad (left/west)  #####
+  ! ########################################################
+  ! ########################################################
+  !
+  nf = 3*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do k = 1,nep
+    do j = 1,nep
+      !
+      ! Loop over interior solution points in x/xi direction
+      !
+      do i = 1,nep
+        l = (k-1)*nep + (j-1)*nfp + i
+        return_value(l,nf) = cmat1D(i)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+  ! ###########################################################
+  ! ###########################################################
+  ! #####  Face 5 - y/eta min face of quad (front/south)  #####
+  ! ###########################################################
+  ! ###########################################################
+  !
+  nf = 4*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do i = 1,nep
+    do k = 1,nep
+      !
+      ! Loop over interior solution points in y/eta direction
+      !
+      do j = 1,nep
+        l = (i-1)*nfp + k + (j-1)*nep
+        return_value(l,nf) = cmat1D(j)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+  ! ##########################################################
+  ! ##########################################################
+  ! #####  Face 6 - y/eta max face of quad (back/north)  #####
+  ! ##########################################################
+  ! ##########################################################
+  !
+  nf = 5*nfp+1 ! First point on this face
+  !
+  ! Loops over points on this face
+  !
+  do k = 1,nep
+    do i = 1,nep
+      !
+      ! Loop over interior solution points in y/eta direction
+      !
+      do j = 1,nep
+        l = (i-1)*nfp + k + (nep-j)*nep
+        return_value(l,nf) = cmat1D(j)
+      end do
+      !
+      nf = nf + 1 ! Proceed to next point on this face
+      !
+    end do
+  end do
+  !
+end function CorrectionMatrix_Hexa
+!
+!###############################################################################
+!
+include "Functions/np2n.f90"
+!
+!###############################################################################
+!
 end module correction_mod
 !
 !###############################################################################

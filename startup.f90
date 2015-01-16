@@ -4,7 +4,6 @@ module startup_mod
   ! used to set up the computational problem
   !
   use module_kind_types
-  use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
   implicit none
   !
@@ -73,10 +72,6 @@ module startup_mod
     module procedure eval_LagrangePoly2D_DP, eval_LagrangePoly2D_QP
   end interface eval_LagrangePoly2D
   !
-  interface GradJacobiP
-    module procedure GradJacobiP_DP, GradJacobiP_QP
-  end interface GradJacobiP
-  !
   interface GradVandermonde1D
     module procedure GradVandermonde1D_DP, GradVandermonde1D_QP
   end interface GradVandermonde1D
@@ -96,10 +91,6 @@ module startup_mod
   interface LagrangePoly2D_tria
     module procedure LagrangePoly2D_tria_DP, LagrangePoly2D_tria_QP
   end interface LagrangePoly2D_tria
-  !
-  interface rstoab
-    module procedure rstoab_DP, rstoab_QP
-  end interface rstoab
   !
   interface Vandermonde1D
     module procedure Vandermonde1D_DP, Vandermonde1D_QP
@@ -2801,77 +2792,10 @@ end function eval_LagrangePoly2D_QP
 !
 !###############################################################################
 !
-pure function GradJacobiP_DP(n,alpha,beta,x) result(return_value)
-  !
-  integer,   intent(in) :: n
-  real(dp), intent(in) :: alpha
-  real(dp), intent(in) :: beta
-  real(dp), intent(in) :: x
-  !
-  real(dp) :: return_value
-  !
-  !.. Local Scalars ..
-  real(dp) :: rn,a1,b1,ab1
-  !
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-  if (n == 0) then
-    return_value = zero
-  else
-    !
-    rn  = real(n,kind=lp)
-    a1  = alpha + one
-    b1  = beta  + one
-    ab1 = alpha + b1
-    !
-    return_value = sqrt(rn*(rn+ab1)) * JacobiP(n-1,a1,b1,x)
-    !
-  end if
-  !
-end function GradJacobiP_DP
-!
-!###############################################################################
-!
-pure function GradJacobiP_QP(n,alpha,beta,x) result(return_value)
-  !
-  integer,   intent(in) :: n
-  real(qp), intent(in) :: alpha
-  real(qp), intent(in) :: beta
-  real(qp), intent(in) :: x
-  !
-  real(qp) :: return_value
-  !
-  !.. Local Scalars ..
-  real(qp) :: rn,a1,b1,ab1
-  !
-  !
-  integer, parameter :: lp = qp
-  !
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-  if (n == 0) then
-    return_value = zero
-  else
-    !
-    rn  = real(n,kind=lp)
-    a1  = alpha + one
-    b1  = beta  + one
-    ab1 = alpha + b1
-    !
-    return_value = sqrt(rn*(rn+ab1)) * JacobiP(n-1,a1,b1,x)
-    !
-  end if
-  !
-end function GradJacobiP_QP
-!
-!###############################################################################
-!
 pure function GradVandermonde1D_DP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(dp), dimension(:), intent(in) :: xi
   !
@@ -2893,7 +2817,7 @@ continue
   do j = 2,size(xi)
     do i = 1,size(xi)
       rj = real(j-1,kind=lp)
-      return_value(i,j) = sqrt(rj*(rj+one)) * JacobiP(j-2,one,one,xi(i))
+      return_value(i,j) = sqrt(rj*(rj+one)) * normalized_jacobi_poly(j-2,one,one,xi(i))
     end do
   end do
   !
@@ -2902,6 +2826,9 @@ end function GradVandermonde1D_DP
 !###############################################################################
 !
 pure function GradVandermonde1D_QP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(qp), dimension(:), intent(in) :: xi
   !
@@ -2923,7 +2850,7 @@ continue
   do j = 2,size(xi)
     do i = 1,size(xi)
       rj = real(j-1,kind=lp)
-      return_value(i,j) = sqrt(rj*(rj+one)) * JacobiP(j-2,one,one,xi(i))
+      return_value(i,j) = sqrt(rj*(rj+one)) * normalized_jacobi_poly(j-2,one,one,xi(i))
     end do
   end do
   !
@@ -2932,6 +2859,10 @@ end function GradVandermonde1D_QP
 !###############################################################################
 !
 pure function GradVandermonde2D_DP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  use polynomial_mod, only : grad_normalized_jacobi_poly
   !
   real(dp), dimension(:,:), intent(in) :: rs
   !
@@ -2978,11 +2909,11 @@ continue
         !
         ab = rstoab(rs(1:2,k))
         !
-        fa = JacobiP(i,alpha,beta,ab(1))
-        gb = JacobiP(j,alphb,beta,ab(2))
+        fa = normalized_jacobi_poly(i,alpha,beta,ab(1))
+        gb = normalized_jacobi_poly(j,alphb,beta,ab(2))
         !
-        dfa = GradJacobiP(i,alpha,beta,ab(1))
-        dgb = GradJacobiP(j,alphb,beta,ab(2))
+        dfa = grad_normalized_jacobi_poly(i,alpha,beta,ab(1))
+        dgb = grad_normalized_jacobi_poly(j,alphb,beta,ab(2))
         !
         h1mb = half*(one-ab(2))
         !
@@ -2999,11 +2930,17 @@ continue
     end do
   end do
   !
+  contains
+  include "Functions/rstoab.f90"
 end function GradVandermonde2D_DP
 !
 !###############################################################################
 !
 pure function GradVandermonde2D_QP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
+  use polynomial_mod, only : grad_normalized_jacobi_poly
   !
   real(qp), dimension(:,:), intent(in) :: rs
   !
@@ -3050,11 +2987,11 @@ continue
         !
         ab = rstoab(rs(1:2,k))
         !
-        fa = JacobiP(i,alpha,beta,ab(1))
-        gb = JacobiP(j,alphb,beta,ab(2))
+        fa = normalized_jacobi_poly(i,alpha,beta,ab(1))
+        gb = normalized_jacobi_poly(j,alphb,beta,ab(2))
         !
-        dfa = GradJacobiP(i,alpha,beta,ab(1))
-        dgb = GradJacobiP(j,alphb,beta,ab(2))
+        dfa = grad_normalized_jacobi_poly(i,alpha,beta,ab(1))
+        dgb = grad_normalized_jacobi_poly(j,alphb,beta,ab(2))
         !
         h1mb = half*(one-ab(2))
         !
@@ -3071,6 +3008,8 @@ continue
     end do
   end do
   !
+  contains
+  include "Functions/rstoab.f90"
 end function GradVandermonde2D_QP
 !
 !###############################################################################
@@ -3455,47 +3394,10 @@ end function LagrangePoly2D_tria_QP
 !
 !###############################################################################
 !
-pure function rstoab_DP(rs) result(return_value)
-  !
-  real(dp), dimension(1:2), intent(in) :: rs
-  !
-  real(dp), dimension(1:2) :: return_value
-  !
-  integer, parameter :: lp = dp
-  !
-  real(lp), parameter :: one  = 1.0_lp
-  real(lp), parameter :: two  = 2.0_lp
-  !
-continue
-  !
-  return_value(1) = two * (one+rs(1)) * reciprocal(one-rs(2)) - one
-  return_value(2) = rs(2)
-  !
-end function rstoab_DP
-!
-!###############################################################################
-!
-pure function rstoab_QP(rs) result(return_value)
-  !
-  real(qp), dimension(1:2), intent(in) :: rs
-  !
-  real(qp), dimension(1:2) :: return_value
-  !
-  integer, parameter :: lp = qp
-  !
-  real(lp), parameter :: one  = 1.0_lp
-  real(lp), parameter :: two  = 2.0_lp
-  !
-continue
-  !
-  return_value(1) = two * (one+rs(1)) * reciprocal(one-rs(2)) - one
-  return_value(2) = rs(2)
-  !
-end function rstoab_QP
-!
-!###############################################################################
-!
 pure function Vandermonde1D_DP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(dp), dimension(:), intent(in) :: xi
   !
@@ -3513,7 +3415,7 @@ continue
   !
   do j = 1,size(xi)
     do i = 1,size(xi)
-      return_value(i,j) = JacobiP(j-1,zero,zero,xi(i))
+      return_value(i,j) = normalized_jacobi_poly(j-1,zero,zero,xi(i))
     end do
   end do
   !
@@ -3522,6 +3424,9 @@ end function Vandermonde1D_DP
 !###############################################################################
 !
 pure function Vandermonde1D_QP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(qp), dimension(:), intent(in) :: xi
   !
@@ -3539,7 +3444,7 @@ continue
   !
   do j = 1,size(xi)
     do i = 1,size(xi)
-      return_value(i,j) = JacobiP(j-1,zero,zero,xi(i))
+      return_value(i,j) = normalized_jacobi_poly(j-1,zero,zero,xi(i))
     end do
   end do
   !
@@ -3548,6 +3453,9 @@ end function Vandermonde1D_QP
 !###############################################################################
 !
 pure function Vandermonde1D_N_DP(xi,N) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   integer,                 intent(in) :: N
   real(dp), dimension(:), intent(in) :: xi
@@ -3566,7 +3474,7 @@ continue
   !
   do j = 1,N
     do i = 1,size(xi)
-      return_value(i,j) = JacobiP(j-1,zero,zero,xi(i))
+      return_value(i,j) = normalized_jacobi_poly(j-1,zero,zero,xi(i))
     end do
   end do
   !
@@ -3575,6 +3483,9 @@ end function Vandermonde1D_N_DP
 !###############################################################################
 !
 pure function Vandermonde1D_N_QP(xi,N) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   integer,                 intent(in) :: N
   real(qp), dimension(:), intent(in) :: xi
@@ -3593,7 +3504,7 @@ continue
   !
   do j = 1,N
     do i = 1,size(xi)
-      return_value(i,j) = JacobiP(j-1,zero,zero,xi(i))
+      return_value(i,j) = normalized_jacobi_poly(j-1,zero,zero,xi(i))
     end do
   end do
   !
@@ -3602,6 +3513,9 @@ end function Vandermonde1D_N_QP
 !###############################################################################
 !
 pure function Vandermonde2D_quad_DP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(dp), dimension(:), intent(in) :: xi
   !
@@ -3635,8 +3549,8 @@ continue
           !
           l = n_sp1de*lj + li + 1
           !
-          hx = JacobiP(li,zero,zero,x)
-          hy = JacobiP(lj,zero,zero,y)
+          hx = normalized_jacobi_poly(li,zero,zero,x)
+          hy = normalized_jacobi_poly(lj,zero,zero,y)
           !
           return_value(k,l) = hx*hy
           !
@@ -3651,6 +3565,9 @@ end function Vandermonde2D_quad_DP
 !###############################################################################
 !
 pure function Vandermonde2D_quad_QP(xi) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(qp), dimension(:), intent(in) :: xi
   !
@@ -3684,8 +3601,8 @@ continue
           !
           l = n_sp1de*lj + li + 1
           !
-          hx = JacobiP(li,zero,zero,x)
-          hy = JacobiP(lj,zero,zero,y)
+          hx = normalized_jacobi_poly(li,zero,zero,x)
+          hy = normalized_jacobi_poly(lj,zero,zero,y)
           !
           return_value(k,l) = hx*hy
           !
@@ -3700,6 +3617,9 @@ end function Vandermonde2D_quad_QP
 !###############################################################################
 !
 pure function Vandermonde2D_quad_N_DP(xi,N) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   integer,                 intent(in) :: N
   real(dp), dimension(:), intent(in) :: xi
@@ -3743,8 +3663,8 @@ continue
           !
           l = nsp*lj + li + 1
           !
-          hx = JacobiP(li,zero,zero,x)
-          hy = JacobiP(lj,zero,zero,y)
+          hx = normalized_jacobi_poly(li,zero,zero,x)
+          hy = normalized_jacobi_poly(lj,zero,zero,y)
           !
           return_value(k,l) = hx*hy
           !
@@ -3759,6 +3679,9 @@ end function Vandermonde2D_quad_N_DP
 !###############################################################################
 !
 pure function Vandermonde2D_quad_N_QP(xi,N) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   integer,                 intent(in) :: N
   real(qp), dimension(:), intent(in) :: xi
@@ -3802,8 +3725,8 @@ continue
           !
           l = nsp*lj + li + 1
           !
-          hx = JacobiP(li,zero,zero,x)
-          hy = JacobiP(lj,zero,zero,y)
+          hx = normalized_jacobi_poly(li,zero,zero,x)
+          hy = normalized_jacobi_poly(lj,zero,zero,y)
           !
           return_value(k,l) = hx*hy
           !
@@ -3818,6 +3741,9 @@ end function Vandermonde2D_quad_N_QP
 !###############################################################################
 !
 pure function Vandermonde2D_tria_DP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(dp), dimension(:,:), intent(in) :: rs
   !
@@ -3859,11 +3785,11 @@ continue
         !
         alpha = zero
         beta  = zero
-        h1 = JacobiP(i,alpha,beta,ab(1))
+        h1 = normalized_jacobi_poly(i,alpha,beta,ab(1))
         !
         alpha = real(2*i+1,kind=lp)
         beta  = zero
-        h2 = JacobiP(j,alpha,beta,ab(2))
+        h2 = normalized_jacobi_poly(j,alpha,beta,ab(2))
         !
         ! Evaluate the psi(m) at node k
         !
@@ -3876,11 +3802,16 @@ continue
     end do
   end do
   !
+  contains
+  include "Functions/rstoab.f90"
 end function Vandermonde2D_tria_DP
 !
 !###############################################################################
 !
 pure function Vandermonde2D_tria_QP(rs) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : normalized_jacobi_poly
   !
   real(qp), dimension(:,:), intent(in) :: rs
   !
@@ -3922,11 +3853,11 @@ continue
         !
         alpha = zero
         beta  = zero
-        h1 = JacobiP(i,alpha,beta,ab(1))
+        h1 = normalized_jacobi_poly(i,alpha,beta,ab(1))
         !
         alpha = real(2*i+1,kind=lp)
         beta  = zero
-        h2 = JacobiP(j,alpha,beta,ab(2))
+        h2 = normalized_jacobi_poly(j,alpha,beta,ab(2))
         !
         ! Evaluate the psi(m) at node k
         !
@@ -3939,279 +3870,13 @@ continue
     end do
   end do
   !
+  contains
+  include "Functions/rstoab.f90"
 end function Vandermonde2D_tria_QP
 !
 !###############################################################################
 !
-subroutine output2d(output_requested,array,dim1,dim2,ctype,arrayname)
-  !
-  !.. Use Statements ..
- !use ifport, only : system
-  !
-  !.. Formal Arguments ..
-  logical,                  intent(in) :: output_requested
-  integer,                  intent(in) :: dim1,dim2,ctype
-  real(wp), dimension(:,:), intent(in) :: array
-  character(len=*),         intent(in) :: arrayname
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,l,np1,np2
-  integer :: ni,nj,nk,nl,ierr
-  integer :: exitstat,cmndstat
-  integer :: iu
-  character(len=1000) :: cmndmsg,command
-  character(len=6+len_trim(adjustl(arrayname))) :: fname
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:size(array,1),1:size(array,2)) :: copy
-  !
-  !.. Local Constants ..
-  integer, parameter :: face = 1
-  integer, parameter :: cell = 2
-  !
-continue
-  !
-  exitstat = 0
-  cmndstat = 0
-  cmndmsg = " "
-  !
-  if (mypnum == 0 .and. (output_requested .or. array_debugging)) then
-    !
-    fname = "array."//trim(adjustl(arrayname))
-    open(newunit=iu,file=fname,status="replace",action="write", &
-                    form="formatted",iostat=ierr)
-    call io_error('output2d',fname,1,ierr)
-    !
-    np1 = size(array,1)
-    np2 = size(array,2)
-    !
-    copy(:,:) = array(:,:)
-    !
-    write (iu,1) trim(adjustl(arrayname))
-    !
-    ! Default values
-    !
-    ni = np1
-    nj = 1
-    nk = np2
-    nl = 1
-    !
-    if (ctype == 1) then
-      !
-      ni = np2n(np1)
-      nj = ni
-      nk = np2n(np2)
-      nl = nk
-      !
-    else if (ctype == 2) then
-      !
-      if (dim1 == face) then
-        ni = np1/4
-        nj = 4
-      else if (dim1 == cell) then
-        ni = nint( sqrt(real(np1,kind=wp)) )
-        nj = ni
-      end if
-      !
-      if (dim2 == face) then
-        nk = np2/4
-        nl = 4
-      else if (dim2 == cell) then
-        nk = nint( sqrt(real(np2,kind=wp)) )
-        nl = nk
-      end if
-      !
-      do l = 1,nl
-        do k = 1,nk
-          write (iu,2) k,l
-          do j = 1,nj
-            write (iu,3) ( copy( (nj-j)*ni+i , (l-1)*nk+k ) , i=1,ni )
-          end do
-        end do
-      end do
-      !
-    else
-      !
-      do j = 1,np1
-        write (iu,3) ( copy(j,i) , i=1,np2 )
-      end do
-      !
-    end if
-    !
-    flush (iu)
-    !
-    close (iu,iostat=ierr)
-    call io_error('output2d',fname,2,ierr)
-    !
-    command = "sed -i -e 's/-\<0\.000\>/   -  /g' -e 's/\<0\.000\>/  -  /g' "// &
-              trim(adjustl(fname))
-    write (iout,4) "Executing: ",trim(adjustl(command))
-    !
-   !exitstat = system( trim(command) )
-    call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
-    !
-    if (exitstat /= 0 .or. cmndstat /= 0) then
-      write (iout,99) exitstat,cmndstat,trim(adjustl(cmndmsg))
-    end if
-    !
-  end if
-  !
-  1 format (/,a,/)
-  2 format (/,"i = ",i2,",j = ",i2)
-  3 format (*(g12.4))
-  4 format (a,a)
-  11 format (a,i0,a,i0,a)
-  99 format (/," Error attempting to use command line!",/, &
-               " exit status    = ",i0,/, &
-               " command status = ",i0,/, &
-               " error message  = ",a,//)
-  !
-end subroutine output2d
-!
-!###############################################################################
-!
-subroutine write_lagrange_tecplot(dqr_mat,dqs_mat)
-  !
-  !.. Use Statements ..
-  use order_mod, only : n_sp1de,n_sp2dq,n_qp1de,n_qp2dq
-  use geovar,    only : solpts_1d,qdtpts_1d,interp_s2f,interp_s2g
-  use metvar,    only : dr_mat,ds_mat
-  !
-  !.. Formal Arguments ..
-  real(wp), dimension(:,:,:), intent(in) :: dqr_mat
-  real(wp), dimension(:,:,:), intent(in) :: dqs_mat
-  !
-  !.. Local Scalars ..
-  integer :: i,j,k,ierr
-  integer :: iotec
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_lagrange_tecplot"
-  !
-continue
-  !
-  open (newunit=iotec,file="lagrange.tec.dat",status="replace", &
-                      action="write",form="formatted",iostat=ierr)
-  call io_error(pname,"lagrange.tec.dat",1,ierr)
-  !
-  write (iotec,1)
-  ! 
-  write (iotec,3) 1,n_sp1de,n_sp1de
-  write (iotec,2) ((solpts_1d(i),i=1,n_sp1de),j=1,n_sp1de)
-  write (iotec,2) ((solpts_1d(j),i=1,n_sp1de),j=1,n_sp1de)
-  write (iotec,2) ((interp_s2f((j-1)*n_sp1de+i,1,2),i=1,n_sp1de),j=1,n_sp1de)
-  !
-  do k = 2,4*n_sp1de
-    write (iotec,4) k,n_sp1de,n_sp1de
-    write (iotec,2) ((interp_s2f((j-1)*n_sp1de+i,k,2),i=1,n_sp1de),j=1,n_sp1de)
-  end do
-  !
-  do k = 1,n_sp2dq
-    write (iotec,5) k,n_sp1de,n_sp1de
-    write (iotec,2) ((dr_mat((j-1)*n_sp1de+i,k,2)/maxval(dqr_mat(:,k,2)),i=1,n_sp1de),j=1,n_sp1de)
-  end do
-  !
-  do k = 1,n_sp2dq
-    write (iotec,6) k,n_sp1de,n_sp1de
-    write (iotec,2) ((ds_mat((j-1)*n_sp1de+i,k,2)/maxval(dqs_mat(:,k,2)),i=1,n_sp1de),j=1,n_sp1de)
-  end do
-  !
-  write (iotec,7) 1,n_qp1de,n_qp1de
-  write (iotec,2) ((qdtpts_1d(i),i=1,n_qp1de),j=1,n_qp1de)
-  write (iotec,2) ((qdtpts_1d(j),i=1,n_qp1de),j=1,n_qp1de)
-  write (iotec,2) ((interp_s2g((j-1)*n_qp1de+i,1,2),i=1,n_qp1de),j=1,n_qp1de)
-  !
-  do k = 2,4*n_sp1de
-    write (iotec,8) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
-    write (iotec,2) ((interp_s2g((j-1)*n_qp1de+i,k,2),i=1,n_qp1de),j=1,n_qp1de)
-  end do
-  !
-  do k = 1,n_sp2dq
-    write (iotec,9) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
-    write (iotec,2) ((dqr_mat((j-1)*n_qp1de+i,k,2)/maxval(dqr_mat(:,k,2)),i=1,n_qp1de),j=1,n_qp1de)
-  end do
-  !
-  do k = 1,n_sp2dq
-    write (iotec,10) k,n_qp1de,n_qp1de,4*n_sp1de+2*n_sp1de*n_sp1de+1
-    write (iotec,2) ((dqs_mat((j-1)*n_qp1de+i,k,2)/maxval(dqs_mat(:,k,2)),i=1,n_qp1de),j=1,n_qp1de)
-  end do
-  !
-  close (iotec,iostat=ierr)
-  call io_error(pname,"lagrange.tec.dat",2,ierr)
-  !
-  !
-  !
-  1 format ('VARIABLES = "X", "Y", "Z"')
-  2 format (5es18.10)
-  3 format ('ZONE T="La-SP - ',i0,'", I=',i0,', J=',i0,', K=1, DATAPACKING=BLOCK')
-  4 format ('ZONE T="La-SP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
-  5 format ('ZONE T="Dr-SP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
-  6 format ('ZONE T="Ds-SP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=1)')
-  7 format ('ZONE T="La-QP - ',i0,'", I=',i0,', J=',i0,', K=1, DATAPACKING=BLOCK')
-  8 format ('ZONE T="La-QP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
-  9 format ('ZONE T="Dr-QP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
- 10 format ('ZONE T="Ds-QP - ',i0,'", I=',i0,', J=',i0, &
-            ', K=1, DATAPACKING=BLOCK, VARSHARELIST=([1,2]=',i0,')')
-  !
-end subroutine write_lagrange_tecplot
-!
-!###############################################################################
-!
-subroutine write_quadrature()
-  !
-  !.. Use Statements ..
-  use order_mod, only : n_sp1de
-  use geovar,    only : solpts_1d,flxpts_1d
-  !
-  !.. Local Scalars ..
-  integer :: i,j,ierr
-  integer :: iqd
-  !
-continue
-  !
-  open(newunit=iqd,file="quad.tec.dat",status="replace", &
-                   action="write",iostat=ierr)
-  call io_error("write_quadrature","quad.tec.dat",1,ierr)
-  !
-  write (iqd,*) 'VARIABLES = "X" "Y"'
-  write (iqd,*) 'ZONE T="Solution Points"'
-  do j = 1,n_sp1de
-    do i = 1,n_sp1de
-      write (iqd,1) one4*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) + &
-                            one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
-                            one*(one+solpts_1d(j))*(one+solpts_1d(i)) - &
-                            one*(one+solpts_1d(j))*(one-solpts_1d(i)) ), &
-                    one4*( -one*(one-solpts_1d(j))*(one-solpts_1d(i)) - &
-                            one*(one-solpts_1d(j))*(one+solpts_1d(i)) + &
-                            one*(one+solpts_1d(j))*(one+solpts_1d(i)) + &
-                            one*(one+solpts_1d(j))*(one-solpts_1d(i)) )
-    end do
-  end do
-  write (iqd,*) 'ZONE T="Flux Points"'
-  do i = 1,n_sp1de
-    write (iqd,1) flxpts_1d(i),-one
-  end do
-  do i = 1,n_sp1de
-    write (iqd,1) one,flxpts_1d(i)
-  end do
-  do i = 1,n_sp1de
-    write (iqd,1) flxpts_1d(n_sp1de+1-i),one
-  end do
-  do i = 1,n_sp1de
-    write (iqd,1) -one,flxpts_1d(n_sp1de+1-i)
-  end do
-  !
-  close (iqd,iostat=ierr)
-  call io_error("write_quadrature","quad.tec.dat",2,ierr)
-  !
-  1 format (25es12.4)
-  !
-end subroutine write_quadrature
+include "Functions/startup_output.f90"
 !
 !###############################################################################
 !
