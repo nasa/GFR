@@ -214,6 +214,8 @@ module module_kind_types
   ! Location of 1D solution points
   integer, parameter :: Legendre_Gauss          = 1
   integer, parameter :: Legendre_Gauss_Lobatto  = 2
+  integer, parameter :: Legendre_Nodes(1:2) = [Legendre_Gauss, &
+                                               Legendre_Gauss_Lobatto]
   integer, parameter :: Chebyshev_Gauss         = 3
   integer, parameter :: Chebyshev_Gauss_Lobatto = 4
   integer, parameter :: Gauss_Lobatto(1:2) = [Legendre_Gauss_Lobatto, &
@@ -548,6 +550,19 @@ module module_kind_types
   interface findloc
     module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8
   end interface findloc
+  !
+  !
+  !
+  !
+  private :: identity_matrix_dim_SP,identity_matrix_mat_SP
+  private :: identity_matrix_dim_DP,identity_matrix_mat_DP
+  private :: identity_matrix_dim_QP,identity_matrix_mat_QP
+  !
+  interface identity_matrix
+    module procedure identity_matrix_dim_SP,identity_matrix_mat_SP, &
+                     identity_matrix_dim_DP,identity_matrix_mat_DP, &
+                     identity_matrix_dim_QP,identity_matrix_mat_QP
+  end interface identity_matrix
   !
 contains
 !
@@ -1350,6 +1365,7 @@ include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
 include "Functions/reformat_string.f90"
 include "Functions/ghost_nodes.f90"
+include "Functions/intseq.f90"
 !
 !###############################################################################
 !

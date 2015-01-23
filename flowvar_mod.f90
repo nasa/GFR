@@ -1,12 +1,18 @@
 module flowvar
   !
   use module_kind_types, only : wp
+  use module_kind_types, only : zero
+  use module_kind_types, only : Classic_RK
+  use module_kind_types, only : CK4_RK
+  use module_kind_types, only : TVD4_RK
+  use module_kind_types, only : alloc_error
   !
   implicit none
   !
   private
   !
   public :: flowvar_alloc_status
+  public :: allocate_flowvar_arrays
   !
   ! USP  : conservative variables at the solution points (@SP)
   ! DUSP : gradient of primitive variables @SP
@@ -76,7 +82,123 @@ module flowvar
   type(profile), public, save, allocatable, dimension(:) :: bnd_prof
   type(profile), public, save, allocatable, dimension(:) :: sol_prof
   !
+  !
+  ! FACE_VAR : Derived type containing a set of variables at the flux/face
+  !            points on each side of a face between cells
+  !
+  type, public :: face_var
+    real(wp), allocatable :: v(:,:,:)
+  end type face_var
+  !
+  !
+  ! FACE_VEC : Derived type containing a vector of a set of variables at the
+  !            flux/face points on each side of a face between cells. This is
+  !            basically the same thing as face_var but with an additional
+  !            rank for v to allow for directional quantities for each
+  !            variable in the set.
+  !
+  type, public :: face_vec
+    real(wp), allocatable :: v(:,:,:,:)
+  end type face_vec
+  !
+  type(face_var), public, save, allocatable, dimension(:) :: faceusp_dt
+  type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
+  type(face_var), public, save, allocatable, dimension(:) :: faceflx_dt
+  !
 contains
+!
+!###############################################################################
+!
+subroutine allocate_flowvar_arrays()
+  !
+  !.. Use Statements ..
+  use eqn_idx,   only : nq
+  use geovar,    only : nr,n_solpts,n_totpts,nface
+  use order_mod, only : n_fp1de
+  use ovar,      only : iRKtype,num_stages
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  character(len=200) :: error_message
+  !
+  !.. Local Constants ..
+  character(len=*), parameter :: pname = "allocate_flowvar_arrays"
+  !
+continue
+  !
+  allocate ( usp(1:nq,1:n_totpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"usp",1,ierr,error_message)
+  !
+  !
+  allocate ( dusp(1:nr,1:nq,1:n_totpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"dusp",1,ierr,error_message)
+  !
+  !
+  allocate ( residual(1:nq,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"residual",1,ierr,error_message)
+  !
+  !
+  allocate ( dtsp(1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"dtsp",1,ierr,error_message)
+  !
+  !
+  allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"uoldsp",1,ierr,error_message)
+  !
+  !
+  allocate ( faceusp(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp",1,ierr,error_message)
+  !
+  allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_dt",1,ierr,error_message)
+  !
+  !
+  allocate ( facedusp(1:2,1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facedusp",1,ierr,error_message)
+  !
+  allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facedusp_dt",1,ierr,error_message)
+  !
+  !
+  allocate ( faceflx(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceflx",1,ierr,error_message)
+  !
+  allocate ( faceflx_dt(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceflx_dt",1,ierr,error_message)
+  !
+  ! Allocate the storage for the Runge-Kutta methods
+  !
+  n = 0
+  if (iRKtype == Classic_RK) then
+    n = num_stages
+  else if (iRKtype == CK4_RK .or. iRKtype == TVD4_RK) then
+    n = 1
+    if (iRKtype == TVD4_RK) then
+      !
+      allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"usp_sum",1,ierr,error_message)
+      !
+    end if
+  end if
+  !
+  if (n /= 0) then
+    !
+    allocate ( rssprk(1:nq,1:n_solpts,1:n) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rssprk",1,ierr,error_message)
+    !
+  end if
+  !
+end subroutine allocate_flowvar_arrays
 !
 !###############################################################################
 !

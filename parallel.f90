@@ -143,7 +143,7 @@ continue
   !
   allocate ( cell_map_ptr(1:2) , source=[0,ncell] , stat=ierr )
   call alloc_error("create_serial_cell_map","cell_map_ptr",1,ierr)
-  allocate ( cell_map(1:ncell) , source=[1:ncell] , stat=ierr )
+  allocate ( cell_map(1:ncell) , source=intseq(1,ncell) , stat=ierr )
   call alloc_error("create_serial_cell_map","cell_map",1,ierr)
   !
 end subroutine create_serial_cell_map
@@ -1148,7 +1148,7 @@ continue
     !
     ! Add the cells of the current partition to cell_map
     !
-    cell_map(n1:n2) = pack( [1:ngcell] , epart(1:ngcell) == (n-1) )
+    cell_map(n1:n2) = pack( intseq(1,ngcell) , epart(1:ngcell) == (n-1) )
    !cell_map = [cell_map,find_subset(epart,n-1)]
     !
   end do
@@ -1208,7 +1208,7 @@ continue
     !
     ! Add the nodes of the current partition to node_map
     !
-    node_map(n1:n2) = pack( [1:ngnode] , msk(1:ngnode) )
+    node_map(n1:n2) = pack( intseq(1,ngnode) , msk(1:ngnode) )
     !
   end do
   !
@@ -1255,7 +1255,7 @@ continue
     !
     ! Add the faces of the current partition to face_map
     !
-    face_map(n1:n2) = pack( [1:ngface] , &
+    face_map(n1:n2) = pack( intseq(1,ngface) , &
                             epart(cells_on_face(1,1:ngface)) == (n-1) )
    !face_map = [face_map,find_subset( epart(cells_on_face(1,1:ngface)) , n-1 )]
     !
@@ -1296,7 +1296,7 @@ continue
   do n = 1,np
     n1 = map_ptr(n)+1
     n2 = map_ptr(n+1)
-    return_value(map(n1:n2),n) = [1:n2-n1+1]
+    return_value(map(n1:n2),n) = intseq(1,n2-n1+1)
   end do
   !
 end function create_reverse_map
@@ -1706,7 +1706,7 @@ continue
     !       offset+1 and therfore the value g1+li(1) actually corresponds
     !       to the local ghost cell node lg1+1.
     !
-    li = pack( [1:lgg] , nodes_of_cell(lg1) == global_nofc(g1:g2) )
+    li = pack( intseq(1,lgg) , nodes_of_cell(lg1) == global_nofc(g1:g2) )
    !write (*,'(7i5)') mypnum,nf,lfa,bface(9,nf),li(1),lhc,lgc
     !
     if (nodes_of_cell(lg1+1) /= global_nofc(g1+mod(li(1),lgg))) then
@@ -1903,8 +1903,8 @@ continue
   allocate ( ghostnode_rmap(nmin:nmax) , source=0 , stat=ierr )
   call alloc_error("localize_grid","ghostnode_rmap",1,ierr)
   !
-  ghostnode_map(:) = pack( [nmin:nmax] , msk )          ! forward map
-  ghostnode_rmap(ghostnode_map(:)) = [nnode+1:n_totnod] ! reverse map
+  ghostnode_map(:) = pack( intseq(nmin,nmax) , msk )          ! forward map
+  ghostnode_rmap(ghostnode_map(:)) = intseq(nnode+1,n_totnod) ! reverse map
   !
   ! Now loop through and replace the negative node
   ! values with the new localized ghost node values
@@ -2277,7 +2277,7 @@ continue
       np = nodes_of_cell_ptr(nc+1) - nodes_of_cell_ptr(nc)
       np = merge(n_sp2dt,n_sp2dq,np==3)
       !
-      send_pts(scnt+1:scnt+np) = cell_offset(nc) + [0:np-1]
+      send_pts(scnt+1:scnt+np) = cell_offset(nc) + intseq(0,np-1)
       !
       scnt = scnt + np
       !
@@ -2940,7 +2940,7 @@ continue
   lp = 0
   do j = 1,n_sp1de
     lp = lp + 1
-    gp = n_sp2dt - sum([0:j-1])
+    gp = n_sp2dt - sum(intseq(0,j-1))
     geom_offset(lp,2,1) = gp-1
     do i = 1,n_sp1de-j
       lp = lp + 1
@@ -3335,10 +3335,14 @@ end subroutine nonblocking_exchange
 !
 subroutine test_nonblocking_fexchange()
   !
-  use geovar, only : nr,xyz,nfbnd,cells_on_face,pts_in_cell_ptr,interp_s2f,bface
+  use geovar, only : nr,xyz,nfbnd,bface
+  use geovar, only : cells_on_face,pts_in_cell_ptr
+  use geovar, only : cell_geom,cell_order
+  use interpolation_mod, only : interp
   !
   !.. Local Scalars..
-  integer :: i,n,s,r,dtype,ierr,nf,jl,kbl,l1,l2,nl,wlocl,k,kl
+  integer :: i,n,s,r,dtype,ierr,nf,kbl,n1,n2,np,wlocl,k,kl
+  integer :: host_cell,host_geom,host_order
   real(wp) :: tmp
   !
   !.. Local Arrays ..
@@ -3349,28 +3353,45 @@ subroutine test_nonblocking_fexchange()
   real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: recv_buffer
   real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: send_buffer
   !
+  !.. Local Pointers ..
+  real(wp), pointer, contiguous :: host_interp(:,:)
+  !
 continue
+  !
+  ! Initialize the local pointers to disassociated
+  !
+  host_interp => null()
   !
   send_buffer(:,:,:,:) = real(0.0,kind=r8)
   recv_buffer(:,:,:,:) = real(0.0,kind=r8)
   do nf = 1,nfbnd
     !
-    jl = cells_on_face(1,nf)
+    host_cell = cells_on_face(1,nf)
     kbl = cells_on_face(5,nf)
     !
-    l1 = pts_in_cell_ptr(jl)+1
-    l2 = pts_in_cell_ptr(jl+1)
+    n1 = pts_in_cell_ptr(host_cell)+1
+    n2 = pts_in_cell_ptr(host_cell+1)
+    np = n2-n1+1
     !
-    nl = l2-l1+1
-    wlocl = merge(1,2,nl==n_sp2dt)
+    host_geom = cell_geom(host_cell)
+    host_order = cell_order(host_cell)
+    !
+    ! Assign local pointer as an alias to the
+    ! interpolation matrix to simplify the code
+    !
+    host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
     !
     do k = 1,n_sp1de
       kl = kbl-1 + k
       do n = 1,nr
-        tmp = dot(interp_s2f(1:nl,kl,wlocl),xyz(n,l1:l2))
+        tmp = dot( host_interp(1:np,kl) , xyz(n,n1:n2) )
         send_buffer(n,k,1,nf) = real(tmp,kind=r8)
       end do
     end do
+    !
+    ! Disassociate host_interp before continuing to the next face
+    !
+    if (associated(host_interp)) host_interp => null()
     !
   end do
   !

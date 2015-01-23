@@ -9,6 +9,7 @@ module quadrature_mod
   public :: find_valid_geometries
   public :: init_geom_quadrature_rules
   public :: init_face_quadrature_rules
+  public :: quadrature_memory_usage
   !
   ! element_type : derived type that stores the location of the solution points
   !                and their respective quadrature weights within the standard
@@ -38,6 +39,10 @@ module quadrature_mod
   !                                          of the current element geometry.
   !
   type(element_type), public, save, target, allocatable :: std_elem(:,:)
+  !
+  ! solpts_edge : pointer to the 'n_order' 1D edge solution points
+  !
+  real(wp), public, protected, pointer, contiguous :: solpts_edge(:) => null()
   !
   ! face_elem : Array giving the location of the flux points and their
   !             respective quadrature weights for all combinations of cell
@@ -75,8 +80,9 @@ subroutine find_valid_geometries()
   !
   !.. Use Statements ..
   use geovar,    only : cell_geom,cell_order
-  use order_mod, only : n_min_geom,n_max_geom
-  use order_mod, only : geom_solpts,maxpts
+  use order_mod, only : n_min_geom,n_max_geom,q_order
+  use order_mod, only : geom_solpts,geom_flxpts
+  use order_mod, only : maxpts,maxSP,maxFP,maxQP,maxGP
   !
   !.. Local Scalars ..
   integer :: nc,this_geom
@@ -117,15 +123,27 @@ continue
   !
   ! Find the minimum and maximum geometry types
   !
-  n_min_geom = minval( [Geom_Min:Geom_Max] , mask=geom_is_used )
-  n_max_geom = maxval( [Geom_Min:Geom_Max] , mask=geom_is_used )
+  n_min_geom = minval( intseq(Geom_Min,Geom_Max) , mask=geom_is_used )
+  n_max_geom = maxval( intseq(Geom_Min,Geom_Max) , mask=geom_is_used )
   !
   ! While we are here, find the maximum number of points in any cell
   !
-  maxpts = 1
+  maxSP = 1
+  maxFP = 1
+  maxQP = 1
+  maxGP = 1
+  !
   do nc = 1,size(cell_geom)
-    maxpts = max( maxpts , geom_solpts(cell_geom(nc),cell_order(nc)) )
+    !
+    maxSP = max( maxSP , geom_solpts(cell_geom(nc),cell_order(nc)) )
+    maxQP = max( maxQP , geom_solpts(cell_geom(nc),q_order) )
+    !
+    maxFP = max( maxFP , geom_flxpts(cell_geom(nc),cell_order(nc)) )
+    maxGP = max( maxGP , geom_flxpts(cell_geom(nc),q_order) )
+    !
   end do
+  !
+  maxpts = max( maxSP , maxQP , maxFP , maxGP )
   !
 end subroutine find_valid_geometries
 !
@@ -134,7 +152,7 @@ end subroutine find_valid_geometries
 subroutine init_geom_quadrature_rules()
   !
   !.. Use Statements ..
-  use order_mod, only : geom_solpts
+  use order_mod, only : n_order,geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
   use ovar,      only : iop_solpts
@@ -337,6 +355,10 @@ continue
     if (associated(tria_elem)) tria_elem => null()
     !
   end do order_loop
+  !
+  ! Before we leave, assign the pointer solpts_edge to its target
+  !
+  solpts_edge => std_elem(Geom_Edge,n_order)%pts(1,:)
   !
   ! Format Statements
   !
@@ -546,6 +568,31 @@ continue
   1 format ("face_elem(",a,",",i0,")%",a)
   !
 end subroutine init_face_quadrature_rules
+!
+!###############################################################################
+!
+pure function get_quadrature_wts(this_geom,this_order) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+continue
+  !
+  ! NEED TO FIGURE OUT WHAT DO IF QUADRATURE POINTS ARE NOT THE SAME AS THOSE
+  ! USED TO COMPUTE THE INFORMATION STORED IN THE STD_ELEM ARRAY.
+  !
+  allocate ( return_value(1:this_order+1) , stat=ierr )
+  !
+  return_value = one/real(this_order+1,kind=wp)
+  !
+end function get_quadrature_wts
 !
 !###############################################################################
 !
@@ -911,7 +958,7 @@ continue
   ! On entry, r and s need to be defined on the interval [0,1]
   !
   nspts = size(rs,2)
-  nfpts = np2nfp(nspts)
+  nfpts = np2n(nspts) + 1
   !
   ! Compute the coefficients of the Vandermonde matrix for
   ! the Lagrange polynomials using monomial basis functions
@@ -1032,7 +1079,7 @@ continue
   ! On entry, r and s need to be defined on the interval [0,1]
   !
   nspts = size(rs,2)
-  nfpts = np2nfp(nspts)
+  nfpts = np2n(nspts) + 1
   !
   ! Compute the coefficients of the Vandermonde matrix for
   ! the Lagrange polynomials using monomial basis functions
@@ -1120,8 +1167,138 @@ end function get_triangle_weights_at_solpts_QP
 !
 !###############################################################################
 !
-include "Functions/np2nfp.f90"
+subroutine quadrature_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(std_elem)) then
+    !
+    dt%siz = size(std_elem)
+    dt%mem = dt%siz*storage_size(std_elem)
+    !
+    do j = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
+      do i = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
+        !
+        if (allocated(std_elem(i,j)%pts)) then
+          !
+          array%siz = size(std_elem(i,j)%pts)
+          array%mem = array%siz*storage_size(std_elem(i,j)%pts)
+          !
+          write (array_name,4) "std_elem",Geom_Name(i),j,"pts"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+        if (allocated(std_elem(i,j)%wts)) then
+          !
+          array%siz = size(std_elem(i,j)%wts)
+          array%mem = array%siz*storage_size(std_elem(i,j)%wts)
+          !
+          write (array_name,4) "std_elem",Geom_Name(i),j,"wts"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "std_elem"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  if (allocated(face_elem)) then
+    !
+    dt%siz = size(face_elem)
+    dt%mem = dt%siz*storage_size(face_elem)
+    !
+    do j = lbound(face_elem,dim=2),ubound(face_elem,dim=2)
+      do i = lbound(face_elem,dim=1),ubound(face_elem,dim=1)
+        !
+        if (allocated(face_elem(i,j)%pts)) then
+          !
+          array%siz = size(face_elem(i,j)%pts)
+          array%mem = array%siz*storage_size(face_elem(i,j)%pts)
+          !
+          write (array_name,4) "face_elem",Geom_Name(i),j,"pts"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+        if (allocated(face_elem(i,j)%wts)) then
+          !
+          array%siz = size(face_elem(i,j)%wts)
+          array%mem = array%siz*storage_size(face_elem(i,j)%wts)
+          !
+          write (array_name,4) "face_elem",Geom_Name(i),j,"wts"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "face_elem"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module quadrature_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  4 format (a,"(",a,",",i0,")%",a)
+  5 format ("'",a,"'")
+  !
+end subroutine quadrature_memory_usage
+!
+!###############################################################################
+!
+include "Functions/np2n.f90"
 !
 !###############################################################################
 !
 end module quadrature_mod
+!
+!###############################################################################
+!

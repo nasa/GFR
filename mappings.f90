@@ -14,16 +14,6 @@ module mappings_mod
   !
   public :: get_solution_points
   !
-  !
-  ! ###################################
-  ! ###  Module Generic Interfaces  ###
-  ! ###################################
-  !
-  interface get_quad_weights_at_solpts
-    module procedure get_quad_weights_at_solpts_DP, &
-                     get_quad_weights_at_solpts_QP
-  end interface get_quad_weights_at_solpts
-  !
 contains
 !
 !###############################################################################
@@ -34,34 +24,17 @@ subroutine get_solution_points()
   use geovar,         only : n_solpts,n_totpts,pts_in_cell_ptr
   use geovar,         only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,         only : bface,xyz_nodes,xyz
-  use geovar,         only : gauss_1d,gauss_wts_1d,gauss_wts_2d
-  use geovar,         only : lobatto_1d,lobatto_wts_1d,lobatto_wts_2d
-  use geovar,         only : solpts_1d,solwts_1d,flxpts_1d,flxwts_1d
-  use geovar,         only : rs
   use geovar,         only : cell_geom,cell_order
-  !
-  use qpvar,          only : gauss_1d_qp,gauss_wts_1d_qp,gauss_wts_2d_qp
-  use qpvar,          only : lobatto_1d_qp,lobatto_wts_1d_qp,lobatto_wts_2d_qp
-  use qpvar,          only : vp_qp
-  !
-  use ovar,           only : iop_solpts,iop_flxpts,iop_tripts,error_loc
-  !
-  use polynomial_mod, only : nodes_legendre_gauss
-  use polynomial_mod, only : nodes_legendre_gauss_lobatto
-  use polynomial_mod, only : weights_legendre_gauss
-  use polynomial_mod, only : weights_legendre_gauss_lobatto
   !
   use parallel_mod,   only : collect_global_solpts
   !
-  use order_mod,      only : n_order,geom_solpts
+  use order_mod,      only : geom_solpts
   !
-  use quadrature_mod, only : std_elem,face_elem
+  use quadrature_mod, only : std_elem
   !
   !.. Local Scalars ..
-  integer  :: i,j,n,n1,n2,p1,p2,np,ierr
-  integer  :: npts,this_geom,this_order
-  integer  :: nsp1de,nsp2dt,nsp2dq,nsphex
-  real(wp) :: r,s
+  integer :: i,j,n,n1,n2,p1,p2,np,ierr
+  integer :: npts,this_geom,this_order
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr,1:8) :: cell_xyz
@@ -90,136 +63,6 @@ continue
   n_totnod = size(xyz_nodes,dim=2)
   nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
   !
-  nsp1de = geom_solpts(Geom_Edge,n_order)
-  nsp2dt = geom_solpts(Geom_Tria,n_order)
-  nsp2dq = geom_solpts(Geom_Quad,n_order)
-  nsphex = geom_solpts(Geom_Hexa,n_order)
-  !
-  ! Get the 1D coordinates and weights of various node types
-  !
-  ! Allocate the working precision arrays
-  !
-  allocate ( gauss_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"gauss_1d",1,ierr)
-  allocate ( gauss_wts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"gauss_wts_1d",1,ierr)
-  allocate ( gauss_wts_2d(1:nsp2dq) , source=zero , stat=ierr )
-  call alloc_error(pname,"gauss_wts_2d",1,ierr)
-  !
-  allocate ( lobatto_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"lobatto_1d",1,ierr)
-  allocate ( lobatto_wts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"lobatto_wts_1d",1,ierr)
-  allocate ( lobatto_wts_2d(1:nsp2dq) , source=zero , stat=ierr )
-  call alloc_error(pname,"lobatto_wts_2d",1,ierr)
-  !
-  allocate ( solpts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"solpts_1d",1,ierr)
-  allocate ( solwts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"solwts_1d",1,ierr)
-  !
-  allocate ( flxpts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"flxpts_1d",1,ierr)
-  allocate ( flxwts_1d(1:nsp1de) , source=zero , stat=ierr )
-  call alloc_error(pname,"flxwts_1d",1,ierr)
-  !
-  allocate ( rs(1:nr,1:nsp2dt) , source=zero , stat=ierr )
-  call alloc_error(pname,"rs",1,ierr)
-  !
-  ! #####################################################################
-  ! #####################################################################
-  ! ##     USE QUAD PRECISION ARRAYS TO CREATE ALL OF THE ARRAYS       ##
-  ! ##   PREVIOUSLY ALLOCATED. WE WILL THEN PERFORM A CHOP TO ZERO     ##
-  ! ##  EVERYTHING WITH AN ABSOLUTE VALUE SMALLER THAN EPSILON(0_WP).  ##
-  ! #####################################################################
-  ! #####################################################################
-  !
-  ! Allocate the quad precision arrays
-  !
-  allocate ( gauss_1d_qp(1:nsp1de) , source=qzero , stat=ierr )
-  call alloc_error(pname,"gauss_1d_qp",1,ierr)
-  allocate ( gauss_wts_1d_qp(1:nsp1de) , source=qzero , stat=ierr )
-  call alloc_error(pname,"gauss_wts_1d_qp",1,ierr)
-  allocate ( gauss_wts_2d_qp(1:nsp2dq) , source=qzero , stat=ierr )
-  call alloc_error(pname,"gauss_wts_2d_qp",1,ierr)
-  !
-  allocate ( lobatto_1d_qp(1:nsp1de) , source=qzero , stat=ierr )
-  call alloc_error(pname,"lobatto_1d_qp",1,ierr)
-  allocate ( lobatto_wts_1d_qp(1:nsp1de) , source=qzero , stat=ierr )
-  call alloc_error(pname,"lobatto_wts_1d_qp",1,ierr)
-  allocate ( lobatto_wts_2d_qp(1:nsp2dq) , source=qzero , stat=ierr )
-  call alloc_error(pname,"lobatto_wts_2d_qp",1,ierr)
-  !
-  allocate ( vp_qp(1:nsp1de) , source=qzero , stat=ierr )
-  call alloc_error(pname,"vp_qp",1,ierr)
-  !
-  ! Create the 1D arrays for the locations of the Gauss,
-  ! and Lobatto solution points and their corresponding weights
-  !
-  call nodes_legendre_gauss(nsp1de,gauss_1d_qp,vp_qp)
-  call weights_legendre_gauss(nsp1de,gauss_1d_qp,vp_qp,gauss_wts_1d_qp)
-  !
-  call nodes_legendre_gauss_lobatto(n_order,lobatto_1d_qp,vp_qp)
-  call weights_legendre_gauss_lobatto(n_order,vp_qp,lobatto_wts_1d_qp)
-  !
-  ! Create the 2D weights for the Gauss and Lobatto solution points on quads
-  !
-  gauss_wts_2d_qp = get_quad_weights_at_solpts(gauss_wts_1d_qp)
-  lobatto_wts_2d_qp = get_quad_weights_at_solpts(lobatto_wts_1d_qp)
-  !
-  ! Chop the quad precision arrays
-  !
-  gauss_1d_qp       = chop( gauss_1d_qp , gauss_1d_qp )
-  gauss_wts_1d_qp   = chop( gauss_wts_1d_qp , gauss_wts_1d_qp )
-  gauss_wts_2d_qp   = chop( gauss_wts_2d_qp , gauss_wts_2d_qp )
-  lobatto_1d_qp     = chop( lobatto_1d_qp , lobatto_1d_qp )
-  lobatto_wts_1d_qp = chop( lobatto_wts_1d_qp , lobatto_wts_1d_qp )
-  lobatto_wts_2d_qp = chop( lobatto_wts_2d_qp , lobatto_wts_2d_qp )
-  !
-  ! ##############################################
-  ! ##############################################
-  ! ##   CHOP THE QUAD PRECISION ARRAYS AND     ##
-  ! ##  STORE IN THE WORKING PRECISION ARRAYS.  ##
-  ! ##############################################
-  ! ##############################################
-  !
-  gauss_1d       = chop( gauss_1d_qp , gauss_1d )
-  gauss_wts_1d   = chop( gauss_wts_1d_qp , gauss_wts_1d )
-  gauss_wts_2d   = chop( gauss_wts_2d_qp , gauss_wts_2d )
-  lobatto_1d     = chop( lobatto_1d_qp , lobatto_1d )
-  lobatto_wts_1d = chop( lobatto_wts_1d_qp , lobatto_wts_1d )
-  lobatto_wts_2d = chop( lobatto_wts_2d_qp , lobatto_wts_2d )
-  !
-  ! Copy the 1D edge and face quadrature information into solpts_1d,
-  ! solwts_1d, flxpts_1d, and flxwts_1d. Eventually these will be
-  ! replaced all together.
-  !
-  if (allocated(std_elem(Geom_Edge,n_order)%pts)) then
-    solpts_1d = std_elem(Geom_Edge,n_order)%pts(1,:)
-  end if
-  if (allocated(std_elem(Geom_Edge,n_order)%wts)) then
-    solwts_1d = std_elem(Geom_Edge,n_order)%wts
-  end if
-  if (allocated(face_elem(Geom_Edge,n_order)%pts)) then
-    flxpts_1d = face_elem(Geom_Edge,n_order)%pts(1,:)
-  end if
-  if (allocated(face_elem(Geom_Edge,n_order)%wts)) then
-    flxwts_1d = face_elem(Geom_Edge,n_order)%wts
-  end if
-  !
-  ! Copy the 2D triangle solution points into rs. Eventually this
-  ! will be replaced all together.
-  !
-  if (allocated(std_elem(Geom_Tria,n_order)%pts)) then
-    rs = std_elem(Geom_Tria,n_order)%pts
-  end if
-  !
-  ! ######################################################################
-  ! ######################################################################
-  ! ##  CONTINUE ON AND COMPUTE THE COORDINATES OF THE SOLUTION POINTS  ##
-  ! ######################################################################
-  ! ######################################################################
-  !
   ! Save the number of solution points within a cell to pts_in_cell_ptr
   !
   allocate ( pts_in_cell_ptr(1:n_totcel+1) , source=0 , stat=ierr )
@@ -242,20 +85,6 @@ continue
   !
   allocate ( xyz(1:nr,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"xyz",1,ierr)
-  !
-  !
- !do this_order = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
- !  do this_geom = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
- !    if (allocated(std_elem(this_geom,this_order)%pts)) then
- !      write (iout,3) Geom_Name(this_geom),this_order,"pts", &
- !      trim(merge("IS    ","is NOT",is_contiguous(std_elem(this_geom,this_order)%pts)))
- !    end if
- !    if (allocated(std_elem(this_geom,this_order)%wts)) then
- !      write (iout,3) Geom_Name(this_geom),this_order,"wts", &
- !      trim(merge("IS    ","is NOT",is_contiguous(std_elem(this_geom,this_order)%wts)))
- !    end if
- !  end do
- !end do
   !
   do i = 1,n_totcel
     !
@@ -605,50 +434,6 @@ continue
   end do
   !
 end function get_solpts_hexa
-!
-!###############################################################################
-!
-pure function get_quad_weights_at_solpts_DP(weights) result(return_value)
-  !
-  real(dp), dimension(:), intent(in) :: weights
-  !
-  real(dp), dimension(1:size(weights)**2) :: return_value
-  !
-  integer :: i,j,k
-  !
-continue
-  !
-  k = 0
-  do i = 1,size(weights)
-    do j = 1,size(weights)
-      k = k + 1
-      return_value(k) = weights(i)*weights(j)
-    end do
-  end do
-  !
-end function get_quad_weights_at_solpts_DP
-!
-!###############################################################################
-!
-pure function get_quad_weights_at_solpts_QP(weights) result(return_value)
-  !
-  real(qp), dimension(:), intent(in) :: weights
-  !
-  real(qp), dimension(1:size(weights)**2) :: return_value
-  !
-  integer :: i,j,k
-  !
-continue
-  !
-  k = 0
-  do i = 1,size(weights)
-    do j = 1,size(weights)
-      k = k + 1
-      return_value(k) = weights(i)*weights(j)
-    end do
-  end do
-  !
-end function get_quad_weights_at_solpts_QP
 !
 !###############################################################################
 !

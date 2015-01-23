@@ -3,6 +3,7 @@ module ovar
   use module_kind_types, only : wp,fals,true
   use module_kind_types, only : Euler_Eqns
   use module_kind_types, only : Gambit_Neutral
+  use module_kind_types, only : Legendre_Gauss,Legendre_Gauss_Lobatto
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -36,10 +37,9 @@ module ovar
   !
   !.. Input Variables ..
   integer,  public, save :: all_points       = -1
-  integer,  public, save :: iop_solpts       = 1
-  integer,  public, save :: iop_flxpts       = 1
+  integer,  public, save :: iop_solpts       = Legendre_Gauss
+  integer,  public, save :: iop_flxpts       = Legendre_Gauss
   integer,  public, save :: iop_tripts       = 2
-  integer,  public, save :: iop_outpts       = 2
   integer,  public, save :: flux_divergence  = 0
   integer,  public, save :: iop_correction   = 3
   !
@@ -103,8 +103,12 @@ module ovar
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Filter_etac   = 0.0_wp
   !
-  integer,  public, save :: init_loc  = 0
-  integer,  public, save :: error_loc = 0
+  ! Default to output solution at Legendre Gauss Lobatto points
+  integer,  public, save :: loc_output_pts = Legendre_Gauss_Lobatto
+  ! Default to initialize solution at Legendre Gauss points
+  integer,  public, save :: loc_init_pts   = Legendre_Gauss
+  ! Default to compute solution error at Legendre Gauss points
+  integer,  public, save :: loc_error_pts  = Legendre_Gauss
   !
   logical,  public, save :: bound_error       = fals
   real(wp), public, save :: error_bound_limit = 2.0_wp
@@ -208,10 +212,7 @@ module ovar
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
-  logical, public, save :: force_parallel_cgns = fals
-  logical, public, save :: force_serial_cgns = fals
   logical, public, save :: cgns_use_queue = true
-  logical, public, save :: cgns_is_parallel
   logical, public, save :: interpolate_before_output_variable = true
   !
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
@@ -221,6 +222,7 @@ module ovar
   logical, public, save :: using_curved_boundaries = fals
   logical, public, save :: use_3rd_derivative_metrics = fals
   !
+  logical, public, save :: dump_memory_usage = fals
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -229,7 +231,7 @@ module ovar
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
   ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, iop_outpts, &
+  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
                      flux_divergence, iop_correction
   ! SOLVER OPTIONS
   namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
@@ -267,7 +269,7 @@ module ovar
   ! BOUNDING ERROR OPTIONS
   namelist / input / bound_error, error_bound_limit
   ! INITIALIZATION/ERROR LOCATIONS
-  namelist / input / init_loc, error_loc
+  namelist / input / loc_init_pts, loc_error_pts
   ! VORTEX CONSTANTS
   namelist / input / vortex_bigR, vortex_bigGam
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
@@ -277,12 +279,13 @@ module ovar
   ! VARIOUS DEBUG TYPE VARIABLES
   namelist / input / output_bface_array
   ! CGNS OUTPUT OPTIONS
-  namelist / input / force_parallel_cgns,force_serial_cgns,cgns_use_queue, &
-                     interpolate_before_output_variable
+  namelist / input / cgns_use_queue, interpolate_before_output_variable
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
   ! ADVANCED METRICS TERMS
   namelist / input / using_curved_boundaries,use_3rd_derivative_metrics
+  ! MEMORY USAGE
+  namelist / input / dump_memory_usage
   !
 contains
 !

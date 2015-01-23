@@ -14,6 +14,7 @@ module vandermonde_mod
   public :: init_vandermonde_matrices
   public :: Vandermonde_Edge
   public :: Vandermonde_Tria
+  public :: vandermonde_memory_usage
   !
   !
   !
@@ -729,6 +730,108 @@ continue
   return_value = chop( vmat_qp )
   !
 end function Vandermonde_Hexa
+!
+!###############################################################################
+!
+subroutine vandermonde_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(vand)) then
+    !
+    dt%siz = size(vand)
+    dt%mem = dt%siz*storage_size(vand)
+    !
+    do j = lbound(vand,dim=2),ubound(vand,dim=2)
+      do i = lbound(vand,dim=1),ubound(vand,dim=1)
+        !
+        if (allocated(vand(i,j)%nodal2modal%mat)) then
+          !
+          array%siz = 1
+          array%mem = array%siz*storage_size(vand(i,j)%nodal2modal)
+          !
+          write (array_name,4) Geom_Name(i),j,"nodal2modal"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          array%siz = size(vand(i,j)%nodal2modal%mat)
+          array%mem = array%siz*storage_size(vand(i,j)%nodal2modal%mat)
+          !
+          write (array_name,4) Geom_Name(i),j,"nodal2modal%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%mat)) then
+          !
+          array%siz = 1
+          array%mem = array%siz*storage_size(vand(i,j)%modal2nodal)
+          !
+          write (array_name,4) Geom_Name(i),j,"modal2nodal"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          array%siz = size(vand(i,j)%modal2nodal%mat)
+          array%mem = array%siz*storage_size(vand(i,j)%modal2nodal%mat)
+          !
+          write (array_name,4) Geom_Name(i),j,"modal2nodal%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "vand"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module vandermonde_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  4 format ("vand(",a,",",i0,")%",a)
+  5 format ("'",a,"'")
+  !
+end subroutine vandermonde_memory_usage
 !
 !###############################################################################
 !

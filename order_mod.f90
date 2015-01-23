@@ -36,16 +36,16 @@ module order_mod
   integer, public, save :: n_max_order
   !
   integer, public, save :: maxpts
+  integer, public, save :: maxSP
+  integer, public, save :: maxQP
+  integer, public, save :: maxFP
+  integer, public, save :: maxGP
   !
   ! Number of solution points for each cell geometry type
   !
   integer, public, protected, save :: n_sp1de
   integer, public, protected, save :: n_sp2dt
   integer, public, protected, save :: n_sp2dq
-  integer, public, protected, save :: n_sptet
-  integer, public, protected, save :: n_sppyr
-  integer, public, protected, save :: n_sppri
-  integer, public, protected, save :: n_sphex
   !
   ! Number of face points for each face geometry type
   !
@@ -59,10 +59,6 @@ module order_mod
   integer, public, protected, save :: n_qp1de
   integer, public, protected, save :: n_qp2dt
   integer, public, protected, save :: n_qp2dq
-  integer, public, protected, save :: n_qptet
-  integer, public, protected, save :: n_qppyr
-  integer, public, protected, save :: n_qppri
-  integer, public, protected, save :: n_qphex
   !
   ! Number of solution points for all geometries of orders 0 to max_order
   !
@@ -101,18 +97,10 @@ continue
   n_sp1de = edge_solpts(n_order)
   n_sp2dt = tria_solpts(n_order)
   n_sp2dq = quad_solpts(n_order)
-  n_sptet = tetr_solpts(n_order)
-  n_sppyr = pyra_solpts(n_order)
-  n_sppri = pris_solpts(n_order)
-  n_sphex = hexa_solpts(n_order)
   !
   n_qp1de = edge_solpts(q_order)
   n_qp2dt = tria_solpts(q_order)
   n_qp2dq = quad_solpts(q_order)
-  n_qptet = tetr_solpts(q_order)
-  n_qppyr = pyra_solpts(q_order)
-  n_qppri = pris_solpts(q_order)
-  n_qphex = hexa_solpts(q_order)
   !
   if (use_qdtr_face_pts) then
     n_fp1de = n_qp1de

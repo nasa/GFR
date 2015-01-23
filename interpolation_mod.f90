@@ -13,6 +13,7 @@ module interpolation_mod
   !
   public :: init_interpolation_matrices
   public :: init_outerpolation_matrices
+  public :: interpolation_memory_usage
   !
   !
   !
@@ -58,10 +59,14 @@ module interpolation_mod
     type(matrix), allocatable :: gauss
     ! Interpolate to lobatto quadrature points
     type(matrix), allocatable :: lobatto
-    ! Pointer to quadrature points used for error computations
-    real(wp), pointer, contiguous :: error(:,:) => null()
     ! Pointer to quadrature points used to output the solution for post-processing
     real(wp), pointer, contiguous :: output(:,:) => null()
+    ! Pointer to quadrature points used to compute initial conditions
+    real(wp), pointer, contiguous :: init(:,:) => null()
+    ! Pointer to quadrature points used for error computations
+    real(wp), pointer, contiguous :: error(:,:) => null()
+    ! Array containing the quadrature weights for the error computations
+    real(wp), allocatable :: err_wts(:)
   end type outerpolation_matrix
   !
   ! outerp : "outerpolation" matrix for all combinations of cell geometry
@@ -235,9 +240,9 @@ continue
         !
         ! Remove all associations of the local pointers before continuing
         !
-        if (associated(this_face  )) this_face   => null()
-        if (associated(solpts     )) solpts      => null()
-        if (associated(flxpts     )) flxpts      => null()
+        if (associated(this_face)) this_face => null()
+        if (associated(solpts   )) solpts    => null()
+        if (associated(flxpts   )) flxpts    => null()
         !
       end do face_order_loop
       !
@@ -257,6 +262,350 @@ end subroutine init_interpolation_matrices
 !###############################################################################
 !
 subroutine init_outerpolation_matrices()
+  !
+  !.. Use Statements ..
+  use geovar,          only : cell_geom,cell_order
+  use ovar,            only : iop_solpts,loc_output_pts
+  use ovar,            only : loc_error_pts,loc_init_pts
+  use order_mod,       only : geom_solpts,geom_flxpts
+  use order_mod,       only : n_min_geom,n_max_geom
+  use order_mod,       only : n_min_order,n_max_order
+  use order_mod,       only : geom_mio
+  use quadrature_mod,  only : geom_is_used
+  use quadrature_mod,  only : std_elem,face_elem
+  use polynomial_mod,  only : legendre_gauss_quadrature
+  use polynomial_mod,  only : legendre_gauss_lobatto_quadrature
+  !
+  !.. Local Scalars ..
+  integer :: gmin,gmax,omin,omax,ierr
+  integer :: this_geom,this_order,face_order
+  integer :: this_omin,this_omax
+  integer :: npts
+  logical :: gauss_matrix_is_needed
+  logical :: lobatto_matrix_is_needed
+  logical :: error_weights_are_needed
+  character(len=200) :: array_name
+  character(len=200) :: error_message
+  !
+  !.. Local Pointers ..
+  type(outerpolation_matrix), pointer :: this_outerp
+  real(wp), pointer, contiguous :: gmat(:,:)
+  real(wp), pointer, contiguous :: lmat(:,:)
+  real(wp), pointer, contiguous :: solpts(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: gauss_pts(:)
+  real(wp), allocatable :: gauss_wts(:)
+  real(wp), allocatable :: lobatto_pts(:)
+  real(wp), allocatable :: lobatto_wts(:)
+  real(wp), allocatable :: error_wts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_outerpolation_matrices"
+  !
+continue
+  !
+  ! Initialize the local pointers to disassociated
+  !
+  this_outerp => null()
+  gmat        => null()
+  lmat        => null()
+  solpts      => null()
+  !
+  gmin = n_min_geom
+  gmax = n_max_geom
+  omin = n_min_order
+  omax = n_max_order
+  !
+  ! Allocate the outerp array
+  !
+  allocate ( outerp(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"outerp",1,ierr,error_message)
+  !
+  ! Check if we need to create the interpolation matrices within outerp
+  !
+  gauss_matrix_is_needed = fals
+  lobatto_matrix_is_needed = fals
+  error_weights_are_needed = fals
+  !
+  ! Check if we need either matrix for computing the error
+  !
+  if (iop_solpts /= loc_error_pts) then
+    error_weights_are_needed = true
+    if (loc_error_pts == Legendre_Gauss) gauss_matrix_is_needed = true
+    if (loc_error_pts == Legendre_Gauss_Lobatto) lobatto_matrix_is_needed = true
+  end if
+  !
+  ! Check if we need either matrix to compute the initial conditions
+  !
+  if (iop_solpts /= loc_init_pts) then
+    if (loc_init_pts == Legendre_Gauss) gauss_matrix_is_needed = true
+    if (loc_init_pts == Legendre_Gauss_Lobatto) lobatto_matrix_is_needed = true
+  end if
+  !
+  ! Check if we need either matrix to output the solution for post-processing
+  !
+  if (iop_solpts /= loc_output_pts) then
+    if (loc_output_pts == Legendre_Gauss) gauss_matrix_is_needed = true
+    if (loc_output_pts == Legendre_Gauss_Lobatto) lobatto_matrix_is_needed = true
+  end if
+  !
+  ! If neither matrix is needed, just return from this subroutine
+  !
+  if (.not.gauss_matrix_is_needed .and. .not.lobatto_matrix_is_needed) return
+  !
+  ! Loop through the geometry/order combinations and create any needed matrices
+  !
+  geom_loop: do this_geom = gmin,gmax
+    !
+    if (.not. geom_is_used(this_geom)) cycle geom_loop
+    if (all(this_geom /= Geom_Valid)) cycle geom_loop
+    if (this_geom == Geom_Node) cycle geom_loop
+    !
+    order_loop: do this_order = omin,omax
+      !
+      ! Assign local pointer as alias to simplify the code
+      !
+      this_outerp => outerp(this_geom,this_order)
+      !
+      ! Get the number of solution points for this cell
+      !
+      npts = geom_solpts(this_geom,this_order)
+      !
+      ! Allocate the outerp%gauss component of outerp if needed
+      !
+      if (gauss_matrix_is_needed) then
+        !
+        allocate ( this_outerp%gauss , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"gauss"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        allocate ( this_outerp%gauss%mat(1:npts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"gauss%mat"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        ! Assign local pointers to these matrices as aliases to simplify the code
+        !
+        gmat => this_outerp%gauss%mat
+        !
+        ! Pre-compute the 1D Legendre Gauss points and their
+        ! corresponding quadrature weights for this order
+        !
+        allocate ( gauss_pts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"gauss_pts",1,ierr,error_message)
+        !
+        allocate ( gauss_wts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"gauss_wts",1,ierr,error_message)
+        !
+        call legendre_gauss_quadrature(gauss_pts,gauss_wts)
+        !
+      end if
+      !
+      ! Allocate the outerp%lobatto component of outerp if needed
+      !
+      if (lobatto_matrix_is_needed) then
+        !
+        allocate ( this_outerp%lobatto , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"lobatto"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        allocate ( this_outerp%lobatto%mat(1:npts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"lobatto%mat"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        ! Assign local pointers to these matrices as aliases to simplify the code
+        !
+        lmat => this_outerp%lobatto%mat
+        !
+        ! Pre-compute the 1D Legendre Gauss Lobatto points and their
+        ! corresponding quadrature weights for this order
+        !
+        allocate ( lobatto_pts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"lobatto_pts",1,ierr,error_message)
+        !
+        allocate ( lobatto_wts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"lobatto_wts",1,ierr,error_message)
+        !
+        call legendre_gauss_lobatto_quadrature(lobatto_pts,lobatto_wts)
+        !
+      end if
+      !
+      ! Allocate the err_wts component of outerp along with the weights
+      ! of the 1D error points if the error weights are needed
+      !
+      if (error_weights_are_needed) then
+        !
+        allocate ( this_outerp%err_wts(1:npts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"err_wts"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        allocate ( error_wts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"error_wts",1,ierr,error_message)
+        !
+        if (loc_error_pts == Legendre_Gauss) then
+          error_wts = gauss_wts
+        else if (loc_error_pts == Legendre_Gauss_Lobatto) then
+          error_wts = lobatto_wts
+        end if
+        !
+      end if
+      !
+      ! Compute the outerpolation matrices depending on geometry type
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          if (gauss_matrix_is_needed) then
+            gmat = InterpToCell_Edge( solpts(1,:) , gauss_pts )
+          end if
+          !
+          if (lobatto_matrix_is_needed) then
+            lmat = InterpToCell_Edge( solpts(1,:) , lobatto_pts )
+          end if
+          !
+          if (error_weights_are_needed) then
+            this_outerp%err_wts = error_wts
+          end if
+          !
+        case (Geom_Tria)
+          !
+          ! Not sure about triangles here so just use the identity matrix
+          !
+          if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
+          if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          !
+        case (Geom_Quad)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          if (gauss_matrix_is_needed) then
+            gmat = InterpToCell_Quad( solpts(1,:) , gauss_pts )
+          end if
+          !
+          if (lobatto_matrix_is_needed) then
+            lmat = InterpToCell_Quad( solpts(1,:) , lobatto_pts )
+          end if
+          !
+          if (error_weights_are_needed) then
+            this_outerp%err_wts = InterpWeights_Quad( error_wts )
+          end if
+          !
+        case (Geom_Tetr)
+          !
+          ! Not sure about tetrahedra here so just use the identity matrix
+          !
+          if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
+          if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          !
+        case (Geom_Pyra)
+          !
+          ! Not sure about pyramids here so just use the identity matrix
+          !
+          if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
+          if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          !
+        case (Geom_Pris)
+          !
+          ! Not sure about prisms here so just use the identity matrix
+          !
+          if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
+          if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          !
+        case (Geom_Hexa)
+          !
+          solpts => std_elem(Geom_Edge,this_order)%pts
+          !
+          if (gauss_matrix_is_needed) then
+            gmat = InterpToCell_Hexa( solpts(1,:) , gauss_pts )
+          end if
+          !
+          if (lobatto_matrix_is_needed) then
+            lmat = InterpToCell_Hexa( solpts(1,:) , lobatto_pts )
+          end if
+          !
+          if (error_weights_are_needed) then
+            this_outerp%err_wts = InterpWeights_Hexa( error_wts )
+          end if
+          !
+        case default
+          !
+          write (error_message,2)
+          call stop_recon(stop_mpi,pname,error_message)
+          !
+      end select
+      !
+      ! Now assign the pointers within outerp as needed
+      !
+      ! If needed, assign the pointer to the matrix for computing the error
+      !
+      if (iop_solpts /= loc_error_pts) then
+        if (loc_error_pts == Legendre_Gauss) this_outerp%error => gmat
+        if (loc_error_pts == Legendre_Gauss_Lobatto) this_outerp%error => lmat
+      end if
+      !
+      ! If needed, assign the pointer to the matrix used
+      ! to compute the initial conditions
+      !
+      if (iop_solpts /= loc_init_pts) then
+        if (loc_init_pts == Legendre_Gauss) this_outerp%init => gmat
+        if (loc_init_pts == Legendre_Gauss_Lobatto) this_outerp%init => lmat
+      end if
+      !
+      ! If needed, assign the pointer to the matrix used
+      ! to output the solution for post-processing
+      !
+      if (iop_solpts /= loc_output_pts) then
+        if (loc_output_pts == Legendre_Gauss) this_outerp%output => gmat
+        if (loc_output_pts == Legendre_Gauss_Lobatto) this_outerp%output => lmat
+      end if
+      !
+      ! Deallocate any of the Gauss or Lobatto arrays that were allocated
+      !
+      if (allocated(gauss_pts)) then
+        deallocate ( gauss_pts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"gauss_pts",2,ierr,error_message)
+      end if
+      if (allocated(gauss_wts)) then
+        deallocate ( gauss_wts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"gauss_wts",2,ierr,error_message)
+      end if
+      if (allocated(lobatto_pts)) then
+        deallocate ( lobatto_pts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"lobatto_pts",2,ierr,error_message)
+      end if
+      if (allocated(lobatto_wts)) then
+        deallocate ( lobatto_wts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"lobatto_wts",2,ierr,error_message)
+      end if
+      if (allocated(error_wts)) then
+        deallocate ( error_wts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"error_wts",2,ierr,error_message)
+      end if
+      !
+      ! Remove all associations of the local pointers before continuing
+      !
+      if (associated(this_outerp)) this_outerp => null()
+      if (associated(gmat       )) gmat        => null()
+      if (associated(lmat       )) lmat        => null()
+      if (associated(solpts     )) solpts      => null()
+      !
+    end do order_loop
+    !
+  end do geom_loop
+  !
+  1 format ("outerp(",a,",",i0,")%",a)
+  2 format (" A grid cell of an unknown geometry type was found!")
+  !
 end subroutine init_outerpolation_matrices
 !
 !###############################################################################
@@ -348,6 +697,55 @@ end function InterpToFace_Edge
 !
 !###############################################################################
 !
+pure function InterpToCell_Edge(xi,xi_interp) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  real(wp), dimension(:), intent(in) :: xi_interp
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(xi),1:size(xi)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,j,npts
+  !
+  !.. Local Arrays ..
+  real(qp), dimension(1:size(xi)) :: xi_qp
+  real(qp), dimension(1:size(xi)) :: pts_qp
+  real(qp), dimension(1:size(xi),1:size(xi)) :: interp_mat_qp
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  ! Create a quad precision copy of the array giving the solution points
+  !
+  xi_qp = real( xi , kind=qp )
+  !
+  ! Create a quad precision copy of the array giving the interpolation points
+  !
+  pts_qp = real( xi_interp , kind=qp )
+  !
+  ! Evaluate the Lagrange polynomial at each interpolation point
+  !
+  do j = 1,npts
+    do i = 1,npts
+      interp_mat_qp(i,j) = eval_LagrangePoly([j],[pts_qp(i)],xi_qp)
+    end do
+  end do
+  !
+  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( interp_mat_qp )
+  !
+end function InterpToCell_Edge
+!
+!###############################################################################
+!
 pure function InterpToFace_Quad(xi_sp,xi_fp) result(return_value)
   !
   !.. Use Statements ..
@@ -361,7 +759,7 @@ pure function InterpToFace_Quad(xi_sp,xi_fp) result(return_value)
   real(wp), dimension(1:size(xi_sp)**2,1:4*size(xi_fp)) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: i,j,n,nf,nfp,nsp
+  integer :: i,j,n,nf,nfp,nsp
   !
   !.. Local Arrays ..
   real(qp), dimension(1:2) :: xy_qp
@@ -463,24 +861,135 @@ end function InterpToFace_Quad
 !
 !###############################################################################
 !
+pure function InterpToCell_Quad(xi,xi_interp) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  real(wp), dimension(:), intent(in) :: xi_interp
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(xi)**2,1:size(xi)**2) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: m,mi,mj,n,ni,nj,npts
+  !
+  !.. Local Arrays ..
+  real(qp), dimension(1:2) :: xy_qp
+  real(qp), dimension(1:size(xi)) :: xi_qp
+  real(qp), dimension(1:size(xi)) :: pts_qp
+  real(qp), dimension(1:size(xi)**2,1:size(xi)**2) :: interp_mat_qp
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  ! Create a quad precision copy of the array giving the solution points
+  !
+  xi_qp = real( xi , kind=qp )
+  !
+  ! Create a quad precision copy of the array giving the interpolation points
+  !
+  pts_qp = real( xi_interp , kind=qp )
+  !
+  ! Evaluate the Lagrange polynomial at each interpolation point
+  !
+  do mj = 1,npts
+    do mi = 1,npts
+      !
+      m = (mj-1)*npts + mi
+      !
+      do nj = 1,npts
+        !
+        xy_qp(2) = pts_qp(nj)
+        !
+        do ni = 1,npts
+          !
+          xy_qp(1) = pts_qp(ni)
+          !
+          n = (nj-1)*npts + ni
+          !
+          interp_mat_qp(n,m) = eval_LagrangePoly([mi,mj],xy_qp,xi_qp)
+          !
+        end do
+      end do
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( interp_mat_qp )
+  !
+end function InterpToCell_Quad
+!
+!###############################################################################
+!
+pure function InterpWeights_Quad(wts) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: wts
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(wts)**2) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: m,mi,mj,npts
+  !
+  !.. Local Arrays ..
+  real(qp), dimension(1:size(wts)) :: wts_qp
+  real(qp), dimension(1:size(wts)**2) :: weights_qp
+  !
+continue
+  !
+  npts = size(wts)
+  !
+  ! Create a quad precision copy of the array giving the 1D quadrature weights
+  !
+  wts_qp = real( wts , kind=qp )
+  !
+  ! Evaluate the tensor product of the 1D weights
+  !
+  do mj = 1,npts
+    do mi = 1,npts
+      !
+      m = (mj-1)*npts + mi
+      !
+      weights_qp(m) = wts_qp(mi)*wts_qp(mj)
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy weights_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( weights_qp )
+  !
+end function InterpWeights_Quad
+!
+!###############################################################################
+!
 pure function InterpToFace_Tria(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
   !.. Function Return Argument ..
-  real(wp), dimension(1:size(rs,2),1:3*np2nfp(size(rs,2))) :: return_value
+  real(wp), dimension(1:size(rs,2),1:3*(np2n(size(rs,2))+1)) :: return_value
   !
   !.. Local Scalars ..
   integer :: i,j,np,nfp
   !
   !.. Local Arrays ..
-  integer, dimension(1:np2nfp(size(rs,2)),1:3) :: Fmask
+  integer, dimension(1:np2n(size(rs,2))+1,1:3) :: Fmask
   !
 continue
   !
   np = size(rs,2)
-  nfp = np2nfp( np )
+  nfp = np2n( np ) + 1
   !
   return_value(:,:) = zero
   !
@@ -942,7 +1451,327 @@ end function InterpToFace_Hexa
 !
 !###############################################################################
 !
-include "Functions/np2nfp.f90"
+pure function InterpToCell_Hexa(xi,xi_interp) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: xi
+  real(wp), dimension(:), intent(in) :: xi_interp
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(xi)**3,1:size(xi)**3) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: m,mi,mj,mk,n,ni,nj,nk,npts
+  !
+  !.. Local Arrays ..
+  real(qp), dimension(1:3) :: xy_qp
+  real(qp), dimension(1:size(xi)) :: xi_qp
+  real(qp), dimension(1:size(xi)) :: pts_qp
+  real(qp), dimension(1:size(xi)**3,1:size(xi)**3) :: interp_mat_qp
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  ! Create a quad precision copy of the array giving the solution points
+  !
+  xi_qp = real( xi , kind=qp )
+  !
+  ! Create a quad precision copy of the array giving the interpolation points
+  !
+  pts_qp = real( xi_interp , kind=qp )
+  !
+  ! Evaluate the Lagrange polynomial at each interpolation point
+  !
+  do mk = 1,npts
+    do mj = 1,npts
+      do mi = 1,npts
+        !
+        m = (mk-1)*npts*npts + (mj-1)*npts + mi
+        !
+        do nk = 1,npts
+          !
+          xy_qp(3) = pts_qp(nk)
+          !
+          do nj = 1,npts
+            !
+            xy_qp(2) = pts_qp(nj)
+            !
+            do ni = 1,npts
+              !
+              xy_qp(1) = pts_qp(ni)
+              !
+              n = (nk-1)*npts*npts + (nj-1)*npts + ni
+              !
+              interp_mat_qp(n,m) = eval_LagrangePoly([mi,mj,mk],xy_qp,xi_qp)
+              !
+            end do
+          end do
+        end do
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy interp_mat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( interp_mat_qp )
+  !
+end function InterpToCell_Hexa
+!
+!###############################################################################
+!
+pure function InterpWeights_Hexa(wts) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(in) :: wts
+  !
+  !.. Function Return Value ..
+  real(wp), dimension(1:size(wts)**3) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: m,mi,mj,mk,npts
+  !
+  !.. Local Arrays ..
+  real(qp), dimension(1:size(wts)) :: wts_qp
+  real(qp), dimension(1:size(wts)**3) :: weights_qp
+  !
+continue
+  !
+  npts = size(wts)
+  !
+  ! Create a quad precision copy of the array giving the 1D quadrature weights
+  !
+  wts_qp = real( wts , kind=qp )
+  !
+  ! Evaluate the tensor product of the 1D weights
+  !
+  do mk = 1,npts
+    do mj = 1,npts
+      do mi = 1,npts
+        !
+        m = (mk-1)*npts*npts + (mj-1)*npts + mi
+        !
+        weights_qp(m) = wts_qp(mi)*wts_qp(mj)*wts_qp(mk)
+        !
+      end do
+    end do
+  end do
+  !
+  ! Use the chop function to copy weights_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( weights_qp )
+  !
+end function InterpWeights_Hexa
+!
+!###############################################################################
+!
+subroutine interpolation_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j,k
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(interp)) then
+    !
+    dt%siz = size(interp)
+    dt%mem = dt%siz*storage_size(interp)
+    !
+    do j = lbound(interp,dim=2),ubound(interp,dim=2)
+      do i = lbound(interp,dim=1),ubound(interp,dim=1)
+        !
+        if (allocated(interp(i,j)%toFace)) then
+          !
+          array%siz = size(interp(i,j)%toFace)
+          array%mem = array%siz*storage_size(interp(i,j)%toFace)
+          !
+          write (array_name,4) "interp",Geom_Name(i),j,"toFace"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          do k = lbound(interp(i,j)%toFace,dim=1),ubound(interp(i,j)%toFace,dim=1)
+            !
+            if (allocated(interp(i,j)%toFace(k)%mat)) then
+              !
+              array%siz = size(interp(i,j)%toFace(k)%mat)
+              array%mem = array%siz*storage_size(interp(i,j)%toFace(k)%mat)
+              !
+              write (array_name,4) "interp",Geom_Name(i),j,"toFace",k
+              write (iou,2) array_name,array%get_units()
+              !
+              dt%siz = dt%siz + array%siz
+              dt%mem = dt%mem + array%mem
+              !
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        if (allocated(interp(i,j)%toCell)) then
+          !
+          array%siz = size(interp(i,j)%toCell)
+          array%mem = array%siz*storage_size(interp(i,j)%toCell)
+          !
+          write (array_name,4) "interp",Geom_Name(i),j,"toCell"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          do k = lbound(interp(i,j)%toCell,dim=1),ubound(interp(i,j)%toCell,dim=1)
+            !
+            if (allocated(interp(i,j)%toCell(k)%mat)) then
+              !
+              array%siz = size(interp(i,j)%toCell(k)%mat)
+              array%mem = array%siz*storage_size(interp(i,j)%toCell(k)%mat)
+              !
+              write (array_name,4) "interp",Geom_Name(i),j,"toCell",k
+              write (iou,2) array_name,array%get_units()
+              !
+              dt%siz = dt%siz + array%siz
+              dt%mem = dt%mem + array%mem
+              !
+            end if
+            !
+          end do
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "interp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  if (allocated(outerp)) then
+    !
+    dt%siz = size(outerp)
+    dt%mem = dt%siz*storage_size(outerp)
+    !
+    do j = lbound(outerp,dim=2),ubound(outerp,dim=2)
+      do i = lbound(outerp,dim=1),ubound(outerp,dim=1)
+        !
+        if (allocated(outerp(i,j)%gauss)) then
+          !
+          array%siz = 1
+          array%mem = array%siz*storage_size(outerp(i,j)%gauss)
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"gauss"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          if (allocated(outerp(i,j)%gauss%mat)) then
+            !
+            array%siz = size(outerp(i,j)%gauss%mat)
+            array%mem = array%siz*storage_size(outerp(i,j)%gauss%mat)
+            !
+            write (array_name,4) "outerp",Geom_Name(i),j,"gauss%mat"
+            write (iou,2) array_name,array%get_units()
+            !
+            dt%siz = dt%siz + array%siz
+            dt%mem = dt%mem + array%mem
+            !
+          end if
+          !
+        end if
+        !
+        if (allocated(outerp(i,j)%lobatto)) then
+          !
+          array%siz = 1
+          array%mem = array%siz*storage_size(outerp(i,j)%lobatto)
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"lobatto"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          if (allocated(outerp(i,j)%lobatto%mat)) then
+            !
+            array%siz = size(outerp(i,j)%lobatto%mat)
+            array%mem = array%siz*storage_size(outerp(i,j)%lobatto%mat)
+            !
+            write (array_name,4) "outerp",Geom_Name(i),j,"lobatto%mat"
+            write (iou,2) array_name,array%get_units()
+            !
+            dt%siz = dt%siz + array%siz
+            dt%mem = dt%mem + array%mem
+            !
+          end if
+          !
+        end if
+        !
+        if (allocated(outerp(i,j)%err_wts)) then
+          !
+          array%siz = size(outerp(i,j)%err_wts)
+          array%mem = array%siz*storage_size(outerp(i,j)%err_wts)
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"err_wts"
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "outerp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module interpolation_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  5 format ("'",a,"'")
+  !
+end subroutine interpolation_memory_usage
+!
+!###############################################################################
+!
+include "Functions/np2n.f90"
 include "Functions/cell_solpts.f90"
 !
 !###############################################################################

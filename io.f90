@@ -163,7 +163,7 @@ subroutine read_nml_input_file
   use ovar,   only : results_interval,invs_flux_method,visc_flux_method
   use ovar,   only : iRKtype,Timestep_Type
   use ovar,   only : Final_Time,Total_Periods,all_points,metis_option
-  use ovar,   only : iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts,iop_outpts
+  use ovar,   only : iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts
   use ovar,   only : Filter_Option,Filter_Order
   use ovar,   only : Filter_Alpha,Filter_etac
   use ovar,   only : rhoref,tref,pref,machref,alpha_aoaref,beta_aoaref,Pr,Prt
@@ -171,9 +171,9 @@ subroutine read_nml_input_file
   use ovar,   only : velref,aref,uref,rgasref,reyref
   use ovar,   only : Period_Timesteps,Period_Time,iter_out_interval
   use ovar,   only : Grid_Length,vortex_bigR,vortex_bigGam
-  use ovar,   only : bound_error,error_bound_limit,init_loc,error_loc
+  use ovar,   only : bound_error,error_bound_limit
+  use ovar,   only : loc_init_pts,loc_error_pts
   use ovar,   only : output_plot3d_to_tecplot,walls_are_exact
-  use ovar,   only : force_parallel_cgns,force_serial_cgns,cgns_is_parallel
   use ovar,   only : input
   !
   use quadrature_mod, only : init_geom_quadrature_rules
@@ -298,8 +298,8 @@ continue
   !
   ! Make sure the initialization and error locations are valid
   !
-  if (all(abs(init_loc) /= [1,2])) init_loc = 0
-  if (abs(error_loc) /= 1) error_loc = 0
+  if (all(loc_init_pts /= Legendre_Nodes)) loc_init_pts = iop_solpts
+  if (all(loc_error_pts /= Legendre_Nodes)) loc_error_pts = iop_solpts
   !
   ! Make sure the output order is greater than or
   ! equal to the solution order if it is positive
@@ -505,19 +505,6 @@ continue
     end if
     iter_out_interval = max(iter_out_interval,1)
     !
-  end if
-  !
-  ! Determine if CGNS output will be serial or parallel. The
-  ! default is the same as the simulation, i.e. serial for serial
-  ! and parallel for parallel unless either force_serial_cgns or
-  ! force_parallel_cgns is set.
-  !
-  if ((ncpu > 1) .and. force_serial_cgns) then
-    cgns_is_parallel = fals
-  else if ((ncpu == 1) .and. force_parallel_cgns) then
-    cgns_is_parallel = true
-  else
-    cgns_is_parallel = (ncpu > 1)
   end if
   !
   ! Now write out a copy of the input file to standard output
@@ -1073,7 +1060,7 @@ continue
   !
   ! Save the index for the ghost cell on the face in bface(10,:)
   !
-  bface(10,:) = ncell + [1:nfbnd]
+  bface(10,:) = ncell + intseq(1,nfbnd)
   !
   ! Lets do a quick modification to the periodic boundary conditions
   ! For each periodic boundary condition, we will find the opposite
@@ -2640,7 +2627,7 @@ subroutine write_nodal_parallel_cgns(iflag)
   use geovar,  only : geovar_alloc_status
   use ovar,    only : ovar_alloc_status
   use flowvar, only : flowvar_alloc_status
-  use metvar,  only : metvar_alloc_status
+  use metrics_mod,  only : metrics_alloc_status
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -2658,7 +2645,7 @@ subroutine write_nodal_parallel_cgns(iflag)
   character(len=*), parameter :: pname = "write_nodal_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: char_sname(1:6) = ["Density  ", &
-                                                    "Velocity", &
+                                                    "Velocity ", &
                                                     "Pressure ", &
                                                     "Mach     ", &
                                                     "Entropy  ", &
@@ -2685,7 +2672,7 @@ continue
     !
    !call ovar_alloc_status(mypnum+200)
    !call geovar_alloc_status(mypnum+200)
-   !call metvar_alloc_status(mypnum+200)
+   !call metrics_alloc_status(mypnum+200)
    !call flowvar_alloc_status(mypnum+200)
     !
     ! Initialize the variables and data arrays needed for CGNS output
@@ -3208,7 +3195,8 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,idim1,ipelem)
   !.. Use Statements ..
   use geovar,       only : ncell,nodes_of_cell_ptr
   use geovar,       only : n_global_cell,global_nofc_ptr
-  use geovar,       only : pst_geom,geom_conn
+  use geovar,       only : pst_geom
+ !use geovar,       only : geom_conn
   use geovar,       only : cell_geom,global_cell_geom
   use geovar,       only : cell_order,global_cell_order
   use parallel_mod, only : cell_map_ptr,cell_map
@@ -3472,12 +3460,13 @@ pure function interpolate_for_output_1d(array) result(return_value)
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use order_mod,  only : n_sp2dq
   use geovar,  only : n_solpts,n_global_solpts
   use geovar,  only : ncell,n_global_cell
   use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
-  use geovar,  only : numer2gauss,numer2lobatto
-  use ovar,    only : iop_outpts,iop_solpts
+  use geovar,  only : cell_geom,global_cell_geom
+  use geovar,  only : cell_order,global_cell_order
+  !
+  use interpolation_mod, only : outerp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: array
@@ -3487,90 +3476,61 @@ pure function interpolate_for_output_1d(array) result(return_value)
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,np,n
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
+  integer :: this_geom,this_order
   !
 continue 
   !
-  ! 
+  ! Interpolate the data depending on if we are working on
+  ! a local or global data array.
   !
-  if (iop_outpts == iop_solpts) then
+  if (size(array) == n_solpts) then
     !
-    ! No interpolation, just copy the array
+    do nc = 1,ncell
+      !
+      this_geom = cell_geom(nc)
+      this_order = cell_order(nc)
+      !
+      n1 = pts_in_cell_ptr(nc)+1
+      n2 = pts_in_cell_ptr(nc+1)
+      np = n2-n1+1
+      !
+      if (associated(outerp(this_geom,this_order)%output)) then
+        return_value(n1:n2) = matmul( outerp(this_geom,this_order)%output , &
+                                      array(n1:n2) )
+      else
+        return_value(n1:n2) = array(n1:n2)
+      end if
+      !
+    end do
+    !
+  else if (size(array) == n_global_solpts) then
+    !
+    do nc = 1,n_global_cell
+      !
+      this_geom = global_cell_geom(nc)
+      this_order = global_cell_order(nc)
+      !
+      n1 = global_pinc_ptr(nc)+1
+      n2 = global_pinc_ptr(nc+1)
+      np = n2-n1+1
+      !
+      if (associated(outerp(this_geom,this_order)%output)) then
+        return_value(n1:n2) = matmul( outerp(this_geom,this_order)%output , &
+                                      array(n1:n2) )
+      else
+        return_value(n1:n2) = array(n1:n2)
+      end if
+      !
+    end do
+    !
+  else
     !
     do n = 1,size(array)
       return_value(n) = array(n)
     end do
     !
-  else
-    !
-    ! Save the desired interpolation matrix to prevent if
-    ! statements for the matrix multiply in the following loops
-    !
-    if (iop_outpts == Legendre_Gauss_Lobatto) then
-      !
-      interp_mat(:,:) = numer2lobatto(:,:)
-      !
-    else if (iop_outpts == Legendre_Gauss) then
-      !
-      interp_mat(:,:) = numer2gauss(:,:)
-      !
-    else
-      !
-      do n = 1,size(array)
-        return_value(n) = array(n)
-      end do
-      !
-      return
-      !
-    end if
-    !
-    ! Interpolate the data depending on if we are working on
-    ! a local or global data array.
-    !
-    if (size(array) == n_solpts) then
-      !
-      do nc = 1,ncell
-        !
-        n1 = pts_in_cell_ptr(nc)+1
-        n2 = pts_in_cell_ptr(nc+1)
-        np = n2-n1+1
-        !
-        if (np == n_sp2dq) then
-          return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
-        else
-          return_value(n1:n2) = array(n1:n2)
-        end if
-        !
-      end do
-      !
-    else if (size(array) == n_global_solpts) then
-      !
-      do nc = 1,n_global_cell
-        !
-        n1 = global_pinc_ptr(nc)+1
-        n2 = global_pinc_ptr(nc+1)
-        np = n2-n1+1
-        !
-        if (np == n_sp2dq) then
-          return_value(n1:n2) = matmul( interp_mat , array(n1:n2) )
-        else
-          return_value(n1:n2) = array(n1:n2)
-        end if
-        !
-      end do
-      !
-    else
-      !
-      do n = 1,size(array)
-        return_value(n) = array(n)
-      end do
-      !
-    end if
-    !
   end if
-  !
+  ! 
 end function interpolate_for_output_1d
 !
 !###############################################################################
@@ -3580,121 +3540,96 @@ pure function interpolate_for_output_2d(array) result(return_value)
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
-  use order_mod,  only : n_sp2dq
   use geovar,  only : n_solpts,n_global_solpts
   use geovar,  only : ncell,n_global_cell
   use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
-  use geovar,  only : numer2gauss,numer2lobatto
-  use ovar,    only : iop_outpts,iop_solpts
+  use geovar,  only : cell_geom,global_cell_geom
+  use geovar,  only : cell_order,global_cell_order
+  !
+  use interpolation_mod, only : outerp
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: array
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(array,dim=1), &
-                      1:size(array,dim=2)) :: return_value
+  real(wp) :: return_value( 1:size(array,dim=1) , 1:size(array,dim=2) )
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,np,n,npts,m
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:n_sp2dq,1:n_sp2dq) :: interp_mat
+  integer :: nc,n1,n2,np,n,npts,nvar,m
+  integer :: this_geom,this_order
   !
 continue 
   !
+  nvar = size(array,dim=1)
   npts = size(array,dim=2)
-  ! 
   !
-  if (iop_outpts == iop_solpts) then
+  ! Interpolate the data depending on if we are working on
+  ! a local or global data array.
+  !
+  if (npts == n_solpts) then
     !
-    ! No interpolation, just copy the array
+    do nc = 1,ncell
+      !
+      this_geom = cell_geom(nc)
+      this_order = cell_order(nc)
+      !
+      n1 = pts_in_cell_ptr(nc)+1
+      n2 = pts_in_cell_ptr(nc+1)
+      np = n2-n1+1
+      !
+      if (associated(outerp(this_geom,this_order)%output)) then
+        do m = 1,nvar
+          return_value(m,n1:n2) = matmul( outerp(this_geom,this_order)%output , &
+                                          array(m,n1:n2) )
+        end do
+      else
+        do n = n1,n2
+          do m = 1,nvar
+            return_value(m,n) = array(m,n)
+          end do
+        end do
+      end if
+      !
+    end do
     !
-    do n = 1,npts
-      do m = 1,nq
-        return_value(m,n) = array(m,n)
-      end do
+  else if (npts == n_global_solpts) then
+    !
+    do nc = 1,n_global_cell
+      !
+      this_geom = global_cell_geom(nc)
+      this_order = global_cell_order(nc)
+      !
+      n1 = global_pinc_ptr(nc)+1
+      n2 = global_pinc_ptr(nc+1)
+      np = n2-n1+1
+      !
+      if (associated(outerp(this_geom,this_order)%output)) then
+        do m = 1,nvar
+          return_value(m,n1:n2) = matmul( outerp(this_geom,this_order)%output , &
+                                          array(m,n1:n2) )
+        end do
+      else
+        do n = n1,n2
+          do m = 1,nvar
+            return_value(m,n) = array(m,n)
+          end do
+        end do
+      end if
+      !
     end do
     !
   else
     !
-    ! Save the desired interpolation matrix to prevent if
-    ! statements for the matrix multiply in the following loops
+    ! No interpolation, just copy the array
     !
-    if (iop_outpts == Legendre_Gauss_Lobatto) then
-      !
-      interp_mat(:,:) = numer2lobatto(:,:)
-      !
-    else if (iop_outpts == Legendre_Gauss) then
-      !
-      interp_mat(:,:) = numer2gauss(:,:)
-      !
-    else
-      !
-      do n = 1,npts
-        do m = 1,nq
-          return_value(m,n) = array(m,n)
-        end do
+    do n = 1,npts
+      do m = 1,nvar
+        return_value(m,n) = array(m,n)
       end do
-      !
-      return
-      !
-    end if
-    !
-    ! Interpolate the data depending on if we are working on
-    ! a local or global data array.
-    !
-    if (npts == n_solpts) then
-      !
-      do nc = 1,ncell
-        !
-        n1 = pts_in_cell_ptr(nc)+1
-        n2 = pts_in_cell_ptr(nc+1)
-        np = n2-n1+1
-        !
-        if (np == n_sp2dq) then
-          do m = 1,nq
-            return_value(m,n1:n2) = matmul( interp_mat , array(m,n1:n2) )
-          end do
-        else
-          do m = 1,nq
-            return_value(m,n1:n2) = array(m,n1:n2)
-          end do
-        end if
-        !
-      end do
-      !
-    else if (npts == n_global_solpts) then
-      !
-      do nc = 1,n_global_cell
-        !
-        n1 = global_pinc_ptr(nc)+1
-        n2 = global_pinc_ptr(nc+1)
-        np = n2-n1+1
-        !
-        if (np == n_sp2dq) then
-          do m = 1,nq
-            return_value(m,n1:n2) = matmul( interp_mat , array(m,n1:n2) )
-          end do
-        else
-          do m = 1,nq
-            return_value(m,n1:n2) = array(m,n1:n2)
-          end do
-        end if
-        !
-      end do
-      !
-    else
-      !
-      do n = 1,npts
-        do m = 1,nq
-          return_value(m,n) = array(m,n)
-        end do
-      end do
-      !
-    end if
+    end do
     !
   end if
-  !
+  ! 
 end function interpolate_for_output_2d
 !
 !###############################################################################
@@ -3702,22 +3637,24 @@ end function interpolate_for_output_2d
 pure function vorticity_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod, only : n_sp2dt,n_sp2dq
+  use order_mod, only : maxpts
   use geovar, only : nr,ncell,pts_in_cell_ptr
-  use metvar, only : dr_mat,ds_mat
-  use metvar, only : jacobian,metrics
+  use geovar, only : cell_geom,cell_order
+  use metrics_mod, only : jacobian,metrics
+  use derivatives_mod, only : deriv
   !
   real(wp), dimension(:,:), intent(in) :: uu
   !
   real(wp), dimension(1:size(uu,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,wlocl,k
+  integer :: n,n1,n2,np,k
+  integer :: this_geom,this_order
   real(wp) :: dudr,duds,dvdr,dvds
   real(wp) :: drdx,dsdx,drdy,dsdy
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr,1:n_sp2dq) :: vel
+  real(wp), dimension(1:nr,1:maxpts) :: vel
   !
 continue
   !
@@ -3727,7 +3664,8 @@ continue
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    wlocl = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    this_geom = cell_geom(n)
+    this_order = cell_order(n)
     !
     do k = n1,n2
       vel(1:nr,k-n1+1) = uu(nmb:nme,k)/uu(1,k)
@@ -3735,10 +3673,10 @@ continue
     !
     do k = n1,n2
       !
-      dudr = dot(dr_mat(1:np,k-n1+1,wlocl),vel(1,1:np))
-      duds = dot(ds_mat(1:np,k-n1+1,wlocl),vel(1,1:np))
-      dvdr = dot(dr_mat(1:np,k-n1+1,wlocl),vel(2,1:np))
-      dvds = dot(ds_mat(1:np,k-n1+1,wlocl),vel(2,1:np))
+      dudr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vel(1,1:np))
+      duds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vel(1,1:np))
+      dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vel(2,1:np))
+      dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vel(2,1:np))
       !
       drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
       dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J
@@ -3766,17 +3704,18 @@ end function vorticity_cv
 pure function vorticity_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use order_mod, only : n_sp2dt
   use geovar, only : ncell,pts_in_cell_ptr
-  use metvar, only : dr_mat,ds_mat
-  use metvar, only : jacobian,metrics
+  use geovar, only : cell_geom,cell_order
+  use metrics_mod, only : jacobian,metrics
+  use derivatives_mod, only : deriv
   !
   real(wp), dimension(:,:), intent(in) :: vv
   !
   real(wp), dimension(1:size(vv,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,wlocl,k
+  integer :: n,n1,n2,np,k
+  integer :: this_geom,this_order
   real(wp) :: dudr,duds,dvdr,dvds
   real(wp) :: drdx,dsdx,drdy,dsdy
   !
@@ -3788,14 +3727,15 @@ continue
     n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    wlocl = merge(1,2,np==n_sp2dt) ! check if cell n is tria or quad
+    this_geom = cell_geom(n)
+    this_order = cell_order(n)
     !
     do k = n1,n2
       !
-      dudr = dot(dr_mat(1:np,k-n1+1,wlocl),vv(2,n1:n2))
-      duds = dot(ds_mat(1:np,k-n1+1,wlocl),vv(2,n1:n2))
-      dvdr = dot(dr_mat(1:np,k-n1+1,wlocl),vv(3,n1:n2))
-      dvds = dot(ds_mat(1:np,k-n1+1,wlocl),vv(3,n1:n2))
+      dudr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vv(2,n1:n2))
+      duds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vv(2,n1:n2))
+      dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vv(3,n1:n2))
+      dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vv(3,n1:n2))
       !
       drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
       dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J

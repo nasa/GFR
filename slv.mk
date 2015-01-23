@@ -112,7 +112,7 @@ FCFLAG += $(FPP)
 FCFLAG += $(MOD) $(INCLUDE)
 #FCFLAG += -shared-intel
 #FCFLAG += -parallel
-
+FCFLAG += $(FCADD)
 #
 #FCFLAG += -opt-report=2 -opt-report-file=medium.opt.log
 #FCFLAG += -multiple-processes=6
@@ -131,7 +131,6 @@ FCFLAG += $(MOD) $(INCLUDE)
 #
 OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/Euler_tri.o \
-       $(OBJDIR)/metvar_mod.o \
        $(OBJDIR)/order_mod.o \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/geovar_mod.o \
@@ -142,13 +141,13 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/io.o \
        $(OBJDIR)/metrics.o \
        $(OBJDIR)/poly.o \
-       $(OBJDIR)/startup.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/generic.o \
        $(OBJDIR)/bc_mod.o \
        $(OBJDIR)/triangle.o \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/filter_mod.o \
+       $(OBJDIR)/time_mod.o \
        $(OBJDIR)/typesgen_mod.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/correction_mod.o \

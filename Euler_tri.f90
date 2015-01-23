@@ -6,7 +6,7 @@ program Euler_tri
   use geovar, only : nnode,n_global_node
   use geovar, only : nfbnd,n_global_fbnd
   use geovar, only : n_solpts,n_global_solpts
-  use geovar, only : bface,xyz_nodes,solpts_1d
+  use geovar, only : bface,xyz_nodes
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   !
@@ -20,9 +20,12 @@ program Euler_tri
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
-  use ovar, only : cgns_is_parallel
+  use ovar, only : dump_memory_usage
   !
   use flowvar, only : usp,uoldsp
+  !
+  use quadrature_mod, only : solpts_edge
+  use quadrature_mod, only : quadrature_memory_usage
   !
   use io_mod, only : read_input_file
   use io_mod, only : write_restart_file
@@ -36,7 +39,24 @@ program Euler_tri
   !
   use metrics_mod, only : get_metrics
   !
-  use startup_mod, only : get_quadrature_data
+  use vandermonde_mod, only : init_vandermonde_matrices
+  use vandermonde_mod, only : vandermonde_memory_usage
+  !
+  use derivatives_mod, only : init_derivative_matrices
+  use derivatives_mod, only : derivatives_memory_usage
+  !
+  use correction_mod, only : init_correction_matrices
+  use correction_mod, only : correction_memory_usage
+  !
+  use interpolation_mod, only : init_interpolation_matrices
+  use interpolation_mod, only : init_outerpolation_matrices
+  use interpolation_mod, only : interpolation_memory_usage
+  !
+  use projection_mod, only : init_projection_matrices
+  use projection_mod, only : projection_memory_usage
+  !
+  use filter_mod, only : init_filter_matrices
+  use filter_mod, only : filter_memory_usage
   !
   use initialization_mod, only : initialize_flow
   !
@@ -44,17 +64,18 @@ program Euler_tri
   use module_bc,   only : get_facedusp_bc
 !!  use module_bc,   only : compute_bc_profiles
   !
-  use generic_mod, only : get_dtsp
-  use generic_mod, only : rresi
+  use generic_mod, only : init_generic_mod
   use generic_mod, only : rgeterr
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_final_error
-  use generic_mod, only : rupdate_Classic_RK
-  use generic_mod, only : rupdate_CK4_RK
-  use generic_mod, only : rupdate_TVD2_RK
-  use generic_mod, only : rupdate_TVD3_RK
-  use generic_mod, only : rupdate_TVD4_RK
-  use generic_mod, only : init_generic_mod
+  !
+  use time_mod, only : get_dtsp
+  use time_mod, only : rresi
+  use time_mod, only : rupdate_Classic_RK
+  use time_mod, only : rupdate_CK4_RK
+  use time_mod, only : rupdate_TVD2_RK
+  use time_mod, only : rupdate_TVD3_RK
+  use time_mod, only : rupdate_TVD4_RK
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
@@ -76,6 +97,8 @@ program Euler_tri
   !
   implicit none
   !
+  character(len=*), parameter :: pname = "Euler_tri(main)"
+  !
   integer  :: iter,i,ierr,k
   real(wp) :: dtmin
   !
@@ -83,8 +106,8 @@ program Euler_tri
   !
   logical :: request_stop
   !
-  logical, parameter :: ignore_errors = true
- !logical, parameter :: ignore_errors = false
+ !logical, parameter :: ignore_errors = true
+  logical, parameter :: ignore_errors = fals
   !
   integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
@@ -166,7 +189,35 @@ continue
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
-  call get_quadrature_data
+  call init_vandermonde_matrices
+  call init_derivative_matrices
+  call init_correction_matrices
+  call init_interpolation_matrices
+  call init_outerpolation_matrices
+  call init_projection_matrices
+  call init_filter_matrices
+  !
+  ! If requested, dump the memory usage of the advanced data types from some of
+  ! the modules
+  !
+  if (dump_memory_usage) then
+    !
+    open (newunit=i,file="memory_usage.dat",status="replace", &
+          action="write",form="formatted",position="rewind",iostat=ierr)
+    call io_error(pname,"memory_usage.dat",1,ierr)
+    !
+    call vandermonde_memory_usage(i)
+    call derivatives_memory_usage(i)
+    call correction_memory_usage(i)
+    call interpolation_memory_usage(i)
+    call quadrature_memory_usage(i)
+    call projection_memory_usage(i)
+    call filter_memory_usage(i)
+    !
+    close (i,iostat=ierr)
+    call io_error(pname,"memory_usage.dat",2,ierr)
+    !
+  end if
   !
   ! Get the grid metrics
   !
@@ -190,10 +241,9 @@ continue
     write (iout,11)
     write (iout,12) n_global_cell,n_global_node,n_global_fbnd,n_global_solpts
     write (iout,14) total_volume
-    write (iout,15) (solpts_1d(k), k=1,size(solpts_1d))
+    write (iout,15) (solpts_edge(k), k=1,size(solpts_edge))
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
- !call stop_recon(stop_mpi,"main: before initialize_flow")
   !
   ! Initialize the flow variables for all solution points or
   ! read in the restart values if restarting a simulation
@@ -260,12 +310,31 @@ continue
       call get_faceusp_bc
       if (nst == 1) call get_dtsp(dtmin)
       !
-      if (governing_equations == Euler_Eqns) then
-        !
-        call derflux1_qdtr
-        call correct_interface_flux_qdtr
-        !
-      else if (governing_equations == NavierStokes_Eqns) then
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! #####                                                            #####
+      ! #####  CURRENTLY THE INVISCID OVER-INTEGRATION PATH IS DISABLED  #####
+      ! #####  BECAUSE THE ARRAYS interp(:,:)%toCell(:) and projct(:,:)  #####
+      ! #####  STILL NEED TO BE SET UP PROPERLY FOR THIS PATH TO WORK!!  #####
+      ! #####                                                            #####
+      ! #####       ||||||||||||||||||||||||||||||||||||||||||||||       #####
+      ! #####       VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV       #####
+      ! #####                                                            #####
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      !
+     !if (governing_equations == Euler_Eqns) then
+     !  !
+     !  call derflux1_qdtr
+     !  call correct_interface_flux_qdtr
+     !  !
+     !else if (governing_equations == NavierStokes_Eqns) then
         !
         call discontinuous_gradient_at_solpts
         if (visc_flux_method == visc_flux_BR2) then
@@ -278,7 +347,26 @@ continue
         call derflux1_qdtr_with_visc
         call correct_interface_flux_qdtr_with_visc
         !
-      end if
+     !end if
+      !
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! #####                                                            #####
+      ! #####       AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA       #####
+      ! #####       ||||||||||||||||||||||||||||||||||||||||||||||       #####
+      ! #####                                                            #####
+      ! #####  CURRENTLY THE INVISCID OVER-INTEGRATION PATH IS DISABLED  #####
+      ! #####  BECAUSE THE ARRAYS interp(:,:)%toCell(:) and projct(:,:)  #####
+      ! #####  STILL NEED TO BE SET UP PROPERLY FOR THIS PATH TO WORK!!  #####
+      ! #####                                                            #####
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
+      ! ######################################################################
       !
       ! Compute the final residual for each solution point
       !

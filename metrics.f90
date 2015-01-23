@@ -13,6 +13,317 @@ module metrics_mod
   ! ##################################
   !
   public :: get_metrics
+  public :: metrics_alloc_status
+  !
+  !
+  ! geofa : normal of the face at each of the solution points on the face
+  !
+  real(wp), public, save, allocatable, dimension(:,:,:) :: geofa
+  !
+  ! volj : Volume of the grid cells evaluated by integrating the jacobian at the
+  !        solution points using the quadrature rule
+  !
+  real(wp), public, save, allocatable, dimension(:) :: volj
+  !
+  ! jacobian : jacobian of the solution points
+  !
+  real(wp), public, save, allocatable, dimension(:) :: jacobian
+  !
+  ! dJ : derivative of the jacobian at the solution points
+  !
+  real(wp), public, save, allocatable, dimension(:,:) :: dJ
+  !
+  ! metrics : first derivative metrics terms at the solution points
+  !     For solution point 'n', metrics(l,i,n) gives the partial derivative
+  !                             d (x_l)
+  !                             -------
+  !                             d(xi_i)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !           NOTE: For 2D z and zeta (or t) do not exist
+  !
+  real(wp), public, save, allocatable, dimension(:,:,:) :: metrics
+  !
+  ! metrics2: second derivative metrics terms at the solution points
+  !     For solution point 'n', metrics2(l,i,j,n) gives the partial derivative 
+  !                                  2
+  !                                 d (x_l)
+  !                             ---------------
+  !                             d(xi_i) d(xi_j)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !           NOTE: For 2D z and zeta (or t) do not exist
+  !
+  real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics2
+  !
+  ! metrics2: second derivative metrics terms at the solution points
+  !     For solution point 'n', metrics3(l,i,j,k,n) gives the partial derivative 
+  !                                      3
+  !                                     d (x_l)
+  !                             -----------------------
+  !                             d(xi_i) d(xi_j) d(xi_k)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !           NOTE: For 2D z and zeta (or t) do not exist
+  !
+  real(wp), public, save, allocatable, dimension(:,:,:,:,:) :: metrics3
+  !
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! #####  ||||||||||||||||   ATTEMPT AT METRICS USING    |||||||||||||||  #####
+  ! #####  VVVVVVVVVVVVVVVV  PARAMETERIZED DERIVED TYPES  VVVVVVVVVVVVVVV  #####
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  !
+  ! NOTE: THERE IS A BUG IN INTEL FORTRAN 15.0.0 and 15.0.1 THAT PREVENTS THE
+  !       USE OF LENGTH TYPE PARAMETERS IN DERIVED TYPES. CHECK BACK IN FEBRUARY
+  !       2015 TO SEE IF THIS IS FIXED IN 15.0.2.
+  !
+  type, public :: sp_metrics
+  end type sp_metrics
+  !
+  ! SP_METRICS_1: Parameterized derived type containing all the first
+  !               derivative metric terms at the solution points
+  !      COMPONENTS
+  !           n : length parameter
+  !           d : first derivative metrics
+  !                d(l,i) gives the partial derivative 
+  !                             d (x_l)
+  !                             -------
+  !                             d(xi_i)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !
+#ifdef DEBUG_ON
+  type, public, extends(sp_metrics) :: sp_metrics_1_2D
+    real(wp)     :: d(2,2)
+  end type sp_metrics_1_2D
+  type, public, extends(sp_metrics) :: sp_metrics_1_3D
+    real(wp)     :: d(3,3)
+  end type sp_metrics_1_3D
+#else
+  type, public, extends(sp_metrics) :: sp_metrics_1
+ !type, public, extends(sp_metrics) :: sp_metrics_1(n)
+   !integer, len :: n = 2
+   !real(wp)     :: d(n,n)
+    real(wp), allocatable :: d(:,:)
+  end type sp_metrics_1
+#endif
+  !
+  !
+  ! SP_METRICS_2: Parameterized derived type that extends the type SP_METRICS_1
+  !               to also contain all the second derivative metrics terms at
+  !               the solution points. It also contains all the derived type
+  !               components contained within SP_METRICS_1.
+  !      COMPONENTS (all the components of SP_METRICS_1 + ...)
+  !           d2 : second derivative metrics
+  !                d2(l,i,j) gives the partial derivative 
+  !                                  2
+  !                                 d (x_l)
+  !                             ---------------
+  !                             d(xi_i) d(xi_j)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !
+#ifdef DEBUG_ON
+  type, public, extends(sp_metrics_1_2D) :: sp_metrics_2_2D
+    real(wp) :: d2(2,2,2)
+  end type sp_metrics_2_2D
+  type, public, extends(sp_metrics_1_3D) :: sp_metrics_2_3D
+    real(wp) :: d2(3,3,3)
+  end type sp_metrics_2_3D
+#else
+  type, public, extends(sp_metrics_1) :: sp_metrics_2
+   !real(wp) :: d2(n,n,n)
+    real(wp), allocatable :: d2(:,:,:)
+  end type sp_metrics_2
+#endif
+  !
+  ! SP_METRICS_3: Parameterized derived type that extends the type SP_METRICS_2
+  !               to also contain all the third derivative metrics terms at
+  !               the solution points. It also contains all the derived type
+  !               components contained within SP_METRICS_1 and SP_METRICS_2.
+  !      COMPONENTS (all the components of SP_METRICS_1 and SP_METRICS_2 + ...)
+  !           d3 : third derivative metrics
+  !                d3(l,i,j,k) gives the partial derivative 
+  !                                      3
+  !                                     d (x_l)
+  !                             -----------------------
+  !                             d(xi_i) d(xi_j) d(xi_k)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !
+#ifdef DEBUG_ON
+  type, public, extends(sp_metrics_2_3D) :: sp_metrics_3_3D
+    real(wp) :: d3(3,3,3,3)
+  end type sp_metrics_3_3D
+#else
+  type, public, extends(sp_metrics_2) :: sp_metrics_3
+   !real(wp) :: d3(n,n,n,n)
+    real(wp), allocatable :: d3(:,:,:,:)
+  end type sp_metrics_3
+#endif
+  !
+  ! METRICS : This array contains the grid metrics at each solution point
+  !           The type declaration of class(sp_metrics_1(:)) is used to specify
+  !           that metrics is an array whose type is in the class of types
+  !           consisting of sp_metrics_1 and all of its extensions (i.e.,
+  !           sp_metrics_2 and sp_metrics_3). This way we can allocate it to the
+  !           correct type and size to prevent wasted memory when the second or
+  !           third derivative metrics arent needed. The (:) after sp_metrics_1
+  !           means that the length parameter, n, in the type definition is a
+  !           deferred parameter that is to be specified at allocation of the
+  !           array. If no value is passed to the length parameter, n, at
+  !           allocation, it defaults to the value 2 given in the type definition.
+  !
+  class(sp_metrics), public, allocatable, dimension(:) :: pdt_metrics
+  !
+  class(sp_metrics), public, save, allocatable, dimension(:) :: pdt_met_dJ
+  !
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! #####  AAAAAAAAAAAAAAAA   ATTEMPT AT METRICS USING    AAAAAAAAAAAAAAA  #####
+  ! #####  ||||||||||||||||  PARAMETERIZED DERIVED TYPES  |||||||||||||||  #####
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  ! ############################################################################
+  !
+  !
+  ! OLDER METRICS TYPE DEFINITIONS
+  !
+  !
+  type, public :: derivative
+    real(wp) :: dr
+    real(wp) :: ds
+    real(wp) :: dt
+  end type derivative
+  !
+  type, public, extends(derivative) :: second_derivative
+    real(wp) :: dr2
+    real(wp) :: ds2
+    real(wp) :: dt2
+    real(wp) :: drds
+    real(wp) :: drdt
+    real(wp) :: dsdr
+    real(wp) :: dsdt
+    real(wp) :: dtdr
+    real(wp) :: dtds
+  end type second_derivative
+  !
+  type, public, extends(second_derivative) :: third_derivative
+    real(wp) :: dr3,dr2ds,dr2dt
+    real(wp) :: ds3,ds2dr,ds2dt
+    real(wp) :: dt3,dt2dr,dt2ds
+    real(wp) :: drdsdr,drdsds,drdsdt
+    real(wp) :: drdtdr,drdtds,drdtdt
+    real(wp) :: dsdrdr,dsdrds,dsdrdt
+    real(wp) :: dsdtdr,dsdtds,dsdtdt
+    real(wp) :: dtdrdr,dtdrds,dtdrdt
+    real(wp) :: dtdsdr,dtdsds,dtdsdt
+  end type third_derivative
+  !
+  ! dx : metrics of the x-direction at the solution points
+  ! dy : metrics of the y-direction at the solution points
+  ! dz : metrics of the z-direction at the solution points
+  !
+  type(second_derivative), public, save, allocatable, dimension(:) :: dx
+  type(second_derivative), public, save, allocatable, dimension(:) :: dy
+  type(second_derivative), public, save, allocatable, dimension(:) :: dz
+  !
+  ! dJ : derivative of the jacobian at the solution points
+  !
+  type(derivative), public, save, allocatable, dimension(:) :: dt_dJ
+  !
+  ! spmat : solution points matrix
+  ! dximat : dx matrix
+  ! detmat : dy matrix
+  ! spcemat : curved edge CE (at bottom), solution points
+  ! spceximat : CE metrics d_xi
+  ! spceetmat : CE metrics d_eta
+  ! spcexi2mat : CE metrics d_xi2
+  ! spceet2mat : CE metrics d_eta2
+  ! spcexietmat : CE metrics d_xieta
+  !
+  ! lagrange : gives the Lagrange polynomial coefficients to project
+  !            variables/fluxes from the solution points in the cell
+  !            interior to the flux points on the cell faces
+  !
+ !real(wp), public, save, allocatable, dimension(:,:) :: spmat       !(3,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcemat     !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceximat   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceetmat   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcexi2mat  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spceet2mat  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable, dimension(:,:) :: spcexietmat !(ksp1d+1,ksp2d)
+  !
+  ! wsp  : quadrature weights
+  ! xiSP : xi coordinates of the edge solution points
+  !        !! xisp and xisp1d seemed to be duplicates
+  ! xiCE : 
+  !
+  ! Hesthaven and Warburton equivalencies
+  ! wsp = weights
+  !
+ !real(wp), public, save, allocatable, dimension(:) :: wsp  !(ksp2d)
+ !real(wp), public, save, allocatable, dimension(:) :: xiSP !(ksp1d)
+ !real(wp), public, save, allocatable, dimension(:) :: xiCE !(ksp1d)
+  !
+  ! XYSP    : x,y coordinates of the cell solution points
+  ! XYSPxi  : d_(x,y)/d_xi  of the cell solution points (i.e. d_x/d_xi and d_y/d_xi)
+  ! XYSPet  : d_(x,y)/d_eta of the cell solution points
+  ! XYeSP   : x,y coordinates of the edge solution points !! not used
+  ! XYeSPxi : d_(x,y)/d_xi of the edge solution points 
+  !
+  ! Hesthaven and Warburton equivalencies
+  ! XYSP(1,:,:)   = x
+  ! XYSP(2,:,:)   = y
+  ! XYSPxi(1,:,:) = xr = matmul(Dr,x) -> rx =  ys/J
+  ! XYSPxi(2,:,:) = yr = matmul(Dr,y) -> ry = -xs/J
+  ! XYSPet(1,:,:) = xs = matmul(Ds,x) -> sx = -yr/J
+  ! XYSPet(2,:,:) = ys = matmul(Ds,y) -> sy =  xr/J
+  !
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSP    !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPxi  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPet  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSP   !(2,ksp1d,1:nface)
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSPxi !(2,ksp1d,1:nface)
+  !
+  ! DxyDrs : d_(x,y)/d_(r,s) of the cell solution points
+  !
+ !real(wp), public, save, allocatable, dimension(:,:,:) :: DxyDrs
+  !
+  ! rjaSP   : jacobian of the solution points
+  ! rjaSPxi : d_jacobian/d_xi of the solution points
+  ! rjaSPet : d_jacobian/d_eta of the solution points
+  !
+  ! Hesthaven and Warburthon equivalencies
+  ! rjaSP = J = -xs*yr + xr*ys
+  !
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSP   !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPxi !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPet !(ksp2d,-nfbnd:ncell)
+  !
+  !... for boundary cells, if id_be(j) = 0, then the cell has a curved edge
+  !
+  ! be_cSPind(1,k,j) k = 1,ksp: the solution point index of cell be_ic(j)
+  ! be_cSPind(2,k,j) k = 1,ksp: the solution point index of exterior cell
+  ! be_cSPind(3,k,j) k = 1,ksp: the solution point index of cell be_pc(j)
+  ! e_cSPind(1,k,j) k = 1,ksp: the solution point index for the left cell
+  ! e_cSPind(2,k,j) k = 1,ksp: the solution point index for the right cell
+ !integer, public, save, allocatable, dimension(:,:,:) :: e_cSPind  !(2,ksp1d,nface)
+ !integer, public, save, allocatable, dimension(:,:,:) :: be_cSPind !(3,ksp1d,nfbnd)
   !
 contains
 !
@@ -26,7 +337,6 @@ subroutine get_metrics()
   use geovar, only : nodes_on_face,pts_in_cell_ptr
   use geovar, only : xyz_nodes,cell_geom,cell_order
   use geovar, only : cells_on_face
-  use geovar, only : solpts_1d,solwts_1d,rs
   !
   use quadrature_mod, only : std_elem
   !
@@ -34,15 +344,12 @@ subroutine get_metrics()
   use ovar, only : using_curved_boundaries
   use ovar, only : use_3rd_derivative_metrics
   !
-  use metvar, only : metrics,metrics2,metrics3
-  use metvar, only : jacobian,dJ,volj,geofa
-  !
   use order_mod, only : n_sp1de,geom_solpts
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,ierr
   integer  :: n,nc,n1,n2,nf,np,p1,p2
-  integer  :: edge_pts,nfnods
+  integer  :: n_edge_pts,nfnods
   integer  :: this_geom,this_order
   real(wp) :: tvol,tria_coef,tc2,r,s,t
   real(r8) :: loc_vol,tot_vol
@@ -54,15 +361,19 @@ subroutine get_metrics()
   !
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: weights(:)
+  real(wp), pointer, contiguous :: edge_pts(:)
+  real(wp), pointer, contiguous :: rs_pts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
   !
 continue
   !
-  ! Initialize weights to disassociated
+  ! Initialize the local pointers to disassociated
   !
   weights => null()
+  edge_pts => null()
+  rs_pts => null()
   !
   ! Coefficients for triangle metrics depending on
   ! the definition of the standard triangular element
@@ -164,7 +475,7 @@ continue
         !
         ! Add the jacobian and quadrature weight to this cells volume
         !
-        tvol = tvol + jacobian(n)*solwts_1d(np)
+        tvol = tvol + jacobian(n)*weights(np)
         !
       end do
       !
@@ -228,20 +539,22 @@ continue
       ! #####  Metrics for quadrilateral cell  #####
       ! ############################################
       !
-      edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      !
+      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
       !
       do n = p1,p2
         !
         np = n-p1+1
         !
-        j = (np-1)/edge_pts + 1
-        i = np - (j-1)*edge_pts
+        j = (np-1)/n_edge_pts + 1
+        i = np - (j-1)*n_edge_pts
         !
-        rm1 = solpts_1d(i) - one
-        rp1 = solpts_1d(i) + one
+        rm1 = edge_pts(i) - one
+        rp1 = edge_pts(i) + one
         !
-        sm1 = solpts_1d(j) - one
-        sp1 = solpts_1d(j) + one
+        sm1 = edge_pts(j) - one
+        sp1 = edge_pts(j) + one
         !
         ! First derivative metrics
         !
@@ -336,7 +649,10 @@ continue
       ! #####  Metrics for prism cell  #####
       ! ####################################
       !
-      edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      !
+      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
+      rs_pts => std_elem(Geom_Tria,cell_order(nc))%pts
       !
       do n = p1,p2
         !
@@ -351,9 +667,9 @@ continue
         ! ##########################################################################
         ! ##########################################################################
         !
-        k = (np-1)/(edge_pts**2) + 1
-        j = (np-1)/edge_pts - (k-1)*edge_pts + 1
-        i = np - (j-1)*edge_pts - (k-1)*edge_pts*edge_pts
+        k = (np-1)/(n_edge_pts**2) + 1
+        j = (np-1)/n_edge_pts - (k-1)*n_edge_pts + 1
+        i = np - (j-1)*n_edge_pts - (k-1)*n_edge_pts*n_edge_pts
         !
         ! ##########################################################################
         ! ##########################################################################
@@ -364,12 +680,12 @@ continue
         ! ##########################################################################
         ! ##########################################################################
         !
-        r = tria_coef * (rs(1,i) + deltafun(tria_is_biunit))
-        s = tria_coef * (rs(2,i) + deltafun(tria_is_biunit))
+        r = tria_coef * (rs_pts(1,i) + deltafun(tria_is_biunit))
+        s = tria_coef * (rs_pts(2,i) + deltafun(tria_is_biunit))
         t = tria_coef * (deltafun(tria_is_biunit) - r - s)
         !
-        zm1 = tria_coef * (solpts_1d(j) - one)
-        zp1 = tria_coef * (solpts_1d(j) + one)
+        zm1 = tria_coef * (edge_pts(j) - one)
+        zp1 = tria_coef * (edge_pts(j) + one)
         !
         metrics(1:nr,1,n) = half * ( zm1*(nodes(1:nr,1) - nodes(1:nr,2)) + &
                                      zp1*(nodes(1:nr,5) - nodes(1:nr,4)) )
@@ -465,7 +781,9 @@ continue
       ! #####  Metrics for hexahedral cell  #####
       ! #########################################
       !
-      edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      !
+      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
       !
       do n = p1,p2
         !
@@ -480,9 +798,9 @@ continue
         ! ##########################################################################
         ! ##########################################################################
         !
-        k = (np-1)/(edge_pts**2) + 1
-        j = (np-1)/edge_pts - (k-1)*edge_pts + 1
-        i = np - (j-1)*edge_pts - (k-1)*edge_pts*edge_pts
+        k = (np-1)/(n_edge_pts**2) + 1
+        j = (np-1)/n_edge_pts - (k-1)*n_edge_pts + 1
+        i = np - (j-1)*n_edge_pts - (k-1)*n_edge_pts*n_edge_pts
         !
         ! ##########################################################################
         ! ##########################################################################
@@ -493,14 +811,14 @@ continue
         ! ##########################################################################
         ! ##########################################################################
         !
-        rm1 = solpts_1d(i) - one
-        rp1 = solpts_1d(i) + one
+        rm1 = edge_pts(i) - one
+        rp1 = edge_pts(i) + one
         !
-        sm1 = solpts_1d(j) - one
-        sp1 = solpts_1d(j) + one
+        sm1 = edge_pts(j) - one
+        sp1 = edge_pts(j) + one
         !
-        tm1 = solpts_1d(k) - one
-        tp1 = solpts_1d(k) + one
+        tm1 = edge_pts(k) - one
+        tp1 = edge_pts(k) + one
         !
         metrics(1:nr,1,n) = one8 * ( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
                                      sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
@@ -625,9 +943,11 @@ continue
     !
     if (nc <= ncell) local_volume = local_volume + volj(nc)
     !
-    ! Disassociate weights before moving to the next cell
+    ! Disassociate local pointers before moving to the next cell
     !
     if (associated(weights)) weights => null()
+    if (associated(edge_pts)) edge_pts => null()
+    if (associated(rs_pts)) rs_pts => null()
     !
   end do metrics_loop
  !write (*,*) mypnum,local_volume,sum(volj(1:ncell))
@@ -697,8 +1017,8 @@ continue
   ! Reduce the volumes of each partition to the root
   ! processor to determine the volume of the global grid.
   !
-  tot_vol = real(local_volume,r8)
-  loc_vol = real(local_volume,r8)
+  tot_vol = real(local_volume,kind=r8)
+  loc_vol = real(local_volume,kind=r8)
   !
   if (ncpu > 1) then
     call mpi_allreduce(loc_vol,tot_vol,1,mpi_flttyp, &
@@ -723,6 +1043,63 @@ continue
   104 format (" Encountered an invalid metrics derived type!")
   !
 end subroutine get_metrics
+!
+!###############################################################################
+!
+subroutine metrics_alloc_status(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  type(memory) :: total
+  type(memory) :: array
+  !
+continue
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iunit,1)
+  !
+  if (allocated(geofa)) then
+    array%siz = size(geofa)
+    array%mem = array%siz*storage_size(geofa)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'geofa'",array%get_units()
+  end if
+  if (allocated(jacobian)) then
+    array%siz = size(jacobian)
+    array%mem = array%siz*storage_size(jacobian)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'jacobian'",array%get_units()
+  end if
+  if (allocated(dJ)) then
+    array%siz = size(dJ)
+    array%mem = array%siz*storage_size(dJ)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'dJ'",array%get_units()
+  end if
+  if (allocated(volj)) then
+    array%siz = size(volj)
+    array%mem = array%siz*storage_size(volj)
+    total%mem = total%mem + array%mem
+    write (iunit,2) "'volj'",array%get_units()
+  end if
+  !
+  total = total%get_units()
+  write (iunit,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module metrics_mod")
+  2 format (" Array: ",a11,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  !
+end subroutine metrics_alloc_status
 !
 !###############################################################################
 !

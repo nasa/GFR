@@ -21,163 +21,173 @@ subroutine initialize_flow()
   ! Routine to initialize the flow
   !
   !.. Use Statements ..
-  use geovar,      only : nr,n_solpts,n_totpts,nface,ncell
-  use geovar,      only : numer2gauss,numer2lobatto
-  use geovar,      only : pts_in_cell_ptr,xyz
+  use generic_types_mod, only : matrix
   !
- !use metvar,      only : 
+  use geovar, only : nr,n_solpts,ncell
+  use geovar, only : pts_in_cell_ptr,xyz
+  use geovar, only : cell_geom,cell_order
   !
-  use ovar,        only : rhoref,aref,iRKtype,num_stages,itestcase
-  use ovar,        only : cv_in,init_loc
-  use ovar,        only : irestart,d_t,dt_in,itcur,time
-  use ovar,        only : dtrst,itrst,tmrst
-  use ovar,        only : rhoref,pref,tref,gam,rgasref,cpref
-  use ovar,        only : aref,machref,velref,uref,muref,reyref
-  use ovar,        only : alpha_aoaref,beta_aoaref
-  use ovar,        only : pref_nd,velref_nd,muref_nd
-  use ovar,        only : rgasref_nd,cpref_nd
+  use ovar, only : rhoref,aref,itestcase
+  use ovar, only : cv_in,loc_init_pts,iop_solpts
+  use ovar, only : irestart,d_t,dt_in,itcur,time
+  use ovar, only : dtrst,itrst,tmrst
+  use ovar, only : rhoref,pref,tref,gam,rgasref,cpref
+  use ovar, only : aref,machref,velref,uref,muref,reyref
+  use ovar, only : alpha_aoaref,beta_aoaref
+  use ovar, only : pref_nd,velref_nd,muref_nd
+  use ovar, only : rgasref_nd,cpref_nd
   !
-  use flowvar,     only : usp,dusp,residual,dtsp,uoldsp
-  use flowvar,     only : usp_sum,rssprk
-  use flowvar,     only : faceusp,facedusp,faceflx
+  use flowvar, only : usp,uoldsp
+  use flowvar, only : allocate_flowvar_arrays
   !
-  use order_mod,   only : n_fp1de,maxpts
+  use order_mod, only : maxpts
   !
-  use io_mod,      only : read_restart_file
+  use io_mod, only : read_restart_file
   !
-  use generic_mod, only : project_to_porder
+  use projection_mod, only : project_to_porder
+  !
+  use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer  :: n1,n2,n,np,k,l,m,ierr
+  integer :: n,n1,n2,np,l,l1,l2,m
+  integer :: gmin,gmax,omin,omax,ierr
+  integer :: this_geom,this_order
   real(wp) :: rhoa2
+  character(len=200) :: array_name
+  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xyz_init(:,:)
-  real(wp), allocatable :: interp_mat(:,:)
-  real(wp), allocatable, dimension(:,:) :: uspstart
+  real(wp), allocatable :: uspstart(:,:)
+  type(matrix), allocatable, target :: outerp_inv(:,:)
+  !
+  !.. Local Pointers ..
+  real(wp), pointer, contiguous :: numer2init(:,:)
+  real(wp), pointer, contiguous :: init2numer(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_flow"
   !
 continue
   !
+  ! Initialize all local pointers to disassociated
+  !
+  numer2init => null()
+  init2numer => null()
+  !
   ! Some constants from the free-stream conditions
   !
   rhoa2 = rhoref * aref * aref
   !
-  ! Allocate the solution arrays
+  ! Allocate the arrays within the module flowvar
   !
-  allocate ( usp(1:nq,1:n_totpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"usp",1,ierr)
-  allocate ( dusp(1:nr,1:nq,1:n_totpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"dusp",1,ierr)
-  allocate ( residual(1:nq,1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"residual",1,ierr)
-  allocate ( dtsp(1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"dtsp",1,ierr)
-  allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"uoldsp",1,ierr)
-  allocate ( faceusp(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
-  call alloc_error(pname,"faceusp",1,ierr)
-  allocate ( facedusp(1:2,1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
-  call alloc_error(pname,"facedusp",1,ierr)
-  allocate ( faceflx(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , stat=ierr )
-  call alloc_error(pname,"faceflx",1,ierr)
+  call allocate_flowvar_arrays
   !
-  ! Local allocatable array uspstart
+  ! Allocate the local arrays
   !
-  allocate ( uspstart(1:nq,1:n_solpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"uspstart",1,ierr)
+  allocate ( uspstart(1:nq,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"uspstart",1,ierr,error_message)
   !
-  ! Allocate the storage for the Runge-Kutta methods
+  allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_init",1,ierr,error_message)
   !
-  n = 0
-  if (iRKtype == Classic_RK) then
-    n = num_stages
-  else if (iRKtype == CK4_RK .or. iRKtype == TVD4_RK) then
-    n = 1
-    if (iRKtype == TVD4_RK) then
-      allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , stat=ierr )
-      call alloc_error(pname,"usp_sum",1,ierr)
-    end if
-  end if
+  ! Allocate the local array that stores the inverse of the matrix used for
+  ! interpolating from the solution points to the initialization points.
+  ! NOTE: This is array is used so that we only invert the matrix once for a
+  !       given cell geometry/order combination.  We dont want to keep inverting
+  !       the same matrix over and over for cells with the same geometry/order
+  !       combination.
   !
-  if (n /= 0) then
-    allocate ( rssprk(1:nq,1:n_solpts,1:n) , source=zero , stat=ierr )
-    call alloc_error(pname,"rssprk",1,ierr)
-  end if
+  gmin = lbound(outerp,dim=1)
+  gmax = ubound(outerp,dim=1)
+  omin = lbound(outerp,dim=2)
+  omax = ubound(outerp,dim=2)
   !
-  ! Initialize uspstart depending on the test case requested
+  allocate ( outerp_inv(gmin:gmax,omin:omax) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"outerp_inv",1,ierr,error_message)
   !
-  if (any(itestcase == [Generic_MeanFlow,Laminar_BndLyr])) then
+  ! Initialize the solution in each cell
+  !
+  do n = 1,ncell
     !
-    ! Initialize the solution to free-stream conditions
+    this_geom = cell_geom(n)
+    this_order = cell_order(n)
     !
-    do n = 1,n_solpts
-      uspstart(:,n) = cv_in(:)
-    end do
+    n1 = pts_in_cell_ptr(n)+1
+    n2 = pts_in_cell_ptr(n+1)
+    np = n2-n1+1
     !
-  else if (any(itestcase == Transport_Problems)) then
+    ! Check whether the init component of outerp is associated with
+    ! an interpolation matrix to determine where we need to compute
+    ! the initial conditions.
     !
-    ! Compute the initial solution for the vortex problem
-    !
-    if (any(init_loc == [1,2,-1])) then
+    if (.not. associated(outerp(this_geom,this_order)%init)) then
       !
-      allocate ( xyz_init(1:nr,1:maxpts) , source=zero , stat=ierr )
-      call alloc_error(pname,"xyz_init",1,ierr)
+      ! The init component of outerp is not associated so just compute
+      ! the initial conditions at the solution points
       !
-      if (abs(init_loc) == 1) then
-        !
-        write (*,4) "Gauss"
-        n1 = size(numer2gauss,dim=1)
-        n2 = size(numer2gauss,dim=2)
-        allocate ( interp_mat(1:n1,1:n2) , source=numer2gauss , stat=ierr )
-        call alloc_error(pname,"interp_mat",1,ierr)
-        !
-      else if (init_loc == 2) then
-        !
-        write (*,4) "Lobatto"
-        n1 = size(numer2lobatto,dim=1)
-        n2 = size(numer2lobatto,dim=2)
-        allocate ( interp_mat(1:n1,1:n2) , source=numer2lobatto , stat=ierr )
-        call alloc_error(pname,"interp_mat",1,ierr)
-        !
-      end if
-      !
-      do n = 1,ncell
-        !
-        n1 = pts_in_cell_ptr(n)+1
-        n2 = pts_in_cell_ptr(n+1)
-        np = n2-n1+1
-        !
-        do l = 1,nr
-          xyz_init(l,1:np) = matmul( interp_mat , xyz(l,n1:n2) )
-        end do
-        !
-        do k = 1,np
-          uspstart(:,n1+k-1) = vortex2D( xyz_init(1,k) , xyz_init(2,k) )
-        end do
-        !
-        do m = 1,nq
-          uspstart(m,n1:n2) = matmul( interp_mat , uspstart(m,n1:n2) )
-        end do
-        !
-      end do
+      uspstart(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) )
       !
     else
       !
-      do np = 1,n_solpts
-        uspstart(:,np) = vortex2D( xyz(1,np) , xyz(2,np) )
+      ! The init component of outerp is associated so we need to compute
+      ! the initial conditions at the initialization points before
+      ! interpolating it back to the solution points.
+      !
+      ! Assign local pointer to this matrix as an alias to simplify the code
+      !
+      numer2init => outerp(this_geom,this_order)%init
+      !
+      ! Check if we have already created an inverse of this interpolation
+      ! matrix. If we havent, allocate its location in outerp_inv and
+      ! compute this inverse matrix.
+      !
+      if (.not. allocated(outerp_inv(this_geom,this_order)%mat)) then
+        !
+        l1 = size(numer2init,dim=1)
+        l2 = size(numer2init,dim=2)
+        !
+        allocate ( outerp_inv(this_geom,this_order)%mat(1:l1,1:l2) , &
+                   source=zero , stat=ierr , errmsg = error_message )
+        write (array_name,10) Geom_Name(this_geom),this_order
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
+        !
+      end if
+      !
+      ! Assign local pointer to this matrix as an alias to simplify the code
+      !
+      init2numer => outerp_inv(this_geom,this_order)%mat
+      !
+      ! Interpolate the cell solution points to the initialization points
+      !
+      do l = 1,nr
+        xyz_init(l,1:np) = matmul( numer2init , xyz(l,n1:n2) )
       end do
+      !
+      ! Evaluate the initial conditions at the initialization points
+      !
+      uspstart(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) )
+      !
+      ! Interpolate the initial conditions from the initialization points
+      ! to the solution points
+      !
+      do m = 1,nq
+        uspstart(m,n1:n2) = matmul( init2numer , uspstart(m,n1:n2) )
+      end do
+      !
+      ! Disassociate all local pointers before continuing
+      !
+      if (associated(numer2init)) numer2init => null()
+      if (associated(init2numer)) init2numer => null()
       !
     end if
     !
-  else
-    !
-    write (iout,5)
-    call stop_recon(8,pname)
-    !
-  end if
+  end do
   !
   ! Check for a restart job, otherwise initialize usp to uspstart
   !
@@ -200,7 +210,7 @@ continue
     ! Project the initial solution from the
     ! initialization points to the solution points
     !
-    call project_to_porder(ncell,pts_in_cell_ptr,uspstart)
+   !call project_to_porder(ncell,cell_geom,cell_order,pts_in_cell_ptr,uspstart)
     !
     ! Initialize usp to uspstart
     !
@@ -238,18 +248,25 @@ continue
     !
   end if
   !
-  ! Deallocate uspstart
+  ! Deallocate local arrays and disassociate local pointers before leaving
   !
-  deallocate ( uspstart , stat=ierr )
-  call alloc_error(pname,"uspstart",2,ierr)
-  if (allocated(interp_mat)) then
-    deallocate ( interp_mat , stat=ierr )
-    call alloc_error(pname,"interp_mat",2,ierr)
+  if (allocated(uspstart)) then
+    deallocate ( uspstart , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uspstart",2,ierr,error_message)
   end if
+  !
+  if (allocated(outerp_inv)) then
+    deallocate ( outerp_inv , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"outerp_inv",2,ierr,error_message)
+  end if
+  !
   if (allocated(xyz_init)) then
-    deallocate ( xyz_init , stat=ierr )
-    call alloc_error(pname,"xyz_init",2,ierr)
+    deallocate ( xyz_init , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_init",2,ierr,error_message)
   end if
+  !
+  if (associated(numer2init)) numer2init => null()
+  if (associated(init2numer)) init2numer => null()
   !
   ! Create the profile structures
   !
@@ -300,8 +317,46 @@ continue
   5 format (/," ***************** ERROR! ****************",/, &
               "  THIS TEST CASE IS CURRENTLY NOT SET UP!",/, &
               " ***************** ERROR! ****************",/)
+  10 format ("outerp_inv(",a,",",i0,")%mat")
   !
 end subroutine initialize_flow
+!
+!###############################################################################
+!
+pure function initial_conditions(xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : cv_in
+  use ovar, only : itestcase
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: xyz
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:nq,1:size(xyz,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: k,np
+  !
+continue
+  !
+  np = size(xyz,dim=2)
+  !
+  if (any(itestcase == Transport_Problems)) then
+    !
+    do k = 1,np
+      return_value(:,k) = vortex_solution( xyz(:,k) )
+    end do
+    !
+  else
+    !
+    do k = 1,np
+      return_value(:,k) = cv_in(:)
+    end do
+    !
+  end if
+  !
+end function initial_conditions
 !
 !###############################################################################
 !
@@ -310,14 +365,17 @@ end subroutine initialize_flow
 !!  !.. Use Statements ..
 !!  use order_mod, only : n_fp1de,n_sp2dt,maxpts
 !!  use geovar,    only : nfbnd,nbfai,nr,bface,xyz
-!!  use geovar,    only : interp_s2f,pts_in_cell_ptr
+!!  use geovar,    only : pts_in_cell_ptr
+!!  use geovar,    only : cell_geom,cell_order
 !!  use flowvar,   only : bnd_prof
+!!  use interpolation_mod, only : interp
 !!  !
 !!  !.. Local Scalars ..
 !!  integer :: host_cell,cell_face,ndata,ierr
+!!  integer :: host_geom,host_order
 !!  integer :: begfp,begbp,flxpt,bndpt,nqty
 !!  integer :: min_grp,max_grp,nbcgrps,nfbnd_nc
-!!  integer :: i,k,l,n,nf,np,wlocl,n1,n2,gid,ngf
+!!  integer :: i,k,l,n,nf,np,n1,n2,gid,ngf
 !!  integer :: wall_qtys,flow_qtys
 !!  character(len=100) :: array_name
 !!  !
@@ -331,10 +389,17 @@ end subroutine initialize_flow
 !!  integer, allocatable, dimension(:,:) :: bface_nc
 !!  character(len=100), allocatable, dimension(:) :: flow_var
 !!  !
+!!  !.. Local Pointers ..
+!!  real(wp), pointer, contiguous :: host_interp(:,:)
+!!  !
 !!  !.. Local Parameters ..
 !!  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
 !!  !
 !!continue
+!!  !
+!!  ! Initialize the local pointers to disassociated
+!!  !
+!!  host_interp => null()
 !!  !
 !!  ! Get the number of flow quantities and their names
 !!  !
@@ -508,20 +573,27 @@ end subroutine initialize_flow
 !!      host_cell = bface(2,nf) ! host cell on current boundary face
 !!      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
 !!      !
+!!      host_geom = cell_geom(host_cell) ! host cell geometry type
+!!      host_order = cell_order(host_cell) ! host cell solution order
+!!      !
 !!      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
 !!      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
 !!      np = n2-n1+1                      ! number of sol-pts in host cell
-!!      wlocl = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
 !!      !
 !!      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
 !!      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
+!!      !
+!!      ! Assign local pointer as an alias to the
+!!      ! interpolation matrix to simplify the code
+!!      !
+!!      host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
 !!      !
 !!      do k = 1,n_fp1de
 !!        !
 !!        flxpt = begfp + k ! Index of flx-pt local to the current host cell
 !!        bndpt = begbp + k ! Index within qty_data for current flx-pt
 !!        !
-!!        lmat(1:np) = interp_s2f(1:np,flxpt,wlocl)
+!!        lmat(1:np) = host_interp(1:np,flxpt)
 !!        !
 !!        ! Interpolate the coordinates of the interior sol-pts to the
 !!        ! current flux point on face nf
@@ -531,6 +603,10 @@ end subroutine initialize_flow
 !!        end do
 !!        !
 !!      end do
+!!      !
+!!      ! Disassociate host_interp before continuing to the next face
+!!      !
+!!      if (associated(host_interp)) host_interp => null()
 !!      !
 !!    end do
 !!    !

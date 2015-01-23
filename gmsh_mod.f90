@@ -846,8 +846,8 @@ continue
   allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr)
   call alloc_error(pname,"bnd_grps",1,ierr)
   !
-  int_grps(1:igrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim == nr )
-  bnd_grps(1:bgrps) = pack( [1:num_phys_grps] , phys_grps(:)%phys_dim < nr )
+  int_grps(1:igrps) = pack( intseq(1,num_phys_grps) , phys_grps(:)%phys_dim == nr )
+  bnd_grps(1:bgrps) = pack( intseq(1,num_phys_grps) , phys_grps(:)%phys_dim < nr )
   !
   ! Check that the total number of interior and boundary groups is correct
   !

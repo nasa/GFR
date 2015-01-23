@@ -12,6 +12,7 @@ module correction_mod
   !.. Public Procedures ..
   !
   public :: init_correction_matrices
+  public :: correction_memory_usage
   !
   !
   !
@@ -177,7 +178,7 @@ continue
     !
   end do geom_loop
   !
-  1 format ("correct(",i0,",",i0,")%mat")
+  1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
   !
 end subroutine init_correction_matrices
@@ -248,7 +249,7 @@ continue
   ! right Radau polynomial at each 1D solution point
   !
   do i = 1,nfp
-    cmat_qp(i) = -sum( (xi(i)**(/0:nfp-1/)) * cdRR_qp(0:nfp-1) )
+    cmat_qp(i) = -sum( (xi(i)**intseq(0,nfp-1)) * cdRR_qp(0:nfp-1) )
   end do
   !
   ! Use the chop function to copy cmat_qp into return_value while also
@@ -921,7 +922,7 @@ pure function CorrectionMatrix_Hexa(xi) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer :: np,nf,nep,nfp,nbp,nsp
+  integer :: nf,nep,nfp,nbp,nsp
   integer :: i,j,k,l,ierr
   !
   !.. Local Allocatable Arrays ..
@@ -942,9 +943,9 @@ continue
   ! ###########################################################################
   !
   nep = size(xi)
-  nfp = np*np
+  nfp = nep*nep
   nbp = 6*nfp
-  nsp = np*np*np
+  nsp = nep*nep*nep
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -953,7 +954,7 @@ continue
   !
   ! Create the 1D correction matrix
   !
-  allocate ( cmat1D(1:np) , source=zero , stat=ierr )
+  allocate ( cmat1D(1:nep) , source=zero , stat=ierr )
   !
   ! 1D Correction matrix
   !
@@ -1110,6 +1111,77 @@ continue
   end do
   !
 end function CorrectionMatrix_Hexa
+!
+!###############################################################################
+!
+subroutine correction_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(correct)) then
+    !
+    dt%siz = size(correct)
+    dt%mem = dt%siz*storage_size(correct)
+    !
+    do j = lbound(correct,dim=2),ubound(correct,dim=2)
+      do i = lbound(correct,dim=1),ubound(correct,dim=1)
+        !
+        if (allocated(correct(i,j)%mat)) then
+          !
+          array%siz = size(correct(i,j)%mat)
+          array%mem = array%siz*storage_size(correct(i,j)%mat)
+          !
+          write (array_name,4) Geom_Name(i),j
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "correct"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module correction_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  4 format ("correct(",a,",",i0,")%mat")
+  5 format ("'",a,"'")
+  !
+end subroutine correction_memory_usage
 !
 !###############################################################################
 !

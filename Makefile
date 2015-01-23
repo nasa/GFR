@@ -10,34 +10,80 @@
 OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
-all: both
-#all: optimize
-#all: debug
+.PHONY: clean all debug optimize systeminfo guide
+.PHONY: rebuild rebuild-debug rebuild-optimize ipo-opt
 
-both:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" debug
-	@echo "-----------------------------------------------------"
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
+all: debug optimize
+
+rebuild: rebuild-debug rebuild-optimize
+
+std08: FCADD += -std08
+std08: rebuild
+std03: FCADD += -std03
+std03: rebuild
+std95: FCADD += -std95
+std95: rebuild
+std90: FCADD += -std90
+std90: rebuild
+
+warn-std08: FCADD += -std08 -warn stderrors
+warn-std08: rebuild
+warn-std03: FCADD += -std03 -warn stderrors
+warn-std03: rebuild
+warn-std95: FCADD += -std95 -warn stderrors
+warn-std95: rebuild
+warn-std90: FCADD += -std90 -warn stderrors
+warn-std90: rebuild
 
 debug:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" debug
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" \
+	                             "BUILDDIR=debug" \
+				     "FCADD=$(FCADD)" \
+				     debug
+	@echo "-----------------------------------------------------"
 
 optimize:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" optimize
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     optimize
+	@echo "-----------------------------------------------------"
+
+rebuild-debug:
+	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" \
+	                             "BUILDDIR=debug" \
+				     "FCADD=$(FCADD)" \
+				     debug
+	@echo "-----------------------------------------------------"
+
+rebuild-optimize:
+	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     optimize
+	@echo "-----------------------------------------------------"
 
 ipo-opt:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" ipo-opt
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     ipo-opt
 
 guide:
 	mkdir -p guide_files
-	@echo $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" guide
+	@echo $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     guide
 
 systeminfo:
 	@echo "Operating system = " $(OPERATING_SYSTEM)
 	@echo "Architecture = " $(ARCH)
 
 clean:
-	make -f slv.mk "EXECUTABLE=recon" clean
-	make -f slv.mk "EXECUTABLE=debug_recon" clean
+	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
 
 

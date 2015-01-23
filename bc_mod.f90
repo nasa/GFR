@@ -68,7 +68,7 @@ subroutine get_faceusp_bc
   !.. Use Statements ..
   use geovar,  only : bface,nfbnd
   use ovar,    only : output_bface_array
-  use metvar,  only : geofa
+  use metrics_mod,  only : geofa
   use flowvar, only : faceusp
   !
   use parallel_mod, only : wait_faceusp
@@ -1542,15 +1542,18 @@ end subroutine output_bface
 !!subroutine compute_bc_profiles
 !!  !
 !!  !.. Use Statements ..
-!!  use order_mod, only : n_fp1de,n_sp2dt,n_sp2dq
-!!  use geovar,    only : nr,bface,pts_in_cell_ptr,interp_s2f
+!!  use order_mod, only : n_fp1de,n_sp2dt,n_sp2dq,maxpts
+!!  use geovar,    only : nr,bface,pts_in_cell_ptr
+!!  use geovar,    only : cell_geom,cell_order
 !!  use ovar,      only : machref,rhoref,aref,muref,cpref_nd,Pr
-!!  use metvar,    only : geofa
+!!  use metrics_mod,    only : geofa
 !!  use flowvar,   only : bnd_prof,usp,dusp
+!!  use interpolation_mod, only : interp
 !!  !
 !!  !.. Local Scalars ..
-!!  integer :: i,k,l,m,n,nf,np,wlocl,n1,n2
+!!  integer :: i,k,l,m,n,nf,np,n1,n2
 !!  integer :: host_cell,cell_face,ierr
+!!  integer :: host_geom,host_order
 !!  integer :: begfp,begbp,flxpt,bndpt
 !!  integer :: ioprf
 !!  real(wp) :: temp,visc,xloc,yloc,tauwall
@@ -1560,15 +1563,22 @@ end subroutine output_bface
 !!  real(wp), dimension(1:nr) :: unrm
 !!  real(wp), dimension(1:nq) :: cvfp
 !!  real(wp), dimension(1:nq) :: pvfp
-!!  real(wp), dimension(1:n_sp2dq) :: lmat
+!!  real(wp), dimension(1:maxpts) :: lmat
 !!  real(wp), dimension(1:nr,1:nq) :: dcvdx
 !!  real(wp), dimension(1:nr,1:nq) :: dpvdx
+!!  !
+!!  !.. Local Pointers ..
+!!  real(wp), pointer, contiguous :: host_interp(:,:)
 !!  !
 !!  !.. Local Parameters ..
 !!  character(len=*), parameter :: fname = "bndprof.tec.dat"
 !!  character(len=*), parameter :: pname = "compute_bc_profiles"
 !!  !
-!!continue 
+!!continue
+!!  !
+!!  ! Initialize the local pointers to disassociated
+!!  !
+!!  host_interp => null()
 !!  !
 !!  do n = 1,size(bnd_prof)
 !!    !
@@ -1579,13 +1589,20 @@ end subroutine output_bface
 !!      host_cell = bface(2,nf) ! host cell on current boundary face
 !!      cell_face = bface(4,nf) ! face of host cell corresponding to boundary face nf
 !!      !
+!!      host_geom = cell_geom(host_cell) ! host cell geometry type
+!!      host_order = cell_order(host_cell) ! host cell solution order
+!!      !
 !!      n1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in host cell
 !!      n2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in host cell
 !!      np = n2-n1+1                      ! number of sol-pts in host cell
-!!      wlocl = merge(1,2,np == n_sp2dt)     ! check if host cell is tria or quad
 !!      !
 !!      begfp = (cell_face-1)*n_fp1de ! Beginning flx-pt index on host cell face
 !!      begbp = (i-1)*n_fp1de         ! Beginning flx-pt index within qty_data
+!!      !
+!!      ! Assign local pointer as an alias to the
+!!      ! interpolation matrix to simplify the code
+!!      !
+!!      host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
 !!      !
 !!      do k = 1,n_fp1de
 !!        !
@@ -1594,7 +1611,7 @@ end subroutine output_bface
 !!        !
 !!        unrm(1:nr) = geofa(1:nr,k,nf)
 !!        !
-!!        lmat(1:np) = interp_s2f(1:np,flxpt,wlocl)
+!!        lmat(1:np) = host_interp(1:np,flxpt)
 !!        !
 !!        ! Interpolate the conservative variables from the interior sol-pts
 !!        ! to the current flux point on face nf
@@ -1658,6 +1675,10 @@ end subroutine output_bface
 !!        end if
 !!        !
 !!      end do
+!!      !
+!!      ! Disassociate host_interp before continuing to the next face
+!!      !
+!!      if (associated(host_interp)) host_interp => null()
 !!      !
 !!    end do
 !!    !

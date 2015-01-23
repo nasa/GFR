@@ -1,6 +1,8 @@
 &input
 all_orders = 3
 all_points = 2
+loc_output_pts = 2
+loc_error_pts = 1
 grid_format = 3
 gridfile = "grid_files/comp_corner/comp_corner_3d.grd"
 plot3d_bcsfile = "grid_files/comp_corner/comp_corner_3d.tmp.bcs.grd"
@@ -29,7 +31,6 @@ suth_muref = 0.0
 !reyref = 10000.0
 walls_are_exact = T
 visc_variables_to_ave = 1
-force_parallel_cgns = T
 Filter_Option = 0
 Filter_etac = 0.0
 Filter_Order = 16
@@ -37,6 +38,7 @@ Filter_Alpha = 36.0
 !suth_muref = 1.7160e-05
 !suth_Tref = 273.11
 !suth_Sref = 110.56
+!dump_memory_usage = T
 /
 
 #####################################

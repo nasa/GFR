@@ -478,3 +478,177 @@ end function determinant_QP
 !
 !###############################################################################
 !
+pure function identity_matrix_dim_SP(a,n1,opt_n2) result(return_value)
+  !
+  integer, parameter :: lp = SP
+  !
+  real(lp), intent(in) :: a
+  integer, intent(in) :: n1
+  integer, optional, intent(in) :: opt_n2
+  !
+  real(lp), allocatable :: return_value(:,:)
+  !
+  integer :: i,j,n2,ierr
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n2 = n1
+  if (present(opt_n2)) n2 = opt_n2
+  !
+  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_dim_SP
+!
+!###############################################################################
+!
+pure function identity_matrix_dim_DP(a,n1,opt_n2) result(return_value)
+  !
+  integer, parameter :: lp = DP
+  !
+  real(lp), intent(in) :: a
+  integer, intent(in) :: n1
+  integer, optional, intent(in) :: opt_n2
+  !
+  real(lp), allocatable :: return_value(:,:)
+  !
+  integer :: i,j,n2,ierr
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n2 = n1
+  if (present(opt_n2)) n2 = opt_n2
+  !
+  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_dim_DP
+!
+!###############################################################################
+!
+pure function identity_matrix_dim_QP(a,n1,opt_n2) result(return_value)
+  !
+  integer, parameter :: lp = QP
+  !
+  real(lp), intent(in) :: a
+  integer, intent(in) :: n1
+  integer, optional, intent(in) :: opt_n2
+  !
+  real(lp), allocatable :: return_value(:,:)
+  !
+  integer :: i,j,n2,ierr
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n2 = n1
+  if (present(opt_n2)) n2 = opt_n2
+  !
+  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_dim_QP
+!
+!###############################################################################
+!
+pure function identity_matrix_mat_SP(array) result(return_value)
+  !
+  integer, parameter :: lp = SP
+  !
+  real(lp), dimension(:,:), intent(in) :: array
+  !
+  real(lp), dimension(1:size(array,dim=1),1:size(array,dim=2)) :: return_value
+  !
+  integer :: i,n1,n2
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n1 = size(array,dim=1)
+  n2 = size(array,dim=2)
+  !
+  return_value = zero
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_mat_SP
+!
+!###############################################################################
+!
+pure function identity_matrix_mat_DP(array) result(return_value)
+  !
+  integer, parameter :: lp = DP
+  !
+  real(lp), dimension(:,:), intent(in) :: array
+  !
+  real(lp), dimension(1:size(array,dim=1),1:size(array,dim=2)) :: return_value
+  !
+  integer :: i,n1,n2
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n1 = size(array,dim=1)
+  n2 = size(array,dim=2)
+  !
+  return_value = zero
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_mat_DP
+!
+!###############################################################################
+!
+pure function identity_matrix_mat_QP(array) result(return_value)
+  !
+  integer, parameter :: lp = QP
+  !
+  real(lp), dimension(:,:), intent(in) :: array
+  !
+  real(lp), dimension(1:size(array,dim=1),1:size(array,dim=2)) :: return_value
+  !
+  integer :: i,n1,n2
+  !
+  real(lp), parameter :: zero = 0.0_lp
+  real(lp), parameter :: one = 1.0_lp
+  !
+continue
+  !
+  n1 = size(array,dim=1)
+  n2 = size(array,dim=2)
+  !
+  return_value = zero
+  !
+  do i = 1,min(n1,n2)
+    return_value(i,i) = one
+  end do
+  !
+end function identity_matrix_mat_QP
+!
+!###############################################################################
+!

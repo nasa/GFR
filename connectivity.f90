@@ -377,11 +377,11 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   use geovar,    only : nr,nfbnd,nface,ncell,n_totnod
   use geovar,    only : xyz_nodes,bface,cell_geom,cell_order
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : cells_on_face,nodes_on_face,faces_of_cell
+  use geovar,    only : cells_on_face,nodes_on_face
   !
   !.. Formal Arguments ..
-  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell
-  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell
+  integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell_ptr
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
@@ -409,6 +409,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: lpoin
+  integer, allocatable, dimension(:,:) :: faces_of_cell
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_cells_on_each_face"

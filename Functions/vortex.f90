@@ -1,4 +1,4 @@
-pure function vortex2D(x,y) result(return_value)
+pure function vortex_solution(xyz) result(return_value)
   !
   !.. Use Statements ..
   use ovar, only : velref,aref,uref,machref
@@ -6,24 +6,35 @@ pure function vortex2D(x,y) result(return_value)
   use ovar, only : vortex_bigR,vortex_bigGam
   !
   !.. Formal Arguments ..
-  real(wp), intent(in) :: x
-  real(wp), intent(in) :: y
+  real(wp), dimension(:), intent(in) :: xyz
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:4) :: return_value
+  real(wp), dimension(1:2+size(xyz)) :: return_value
   !
   !.. Local Scalars ..
-  real(wp) :: gm1,rhoa,rhoa2
+  integer  :: nc,mb,me,ne
+  real(wp) :: x,y,gm1,rhoa,rhoa2
   real(wp) :: c1,c2,c3,func,du,dv,dT,vx,vy,temp,rho,pres
   real(wp) :: bigR,bigGam
   !
+  !.. Local Arrays ..
+  real(wp), dimension(1:3) :: vel
+  !
 continue
+  !
+  nc = 1
+  mb = nc + 1
+  me = nc + size(xyz)
+  ne = me + 1
   !
   ! Some needed constants
   !
   gm1 = gam - one
   rhoa = rhoref * aref
   rhoa2 = rhoa * aref
+  !
+  x = xyz(1)
+  y = xyz(2)
   !
   ! For density/entropy transport or Shu vortex -> bigR = 1;   bigGam = 5
   ! For vortex          transport               -> bigR = 1.5; bigGam = 13.5
@@ -51,9 +62,10 @@ continue
   ! Only add on the velocity pertubations if doing vortex transport
   ! i.e., the velocity is constant if doing density/entropy transport
   !
-  vx   = velref(1) + du*deltafun(any(itestcase==Vortex_Problems))
-  vy   = velref(2) + dv*deltafun(any(itestcase==Vortex_Problems))
-  temp = tref  + dT
+  vel(1) = velref(1) + du*deltafun(any(itestcase==Vortex_Problems))
+  vel(2) = velref(2) + dv*deltafun(any(itestcase==Vortex_Problems))
+  vel(3) = velref(3)
+  temp   = tref  + dT
   !
   rho = rhoref * (temp/tref)**(one/gm1)
   pres = pref  * (temp/tref)**(gam/gm1)
@@ -65,19 +77,17 @@ continue
   !
   ! Evaluate the dimensional initial conditions using conserved variables
   !
-  return_value(1) = rho
-  return_value(2) = rho*vx
-  return_value(3) = rho*vy
-  return_value(4) = pres/gm1*c3 + half*rho*(vx*vx + vy*vy)
+  return_value(nc)    = rho
+  return_value(mb:me) = rho*vel
+  return_value(ne)    = pres/gm1*c3 + half*rho*selfdot(vel)
   !
   ! Non-dimensionalize the initial conditions
   !
-  return_value(1) = return_value(1) / rhoref
-  return_value(2) = return_value(2) / rhoa
-  return_value(3) = return_value(3) / rhoa
-  return_value(4) = return_value(4) / rhoa2
+  return_value(nc)    = return_value(nc)    / rhoref
+  return_value(mb:me) = return_value(mb:me) / rhoa
+  return_value(ne)    = return_value(ne)    / rhoa2
   !
-end function vortex2D
+end function vortex_solution
 !
 !###############################################################################
 !

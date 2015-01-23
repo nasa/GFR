@@ -12,6 +12,7 @@ module derivatives_mod
   !.. Public Procedures ..
   !
   public :: init_derivative_matrices
+  public :: derivatives_memory_usage
   !
   !
   !
@@ -23,7 +24,7 @@ module derivatives_mod
     type(matrix), allocatable :: d(:)
   end type derivative_matrices
   !
-  ! dmat : derivative matrix for all combinations of cell geometry and 
+  ! deriv : derivative matrix for all combinations of cell geometry and 
   !        and cell order that are possible in the current simulation
   !
   !     For cell 'n' :
@@ -32,7 +33,7 @@ module derivatives_mod
   !         point within cell 'n' to the solution point 'k' that is currently
   !         of interest) is given by the expression
   !
-  !         dmat(this_geom,this_order)%d(l)%mat(:,k)
+  !         deriv(this_geom,this_order)%d(l)%mat(:,k)
   !
   !     Where :
   !
@@ -42,9 +43,9 @@ module derivatives_mod
   !            i.e., (1,2,3) for (xi,eta,zeta) or (r,s,t)
   !        k = the solution point within cell 'n' that is currently of interest
   !
-  type(derivative_matrices), public, save, target, allocatable :: dmat(:,:)
+  type(derivative_matrices), public, save, target, allocatable :: deriv(:,:)
   !
-  ! dqmat : same as dmat but gives the derivative matrices for the quadrature
+  ! dqmat : same as deriv but gives the derivative matrices for the quadrature
   !         points
   !
   type(derivative_matrices), public, save, target, allocatable :: dqmat(:,:)
@@ -92,8 +93,8 @@ continue
   !
   ! Allocate the vand array
   !
-  allocate ( dmat(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"dmat",1,ierr,error_message)
+  allocate ( deriv(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"deriv",1,ierr,error_message)
   !
   geom_loop: do this_geom = gmin,gmax
     !
@@ -109,7 +110,7 @@ continue
       !
       ! Assign local pointer as alias to simplify the code
       !
-      this_dmat => dmat(this_geom,this_order)
+      this_dmat => deriv(this_geom,this_order)
       !
       ! Allocate the number of dimensional derivative matrices
       !
@@ -132,7 +133,7 @@ continue
           !
         case (Geom_Quad)
           !
-          d1_mat => dmat(Geom_Edge,this_order)%d(1)%mat
+          d1_mat => deriv(Geom_Edge,this_order)%d(1)%mat
           !
           this_dmat%d = Dmatrix_Quad( d1_mat )
           !
@@ -156,7 +157,7 @@ continue
           !
         case (Geom_Hexa)
           !
-          d1_mat => dmat(Geom_Edge,this_order)%d(1)%mat
+          d1_mat => deriv(Geom_Edge,this_order)%d(1)%mat
           !
           this_dmat%d = Dmatrix_Hexa( d1_mat )
           !
@@ -177,7 +178,7 @@ continue
     !
   end do geom_loop
   !
-  1 format ("dmat(",a,",",i0,")%d")
+  1 format ("deriv(",a,",",i0,")%d")
   2 format (" A grid cell of an unknown geometry type was found!")
   !
 end subroutine init_derivative_matrices
@@ -883,6 +884,141 @@ continue
   return_value(2)%mat = chop( vs_qp )
   !
 end function GradVandermonde_Tria
+!
+!###############################################################################
+!
+subroutine derivatives_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j,k
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(deriv)) then
+    !
+    dt%siz = size(deriv)
+    dt%mem = dt%siz*storage_size(deriv)
+    !
+    do j = lbound(deriv,dim=2),ubound(deriv,dim=2)
+      do i = lbound(deriv,dim=1),ubound(deriv,dim=1)
+        !
+        if (allocated(deriv(i,j)%d)) then
+          !
+          array%siz = size(deriv(i,j)%d)
+          array%mem = array%siz*storage_size(deriv(i,j)%d)
+          !
+          write (array_name,4) "deriv",Geom_Name(i),j
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          do k = lbound(deriv(i,j)%d,dim=1),ubound(deriv(i,j)%d,dim=1)
+            !
+            if (allocated(deriv(i,j)%d(k)%mat)) then
+              !
+              array%siz = size(deriv(i,j)%d(k)%mat)
+              array%mem = array%siz*storage_size(deriv(i,j)%d(k)%mat)
+              !
+              write (array_name,4) "deriv",Geom_Name(i),j,k
+              write (iou,2) array_name,array%get_units()
+              !
+              dt%siz = dt%siz + array%siz
+              dt%mem = dt%mem + array%mem
+              !
+            end if
+            !
+          end do
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "deriv"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  if (allocated(dqmat)) then
+    !
+    dt%siz = size(dqmat)
+    dt%mem = dt%siz*storage_size(dqmat)
+    !
+    do j = lbound(dqmat,dim=2),ubound(dqmat,dim=2)
+      do i = lbound(dqmat,dim=1),ubound(dqmat,dim=1)
+        !
+        if (allocated(dqmat(i,j)%d)) then
+          !
+          array%siz = size(dqmat(i,j)%d)
+          array%mem = array%siz*storage_size(dqmat(i,j)%d)
+          !
+          write (array_name,4) "dqmat",Geom_Name(i),j
+          write (iou,2) array_name,array%get_units()
+          !
+          dt%siz = dt%siz + array%siz
+          dt%mem = dt%mem + array%mem
+          !
+          do k = lbound(dqmat(i,j)%d,dim=1),ubound(dqmat(i,j)%d,dim=1)
+            !
+            if (allocated(dqmat(i,j)%d(k)%mat)) then
+              !
+              array%siz = size(dqmat(i,j)%d(k)%mat)
+              array%mem = array%siz*storage_size(dqmat(i,j)%d(k)%mat)
+              !
+              write (array_name,4) "dqmat",Geom_Name(i),j,k
+              write (iou,2) array_name,array%get_units()
+              !
+              dt%siz = dt%siz + array%siz
+              dt%mem = dt%mem + array%mem
+              !
+            end if
+            !
+          end do
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "dqmat"
+    write (iou,2) array_name,dt%get_units()
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module derivatives_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a)
+  4 format (a,"(",a,",",i0,")%d",:,"(",i0,")%mat")
+  5 format ("'",a,"'")
+  !
+end subroutine derivatives_memory_usage
 !
 !###############################################################################
 !

@@ -9,6 +9,8 @@ module polynomial_mod
   !
   private
   !
+  public :: legendre_gauss_quadrature
+  public :: legendre_gauss_lobatto_quadrature
   public :: JacobiGL
   public :: eval_jacobi_poly
   public :: eval_legendre_poly
@@ -234,6 +236,75 @@ module polynomial_mod
   !
 contains
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!  WORKING PRECISION VERSIONS OF THE POLYNOMIAL PROCEDURES
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+pure subroutine legendre_gauss_quadrature(xi,weights)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(inout) :: xi
+  real(wp), dimension(:), intent(inout) :: weights
+  !
+  !.. Local Scalars ..
+  integer :: npts
+  !
+  !.. Local Arrays ..
+  real(qp) :: pts_qp(1:size(xi))
+  real(qp) :: wts_qp(1:size(xi))
+  real(qp) :: val_qp(1:size(xi))
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  call nodes_legendre_gauss(npts,pts_qp,val_qp)
+  call weights_legendre_gauss(npts,pts_qp,val_qp,wts_qp)
+  !
+  xi = chop( pts_qp )
+  weights = chop( wts_qp )
+  !
+end subroutine legendre_gauss_quadrature
+!
+!###############################################################################
+!
+pure subroutine legendre_gauss_lobatto_quadrature(xi,weights)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:), intent(inout) :: xi
+  real(wp), dimension(:), intent(inout) :: weights
+  !
+  !.. Local Scalars ..
+  integer :: npts
+  !
+  !.. Local Arrays ..
+  real(qp) :: pts_qp(1:size(xi))
+  real(qp) :: wts_qp(1:size(xi)) 
+  real(qp) :: val_qp(1:size(xi))
+  !
+continue
+  !
+  npts = size(xi)
+  !
+  call nodes_legendre_gauss_lobatto(npts-1,pts_qp,val_qp)
+  call weights_legendre_gauss_lobatto(npts-1,val_qp,wts_qp)
+  !
+  xi = chop( pts_qp )
+  weights = chop( wts_qp )
+  !
+end subroutine legendre_gauss_lobatto_quadrature
+!
+!###############################################################################
 !###############################################################################
 !###############################################################################
 !###############################################################################
@@ -646,8 +717,8 @@ continue
       !
       do it = 1,8
         !
-        y = sum( (x**[0:n+1]) * cfrr(:) )
-        dy = sum( (x**[0:n]) * cdrr(:) )
+        y = sum( (x**intseq(0,n+1)) * cfrr(:) )
+        dy = sum( (x**intseq(0,n)) * cdrr(:) )
         !
         x = x - y/dy
         !
@@ -2343,8 +2414,8 @@ continue
       !
       do it = 1,8
         !
-        y = sum( (x**[0:n+1]) * cfrr(:) )
-        dy = sum( (x**[0:n]) * cdrr(:) )
+        y = sum( (x**intseq(0,n+1)) * cfrr(:) )
+        dy = sum( (x**intseq(0,n)) * cdrr(:) )
         !
         x = x - y/dy
         !
