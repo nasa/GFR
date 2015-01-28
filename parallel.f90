@@ -100,9 +100,9 @@ module parallel_mod
   !
   ! Exchange buffer
   !
-  real(r8), save, allocatable, dimension(:,:)       :: exch_buffer
-  real(r8), save, allocatable, dimension(:,:,:,:)   :: fusp_buffer
-  real(r8), save, allocatable, dimension(:,:,:,:,:) :: fdusp_buffer
+  real(r8), save, allocatable, dimension(:,:) :: exch_buffer
+  real(r8), save, allocatable, dimension(:)   :: fusp_buffer
+  real(r8), save, allocatable, dimension(:)   :: fdusp_buffer
   !
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
@@ -2491,7 +2491,7 @@ end subroutine create_nonblocking_exchange_datatypes
 !
 subroutine create_face_nonblocking_datatypes(bface)
   !
-  use order_mod, only : n_fp1de
+  use order_mod, only : n_fp1de,geom_solpts
  !use metrics_mod, only : get_solution_points_2d
  !use geovar, only : xyz,n_global_totpts,nr,n_totpts
   !
@@ -2881,14 +2881,14 @@ continue
   !
   ! Lets allocate the exchange buffer for the solver
   !
-  allocate ( fusp_buffer(1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
+  allocate ( fusp_buffer(1:nq*n_fp1de*nfbnd) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_buffer",1,ierr)
   allocate ( fusp_rqst(1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_rqst",1,ierr)
   allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fusp_istat",1,ierr)
   !
-  allocate ( fdusp_buffer(1:nr,1:nq,1:n_fp1de,1:2,1:nfbnd) , source=0.0_r8 , stat=ierr )
+  allocate ( fdusp_buffer(1:nr*nq*n_fp1de*nfbnd) , source=0.0_r8 , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fdusp_buffer",1,ierr)
   allocate ( fdusp_rqst(1:2*ncomm) , source=0_int_mpi , stat=ierr )
   call alloc_error("create_face_nonblocking_datatypes","fdusp_rqst",1,ierr)
@@ -3052,23 +3052,21 @@ end subroutine create_geometry_offsets
 subroutine exchange_faceusp(faceusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd
+  use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:), intent(in) :: faceusp
+  type(face_var), dimension(:), intent(in) :: faceusp
   !
   !.. Local Scalars..
   integer :: n
   integer(int_mpi) :: s,r,dtype
   !
   !.. Local Arrays ..
-  real(r8), dimension(1:size(faceusp,1),1:size(faceusp,2), &
-                      1:size(faceusp,3),1:nfbnd) :: exch_send
+  real(r8), dimension(1:size(fusp_buffer)) :: exch_send
   !
 continue
   !
-  fusp_buffer(:,:,:,:) = real(faceusp(:,:,:,1:nfbnd),kind=r8)
-  exch_send(:,:,:,:)   = real(faceusp(:,:,:,1:nfbnd),kind=r8)
+  call faceusp%pack(exch_send)
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -3095,13 +3093,10 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp(faceusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface
+  use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:), intent(inout) :: faceusp
-  !
-  !.. Local Scalars ..
-  integer :: nf
+  type(face_var), dimension(:), intent(inout) :: faceusp
   !
 continue
   !
@@ -3111,9 +3106,7 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
-  forall (nf = 1:nfbnd, bface(1,nf) == bc_cpu_bnd)
-    faceusp(:,:,2,nf) = real(fusp_buffer(:,:,2,nf),kind=wp)
-  end forall
+  call faceusp%unpack(fusp_buffer)
   !
 end subroutine wait_faceusp
 !
@@ -3122,24 +3115,21 @@ end subroutine wait_faceusp
 subroutine exchange_facedusp(facedusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd
+  use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:,:), intent(in) :: facedusp
+  type(face_vec), dimension(:), intent(in) :: facedusp
   !
   !.. Local Scalars..
   integer :: n
   integer(int_mpi) :: s,r,dtype
   !
   !.. Local Arrays ..
-  real(r8), dimension(1:size(facedusp,1),1:size(facedusp,2), &
-                      1:size(facedusp,3),1:size(facedusp,4), &
-                      1:nfbnd) :: exch_send
+  real(r8), dimension(1:size(fdusp_buffer)) :: exch_send
   !
 continue
   !
-  fdusp_buffer(:,:,:,:,:) = real(facedusp(:,:,:,:,1:nfbnd),kind=r8)
-  exch_send(:,:,:,:,:)    = real(facedusp(:,:,:,:,1:nfbnd),kind=r8)
+  call facedusp%pack(exch_send)
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -3166,13 +3156,10 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp(facedusp)
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,bface
+  use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:,:), intent(inout) :: facedusp
-  !
-  !.. Local Scalars ..
-  integer :: nf
+  type(face_vec), dimension(:), intent(inout) :: facedusp
   !
 continue
   !
@@ -3182,9 +3169,7 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
-  forall (nf = 1:nfbnd, bface(1,nf) == bc_cpu_bnd)
-    facedusp(:,:,:,2,nf) = real(fdusp_buffer(:,:,:,2,nf),kind=wp)
-  end forall
+  call facedusp%unpack(fdusp_buffer)
   !
 end subroutine wait_facedusp
 !
@@ -3336,12 +3321,12 @@ end subroutine nonblocking_exchange
 subroutine test_nonblocking_fexchange()
   !
   use geovar, only : nr,xyz,nfbnd,bface
-  use geovar, only : cells_on_face,pts_in_cell_ptr
+  use geovar, only : face,pts_in_cell_ptr
   use geovar, only : cell_geom,cell_order
   use interpolation_mod, only : interp
   !
   !.. Local Scalars..
-  integer :: i,n,s,r,dtype,ierr,nf,kbl,n1,n2,np,wlocl,k,kl
+  integer :: i,n,s,r,dtype,ierr,nf,n1,n2,np,wlocl,k,kl
   integer :: host_cell,host_geom,host_order
   real(wp) :: tmp
   !
@@ -3366,8 +3351,7 @@ continue
   recv_buffer(:,:,:,:) = real(0.0,kind=r8)
   do nf = 1,nfbnd
     !
-    host_cell = cells_on_face(1,nf)
-    kbl = cells_on_face(5,nf)
+    host_cell = face(nf)%left%cell
     !
     n1 = pts_in_cell_ptr(host_cell)+1
     n2 = pts_in_cell_ptr(host_cell+1)
@@ -3382,7 +3366,7 @@ continue
     host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
     !
     do k = 1,n_sp1de
-      kl = kbl-1 + k
+      kl = face(nf)%left%flxpts(k)
       do n = 1,nr
         tmp = dot( host_interp(1:np,kl) , xyz(n,n1:n2) )
         send_buffer(n,k,1,nf) = real(tmp,kind=r8)
@@ -3424,7 +3408,7 @@ continue
   !
   do nf = 1,nfbnd
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    write (150+mypnum,1) nf,cells_on_face(1:2,nf)
+    write (150+mypnum,1) nf,face(nf)%left%cell,face(nf)%right%cell
     do k = 1,n_sp1de
       write (150+mypnum,2) k,send_buffer(1,k,1,nf),send_buffer(2,k,1,nf), &
                              send_buffer(1,k,2,nf),send_buffer(2,k,2,nf)

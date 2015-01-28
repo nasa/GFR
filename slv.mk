@@ -19,7 +19,7 @@ METISLIB = -lmetis
 PBSTIME = -lpbs_time_left
 
 # HDF5 Library
-HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm
+HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm #-lsz
 
 # CGNS 3.2 Library
 CGNS32 = -lcgns $(HDF5)
@@ -54,6 +54,7 @@ CGNS25 = -lcgns2
 ####################################
 
 HOMEDIR = /home/sspiegel
+#HOMEDIR = /home/spiegel
 
 LOCALLIB =
 OTHERLIB =

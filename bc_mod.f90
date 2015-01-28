@@ -94,88 +94,88 @@ continue
         !
         ! Free stream boundary condition
         !
-        call get_bc_freestream_solution(faceusp(:,:,2,nf))
+        call get_bc_freestream_solution(faceusp(nf)%v(:,:,2))
         !
       case (bc_characteristic)
         !
         ! Characteristic boundary condition
         !
-        call get_bc_characteristic_solution(faceusp(:,:,1,nf), &
-                                            faceusp(:,:,2,nf), &
-                                            geofa(:,:,nf))
+        call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
+                                            faceusp(nf)%v(:,:,2), &
+                                            geofa(nf)%v(:,:))
         !
       case (bc_generic_inflow)
         !
         ! Generic inflow boundary condition
         !
-        call get_bc_generic_inflow_solution(faceusp(:,:,1,nf), &
-                                            faceusp(:,:,2,nf), &
-                                            geofa(:,:,nf))
+        call get_bc_generic_inflow_solution(faceusp(nf)%v(:,:,1), &
+                                            faceusp(nf)%v(:,:,2), &
+                                            geofa(nf)%v(:,:))
         !
       case (bc_generic_outflow)
         !
         ! Generic outflow boundary condition
         !
-        call get_bc_generic_outflow_solution(faceusp(:,:,1,nf), &
-                                             faceusp(:,:,2,nf), &
-                                             geofa(:,:,nf))
+        call get_bc_generic_outflow_solution(faceusp(nf)%v(:,:,1), &
+                                             faceusp(nf)%v(:,:,2), &
+                                             geofa(nf)%v(:,:))
         !
       case (bc_generic_freeflow)
         !
         ! Generic freeflow boundary condition
         !
-        call get_bc_generic_freeflow_solution(faceusp(:,:,1,nf), &
-                                              faceusp(:,:,2,nf), &
-                                              geofa(:,:,nf))
+        call get_bc_generic_freeflow_solution(faceusp(nf)%v(:,:,1), &
+                                              faceusp(nf)%v(:,:,2), &
+                                              geofa(nf)%v(:,:))
         !
       case (bc_sub_inflow)
         !
         ! Subsonic inflow boundary condition
         !
-        call get_bc_sub_inflow_solution(faceusp(:,:,1,nf), &
-                                        faceusp(:,:,2,nf))
+        call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
+                                        faceusp(nf)%v(:,:,2))
         !
       case (bc_sub_outflow)
         !
         ! Subsonic outflow boundary condition
         !
-        call get_bc_sub_outflow_solution(faceusp(:,:,1,nf), &
-                                         faceusp(:,:,2,nf))
+        call get_bc_sub_outflow_solution(faceusp(nf)%v(:,:,1), &
+                                         faceusp(nf)%v(:,:,2))
         !
       case (bc_sup_inflow)
         !
         ! Supersonic inflow boundary condition
         !
-        call get_bc_sup_inflow_solution(faceusp(:,:,2,nf))
+        call get_bc_sup_inflow_solution(faceusp(nf)%v(:,:,2))
         !
       case (bc_sup_outflow)
         !
         ! Supersonic outflow boundary condition
         !
-        call get_bc_sup_outflow_solution(faceusp(:,:,1,nf), &
-                                         faceusp(:,:,2,nf))
+        call get_bc_sup_outflow_solution(faceusp(nf)%v(:,:,1), &
+                                         faceusp(nf)%v(:,:,2))
         !
       case (bc_slip_wall,bc_symmetry)
         !
         ! Slip wall / symmetry boundary condition
         !
-        call get_bc_slip_wall_solution(faceusp(:,:,1,nf), &
-                                       faceusp(:,:,2,nf), &
-                                       geofa(:,:,nf))
+        call get_bc_slip_wall_solution(faceusp(nf)%v(:,:,1), &
+                                       faceusp(nf)%v(:,:,2), &
+                                       geofa(nf)%v(:,:))
         !
       case (bc_adiabatic_wall)
         !
         ! No-slip adiabatic wall
         !
-        call get_bc_adiabatic_wall_solution(faceusp(:,:,1,nf), &
-                                            faceusp(:,:,2,nf))
+        call get_bc_adiabatic_wall_solution(faceusp(nf)%v(:,:,1), &
+                                            faceusp(nf)%v(:,:,2))
         !
       case (bc_isothermal_wall)
         !
         ! No-slip isothermal wall
         !
-        call get_bc_isothermal_wall_solution(faceusp(:,:,1,nf), &
-                                             faceusp(:,:,2,nf))
+        call get_bc_isothermal_wall_solution(faceusp(nf)%v(:,:,1), &
+                                             faceusp(nf)%v(:,:,2))
         !
       case (bc_periodic)
         !
@@ -183,8 +183,8 @@ continue
         !
         pf = bface(5,nf) ! index of connecting periodic boundary face
         !
-        call get_bc_periodic_solution(faceusp(:,:,1,pf), &
-                                      faceusp(:,:,2,nf))
+        call get_bc_periodic_solution(faceusp(pf)%v(:,:,1), &
+                                      faceusp(nf)%v(:,:,2))
         !
       case (bc_cpu_bnd)
         !
@@ -261,17 +261,17 @@ continue
         !
         ! No-slip adiabatic wall boundary conditions
         !
-        call get_bc_adiabatic_wall_gradient(faceusp(:,:,1,nf), &
-                                            facedusp(:,:,:,1,nf), &
-                                            facedusp(:,:,:,2,nf))
+        call get_bc_adiabatic_wall_gradient(faceusp(nf)%v(:,:,1), &
+                                            facedusp(nf)%v(:,:,:,1), &
+                                            facedusp(nf)%v(:,:,:,2))
         !
       else
         !
         ! Non-adiabatic wall boundary condition
         !
-        call get_bc_wall_gradient(faceusp(:,:,1,nf), &
-                                  facedusp(:,:,:,1,nf), &
-                                  facedusp(:,:,:,2,nf))
+        call get_bc_wall_gradient(faceusp(nf)%v(:,:,1), &
+                                  facedusp(nf)%v(:,:,:,1), &
+                                  facedusp(nf)%v(:,:,:,2))
         !
       end if
       !
@@ -281,15 +281,15 @@ continue
       !
       pf = bface(5,nf) ! index of connecting periodic boundary face
       !
-      call get_bc_flowthrough_gradient(facedusp(:,:,:,1,pf), &
-                                       facedusp(:,:,:,2,nf))
+      call get_bc_flowthrough_gradient(facedusp(pf)%v(:,:,:,1), &
+                                       facedusp(nf)%v(:,:,:,2))
       !
     else if (all(bface(1,nf) /= local_bc_ignore)) then
       !
       ! General flow-through boundary conditions
       !
-      call get_bc_flowthrough_gradient(facedusp(:,:,:,1,nf), &
-                                       facedusp(:,:,:,2,nf))
+      call get_bc_flowthrough_gradient(facedusp(nf)%v(:,:,:,1), &
+                                       facedusp(nf)%v(:,:,:,2))
       !
    !else
    !  !
@@ -1609,7 +1609,7 @@ end subroutine output_bface
 !!        flxpt = begfp + k ! Index of flx-pt local to the current host cell
 !!        bndpt = begbp + k ! Index within qty_data for current flx-pt
 !!        !
-!!        unrm(1:nr) = geofa(1:nr,k,nf)
+!!        unrm(1:nr) = geofa(nf)%v(1:nr,k)
 !!        !
 !!        lmat(1:np) = host_interp(1:np,flxpt)
 !!        !
@@ -1730,10 +1730,11 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !.. Use Statements ..
   use geovar, only : bc_conflict
   use ovar,   only : iop_flxpts
+  use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:), intent(inout) :: faceusp
-  logical,  optional,              intent(in) :: override
+  type(face_var), dimension(:), intent(inout) :: faceusp
+  logical,        optional,        intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -1741,7 +1742,7 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Local Arrays ..
   integer, dimension(1:mpi_status_size) :: istat
-  real(r8), dimension(1:size(faceusp,dim=1)) :: exch_send,exch_recv
+  real(r8), dimension(1:nq) :: exch_send,exch_recv
   !
 continue
   !
@@ -1798,7 +1799,7 @@ continue
         ks = bc_conflict(n)%slave(i)%flux_point
         nfs = bc_conflict(n)%slave(i)%face
         !
-        faceusp(:,ks,2,nfs) = faceusp(:,km,2,nfm)
+        faceusp(nfs)%v(:,ks,2) = faceusp(nfm)%v(:,km,2)
         !
       end do
       !
@@ -1814,7 +1815,7 @@ continue
         km = bc_conflict(n)%master%flux_point
         nfm = bc_conflict(n)%master%face
         !
-        exch_send = real(faceusp(:,km,2,nfm),kind=r8)
+        exch_send = real(faceusp(nfm)%v(:,km,2),kind=r8)
         !
         do i = 1,size(bc_conflict(n)%slave)
           !
@@ -1828,7 +1829,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            faceusp(:,ks,2,nfs) = real(exch_send,kind=wp)
+            faceusp(nfs)%v(:,ks,2) = real(exch_send,kind=wp)
             !
           else
             !
@@ -1855,7 +1856,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            faceusp(:,ks,2,nfs) = real(exch_recv,kind=wp)
+            faceusp(nfs)%v(:,ks,2) = real(exch_recv,kind=wp)
             !
           end if
           !
@@ -1874,12 +1875,13 @@ end subroutine exchange_bc_conflicts_usp
 subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Use Statements ..
-  use geovar, only : bc_conflict
+  use geovar, only : nr,bc_conflict
   use ovar,   only : iop_flxpts
+  use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:,:,:), intent(inout) :: facedusp
-  logical,  optional,                intent(in) :: override
+  type(face_vec), dimension(:), intent(inout) :: facedusp
+  logical,        optional,        intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -1887,8 +1889,7 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Local Arrays ..
   integer, dimension(1:mpi_status_size) :: istat
-  real(r8), dimension(1:size(facedusp,dim=1), &
-                      1:size(facedusp,dim=2)) :: exch_send,exch_recv
+  real(r8), dimension(1:nr,1:nq) :: exch_send,exch_recv
   !
 continue
   !
@@ -1945,7 +1946,7 @@ continue
         ks = bc_conflict(n)%slave(i)%flux_point
         nfs = bc_conflict(n)%slave(i)%face
         !
-        facedusp(:,:,ks,2,nfs) = facedusp(:,:,km,2,nfm)
+        facedusp(nfs)%v(:,:,ks,2) = facedusp(nfm)%v(:,:,km,2)
         !
       end do
       !
@@ -1961,7 +1962,7 @@ continue
         km = bc_conflict(n)%master%flux_point
         nfm = bc_conflict(n)%master%face
         !
-        exch_send = real(facedusp(:,:,km,2,nfm),kind=r8)
+        exch_send = real(facedusp(nfm)%v(:,:,km,2),kind=r8)
         !
         do i = 1,size(bc_conflict(n)%slave)
           !
@@ -1975,7 +1976,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            facedusp(:,:,ks,2,nfs) = real(exch_send,kind=wp)
+            facedusp(nfs)%v(:,:,ks,2) = real(exch_send,kind=wp)
             !
           else
             !
@@ -2002,7 +2003,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            facedusp(:,:,ks,2,nfs) = real(exch_recv,kind=wp)
+            facedusp(nfs)%v(:,:,ks,2) = real(exch_recv,kind=wp)
             !
           end if
           !

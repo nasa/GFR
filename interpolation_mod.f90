@@ -1172,6 +1172,20 @@ pure function InterpToFace_Hexa(xi_sp,xi_fp) result(return_value)
   !
 continue
   !
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #####  NOTE: THE ORDER OF THE FLUX POINTS IS SUCH THAT THE LOWEST   #####
+  ! #####        COORDINATE DIRECTION IS THE INNER MOST LOOP, i.e.,     #####
+  ! #####          FOR AN X-FACE, INNER LOOP OVER Y, OUTER LOOP OVER Z  #####
+  ! #####          FOR A  Y-FACE, INNER LOOP OVER X, OUTER LOOP OVER Z  #####
+  ! #####          FOR A  Z-FACE, INNER LOOP OVER X, OUTER LOOP OVER Y  #####
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  !
   nfp1d = size(xi_fp)
   nsp1d = size(xi_sp)
   !
@@ -1256,13 +1270,13 @@ continue
   !
   xyz_qp(3) = qone ! z/zeta coordinate of current face/flux point
   !
-  do ifa = 1,nfp1d
+  do jfa = 1,nfp1d
     !
-    xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+    xyz_qp(1) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
     !
-    do jfa = 1,nfp1d
+    do ifa = 1,nfp1d
       !
-      xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+      xyz_qp(2) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -1296,13 +1310,13 @@ continue
   !
   xyz_qp(1) = qone ! x/xi coordinate of current face/flux point
   !
-  do jfa = 1,nfp1d
+  do kfa = 1,nfp1d
     !
-    xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+    xyz_qp(2) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
     !
-    do kfa = 1,nfp1d
+    do jfa = 1,nfp1d
       !
-      xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+      xyz_qp(3) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -1376,13 +1390,13 @@ continue
   !
   xyz_qp(2) = -qone ! y/eta coordinate of current face/flux point
   !
-  do ifa = 1,nfp1d
+  do kfa = 1,nfp1d
     !
-    xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+    xyz_qp(1) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
     !
-    do kfa = 1,nfp1d
+    do ifa = 1,nfp1d
       !
-      xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+      xyz_qp(3) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -1599,8 +1613,13 @@ continue
   !
   if (allocated(interp)) then
     !
-    dt%siz = size(interp)
-    dt%mem = dt%siz*storage_size(interp)
+    array%siz = size(interp)
+    array%mem = array%siz*storage_size(interp)
+    array_name = "interp"
+    write (iou,2) array_name,array%get_units()
+    !
+    dt%siz = array%siz
+    dt%mem = array%mem
     !
     do j = lbound(interp,dim=2),ubound(interp,dim=2)
       do i = lbound(interp,dim=1),ubound(interp,dim=1)
@@ -1672,12 +1691,23 @@ continue
     write (array_name,5) "interp"
     write (iou,2) array_name,dt%get_units()
     !
+    ! Try the Intel language extension intrinsic function sizeof
+    !
+    dt%mem = int(sizeof(interp))
+    dt = dt%get_units()
+    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    !
   end if
   !
   if (allocated(outerp)) then
     !
-    dt%siz = size(outerp)
-    dt%mem = dt%siz*storage_size(outerp)
+    array%siz = size(outerp)
+    array%mem = array%siz*storage_size(outerp)
+    array_name = "outerp"
+    write (iou,2) array_name,array%get_units()
+    !
+    dt%siz = array%siz
+    dt%mem = array%mem
     !
     do j = lbound(outerp,dim=2),ubound(outerp,dim=2)
       do i = lbound(outerp,dim=1),ubound(outerp,dim=1)
@@ -1754,18 +1784,31 @@ continue
     write (array_name,5) "outerp"
     write (iou,2) array_name,dt%get_units()
     !
+    ! Try the Intel language extension intrinsic function sizeof
+    !
+    dt%mem = int(sizeof(outerp))
+    dt = dt%get_units()
+    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    !
   end if
   !
   total = total%get_units()
   write (iou,3) total%mem,trim(adjustl(total%units))
   !
+  ! Try the Intel language extension intrinsic function sizeof
+  !
+  total%mem = int(sizeof(interp)) + int(sizeof(outerp))
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+  !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module interpolation_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",i0,1x,a,:,a)
   4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
   5 format ("'",a,"'")
+  6 format (" Array: ",a," memory = ",i0,1x,a,a)
   !
 end subroutine interpolation_memory_usage
 !

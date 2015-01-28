@@ -15,10 +15,13 @@ module metrics_mod
   public :: get_metrics
   public :: metrics_alloc_status
   !
+  type, public :: face_nrm
+    real(wp), allocatable :: v(:,:)
+  end type face_nrm
   !
   ! geofa : normal of the face at each of the solution points on the face
   !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: geofa
+  type(face_nrm), public, save, allocatable :: geofa(:)
   !
   ! volj : Volume of the grid cells evaluated by integrating the jacobian at the
   !        solution points using the quadrature rule
@@ -34,16 +37,26 @@ module metrics_mod
   real(wp), public, save, allocatable, dimension(:,:) :: dJ
   !
   ! metrics : first derivative metrics terms at the solution points
-  !     For solution point 'n', metrics(l,i,n) gives the partial derivative
+  !     For solution point 'n', metrics(l,i,n,1) gives the partial derivative
   !                             d (x_l)
   !                             -------
   !                             d(xi_i)
+  !                    whereas, metrics(l,i,n,2) gives the partial derivative
+  !                             d(xi_l)
+  !                             ------- * jacobian(n)
+  !                             d(x_i)
   !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
   !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
   !                           coordinates within the standard elemental region
+  !           NOTE: the first index l gives the index of the numerator and
+  !                 the second index i gives the index of the denominator
   !           NOTE: For 2D z and zeta (or t) do not exist
+  !           NOTE: The jacobian(n) term is implicitly included in the
+  !                 metrics(:,:,:,2) part of the array because multiplication
+  !                 by the jacobian is desired where this metric term is
+  !                 predominantly used.
   !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: metrics
+  real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics
   !
   ! metrics2: second derivative metrics terms at the solution points
   !     For solution point 'n', metrics2(l,i,j,n) gives the partial derivative 
@@ -336,7 +349,7 @@ subroutine get_metrics()
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : nodes_on_face,pts_in_cell_ptr
   use geovar, only : xyz_nodes,cell_geom,cell_order
-  use geovar, only : cells_on_face
+  use geovar, only : face
   !
   use quadrature_mod, only : std_elem
   !
@@ -344,16 +357,18 @@ subroutine get_metrics()
   use ovar, only : using_curved_boundaries
   use ovar, only : use_3rd_derivative_metrics
   !
-  use order_mod, only : n_sp1de,geom_solpts
+  use order_mod, only : geom_solpts
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,ierr
   integer  :: n,nc,n1,n2,nf,np,p1,p2
-  integer  :: n_edge_pts,nfnods
+  integer  :: n_edge_pts,nfnods,nfpts
   integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
   real(wp) :: tvol,tria_coef,tc2,r,s,t
   real(r8) :: loc_vol,tot_vol
   real(wp) :: val,rm1,rp1,sm1,sp1,tm1,tp1,zm1,zp1
+  character(len=200) :: array_name
   character(len=1000) :: error_message
   !
   !.. Local Arrays ..
@@ -383,7 +398,7 @@ continue
   !
   ! Allocate the required metrics related arrays
   !
-  allocate ( metrics(1:nr,1:nr,1:n_totpts) , source=zero , &
+  allocate ( metrics(1:nr,1:nr,1:n_totpts,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"metrics",1,ierr,error_message)
   !
@@ -395,8 +410,26 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"volj",1,ierr,error_message)
   !
-  allocate ( geofa(1:nr,1:n_sp1de,1:nface) , source=zero , stat=ierr )
+  ! Allocate the outer part of the geofa array
+  !
+  allocate ( geofa(1:nface) , stat=ierr )
   call alloc_error(pname,"geofa",1,ierr,error_message)
+  !
+  ! Allocate the data components of the geofa array
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfpts = geom_solpts(face_geom,face_order)
+    !
+    allocate ( geofa(nf)%v(1:nr,1:nfpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) nf
+    call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+  end do
   !
   ! Allocate some arrays needed for curved boundaries
   !
@@ -467,11 +500,11 @@ continue
         !
         ! First derivative metrics
         !
-        metrics(1:nr,1,n) = half * (nodes(1:nr,2) - nodes(1:nr,1))
+        metrics(1:nr,1,n,1) = half * (nodes(1:nr,2) - nodes(1:nr,1))
         !                  _____________________________________
         ! jacobian : J = \/ (dx/dr)**2 + (dy/dr)**2 + (dz/dr)**2
         !
-        jacobian(n) = rnorm2( metrics(1:nr,1,n) )
+        jacobian(n) = rnorm2( metrics(1:nr,1,n,1) )
         !
         ! Add the jacobian and quadrature weight to this cells volume
         !
@@ -491,9 +524,9 @@ continue
         !
         ! First derivative metrics
         !
-        metrics(1:nr,1,n) = tria_coef * (nodes(1:nr,2) - nodes(1:nr,1))
+        metrics(1:nr,1,n,1) = tria_coef * (nodes(1:nr,2) - nodes(1:nr,1))
         !
-        metrics(1:nr,2,n) = tria_coef * (nodes(1:nr,3) - nodes(1:nr,1))
+        metrics(1:nr,2,n,1) = tria_coef * (nodes(1:nr,3) - nodes(1:nr,1))
         !
         ! Second derivative metrics
         !
@@ -503,7 +536,11 @@ continue
         !
         ! jacobian : J = ( dx/dr * dy/ds ) - ( dx/ds * dy/dr )
         !
-        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
+        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n,1) )
+        !
+        ! Compute the inverse metrics
+        !
+        metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
         !
         ! First derivative of jacobian
         !
@@ -512,18 +549,18 @@ continue
           ! dJ/dr = [ ( d2x/dr2 * dy/ds ) + ( dx/dr * d2y/drds ) ] - 
           !         [ ( d2x/drds * dy/dr ) + ( dx/ds * d2y/dr2 ) ]
           !
-          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n) + &
-                    metrics2(2,1,2,n)*metrics(1,1,n) - &
-                    metrics2(1,1,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,1,n)*metrics(1,2,n)
+          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n,1) + &
+                    metrics2(2,1,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,1,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,1,n)*metrics(1,2,n,1)
           !
           ! dJ/ds = [ ( d2x/dsdr * dy/ds ) + ( dx/dr * d2y/ds2 ) ] - 
           !         [ ( d2x/ds2 * dy/dr ) + ( dx/ds * d2y/dsdr ) ]
           !
-          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n) + &
-                    metrics2(2,2,2,n)*metrics(1,1,n) - &
-                    metrics2(1,2,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,2,n)*metrics(1,2,n)
+          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n,1) + &
+                    metrics2(2,2,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,2,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,2,n)*metrics(1,2,n,1)
           !
         end if
         !
@@ -558,11 +595,11 @@ continue
         !
         ! First derivative metrics
         !
-        metrics(1:nr,1,n) = one4 * ( sm1*(nodes(1:nr,1)-nodes(1:nr,2)) + &
-                                     sp1*(nodes(1:nr,3)-nodes(1:nr,4)) )
+        metrics(1:nr,1,n,1) = one4 * ( sm1*(nodes(1:nr,1)-nodes(1:nr,2)) + &
+                                       sp1*(nodes(1:nr,3)-nodes(1:nr,4)) )
         !
-        metrics(1:nr,2,n) = one4 * ( rm1*(nodes(1:nr,1)-nodes(1:nr,4)) + &
-                                     rp1*(nodes(1:nr,3)-nodes(1:nr,2)) )
+        metrics(1:nr,2,n,1) = one4 * ( rm1*(nodes(1:nr,1)-nodes(1:nr,4)) + &
+                                       rp1*(nodes(1:nr,3)-nodes(1:nr,2)) )
         !
         ! Second derivative metrics
         !
@@ -577,7 +614,11 @@ continue
         !
         ! jacobian : J = ( dx/dr * dy/ds ) - ( dx/ds * dy/dr )
         !
-        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
+        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n,1) )
+        !
+        ! Compute the inverse metrics
+        !
+        metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
         !
         ! First derivative of jacobian
         !
@@ -586,18 +627,18 @@ continue
           ! dJ/dr = [ ( d2x/dr2 * dy/ds ) + ( dx/dr * d2y/drds ) ] - 
           !         [ ( d2x/drds * dy/dr ) + ( dx/ds * d2y/dr2 ) ]
           !
-          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n) + &
-                    metrics2(2,1,2,n)*metrics(1,1,n) - &
-                    metrics2(1,1,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,1,n)*metrics(1,2,n)
+          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n,1) + &
+                    metrics2(2,1,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,1,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,1,n)*metrics(1,2,n,1)
           !
           ! dJ/ds = [ ( d2x/dsdr * dy/ds ) + ( dx/dr * d2y/ds2 ) ] - 
           !         [ ( d2x/ds2 * dy/dr ) + ( dx/ds * d2y/dsdr ) ]
           !
-          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n) + &
-                    metrics2(2,2,2,n)*metrics(1,1,n) - &
-                    metrics2(1,2,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,2,n)*metrics(1,2,n)
+          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n,1) + &
+                    metrics2(2,2,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,2,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,2,n)*metrics(1,2,n,1)
           !
         end if
         !
@@ -687,15 +728,15 @@ continue
         zm1 = tria_coef * (edge_pts(j) - one)
         zp1 = tria_coef * (edge_pts(j) + one)
         !
-        metrics(1:nr,1,n) = half * ( zm1*(nodes(1:nr,1) - nodes(1:nr,2)) + &
-                                     zp1*(nodes(1:nr,5) - nodes(1:nr,4)) )
+        metrics(1:nr,1,n,1) = half * ( zm1*(nodes(1:nr,1) - nodes(1:nr,2)) + &
+                                       zp1*(nodes(1:nr,5) - nodes(1:nr,4)) )
         !
-        metrics(1:nr,2,n) = half * ( zm1*(nodes(1:nr,1) - nodes(1:nr,3)) + &
-                                     zp1*(nodes(1:nr,6) - nodes(1:nr,4)) )
+        metrics(1:nr,2,n,1) = half * ( zm1*(nodes(1:nr,1) - nodes(1:nr,3)) + &
+                                       zp1*(nodes(1:nr,6) - nodes(1:nr,4)) )
         !
-        metrics(1:nr,3,n) = half * ( r*(nodes(1:nr,5) - nodes(1:nr,2)) + &
-                                     s*(nodes(1:nr,6) - nodes(1:nr,3)) + &
-                                     t*(nodes(1:nr,4) - nodes(1:nr,1)) )
+        metrics(1:nr,3,n,1) = half * ( r*(nodes(1:nr,5) - nodes(1:nr,2)) + &
+                                       s*(nodes(1:nr,6) - nodes(1:nr,3)) + &
+                                       t*(nodes(1:nr,4) - nodes(1:nr,1)) )
         !
         ! Second derivative metrics
         !
@@ -723,7 +764,11 @@ continue
         !
         ! jacobian : J = ( dx/dr * dy/ds ) - ( dx/ds * dy/dr )
         !
-        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
+        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n,1) )
+        !
+        ! Compute the inverse metrics
+        !
+        metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
         !
         ! ##########################################################################
         ! ##########################################################################
@@ -741,18 +786,18 @@ continue
           ! dJ/dr = [ ( d2x/dr2 * dy/ds ) + ( dx/dr * d2y/drds ) ] - 
           !         [ ( d2x/drds * dy/dr ) + ( dx/ds * d2y/dr2 ) ]
           !
-          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n) + &
-                    metrics2(2,1,2,n)*metrics(1,1,n) - &
-                    metrics2(1,1,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,1,n)*metrics(1,2,n)
+          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n,1) + &
+                    metrics2(2,1,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,1,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,1,n)*metrics(1,2,n,1)
           !
           ! dJ/ds = [ ( d2x/dsdr * dy/ds ) + ( dx/dr * d2y/ds2 ) ] - 
           !         [ ( d2x/ds2 * dy/dr ) + ( dx/ds * d2y/dsdr ) ]
           !
-          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n) + &
-                    metrics2(2,2,2,n)*metrics(1,1,n) - &
-                    metrics2(1,2,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,2,n)*metrics(1,2,n)
+          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n,1) + &
+                    metrics2(2,2,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,2,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,2,n)*metrics(1,2,n,1)
           !
         end if
         !
@@ -820,20 +865,20 @@ continue
         tm1 = edge_pts(k) - one
         tp1 = edge_pts(k) + one
         !
-        metrics(1:nr,1,n) = one8 * ( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
-                                     sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
-                                     sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
-                                     sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
+        metrics(1:nr,1,n,1) = one8 * ( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
+                                       sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
+                                       sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
+                                       sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
         !
-        metrics(1:nr,2,n) = one8 * ( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
-                                     rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
-                                     rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
-                                     rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
+        metrics(1:nr,2,n,1) = one8 * ( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
+                                       rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
+                                       rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
+                                       rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
         !
-        metrics(1:nr,3,n) = one8 * ( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
-                                     rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
-                                     rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
-                                     rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
+        metrics(1:nr,3,n,1) = one8 * ( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
+                                       rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
+                                       rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
+                                       rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
         !
         ! Second derivative metrics
         !
@@ -877,7 +922,11 @@ continue
         !
         ! jacobian : J = ( dx/dr * dy/ds ) - ( dx/ds * dy/dr )
         !
-        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
+        jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n,1) )
+        !
+        ! Compute the inverse metrics
+        !
+        metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
         !
         ! First derivative of jacobian
         !
@@ -895,18 +944,18 @@ continue
           ! dJ/dr = [ ( d2x/dr2 * dy/ds ) + ( dx/dr * d2y/drds ) ] - 
           !         [ ( d2x/drds * dy/dr ) + ( dx/ds * d2y/dr2 ) ]
           !
-          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n) + &
-                    metrics2(2,1,2,n)*metrics(1,1,n) - &
-                    metrics2(1,1,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,1,n)*metrics(1,2,n)
+          dJ(1,n) = metrics2(1,1,1,n)*metrics(2,2,n,1) + &
+                    metrics2(2,1,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,1,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,1,n)*metrics(1,2,n,1)
           !
           ! dJ/ds = [ ( d2x/dsdr * dy/ds ) + ( dx/dr * d2y/ds2 ) ] - 
           !         [ ( d2x/ds2 * dy/dr ) + ( dx/ds * d2y/dsdr ) ]
           !
-          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n) + &
-                    metrics2(2,2,2,n)*metrics(1,1,n) - &
-                    metrics2(1,2,2,n)*metrics(2,1,n) - &
-                    metrics2(2,1,2,n)*metrics(1,2,n)
+          dJ(2,n) = metrics2(1,1,2,n)*metrics(2,2,n,1) + &
+                    metrics2(2,2,2,n)*metrics(1,1,n,1) - &
+                    metrics2(1,2,2,n)*metrics(2,1,n,1) - &
+                    metrics2(2,1,2,n)*metrics(1,2,n,1)
           !
         end if
         !
@@ -977,9 +1026,7 @@ continue
   !
   do nf = 1,nface
     !
-    ! # of nodes defining this face
-    !
-    nfnods = geom_nodes(cells_on_face(7,nf))
+    nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
     !
     ! Coordinates of the nodes on this face
     !
@@ -987,20 +1034,17 @@ continue
     !
     ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
     ! Assumption 1: the normal is the same for all flux points on the face
-    ! Assumption 2: the cell/face order is uniform throughout the domain
-    !               meaning the number of flux points is the same for all
-    !               similar face geometries.
     ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
     !
     ! Compute the face normal at the first flux point
     !
-    geofa(1:nr,1,nf) = face_normal( nodes(1:nr,1:nfnods) )
+    geofa(nf)%v(1:nr,1) = face_normal( nodes(1:nr,1:nfnods) )
     !
     ! Copy the face normal from the first flux point to all the other
     ! face flux points (assuming the normal is the same for all of them)
     !
-    do n = 2,size(geofa,dim=2)
-      geofa(1:nr,n,nf) = geofa(1:nr,1,nf)
+    do n = 2,size(geofa(nf)%v,dim=2)
+      geofa(nf)%v(1:nr,n) = geofa(nf)%v(1:nr,1)
     end do
     !
   end do
@@ -1032,6 +1076,7 @@ continue
   !
   ! Format Statements
   !
+  1   format ("geofa(",i0,")%v")
   100 format (" Encountered an unknown or unsupported cell geometry while", &
               " trying to compute the grid metrics!")
   101 format (" Encountered a tetrahedral grid cell while trying to compute", &
@@ -1065,12 +1110,6 @@ continue
   !
   write (iunit,1)
   !
-  if (allocated(geofa)) then
-    array%siz = size(geofa)
-    array%mem = array%siz*storage_size(geofa)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'geofa'",array%get_units()
-  end if
   if (allocated(jacobian)) then
     array%siz = size(jacobian)
     array%mem = array%siz*storage_size(jacobian)

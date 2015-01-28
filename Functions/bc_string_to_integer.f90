@@ -17,7 +17,7 @@ continue
   !
   ! Copy the input BC string into text so we can manipulate it
   !
-  text = trim(adjustl(bc_text))
+  text = uppercase( trim(adjustl(bc_text)) )
   !
   nb = 1
   ne = len_trim(text)

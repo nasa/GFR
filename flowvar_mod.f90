@@ -1,11 +1,12 @@
 module flowvar
   !
-  use module_kind_types, only : wp
+  use module_kind_types, only : r8,wp
   use module_kind_types, only : zero
   use module_kind_types, only : Classic_RK
   use module_kind_types, only : CK4_RK
   use module_kind_types, only : TVD4_RK
   use module_kind_types, only : alloc_error
+  use module_kind_types, only : bc_cpu_bnd
   !
   implicit none
   !
@@ -31,18 +32,6 @@ module flowvar
   !
   real(wp), public, save, allocatable, dimension(:,:) :: global_usp
   real(wp), public, save, allocatable, dimension(:)   :: global_var
-  !
-  ! FACEFLX  : flux normal to cell faces at each interface flux point
-  ! FACEUSP  : conservative variables at the interface flux points
-  ! FACEDUSP : conservative variable gradients at the interface flux points
-  !
-  ! faceflx(1:nq,1:2,1:n_sp1de,1:nface) ! this is the normal face flux
-  ! faceusp(1:nq,1:2,1:n_sp1de,1:nface)
-  ! facedusp(1:2,1:nq,1:2,1:n_sp1de,1:nface)
-  !
-  real(wp), public, save, allocatable, dimension(:,:,:,:)   :: faceusp
-  real(wp), public, save, allocatable, dimension(:,:,:,:,:) :: facedusp
-  real(wp), public, save, allocatable, dimension(:,:,:,:)   :: faceflx
   !
   ! USP_SUM : auxilary array needed for SSP-RK4 method
   ! RSSPRK  : auxilary array containing old residuals, needed for some RK methods
@@ -88,6 +77,10 @@ module flowvar
   !
   type, public :: face_var
     real(wp), allocatable :: v(:,:,:)
+  contains
+    procedure :: zero => zero_face_var
+    procedure :: pack => pack_face_var_data
+    procedure :: unpack => unpack_face_var_data
   end type face_var
   !
   !
@@ -99,11 +92,23 @@ module flowvar
   !
   type, public :: face_vec
     real(wp), allocatable :: v(:,:,:,:)
+  contains
+    procedure :: zero => zero_face_vec
+    procedure :: pack => pack_face_vec_data
+    procedure :: unpack => unpack_face_vec_data
   end type face_vec
   !
-  type(face_var), public, save, allocatable, dimension(:) :: faceusp_dt
-  type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
-  type(face_var), public, save, allocatable, dimension(:) :: faceflx_dt
+  ! FACEFLX  : flux normal to cell faces at each interface flux point
+  ! FACEUSP  : conservative variables at the interface flux points
+  ! FACEDUSP : conservative variable gradients at the interface flux points
+  !
+  ! faceflx(1:nface)%v(1:nq,1:2,1:n_sp1de) ! this is the normal face flux
+  ! faceusp(1:nface)%v(1:nq,1:2,1:n_sp1de)
+  ! facedusp(1:nface)%v(1:2,1:nq,1:2,1:n_sp1de)
+  !
+  type(face_var), public, save, allocatable, dimension(:) :: faceusp
+  type(face_vec), public, save, allocatable, dimension(:) :: facedusp
+  type(face_var), public, save, allocatable, dimension(:) :: faceflx
   !
 contains
 !
@@ -113,12 +118,14 @@ subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
   use eqn_idx,   only : nq
-  use geovar,    only : nr,n_solpts,n_totpts,nface
+  use geovar,    only : nr,n_solpts,n_totpts,nface,face
+  use order_mod, only : geom_solpts
   use order_mod, only : n_fp1de
   use ovar,      only : iRKtype,num_stages
   !
   !.. Local Scalars ..
-  integer :: n,ierr
+  integer :: n,ierr,face_geom,face_order,nfpts,nf
+  character(len=200) :: array_name
   character(len=200) :: error_message
   !
   !.. Local Constants ..
@@ -151,28 +158,42 @@ continue
   call alloc_error(pname,"uoldsp",1,ierr,error_message)
   !
   !
-  allocate ( faceusp(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
-             stat=ierr , errmsg=error_message )
+  ! Allocate the outer part of the face solution/flux arrays
+  !
+  allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"faceusp",1,ierr,error_message)
   !
-  allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp_dt",1,ierr,error_message)
-  !
-  !
-  allocate ( facedusp(1:2,1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
-             stat=ierr , errmsg=error_message )
+  allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facedusp",1,ierr,error_message)
   !
-  allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"facedusp_dt",1,ierr,error_message)
-  !
-  !
-  allocate ( faceflx(1:nq,1:n_fp1de,1:2,1:nface) , source=zero , &
-             stat=ierr , errmsg=error_message )
+  allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"faceflx",1,ierr,error_message)
   !
-  allocate ( faceflx_dt(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceflx_dt",1,ierr,error_message)
+  ! Allocate the data component of these arrays based on the face geometry
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfpts = geom_solpts(face_geom,face_order)
+    !
+    allocate ( faceusp(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "faceusp",nf
+    call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+    allocate ( facedusp(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "facedusp",nf
+    call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+    allocate ( faceflx(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "faceflx",nf
+    call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+  end do
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
@@ -198,7 +219,178 @@ continue
     !
   end if
   !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
 end subroutine allocate_flowvar_arrays
+!
+!###############################################################################
+!
+elemental subroutine zero_face_var(this)
+  !
+  !.. Formal Arguments ..
+  class(face_var), intent(inout) :: this
+  !
+continue
+  !
+  if (allocated(this%v)) this%v = zero
+  !
+end subroutine zero_face_var
+!
+!###############################################################################
+!
+elemental subroutine zero_face_vec(this)
+  !
+  !.. Formal Arguments ..
+  class(face_vec), intent(inout) :: this
+  !
+continue
+  !
+  if (allocated(this%v)) this%v = zero
+  !
+end subroutine zero_face_vec
+!
+!###############################################################################
+!
+subroutine pack_face_var_data(this,package)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface
+  !
+  !.. Formal Arguments ..
+  class(face_var), dimension(:),    intent(in) :: this
+  real(r8),        dimension(:), intent(inout) :: package
+  !
+  !.. Local Scalars ..
+  integer :: nf,ibeg,iend,nsz
+  !
+continue
+  !
+  iend = 0
+  !
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    nsz = size(this(nf)%v(:,:,1),dim=1)
+    !
+    ibeg = iend + 1
+    iend = iend + nsz
+    !
+    package(ibeg:iend) = reshape( real(this(nf)%v(:,:,1),kind=r8) , [nsz] )
+    !
+  end do
+  !
+end subroutine pack_face_var_data
+!
+!###############################################################################
+!
+subroutine pack_face_vec_data(this,package)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface
+  !
+  !.. Formal Arguments ..
+  class(face_vec), dimension(:),    intent(in) :: this
+  real(r8),        dimension(:), intent(inout) :: package
+  !
+  !.. Local Scalars ..
+  integer :: nf,ibeg,iend,nsz
+  !
+continue
+  !
+  iend = 0
+  !
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    nsz = size(this(nf)%v(:,:,:,1))
+    !
+    ibeg = iend + 1
+    iend = iend + nsz
+    !
+    package(ibeg:iend) = reshape( real(this(nf)%v(:,:,:,1),kind=r8) , [nsz] )
+    !
+  end do
+  !
+end subroutine pack_face_vec_data
+!
+!###############################################################################
+!
+subroutine unpack_face_var_data(this,package)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface
+  !
+  !.. Formal Arguments ..
+  class(face_var), dimension(:), intent(inout) :: this
+  real(r8),        dimension(:),    intent(in) :: package
+  !
+  !.. Local Scalars ..
+  integer :: nf,ibeg,iend
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: nsz
+  !
+continue
+  !
+  iend = 0
+  !
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    nsz(1) = size(this(nf)%v,dim=1)
+    nsz(2) = size(this(nf)%v,dim=2)
+    !
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    !
+    this(nf)%v(:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+    !
+  end do
+  !
+end subroutine unpack_face_var_data
+!
+!###############################################################################
+!
+subroutine unpack_face_vec_data(this,package)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface
+  !
+  !.. Formal Arguments ..
+  class(face_vec), dimension(:), intent(inout) :: this
+  real(r8),        dimension(:),    intent(in) :: package
+  !
+  !.. Local Scalars ..
+  integer :: nf,ibeg,iend
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: nsz
+  !
+continue
+  !
+  iend = 0
+  !
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    nsz(1) = size(this(nf)%v,dim=1)
+    nsz(2) = size(this(nf)%v,dim=2)
+    nsz(3) = size(this(nf)%v,dim=3)
+    !
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    !
+    this(nf)%v(:,:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+    !
+  end do
+  !
+end subroutine unpack_face_vec_data
 !
 !###############################################################################
 !
@@ -255,24 +447,6 @@ continue
     array%mem = array%siz*storage_size(global_var)
     total%mem = total%mem + array%mem
     write (iunit,2) "'global_var'",array%get_units()
-  end if
-  if (allocated(faceusp)) then
-    array%siz = size(faceusp)
-    array%mem = array%siz*storage_size(faceusp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'faceusp'",array%get_units()
-  end if
-  if (allocated(facedusp)) then
-    array%siz = size(facedusp)
-    array%mem = array%siz*storage_size(facedusp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'facedusp'",array%get_units()
-  end if
-  if (allocated(faceflx)) then
-    array%siz = size(faceflx)
-    array%mem = array%siz*storage_size(faceflx)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'faceflx'",array%get_units()
   end if
   if (allocated(usp_sum)) then
     array%siz = size(usp_sum)

@@ -1721,8 +1721,6 @@ subroutine getbface()
   character(len=*), parameter :: cface(1:6) = ["IMIN","IMAX", &
                                                "JMIN","JMAX", &
                                                "KMIN","KMAX"]
-  integer, parameter :: hostface2d(1:6) = [4,2,1,3,0,0]
-  integer, parameter :: hostface3d(1:6) = [4,3,5,6,1,2]
   !
   ! The variable loc is in the range 1:4 for 2D and 1:6 in 3D and gives
   ! the face of the block on the boundary corresponding to
@@ -1815,7 +1813,7 @@ continue
           bface( 1,nf) = bc_type ! actual boundary condition for this face
           bface( 2,nf) = host_cell 
           bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geometry of host cell
-          bface( 4,nf) = merge(hostface3d(loc),hostface2d(loc),nr==3)
+          bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
           bface( 5,nf) = nb ! boundary condition group for this boundary face
           bface(10,nf) = ncell + nf ! ghost cell number
           !

@@ -804,13 +804,17 @@ subroutine create_gmsh_grid_arrays
   use ovar,   only : iop_solpts,iop_flxpts
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,ifa,nf,nh,nb,h1,h2,b1,b2,i,j
+  integer :: n,n1,n2,ifa,nf,h1,h2,i,j
   integer :: np,nc,nfp,igrps,bgrps,pid,pdm,inum,ierr
+  integer :: host_cell,host_geom,host_side
+  integer :: ncnods,nfnods,bnd_cell
   logical :: error_found
   character(len=80) :: array_name
   !
   !.. Local Arrays ..
-  integer, dimension(1:4) :: lnode
+  integer, dimension(1:8) :: int_nodes
+  integer, dimension(1:4) :: face_nodes
+  integer, dimension(1:8) :: marker
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: int_grps
@@ -1111,48 +1115,108 @@ continue
     !
     current_phys_grp: do j = 1,size(phys_grps(np)%cells)
       !
-      nb = phys_grps(np)%cells(j)
-      nh = cell_data(nb)%host_cell
+      bnd_cell = phys_grps(np)%cells(j)
+      host_cell = cell_data(bnd_cell)%host_cell
       nf = nf + 1
       !
       bface( 1,nf) = phys_grps(np)%ibc       ! face boundary condition
-      bface( 2,nf) = nh                      ! host cell of boundary face
-      bface( 3,nf) = cell_data(nh)%cell_geom ! host cell geometry
+      bface( 2,nf) = host_cell                      ! host cell of boundary face
+      bface( 3,nf) = cell_data(host_cell)%cell_geom ! host cell geometry
       bface( 5,nf) = i                       ! group for boundary face
       bface(10,nf) = ncell + nf              ! ghost cell of boundary face
       !
-      ! Find which face of the host cell is on the boundary
+      ! If the cell geometry is a node or edge, change ifa to a special value.
+      ! Otherwise, continue on to finding the side of the host cell that is
+      ! on the boundary.
       !
-     !b1 = nodes_of_cell_ptr(nb)+1 ! beginning index for boundary element nodes
-     !b2 = nodes_of_cell_ptr(nb+1) ! ending    index for boundary element nodes
-      !
-      h1 = nodes_of_cell_ptr(nh)+1 ! beginning index for host cell nodes
-      h2 = nodes_of_cell_ptr(nh+1) ! ending    index for host cell nodes
-      !
-      ! Find which face of the host cell is on the boundary
-      ! depending on the element type of the host cell
-      !
-      ifa = 0
-      select case (bface(3,nf))
-        case (Geom_Node)
+      if (all(host_geom /= [Geom_2D,Geom_3D])) then
+        !
+        if (host_geom == Geom_Node) then
           ifa = -1
-        case (Geom_Edge)
+        else if (host_geom == Geom_Edge) then
           ifa = -2
-        case (Geom_Quad)
-          ifa = host_face_quad( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (Geom_Tria)
-          ifa = host_face_tria( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (Geom_Tetr)
-          ifa = host_face_tetr( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (Geom_Pyra)
-          ifa = host_face_pyra( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (Geom_Pris)
-          ifa = host_face_pris( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case (Geom_Hexa)
-          ifa = host_face_hexa( nodes_of_cell(h1:h2) , cell_data(nb)%nodes(:) )
-        case default
+        else
           ifa = -10
-      end select
+        end if
+        !
+      else
+        !
+        ! Find which face of the host cell is on the boundary
+        !
+        host_cell = bface(2,nf) ! host cell of boundary face
+        host_geom = bface(3,nf) ! geometry of host cell
+        !
+        h1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index for host cell nodes
+        h2 = nodes_of_cell_ptr(host_cell+1) ! ending    index for host cell nodes
+        ncnods = h2-h1+1                    ! total number of host cell nodes
+        !
+        ! Create a local copy of the interior nodes
+        !
+        int_nodes(1:ncnods) = nodes_of_cell(h1:h2)
+        !
+        marker = 0 ! Initialize the marker array to zero
+        !
+        ! Mark each host cell node that is on the boundary
+        !
+        do n = 1,size(cell_data(bnd_cell)%nodes)
+          where (int_nodes(1:ncnods) == cell_data(bnd_cell)%nodes(n)) marker = 1
+        end do
+        !
+        ! Loop over the number of faces for this geometry type and find which
+        ! face corresponds to the marked nodes
+        !
+        ifa = -99 ! Initialize ifa to make sure that a side is actually found
+        !
+        do host_side = 1,geom_faces(host_geom)
+          !
+          ! Get the number of nodes defining this face
+          !
+          nfnods = num_face_nodes(host_side,host_geom)
+          !
+          ! Extract the cell nodes that define the current face
+          ! NOTE: The +1 at the end is needed since the values stored in
+          !       side_nodes are normally used as offsets, meaning that their
+          !       values are in the range [0:ncnods-1]. We want the values
+          !       in the range of [1:ncnods] hence the +1.
+          !
+          face_nodes(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom) + 1
+          !
+          ! If all of these face nodes have been marked, then this is the
+          ! side of the host cell on the boundary. Save the value into ifa
+          ! and exit the face loop.
+          !
+          if ( sum( marker(face_nodes(1:nfnods)) ) == nfnods ) then
+            ifa = host_side
+            exit
+          end if
+          !
+        end do
+        !
+      end if
+     !!
+     !! Find which face of the host cell is on the boundary
+     !! depending on the element type of the host cell
+     !!
+     !select case (bface(3,nf))
+     !  case (Geom_Node)
+     !    ifa = -1
+     !  case (Geom_Edge)
+     !    ifa = -2
+     !  case (Geom_Quad)
+     !    ifa = host_face_quad( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case (Geom_Tria)
+     !    ifa = host_face_tria( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case (Geom_Tetr)
+     !    ifa = host_face_tetr( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case (Geom_Pyra)
+     !    ifa = host_face_pyra( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case (Geom_Pris)
+     !    ifa = host_face_pris( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case (Geom_Hexa)
+     !    ifa = host_face_hexa( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !  case default
+     !    ifa = -10
+     !end select
       !
       ! Check for an error finding which face of the host cell is on the
       ! boundary, and if there is no error, store the value in bface
@@ -1169,13 +1233,13 @@ continue
         !
         if (mypnum == 0) then
           if (ifa == -1) then
-            write (iout,5) "A 0-D 'Point'-type",nh,nb
+            write (iout,5) "A 0-D 'Point'-type",host_cell,bnd_cell
           else if (ifa == -2) then
-            write (iout,5) "A 1-D 'Edge'-type",nh,nb
+            write (iout,5) "A 1-D 'Edge'-type",host_cell,bnd_cell
           else if (ifa == -10) then
-            write (iout,5) "An unknown type of",nh,nb
+            write (iout,5) "An unknown type of",host_cell,bnd_cell
           else if (ifa == -99) then
-            write (iout,6) nh,nb
+            write (iout,6) host_cell,bnd_cell
           end if
         end if
         !
@@ -1506,7 +1570,7 @@ end subroutine read_gmsh_section_interpolationscheme
 !
 include "Functions/bc_string_to_integer.f90"
 include "Functions/last.f90"
-include "Functions/host_face.f90"
+!include "Functions/host_face.f90"
 !
 !###############################################################################
 !

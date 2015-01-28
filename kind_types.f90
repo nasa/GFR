@@ -298,14 +298,33 @@ module module_kind_types
   integer, parameter :: geom_of_face(1:4) = [Geom_Node,Geom_Edge, &
                                              Geom_Tria,Geom_Quad]
   !
-  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_dimen
-  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_nodes
-  integer, protected, save, dimension(Geom_Min:Geom_Max)         :: geom_faces
-  integer, protected, save, dimension(1:6,Geom_Min:Geom_Max)     :: num_face_nodes
-  integer, protected, save, dimension(1:4,1:6,Geom_Min:Geom_Max) :: side_nodes
+  integer, protected, save :: geom_dimen(Geom_Min:Geom_Max)
+  integer, protected, save :: geom_nodes(Geom_Min:Geom_Max)
+  integer, protected, save :: geom_faces(Geom_Min:Geom_Max)
+  integer, protected, save :: num_face_nodes(1:6,Geom_Min:Geom_Max)
+  integer, protected, save :: cell_face_geom(1:6,Geom_Min:Geom_Max)
+  integer, protected, save :: side_nodes(1:4,1:6,Geom_Min:Geom_Max)
   !
-  character(len=100), protected, save, dimension(Geom_Min:Geom_Max) :: Geom_String
-  character(len=9), protected, save, dimension(Geom_Min:Geom_Max) :: Geom_Name
+  character(len=100), protected, save :: Geom_String(Geom_Min:Geom_Max)
+  character(len=9),   protected, save :: Geom_Name(Geom_Min:Geom_Max)
+  !
+  integer, parameter :: Xmin1D = 0
+  integer, parameter :: Xmax1D = 1
+  !
+  integer, parameter :: Xmin2D(1:2) = [3,0]
+  integer, parameter :: Xmax2D(1:2) = [1,2]
+  integer, parameter :: Ymin2D(1:2) = [0,1]
+  integer, parameter :: Ymax2D(1:2) = [2,3]
+  !
+  integer, parameter :: Xmin3D(1:4) = [3,0,4,7]
+  integer, parameter :: Xmax3D(1:4) = [1,2,6,5]
+  integer, parameter :: Ymin3D(1:4) = [0,1,5,4]
+  integer, parameter :: Ymax3D(1:4) = [2,3,7,6]
+  integer, parameter :: Zmin3D(1:4) = [0,3,2,1]
+  integer, parameter :: Zmax3D(1:4) = [4,5,6,7]
+  !
+  integer, parameter :: HostFace2D(1:6) = [4,2,1,3,0,0]
+  integer, parameter :: HostFace3D(1:6) = [4,3,5,6,1,2]
   !
   ! Minimum/Maximum Order Allowed
   integer, parameter :: Order_Min = 0
@@ -497,6 +516,16 @@ module module_kind_types
   !
   !
   !
+  private :: reverse_metrics_SP,reverse_metrics_DP,reverse_metrics_QP
+  !
+  interface reverse_metrics
+    module procedure reverse_metrics_SP, &
+                     reverse_metrics_DP, &
+                     reverse_metrics_QP
+  end interface reverse_metrics
+  !
+  !
+  !
   private :: invert_matrix_DP,invert_matrix_QP
   !
   interface invert_matrix
@@ -641,17 +670,17 @@ continue
   num_face_nodes(3:5,Geom_Pris) = geom_nodes(Geom_Quad)
   num_face_nodes(1:6,Geom_Hexa) = geom_nodes(Geom_Quad)
   !
-  side_nodes(1:1,1,Geom_Edge) = 0
-  side_nodes(1:1,2,Geom_Edge) = 1
+  side_nodes(1:1,1,Geom_Edge) = Xmin1D
+  side_nodes(1:1,2,Geom_Edge) = Xmax1D
   !
   side_nodes(1:2,1,Geom_Tria) = [0,1]
   side_nodes(1:2,2,Geom_Tria) = [1,2]
   side_nodes(1:2,3,Geom_Tria) = [2,0]
   !
-  side_nodes(1:2,1,Geom_Quad) = [0,1]
-  side_nodes(1:2,2,Geom_Quad) = [1,2]
-  side_nodes(1:2,3,Geom_Quad) = [2,3]
-  side_nodes(1:2,4,Geom_Quad) = [3,0]
+  side_nodes(1:2,HostFace2D(3),Geom_Quad) = Ymin2D
+  side_nodes(1:2,HostFace2D(2),Geom_Quad) = Xmax2D
+  side_nodes(1:2,HostFace2D(4),Geom_Quad) = Ymax2D
+  side_nodes(1:2,HostFace2D(1),Geom_Quad) = Xmin2D
   !
   side_nodes(1:3,1,Geom_Tetr) = [1,2,3]
   side_nodes(1:3,2,Geom_Tetr) = [2,0,3]
@@ -670,12 +699,32 @@ continue
   side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
   side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
   !
-  side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1]
-  side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7]
-  side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5]
-  side_nodes(1:4,4,Geom_Hexa) = [4,7,3,0]
-  side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4]
-  side_nodes(1:4,6,Geom_Hexa) = [2,3,7,6]
+  side_nodes(1:4,HostFace3D(5),Geom_Hexa) = Zmin3D
+  side_nodes(1:4,HostFace3D(6),Geom_Hexa) = Zmax3D
+  side_nodes(1:4,HostFace3D(2),Geom_Hexa) = Xmax3D
+  side_nodes(1:4,HostFace3D(1),Geom_Hexa) = Xmin3D
+  side_nodes(1:4,HostFace3D(3),Geom_Hexa) = Ymin3D
+  side_nodes(1:4,HostFace3D(4),Geom_Hexa) = Ymax3D
+ !side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1]
+ !side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7]
+ !side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5]
+ !side_nodes(1:4,4,Geom_Hexa) = [4,7,3,0]
+ !side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4]
+ !side_nodes(1:4,6,Geom_Hexa) = [2,3,7,6]
+ !!
+ !write (iout,1) side_nodes(1:4,1:6,Geom_Hexa)
+ !1 format (*("[",3(i0,","),i0,"]",/,:))
+ !call stop_recon(stop_mpi,"error")
+  !
+  cell_face_geom(1:2,Geom_Edge) = Geom_Node
+  cell_face_geom(1:3,Geom_Tria) = Geom_Edge
+  cell_face_geom(1:4,Geom_Quad) = Geom_Edge
+  cell_face_geom(1:4,Geom_Tetr) = Geom_Tria
+  cell_face_geom(1:4,Geom_Pyra) = Geom_Tria
+  cell_face_geom(5:5,Geom_Pyra) = Geom_Quad
+  cell_face_geom(1:2,Geom_Pris) = Geom_Tria
+  cell_face_geom(3:5,Geom_Pris) = Geom_Quad
+  cell_face_geom(1:6,Geom_Hexa) = Geom_Quad
   !
   if (.not. tria_is_biunit) cl(Geom_Tria) = half
   !
@@ -1356,6 +1405,7 @@ include "Functions/findloc.f90"
 include "Functions/node_center.f90"
 include "Functions/face_normal.f90"
 include "Functions/jacobians.f90"
+include "Functions/reverse_metrics.f90"
 include "Functions/chop.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface

@@ -1055,7 +1055,7 @@ continue
   ! Convert the cell geometry values from the Gambit neutral grid file
   !
   do nf = 1,nfbnd
-    bface(3,n) = convert_geom( bface(3,n) )
+    bface(3,nf) = convert_geom( bface(3,nf) )
   end do
   !
   ! Save the index for the ghost cell on the face in bface(10,:)
@@ -2056,12 +2056,13 @@ subroutine find_bc_conflicts
   !
   !.. Local Scalars ..
   integer :: n,nf,i,ip,is,j,n1,n2,nf1,nf2,ierr
-  integer :: host_cell,cell_type,face_loc
-  integer :: n_2bc_nodes,nfm
+  integer :: host_cell,host_geom,host_side
+  integer :: n_2bc_nodes,nfm,nfnods
   character(len=100) :: array_name
   character(len=1000) :: error_message
   !
   !.. Local Arrays ..
+  integer, dimension(1:4) :: node_offsets
   integer, dimension(Geom_Min:Geom_Max) :: error_count
   !
   !.. Local Allocatable Arrays ..
@@ -2085,30 +2086,23 @@ continue
   do nf = 1,nfbnd
     !
     host_cell = bface(2,nf) ! host cell of boundary face
-    cell_type = bface(3,nf) ! geometry type of host cell
-    face_loc = bface(4,nf)  ! face of host cell on boundary
+    host_geom = bface(3,nf) ! geometry type of host cell
+    host_side = bface(4,nf) ! face of host cell on boundary
     !
     n1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index for host cell nodes
     n2 = nodes_of_cell_ptr(host_cell+1) ! ending    index for host cell nodes
     !
-    ! Get the nodes of the host cell on the boundary face
+    ! Get the number of nodes defining this face
     !
-    select case (cell_type)
-      case (Geom_Quad)
-        bface_nodes(1:2,nf) = face_nodes_quad( face_loc , nodes_of_cell(n1:n2) )
-      case (Geom_Tria)
-        bface_nodes(1:2,nf) = face_nodes_tria( face_loc , nodes_of_cell(n1:n2) )
-      case (Geom_Tetr)
-        bface_nodes(1:3,nf) = face_nodes_tetr( face_loc , nodes_of_cell(n1:n2) )
-      case (Geom_Pyra)
-        bface_nodes(1:4,nf) = face_nodes_pyra( face_loc , nodes_of_cell(n1:n2) )
-      case (Geom_Pris)
-        bface_nodes(1:4,nf) = face_nodes_pris( face_loc , nodes_of_cell(n1:n2) )
-      case (Geom_Hexa)
-        bface_nodes(1:4,nf) = face_nodes_hexa( face_loc , nodes_of_cell(n1:n2) )
-      case default
-        bface_nodes(:,nf) = -Geom_Unknown
-    end select
+    nfnods = num_face_nodes(host_side,host_geom)
+    !
+    ! Node offsets for this face of the host cell
+    !
+    node_offsets(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    ! Use the node offsets to get the actual indices for these nodes
+    !
+    bface_nodes(1:nfnods,nf) = nodes_of_cell( n1 + node_offsets(1:nfnods) )
     !
   end do
   !
@@ -3678,10 +3672,10 @@ continue
       dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vel(2,1:np))
       dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vel(2,1:np))
       !
-      drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
-      dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J
-      drdy = -metrics(1,2,k)/jacobian(k) ! = -dxds/J
-      dsdy =  metrics(2,2,k)/jacobian(k) ! =  dyds/J
+      drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
+      dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
+      drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
+      dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !
@@ -3737,10 +3731,10 @@ continue
       dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vv(3,n1:n2))
       dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vv(3,n1:n2))
       !
-      drdx =  metrics(1,1,k)/jacobian(k) ! =  dxdr/J
-      dsdx = -metrics(2,1,k)/jacobian(k) ! = -dydr/J
-      drdy = -metrics(1,2,k)/jacobian(k) ! = -dxds/J
-      dsdy =  metrics(2,2,k)/jacobian(k) ! =  dyds/J
+      drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
+      dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
+      drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
+      dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !
@@ -3762,7 +3756,6 @@ end function vorticity_pv
 !
 include "Functions/last.f90"
 include "Functions/vortex.f90"
-include "Functions/face_nodes.f90"
 include "Functions/bc_priority.f90"
 include "Functions/viscosity.f90"
 include "Functions/entropy.f90"

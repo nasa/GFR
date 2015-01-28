@@ -124,12 +124,15 @@ end subroutine initialize_geom_solpts
 !
 !###############################################################################
 !
-subroutine find_geom_max_interp_order(cell_geom,cell_order,cells_on_face)
+subroutine find_geom_max_interp_order(cell_geom,cell_order,cells_on_left, &
+                                      cells_on_right,order_of_faces)
   !
   !.. Formal Arguments ..
-  integer, dimension(:),   intent(in) :: cell_geom
-  integer, dimension(:),   intent(in) :: cell_order
-  integer, dimension(:,:), intent(in) :: cells_on_face
+  integer, dimension(:), intent(in) :: cell_geom
+  integer, dimension(:), intent(in) :: cell_order
+  integer, dimension(:), intent(in) :: cells_on_left
+  integer, dimension(:), intent(in) :: cells_on_right
+  integer, dimension(:), intent(in) :: order_of_faces
   !
   !.. Local Scalars ..
   integer :: nf,face_order
@@ -140,10 +143,10 @@ continue
   !
   geom_mio = -1
   !
-  do nf = 1,size(cells_on_face,dim=2)
+  do nf = 1,size(order_of_faces)
     !
-    left_cell = cells_on_face(1,nf)
-    right_cell = cells_on_face(2,nf)
+    left_cell = cells_on_left(nf)
+    right_cell = cells_on_right(nf)
     !
     lgeom = cell_geom(left_cell)
     rgeom = cell_geom(right_cell)
@@ -151,7 +154,7 @@ continue
     lorder = cell_order(left_cell)
     rorder = cell_order(right_cell)
     !
-    face_order = cells_on_face(8,nf)
+    face_order = order_of_faces(nf)
     !
     geom_mio(lgeom,lorder) = max( geom_mio(lgeom,lorder) , face_order )
     geom_mio(rgeom,rorder) = max( geom_mio(rgeom,rorder) , face_order )

@@ -1,0 +1,86 @@
+* Replace cells_on_face with face_t datatype.
+   - Finish creating the flxpts component of the face array.
+
+* Replace cell_geom(nc) with cell(nc)%geom.
+* Replace cell_order(nc) with cell(nc)%order.
+* Replace pts_in_cell_ptr(nc)+1 with cell(nc)%beg_sp.
+* Replace pts_in_cell_ptr(nc+1) with cell(nc)%end_sp.
+
+* If using Lobatto points, look into a way of eliminating the use of the
+  interpolation matrices to compute values at the flux points. Even though the
+  interpolation matrices have the value one at each collocated solution/flux
+  point and are zero everywhere else, it can be assumed that at compile time
+  the compiler cant recognize this fact and properly optimize the dot product
+  operations used with these matrices to get these solution/flux point values.
+
+* Need to check alignment of flux points from opposing 3D cells on interfaces
+   - Need to verify the alignment of flxpts_of_cell(nc)%face(ncf)%cell_idx
+   - Need to verify the alignment of cells_on_face(5:6,nf)
+
+* Need to finish creating and applying the new flxpts_of_cell_dt throughout the code.
+   - The information stored in this array needs to be verified after its
+     creation in connectivity.f90
+      - Could the face_idx component be eliminated?
+         - As the array is currently set up, if looping:
+             k = 1,size(flxpts_of_cell(nc)%face(ncf)%cell_idx)
+           the loop variable k is the same value as
+             k == flxpts_of_cell(nc)%face(ncf)%face_idx(k)
+      - When making the cell_idx portion, remember that this might not be a
+        complete sequence across all the faces of a cell because different
+        faces might be different orders. Remember, the value given by
+        cell_idx is the location interp%toFace%mat(:,cell_idx(i)) and not
+        something specific to the cell.
+
+* Look into futher generalizing the nodal/face/cell orderings created in
+  kind_types.f90 to allow for easier changes if any need to be made.
+
+* Need to completely redo parallel communication code
+   - Need to figure out how to create the fusp_buffer and fdusp_buffer arrays
+     since the cells_on_face array doesnt exist when these are created.
+
+* Need to finish the grid metrics
+   - Need to figure out the metrics for curved boundaries/cells
+
+* Need to finish converting the procedures in flux.f90 to 3D.
+   - Most of it has been converted, the biggest remaining part is where
+     metrics are used.
+
+* When computing the correction to the flux, need to add code that accounts for
+  the case of a face that is of higher order than the cell so that the correction
+  is applied to the proper solution points.
+   - This is also needed when computing the gradient corrections.
+   - Requires finishing the creation of the projct matrices so that the higher
+     order face solution/flux/gradient can be projected down to the lower
+     order face/flux points of the attached cell.
+
+* Do the interp(:,:)%toCell(:)%mat matrices need to be created or can it wait
+   - This is needed if over-integration is to be used
+
+* Do we need to finish creating the projct matrices in projection_mod.f90
+   - This is needed if over-integration, alternative initialization points, the
+     projection limiter, or cells with varying solution orders are to be used
+
+* Need to finish creating the dqmat array
+   - This is needed if over-integration is to be used
+
+* Finish tetr/pyra/pris filter functions
+
+* Create functions that given an input of the number of solution points for a
+  geometry type, it returns the number of flux points for that geometry type.
+   
+* Create functions that given an input of the number of solution points for a
+  geometry type, it returns the solution order.
+   - The functions have been created, they just need to be applied throughout
+     the code. More specifically, the use of the function np2n needs to be
+     replaced with these newly created functions.
+
+* Create complimentary variables to maxpts such as maxSP and maxFP so that
+  temporary storage can be minimized if we know a temporary array is only used
+  for solution, flux or quadrature points.
+   - Replace maxpts with maxSP, maxFP, maxQP, and maxGP where applicable
+
+* Look into possibly initializing all arrays that are based on the matrix
+  datatype in one subroutine together within one loop to "simplify" things.
+
+* Need to figure out the face area part of the face integration
+

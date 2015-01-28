@@ -116,10 +116,10 @@ end subroutine get_constant_timestep
 subroutine get_cell_timestep(dtmin)
   !
   !.. Use Statements ..
-  use order_mod, only : nsp => n_sp1de
+  use order_mod, only : n_order
   !
   use geovar, only : nr,nfbnd,nface
-  use geovar, only : cells_on_face,pts_in_cell_ptr
+  use geovar, only : face,pts_in_cell_ptr
   use geovar, only : cell_geom,cell_order
   !
   use ovar, only : gam,Timestep_Type,Final_Time,time,CFL
@@ -135,8 +135,8 @@ subroutine get_cell_timestep(dtmin)
   !
   !.. Local Scalars ..
   integer  :: nf,k
-  integer  :: kbl,l1,l2,npl,kl
-  integer  :: kbr,r1,r2,npr,kr
+  integer  :: l1,l2,npl,kl
+  integer  :: r1,r2,npr,kr
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
@@ -160,16 +160,14 @@ continue
   left_interp => null()
   right_interp => null()
   !
-  pp1sq = real( nsp**2 , kind=wp )
+  pp1sq = real( (n_order+1)**2 , kind=wp )
   !
   dtmin = huge(zero)
   dtsp(:) = dtmin
   !
   do nf = 1,nfbnd
     !
-    host_cell = cells_on_face(1,nf) ! left cell on face
-    !
-    kbl = cells_on_face(5,nf) ! beginning flux point for left cell
+    host_cell = face(nf)%left%cell ! left cell on face
     !
     l1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in left cell
     l2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in left cell
@@ -184,20 +182,20 @@ continue
     !
     host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
     !
-    do k = 1,nsp
+    do k = 1,size( face(nf)%left%flxpts )
       !
-      kl = kbl-1 + k ! index for left cell
+      kl = face(nf)%left%flxpts(k)
       !
-      vl(1:nq) = usp2v_sp( faceusp(1:nq,k,1,nf) )
+      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
       !
-      mul = viscosity_cv_sp( faceusp(1:nq,k,1,nf) )
+      mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
       !
-      ds = rnorm2( geofa(1:nr,k,nf) )
+      ds = rnorm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(host_geom) ! face length/area for left cell
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(1:nr,k,nf)) )
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       !
       ! Speed of sound at this face
@@ -234,11 +232,8 @@ continue
   !
   do nf = nfbnd+1,nface
     !
-    left_cell = cells_on_face(1,nf) ! left  cell on face
-    right_cell = cells_on_face(2,nf) ! right cell on face
-    !
-    kbl = cells_on_face(5,nf) ! beginning flux point for left  cell
-    kbr = cells_on_face(6,nf) ! beginning flux point for right cell
+    left_cell = face(nf)%left%cell ! left  cell on face
+    right_cell = face(nf)%right%cell ! right cell on face
     !
     l1 = pts_in_cell_ptr(left_cell)+1 ! beginning index for sol-pts in left  cell
     l2 = pts_in_cell_ptr(left_cell+1) ! ending    index for sol-pts in right cell
@@ -261,25 +256,25 @@ continue
     left_interp => interp(left_geom,left_order)%toFace(left_order)%mat
     right_interp => interp(right_geom,right_order)%toFace(right_order)%mat
     !
-    do k = 1,nsp
+    do k = 1,size( face(nf)%left%flxpts )
       !
-      kl = kbl-1 + k ! index for left  cell
-      kr = kbr+1 - k ! index for right cell
+      kl = face(nf)%left%flxpts(k)
+      kr = face(nf)%right%flxpts(k)
       !
-      vl(1:nq) = usp2v_sp( faceusp(1:nq,k,1,nf) )
-      vr(1:nq) = usp2v_sp( faceusp(1:nq,k,2,nf) )
+      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
+      vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,2) )
       !
-      mul = viscosity_cv_sp( faceusp(1:nq,k,1,nf) )
-      mur = viscosity_cv_sp( faceusp(1:nq,k,2,nf) )
+      mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
+      mur = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,2) )
       !
-      ds = rnorm2( geofa(1:nr,k,nf) )
+      ds = rnorm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(left_geom) ! face length/area for left  cell
       dsr = ds * cl(right_geom) ! face length/area for right cell
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(1:nr,k,nf)) )
-     !velr = dot( vr(nmb:nme) , unit_vector(geofa(1:nr,k,nf)) )
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
+     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       velr = selfdot( vr(nmb:nme) )
       !
@@ -382,10 +377,10 @@ continue
   !
   do n = 1,n_solpts
     !
-    dxdr = metrics(1,1,n)
-    dydr = metrics(2,1,n)
-    dxds = metrics(1,2,n)
-    dyds = metrics(2,2,n)
+    dxdr = metrics(1,1,n,1)
+    dydr = metrics(2,1,n,1)
+    dxds = metrics(1,2,n,1)
+    dyds = metrics(2,2,n,1)
     !
     rho  = usp(nec,n)
     vel  = usp(nmb:nme,n)/rho

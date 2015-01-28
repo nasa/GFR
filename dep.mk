@@ -174,7 +174,6 @@ $(OBJDIR)/io.o : io.f90 \
               $(FUNDIR)/bc_string_to_integer.f90 \
               $(FUNDIR)/cell_vol.f90 \
               $(FUNDIR)/entropy.f90 \
-              $(FUNDIR)/face_nodes.f90 \
               $(FUNDIR)/last.f90 \
               $(FUNDIR)/mach_number.f90 \
               $(FUNDIR)/pressure.f90 \

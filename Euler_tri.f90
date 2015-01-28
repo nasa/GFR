@@ -79,10 +79,10 @@ program Euler_tri
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
-  use flux_mod, only : derflux1_qdtr
-  use flux_mod, only : derflux1_qdtr_with_visc
-  use flux_mod, only : correct_interface_flux_qdtr
-  use flux_mod, only : correct_interface_flux_qdtr_with_visc
+  use flux_mod, only : flux_gradient_at_solpts_with_qdtr
+  use flux_mod, only : flux_gradient_at_solpts_visc
+  use flux_mod, only : correct_interface_flux_with_qdtr
+  use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
   use flux_mod, only : correct_gradients_br2
@@ -331,11 +331,12 @@ continue
       !
      !if (governing_equations == Euler_Eqns) then
      !  !
-     !  call derflux1_qdtr
-     !  call correct_interface_flux_qdtr
+     !  call flux_gradient_at_solpts_with_qdtr
+     !  call correct_interface_flux_with_qdtr
      !  !
      !else if (governing_equations == NavierStokes_Eqns) then
         !
+      if (governing_equations == NavierStokes_Eqns) then
         call discontinuous_gradient_at_solpts
         if (visc_flux_method == visc_flux_BR2) then
           call correct_gradients_br2
@@ -344,8 +345,9 @@ continue
           call interp_dusp_to_flxpts
         end if
         call get_facedusp_bc
-        call derflux1_qdtr_with_visc
-        call correct_interface_flux_qdtr_with_visc
+      end if
+        call flux_gradient_at_solpts_visc
+        call correct_interface_flux_visc
         !
      !end if
       !

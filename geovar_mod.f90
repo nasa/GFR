@@ -55,14 +55,6 @@ module geovar
   !
   integer, public, save, allocatable, dimension(:) :: pts_in_cell_ptr
   !
-  type, public :: cell_type
-    integer :: geom
-    integer :: order
-  end type cell_type
-  !
-  type(cell_type), public, save, allocatable :: cell(:)
-  !
-  !
   ! cell_geom : this gives the geometry of each cell
   !
   integer, public, save, allocatable, dimension(:) :: cell_geom
@@ -202,48 +194,101 @@ module geovar
   !
   ! For face i_face, with the face vector going from
   ! nodes_on_face(1,i_face) to nodes_on_face(2,i_face), ...
-  ! cells_on_face(1,i_face) : attached cell to the left  of i_face
-  ! cells_on_face(2,i_face) : attached cell to the right of i_face
-  ! cells_on_face(3,i_face) : node of left  triangular cell not on i_face (quads = 0)
-  ! cells_on_face(4,i_face) : node of right triangular cell not on i_face (quads = 0)
-  ! cells_on_face(5,i_face) : index of correction function array needed for left  cell
-  ! cells_on_face(6,i_face) : index of correction function array needed for right cell
-  !
-  ! For Triangles : 
-  !   for cells_on_face(3,:) = (    1    ,     2     ,3)
-  !       cells_on_face(5,:) = (n_sp1de+1,2*n_sp1de+1,1)
-  !   for cells_on_face(4,:) = (    1    ,    2    ,   3   )
-  !       cells_on_face(6,:) = (2*n_sp1de,3*n_sp1de,n_sp1de)
-  ! For Quadrilaterals : 
-  !   for cells_on_face(3,:) = (    1    ,     2     ,     3     ,4)
-  !       cells_on_face(5,:) = (n_sp1de+1,2*n_sp1de+1,3*n_sp1de+1,1)
-  !   for cells_on_face(4,:) = (    1    ,    2    ,    3    ,   4   )
-  !       cells_on_face(6,:) = (2*n_sp1de,3*n_sp1de,4*n_sp1de,n_sp1de)
   !
   integer, public, save, allocatable, dimension(:,:) :: nodes_on_face
-  integer, public, save, allocatable, dimension(:,:) :: cells_on_face
   !
-  ! For cell i_cell, 
-  !    flxpts_of_cell_ptr(i_cell)+1 = first flux point for i_cell
-  !    flxpts_of_cell_ptr(i_cell+1) = last  flux point for i_cell
-  ! For flux point i_flxpt of i_cell
-  !    flxpts_of_cell(1,i_flxpt) = grid face that i_flxpt is on
-  !    flxpts_of_cell(2,i_flxpt) = index of i_flxpt on this face from 1:n_sp1de
-  !    flxpts_of_cell(3,i_flxpt) = index of lagrange polynomial for interpolating
-  !                                i_cell solution point data to i_flxpt
-  !    flxpts_of_cell(4,i_flxpt) = gives the side of the face i_cell lies on
   !
-  integer, public, parameter :: nflxprm = 4
-  !
-  integer, public, save, allocatable, dimension(:)   :: flxpts_of_cell_ptr
-  integer, public, save, allocatable, dimension(:,:) :: flxpts_of_cell
-  !
+  ! GEOM_CONN : 
   !
   type, public :: geom_conn
     integer, allocatable, dimension(:,:) :: connectivity
   end type geom_conn
   !
   type(geom_conn), public, save, allocatable, dimension(:,:) :: pst_geom
+  !
+  !
+  !
+  !
+  ! CELL_ON_FACE_T : derived type to store the information about
+  !                  a cell on one side of a given face
+  !
+  type, public :: cell_on_face_t
+    ! cell : index of the grid cell on the current side of the face
+    integer :: cell
+    ! cell_face : index for the side/surface of the cell that comprises
+    !             the current face
+    !               Examples: for a triangle, in the range 1:3, quad 1:4,
+    !                         tetr 1:4, pyra 1:5, pris 1:5, hexa 1:6
+    integer :: cell_face
+    integer, allocatable :: flxpts(:)
+  end type cell_on_face_t
+  !
+  ! FACE_T : derived type to store information for each grid face
+  !
+  type, public :: face_t
+    ! geom : geometry type of the current face
+    integer :: geom
+    ! order : solution order of the current face
+    !         NOTE: This is should be the maximum solution order between the two
+    !               cells attached to the current face.
+    integer :: order
+    ! left : Information for the cell on the left side of the current face.
+    !        NOTE: The normal to the current face always points AWAY FROM the
+    !              left cell on the face.
+    !        NOTE: If the current face is a boundary face, the left side is the
+    !              host/interior cell.
+    type(cell_on_face_t) :: left
+    ! right : Information for the cell on the right side of the current face.
+    !         NOTE: The normal to the current face always points TOWARDS / INTO
+    !               the right cell on the face.
+    !         NOTE: If the current face is a boundary face, the right side is
+    !               the ghost cell.
+    type(cell_on_face_t) :: right
+  end type face_t
+  !
+  ! FACE : Array of type face_t that contains information for all grid faces
+  !
+  type(face_t), public, save, allocatable :: face(:)
+  !
+  !
+  !
+  !
+  ! FACE_OF_CELL_T : derived type to store the information about the flux points
+  !                  on a given cell face
+  !
+  type, public :: face_of_cell_t
+    ! idx : index of the current face relative to all grid faces (1:nface)
+    integer :: idx
+    ! side : side of face that the current cell is on (1=left,2=right)
+    integer :: side
+    ! geom : geometry type of the current face
+    integer :: geom
+    ! order : polynomial order of the current face
+    integer :: order
+    ! face_idx : index of flx-pt relative to all flx-pts on the current face
+    integer, allocatable :: face_idx(:)
+    ! cell_idx : index of flx-pt relative to all flx-pts of the current cell
+    integer, allocatable :: cell_idx(:)
+  end type face_of_cell_t
+  !
+  ! CELL_T : derived type to store information for each grid cell
+  !
+  type, public :: cell_t
+    ! geom : geometry type of the current cell
+    integer :: geom
+    ! order : solution order of the current cell
+    integer :: order
+    ! beg_sp : index of first solution point in the current cell
+    integer :: beg_sp
+    ! end_sp : index of last  solution point in the current cell
+    integer :: end_sp
+    ! face : array giving the flx-pt information for all faces of the current cell
+    type(face_of_cell_t), allocatable :: face(:)
+  end type cell_t
+  !
+  ! CELL : Array of type cell_t that contains information for all grid cells
+  !
+  type(cell_t), public, save, allocatable :: cell(:)
   !
 contains
 !
@@ -369,24 +414,6 @@ continue
     array%mem = array%siz*storage_size(nodes_on_face)
     total%mem = total%mem + array%mem
     write (iunit,2) "'nodes_on_face'",array%get_units()
-  end if
-  if (allocated(cells_on_face)) then
-    array%siz = size(cells_on_face)
-    array%mem = array%siz*storage_size(cells_on_face)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'cells_on_face'",array%get_units()
-  end if
-  if (allocated(flxpts_of_cell_ptr)) then
-    array%siz = size(flxpts_of_cell_ptr)
-    array%mem = array%siz*storage_size(flxpts_of_cell_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'flxpts_of_cell_ptr'",array%get_units()
-  end if
-  if (allocated(flxpts_of_cell)) then
-    array%siz = size(flxpts_of_cell)
-    array%mem = array%siz*storage_size(flxpts_of_cell)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'flxpts_of_cell'",array%get_units()
   end if
   !
   total = total%get_units()

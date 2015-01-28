@@ -930,6 +930,20 @@ pure function CorrectionMatrix_Hexa(xi) result(return_value)
   !
 continue
   !
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #####  NOTE: THE ORDER OF THE FLUX POINTS IS SUCH THAT THE LOWEST   #####
+  ! #####        COORDINATE DIRECTION IS THE INNER MOST LOOP, i.e.,     #####
+  ! #####          FOR AN X-FACE, INNER LOOP OVER Y, OUTER LOOP OVER Z  #####
+  ! #####          FOR A  Y-FACE, INNER LOOP OVER X, OUTER LOOP OVER Z  #####
+  ! #####          FOR A  Z-FACE, INNER LOOP OVER X, OUTER LOOP OVER Y  #####
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  ! #########################################################################
+  !
   ! ###########################################################################
   ! ###########################################################################
   ! ####  NOTE: No need to use chopping function in this procedure. The    ####
@@ -995,8 +1009,8 @@ continue
   !
   ! Loops over points on this face
   !
-  do i = 1,nep
-    do j = 1,nep
+  do j = 1,nep
+    do i = 1,nep
       !
       ! Loop over interior solution points in z/zeta direction
       !
@@ -1020,8 +1034,8 @@ continue
   !
   ! Loops over points on this face
   !
-  do j = 1,nep
-    do k = 1,nep
+  do k = 1,nep
+    do j = 1,nep
       !
       ! Loop over interior solution points in x/xi direction
       !
@@ -1070,8 +1084,8 @@ continue
   !
   ! Loops over points on this face
   !
-  do i = 1,nep
-    do k = 1,nep
+  do k = 1,nep
+    do i = 1,nep
       !
       ! Loop over interior solution points in y/eta direction
       !
