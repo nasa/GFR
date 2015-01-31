@@ -1,12 +1,13 @@
 module geovar
   !
-  use module_kind_types, only : wp,Geom_Min,Geom_Max
+  use module_kind_types, only : wp,Geom_Min,Geom_Max,iout
   !
   implicit none
   !
   private
   !
   public :: geovar_alloc_status
+  public :: geovar_memory_usage
   !
   !  c - cells
   !  v - vertices
@@ -426,6 +427,212 @@ continue
   3 format (" Total memory = ",i0,1x,a)
   !
 end subroutine geovar_alloc_status
+!
+!###############################################################################
+!
+subroutine geovar_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j,k
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: face_idx,cell_idx
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  total%siz = 0
+  total%mem = 0
+  face_idx%siz = 0
+  face_idx%mem = 0
+  cell_idx%siz = 0
+  cell_idx%mem = 0
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(face)) then
+    !
+    !##########################################################
+   !type, public :: cell_on_face_t
+   !  integer :: cell
+   !  integer :: cell_face
+   !  integer, allocatable :: flxpts(:)
+   !end type cell_on_face_t
+   !type, public :: face_t
+   !  integer :: geom
+   !  integer :: order
+   !  type(cell_on_face_t) :: left
+   !  type(cell_on_face_t) :: right
+   !end type face_t
+   !type(face_t), public, save, allocatable :: face(:)
+    !##########################################################
+    !
+    array%siz = size(face)
+    array%mem = array%siz*storage_size(face)
+    array_name = "face"
+    write (iou,2) array_name,array%get_units()
+    !
+    dt%siz = array%siz
+    dt%mem = array%mem
+    !
+    do i = lbound(face,dim=1),ubound(face,dim=1)
+      !
+      dt%siz = dt%siz + 8
+      dt%mem = dt%mem + storage_size(face(i)%geom) + &
+                        storage_size(face(i)%order) + &
+                        storage_size(face(i)%left) + &
+                        storage_size(face(i)%left%cell) + &
+                        storage_size(face(i)%left%cell_face) + &
+                        storage_size(face(i)%right) + &
+                        storage_size(face(i)%right%cell) + &
+                        storage_size(face(i)%right%cell_face)
+      !
+      if (allocated(face(i)%left%flxpts)) then
+        dt%siz = dt%siz + size(face(i)%left%flxpts)
+        dt%mem = dt%mem + size(face(i)%left%flxpts)*storage_size(face(i)%left%flxpts)
+      end if
+      !
+      if (allocated(face(i)%right%flxpts)) then
+        dt%siz = dt%siz + size(face(i)%right%flxpts)
+        dt%mem = dt%mem + size(face(i)%right%flxpts)*storage_size(face(i)%right%flxpts)
+      end if
+      !
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "face"
+    write (iou,2) array_name,dt%get_units()
+    !
+    ! Try the Intel language extension intrinsic function sizeof
+    !
+    dt%mem = int(sizeof(face))
+    dt = dt%get_units()
+    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    !
+  end if
+  !
+  if (allocated(cell)) then
+    !
+    !##########################################################
+   !type, public :: face_of_cell_t
+   !  integer :: idx
+   !  integer :: side
+   !  integer :: geom
+   !  integer :: order
+   !  integer, allocatable :: face_idx(:)
+   !  integer, allocatable :: cell_idx(:)
+   !end type face_of_cell_t
+   !type, public :: cell_t
+   !  integer :: geom
+   !  integer :: order
+   !  integer :: beg_sp
+   !  integer :: end_sp
+   !  type(face_of_cell_t), allocatable :: face(:)
+   !end type cell_t
+   !type(cell_t), public, save, allocatable :: cell(:)
+    !##########################################################
+    !
+    array%siz = size(cell)
+    array%mem = array%siz*storage_size(cell)
+    array_name = "cell"
+    write (iou,2) array_name,array%get_units()
+    !
+    dt%siz = array%siz
+    dt%mem = array%mem
+    !
+    do i = lbound(cell,dim=1),ubound(cell,dim=1)
+      !
+      dt%siz = dt%siz + 4
+      dt%mem = dt%mem + storage_size(cell(i)%geom) + &
+                        storage_size(cell(i)%order) + &
+                        storage_size(cell(i)%beg_sp) + &
+                        storage_size(cell(i)%end_sp)
+      !
+      if (allocated(cell(i)%face)) then
+        !
+        array%siz = size(cell(i)%face)
+        array%mem = array%siz*storage_size(cell(i)%face)
+        dt%siz = dt%siz + array%siz
+        dt%mem = dt%mem + array%mem
+        !
+        do j = lbound(cell(i)%face,dim=1),ubound(cell(i)%face,dim=1)
+          !
+          dt%siz = dt%siz + 4
+          dt%mem = dt%mem + storage_size(cell(i)%face(j)%idx) + &
+                            storage_size(cell(i)%face(j)%side) + &
+                            storage_size(cell(i)%face(j)%geom) + &
+                            storage_size(cell(i)%face(j)%order)
+          !
+          if (allocated(cell(i)%face(j)%face_idx)) then
+            array%siz = size(cell(i)%face(j)%face_idx)
+            array%mem = array%siz*size(cell(i)%face(j)%face_idx)
+            face_idx%siz = face_idx%siz + array%siz
+            face_idx%mem = face_idx%mem + array%mem
+            dt%siz = dt%siz + array%siz
+            dt%mem = dt%mem + array%mem
+          end if
+          !
+          if (allocated(cell(i)%face(j)%cell_idx)) then
+            array%siz = size(cell(i)%face(j)%cell_idx)
+            array%mem = array%siz*size(cell(i)%face(j)%cell_idx)
+            cell_idx%siz = cell_idx%siz + array%siz
+            cell_idx%mem = cell_idx%mem + array%mem
+            dt%siz = dt%siz + array%siz
+            dt%mem = dt%mem + array%mem
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end do
+    !
+    total%mem = total%mem + dt%mem
+    write (array_name,5) "cell%face%face_idx"
+    write (iou,2) array_name,face_idx%get_units()
+    write (array_name,5) "cell%face%cell_idx"
+    write (iou,2) array_name,cell_idx%get_units()
+    write (array_name,5) "cell"
+    write (iou,2) array_name,dt%get_units()
+    !
+    ! Try the Intel language extension intrinsic function sizeof
+    !
+    dt%mem = int(sizeof(cell))
+    dt = dt%get_units()
+    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))
+  !
+  ! Try the Intel language extension intrinsic function sizeof
+  !
+  total%mem = int(sizeof(face)) + int(sizeof(cell))
+  total = total%get_units()
+  write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module geovar")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",i0,1x,a,:,a)
+  4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  5 format ("'",a,"'")
+  6 format (" Array: ",a," memory = ",i0,1x,a,a)
+  !
+end subroutine geovar_memory_usage
 !
 !###############################################################################
 !

@@ -1272,11 +1272,11 @@ continue
   !
   do jfa = 1,nfp1d
     !
-    xyz_qp(1) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+    xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(2) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -1312,11 +1312,11 @@ continue
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(2) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do jfa = 1,nfp1d
       !
-      xyz_qp(3) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
+      xyz_qp(2) = flxpts_qp(jfa) ! y/eta coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points
@@ -1392,11 +1392,11 @@ continue
   !
   do kfa = 1,nfp1d
     !
-    xyz_qp(1) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
+    xyz_qp(3) = flxpts_qp(kfa) ! z/zeta coordinate of current face/flux point
     !
     do ifa = 1,nfp1d
       !
-      xyz_qp(3) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
+      xyz_qp(1) = flxpts_qp(ifa) ! x/xi coordinate of current face/flux point
       !
       ! Loop to get the value of the Lagrange polynomial for the current
       ! face/flux point at each of the interior solution points

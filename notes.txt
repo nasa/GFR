@@ -1,10 +1,14 @@
-* Replace cells_on_face with face_t datatype.
-   - Finish creating the flxpts component of the face array.
+
+* Clean up stuff regarding rotating flux points.
+
+* Finish creating the flxpts component of the face array.
 
 * Replace cell_geom(nc) with cell(nc)%geom.
 * Replace cell_order(nc) with cell(nc)%order.
 * Replace pts_in_cell_ptr(nc)+1 with cell(nc)%beg_sp.
 * Replace pts_in_cell_ptr(nc+1) with cell(nc)%end_sp.
+
+* Timestepping procedures need to be fine tuned with the new datatypes.
 
 * If using Lobatto points, look into a way of eliminating the use of the
   interpolation matrices to compute values at the flux points. Even though the
@@ -14,17 +18,25 @@
   operations used with these matrices to get these solution/flux point values.
 
 * Need to check alignment of flux points from opposing 3D cells on interfaces
-   - Need to verify the alignment of flxpts_of_cell(nc)%face(ncf)%cell_idx
-   - Need to verify the alignment of cells_on_face(5:6,nf)
+   - Need to verify the alignment of cell(nc)%face(ncf)%cell_idx
+   - Need to verify the alignment of face(nf)%left/right%flxpts
+      - IMPORTANT MEMORY RAMIFICATIONS: Are these two arrays duplicates of each
+        other and could one possibly be removed?
+   - To test these alignments, use Gauss solution points and interpolate the
+     coordinates of the solution points to get the coordinates of the Gauss face
+     points. Create a file containing all the face coordinates from the left
+     cells and another file containing all the face coordinates fromt he right
+     cells. A diff should say these files are the same if the alignments on
+     both sides are correct.
 
-* Need to finish creating and applying the new flxpts_of_cell_dt throughout the code.
+* Need to finish creating and applying the new cell array throughout the code.
    - The information stored in this array needs to be verified after its
      creation in connectivity.f90
       - Could the face_idx component be eliminated?
          - As the array is currently set up, if looping:
-             k = 1,size(flxpts_of_cell(nc)%face(ncf)%cell_idx)
+             k = 1,size(cell(nc)%face(ncf)%cell_idx)
            the loop variable k is the same value as
-             k == flxpts_of_cell(nc)%face(ncf)%face_idx(k)
+             k == cell(nc)%face(ncf)%face_idx(k)
       - When making the cell_idx portion, remember that this might not be a
         complete sequence across all the faces of a cell because different
         faces might be different orders. Remember, the value given by
@@ -33,10 +45,13 @@
 
 * Look into futher generalizing the nodal/face/cell orderings created in
   kind_types.f90 to allow for easier changes if any need to be made.
+   - Will need to adjust the order of the faces within correct and
+     interp(:)%toFace as well. For example, look at InterpToFace_Hexa and
+     CorrectionMatrix_Hexa.
 
 * Need to completely redo parallel communication code
    - Need to figure out how to create the fusp_buffer and fdusp_buffer arrays
-     since the cells_on_face array doesnt exist when these are created.
+     since the face array doesnt exist when these are created.
 
 * Need to finish the grid metrics
    - Need to figure out the metrics for curved boundaries/cells

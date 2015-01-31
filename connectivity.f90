@@ -356,19 +356,8 @@ end subroutine find_cells_surrounding_each_cell
 !
 subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !
-  ! For face i_face, ...
-  ! nodes_on_face(1:2,i_face) : grid nodes defining i_face
-  !
-  ! For face i_face, with the face vector going from
-  ! nodes_on_face(1,i_face) to nodes_on_face(2,i_face), ...
-  ! face(i_face)%left%cell       : attached cell to the left  of i_face
-  ! face(i_face)%right%cell      : attached cell to the right of i_face
-  ! face(i_face)%left%cell_face  : side/face of the left  cell on i_face
-  ! face(i_face)%right%cell_face : side/face of the right cell on i_face
-  ! face(i_face)%left%flxpts     : index of correction function array needed for left  cell
-  ! face(i_face)%right%flxpts    : index of correction function array needed for right cell
-  ! face(i_face)%geom            : geometry of i_face
-  ! face(i_face)%order           : order of i_face
+  ! Procedure that creates the face and nodes_on_face arrays. Look in
+  ! the module geovar for definitions of each array.
   !
   !.. Use Statements ..
   use order_mod, only : geom_solpts
@@ -376,7 +365,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   use geovar,    only : nr,nfbnd,nface,ncell,n_totnod
   use geovar,    only : xyz_nodes,bface,cell_geom,cell_order
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : nodes_on_face
+  use geovar,    only : nodes_on_face,pts_in_cell_ptr,xyz
   use geovar,    only : face
   !
   !.. Formal Arguments ..
@@ -386,7 +375,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
   integer :: i,ic,ifa,ip1,ip2,ip3,jc
-  integer :: face_counter,nfp
+  integer :: face_counter,nfp,l1,r1,l2,r2
   integer :: left_cell,left_geom
   integer :: host_cell,ghost_cell,host_geom
   integer :: host_side,nfnods,ncnods
@@ -397,12 +386,15 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   integer :: left_order,right_order
   character(len=200) :: array_name
   character(len=200) :: error_message
+  logical :: bad_points_found
   !
   real(wp) :: dir
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: lnode
   integer, dimension(1:4) :: ip
+  integer, dimension(1:4) :: left_nodes
+  integer, dimension(1:4) :: right_nodes
   real(wp), dimension(1:nr) :: rnrm
   real(wp), dimension(1:nr) :: face_center
   real(wp), dimension(1:nr) :: cell_center
@@ -438,6 +430,8 @@ continue
     !
   end do
   !
+ !write (iout,*) "Before allocating face array"
+ !read (*,*)
   allocate ( face(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face",1,ierr,error_message)
   !
@@ -712,9 +706,11 @@ continue
   ! ###########
   ! ###########
   !
-  ! Get the starting index used in the correction procedure for both sides of
-  ! the faces
+  ! For each cell on the face, get the indices for the face/flux points of the
+  ! cell that are on this face. These indices are used in the correct and
+  ! interp(:)%toFace matrices.
   !
+  bad_points_found = fals
   do nf = 1,nface
     !
     left_cell = face(nf)%left%cell
@@ -723,6 +719,9 @@ continue
     left_side = face(nf)%left%cell_face
     right_side = face(nf)%right%cell_face
     !
+    left_geom = cell_geom(left_cell)
+    right_geom = cell_geom(right_cell)
+    !
     left_order = cell_order(left_cell)
     right_order = cell_order(right_cell)
     !
@@ -730,6 +729,21 @@ continue
     face_order = face(nf)%order
     !
     nfp = geom_solpts(face_geom,face_order)
+    !
+    nfnods = geom_nodes(face_geom)
+    !
+    l1 = nodes_of_cell_ptr(left_cell)+1
+    l2 = nodes_of_cell_ptr(left_cell+1)
+    !
+    r1 = nodes_of_cell_ptr(right_cell)+1
+    r2 = nodes_of_cell_ptr(right_cell+1)
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,left_side,left_geom)
+    left_nodes(1:nfnods) = nodes_of_cell(l1 + ip(1:nfnods))
+    !
+    ! #############################
+    ! ### LEFT CELL ON THE FACE ###
+    ! #############################
     !
     ! Allocate the flxpts component of the face array for the left cell
     !
@@ -752,9 +766,14 @@ continue
       !
     end do
     !
-    do n = 1,nfp
-      face(nf)%left%flxpts(n) = face_pts-1 + n
-    end do
+    face(nf)%left%flxpts = face_pts + intseq(0,nfp-1)
+   !do n = 1,nfp
+   !  face(nf)%left%flxpts(n) = face_pts-1 + n
+   !end do
+    !
+    ! ##############################
+    ! ### RIGHT CELL ON THE FACE ###
+    ! ##############################
     !
     ! For the right cell, it depends on whether
     ! this is a boundary or interior face
@@ -768,6 +787,9 @@ continue
     !
     if (nf <= nfbnd) then
       !
+      ip(1:nfnods) = intseq(0,nfnods-1)
+      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
+      !
       ! This is a boundary face so the starting index is just
       ! the number of face points on the boundary face
       !
@@ -776,11 +798,13 @@ continue
       !
     else
       !
-      ! This is an interior face so the starting index is the sum of all
-      ! face points for all faces up to and including the current face.
+      ! This is an interior face so the starting index is 
       !
-      face_pts = 0
-      do ncf = 1,right_side
+      ip(1:nfnods) = side_nodes(1:nfnods,right_side,right_geom)
+      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
+      !
+      face_pts = 1
+      do ncf = 1,right_side-1
         !
         ifa = faces_of_cell(ncf,right_cell)
         !
@@ -791,9 +815,47 @@ continue
       !
     end if
     !
-    do n = 1,nfp
-      face(nf)%right%flxpts(n) = face_pts+1 - n
-    end do
+    ! Get the flux point rotation for the right cell
+    !
+    if (face_geom == Geom_Edge) then
+      !
+      do n = 1,nfp
+        face(nf)%right%flxpts(n) = face_pts + nfp - n
+      end do
+      !
+    else if (face_geom == Geom_Quad) then
+      !
+     !face(nf)%right%flxpts = face_pts + RotateFluxPoints_Quad(left_nodes(1:nfnods), &
+     !                                                         right_nodes(1:nfnods), &
+     !                                                         face_order)
+      face(nf)%right%flxpts = face_pts
+     !call RotateFluxPoints_Quad_sub_old(left_nodes(1:nfnods),right_nodes(1:nfnods), &
+     !                               face_order,face(nf)%right%flxpts,n)
+      call RotateFluxPoints_Quad_sub(nodes_of_cell(l1:l2),left_geom,left_side, &
+                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+                                     face_order,face(nf)%right%flxpts,n)
+      !
+     !write (160,101) left_side,right_side,n
+     !write (160,101) left_nodes(1:nfnods)
+     !write (160,101) right_nodes(1:nfnods)
+     !write (160,*)
+     !if (nf == nfbnd) then
+     !  write (160,*) "################################"
+     !  write (160,*)
+     !end if
+     !101 format (*(i6))
+     !!
+      if (all(face(nf)%right%flxpts == face_pts)) bad_points_found = true
+      !
+    else if (face_geom == Geom_Tria) then
+      !
+      face(nf)%right%flxpts = face_pts + RotateFluxPoints_Tria(left_nodes(1:nfnods), &
+                                                               right_nodes(1:nfnods), &
+                                                               nfp)
+      !
+      if (all(face(nf)%right%flxpts == face_pts)) bad_points_found = true
+      !
+    end if
     !
    !face_geom = face(nf)%geom
    !face_order = face(nf)%order
@@ -810,6 +872,11 @@ continue
     !
   end do
   !
+  if (bad_points_found) then
+    write (iout,*) "There was an error rotating flux points!"
+    call stop_recon(stop_mpi,pname)
+  end if
+  !
   ! ###########
   ! ###########
   ! ###  8  ###
@@ -822,6 +889,8 @@ continue
   !
   call find_geom_max_interp_order(cell_geom,cell_order,face(:)%left%cell, &
                                   face(:)%right%cell,face(:)%order)
+ !write (iout,*) "After creating face array"
+ !read (*,*)
   !
   ! Format Statements
   !
@@ -895,6 +964,8 @@ continue
   !
   ! Allocate the outer part of the cell array
   !
+ !write (iout,*) "Before allocating cell array"
+ !read (*,*)
   allocate ( cell(1:ncell) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell",1,ierr,error_message)
   !
@@ -1107,6 +1178,26 @@ continue
    !end do
     !
   end do
+ !write (iout,*) "After creating cell array"
+ !read (*,*)
+ !!
+ !! Test if the cell%face%cell_idx and face%left/right%flxpts arrays are
+ !! duplicates of each other and whether or not one should be deleted/removed.
+ !!
+ !do nc = 1,ncell
+ !  do ncf = 1,size(cell(nc)%face)
+ !    k = cell(nc)%face(ncf)%side
+ !    nf = cell(nc)%face(ncf)%idx
+ !    write (130,2) cell(nc)%face(ncf)%cell_idx(:)
+ !    write (132,2) cell(nc)%face(ncf)%face_idx(:)
+ !    if (k == 1) then
+ !      write (131,2) face(nf)%left%flxpts(:)
+ !    else
+ !      write (131,2) face(nf)%right%flxpts(:)
+ !    end if
+ !  end do
+ !end do
+ !2 format (*(i4))
   !
   ! Format Statements
   !
@@ -1472,6 +1563,7 @@ end subroutine get_unit_cell_subconnectivity
 !###############################################################################
 !
 include "Functions/last.f90"
+include "Functions/rotatefluxpoints.f90"
 !
 !###############################################################################
 !

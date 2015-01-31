@@ -43,6 +43,7 @@ $(OBJDIR)/connectivity.o : connectivity.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/order_mod.o \
+              $(FUNDIR)/rotatefluxpoints.f90 \
               $(FUNDIR)/last.f90
 
 $(OBJDIR)/correction_mod.o : correction_mod.f90 \

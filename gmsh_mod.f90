@@ -1125,6 +1125,9 @@ continue
       bface( 5,nf) = i                       ! group for boundary face
       bface(10,nf) = ncell + nf              ! ghost cell of boundary face
       !
+      host_cell = bface(2,nf) ! host cell of boundary face
+      host_geom = bface(3,nf) ! geometry of host cell
+      !
       ! If the cell geometry is a node or edge, change ifa to a special value.
       ! Otherwise, continue on to finding the side of the host cell that is
       ! on the boundary.
@@ -1142,9 +1145,6 @@ continue
       else
         !
         ! Find which face of the host cell is on the boundary
-        !
-        host_cell = bface(2,nf) ! host cell of boundary face
-        host_geom = bface(3,nf) ! geometry of host cell
         !
         h1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index for host cell nodes
         h2 = nodes_of_cell_ptr(host_cell+1) ! ending    index for host cell nodes

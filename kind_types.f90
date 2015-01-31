@@ -308,6 +308,20 @@ module module_kind_types
   character(len=100), protected, save :: Geom_String(Geom_Min:Geom_Max)
   character(len=9),   protected, save :: Geom_Name(Geom_Min:Geom_Max)
   !
+  integer, parameter :: Zmin3D_Face = 1
+  integer, parameter :: Zmax3D_Face = 2
+  integer, parameter :: Xmax3D_Face = 3
+  integer, parameter :: Xmin3D_Face = 4
+  integer, parameter :: Ymin3D_Face = 5
+  integer, parameter :: Ymax3D_Face = 6
+  !
+  integer, parameter :: Ymin2D_Face = 1
+  integer, parameter :: Xmax2D_Face = 2
+  integer, parameter :: Ymax2D_Face = 3
+  integer, parameter :: Xmin2D_Face = 4
+  integer, parameter :: Zmin2D_Face = 0
+  integer, parameter :: Zmax2D_Face = 0
+  !
   integer, parameter :: Xmin1D = 0
   integer, parameter :: Xmax1D = 1
   !
@@ -316,15 +330,19 @@ module module_kind_types
   integer, parameter :: Ymin2D(1:2) = [0,1]
   integer, parameter :: Ymax2D(1:2) = [2,3]
   !
-  integer, parameter :: Xmin3D(1:4) = [3,0,4,7]
+  integer, parameter :: Xmin3D(1:4) = [0,4,7,3]
   integer, parameter :: Xmax3D(1:4) = [1,2,6,5]
   integer, parameter :: Ymin3D(1:4) = [0,1,5,4]
-  integer, parameter :: Ymax3D(1:4) = [2,3,7,6]
+  integer, parameter :: Ymax3D(1:4) = [3,7,6,2]
   integer, parameter :: Zmin3D(1:4) = [0,3,2,1]
   integer, parameter :: Zmax3D(1:4) = [4,5,6,7]
   !
-  integer, parameter :: HostFace2D(1:6) = [4,2,1,3,0,0]
-  integer, parameter :: HostFace3D(1:6) = [4,3,5,6,1,2]
+  integer, parameter :: HostFace2D(1:6) = [Xmin2D_Face,Xmax2D_Face, &
+                                           Ymin2D_Face,Ymax2D_Face, &
+                                           Zmin2D_Face,Zmax2D_Face]
+  integer, parameter :: HostFace3D(1:6) = [Xmin3D_Face,Xmax3D_Face, &
+                                           Ymin3D_Face,Ymax3D_Face, &
+                                           Zmin3D_Face,Zmax3D_Face]
   !
   ! Minimum/Maximum Order Allowed
   integer, parameter :: Order_Min = 0

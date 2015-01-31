@@ -9,6 +9,7 @@ program Euler_tri
   use geovar, only : bface,xyz_nodes
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : geovar_memory_usage
   !
   use ovar, only : beg_wall_time,end_wall_time,max_wall_time
   use ovar, only : work_units,wall_time,walltime_expiring
@@ -32,6 +33,7 @@ program Euler_tri
   use io_mod, only : write_final_error
   use io_mod, only : write_nodal_parallel_cgns
   use io_mod, only : write_results_file
+  use io_mod, only : check_flux_point_orderings
   !
   use mappings_mod, only : get_solution_points
   !
@@ -206,6 +208,7 @@ continue
           action="write",form="formatted",position="rewind",iostat=ierr)
     call io_error(pname,"memory_usage.dat",1,ierr)
     !
+    call geovar_memory_usage(i)
     call vandermonde_memory_usage(i)
     call derivatives_memory_usage(i)
     call correction_memory_usage(i)
@@ -260,6 +263,8 @@ continue
   if (mypnum == 0) then
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
+  !
+  call check_flux_point_orderings
   !
   ! Initialize any necessary information for use in the module generic_mod
   !

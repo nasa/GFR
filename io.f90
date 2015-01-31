@@ -26,6 +26,7 @@ module io_mod
   public :: write_final_error
   public :: write_nodal_parallel_cgns
   public :: write_results_file
+  public :: check_flux_point_orderings
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -3181,6 +3182,98 @@ continue
   !-----------------------------------------------------------------------------
   !
 end subroutine write_nodal_parallel_cgns
+!
+!###############################################################################
+!
+subroutine check_flux_point_orderings()
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP,geom_solpts
+  use geovar, only : ncell,cell
+  use geovar, only : nfbnd,nface,face
+  use geovar, only : nr,xyz
+  use interpolation_mod, only : interp
+  !
+  !.. Local Scalars ..
+  integer :: nf,nfp,k,kl,kr,l
+  integer :: l1,l2,r1,r2,npl,npr
+  integer :: face_geom,face_order
+  integer :: left_cell,left_geom,left_order
+  integer :: right_cell,right_geom,right_order
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:maxSP) :: lmat
+  real(wp), dimension(1:nr) :: xyz_fp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_flux_point_orderings"
+  !
+continue
+  !
+  write (151,*)
+  write (152,*)
+  !
+  do nf = nfbnd+1,nface
+    !
+    write (151,2) nf-nfbnd
+    write (152,2) nf-nfbnd
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    left_cell = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    right_geom = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
+    !
+    l1 = cell(left_cell)%beg_sp
+    l2 = cell(left_cell)%end_sp
+    npl = l2-l1+1
+    !
+    r1 = cell(right_cell)%beg_sp
+    r2 = cell(right_cell)%end_sp
+    npr = r2-r1+1
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    do k = 1,nfp
+      !
+      kl = face(nf)%left%flxpts(k)
+      kr = face(nf)%right%flxpts(k)
+      !
+      lmat(1:npl) = interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
+      do l = 1,nr
+        xyz_fp(l) = dot( lmat(1:npl) , xyz(l,l1:l2) )
+      end do
+      !
+      write (151,1) kl,xyz_fp(1:nr)
+      !
+      lmat(1:npr) = interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
+      do l = 1,nr
+        xyz_fp(l) = dot( lmat(1:npr) , xyz(l,r1:r2) )
+      end do
+      !
+      write (152,1) kr,xyz_fp(1:nr)
+      !
+    end do
+    !
+  end do
+  !
+ !call stop_recon(stop_mpi,pname)
+  !
+  ! Format Statements
+  !
+ !1 format (i4,*(es23.15))
+  1 format (i4,*(es12.4))
+  2 format (/,"#######################################################",/, &
+              "#################  FACE ",i0,"  ###########################",/, &
+              "#######################################################",/)
+  !
+end subroutine check_flux_point_orderings
 !
 !###############################################################################
 !
