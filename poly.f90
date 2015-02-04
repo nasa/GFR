@@ -1673,7 +1673,7 @@ continue
   !
   return_value(1,1) = zero
   !
-  if (n <= 1) return
+  if (np <= 1) return
   !
   ! Compute the zeros of the Legendre Gauss polynomial of
   ! order 'n' and the value of the derivative at each zero
@@ -3371,7 +3371,7 @@ continue
   !
   return_value(1,1) = zero
   !
-  if (n <= 1) return
+  if (np <= 1) return
   !
   ! Compute the zeros of the Legendre Gauss polynomial of
   ! order 'n' and the value of the derivative at each zero
