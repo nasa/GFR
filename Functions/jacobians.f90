@@ -187,8 +187,10 @@ continue
     !
     ! Compute the jacobian using the equation
     !   jacobian = d3 .dot. (d1 .cross. d2)
+    ! NOTE: Must use dot_product here because there is no quad precision
+    !       BLAS dot function
     !
-    return_value = dot( d3 , cross_product( d1 , d2 ) )
+    return_value = dot_product( d3 , cross_product( d1 , d2 ) )
     !
   end if
   !
