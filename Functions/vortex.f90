@@ -129,6 +129,63 @@ end subroutine vortex_position
 !
 !###############################################################################
 !
+pure function vortex_offset(xyz) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,velref,aref
+  use ovar, only : Period_Timesteps,Period_Time
+  use ovar, only : Grid_Length,Grid_Min
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: xyz
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:size(xyz,dim=1),1:size(xyz,dim=2)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nr,np,l,k
+  real(wp) :: delt_since_lastperiod
+  !
+  !.. Local Arrays ..
+  real(wp) :: del(1:size(xyz,dim=1))
+  !
+continue
+  !
+  nr = size(xyz,dim=1)
+  np = size(xyz,dim=2)
+  !
+  ! Compute the time that has elapsed since the start of the current period
+  !
+  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),wp) &
+                        / real(Period_Timesteps,wp)
+  delt_since_lastperiod = delt_since_lastperiod * Period_Time
+  !
+  ! Find the x and y distances the vortex has
+  ! traveled since the start of the current period
+  !
+  do l = 1,nr
+    del(l) = deltafun(velref(l)>eps3) * (velref(l)/aref) * delt_since_lastperiod
+  end do
+  !
+  ! Now translate these into a periodic domain
+  ! with the grid lengths for each direction
+  !
+  do l = 1,nr
+    del(l) = mod(del(l),Grid_Length(l))
+  end do
+  !
+  do k = 1,np
+    do l = 1,nr
+      return_value(l,k) = xyz(l,k) - merge( del(l) , &
+                                            del(l) - Grid_Length(l) , &
+                                            xyz(l,k) - del(l) >= Grid_Min(l) )
+    end do
+  end do
+  !
+end function vortex_offset
+!
+!###############################################################################
+!
 !pure function vortex3D(xyz) result(return_value)
 !end function vortex3D
 !
