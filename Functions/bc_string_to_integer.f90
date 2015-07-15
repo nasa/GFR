@@ -31,6 +31,15 @@ continue
     ne = len_trim(text)
   end do
   !
+  ! Remove all underscores from the character string
+  !
+  do
+    n = index(text(nb:ne),"_")
+    if (n == 0) exit
+    text = text(nb:n-1) // text(n+1:ne)
+    ne = len_trim(text)
+  end do
+  !
   ! Remove the substring "BOUNDARY" if it exists
   !
   n = index(text(nb:ne),cbnd)
@@ -85,6 +94,8 @@ continue
       return_value = bc_symmetry
     case ("PERIODIC")
       return_value = bc_periodic
+    case ("MMS_DIRICHLET","MMSDIRICHLET")
+      return_value = bc_mms_dirichlet
       !
     case default
       return_value = bc_unknown
