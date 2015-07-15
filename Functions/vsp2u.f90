@@ -22,7 +22,7 @@ end function vsp2u
 pure function vsp2u_sp(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv
@@ -42,6 +42,12 @@ continue
   return_value(nec)     = vv(nec)
   return_value(nmb:nme) = vv(nec)*vv(nmb:nme)
   return_value(nee)     = vv(nee)/gm1 + half*vv(nec)*q2
+  !
+  if (include_tke_in_energy) then
+    return_value(ntk) = vv(nec) * vv(ntk)
+    return_value(ntl) = vv(nec) * vv(ntl)
+    return_value(nee) = return_value(nee) + return_value(ntk)
+  end if
   !
 end function vsp2u_sp
 !

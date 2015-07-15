@@ -1,7 +1,7 @@
 pure function pressure_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -25,6 +25,12 @@ continue
     !
   end do
   !
+  if (include_tke_in_energy) then
+    do n = 1,size(uu,dim=2)
+      return_value(n) = return_value(n) - gm1*uu(ntk,n)
+    end do
+  end if
+  !
 end function pressure_cv
 !
 !###############################################################################
@@ -32,7 +38,7 @@ end function pressure_cv
 pure function pressure_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -50,6 +56,8 @@ continue
   q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
   return_value = gm1 * (uu(nee) - half*q2/uu(nec))
+  !
+  if (include_tke_in_energy) return_value = return_value - gm1*uu(ntk)
   !
 end function pressure_cv_sp
 !

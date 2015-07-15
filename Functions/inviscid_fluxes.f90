@@ -3,7 +3,7 @@ pure function normal_invs_flx_cv(uu,rnrm) result(return_value)
   use geovar, only : nr
   !
   real(wp), dimension(1:nq), intent(in) :: uu
-  real(wp), dimension(1:nr),    intent(in) :: rnrm
+  real(wp), dimension(1:nr), intent(in) :: rnrm
   !
   real(wp), dimension(1:nq) :: return_value
   !
@@ -27,6 +27,8 @@ end function normal_invs_flx_cv
 pure function invs_flx_cv(uu,dir) result(return_value) 
   !
   use ovar, only : gam
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
   !
   integer,                   intent(in) :: dir
   real(wp), dimension(1:nq), intent(in) :: uu
@@ -34,18 +36,29 @@ pure function invs_flx_cv(uu,dir) result(return_value)
   real(wp), dimension(1:nq) :: return_value
   !
   integer :: meq
-  real(wp) :: pres
+  real(wp) :: pres,flxvel
   !
 continue
   !
   meq = nec + dir
   !
+  flxvel = uu(meq)/uu(nec)
+  !
   pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
   !
   return_value(nec) = uu(meq)
-  return_value(nmb:nme) = uu(meq)*uu(nmb:nme)/uu(nec)
+  return_value(nmb:nme) = flxvel * uu(nmb:nme)
   return_value(meq) = return_value(meq) + pres
-  return_value(nee) = uu(meq)/uu(nec) * (uu(nee) + pres)
+  return_value(nee) = flxvel * (uu(nee) + pres)
+  !
+  if (turb_is_on) then
+    return_value(ntk) = flxvel * uu(ntk)
+    return_value(ntl) = flxvel * uu(ntl)
+    if (include_tke_in_energy) then
+      return_value(meq) = return_value(meq) - (gam-one)*uu(ntk)
+      return_value(nee) = return_value(nee) - (gam-one)*uu(ntk)*flxvel
+    end if
+  end if
   !
 end function invs_flx_cv
 !
@@ -54,6 +67,8 @@ end function invs_flx_cv
 pure function invs_flx_pv(vv,dir) result(return_value) 
   !
   use ovar, only : gam
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
   !
   integer,                   intent(in) :: dir
   real(wp), dimension(1:nq), intent(in) :: vv
@@ -61,18 +76,29 @@ pure function invs_flx_pv(vv,dir) result(return_value)
   real(wp), dimension(1:nq) :: return_value
   !
   integer :: meq
-  real(wp) :: ener
+  real(wp) :: ener,flxvel
   !
 continue
   !
   meq = nec + dir
   !
+  flxvel = vv(meq)
+  !
   ener = vv(nee)/(gam-one) + half*vv(nec)*selfdot(vv(nmb:nme))
   !
-  return_value(nec) = vv(nec)*vv(meq)
-  return_value(nmb:nme) = vv(nec)*vv(nmb:nme) * vv(meq)
+  return_value(nec) = flxvel * vv(nec)
+  return_value(nmb:nme) = flxvel * vv(nec)*vv(nmb:nme)
   return_value(meq) = return_value(meq) + vv(nee)
-  return_value(nee) = (ener + vv(nee)) * vv(meq)
+  return_value(nee) = flxvel * (ener + vv(nee))
+  !
+  if (turb_is_on) then
+    return_value(ntk) = flxvel * vv(nec)*vv(ntk)
+    return_value(ntl) = flxvel * vv(nec)*vv(ntl)
+    if (include_tke_in_energy) then
+      return_value(meq) = return_value(meq) - (gam-one)*vv(nec)*vv(ntk)
+      return_value(nee) = return_value(nee) - (gam-one)*vv(nec)*vv(ntk)*flxvel
+    end if
+  end if
   !
 end function invs_flx_pv
 !
@@ -81,7 +107,9 @@ end function invs_flx_pv
 pure function invs_flx_jacobian_cv(uu,dir) result(return_value)
   !
   use geovar, only : nr
-  use ovar, only : gam
+  use ovar,   only : gam
+  use ovar,   only : turb_is_on
+  use ovar,   only : include_tke_in_energy
   !
   integer,                   intent(in) :: dir
   real(wp), dimension(1:nq), intent(in) :: uu
@@ -126,7 +154,7 @@ continue
     return_value(n,n) = return_value(n,n) + a
   end do
   ! DIAGONAL CONTRIBUTION TO MOMENTUM FOR CURRENT DIRECTION IS ACTUALLY AN
-  ! ADDICTIONAL 2*a SO ADD ANOTHER a TO THIS TERM
+  ! ADDITIONAL 2*a SO ADD ANOTHER a TO THIS TERM
   return_value(meq,meq) = return_value(meq,meq) + a
   !
   ! DENSITY COLUMN, ENERGY ROW
@@ -142,6 +170,30 @@ continue
   ! ADD ADDITIONAL TERM TO MOMENTUM COLUMN FOR CURRENT DIRECTION
   return_value(meq,nee) = return_value(meq,nee) + gam*etot - half*gm1*q2
   !
+  if (turb_is_on) then
+    ! TKE COLUMN, MOMENTUM ROW FOR CURRENT DIRECTION
+    return_value(ntk,meq) = -gm1
+    ! TKE COLUMN, TKE ROW
+    return_value(ntk,ntk) = a
+    ! TLS COLUMN, TLS ROW
+    return_value(ntl,ntl) = a
+    ! DENSITY COLUMN, TURBULENCE ROWS
+    return_value(nec,ntk) = -a * uu(ntk)/uu(nec)
+    return_value(nec,ntl) = -a * uu(ntl)/uu(nec)
+    ! MOMENTUM COLUMN FOR CURRENT DIRECTION, TURBULENCE ROWS
+    return_value(meq,ntk) = uu(ntk)/uu(nec)
+    return_value(meq,ntl) = uu(ntl)/uu(nec)
+    ! ADDITIONAL TERMS FOR ENERGY ROW IF TKE CONTRIBUTES TO ENERGY
+    if (include_tke_in_energy) then
+      ! DENSITY COLUMN, ENERGY ROW
+      return_value(nec,nee) = return_value(nec,nee) + gm1*uu(ntk)
+      ! MOMENTUM COLUMN FOR CURRENT DIRECTION, ENERGY ROW
+      return_value(meq,nee) = return_value(meq,nee) - gm1*uu(ntk)/uu(nec)
+      ! TKE COLUMN, ENERGY ROW
+      return_value(ntk,nee) = -a * gm1
+    end if
+  end if
+  !
 end function invs_flx_jacobian_cv
 !
 !###############################################################################
@@ -149,9 +201,11 @@ end function invs_flx_jacobian_cv
 pure function invs_wall_flx_cv(unrm,uu) result(return_value) 
   !
   use geovar, only : nr
-  use ovar, only : gam
+  use ovar,   only : gam
+  use ovar,   only : turb_is_on
+  use ovar,   only : include_tke_in_energy
   !
-  real(wp), dimension(1:nr),    intent(in) :: unrm
+  real(wp), dimension(1:nr), intent(in) :: unrm
   real(wp), dimension(1:nq), intent(in) :: uu
   !
   real(wp), dimension(1:nq) :: return_value
@@ -170,6 +224,8 @@ continue
   ! NOTE: The interior velocity/momentum at the wall is NOT necessarily zero
   !
   pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
+  !
+  if (include_tke_in_energy) pres = pres - (gam-one)*uu(ntk)
   !
   ! All momentum fluxes are just the pressure normal to the wall
   !

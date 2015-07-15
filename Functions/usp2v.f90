@@ -22,7 +22,7 @@ end function usp2v
 pure function usp2v_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar,   only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -42,6 +42,12 @@ continue
   return_value(nec)     = uu(nec)
   return_value(nmb:nme) = uu(nmb:nme)/uu(nec)
   return_value(nee)     = gm1 * (uu(nee) - half*q2/uu(nec))
+  !
+  if (include_tke_in_energy) then
+    return_value(nee) = return_value(nee) - gm1*uu(ntk)
+    return_value(ntk) = uu(ntk)/uu(nec)
+    return_value(ntl) = uu(ntl)/uu(nec)
+  end if
   !
 end function usp2v_sp
 !

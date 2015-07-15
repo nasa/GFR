@@ -1,7 +1,7 @@
 pure function temperature_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd
+  use ovar, only : gam, rgasref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -25,6 +25,12 @@ continue
     !
   end do
   !
+  if (include_tke_in_energy) then
+    do n = 1,size(uu,dim=2)
+      return_value(n) = return_value(n) - cv_inv * uu(ntk,n) / uu(nec,n)
+    end do
+  end if
+  !
 end function temperature_cv
 !
 !###############################################################################
@@ -32,7 +38,7 @@ end function temperature_cv
 pure function temperature_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd
+  use ovar, only : gam, rgasref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -50,6 +56,10 @@ continue
   q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
   return_value = cv_inv * (uu(nee) - half*q2/uu(nec)) / uu(nec)
+  !
+  if (include_tke_in_energy) then
+    return_value = return_value - cv_inv * uu(ntk) / uu(nec)
+  end if
   !
 end function temperature_cv_sp
 !

@@ -1,7 +1,7 @@
 pure function mach_number_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -23,6 +23,8 @@ continue
     !
     pres = gm1 * (uu(nee,n) - half*q2/uu(nec,n))
     !
+    if (include_tke_in_energy) pres = pres - gm1*uu(ntk,n)
+    !
     mach = q2 / (gam*pres*uu(nec,n))
     !
     return_value(n) = sqrt( max(mach,zero) )
@@ -36,7 +38,7 @@ end function mach_number_cv
 pure function mach_number_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use ovar, only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -54,6 +56,8 @@ continue
   q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
   pres = gm1 * (uu(nee) - half*q2/uu(nec))
+  !
+  if (include_tke_in_energy) pres = pres - gm1*uu(ntk)
   !
   mach = q2 / (gam*pres*uu(nec))
   !

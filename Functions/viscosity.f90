@@ -4,6 +4,7 @@ pure function viscosity_cv(uu) result(return_value)
   use ovar, only : tref,rhoref,aref
   use ovar, only : suth_c1,suth_sref
   use ovar, only : gam,rgasref_nd
+  use ovar, only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -13,7 +14,8 @@ pure function viscosity_cv(uu) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: cv_inv,q2,temp,tdim,mudim,muref_inv
+  real(wp) :: cv_inv,q2,temp,tdim
+  real(wp) :: mudim,muref_inv,rhoe_int
   !
 continue
   !
@@ -24,7 +26,11 @@ continue
     !
     q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
     !
-    temp = cv_inv * (uu(nee,n) - half*q2/uu(nec,n)) / uu(nec,n)
+    rhoe_int = uu(nee,n) - half*q2/uu(nec,n)
+    !
+    if (include_tke_in_energy) rhoe_int = rhoe_int - uu(ntk,n)
+    !
+    temp = cv_inv * rhoe_int / uu(nec,n)
     !
     tdim = temp * tref
     mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
@@ -42,6 +48,7 @@ pure function viscosity_cv_sp(uu) result(return_value)
   use ovar, only : tref,rhoref,aref
   use ovar, only : suth_c1,suth_sref
   use ovar, only : gam,rgasref_nd
+  use ovar, only : include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -50,7 +57,8 @@ pure function viscosity_cv_sp(uu) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  real(wp) :: cv_inv,q2,temp,tdim,mudim
+  real(wp) :: cv_inv,q2,temp,tdim
+  real(wp) :: mudim,rhoe_int
   !
 continue
   !
@@ -58,7 +66,11 @@ continue
   !
   q2 = dot( uu(nmb:nme) , uu(nmb:nme) )
   !
-  temp = cv_inv * (uu(nee) - half*q2/uu(nec)) / uu(nec)
+  rhoe_int = uu(nee) - half*q2/uu(nec)
+  !
+  if (include_tke_in_energy) rhoe_int = rhoe_int - uu(ntk)
+  !
+  temp = cv_inv * rhoe_int / uu(nec)
   !
   tdim = temp * tref
   mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
