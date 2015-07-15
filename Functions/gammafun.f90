@@ -47,7 +47,7 @@ continue
     s  = s + gamma_constant(k)*pr
   end do
   !
-  g = s * exp(one-xx) * (xx+c4_50)**(xx-half)
+  g = s * exp(one-xx) * (xx+(nine/two))**(xx-half)
   !
   if (ind == 1) then
     return_value = return_value/g
