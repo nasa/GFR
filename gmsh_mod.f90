@@ -356,7 +356,7 @@ subroutine find_gmsh_section(text_out,end_of_file)
   character(len=len(text_out)) :: text
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "read_gmsh_section"
+  character(len=*), parameter :: pname = "find_gmsh_section"
   !
 continue
   !
@@ -390,7 +390,7 @@ continue
       return
   !
   101 if (mypnum == 0) write (iout,2) ierr
-      call stop_recon(stop_mpi,"find_gmsh_section")
+      call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
