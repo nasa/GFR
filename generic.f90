@@ -1,7 +1,7 @@
 module generic_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmb,nme,nee,nq
+  use eqn_idx, only : nec,nmb,nme,nee,nq,ntk,ntl
   !
   implicit none
   !
@@ -34,27 +34,22 @@ subroutine compute_final_error()
   ! vltwo(nq+1)   = magnitude of velocity
   !
   !.. Use Statements ..
-  use order_mod, only : maxpts
-  use geovar,  only : ncell,pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
+  use order_mod, only : maxSP
+  use geovar,  only : nr,ncell,cell
   use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume
   use ovar,    only : ulinf,ulone,ultwo,unloc,ukloc
-  use metrics_mod,  only : jacobian
-  use flowvar, only : usp,uoldsp
-  use parallel_mod, only : cell_map,cell_map_ptr
-  use quadrature_mod, only : std_elem
-  use interpolation_mod, only : outerp
+  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
-  integer  :: n,n1,n2,np,k,m,nc1
-  integer  :: this_geom,this_order
+  integer  :: this_cell,n1,n2,np,k,m
   real(wp) :: sn,se
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxpts) :: jac
-  real(wp), dimension(1:maxpts) :: weights
-  real(wp), dimension(1:nq,1:maxpts) :: uold
-  real(wp), dimension(1:nq,1:maxpts) :: unew
+  real(wp), dimension(1:maxSP) :: jac
+  real(wp), dimension(1:maxSP) :: weights
+  real(wp), dimension(1:nq,1:maxSP) :: uold
+  real(wp), dimension(1:nq,1:maxSP) :: unew
+  real(wp), dimension(1:nr,1:maxSP) :: xyz_err
   real(wp), dimension(1:nq+1,1:2) :: ett
   real(wp), dimension(1:nq+1,1:2,1:5) :: error
   real(wp), dimension(1:nq+1,1:2,1:5,1:ncpu) :: all_error
@@ -73,32 +68,14 @@ continue
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
   !
-  nc1 = cell_map_ptr(mypnum+1)
-  !
-  do n = 1,ncell
+  do this_cell = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(this_cell)%beg_sp
+    n2 = cell(this_cell)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
-    !
-    ! Interpolate the new and old solution to the error points
-    !
-    if (associated(outerp(this_geom,this_order)%error)) then
-      do m = 1,nq
-        unew(m,1:np) = matmul( outerp(this_geom,this_order)%error , usp(m,n1:n2) )
-        uold(m,1:np) = matmul( outerp(this_geom,this_order)%error , uoldsp(m,n1:n2) )
-      end do
-      jac(1:np) = matmul( outerp(this_geom,this_order)%error , jacobian(n1:n2) )
-      weights(1:np) = outerp(this_geom,this_order)%err_wts
-    else
-      unew(1:nq,1:np) = usp(1:nq,n1:n2)
-      uold(1:nq,1:np) = uoldsp(1:nq,n1:n2)
-      jac(1:np) = jacobian(n1:n2)
-      weights(1:np) = std_elem(this_geom,this_order)%wts
-    end if
+    call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
+                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
     !
     ! Now loop through the solution points of this cell to compute the
     ! error between the solutions of the current and previous time steps
@@ -129,7 +106,7 @@ continue
       !
       where (abs(ett(:,:)) > error(:,:,3))
         error(:,:,3) = abs(ett(:,:))
-        error(:,:,4) = real(cell_map(nc1+n),kind=wp)
+        error(:,:,4) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
         error(:,:,5) = real(k,kind=wp)
       end where
       !
@@ -174,37 +151,32 @@ end subroutine compute_final_error
 subroutine rgeterr()
   !
   !.. Use Statements ..
-  use order_mod,  only : maxpts
-  use geovar,  only : nr,ncell,pts_in_cell_ptr,xyz
-  use geovar,  only : cell_geom,cell_order
+  use order_mod,  only : maxSP
+  use geovar,  only : nr,ncell,cell
   use geovar,  only : global_pinc_ptr,global_xyz
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
-  use ovar,    only : itcur,d_t,time,rl2mx
+  use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps
   use ovar,    only : max_wall_time,wall_time_left
   use ovar,    only : beg_wall_time,wall_time
   use ovar,    only : walltime_expiring,convergence_reached
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
-  use metrics_mod,  only : jacobian
-  use flowvar, only : usp,uoldsp
-  use parallel_mod, only : cell_map,cell_map_ptr
-  use quadrature_mod, only : std_elem
-  use interpolation_mod, only : outerp
+  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
-  integer  :: n,n1,n2,np,m,l,k,nc1
+  integer  :: this_cell,n1,n2,np,m,l,k
   integer  :: hrs_left,min_left,sec_left
   integer  :: this_geom,this_order
-  real(wp) :: rho,pres,sn,se
+  real(wp) :: rho,pres,sn,se,delx,dely
   real(wp) :: next_time_est
   real(wp) :: wall_time_last
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxpts) :: jac
-  real(wp), dimension(1:maxpts) :: weights
-  real(wp), dimension(1:nr,1:maxpts) :: xyz_err
-  real(wp), dimension(1:nq,1:maxpts) :: uold
-  real(wp), dimension(1:nq,1:maxpts) :: unew
+  real(wp), dimension(1:maxSP) :: jac
+  real(wp), dimension(1:maxSP) :: weights
+  real(wp), dimension(1:nr,1:maxSP) :: xyz_err
+  real(wp), dimension(1:nq,1:maxSP) :: uold
+  real(wp), dimension(1:nq,1:maxSP) :: unew
   real(wp), dimension(1:2) :: ett
   real(wp), dimension(1:2,1:7) :: error
   real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
@@ -227,37 +199,15 @@ continue
   error(:,:) = zero  ! intialize everything to zero
   error(:,3) = -eps6 ! make this slightly negative in case all error is zero
   !
-  nc1 = cell_map_ptr(mypnum+1)
-  !
-  do n = 1,ncell
+  do this_cell = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(this_cell)%beg_sp
+    n2 = cell(this_cell)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
+                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
     !
-    ! Interpolate the new and old solution to the error points
-    !
-    if (associated(outerp(this_geom,this_order)%error)) then
-      do l = 1,nr
-        xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error , xyz(l,n1:n2) )
-      end do
-      do m = 1,nq
-        unew(m,1:np) = matmul( outerp(this_geom,this_order)%error , usp(m,n1:n2) )
-        uold(m,1:np) = matmul( outerp(this_geom,this_order)%error , uoldsp(m,n1:n2) )
-      end do
-      jac(1:np) = matmul( outerp(this_geom,this_order)%error , jacobian(n1:n2) )
-      weights(1:np) = outerp(this_geom,this_order)%err_wts
-    else
-      xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
-      unew(1:nq,1:np) = usp(1:nq,n1:n2)
-      uold(1:nq,1:np) = uoldsp(1:nq,n1:n2)
-      jac(1:np) = jacobian(n1:n2)
-      weights(1:np) = std_elem(this_geom,this_order)%wts
-    end if
-    !     
     ! Now loop through the solution points of this cell to compute the
     ! error between the solutions of the current and previous time steps
     !
@@ -276,7 +226,7 @@ continue
       rho = unew(nec,k)
       pres = pressure_cv_sp( unew(:,k) )
       !
-      if (any([rho,pres] <= zero)) write (iout,111) n,k,rho,pres
+      if (any([rho,pres] <= zero)) write (iout,111) this_cell,k,rho,pres
       111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
       !
       sn = entropy_cv_sp( unew(:,k) )
@@ -291,7 +241,7 @@ continue
       !
       where (abs(ett(:)) > error(:,3))
         error(:,3) = abs(ett)
-        error(:,4) = real(cell_map(nc1+n),kind=wp)
+        error(:,4) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
         error(:,5) = real(k,kind=wp)
         error(:,6) = xyz_err(1,k)
         error(:,7) = xyz_err(2,k)
@@ -329,8 +279,10 @@ continue
     entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
   else
     entL2 = log10(rl2mx) - log10(rltwo)
-    convergence_reached = (entL2 <= convergence_order_max_res) .or. &
-                          (log10(rltwo) <= convergence_order_abs_res)
+    if (itcur > minimum_timesteps) then
+      convergence_reached = (entL2 <= convergence_order_max_res) .or. &
+                            (log10(rltwo) <= convergence_order_abs_res)
+    end if
   end if
   !
   ! Output the results for the current time step
@@ -354,7 +306,7 @@ continue
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               global_xyz(1,global_pinc_ptr(nloc)+kloc), &
                               global_xyz(2,global_pinc_ptr(nloc)+kloc), &
@@ -364,7 +316,7 @@ continue
     !
     walltime_expiring = fals
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               global_xyz(1,global_pinc_ptr(nloc)+kloc), &
                               global_xyz(2,global_pinc_ptr(nloc)+kloc)
@@ -524,13 +476,13 @@ continue
   ! Format Statements
   !
   1 format (i0)
-  100 format ("(1x,i",i0,",4es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
+  100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
-              "'OrdersDrop',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
-              "'OrdersDrop',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   !
 end subroutine init_generic_mod
 !
@@ -548,12 +500,12 @@ subroutine getmaxent
   use ovar,    only : xentmax,yentmax,entL2,total_volume,itestcase
   use metrics_mod,  only : jacobian
   use flowvar, only : usp
-  use parallel_mod, only : cell_map,cell_map_ptr
+  use parallel_mod, only : cell_map
   use quadrature_mod, only : std_elem
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer  :: n,n1,n2,np,m,l,k,nc1
+  integer  :: n,n1,n2,np,m,l,k
   integer  :: this_geom,this_order
   real(wp) :: ett,sn,se
   !
@@ -569,8 +521,6 @@ continue
   !
   error(:) = zero  ! intialize everything to zero
   error(2) = -eps6 ! make this slightly negative in case all error is zero
-  !
-  nc1 = cell_map_ptr(mypnum+1)
   !
   do n = 1,ncell
     !
@@ -615,7 +565,7 @@ continue
       !
       if (abs(ett) > error(2)) then
         error(2) = abs(ett)
-        error(3) = real(cell_map(nc1+n),kind=wp)
+        error(3) = real(cell_map(mypnum+1)%loc_to_glb(n),kind=wp)
         error(4) = real(k,kind=wp)
         error(5) = xyz_err(1,k)
         error(6) = xyz_err(2,k)
@@ -646,9 +596,153 @@ end subroutine getmaxent
 !
 !###############################################################################
 !
+subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar, only : nr,cell,xyz
+  use ovar, only : mms_opt,itestcase
+  use flowvar, only : usp,uoldsp
+  use interpolation_mod, only : outerp
+  use quadrature_mod, only : std_elem
+  use metrics_mod, only : jacobian
+  use mms_mod, only : mms_solution_at_xyz
+  !
+  !.. Formal Arguments ..
+  integer,                     intent(in) :: this_cell
+  real(wp), dimension(:,:), intent(inout) :: unew
+  real(wp), dimension(:,:), intent(inout) :: uold
+  real(wp), dimension(:,:), intent(inout) :: xyz_err
+  real(wp), dimension(:),   intent(inout) :: jac
+  real(wp), dimension(:),   intent(inout) :: weights
+  !
+  !.. Local Scalars ..
+  integer  :: m,l,k,n1,n2,np
+  integer  :: this_geom,this_order
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_offset(1:nr,1:maxSP)
+  !
+continue
+  !
+  this_geom = cell(this_cell)%geom
+  this_order = cell(this_cell)%order
+  !
+  n1 = cell(this_cell)%beg_sp
+  n2 = cell(this_cell)%end_sp
+  np = n2-n1+1
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Get the current solution at the error points
+  !
+  if (associated(outerp(this_geom,this_order)%error)) then
+    !
+    do m = 1,nq
+      unew(m,1:np) = matmul( outerp(this_geom,this_order)%error , usp(m,n1:n2) )
+    end do
+    !
+  else
+    !
+    unew(1:nq,1:np) = usp(1:nq,n1:n2)
+    !
+  end if
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Get the local jacobians at the error points
+  !
+  if (associated(outerp(this_geom,this_order)%error)) then
+    !
+    jac(1:np) = matmul( outerp(this_geom,this_order)%error , jacobian(n1:n2) )
+    !
+  else
+    !
+    jac(1:np) = jacobian(n1:n2)
+    !
+  end if
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  ! Get the quadrature weights for the error points
+  !
+  if (associated(outerp(this_geom,this_order)%error)) then
+    !
+    weights(1:np) = outerp(this_geom,this_order)%err_wts
+    !
+  else
+    !
+    weights(1:np) = std_elem(this_geom,this_order)%wts
+    !
+  end if
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Get the coordinates of the error points
+  !
+  if (associated(outerp(this_geom,this_order)%error)) then
+    !
+    do l = 1,nr
+      xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error , xyz(l,n1:n2) )
+    end do
+    !
+  else
+    !
+    xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
+    !
+  end if
+  !
+  ! #######
+  ! ## 5 ##
+  ! #######
+  !
+  ! Get either (a) the exact analytical solution or (b) solution from
+  ! the previous time step at the error points.
+  !
+  if (mms_opt /= 0) then
+    !
+    ! Evaluate the exact analytical MMS solution at the error points
+    !
+    do k = 1,np
+      uold(1:nq,k) = mms_solution_at_xyz( xyz_err(1:nr,k), &
+                                          return_nondim=true, &
+                                          return_cv=true )
+    end do
+    !
+  else if (any(itestcase == Transport_Problems)) then
+    !
+    ! Evaluate the exact analytical solution to the vortex transport problem
+    !
+    xyz_offset(1:nr,1:np) = vortex_offset( xyz_err(1:nr,1:np) )
+    !
+    do k = 1,np
+      uold(1:nq,k) = vortex_solution( xyz_offset(1:nr,k) )
+    end do
+    !
+  else
+    !
+    ! Use the solution from the previous time step
+    !
+    uold(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+    !
+  end if
+  !
+end subroutine collect_error_arrays
+!
+!###############################################################################
+!
 include "Functions/usp2v.f90"
 include "Functions/entropy.f90"
 include "Functions/pressure.f90"
+include "Functions/vortex.f90"
 !
 !###############################################################################
 !
