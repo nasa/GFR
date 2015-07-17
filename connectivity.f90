@@ -13,6 +13,10 @@ module connectivity_mod
   ! ##################################
   !
   public :: get_grid_connectivity
+  public :: GetFaceNodes_for_QuadFace
+  public :: GetFaceNodes_for_TriaFace
+  public :: RotateFluxPoints_Quad
+  public :: RotateFluxPoints_Tria
   !
 contains
 !
@@ -386,7 +390,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   integer :: left_order,right_order
   character(len=200) :: array_name
   character(len=200) :: error_message
-  logical :: bad_points_found
+  logical :: error_finding_rotation
   !
   real(wp) :: dir
   !
@@ -430,8 +434,6 @@ continue
     !
   end do
   !
- !write (iout,*) "Before allocating face array"
- !read (*,*)
   allocate ( face(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face",1,ierr,error_message)
   !
@@ -710,7 +712,8 @@ continue
   ! cell that are on this face. These indices are used in the correct and
   ! interp(:)%toFace matrices.
   !
-  bad_points_found = fals
+  error_finding_rotation = fals
+  !
   do nf = 1,nface
     !
     left_cell = face(nf)%left%cell
@@ -754,22 +757,26 @@ continue
     !
     ! For the left cell, the starting index is the sum of all face points
     ! for all faces up to the current face + 1. The '+1' is why face_pts
-    ! is initialized to 1.
+    ! is initialized to 1. We need to use face_order when computing the
+    ! number of flux points for each cell face before the current one. 
+    ! This is the index needed because this is used to get the correct
+    ! location in the interp%toFace(face_order)%mat and correct%mat arrays.
+    ! These arrays are set up with the indexing within mat assuming that
+    ! the order of all faces is face_order.
     !
     face_pts = 1
     do ncf = 1,left_side-1
       !
       ifa = faces_of_cell(ncf,left_cell)
       !
-      face_geom = face(ifa)%geom
-      face_pts = face_pts + geom_solpts(face_geom,left_order)
+      face_pts = face_pts + geom_solpts(face(ifa)%geom,face_order)
       !
     end do
     !
+    ! The indices of the flux points for the left cell are just the 
+    ! sequential values of [face_pts:face_pts+nfp-1]
+    !
     face(nf)%left%flxpts = face_pts + intseq(0,nfp-1)
-   !do n = 1,nfp
-   !  face(nf)%left%flxpts(n) = face_pts-1 + n
-   !end do
     !
     ! ##############################
     ! ### RIGHT CELL ON THE FACE ###
@@ -793,8 +800,9 @@ continue
       ! This is a boundary face so the starting index is just
       ! the number of face points on the boundary face
       !
-      face_geom = face(nf)%geom
-      face_pts = geom_solpts(face_geom,right_order)
+     !face_geom = face(nf)%geom
+     !face_pts = geom_solpts(face(nf)%geom,right_order)
+      face_pts = 1
       !
     else
       !
@@ -803,13 +811,21 @@ continue
       ip(1:nfnods) = side_nodes(1:nfnods,right_side,right_geom)
       right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
       !
+      ! For the right cell, the starting index is the sum of all face points
+      ! for all faces up to the current face + 1. The '+1' is why face_pts
+      ! is initialized to 1. We need to use face_order when computing the
+      ! number of flux points for each cell face before the current one. 
+      ! This is the index needed because this is used to get the correct
+      ! location in the interp%toFace(face_order)%mat and correct%mat arrays.
+      ! These arrays are set up with the indexing within mat assuming that
+      ! the order of all faces is face_order.
+      !
       face_pts = 1
       do ncf = 1,right_side-1
         !
         ifa = faces_of_cell(ncf,right_cell)
         !
-        face_geom = face(ifa)%geom
-        face_pts = face_pts + geom_solpts(face_geom,right_order)
+        face_pts = face_pts + geom_solpts(face(ifa)%geom,face_order)
         !
       end do
       !
@@ -819,60 +835,55 @@ continue
     !
     if (face_geom == Geom_Edge) then
       !
-      do n = 1,nfp
-        face(nf)%right%flxpts(n) = face_pts + nfp - n
-      end do
+      ! If this is a 1D edge between two 2D cells, the ordering of the flux
+      ! points for the right cell is just the reverse ordering of the flux
+      ! points for the left cell.
+      !
+      face(nf)%right%flxpts = face_pts + intseq(nfp-1,0,-1)
+     !do n = 1,nfp
+     !  face(nf)%right%flxpts(n) = face_pts + nfp - n
+     !end do
       !
     else if (face_geom == Geom_Quad) then
       !
-     !face(nf)%right%flxpts = face_pts + RotateFluxPoints_Quad(left_nodes(1:nfnods), &
-     !                                                         right_nodes(1:nfnods), &
-     !                                                         face_order)
-      face(nf)%right%flxpts = face_pts
-     !call RotateFluxPoints_Quad_sub_old(left_nodes(1:nfnods),right_nodes(1:nfnods), &
-     !                               face_order,face(nf)%right%flxpts,n)
-      call RotateFluxPoints_Quad_sub(nodes_of_cell(l1:l2),left_geom,left_side, &
-                                     nodes_of_cell(r1:r2),right_geom,right_side, &
-                                     face_order,face(nf)%right%flxpts,n)
+      ! Get the nodes from the left and right cells that are on the current face
+      ! and in the correct ABCD ordering needed for the RotateFluxPoints_Quad
+      ! function.
       !
-     !write (160,101) left_side,right_side,n
-     !write (160,101) left_nodes(1:nfnods)
-     !write (160,101) right_nodes(1:nfnods)
-     !write (160,*)
-     !if (nf == nfbnd) then
-     !  write (160,*) "################################"
-     !  write (160,*)
-     !end if
-     !101 format (*(i6))
-     !!
-      if (all(face(nf)%right%flxpts == face_pts)) bad_points_found = true
+      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_geom,left_side, &
+                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
+      !
+      ! Find the face rotation between the two cells on the interface and use
+      ! this rotation to get the correct ordering of the flux points for the
+      ! right cell relative to the flux points of the left cell.
+      !
+      face(nf)%right%flxpts = face_pts + RotateFluxPoints_Quad(left_nodes(1:nfnods), &
+                                                               right_nodes(1:nfnods), &
+                                                               face_order)
+      !
+      ! If the previous function made no changes, mark that there was an error
+      ! finding the correct face rotation between cells.
+      !
+      if (all(face(nf)%right%flxpts == face_pts)) error_finding_rotation = true
       !
     else if (face_geom == Geom_Tria) then
+      !
+      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_geom,left_side, &
+                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       face(nf)%right%flxpts = face_pts + RotateFluxPoints_Tria(left_nodes(1:nfnods), &
                                                                right_nodes(1:nfnods), &
                                                                nfp)
       !
-      if (all(face(nf)%right%flxpts == face_pts)) bad_points_found = true
+      if (all(face(nf)%right%flxpts == face_pts)) error_finding_rotation = true
       !
     end if
     !
-   !face_geom = face(nf)%geom
-   !face_order = face(nf)%order
-   !!
-   !face_pts = geom_solpts(face_geom,face_order)
-   !!
-   !! NOTE: THIS ASSUMES THAT THE NUMBER OF FACE POINTS IS THE SAME FOR ALL
-   !!       FACES OF THE LEFT AND RIGHT CELLS (I.E., 2D, TETS, AND HEXES AND THE
-   !!       CELL ORDER IS CONSTANT THROUGHOUT). THIS IS NOT THE CASE FOR PYRAMIDS
-   !!       AND PRISMS OR IF THE CELL ORDER IS NOT THE SAME FOR ALL CELLS.
-   !!
-   !face(nf)%left%flxpts(:) = face_pts*(left_side-1) + 1
-   !face(nf)%right%flxpts(:) = face_pts*right_side
-    !
   end do
   !
-  if (bad_points_found) then
+  if (error_finding_rotation) then
     write (iout,*) "There was an error rotating flux points!"
     call stop_recon(stop_mpi,pname)
   end if
@@ -889,8 +900,6 @@ continue
   !
   call find_geom_max_interp_order(cell_geom,cell_order,face(:)%left%cell, &
                                   face(:)%right%cell,face(:)%order)
- !write (iout,*) "After creating face array"
- !read (*,*)
   !
   ! Format Statements
   !
@@ -898,6 +907,479 @@ continue
   2 format ("face(",i0,")%",a,"%flxpts")
   !
 end subroutine find_cells_on_each_face
+!
+!###############################################################################
+!
+subroutine GetFaceNodes_for_QuadFace(left_cell_nodes,left_geom,left_side, &
+                                     right_cell_nodes,right_geom,right_side, &
+                                     left_face_nodes,right_face_nodes)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),    intent(in) :: left_cell_nodes
+  integer,                  intent(in) :: left_geom
+  integer,                  intent(in) :: left_side
+  integer, dimension(:),    intent(in) :: right_cell_nodes
+  integer,                  intent(in) :: right_geom
+  integer,                  intent(in) :: right_side
+  integer, dimension(:), intent(inout) :: left_face_nodes
+  integer, dimension(:), intent(inout) :: right_face_nodes
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:4) :: ip
+  !
+  !.. Local Parameters ..
+  integer, parameter :: flip_left_hand_to_right_hand(1:4) = [1,4,3,2]
+  integer, parameter :: min_face_ABCD(1:4) = [4,2,1,3]
+  integer, parameter :: max_face_ABCD(1:4) = [2,4,1,3]
+  !
+continue
+  !
+  ! Get the nodes of the left cell that are on the interface.
+  ! NOTE: We have to add one because the values stored in side_nodes are
+  !       used as offset values, 
+  !       i.e. they range from [0:size(left_cell_nodes)-1] and we want them
+  !              to range from [1:size(left_cell_nodes)].
+  !
+  ip = side_nodes(:,left_side,left_geom) + 1
+  !
+  ! Get the face nodes of the left cell in the correct order needed
+  ! to find the rotation between the cells on the interface in the
+  ! function RotateFluxPoints_Quad
+  !
+  select case (left_geom)
+      !
+    case (Geom_Pyra)
+      !
+    case (Geom_Pris)
+      !
+    case (Geom_Hexa)
+      !
+      ! If the side of the left cell on the interface is either a Y-min or Y-max
+      ! face, we need to flip the second and fourth indices. This is because the
+      ! vectors 'a' and 'b' for 'Y' faces dont follow the standard rotation of a
+      ! right-handed coordinate system like the 'X' and 'Z' face do. To further
+      ! illustrate: 
+      !               For a 'Z' face:   a -> 'X'   and   b -> 'Y'
+      !               For a 'X' face:   a -> 'Y'   and   b -> 'Z'
+      !
+      !               However,
+      !   ##CORRECT## For a 'Y' face:   a -> 'X'   and   b -> 'Z' ##CORRECT##
+      !               instead of 
+      ! ##INCORRECT## For a 'Y' face:   a -> 'Z'   and   b -> 'X' ##INCORRECT##
+      !
+      ! since we want 'a' to correspond to the lowest coordinate direction on
+      ! the face. By flipping the second and fourth indices, we can then alter
+      ! the face indices as needed based on whether they are simply minimum or
+      ! maximum faces.
+      !
+      if (any(left_side == [Ymin3D_Face,Ymax3D_Face])) then
+        ip = ip( flip_left_hand_to_right_hand )
+      end if
+      !
+      ! Rearrange the indices of the face nodes so that they are in the order
+      ! [a,b,c,d] depending on whether the side of the left cell on the
+      ! interface is a minimum or maximum cell face.
+      !
+      if (any(left_side == [Xmin3D_Face,Ymin3D_Face,Zmin3D_Face])) then
+        ip = ip( min_face_ABCD )
+      else
+        ip = ip( max_face_ABCD )
+      end if
+      !
+  end select
+  !
+  ! Extract the nodes of the left cell on the interface in the order [a,b,c,d]
+  !
+  left_face_nodes = left_cell_nodes( ip )
+  !
+  ! Get the nodes of the right cell that are on the interface.
+  ! NOTE: We have to add one because the values stored in side_nodes are
+  !       used as offset values, 
+  !       i.e. they range from [0:size(right_cell_nodes)-1] and we want them
+  !              to range from [1:size(right_cell_nodes)].
+  !
+  ip = side_nodes(:,right_side,right_geom) + 1
+  !
+  ! Get the face nodes of the right cell in the correct order needed
+  ! to find the rotation between the cells on the interface in the
+  ! function RotateFluxPoints_Quad
+  !
+  select case (right_geom)
+      !
+    case (Geom_Quad)
+      !
+      ! The right cell can be a 2D Quad if this is for a boundary face. For a
+      ! quad face, the face indices are always in a minimum face orientation.
+      !
+      ip = min_face_ABCD
+      !
+    case (Geom_Pyra)
+      !
+    case (Geom_Pris)
+      !
+    case (Geom_Hexa)
+      !
+      ! If the side of the right cell on the interface is either a Y-min or Y-max
+      ! face, we need to flip the second and fourth indices. This is because the
+      ! vectors 'a' and 'b' for 'Y' faces dont follow the standard rotation of a
+      ! right-handed coordinate system like the 'X' and 'Z' face do. To further
+      ! illustrate: 
+      !               For a 'Z' face:   a -> 'X'   and   b -> 'Y'
+      !               For a 'X' face:   a -> 'Y'   and   b -> 'Z'
+      !
+      !               However,
+      !   ##CORRECT## For a 'Y' face:   a -> 'X'   and   b -> 'Z' ##CORRECT##
+      !               instead of 
+      ! ##INCORRECT## For a 'Y' face:   a -> 'Z'   and   b -> 'X' ##INCORRECT##
+      !
+      ! since we want 'a' to correspond to the lowest coordinate direction on
+      ! the face. By flipping the second and fourth indices, we can then alter
+      ! the face indices as needed based on whether they are simply minimum or
+      ! maximum faces.
+      !
+      if (any(right_side == [Ymin3D_Face,Ymax3D_Face])) then
+        ip = ip( flip_left_hand_to_right_hand )
+      end if
+      !
+      ! Rearrange the indices of the face nodes so that they are in the order
+      ! [a,b,c,d] depending on whether the side of the right cell on the
+      ! interface is a minimum or maximum cell face.
+      !
+      if (any(right_side == [Xmin3D_Face,Ymin3D_Face,Zmin3D_Face])) then
+        ip = ip( min_face_ABCD )
+      else
+        ip = ip( max_face_ABCD )
+      end if
+      !
+  end select
+  !
+  ! Extract the nodes of the right cell on the interface in the order [a,b,c,d]
+  !
+  right_face_nodes = right_cell_nodes( ip )
+  !
+end subroutine GetFaceNodes_for_QuadFace
+!
+!###############################################################################
+!
+subroutine GetFaceNodes_for_TriaFace(left_cell_nodes,left_geom,left_side, &
+                                     right_cell_nodes,right_geom,right_side, &
+                                     left_face_nodes,right_face_nodes)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),    intent(in) :: left_cell_nodes
+  integer,                  intent(in) :: left_geom
+  integer,                  intent(in) :: left_side
+  integer, dimension(:),    intent(in) :: right_cell_nodes
+  integer,                  intent(in) :: right_geom
+  integer,                  intent(in) :: right_side
+  integer, dimension(:), intent(inout) :: left_face_nodes
+  integer, dimension(:), intent(inout) :: right_face_nodes
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: ip
+  !
+continue
+  !
+  ! Get the nodes of the left cell that are on the interface.
+  ! NOTE: We have to add one because the values stored in side_nodes are
+  !       used as offset values, 
+  !       i.e. they range from [0:size(left_cell_nodes)-1] and we want them
+  !              to range from [1:size(left_cell_nodes)].
+  !
+  ip = side_nodes(1:3,left_side,left_geom) + 1
+  !
+  ! Get the face nodes of the left cell in the correct order needed
+  ! to find the rotation between the cells on the interface in the
+  ! function RotateFluxPoints_Quad
+  !
+  select case (left_geom)
+      !
+    case (Geom_Tetr)
+      !
+    case (Geom_Pyra)
+      !
+    case (Geom_Pris)
+      !
+  end select
+  !
+  ! Extract the nodes of the left cell on the interface
+  !
+  left_face_nodes = left_cell_nodes( ip )
+  !
+  ! Get the nodes of the right cell that are on the interface.
+  ! NOTE: We have to add one because the values stored in side_nodes are
+  !       used as offset values, 
+  !       i.e. they range from [0:size(right_cell_nodes)-1] and we want them
+  !              to range from [1:size(right_cell_nodes)].
+  !
+  ip = side_nodes(1:3,right_side,right_geom) + 1
+  !
+  ! Get the face nodes of the right cell in the correct order needed
+  ! to find the rotation between the cells on the interface in the
+  ! function RotateFluxPoints_Tria
+  !
+  select case (right_geom)
+      !
+    case (Geom_Tria)
+      !
+      ! The right cell can be a 2D triangle if this is for a boundary face. For
+      ! a triangular face, the face indices are always 
+      !
+    case (Geom_Tetr)
+      !
+    case (Geom_Pyra)
+      !
+    case (Geom_Pris)
+      !
+  end select
+  !
+  ! Extract the nodes of the right cell on the interface
+  !
+  right_face_nodes = right_cell_nodes( ip )
+  !
+end subroutine GetFaceNodes_for_TriaFace
+!
+!###############################################################################
+!
+pure function RotateFluxPoints_Quad(abcd_left,abcd_right,face_order) &
+                             result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:), intent(in) :: abcd_left
+  integer, dimension(:), intent(in) :: abcd_right
+  integer,               intent(in) :: face_order
+  !
+  !.. Function Result ..
+  integer, dimension(1:(face_order+1)**2) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nfp,nep
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
+  !
+  !.. Local Parameters ..
+  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, 4,3,2,1, &
+                                                      3,4,1,2, 2,1,4,3, &
+                                                      2,1,3,4, 4,3,1,2, &
+                                                      3,4,2,1, 1,2,4,3] , [4,8] )
+  !
+continue
+  !
+  nep = face_order+1
+  nfp = nep*nep
+  !
+  ! Create the offset for the flux point indices for the left face
+  !
+  fp_idx = reshape( intseq(0,nfp-1) , [nep,nep] )
+  !
+  ! If the left cell on the interface has vectors 'a_left' and 'b_left' with the
+  ! following orientation:
+  !
+  !                   (a_left) A
+  !                            | 
+  !                            |
+  !                            -----> (b_left)
+  !
+  ! Then the following if statements give the possible orientations of the
+  ! 'a_right' and 'b_right' vectors from the right cell on the interface.
+  !
+  if (all(abcd_left == abcd_right(rotation(:,1)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to +a_right
+    !                            and
+    !                b_left corresponds to +b_right
+    !
+    ! ################    (a_right) A
+    ! ## ROTATION 1 ##              | 
+    ! ################              |
+    !                               -----> (b_right)
+    !
+    ! Therefore, the flux point indices for the right cell are the exact same
+    ! as those for the left cell.
+    !
+    return_value = reshape( fp_idx , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,2)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to +a_right
+    !                            and
+    !                b_left corresponds to -b_right
+    !
+    ! ################                   A (a_right)
+    ! ## ROTATION 2 ##                   |
+    ! ################                   |
+    !                     (b_right) <-----
+    !
+    ! Therefore, the flux point indices for the right cell are the same ordering
+    ! for the first dimension and the opposite ordering for the second.
+    !
+    return_value = reshape( fp_idx(:,nep:1:-1) , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,3)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to -a_right
+    !                            and
+    !                b_left corresponds to +b_right
+    !
+    ! ################              -----> (b_right)
+    ! ## ROTATION 3 ##              |
+    ! ################              |
+    !                     (a_right) V
+    !
+    ! Therefore, the flux point indices for the right cell are the opposite
+    ! ordering for the first dimension and the same ordering for the second.
+    !
+    return_value = reshape( fp_idx(nep:1:-1,:) , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,4)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to -a_right
+    !                            and
+    !                b_left corresponds to -b_right
+    !
+    ! ################    (b_right) <-----
+    ! ## ROTATION 4 ##                   |
+    ! ################                   |
+    !                                    V (a_right)
+    !
+    ! Therefore, the flux point indices for the right cell are the opposite
+    ! ordering for both the first and second dimensions
+    !
+    return_value = reshape( fp_idx(nep:1:-1,nep:1:-1) , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,5)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to +b_right
+    !                            and
+    !                b_left corresponds to +a_right
+    !
+    ! ################    (b_right) A
+    ! ## ROTATION 5 ##              | 
+    ! ################              |
+    !                               -----> (a_right)
+    !
+    ! Because the a and b vectors from the left cell are aligned with the
+    ! opposite vectors from the right cell, we first need to transpose the
+    ! fp_idx array.
+    !
+    fp_idx = transpose(fp_idx)
+    !
+    ! Both aligned vectors have the same directional signs so keep the same
+    ! orderings for both the first and second dimensions.
+    !
+    return_value = reshape( fp_idx , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,6)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to +b_right
+    !                            and
+    !                b_left corresponds to -a_right
+    !
+    ! ################                   A (b_right)
+    ! ## ROTATION 6 ##                   |
+    ! ################                   |
+    !                     (a_right) <-----
+    !
+    ! Because the a and b vectors from the left cell are aligned with the
+    ! opposite vectors from the right cell, we first need to transpose the
+    ! fp_idx array.
+    !
+    fp_idx = transpose(fp_idx)
+    !
+    ! The second aligned vector has opposite sign so keep the same ordering for
+    ! the first dimension and reverse the ordering of the second.
+    !
+    return_value = reshape( fp_idx(:,nep:1:-1) , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,7)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to -b_right
+    !                            and
+    !                b_left corresponds to +a_right
+    !
+    ! ################              -----> (a_right)
+    ! ## ROTATION 7 ##              |
+    ! ################              |
+    !                     (b_right) V
+    !
+    ! Because the a and b vectors from the left cell are aligned with the
+    ! opposite vectors from the right cell, we first need to transpose the
+    ! fp_idx array.
+    !
+    fp_idx = transpose(fp_idx)
+    !
+    ! The first aligned vector has opposite sign so reverse the ordering of the
+    ! first dimension and keep the same ordering for the second.
+    !
+    return_value = reshape( fp_idx(nep:1:-1,:) , [nfp] )
+    !
+  else if (all(abcd_left == abcd_right(rotation(:,8)))) then
+    !
+    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    !
+    !                a_left corresponds to -b_right
+    !                            and
+    !                b_left corresponds to -a_right
+    !
+    ! ################    (a_right) <-----
+    ! ## ROTATION 8 ##                   |
+    ! ################                   |
+    !                                    V (b_right)
+    !
+    ! Because the a and b vectors from the left cell are aligned with the
+    ! opposite vectors from the right cell, we first need to transpose the
+    ! fp_idx array.
+    !
+    fp_idx = transpose(fp_idx)
+    !
+    ! Both of the aligned vectors have opposite signs so reverse the orderings
+    ! of both the first and second dimensions.
+    !
+    return_value = reshape( fp_idx(nep:1:-1,nep:1:-1) , [nfp] )
+    !
+  else
+    !
+    ! Something was wrong here so just return the value 0.
+    !
+    return_value = 0
+    !
+  end if
+  !
+end function RotateFluxPoints_Quad
+!
+!###############################################################################
+!
+pure function RotateFluxPoints_Tria(left_nodes,right_nodes,nfp) &
+                             result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer,               intent(in) :: nfp
+  integer, dimension(:), intent(in) :: left_nodes
+  integer, dimension(:), intent(in) :: right_nodes
+  !
+  !.. Function Result ..
+  integer, dimension(1:nfp) :: return_value
+  !
+continue
+  !
+  return_value = 0
+  !
+end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
@@ -913,9 +1395,9 @@ subroutine find_flxpts_of_each_cell()
   !.. Local Scalars ..
   integer :: nc,ncf,nf,nfp,ierr,lbeg,rbeg,k
   integer :: face_geom,face_order,num_faces
-  integer :: host_cell,host_geom,host_face,host_beg
-  integer :: left_cell,left_geom,left_face,left_beg
-  integer :: right_cell,right_geom,right_face,right_beg
+  integer :: host_cell,host_face
+  integer :: left_cell,left_face
+  integer :: right_cell,right_face
   character(len=200) :: array_name
   character(len=200) :: error_message
   !
@@ -964,8 +1446,6 @@ continue
   !
   ! Allocate the outer part of the cell array
   !
- !write (iout,*) "Before allocating cell array"
- !read (*,*)
   allocate ( cell(1:ncell) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell",1,ierr,error_message)
   !
@@ -998,20 +1478,12 @@ continue
     !
     host_cell  = face(nf)%left%cell
     host_face  = face(nf)%left%cell_face
-    host_beg   = face(nf)%left%flxpts(1)
     face_geom  = face(nf)%geom
     face_order = face(nf)%order
     !
-    host_geom = cell_geom(host_cell)
-    !
     nfp = geom_solpts(face_geom,face_order)
     !
-    ! Allocate the face_idx and cell_idx arrays for the current cell face
-    !
-    allocate ( cell(host_cell)%face(host_face)%face_idx(1:nfp) , &
-               source=0 , stat=ierr , errmsg=error_message )
-    write (array_name,1) host_cell,host_face,"face_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    ! Allocate the cell_idx array for the current cell face
     !
     allocate ( cell(host_cell)%face(host_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
@@ -1024,32 +1496,14 @@ continue
     cell(host_cell)%face(host_face)%side = left_side
     cell(host_cell)%face(host_face)%geom = face_geom
     cell(host_cell)%face(host_face)%order = face_order
-    cell(host_cell)%face(host_face)%face_idx = intseq(1,nfp)
     !
-    ! Get the beginning flux point for the host cell face if all faces
+    ! Get the beginning flux point for the left cell face if all faces
     ! are of order face_order. This is the index needed because this is
     ! used to get the correct location in the interp%toFace(face_order)%mat.
     ! That array is set up with the indexing within mat assuming that
     ! the order of all faces is face_order.
     !
-    lbeg = 1
-    do ncf = 1,host_face-1
-      lbeg = lbeg + geom_solpts(cell_face_geom(ncf,host_geom),face_order)
-    end do
-    !
-    ! Now save the index 'i' needed for interp%toFace(face_order)%mat(:,i)
-    !
-    do k = 1,nfp
-      cell(host_cell)%face(host_face)%cell_idx(k) = lbeg-1 + k
-    end do
-   !!
-   !! Old method
-   !!
-   !do k = 1,nfp
-   !  lk = host_beg-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
-   !  lfp = lf1-1 + lk ! idx of current flxpt for left  cell (from lf1 to lf2)
-   !  cell(3,lfp) = lk
-   !end do
+    cell(host_cell)%face(host_face)%cell_idx = face(nf)%left%flxpts
     !
   end do
   !
@@ -1063,15 +1517,10 @@ continue
     right_cell = face(nf)%right%cell
     left_face  = face(nf)%left%cell_face
     right_face = face(nf)%right%cell_face
-    left_beg   = face(nf)%left%flxpts(1)
-    right_beg  = face(nf)%right%flxpts(1)
     face_geom  = face(nf)%geom
     face_order = face(nf)%order
     !
     nfp = geom_solpts(face_geom,face_order)
-    !
-    left_geom = cell_geom(left_cell)
-    right_geom = cell_geom(right_cell)
     !
     ! ####################################
     ! ####################################
@@ -1079,12 +1528,7 @@ continue
     ! ####################################
     ! ####################################
     !
-    ! Allocate the face_idx and cell_idx arrays for the left cell face
-    !
-    allocate ( cell(left_cell)%face(left_face)%face_idx(1:nfp) , &
-               source=0 , stat=ierr , errmsg=error_message )
-    write (array_name,1) left_cell,left_face,"face_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    ! Allocate the cell_idx array for the left cell face
     !
     allocate ( cell(left_cell)%face(left_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
@@ -1098,7 +1542,6 @@ continue
     cell(left_cell)%face(left_face)%side = left_side
     cell(left_cell)%face(left_face)%geom = face_geom
     cell(left_cell)%face(left_face)%order = face_order
-    cell(left_cell)%face(left_face)%face_idx = intseq(1,nfp)
     !
     ! Get the beginning flux point for the left cell face if all faces
     ! are of order face_order. This is the index needed because this is
@@ -1106,24 +1549,7 @@ continue
     ! That array is set up with the indexing within mat assuming that
     ! the order of all faces is face_order.
     !
-    lbeg = 1
-    do ncf = 1,left_face-1
-      lbeg = lbeg + geom_solpts(cell_face_geom(ncf,left_geom),face_order)
-    end do
-    !
-    ! Now save the index 'i' needed for interp%toFace(face_order)%mat(:,i)
-    !
-    do k = 1,nfp
-      cell(left_cell)%face(left_face)%cell_idx(k) = lbeg-1 + k
-    end do
-   !!
-   !! Old method
-   !!
-   !do k = 1,nfp
-   !  lk = left_beg-1 + k ! idx of current flxpt for left  cell (from 1 to lf2-lf1+1)
-   !  lfp = lf1-1 + lk ! idx of current flxpt for left  cell (from lf1 to lf2)
-   !  cell(3,lfp) = lk
-   !end do
+    cell(left_cell)%face(left_face)%cell_idx = face(nf)%left%flxpts
     !
     ! #####################################
     ! #####################################
@@ -1131,12 +1557,7 @@ continue
     ! #####################################
     ! #####################################
     !
-    ! Allocate the face_idx and cell_idx arrays for the right cell face
-    !
-    allocate ( cell(right_cell)%face(right_face)%face_idx(1:nfp) , &
-               source=0 , stat=ierr , errmsg=error_message )
-    write (array_name,1) right_cell,right_face,"face_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    ! Allocate the cell_idx array for the right cell face
     !
     allocate ( cell(right_cell)%face(right_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
@@ -1150,7 +1571,6 @@ continue
     cell(right_cell)%face(right_face)%side = right_side
     cell(right_cell)%face(right_face)%geom = face_geom
     cell(right_cell)%face(right_face)%order = face_order
-    cell(right_cell)%face(right_face)%face_idx = intseq(1,nfp)
     !
     ! Get the beginning flux point for the right cell face if all faces
     ! are of order face_order. This is the index needed because this is
@@ -1158,46 +1578,9 @@ continue
     ! That array is set up with the indexing within mat assuming that
     ! the order of all faces is face_order.
     !
-    rbeg = 0
-    do ncf = 1,right_face
-      rbeg = rbeg + geom_solpts(cell_face_geom(ncf,right_geom),face_order)
-    end do
-    !
-    ! Now save the index 'i' needed for interp%toFace(face_order)%mat(:,i)
-    !
-    do k = 1,nfp
-      cell(right_cell)%face(right_face)%cell_idx(k) = rbeg+1 - k
-    end do
-   !!
-   !! Old method
-   !!
-   !do k = 1,nfp
-   !  rk = right_beg+1 - k ! idx of current flxpt for right cell (from 1 to rf2-rf1+1)
-   !  rfp = rf1-1 + rk ! idx of current flxpt for right cell (from rf1 to rf2)
-   !  cell(3,rfp) = rk
-   !end do
+    cell(right_cell)%face(right_face)%cell_idx = face(nf)%right%flxpts
     !
   end do
- !write (iout,*) "After creating cell array"
- !read (*,*)
- !!
- !! Test if the cell%face%cell_idx and face%left/right%flxpts arrays are
- !! duplicates of each other and whether or not one should be deleted/removed.
- !!
- !do nc = 1,ncell
- !  do ncf = 1,size(cell(nc)%face)
- !    k = cell(nc)%face(ncf)%side
- !    nf = cell(nc)%face(ncf)%idx
- !    write (130,2) cell(nc)%face(ncf)%cell_idx(:)
- !    write (132,2) cell(nc)%face(ncf)%face_idx(:)
- !    if (k == 1) then
- !      write (131,2) face(nf)%left%flxpts(:)
- !    else
- !      write (131,2) face(nf)%right%flxpts(:)
- !    end if
- !  end do
- !end do
- !2 format (*(i4))
   !
   ! Format Statements
   !
@@ -1563,7 +1946,6 @@ end subroutine get_unit_cell_subconnectivity
 !###############################################################################
 !
 include "Functions/last.f90"
-include "Functions/rotatefluxpoints.f90"
 !
 !###############################################################################
 !
