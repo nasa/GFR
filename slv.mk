@@ -63,14 +63,39 @@ OTHERLIB =
  IPO_OPT = -O3 -ipo #-ipo-jobs4
 #OPTIM = -O2 -xSSE4.2 #-ipo-jobs4
 #OPTIM = -O3 -ip -xSSE4.2
-#OPTIM += -align array32byte
+#OPTIM += -align array16byte
 
  FPP = -fpp
 #FPP += -DPBS_ENV 
  FPP += -DIO_FOR_NAS
 #FPP += -DCGNS_ADF
-#FPP += -DUSE_INTEL_MKL
 #FPP += -DCGNS_ADF2
+
+###########################
+###########################
+###   MKL DEFINITIONS   ###
+###########################
+###########################
+
+# MKL options
+#FPP += -DUSE_INTEL_MKL
+#FCFLAG += -mkl
+#FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
+ 
+###-I$(MKLROOT)/include/lp64 -L/$(MKLROOT)/lib/intel64
+###FCFLAG += -lmkl_blas95_lp64
+###FCFLAG += -lmkl_intel_lp64
+###FCFLAG += -lmkl_sequential
+###FCFLAG += -lmkl_intel_thread
+###FCFLAG += -lmkl_core
+
+###BLASLIB  = -lmkl_blas95_lp64
+###MKLLIB += -lmkl_intel_lp64
+###MKLLIB += -lmkl_sequential
+###MKLLIB += -lmkl_intel_thread
+###MKLLIB += -lmkl_core
+###OPENMP = -openmp
+###FLIB += -mkl $(BLASLIB) -Wl,--start-group $(MKLLIB) -Wl,--end-group  $(OPENMP) -lpthread
 
 ##############################
 ##############################
@@ -115,19 +140,9 @@ FCFLAG += $(MOD) $(INCLUDE)
 #FCFLAG += -parallel
 FCFLAG += $(FCADD)
 #
-#FCFLAG += -opt-report=2 -opt-report-file=medium.opt.log
+
 #FCFLAG += -multiple-processes=6
 #
-
-# MKL options
-#BLASLIB  = -lmkl_blas95_lp64
-#MKLLIB += -lmkl_intel_lp64
-#MKLLIB += -lmkl_sequential
-#MKLLIB += -lmkl_intel_thread
-#MKLLIB += -lmkl_core
-#OPENMP = -openmp
-#FLIB += -mkl $(BLASLIB) -Wl,--start-group $(MKLLIB) -Wl,--end-group  $(OPENMP) -lpthread
-#FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
 
 #
 OBJS = $(OBJDIR)/kind_types.o \
@@ -145,6 +160,7 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/initialize.o \
        $(OBJDIR)/generic.o \
        $(OBJDIR)/bc_mod.o \
+       $(OBJDIR)/bnd_profiles_mod.o \
        $(OBJDIR)/triangle.o \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/filter_mod.o \
@@ -159,7 +175,8 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/mappings.o \
        $(OBJDIR)/connectivity.o \
-       $(OBJDIR)/limiters.o
+       $(OBJDIR)/limiters.o \
+       $(OBJDIR)/mms_mod.o
 #
 optimize: FCFLAG += $(OPTIM) $(ADDFLAGS)
 optimize: all
@@ -188,8 +205,17 @@ precise: optimize
 deplist: FCFLAG += -gen-dep=deplist.txt
 deplist: debug
 
-guide: FCFLAG += -parallel -O3 -ip -xSSE4.2 -guide=4 -guide-file=guide_files/$(*F).txt
-guide: $(OBJS)
+guide: FCFLAG += -parallel -guide=4 -guide-file=$*.guide.txt
+guide: optimize
+
+opt-report: FCFLAG += -opt-report=3 -opt-report-file=$*.opt-report.txt
+opt-report: optimize
+
+mkl: FPP += -DUSE_INTEL_MKL
+mkl: FCFLAG += -mkl
+mkl: FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
+mkl: optimize
+
 #
 all: $(OBJS)
 	$(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
