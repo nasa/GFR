@@ -48,6 +48,9 @@ subroutine initialize_limiters
   !.. Local Scalars ..
   integer :: ierr
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_limiters"
+  !
 continue
   !
   if (using_markers) then
@@ -55,13 +58,13 @@ continue
     ! Create the array for storing the cell averaged solutions
     !
     allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , stat=ierr )
-    call alloc_error("initialize_limiters","cell_ave_sol",1,ierr)
+    call alloc_error(pname,"cell_ave_sol",1,ierr)
     !
     !
     ! Create the array for identifying troubled cells
     !
     allocate ( troubled_cell(1:ncell) , source=fals , stat=ierr )
-    call alloc_error("initialize_limiters","troubled_cell",1,ierr)
+    call alloc_error(pname,"troubled_cell",1,ierr)
     !
   end if
   !
@@ -70,10 +73,10 @@ continue
   if (using_moment_limiter) then
     !
     allocate ( umodes(1:n_totpts,1:nq) , source=zero , stat=ierr )
-    call alloc_error("initialize_limiters","umodes",1,ierr)
+    call alloc_error(pname,"umodes",1,ierr)
     !
     allocate ( needs_limiting(1:ncell) , stat=ierr )
-    call alloc_error("initialize_limiters","needs_limiting",1,ierr)
+    call alloc_error(pname,"needs_limiting",1,ierr)
     !
   end if
   !
@@ -98,6 +101,9 @@ subroutine compute_cell_ave
   !.. Local Arrays ..
   real(wp), dimension(1:maxpts) :: const_mode
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_cell_ave"
+  !
 continue
   !
   do nc = 1,ncell
@@ -117,7 +123,7 @@ continue
     !
   end do
   !
-  call stop_recon(stop_mpi,"compute_cell_ave")
+  call stop_recon(stop_mpi,pname)
   !
 end subroutine compute_cell_ave
 !
@@ -132,7 +138,7 @@ subroutine moment_limiter
   !
   use vandermonde_mod, only : vand
   !
-  use parallel_mod, only : exchange_modes
+ !use parallel_mod, only : exchange_modes
   !
   !.. Local Scalars
   integer :: nc,n1,n2,np,m
@@ -170,7 +176,7 @@ continue
   !
   ! Exchange modes of cells on partition boundaries
   !
-  if (ncpu > 1) call exchange_modes(umodes)
+ !if (ncpu > 1) call exchange_modes(umodes)
   !
 end subroutine moment_limiter
 !
