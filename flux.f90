@@ -2,7 +2,7 @@ module flux_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
   !
   implicit none
   !
@@ -33,35 +33,14 @@ module flux_mod
   !    LDG_BETA = +1/2 -> LDG
   !    LDG_BETA = -1/2 -> CDG
   !   
-  real(wp), parameter :: LDG_beta(3) = (/ zero, zero, zero /)
+ !real(wp), parameter :: LDG_beta(3) = (/ zero, zero, zero /)
  !real(wp), parameter :: LDG_beta(3) = (/ half, half, half /)
   !
   ! LDG_TAU : Constant that controls the penalty term
   !           term of the common diffusive flux
   !        = 
-  real(wp), parameter :: LDG_tau = zero
+ !real(wp), parameter :: LDG_tau = zero
  !real(wp), parameter :: LDG_tau = one
-  !
-  ! Parameters giving what set of variables to
-  ! average when computing the common viscous flux.
-  !
-  ! VISC_INTERFACE_FLUXES : Compute the common viscous flux by averaging the
-  !                         left and right viscous interface fluxes which are
-  !                         computed using the left and right interface
-  !                         solutions and gradients.
-  ! VISC_SOLUTION_AND_GRADIENTS : Compute common solutions and gradients by
-  !                               averaging the left and right interface
-  !                               solutions and gradients and use these
-  !                               values to compute the common viscous flux.
-  !
-  integer, parameter :: visc_interface_fluxes = 1
-  integer, parameter :: visc_solution_and_gradients = 2
- !integer, parameter :: visc_variables_to_ave = visc_interface_fluxes
- !integer, parameter :: visc_variables_to_ave = visc_solution_and_gradients
-  !
-  integer, parameter :: ROEFLUX = 1
-  integer, parameter :: HLLC = 2
-  integer, parameter :: LDFSS = 3
   !
 contains
 !
@@ -70,10 +49,7 @@ contains
 subroutine interp_cv_to_flxpts()
   !
   use order_mod,  only : maxSP
-  use geovar,  only : ncell
-  use geovar,  only : pts_in_cell_ptr
-  use geovar,  only : cell
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : ncell,cell
   use interpolation_mod, only : interp
   use flowvar, only : usp,faceusp
   !
@@ -95,12 +71,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1 ! beginning index of sol-pts for this cell
-    n2 = pts_in_cell_ptr(nc+1) ! ending    index of sol-pts for this cell
-    np = n2-n1+1               ! number of sol-pts in this cell
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
     !
-    this_geom = cell_geom(nc)   ! geometry type of this cell
-    this_order = cell_order(nc) ! solution order of this cell
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
     !
     ! Create transpose of usp array to reduce cache misses
     !
@@ -121,10 +97,9 @@ continue
       !
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do k = 1,size(cell(nc)%face(n)%face_idx)
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
         !
-        kf = cell(nc)%face(n)%face_idx(k) ! index of flx-pt local to this face
-        lf = cell(nc)%face(n)%cell_idx(k) ! index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         !######################################################################
         !######################################################################
@@ -210,10 +185,9 @@ continue
       !
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do k = 1,size(cell(nc)%face(n)%face_idx)
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
         !
-        kf = cell(nc)%face(n)%face_idx(k) ! index of flx-pt local to this face
-        lf = cell(nc)%face(n)%cell_idx(k) ! index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         !######################################################################
         !######################################################################
@@ -267,7 +241,7 @@ subroutine flux_gradient_at_solpts_visc
   use derivatives_mod, only : deriv
   use metrics_mod,  only : metrics,geofa,jacobian
   use flowvar, only : usp,dusp,residual,faceflx,faceusp
-  use ovar,    only : dflux_opt,governing_equations
+  use ovar,    only : governing_equations
   !
   !.. Local Scalars ..
   integer :: k,l,m,n,nc,n1,n2,np
@@ -278,9 +252,13 @@ subroutine flux_gradient_at_solpts_visc
   real(wp), dimension(1:nr)      :: unrm
   real(wp), dimension(1:nq,1:nr) :: vflx
   real(wp), dimension(1:maxSP)   :: lmat
-  !
+  real(wp), dimension(1:maxSP,1:maxSP)   :: dmat
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: rsflx
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: xyflx
+  !
+  !.. Local Parameters ..
+  logical, parameter :: use_dmat_temp = true
+ !logical, parameter :: use_dmat_temp = fals
   !
 continue
   !
@@ -299,6 +277,12 @@ continue
     !
     this_geom = cell_geom(nc)   ! geometry type of this cell
     this_order = cell_order(nc) ! solution order of this cell
+    !
+    ! #########
+    ! #########
+    ! ### 1 ###
+    ! #########
+    ! #########
     !
     ! Get the flux at each quadrature point in the current cell
     !
@@ -335,28 +319,73 @@ continue
       !
     end do
     !
+    ! #########
+    ! #########
+    ! ### 2 ###
+    ! #########
+    ! #########
+    !
     ! Compute the divergence of the discontinuous fluxes 
     !
-    do m = 1,nq
-      do k = 1,np
+    if (use_dmat_temp) then
+      !
+      ! Initialize residual at this point by calculating the
+      ! divergence of the flux in the first (i.e. x/xi/r) direction
+      !
+      dmat(1:np,1:np) = deriv(this_geom,this_order)%d(1)%mat(1:np,1:np)
+      !
+      do m = 1,nq
+        do k = 1,np
+          residual(m,k+n1-1) = dot( dmat(1:np,k) , rsflx(1:np,m,1) )
+        end do
+      end do
+      !
+      ! Loop through the remaining coordinate directions and add the
+      ! divergence of the flux from each direction to the previous result
+      !
+      do l = 2,nr
         !
-        ! Initialize residual at this point by calculating the
-        ! divergence of the flux in the first (i.e. x/xi/r) direction
+        dmat(1:np,1:np) = deriv(this_geom,this_order)%d(l)%mat(1:np,1:np)
         !
-        residual(m,k+n1-1) = dot( deriv(this_geom,this_order)%d(1)%mat(1:np,k) , &
-                                  rsflx(1:np,m,1) )
-        !
-        ! Loop through the remaining coordinate directions and add the
-        ! divergence of the flux from each direction to the previous result
-        !
-        do l = 2,nr
-          residual(m,k+n1-1) = residual(m,k+n1-1) + &
-                             dot( deriv(this_geom,this_order)%d(l)%mat(1:np,k) , &
-                                  rsflx(1:np,m,l) )
+        do m = 1,nq
+          do k = 1,np
+            residual(m,k+n1-1) = residual(m,k+n1-1) + &
+                                 dot( dmat(1:np,k) , rsflx(1:np,m,l) )
+          end do
         end do
         !
       end do
-    end do
+      !
+    else
+      !
+      do m = 1,nq
+        do k = 1,np
+          !
+          ! Initialize residual at this point by calculating the
+          ! divergence of the flux in the first (i.e. x/xi/r) direction
+          !
+          residual(m,k+n1-1) = dot( deriv(this_geom,this_order)%d(1)%mat(1:np,k) , &
+                                    rsflx(1:np,m,1) )
+          !
+          ! Loop through the remaining coordinate directions and add the
+          ! divergence of the flux from each direction to the previous result
+          !
+          do l = 2,nr
+            residual(m,k+n1-1) = residual(m,k+n1-1) + &
+                               dot( deriv(this_geom,this_order)%d(l)%mat(1:np,k) , &
+                                    rsflx(1:np,m,l) )
+          end do
+          !
+        end do
+      end do
+      !
+    end if
+    !
+    ! #########
+    ! #########
+    ! ### 3 ###
+    ! #########
+    ! #########
     !
     ! Interpolate the fluxes to the interface flux points and dot this
     ! interpolated vector with the face normal at each flux point
@@ -373,10 +402,9 @@ continue
       !
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do k = 1,size(cell(nc)%face(n)%face_idx)
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
         !
-        kf = cell(nc)%face(n)%face_idx(k) ! index of flx-pt local to this face
-        lf = cell(nc)%face(n)%cell_idx(k) ! index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         ! Get the unit normal for this face flux/solution point
         !
@@ -455,30 +483,31 @@ continue
   !
   boundary_fluxes: do nf = 1,nfbnd
     !
-    face_geom = face(nf)%geom  ! geometry of face
+    face_geom  = face(nf)%geom  ! geometry of face
     face_order = face(nf)%order ! order of face
     !
     nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
     !
-    host_cell = face(nf)%left%cell ! left  cell on face
-    !
-    host_geom = cell_geom(host_cell)
-    host_order = cell_order(host_cell)
+    host_cell  = face(nf)%left%cell    ! host cell on boundary face
+    host_geom  = cell_geom(host_cell)  ! geometry of host cell
+    host_order = cell_order(host_cell) ! order of host cell
     !
     l1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in left cell
     l2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in left cell
     !
-    lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1)
+    lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1) ! value of interior flux polynomial at FP
     !
-    luqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-    ruqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
+    luqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1) ! FP solution from left  cell on face
+    ruqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2) ! FP solution from right cell on face
     !
     if (governing_equations == NavierStokes_Eqns) then
+      ! Solution gradient at FP from left  cell on face
       lduqp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,1)
+      ! Solution gradient at FP from right cell on face
       rduqp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,2)
     end if
     !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
+    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
     !
     ! Get the common flux at each quadrature flux point
     !
@@ -508,11 +537,11 @@ continue
         ! For all other boundaries, compute the boundary
         ! fluxes in the same way as the interior faces.
         !
-        if (invs_flux_method == ROEFLUX) then
+        if (invs_flux_method == invs_flux_ROE) then
           iflx(:) = upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-        else if (invs_flux_method == HLLC) then
+        else if (invs_flux_method == invs_flux_HLLC) then
           iflx(:) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-        else if (invs_flux_method == LDFSS) then
+        else if (invs_flux_method == invs_flux_LDFSS) then
           iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
         end if
         !
@@ -546,7 +575,8 @@ continue
       !
       kl = face(nf)%left%flxpts(k)
       !
-      ! Get the face length for the left cell
+      ! Get the contribution to the face length/area from the current flux
+      ! point for the left cell
       !
       ds  = rnorm2( rnrm(:,k) )
       dsl = ds * cl(host_geom)
@@ -621,11 +651,11 @@ continue
       !
       ! Get the inviscid upwind flux at the current flux point
       !
-      if (invs_flux_method == ROEFLUX) then
+      if (invs_flux_method == invs_flux_ROE) then
         iflx(:) = upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-      else if (invs_flux_method == HLLC) then
+      else if (invs_flux_method == invs_flux_HLLC) then
         iflx(:) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-      else if (invs_flux_method == LDFSS) then
+      else if (invs_flux_method == invs_flux_LDFSS) then
         iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
       end if
       !
@@ -688,6 +718,8 @@ continue
     !
   end do interior_fluxes
   !
+  1 format (a,i0)
+  !
 end subroutine correct_interface_flux_visc
 !
 !###############################################################################
@@ -714,9 +746,9 @@ pure function visc_flx_cv(uu,dcvdx) result(return_value)
   real(wp), dimension(1:nq,1:nr) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: vb,ve
-  real(wp) :: dudx,dudy,dvdx,dvdy
-  real(wp) :: mvsc,mcdt,dTdx,dTdy
+  integer :: i,j,l
+  real(wp) :: mvsc,mcdt
+  real(wp) :: ave_ext_rate
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: vel
@@ -724,8 +756,10 @@ pure function visc_flx_cv(uu,dcvdx) result(return_value)
   !
 continue
   !
-  vb = 2     ! first momentum equation
-  ve = nq-1  ! last  momentum equation 
+  ! Initialize the viscous fluxes to zero.
+  ! NOTE: This takes care of the continuity equation
+  !
+  return_value = zero
   !
   ! Get the gradients of the primitive variables using the 
   ! gradients of the conservative variables and the product rule
@@ -734,31 +768,47 @@ continue
   !
   ! Get the velocity vector
   !
-  vel(:) = uu(vb:ve)/uu(1)
+  vel(:) = uu(nmb:nme)/uu(nec)
+  !
+  ! Compute the molecular viscosity and molecular conductivity
   !
   mvsc = viscosity_cv_sp(uu)
   mcdt = cpref_nd * mvsc / Pr
   !
-  dudx = dpvdx(1,2)
-  dudy = dpvdx(2,2)
-  dvdx = dpvdx(1,3)
-  dvdy = dpvdx(2,3)
-  dTdx = dpvdx(1,nq)
-  dTdy = dpvdx(2,nq)
+  ! Compute the average extension rate
   !
-  ! x-directional viscous fluxes
+  ave_ext_rate = zero
+  do l = 1,nr
+    ave_ext_rate = ave_ext_rate + dpvdx(l,nmb-1+l)
+  end do
+  ave_ext_rate = two3 * ave_ext_rate
   !
-  return_value( 1,1) = zero
-  return_value( 2,1) = mvsc * two3 * (two*dudx - dvdy)
-  return_value( 3,1) = mvsc * (dudy + dvdx)
-  return_value(nq,1) = mcdt*dTdx + dot( vel , return_value(vb:ve,1) )
+  ! Compute the viscous fluxes for the momentum equations which are just
+  ! the components of the viscous stress tensor.
+  ! NOTE: We are initially excluding the molecular viscosity term which
+  !       will be multiplied to the whole tau array after these loops.
   !
-  ! y-directional viscous fluxes
+  do j = 1,nr
+    do i = 1,nr
+        return_value(nmb-1+i,j) = dpvdx(i,nmb-1+j) + dpvdx(j,nmb-1+i)
+    end do
+  end do
   !
-  return_value( 1,2) = zero
-  return_value( 2,2) = mvsc * (dudy + dvdx)
-  return_value( 3,2) = mvsc * two3 * (two*dvdy - dudx)
-  return_value(nq,2) = mcdt*dTdy + dot( vel , return_value(vb:ve,2) )
+  ! Subtract the average extension rate from the normal stresses
+  !
+  do l = 1,nr
+    return_value(nmb-1+l,l) = return_value(nmb-1+l,l) - ave_ext_rate
+  end do
+  !
+  ! Multiply the viscous stresses by the molecular viscosity
+  !
+  return_value(nmb:nme,1:nr) = mvsc * return_value(nmb:nme,1:nr)
+  !
+  ! Compute the viscous fluxes for the energy equation
+  !
+  do l = 1,nr
+    return_value(nq,l) = mcdt*dpvdx(l,nq) + dot( vel , return_value(nmb:nme,l) )
+  end do
   !
 end function visc_flx_cv
 !
@@ -815,7 +865,7 @@ pure function visc_wall_flx_cv(unrm,uwall,dpvdx) result(return_value)
   use ovar,   only : cpref_nd,Pr
   !
   !.. Formal Arguments ..
-  real(wp), dimension(1:nr),         intent(in) :: unrm
+  real(wp), dimension(1:nr),      intent(in) :: unrm
   real(wp), dimension(1:nq),      intent(in) :: uwall
   real(wp), dimension(1:nr,1:nq), intent(in) :: dpvdx
   !
@@ -823,13 +873,13 @@ pure function visc_wall_flx_cv(unrm,uwall,dpvdx) result(return_value)
   real(wp), dimension(1:nq) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: vb,ve
-  real(wp) :: dudx,dudy,dvdx,dvdy
-  real(wp) :: mvsc,mcdt,dTdx,dTdy
+  integer :: i,j,l,m
+  real(wp) :: mvsc,mcdt
+  real(wp) :: ave_ext_rate
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr)    :: vel
-  real(wp), dimension(1:nq) :: xflx,yflx
+  real(wp), dimension(1:nr)      :: vel
+  real(wp), dimension(1:nr,1:nq) :: vflx
   !
 continue
   !
@@ -842,45 +892,61 @@ continue
   !
   ! For isothermal wall: all gradients /= zero
   !                      uwall(nmb:nme) [i.e., wall velocities] == zero
-  !                
   !
-  vb = 2     ! first momentum equation
-  ve = nq-1  ! last  momentum equation 
+  ! Initialize the viscous fluxes to zero.
+  ! NOTE: This takes care of the continuity equation
   !
-  ! Get the velocity vector from the wall boundary conditions
+  vflx = zero
   !
-  vel(:) = uwall(vb:ve)/uwall(1)
+  ! Get the velocity vector
   !
-  ! Compute the molecular viscosity and
-  ! conductivity using the wall temperature
+  vel(:) = uwall(nmb:nme)/uwall(nec)
+  !
+  ! Compute the molecular viscosity and molecular conductivity
   !
   mvsc = viscosity_cv_sp(uwall)
   mcdt = cpref_nd * mvsc / Pr
   !
-  ! Load the necessary gradient variables
+  ! Compute the average extension rate
   !
-  dudx = dpvdx(1,2)
-  dudy = dpvdx(2,2)
-  dvdx = dpvdx(1,3)
-  dvdy = dpvdx(2,3)
-  dTdx = dpvdx(1,nq)
-  dTdy = dpvdx(2,nq)
+  ave_ext_rate = zero
+  do l = 1,nr
+    ave_ext_rate = ave_ext_rate + dpvdx(l,nmb-1+l)
+  end do
+  ave_ext_rate = two3 * ave_ext_rate
   !
-  ! x-directional viscous fluxes
+  ! Compute the viscous fluxes for the momentum equations which are just
+  ! the components of the viscous stress tensor.
+  ! NOTE: We are initially excluding the molecular viscosity term which
+  !       will be multiplied to the whole tau array after these loops.
   !
-  xflx( 1) = zero
-  xflx( 2) = mvsc * two3 * (two*dudx - dvdy)
-  xflx( 3) = mvsc * (dudy + dvdx)
-  xflx(nq) = mcdt*dTdx + dot( vel , xflx(vb:ve) )
+  do j = 1,nr
+    do i = 1,nr
+        vflx(i,nmb-1+j) = dpvdx(i,nmb-1+j) + dpvdx(j,nmb-1+i)
+    end do
+  end do
   !
-  ! y-directional viscous fluxes
+  ! Subtract the average extension rate from the normal stresses
   !
-  yflx( 1) = zero
-  yflx( 2) = mvsc * (dudy + dvdx)
-  yflx( 3) = mvsc * two3 * (two*dvdy - dudx)
-  yflx(nq) = mcdt*dTdy + dot( vel , yflx(vb:ve) )
+  do l = 1,nr
+    vflx(l,nmb-1+l) = vflx(l,nmb-1+l) - ave_ext_rate
+  end do
   !
-  return_value(1:nq) = xflx(1:nq)*unrm(1) + yflx(1:nq)*unrm(2)
+  ! Multiply the viscous stresses by the molecular viscosity
+  !
+  vflx(1:nr,nmb:nme) = mvsc * vflx(1:nr,nmb:nme)
+  !
+  ! Compute the viscous fluxes for the energy equation
+  !
+  do l = 1,nr
+    vflx(l,nq) = mcdt*dpvdx(l,nq) + dot( vel , vflx(l,nmb:nme) )
+  end do
+  !
+  ! Compute the normal viscous flux
+  !
+  do m = 1,nq
+    return_value(m) = dot( vflx(1:nr,m) , unrm(1:nr) )
+  end do
   !
 end function visc_wall_flx_cv
 !
@@ -891,6 +957,7 @@ pure function common_visc_flx_cv(unrm,ul,duldx,ur,durdx) result(return_value)
   !.. Use Statements ..
   use geovar, only : nr
   use ovar,   only : visc_variables_to_ave
+  use ovar,   only : LDG_tau, LDG_beta
   !
   !.. Formal Arguments ..
   real(wp), dimension(1:nr),         intent(in) :: unrm
@@ -948,7 +1015,7 @@ continue
     ! [[.]] applied to the interface solutions) to the common viscous flux vector
     !
     do m = 1,nq
-      penalty = LDG_tau * ( ul(m) - ur(m) )
+      penalty = LDG_tau * ( ur(m) - ul(m) )
       do l = 1,nr
         vflux(l,m) = vflux(l,m) + penalty * unrm(l)
       end do
@@ -995,7 +1062,7 @@ continue
     ! [[.]] applied to the interface solutions) to the common gradient
     !
     do m = 1,nq
-      penalty = LDG_tau * ( ul(m) - ur(m) )
+      penalty = LDG_tau * ( ur(m) - ul(m) )
       do l = 1,nr
         qcom(l,m) = qcom(l,m) + penalty * unrm(l)
       end do
@@ -1112,6 +1179,7 @@ subroutine correct_gradients_at_solpts()
   use correction_mod, only : correct
   use flowvar, only : dusp,faceusp
   use ovar,    only : walls_are_exact
+  use ovar,   only : LDG_beta
   !
   !.. Local Scalars ..
   integer  :: k,l,m,n,nf,r1,r2,l1,l2,n1,n2,nc
@@ -1125,6 +1193,7 @@ subroutine correct_gradients_at_solpts()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr)          :: unrm
+  real(wp), dimension(1:nq)          :: ucom
   real(wp), dimension(1:nq)          :: ljfp,rjfp
   real(wp), dimension(1:nq,1:maxpts) :: lufp,rufp
   !
@@ -1213,9 +1282,22 @@ continue
       !       Using jump_left = u_com - u_left
       !         jump_left  = (half + cbias)*(u_right-u_left)
       !
+      if (any(bface(1,nf) == bc_walls)) then
+        ucom(1:nq) = rufp(1:nq,k)
+      else
+        do m = 1,nq
+          ucom(m) = lufp(m,k)*(half - dot(LDG_beta(1:nr),+unrm(1:nr))) + &
+                    rufp(m,k)*(half - dot(LDG_beta(1:nr),-unrm(1:nr)))
+        end do
+      end if
+      !
       do m = 1,nq
-        ljfp(m) = hfpb*(rufp(m,k) - lufp(m,k))
+        ljfp(m) = ucom(m) - lufp(m,k)
       end do
+      !
+     !do m = 1,nq
+     !  ljfp(m) = hfpb*(rufp(m,k) - lufp(m,k))
+     !end do
       !
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the left cell
@@ -1311,9 +1393,19 @@ continue
       !         jump_right = (half - cbias)*(u_left-u_right)
       !
       do m = 1,nq
-        ljfp(m) = hfpb*(rufp(m,k) - lufp(m,k))
-        rjfp(m) = hfmb*(lufp(m,k) - rufp(m,k))
+        ucom(m) = lufp(m,k)*(half - dot(LDG_beta(1:nr),+unrm(1:nr))) + &
+                  rufp(m,k)*(half - dot(LDG_beta(1:nr),-unrm(1:nr)))
       end do
+      !
+      do m = 1,nq
+        ljfp(m) = ucom(m) - lufp(m,k)
+        rjfp(m) = ucom(m) - rufp(m,k)
+      end do
+      !
+     !do m = 1,nq
+     !  ljfp(m) = hfpb*(rufp(m,k) - lufp(m,k))
+     !  rjfp(m) = hfmb*(lufp(m,k) - rufp(m,k))
+     !end do
       !
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the left cell
@@ -1359,7 +1451,7 @@ subroutine correct_gradients_br2()
   use metrics_mod,  only : geofa,jacobian,volj
   use correction_mod, only : correct
   use flowvar, only : dusp,facedusp,faceusp
-  use ovar,    only : walls_are_exact
+  use ovar,    only : walls_are_exact,LDG_beta
   use interpolation_mod, only : interp
   !
   use parallel_mod, only : exchange_facedusp
@@ -1422,10 +1514,10 @@ continue
         end do
       end do
       !
-      face_points: do kfp = 1,size(cell(nc)%face(ncf)%face_idx)
+      face_points: do kf = 1,size(cell(nc)%face(ncf)%cell_idx)
         !
-        kf = cell(nc)%face(ncf)%face_idx(kfp) ! index of flx-pt local to this face
-        lf = cell(nc)%face(ncf)%cell_idx(kfp) ! index of flx-pt within interp%mat
+        !kf: index of flx-pt local to this face
+        lf = cell(nc)%face(ncf)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         ! Solution at this flux point for the left and right cells
         !
@@ -1450,6 +1542,7 @@ continue
         !       For wall boundaries, jump_left should reduce to:
         !         jump_left = (u_right - u_left) where u_right = u_wall
         !
+       !cbias = zero
         cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
         !
         ! Reset cbias if this is a wall boundary
@@ -1485,10 +1578,10 @@ continue
       ! points to the interface flux points now that we are done with all
       ! the flux points on the current face of the current cell.
       !
-      interpolate_face: do kfp = 1,size(cell(nc)%face(ncf)%face_idx)
+      interpolate_face: do kf = 1,size(cell(nc)%face(ncf)%cell_idx)
         !
-        kf = cell(nc)%face(ncf)%face_idx(kfp) ! index of flx-pt local to this face
-        lf = cell(nc)%face(ncf)%cell_idx(kfp) ! index of flx-pt within interp%mat
+        !kf: index of flx-pt local to this face
+        lf = cell(nc)%face(ncf)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         lmat(1:np) = interp(this_geom,this_order)%toFace(face_order)%mat(1:np,lf)
         !
@@ -1708,10 +1801,9 @@ continue
         !
         face_order = cell(nc)%face(n)%order ! order of current face
         !
-        do k = 1,size(cell(nc)%face(n)%face_idx)
+        do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
           !
-          kf = cell(nc)%face(n)%face_idx(k) ! index of flx-pt local to this face
-          lf = cell(nc)%face(n)%cell_idx(k) ! index of flx-pt within interp%mat
+          lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
           !
           ! Get the unit normal for this face flux/solution point
           !
@@ -1776,10 +1868,9 @@ continue
      !  !
      !  face_order = cell(nc)%face(n)%order ! order of current face
      !  !
-     !  do k = 1,size(cell(nc)%face(n)%face_idx)
+     !  do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
      !    !
-     !    kf = cell(nc)%face(n)%face_idx(k) ! index of flx-pt local to this face
-     !    lf = cell(nc)%face(n)%cell_idx(k) ! index of flx-pt within interp%mat
+     !    lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
      !    !
      !    ! Get the unit normal for this face flux/solution point
      !    !
@@ -1965,11 +2056,11 @@ continue
       !
       ! Get the numerical flux at the current flux point
       !
-      if (invs_flux_method == ROEFLUX) then
+      if (invs_flux_method == invs_flux_ROE) then
         fncq(:,k) = upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-      else if (invs_flux_method == HLLC) then
+      else if (invs_flux_method == invs_flux_HLLC) then
         fncq(:,k) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
-      else if (invs_flux_method == LDFSS) then
+      else if (invs_flux_method == invs_flux_LDFSS) then
         fncq(:,k) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
       end if
       !
