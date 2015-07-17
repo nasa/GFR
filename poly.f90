@@ -215,8 +215,8 @@ module polynomial_mod
   real(DP), parameter :: three_DP = 3.0_DP
   real(DP), parameter :: four_DP  = 4.0_DP
   real(DP), parameter :: six_DP   = 6.0_DP
-  real(DP), parameter :: c0_25_DP = 0.25_DP
-  real(DP), parameter :: c4_50_DP = 4.5_DP
+  real(DP), parameter :: one4_DP  = 0.25_DP
+  real(DP), parameter :: nine2_DP = 4.5_DP
   real(DP), parameter :: eps14_DP = 1.0e-14_DP
   real(DP), parameter :: eps17_DP = 1.0e-17_DP
   real(DP), parameter :: pi_DP    = 3.14159265358979323846_DP
@@ -228,8 +228,8 @@ module polynomial_mod
   real(QP), parameter :: three_QP = 3.0_QP
   real(QP), parameter :: four_QP  = 4.0_QP
   real(QP), parameter :: six_QP   = 6.0_QP
-  real(QP), parameter :: c0_25_QP = 0.25_QP
-  real(QP), parameter :: c4_50_QP = 4.5_QP
+  real(QP), parameter :: one4_QP  = 0.25_QP
+  real(QP), parameter :: nine2_QP = 4.5_QP
   real(QP), parameter :: eps14_QP = 1.0e-14_QP
   real(QP), parameter :: eps17_QP = 1.0e-17_QP
   real(QP), parameter :: pi_QP    = 3.14159265358979323846_QP
@@ -1025,7 +1025,7 @@ continue
     s  = s + gamma_constant(k)*pr
   end do
   !
-  g = s * exp(one_DP-xx) * (xx+c4_50_DP)**(xx-half_DP)
+  g = s * exp(one_DP-xx) * (xx+nine2_DP)**(xx-half_DP)
   !
   if (ind == 1) then
     return_value = return_value/g
@@ -1557,7 +1557,7 @@ continue
   !
   if (n > 1) then
     dn = real(n-1,kind=DP)
-    c  = c0_25_DP*dn*(dn+one_DP)
+    c  = one4_DP*dn*(dn+one_DP)
     dma(1,1) = -c
     dma(n,n) = c
   end if
@@ -2723,7 +2723,7 @@ continue
     s  = s + gamma_constant(k)*pr
   end do
   !
-  g = s * exp(one_QP-xx) * (xx+c4_50_QP)**(xx-half_QP)
+  g = s * exp(one_QP-xx) * (xx+nine2_QP)**(xx-half_QP)
   !
   if (ind == 1) then
     return_value = return_value/g
@@ -3255,7 +3255,7 @@ continue
   !
   if (n > 1) then
     dn = real(n-1,kind=QP)
-    c  = c0_25_QP*dn*(dn+one_QP)
+    c  = one4_QP*dn*(dn+one_QP)
     dma(1,1) = -c
     dma(n,n) = c
   end if
