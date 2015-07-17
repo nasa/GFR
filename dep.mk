@@ -17,9 +17,11 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/initialize.o \
               $(OBJDIR)/generic.o \
               $(OBJDIR)/bc_mod.o \
+              $(OBJDIR)/bnd_profiles_mod.o \
               $(OBJDIR)/flux.o \
               $(OBJDIR)/parallel.o \
               $(OBJDIR)/time_mod.o \
+              $(OBJDIR)/mms_mod.o \
               $(OBJDIR)/limiters.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
@@ -31,19 +33,31 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/interpolation_mod.o \
               $(OBJDIR)/parallel.o \
-              $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-              $(FUNDIR)/normal_streamwise_velocity_gradient.f90 \
+              $(OBJDIR)/mms_mod.o \
               $(FUNDIR)/pressure.f90 \
-              $(FUNDIR)/temperature.f90 \
-              $(FUNDIR)/viscosity.f90 \
               $(FUNDIR)/usp2v.f90 \
               $(FUNDIR)/vsp2u.f90
+
+$(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
+              $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/eqn_idx_mod.o \
+              $(OBJDIR)/order_mod.o \
+	      $(OBJDIR)/geovar_mod.o \
+	      $(OBJDIR)/ovar_mod.o \
+	      $(OBJDIR)/flowvar_mod.o \
+	      $(OBJDIR)/metrics.o \
+	      $(OBJDIR)/interpolation_mod.o \
+              $(FUNDIR)/grad_cv_to_grad_pv.f90 \
+              $(FUNDIR)/normal_streamwise_velocity_gradient.f90 \
+              $(FUNDIR)/bc_string_to_integer.f90 \
+              $(FUNDIR)/temperature.f90 \
+              $(FUNDIR)/viscosity.f90 \
+              $(FUNDIR)/usp2v.f90
 
 $(OBJDIR)/connectivity.o : connectivity.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/order_mod.o \
-              $(FUNDIR)/rotatefluxpoints.f90 \
               $(FUNDIR)/last.f90
 
 $(OBJDIR)/correction_mod.o : correction_mod.f90 \
@@ -68,7 +82,8 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
               $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
-              $(OBJDIR)/kind_types.o
+              $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/filter_mod.o : filter_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -121,6 +136,7 @@ $(OBJDIR)/generic.o : generic.f90 \
               $(OBJDIR)/parallel.o \
               $(FUNDIR)/entropy.f90 \
               $(FUNDIR)/pressure.f90 \
+              $(FUNDIR)/vortex.f90 \
               $(FUNDIR)/usp2v.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
@@ -143,11 +159,11 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/flowvar_mod.o \
+              $(OBJDIR)/mms_mod.o \
               $(OBJDIR)/io.o \
               $(OBJDIR)/projection_mod.o \
               $(OBJDIR)/interpolation_mod.o \
-              $(FUNDIR)/vortex.f90 \
-              $(FUNDIR)/usp2v.f90
+              $(FUNDIR)/vortex.f90
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -205,6 +221,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
               $(FUNDIR)/reformat_string.f90 \
               $(FUNDIR)/rotate.f90 \
               $(FUNDIR)/rotate_2d.f90 \
+              $(FUNDIR)/big_to_little_endian.f90 \
               $(FUNDIR)/uppercase.f90
 
 $(OBJDIR)/limiters.o : limiters.f90 \
@@ -230,7 +247,18 @@ $(OBJDIR)/metrics.o : metrics.f90 \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/ovar_mod.o \
-              $(OBJDIR)/quadrature_mod.o
+              $(OBJDIR)/quadrature_mod.o \
+              $(OBJDIR)/interpolation_mod.o \
+              $(OBJDIR)/derivatives_mod.o
+
+$(OBJDIR)/mms_mod.o : mms_mod.f90 \
+              $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/eqn_idx_mod.o \
+              $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/ovar_mod.o \
+              $(OBJDIR)/flowvar_mod.o \
+              $(OBJDIR)/metrics.o \
+              $(FUNDIR)/vsp2u.f90
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -247,6 +275,7 @@ $(OBJDIR)/parallel.o : parallel.f90 \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/interpolation_mod.o \
+              $(OBJDIR)/connectivity.o \
               $(FUNDIR)/cell_solpts.f90 \
               $(FUNDIR)/last.f90
 
