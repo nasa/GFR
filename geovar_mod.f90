@@ -221,6 +221,7 @@ module geovar
     !               Examples: for a triangle, in the range 1:3, quad 1:4,
     !                         tetr 1:4, pyra 1:5, pris 1:5, hexa 1:6
     integer :: cell_face
+    ! flxpts : indices for the flux points of this cell on the current face
     integer, allocatable :: flxpts(:)
   end type cell_on_face_t
   !
@@ -230,7 +231,7 @@ module geovar
     ! geom : geometry type of the current face
     integer :: geom
     ! order : solution order of the current face
-    !         NOTE: This is should be the maximum solution order between the two
+    !         NOTE: This should be the maximum solution order between the two
     !               cells attached to the current face.
     integer :: order
     ! left : Information for the cell on the left side of the current face.
@@ -245,6 +246,15 @@ module geovar
     !         NOTE: If the current face is a boundary face, the right side is
     !               the ghost cell.
     type(cell_on_face_t) :: right
+    ! side : Possible replacement for left and right components above. This
+    !        would allow for the cell_idx component of face_of_cell_t to be
+    !        removed since it is a duplicate of the flxpts component of
+    !        cell_on_face_t. The side component of face_of_cell_t would give
+    !        either the value 1 or 2 which would correspond to the location in
+    !        this side component of face_t.
+    !        side(1) is the same as the left  component
+    !        side(2) is the same as the right component
+   !type(cell_on_face_t) :: side(1:2)
   end type face_t
   !
   ! FACE : Array of type face_t that contains information for all grid faces
@@ -266,8 +276,6 @@ module geovar
     integer :: geom
     ! order : polynomial order of the current face
     integer :: order
-    ! face_idx : index of flx-pt relative to all flx-pts on the current face
-    integer, allocatable :: face_idx(:)
     ! cell_idx : index of flx-pt relative to all flx-pts of the current cell
     integer, allocatable :: cell_idx(:)
   end type face_of_cell_t
@@ -442,7 +450,7 @@ subroutine geovar_memory_usage(iunit)
   integer :: iou,i,j,k
   character(len=36) :: array_name
   type(memory) :: array,dt
-  type(memory) :: face_idx,cell_idx
+  type(memory) :: cell_idx
   type(memory) :: total
   !
 continue
@@ -452,8 +460,6 @@ continue
   !
   total%siz = 0
   total%mem = 0
-  face_idx%siz = 0
-  face_idx%mem = 0
   cell_idx%siz = 0
   cell_idx%mem = 0
   !
@@ -516,9 +522,9 @@ continue
     !
     ! Try the Intel language extension intrinsic function sizeof
     !
-    dt%mem = int(sizeof(face))
-    dt = dt%get_units()
-    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+   !dt%mem = int(sizeof(face))
+   !dt = dt%get_units()
+   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
     !
   end if
   !
@@ -530,7 +536,6 @@ continue
    !  integer :: side
    !  integer :: geom
    !  integer :: order
-   !  integer, allocatable :: face_idx(:)
    !  integer, allocatable :: cell_idx(:)
    !end type face_of_cell_t
    !type, public :: cell_t
@@ -574,15 +579,6 @@ continue
                             storage_size(cell(i)%face(j)%geom) + &
                             storage_size(cell(i)%face(j)%order)
           !
-          if (allocated(cell(i)%face(j)%face_idx)) then
-            array%siz = size(cell(i)%face(j)%face_idx)
-            array%mem = array%siz*size(cell(i)%face(j)%face_idx)
-            face_idx%siz = face_idx%siz + array%siz
-            face_idx%mem = face_idx%mem + array%mem
-            dt%siz = dt%siz + array%siz
-            dt%mem = dt%mem + array%mem
-          end if
-          !
           if (allocated(cell(i)%face(j)%cell_idx)) then
             array%siz = size(cell(i)%face(j)%cell_idx)
             array%mem = array%siz*size(cell(i)%face(j)%cell_idx)
@@ -599,8 +595,6 @@ continue
     end do
     !
     total%mem = total%mem + dt%mem
-    write (array_name,5) "cell%face%face_idx"
-    write (iou,2) array_name,face_idx%get_units()
     write (array_name,5) "cell%face%cell_idx"
     write (iou,2) array_name,cell_idx%get_units()
     write (array_name,5) "cell"
@@ -608,9 +602,9 @@ continue
     !
     ! Try the Intel language extension intrinsic function sizeof
     !
-    dt%mem = int(sizeof(cell))
-    dt = dt%get_units()
-    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+   !dt%mem = int(sizeof(cell))
+   !dt = dt%get_units()
+   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
     !
   end if
   !
@@ -619,9 +613,9 @@ continue
   !
   ! Try the Intel language extension intrinsic function sizeof
   !
-  total%mem = int(sizeof(face)) + int(sizeof(cell))
-  total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+ !total%mem = int(sizeof(face)) + int(sizeof(cell))
+ !total = total%get_units()
+ !write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
   !
   ! Format Statements
   !
