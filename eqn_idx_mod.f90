@@ -33,6 +33,12 @@ module eqn_idx
   !
   integer, public, protected, save :: nee
   !
+  ! NTK : index for turbulence kinetic energy equation
+  ! NTL : index for turbulence length scale equation
+  !
+  integer, public, protected, save :: ntk
+  integer, public, protected, save :: ntl
+  !
   ! NQ : total number of equations
   !
   integer, public, protected, save :: nq = 4
@@ -99,6 +105,10 @@ contains
 !
 subroutine create_equation_indices(num_dim)
   !
+  !.. Use Statements ..
+  use ovar, only : governing_equations
+  use ovar, only : turbulence_model
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: num_dim
   !
@@ -109,7 +119,7 @@ continue
   !
   if (num_dim == 1) then
     !
-    call stop_recon(stop_mpi,pname,"1D is not supported")
+    call stop_recon(stop_mpi,pname,"1D is currently not supported")
     !
   end if
   !
@@ -129,9 +139,20 @@ continue
   ngov(1,3) = ngov(2,2) + 1
   ngov(2,3) = ngov(1,3) + ngov(3,3) - 1
   !
-  ! Turbulence equations (NOT WORKING)
+  ! Turbulence equations
   !
-  ngov(3,4) = 0
+  ! Reset the turbulence model to laminar if flow is inviscid
+  !
+  if (governing_equations == Euler_Eqns) turbulence_model = laminar_flow
+  !
+  ! Get the number of turbulence model equations
+  !
+  if (turbulence_model == laminar_flow) then
+    ngov(3,4) = 0
+  else if (abs(turbulence_model) == k_omega) then
+    ngov(3,4) = 2
+  end if
+  !
   ngov(1,4) = ngov(2,3) + 1
   ngov(2,4) = ngov(1,4) + ngov(3,4) - 1
   !
@@ -149,6 +170,9 @@ continue
   !
   nmb = nmx
   nme = nec + ngov(3,2)
+  !
+  ntk = ngov(1,4)
+  ntl = ngov(2,4)
   !
 end subroutine create_equation_indices
 !
