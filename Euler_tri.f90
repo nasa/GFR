@@ -21,7 +21,7 @@ program Euler_tri
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
-  use ovar, only : dump_memory_usage
+  use ovar, only : dump_memory_usage,mms_opt
   !
   use flowvar, only : usp,uoldsp
   !
@@ -95,6 +95,12 @@ program Euler_tri
   use module_limiters, only : initialize_limiters
   use module_limiters, only : compute_cell_ave
   !
+  use mms_mod, only : mms_src
+  use mms_mod, only : initialize_mms
+  !
+  use bnd_profiles_mod, only : init_bnd_profile_structures
+  use bnd_profiles_mod, only : compute_bnd_profiles
+  !
   use iso_c_binding, only : c_long
   !
   implicit none
@@ -106,12 +112,21 @@ program Euler_tri
   !
   integer, parameter :: iostp = 2683
   !
+  integer, parameter :: reopen_CGNS = 2
+  integer, parameter :: open_CGNS = 1
+  integer, parameter :: add_to_CGNS = 0
+  integer, parameter :: close_CGNS = -1
+  integer, parameter :: dump_CGNS = -2
+  !
+  integer :: CGNS_action
+  !
   logical :: request_stop
+  logical :: request_solution
   !
  !logical, parameter :: ignore_errors = true
   logical, parameter :: ignore_errors = fals
   !
-  integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
+ !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
   integer(c_long) :: current_wtl
   !
@@ -198,6 +213,7 @@ continue
   call init_outerpolation_matrices
   call init_projection_matrices
   call init_filter_matrices
+  call init_bnd_profile_structures
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
@@ -248,6 +264,10 @@ continue
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
   !
+  ! Initialize the MMS module if it is being used. 
+  !
+  if (mms_opt /= 0) call initialize_mms
+  !
   ! Initialize the flow variables for all solution points or
   ! read in the restart values if restarting a simulation
   !
@@ -255,7 +275,8 @@ continue
   !
   ! Output the initialized solution
   !
-  call write_nodal_parallel_cgns(1)
+  call write_nodal_parallel_cgns(open_CGNS)
+  CGNS_action = add_to_CGNS
   !
   work_units = zero
   if (mypnum == 0) call write_results_file(1,itcur)
@@ -264,7 +285,7 @@ continue
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
   !
-  call check_flux_point_orderings
+ !call check_flux_point_orderings
   !
   ! Initialize any necessary information for use in the module generic_mod
   !
@@ -345,7 +366,7 @@ continue
         call discontinuous_gradient_at_solpts
         if (visc_flux_method == visc_flux_BR2) then
           call correct_gradients_br2
-        else if (visc_flux_method == visc_flux_BR1) then
+        else if (visc_flux_method /= visc_flux_BR2) then
           call correct_gradients_at_solpts
           call interp_dusp_to_flxpts
         end if
@@ -374,6 +395,10 @@ continue
       ! ######################################################################
       ! ######################################################################
       ! ######################################################################
+      !
+      ! Compute the source terms for the method of manufactured solutions (MMS)
+      !
+      if (mms_opt /= 0) call mms_src
       !
       ! Compute the final residual for each solution point
       !
@@ -437,9 +462,11 @@ continue
         !
         if (walltime_expiring) exit main_loop
         !
-        ! Have the root processor check for the file
+        ! Have the root processor check for various temporary files
         !
         if (mypnum == 0) then
+          !
+          ! Check for a stop request
           !
           inquire (file="STOP_RECON",exist=request_stop)
           !
@@ -458,6 +485,21 @@ continue
             !
           end if
           !
+          ! Check for a dump of the solution file
+          !
+          inquire (file="DUMP_SOLUTION",exist=request_solution)
+          !
+          ! If solution dump was requested, delete the DUMP_SOLUTION file
+          !
+          if (request_solution) then
+            !
+            write (iout,97)
+            !
+            open (iostp,file="DUMP_SOLUTION",iostat=ierr)
+            close (iostp,status="delete",iostat=ierr)
+            !
+          end if
+          !
         end if
         !
         ! Have the root processor broadcast request_stop to
@@ -466,6 +508,19 @@ continue
         !
         call mpi_bcast(request_stop,1,mpi_logical,0,mpi_comm_world,mpierr)
         if (request_stop) exit main_loop
+        !
+        ! Have the root processor broadcast request_solution to
+        ! the other processors
+        !
+        call mpi_bcast(request_solution,1,mpi_logical,0,mpi_comm_world,mpierr)
+        !
+        ! If a solution dump was requested, dump the solution and then let
+        ! the CGNS subroutine know that the file needs to be reopened.
+        !
+        if (request_solution) then
+          call write_nodal_parallel_cgns(dump_CGNS)
+          CGNS_action = reopen_CGNS
+        end if
         !
       end if
       !
@@ -483,7 +538,7 @@ continue
     !
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
-        call write_nodal_parallel_cgns(0)
+        call write_nodal_parallel_cgns(CGNS_action)
       end if
     end if
     !
@@ -518,7 +573,7 @@ continue
   !.. get min and max entropy value and location
   if (.not. ignore_errors) call getmaxent
   !
-  call write_nodal_parallel_cgns(-1)
+  call write_nodal_parallel_cgns(close_CGNS)
   !
   call write_restart_file(-1)
   !
@@ -526,7 +581,7 @@ continue
     !
     call compute_final_error
     !
-   !if (ncpu == 1 .and. fals) call compute_bc_profiles
+    call compute_bnd_profiles
     !
     if (mypnum == 0) then
       !
@@ -540,7 +595,10 @@ continue
     !
   end if
   !
-  write (iout,50)
+  flush (iout)
+  call mpi_barrier(mpi_comm_world,mpierr)
+  !
+  if (mypnum == 0) write (iout,50)
   !
   ! Finalize the overall MPI session and stop execution
   !
@@ -566,6 +624,9 @@ continue
   !
   50 format (/'Done'/)
   !
+  97 format (/,"*******************************************************",/, &
+               "  FOUND FILE REQUESTING A DUMP OF THE SOLUTION FILE! ",/, &
+               "*******************************************************",/)
   98 format (/,"*******************************************************",/, &
                " VORTEX HAS APPEARED TO COLLAPSE!",/, &
                " THE SIMULATION WAS RUN ANOTHER 25 PERIODS", &
