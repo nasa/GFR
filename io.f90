@@ -2,7 +2,7 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmb,nme,nee,nq
+  use eqn_idx, only : nec,nmb,nme,nee,ntk,ntl,nq
   use ovar,    only : grid_format
   use ovar,    only : gridfile
   use ovar,    only : output_dir
@@ -152,30 +152,17 @@ end subroutine read_input_file
 subroutine read_nml_input_file
   !
   !.. Use Statements ..
-  use order_mod, only : p_order,n_order,q_order,o_order,all_orders
   use order_mod, only : initialize_geom_solpts
   !
   use geovar, only : nr,using_quadrature
   !
-  use ovar,   only : itestcase,num_stages,irestart
-  use ovar,   only : flux_divergence,iop_correction
-  use ovar,   only : num_ts,cfl,dt_in,gam,output_solution
-  use ovar,   only : output_interval,restart_interval,dflux_opt
-  use ovar,   only : results_interval,invs_flux_method,visc_flux_method
-  use ovar,   only : iRKtype,Timestep_Type
-  use ovar,   only : Final_Time,Total_Periods,all_points,metis_option
-  use ovar,   only : iop_solpts,iop_flxpts,iop_tripts,iop_qdtpts
-  use ovar,   only : Filter_Option,Filter_Order
-  use ovar,   only : Filter_Alpha,Filter_etac
-  use ovar,   only : rhoref,tref,pref,machref,alpha_aoaref,beta_aoaref,Pr,Prt
-  use ovar,   only : suth_muref,suth_Tref,suth_Sref
-  use ovar,   only : velref,aref,uref,rgasref,reyref
-  use ovar,   only : Period_Timesteps,Period_Time,iter_out_interval
-  use ovar,   only : Grid_Length,vortex_bigR,vortex_bigGam
-  use ovar,   only : bound_error,error_bound_limit
-  use ovar,   only : loc_init_pts,loc_error_pts
-  use ovar,   only : output_plot3d_to_tecplot,walls_are_exact
-  use ovar,   only : input
+  use input_namelist_mod ! use all the variables in the input namelist
+  !
+  use ovar,   only : Total_Periods
+  use ovar,   only : velref,aref,uref
+  use ovar,   only : Period_Timesteps,Period_Time
+  use ovar,   only : Grid_Length
+  use ovar,   only : LDG_beta,LDG_tau
   !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
@@ -185,10 +172,11 @@ subroutine read_nml_input_file
   !.. Local Scalars ..
   integer  :: it1,it2,ierr,ival
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  logical  :: use_qdtr_face_pts
+  logical  :: use_qdtr_face_pts,mms_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians,pres_check
+  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -307,7 +295,36 @@ continue
   !
   if (o_order > 0) o_order = max(o_order,n_order+0)
   !
-  ! Make any necessary adjustments to the input parameters
+  ! Check that the Method of Manufactured Solutions (MMS) option is valid
+  !
+  if (mms_opt /= 0) then
+    !
+    mms_error = fals
+    if (any(mms_opt == [1,2]) .and. nr < 2) then ! 1 and 2 are for 2D or 3D
+      write (error_message,201)
+      mms_error = true
+    else if (mms_opt == 3 .and. nr > 2) then ! 3 is for 1D or 2D
+      write (error_message,202)
+      mms_error = true
+    else if (mms_opt == 4 .and. nr /= 2) then ! 4 is for 2D only
+      write (error_message,203)
+      mms_error = true
+    else if (all(mms_opt /= [1,2,3,4])) then
+      write (error_message,204)
+      mms_error = true
+    end if
+    if (mms_error) call stop_recon(stop_mpi,pname,error_message)
+    !
+    ! If mms_output_solution is true, set the MMS initialization factor
+    ! to one and set the number of time steps and final time to zero 
+    !
+    if (mms_output_solution) then
+      mms_init = one
+      num_ts = 0
+      Final_Time = zero
+    end if
+    !
+  end if
   !
   ! Check the reference conditions for consistency
   !
@@ -320,8 +337,9 @@ continue
   else
     pres_check = rhoref*rgasref*tref
     if (abs(pres_check-pref) > eps6) then
-      write (iout,102) pref,pres_check
-      call stop_recon(stop_mpi,pname)
+     !write (iout,102) pref,pres_check
+      write (error_message,102) pref,pres_check
+      call stop_recon(stop_mpi,pname,error_message)
     end if
   end if
   !
@@ -386,11 +404,18 @@ continue
   !
   call initialize_viscosity
   !
+  ! Initialize the turbulence equations
+  !
+  call initialize_turbulence
+  !
   ! Compute periodic information for the transport problems
   !
   if (any(itestcase == Transport_Problems)) then
     !
     cfl = one
+    cfl_beg = one
+    cfl_end = one
+    cfl_cycles = 1
     !
     if (abs(velref(1)) < eps3) then
       !
@@ -455,6 +480,10 @@ continue
     !
   else
     !
+    cfl_end = max(cfl_end,eps6)    ! cfl_end must be >= 1.0e-6
+    cfl_cycles = max(cfl_cycles,1) ! cfl_cycles must be at least 1
+    cfl_beg = min(cfl_beg,cfl_end) ! cfl_beg must be <= cfl_end
+    !
     if (Final_Time > zero) then
       num_ts = nint( Final_Time / dt_in )
     end if
@@ -508,6 +537,18 @@ continue
     !
   end if
   !
+  if (visc_flux_method /= visc_flux_BR2) then
+    if (visc_flux_method == visc_flux_LDG) then
+      LDG_beta = half
+    end if
+    if (nr == 2) then
+      LDG_tau = one/ten
+     !LDG_tau = zero
+    else if (nr == 3) then
+      LDG_tau = one
+    end if
+  end if
+  !
   ! Now write out a copy of the input file to standard output
   !
   if (mypnum == 0) then
@@ -528,14 +569,13 @@ continue
      "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
      "   TO ALLOW FOR THIS CAPABILITY.",/, &
      "***************************** ERROR *****************************",/)
-  102 format (/, &
-     "****************************** ERROR ******************************",/, &
-     " Free-stream conditions in the input file are not consistent! ",/, &
+  102 format ( &
+     " Free-stream conditions in the input file are not consistent!",/, &
      " Reference pressure given    : ",es14.6,/, &
      " Reference pressure computed : ",es14.6,/, &
-     " Please correct the input file or set one of density, pressure, ",/, &
-     " and temperature to a negative value so it is explicitly computed. ",/, &
-     "****************************** ERROR ******************************",/)
+     " Please correct the input file or set one of density, pressure,", &
+     " and temperature to a negative value so it is explicitly computed.")
+  !
   103 format (/, &
      " ********************* WARNING!!! *********************",/, &
      "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
@@ -548,6 +588,10 @@ continue
   105 format (/,"#######################################",/, &
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
+  201 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
+  202 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
+  203 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
+  204 format ("MMS ERROR: The MMS solution chosen is invalid!")
   !
 end subroutine read_nml_input_file
 !
@@ -684,6 +728,7 @@ end subroutine check_output_dir
 !
 subroutine initialize_viscosity
   !
+  !.. Use Statements ..
   use ovar, only : muref, muref_nd, reyref
   use ovar, only : pv_in, rhoref, aref, machref, tref
   use ovar, only : suth_muref, suth_c1
@@ -728,14 +773,22 @@ subroutine initialize_reference
   !.. Use Statements ..
   use ovar,   only : rhoref,aref,tref,gam
   use ovar,   only : velref,velref_nd
-  use ovar,   only : pref,pref_nd
+  use ovar,   only : pref,pref_nd,tmin,tmax
   use ovar,   only : rgasref,rgasref_nd
   use ovar,   only : cpref,cpref_nd
-  use ovar,   only : cv_in,pv_in
+  use ovar,   only : cv_in,pv_in,machref
+  use ovar,   only : ttotref,ttotref_nd
+  use ovar,   only : ptotref,ptotref_nd
+  use ovar,   only : ptot2p_ratio
   !
   !.. Local Scalars ..
   integer  :: ierr
   real(wp) :: rhoa,rhoa2,tda2
+  real(wp) :: gam_over_gm1
+  real(wp) :: gm1_over_gam
+  real(wp) :: total_cond
+  !
+  character(len=1000) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_reference"
@@ -745,13 +798,15 @@ continue
   rhoa = rhoref * aref
   rhoa2 = rhoa * aref
   tda2 = tref / aref / aref
+  gam_over_gm1 = gam / (gam-one)
+  gm1_over_gam = one / gam_over_gm1
   !
   ! Allocate the free stream inflow arrays
   !
-  allocate ( cv_in(1:nq) , source=zero , stat=ierr )
-  call alloc_error(pname,"cv_in",1,ierr)
-  allocate ( pv_in(1:nq) , source=zero , stat=ierr )
-  call alloc_error(pname,"pv_in",1,ierr)
+  allocate ( cv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cv_in",1,ierr,error_message)
+  allocate ( pv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pv_in",1,ierr,error_message)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
@@ -788,7 +843,92 @@ continue
   pv_in(nmb:nme) = pv_in(nmb:nme) / aref
   pv_in(nee)     = pv_in(nee) / rhoa2
   !
+  ! Total pressure and temperature
+  !
+  if (ptot2p_ratio < zero) then
+    !
+    total_cond = one + half*(gam-one)*machref*machref
+    !
+    ttotref = tref * total_cond
+    ptotref = pref * (total_cond**gam_over_gm1)
+    !
+    ptot2p_ratio = ptotref/pref
+    !
+  else
+    !
+    ttotref = tref * (ptot2p_ratio**gm1_over_gam)
+    ptotref = pref * ptot2p_ratio
+    !
+  end if
+  !
+  ttotref_nd = ttotref / tref
+  ptotref_nd = ptotref / rhoa2
+  !
+  tmin = 10.0_wp
+  tmax = 15000.0_wp
+  !
 end subroutine initialize_reference
+!
+!###############################################################################
+!
+subroutine initialize_turbulence()
+  !
+  !.. Use Statements ..
+  use ovar, only : tkeref, tkeref_nd
+  use ovar, only : tlsref, tlsref_nd
+  use ovar, only : tvrref, tinref
+  use ovar, only : rhoref, muref
+  use ovar, only : aref, machref
+  use ovar, only : cv_in, pv_in
+  use ovar, only : turbulence_model
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_turbulence"
+  !
+continue
+  !
+  ! Turbulence equations
+  !
+  if (turbulence_model /= laminar_flow) then
+    !
+    ! Set the flag indicating that turbulence is active
+    !
+    turb_is_on = true
+    !
+    ! Set flag that says whether TKE is included in the total energy
+    !
+    if (abs(turbulence_model) == k_omega) then
+      include_tke_in_energy = true
+    end if
+    !
+    ! Dimensional reference conditions
+    !
+    tkeref = 1.5_wp * (tinref*machref*aref)**2
+    tlsref = rhoref * tkeref / (tvrref*muref)
+    !
+    ! Nondimensional reference conditions
+    !
+    tkeref_nd = tkeref / (rhoref * aref * aref)
+    tlsref_nd = tlsref / (rhoref * aref)
+    !
+    ! Set the turbulence conserved variables inflow conditions
+    !
+    cv_in(ntk) = cv_in(nec) * tkeref_nd
+    cv_in(ntl) = cv_in(nec) * tlsref_nd
+    !
+    ! Add the tke contribution to the energy equation
+    !
+    cv_in(nee) = cv_in(nee) + cv_in(ntk)
+    !
+    ! Recompute the primitive variable inflow conditions
+    !
+    pv_in(1:nq) =  usp2v_sp( cv_in(1:nq) )
+    !
+  end if
+  !
+end subroutine initialize_turbulence
 !
 !###############################################################################
 !
@@ -798,6 +938,7 @@ subroutine read_grid_file()
   use module_gmsh,   only : read_gmsh_gridfile
   use module_plot3d, only : read_plot3d_gridfile
   use quadrature_mod, only : find_valid_geometries
+  use ovar,           only : use_bc_conflicts
   !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
@@ -825,7 +966,7 @@ continue
   ! Find any grid nodes on the boundaries that separate two boundary
   ! faces with non-matching boundary conditions
   !
-  call find_bc_conflicts
+  if (use_bc_conflicts) call find_bc_conflicts
   !
   ! Go through the grid and find which geometries are valid for
   ! the current simulation
@@ -1585,8 +1726,8 @@ continue
   allocate ( global_xyz(1:nr,1:n_global_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"global_xyz",1,ierr)
   !
-  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"global_usp",1,ierr)
+ !allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
+ !call alloc_error(pname,"global_usp",1,ierr)
   !
 end subroutine save_global_grid
 !
@@ -2360,10 +2501,10 @@ subroutine read_restart_file
   use geovar,       only : n_global_cell,global_nofc_ptr,global_pinc_ptr
   use ovar,         only : itrst,tmrst,dtrst
   use flowvar,      only : usp,global_usp
-  use parallel_mod, only : cell_map,cell_map_ptr
+  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
-  integer :: n,nc,nc1,n1,n2,np,gp,ierr
+  integer :: n,nc,n1,n2,np,gp,ierr
   integer :: iorst
   !
   !.. Local Parameters ..
@@ -2387,8 +2528,6 @@ continue
   !
   if (ncpu > 1) then
     !
-    nc1 = cell_map_ptr(mypnum+1)
-    !
     do nc = 1,ncell
       !
       ! Indices of the datat for this cell in the usp array
@@ -2399,7 +2538,7 @@ continue
       !
       ! Starting point of the data for this cell in the global_usp array
       !
-      gp = global_pinc_ptr( cell_map(nc1+nc) )
+      gp = global_pinc_ptr( cell_map(mypnum+1)%loc_to_glb(nc) )
       !
       ! Copy the solution data from the global_usp array for this cell
       !
@@ -2537,7 +2676,7 @@ end subroutine write_final_error
 !
 subroutine write_results_file(iflag,icount)
   !
-  use geovar,  only : n_global_solpts
+  use geovar,  only : nr,n_global_solpts
   use ovar,    only : ultwo,vltwo,work_units
   use order_mod, only : p_order
   !
@@ -2568,7 +2707,13 @@ continue
     open (newunit=iores,file=fname,status="replace",action="write",iostat=ierr)
     call io_error(pname,fname,1,ierr)
     !
-    write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    if (nr == 1) then
+      write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    else if (nr == 2) then
+      write (iores,2) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    else if (nr == 3) then
+      write (iores,3) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    end if
     !
     return
     !
@@ -2586,7 +2731,7 @@ continue
     v2 = one
   end where
   !
-  write (iores,2) icount,(log10(u2(i)),i=1,nq+1), &
+  write (iores,4) icount,(log10(u2(i)),i=1,nq+1), &
                          (log10(v2(i)),i=2,nq+1), &
                          comp_cost
   !
@@ -2599,12 +2744,22 @@ continue
   !
   ! Format Statements
   !
-  1 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "Energy" &
+  1 format ('VARIABLES= "Timestep" "rho" "rhou" "Energy" &
+           &"Entropy" "u" "Pressure" "||V||" "Work units"',/, &
+            'Zone T="Residual Error"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA h="',f10.6,'"')
+  2 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "Energy" &
            &"Entropy" "u" "v" "Pressure" "||V||" "Work units"',/, &
             'Zone T="Residual Error"',/, &
             'AUXDATA order="',i0,'"',/, &
             'AUXDATA h="',f10.6,'"')
-  2 format (i10,*(es17.9))
+  3 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "rhow" "Energy" &
+           &"Entropy" "u" "v" "w" "Pressure" "||V||" "Work units"',/, &
+            'Zone T="Residual Error"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA h="',f10.6,'"')
+  4 format (i10,*(es17.9))
   !
 end subroutine write_results_file
 !
@@ -2664,11 +2819,6 @@ continue
   if (iflag == 1) then
     !
     cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
-    !
-   !call ovar_alloc_status(mypnum+200)
-   !call geovar_alloc_status(mypnum+200)
-   !call metrics_alloc_status(mypnum+200)
-   !call flowvar_alloc_status(mypnum+200)
     !
     ! Initialize the variables and data arrays needed for CGNS output
     ! NOTE: This call to routine get_initial_data_for_cgns will initialize
@@ -2799,19 +2949,13 @@ continue
     deallocate ( ipelem , stat=ierr )
     call alloc_error(pname,"ipelem",2,ierr)
     !
-#ifndef IO_FOR_NAS
+  else if (iflag == 2) then
     !
-    ! If not using NAS, we want to possibly look at the solution as the simulation
-    ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-    ! solution file if we keep it open during the whole simulation so we need to
-    ! close it each time after we are done writing to it.
+    ! The CGNS file was dumped last time this subroutine was called
+    ! so the CGNS file needs to be reopened in modification mode.
     !
-    ! Close the CGNS file temporarily
-    !
-    call cgp_close_f(ifile_n,ierr)
-    call io_error(pname,trim(fname_nodal),2,ierr)
-    !
-#endif
+    call cgp_open_f(fname_nodal,CG_MODE_MODIFY,ifile_n,ierr)
+    call io_error(pname,trim(fname_nodal),3,ierr)
     !
   end if
   !
@@ -2841,20 +2985,6 @@ continue
   call reallocate(solname,cgnsnodalzone_counter+1)
   soltime(size(soltime)) = real(time,kind(soltime))
   solname(size(solname)) = tname
-  !
-#ifndef IO_FOR_NAS
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Reopen the CGNS file in modification mode
-  !
-  call cgp_open_f(fname_nodal,CG_MODE_MODIFY,ifile_n,ierr)
-  call io_error(pname,trim(fname_nodal),3,ierr)
-  !
-#endif
   !
   ! Write the flow variables
   !
@@ -3005,8 +3135,8 @@ continue
           call cgns_write_field_parallel
         case ("Vorticity") ! Vorticity
           n = n + 1
-          vartmp = entropy_cv( interp_usp )
-         !vartmp = vorticity_cv( interp_usp )
+         !vartmp = entropy_cv( interp_usp )
+          vartmp = vorticity_cv( interp_usp )
           call cgns_write_field_parallel
         case default
           n = n + 1
@@ -3042,11 +3172,9 @@ continue
     call alloc_error(pname,"interp_usp",2,ierr)
   end if
   !
-#ifdef IO_FOR_NAS
+  ! If last iteration or a solution dump was requested, close CGNS file
   !
-  ! If last iteration, close CGNS file
-  !
-  if (iflag == -1) then
+  if (any(iflag == [-1,-2])) then
     !
     ! Update the base iterative node
     !
@@ -3083,49 +3211,6 @@ continue
     call io_error(pname,trim(fname_nodal),2,ierr)
     !
   end if
-  !
-#else
-  !
-  ! Update the base iterative node
-  !
-  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
-  call cgns_error(pname,fname_nodal,"cg_biter_write_f",ierr)
-  !
-  call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
-  call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
-  !
-  call cg_array_write_f("TimeValues",cgns_kind_real,1,size(soltime),soltime,ierr)
-  call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
-  !
-  ! Update the zone iterative node
-  !
-  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
-  call cgns_error(pname,fname_nodal,"cg_ziter_write_f",ierr)
-  !
-  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
-                                      "ZoneIterativeData_t",1,"end")
-  call cgns_error(pname,fname_nodal,"cg_goto_f",ierr)
-  !
-  idata(:) = [32,size(solname)]
-  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
-  call cgns_error(pname,fname_nodal,"cg_array_write_f",ierr)
-  !
-  ! Identify the flow solution within the CGNS file as time dependent
-  !
-  call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
-  call cgns_error(pname,fname_nodal,"cg_simulation_type_write_f",ierr)
-  !
-  ! If not using NAS, we want to possibly look at the solution as the simulation
-  ! is still running. Using CGNS with HDF5, Tecplot wont be able to open the
-  ! solution file if we keep it open during the whole simulation so we need to
-  ! close it each time after we are done writing to it.
-  !
-  ! Close the CGNS FILE
-  !
-  call cgp_close_f(ifile_n,ierr)
-  call io_error(pname,trim(fname_nodal),2,ierr)
-  !
-#endif
   !
   ! Update the zone counter
   !
@@ -3286,7 +3371,7 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,idim1,ipelem)
  !use geovar,       only : geom_conn
   use geovar,       only : cell_geom,global_cell_geom
   use geovar,       only : cell_order,global_cell_order
-  use parallel_mod, only : cell_map_ptr,cell_map
+  use parallel_mod, only : cell_map
   use order_mod,    only : geom_solpts
   !
   !.. Formal Arguments ..
@@ -3296,7 +3381,7 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,idim1,ipelem)
   integer, allocatable, dimension(:,:), intent(inout) :: ipelem
   !
   !.. Local Scalars ..
-  integer :: n,nc,nc1,nc2,np,ierr,p1,icpu
+  integer :: n,nc,np,ierr,p1,icpu
   integer :: gmin,gmax,this_npts,this_subcells
   integer :: this_cell,this_geom,this_order
   integer :: n_total_output_cells
@@ -3324,14 +3409,11 @@ continue
       my_cells_beg = n_total_output_cells + 1
     end if
     !
-    nc1 = cell_map_ptr(icpu)+1 ! starting index of cells on this processor
-    nc2 = cell_map_ptr(icpu+1) ! ending   index of cells on this processor
-    !
-    do nc = nc1,nc2
+    do nc = 1,size(cell_map(icpu)%loc_to_glb)
       !
       ! Index for grid cell on the current processor
       !
-      this_cell = cell_map(nc)
+      this_cell = cell_map(icpu)%loc_to_glb(nc)
       !
       ! Geometry of this grid cell
       !
