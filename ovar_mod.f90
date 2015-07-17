@@ -4,7 +4,11 @@ module ovar
   use module_kind_types, only : Euler_Eqns
   use module_kind_types, only : Gambit_Neutral
   use module_kind_types, only : Legendre_Gauss,Legendre_Gauss_Lobatto
-  use order_mod, only : p_order,n_order,o_order,all_orders,q_order
+  use module_kind_types, only : TVD3_RK
+  use module_kind_types, only : invs_flux_ROE
+  use module_kind_types, only : visc_flux_BR2
+  use module_kind_types, only : visc_interface_fluxes
+  use module_kind_types, only : laminar_flow
   !
   implicit none
   !
@@ -12,20 +16,6 @@ module ovar
   !
   public :: ovar_alloc_status
   !
-  ! Public Input Namelist
-  !
-  public :: input
-  !
-  !
-  ! #######################################
-  ! ###  Use Associated Public Scalars  ###
-  ! #######################################
-  !
-  public :: p_order
-  public :: n_order
-  public :: q_order
-  public :: o_order
-  public :: all_orders
   !
   !
   ! ################################
@@ -35,33 +25,43 @@ module ovar
   ! NOTE: Input defaults are set to run P3 80x80 Shu Vortex on [-10,10] domain
   !       for 1 period using Ga-LP, SSP-RK3, and Roe flux with entropy fix.
   !
-  !.. Input Variables ..
+  ! #############################
+  ! ####   Input Variables   ####
+  ! #############################
+  !
   integer,  public, save :: all_points       = -1
   integer,  public, save :: iop_solpts       = Legendre_Gauss
   integer,  public, save :: iop_flxpts       = Legendre_Gauss
   integer,  public, save :: iop_tripts       = 2
-  integer,  public, save :: flux_divergence  = 0
-  integer,  public, save :: iop_correction   = 3
+  integer,  public, save :: flux_divergence  = 1
   !
   integer,  public, save :: governing_equations = Euler_Eqns
   !
-  integer,  public, save :: iRKtype     = 3
+  integer,  public, save :: iRKtype     = TVD3_RK
   integer,  public, save :: num_stages  = 3
-  integer,  public, save :: invs_flux_method = 1
-  integer,  public, save :: visc_flux_method = 1
+  integer,  public, save :: invs_flux_method = invs_flux_ROE
+  integer,  public, save :: visc_flux_method = visc_flux_BR2
   logical,  public, save :: walls_are_exact = true
-  integer,  public, save :: visc_variables_to_ave = 1
+  integer,  public, save :: visc_variables_to_ave = visc_interface_fluxes
   !
   integer,  public, save :: num_ts     = 25000
   real(wp), public, save :: Final_Time = -1.0_wp
+  real(wp), public, save :: cfl_beg    = 0.1_wp
+  real(wp), public, save :: cfl_end    = 1.0_wp
+  integer,  public, save :: cfl_cycles = 100
   real(wp), public, save :: cfl        = 1.0_wp
   real(wp), public, save :: dt_in      = 0.0008_wp
   integer,  public, save :: Timestep_Type = 0
+  integer,  public, save :: minimum_timesteps = 100
   !
   integer,  public, save :: iop_qdtpts = 1
   integer,  public, save :: dflux_opt  = 2
   !
   integer,  public, save :: metis_option = 2
+  !
+  integer,  public, save :: mms_opt = 0
+  real(wp), public, save :: mms_init = 0.1_wp
+  logical,  public, save :: mms_output_solution = fals
   !
   integer,  public, save :: itestcase = 5
   !
@@ -79,17 +79,14 @@ module ovar
   real(wp), public, save :: machref =      0.40_wp
   real(wp), public, save :: gam     =      1.40_wp
   real(wp), public, save :: rgasref =    287.15_wp
-  real(wp), public, save :: muref   ! default evaluates to 1.84671531762365e-5_wp
   real(wp), public, save :: reyref  =     -1.00_wp ! default evaluates to 8.7319053606e+6
+  !
+  real(wp), public, save :: ptot2p_ratio = -1.00_wp
+  real(wp), public, save :: ptotref = -1.00_wp
+  real(wp), public, save :: ttotref = -1.00_wp
   !
   real(wp), public, save :: alpha_aoaref = 45.00_wp
   real(wp), public, save :: beta_aoaref  =  0.00_wp
-  !
-  real(wp), public, save :: pref_nd
-  real(wp), public, save :: rgasref_nd
-  real(wp), public, save :: muref_nd
-  real(wp), public, save :: cpref_nd
-  real(wp), public, save, dimension(3) :: velref_nd
   !
   real(wp), public, save :: Pr = 0.72_wp
   real(wp), public, save :: Prt = 0.72_wp
@@ -98,6 +95,10 @@ module ovar
   real(wp), public, save :: suth_Tref = 273.0_wp
   real(wp), public, save :: suth_muref = 1.716e-5_wp
   !
+  integer,  public, save :: turbulence_model = laminar_flow
+  real(wp), public, save :: tinref = 0.0_wp
+  real(wp), public, save :: tvrref = 1.0e-6_wp
+  !
   integer,  public, save :: Filter_Option = 0
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
@@ -105,22 +106,67 @@ module ovar
   !
   ! Default to output solution at Legendre Gauss Lobatto points
   integer,  public, save :: loc_output_pts = Legendre_Gauss_Lobatto
-  ! Default to initialize solution at Legendre Gauss points
-  integer,  public, save :: loc_init_pts   = Legendre_Gauss
+  ! Default to initialize solution at solution points
+  integer,  public, save :: loc_init_pts   = 0
   ! Default to compute solution error at Legendre Gauss points
   integer,  public, save :: loc_error_pts  = Legendre_Gauss
-  !
-  logical,  public, save :: bound_error       = fals
-  real(wp), public, save :: error_bound_limit = 2.0_wp
   !
   real(wp), public, save :: vortex_bigR = 1.0_wp
   real(wp), public, save :: vortex_bigGam = 5.0_wp
   !
-  !.. Non-Input Variables ..
+  logical, public, save :: output_plot3d_to_tecplot = fals
+  logical, public, save :: output_bface_array = fals
+  !
+  integer,            public, save :: grid_format = Gambit_Neutral
+  character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
+  character(len=150), public, save :: output_dir = "."
+  character(len=150), public, save :: plot3d_cutfile = ""
+  character(len=150), public, save :: plot3d_bcsfile = ""
+  !
+  logical, public, save :: cgns_use_queue = true
+  logical, public, save :: interpolate_before_output_variable = true
+  !
+  real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
+  real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
+  !
+  logical, public, save :: using_curved_boundaries = fals
+  logical, public, save :: use_3rd_derivative_metrics = fals
+  !
+  logical, public, save :: use_advanced_face_metrics = true
+  logical, public, save :: use_bc_conflicts = true
+  logical, public, save :: dump_memory_usage = fals
+  !
+  logical, public, save :: output_bnd_profiles = fals
+  !
+  ! #################################
+  ! ####   Non-Input Variables   ####
+  ! #################################
+  !
   real(wp), public, save :: aref
   real(wp), public, save :: uref
   real(wp), public, save :: cpref
+  real(wp), public, save :: muref   ! default evaluates to 1.84671531762365e-5_wp
   real(wp), public, save, dimension(3) :: velref
+  !
+  real(wp), public, save :: pref_nd
+  real(wp), public, save :: ptotref_nd
+  real(wp), public, save :: ttotref_nd
+  real(wp), public, save :: rgasref_nd
+  real(wp), public, save :: muref_nd
+  real(wp), public, save :: cpref_nd
+  real(wp), public, save, dimension(3) :: velref_nd
+  !
+  real(wp), public, save :: tmin
+  real(wp), public, save :: tmax
+  !
+  real(wp), public, save :: tkeref
+  real(wp), public, save :: tlsref
+  !
+  real(wp), public, save :: tkeref_nd
+  real(wp), public, save :: tlsref_nd
+  !
+  logical,  public, save :: turb_is_on = .false.
+  logical,  public, save :: include_tke_in_energy = .false.
   !
   real(wp), public, save :: dt_global
   !
@@ -182,6 +228,7 @@ module ovar
   !
   integer,  public, save :: Total_Periods
   !
+  logical,  public, save :: convergence_reached = fals
   logical,  public, save :: walltime_expiring
   real(wp), public, save :: max_wall_time
   real(wp), public, save :: wall_time_left
@@ -203,89 +250,8 @@ module ovar
   !
   real(wp), public, save :: suth_c1
   !
-  integer, public, save :: output_plot3d_to_tecplot = 0
-  logical, public, save :: output_bface_array = fals
-  !
-  integer,            public, save :: grid_format = Gambit_Neutral
-  character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
-  character(len=150), public, save :: output_dir = "."
-  character(len=150), public, save :: plot3d_cutfile = ""
-  character(len=150), public, save :: plot3d_bcsfile = ""
-  !
-  logical, public, save :: cgns_use_queue = true
-  logical, public, save :: interpolate_before_output_variable = true
-  !
-  real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
-  real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
-  logical,  public, save :: convergence_reached = fals
-  !
-  logical, public, save :: using_curved_boundaries = fals
-  logical, public, save :: use_3rd_derivative_metrics = fals
-  !
-  logical, public, save :: dump_memory_usage = fals
-  !
-  ! ########################
-  ! ###  Input Namelist  ###
-  ! ########################
-  !
-  ! GRID INFORMATION
-  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
-  ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
-                     flux_divergence, iop_correction
-  ! SOLVER OPTIONS
-  namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
-  ! VISCOUS OPTIONS
-  namelist / input / visc_variables_to_ave
-  ! TIME STEPPING INFORMATION
-  namelist / input / num_ts, Final_Time, cfl, dt_in, Timestep_Type
-  ! OVER-INTEGRATION OPTIONS
-  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
-  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
-  namelist / input / all_orders, all_points
-  ! PARALLEL OPTIONS
-  namelist / input / metis_option
-  ! INITIALIZATION / TEST CASE
-  namelist / input / itestcase
-  ! RESTART OPTIONS
-  namelist / input / irestart, restart_interval
-  ! OUTPUT OPTIONS
-  namelist / input / output_dir, iter_out_interval, output_solution, &
-                     output_interval, results_interval, o_order
-  ! GOVERNING EQUATIONS
-  namelist / input / governing_equations
-  ! NONDIMENSIONAL REFERENCE CONDITIONS
-  namelist / input / machref, reyref, gam
-  ! REFERENCE CONDITIONS
-  namelist / input / rhoref, tref, pref, rgasref
-  ! REFERENCE ANGLES OF ATTACK
-  namelist / input / alpha_aoaref, beta_aoaref
-  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
-  namelist / input / Pr, Prt
-  ! SUTHERLANDS LAW COEFFICIENTS
-  namelist / input / suth_muref, suth_Tref, suth_Sref
-  ! FILTER OPTIONS
-  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
-  ! BOUNDING ERROR OPTIONS
-  namelist / input / bound_error, error_bound_limit
-  ! INITIALIZATION/ERROR LOCATIONS
-  namelist / input / loc_init_pts, loc_error_pts
-  ! VORTEX CONSTANTS
-  namelist / input / vortex_bigR, vortex_bigGam
-  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
-  namelist / input / output_plot3d_to_tecplot
-  ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
-  namelist / input / walls_are_exact
-  ! VARIOUS DEBUG TYPE VARIABLES
-  namelist / input / output_bface_array
-  ! CGNS OUTPUT OPTIONS
-  namelist / input / cgns_use_queue, interpolate_before_output_variable
-  ! CONVERGENCE CRITERIA
-  namelist / input / convergence_order_abs_res, convergence_order_max_res
-  ! ADVANCED METRICS TERMS
-  namelist / input / using_curved_boundaries,use_3rd_derivative_metrics
-  ! MEMORY USAGE
-  namelist / input / dump_memory_usage
+  real(wp), public, save :: LDG_beta(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
+  real(wp), public, save :: LDG_tau = 0.0_wp
   !
 contains
 !
@@ -397,6 +363,122 @@ end subroutine ovar_alloc_status
 !###############################################################################
 !
 end module ovar
+!
+!###############################################################################
+!
+module input_namelist_mod
+  !
+  !.. Use Statements ..
+  use ovar,      only : grid_format, gridfile
+  use ovar,      only : plot3d_cutfile, plot3d_bcsfile
+  use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
+  use ovar,      only : flux_divergence, dflux_opt
+  use ovar,      only : iRKtype, num_stages
+  use ovar,      only : invs_flux_method, visc_flux_method
+  use ovar,      only : visc_variables_to_ave, walls_are_exact
+  use ovar,      only : num_ts, Final_Time, dt_in
+  use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles
+  use ovar,      only : Timestep_Type, minimum_timesteps
+  use ovar,      only : all_points, metis_option
+  use ovar,      only : mms_opt, mms_init, mms_output_solution
+  use ovar,      only : itestcase, governing_equations
+  use ovar,      only : irestart, restart_interval, results_interval
+  use ovar,      only : iter_out_interval, output_interval
+  use ovar,      only : output_dir, output_solution, output_bnd_profiles
+  use ovar,      only : machref, reyref, gam, Pr, Prt
+  use ovar,      only : ptotref, ttotref, ptot2p_ratio
+  use ovar,      only : rhoref, tref, pref, rgasref
+  use ovar,      only : alpha_aoaref, beta_aoaref
+  use ovar,      only : suth_muref, suth_Tref, suth_Sref
+  use ovar,      only : Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+  use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
+  use ovar,      only : vortex_bigR, vortex_bigGam
+  use ovar,      only : output_plot3d_to_tecplot, output_bface_array
+  use ovar,      only : cgns_use_queue, interpolate_before_output_variable
+  use ovar,      only : convergence_order_abs_res, convergence_order_max_res
+  use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
+  use ovar,      only : dump_memory_usage,use_bc_conflicts
+  use ovar,      only : use_advanced_face_metrics
+  use order_mod, only : p_order,n_order,o_order,all_orders,q_order
+  !
+  implicit none
+  !
+  ! Set everything in the module to public
+  !
+  public
+  !
+  ! ########################
+  ! ###  Input Namelist  ###
+  ! ########################
+  !
+  ! GRID INFORMATION
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+  ! BASE FR OPTIONS
+  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
+                     flux_divergence
+  ! SOLVER OPTIONS
+  namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
+  ! VISCOUS OPTIONS
+  namelist / input / visc_variables_to_ave
+  ! TIME STEPPING INFORMATION
+  namelist / input / num_ts, Final_Time, dt_in, Timestep_Type, minimum_timesteps
+  ! CFL CONTROL VARIABLES
+  namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
+  ! OVER-INTEGRATION OPTIONS
+  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
+  namelist / input / all_orders, all_points
+  ! PARALLEL OPTIONS
+  namelist / input / metis_option
+  ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
+  namelist / input / mms_opt, mms_init, mms_output_solution
+  ! INITIALIZATION / TEST CASE
+  namelist / input / itestcase
+  ! RESTART OPTIONS
+  namelist / input / irestart, restart_interval
+  ! OUTPUT OPTIONS
+  namelist / input / output_dir, iter_out_interval, output_solution, &
+                     output_interval, results_interval, o_order
+  ! GOVERNING EQUATIONS
+  namelist / input / governing_equations
+  ! NONDIMENSIONAL REFERENCE CONDITIONS
+  namelist / input / machref, reyref, gam
+  ! TOTAL REFERENCE CONDITIONS
+  namelist / input / ptotref, ttotref, ptot2p_ratio
+  ! REFERENCE CONDITIONS
+  namelist / input / rhoref, tref, pref, rgasref
+  ! REFERENCE ANGLES OF ATTACK
+  namelist / input / alpha_aoaref, beta_aoaref
+  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
+  namelist / input / Pr, Prt
+  ! SUTHERLANDS LAW COEFFICIENTS
+  namelist / input / suth_muref, suth_Tref, suth_Sref
+  ! FILTER OPTIONS
+  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+  ! INITIALIZATION/ERROR LOCATIONS
+  namelist / input / loc_init_pts, loc_error_pts
+  ! VORTEX CONSTANTS
+  namelist / input / vortex_bigR, vortex_bigGam
+  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+  namelist / input / output_plot3d_to_tecplot
+  ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
+  namelist / input / walls_are_exact
+  ! VARIOUS DEBUG TYPE VARIABLES
+  namelist / input / output_bface_array
+  ! CGNS OUTPUT OPTIONS
+  namelist / input / cgns_use_queue, interpolate_before_output_variable
+  ! CONVERGENCE CRITERIA
+  namelist / input / convergence_order_abs_res, convergence_order_max_res
+  ! ADVANCED METRICS TERMS
+  namelist / input / using_curved_boundaries, use_3rd_derivative_metrics
+  ! MEMORY USAGE
+  namelist / input / dump_memory_usage
+  ! TEMPORARY DEBUGGING LOGICALS
+  namelist / input / use_bc_conflicts, use_advanced_face_metrics
+  ! PROFILE OUTPUT OPTIONS
+  namelist / input / output_bnd_profiles
+  !
+end module input_namelist_mod
 !
 !###############################################################################
 !
