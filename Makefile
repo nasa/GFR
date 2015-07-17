@@ -71,12 +71,37 @@ ipo-opt:
 				     "FCADD=$(FCADD)" \
 				     ipo-opt
 
+opt-report:
+	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=recon" \
+	                                "BUILDDIR=optimize" \
+				        "FCADD=$(FCADD)" \
+				        opt-report
+
+mkl:
+	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=recon" \
+	                                "BUILDDIR=optimize" \
+				        "FCADD=$(FCADD)" \
+				        mkl
+
 guide:
-	mkdir -p guide_files
-	@echo $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=recon" \
+	                                "BUILDDIR=optimize" \
+				        "FCADD=$(FCADD)" \
+				        guide
+
+mpe:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     guide
+				     "FC=mpefc -mpilog" \
+				     optimize
+
+mpe-check:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     "FC=mpefc -mpicheck -mpilog" \
+				     optimize
 
 systeminfo:
 	@echo "Operating system = " $(OPERATING_SYSTEM)
