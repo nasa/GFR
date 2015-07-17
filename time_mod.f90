@@ -1,7 +1,7 @@
 module time_mod
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
   !
   implicit none
   !
@@ -67,6 +67,8 @@ subroutine get_dtsp(dtmin)
   !
 continue
   !
+ !call get_current_cfl
+  !
   if (Timestep_Type == Constant_Timestep) then
     !
     call get_constant_timestep(dtmin)
@@ -81,10 +83,34 @@ continue
     !
   end if
   !
+ !write (iout,1) time,dtmin,time+dtmin
+  !
   time = time + dtmin
   d_t = dtmin
   !
+  ! Format Statements
+  !
+  1 format (" Old Time = ",es14.6,"; Timestep = ",es14.6,"; New Time = ",es14.6)
+  !
 end subroutine get_dtsp
+!
+!###############################################################################
+!
+subroutine get_current_cfl
+  !
+  !.. Use Statements ..
+  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,itcur
+  !
+continue
+  !
+  if (itcur < cfl_cycles) then
+    cfl = cfl_beg + (cfl_end - cfl_beg) * real(itcur-1,kind=wp) / &
+                                          real(cfl_cycles-1,kind=wp)
+  else
+    cfl = cfl_end
+  end if
+  !
+end subroutine get_current_cfl
 !
 !###############################################################################
 !
@@ -116,13 +142,13 @@ end subroutine get_constant_timestep
 subroutine get_cell_timestep(dtmin)
   !
   !.. Use Statements ..
-  use order_mod, only : n_order
+  use order_mod, only : n_order,maxSP
   !
   use geovar, only : nr,nfbnd,nface
-  use geovar, only : face,pts_in_cell_ptr
-  use geovar, only : cell_geom,cell_order
+  use geovar, only : face,cell
   !
   use ovar, only : gam,Timestep_Type,Final_Time,time,CFL
+  use ovar, only : governing_equations
   !
   use metrics_mod, only : geofa,jacobian
   !
@@ -136,7 +162,7 @@ subroutine get_cell_timestep(dtmin)
   !.. Local Scalars ..
   integer  :: nf,k
   integer  :: l1,l2,npl,kl
-  integer  :: r1,r2,npr,kr
+  integer  :: r1,r2,npr,kr,face_order
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
@@ -145,20 +171,99 @@ subroutine get_cell_timestep(dtmin)
   real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nq) :: vl,vr
-  !
-  !.. Local Pointers ..
-  real(wp), pointer, contiguous :: host_interp(:,:)
-  real(wp), pointer, contiguous :: left_interp(:,:)
-  real(wp), pointer, contiguous :: right_interp(:,:)
+  real(wp), dimension(1:nq)    :: vl,vr
+  real(wp), dimension(1:maxSP) :: lmat
   !
 continue
   !
-  ! Initialize the local pointers to disassociated
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ##########                  ##########
+  ! ##########   FROM HPMUSIC   ##########
+  ! ##########   ||||||||||||   ##########
+  ! ##########   VVVVVVVVVVVV   ##########
+  ! ##########                  ##########
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ######################################
   !
-  host_interp => null()
-  left_interp => null()
-  right_interp => null()
+  !void CPR_NS_2D_Solver<T>::ComputeLocalTimeStep(Real cfl, Real *dt_cell){
+  !
+  !  for(int i=0;i<n_cell_;++i){
+  !    Real factor=0.;
+  !    ElemType type=this->grid_->elem_type[i];
+  !    for(int side=0; side<NumSideFromType(type); ++side){
+  !      int face = this->grid_->elem_to_face[i][side];
+  !      FaceData *face_data=&this->grid_->face[face];
+  !      int c1 = face_data->left_cell;
+  !      int c2 = face_data->right_cell;
+  !
+  !      Real dx,dy;
+  !      if(face_data->face_type==BOUNDARY){
+  !        dx=x_fc_[face]-x_cc_[c1];
+  !        dy=y_fc_[face]-y_cc_[c1];
+  !      }else{
+  !        dx=x_cc_[c2]-x_cc_[c1];
+  !        dy=y_cc_[c2]-y_cc_[c1];
+  !      }
+  !
+  !      Real u=0.,v=0., c=0.,mu_k=0.,nx=0.,ny=0.,area=0.,p=0.;
+  !      T *q=&u_fp_[i][0];
+  !      int nfp_f=n_lfp_f_[face];
+  !      for(int j=0;j<nfp_f; ++j){
+  !        int ir=j*nv_;
+  !        int ix=ir+1;
+  !        int iy=ir+2;
+  !        int ie=ir+3;
+  !        T rhoi = 1./q[ir];
+  !        u = u+q[ix]*rhoi;
+  !        v = v+q[iy]*rhoi;
+  !        p = (gas_.gamma-1.)*(q[ie]-0.5*(q[ix]*q[ix]+q[iy]*q[iy])*rhoi);//? why not +=
+  !        c = c+sqrt(gas_.gamma*p*rhoi);
+  !        mu_k = mu_k+gas_.mu*rhoi;
+  !        nx+=fm_fp_.nx_[face][j];
+  !        ny+=fm_fp_.ny_[face][j];
+  !        area+=fm_fp_.area_[face][j];
+  !      }
+  !      u /= nfp_f;
+  !      v /= nfp_f;
+  !      c /= nfp_f;
+  !      mu_k /= nfp_f;
+  !      nx/=  nfp_f;
+  !      ny/=  nfp_f;
+  !      area/= nfp_f;
+  !
+  !      factor += (fabs(u*nx+v*ny)+c+2.*mu_k/fabs(dx*nx+dy*ny))*area;
+  !    }
+  !
+  !    dt_cell[i] = cfl*vol_[i]/factor;
+  !    if(dt_cell[i]!=dt_cell[i]){
+  !      stringstream ss;
+  !      ss<<"Local time step is NaN at cell "<<i<<" !!!"<<endl;
+  !      fatal_error(ss.str());
+  !    }
+  !  }//end of cell i
+  !}
+  !
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ##########                  ##########
+  ! ##########   AAAAAAAAAAAA   ##########
+  ! ##########   ||||||||||||   ##########
+  ! ##########   FROM HPMUSIC   ##########
+  ! ##########                  ##########
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  ! ######################################
+  !
+  mul = zero
+  mur = zero
   !
   pp1sq = real( (n_order+1)**2 , kind=wp )
   !
@@ -169,18 +274,14 @@ continue
     !
     host_cell = face(nf)%left%cell ! left cell on face
     !
-    l1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in left cell
+    host_geom  = cell(host_cell)%geom  ! host cell geometry
+    host_order = cell(host_cell)%order ! host cell order
     !
-    npl = l2-l1+1 ! number of solution points in left cell
+    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
+    npl = l2-l1+1               ! number of solution points in left cell
     !
-    host_geom = cell_geom(host_cell)
-    host_order = cell_order(host_cell)
-    !
-    ! Assign local pointer as an alias to the
-    ! interpolation matrix to simplify the code
-    !
-    host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
+    face_order = face(nf)%order ! face solution order
     !
     do k = 1,size( face(nf)%left%flxpts )
       !
@@ -188,7 +289,9 @@ continue
       !
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
       !
-      mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
+      if (governing_equations == NavierStokes_Eqns) then
+        mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
+      end if
       !
       ds = rnorm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(host_geom) ! face length/area for left cell
@@ -204,7 +307,9 @@ continue
       !
       ! Interpolate the jacobian to the flux point
       !
-      jacl = dot( host_interp(1:npl,kl) , jacobian(l1:l2) )
+      lmat(1:npl) = interp(host_geom,host_order)%toFace(face_order)%mat(1:npl,kl)
+      !
+      jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
       !
       hl = half * dsl / jacl
       !
@@ -224,37 +329,28 @@ continue
       !
     end do
     !
-    ! Disassociate host_interp before continuing to the next boundary face
-    !
-    if (associated(host_interp)) host_interp => null()
-    !
   end do
   !
   do nf = nfbnd+1,nface
     !
-    left_cell = face(nf)%left%cell ! left  cell on face
+    left_cell  = face(nf)%left%cell  ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
     !
-    l1 = pts_in_cell_ptr(left_cell)+1 ! beginning index for sol-pts in left  cell
-    l2 = pts_in_cell_ptr(left_cell+1) ! ending    index for sol-pts in right cell
+    left_geom  = cell(left_cell)%geom  ! left cell geometry
+    left_order = cell(left_cell)%order ! left cell order
     !
-    r1 = pts_in_cell_ptr(right_cell)+1 ! beginning index for sol-pts in left  cell
-    r2 = pts_in_cell_ptr(right_cell+1) ! ending    index for sol-pts in right cell
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left  cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
+    npl = l2-l1+1               ! number of solution points in left  cell
     !
-    npl = l2-l1+1 ! number of solution points in left  cell
-    npr = r2-r1+1 ! number of solution points in right cell
+    right_geom  = cell(right_cell)%geom  ! right cell geometry
+    right_order = cell(right_cell)%order ! right cell order
     !
-    left_geom = cell_geom(left_cell)
-    left_order = cell_order(left_cell)
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
+    npr = r2-r1+1                ! number of solution points in right cell
     !
-    right_geom = cell_geom(right_cell)
-    right_order = cell_order(right_cell)
-    !
-    ! Assign local pointer as an alias to the
-    ! interpolation matrix to simplify the code
-    !
-    left_interp => interp(left_geom,left_order)%toFace(left_order)%mat
-    right_interp => interp(right_geom,right_order)%toFace(right_order)%mat
+    face_order = face(nf)%order ! face solution order
     !
     do k = 1,size( face(nf)%left%flxpts )
       !
@@ -264,8 +360,10 @@ continue
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
       vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,2) )
       !
-      mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
-      mur = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,2) )
+      if (governing_equations == NavierStokes_Eqns) then
+        mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
+        mur = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,2) )
+      end if
       !
       ds = rnorm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(left_geom) ! face length/area for left  cell
@@ -283,10 +381,17 @@ continue
       al = max( gam*vl(nee)/vl(nec) , rndoff )
       ar = max( gam*vr(nee)/vr(nec) , rndoff )
       !
-      ! Interpolate the jacobian to the flux point
+      ! Interpolate the jacobian to the flux point for the left cell
       !
-      jacl = dot( left_interp(1:npl,kl) , jacobian(l1:l2) )
-      jacr = dot( right_interp(1:npr,kr) , jacobian(r1:r2) )
+      lmat(1:npl) = interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
+      !
+      jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
+      !
+      ! Interpolate the jacobian to the flux point for the right cell
+      !
+      lmat(1:npr) = interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
+      !
+      jacr = dot( lmat(1:npr) , jacobian(r1:r2) )
       !
       hl = half * dsl / jacl
       hr = half * dsr / jacr
@@ -307,12 +412,6 @@ continue
       dtmin = min( dtmin , dtl , dtr )
       !
     end do
-    !
-    ! Disassociate left_interp and right_interp before
-    ! continuing to the next interior face
-    !
-    if (associated(left_interp)) left_interp => null()
-    if (associated(right_interp)) right_interp => null()
     !
   end do
   !
@@ -438,6 +537,7 @@ subroutine rresi
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
+  use order_mod, only : p_order,n_order
   use geovar,  only : n_solpts
   use geovar,  only : ncell,pts_in_cell_ptr
   use geovar,  only : cell_geom,cell_order
@@ -466,7 +566,9 @@ continue
     end do
   end if
   !
-  call project_to_porder(ncell,cell_geom,cell_order,pts_in_cell_ptr,residual)
+  if (p_order < n_order) then
+    call project_to_porder(ncell,cell_geom,cell_order,pts_in_cell_ptr,residual)
+  end if
   !
 end subroutine rresi
 !
