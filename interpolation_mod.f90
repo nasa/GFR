@@ -1693,9 +1693,9 @@ continue
     !
     ! Try the Intel language extension intrinsic function sizeof
     !
-    dt%mem = int(sizeof(interp))
-    dt = dt%get_units()
-    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+   !dt%mem = int(sizeof(interp))
+   !dt = dt%get_units()
+   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
     !
   end if
   !
@@ -1786,9 +1786,9 @@ continue
     !
     ! Try the Intel language extension intrinsic function sizeof
     !
-    dt%mem = int(sizeof(outerp))
-    dt = dt%get_units()
-    write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+   !dt%mem = int(sizeof(outerp))
+   !dt = dt%get_units()
+   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
     !
   end if
   !
@@ -1797,9 +1797,9 @@ continue
   !
   ! Try the Intel language extension intrinsic function sizeof
   !
-  total%mem = int(sizeof(interp)) + int(sizeof(outerp))
-  total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+ !total%mem = int(sizeof(interp)) + int(sizeof(outerp))
+ !total = total%get_units()
+ !write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
   !
   ! Format Statements
   !
