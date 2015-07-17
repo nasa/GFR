@@ -22,6 +22,7 @@ module metrics_mod
   ! geofa : normal of the face at each of the solution points on the face
   !
   type(face_nrm), public, save, allocatable :: geofa(:)
+  type(face_nrm), public, save, allocatable :: geofa2(:)
   !
   ! volj : Volume of the grid cells evaluated by integrating the jacobian at the
   !        solution points using the quadrature rule
@@ -356,6 +357,7 @@ subroutine get_metrics()
   use ovar, only : local_volume,total_volume
   use ovar, only : using_curved_boundaries
   use ovar, only : use_3rd_derivative_metrics
+  use ovar, only : use_advanced_face_metrics
   !
   use order_mod, only : geom_solpts
   !
@@ -372,6 +374,9 @@ subroutine get_metrics()
   character(len=1000) :: error_message
   !
   !.. Local Arrays ..
+  integer, dimension(1:3) :: ksize
+  integer, dimension(1:4,1:136,1:3) :: knodes
+  real(wp), dimension(1:nr,1:16) :: diff
   real(wp), dimension(1:nr,1:8) :: nodes
   !
   !.. Local Pointers ..
@@ -414,6 +419,8 @@ continue
   !
   allocate ( geofa(1:nface) , stat=ierr )
   call alloc_error(pname,"geofa",1,ierr,error_message)
+ !allocate ( geofa2(1:nface) , stat=ierr )
+ !call alloc_error(pname,"geofa2",1,ierr,error_message)
   !
   ! Allocate the data components of the geofa array
   !
@@ -426,8 +433,13 @@ continue
     !
     allocate ( geofa(nf)%v(1:nr,1:nfpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    write (array_name,1) nf
+    write (array_name,1) "geofa",nf
     call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+   !allocate ( geofa2(nf)%v(1:nr,1:nfpts) , source=zero , &
+   !           stat=ierr , errmsg=error_message )
+   !write (array_name,1) "geofa2",nf
+   !call alloc_error(pname,array_name,1,ierr,error_message)
     !
   end do
   !
@@ -1024,30 +1036,108 @@ continue
   !          in the header of the module flux_mod is used to adjust the
   !          face normals between triangles and quads.
   !
-  do nf = 1,nface
+  if (use_advanced_face_metrics) then
     !
-    nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
+    call compute_face_normals
     !
-    ! Coordinates of the nodes on this face
+  else
     !
-    nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
-    !
-    ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
-    ! Assumption 1: the normal is the same for all flux points on the face
-    ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
-    !
-    ! Compute the face normal at the first flux point
-    !
-    geofa(nf)%v(1:nr,1) = face_normal( nodes(1:nr,1:nfnods) )
-    !
-    ! Copy the face normal from the first flux point to all the other
-    ! face flux points (assuming the normal is the same for all of them)
-    !
-    do n = 2,size(geofa(nf)%v,dim=2)
-      geofa(nf)%v(1:nr,n) = geofa(nf)%v(1:nr,1)
+    do nf = 1,nface
+      !
+      nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
+      !
+      ! Coordinates of the nodes on this face
+      !
+      nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
+      !
+      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
+      ! Assumption 1: the normal is the same for all flux points on the face
+      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
+      !
+      ! Compute the face normal at the first flux point
+      !
+     !geofa2(nf)%v(1:nr,1) = face_normal( nodes(1:nr,1:nfnods) )
+      geofa(nf)%v(1:nr,1) = face_normal( nodes(1:nr,1:nfnods) )
+      !
+      ! Copy the face normal from the first flux point to all the other
+      ! face flux points (assuming the normal is the same for all of them)
+      !
+     !do n = 2,size(geofa2(nf)%v,dim=2)
+     !  geofa2(nf)%v(1:nr,n) = geofa2(nf)%v(1:nr,1)
+     !end do
+      do n = 2,size(geofa(nf)%v,dim=2)
+        geofa(nf)%v(1:nr,n) = geofa(nf)%v(1:nr,1)
+      end do
+      !
+     !write (180,10) nf
+     !do n = 1,size(geofa(nf)%v,dim=2)
+     !  write (180,11) n,(one4*geofa(nf)%v(i,n),i=1,size(geofa(nf)%v,dim=1))
+     !end do
     end do
     !
-  end do
+  end if
+  !
+ !do nf = 1,nface
+ !  write (182,10) nf
+ !  do n = 1,size(geofa(nf)%v,dim=2)
+ !    write (182,11) n,(geofa(nf)%v(i,n),i=1,size(geofa(nf)%v,dim=1))
+ !  end do
+ !end do
+ !!
+ !do nf = 1,nface
+ !  write (182,10) nf
+ !  do n = 1,size(geofa2(nf)%v,dim=2)
+ !    write (182,11) n,( abs( (one4*geofa(nf)%v(i,n)-geofa2(nf)%v(i,n)) * &
+ !                            reciprocal(one4*geofa(nf)%v(i,n)) ),i=1,size(geofa2(nf)%v,dim=1))
+ !  end do
+ !end do
+ !!
+ !open (newunit=nfpts,file="faces.tec.dat",status="replace",action="write", &
+ !                    form="formatted",position="rewind",iostat=ierr)
+ !write (nfpts,20) size(xyz_nodes,dim=2),nface
+ !do l = 1,nr
+ !  write (nfpts,21) (xyz_nodes(l,n),n=1,size(xyz_nodes,dim=2))
+ !end do
+ !do nf = 1,nface
+ !  nfnods = geom_nodes(face(nf)%geom)
+ !  write (nfpts,22) (nodes_on_face(l,nf),l=1,nfnods)
+ !end do
+ !ksize = 0
+ !do nf = 1,nface
+ !  l = size(geofa(nf)%v,dim=1)
+ !  n = size(geofa(nf)%v,dim=2)
+ !  diff(1:l,1:n) = abs( (one4*geofa2(nf)%v - geofa(nf)%v) * reciprocal(one4*geofa2(nf)%v) )
+ !  if (any(diff > 1.0e-02_wp)) then
+ !    nfnods = geom_nodes(face(nf)%geom)
+ !    nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
+ !   !write (183,12) nf,((nodes(l,n),l=1,nr),n=1,nfnods)
+ !    if (any(abs(nodes(3,:)-0.0_wp) < eps9)) then
+ !      ksize(1) = ksize(1) + 1
+ !      knodes(1:nfnods,ksize(1),1) = nodes_on_face(1:nfnods,nf)
+ !    else if (any(abs(nodes(3,:)-0.075_wp) < eps9)) then
+ !      ksize(2) = ksize(2) + 1
+ !      knodes(1:nfnods,ksize(2),2) = nodes_on_face(1:nfnods,nf)
+ !    else if (any(abs(nodes(3,:)-0.15_wp) < eps9)) then
+ !      ksize(3) = ksize(3) + 1
+ !      knodes(1:nfnods,ksize(3),3) = nodes_on_face(1:nfnods,nf)
+ !    end if
+ !  end if
+ !end do
+ !do k = 1,3
+ !  write (nfpts,23) k,size(xyz_nodes,dim=2),ksize(k)
+ !  do n = 1,ksize(k)
+ !    write (nfpts,22) (knodes(l,n,k),l=1,4)
+ !  end do
+ !end do
+ !20 format ('VARIABLES = "X", "Y", "Z"',/, &
+ !           'ZONE T="All Faces", N=',i0,', E=',i0,', DATAPACKING=BLOCK', &
+ !           ', ZONETYPE=FEQUADRILATERAL')
+ !21 format (4es22.14)
+ !22 format (*(i5))
+ !23 format ('ZONE T="K',i0,' Faces", N=',i0,', E=',i0,', DATAPACKING=BLOCK', &
+ !           ', ZONETYPE=FEQUADRILATERAL',/,'VARSHARELIST=([1-3]=1)')
+ !close (nfpts,iostat=ierr)
+ !call stop_recon(stop_mpi,pname)
   !
   ! ##########################################################################
   ! ##########################################################################
@@ -1074,9 +1164,14 @@ continue
   !
   call mpi_barrier(mpi_comm_world,mpierr)
   !
+  if (allocated(geofa2)) then
+    deallocate ( geofa2 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geofa2",2,ierr,error_message)
+  end if
+  !
   ! Format Statements
   !
-  1   format ("geofa(",i0,")%v")
+  1   format (a,"(",i0,")%v")
   100 format (" Encountered an unknown or unsupported cell geometry while", &
               " trying to compute the grid metrics!")
   101 format (" Encountered a tetrahedral grid cell while trying to compute", &
@@ -1087,7 +1182,283 @@ continue
               " the grid metrics! This grid geometry is not currently supported!")
   104 format (" Encountered an invalid metrics derived type!")
   !
+  10 format (/,"#######################################################",/, &
+               "#################  FACE ",i0,"  ###########################",/, &
+               "#######################################################",/)
+  11 format (i4,*(es18.10))
+  12 format (i6,/,*(3(es18.10),/,:))
+  !
 end subroutine get_metrics
+!
+!###############################################################################
+!
+subroutine compute_face_normals
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP,maxFP,geom_solpts,n_order
+  use geovar, only : nr,ncell,cell,xyz,xyz_nodes,nface
+  use interpolation_mod, only : interp
+  use derivatives_mod, only : deriv
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,nf,ncf,n1,n2,np
+  integer :: kf,lf,l,k,nfp,ndim
+  integer :: left_geom,left_order
+  integer :: face_geom,face_order
+  integer :: inrm,ierr,npcount,nfpts
+  real(wp) :: nrm_coef
+  logical :: dmat_has_been_output
+  !
+  !.. Local Arrays ..
+  real(wp) :: dvec(1:3,1:3)
+  real(wp) :: txyz(1:maxSP,1:nr)
+  real(wp) :: xyz_face(1:maxFP,1:nr)
+  real(wp) :: lmat(1:maxSP)
+  real(wp) :: dmat(1:maxSP)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: ipface(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_face_normals"
+ !logical, parameter :: output_face_normals = true
+  logical, parameter :: output_face_normals = fals
+  !
+continue
+  !
+ !dmat_has_been_output = fals
+  !
+  if (output_face_normals) then
+    !
+    npcount = 0
+    nfpts = 0
+    do nf = 1,nface
+      nfpts = nfpts + size(geofa(nf)%v,dim=2)
+    end do
+    !
+    open (newunit=inrm,file="face_normals.tec.dat",status="replace",action="write", &
+                       form="formatted",position="rewind",iostat=ierr)
+    call io_error(pname,"face_normals.tec.dat",1,ierr)
+    !
+    if (nr == 2) then
+      !
+      write (inrm,20) nfpts,nface
+      !
+      allocate ( ipface(1:2,1:nface) , source=0 , stat=ierr )
+      call alloc_error(pname,"ipface",1,ierr)
+      !
+    else if (nr == 3) then
+      !
+      write (inrm,21) nfpts,nface
+      !
+      allocate ( ipface(1:4,1:nface) , source=0 , stat=ierr )
+      call alloc_error(pname,"ipface",1,ierr)
+      !
+    end if
+    !
+  end if
+  !
+  cell_loop: do nc = 1,ncell
+    !
+    left_geom  = cell(nc)%geom
+    left_order = cell(nc)%order
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    np = n2-n1+1
+    !
+    do k = 1,np
+      do l = 1,nr
+        txyz(k,l) = xyz(l,k+n1-1)
+      end do
+    end do
+   !!
+   !! Compute the coordinates for the center of the current cell and save for later
+   !!
+   !i1 = nodes_of_cell_ptr(nc)+1
+   !i2 = nodes_of_cell_ptr(nc+1)
+   !ip = i2-i1+1
+   !!
+   !cell_center(1:nr) = sum(xyz_nodes(1:nr,nodes_of_cell(i1:i2)))/real(ip,kind=wp)
+    !
+    ! Loop through the faces of the current cell to get the normals at each face point
+    !
+    cell_face_loop: do ncf = 1,size(cell(nc)%face)
+      !
+      if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+      !
+      nf = cell(nc)%face(ncf)%idx
+      !
+      face_geom  = cell(nc)%face(ncf)%geom
+      face_order = cell(nc)%face(ncf)%order
+     !face_side  = cell(nc)%face(ncf)%side
+      !
+      nfp = geom_solpts(face_geom,face_order)
+      !
+      ! Interpolate the coordinates of the solution points to get the 
+      ! coordinates of the flux points on the current face.
+      !
+      do l = 1,nr
+        !
+        do kf = 1,size(cell(nc)%face(ncf)%cell_idx)
+          !
+          lf = cell(nc)%face(ncf)%cell_idx(kf)
+          !
+          lmat(1:np) = interp(left_geom,left_order)%toFace(face_order)%mat(1:np,lf)
+          !
+          xyz_face(kf,l) = dot( lmat(1:np) , txyz(1:np,l) )
+          !
+        end do
+        !
+      end do
+     !do k = 1,size(cell(nc)%face(ncf)%cell_idx)
+     !  write (184,'(3es12.4)') (xyz_face(k,l),l=1,nr)
+     !end do
+     !write (184,*)
+      !
+      ! If the current face is an edge, initialize the k components of the
+      ! two vectors the dvec array to one and everything else to zero
+      !
+      if (face_geom == Geom_Edge) then
+        dvec = zero
+        dvec(3,:) = one
+      end if
+      !
+      ! Now compute the derivative of the flux point coordinates
+      !
+      ndim = size(deriv(face_geom,face_order)%d)
+      !
+     !if (.not. dmat_has_been_output) then
+     !  if (face_geom == Geom_Edge) then
+     !    do n = 1,ndim
+     !      write (185,40) n
+     !      do k = size(deriv(face_geom,face_order)%d(n)%mat,dim=2),1,-1
+     !        write (185,41) (deriv(face_geom,face_order)%d(n)%mat(l,k), &
+     !                        l=1,size(deriv(face_geom,face_order)%d(n)%mat,dim=1))
+     !      end do
+     !    end do
+     !  end if
+     !  dmat_has_been_output = true
+     !end if
+     !40 format ("Derivative matrix in direction ",i0)
+     !41 format (*(es23.15))
+      do k = 1,size(cell(nc)%face(ncf)%cell_idx)
+        !
+        do n = 1,ndim
+          !
+          dmat(1:nfp) = deriv(face_geom,face_order)%d(n)%mat(1:nfp,k)
+          !
+          ! If the current cell face is a x-min, y-max, or z-min face, we need to
+          ! reverse the order of the derivatives so that the cross_product computed
+          ! below results in a outward facing normal for the left cell on the face.
+          !
+          kf = n
+          if (face_geom /= Geom_Edge) then
+            if (any(ncf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+              kf = ndim+1 - n
+            end if
+          end if
+          !
+          do l = 1,nr
+            dvec(l,kf) = dot( dmat(1:nfp) , xyz_face(1:nfp,l) )
+          end do
+          !
+        end do
+        !
+        ! Finally, the length/area normal to the current face at the current
+        ! flux point is just the cross product of the two vectors in dvec
+        !
+       !write (183,'(3es12.4,4x,3es12.4)') (dvec(l,1),l=1,size(dvec,dim=1)), &
+       !                                   (dvec(l,2),l=1,size(dvec,dim=1))
+        dvec(:,3) = cross_product( dvec(:,1) , dvec(:,2) )
+        !
+        ! Zero/chop all the normals less than 10*roundoff
+        !
+        geofa(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+       !geofa2(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+        !
+        if (output_face_normals) then
+          !
+          npcount = npcount + 1
+          !
+          if (nr == 2) then
+            !
+            if (k == 1) then
+              ipface(1,nf) = npcount
+            else if (k == size(cell(nc)%face(ncf)%cell_idx)) then
+              ipface(2,nf) = npcount
+            end if
+            !
+            write (inrm,22) (xyz_face(k,l),l=1,nr),(geofa(nf)%v(l,k),l=1,nr)!,npcount
+            !
+          else if (nr == 3) then
+            !
+            if (k == 1) then
+              ipface(1,nf) = npcount
+            else if (k == face_order+1) then
+              ipface(2,nf) = npcount
+            else if (k == size(cell(nc)%face(ncf)%cell_idx)) then
+              ipface(3,nf) = npcount
+            else if (face_geom == Geom_Quad) then
+              if (k == (face_order+1)*face_order) then
+                ipface(4,nf) = npcount
+              end if
+            end if
+            !
+            if (face_geom == Geom_Tria) ipface(4,nf) = ipface(3,nf)
+            !
+            write (inrm,23) (xyz_face(k,l),l=1,nr),(geofa(nf)%v(l,k),l=1,nr)!,npcount
+            !
+          end if
+          !
+        end if
+        !
+      end do
+     !write (183,*)
+      !
+    end do cell_face_loop
+    !
+  end do cell_loop
+  !
+  if (output_face_normals) then
+    !
+    do nf = 1,nface
+      write (inrm,24) (ipface(l,nf),l=1,size(ipface,dim=1))
+    end do
+    !
+    close (inrm,iostat=ierr)
+    call io_error(pname,"face_normals.tec.dat",2,ierr)
+    !
+    if (allocated(ipface)) then
+      deallocate ( ipface , stat=ierr )
+      call alloc_error(pname,"ipface",2,ierr)
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  10 format (/,"#######################################################",/, &
+               "#################  FACE ",i0,"  ###########################",/, &
+               "#######################################################",/)
+  11 format (2i4,/,*(3(es18.10),/,:))
+  12 format (/,"############",/, &
+               "###  ",i0,"  ###",/, &
+               "############",/, &
+               *(<n_order+1>(<n_order+1>(es14.6,:),/),/))
+  13 format (/,"##########################################################",/)
+  !
+  20 format ('VARIABLES = "X", "Y", "n_x", "n_y"',/, &
+             'ZONE T="Face Normals", N=',i0,', E=',i0, &
+             ', DATAPACKING=POINT, ZONETYPE=FELINESEG')
+  21 format ('VARIABLES = "X", "Y", "Z", "n_x", "n_y", "n_z"',/, &
+             'ZONE T="Face Normals", N=',i0,', E=',i0, &
+             ', DATAPACKING=POINT, ZONETYPE=FEQUADRILATERAL')
+  22 format (2es23.15,1x,2es23.15,:,1x,i0)
+  23 format (3es14.6,1x,3es14.6,:,1x,i0)
+  24 format (4(1x,i0))
+  !
+end subroutine compute_face_normals
 !
 !###############################################################################
 !
