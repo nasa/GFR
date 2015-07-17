@@ -63,6 +63,7 @@ module module_kind_types
   real(qp), parameter :: qhalf   = 0.5_qp
   real(qp), parameter :: qone    = 1.0_qp
   real(qp), parameter :: qtwo    = 2.0_qp
+  real(qp), parameter :: qten    = 10.0_qp
   !
   real(wp), parameter :: zero    = 0.0_wp
   real(wp), parameter :: half    = 0.5_wp
@@ -74,6 +75,7 @@ module module_kind_types
   real(wp), parameter :: four    = 4.0_wp
   real(wp), parameter :: five    = 5.0_wp
   real(wp), parameter :: six     = 6.0_wp
+  real(wp), parameter :: seven   = 7.0_wp
   real(wp), parameter :: eight   = 8.0_wp
   real(wp), parameter :: nine    = 9.0_wp
   real(wp), parameter :: ten     = 10.0_wp
@@ -82,11 +84,11 @@ module module_kind_types
   !
   real(wp), parameter :: one8   = one/eight
   real(wp), parameter :: one6   = one/six
+  real(wp), parameter :: one5   = one/five
   real(wp), parameter :: one4   = one/four
   real(wp), parameter :: one3   = one/three
   real(wp), parameter :: two3   = two/three
   real(wp), parameter :: three4 = three/four
-  real(wp), parameter :: four3  = four/three
   !
   real(wp), parameter :: eps1  = 1.0e-01_wp
   real(wp), parameter :: eps2  = 1.0e-02_wp
@@ -99,21 +101,7 @@ module module_kind_types
   real(wp), parameter :: eps12 = 1.0e-12_wp
   real(wp), parameter :: eps14 = 1.0e-14_wp
   real(wp), parameter :: eps17 = 1.0e-17_wp
-  !
-  real(wp), parameter :: c0_03 = 0.03_wp
-  real(wp), parameter :: c0_10 = 0.10_wp
-  real(wp), parameter :: c0_15 = 0.15_wp
-  real(wp), parameter :: c0_20 = 0.20_wp
-  real(wp), parameter :: c0_30 = 0.30_wp
-  real(wp), parameter :: c0_35 = 0.35_wp
-  real(wp), parameter :: c0_45 = 0.45_wp
-  real(wp), parameter :: c0_55 = 0.55_wp
-  real(wp), parameter :: c0_65 = 0.65_wp
-  real(wp), parameter :: c0_70 = 0.70_wp
-  real(wp), parameter :: c0_80 = 0.80_wp
-  real(wp), parameter :: c2_50 = 2.50_wp
-  real(wp), parameter :: c3_50 = 3.50_wp
-  real(wp), parameter :: c4_50 = 4.50_wp
+  real(wp), parameter :: small = eps17
   !
   real(wp), parameter :: pi = 3.14159265358979323846_wp
   !
@@ -161,6 +149,8 @@ module module_kind_types
   integer, parameter :: bc_adiabatic_wall = 52
   integer, parameter :: bc_isothermal_wall = 53
   integer, parameter :: bc_default_wall = bc_adiabatic_wall
+  ! MMS BCs
+  integer, parameter :: bc_mms_dirichlet = 70
   ! Other BCs
   integer, parameter :: not_a_bc = 0
   integer, parameter :: bc_symmetry = 80
@@ -192,6 +182,7 @@ module module_kind_types
                                                bc_generic_outflow, &
                                                bc_characteristic, &
                                                bc_generic_freeflow ]
+  integer, parameter :: bc_mms(1:1) = [bc_mms_dirichlet]
   !
   ! Parameters defining workshop test cases
   !
@@ -239,8 +230,28 @@ module module_kind_types
   integer, parameter :: project_derivatives = 1
   integer, parameter :: derivative_of_proj_fluxes = 2
   !
+  integer, parameter :: invs_flux_ROE   = 1
+  integer, parameter :: invs_flux_HLLC  = 2
+  integer, parameter :: invs_flux_LDFSS = 3
+  !
   integer, parameter :: visc_flux_BR1 = 1
   integer, parameter :: visc_flux_BR2 = 2
+  integer, parameter :: visc_flux_LDG = 3
+  !
+  ! Parameters giving what set of variables to
+  ! average when computing the common viscous flux.
+  !
+  ! VISC_INTERFACE_FLUXES : Compute the common viscous flux by averaging the
+  !                         left and right viscous interface fluxes which are
+  !                         computed using the left and right interface
+  !                         solutions and gradients.
+  ! VISC_SOLUTION_AND_GRADIENTS : Compute common solutions and gradients by
+  !                               averaging the left and right interface
+  !                               solutions and gradients and use these
+  !                               values to compute the common viscous flux.
+  !
+  integer, parameter :: visc_interface_fluxes = 1
+  integer, parameter :: visc_solution_and_gradients = 2
   !
   ! Constants for timestepping method
   !
@@ -264,6 +275,12 @@ module module_kind_types
   ! Equation Types
   integer, parameter :: Euler_Eqns = 1
   integer, parameter :: NavierStokes_Eqns = 2
+  !
+  ! Turbulence Options
+  integer, parameter :: laminar_flow = 0
+  integer, parameter :: k_omega      = 1
+  integer, parameter :: k_omega_1998 = +k_omega
+  integer, parameter :: k_omega_2006 = -k_omega
   !
   ! Grid Types
   integer, parameter :: Gambit_Neutral = 1
@@ -355,11 +372,11 @@ module module_kind_types
   !
   logical, parameter :: tria_is_biunit = fals
   !
-  ! CL : coefficient for the length of the face. This is needed because of
-  !      the difference between how the reference triangle and reference
-  !      quad are defined. 
-  !      = 1.0 for triangles
-  !      = 0.5 for quads
+  ! CL : coefficient that gives (2.0 / length of the 1D solution points).
+  !      This is needed because of the difference between how the reference
+  !      triangle and reference quad are defined.
+  !      = 2.0 for triangles if tria_is_biunit is false
+  !      = 1.0 for everything else
   !
   real(wp), protected, save :: cl(Geom_Min:Geom_Max)
   !
@@ -611,6 +628,30 @@ module module_kind_types
                      identity_matrix_dim_QP,identity_matrix_mat_QP
   end interface identity_matrix
   !
+  !
+  !
+  private :: intseq_no_interval,intseq_with_interval
+  !
+  interface intseq
+    module procedure intseq_no_interval,intseq_with_interval
+  end interface intseq
+  !
+  !
+  !
+  private :: big_to_little_endian_i2
+  private :: big_to_little_endian_i4
+  private :: big_to_little_endian_i8
+  private :: big_to_little_endian_r4
+  private :: big_to_little_endian_r8
+  !
+  interface big_to_little_endian
+    module procedure big_to_little_endian_i2, &
+                     big_to_little_endian_i4, &
+                     big_to_little_endian_i8, &
+                     big_to_little_endian_r4, &
+                     big_to_little_endian_r8
+  end interface big_to_little_endian
+  !
 contains
 !
 !###############################################################################
@@ -695,6 +736,16 @@ continue
   side_nodes(1:2,2,Geom_Tria) = [1,2]
   side_nodes(1:2,3,Geom_Tria) = [2,0]
   !
+ !integer, parameter :: HostFace2D(1:6) = [Xmin2D_Face,Xmax2D_Face, &
+ !                                         Ymin2D_Face,Ymax2D_Face, &
+ !                                         Zmin2D_Face,Zmax2D_Face]
+ !integer, parameter :: Ymin2D_Face = 1
+ !integer, parameter :: Xmax2D_Face = 2
+ !integer, parameter :: Ymax2D_Face = 3
+ !integer, parameter :: Xmin2D_Face = 4
+ !integer, parameter :: Zmin2D_Face = 0
+ !integer, parameter :: Zmax2D_Face = 0
+  !
   side_nodes(1:2,HostFace2D(3),Geom_Quad) = Ymin2D
   side_nodes(1:2,HostFace2D(2),Geom_Quad) = Xmax2D
   side_nodes(1:2,HostFace2D(4),Geom_Quad) = Ymax2D
@@ -717,18 +768,28 @@ continue
   side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
   side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
   !
+ !integer, parameter :: HostFace3D(1:6) = [Xmin3D_Face,Xmax3D_Face, &
+ !                                         Ymin3D_Face,Ymax3D_Face, &
+ !                                         Zmin3D_Face,Zmax3D_Face]
+ !integer, parameter :: Zmin3D_Face = 1
+ !integer, parameter :: Zmax3D_Face = 2
+ !integer, parameter :: Xmax3D_Face = 3
+ !integer, parameter :: Xmin3D_Face = 4
+ !integer, parameter :: Ymin3D_Face = 5
+ !integer, parameter :: Ymax3D_Face = 6
+  !
   side_nodes(1:4,HostFace3D(5),Geom_Hexa) = Zmin3D
   side_nodes(1:4,HostFace3D(6),Geom_Hexa) = Zmax3D
   side_nodes(1:4,HostFace3D(2),Geom_Hexa) = Xmax3D
   side_nodes(1:4,HostFace3D(1),Geom_Hexa) = Xmin3D
   side_nodes(1:4,HostFace3D(3),Geom_Hexa) = Ymin3D
   side_nodes(1:4,HostFace3D(4),Geom_Hexa) = Ymax3D
- !side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1]
- !side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7]
- !side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5]
- !side_nodes(1:4,4,Geom_Hexa) = [4,7,3,0]
- !side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4]
- !side_nodes(1:4,6,Geom_Hexa) = [2,3,7,6]
+ !side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1] ! [1,4,3,2]
+ !side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7] ! [5,6,7,8]
+ !side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5] ! [2,3,7,6]
+ !side_nodes(1:4,4,Geom_Hexa) = [0,4,7,3] ! [1,5,8,4]
+ !side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4] ! [1,2,6,5]
+ !side_nodes(1:4,6,Geom_Hexa) = [3,7,6,2] ! [4,8,7,3]
  !!
  !write (iout,1) side_nodes(1:4,1:6,Geom_Hexa)
  !1 format (*("[",3(i0,","),i0,"]",/,:))
@@ -744,7 +805,7 @@ continue
   cell_face_geom(3:5,Geom_Pris) = Geom_Quad
   cell_face_geom(1:6,Geom_Hexa) = Geom_Quad
   !
-  if (.not. tria_is_biunit) cl(Geom_Tria) = half
+  if (.not. tria_is_biunit) cl(Geom_Tria) = two
   !
 end subroutine initialize_runtime_parameters
 !
@@ -1066,6 +1127,9 @@ subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag,iemessag)
   integer,                    intent(in) :: error_flag
   character(len=*), optional, intent(in) :: iemessag
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_error"
+  !
 continue
   !
   if (error_flag /= 0) then
@@ -1081,7 +1145,7 @@ continue
     if (present(iemessag)) write (iout,5) trim(adjustl(iemessag))
     write (iout,6)
     !
-    call stop_recon(abort,"alloc_error")
+    call stop_recon(abort,pname)
     !
   end if
   !
@@ -1113,6 +1177,9 @@ subroutine io_error(procedure_name,file_name,ioptype,iemessag,optmessag)
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optmessag
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "io_error"
+  !
 continue
   !
   if (iemessag /= 0) then
@@ -1140,9 +1207,6 @@ continue
       else if (iemessag < 0) then
         write (iout,6) trim(adjustl(file_name))
       end if
-      if (present(optmessag)) then
-        write (iout,7) trim(adjustl(optmessag))
-      end if
       !
       ! Generic unknown error
       !
@@ -1150,8 +1214,12 @@ continue
       write (iout,99) trim(adjustl(file_name))
     end if
     !
+    if (present(optmessag)) then
+      write (iout,7) trim(adjustl(optmessag))
+    end if
+    !
     write (iout,11) trim(adjustl(procedure_name)),iemessag
-    call stop_recon(abort,"io_error")
+    call stop_recon(abort,pname)
     !
   end if
   !
@@ -1163,7 +1231,8 @@ continue
   4  format (" UNABLE TO DETERMINE FORMAT OF PLOT3D FILE '",a,"'")
   5  format (" UNEXPECTED INPUT/OUTPUT ERROR WITH FILE '",a,"'")
   6  format (" UNEXPECTED END OF FILE/RECORD ERROR WITH FILE '",a,"'")
-  7  format (" ERROR OCCURED TRYING TO READ IN '",a,"'")
+ !7  format (" ERROR OCCURED TRYING TO READ IN '",a,"'")
+  7  format (" ERROR MESSAGE: '",a,"'")
   99 format (" UNKNOWN ERROR WITH FILE '",a,"'")
   10 format (/," ***************************************************** ")
   11 format (" INSIDE PROCEDURE: ",a,/, &
@@ -1425,6 +1494,8 @@ include "Functions/face_normal.f90"
 include "Functions/jacobians.f90"
 include "Functions/reverse_metrics.f90"
 include "Functions/chop.f90"
+include "Functions/intseq.f90"
+include "Functions/big_to_little_endian.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !
@@ -1433,7 +1504,6 @@ include "Functions/bc_integer_to_string.f90"
 include "Functions/all_are_equal.f90"
 include "Functions/reformat_string.f90"
 include "Functions/ghost_nodes.f90"
-include "Functions/intseq.f90"
 !
 !###############################################################################
 !
