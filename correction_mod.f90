@@ -990,7 +990,7 @@ continue
       ! Loop over interior solution points in z/zeta direction
       !
       do k = 1,nep
-        l = j + (i-1)*nep + (k-1)*nfp
+        l = i + (j-1)*nep + (k-1)*nfp
         return_value(l,nf) = cmat1D(k)
       end do
       !
@@ -1015,7 +1015,7 @@ continue
       ! Loop over interior solution points in z/zeta direction
       !
       do k = 1,nep
-        l = j + (i-1)*nep + nfp*(nep-k)
+        l = i + (j-1)*nep + nfp*(nep-k)
         return_value(l,nf) = cmat1D(k)
       end do
       !
@@ -1040,7 +1040,7 @@ continue
       ! Loop over interior solution points in x/xi direction
       !
       do i = 1,nep
-        l = k*nep + (j-1)*nfp - i + 1
+        l = j*nep + (k-1)*nfp - i + 1
         return_value(l,nf) = cmat1D(i)
       end do
       !
@@ -1065,7 +1065,7 @@ continue
       ! Loop over interior solution points in x/xi direction
       !
       do i = 1,nep
-        l = (k-1)*nep + (j-1)*nfp + i
+        l = (j-1)*nep + (k-1)*nfp + i
         return_value(l,nf) = cmat1D(i)
       end do
       !
@@ -1090,7 +1090,7 @@ continue
       ! Loop over interior solution points in y/eta direction
       !
       do j = 1,nep
-        l = (i-1)*nfp + k + (j-1)*nep
+        l = (k-1)*nfp + i + (j-1)*nep
         return_value(l,nf) = cmat1D(j)
       end do
       !
@@ -1115,7 +1115,7 @@ continue
       ! Loop over interior solution points in y/eta direction
       !
       do j = 1,nep
-        l = (i-1)*nfp + k + (nep-j)*nep
+        l = (k-1)*nfp + i + (nep-j)*nep
         return_value(l,nf) = cmat1D(j)
       end do
       !
