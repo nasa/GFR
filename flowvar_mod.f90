@@ -48,28 +48,13 @@ module flowvar
   logical, public, save, allocatable, dimension(:) :: troubled_cell
   !
   !
-  ! PROFILE_QUANTITY: Derived type containing the name of a profile
-  !                   quantity and the corresponding data
   !
-  type, public :: profile_quantity
-    character(len=100) :: qty_name
-    real(wp), allocatable, dimension(:) :: qty_data
-  end type profile_quantity
+  ! FACE_XYZ : Derived type containing a set of variables at the flux/face
+  !            points on each side of a face between cells
   !
-  ! PROFILE: Derived type of a single profile containing multiple quantities
-  !
-  type, public :: profile
-    character(len=100) :: prof_name
-    integer :: group_num
-    integer, allocatable, dimension(:) :: faces
-    type(profile_quantity), allocatable, dimension(:) :: qty
-  end type profile
-  !
-  ! BND_PROF : Solution profiles along each boundary
-  ! SOL_PROF : Solution profiles within the interior
-  !
-  type(profile), public, save, allocatable, dimension(:) :: bnd_prof
-  type(profile), public, save, allocatable, dimension(:) :: sol_prof
+  type, public :: face_xyz
+    real(wp), allocatable :: v(:,:)
+  end type face_xyz
   !
   !
   ! FACE_VAR : Derived type containing a set of variables at the flux/face
@@ -101,14 +86,16 @@ module flowvar
   ! FACEFLX  : flux normal to cell faces at each interface flux point
   ! FACEUSP  : conservative variables at the interface flux points
   ! FACEDUSP : conservative variable gradients at the interface flux points
+  ! FACEXYZ  : coordinates of the flux points on the boundary faces (used only for MMS)
   !
-  ! faceflx(1:nface)%v(1:nq,1:2,1:n_sp1de) ! this is the normal face flux
-  ! faceusp(1:nface)%v(1:nq,1:2,1:n_sp1de)
-  ! facedusp(1:nface)%v(1:2,1:nq,1:2,1:n_sp1de)
+  ! faceflx(1:nface)%v(1:nq,1:n_sp1de,1:2) ! this is the normal face flux
+  ! faceusp(1:nface)%v(1:nq,1:n_sp1de,1:2)
+  ! facedusp(1:nface)%v(1:2,1:nq,1:n_sp1de,1:2)
   !
   type(face_var), public, save, allocatable, dimension(:) :: faceusp
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp
   type(face_var), public, save, allocatable, dimension(:) :: faceflx
+  type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
   !
 contains
 !
@@ -118,10 +105,11 @@ subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
   use eqn_idx,   only : nq
-  use geovar,    only : nr,n_solpts,n_totpts,nface,face
+  use geovar,    only : nr,n_solpts,n_totpts,nface,nfbnd,face
+  use geovar,    only : n_global_totpts
   use order_mod, only : geom_solpts
   use order_mod, only : n_fp1de
-  use ovar,      only : iRKtype,num_stages
+  use ovar,      only : iRKtype,num_stages,mms_opt
   !
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
@@ -169,6 +157,13 @@ continue
   allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"faceflx",1,ierr,error_message)
   !
+  ! If using MMS, allocate the facexyz array
+  !
+  if (mms_opt /= 0) then
+    allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz",1,ierr,error_message)
+  end if
+  !
   ! Allocate the data component of these arrays based on the face geometry
   !
   do nf = 1,nface
@@ -192,6 +187,16 @@ continue
                stat=ierr , errmsg=error_message )
     write (array_name,1) "faceflx",nf
     call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+    ! If using MMS and this is a boundary face,
+    ! allocate the v component of facexyz
+    !
+    if (mms_opt /= 0 .and. nf <= nfbnd) then
+      allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) "facexyz",nf
+      call alloc_error(pname,array_name,1,ierr,error_message)
+    end if
     !
   end do
   !
@@ -218,6 +223,11 @@ continue
     call alloc_error(pname,"rssprk",1,ierr,error_message)
     !
   end if
+  !
+  ! Allocate the global_usp array
+  !
+  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
+  call alloc_error(pname,"global_usp",1,ierr)
   !
   ! Format Statements
   !
@@ -273,7 +283,7 @@ continue
     !
     if (bface(1,nf) /= bc_cpu_bnd) cycle
     !
-    nsz = size(this(nf)%v(:,:,1),dim=1)
+    nsz = size(this(nf)%v(:,:,1))
     !
     ibeg = iend + 1
     iend = iend + nsz
@@ -465,18 +475,6 @@ continue
     array%mem = array%siz*storage_size(dtsp)
     total%mem = total%mem + array%mem
     write (iunit,2) "'dtsp'",array%get_units()
-  end if
-  if (allocated(bnd_prof)) then
-    array%siz = size(bnd_prof)
-    array%mem = array%siz*storage_size(bnd_prof)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'bnd_prof'",array%get_units()
-  end if
-  if (allocated(sol_prof)) then
-    array%siz = size(sol_prof)
-    array%mem = array%siz*storage_size(sol_prof)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'sol_prof'",array%get_units()
   end if
   !
   total = total%get_units()
