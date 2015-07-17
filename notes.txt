@@ -1,7 +1,80 @@
+* Need to look into finishing the limiting and over-integration parts of the
+  code. Really need to figure out how to mark troubled cells so that these
+  stabilization methods are efficient. Look into entropy bounding like what
+  the Stanford DG group is working on. Also look into Carpenters entropy DG
+  formulation as another means of stabilization.
 
-* Clean up stuff regarding rotating flux points.
+* Fix bug with solution gradients not being computed when running code with
+  zero iterations. This prevents boundary profiles from being computed
+  properly from a restart file.
 
-* Finish creating the flxpts component of the face array.
+* Finish code in plot3d module that allows for unformatted plot3d files of
+  of arbitrary endianess using stream access.
+
+* Look at possibly storing the monomial modal coefficients in the restart file
+  instead of the flow variables at the solution points. This way the
+  simulation could be restarted with different solution points, solution
+  orders, etc.
+
+* Possibly add geom and order components to the cell_on_face_t derived type.
+  This is another duplicate of information that could be found elsewhere but
+  having it in this location might help performance due to data locality.
+
+* Finish installing turbulence equations
+   - Need to add turbulence source terms
+   - Need to add turbulence part of converting between derivatives of primitive
+     variables and derivatives of conservative variables
+   - Need to add output of turbulence variables
+   - Need to add turbulence equations to upwind fluxes
+   - Need to add turbulence equations to boundary conditions
+   - Need to add turbulence equations to viscous fluxes
+
+* Profile 3D to try and find any code that can be optimized.
+
+* Fix output from write_final_error for 3D. It currently has some hard-wired
+  formatting with the assumption that the simulation is in 2D.
+
+* There is a bug in the computed value of "OrdersDrop" that is printed to the
+  terminal during the simulation. It seems to be dependent on its own maximum
+  value of the error and not on the maximum over the whole simulation.
+   - For example:
+       a) Running the 2D flat plate case and outputting the error information
+          after every time step gives an "OrdersDrop" of 2.5 after 10000 time
+          steps.
+       b) Running the 2D flat plate case and outputting the error information
+          after every 100 time steps gives an "OrdersDrop" of 1.1 after 10000
+          time steps.
+
+* Fix bugs with dumping solution file using the DUMP_SOLUTION temporary file.
+   - An MPI error is encountered saying "Attempting to use an MPI routine
+     after finalizing MPICH" when trying to finalize MPI and stop the program.
+     This only happens if a solution dump was performed.
+   - The code seems to encounter a slowdown each time it writes a new solution
+     to the reopened CGNS file after a solution dump was performed. A possible
+     fix could be to traverse to the most recent solution node after reopening
+     the CGNS file before writing a new solution node to the file.
+
+* Add restart module.
+   - Move read/write restart subroutines here.
+   - Add code to save a solution from 100 iterations prior (or some other number
+     provided as an input variable) and if an error is detected, try to restart
+     from this saved solution with some changes to the time step size and/or
+     method.
+      - This requires adding code to detect floating-point exceptions.
+      - Additional tests to ensure realizability could also help with
+        robustness.
+
+* Try to get MMS working.
+   - Seems like we might have to use profile files like VULCAN does.
+
+* The subroutine find_bc_conflicts needs to be extended to 3D.
+
+* Finish the code getting the rotation of the flux points between two cells on
+  a face (used for creating the flxpts component of the face array).
+    - Need to finish pyramid and prism sections of GetFaceNodes_for_QuadFace
+    - Need to finish creating GetFaceNodes_for_TriaFace
+       - Could this be combined with GetFaceNodes_for_QuadFace?
+    - Need to create RotateFluxPoint_Tria
 
 * Replace cell_geom(nc) with cell(nc)%geom.
 * Replace cell_order(nc) with cell(nc)%order.
@@ -17,31 +90,27 @@
   the compiler cant recognize this fact and properly optimize the dot product
   operations used with these matrices to get these solution/flux point values.
 
-* Need to check alignment of flux points from opposing 3D cells on interfaces
-   - Need to verify the alignment of cell(nc)%face(ncf)%cell_idx
-   - Need to verify the alignment of face(nf)%left/right%flxpts
-      - IMPORTANT MEMORY RAMIFICATIONS: Are these two arrays duplicates of each
-        other and could one possibly be removed?
-   - To test these alignments, use Gauss solution points and interpolate the
-     coordinates of the solution points to get the coordinates of the Gauss face
-     points. Create a file containing all the face coordinates from the left
-     cells and another file containing all the face coordinates fromt he right
-     cells. A diff should say these files are the same if the alignments on
-     both sides are correct.
-
-* Need to finish creating and applying the new cell array throughout the code.
-   - The information stored in this array needs to be verified after its
-     creation in connectivity.f90
-      - Could the face_idx component be eliminated?
-         - As the array is currently set up, if looping:
-             k = 1,size(cell(nc)%face(ncf)%cell_idx)
-           the loop variable k is the same value as
-             k == cell(nc)%face(ncf)%face_idx(k)
-      - When making the cell_idx portion, remember that this might not be a
-        complete sequence across all the faces of a cell because different
-        faces might be different orders. Remember, the value given by
-        cell_idx is the location interp%toFace%mat(:,cell_idx(i)) and not
-        something specific to the cell.
+* IMPORTANT MEMORY RAMIFICATIONS: Look into the possibility of removing either
+  the cell(:)%face(:)%cell_idx or face(:)%left/right%flxpts arrays because they
+  are copies of each other.
+   - These derived type components consume large amounts of memory because they
+     are allocatable arrays and the additional meta-data stored for each array
+     adds up to significant amounts of memory when summed over all the cells or
+     faces.
+   - If the cell_idx array is removed, the left/right components of face_t
+     will probably have to be changed to face(:)%side(1/2) because the value
+     of 1 or 2 stored in cell(:)%face(:)%side doesnt point us to the flxpts
+     component of the face array without the use of costly conditional
+     statements.
+   - The flxpts array could be removed since the value stored in
+     face(:)%left/right%cell_face points us to the correct array element of
+     cell(:)%face. 
+   - However, Im hesitant to make any changes because Im not sure of its affect
+     on performance since the code will have to jump deep into a specific part
+     of the cell(:) array while using the face(:) array.  The current setup
+     consumes additional memory but it adds the benefit of the either the flxpts
+     or cell_idx arrays being quicker to load from memory depending on whether
+     we are using the face(:) or cell(:) arrays, respectively.
 
 * Look into futher generalizing the nodal/face/cell orderings created in
   kind_types.f90 to allow for easier changes if any need to be made.
@@ -49,16 +118,8 @@
      interp(:)%toFace as well. For example, look at InterpToFace_Hexa and
      CorrectionMatrix_Hexa.
 
-* Need to completely redo parallel communication code
-   - Need to figure out how to create the fusp_buffer and fdusp_buffer arrays
-     since the face array doesnt exist when these are created.
-
 * Need to finish the grid metrics
    - Need to figure out the metrics for curved boundaries/cells
-
-* Need to finish converting the procedures in flux.f90 to 3D.
-   - Most of it has been converted, the biggest remaining part is where
-     metrics are used.
 
 * When computing the correction to the flux, need to add code that accounts for
   the case of a face that is of higher order than the cell so that the correction
@@ -97,5 +158,12 @@
 * Look into possibly initializing all arrays that are based on the matrix
   datatype in one subroutine together within one loop to "simplify" things.
 
-* Need to figure out the face area part of the face integration
+* Look into using enumerator types for defined constants in kind_types.f90 and
+  replace namelist input file with character based input file.
+
+* Need to redefine standard triangle element to the biunit triangle defined by
+  the nodes (-1,-1)-(+1,-1)-(-1,+1) instead of the unit triangle defined by
+  the nodes (0,0)-(+1,0)-(0,+1).
+   - This applies to tets, pyramids, and prisms as well through their triangle
+     faces and any tensor products used to create their mappings.
 
