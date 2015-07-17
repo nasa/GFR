@@ -246,6 +246,10 @@ continue
   !!!!return_value = invert_matrix(V)
   !!!!return_value = matmul(Vr,return_value)
   !
+  ! We need to transpose this derivative matrix to make its use more efficient
+  !
+  dmat_qp = transpose( dmat_qp )
+  !
   ! Use the chop function to copy dmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
@@ -309,7 +313,8 @@ continue
     ! NOTE: We need to copy the transpose due to the
     !       way the derivative matrices are stored
     !
-    return_value(1)%mat(idx,idx) = transpose( d1_mat )
+   !return_value(1)%mat(idx,idx) = transpose( d1_mat )
+    return_value(1)%mat(idx,idx) = d1_mat
     !
   end do
   !
@@ -326,7 +331,8 @@ continue
     ! NOTE: We need to copy the transpose due to the
     !       way the derivative matrices are stored
     !
-    return_value(2)%mat(idx,idx) = transpose( d1_mat )
+   !return_value(2)%mat(idx,idx) = transpose( d1_mat )
+    return_value(2)%mat(idx,idx) = d1_mat
     !
   end do
   !
@@ -712,7 +718,8 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-      return_value(1)%mat(idx,idx) = transpose( d1_mat )
+     !return_value(1)%mat(idx,idx) = transpose( d1_mat )
+      return_value(1)%mat(idx,idx) = d1_mat
       !
     end do
   end do
@@ -731,7 +738,8 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-      return_value(2)%mat(idx,idx) = transpose( d1_mat )
+     !return_value(2)%mat(idx,idx) = transpose( d1_mat )
+      return_value(2)%mat(idx,idx) = d1_mat
       !
     end do
   end do
@@ -750,7 +758,8 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-      return_value(3)%mat(idx,idx) = transpose( d1_mat )
+     !return_value(3)%mat(idx,idx) = transpose( d1_mat )
+      return_value(3)%mat(idx,idx) = d1_mat
       !
     end do
   end do
