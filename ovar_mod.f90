@@ -243,11 +243,6 @@ module ovar
   real(wp), public, save, dimension(1:3) :: Grid_Min
   real(wp), public, save, dimension(1:3) :: Grid_Length
   !
-  real(wp), public, save :: Density_Minimum_Residual
-  real(wp), public, save :: Density_Maximum_Residual
-  logical,  public, save :: vortex_has_collapsed
-  integer,  public, save :: final_countdown
-  !
   real(wp), public, save :: suth_c1
   !
   real(wp), public, save :: LDG_beta(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]

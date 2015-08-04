@@ -13,8 +13,6 @@ program Euler_tri
   !
   use ovar, only : beg_wall_time,end_wall_time,max_wall_time
   use ovar, only : work_units,wall_time,walltime_expiring
-  use ovar, only : vortex_has_collapsed,Density_Maximum_Residual
-  use ovar, only : final_countdown,Period_Timesteps
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : nst,num_stages,iRKtype,time,itcur,num_ts
@@ -171,12 +169,6 @@ continue
   ! Initialize all the random constants that must be initialized at run time
   !
   call initialize_runtime_parameters
-  !
-  ! Initialize the Vortex collapsing stuff
-  !
-  vortex_has_collapsed = fals
-  Density_Maximum_Residual = -huge(zero)
-  final_countdown = 0
   !
   ! Read in the input file
   !
@@ -541,18 +533,6 @@ continue
         call write_nodal_parallel_cgns(CGNS_action)
       end if
     end if
-    !
-    ! Continue the final countdown if the vortex has collapsed
-    !
-#ifndef PBS_ENV
-    if (vortex_has_collapsed) then
-      final_countdown = final_countdown + 1
-      if (mod(final_countdown,25*Period_Timesteps) == 0) then
-        if (mypnum == 0) write (iout,98)
-        exit main_loop
-      end if
-    end if
-#endif
     !
   end do main_loop
   !
