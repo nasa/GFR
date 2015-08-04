@@ -9,11 +9,15 @@ module ovar
   use module_kind_types, only : visc_flux_BR2
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
+  use module_kind_types, only : one_work_unit
+  use module_kind_types, only : iout,zero
+  use module_kind_types, only : mpi_wtime
   !
   implicit none
   !
   private
   !
+  public :: recon_cpu_time
   public :: ovar_alloc_status
   !
   !
@@ -249,6 +253,47 @@ module ovar
   real(wp), public, save :: LDG_tau = 0.0_wp
   !
 contains
+!
+!###############################################################################
+!
+subroutine recon_cpu_time(time_flag)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: time_flag
+  !
+  !.. Local Scalars ..
+  integer :: hours,minutes,seconds,total_sec
+  !
+continue
+  !
+  if (time_flag == 0) then
+    !
+    beg_wall_time = mpi_wtime()
+    work_units = zero
+    !
+  else if (time_flag == 1) then
+    !
+    end_wall_time = mpi_wtime()
+    wall_time = end_wall_time-beg_wall_time
+    work_units = wall_time/one_work_unit
+    !
+  else if (time_flag == -1) then
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    write (iout,1) wall_time,hours,minutes,seconds,work_units
+    !
+  end if
+  !
+  1 format (/,"TOTAL SIMULATION WALL TIME WAS ",f18.6," s.", &
+              " (",i0,":",i2.2,":",i2.2,")",/, &
+              "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
+  !
+end subroutine recon_cpu_time
 !
 !###############################################################################
 !

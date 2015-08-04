@@ -11,8 +11,8 @@ program Euler_tri
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : geovar_memory_usage
   !
-  use ovar, only : beg_wall_time,end_wall_time,max_wall_time
-  use ovar, only : work_units,wall_time,walltime_expiring
+  use ovar, only : max_wall_time
+  use ovar, only : walltime_expiring
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : nst,num_stages,iRKtype,time,itcur,num_ts
@@ -20,6 +20,7 @@ program Euler_tri
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
   use ovar, only : dump_memory_usage,mms_opt
+  use ovar, only : recon_cpu_time
   !
   use flowvar, only : usp,uoldsp
   !
@@ -147,7 +148,7 @@ continue
   !
   ! Initialize the wall time
   !
-  beg_wall_time = mpi_wtime()
+  call recon_cpu_time(0)
   !
   ! Get the number of seconds allowed for this simulation
   !
@@ -270,7 +271,6 @@ continue
   call write_nodal_parallel_cgns(open_CGNS)
   CGNS_action = add_to_CGNS
   !
-  work_units = zero
   if (mypnum == 0) call write_results_file(1,itcur)
   !
   if (mypnum == 0) then
@@ -428,9 +428,7 @@ continue
     !
     if (mod(iter,results_interval)==0 .and. iter/=num_ts) then
       !
-      end_wall_time = mpi_wtime()
-      wall_time = end_wall_time-beg_wall_time
-      work_units = wall_time/one_work_unit
+      call recon_cpu_time(1)
       !
       call compute_final_error
       if (mypnum == 0) call write_results_file(0,itcur)
@@ -546,9 +544,7 @@ continue
   !
   ! Get the elapsed wall time
   !
-  end_wall_time = mpi_wtime()
-  wall_time = end_wall_time-beg_wall_time
-  work_units = wall_time/one_work_unit
+  call recon_cpu_time(1)
   !
   !.. get min and max entropy value and location
   if (.not. ignore_errors) call getmaxent
@@ -566,7 +562,7 @@ continue
     if (mypnum == 0) then
       !
       write (iout,40) itcur,time
-      write (iout,41) wall_time,work_units
+      call recon_cpu_time(-1)
       !
       call write_final_error
       call write_results_file(-1,itcur)
