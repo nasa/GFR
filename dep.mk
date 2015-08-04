@@ -163,7 +163,8 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/io.o \
               $(OBJDIR)/projection_mod.o \
               $(OBJDIR)/interpolation_mod.o \
-              $(FUNDIR)/vortex.f90
+              $(FUNDIR)/vortex.f90 \
+              $(FUNDIR)/taylor_green.f90
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
               $(OBJDIR)/kind_types.o \
