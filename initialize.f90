@@ -350,6 +350,12 @@ continue
       return_value(:,k) = vortex_solution( xyz(:,k) )
     end do
     !
+  else if (itestcase == Taylor_Green_Vortex) then
+    !
+    do k = 1,np
+      return_value(:,k) = taylor_green_initialization( xyz(:,k) )
+    end do
+    !
   else if (mms_opt /= 0) then
     !
     do k = 1,np
@@ -425,6 +431,7 @@ end subroutine get_boundary_fp_coordinates
 !###############################################################################
 !
 include "Functions/vortex.f90"
+include "Functions/taylor_green.f90"
 !
 !###############################################################################
 !
