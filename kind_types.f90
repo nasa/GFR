@@ -194,6 +194,7 @@ module module_kind_types
   integer, parameter :: Vortex_Transport = 6
   integer, parameter :: Density_Transport = 7
   integer, parameter :: Entropy_Transport = 8
+  integer, parameter :: Taylor_Green_Vortex = 9
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
