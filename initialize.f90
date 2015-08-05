@@ -435,14 +435,17 @@ subroutine initialize_reference
   !
   !.. Use Statements ..
   use ovar,   only : rhoref,aref,tref,gam
-  use ovar,   only : velref,velref_nd
+  use ovar,   only : velref,velref_nd,uref
   use ovar,   only : pref,pref_nd,tmin,tmax
   use ovar,   only : rgasref,rgasref_nd
-  use ovar,   only : cpref,cpref_nd
+  use ovar,   only : cpref,cpref_nd,reyref
   use ovar,   only : cv_in,pv_in,machref
   use ovar,   only : ttotref,ttotref_nd
   use ovar,   only : ptotref,ptotref_nd
   use ovar,   only : ptot2p_ratio
+  use ovar,   only : suth_Sref,suth_Tref
+  use ovar,   only : alpha_aoaref,beta_aoaref
+  use ovar,   only : itestcase
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -450,6 +453,7 @@ subroutine initialize_reference
   real(wp) :: gam_over_gm1
   real(wp) :: gm1_over_gam
   real(wp) :: total_cond
+  real(wp) :: pres_check
   !
   character(len=1000) :: error_message
   !
@@ -457,6 +461,115 @@ subroutine initialize_reference
   character(len=*), parameter :: pname = "initialize_reference"
   !
 continue
+  !
+  ! Set up the base reference conditions
+  !
+  if (any(itestcase == Advec_Problems) .or. &
+      abs(itestcase) == Shu_Vortex .or. &
+      itestcase == -Vortex_Transport) then
+    !
+    ! Set up the base reference conditions for different
+    ! versions of the isentropic Euler vortex problem
+    !
+    ! Set some reference conditions common to all of these vortex problems
+    !
+    beta_aoaref = zero
+    velref(:) = zero
+    !
+    if (itestcase == -Shu_Vortex) then
+      !
+      ! Stationary vortex problem
+      !
+      alpha_aoaref = 90.0_wp
+      itestcase = abs(itestcase)
+      !
+    else if (itestcase == -Vortex_Transport) then
+      !
+      ! Alteration to make the Shu case propagate in the
+      ! y-direction only instead of in both x and y directions
+      !
+      alpha_aoaref = 90.0_wp
+      velref(2) = one
+      itestcase = Shu_Vortex
+      !
+    else
+      !
+      ! Original Shu vortex problem with diagonal propagation
+      !
+      alpha_aoaref = 45.0_wp
+      velref(1) = one
+      velref(2) = one
+      !
+    end if
+    !
+    machref = one/sqrt(gam)
+    aref = one
+    uref = one
+    rhoref = one
+    pref = one
+    tref = one
+    rgasref = one
+    !
+  else if (itestcase == Taylor_Green_Vortex) then
+    !
+    ! Set up the base reference conditions for the Taylor-Green Vortex problem
+    !
+    alpha_aoaref = zero
+    beta_aoaref = zero
+    !
+    gam = 1.4_wp
+    tref = 300.0_wp ! (K)
+    pref = 101325.0_wp ! (Pa)
+    ! ( universal gas constant / molecular weight of air )
+    rgasref = 8314.34_wp / 28.9651159_wp ! (J)/(kg*K)
+    rhoref = pref / rgasref / tref ! (kg/m^3)
+    !
+    aref = sqrt( gam*pref/rhoref ) ! (m/s)
+    machref = 0.1_wp
+    uref = aref * machref ! (m/s)
+    !
+    if (reyref <= zero) then
+      reyref = 1600.0_wp
+    end if
+    !
+    suth_Sref = 110.5556_wp
+    suth_Tref = 273.111_wp
+    !
+  else
+    !
+    ! Set up the base reference conditions based
+    ! on the input flow reference conditions
+    !
+    ! Check the reference conditions for consistency
+    !
+    if (rhoref < zero) then
+      rhoref = pref/(rgasref*tref)
+    else if (pref < zero) then
+      pref = rhoref*rgasref*tref
+    else if (tref < zero) then
+      tref = pref/(rgasref*rhoref)
+    else
+      pres_check = rhoref*rgasref*tref
+      if (abs(pres_check-pref) > eps6) then
+       !write (iout,102) pref,pres_check
+        write (error_message,102) pref,pres_check
+        call stop_recon(stop_mpi,pname,error_message)
+      end if
+    end if
+    !
+    ! Compute some of the remaining reference conditions
+    !
+    aref = sqrt( gam * pref / rhoref )
+    uref = machref * aref
+    velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
+                       cos(alpha_aoaref * degrees2radians)
+    velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
+                       sin(alpha_aoaref * degrees2radians)
+    velref(3) = uref * sin(beta_aoaref  * degrees2radians)
+    !
+  end if
+  !
+  ! Pre-compute some reference constants that will be used
   !
   rhoa = rhoref * aref
   rhoa2 = rhoa * aref
@@ -537,6 +650,15 @@ continue
   ! Initialize the turbulence reference conditions
   !
   call initialize_turbulence
+  !
+  ! Format Statements
+  !
+  102 format ( &
+     " Free-stream conditions in the input file are not consistent!",/, &
+     " Reference pressure given    : ",es14.6,/, &
+     " Reference pressure computed : ",es14.6,/, &
+     " Please correct the input file or set one of density, pressure,", &
+     " and temperature to a negative value so it is explicitly computed.")
   !
 end subroutine initialize_reference
 !

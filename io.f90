@@ -157,7 +157,7 @@ subroutine read_nml_input_file
   use input_namelist_mod ! use all the variables in the input namelist
   !
   use ovar,   only : Total_Periods
-  use ovar,   only : velref,aref,uref
+  use ovar,   only : velref,aref
   use ovar,   only : Period_Timesteps,Period_Time
   use ovar,   only : Grid_Length
   use ovar,   only : LDG_beta,LDG_tau
@@ -175,7 +175,7 @@ subroutine read_nml_input_file
   logical  :: use_qdtr_face_pts,mms_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
-  real(wp) :: aoa_radians,pres_check
+  real(wp) :: aoa_radians
   character(len=1000) :: error_message
   !
   !.. Local Arrays ..
@@ -323,76 +323,6 @@ continue
       num_ts = 0
       Final_Time = zero
     end if
-    !
-  end if
-  !
-  ! Check the reference conditions for consistency
-  !
-  if (rhoref < zero) then
-    rhoref = pref/(rgasref*tref)
-  else if (pref < zero) then
-    pref = rhoref*rgasref*tref
-  else if (tref < zero) then
-    tref = pref/(rgasref*rhoref)
-  else
-    pres_check = rhoref*rgasref*tref
-    if (abs(pres_check-pref) > eps6) then
-     !write (iout,102) pref,pres_check
-      write (error_message,102) pref,pres_check
-      call stop_recon(stop_mpi,pname,error_message)
-    end if
-  end if
-  !
-  ! Compute some of the remaining reference conditions
-  !
-  aref = sqrt( gam * pref / rhoref )
-  uref = machref * aref
-  velref(1) = uref * cos(beta_aoaref  * degrees2radians) * &
-                     cos(alpha_aoaref * degrees2radians)
-  velref(2) = uref * cos(beta_aoaref  * degrees2radians) * &
-                     sin(alpha_aoaref * degrees2radians)
-  velref(3) = uref * sin(beta_aoaref  * degrees2radians)
-  !
-  ! Redefine the reference conditions for the linear advection problems
-  ! and the original Shu vortex problem because using the dimensional speed
-  ! of sound for nondimensionalizing velocity will cause issues
-  !
-  if (any(itestcase == Advec_Problems) .or. &
-      abs(itestcase) == Shu_Vortex .or. &
-      itestcase == -Vortex_Transport) then
-    !
-    ! Alteration to make the Shu case propagate in the
-    ! y-direction only instead of in both x and y directions
-    !
-    if (itestcase == -Shu_Vortex) then
-      alpha_aoaref = 90.0_wp
-      beta_aoaref = 0.0_wp
-      velref(1) = zero
-      velref(2) = zero
-      velref(3) = zero
-      itestcase = abs(itestcase)
-    else if (itestcase == -Vortex_Transport) then
-      alpha_aoaref = 90.0_wp
-      beta_aoaref = 0.0_wp
-      velref(1) = zero
-      velref(2) = one
-      velref(3) = zero
-      itestcase = Shu_Vortex
-    else
-      alpha_aoaref = 45.0_wp
-      beta_aoaref = 0.0_wp
-      velref(1) = one
-      velref(2) = one
-      velref(3) = zero
-    end if
-    !
-    machref = one/sqrt(gam)
-    aref = one
-    uref = one
-    rhoref = one
-    pref = one
-    tref = one
-    rgasref = one
     !
   end if
   !
@@ -561,13 +491,6 @@ continue
      "   THE SAME. THESE PROCEDURES WILL NEED TO BE UPDATED IN ORDER",/, &
      "   TO ALLOW FOR THIS CAPABILITY.",/, &
      "***************************** ERROR *****************************",/)
-  102 format ( &
-     " Free-stream conditions in the input file are not consistent!",/, &
-     " Reference pressure given    : ",es14.6,/, &
-     " Reference pressure computed : ",es14.6,/, &
-     " Please correct the input file or set one of density, pressure,", &
-     " and temperature to a negative value so it is explicitly computed.")
-  !
   103 format (/, &
      " ********************* WARNING!!! *********************",/, &
      "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
