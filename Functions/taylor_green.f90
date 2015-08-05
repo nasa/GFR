@@ -39,8 +39,8 @@ continue
   !
   ! Compute initial velocities
   !
-  vel(1) = v0 * sin(x) * cos(y) * cos(z)
-  vel(2) = v0 * cos(x) * sin(y) * cos(z)
+  vel(1) =  v0 * sin(x) * cos(y) * cos(z)
+  vel(2) = -v0 * cos(x) * sin(y) * cos(z)
   vel(3) = zero
   !
   ! Compute initial pressure
