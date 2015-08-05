@@ -644,17 +644,20 @@ end subroutine check_output_dir
 subroutine read_grid_file()
   !
   !.. Use Statements ..
-  use module_gmsh,   only : read_gmsh_gridfile
-  use module_plot3d, only : read_plot3d_gridfile
+  use module_gmsh,    only : read_gmsh_gridfile
+  use module_plot3d,  only : read_plot3d_gridfile
   use quadrature_mod, only : find_valid_geometries
   use ovar,           only : use_bc_conflicts
+  use ovar,           only : itestcase,TaylorGreen_DOF
   !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
   !        
 continue
   !
-  if (grid_format == Gambit_Neutral) then
+  if (itestcase == Taylor_Green_Vortex .and. TaylorGreen_DOF > 0) then
+    call create_TaylorGreenVortex_grid
+  else if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
   else if (grid_format == Gmsh_Format) then
     call read_gmsh_gridfile( gridfile )
@@ -986,6 +989,241 @@ continue
                 " changes have yet to be applied to triangles.",///)
   !
 end subroutine read_gambit_neutral_gridfile
+!
+!###############################################################################
+!
+subroutine create_TaylorGreenVortex_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : TaylorGreen_DOF
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  !
+  !.. Local Scalars ..
+  integer :: nc,np,ierr,i,j,k,n
+  integer :: nf_min,nf_max
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_TaylorGreenVortex_grid"
+  !
+continue
+  !
+  ! The Taylor-Green vortex problem is always 3D
+  !
+  nr = 3
+  !
+  ! Estimate the number of cells required to get the requested DOF
+  !
+  nc = nint( real(TaylorGreen_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  !
+  np = nc + 1 ! number of grid nodes in each direction
+  !
+  ncell = nc*nc*nc ! total number of grid cells
+  nnode = np*np*np ! total number of grid nodes
+  nfbnd = 6*nc*nc  ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
+  call alloc_error(pname,"xyz_nodes",1,ierr)
+  !
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  !
+  allocate ( nodes_of_cell(1:8*ncell) , source=0 , stat=ierr )
+  call alloc_error(pname,"nodes_of_cell",1,ierr)
+  !
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
+  call alloc_error(pname,"bface",1,ierr)
+  !
+  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , stat=ierr )
+  call alloc_error(pname,"cell_geom",1,ierr)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
+  call alloc_error(pname,"cell_order",1,ierr)
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + 8
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do k = 1,nc
+    do j = 1,nc
+      do i = 1,nc
+        !
+        n = nodes_of_cell_ptr( map3dto1d(i,j,k,nc) )
+        !
+        nodes_of_cell(n+1) = map3dto1d(i  ,j  ,k  ,np)
+        nodes_of_cell(n+2) = map3dto1d(i+1,j  ,k  ,np)
+        nodes_of_cell(n+3) = map3dto1d(i+1,j+1,k  ,np)
+        nodes_of_cell(n+4) = map3dto1d(i  ,j+1,k  ,np)
+        nodes_of_cell(n+5) = map3dto1d(i  ,j  ,k+1,np)
+        nodes_of_cell(n+6) = map3dto1d(i+1,j  ,k+1,np)
+        nodes_of_cell(n+7) = map3dto1d(i+1,j+1,k+1,np)
+        nodes_of_cell(n+8) = map3dto1d(i  ,j+1,k+1,np)
+        !
+      end do
+    end do
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
+  !
+  do k = 1,np
+    do j = 1,np
+      do i = 1,np
+        !
+        n = map3dto1d(i,j,k,np)
+        !
+        xyz_nodes(1,n) = real(i-1,kind=wp) / real(np-1,kind=wp)
+        xyz_nodes(2,n) = real(j-1,kind=wp) / real(np-1,kind=wp)
+        xyz_nodes(3,n) = real(k-1,kind=wp) / real(np-1,kind=wp)
+        !
+      end do
+    end do
+  end do
+  !
+  ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
+  !
+  xyz_nodes = two*xyz_nodes - one
+  !
+  ! Scale the grid node coordinates to the cube (-pi,-pi,-pi) to (pi,pi,pi)
+  !
+  xyz_nodes = PI * xyz_nodes
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  nf_max = 0
+  !
+  ! Loop through the 6 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [imin,imax,jmin,jmax,kmin,kmax]
+  !
+  nf_min = nf_max
+  !
+  do k = 1,nc
+    do j = 1,nc
+      !
+      nf_min = nf_min + 1
+      nf_max = nf_min + nc*nc
+      !
+      bface( 1,nf_min) = bc_periodic
+      bface( 2,nf_min) = map3dto1d(1 ,j,k,nc)
+      bface( 3,nf_min) = Geom_Hexa
+      bface( 4,nf_min) = HostFace3D(1)
+      bface( 5,nf_min) = nf_max
+      bface( 6,nf_min) = map3dto1d(nc,j,k,nc)
+      bface( 8,nf_min) = Geom_Hexa
+      bface( 9,nf_min) = HostFace3D(2)
+      bface(10,nf_min) = ncell + nf_min
+      !
+      bface( 1,nf_max) = bc_periodic
+      bface( 2,nf_max) = bface(6,nf_min)
+      bface( 3,nf_max) = bface(8,nf_min)
+      bface( 4,nf_max) = bface(9,nf_min)
+      bface( 5,nf_max) = nf_min
+      bface( 6,nf_max) = bface(2,nf_min)
+      bface( 8,nf_max) = bface(3,nf_min)
+      bface( 9,nf_max) = bface(4,nf_min)
+      bface(10,nf_max) = ncell + nf_max
+      !
+    end do
+  end do
+  !
+  nf_min = nf_max
+  !
+  do k = 1,nc
+    do i = 1,nc
+      !
+      nf_min = nf_min + 1
+      nf_max = nf_min + nc*nc
+      !
+      bface( 1,nf_min) = bc_periodic
+      bface( 2,nf_min) = map3dto1d(i,1 ,k,nc)
+      bface( 3,nf_min) = Geom_Hexa
+      bface( 4,nf_min) = HostFace3D(3)
+      bface( 5,nf_min) = nf_max
+      bface( 6,nf_min) = map3dto1d(i,nc,k,nc)
+      bface( 8,nf_min) = Geom_Hexa
+      bface( 9,nf_min) = HostFace3D(4)
+      bface(10,nf_min) = ncell + nf_min
+      !
+      bface( 1,nf_max) = bc_periodic
+      bface( 2,nf_max) = bface(6,nf_min)
+      bface( 3,nf_max) = bface(8,nf_min)
+      bface( 4,nf_max) = bface(9,nf_min)
+      bface( 5,nf_max) = nf_min
+      bface( 6,nf_max) = bface(2,nf_min)
+      bface( 8,nf_max) = bface(3,nf_min)
+      bface( 9,nf_max) = bface(4,nf_min)
+      bface(10,nf_max) = ncell + nf_max
+      !
+    end do
+  end do
+  !
+  nf_min = nf_max
+  !
+  do j = 1,nc
+    do i = 1,nc
+      !
+      nf_min = nf_min + 1
+      nf_max = nf_min + nc*nc
+      !
+      bface( 1,nf_min) = bc_periodic
+      bface( 2,nf_min) = map3dto1d(i,j,1 ,nc)
+      bface( 3,nf_min) = Geom_Hexa
+      bface( 4,nf_min) = HostFace3D(5)
+      bface( 5,nf_min) = nf_max
+      bface( 6,nf_min) = map3dto1d(i,j,nc,nc)
+      bface( 8,nf_min) = Geom_Hexa
+      bface( 9,nf_min) = HostFace3D(6)
+      bface(10,nf_min) = ncell + nf_min
+      !
+      bface( 1,nf_max) = bc_periodic
+      bface( 2,nf_max) = bface(6,nf_min)
+      bface( 3,nf_max) = bface(8,nf_min)
+      bface( 4,nf_max) = bface(9,nf_min)
+      bface( 5,nf_max) = nf_min
+      bface( 6,nf_max) = bface(2,nf_min)
+      bface( 8,nf_max) = bface(3,nf_min)
+      bface( 9,nf_max) = bface(4,nf_min)
+      bface(10,nf_max) = ncell + nf_max
+      !
+    end do
+  end do
+  !
+  contains
+  !
+  pure function map3dto1d(i,j,k,n) result(return_value)
+    integer, intent(in) :: i,j,k,n
+    integer :: return_value
+    return_value = i + n*(j-1) + n*n*(k-1)
+  end function map3dto1d
+  !
+end subroutine create_TaylorGreenVortex_grid
 !
 !###############################################################################
 !
