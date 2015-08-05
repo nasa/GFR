@@ -61,7 +61,7 @@ module ovar
   integer,  public, save :: iop_qdtpts = 1
   integer,  public, save :: dflux_opt  = 2
   !
-  integer,  public, save :: metis_option = 2
+  integer,  public, save :: metis_option = 3
   !
   integer,  public, save :: mms_opt = 0
   real(wp), public, save :: mms_init = 0.1_wp
