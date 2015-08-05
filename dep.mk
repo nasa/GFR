@@ -165,7 +165,9 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/projection_mod.o \
               $(OBJDIR)/interpolation_mod.o \
               $(FUNDIR)/vortex.f90 \
-              $(FUNDIR)/taylor_green.f90
+              $(FUNDIR)/taylor_green.f90 \
+              $(FUNDIR)/usp2v.f90 \
+              $(FUNDIR)/viscosity.f90
 
 $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -189,17 +191,15 @@ $(OBJDIR)/io.o : io.f90 \
               $(OBJDIR)/quadrature_mod.o \
               $(OBJDIR)/interpolation_mod.o \
               $(OBJDIR)/derivatives_mod.o \
-              $(FUNDIR)/bc_priority.f90 \
-              $(FUNDIR)/bc_string_to_integer.f90 \
-              $(FUNDIR)/cell_vol.f90 \
-              $(FUNDIR)/entropy.f90 \
+              $(OBJDIR)/initialize.o \
               $(FUNDIR)/last.f90 \
-              $(FUNDIR)/mach_number.f90 \
-              $(FUNDIR)/pressure.f90 \
-              $(FUNDIR)/usp2v.f90 \
-              $(FUNDIR)/viscosity.f90 \
               $(FUNDIR)/vortex.f90 \
-              $(FUNDIR)/vsp2u.f90
+              $(FUNDIR)/bc_priority.f90 \
+              $(FUNDIR)/entropy.f90 \
+              $(FUNDIR)/pressure.f90 \
+              $(FUNDIR)/mach_number.f90 \
+              $(FUNDIR)/cell_vol.f90 \
+              $(FUNDIR)/bc_string_to_integer.f90
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \
               $(FUNDIR)/all_are_equal.f90 \

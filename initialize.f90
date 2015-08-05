@@ -4,13 +4,14 @@ module initialization_mod
   ! initialize the solution
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
   !
   implicit none
   !
   private
   !
   public :: initialize_flow
+  public :: initialize_reference
   !
 contains
 !
@@ -430,8 +431,224 @@ end subroutine get_boundary_fp_coordinates
 !
 !###############################################################################
 !
+subroutine initialize_reference
+  !
+  !.. Use Statements ..
+  use ovar,   only : rhoref,aref,tref,gam
+  use ovar,   only : velref,velref_nd
+  use ovar,   only : pref,pref_nd,tmin,tmax
+  use ovar,   only : rgasref,rgasref_nd
+  use ovar,   only : cpref,cpref_nd
+  use ovar,   only : cv_in,pv_in,machref
+  use ovar,   only : ttotref,ttotref_nd
+  use ovar,   only : ptotref,ptotref_nd
+  use ovar,   only : ptot2p_ratio
+  !
+  !.. Local Scalars ..
+  integer  :: ierr
+  real(wp) :: rhoa,rhoa2,tda2
+  real(wp) :: gam_over_gm1
+  real(wp) :: gm1_over_gam
+  real(wp) :: total_cond
+  !
+  character(len=1000) :: error_message
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_reference"
+  !
+continue
+  !
+  rhoa = rhoref * aref
+  rhoa2 = rhoa * aref
+  tda2 = tref / aref / aref
+  gam_over_gm1 = gam / (gam-one)
+  gm1_over_gam = one / gam_over_gm1
+  !
+  ! Allocate the free stream inflow arrays
+  !
+  allocate ( cv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cv_in",1,ierr,error_message)
+  allocate ( pv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pv_in",1,ierr,error_message)
+  !
+  ! Initialize the inflow boundary conditions to the reference conditions
+  ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
+  !
+  pv_in(nec) = rhoref
+  pv_in(nmb:nme) = velref
+  pv_in(nee) = pref
+  !
+  cv_in(nec) = pv_in(nec)
+  cv_in(nmb:nme) = pv_in(nec) * pv_in(nmb:nme)
+  cv_in(nee) = pv_in(nee)/(gam-one) + half*pv_in(nec)*selfdot(pv_in(nmb:nme))
+  !
+  ! Nondimensional reference velocities
+  velref_nd = velref / aref
+  !
+  ! Nondimensional reference pressure
+  pref_nd = pref / rhoa2
+  !
+  ! Nondimensional reference gas constant
+  rgasref_nd = rgasref * tda2
+  !
+  ! Dimensional reference specific heat at constant pressure
+  cpref    = rgasref * gam / (gam - one)
+  ! Nondimensional reference specific heat at constant pressure
+  cpref_nd = cpref * tda2
+  !
+  ! Finally, nondimensionalize the inflow boundary conditions
+  !
+  cv_in(nec)     = cv_in(nec) / rhoref
+  cv_in(nmb:nme) = cv_in(nmb:nme) / rhoa
+  cv_in(nee)     = cv_in(nee) / rhoa2
+  !
+  pv_in(nec)     = pv_in(nec) / rhoref
+  pv_in(nmb:nme) = pv_in(nmb:nme) / aref
+  pv_in(nee)     = pv_in(nee) / rhoa2
+  !
+  ! Total pressure and temperature
+  !
+  if (ptot2p_ratio < zero) then
+    !
+    total_cond = one + half*(gam-one)*machref*machref
+    !
+    ttotref = tref * total_cond
+    ptotref = pref * (total_cond**gam_over_gm1)
+    !
+    ptot2p_ratio = ptotref/pref
+    !
+  else
+    !
+    ttotref = tref * (ptot2p_ratio**gm1_over_gam)
+    ptotref = pref * ptot2p_ratio
+    !
+  end if
+  !
+  ttotref_nd = ttotref / tref
+  ptotref_nd = ptotref / rhoa2
+  !
+  tmin = 10.0_wp
+  tmax = 15000.0_wp
+  !
+  ! Initialize the viscosity reference conditions
+  !
+  call initialize_viscosity
+  !
+  ! Initialize the turbulence reference conditions
+  !
+  call initialize_turbulence
+  !
+end subroutine initialize_reference
+!
+!###############################################################################
+!
+subroutine initialize_viscosity
+  !
+  !.. Use Statements ..
+  use ovar, only : muref, muref_nd, reyref
+  use ovar, only : pv_in, rhoref, aref, machref, tref
+  use ovar, only : suth_muref, suth_c1
+  use ovar, only : suth_Tref, suth_Sref
+  !
+  !.. Local Scalars ..
+  real(wp) :: muref_scale,tref_scale
+  !
+continue
+  !
+  muref_scale = (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
+  !
+  if (reyref <= zero) then
+    !
+    suth_c1 = suth_muref * muref_scale
+    !
+    muref_nd = viscosity_pv_sp(pv_in)
+    muref    = muref_nd * rhoref * aref
+    !
+    reyref = rhoref * machref * aref * reciprocal( muref )
+    !
+  else
+    !
+    muref = rhoref * machref * aref / reyref
+    !
+    muref_nd = muref / (rhoref * aref)
+    !
+    tref_scale = tref * sqrt(tref) / (tref + suth_Sref)
+    !
+    suth_muref = muref / muref_scale / tref_scale
+    !
+    suth_c1 = suth_muref * muref_scale
+    !
+  end if
+  !
+end subroutine initialize_viscosity
+!
+!###############################################################################
+!
+subroutine initialize_turbulence()
+  !
+  !.. Use Statements ..
+  use ovar, only : tkeref, tkeref_nd
+  use ovar, only : tlsref, tlsref_nd
+  use ovar, only : tvrref, tinref
+  use ovar, only : rhoref, muref
+  use ovar, only : aref, machref
+  use ovar, only : cv_in, pv_in
+  use ovar, only : turbulence_model
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_turbulence"
+  !
+continue
+  !
+  ! Turbulence equations
+  !
+  if (turbulence_model /= laminar_flow) then
+    !
+    ! Set the flag indicating that turbulence is active
+    !
+    turb_is_on = true
+    !
+    ! Set flag that says whether TKE is included in the total energy
+    !
+    if (abs(turbulence_model) == k_omega) then
+      include_tke_in_energy = true
+    end if
+    !
+    ! Dimensional reference conditions
+    !
+    tkeref = 1.5_wp * (tinref*machref*aref)**2
+    tlsref = rhoref * tkeref / (tvrref*muref)
+    !
+    ! Nondimensional reference conditions
+    !
+    tkeref_nd = tkeref / (rhoref * aref * aref)
+    tlsref_nd = tlsref / (rhoref * aref)
+    !
+    ! Set the turbulence conserved variables inflow conditions
+    !
+    cv_in(ntk) = cv_in(nec) * tkeref_nd
+    cv_in(ntl) = cv_in(nec) * tlsref_nd
+    !
+    ! Add the tke contribution to the energy equation
+    !
+    cv_in(nee) = cv_in(nee) + cv_in(ntk)
+    !
+    ! Recompute the primitive variable inflow conditions
+    !
+    pv_in(1:nq) =  usp2v_sp( cv_in(1:nq) )
+    !
+  end if
+  !
+end subroutine initialize_turbulence
+!
+!###############################################################################
+!
 include "Functions/vortex.f90"
 include "Functions/taylor_green.f90"
+include "Functions/usp2v.f90"
+include "Functions/viscosity.f90"
 !
 !###############################################################################
 !
