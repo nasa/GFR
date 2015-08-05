@@ -28,11 +28,12 @@ program Euler_tri
   use quadrature_mod, only : quadrature_memory_usage
   !
   use io_mod, only : read_input_file
-  use io_mod, only : write_restart_file
   use io_mod, only : write_final_error
   use io_mod, only : write_nodal_parallel_cgns
   use io_mod, only : write_results_file
   use io_mod, only : check_flux_point_orderings
+  !
+  use restart_mod, only : write_restart_file
   !
   use mappings_mod, only : get_solution_points
   !

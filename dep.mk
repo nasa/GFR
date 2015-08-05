@@ -22,7 +22,8 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/parallel.o \
               $(OBJDIR)/time_mod.o \
               $(OBJDIR)/mms_mod.o \
-              $(OBJDIR)/limiters.o
+              $(OBJDIR)/limiters.o \
+              $(OBJDIR)/restart_mod.o \
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -160,7 +161,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/mms_mod.o \
-              $(OBJDIR)/io.o \
+              $(OBJDIR)/restart_mod.o \
               $(OBJDIR)/projection_mod.o \
               $(OBJDIR)/interpolation_mod.o \
               $(FUNDIR)/vortex.f90 \
@@ -311,6 +312,13 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
               $(OBJDIR)/poly.o \
               $(OBJDIR)/triangle.o \
 	      $(FUNDIR)/np2n.f90
+
+$(OBJDIR)/restart_mod.o : restart_mod.f90 \
+                $(OBJDIR)/kind_types.o \
+                $(OBJDIR)/geovar_mod.o \
+		$(OBJDIR)/ovar_mod.o \
+		$(OBJDIR)/flowvar_mod.o \
+		$(OBJDIR)/parallel.o
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
               $(OBJDIR)/kind_types.o \

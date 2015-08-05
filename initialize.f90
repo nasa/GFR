@@ -42,7 +42,7 @@ subroutine initialize_flow()
   !
   use order_mod, only : maxpts
   !
-  use io_mod, only : read_restart_file
+  use restart_mod, only : read_restart_file
   !
   use projection_mod, only : project_to_porder
   !
