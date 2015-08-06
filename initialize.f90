@@ -445,7 +445,7 @@ subroutine initialize_reference
   use ovar,   only : ptot2p_ratio
   use ovar,   only : suth_Sref,suth_Tref
   use ovar,   only : alpha_aoaref,beta_aoaref
-  use ovar,   only : itestcase
+  use ovar,   only : itestcase,Lref
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -512,6 +512,15 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
+    ! If Lref is negative, the grid was not created on the fly and
+    ! we need to add code to compute Lref and make sure the input
+    ! grid is valid for the Taylor-Green vortex problem
+    !
+    if (Lref <= zero) then
+      write (error_message,101)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
     ! Set up the base reference conditions for the Taylor-Green Vortex problem
     !
     alpha_aoaref = zero
@@ -522,11 +531,11 @@ continue
     pref = 101325.0_wp ! (Pa)
     ! ( universal gas constant / molecular weight of air )
     rgasref = 8314.34_wp / 28.9651159_wp ! (J)/(kg*K)
-    rhoref = pref / rgasref / tref ! (kg/m^3)
+    rhoref = pref / rgasref / tref ! (kg/m^3) ~ 1.17663794
     !
-    aref = sqrt( gam*pref/rhoref ) ! (m/s)
+    aref = sqrt( gam*pref/rhoref ) ! (m/s) ~ 347.2169357
     machref = 0.1_wp
-    uref = aref * machref ! (m/s)
+    uref = aref * machref ! (m/s) ~ 34.72169357
     !
     if (reyref <= zero) then
       reyref = 1600.0_wp
@@ -653,6 +662,11 @@ continue
   !
   ! Format Statements
   !
+  101 format ( &
+     " The grid being used for the Taylor-Green vortex problem was not", &
+     " generated on the fly and seems to be input from a grid file. Code", &
+     " still needs to be added to compute Lref and make sure the input", &
+     " grid is valid for the Taylor-Green vortex problem.")
   102 format ( &
      " Free-stream conditions in the input file are not consistent!",/, &
      " Reference pressure given    : ",es14.6,/, &
