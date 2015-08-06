@@ -20,7 +20,7 @@ program Euler_tri
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
   use ovar, only : dump_memory_usage,mms_opt
-  use ovar, only : recon_cpu_time
+  use ovar, only : recon_cpu_time,this_is_final_timestep
   !
   use flowvar, only : usp,uoldsp
   !
@@ -412,6 +412,20 @@ continue
       end if
       !
     end do rk_loop
+    !
+    ! Exit the main loop if we have reached the requested final simulation
+    ! time when running a time accurate simulation with a global time step.
+    !
+    if (this_is_final_timestep .and. iter/=num_ts) then
+      !
+      call rgeterr
+      !
+      ! Exit the main loop since we have reached
+      ! the requested final simulation time
+      !
+      exit main_loop
+      !
+    end if
     !
     ! Compute the residual error from the density and output to terminal
     !

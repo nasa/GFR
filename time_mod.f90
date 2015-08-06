@@ -118,6 +118,7 @@ subroutine get_constant_timestep(dtmin)
   !
   !.. Use Statements ..
   use ovar,    only : dt_in,Final_Time,time,CFL
+  use ovar,    only : this_is_final_timestep
   use flowvar, only : dtsp
   !
   !.. Formal Arguments ..
@@ -130,6 +131,7 @@ continue
   if (Final_Time > zero) then
     if (time + dtmin > Final_Time + eps9) then
       dtmin = Final_Time - time
+      this_is_final_timestep = true
     end if
   end if
   !
@@ -149,6 +151,7 @@ subroutine get_cell_timestep(dtmin)
   !
   use ovar, only : gam,Timestep_Type,Final_Time,time,CFL
   use ovar, only : governing_equations
+  use ovar, only : this_is_final_timestep
   !
   use metrics_mod, only : geofa,jacobian
   !
@@ -436,6 +439,7 @@ continue
     if (Final_Time > zero) then
       if (time + dtmin > Final_Time + eps9) then
         dtsp(:) = Final_Time - time
+        this_is_final_timestep = true
       end if
     end if
     !
@@ -451,6 +455,7 @@ subroutine get_point_timestep(dtmin)
   use order_mod,  only : n_order
   use geovar,  only : nr,n_solpts
   use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
+  use ovar,    only : this_is_final_timestep
   use metrics_mod,  only : jacobian,metrics
   use flowvar, only : usp,dtsp
   !
@@ -523,6 +528,7 @@ continue
     if (Final_Time > zero) then
       if (time + dtmin > Final_Time + eps9) then
         dtsp(:) = Final_Time - time
+        this_is_final_timestep = true
       end if
     end if
     !

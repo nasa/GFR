@@ -236,6 +236,7 @@ module ovar
   integer,  public, save :: Total_Periods
   !
   logical,  public, save :: convergence_reached = fals
+  logical,  public, save :: this_is_final_timestep = fals
   logical,  public, save :: walltime_expiring
   real(wp), public, save :: max_wall_time
   real(wp), public, save :: wall_time_left

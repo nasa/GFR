@@ -161,6 +161,7 @@ subroutine rgeterr()
   use ovar,    only : beg_wall_time,wall_time
   use ovar,    only : walltime_expiring,convergence_reached
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
+  use ovar,    only : this_is_final_timestep
   use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
@@ -331,6 +332,8 @@ continue
     !
     if (walltime_expiring) write (iout,2)
     !
+    if (this_is_final_timestep) write (iout,5)
+    !
   end if
   !
   ! Broadcast walltime_expiring to all processors
@@ -351,6 +354,9 @@ continue
   4 format (/,"*******************************************************",/, &
               " THE CONVERGENCE CRITERION FOR THE ORDER OF MAGNITUDE",/, &
               " REDUCTION OF THE ABSOLUTE RESIDUAL ERROR HAS BEEN MET!",/, &
+              "*******************************************************",/)
+  5 format (/,"*******************************************************",/, &
+              " THE SIMULATION HAS REACHED THE REQUESTED FINAL TIME!",/, &
               "*******************************************************",/)
   !
 end subroutine rgeterr
