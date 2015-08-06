@@ -157,7 +157,7 @@ subroutine read_nml_input_file
   use input_namelist_mod ! use all the variables in the input namelist
   !
   use ovar,   only : Total_Periods
-  use ovar,   only : velref,aref
+  use ovar,   only : velref,aref,uref,Lref
   use ovar,   only : Period_Timesteps,Period_Time
   use ovar,   only : Grid_Length
   use ovar,   only : LDG_beta,LDG_tau
@@ -400,14 +400,38 @@ continue
     !
     num_ts = nint( Final_Time / dt_in )
     !
-  else
+  else if (itestcase == Taylor_Green_Vortex) then
     !
-    cfl_end = max(cfl_end,eps6)    ! cfl_end must be >= 1.0e-6
-    cfl_cycles = max(cfl_cycles,1) ! cfl_cycles must be at least 1
-    cfl_beg = min(cfl_beg,cfl_end) ! cfl_beg must be <= cfl_end
+    cfl_beg = one
+    cfl_end = one
+    cfl_cycles = 1
     !
     if (Final_Time > zero) then
-      num_ts = nint( Final_Time / dt_in )
+      Final_Time = Final_Time * (Lref/uref)
+    end if
+    !
+    ! Make sure the timestep type is global (positive)
+    !
+    Timestep_Type = abs(Timestep_Type)
+    !
+  else
+    !
+    if (Timestep_Type == Constant_Timestep) then
+      !
+      cfl_beg = CFL
+      cfl_end = CFL
+      cfl_cycles = 1
+      !
+      if (Final_Time > zero) then
+        num_ts = nint( Final_Time / dt_in )
+      end if
+      !
+    else
+      !
+      cfl_end = max(cfl_end,eps6)    ! cfl_end must be >= 1.0e-6
+      cfl_cycles = max(cfl_cycles,1) ! cfl_cycles must be at least 1
+      cfl_beg = min(cfl_beg,cfl_end) ! cfl_beg must be <= cfl_end
+      !
     end if
     !
   end if
@@ -996,7 +1020,7 @@ subroutine create_TaylorGreenVortex_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : TaylorGreen_DOF
+  use ovar,      only : TaylorGreen_DOF,Lref
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
@@ -1009,6 +1033,10 @@ subroutine create_TaylorGreenVortex_grid()
   character(len=*), parameter :: pname = "create_TaylorGreenVortex_grid"
   !
 continue
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
   !
   ! The Taylor-Green vortex problem is always 3D
   !
