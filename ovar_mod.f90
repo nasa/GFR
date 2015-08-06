@@ -148,7 +148,7 @@ module ovar
   ! ####   Non-Input Variables   ####
   ! #################################
   !
-  real(wp), public, save :: Lref = 1.0_wp
+  real(wp), public, save :: Lref = -1.0_wp
   real(wp), public, save :: aref
   real(wp), public, save :: uref
   real(wp), public, save :: cpref
