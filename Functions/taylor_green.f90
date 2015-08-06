@@ -1,7 +1,7 @@
 pure function taylor_green_initialization(xyz) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : aref,machref,Lref
+  use ovar, only : aref,uref,Lref
   use ovar, only : gam,rhoref,tref,pref
   use ovar, only : rgasref
   !
@@ -14,7 +14,7 @@ pure function taylor_green_initialization(xyz) result(return_value)
   !.. Local Scalars ..
   integer  :: nc,mb,me,ne
   real(wp) :: x,y,z,gm1,rhoa,rhoa2
-  real(wp) :: v0,rho,pres
+  real(wp) :: rho,pres
   !
   !.. Local Arrays ..
   real(wp), dimension(1:3) :: vel
@@ -31,7 +31,6 @@ continue
   gm1 = gam - one
   rhoa = rhoref * aref
   rhoa2 = rhoa * aref
-  v0 = machref * aref
   !
   x = xyz(1) / Lref
   y = xyz(2) / Lref
@@ -39,14 +38,14 @@ continue
   !
   ! Compute initial velocities
   !
-  vel(1) =  v0 * sin(x) * cos(y) * cos(z)
-  vel(2) = -v0 * cos(x) * sin(y) * cos(z)
+  vel(1) =  uref * sin(x) * cos(y) * cos(z)
+  vel(2) = -uref * cos(x) * sin(y) * cos(z)
   vel(3) = zero
   !
   ! Compute initial pressure
   !
-  pres = pref + rhoref*v0*v0/sixteen * (cos(two*x) + cos(two*y)) & 
-                                     * (cos(two*z) + two)
+  pres = pref + rhoref*uref*uref/sixteen * (cos(two*x) + cos(two*y)) & 
+                                         * (cos(two*z) + two)
   !
   ! Compute density assuming constant temperature
   !
