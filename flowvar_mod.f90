@@ -97,6 +97,13 @@ module flowvar
   type(face_var), public, save, allocatable, dimension(:) :: faceflx
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
   !
+  !
+  ! TAYLORGREEN_SOL : array used for the Taylor-Green vortex problem that
+  !                   contains the temporal evolution of various integrated
+  !                   quantities relating to the kinetic energy
+  !
+  real(wp), public, save, allocatable, dimension(:,:) :: TaylorGreen_sol
+  !                   
 contains
 !
 !###############################################################################
@@ -110,6 +117,7 @@ subroutine allocate_flowvar_arrays()
   use order_mod, only : geom_solpts
   use order_mod, only : n_fp1de
   use ovar,      only : iRKtype,num_stages,mms_opt
+  use ovar,      only : itestcase,num_ts
   !
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
@@ -228,6 +236,13 @@ continue
   !
   allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"global_usp",1,ierr)
+  !
+  ! If solving the Taylor-Green vortex problem, allocate the array to
+  ! store the temporal evolution of various integrated quantities relating
+  ! to the kinetic energy and its dissipation rate
+  !
+  allocate ( TaylorGreen_sol(1:5,1:num_ts) , source=zero , stat=ierr )
+  call alloc_error(pname,"TaylorGreen_sol",1,ierr)
   !
   ! Format Statements
   !
