@@ -1,3 +1,35 @@
+* Need to allow the error quadrature points to possibly be of higher order than
+  the solution points.
+   - The outerp(:,:)%error matrices are currently hard-wired with the assumption
+     that they are the same order.
+   - This assumption may cause errors when computing the integrated dissipation
+     rates for the Taylor-Green vortex problem due to insufficient quadrature.
+
+* Look into the hyperbolic form of the Navier-Stokes equations
+
+* Implement the rotated flux functions
+
+* Figure out way to add the mycpu.c and cpu_info_mod.f90 files so that the
+  code works for both NAS and on a local machine that doesnt have the
+  sched_getcpu function available.
+
+* Look at advanced partitioning techniques. An example would be:
+   1. Use METIS to partition the grid to the number of MPI processes
+   2. Create a dual graph with each vertex representing a partition with
+       a) vwgt giving the number of solution points in each partition
+       b) vsize giving the total number of flux points along the boundary
+          of each partition
+       c) adjwgt giving the number of flux points between two partitions
+       d) tpwgts weighting for using different node types (haswell vs ivy bridge)
+   3. Use METIS to partition the partitions so that each node gets a number
+      of MPI partitions that corresponds to the number of cores within the
+      node.
+   4. Possibly do this a second time to group MPI partitions to the CPUs
+      on each node.
+
+* Finish the subroutine check_quality_of_partitioning so it checks that all
+  the partitions created by METIS are contiguous.
+
 * Need to look into finishing the limiting and over-integration parts of the
   code. Really need to figure out how to mark troubled cells so that these
   stabilization methods are efficient. Look into entropy bounding like what
