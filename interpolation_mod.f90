@@ -254,6 +254,12 @@ continue
     !
   end do geom_loop
   !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      call interp(this_geom,this_order)%toFace%check_for_sparsity
+    end do
+  end do
+  !
   1 format ("interp(",a,",",i0,")%",a,:,"(",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
   !
@@ -602,6 +608,13 @@ continue
     end do order_loop
     !
   end do geom_loop
+  !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      call outerp(this_geom,this_order)%gauss%check_for_sparsity
+      call outerp(this_geom,this_order)%lobatto%check_for_sparsity
+    end do
+  end do
   !
   1 format ("outerp(",a,",",i0,")%",a)
   2 format (" A grid cell of an unknown geometry type was found!")

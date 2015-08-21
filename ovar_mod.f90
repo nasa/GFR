@@ -180,6 +180,7 @@ module ovar
   integer,  public, save :: itcur
   real(wp), public, save :: d_t
   real(wp), public, save :: time
+  real(wp), public, save :: time_ref = 1.0_wp
   !
   integer,  public, save :: itrst
   real(wp), public, save :: tmrst

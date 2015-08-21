@@ -178,6 +178,10 @@ continue
     !
   end do geom_loop
   !
+  ! Check for sparsity within each of the correction matrices
+  !
+  call correct%check_for_sparsity
+  !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
   !

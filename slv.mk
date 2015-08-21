@@ -8,18 +8,17 @@ vpath %.o $(OBJDIR)
 vpath %.f90 ./
 vpath %.mod $(MODDIR)
 
-FC = mpif90
+#FC = mpif90
+#FC = mpif08
+ FC = mpiifort
 MOD = -module $(MODDIR)
 FSFXFLG = .f90
-
-# MeTiS
-METISLIB = -lmetis
 
 # PBS Time
 PBSTIME = -lpbs_time_left
 
 # HDF5 Library
-HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm #-lsz
+HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm -lsz
 
 # CGNS 3.2 Library
 CGNS32 = -lcgns $(HDF5)
@@ -36,16 +35,13 @@ CGNS25 = -lcgns2
 
 ### HOMEDIR = /u/sspiegel
 
-### CGNS31LIB = $(CGNS) $(HDF5) -lsz
 ### LOCALLIB = -L/nasa/szip/2.1/lib
 ### OTHERLIB = $(PBSTIME)
 
-### OPTIM = -O3 -ipo -axAVX -xSSE4.1 #-ipo-jobs4
+### OPTIM = -O3 -ipo -axAVX -xSSE4.2 #-ipo-jobs4
 
 ###  FPP = -fpp
 ###  FPP += -DPBS_ENV 
-### #FPP += -DIO_FOR_NAS
-### #FPP += -DCGNS_ADF
 
 ####################################
 ####################################
@@ -59,17 +55,29 @@ HOMEDIR = /home/sspiegel
 LOCALLIB =
 OTHERLIB =
 
- OPTIM = -O2 -ip -xSSE4.2 #-v #-watch
- IPO_OPT = -O3 -ipo #-ipo-jobs4
-#OPTIM = -O2 -xSSE4.2 #-ipo-jobs4
-#OPTIM = -O3 -ip -xSSE4.2
+ OPTIM = -O2 -ip -xSSE4.2
+#OPTIM += -v
+#OPTIM += -watch
 #OPTIM += -align array16byte
+ IPO_OPT = -O3 -ipo -xSSE4.2
+ IPO_OPT += -debug inline-debug-info
+#IPO_OPT += -ipo-jobs4
 
  FPP = -fpp
 #FPP += -DPBS_ENV 
- FPP += -DIO_FOR_NAS
-#FPP += -DCGNS_ADF
-#FPP += -DCGNS_ADF2
+
+#############################
+#############################
+###   METIS DEFINITIONS   ###
+#############################
+#############################
+
+###  METIS 4  ###
+#METISLIB = -lmetis
+#FPP += -DMETIS_4
+###  METIS 5  ###
+ METISLIB = -lmetis5
+ FPP += -DMETIS_5
 
 ###########################
 ###########################
@@ -176,12 +184,13 @@ OBJS = $(OBJDIR)/kind_types.o \
        $(OBJDIR)/mappings.o \
        $(OBJDIR)/connectivity.o \
        $(OBJDIR)/limiters.o \
-       $(OBJDIR)/mms_mod.o
+       $(OBJDIR)/mms_mod.o \
+       $(OBJDIR)/restart_mod.o
 #
 optimize: FCFLAG += $(OPTIM) $(ADDFLAGS)
 optimize: all
 #
-ipo-opt: FCFLAG += $(OPTIM) $(IPO_OPT)
+ipo-opt: FCFLAG += $(IPO_OPT)
 ipo-opt: all
 #
 debug: FCFLAG += -check all -debug -fp-stack-check -DDEBUG_ON

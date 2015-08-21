@@ -13,7 +13,8 @@ ARCH = $(shell uname -m)
 .PHONY: clean all debug optimize systeminfo guide
 .PHONY: rebuild rebuild-debug rebuild-optimize ipo-opt
 
-all: debug optimize
+#all: debug optimize
+all: debug ipo-opt
 
 rebuild: rebuild-debug rebuild-optimize
 

@@ -252,13 +252,10 @@ subroutine flux_gradient_at_solpts_visc
   real(wp), dimension(1:nr)      :: unrm
   real(wp), dimension(1:nq,1:nr) :: vflx
   real(wp), dimension(1:maxSP)   :: lmat
+  real(wp), dimension(1:nq,1:maxSP) :: lcl_res
   real(wp), dimension(1:maxSP,1:maxSP)   :: dmat
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: rsflx
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: xyflx
-  !
-  !.. Local Parameters ..
-  logical, parameter :: use_dmat_temp = true
- !logical, parameter :: use_dmat_temp = fals
   !
 continue
   !
@@ -271,12 +268,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1 ! beginning index of sol-pts for this cell
-    n2 = pts_in_cell_ptr(nc+1) ! ending    index of sol-pts for this cell
-    np = n2-n1+1               ! number of sol-pts in this cell
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
     !
-    this_geom = cell_geom(nc)   ! geometry type of this cell
-    this_order = cell_order(nc) ! solution order of this cell
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
     !
     ! #########
     ! #########
@@ -327,59 +324,38 @@ continue
     !
     ! Compute the divergence of the discontinuous fluxes 
     !
-    if (use_dmat_temp) then
+    ! Zero the residual array for the current cell
+    !
+    lcl_res = zero
+    !
+    ! Loop through each coordinate direction and add the divergence of
+    ! the flux to the local residual array for the current cell
+    !
+
+    do l = 1,nr
       !
-      ! Initialize residual at this point by calculating the
-      ! divergence of the flux in the first (i.e. x/xi/r) direction
-      !
-      dmat(1:np,1:np) = deriv(this_geom,this_order)%d(1)%mat(1:np,1:np)
-      !
-      do m = 1,nq
-        do k = 1,np
-          residual(m,k+n1-1) = dot( dmat(1:np,k) , rsflx(1:np,m,1) )
-        end do
-      end do
-      !
-      ! Loop through the remaining coordinate directions and add the
-      ! divergence of the flux from each direction to the previous result
-      !
-      do l = 2,nr
+     !if (deriv(this_geom,this_order)%d(l)%is_sparse) then
+        !
+        !
+        !
+     !else
         !
         dmat(1:np,1:np) = deriv(this_geom,this_order)%d(l)%mat(1:np,1:np)
         !
-        do m = 1,nq
-          do k = 1,np
-            residual(m,k+n1-1) = residual(m,k+n1-1) + &
-                                 dot( dmat(1:np,k) , rsflx(1:np,m,l) )
+        do k = 1,np
+          do m = 1,nq
+            lcl_res(m,k) = lcl_res(m,k) + dot( dmat(1:np,k) , rsflx(1:np,m,l) )
           end do
         end do
         !
-      end do
+     !end if
       !
-    else
-      !
-      do m = 1,nq
-        do k = 1,np
-          !
-          ! Initialize residual at this point by calculating the
-          ! divergence of the flux in the first (i.e. x/xi/r) direction
-          !
-          residual(m,k+n1-1) = dot( deriv(this_geom,this_order)%d(1)%mat(1:np,k) , &
-                                    rsflx(1:np,m,1) )
-          !
-          ! Loop through the remaining coordinate directions and add the
-          ! divergence of the flux from each direction to the previous result
-          !
-          do l = 2,nr
-            residual(m,k+n1-1) = residual(m,k+n1-1) + &
-                               dot( deriv(this_geom,this_order)%d(l)%mat(1:np,k) , &
-                                    rsflx(1:np,m,l) )
-          end do
-          !
-        end do
-      end do
-      !
-    end if
+    end do
+    !
+    ! Copy the local residual for the current cell into the residual array
+    !
+    residual(1:nq,n1:n2) = lcl_res(1:nq,1:np)
+    !
     !
     ! #########
     ! #########
@@ -401,6 +377,11 @@ continue
       sf = cell(nc)%face(n)%side ! side of face that cell nc is on
       !
       face_order = cell(nc)%face(n)%order ! order of current face
+      !
+     !nf = size(interp(this_geom,this_order)%toFace(face_order)%mat,dim=2)
+     !write (161,15) ((interp(this_geom,this_order)%toFace(face_order)%mat(k,l),k=1,np),l=1,nf)
+     !15 format (25(5es16.8,/),/)
+     !call stop_recon(stop_mpi,"flux_gradient_at_solpts_visc")
       !
       do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
         !
@@ -455,7 +436,7 @@ subroutine correct_interface_flux_visc()
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,dsl,dsr
+  real(wp) :: ds,dsl,dsr,cmat_val
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: unrm
@@ -585,10 +566,14 @@ continue
       ! host_cell
       !
       do n = l1,l2
-        do m = 1,nq
-          residual(m,n) = residual(m,n) + &
-            dsl * fjl(m,k) * correct(host_geom,host_order)%mat(n-l1+1,kl)
-        end do
+        cmat_val = correct(host_geom,host_order)%mat(n-l1+1,kl)
+        if (cmat_val /= zero) then
+          do m = 1,nq
+            residual(m,n) = residual(m,n) + dsl * fjl(m,k) * cmat_val
+           !residual(m,n) = residual(m,n) + &
+           !  dsl * fjl(m,k) * correct(host_geom,host_order)%mat(n-l1+1,kl)
+          end do
+        end if
       end do
       !
     end do
@@ -697,10 +682,14 @@ continue
       ! left_cell
       !
       do n = l1,l2
-        do m = 1,nq
-          residual(m,n) = residual(m,n) + &
-            dsl * fjl(m,k) * correct(left_geom,left_order)%mat(n-l1+1,kl)
-        end do
+        cmat_val = correct(left_geom,left_order)%mat(n-l1+1,kl)
+        if (cmat_val /= zero) then
+          do m = 1,nq
+            residual(m,n) = residual(m,n) + dsl * fjl(m,k) * cmat_val
+           !residual(m,n) = residual(m,n) + &
+           !  dsl * fjl(m,k) * correct(left_geom,left_order)%mat(n-l1+1,kl)
+          end do
+        end if
       end do
       !
       ! Add the flux correction to the residuals of the sol-pts in cell
@@ -708,10 +697,14 @@ continue
       ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
       !
       do n = r1,r2
-        do m = 1,nq
-          residual(m,n) = residual(m,n) - &
-            dsr * fjr(m,k) * correct(right_geom,right_order)%mat(n-r1+1,kr)
-        end do
+        cmat_val = correct(right_geom,right_order)%mat(n-r1+1,kr)
+        if (cmat_val /= zero) then
+          do m = 1,nq
+            residual(m,n) = residual(m,n) - dsr * fjr(m,k) * cmat_val
+           !residual(m,n) = residual(m,n) - &
+           !  dsr * fjr(m,k) * correct(right_geom,right_order)%mat(n-r1+1,kr)
+          end do
+        endif
       end do
       !
     end do
@@ -1188,7 +1181,7 @@ subroutine correct_gradients_at_solpts()
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
-  real(wp) :: cbias,hfpb,hfmb
+  real(wp) :: cbias,hfpb,hfmb,cmat_val
   real(wp) :: correct_n,correct_m,ds,dsl,dsr
   !
   !.. Local Arrays ..
@@ -1303,13 +1296,17 @@ continue
       ! the gradients of the conservative variables in the left cell
       !
       do n = l1,l2
-        correct_n = dsl * correct(host_geom,host_order)%mat(n-l1+1,kl) / jacobian(n)
-        do m = 1,nq
-          correct_m = correct_n * ljfp(m)
-          do l = 1,nr
-            dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
+       !correct_n = dsl * correct(host_geom,host_order)%mat(n-l1+1,kl) / jacobian(n)
+        cmat_val = correct(host_geom,host_order)%mat(n-l1+1,kl)
+        if (cmat_val /= zero) then
+          correct_n = dsl * cmat_val / jacobian(n)
+          do m = 1,nq
+            correct_m = correct_n * ljfp(m)
+            do l = 1,nr
+              dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
+            end do
           end do
-        end do
+        end if
       end do
       !
     end do
@@ -1411,26 +1408,34 @@ continue
       ! the gradients of the conservative variables in the left cell
       !
       do n = l1,l2
-        correct_n = dsl * correct(left_geom,left_order)%mat(n-l1+1,kl) / jacobian(n)
-        do m = 1,nq
-          correct_m = correct_n * ljfp(m)
-          do l = 1,nr
-            dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
+       !correct_n = dsl * correct(left_geom,left_order)%mat(n-l1+1,kl) / jacobian(n)
+        cmat_val = correct(left_geom,left_order)%mat(n-l1+1,kl)
+        if (cmat_val /= zero) then
+          correct_n = dsl * cmat_val / jacobian(n)
+          do m = 1,nq
+            correct_m = correct_n * ljfp(m)
+            do l = 1,nr
+              dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
+            end do
           end do
-        end do
+        end if
       end do
       !
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the right cell
       !
       do n = r1,r2
-        correct_n = dsr * correct(right_geom,right_order)%mat(n-r1+1,kr) / jacobian(n)
-        do m = 1,nq
-          correct_m = correct_n * rjfp(m)
-          do l = 1,nr
-            dusp(l,m,n) = dusp(l,m,n) - correct_m * unrm(l)
+       !correct_n = dsr * correct(right_geom,right_order)%mat(n-r1+1,kr) / jacobian(n)
+        cmat_val = correct(right_geom,right_order)%mat(n-r1+1,kr)
+        if (cmat_val /= zero) then
+          correct_n = dsr * cmat_val / jacobian(n)
+          do m = 1,nq
+            correct_m = correct_n * rjfp(m)
+            do l = 1,nr
+              dusp(l,m,n) = dusp(l,m,n) - correct_m * unrm(l)
+            end do
           end do
-        end do
+        end if
       end do
       !
     end do
@@ -1443,12 +1448,11 @@ end subroutine correct_gradients_at_solpts
 !
 subroutine correct_gradients_br2()
   !
-  use order_mod,  only : maxSP
+  use order_mod,  only : maxSP,maxFP
   use geovar,  only : cell
   use geovar,  only : nr,ncell,nfbnd,bface
-  use geovar,  only : face,pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
-  use metrics_mod,  only : geofa,jacobian,volj
+  use geovar,  only : face
+  use metrics_mod,  only : geofa,jacobian
   use correction_mod, only : correct
   use flowvar, only : dusp,facedusp,faceusp
   use ovar,    only : walls_are_exact,LDG_beta
@@ -1457,8 +1461,8 @@ subroutine correct_gradients_br2()
   use parallel_mod, only : exchange_facedusp
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,np,k,l,m
-  integer :: nf,kf,lf,sf,ncf,kfp
+  integer :: n,nc,n1,n2,np,nfp,k,l,m
+  integer :: nf,kf,lf,sf,ncf
   integer :: this_geom,this_order,face_order
   real(wp) :: dsl,cbias,hfpb,correct_n,correct_m
   !
@@ -1466,8 +1470,12 @@ subroutine correct_gradients_br2()
   real(wp), dimension(1:nr) :: unrm
   real(wp), dimension(1:nq) :: lufp,rufp,ujump
   real(wp), dimension(1:maxSP) :: lmat
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: face_dusp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: cell_dusp
+  real(wp), dimension(1:maxSP,1:nr,1:nq) :: face_dusp
+  real(wp), dimension(1:maxSP,1:nr,1:nq) :: dusp_copy
+  !
+  real(wp), dimension(1:maxSP,1:maxFP) :: imat
+  real(wp), dimension(1:maxSP,1:maxFP) :: cmat_jac
   !
 continue
   !
@@ -1476,21 +1484,35 @@ continue
   !
   cell_loop: do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1
-    n2 = pts_in_cell_ptr(nc+1)
-    np = n2-n1+1
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
     !
-    ! Create transpose of dusp array to reduce cache misses
+    ! Store a local copy of the correction matrices divided by the value of
+    ! the jacobian for each solution point. This will help reduce cache
+    ! misses and prevent repetitive instances of division by the jacobian.
+    !
+    nfp = size(correct(this_geom,this_order)%mat,dim=2)
+    cmat_jac(1:np,1:nfp) = correct(this_geom,this_order)%mat
+    !
+    do kf = 1,nfp
+      cmat_jac(1:np,kf) = cmat_jac(1:np,kf) / jacobian(n1:n2)
+    end do
+    !
+    ! Create a local copy of dusp for this cell to which all the
+    ! corrections will be applied. This will help reduce cache misses.
+    !
+    cell_dusp(1:nr,1:nq,1:np) = dusp(1:nr,1:nq,n1:n2)
+    !
+    ! Create a transposed copy of the uncorrected dusp for this cell which
+    ! will be used to reset the face_dusp array in the cell_faces loop. This
+    ! will help reduce cache misses.
     !
     do n = 1,np
-      do m = 1,nq
-        do l = 1,nr
-          cell_dusp(l,m,n) = dusp(l,m,n+n1-1)
-        end do
-      end do
+      dusp_copy(n,1:nr,1:nq) = cell_dusp(1:nr,1:nq,n)
     end do
     !
     ! Now Interpolate the interior solution gradients to the flux points
@@ -1506,13 +1528,19 @@ continue
       !
       ! Reset face_dusp to the original discontinuous gradient
       !
-      do n = 1,np
-        do m = 1,nq
-          do l = 1,nr
-            face_dusp(n,l,m) = dusp(l,m,n+n1-1)
-          end do
-        end do
-      end do
+!###############################################################################
+!###############################################################################
+!|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+!vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+!-------------------------------------------------------------------------------
+     !face_dusp = dusp_copy
+!-------------------------------------------------------------------------------
+      face_dusp(1:np,1:nr,1:nq) = dusp_copy(1:np,1:nr,1:nq)
+!-------------------------------------------------------------------------------
+!AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+!|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+!###############################################################################
+!###############################################################################
       !
       face_points: do kf = 1,size(cell(nc)%face(ncf)%cell_idx)
         !
@@ -1542,8 +1570,8 @@ continue
         !       For wall boundaries, jump_left should reduce to:
         !         jump_left = (u_right - u_left) where u_right = u_wall
         !
-       !cbias = zero
-        cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
+        cbias = zero
+       !cbias = dot( LDG_beta(1:nr) , unrm(1:nr) )
         !
         ! Reset cbias if this is a wall boundary
         !
@@ -1562,14 +1590,17 @@ continue
         ! Apply the jump correction to the interior discontinuous gradients
         !
         do n = 1,np
-          correct_n = dsl * correct(this_geom,this_order)%mat(n,lf) / jacobian(n+n1-1)
-          do m = 1,nq
-            correct_m = correct_n * ujump(m)
-            do l = 1,nr
-              face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * unrm(l)
-              cell_dusp(l,m,n) = cell_dusp(l,m,n) + correct_m * unrm(l)
+         !correct_n = dsl * correct(this_geom,this_order)%mat(n,lf) / jacobian(n+n1-1)
+          if (cmat_jac(n,lf) /= zero) then
+            correct_n = dsl * cmat_jac(n,lf)
+            do m = 1,nq
+              correct_m = correct_n * ujump(m)
+              do l = 1,nr
+                face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * unrm(l)
+                cell_dusp(l,m,n) = cell_dusp(l,m,n) + correct_m * unrm(l)
+              end do
             end do
-          end do
+          end if
         end do
         !
       end do face_points
@@ -1598,13 +1629,7 @@ continue
     ! Copy the total corrected gradient accounting for all cell faces
     ! back into dusp
     !
-    do n = 1,np
-      do m = 1,nq
-        do l = 1,nr
-          dusp(l,m,n+n1-1) = cell_dusp(l,m,n)
-        end do
-      end do
-    end do
+    dusp(1:nr,1:nq,n1:n2) = cell_dusp(1:nr,1:nq,1:np)
     !
   end do cell_loop
   !

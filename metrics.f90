@@ -72,7 +72,7 @@ module metrics_mod
   !
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics2
   !
-  ! metrics2: second derivative metrics terms at the solution points
+  ! metrics3: third derivative metrics terms at the solution points
   !     For solution point 'n', metrics3(l,i,j,k,n) gives the partial derivative 
   !                                      3
   !                                     d (x_l)
@@ -80,6 +80,7 @@ module metrics_mod
   !                             d(xi_i) d(xi_j) d(xi_k)
   !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
   !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
   !           NOTE: For 2D z and zeta (or t) do not exist
   !
   real(wp), public, save, allocatable, dimension(:,:,:,:,:) :: metrics3

@@ -135,6 +135,7 @@ $(OBJDIR)/generic.o : generic.f90 \
               $(OBJDIR)/quadrature_mod.o \
               $(OBJDIR)/interpolation_mod.o \
               $(OBJDIR)/parallel.o \
+              $(OBJDIR)/mms_mod.o \
               $(FUNDIR)/entropy.f90 \
               $(FUNDIR)/pressure.f90 \
               $(FUNDIR)/vortex.f90 \

@@ -178,6 +178,14 @@ continue
     !
   end do geom_loop
   !
+  ! Check for sparsity
+  !
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      call deriv(this_geom,this_order)%d%check_for_sparsity
+    end do
+  end do
+  !
   1 format ("deriv(",a,",",i0,")%d")
   2 format (" A grid cell of an unknown geometry type was found!")
   !

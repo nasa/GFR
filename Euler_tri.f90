@@ -11,7 +11,7 @@ program Euler_tri
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : geovar_memory_usage
   !
-  use ovar, only : max_wall_time
+  use ovar, only : max_wall_time,wall_time_left
   use ovar, only : walltime_expiring
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -70,6 +70,8 @@ program Euler_tri
   use generic_mod, only : rgeterr
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_final_error
+  use generic_mod, only : TaylorGreen_integrated_quantities
+  use generic_mod, only : TaylorGreen_finalize_KEDR
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
@@ -108,6 +110,7 @@ program Euler_tri
   character(len=*), parameter :: pname = "Euler_tri(main)"
   !
   integer  :: iter,i,ierr,k
+  integer  :: completed_timesteps
   real(wp) :: dtmin
   !
   integer, parameter :: iostp = 2683
@@ -162,6 +165,7 @@ continue
 #endif
     write (iout,16) current_wtl
     max_wall_time = real(current_wtl,kind=wp)
+    wall_time_left = max_wall_time
   end if
   !
   ! Broadcast the maximum wall time to all processors
@@ -413,6 +417,15 @@ continue
       !
     end do rk_loop
     !
+    completed_timesteps = iter
+    !
+    ! If solving the Taylor-Green Vortex problem, compute the various integrated
+    ! quantities needed to get the different the kinetic energy dissipation rates
+    !
+    if (itestcase == Taylor_Green_Vortex) then
+      call TaylorGreen_integrated_quantities(iter,dtmin)
+    end if
+    !
     ! Exit the main loop if we have reached the requested final simulation
     ! time when running a time accurate simulation with a global time step.
     !
@@ -560,6 +573,13 @@ continue
   ! Get the elapsed wall time
   !
   call recon_cpu_time(1)
+  !
+  ! If solving the Taylor-Green Vortex problem,
+  ! finalize the kinetic energy dissipation rates
+  !
+  if (itestcase == Taylor_Green_Vortex) then
+    call TaylorGreen_finalize_KEDR(completed_timesteps)
+  end if
   !
   !.. get min and max entropy value and location
   if (.not. ignore_errors) call getmaxent

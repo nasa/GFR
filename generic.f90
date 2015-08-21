@@ -11,6 +11,8 @@ module generic_mod
   public :: rgeterr
   public :: getmaxent
   public :: compute_final_error
+  public :: TaylorGreen_integrated_quantities
+  public :: TaylorGreen_finalize_KEDR
   !
   character(len=100), save :: iter_out_fmt
   !
@@ -156,7 +158,7 @@ subroutine rgeterr()
   use geovar,  only : global_pinc_ptr,global_xyz
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
-  use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps
+  use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
   use ovar,    only : max_wall_time,wall_time_left
   use ovar,    only : beg_wall_time,wall_time
   use ovar,    only : walltime_expiring,convergence_reached
@@ -307,7 +309,8 @@ continue
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,rl2mx,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+                              rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               global_xyz(1,global_pinc_ptr(nloc)+kloc), &
                               global_xyz(2,global_pinc_ptr(nloc)+kloc), &
@@ -317,7 +320,8 @@ continue
     !
     walltime_expiring = fals
     !
-    write (iout,iter_out_fmt) itcur,d_t,time,rltwo,entL2,rl2mx,nloc, &
+    write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+                              rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               global_xyz(1,global_pinc_ptr(nloc)+kloc), &
                               global_xyz(2,global_pinc_ptr(nloc)+kloc)
@@ -461,6 +465,10 @@ continue
     write (iter_header,201) final_iter_digits-3, &
                             max_cell_digits-2, &
                             max_solpt_digits-3
+  else if (itestcase == Taylor_Green_Vortex) then
+    write (iter_header,203) final_iter_digits-3, &
+                            max_cell_digits-2, &
+                            max_solpt_digits-3
   else
     write (iter_header,202) final_iter_digits-3, &
                             max_cell_digits-2, &
@@ -489,6 +497,8 @@ continue
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+  203 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   !
 end subroutine init_generic_mod
 !
@@ -503,7 +513,7 @@ subroutine getmaxent
   use geovar,  only : nr,ncell,pts_in_cell_ptr,xyz
   use geovar,  only : cell_geom,cell_order
   use ovar,    only : nentmax,kentmax,entmax,gam,cv_in
-  use ovar,    only : xentmax,yentmax,entL2,total_volume,itestcase
+  use ovar,    only : xentmax,yentmax,entL2,total_volume
   use metrics_mod,  only : jacobian
   use flowvar, only : usp
   use parallel_mod, only : cell_map
@@ -742,6 +752,268 @@ continue
   end if
   !
 end subroutine collect_error_arrays
+!
+!###############################################################################
+!
+subroutine TaylorGreen_integrated_quantities(iter,dtmin)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxpts
+  use geovar, only : nr,ncell,cell
+  use ovar, only : muref_nd,total_volume,time_ref
+  use flowvar, only : usp,dusp
+  use flowvar, only : TaylorGreen_sol
+  use interpolation_mod, only : outerp
+  use quadrature_mod, only : std_elem
+  use metrics_mod, only : jacobian
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: iter
+  real(wp), intent(in) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer :: k,l,m,n1,n2,np
+  integer :: this_cell,this_geom,this_order
+  real(wp) :: div_vel,muref_star
+  !
+  !.. Local Arrays ..
+  real(wp) :: kedr(1:4)
+  real(wp) :: vort(1:nr)
+  real(wp) :: wtdjac(1:maxpts)
+  real(wp) :: strain(1:nr,1:nr)
+  real(wp) :: vsp(1:nq,1:maxpts)
+  real(wp) :: dvel(1:nr,1:nr,1:maxpts)
+  real(wp) :: lmat(1:maxpts,1:maxpts)
+  !
+continue
+  !
+  ! Adjust the nondimensionalization of the reference viscosity
+  !
+  muref_star = muref_nd / time_ref
+  !
+  ! Zero out the integrated values
+  !
+  kedr = zero
+  !
+  do this_cell = 1,ncell
+    !
+    n1 = cell(this_cell)%beg_sp
+    n2 = cell(this_cell)%end_sp
+    np = n2-n1+1
+    !
+    this_geom = cell(this_cell)%geom
+    this_order = cell(this_cell)%order
+    !
+    ! Collect the primitive variables, velocity gradients, jacobian, and
+    ! quadrature weights at the error quadrature points for the current cell
+    !
+    if (associated(outerp(this_geom,this_order)%error)) then
+      !
+      ! The error quadrature points are different from the solution points so
+      ! we must interpolate these values from the solution points to the
+      ! error quadrature points
+      !
+      lmat(1:np,1:np) = outerp(this_geom,this_order)%error
+      !
+      do m = 1,nq
+        vsp(m,1:np) = matmul( lmat(1:np,1:np) , usp(m,n1:n2) )
+      end do
+      vsp(1:nq,1:np) = usp2v( vsp(1:nq,1:np) )
+      !
+      do m = 1,nr
+        do l = 1,nr
+          dvel(l,m,1:np) = matmul( lmat(1:np,1:np) , dusp(l,nmb-1+m,n1:n2) )
+        end do
+      end do
+      !
+      wtdjac(1:np) = matmul( lmat(1:np,1:np) , jacobian(n1:n2) )
+      !
+      wtdjac(1:np) = wtdjac(1:np) * outerp(this_geom,this_order)%err_wts
+      !
+    else
+      !
+      ! The error quadrature points and solution points are co-located so
+      ! just copy these values into the local arrays.
+      !
+      vsp(1:nq,1:np) = usp2v( usp(1:nq,n1:n2) )
+      dvel(1:nr,1:nr,1:np) = dusp(1:nr,nmb:nme,n1:n2)
+      wtdjac(1:np) = jacobian(n1:n2) * std_elem(this_geom,this_order)%wts
+      !
+    end if
+    !
+    ! Loop through the solution points of the current 
+    !
+    do k = 1,np
+      !
+      ! Compute the divergence of the velocity
+      !
+      div_vel = dvel(1,1,k) + dvel(2,2,k) + dvel(3,3,k)
+      !
+      ! Compute the deviatoric strain rate tensor
+      !
+      do m = 1,nr
+        do l = 1,nr
+          strain(l,m) = half * (dvel(l,m,k) + dvel(m,l,k))
+        end do
+        strain(m,m) = strain(m,m) - one3*div_vel
+      end do
+      !
+      ! Compute the vorticity vector
+      !
+      vort(1) = dvel(2,3,k) - dvel(3,2,k) ! dw/dy - dv/dz
+      vort(2) = dvel(3,1,k) - dvel(1,3,k) ! du/dz - dw/dx
+      vort(3) = dvel(1,2,k) - dvel(2,1,k) ! dv/dx - du/dy
+      !
+      ! Compute the different kinetic energy dissipation rates (KEDR)
+      ! 
+      ! Theoretical KEDR based on the integrated enstrophy
+      kedr(1) = kedr(1) + wtdjac(k)*vsp(nec,k)*selfdot( vort )
+      ! Contribution to theoretical KEDR from the deviatoric strain rate tensor
+      kedr(2) = kedr(2) + wtdjac(k)*sum(strain*strain)
+      ! Contribution to theoretical KEDR from the pressure dialation term
+      kedr(3) = kedr(3) + wtdjac(k)*vsp(nee,k)*div_vel
+      ! Integrated kinetic energy (later, it will be differenced in time to get KEDR)
+      kedr(4) = kedr(4) + wtdjac(k)*vsp(nec,k)*selfdot( vsp(nmb:nme,k) )
+      !
+    end do
+    !
+  end do
+  !
+  ! Sum up the KEDR values across all the processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,kedr,size(kedr),mpi_flttyp, &
+                       mpi_sum,mpi_comm_world,mpierr)
+  end if
+  !
+  ! Finish computing the different KEDR
+  !
+  kedr = kedr / total_volume
+  !
+  ! Adjust the nondimensionalization for some of these values
+  !
+  ! two for square of velocity derivatives (from vorticity**2)
+  kedr(1) = kedr(1) / time_ref / time_ref
+  ! two for square of velocity derivatives (from strain**2)
+  kedr(2) = kedr(2) / time_ref / time_ref
+  ! two for pressure, one for velocity derivative
+  kedr(3) = kedr(3) / time_ref / time_ref / time_ref
+  ! two for velocity squared in kinetic energy term
+  kedr(4) = kedr(4) / time_ref / time_ref
+  !
+  ! Store these KEDR values and the size of the current
+  ! nondimensional time step in the TaylorGreen_sol array
+  !
+  ! KEDR based on the integrated enstrophy
+  TaylorGreen_sol(2,iter) = muref_star * kedr(1)
+  ! Compressible KEDR contribution from deviatoric strain rate tensor
+  TaylorGreen_sol(3,iter) = two * muref_star * kedr(2)
+  ! Compressible KEDR contribution from pressure dialation
+  TaylorGreen_sol(4,iter) = -kedr(3)
+  ! Integrated kinetic energy
+  TaylorGreen_sol(5,iter) = half * kedr(4)
+  ! Integrated enstrophy
+  TaylorGreen_sol(6,iter) = half * kedr(1)
+  ! Nondimensional time step
+  TaylorGreen_sol(7,iter) = dtmin * time_ref
+  !
+end subroutine TaylorGreen_integrated_quantities
+!
+!###############################################################################
+!
+subroutine TaylorGreen_finalize_KEDR(completed_timesteps)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar, only : TaylorGreen_DOF,time_ref
+  use flowvar, only : TaylorGreen_sol
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: completed_timesteps
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,nc,iotg,ierr,nke,ndt
+  real(wp) :: kem,kec,kep,dtm,dtp
+  real(wp) :: solution_time
+  character(len=300) :: error_message
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "TaylorGreen_finalize_KEDR"
+  character(len=*), parameter :: fname = "TaylorGreen_KEDR.dat"
+  !
+continue
+  !
+  n = completed_timesteps
+  nc = nint( real(TaylorGreen_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  !
+  nke = 5
+  ndt = 7
+  !
+  do i = 2,n-1
+    !
+    kem = TaylorGreen_sol(nke,i-1)
+    kec = TaylorGreen_sol(nke,i)
+    kep = TaylorGreen_sol(nke,i+1)
+    !
+    dtm = TaylorGreen_sol(ndt,i)
+    dtp = TaylorGreen_sol(ndt,i+1)
+    !
+    TaylorGreen_sol(1,i) =  ( (dtm/dtp)*(kep-kec) + (dtp/dtm)*(kec-kem) ) / (dtm+dtp)
+    !
+  end do
+  !
+  TaylorGreen_sol(1,1) = (TaylorGreen_sol(nke,2) - TaylorGreen_sol(nke,1)) / &
+                          TaylorGreen_sol(ndt,2)
+  TaylorGreen_sol(1,n) = (TaylorGreen_sol(nke,n) - TaylorGreen_sol(nke,n-1)) / &
+                          TaylorGreen_sol(ndt,n)
+  !
+  ! The KEDR found by differencing the integrated kinetic energy needs is
+  ! actually given as KEDR(Ek) = -d/dt (Ek) so we need to multiply
+  ! TaylorGreen_sol(1,:) by -1
+  !
+  TaylorGreen_sol(1,:) = -TaylorGreen_sol(1,:)
+  !
+  ! Have the root processor output the Taylor-Green KEDR solutions
+  !
+  if (mypnum == 0) then
+    !
+    open (newunit=iotg,file=fname,status="replace",action="write", &
+          iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,ierr,error_message)
+    !
+    write (iotg,1) n_order,TaylorGreen_DOF,nc*(n_order+1)
+    !
+    solution_time = zero
+    do i = 1,n
+      solution_time = solution_time + TaylorGreen_sol(ndt,i)
+      write (iotg,2) solution_time, &
+                     (TaylorGreen_sol(j,i), j=1,size(TaylorGreen_sol,dim=1))
+    end do
+    !
+    ! Close the Taylor-Green KEDR solution file
+    !
+    close (iotg,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,ierr,error_message)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "t*"',/, &
+            '"<greek>e</greek>(E<sub>k</sub>)"',/, &
+            '"<greek>e</greek>(<greek>z<greek>)"',/, &
+            '"<greek>e</greek><sub>1</sub> (Deviatoric Strain Rate)"',/, &
+            '"<greek>e</greek><sub>3</sub> (Pressure Dialation)"',/, &
+            '"E<sub>k</sub>"',/, &
+            '"<greek>z</greek>"',/, &
+            '"<greek>D</greek>t*"',/, &
+            'ZONE T="Taylor-Green Vortex KEDR"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA RDOF="',i0,'<sup>3</sup>"',/, &
+            'AUXDATA DOF="',i0,'<sup>3</sup>"')
+  2 format (*(es17.9))
+  !
+end subroutine TaylorGreen_finalize_KEDR
 !
 !###############################################################################
 !

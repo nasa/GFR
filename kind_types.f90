@@ -383,8 +383,8 @@ module module_kind_types
   !
   ! MPI Scalars 
   !
-  integer(int_mpi), protected, save :: mypnum
-  integer(int_mpi), protected, save :: ncpu
+  integer(int_mpi), protected, save :: mypnum = 0_int_mpi
+  integer(int_mpi), protected, save :: ncpu = 1_int_mpi
   integer(int_mpi),            save :: mpierr
   !
   integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )

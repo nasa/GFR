@@ -280,6 +280,10 @@ continue
       !
       pf = bface(5,nf) ! index of connecting periodic boundary face
       !
+      ! We just want to copy the gradients from face pf to face nf which is
+      ! exactly what the subroutine get_bc_flowthrough_gradient does, so
+      ! just use that instead of making a completely separate subroutine.
+      !
       call get_bc_flowthrough_gradient(facedusp(pf)%v(:,:,:,1), &
                                        facedusp(nf)%v(:,:,:,2))
       !

@@ -212,6 +212,15 @@ continue
     !
   end do geom_loop
   !
+  call vand%modal2nodal%check_for_sparsity
+  call vand%nodal2modal%check_for_sparsity
+ !do this_geom = gmin,gmax
+ !  do this_order = omin,omax
+ !    call vand(this_geom,this_order)%modal2nodal%check_for_sparsity
+ !    call vand(this_geom,this_order)%nodal2modal%check_for_sparsity
+ !  end do
+ !end do
+  !
   1 format ("vand(",a,",",i0,")%",a)
   2 format (" A grid cell of an unknown geometry type was found!")
   !

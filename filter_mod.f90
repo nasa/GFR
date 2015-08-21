@@ -143,6 +143,10 @@ continue
     !
   end do geom_loop
   !
+  ! Check for sparsity
+  !
+  call filter%check_for_sparsity
+  !
   ! Format Statements
   !
   1 format ("filter(",a,",",i0,")%mat")

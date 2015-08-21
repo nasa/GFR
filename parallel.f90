@@ -7,6 +7,7 @@ module parallel_mod
   implicit none
   !
   private
+  include "metis.fh"
   !
   !.. Public Module Procedures ..
   !
@@ -25,7 +26,7 @@ module parallel_mod
   !          nodes_of_cell, nodes_of_cell_ptr, etc. to a single subroutine
   !       2. subroutine makes a copy of the global information necessary for
   !          output within the module
-  !       3. Subroutine uses MeTiS to partition the grid
+  !       3. Subroutine uses METIS to partition the grid
   !       4. Each processor then creates local versions of the arrays input
   !          to the subroutine which is then output from the subroutine
   !       5. Datatypes are needed to perform a parallel reduction of data 
@@ -270,16 +271,12 @@ end subroutine create_serial_cell_map
 !
 !###############################################################################
 !
-subroutine partition_grid(npart,metis_option,bface,nodes_of_cell, &
+subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
                           nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
-  !
-  !.. Use Statements ..
-  use iso_c_binding, only : c_float
-  use iso_c_binding, only : c_double
   !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
-  integer,                                  intent(in) :: metis_option
+  integer,                                  intent(in) :: metis_option_requested
   integer,  allocatable, dimension(:),   intent(inout) :: cell_geom
   integer,  allocatable, dimension(:),   intent(inout) :: cell_order
   integer,  allocatable, dimension(:),   intent(inout) :: nodes_of_cell
@@ -288,23 +285,13 @@ subroutine partition_grid(npart,metis_option,bface,nodes_of_cell, &
   real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,ierr
-  integer :: wgtflag,numflag,vol
-  character(len=19) :: method
-  character(len=12) :: weight
-  character(len=20) :: minmzd
+  integer :: n,ierr
   character(len=200) :: array_name
   character(len=200) :: error_message
   !
-  !.. Local Arrays ..
-  integer,       dimension(1:5)     :: options
-  real(c_float), dimension(1:npart) :: tpwgts
-  !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: xadj
-  integer, allocatable, dimension(:) :: vwgt
   integer, allocatable, dimension(:) :: adjncy
-  integer, allocatable, dimension(:) :: adjwgt
   integer, allocatable, dimension(:) :: epart
   !
   !.. Local Parameters ..
@@ -337,11 +324,6 @@ continue
   call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
                          nodes_of_cell_ptr,bface,xadj,adjncy)
   !
-  ! Create the weights for the vertices of the dual graph
-  !
-  call create_grid_weights(metis_option,last(xadj)-1,vwgt,adjwgt, &
-                           cell_geom,cell_order)
-  !
   ! Allocate the epart array to store the cell partition numbers
   !
   allocate ( epart(1:ngcell) , source=0 , stat=ierr , errmsg=error_message )
@@ -350,121 +332,32 @@ continue
  !  call output_partitions(99,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes)
  !end if
   !
-  ! Define other MeTiS variables
+  ! Use METIS to partition the grid
   !
-  numflag = 1
-  options(:) = 0
-  vol = 0
+#ifdef METIS_4
   !
-  ! Determine whether weights are being used and set wgtflag accordingly
+  call partition_using_metis_4(metis_option_requested,npart, &
+                               ngcell,cell_geom,cell_order, &
+                               xadj,adjncy,epart)
   !
-  wgtflag = 0
-  if (minval(adjwgt) /= maxval(adjwgt)) wgtflag = 1
-  if (minval(  vwgt) /= maxval(  vwgt)) wgtflag = wgtflag + 2
+#elif METIS_5
   !
-  ! Partition the grid using one of the MeTiS routines
+  call partition_using_metis_5(metis_option_requested,npart, &
+                               ngcell,xadj,adjncy,epart)
   !
-  if (metis_option == 1) then
-    !
-    ! This MeTiS routine computes non-weighted partitions using a
-    ! multilevel recursive bisection while minimizing the edge cut.
-    !
-    method = "recursive bisection"
-    weight = "non-weighted"
-    minmzd = "      edge cut      "
-    !
-    call metis_partgraphrecursive(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
-                                  numflag,npart,options,vol,epart)
-    !
-  else if (metis_option == 2) then
-    !
-    ! This MeTiS routine computes non-weighted partitions using
-    ! a multilevel k-way partitioning algorithm while minimizing
-    ! the edge cut.
-    !
-    method = "k-way partitioning "
-    weight = "non-weighted"
-    minmzd = "      edge cut      "
-    !
-    call metis_partgraphkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
-                             numflag,npart,options,vol,epart)
-    !
-  else if (metis_option == 3) then
-    !
-    ! This MeTiS routine computes non-weighted partitions using a
-    ! a multilevel k-way partitioning algorithm while minimizing
-    ! the total communication volume.
-    !
-    minmzd = "communication volume"
-    weight = "non-weighted"
-    method = "k-way partitioning "
-    !
-    call metis_partgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
-                              numflag,npart,options,vol,epart)
-    !
-  else if (metis_option == 4) then
-    !
-    ! This MeTiS routine computes weighted partitions using a
-    ! multilevel k-way partitioning algorithm while minimizing
-    ! the total communication volume.
-    !
-    method = "k-way partitioning "
-    weight = "  weighted  "
-    minmzd = "communication volume"
-    !
-    ! Compute the prescribed partition weights
-    ! NOTE: The array tpwgts needs to be the Fortran real
-    !       kind that corresponds to the C float type
-    !
-    !##############################################################
-    !##############################################################
-    !
-    ! For now, set the partition weights equal and make sure they
-    ! sum to one. After looking at the MeTiS source code, this is
-    ! actually equivalent to just calling metis_partgraphvkway.
-    !
-    tpwgts(:) = real(one,c_float)/real(npart,c_float)
-    tpwgts(:) = tpwgts(:)/sum(tpwgts)
-    !
-    !##############################################################
-    !##############################################################
-    !
-    call metis_wpartgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
-                               numflag,npart,tpwgts,options,vol,epart)
-    !
-  end if
+#else
   !
-  ! Deallocate no longer needed MeTiS arrays
+  write (error_message,2)
+  call stop_recon(stop_mpi,pname,error_message)
+  !
+#endif
+  !
+  ! Deallocate no longer needed METIS arrays
   !
   deallocate ( xadj , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xadj",2,ierr,error_message)
   deallocate ( adjncy , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"adjncy",2,ierr,error_message)
-  deallocate ( vwgt , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vwgt",2,ierr,error_message)
-  deallocate ( adjwgt , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjwgt",2,ierr,error_message)
-  !
-  ! I dont trust that the MeTiS routines will compute identical
-  ! partitioning on each processor so have the root process check
-  ! its local partitioning for errors and then broadcast that
-  ! partitioning to the other processes if none are found.
-  !
-  if (mypnum == 0) then
-    !
-    ! Check that all processors got part of the global grid
-    !
-    do n = 1,npart
-      if (any(epart == n)) cycle
-      write (iout,100) n
-      call stop_recon(abort,pname)
-    end do
-    !
-    ! Output the results of partitioning
-    !
-    write (iout,101) method,npart,weight,minmzd,vol
-    !
-  end if
   !
   ! Distribute partitions across all processors
   !
@@ -477,6 +370,7 @@ continue
  !  call output_partitions(mypnum,nodes_of_cell,nodes_of_cell_ptr, &
  !                         xyz_nodes,epart)
  !end if
+ !call stop_recon(stop_mpi,pname,"outputing partitions")
   !
   ! Find the faces that separate two adjacent partitions
   ! and add these faces to boundary faces array
@@ -531,19 +425,473 @@ continue
   !
   ! Format Statements
   !
-  1   format("cell_map(",i0,")%glb_to_loc")
-  100 format(/,' Error: Processor ',i0,' was excluded from the          ',/, &
-               ' partitioning of the elements. More than likely too many',/, &
-               ' processors were used in the paritioning of this mesh.  ',/, &
-               ' Please decrease number of processors and try again.    ',/)
+  1 format("cell_map(",i0,")%glb_to_loc")
+  2 format(" It seems that the code was compiled without either of the METIS", &
+           " pre-processor options being defined. One of these options needs", &
+           " to be defined in order to partition the grid and allow the use", &
+           " of multiple processors.")
+  !
+end subroutine partition_grid
+!
+!###############################################################################
+!
+subroutine partition_using_metis_4(metis_option_requested,npart, &
+                                   ngcell,cell_geom,cell_order, &
+                                   xadj,adjncy,epart)
+  !
+  !.. Use Statements ..
+  use iso_c_binding, only : c_float
+  use iso_c_binding, only : c_double
+  !
+  !.. Formal Arguments ..
+  integer,                  intent(in) :: metis_option_requested
+  integer,                  intent(in) :: npart
+  integer,                  intent(in) :: ngcell
+  integer, dimension(:),    intent(in) :: cell_geom
+  integer, dimension(:),    intent(in) :: cell_order
+  integer, dimension(:),    intent(in) :: xadj
+  integer, dimension(:),    intent(in) :: adjncy
+  integer, dimension(:), intent(inout) :: epart
+  !
+  !.. Local Scalars ..
+  integer :: n,ip,ierr
+  integer :: wgtflag,numflag,vol
+  integer :: metis_option
+  logical :: passes_inspection
+  character(len=19) :: method
+  character(len=12) :: weight
+  character(len=20) :: minmzd
+  character(len=200) :: error_message
+  !
+  !.. Local Arrays ..
+  integer,       dimension(1:5)     :: metis_option_hierarchy
+  integer,       dimension(1:5)     :: options
+  real(c_float), dimension(1:npart) :: tpwgts
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable, dimension(:) :: vwgt
+  integer, allocatable, dimension(:) :: adjwgt
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "partition_using_metis_4"
+  !
+continue
+#ifdef METIS_4
+  !
+  ! Create the priority list for METIS options to try
+  !
+  metis_option_hierarchy = [metis_option_requested,3,2,1,4]
+  !
+  ! Allocate the weighting arrays
+  !
+  allocate ( vwgt(1:ngcell) , source=0 , stat=ierr )
+  call alloc_error(pname,"vwgt",1,ierr)
+  !
+  allocate ( adjwgt(1:last(xadj)-1) , source=0 , stat=ierr )
+  call alloc_error(pname,"adjwgt",1,ierr)
+  !
+  ! One-pass loop to allow for easy error handling if none of the
+  ! partitioning methods produce a quality grid partitioning
+  !
+  part_loop: do ip = 1,1
+    !
+    do n = 1,size(metis_option_hierarchy)
+      !
+      ! Get the METIS option to try based on the priority list
+      !
+      metis_option = metis_option_hierarchy(n)
+      !
+      ! Create the weights for the vertices of the dual graph
+      !
+      call create_grid_weights(metis_option,vwgt,adjwgt, &
+                               cell_geom,cell_order)
+      !
+      ! Define other METIS variables
+      !
+      numflag = 1
+      options(:) = 0
+      vol = 0
+      !
+      ! Determine whether weights are being used and set wgtflag accordingly
+      !
+      wgtflag = 0
+      if (minval(adjwgt) /= maxval(adjwgt)) wgtflag = 1
+      if (minval(  vwgt) /= maxval(  vwgt)) wgtflag = wgtflag + 2
+      !
+      ! Partition the grid using one of the METIS routines
+      !
+      if (metis_option == 1) then
+        !
+        ! This METIS routine computes non-weighted partitions using a
+        ! multilevel recursive bisection while minimizing the edge cut.
+        !
+        method = "recursive bisection"
+        weight = "non-weighted"
+        minmzd = "      edge cut      "
+        !
+        call metis_partgraphrecursive(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+                                      numflag,npart,options,vol,epart)
+        !
+      else if (metis_option == 2) then
+        !
+        ! This METIS routine computes non-weighted partitions using
+        ! a multilevel k-way partitioning algorithm while minimizing
+        ! the edge cut.
+        !
+        method = "k-way partitioning "
+        weight = "non-weighted"
+        minmzd = "      edge cut      "
+        !
+        call metis_partgraphkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+                                 numflag,npart,options,vol,epart)
+        !
+      else if (metis_option == 3) then
+        !
+        ! This METIS routine computes non-weighted partitions using a
+        ! a multilevel k-way partitioning algorithm while minimizing
+        ! the total communication volume.
+        !
+        minmzd = "communication volume"
+        weight = "non-weighted"
+        method = "k-way partitioning "
+        !
+        call metis_partgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+                                  numflag,npart,options,vol,epart)
+        !
+      else if (metis_option == 4) then
+        !
+        ! This METIS routine computes weighted partitions using a
+        ! multilevel k-way partitioning algorithm while minimizing
+        ! the total communication volume.
+        !
+        method = "k-way partitioning "
+        weight = "  weighted  "
+        minmzd = "communication volume"
+        !
+        ! Compute the prescribed partition weights
+        ! NOTE: The array tpwgts needs to be the Fortran real
+        !       kind that corresponds to the C float type
+        !
+        !##############################################################
+        !##############################################################
+        !
+        ! For now, set the partition weights equal and make sure they
+        ! sum to one. After looking at the METIS source code, this is
+        ! actually equivalent to just calling metis_partgraphvkway.
+        !
+        tpwgts(:) = real(one,c_float)/real(npart,c_float)
+        tpwgts(:) = tpwgts(:)/sum(tpwgts)
+        !
+        !##############################################################
+        !##############################################################
+        !
+        call metis_wpartgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+                                   numflag,npart,tpwgts,options,vol,epart)
+        !
+      else
+        !
+        ! The METIS option requested is invalid!
+        !
+        write (error_message,103)
+        call stop_recon(stop_mpi,pname,error_message)
+        !
+      end if
+      !
+      ! I dont trust that the METIS routines will compute identical
+      ! partitioning on each processor so have the root process check
+      ! its local partitioning for errors and then broadcast that
+      ! partitioning to the other processes if none are found.
+      !
+      if (mypnum == 0) then
+        call check_quality_of_partitioning(npart,epart, &
+                                           passes_inspection)
+      end if
+      !
+      ! Broadcast the logical passes_inspection to all processors so
+      ! that they all will know whether to exit part_loop.
+      !
+      call mpi_bcast(passes_inspection,1,mpi_logical,0,mpi_comm_world,mpierr)
+      !
+      ! If the partitioning passes inspection, have the root processor
+      ! output the results of the partitioning and exit from part_loop.
+      !
+      if (passes_inspection) then
+        if (mypnum == 0) write (iout,101) method,npart,weight,minmzd,vol
+        exit part_loop
+      end if
+      !
+    end do
+    !
+    write (error_message,102)
+    call stop_recon(stop_mpi,pname,error_message)
+    !
+  end do part_loop
+  !
+  ! Deallocate the weight arrays before we leave
+  !
+  deallocate ( vwgt , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vwgt",2,ierr,error_message)
+  deallocate ( adjwgt , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjwgt",2,ierr,error_message)
+  !
+  ! Format statements
+  !
   101 format (/,'-------------------------------------------------------',//, &
-                '         Used MeTiS 4.0 to partition the graph         ',/, &
+                '         Used METIS 4.0 to partition the graph         ',/, &
                 '    using a multilevel ',a,' algorithm    ',/, &
                 '           into ',i0,' ',a,' partitions.          ',/, &
                 '     The minimized ',a,' was ',i0,'.    ',//, &
                 '-------------------------------------------------------',/)
+  102 format (" None of the partitioning methods available in METIS 4.0 were", &
+              " able to find a quality partitioning of the grid!")
+  103 format (" The METIS partitioning method requested in the input file is", &
+              " invalid!")
   !
-end subroutine partition_grid
+#endif
+end subroutine partition_using_metis_4
+!
+!###############################################################################
+!
+subroutine partition_using_metis_5(metis_option_requested,npart, &
+                                   ngcell,xadj,adjncy,epart)
+  !
+  !.. Use Statements ..
+  use iso_c_binding, only : c_float
+  use iso_c_binding, only : c_double
+  use iso_c_binding, only : c_null_ptr
+  !
+  !.. Formal Arguments ..
+  integer,                  intent(in) :: metis_option_requested
+  integer,                  intent(in) :: npart
+  integer,                  intent(in) :: ngcell
+  integer, dimension(:),    intent(in) :: xadj
+  integer, dimension(:),    intent(in) :: adjncy
+  integer, dimension(:), intent(inout) :: epart
+  !
+  !.. Local Scalars ..
+  integer :: n,ip,ierr
+  integer :: ncon,objval
+  integer :: metis_option
+  logical :: passes_inspection
+  character(len=19) :: method
+  character(len=12) :: weight
+  character(len=20) :: minmzd
+  character(len=200) :: error_message
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:5) :: metis_option_hierarchy
+  integer, dimension(0:METIS_NOPTIONS-1) :: options
+  !
+  !.. Local Allocatable Arrays ..
+  integer,       allocatable, dimension(:) :: vwgt
+  integer,       allocatable, dimension(:) :: vsize
+  integer,       allocatable, dimension(:) :: adjwgt
+  real(c_float), allocatable, dimension(:) :: tpwgts
+  real(c_float), allocatable, dimension(:) :: ubvec
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "partition_using_metis_5"
+  !
+continue
+#ifdef METIS_5
+  !
+  ! Set the default options for METIS
+  !
+  call METIS_SetDefaultOptions(options)
+  !
+  ! Customize some of these options
+  !
+  options(METIS_OPTION_NUMBERING) = 1 ! set numbering to Fortran style (begins at 1)
+  options(METIS_OPTION_CONTIG) = 1    ! force contiguous partitions
+  options(METIS_OPTION_MINCONN) = 1   ! explicitly minimize the maximum connectivity
+  !
+  ! Define other METIS variables
+  !
+  ncon = 1 ! number of weights associated with each vertex (>= 1)
+  !
+  ! Allocate the local arrays
+  !
+#ifdef DEBUG_ON
+  allocate ( vwgt(1:ncon*ngcell) , source=1 , stat=ierr )
+  call alloc_error(pname,"vwgt",1,ierr,error_message)
+  allocate ( vsize(1:ngcell) , source=1 , stat=ierr )
+  call alloc_error(pname,"vsize",1,ierr,error_message)
+  allocate ( adjwgt(1:size(adjncy)) , source=1 , stat=ierr )
+  call alloc_error(pname,"adjwgt",1,ierr,error_message)
+  allocate ( tpwgts(0:ncon*npart-1) , source=1.0_c_float/real(npart,c_float) , stat=ierr )
+  call alloc_error(pname,"tpwgts",1,ierr,error_message)
+  tpwgts = real( one/real(npart,kind=wp) , kind=kind(tpwgts) )
+  tpwgts = tpwgts / sum(tpwgts)
+  allocate ( ubvec(1:ncon) , source=1.01_c_float , stat=ierr )
+  call alloc_error(pname,"ubvec",1,ierr,error_message)
+  write (iout,*) mypnum,sum(tpwgts)
+#endif
+  !
+  ! Create the hierarchy of METIS algorithms to try
+  !
+  metis_option_hierarchy = [metis_option_requested,3,2,1,4]
+  !
+  ! One-pass loop to allow for easy error handling if none of the
+  ! partitioning methods produce a quality grid partitioning
+  !
+  part_loop: do ip = 1,1
+    !
+    do n = 1,size(metis_option_hierarchy)
+      !
+      ! Get the METIS option to try based on the priority list
+      !
+      metis_option = metis_option_hierarchy(n)
+      !
+      ! Partition the grid using one of the METIS routines
+      !
+      if (metis_option == 1) then
+        !
+        ! This METIS routine computes non-weighted partitions using a
+        ! multilevel recursive bisection while minimizing the edge cut.
+        !
+        method = "recursive bisection"
+        weight = "non-weighted"
+        minmzd = "      edge cut      "
+        !
+        call metis_partgraphrecursive(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+                                      adjwgt,npart,tpwgts,ubvec,options, &
+                                      objval,epart)
+        !
+      else if (metis_option == 2) then
+        !
+        ! This METIS routine computes non-weighted partitions using
+        ! a multilevel k-way partitioning algorithm while minimizing
+        ! the edge cut.
+        !
+        method = "k-way partitioning "
+        weight = "non-weighted"
+        minmzd = "      edge cut      "
+        !
+        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
+        !
+        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,npart,tpwgts,ubvec,options, &
+                                 objval,epart)
+        !
+      else if (metis_option == 3) then
+        !
+        ! This METIS routine computes non-weighted partitions using a
+        ! a multilevel k-way partitioning algorithm while minimizing
+        ! the total communication volume.
+        !
+        minmzd = "communication volume"
+        weight = "non-weighted"
+        method = "k-way partitioning "
+        !
+        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
+        !
+        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,npart,tpwgts,ubvec,options, &
+                                 objval,epart)
+        !
+      else if (metis_option == 4) then
+        !
+        ! This METIS routine computes weighted partitions using a
+        ! multilevel k-way partitioning algorithm while minimizing
+        ! the total communication volume.
+        !
+        method = "k-way partitioning "
+        weight = "  weighted  "
+        minmzd = "communication volume"
+        !
+        !##############################################################
+        !##############################################################
+        !
+        ! NEED TO SET SOMETHING UP TO COMPUTE PARTITION WEIGHTS.
+        ! FOR NOW, THE PARTITION WEIGHTS ARE EQUAL AND THIS IS
+        ! JUST EQUIVALENT TO (metis_option == 3).
+        !
+        !##############################################################
+        !##############################################################
+        !
+        options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
+        !
+        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,npart,tpwgts,ubvec,options, &
+                                 objval,epart)
+        !
+      else
+        !
+        ! The METIS option requested is invalid!
+        !
+        write (error_message,103)
+        call stop_recon(stop_mpi,pname,error_message)
+        !
+      end if
+      !
+      ! I dont trust that the METIS routines will compute identical
+      ! partitioning on each processor so have the root process check
+      ! its local partitioning for errors and then broadcast that
+      ! partitioning to the other processes if none are found.
+      !
+      if (mypnum == 0) then
+        call check_quality_of_partitioning(npart,epart, &
+                                           passes_inspection)
+      end if
+      !
+      ! Broadcast the logical passes_inspection to all processors so
+      ! that they all will know whether to exit part_loop.
+      !
+      call mpi_bcast(passes_inspection,1,mpi_logical,0,mpi_comm_world,mpierr)
+      !
+      ! If the partitioning passes inspection, have the root processor
+      ! output the results of the partitioning and exit from part_loop.
+      !
+      if (passes_inspection) then
+        if (mypnum == 0) write (iout,101) method,npart,weight,minmzd,objval
+        exit part_loop
+      end if
+      !
+    end do
+    !
+    write (error_message,102)
+    call stop_recon(stop_mpi,pname,error_message)
+    !
+  end do part_loop
+  !
+  ! Deallocate all the local arrays before leaving
+  !
+  if (allocated(vwgt)) then
+    deallocate ( vwgt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vwgt",2,ierr,error_message)
+  end if
+  if (allocated(vsize)) then
+    deallocate ( vsize , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vsize",2,ierr,error_message)
+  end if
+  if (allocated(adjwgt)) then
+    deallocate ( adjwgt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"adjwgt",2,ierr,error_message)
+  end if
+  if (allocated(tpwgts)) then
+    deallocate ( tpwgts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tpwgts",2,ierr,error_message)
+  end if
+  if (allocated(ubvec)) then
+    deallocate ( ubvec , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ubvec",2,ierr,error_message)
+  end if
+  !
+  ! Format statements
+  !
+  101 format (/,'-------------------------------------------------------',//, &
+                '         Used METIS 5.1 to partition the graph         ',/, &
+                '    using a multilevel ',a,' algorithm    ',/, &
+                '           into ',i0,' ',a,' partitions.          ',/, &
+                '     The minimized ',a,' was ',i0,'.    ',//, &
+                '-------------------------------------------------------',/)
+  102 format (" None of the partitioning methods available in METIS 5.1 were", &
+              " able to find a quality partitioning of the grid!")
+  103 format (" The METIS partitioning method requested in the input file is", &
+              " invalid!")
+  !
+#endif
+end subroutine partition_using_metis_5
 !
 !###############################################################################
 !
@@ -781,12 +1129,12 @@ continue
   ! that correspond to boundary faces. In the loop "find_cell" above,
   ! if the sum(lpoin(nodes_of_cell(j1:j2))) term never equals 2 then
   ! this loop exits with ieadj still equal to 0. We cannot send adjncy
-  ! containing zeros to the MeTiS routines so these need to be removed
+  ! containing zeros to the METIS routines so these need to be removed
   ! and the locations in xadj also have to be adjusted accordingly.
   ! Additionally, have xadj to start the indexing for adjncy at 1,
   ! i.e., xadj(1)=1 (cells_surr_cell_ptr indexing for cells_surr_cell
   ! begins at 0, i.e. cells_surr_cell_ptr(1)=0) since this is what
-  ! MeTiS expects when using Fortran array ordering.
+  ! METIS expects when using Fortran array ordering.
   !
  !do n = 1,ngcell
  !  n1 = cells_surr_cell_ptr(n)+1
@@ -1201,30 +1549,24 @@ end subroutine create_dual_graph
 !
 !###############################################################################
 !
-subroutine create_grid_weights(metis_option,nadjfac,vwgt,adjwgt, &
-                               cell_geom,cell_order)
+subroutine create_grid_weights(metis_option,vwgt,adjwgt,cell_geom,cell_order)
   !
   !.. Formal Arguments ..
-  integer,                               intent(in) :: nadjfac
-  integer,                               intent(in) :: metis_option
-  integer,              dimension(:),    intent(in) :: cell_geom
-  integer,              dimension(:),    intent(in) :: cell_order
-  integer, allocatable, dimension(:), intent(inout) :: vwgt
-  integer, allocatable, dimension(:), intent(inout) :: adjwgt
-  !
-  !.. Local Scalars ..
-  integer :: n,n1,n2,np,ierr
+  integer,                  intent(in) :: metis_option
+  integer, dimension(:),    intent(in) :: cell_geom
+  integer, dimension(:),    intent(in) :: cell_order
+  integer, dimension(:), intent(inout) :: vwgt
+  integer, dimension(:), intent(inout) :: adjwgt
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_grid_weights"
   !
 continue
   !
-  ! Allocate and initialize vwgt
+  ! Initialize vwgt
   ! NOTE: vwgt gives the computational weight of each cell
   !
-  allocate ( vwgt(1:ngcell) , source=0 , stat=ierr )
-  call alloc_error(pname,"vwgt",1,ierr)
+  vwgt = 0
   !
   !############################################################
   !############################################################
@@ -1233,7 +1575,7 @@ continue
   !############################################################
   !############################################################
   !
-  ! Allocate and initialize adjwgt
+  ! Initialize adjwgt
   !
   if ( any(metis_option == (/1,2/)) ) then
     !
@@ -1242,8 +1584,7 @@ continue
     !###############################################################
     !###############################################################
     ! Not sure if we need any weighting on the faces so set to zero
-    allocate ( adjwgt(1:nadjfac) , source=0 , stat=ierr )
-    call alloc_error(pname,"adjwgt",1,ierr)
+    adjwgt = 0
     !###############################################################
     !###############################################################
     !
@@ -1251,9 +1592,6 @@ continue
     !
     ! If minimizing the communication volume, adjwgt gives the communication
     ! weight of the cells (i.e., how much data has to be sent to/from this cell)
-    !
-    allocate ( adjwgt(1:ngcell) , source=0 , stat=ierr )
-    call alloc_error(pname,"adjwgt",1,ierr)
     !
     ! Set the communication weight of the cells to
     ! the number of solution points for each cell
@@ -1263,6 +1601,51 @@ continue
   end if
   !
 end subroutine create_grid_weights
+!
+!###############################################################################
+!
+subroutine check_quality_of_partitioning(npart,epart, &
+                                         passes_inspection)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: npart
+  integer, dimension(:), intent(in) :: epart
+  logical, intent(out) :: passes_inspection
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_quality_of_partitioning"
+  !
+continue
+  !
+  passes_inspection = true
+  !
+  ! Check that all processors got part of the global grid
+  !
+  do n = 1,npart
+    if (any(epart == n)) cycle
+    write (iout,100) n
+   !call stop_recon(abort,pname)
+  end do
+  !
+  !############################################################################
+  !############################################################################
+  !############################################################################
+  !#####   NEED TO ADD CODE TO CHECK THAT ALL PARTITIONS ARE CONTIGUOUS   #####
+  !############################################################################
+  !############################################################################
+  !############################################################################
+  !
+  ! Format statements
+  !
+  100 format(/,' Error: Processor ',i0,' was excluded from the          ',/, &
+               ' partitioning of the elements. More than likely too many',/, &
+               ' processors were used in the paritioning of this mesh.  ',/, &
+               ' Please decrease number of processors and try again.    ',/)
+  !
+end subroutine check_quality_of_partitioning
 !
 !###############################################################################
 !
@@ -3462,17 +3845,18 @@ end subroutine collect_global_variable
 subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   !
   !.. Formal Arguments ..
-  integer,                           intent(in) :: id
-  integer,   dimension(:),           intent(in) :: nodes_of_cell
-  integer,   dimension(:),           intent(in) :: nodes_of_cell_ptr
+  integer,                          intent(in) :: id
+  integer,  dimension(:),           intent(in) :: nodes_of_cell
+  integer,  dimension(:),           intent(in) :: nodes_of_cell_ptr
   real(wp), dimension(:,:),         intent(in) :: xyz_nodes
-  integer,   dimension(:), optional, intent(in) :: epart
+  integer,  dimension(:), optional, intent(in) :: epart
   !
   !.. Local Scalars ..
   integer :: i,n,n1,n2,ierr,np,nc,ndim
   character(len=100) :: fname
   character(len=20)  :: zonetype
   character(len=50)  :: variables
+  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:,:) :: ipelem
@@ -3488,7 +3872,6 @@ continue
   ndim = size(xyz_nodes,dim=1)
   !
   zonetype = "FEQUADRILATERAL"
-  !
   variables = 'VARIABLES = "X", "Y"'
   !
   if (ndim == 3) then
@@ -3496,12 +3879,11 @@ continue
     zonetype = "FEBRICK"
   end if
   !
-  if (present(epart)) variables = trim(adjustl(variables)) // ', "Partition"'
-  !
   if (present(epart)) then
     fname = "partitions.tec"
     np = ngnode
     nc = ngcell
+    variables = trim(adjustl(variables)) // ', "Partition"'
   else
     write (fname,'("partitions.",i0,".tec")') id
     np = size(xyz_nodes,dim=2)
@@ -3509,24 +3891,90 @@ continue
   end if
   fname = adjustl(fname)
   !
- !if (ndim == 3) then
- !  allocate ( ipelem(1:8,1:nc) , source=0 , stat=ierr )
- !  call alloc_error(pname,"ipelem",1,ierr)
- !else
- !  allocate ( ipelem(1:4,1:nc) , source=0 , stat=ierr )
- !  call alloc_error(pname,"ipelem",1,ierr)
- !end if
+  if (ndim == 3) then
+    !
+    allocate ( ipelem(1:8,1:nc) , source=0 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",1,ierr,error_message)
+    !
+    do n = 1,nc
+      !
+      n1 = nodes_of_cell_ptr(n)+1
+      n2 = nodes_of_cell_ptr(n+1)
+      !
+      if (n2-n1+1 == 4) then
+        !
+        ipelem(1,n) = nodes_of_cell(n1+0)
+        ipelem(2,n) = nodes_of_cell(n1+1)
+        ipelem(3,n) = nodes_of_cell(n1+2)
+        ipelem(4,n) = nodes_of_cell(n1+2)
+        ipelem(5,n) = nodes_of_cell(n1+3)
+        ipelem(6,n) = nodes_of_cell(n1+3)
+        ipelem(7,n) = nodes_of_cell(n1+3)
+        ipelem(8,n) = nodes_of_cell(n1+3)
+        !
+      else if (n2-n1+1 == 5) then
+        !
+        ipelem(1,n) = nodes_of_cell(n1+0)
+        ipelem(2,n) = nodes_of_cell(n1+1)
+        ipelem(3,n) = nodes_of_cell(n1+2)
+        ipelem(4,n) = nodes_of_cell(n1+3)
+        ipelem(5,n) = nodes_of_cell(n1+4)
+        ipelem(6,n) = nodes_of_cell(n1+4)
+        ipelem(7,n) = nodes_of_cell(n1+4)
+        ipelem(8,n) = nodes_of_cell(n1+4)
+        !
+      else if (n2-n1+1 == 6) then
+        !
+        ipelem(1,n) = nodes_of_cell(n1+0)
+        ipelem(2,n) = nodes_of_cell(n1+1)
+        ipelem(3,n) = nodes_of_cell(n1+2)
+        ipelem(4,n) = nodes_of_cell(n1+2)
+        ipelem(5,n) = nodes_of_cell(n1+3)
+        ipelem(6,n) = nodes_of_cell(n1+4)
+        ipelem(7,n) = nodes_of_cell(n1+5)
+        ipelem(8,n) = nodes_of_cell(n1+5)
+        !
+      else if (n2-n1+1 == 8) then
+        !
+        ipelem(1,n) = nodes_of_cell(n1+0)
+        ipelem(2,n) = nodes_of_cell(n1+1)
+        ipelem(3,n) = nodes_of_cell(n1+2)
+        ipelem(4,n) = nodes_of_cell(n1+3)
+        ipelem(5,n) = nodes_of_cell(n1+4)
+        ipelem(6,n) = nodes_of_cell(n1+5)
+        ipelem(7,n) = nodes_of_cell(n1+6)
+        ipelem(8,n) = nodes_of_cell(n1+7)
+        !
+      end if
+      !
+    end do
+    !
+  else
+    !
+    allocate ( ipelem(1:4,1:nc) , source=0 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",1,ierr,error_message)
+    !
+    do n = 1,nc
+      !
+      n1 = nodes_of_cell_ptr(n)+1
+      n2 = nodes_of_cell_ptr(n+1)
+      !
+      ipelem(1,n) = nodes_of_cell(n1  )
+      ipelem(2,n) = nodes_of_cell(n1+1)
+      ipelem(3,n) = nodes_of_cell(n1+2)
+      ipelem(4,n) = nodes_of_cell(n2  )
+      !
+    end do
+    !
+  end if 
   !
   open (iot,file=trim(fname),status="replace",action="write",iostat=ierr)
   call io_error(pname,trim(fname),1,ierr)
   !
   ! Tecplot header with grid size parameters
   !
-  if (present(epart)) then
-    write (iot,1) np,nc
-  else
-    write (iot,5) np,nc
-  end if
+  write (iot,6) trim(adjustl(variables)),np,nc,trim(adjustl(zonetype))
+  if (present(epart)) write (iot,7) ndim + 1
   !
   ! Node coordinates
   !
@@ -3541,17 +3989,16 @@ continue
   ! Cell Connectivity
   !
   do n = 1,nc
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    if (n2-n1+1 == 3) then
-      write (iot,14) (nodes_of_cell(i),i=n1,n2),nodes_of_cell(n2)
-    else
-      write (iot,14) (nodes_of_cell(i),i=n1,n2)
-    end if
+    write (iot,13) (ipelem(i,n), i=1,size(ipelem,dim=1))
   end do
   !
   close (iot,iostat=ierr)
   call io_error(pname,trim(fname),2,ierr)
+  !
+  if (allocated(ipelem)) then
+    deallocate ( ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",2,ierr,error_message)
+  end if
   !
  !1 format (a,/,)
  !2 format ('VARIABLES = "X", "Y", "Partition"')
@@ -3564,6 +4011,9 @@ continue
             'ZONE T="Partitioned Grid", N=',i0,', E=',i0, &
             ', DATAPACKING=BLOCK, ZONETYPE=FEQUADRILATERAL',/, &
             'VARLOCATION = ([3]=CellCentered)')
+  6 format (a,/,'ZONE T="Partitioned Grid", N=',i0,', E=',i0, &
+            ', DATAPACKING=BLOCK, ZONETYPE=',a:,/,a)
+  7 format ("VARLOCATION = ([",i0,"]=CellCentered)")
   12 format (6(1x,es15.8))
   13 format (8(4x,i0))
   14 format (4(3x,i0))

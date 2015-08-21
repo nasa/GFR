@@ -58,6 +58,7 @@ module io_mod
   character(len=170), public, save :: fname_nodal = "solution.nodal.cgns"
   character(len=170), public, save :: fname_modal = "solution.modal.cgns"
   character(len=170), public, save :: error_file = "error.dat"
+  character(len=170),         save :: cgns_dir = ""
   !
   !.. CGNS Path Variables ..
   integer, save :: ifile_n
@@ -157,7 +158,7 @@ subroutine read_nml_input_file
   use input_namelist_mod ! use all the variables in the input namelist
   !
   use ovar,   only : Total_Periods
-  use ovar,   only : velref,aref,uref,Lref
+  use ovar,   only : velref,aref,uref,Lref,time_ref
   use ovar,   only : Period_Timesteps,Period_Time
   use ovar,   only : Grid_Length
   use ovar,   only : LDG_beta,LDG_tau
@@ -207,11 +208,15 @@ continue
   output_dir = trim(adjustl(output_dir))
   call check_output_dir
   !
+  ! Check for the CGNS output directory
+  !
+  call check_cgns_dir
+  !
   ! Append the name of the solution and error files to output_dir
   !
-  fname_nodal = trim(output_dir)//trim(adjustl(fname_nodal))
-  fname_modal = trim(output_dir)//trim(adjustl(fname_modal))
-  error_file = trim(output_dir)//trim(adjustl(error_file))
+  fname_nodal = trim(adjustl(cgns_dir)) // trim(adjustl(fname_nodal))
+  fname_modal = trim(adjustl(cgns_dir)) // trim(adjustl(fname_modal))
+  error_file = trim(output_dir) // trim(adjustl(error_file))
   !
   ! Adjust the name of the grid file
   !
@@ -406,8 +411,20 @@ continue
     cfl_end = one
     cfl_cycles = 1
     !
+    ! Set the variable time_ref to adjust our nondimension time to match
+    ! the nondimensional time used for the Taylor-Green Vortex problem
+    !
+    time_ref = machref
+    !
     if (Final_Time > zero) then
-      Final_Time = Final_Time * (Lref/uref)
+      !
+      ! Need to adjust the nondimensional final time which uses uref as the
+      ! velocity for nondimensionalization and we use aref within the code
+      !
+      Final_Time = Final_Time / time_ref
+      !
+      num_ts = nint( Final_Time / dt_in )
+      !
     end if
     !
     ! Make sure the timestep type is global (positive)
@@ -538,7 +555,7 @@ end subroutine read_nml_input_file
 !
 subroutine check_output_dir
   !
-  integer :: clen,ierr,iodir
+  integer :: clen,ierr,iodir,ii
   character(len=200) :: test_file
   character(len=200) :: test_dir
   !
@@ -555,103 +572,125 @@ continue
   test_file = " "
   test_dir = " "
   !
- !write (iout,*)
- !write (iout,*) "Checking output directory"
- !write (iout,*)
+  ! Only perform the following tests using the root processor
+  ! to minimize contention and prevent each MPI process from
+  ! executing the same command.
   !
-  ! Check for a directory "/" at the end of the input output_dir
+  root_proc_only: if (mypnum == 0) then
+    !
+    one_pass: do ii = 1,1
+      !
+      ! Check for a directory "/" at the end of the input output_dir
+      !
+      clen = len_trim(output_dir)
+      if (output_dir(clen:clen) /= "/") then
+        output_dir = trim(output_dir)//"/"
+      end if
+      !
+      ! Try to open a file in the given directory
+      !
+      test_file = trim(output_dir)//"output_dir.test_file.dat"
+      !
+      open (newunit=iodir,file=trim(test_file),status="replace", &
+                          action="write",iostat=ierr)
+      !
+      ! If the open was successful, close and delete the test file and return
+      !
+      if (ierr == 0) then
+        close (iodir,status="delete",iostat=ierr)
+        exit one_pass
+      end if
+      !
+      ! Reset test_file
+      !
+      test_file = " "
+      !
+      ! Try to append nobackup to the beginning of output_dir
+      ! and try a test file in that directory
+      !
+      if (output_dir(1:len(nobackup)) /= nobackup) then
+        !
+        if (output_dir(1:1) /= "/") then
+          test_dir = nobackup//"/"//trim(output_dir)
+        else
+          test_dir = nobackup//trim(output_dir)
+        end if
+        !
+        ! Try to open a file in the new output_dir
+        !
+        test_file = trim(test_dir)//"output_dir.test_file.dat"
+        !
+        open (newunit=iodir,file=trim(test_file),status="replace", &
+                            action="write",iostat=ierr)
+        !
+        ! If the open was successfull, close and delete the test file,
+        ! set output_dir to test_dir, and exit the one pass loop
+        !
+        if (ierr == 0) then
+          close (iodir,status="delete",iostat=ierr)
+          output_dir = trim(test_dir)
+          exit one_pass
+        end if
+        !
+      end if
+      !
+      ! Reset test_file and test_dir
+      !
+      test_file = " "
+      test_dir = " "
+      !
+      ! Finally, try to append homedir to the beginning of output_dir
+      ! and try a test file in that directory
+      !
+      if (output_dir(1:len(homedir)) /= homedir) then
+        !
+        if (output_dir(1:1) /= "/") then
+          test_dir = homedir//"/"//trim(output_dir)
+        else
+          test_dir = homedir//trim(output_dir)
+        end if
+        !
+        ! Try to open a file in the new output_dir
+        !
+        test_file = trim(test_dir)//"output_dir.test_file.dat"
+        !
+        open (newunit=iodir,file=trim(test_file),status="replace", &
+                            action="write",iostat=ierr)
+        !
+        ! If the open was successfull, close and delete the test file,
+        ! set output_dir to test_dir, and exit the one pass loop
+        !
+        if (ierr == 0) then
+          close (iodir,status="delete",iostat=ierr)
+          output_dir = trim(test_dir)
+          exit one_pass
+        end if
+        !
+      end if
+      !
+      ! If we made it here, we cant seem to find the output directory that
+      ! was given in the input file so preprend "BAD_DIR" to output_dir
+      !
+      output_dir = "BAD_DIR" // trim(output_dir)
+      !
+    end do one_pass
+    !
+  end if root_proc_only
+  !
+  ! Broadcast the value of output_dir to all the non-root MPI processes
   !
   clen = len_trim(output_dir)
-  if (output_dir(clen:clen) /= "/") then
-    output_dir = trim(output_dir)//"/"
+  call mpi_bcast(clen,1,mpi_inttyp,0,mpi_comm_world,mpierr)
+  call mpi_bcast(output_dir(1:clen),clen,MPI_CHARACTER,0,mpi_comm_world,mpierr)
+  !
+  ! If output_dir starts with "BAD_DIR", we cant seem to find the
+  ! output directory that was given in the input file so exit
+  !
+  if (output_dir(1:7) == "BAD_DIR") then
+    output_dir = output_dir(8:clen)
+    if (mypnum == 0) write (iout,1) trim(output_dir)
+    call stop_recon(stop_mpi,pname)
   end if
-  !
-  ! Try to open a file in the given directory
-  !
-  test_file = trim(output_dir)//"output_dir.test_file.dat"
-  !
-  open (newunit=iodir,file=trim(test_file),status="replace", &
-                      action="write",iostat=ierr)
-  !
-  ! If the open was successful, close and delete the test file and return
-  !
-  if (ierr == 0) then
-    close (iodir,status="delete",iostat=ierr)
-    return
-  end if
-  !
-  ! Reset test_file
-  !
-  test_file = " "
-  !
-  ! Try to append nobackup to the beginning of output_dir
-  ! and try a test file in that directory
-  !
-  if (output_dir(1:len(nobackup)) /= nobackup) then
-    !
-    if (output_dir(1:1) /= "/") then
-      test_dir = nobackup//"/"//trim(output_dir)
-    else
-      test_dir = nobackup//trim(output_dir)
-    end if
-    !
-    ! Try to open a file in the new output_dir
-    !
-    test_file = trim(test_dir)//"output_dir.test_file.dat"
-    !
-    open (newunit=iodir,file=trim(test_file),status="replace", &
-                        action="write",iostat=ierr)
-    !
-    ! If the open was successfull, close and delete the test file,
-    ! set output_dir to test_dir, and return
-    !
-    if (ierr == 0) then
-      close (iodir,status="delete",iostat=ierr)
-      output_dir = trim(test_dir)
-      return
-    end if
-    !
-  end if
-  !
-  ! Reset test_file and test_dir
-  !
-  test_file = " "
-  test_dir = " "
-  !
-  ! Finally, try to append homedir to the beginning of output_dir
-  ! and try a test file in that directory
-  !
-  if (output_dir(1:len(homedir)) /= homedir) then
-    !
-    if (output_dir(1:1) /= "/") then
-      test_dir = homedir//"/"//trim(output_dir)
-    else
-      test_dir = homedir//trim(output_dir)
-    end if
-    !
-    ! Try to open a file in the new output_dir
-    !
-    test_file = trim(test_dir)//"output_dir.test_file.dat"
-    !
-    open (newunit=iodir,file=trim(test_file),status="replace", &
-                        action="write",iostat=ierr)
-    !
-    ! If the open was successfull, close and delete the test file,
-    ! set output_dir to test_dir, and return
-    !
-    if (ierr == 0) then
-      close (iodir,status="delete",iostat=ierr)
-      output_dir = trim(test_dir)
-      return
-    end if
-    !
-  end if
-  !
-  ! If we have made it here, we cant seem to find the output directory
-  ! that was given in the input file so exit
-  !
-  write (iout,1) trim(output_dir)
-  call stop_recon(stop_mpi,pname)
   !
   1 format (/,"******************** ERROR! *********************",/, &
               "     CANT SEEM TO FIND THE OUTPUT DIRECTORY",/, &
@@ -662,6 +701,102 @@ continue
               "******************** ERROR! *********************",/)
   !
 end subroutine check_output_dir
+!
+!###############################################################################
+!
+subroutine check_cgns_dir
+  !
+  integer :: clen,ierr,iodir
+  integer :: exitstat,cmndstat
+  logical :: using_cgns_dir
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
+  character(len=200) :: test_file
+  character(len=200) :: test_dir
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_cgns_dir"
+  !
+  logical, parameter :: wait_for_completion = true
+  !
+continue
+  !
+  ! Try to open a file in the directory named CGNS_files
+  !
+  test_dir = trim(output_dir) // "CGNS_files/"
+  test_file = trim(test_dir) // "cgns_dir.test_file.dat"
+  !
+  ! Only perform the following tests using the root processor
+  ! to minimize contention and prevent each MPI process from
+  ! executing the same command.
+  !
+  if (mypnum == 0) then
+    !
+    open (newunit=iodir,file=trim(test_file),status="replace", &
+                        action="write",iostat=ierr)
+    !
+    if (ierr == 0) then
+      !
+      ! The open was successful, so close and delete the test file
+      !
+      close (iodir,status="delete",iostat=ierr)
+      !
+      ! Set the logical saying that we are using a separate CGNS directory
+      !
+      using_cgns_dir = true
+      cgns_dir = trim(test_dir)
+      !
+    else
+      !
+      ! The open failed, so more than likely the directory CGNS_files
+      ! doesnt exist. Try to use the intrinsic execute_command_line
+      ! to create the directory.
+      !
+      command = "mkdir -p "//trim(test_dir)
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      if (exitstat /= 0 .or. cmndstat /= 0) then
+        using_cgns_dir = fals
+        cgns_dir = trim(output_dir)
+      else
+        using_cgns_dir = true
+        cgns_dir = trim(test_dir)
+      end if
+      !
+    end if
+    !
+#ifdef PBS_ENV
+    !
+    ! If we are using a separate CGNS directory and we are running
+    ! this through PBS on NAS, try to modify the lfs striping for
+    ! the CGNS directory for better I/O performance.
+    !
+    if (using_cgns_dir) then
+      !
+      command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      ! We arent going to test the status of executing this command because
+      ! it worked or it didnt. Either way, we will continue on and output
+      ! the CGNS solution to the CGNS directory.
+      !
+    end if
+    !
+#endif
+    !
+  end if
+  !
+  ! Broadcast the value of cgns_dir to all the non-root MPI processes
+  !
+  clen = len_trim(cgns_dir)
+  call mpi_bcast(clen,1,mpi_inttyp,0,mpi_comm_world,mpierr)
+  call mpi_bcast(cgns_dir(1:clen),clen,MPI_CHARACTER,0,mpi_comm_world,mpierr)
+  !
+end subroutine check_cgns_dir
 !
 !###############################################################################
 !
@@ -2629,7 +2764,7 @@ subroutine write_nodal_parallel_cgns(iflag)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts,xyz
-  use ovar,    only : time,aref,uref,rhoref
+  use ovar,    only : time,aref,uref,rhoref,time_ref
   use ovar,    only : itestcase,cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
   use flowvar, only : usp,dusp
@@ -2654,25 +2789,30 @@ subroutine write_nodal_parallel_cgns(iflag)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_nodal_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_sname(1:6) = ["Density  ", &
+  character(len=*), parameter :: char_sname(1:4) = ["Density  ", &
                                                     "Velocity ", &
                                                     "Pressure ", &
-                                                    "Mach     ", &
-                                                    "Entropy  ", &
                                                     "Vorticity" ]
+ !character(len=*), parameter :: char_sname(1:6) = ["Density  ", &
+ !                                                  "Velocity ", &
+ !                                                  "Pressure ", &
+ !                                                  "Mach     ", &
+ !                                                  "Entropy  ", &
+ !                                                  "Vorticity" ]
   !
   !.. Local Arrays ..
   integer, dimension(1:2) :: idata
   integer, dimension(1:3) :: idim1
   integer, dimension(1:nr) :: ixyz_n
   integer, dimension(1:(nme-nec)*nr) :: idvar_n
-  integer, dimension(1:size(char_sname)+nr-1) :: isvar_n
+  integer, dimension(1:size(char_sname)+2*(nr-1)) :: isvar_n
   !
   !.. Local Allocatable Arrays ..
-  integer,  allocatable, dimension(:,:) :: ipelem
-  real(wp), allocatable, dimension(:)   :: vartmp
-  real(r4), allocatable, dimension(:)   :: var
-  real(wp), allocatable, dimension(:,:) :: interp_usp
+  integer,  allocatable, dimension(:,:)   :: ipelem
+  real(wp), allocatable, dimension(:)     :: vartmp
+  real(r4), allocatable, dimension(:)     :: var
+  real(wp), allocatable, dimension(:,:)   :: interp_usp
+  real(wp), allocatable, dimension(:,:,:) :: interp_dusp
   !
 continue
   !
@@ -2833,6 +2973,10 @@ continue
     allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , stat=ierr )
     call alloc_error(pname,"interp_usp",1,ierr)
   end if
+  if (.not. allocated(interp_dusp)) then
+    allocate ( interp_dusp(1:nr,1:nq,1:n_solpts) , source=zero , stat=ierr )
+    call alloc_error(pname,"interp_dusp",1,ierr)
+  end if
   !
   ! Get the name for the current solution node
   !
@@ -2843,7 +2987,7 @@ continue
   !
   call reallocate(soltime,cgnsnodalzone_counter+1)
   call reallocate(solname,cgnsnodalzone_counter+1)
-  soltime(size(soltime)) = real(time,kind(soltime))
+  soltime(size(soltime)) = real(time*time_ref,kind(soltime))
   solname(size(solname)) = tname
   !
   ! Write the flow variables
@@ -2944,6 +3088,15 @@ continue
           call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
         end do
+      else if (trim(char_sname(l)) == "Vorticity") then
+        do m = 1,nr
+          n = n + 1
+          varname = "Vorticity"//char_xyz(m)
+          call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
+                                 trim(varname),isvar_n(n),ierr)
+          call cgns_error(pname,fname_nodal,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end do
       else
         n = n + 1
         call cgp_field_write_f(ifile_n,ibase_n,izone_n,isol_n,cgns_kind_real, &
@@ -2958,8 +3111,13 @@ continue
     if (interpolate_before_output_variable) then
       interp_usp(1:nq,1:n_solpts) = &
                            interpolate_for_output( usp(1:nq,1:n_solpts) )
+      do l = 1,nq
+        interp_dusp(1:nr,l,1:n_solpts) = &
+                           interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
+      end do
     else
       interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+      interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
     end if
     !
     ! Now create the output data and write it to the CGNS file in parallel
@@ -2994,10 +3152,14 @@ continue
           vartmp = entropy_cv( interp_usp )
           call cgns_write_field_parallel
         case ("Vorticity") ! Vorticity
-          n = n + 1
          !vartmp = entropy_cv( interp_usp )
-          vartmp = vorticity_cv( interp_usp )
-          call cgns_write_field_parallel
+         !vartmp = vorticity_cv( interp_usp )
+          do m = 1,nr
+            n = n + 1
+            vartmp = vorticity_dusp( interp_dusp , m )
+            vartmp = vartmp / time_ref
+            call cgns_write_field_parallel
+          end do
         case default
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
@@ -3030,6 +3192,10 @@ continue
   if (allocated(interp_usp)) then
     deallocate ( interp_usp , stat=ierr )
     call alloc_error(pname,"interp_usp",2,ierr)
+  end if
+  if (allocated(interp_dusp)) then
+    deallocate ( interp_dusp , stat=ierr )
+    call alloc_error(pname,"interp_dusp",2,ierr)
   end if
   !
   ! If last iteration or a solution dump was requested, close CGNS file
@@ -3786,6 +3952,33 @@ continue
   end do
   !
 end function vorticity_pv
+!
+!###############################################################################
+!
+pure function vorticity_dusp(dusp,dir) result(return_value)
+  !
+  integer,                    intent(in) :: dir
+  real(wp), dimension(:,:,:), intent(in) :: dusp
+  !
+  real(wp), dimension(1:size(dusp,dim=3)) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k
+  !
+  !.. Local Parameters ..
+  integer, parameter, dimension(3) :: idx = [2,3,1]
+  integer, parameter, dimension(3) :: jdx = [3,1,2]
+  !
+continue
+  !
+  i = idx(dir)
+  j = jdx(dir)
+  !
+  do k = 1,size(dusp,dim=3)
+    return_value(k) = dusp(i,nmb-1+j,k) - dusp(j,nmb-1+i,k)
+  end do
+  !
+end function vorticity_dusp
 !
 !###############################################################################
 !

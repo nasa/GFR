@@ -7,6 +7,7 @@ module flowvar
   use module_kind_types, only : TVD4_RK
   use module_kind_types, only : alloc_error
   use module_kind_types, only : bc_cpu_bnd
+  use module_kind_types, only : Taylor_Green_Vortex
   !
   implicit none
   !
@@ -241,8 +242,13 @@ continue
   ! store the temporal evolution of various integrated quantities relating
   ! to the kinetic energy and its dissipation rate
   !
-  allocate ( TaylorGreen_sol(1:5,1:num_ts) , source=zero , stat=ierr )
-  call alloc_error(pname,"TaylorGreen_sol",1,ierr)
+  if (itestcase == Taylor_Green_Vortex) then
+    !
+    allocate ( TaylorGreen_sol(1:7,1:num_ts) , source=zero , &
+               stat=ierr ,errmsg=error_message )
+    call alloc_error(pname,"TaylorGreen_sol",1,ierr,error_message)
+    !
+  end if
   !
   ! Format Statements
   !

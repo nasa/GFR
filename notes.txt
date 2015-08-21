@@ -9,6 +9,8 @@
 ################################################################################
 ################################################################################
 
+* Look for ways to fix the discontinuity artifacts in the CGNS solution file
+
 * Fix output from write_final_error for 3D. It currently has some hard-wired
   formatting with the assumption that the simulation is in 2D.
 
@@ -37,6 +39,8 @@
   properly from a restart file.
 
 * The subroutine find_bc_conflicts needs to be extended to 3D.
+
+* The subroutine get_point_timestep needs to be extended to 3D.
 
 ################################################################################
 ################################################################################
@@ -98,6 +102,20 @@
 ################################################################################
 ################################################################################
 
+* Use the cell array from the very beginning. The arrays pts_in_cell_ptr,
+  pts_in_cell, cell_geom, and cell_order are created and used to read in
+  all the grid information from the grid file. These arrays need to be
+  replaced throughout as follows:
+   - Replace cell_geom(nc) with cell(nc)%geom.
+   - Replace cell_order(nc) with cell(nc)%order.
+   - Replace pts_in_cell_ptr(nc)+1 with cell(nc)%beg_sp.
+   - Replace pts_in_cell_ptr(nc+1) with cell(nc)%end_sp.
+
+* Look into accuracy of differencing method used to compute the kinetic energy
+  dissipation rate over time using the value of the integrated kinetic energy
+  at each time step (i.e., computing TaylorGreen_sol(1,:) in the subroutine
+  TaylorGreen_finalize_KEDR). 
+
 * Need to allow the error quadrature points to possibly be of higher order than
   the solution points.
    - The outerp(:,:)%error matrices are currently hard-wired with the assumption
@@ -125,11 +143,6 @@
     - Need to finish creating GetFaceNodes_for_TriaFace
        - Could this be combined with GetFaceNodes_for_QuadFace?
     - Need to create RotateFluxPoint_Tria
-
-* Replace cell_geom(nc) with cell(nc)%geom.
-* Replace cell_order(nc) with cell(nc)%order.
-* Replace pts_in_cell_ptr(nc)+1 with cell(nc)%beg_sp.
-* Replace pts_in_cell_ptr(nc+1) with cell(nc)%end_sp.
 
 * Timestepping procedures need to be fine tuned with the new datatypes.
 
