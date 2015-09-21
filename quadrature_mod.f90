@@ -1186,8 +1186,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -1195,100 +1194,105 @@ continue
   !
   if (allocated(std_elem)) then
     !
-    dt%siz = size(std_elem)
-    dt%mem = dt%siz*storage_size(std_elem)
+    call dt%set( storage_size(std_elem,kind=inttype) , &
+                         size(std_elem,kind=inttype) )
     !
     do j = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
       do i = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
         !
         if (allocated(std_elem(i,j)%pts)) then
           !
-          array%siz = size(std_elem(i,j)%pts)
-          array%mem = array%siz*storage_size(std_elem(i,j)%pts)
+          call array%set( storage_size(std_elem(i,j)%pts,kind=inttype) , &
+                                  size(std_elem(i,j)%pts,kind=inttype) )
           !
           write (array_name,4) "std_elem",Geom_Name(i),j,"pts"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
         if (allocated(std_elem(i,j)%wts)) then
           !
-          array%siz = size(std_elem(i,j)%wts)
-          array%mem = array%siz*storage_size(std_elem(i,j)%wts)
+          call array%set( storage_size(std_elem(i,j)%wts,kind=inttype) , &
+                                  size(std_elem(i,j)%wts,kind=inttype) )
           !
           write (array_name,4) "std_elem",Geom_Name(i),j,"wts"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "std_elem"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "std_elem"
     !
   end if
   !
   if (allocated(face_elem)) then
     !
-    dt%siz = size(face_elem)
-    dt%mem = dt%siz*storage_size(face_elem)
+    call dt%set( storage_size(face_elem,kind=inttype) , &
+                         size(face_elem,kind=inttype) )
     !
     do j = lbound(face_elem,dim=2),ubound(face_elem,dim=2)
       do i = lbound(face_elem,dim=1),ubound(face_elem,dim=1)
         !
         if (allocated(face_elem(i,j)%pts)) then
           !
-          array%siz = size(face_elem(i,j)%pts)
-          array%mem = array%siz*storage_size(face_elem(i,j)%pts)
+          call array%set( storage_size(face_elem(i,j)%pts,kind=inttype) , &
+                                  size(face_elem(i,j)%pts,kind=inttype) )
           !
           write (array_name,4) "face_elem",Geom_Name(i),j,"pts"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
         if (allocated(face_elem(i,j)%wts)) then
           !
-          array%siz = size(face_elem(i,j)%wts)
-          array%mem = array%siz*storage_size(face_elem(i,j)%wts)
+          call array%set( storage_size(face_elem(i,j)%wts,kind=inttype) , &
+                                  size(face_elem(i,j)%wts,kind=inttype) )
           !
           write (array_name,4) "face_elem",Geom_Name(i),j,"wts"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "face_elem"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "face_elem"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module quadrature_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format (a,"(",a,",",i0,")%",a)
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine quadrature_memory_usage
 !
