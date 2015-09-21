@@ -1,282 +1,119 @@
-#
-#
-OBJDIR = objects/$(BUILDDIR)
-MODDIR = modules/$(BUILDDIR)
-FUNDIR = Functions
+
+include system_variables.mk
+
+OBJDIR := objects/$(BUILDDIR)
+MODDIR := modules/$(BUILDDIR)
+FUNDIR := Functions
 
 vpath %.o $(OBJDIR)
 vpath %.f90 ./
 vpath %.mod $(MODDIR)
 
-#FC = mpif90
-#FC = mpif08
- FC = mpiifort
-MOD = -module $(MODDIR)
-FSFXFLG = .f90
+MOD := -module $(MODDIR)
+FSFXFLG := .f90
 
-# PBS Time
-PBSTIME = -lpbs_time_left
+HDF5LIB := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl
 
-# HDF5 Library
-HDF5 = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl -lm -lsz
+O2OPT := -O2 -ip
+O3OPT := -O3 -ipo
 
-# CGNS 3.2 Library
-CGNS32 = -lcgns $(HDF5)
-# CGNS 3.1 Library
-CGNS31 = -lcgns -lpcgns $(HDF5)
-# CGNS 2.5 Library
-CGNS25 = -lcgns2
-
-####################################
-####################################
-###   NAS SPECIFIC DEFINITIONS   ###
-####################################
-####################################
-
-### HOMEDIR = /u/sspiegel
-
-### LOCALLIB = -L/nasa/szip/2.1/lib
-### OTHERLIB = $(PBSTIME)
-
-### OPTIM = -O3 -ipo -axAVX -xSSE4.2 #-ipo-jobs4
-
-###  FPP = -fpp
-###  FPP += -DPBS_ENV 
-
-####################################
-####################################
-###   LAB SPECIFIC DEFINITIONS   ###
-####################################
-####################################
-
-HOMEDIR = /home/sspiegel
-#HOMEDIR = /home/spiegel
-
-LOCALLIB =
-OTHERLIB =
-
- OPTIM = -O2 -ip -xSSE4.2
-#OPTIM += -v
+OPTIM := $(AUTOTARGETCPU) $(TARGETCPU) -debug inline-debug-info $(ALIGN)
+#OPTIM += -trace
 #OPTIM += -watch
-#OPTIM += -align array16byte
- IPO_OPT = -O3 -ipo -xSSE4.2
- IPO_OPT += -debug inline-debug-info
-#IPO_OPT += -ipo-jobs4
 
- FPP = -fpp
-#FPP += -DPBS_ENV 
+EXEDIR := $(HOME)/bin
 
-#############################
-#############################
-###   METIS DEFINITIONS   ###
-#############################
-#############################
+ifneq "$(MKLLIB)" ""
+  MKLFLAG := -mkl
+  MKLFPP := -DUSE_INTEL_MKL
+  MKLINC := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
+endif
 
-###  METIS 4  ###
-#METISLIB = -lmetis
-#FPP += -DMETIS_4
-###  METIS 5  ###
- METISLIB = -lmetis5
- FPP += -DMETIS_5
+FPP := -fpp $(METISFPP) $(PBSFPP) -DUSE_MATRIX_PROCEDURES $(MKLFPP) $(OTHERFPP)
 
-###########################
-###########################
-###   MKL DEFINITIONS   ###
-###########################
-###########################
+INCDIR := $(sort $(CGNSDIR) $(METISDIR))
+LIBDIR := $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
 
-# MKL options
-#FPP += -DUSE_INTEL_MKL
-#FCFLAG += -mkl
-#FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
- 
-###-I$(MKLROOT)/include/lp64 -L/$(MKLROOT)/lib/intel64
-###FCFLAG += -lmkl_blas95_lp64
-###FCFLAG += -lmkl_intel_lp64
-###FCFLAG += -lmkl_sequential
-###FCFLAG += -lmkl_intel_thread
-###FCFLAG += -lmkl_core
+FINC := $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
+FLIB := $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
+FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-###BLASLIB  = -lmkl_blas95_lp64
-###MKLLIB += -lmkl_intel_lp64
-###MKLLIB += -lmkl_sequential
-###MKLLIB += -lmkl_intel_thread
-###MKLLIB += -lmkl_core
-###OPENMP = -openmp
-###FLIB += -mkl $(BLASLIB) -Wl,--start-group $(MKLLIB) -Wl,--end-group  $(OPENMP) -lpthread
+FCBASE := -ftrapuv -traceback -g
 
-##############################
-##############################
-###   COMMON DEFINITIONS   ###
-##############################
-##############################
+ADDFLAGS := $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
 
- CGNSLIB = $(CGNS32)
-#CGNSLIB = $(CGNS31)
-#CGNSLIB = $(CGNS25)
+DEBUGFLAGS := -check all -debug -fp-stack-check
 
-EXEDIR = $(HOMEDIR)/bin
-LIBDIR = $(HOMEDIR)/lib
-INCDIR = $(HOMEDIR)/include
+OBJS := $(OBJDIR)/kind_types.o \
+        $(OBJDIR)/Euler_tri.o \
+        $(OBJDIR)/order_mod.o \
+        $(OBJDIR)/quadrature_mod.o \
+        $(OBJDIR)/geovar_mod.o \
+        $(OBJDIR)/flowvar_mod.o \
+        $(OBJDIR)/ovar_mod.o \
+        $(OBJDIR)/gmsh_mod.o \
+        $(OBJDIR)/plot3d_mod.o \
+        $(OBJDIR)/io.o \
+        $(OBJDIR)/metrics.o \
+        $(OBJDIR)/poly.o \
+        $(OBJDIR)/initialize.o \
+        $(OBJDIR)/generic.o \
+        $(OBJDIR)/bc_mod.o \
+        $(OBJDIR)/bnd_profiles_mod.o \
+        $(OBJDIR)/triangle.o \
+        $(OBJDIR)/flux.o \
+        $(OBJDIR)/filter_mod.o \
+        $(OBJDIR)/time_mod.o \
+        $(OBJDIR)/typesgen_mod.o \
+        $(OBJDIR)/eqn_idx_mod.o \
+        $(OBJDIR)/correction_mod.o \
+        $(OBJDIR)/derivatives_mod.o \
+        $(OBJDIR)/interpolation_mod.o \
+        $(OBJDIR)/projection_mod.o \
+        $(OBJDIR)/vandermonde_mod.o \
+        $(OBJDIR)/parallel.o \
+        $(OBJDIR)/mappings.o \
+        $(OBJDIR)/connectivity.o \
+        $(OBJDIR)/limiters.o \
+        $(OBJDIR)/mms_mod.o \
+        $(OBJDIR)/restart_mod.o
 
-INCLUDE = -I$(INCDIR) -I/usr/local/include
-LIBRARY = -L$(LIBDIR) -L/usr/local/lib $(LOCALLIB)
-#LIBRARY += -L$(ADVISOR_XE_2013_DIR)/lib64 -ladvisor -ldl
-#INCLUDE += -I$(ADVISOR_XE_2013_DIR)/include/intel64
 
-FLIB = $(LIBRARY) $(METISLIB) $(CGNSLIB) $(OTHERLIB)
+O2-ip-opt: FCFLAG := $(FCBASE) $(O2OPT) $(OPTIM) $(ADDFLAGS)
+O2-ip-opt: all
 
-# Various compiler flag options
 
-FCBASE = -ftrapuv -traceback -g #-warn stderrors
-#FCBASE += -i8
+O3-ipo-opt: FCFLAG := $(FCBASE) $(O3OPT) $(OPTIM) $(ADDFLAGS)
+O3-ipo-opt: all
 
-TUNE  = -prof-gen $(OPTIM)
-RETUNE = -prof-use $(OPTIM) $(IPOPT)
-#
-F08STD = -std08
-F03STD = -std03
-F95STD = -std95
-F90STD = -std90
-#
-FCFLAG = $(FCBASE)
-#FCFLAG += -multiple-processes=4
-FCFLAG += $(FPP)
-#FCFLAG += $(F08STD)
-FCFLAG += $(MOD) $(INCLUDE)
-#FCFLAG += -shared-intel
-#FCFLAG += -parallel
-FCFLAG += $(FCADD)
-#
 
-#FCFLAG += -multiple-processes=6
-#
-
-#
-OBJS = $(OBJDIR)/kind_types.o \
-       $(OBJDIR)/Euler_tri.o \
-       $(OBJDIR)/order_mod.o \
-       $(OBJDIR)/quadrature_mod.o \
-       $(OBJDIR)/geovar_mod.o \
-       $(OBJDIR)/flowvar_mod.o \
-       $(OBJDIR)/ovar_mod.o \
-       $(OBJDIR)/gmsh_mod.o \
-       $(OBJDIR)/plot3d_mod.o \
-       $(OBJDIR)/io.o \
-       $(OBJDIR)/metrics.o \
-       $(OBJDIR)/poly.o \
-       $(OBJDIR)/initialize.o \
-       $(OBJDIR)/generic.o \
-       $(OBJDIR)/bc_mod.o \
-       $(OBJDIR)/bnd_profiles_mod.o \
-       $(OBJDIR)/triangle.o \
-       $(OBJDIR)/flux.o \
-       $(OBJDIR)/filter_mod.o \
-       $(OBJDIR)/time_mod.o \
-       $(OBJDIR)/typesgen_mod.o \
-       $(OBJDIR)/eqn_idx_mod.o \
-       $(OBJDIR)/correction_mod.o \
-       $(OBJDIR)/derivatives_mod.o \
-       $(OBJDIR)/interpolation_mod.o \
-       $(OBJDIR)/projection_mod.o \
-       $(OBJDIR)/vandermonde_mod.o \
-       $(OBJDIR)/parallel.o \
-       $(OBJDIR)/mappings.o \
-       $(OBJDIR)/connectivity.o \
-       $(OBJDIR)/limiters.o \
-       $(OBJDIR)/mms_mod.o \
-       $(OBJDIR)/restart_mod.o
-#
-optimize: FCFLAG += $(OPTIM) $(ADDFLAGS)
-optimize: all
-#
-ipo-opt: FCFLAG += $(IPO_OPT)
-ipo-opt: all
-#
-debug: FCFLAG += -check all -debug -fp-stack-check -DDEBUG_ON
+debug: FPP += -DDEBUG_ON
+debug: FCFLAG := $(FCBASE) $(DEBUGFLAGS) $(ADDFLAGS)
 debug: all
-#
-optprofile: FCFLAG += -p -debug inline-debug-info
-optprofile: optimize
-#
-debprofile: FCFLAG += -p -fno-inline-functions
-debprofile: debug
-#
-profile: FCFLAG += -p -fno-inline-functions
-profile: all
-#
-vtune: FCFLAG += -debug inline-debug-info
-vtune: optimize
-#
-precise: FCFLAG += -fp-model precise -prec-sqrt -prec-div -assume protect_parens,minus0
-precise: optimize
-#
-deplist: FCFLAG += -gen-dep=deplist.txt
+
+
+deplist: FCBASE += -gen-dep=deplist.txt
 deplist: debug
 
-guide: FCFLAG += -parallel -guide=4 -guide-file=$*.guide.txt
-guide: optimize
 
-opt-report: FCFLAG += -opt-report=3 -opt-report-file=$*.opt-report.txt
-opt-report: optimize
-
-mkl: FPP += -DUSE_INTEL_MKL
-mkl: FCFLAG += -mkl
-mkl: FLIB += $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a -Wl,--start-group $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_intel_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -openmp -lpthread -lm
-mkl: optimize
-
-#
 all: $(OBJS)
-	$(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
+	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
-#
+
+
 %.o:%$(FSFXFLG)
-	@echo $(FC) $(FCFLAG) -c -o $@ $< | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
-	$(FC) $(FCFLAG) -c -o $@ $<
-#
+	@echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
+	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
+
+
 $(OBJS):
-	@echo $(FC) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
-	$(FC) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG)
-#
-basic: $(OBJS)
-	@echo $(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*[^ ]*';\
-	$(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-base: $(OBJS)
-	$(FC) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-retune: $(OBJS)
-	$(FC) $(FCFLAG) $(RETUNE) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-tune: $(OBJS)
-	$(FC) $(FCFLAG) $(TUNE) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-##prof: $(OBJS)
-##	$(FC) $(FCFLAG) $(PROFILE) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-##optimize: $(OBJS)
-##	$(FC) $(FCFLAG) $(OPTIMIZE) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-##precise: $(OBJS)
-##	$(FC) $(FCPREC) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-f08: $(OBJS)
-	$(FC) $(F08STD) $(MOD) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-f03: $(OBJS)
-	$(FC) $(F03STD) $(MOD) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-f95: $(OBJS)
-	$(FC) $(F95STD) $(MOD) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-f90: $(OBJS)
-	$(FC) $(F90STD) $(MOD) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-#
-test_poly: test_poly.f90 kind_types.f90 poly.f90
-	$(FC) -check all -debug -g -traceback $(MOD) $(INCLUDE) -o test test_poly.f90
-#
+	@echo $(FC) $(FPP) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
+	$(FC) $(FPP) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG)
+
+
 .PHONY: clean
 clean:
 	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
-#
+
+
 include dep.mk
