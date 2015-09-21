@@ -15,13 +15,72 @@ ARCH = $(shell uname -m)
 .PHONY: optimize   rebuild-optimize  clean-optimize
 .PHONY: O2-ip-opt  rebuild-O2-ip-opt
 .PHONY: O3-ipo-opt rebuild-O3-ipo-opt
+.PHONY: variables-ivybridge
 
 all: debug optimize
+all-nodes: haswell ivybridge sandybridge westmere
 rebuild: rebuild-debug rebuild-optimize
-clean: clean-debug clean-optimize
+##clean-debug clean-optimize
 
 optimize: O3-ipo-opt
 rebuild-optimize: rebuild-O3-ipo-opt
+
+
+
+
+#debug: BDIR := debug
+#debug: EXEF := debug_recon
+#debug: TRGT := debug
+#debug: build
+
+#rebuild-debug: BDIR := debug
+#rebuild-debug: EXEF := debug_recon
+#rebuild-debug: TRGT := debug
+#rebuild-debug: build
+
+haswell: BDIR := optimize_haswell
+haswell: EXEF := recon_haswell
+haswell: TRGT := haswell
+haswell: build
+
+ivybridge: BDIR := optimize_ivybridge
+ivybridge: EXEF := recon_ivybridge
+ivybridge: TRGT := ivybridge
+ivybridge: build
+
+sandybridge: BDIR := optimize_sandybridge
+sandybridge: EXEF := recon_sandybridge
+sandybridge: TRGT := sandybridge
+sandybridge: build
+
+westmere: BDIR := optimize_westmere
+westmere: EXEF := recon_westmere
+westmere: TRGT := westmere
+westmere: build
+
+rebuild-haswell: BDIR := optimize_haswell
+rebuild-haswell: EXEF := recon_haswell
+rebuild-haswell: TRGT := haswell
+rebuild-haswell: clean
+rebuild-haswell: build
+
+rebuild-ivybridge: BDIR := optimize_ivybridge
+rebuild-ivybridge: EXEF := recon_ivybridge
+rebuild-ivybridge: TRGT := ivybridge
+rebuild-ivybridge: clean
+rebuild-ivybridge: build
+
+rebuild-sandybridge: BDIR := optimize_sandybridge
+rebuild-sandybridge: EXEF := recon_sandybridge
+rebuild-sandybridge: TRGT := sandybridge
+rebuild-sandybridge: clean
+rebuild-sandybridge: build
+
+rebuild-westmere: BDIR := optimize_westmere
+rebuild-westmere: EXEF := recon_westmere
+rebuild-westmere: TRGT := westmere
+rebuild-westmere: clean
+rebuild-westmere: build
 
 .PHONY: std08
 std08: FCADD += -std08
@@ -52,6 +111,13 @@ warn-std90: std90
 #FCADD += -DTRACK_MEMORY_ALLOCATIONS
 #FCADD += -DMEMORY_TEST_PAUSE
 
+build:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=$(EXEF)" \
+	                             "BUILDDIR=$(BDIR)" \
+				     "FCADD=$(FCADD)" \
+				     $(TRGT)
+	@echo "-----------------------------------------------------"
+
 debug:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" \
 	                             "BUILDDIR=debug" \
@@ -72,6 +138,12 @@ O3-ipo-opt:
 				     "FCADD=$(FCADD)" \
 				     O3-ipo-opt
 	@echo "-----------------------------------------------------"
+
+ivy_bridge: ivybridge
+ivy-bridge: ivybridge
+
+sandy_bridge: sandybridge
+sandy-bridge: sandybridge
 
 rebuild-debug:
 	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
@@ -115,4 +187,6 @@ clean-debug:
 clean-optimize:
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
 
+clean:
+	make -f slv.mk "EXECUTABLE=$(EXEF)" "BUILDDIR=$(BDIR)" clean
 

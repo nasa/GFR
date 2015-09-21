@@ -1,48 +1,49 @@
 
 include system_variables.mk
 
-OBJDIR := objects/$(BUILDDIR)
-MODDIR := modules/$(BUILDDIR)
-FUNDIR := Functions
+OBJDIR = objects/$(BUILDDIR)
+MODDIR = modules/$(BUILDDIR)
+FUNDIR = Functions
 
 vpath %.o $(OBJDIR)
 vpath %.f90 ./
 vpath %.mod $(MODDIR)
 
-MOD := -module $(MODDIR)
-FSFXFLG := .f90
+MOD = -module $(MODDIR)
+FSFXFLG = .f90
 
-HDF5LIB := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -lz -ldl
+HDF5LIB = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl
 
-O2OPT := -O2 -ip
-O3OPT := -O3 -ipo
+O2OPT = -O2 -ip
+O3OPT = -O3 -ipo
 
-OPTIM := $(AUTOTARGETCPU) $(TARGETCPU) -debug inline-debug-info $(ALIGN)
-#OPTIM += -trace
-#OPTIM += -watch
+TARGET = $(AUTOTARGETCPU) $(TARGETCPU)
+ADDOPT = -debug inline-debug-info $(ALIGN)
+#ADDOPT += -trace
+#ADDOPT += -watch
 
 EXEDIR := $(HOME)/bin
 
 ifneq "$(MKLLIB)" ""
-  MKLFLAG := -mkl
-  MKLFPP := -DUSE_INTEL_MKL
-  MKLINC := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
+  MKLFLAG = -mkl
+  MKLFPP = -DUSE_INTEL_MKL
+  MKLINC = -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
 endif
 
-FPP := -fpp $(METISFPP) $(PBSFPP) -DUSE_MATRIX_PROCEDURES $(MKLFPP) $(OTHERFPP)
+FPP = -fpp $(METISFPP) $(PBSFPP) -DUSE_MATRIX_PROCEDURES $(MKLFPP) $(OTHERFPP)
 
-INCDIR := $(sort $(CGNSDIR) $(METISDIR))
-LIBDIR := $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
+INCDIR = $(sort $(CGNSDIR) $(METISDIR))
+LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
 
-FINC := $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
-FLIB := $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
+FINC = $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
+FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-FCBASE := -ftrapuv -traceback -g
+FCBASE = -ftrapuv -traceback -g
 
-ADDFLAGS := $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
+ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
 
-DEBUGFLAGS := -check all -debug -fp-stack-check
+DEBUGFLAGS = -check all -debug -fp-stack-check
 
 OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/Euler_tri.o \
@@ -78,24 +79,46 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/mms_mod.o \
         $(OBJDIR)/restart_mod.o
 
+.PHONY: O2-ip-opt
+O2-ip-opt: OPTIM = $(O2OPT) $(TARGET) $(ADDOPT)
+O2-ip-opt: optimize
 
-O2-ip-opt: FCFLAG := $(FCBASE) $(O2OPT) $(OPTIM) $(ADDFLAGS)
-O2-ip-opt: all
+.PHONY: O3-ipo-opt
+O3-ipo-opt: OPTIM = $(O3OPT) $(TARGET) $(ADDOPT)
+O3-ipo-opt: optimize
 
+.PHONY: haswell
+haswell: OPTIM = $(O3OPT) -xCORE-AVX2 $(ADDOPT)
+haswell: optimize
 
-O3-ipo-opt: FCFLAG := $(FCBASE) $(O3OPT) $(OPTIM) $(ADDFLAGS)
-O3-ipo-opt: all
+.PHONY: ivybridge
+ivybridge: OPTIM = $(O3OPT) -xCORE-AVX-I $(ADDOPT)
+ivybridge: optimize
 
+.PHONY: sandybridge
+sandybridge: OPTIM = $(O3OPT) -xAVX $(ADDOPT)
+sandybridge: optimize
 
+.PHONY: westmere
+westmere: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
+westmere: optimize
+
+.PHONY: optimize
+optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)
+optimize: all
+
+.PHONY: debug
 debug: FPP += -DDEBUG_ON
-debug: FCFLAG := $(FCBASE) $(DEBUGFLAGS) $(ADDFLAGS)
+debug: FCFLAG = $(FCBASE) $(DEBUGFLAGS) $(ADDFLAGS)
 debug: all
 
 
+.PHONY: deplist
 deplist: FCBASE += -gen-dep=deplist.txt
 deplist: debug
 
 
+.PHONY: all
 all: $(OBJS)
 	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
@@ -115,5 +138,17 @@ $(OBJS):
 clean:
 	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
 
+.PHONY: dump-variables
+dump-variables:
+	@echo "FC = $(FC)"
+	@echo "FPP = $(FPP)"
+	@echo "FCBASE = $(FCBASE)"
+	@echo "O3OPT = $(O3OPT)"
+	@echo "ADDOPT = $(ADDOPT)"
+	@echo "ADDFLAGS = $(ADDFLAGS)"
+	@echo "FCFLAG = $(FCFLAG)"
+	@echo "OBJDIR = $(OBJDIR)"
+	@echo "MODDIR = $(MODDIR)"
+	@echo "EXECUTABLE = $(EXECUTABLE)"
 
 include dep.mk
