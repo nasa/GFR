@@ -7,7 +7,7 @@ function random_i4(a) result(return_value)
     random_is_initialized = true
   end if
   call random_number(rnum)
-  b = real( huge(a) , kind=sp )
+  b = real( sign( max(abs(a),10) , a ) , kind=sp )
   return_value = nint( b * rnum )
 end function random_i4
 function random_sp(a) result(return_value)
