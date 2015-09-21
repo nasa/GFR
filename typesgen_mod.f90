@@ -29,6 +29,7 @@ module generic_types_mod
   contains
     !
     procedure :: check_for_sparsity
+    procedure :: memory_usage
     !
   end type matrix
   !
@@ -66,6 +67,9 @@ contains
 !
 elemental subroutine check_for_sparsity(this)
   !
+  !.. Use Statements ..
+  use ovar, only : use_unrolled_dot_products
+  !
   !.. Passed Argument from Invoking Object ..
   class(matrix), intent(inout) :: this
   !
@@ -91,84 +95,120 @@ continue
     !
     total_nz = count(this%mat /= zero)
     !
+    ! Convert the mat array into the sparse
+    ! arrays within the matrix derived-type
+    !
+    ! ######################################
+    ! ######################################
+    ! ######################################
+    ! #####                            #####
+    ! #####   Compressed Row Storage   #####
+    ! #####                            #####
+    ! ######################################
+    ! ######################################
+    ! ######################################
+    !
+    allocate ( this%row_ptr(1:nsz_dim2+1) , source=0 , stat=ierr )
+    allocate ( this%row_idx(1:total_nz) , stat=ierr )
+    allocate ( this%row_val(1:total_nz) , stat=ierr )
+    !
+    !
+    !
+    do n = 2,nsz_dim2+1
+      this%row_ptr(n) = this%row_ptr(n-1) + count(this%mat(:,n-1) /= zero)
+    end do
+    !
+    !
+    !
+    do n = 1,nsz_dim2
+      !
+      n1 = this%row_ptr(n)+1
+      n2 = this%row_ptr(n+1)
+      !
+      !
+      this%row_idx(n1:n2) = pack( intseq(1,nsz_dim1) , this%mat(:,n) /= zero )
+      !
+      this%row_val(n1:n2) = this%mat( this%row_idx(n1:n2) , n )
+      !
+    end do
+    !
+    ! #########################################
+    ! #########################################
+    ! #########################################
+    ! #####                               #####
+    ! #####   Compressed Column Storage   #####
+    ! #####                               #####
+    ! #########################################
+    ! #########################################
+    ! #########################################
+    !
+    allocate ( this%col_ptr(1:nsz_dim1+1) , source=0 , stat=ierr )
+    allocate ( this%col_idx(1:total_nz) , stat=ierr )
+    allocate ( this%col_val(1:total_nz) , stat=ierr )
+    !
+    !
+    !
+    do n = 2,nsz_dim1+1
+      this%col_ptr(n) = this%col_ptr(n-1) + count(this%mat(n-1,:) /= zero)
+    end do
+    !
+    !
+    !
+    do n = 1,nsz_dim1
+      !
+      n1 = this%col_ptr(n)+1
+      n2 = this%col_ptr(n+1)
+      !
+      !
+      this%col_idx(n1:n2) = pack( intseq(1,nsz_dim2) , this%mat(n,:) /= zero )
+      !
+      this%col_val(n1:n2) = this%mat( n , this%col_idx(n1:n2) )
+      !
+    end do
+    !
+    ! Compute the sparsity of the matrix as the ratio of non-zero
+    ! elements divided by the total number of matrix elements
+    !
     sparsity = real(total_nz,kind=wp) / real(nsz_dim1*nsz_dim2,kind=wp)
+    !
+    ! If the matrix sparsity is less than a given limit, assign
+    ! the procedure pointers to the sparse vector operations.
     !
     if (sparsity <= sparsity_limit) then
       !
-      ! Convert the mat array into the sparse
-      ! arrays within the matrix derived-type
-      !
-      ! ######################################
-      ! ######################################
-      ! ######################################
-      ! #####                            #####
-      ! #####   Compressed Row Storage   #####
-      ! #####                            #####
-      ! ######################################
-      ! ######################################
-      ! ######################################
-      !
-      allocate ( this%row_ptr(1:nsz_dim2+1) , source=0 , stat=ierr )
-      allocate ( this%row_idx(1:total_nz) , stat=ierr )
-      allocate ( this%row_val(1:total_nz) , stat=ierr )
-      !
-      !
-      !
-      do n = 2,nsz_dim2+1
-        this%row_ptr(n) = this%row_ptr(n-1) + count(this%mat(:,n-1) /= zero)
-      end do
-      !
-      !
-      !
-      do n = 1,nsz_dim2
-        !
-        n1 = this%row_ptr(n)+1
-        n2 = this%row_ptr(n+1)
-        !
-        !
-        this%row_idx(n1:n2) = pack( intseq(1,nsz_dim1) , this%mat(:,n) /= zero )
-        !
-        this%row_val(n1:n2) = this%mat( this%row_idx(n1:n2) , n )
-        !
-      end do
-      !
       ! Assign the procedure pointers to the sparse versions
       !
-      this%dot => dot_sparse
-      !
-      ! #########################################
-      ! #########################################
-      ! #########################################
-      ! #####                               #####
-      ! #####   Compressed Column Storage   #####
-      ! #####                               #####
-      ! #########################################
-      ! #########################################
-      ! #########################################
-      !
-      allocate ( this%col_ptr(1:nsz_dim1+1) , source=0 , stat=ierr )
-      allocate ( this%col_idx(1:total_nz) , stat=ierr )
-      allocate ( this%col_val(1:total_nz) , stat=ierr )
-      !
-      !
-      !
-      do n = 2,nsz_dim1+1
-        this%col_ptr(n) = this%col_ptr(n-1) + count(this%mat(n-1,:) /= zero)
-      end do
-      !
-      !
-      !
-      do n = 1,nsz_dim1
+      if (use_unrolled_dot_products) then
         !
-        n1 = this%col_ptr(n)+1
-        n2 = this%col_ptr(n+1)
+        n1 = minval(this%row_ptr(2:nsz_dim2+1)-this%row_ptr(1:nsz_dim2))
+        n2 = maxval(this%row_ptr(2:nsz_dim2+1)-this%row_ptr(1:nsz_dim2))
         !
+        if (n1 == n2) then
+          !
+          select case (n1)
+            case (2)
+              this%dot => dot_sparse_unrolled_p1
+            case (3)
+              this%dot => dot_sparse_unrolled_p2
+            case (4)
+              this%dot => dot_sparse_unrolled_p3
+            case (5)
+              this%dot => dot_sparse_unrolled_p4
+            case default
+              this%dot => dot_sparse
+          end select
+          !
+        else
+          !
+          this%dot => dot_sparse
+          !
+        end if
         !
-        this%col_idx(n1:n2) = pack( intseq(1,nsz_dim2) , this%mat(n,:) /= zero )
+      else
         !
-        this%col_val(n1:n2) = this%mat( n , this%col_idx(n1:n2) )
+        this%dot => dot_sparse
         !
-      end do
+      end if
       !
       ! FOR NOW, KEEP THE MATRIX*VECTOR AND VECTOR*MATRIX POINTERS
       ! ASSOCIATED WITH THE INTRINSIC MATMUL FUNCTION. STORAGE FOR
@@ -176,8 +216,8 @@ continue
       ! MATRIX AND NOT JUST FOR THE COLUMN VECTORS THAT ARE NEEDED
       ! FOR THE DOT PRODUCT FUNCTIONS.
       !
-     !this%mv_mult => mat_vec_mult_sparse
-     !this%vm_mult => vec_mat_mult_sparse
+      this%mv_mult => mat_vec_mult_sparse
+      this%vm_mult => vec_mat_mult_sparse
       !
     end if
     !
@@ -191,6 +231,10 @@ end subroutine check_for_sparsity
 !
 pure function dot_sparse(this,idx,vector) result(return_value)
   !
+#ifdef USE_INTEL_MKL
+  use blas95, only : doti
+#endif
+  !
   !.. Passed Argument from Invoking Object ..
   class(matrix),          intent(in) :: this
   !
@@ -202,40 +246,188 @@ pure function dot_sparse(this,idx,vector) result(return_value)
   real(wp) :: return_value
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2
-  !
-#if MATVEC_VERSION == 3
-  !.. Local Arrays ..
-  integer, dimension(1:num_nz(this,idx)) :: indices
-#endif
+  integer :: n1,n2
   !
 continue
   !
   n1 = this%row_ptr(idx)+1
   n2 = this%row_ptr(idx+1)
   !
-#if MATVEC_VERSION == 2
-  ! VERSION 2
-  !
-  return_value = dot( this%row_val(n1:n2) , vector(this%row_idx(n1:n2)) )
-  !
-#elif MATVEC_VERSION == 3 
-  ! VERSION 3
-  !
-  indices = this%row_idx(n1:n2)
-  return_value = dot( this%row_val(n1:n2) , vector(indices) )
-  !
+#ifdef USE_INTEL_MKL
+  return_value = doti( this%row_val(n1:n2) , this%row_idx(n1:n2) , vector )
 #else
-  ! VERSION 1
-  !
-  return_value = zero
-  do n = n1,n2
-    return_value = return_value + this%row_val(n)*vector(this%row_idx(n))
-  end do
-  !
+  return_value = dot( this%row_val(n1:n2) , vector(this%row_idx(n1:n2)) )
 #endif
   !
 end function dot_sparse
+!
+!###############################################################################
+!
+pure function dot_sparse_unrolled_p1(this,idx,vector) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix),          intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: idx
+  real(wp), dimension(:), intent(in) :: vector
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:5) :: a,b
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+#ifdef MATVEC_VERSION_1
+  n2 = this%row_ptr(idx+1)
+  !
+  a = this%row_val(n1:n2)
+  b = vector( this%row_idx(n1:n2) )
+  !
+  return_value = a(1)*b(1) + a(2)*b(2)
+#else
+  n2 = n1+1
+  !
+  return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
+                 this%row_val(n2) * vector( this%row_idx(n2) )
+#endif
+  !
+end function dot_sparse_unrolled_p1
+!
+!###############################################################################
+!
+pure function dot_sparse_unrolled_p2(this,idx,vector) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix),          intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: idx
+  real(wp), dimension(:), intent(in) :: vector
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,n3
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:5) :: a,b
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+#ifdef MATVEC_VERSION_1
+  n2 = this%row_ptr(idx+1)
+  !
+  a = this%row_val(n1:n2)
+  b = vector( this%row_idx(n1:n2) )
+  !
+  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
+#else
+  n2 = n1+1
+  n3 = n2+1
+  !
+  return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
+                 this%row_val(n2) * vector( this%row_idx(n2) ) + &
+                 this%row_val(n3) * vector( this%row_idx(n3) )
+#endif
+  !
+end function dot_sparse_unrolled_p2
+!
+!###############################################################################
+!
+pure function dot_sparse_unrolled_p3(this,idx,vector) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix),          intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: idx
+  real(wp), dimension(:), intent(in) :: vector
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,n3,n4
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:5) :: a,b
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+#ifdef MATVEC_VERSION_1
+  n2 = this%row_ptr(idx+1)
+  !
+  a = this%row_val(n1:n2)
+  b = vector( this%row_idx(n1:n2) )
+  !
+  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4)
+#else
+  n2 = n1+1
+  n3 = n2+1
+  n4 = n3+1
+  !
+  return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
+                 this%row_val(n2) * vector( this%row_idx(n2) ) + &
+                 this%row_val(n3) * vector( this%row_idx(n3) ) + &
+                 this%row_val(n4) * vector( this%row_idx(n4) )
+#endif
+  !
+end function dot_sparse_unrolled_p3
+!
+!###############################################################################
+!
+pure function dot_sparse_unrolled_p4(this,idx,vector) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix),          intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: idx
+  real(wp), dimension(:), intent(in) :: vector
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,n3,n4,n5
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:5) :: a,b
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+#ifdef MATVEC_VERSION_1
+  n2 = this%row_ptr(idx+1)
+  !
+  a = this%row_val(n1:n2)
+  b = vector( this%row_idx(n1:n2) )
+  !
+  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4) + a(5)*b(5)
+#else
+  n2 = n1+1
+  n3 = n2+1
+  n4 = n3+1
+  n5 = n4+1
+  !
+  return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
+                 this%row_val(n2) * vector( this%row_idx(n2) ) + &
+                 this%row_val(n3) * vector( this%row_idx(n3) ) + &
+                 this%row_val(n4) * vector( this%row_idx(n4) ) + &
+                 this%row_val(n5) * vector( this%row_idx(n5) )
+#endif
+  !
+end function dot_sparse_unrolled_p4
 !
 !###############################################################################
 !
@@ -247,16 +439,9 @@ pure function dot_intrinsic(this,idx,vector) result(return_value)
   !
   real(wp) :: return_value
   !
-  integer :: np
-  !
 continue
   !
-#if MATVEC_VERSION == 1
-  np = size(vector)
-  return_value = dot( this%mat(1:np,idx) , vector(1:np) )
-#else
   return_value = dot( this%mat(:,idx) , vector )
-#endif
   !
 end function dot_intrinsic
 !
@@ -276,8 +461,7 @@ pure function mat_vec_mult_sparse(this,vector) result(return_value)
   real(wp), dimension(1:size(this%mat,dim=1)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: k,n,n1,n2
-  real(wp) :: tmp
+  integer :: k,n1,n2
   !
 continue
   !
@@ -286,21 +470,7 @@ continue
     n1 = this%col_ptr(k)+1
     n2 = this%col_ptr(k+1)
     !
-#if MATVEC_VERSION == 1
-    ! VERSION 1
-    !
-    tmp = zero
-    do n = n1,n2
-      tmp = tmp + this%col_val(n)*vector(this%col_idx(n))
-    end do
-    return_value(k) = tmp
-    !
-#else
-    ! VERSION 2
-    !
     return_value(k) = dot( this%col_val(n1:n2) , vector(this%col_idx(n1:n2)) )
-    !
-#endif
     !
   end do
   !
@@ -337,8 +507,7 @@ pure function vec_mat_mult_sparse(this,vector) result(return_value)
   real(wp), dimension(1:size(this%mat,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: k,n,n1,n2
-  real(wp) :: tmp
+  integer :: k,n1,n2
   !
 continue
   !
@@ -347,21 +516,7 @@ continue
     n1 = this%row_ptr(k)+1
     n2 = this%row_ptr(k+1)
     !
-#if MATVEC_VERSION == 1
-    ! VERSION 1
-    !
-    tmp = zero
-    do n = n1,n2
-      tmp = tmp + this%row_val(n)*vector(this%row_idx(n))
-    end do
-    return_value(k) = tmp
-    !
-#else
-    ! VERSION 2
-    !
     return_value(k) = dot( this%row_val(n1:n2) , vector(this%row_idx(n1:n2)) )
-    !
-#endif
     !
   end do
   !
@@ -406,6 +561,70 @@ continue
   return_value = this%row_ptr(idx+1) - this%row_ptr(idx)
   !
 end function num_nz
+!
+!###############################################################################
+!
+pure function memory_usage(this) result(return_value)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Function Result ..
+  type(memory) :: return_value
+  !
+  !.. Local Scalars ..
+  type(memory) :: array
+  !
+continue
+  !
+  call return_value%reset
+  !
+  if (allocated(this%mat)) then
+    call array%set( storage_size(this%mat,kind=inttype) , &
+                    size(this%mat,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_ptr)) then
+    call array%set( storage_size(this%row_ptr,kind=inttype) , &
+                    size(this%row_ptr,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_idx)) then
+    call array%set( storage_size(this%row_idx,kind=inttype) , &
+                    size(this%row_idx,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_val)) then
+    call array%set( storage_size(this%row_val,kind=inttype) , &
+                    size(this%row_val,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_ptr)) then
+    call array%set( storage_size(this%col_ptr,kind=inttype) , &
+                    size(this%col_ptr,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_idx)) then
+    call array%set( storage_size(this%col_idx,kind=inttype) , &
+                    size(this%col_idx,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_val)) then
+    call array%set( storage_size(this%col_val,kind=inttype) , &
+                    size(this%col_val,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+end function memory_usage
 !
 !###############################################################################
 !
