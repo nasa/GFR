@@ -9,6 +9,18 @@
 ################################################################################
 ################################################################################
 
+* Fix the way integrated quantities are handled for output at the intervals
+  specified in the input file. Currently these quantities are computed only
+  at the said intervals and not in between because of they require costly
+  mpi collective operations each time they are computed. Change this so that
+  the local values of the quantities are computed and locally stored on each
+  processor for each iteration. Once the code reaches the specified interval,
+  combine the local values to get the global quantities and then have the root
+  processor output the collected values to the output file.
+
+* Add a way to input specific solution times or iterations at which to dump
+  a solution file during a simulation.
+
 * Look for ways to fix the discontinuity artifacts in the CGNS solution file
 
 * Fix output from write_final_error for 3D. It currently has some hard-wired
@@ -34,13 +46,25 @@
      fix could be to traverse to the most recent solution node after reopening
      the CGNS file before writing a new solution node to the file.
 
-* Fix bug with solution gradients not being computed when running code with
-  zero iterations. This prevents boundary profiles from being computed
-  properly from a restart file.
-
 * The subroutine find_bc_conflicts needs to be extended to 3D.
 
 * The subroutine get_point_timestep needs to be extended to 3D.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################             CLEAN-UP TO-DO LIST            ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Ghost cells are now really ghost faces, so there are some code sections (such
+  as error checks, logic branches, global variables, etc.) that are no longer
+  necessary or valid. For example, the variable n_totnod is probably no longer
+  needed since ghost nodes are no longer needed/created to create the node
+  connectivity for each of the ghost cells.
 
 ################################################################################
 ################################################################################
@@ -51,6 +75,31 @@
 ################################################################################
 ################################################################################
 ################################################################################
+
+* Create "unrolled" versions of the sparse dot product and matrix multiply
+  functions that are assigned to the procedure pointers contained in the
+  matrix derived type. This could improve performance when using lower orders
+  (e.g., P <= 4). This will probably require making a lot of very specific
+  versions of these functions, i.e. one each for P1, P2, P3, etc.
+
+* Need to rework the restart module to make the restart files more generalized
+  and improve the efficiency/performance of the i/o operations.
+   - Find a way to parallelize the i/o operations.
+      - Input/Read: Currently all processors simultaneously read the entire 
+                    solution contained in the restart file and each processor
+                    stores this data in its own copy of the global_usp array.
+                    After the read is completed, each processor then copies
+                    the solution for the cells in their local partition into
+                    their unique usp array.
+      - Output/Write: Currently all processors send their solution to the
+                      root processor which gathers the global solution and
+                      then broadcasts the global solution back to all the
+                      processors. The root processor then writes the restart
+                      file by itself.
+   - Look at possibly storing the monomial modal coefficients in the restart
+     file instead of the flow variables at the solution points. This way the
+     simulation could be restarted with different solution points, solution
+     orders, etc.
 
 * Possibly add geom and order components to the cell_on_face_t derived type.
   This is another duplicate of information that could be found elsewhere but
@@ -91,6 +140,9 @@
   point and are zero everywhere else, it can be assumed that at compile time
   the compiler cant recognize this fact and properly optimize the dot product
   operations used with these matrices to get these solution/flux point values.
+
+* Look at making the default logical use 1 Byte instead of the 4 Bytes it
+  currently defaults to.
 
 ################################################################################
 ################################################################################
@@ -202,11 +254,6 @@
 
 * Finish code in plot3d module that allows for unformatted plot3d files of
   of arbitrary endianess using stream access.
-
-* Look at possibly storing the monomial modal coefficients in the restart file
-  instead of the flow variables at the solution points. This way the
-  simulation could be restarted with different solution points, solution
-  orders, etc.
 
 * Implement the rotated flux functions
 
