@@ -107,6 +107,7 @@ $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
 
 $(OBJDIR)/flux.o : flux.f90 \
               $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/typesgen_mod.o \
               $(OBJDIR)/eqn_idx_mod.o \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/order_mod.o \
@@ -162,9 +163,11 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/mms_mod.o \
+              $(OBJDIR)/metrics.o \
               $(OBJDIR)/restart_mod.o \
               $(OBJDIR)/projection_mod.o \
               $(OBJDIR)/interpolation_mod.o \
+              $(OBJDIR)/derivatives_mod.o \
               $(FUNDIR)/vortex.f90 \
               $(FUNDIR)/taylor_green.f90 \
               $(FUNDIR)/usp2v.f90 \
@@ -200,6 +203,7 @@ $(OBJDIR)/io.o : io.f90 \
               $(FUNDIR)/pressure.f90 \
               $(FUNDIR)/mach_number.f90 \
               $(FUNDIR)/cell_vol.f90 \
+              $(FUNDIR)/grad_cv_to_grad_pv.f90 \
               $(FUNDIR)/bc_string_to_integer.f90
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \
@@ -340,7 +344,8 @@ $(OBJDIR)/triangle.o : triangle.f90 \
               $(OBJDIR)/poly.o
 
 $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
-              $(OBJDIR)/kind_types.o
+              $(OBJDIR)/kind_types.o \
+	      $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
               $(OBJDIR)/kind_types.o \
