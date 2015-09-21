@@ -935,7 +935,7 @@ continue
               densyz*Cos((adyz*Pi*y*z)/L**2) +                    &
               densx*Sin((adx*Pi*x)/L) + densz*Sin((adz*Pi*z)/L) + &
               densxz*Sin((adxz*Pi*x*z)/L**2))**2) -               &
-        (two*((adx*densx*Pi*Cos((adx*Pi*x)/L))/L +                  &
+        (two*((adx*densx*Pi*Cos((adx*Pi*x)/L))/L +                &
              (adxz*densxz*Pi*z*Cos((adxz*Pi*x*z)/L**2))/L**2 -    &
              (adxy*densxy*Pi*y*Sin((adxy*Pi*x*y)/L**2))/L**2)*    &
            ((apxy*Pi*presxy*y*Cos((apxy*Pi*x*y)/L**2))/L**2 -     &
@@ -945,8 +945,9 @@ continue
               densxy*Cos((adxy*Pi*x*y)/L**2) +                    &
               densyz*Cos((adyz*Pi*y*z)/L**2) +                    &
               densx*Sin((adx*Pi*x)/L) + densz*Sin((adz*Pi*z)/L) + &
-              densxz*Sin((adxz*Pi*x*z)/L**2))**2)))/              &
-    (gm1*Pr) -                                           &
+              densxz*Sin((adxz*Pi*x*z)/L**2))**2))) / (gm1*Pr)
+    !--------------------------------------------------------------
+    hc = hc -                                                     &
    rmu*((auyz*Pi*uvelyz*z*Cos((auyz*Pi*y*z)/L**2))/L**2 -         &
       (auy*Pi*uvely*Sin((auy*Pi*y)/L))/L -                        &
       (auxy*Pi*uvelxy*x*Sin((auxy*Pi*x*y)/L**2))/L**2)*           &
@@ -1024,8 +1025,9 @@ continue
               densxy*Cos((adxy*Pi*x*y)/L**2) +                    &
               densyz*Cos((adyz*Pi*y*z)/L**2) +                    &
               densx*Sin((adx*Pi*x)/L) + densz*Sin((adz*Pi*z)/L) + &
-              densxz*Sin((adxz*Pi*x*z)/L**2))**2)))/              &
-    (gm1*Pr) -                                           &
+              densxz*Sin((adxz*Pi*x*z)/L**2))**2))) / (gm1*Pr)
+    !--------------------------------------------------------------
+    hc = hc -                                                     &
    (gam*R*rmu*(-(((-((ady**2*densy*Pi**2*Cos((ady*Pi*y)/L))/    &
                   L**2) -                                         &
                (adxy**2*densxy*Pi**2*x**2*                        &
@@ -1077,8 +1079,9 @@ continue
               densxy*Cos((adxy*Pi*x*y)/L**2) +                    &
               densyz*Cos((adyz*Pi*y*z)/L**2) +                    &
               densx*Sin((adx*Pi*x)/L) + densz*Sin((adz*Pi*z)/L) + &
-              densxz*Sin((adxz*Pi*x*z)/L**2))**2)))/              &
-    (gm1*Pr) -                                           &
+              densxz*Sin((adxz*Pi*x*z)/L**2))**2))) / (gm1*Pr)
+    !--------------------------------------------------------------
+    hc = hc -                                                     &
    (two*rmu*((avxy**2*Pi**2*vvelxy*x*y*Cos((avxy*Pi*x*y)/L**2))/    &
          L**4 - (awxz*Pi*wvelxz*Cos((awxz*Pi*x*z)/L**2))/L**2 +   &
         (avxy*Pi*vvelxy*Sin((avxy*Pi*x*y)/L**2))/L**2 +           &
@@ -1237,7 +1240,9 @@ continue
                vvelxz*Cos((avxz*Pi*x*z)/L**2) +                   &
                vvely*Sin((avy*Pi*y)/L) +                          &
                vvelz*Sin((avz*Pi*z)/L) +                          &
-               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two)) +         &
+               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two))
+    !--------------------------------------------------------------
+    hc = hc +                                                     &
    ((aux*Pi*uvelx*Cos((aux*Pi*x)/L))/L +                          &
       (auxz*Pi*uvelxz*z*Cos((auxz*Pi*x*z)/L**2))/L**2 -           &
       (auxy*Pi*uvelxy*y*Sin((auxy*Pi*x*y)/L**2))/L**2)*           &
@@ -1279,7 +1284,9 @@ continue
                vvelxz*Cos((avxz*Pi*x*z)/L**2) +                   &
                vvely*Sin((avy*Pi*y)/L) +                          &
                vvelz*Sin((avz*Pi*z)/L) +                          &
-               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two)) +         &
+               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two))
+    !--------------------------------------------------------------
+    hc = hc +                                                     &
    ((avy*Pi*vvely*Cos((avy*Pi*y)/L))/L +                          &
       (avyz*Pi*vvelyz*z*Cos((avyz*Pi*y*z)/L**2))/L**2 -           &
       (avxy*Pi*vvelxy*x*Sin((avxy*Pi*x*y)/L**2))/L**2)*           &
@@ -1321,7 +1328,9 @@ continue
                vvelxz*Cos((avxz*Pi*x*z)/L**2) +                   &
                vvely*Sin((avy*Pi*y)/L) +                          &
                vvelz*Sin((avz*Pi*z)/L) +                          &
-               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two)) -         &
+               vvelyz*Sin((avyz*Pi*y*z)/L**2))**2)/two))
+    !--------------------------------------------------------------
+    hc = hc -                                                     &
    rmu*(vvel0 + vvelx*Cos((avx*Pi*x)/L) +                         &
       vvelxy*Cos((avxy*Pi*x*y)/L**2) +                            &
       vvelxz*Cos((avxz*Pi*x*z)/L**2) + vvely*Sin((avy*Pi*y)/L) +  &
@@ -1398,7 +1407,9 @@ continue
            (auxy*Pi*uvelxy*y*Sin((auxy*Pi*x*y)/L**2))/L**2) +     &
         (avxy*Pi*vvelxy*x*Sin((avxy*Pi*x*y)/L**2))/L**2 +         &
         (awz*Pi*wvelz*Sin((awz*Pi*z)/L))/L +                      &
-        (awyz*Pi*wvelyz*y*Sin((awyz*Pi*y*z)/L**2))/L**2))/three -    &
+        (awyz*Pi*wvelyz*y*Sin((awyz*Pi*y*z)/L**2))/L**2))/three
+    !--------------------------------------------------------------
+    hc = hc -                                                     &
    (two*rmu*((avy*Pi*vvely*Cos((avy*Pi*y)/L))/L +                   &
         (avyz*Pi*vvelyz*z*Cos((avyz*Pi*y*z)/L**2))/L**2 -         &
         (avxy*Pi*vvelxy*x*Sin((avxy*Pi*x*y)/L**2))/L**2)*         &
