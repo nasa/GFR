@@ -13,7 +13,7 @@ module metrics_mod
   ! ##################################
   !
   public :: get_metrics
-  public :: metrics_alloc_status
+  public :: metrics_memory_usage
   !
   type, public :: face_nrm
     real(wp), allocatable :: v(:,:)
@@ -435,7 +435,7 @@ continue
     allocate ( geofa(nf)%v(1:nr,1:nfpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) "geofa",nf
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
    !allocate ( geofa2(nf)%v(1:nr,1:nfpts) , source=zero , &
    !           stat=ierr , errmsg=error_message )
@@ -1214,8 +1214,10 @@ subroutine compute_face_normals
   real(wp) :: dvec(1:3,1:3)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: xyz_face(1:maxFP,1:nr)
+#ifndef USE_MATRIX_PROCEDURES
   real(wp) :: lmat(1:maxSP)
   real(wp) :: dmat(1:maxSP)
+#endif
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: ipface(:,:)
@@ -1305,9 +1307,14 @@ continue
           !
           lf = cell(nc)%face(ncf)%cell_idx(kf)
           !
+#ifdef USE_MATRIX_PROCEDURES
+          xyz_face(kf,l) = &
+           interp(left_geom,left_order)%toFace(face_order)%dot( lf , txyz(1:np,l) )
+#else
           lmat(1:np) = interp(left_geom,left_order)%toFace(face_order)%mat(1:np,lf)
           !
           xyz_face(kf,l) = dot( lmat(1:np) , txyz(1:np,l) )
+#endif
           !
         end do
         !
@@ -1329,25 +1336,9 @@ continue
       !
       ndim = size(deriv(face_geom,face_order)%d)
       !
-     !if (.not. dmat_has_been_output) then
-     !  if (face_geom == Geom_Edge) then
-     !    do n = 1,ndim
-     !      write (185,40) n
-     !      do k = size(deriv(face_geom,face_order)%d(n)%mat,dim=2),1,-1
-     !        write (185,41) (deriv(face_geom,face_order)%d(n)%mat(l,k), &
-     !                        l=1,size(deriv(face_geom,face_order)%d(n)%mat,dim=1))
-     !      end do
-     !    end do
-     !  end if
-     !  dmat_has_been_output = true
-     !end if
-     !40 format ("Derivative matrix in direction ",i0)
-     !41 format (*(es23.15))
       do k = 1,size(cell(nc)%face(ncf)%cell_idx)
         !
         do n = 1,ndim
-          !
-          dmat(1:nfp) = deriv(face_geom,face_order)%d(n)%mat(1:nfp,k)
           !
           ! If the current cell face is a x-min, y-max, or z-min face, we need to
           ! reverse the order of the derivatives so that the cross_product computed
@@ -1360,9 +1351,19 @@ continue
             end if
           end if
           !
+#ifdef USE_MATRIX_PROCEDURES
+          !
+          do l = 1,nr
+            dvec(l,kf) = &
+              deriv(face_geom,face_order)%d(n)%dot( k , xyz_face(1:nfp,l) )
+          end do
+#else
+          dmat(1:nfp) = deriv(face_geom,face_order)%d(n)%mat(1:nfp,k)
+          !
           do l = 1,nr
             dvec(l,kf) = dot( dmat(1:nfp) , xyz_face(1:nfp,l) )
           end do
+#endif
           !
         end do
         !
@@ -1443,10 +1444,10 @@ continue
                "#################  FACE ",i0,"  ###########################",/, &
                "#######################################################",/)
   11 format (2i4,/,*(3(es18.10),/,:))
-  12 format (/,"############",/, &
-               "###  ",i0,"  ###",/, &
-               "############",/, &
-               *(<n_order+1>(<n_order+1>(es14.6,:),/),/))
+ !12 format (/,"############",/, &
+ !             "###  ",i0,"  ###",/, &
+ !             "############",/, &
+ !             *(<n_order+1>(<n_order+1>(es14.6,:),/),/))
   13 format (/,"##########################################################",/)
   !
   20 format ('VARIABLES = "X", "Y", "n_x", "n_y"',/, &
@@ -1463,54 +1464,508 @@ end subroutine compute_face_normals
 !
 !###############################################################################
 !
-subroutine metrics_alloc_status(iunit)
+subroutine metrics_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: iunit
+  integer, optional, intent(in) :: iunit
   !
   !.. Local Scalars ..
+  integer :: i,iou
+  character(len=36) :: array_name
+  type(memory) :: array,dt
   type(memory) :: total
-  type(memory) :: array
   !
 continue
   !
-  total%siz = 0
-  total%mem = 0
+  iou = iout
+  if (present(iunit)) iou = iunit
   !
-  write (iunit,1)
+  call total%reset
   !
+  write (iou,1)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(geofa)) then
+    !
+    call dt%set( storage_size(geofa,kind=inttype) , &
+                         size(geofa,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(geofa,dim=1),ubound(geofa,dim=1)
+      !
+      call array%add( storage_size(geofa(i)%v,kind=inttype) , &
+                              size(geofa(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "geofa(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "geofa"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "geofa"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(geofa2)) then
+    !
+    call dt%set( storage_size(geofa2,kind=inttype) , &
+                         size(geofa2,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(geofa2,dim=1),ubound(geofa2,dim=1)
+      !
+      call array%add( storage_size(geofa2(i)%v,kind=inttype) , &
+                              size(geofa2(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "geofa2(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "geofa2"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "geofa2"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(dx)) then
+    !
+    call dt%set( storage_size(dx,kind=inttype) , &
+                         size(dx,kind=inttype) )
+    !
+    do i = lbound(dx,dim=1),ubound(dx,dim=1)
+      !
+      call dt%add( storage_size(dx(i)%dr,kind=inttype) )
+      call dt%add( storage_size(dx(i)%ds,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dt,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dr2,kind=inttype) )
+      call dt%add( storage_size(dx(i)%ds2,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dt2,kind=inttype) )
+      call dt%add( storage_size(dx(i)%drds,kind=inttype) )
+      call dt%add( storage_size(dx(i)%drdt,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dsdr,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dsdt,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dtdr,kind=inttype) )
+      call dt%add( storage_size(dx(i)%dtds,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "dx"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "dx"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(dy)) then
+    !
+    call dt%set( storage_size(dy,kind=inttype) , &
+                         size(dy,kind=inttype) )
+    !
+    do i = lbound(dy,dim=1),ubound(dy,dim=1)
+      !
+      call dt%add( storage_size(dy(i)%dr,kind=inttype) )
+      call dt%add( storage_size(dy(i)%ds,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dt,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dr2,kind=inttype) )
+      call dt%add( storage_size(dy(i)%ds2,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dt2,kind=inttype) )
+      call dt%add( storage_size(dy(i)%drds,kind=inttype) )
+      call dt%add( storage_size(dy(i)%drdt,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dsdr,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dsdt,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dtdr,kind=inttype) )
+      call dt%add( storage_size(dy(i)%dtds,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "dy"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "dy"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(dz)) then
+    !
+    call dt%set( storage_size(dz,kind=inttype) , &
+                         size(dz,kind=inttype) )
+    !
+    do i = lbound(dz,dim=1),ubound(dz,dim=1)
+      !
+      call dt%add( storage_size(dz(i)%dr,kind=inttype) )
+      call dt%add( storage_size(dz(i)%ds,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dt,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dr2,kind=inttype) )
+      call dt%add( storage_size(dz(i)%ds2,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dt2,kind=inttype) )
+      call dt%add( storage_size(dz(i)%drds,kind=inttype) )
+      call dt%add( storage_size(dz(i)%drdt,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dsdr,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dsdt,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dtdr,kind=inttype) )
+      call dt%add( storage_size(dz(i)%dtds,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "dz"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "dz"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(dt_dJ)) then
+    !
+    call dt%set( storage_size(dt_dJ,kind=inttype) , &
+                         size(dt_dJ,kind=inttype) )
+    !
+    do i = lbound(dt_dJ,dim=1),ubound(dt_dJ,dim=1)
+      !
+      call dt%add( storage_size(dt_dJ(i)%dr,kind=inttype) )
+      call dt%add( storage_size(dt_dJ(i)%ds,kind=inttype) )
+      call dt%add( storage_size(dt_dJ(i)%dt,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "dt_dJ"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "dt_dJ"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(pdt_metrics)) then
+    !
+    call dt%set( storage_size(pdt_metrics,kind=inttype) , &
+                         size(pdt_metrics,kind=inttype) )
+    !
+    select type (pdt_metrics)
+      !
+#ifdef DEBUG_ON
+      type is (sp_metrics_3_3D)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                               size(pdt_metrics(i)%d2,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d3,kind=inttype) , &
+                               size(pdt_metrics(i)%d3,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2_3D)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                               size(pdt_metrics(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1_3D)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2_2D)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                               size(pdt_metrics(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1_2D)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+#else
+      type is (sp_metrics_3)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                               size(pdt_metrics(i)%d2,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d3,kind=inttype) , &
+                               size(pdt_metrics(i)%d3,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                               size(pdt_metrics(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1)
+        !
+        do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
+          !
+          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                               size(pdt_metrics(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+#endif
+    end select
+    !
+    call total%add(dt)
+    write (array_name,5) "pdt_metrics"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "pdt_metrics"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(pdt_met_dJ)) then
+    !
+    call dt%set( storage_size(pdt_met_dJ,kind=inttype) , &
+                         size(pdt_met_dJ,kind=inttype) )
+    !
+    select type (pdt_met_dJ)
+      !
+#ifdef DEBUG_ON
+      type is (sp_metrics_3_3D)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d3,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d3,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2_3D)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1_3D)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2_2D)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1_2D)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+#else
+      type is (sp_metrics_3)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d3,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d3,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_2)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          !
+        end do
+        !
+      type is (sp_metrics_1)
+        !
+        do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
+          !
+          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          !
+        end do
+        !
+#endif
+    end select
+    !
+    call total%add(dt)
+    write (array_name,5) "pdt_met_dJ"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "pdt_met_dJ"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(metrics)) then
+    call array%set( storage_size(metrics,kind=inttype) , &
+                            size(metrics,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "metrics"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "metrics"
+  end if
+  if (allocated(metrics2)) then
+    call array%set( storage_size(metrics2,kind=inttype) , &
+                            size(metrics2,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "metrics2"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "metrics2"
+  end if
+  if (allocated(metrics3)) then
+    call array%set( storage_size(metrics3,kind=inttype) , &
+                            size(metrics3,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "metrics3"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "metrics3"
+  end if
   if (allocated(jacobian)) then
-    array%siz = size(jacobian)
-    array%mem = array%siz*storage_size(jacobian)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'jacobian'",array%get_units()
+    call array%set( storage_size(jacobian,kind=inttype) , &
+                            size(jacobian,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "jacobian"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "jacobian"
   end if
   if (allocated(dJ)) then
-    array%siz = size(dJ)
-    array%mem = array%siz*storage_size(dJ)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dJ'",array%get_units()
+    call array%set( storage_size(dJ,kind=inttype) , &
+                            size(dJ,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "dJ"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "dJ"
   end if
   if (allocated(volj)) then
-    array%siz = size(volj)
-    array%mem = array%siz*storage_size(volj)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'volj'",array%get_units()
+    call array%set( storage_size(volj,kind=inttype) , &
+                            size(volj,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "volj"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "volj"
   end if
   !
   total = total%get_units()
-  write (iunit,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module metrics_mod")
-  2 format (" Array: ",a11,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  5 format ("'",a,"'")
+  6 format (" Array Component: ",a,dt)
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
-end subroutine metrics_alloc_status
+end subroutine metrics_memory_usage
 !
 !###############################################################################
 !
