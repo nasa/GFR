@@ -140,7 +140,7 @@ continue
       !
       ! Assign local pointer to this matrix as an alias to simplify the code
       !
-      numer2init => outerp(this_geom,this_order)%init
+      numer2init => outerp(this_geom,this_order)%init%mat
       !
       ! Check if we have already created an inverse of this interpolation
       ! matrix. If we havent, allocate its location in outerp_inv and
@@ -228,6 +228,10 @@ continue
   ! Initialize the solution at previous timestep array
   !
   uoldsp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+  !
+  ! Initialize the solution gradient array
+  !
+  call initialize_dusp
   !
   ! Output the free-stream conditions
   !
@@ -377,6 +381,78 @@ end function initial_conditions
 !
 !###############################################################################
 !
+subroutine initialize_dusp()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,  only : nr,ncell,cell
+  use metrics_mod,  only : jacobian
+  use metrics_mod,  only : metrics
+  use derivatives_mod, only : deriv
+  use flowvar, only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer :: k,l,m,n,nc,n1,n2,np
+  integer :: this_geom,this_order
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: dudr
+  real(wp), dimension(1:maxSP,1:nq) :: tusp
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
+    n2 = cell(nc)%end_sp ! ending    index for solpts in cell nc
+    np = n2-n1+1 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Store the transpose of usp for this cell to reduce cache misses
+    !
+    do k = 1,np
+      do m = 1,nq
+        tusp(k,m) = usp(m,k+n1-1)
+      end do
+    end do
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do k = 1,np
+      !
+      n = k+n1-1 ! total index of solution point on current partition
+      !
+      do m = 1,nq
+        !
+        ! Compute the derivatives in r-s space
+        !
+        do l = 1,nr
+          dudr(l) = deriv(this_geom,this_order)%d(l)%dot( k , tusp(1:np,m) )
+        end do
+        !
+        ! Transform the derivatives back to x-y space
+        !
+        do l = 1,nr
+          dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
+        end do
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+end subroutine initialize_dusp
+!
+!###############################################################################
+!
 subroutine get_boundary_fp_coordinates
   !
   use order_mod, only : maxSP
@@ -390,8 +466,10 @@ subroutine get_boundary_fp_coordinates
   integer :: host_cell,host_geom
   integer :: host_order,face_order
   !
+#ifndef USE_MATRIX_PROCEDURES
   !.. Local Arrays ..
   real(wp) :: lmat(1:maxSP)
+#endif
   !
 continue
   !
@@ -415,11 +493,18 @@ continue
         !
         lf = face(nf)%left%flxpts(kf)
         !
+#ifdef USE_MATRIX_PROCEDURES
+        do l = 1,nr
+          facexyz(nf)%v(l,kf) = &
+           interp(host_geom,host_order)%toFace(face_order)%dot( lf , xyz(l,n1:n2) )
+        end do
+#else
         lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,lf)
         !
         do l = 1,nr
           facexyz(nf)%v(l,kf) = dot( lmat(1:np) , xyz(l,n1:n2) )
         end do
+#endif
         !
       end do
       !
@@ -589,9 +674,9 @@ continue
   ! Allocate the free stream inflow arrays
   !
   allocate ( cv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cv_in",1,ierr,error_message)
+  call alloc_error(pname,"cv_in",1,ierr,error_message,skip_alloc_pause)
   allocate ( pv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"pv_in",1,ierr,error_message)
+  call alloc_error(pname,"pv_in",1,ierr,error_message,skip_alloc_pause)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D
