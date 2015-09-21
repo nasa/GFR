@@ -1151,8 +1151,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -1160,44 +1159,43 @@ continue
   !
   if (allocated(correct)) then
     !
-    dt%siz = size(correct)
-    dt%mem = dt%siz*storage_size(correct)
+    call dt%set( storage_size(correct,kind=inttype) , &
+                         size(correct,kind=inttype) )
     !
     do j = lbound(correct,dim=2),ubound(correct,dim=2)
       do i = lbound(correct,dim=1),ubound(correct,dim=1)
         !
-        if (allocated(correct(i,j)%mat)) then
-          !
-          array%siz = size(correct(i,j)%mat)
-          array%mem = array%siz*storage_size(correct(i,j)%mat)
-          !
-          write (array_name,4) Geom_Name(i),j
-          write (iou,2) array_name,array%get_units()
-          !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
-          !
-        end if
+        array = correct(i,j)%memory_usage()
+        !
+        write (array_name,4) Geom_Name(i),j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "correct"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "correct"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module correction_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format ("correct(",a,",",i0,")%mat")
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine correction_memory_usage
 !
