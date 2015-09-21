@@ -180,7 +180,11 @@ continue
     this_order = cell_order(n)
     !
     do m = 1,size(usp,dim=1)
+#ifdef USE_MATRIX_PROCEDURES
+      usp(m,n1:n2) = filter(this_geom,this_order)%mv_mult( usp(m,n1:n2) )
+#else
       usp(m,n1:n2) = matmul( filter(this_geom,this_order)%mat , usp(m,n1:n2) )
+#endif
     end do
     !
   end do
@@ -917,8 +921,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -926,44 +929,43 @@ continue
   !
   if (allocated(filter)) then
     !
-    dt%siz = size(filter)
-    dt%mem = dt%siz*storage_size(filter)
+    call dt%set( storage_size(filter,kind=inttype) , &
+                         size(filter,kind=inttype) )
     !
     do j = lbound(filter,dim=2),ubound(filter,dim=2)
       do i = lbound(filter,dim=1),ubound(filter,dim=1)
         !
-        if (allocated(filter(i,j)%mat)) then
-          !
-          array%siz = size(filter(i,j)%mat)
-          array%mem = array%siz*storage_size(filter(i,j)%mat)
-          !
-          write (array_name,4) Geom_Name(i),j
-          write (iou,2) array_name,array%get_units()
-          !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
-          !
-        end if
+        array = filter(i,j)%memory_usage()
+        !
+        write (array_name,4) Geom_Name(i),j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "filter"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "filter"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module filter_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format ("filter(",a,",",i0,")%mat")
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine filter_memory_usage
 !
