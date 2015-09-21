@@ -18,7 +18,7 @@ module ovar
   private
   !
   public :: recon_cpu_time
-  public :: ovar_alloc_status
+  public :: ovar_memory_usage
   !
   !
   !
@@ -129,7 +129,7 @@ module ovar
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
-  logical, public, save :: cgns_use_queue = true
+  logical, public, save :: cgns_use_queue = fals
   logical, public, save :: interpolate_before_output_variable = true
   !
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
@@ -143,6 +143,10 @@ module ovar
   logical, public, save :: dump_memory_usage = fals
   !
   logical, public, save :: output_bnd_profiles = fals
+  !
+  logical, public, save :: use_unrolled_dot_products = true
+  !
+  logical, public, save :: convert_restart_to_cgns = fals
   !
   ! #################################
   ! ####   Non-Input Variables   ####
@@ -302,108 +306,150 @@ end subroutine recon_cpu_time
 !
 !###############################################################################
 !
-subroutine ovar_alloc_status(iunit)
+subroutine ovar_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: iunit
+  integer, optional, intent(in) :: iunit
   !
   !.. Local Scalars ..
+  integer :: iou
+  character(len=36) :: array_name
   type(memory) :: array
   type(memory) :: total
   !
 continue
   !
-  total%siz = 0
-  total%mem = 0
+  iou = iout
+  if (present(iunit)) iou = iunit
   !
-  write (iunit,1)
+  call total%reset
+  !
+  write (iou,1)
   !
   if (allocated(cv_in)) then
-    array%siz = size(cv_in)
-    array%mem = array%siz*storage_size(cv_in)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'cv_in'",array%get_units()
+    call array%set( storage_size(cv_in,kind=inttype) , &
+                            size(cv_in,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cv_in"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cv_in"
   end if
   if (allocated(pv_in)) then
-    array%siz = size(pv_in)
-    array%mem = array%siz*storage_size(pv_in)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'pv_in'",array%get_units()
+    call array%set( storage_size(pv_in,kind=inttype) , &
+                            size(pv_in,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "pv_in"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "pv_in"
   end if
   if (allocated(unloc)) then
-    array%siz = size(unloc)
-    array%mem = array%siz*storage_size(unloc)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'unloc'",array%get_units()
+    call array%set( storage_size(unloc,kind=inttype) , &
+                            size(unloc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "unloc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "unloc"
   end if
   if (allocated(ukloc)) then
-    array%siz = size(ukloc)
-    array%mem = array%siz*storage_size(ukloc)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'ukloc'",array%get_units()
+    call array%set( storage_size(ukloc,kind=inttype) , &
+                            size(ukloc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "ukloc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "ukloc"
   end if
   if (allocated(ulinf)) then
-    array%siz = size(ulinf)
-    array%mem = array%siz*storage_size(ulinf)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'ulinf'",array%get_units()
+    call array%set( storage_size(ulinf,kind=inttype) , &
+                            size(ulinf,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "ulinf"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "ulinf"
   end if
   if (allocated(ulone)) then
-    array%siz = size(ulone)
-    array%mem = array%siz*storage_size(ulone)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'ulone'",array%get_units()
+    call array%set( storage_size(ulone,kind=inttype) , &
+                            size(ulone,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "ulone"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "ulone"
   end if
   if (allocated(ultwo)) then
-    array%siz = size(ultwo)
-    array%mem = array%siz*storage_size(ultwo)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'ultwo'",array%get_units()
+    call array%set( storage_size(ultwo,kind=inttype) , &
+                            size(ultwo,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "ultwo"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "ultwo"
   end if
   if (allocated(vnloc)) then
-    array%siz = size(vnloc)
-    array%mem = array%siz*storage_size(vnloc)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vnloc'",array%get_units()
+    call array%set( storage_size(vnloc,kind=inttype) , &
+                            size(vnloc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "vnloc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "vnloc"
   end if
   if (allocated(vkloc)) then
-    array%siz = size(vkloc)
-    array%mem = array%siz*storage_size(vkloc)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vkloc'",array%get_units()
+    call array%set( storage_size(vkloc,kind=inttype) , &
+                            size(vkloc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "vkloc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "vkloc"
   end if
   if (allocated(vlinf)) then
-    array%siz = size(vlinf)
-    array%mem = array%siz*storage_size(vlinf)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vlinf'",array%get_units()
+    call array%set( storage_size(vlinf,kind=inttype) , &
+                            size(vlinf,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "vlinf"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "vlinf"
   end if
   if (allocated(vlone)) then
-    array%siz = size(vlone)
-    array%mem = array%siz*storage_size(vlone)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vlone'",array%get_units()
+    call array%set( storage_size(vlone,kind=inttype) , &
+                            size(vlone,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "vlone"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "vlone"
   end if
   if (allocated(vltwo)) then
-    array%siz = size(vltwo)
-    array%mem = array%siz*storage_size(vltwo)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'vltwo'",array%get_units()
+    call array%set( storage_size(vltwo,kind=inttype) , &
+                            size(vltwo,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "vltwo"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "vltwo"
   end if
   !
   total = total%get_units()
-  write (iunit,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module ovar")
-  2 format (" Array: ",a7,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
-end subroutine ovar_alloc_status
+end subroutine ovar_memory_usage
 !
 !###############################################################################
 !
@@ -443,8 +489,8 @@ module input_namelist_mod
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
   use ovar,      only : dump_memory_usage,use_bc_conflicts
-  use ovar,      only : use_advanced_face_metrics
-  use ovar,      only : TaylorGreen_DOF
+  use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
+  use ovar,      only : TaylorGreen_DOF,convert_restart_to_cgns
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -514,7 +560,8 @@ module input_namelist_mod
   ! VARIOUS DEBUG TYPE VARIABLES
   namelist / input / output_bface_array
   ! CGNS OUTPUT OPTIONS
-  namelist / input / cgns_use_queue, interpolate_before_output_variable
+  namelist / input / cgns_use_queue, interpolate_before_output_variable, &
+                     convert_restart_to_cgns
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
   ! ADVANCED METRICS TERMS
@@ -525,6 +572,8 @@ module input_namelist_mod
   namelist / input / use_bc_conflicts, use_advanced_face_metrics
   ! PROFILE OUTPUT OPTIONS
   namelist / input / output_bnd_profiles
+  ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
+  namelist / input / use_unrolled_dot_products
   !
 end module input_namelist_mod
 !
