@@ -12,6 +12,7 @@ module module_gmsh
   ! ##################################
   !
   public :: read_gmsh_gridfile
+  public :: gmsh_memory_usage
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -1565,6 +1566,120 @@ continue
               "*********************** ERROR! ************************",/)
   !
 end subroutine read_gmsh_section_interpolationscheme
+!
+!###############################################################################
+!
+subroutine gmsh_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  call total%reset
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(cell_data)) then
+    !
+    call dt%set( storage_size(cell_data,kind=inttype) , &
+                         size(cell_data,kind=inttype) )
+    !
+    do i = lbound(cell_data,dim=1),ubound(cell_data,dim=1)
+      !
+      call dt%add( storage_size(cell_data(i)%cell_type,kind=inttype) )
+      call dt%add( storage_size(cell_data(i)%cell_geom,kind=inttype) )
+      call dt%add( storage_size(cell_data(i)%num_tags,kind=inttype) )
+      call dt%add( storage_size(cell_data(i)%num_nodes,kind=inttype) )
+      call dt%add( storage_size(cell_data(i)%host_cell,kind=inttype) )
+      !
+      call array%set( storage_size(cell_data(i)%nodes,kind=inttype) , &
+                              size(cell_data(i)%nodes,kind=inttype) )
+      !
+      write (array_name,4) "cell_data",i,"nodes"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+      call array%set( storage_size(cell_data(i)%tags,kind=inttype) , &
+                              size(cell_data(i)%tags,kind=inttype) )
+      !
+      write (array_name,4) "cell_data",i,"tags"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "cell_data"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "cell_data"
+    !
+  end if
+  !
+  if (allocated(phys_grps)) then
+    !
+    call dt%set( storage_size(phys_grps,kind=inttype) , &
+                         size(phys_grps,kind=inttype) )
+    !
+    do i = lbound(phys_grps,dim=1),ubound(phys_grps,dim=1)
+      !
+      call dt%add( storage_size(phys_grps(i)%phys_dim,kind=inttype) )
+      call dt%add( storage_size(phys_grps(i)%phys_id,kind=inttype) )
+      call dt%add( storage_size(phys_grps(i)%ibc,kind=inttype) )
+      call dt%add( storage_size(phys_grps(i)%phys_nam,kind=inttype) )
+      !
+      call array%set( storage_size(phys_grps(i)%cells,kind=inttype) , &
+                              size(phys_grps(i)%cells,kind=inttype) )
+      !
+      write (array_name,4) "phys_grps",i,"cells"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "phys_grps"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "phys_grps"
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module module_gmsh")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  4 format (a,"(",i0,")%",a)
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+end subroutine gmsh_memory_usage
 !
 !###############################################################################
 !
