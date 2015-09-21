@@ -175,7 +175,9 @@ subroutine get_cell_timestep(dtmin)
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nq)    :: vl,vr
+#ifndef USE_MATRIX_PROCEDURES
   real(wp), dimension(1:maxSP) :: lmat
+#endif
   !
 continue
   !
@@ -310,9 +312,13 @@ continue
       !
       ! Interpolate the jacobian to the flux point
       !
+#ifdef USE_MATRIX_PROCEDURES
+      jacl = interp(host_geom,host_order)%toFace(face_order)%dot( kl , jacobian(l1:l2) )
+#else
       lmat(1:npl) = interp(host_geom,host_order)%toFace(face_order)%mat(1:npl,kl)
       !
       jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
+#endif
       !
       hl = half * dsl / jacl
       !
@@ -386,15 +392,23 @@ continue
       !
       ! Interpolate the jacobian to the flux point for the left cell
       !
+#ifdef USE_MATRIX_PROCEDURES
+      jacl = interp(left_geom,left_order)%toFace(face_order)%dot( kl , jacobian(l1:l2) )
+#else
       lmat(1:npl) = interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
       !
       jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
+#endif
       !
       ! Interpolate the jacobian to the flux point for the right cell
       !
+#ifdef USE_MATRIX_PROCEDURES
+      jacr = interp(right_geom,right_order)%toFace(face_order)%dot( kr , jacobian(r1:r2) )
+#else
       lmat(1:npr) = interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
       !
       jacr = dot( lmat(1:npr) , jacobian(r1:r2) )
+#endif
       !
       hl = half * dsl / jacl
       hr = half * dsr / jacr
