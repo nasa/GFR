@@ -1,12 +1,11 @@
 module geovar
   !
-  use module_kind_types, only : wp,Geom_Min,Geom_Max,iout
+  use module_kind_types, only : wp,Geom_Min,Geom_Max,iout,Geom_Name
   !
   implicit none
   !
   private
   !
-  public :: geovar_alloc_status
   public :: geovar_memory_usage
   !
   !  c - cells
@@ -303,141 +302,6 @@ contains
 !
 !###############################################################################
 !
-subroutine geovar_alloc_status(iunit)
-  !
-  !.. Use Statements ..
-  use module_memory
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iunit
-  !
-  !.. Local Scalars ..
-  type(memory) :: array
-  type(memory) :: total
-  !
-continue
-  !
-  total%siz = 0
-  total%mem = 0
-  !
-  write (iunit,1)
-  !
-  if (allocated(pts_in_cell_ptr)) then
-    array%siz = size(pts_in_cell_ptr)
-    array%mem = array%siz*storage_size(pts_in_cell_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'pts_in_cell_ptr'",array%get_units()
-  end if
-  if (allocated(xyz_nodes)) then
-    array%siz = size(xyz_nodes)
-    array%mem = array%siz*storage_size(xyz_nodes)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz_nodes'",array%get_units()
-  end if
-  if (allocated(xyz)) then
-    array%siz = size(xyz)
-    array%mem = array%siz*storage_size(xyz)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'xyz'",array%get_units()
-  end if
-  if (allocated(global_xyz_nodes)) then
-    array%siz = size(global_xyz_nodes)
-    array%mem = array%siz*storage_size(global_xyz_nodes)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_xyz_nodes'",array%get_units()
-  end if
-  if (allocated(global_xyz)) then
-    array%siz = size(global_xyz)
-    array%mem = array%siz*storage_size(global_xyz)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_xyz'",array%get_units()
-  end if
-  if (allocated(global_nofc_ptr)) then
-    array%siz = size(global_nofc_ptr)
-    array%mem = array%siz*storage_size(global_nofc_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_nofc_ptr'",array%get_units()
-  end if
-  if (allocated(global_nofc)) then
-    array%siz = size(global_nofc)
-    array%mem = array%siz*storage_size(global_nofc)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_nofc'",array%get_units()
-  end if
-  if (allocated(global_pinc_ptr)) then
-    array%siz = size(global_pinc_ptr)
-    array%mem = array%siz*storage_size(global_pinc_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_pinc_ptr'",array%get_units()
-  end if
-  if (allocated(global_cell_order)) then
-    array%siz = size(global_cell_order)
-    array%mem = array%siz*storage_size(global_cell_order)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_cell_order'",array%get_units()
-  end if
-  if (allocated(global_cell_geom)) then
-    array%siz = size(global_cell_geom)
-    array%mem = array%siz*storage_size(global_cell_geom)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_cell_geom'",array%get_units()
-  end if
-  if (allocated(bface)) then
-    array%siz = size(bface)
-    array%mem = array%siz*storage_size(bface)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'bface'",array%get_units()
-  end if
-  if (allocated(bc_conflict)) then
-    array%siz = size(bc_conflict)
-    array%mem = array%siz*storage_size(bc_conflict)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'bc_conflict'",array%get_units()
-  end if
-  if (allocated(cell_order)) then
-    array%siz = size(cell_order)
-    array%mem = array%siz*storage_size(cell_order)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'cell_order'",array%get_units()
-  end if
-  if (allocated(cell_geom)) then
-    array%siz = size(cell_geom)
-    array%mem = array%siz*storage_size(cell_geom)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'cell_geom'",array%get_units()
-  end if
-  if (allocated(nodes_of_cell_ptr)) then
-    array%siz = size(nodes_of_cell_ptr)
-    array%mem = array%siz*storage_size(nodes_of_cell_ptr)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'nodes_of_cell_ptr'",array%get_units()
-  end if
-  if (allocated(nodes_of_cell)) then
-    array%siz = size(nodes_of_cell)
-    array%mem = array%siz*storage_size(nodes_of_cell)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'nodes_of_cell'",array%get_units()
-  end if
-  if (allocated(nodes_on_face)) then
-    array%siz = size(nodes_on_face)
-    array%mem = array%siz*storage_size(nodes_on_face)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'nodes_on_face'",array%get_units()
-  end if
-  !
-  total = total%get_units()
-  write (iunit,3) total%mem,trim(adjustl(total%units))
-  !
-  ! Format Statements
-  !
-  1 format (/,"Status of arrays in module geovar")
-  2 format (" Array: ",a21,dt)
-  3 format (" Total memory = ",i0,1x,a)
-  !
-end subroutine geovar_alloc_status
-!
-!###############################################################################
-!
 subroutine geovar_memory_usage(iunit)
   !
   !.. Use Statements ..
@@ -458,12 +322,11 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
-  cell_idx%siz = 0
-  cell_idx%mem = 0
+  call total%reset
+  call cell_idx%reset
   !
   write (iou,1)
+  !
   !
   ! Check the memory of the arrays within this module
   !
@@ -484,47 +347,44 @@ continue
    !type(face_t), public, save, allocatable :: face(:)
     !##########################################################
     !
-    array%siz = size(face)
-    array%mem = array%siz*storage_size(face)
-    array_name = "face"
-    write (iou,2) array_name,array%get_units()
+    call array%set( storage_size(face,kind=inttype) , &
+                            size(face,kind=inttype) )
     !
-    dt%siz = array%siz
-    dt%mem = array%mem
+    write (array_name,5) "face(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     do i = lbound(face,dim=1),ubound(face,dim=1)
       !
-      dt%siz = dt%siz + 8
-      dt%mem = dt%mem + storage_size(face(i)%geom) + &
-                        storage_size(face(i)%order) + &
-                        storage_size(face(i)%left) + &
-                        storage_size(face(i)%left%cell) + &
-                        storage_size(face(i)%left%cell_face) + &
-                        storage_size(face(i)%right) + &
-                        storage_size(face(i)%right%cell) + &
-                        storage_size(face(i)%right%cell_face)
+      call dt%add( storage_size(face(i)%geom,kind=inttype) )
+      call dt%add( storage_size(face(i)%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%left,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
+      call dt%add( storage_size(face(i)%right,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
       !
       if (allocated(face(i)%left%flxpts)) then
-        dt%siz = dt%siz + size(face(i)%left%flxpts)
-        dt%mem = dt%mem + size(face(i)%left%flxpts)*storage_size(face(i)%left%flxpts)
+        call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                             size(face(i)%left%flxpts,kind=inttype) )
       end if
       !
       if (allocated(face(i)%right%flxpts)) then
-        dt%siz = dt%siz + size(face(i)%right%flxpts)
-        dt%mem = dt%mem + size(face(i)%right%flxpts)*storage_size(face(i)%right%flxpts)
+        call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
+                             size(face(i)%right%flxpts,kind=inttype) )
       end if
       !
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "face"
     write (iou,2) array_name,dt%get_units()
     !
-    ! Try the Intel language extension intrinsic function sizeof
+  else
     !
-   !dt%mem = int(sizeof(face))
-   !dt = dt%get_units()
-   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    write (iou,7) "face"
     !
   end if
   !
@@ -548,44 +408,39 @@ continue
    !type(cell_t), public, save, allocatable :: cell(:)
     !##########################################################
     !
-    array%siz = size(cell)
-    array%mem = array%siz*storage_size(cell)
-    array_name = "cell"
-    write (iou,2) array_name,array%get_units()
+    call array%set( storage_size(cell,kind=inttype) , &
+                            size(cell,kind=inttype) )
     !
-    dt%siz = array%siz
-    dt%mem = array%mem
+    write (array_name,5) "cell(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     do i = lbound(cell,dim=1),ubound(cell,dim=1)
       !
-      dt%siz = dt%siz + 4
-      dt%mem = dt%mem + storage_size(cell(i)%geom) + &
-                        storage_size(cell(i)%order) + &
-                        storage_size(cell(i)%beg_sp) + &
-                        storage_size(cell(i)%end_sp)
+      call dt%add( storage_size(cell(i)%geom,kind=inttype) )
+      call dt%add( storage_size(cell(i)%order,kind=inttype) )
+      call dt%add( storage_size(cell(i)%beg_sp,kind=inttype) )
+      call dt%add( storage_size(cell(i)%end_sp,kind=inttype) )
       !
       if (allocated(cell(i)%face)) then
         !
-        array%siz = size(cell(i)%face)
-        array%mem = array%siz*storage_size(cell(i)%face)
-        dt%siz = dt%siz + array%siz
-        dt%mem = dt%mem + array%mem
+        call array%set( storage_size(cell(i)%face,kind=inttype) , &
+                                size(cell(i)%face,kind=inttype) )
+        call dt%add(array)
         !
         do j = lbound(cell(i)%face,dim=1),ubound(cell(i)%face,dim=1)
           !
-          dt%siz = dt%siz + 4
-          dt%mem = dt%mem + storage_size(cell(i)%face(j)%idx) + &
-                            storage_size(cell(i)%face(j)%side) + &
-                            storage_size(cell(i)%face(j)%geom) + &
-                            storage_size(cell(i)%face(j)%order)
+          call dt%add( storage_size(cell(i)%face(j)%idx,kind=inttype) )
+          call dt%add( storage_size(cell(i)%face(j)%side,kind=inttype) )
+          call dt%add( storage_size(cell(i)%face(j)%geom,kind=inttype) )
+          call dt%add( storage_size(cell(i)%face(j)%order,kind=inttype) )
           !
           if (allocated(cell(i)%face(j)%cell_idx)) then
-            array%siz = size(cell(i)%face(j)%cell_idx)
-            array%mem = array%siz*size(cell(i)%face(j)%cell_idx)
-            cell_idx%siz = cell_idx%siz + array%siz
-            cell_idx%mem = cell_idx%mem + array%mem
-            dt%siz = dt%siz + array%siz
-            dt%mem = dt%mem + array%mem
+            call array%set( storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
+                                    size(cell(i)%face(j)%cell_idx,kind=inttype) )
+            call cell_idx%add(array)
+            call dt%add(array)
           end if
           !
         end do
@@ -594,37 +449,255 @@ continue
       !
     end do
     !
-    total%mem = total%mem + dt%mem
     write (array_name,5) "cell%face%cell_idx"
-    write (iou,2) array_name,cell_idx%get_units()
+    write (iou,6) array_name,cell_idx%get_units()
+    !
+    call total%add(dt)
     write (array_name,5) "cell"
     write (iou,2) array_name,dt%get_units()
     !
-    ! Try the Intel language extension intrinsic function sizeof
+  else
     !
-   !dt%mem = int(sizeof(cell))
-   !dt = dt%get_units()
-   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    write (iou,7) "cell"
     !
   end if
   !
+  ! Memory usage for the pst_geom array of type geom_conn
+  !
+  if (allocated(pst_geom)) then
+    !
+    call array%set( storage_size(pst_geom,kind=inttype) , &
+                            size(pst_geom,kind=inttype) )
+    write (array_name,5) "pst_geom(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    do j = lbound(pst_geom,dim=2),ubound(pst_geom,dim=2)
+      do i = lbound(pst_geom,dim=1),ubound(pst_geom,dim=1)
+        !
+        call array%set( storage_size(pst_geom(i,j)%connectivity,kind=inttype) , &
+                                size(pst_geom(i,j)%connectivity,kind=inttype) )
+        !
+        write (array_name,8) Geom_Name(i),j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
+        !
+      end do
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "pst_geom"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "pst_geom"
+    !
+  end if
+  !
+  ! Memory usage for the pst_geom array of type geom_conn
+  !
+  if (allocated(bc_conflict)) then
+    !
+    call dt%set( storage_size(bc_conflict,kind=inttype) , &
+                         size(bc_conflict,kind=inttype) )
+    !
+    do i = lbound(bc_conflict,dim=1),ubound(bc_conflict,dim=1)
+      !
+      call dt%add( storage_size(bc_conflict(i)%is_local,kind=inttype) )
+      call dt%add( storage_size(bc_conflict(i)%not_my_conflict,kind=inttype) )
+      call dt%add( storage_size(bc_conflict(i)%master,kind=inttype) )
+      call dt%add( storage_size(bc_conflict(i)%master%flux_point,kind=inttype) )
+      call dt%add( storage_size(bc_conflict(i)%master%face,kind=inttype) )
+      call dt%add( storage_size(bc_conflict(i)%master%cpu,kind=inttype) )
+      !
+      if (allocated(bc_conflict(i)%slave)) then
+        !
+        call dt%add( storage_size(bc_conflict(i)%slave,kind=inttype) , &
+                             size(bc_conflict(i)%slave,kind=inttype) )
+        !
+        do j = lbound(bc_conflict(i)%slave,dim=1),ubound(bc_conflict(i)%slave,dim=1)
+          call dt%add( storage_size(bc_conflict(i)%slave(j)%flux_point,kind=inttype) )
+          call dt%add( storage_size(bc_conflict(i)%slave(j)%face,kind=inttype) )
+          call dt%add( storage_size(bc_conflict(i)%slave(j)%cpu,kind=inttype) )
+        end do
+        !
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "bc_conflict"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "bc_conflict"
+    !
+  end if
+  !
+  ! Memory usage for all the remaining arrays of intrinsic datatypes
+  !
+  if (allocated(pts_in_cell_ptr)) then
+    call array%set( storage_size(pts_in_cell_ptr,kind=inttype) , &
+                            size(pts_in_cell_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "pts_in_cell_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "pts_in_cell_ptr"
+  end if
+  if (allocated(xyz_nodes)) then
+    call array%set( storage_size(xyz_nodes,kind=inttype) , &
+                            size(xyz_nodes,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "xyz_nodes"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "xyz_nodes"
+  end if
+  if (allocated(xyz)) then
+    call array%set( storage_size(xyz,kind=inttype) , &
+                            size(xyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "xyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "xyz"
+  end if
+  if (allocated(global_xyz_nodes)) then
+    call array%set( storage_size(global_xyz_nodes,kind=inttype) , &
+                            size(global_xyz_nodes,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_xyz_nodes"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_xyz_nodes"
+  end if
+  if (allocated(global_xyz)) then
+    call array%set( storage_size(global_xyz,kind=inttype) , &
+                            size(global_xyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_xyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_xyz"
+  end if
+  if (allocated(global_nofc_ptr)) then
+    call array%set( storage_size(global_nofc_ptr,kind=inttype) , &
+                            size(global_nofc_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_nofc_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_nofc_ptr"
+  end if
+  if (allocated(global_nofc)) then
+    call array%set( storage_size(global_nofc,kind=inttype) , &
+                            size(global_nofc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_nofc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_nofc"
+  end if
+  if (allocated(global_pinc_ptr)) then
+    call array%set( storage_size(global_pinc_ptr,kind=inttype) , &
+                            size(global_pinc_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_pinc_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_pinc_ptr"
+  end if
+  if (allocated(global_cell_order)) then
+    call array%set( storage_size(global_cell_order,kind=inttype) , &
+                            size(global_cell_order,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_cell_order"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_cell_order"
+  end if
+  if (allocated(global_cell_geom)) then
+    call array%set( storage_size(global_cell_geom,kind=inttype) , &
+                            size(global_cell_geom,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_cell_geom"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_cell_geom"
+  end if
+  if (allocated(bface)) then
+    call array%set( storage_size(bface,kind=inttype) , &
+                            size(bface,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "bface"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "bface"
+  end if
+  if (allocated(cell_order)) then
+    call array%set( storage_size(cell_order,kind=inttype) , &
+                            size(cell_order,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cell_order"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cell_order"
+  end if
+  if (allocated(cell_geom)) then
+    call array%set( storage_size(cell_geom,kind=inttype) , &
+                            size(cell_geom,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cell_geom"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cell_geom"
+  end if
+  if (allocated(nodes_of_cell_ptr)) then
+    call array%set( storage_size(nodes_of_cell_ptr,kind=inttype) , &
+                            size(nodes_of_cell_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "nodes_of_cell_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "nodes_of_cell_ptr"
+  end if
+  if (allocated(nodes_of_cell)) then
+    call array%set( storage_size(nodes_of_cell,kind=inttype) , &
+                            size(nodes_of_cell,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "nodes_of_cell"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "nodes_of_cell"
+  end if
+  if (allocated(nodes_on_face)) then
+    call array%set( storage_size(nodes_on_face,kind=inttype) , &
+                            size(nodes_on_face,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "nodes_on_face"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "nodes_on_face"
+  end if
+  !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
-  !
-  ! Try the Intel language extension intrinsic function sizeof
-  !
- !total%mem = int(sizeof(face)) + int(sizeof(cell))
- !total = total%get_units()
- !write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module geovar")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a,:,a)
+  3 format (" Total memory = ",f8.2,1x,a,:,a)
   4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
   5 format ("'",a,"'")
-  6 format (" Array: ",a," memory = ",i0,1x,a,a)
+  6 format (" Array Component: ",a,dt)
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  8 format ("pst_geom(",a,",",i0,")%connectivity")
   !
 end subroutine geovar_memory_usage
 !
