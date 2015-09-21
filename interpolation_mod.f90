@@ -60,11 +60,11 @@ module interpolation_mod
     ! Interpolate to lobatto quadrature points
     type(matrix), allocatable :: lobatto
     ! Pointer to quadrature points used to output the solution for post-processing
-    real(wp), pointer, contiguous :: output(:,:) => null()
+    type(matrix), pointer :: output => null()
     ! Pointer to quadrature points used to compute initial conditions
-    real(wp), pointer, contiguous :: init(:,:) => null()
+    type(matrix), pointer :: init => null()
     ! Pointer to quadrature points used for error computations
-    real(wp), pointer, contiguous :: error(:,:) => null()
+    type(matrix), pointer :: error => null()
     ! Array containing the quadrature weights for the error computations
     real(wp), allocatable :: err_wts(:)
   end type outerpolation_matrix
@@ -256,7 +256,9 @@ continue
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
-      call interp(this_geom,this_order)%toFace%check_for_sparsity
+      if (allocated(interp(this_geom,this_order)%toFace)) then
+        call interp(this_geom,this_order)%toFace%check_for_sparsity
+      end if
     end do
   end do
   !
@@ -384,7 +386,7 @@ continue
         !
         allocate ( this_outerp%gauss , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"gauss"
-        call alloc_error(pname,array_name,1,ierr,error_message)
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
         !
         allocate ( this_outerp%gauss%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
@@ -400,11 +402,11 @@ continue
         !
         allocate ( gauss_pts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_pts",1,ierr,error_message)
+        call alloc_error(pname,"gauss_pts",1,ierr,error_message,skip_alloc_pause)
         !
         allocate ( gauss_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_wts",1,ierr,error_message)
+        call alloc_error(pname,"gauss_wts",1,ierr,error_message,skip_alloc_pause)
         !
         call legendre_gauss_quadrature(gauss_pts,gauss_wts)
         !
@@ -416,7 +418,7 @@ continue
         !
         allocate ( this_outerp%lobatto , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"lobatto"
-        call alloc_error(pname,array_name,1,ierr,error_message)
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
         !
         allocate ( this_outerp%lobatto%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
@@ -432,11 +434,11 @@ continue
         !
         allocate ( lobatto_pts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_pts",1,ierr,error_message)
+        call alloc_error(pname,"lobatto_pts",1,ierr,error_message,skip_alloc_pause)
         !
         allocate ( lobatto_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_wts",1,ierr,error_message)
+        call alloc_error(pname,"lobatto_wts",1,ierr,error_message,skip_alloc_pause)
         !
         call legendre_gauss_lobatto_quadrature(lobatto_pts,lobatto_wts)
         !
@@ -454,7 +456,7 @@ continue
         !
         allocate ( error_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"error_wts",1,ierr,error_message)
+        call alloc_error(pname,"error_wts",1,ierr,error_message,skip_alloc_pause)
         !
         if (loc_error_pts == Legendre_Gauss) then
           error_wts = gauss_wts
@@ -555,47 +557,59 @@ continue
       ! If needed, assign the pointer to the matrix for computing the error
       !
       if (iop_solpts /= loc_error_pts) then
-        if (loc_error_pts == Legendre_Gauss) this_outerp%error => gmat
-        if (loc_error_pts == Legendre_Gauss_Lobatto) this_outerp%error => lmat
+        if (loc_error_pts == Legendre_Gauss) then
+          this_outerp%error => this_outerp%gauss
+        end if
+        if (loc_error_pts == Legendre_Gauss_Lobatto) then
+          this_outerp%error => this_outerp%lobatto
+        end if
       end if
       !
       ! If needed, assign the pointer to the matrix used
       ! to compute the initial conditions
       !
       if (iop_solpts /= loc_init_pts) then
-        if (loc_init_pts == Legendre_Gauss) this_outerp%init => gmat
-        if (loc_init_pts == Legendre_Gauss_Lobatto) this_outerp%init => lmat
+        if (loc_init_pts == Legendre_Gauss) then
+          this_outerp%init => this_outerp%gauss
+        end if
+        if (loc_init_pts == Legendre_Gauss_Lobatto) then
+          this_outerp%init => this_outerp%lobatto
+        end if
       end if
       !
       ! If needed, assign the pointer to the matrix used
       ! to output the solution for post-processing
       !
       if (iop_solpts /= loc_output_pts) then
-        if (loc_output_pts == Legendre_Gauss) this_outerp%output => gmat
-        if (loc_output_pts == Legendre_Gauss_Lobatto) this_outerp%output => lmat
+        if (loc_output_pts == Legendre_Gauss) then
+          this_outerp%output => this_outerp%gauss
+        end if
+        if (loc_output_pts == Legendre_Gauss_Lobatto) then
+          this_outerp%output => this_outerp%lobatto
+        end if
       end if
       !
       ! Deallocate any of the Gauss or Lobatto arrays that were allocated
       !
       if (allocated(gauss_pts)) then
         deallocate ( gauss_pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_pts",2,ierr,error_message)
+        call alloc_error(pname,"gauss_pts",2,ierr,error_message,skip_alloc_pause)
       end if
       if (allocated(gauss_wts)) then
         deallocate ( gauss_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_wts",2,ierr,error_message)
+        call alloc_error(pname,"gauss_wts",2,ierr,error_message,skip_alloc_pause)
       end if
       if (allocated(lobatto_pts)) then
         deallocate ( lobatto_pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_pts",2,ierr,error_message)
+        call alloc_error(pname,"lobatto_pts",2,ierr,error_message,skip_alloc_pause)
       end if
       if (allocated(lobatto_wts)) then
         deallocate ( lobatto_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_wts",2,ierr,error_message)
+        call alloc_error(pname,"lobatto_wts",2,ierr,error_message,skip_alloc_pause)
       end if
       if (allocated(error_wts)) then
         deallocate ( error_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"error_wts",2,ierr,error_message)
+        call alloc_error(pname,"error_wts",2,ierr,error_message,skip_alloc_pause)
       end if
       !
       ! Remove all associations of the local pointers before continuing
@@ -611,8 +625,12 @@ continue
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
-      call outerp(this_geom,this_order)%gauss%check_for_sparsity
-      call outerp(this_geom,this_order)%lobatto%check_for_sparsity
+      if (allocated(outerp(this_geom,this_order)%gauss)) then
+        call outerp(this_geom,this_order)%gauss%check_for_sparsity
+      end if
+      if (allocated(outerp(this_geom,this_order)%lobatto)) then
+        call outerp(this_geom,this_order)%lobatto%check_for_sparsity
+      end if
     end do
   end do
   !
@@ -1617,8 +1635,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -1626,42 +1643,34 @@ continue
   !
   if (allocated(interp)) then
     !
-    array%siz = size(interp)
-    array%mem = array%siz*storage_size(interp)
+    call array%set( storage_size(interp,kind=inttype) , &
+                            size(interp,kind=inttype) )
     array_name = "interp"
     write (iou,2) array_name,array%get_units()
     !
-    dt%siz = array%siz
-    dt%mem = array%mem
+    call dt%set(array)
     !
     do j = lbound(interp,dim=2),ubound(interp,dim=2)
       do i = lbound(interp,dim=1),ubound(interp,dim=1)
         !
         if (allocated(interp(i,j)%toFace)) then
           !
-          array%siz = size(interp(i,j)%toFace)
-          array%mem = array%siz*storage_size(interp(i,j)%toFace)
+          call array%set( storage_size(interp(i,j)%toFace,kind=inttype) , &
+                                  size(interp(i,j)%toFace,kind=inttype) )
           !
           write (array_name,4) "interp",Geom_Name(i),j,"toFace"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(interp(i,j)%toFace,dim=1),ubound(interp(i,j)%toFace,dim=1)
             !
-            if (allocated(interp(i,j)%toFace(k)%mat)) then
-              !
-              array%siz = size(interp(i,j)%toFace(k)%mat)
-              array%mem = array%siz*storage_size(interp(i,j)%toFace(k)%mat)
-              !
-              write (array_name,4) "interp",Geom_Name(i),j,"toFace",k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = interp(i,j)%toFace(k)%memory_usage()
+            !
+            write (array_name,4) "interp",Geom_Name(i),j,"toFace",k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -1669,29 +1678,22 @@ continue
         !
         if (allocated(interp(i,j)%toCell)) then
           !
-          array%siz = size(interp(i,j)%toCell)
-          array%mem = array%siz*storage_size(interp(i,j)%toCell)
+          call array%set( storage_size(interp(i,j)%toCell,kind=inttype) , &
+                                  size(interp(i,j)%toCell,kind=inttype) )
           !
           write (array_name,4) "interp",Geom_Name(i),j,"toCell"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(interp(i,j)%toCell,dim=1),ubound(interp(i,j)%toCell,dim=1)
             !
-            if (allocated(interp(i,j)%toCell(k)%mat)) then
-              !
-              array%siz = size(interp(i,j)%toCell(k)%mat)
-              array%mem = array%siz*storage_size(interp(i,j)%toCell(k)%mat)
-              !
-              write (array_name,4) "interp",Geom_Name(i),j,"toCell",k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = interp(i,j)%toCell(k)%memory_usage()
+            !
+            write (array_name,4) "interp",Geom_Name(i),j,"toCell",k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -1700,128 +1702,101 @@ continue
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "interp"
     write (iou,2) array_name,dt%get_units()
     !
-    ! Try the Intel language extension intrinsic function sizeof
+  else
     !
-   !dt%mem = int(sizeof(interp))
-   !dt = dt%get_units()
-   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    write (iou,7) "interp"
     !
   end if
   !
   if (allocated(outerp)) then
     !
-    array%siz = size(outerp)
-    array%mem = array%siz*storage_size(outerp)
+    call array%set( storage_size(outerp,kind=inttype) , &
+                            size(outerp,kind=inttype) )
     array_name = "outerp"
     write (iou,2) array_name,array%get_units()
     !
-    dt%siz = array%siz
-    dt%mem = array%mem
+    call dt%set(array)
     !
     do j = lbound(outerp,dim=2),ubound(outerp,dim=2)
       do i = lbound(outerp,dim=1),ubound(outerp,dim=1)
         !
         if (allocated(outerp(i,j)%gauss)) then
           !
-          array%siz = 1
-          array%mem = array%siz*storage_size(outerp(i,j)%gauss)
+          call array%set( storage_size(outerp(i,j)%gauss,kind=inttype) )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"gauss"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
-          if (allocated(outerp(i,j)%gauss%mat)) then
-            !
-            array%siz = size(outerp(i,j)%gauss%mat)
-            array%mem = array%siz*storage_size(outerp(i,j)%gauss%mat)
-            !
-            write (array_name,4) "outerp",Geom_Name(i),j,"gauss%mat"
-            write (iou,2) array_name,array%get_units()
-            !
-            dt%siz = dt%siz + array%siz
-            dt%mem = dt%mem + array%mem
-            !
-          end if
+          array = outerp(i,j)%gauss%memory_usage()
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"gauss%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
           !
         end if
         !
         if (allocated(outerp(i,j)%lobatto)) then
           !
-          array%siz = 1
-          array%mem = array%siz*storage_size(outerp(i,j)%lobatto)
+          call array%set( storage_size(outerp(i,j)%lobatto,kind=inttype) )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"lobatto"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
-          if (allocated(outerp(i,j)%lobatto%mat)) then
-            !
-            array%siz = size(outerp(i,j)%lobatto%mat)
-            array%mem = array%siz*storage_size(outerp(i,j)%lobatto%mat)
-            !
-            write (array_name,4) "outerp",Geom_Name(i),j,"lobatto%mat"
-            write (iou,2) array_name,array%get_units()
-            !
-            dt%siz = dt%siz + array%siz
-            dt%mem = dt%mem + array%mem
-            !
-          end if
+          array = outerp(i,j)%lobatto%memory_usage()
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"lobatto%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
           !
         end if
         !
         if (allocated(outerp(i,j)%err_wts)) then
           !
-          array%siz = size(outerp(i,j)%err_wts)
-          array%mem = array%siz*storage_size(outerp(i,j)%err_wts)
+          call array%set( storage_size(outerp(i,j)%err_wts,kind=inttype) , &
+                                  size(outerp(i,j)%err_wts,kind=inttype) )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"err_wts"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "outerp"
     write (iou,2) array_name,dt%get_units()
     !
-    ! Try the Intel language extension intrinsic function sizeof
+  else
     !
-   !dt%mem = int(sizeof(outerp))
-   !dt = dt%get_units()
-   !write (iou,6) array_name,dt%mem,trim(adjustl(dt%units))," (using sizeof)"
+    write (iou,7) "outerp"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
-  !
-  ! Try the Intel language extension intrinsic function sizeof
-  !
- !total%mem = int(sizeof(interp)) + int(sizeof(outerp))
- !total = total%get_units()
- !write (iou,3) total%mem,trim(adjustl(total%units))," (using sizeof)"
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module interpolation_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a,:,a)
+  3 format (" Total memory = ",f8.2,1x,a,:,a)
   4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
   5 format ("'",a,"'")
   6 format (" Array: ",a," memory = ",i0,1x,a,a)
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine interpolation_memory_usage
 !
