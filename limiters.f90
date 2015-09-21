@@ -14,6 +14,7 @@ module module_limiters
   public :: initialize_limiters
   public :: compute_cell_ave
   public :: limit_by_projecting
+  public :: limiters_memory_usage
   !
   !
   !.. Module Local Scalars ..
@@ -144,12 +145,16 @@ subroutine moment_limiter
   integer :: nc,n1,n2,np,m
   integer :: this_geom,this_order
   !
+#ifndef USE_MATRIX_PROCEDURES
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: nodal2modal(:,:)
+#endif
   !
 continue
   !
+#ifndef USE_MATRIX_PROCEDURES
   nodal2modal => null()
+#endif
   !
   if (init_all_as_marked) needs_limiting = true
   !
@@ -164,6 +169,12 @@ continue
     this_geom = cell_geom(nc)
     this_order = cell_order(nc)
     !
+#ifdef USE_MATRIX_PROCEDURES
+    do m = 1,nq
+      umodes(n1:n2,m) = &
+        vand(this_geom,this_order)%nodal2modal%mv_mult( usp(m,n1:n2) )
+    end do
+#else
     nodal2modal => vand(this_geom,this_order)%nodal2modal%mat
     !
     do m = 1,nq
@@ -171,6 +182,7 @@ continue
     end do
     !
     if (associated(nodal2modal)) nodal2modal => null()
+#endif
     !
   end do
   !
@@ -200,8 +212,10 @@ subroutine limit_by_projecting
   !.. Local Arrays ..
   real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
+#ifndef USE_MATRIX_PROCEDURES
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: plim(:,:)
+#endif
   !
 continue
   !
@@ -211,7 +225,9 @@ continue
   !
   ! Initialize the local pointers to disassociated
   !
+#ifndef USE_MATRIX_PROCEDURES
   plim => null()
+#endif
   !
   ! Initialize the array troubled_cell to identify all troubled cells before
   ! attempting to use the projection limiter.
@@ -245,10 +261,6 @@ continue
       !
       proj_order = this_order - dropped_orders
       !
-      ! Assign local pointer to projection matrix as an alias to simplify the code
-      ! 
-      plim => projct(this_geom,this_order)%toCell(proj_order)%mat
-      !
       ! Store a copy of usp for this cell because the individual
       ! solutions at the solution points within the cell will be
       ! altered during the projection computation. While we are
@@ -264,6 +276,17 @@ continue
       ! Apply the limiter by multplying the projection matrix with
       ! the solution in the current cell
       !
+#ifdef USE_MATRIX_PROCEDURES
+      do m = 1,nq
+        usp(m,n1:n2) = &
+          projct(this_geom,this_order)%toCell(proj_order)%mv_mult( tusp(1:nsp,m) )
+      end do
+#else
+      !
+      ! Assign local pointer to projection matrix as an alias to simplify the code
+      ! 
+      plim => projct(this_geom,this_order)%toCell(proj_order)%mat
+      !
       do m = 1,nq
         usp(m,n1:n2) = matmul( plim , tusp(1:nsp,m) )
       end do
@@ -271,6 +294,7 @@ continue
       ! Disassociate plim before continuing to the next cell
       !
       if (associated(plim)) plim => null()
+#endif
       !
     end do cell_loop
     !
@@ -364,6 +388,81 @@ continue
   end do
   !
 end subroutine identify_troubled_cells
+!
+!###############################################################################
+!
+subroutine limiters_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou
+  character(len=36) :: array_name
+  type(memory) :: array
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  call total%reset
+  !
+  write (iou,1)
+  !
+  if (allocated(cell_ave_sol)) then
+    call array%set( storage_size(cell_ave_sol,kind=inttype) , &
+                            size(cell_ave_sol,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cell_ave_sol"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cell_ave_sol"
+  end if
+  if (allocated(umodes)) then
+    call array%set( storage_size(umodes,kind=inttype) , &
+                            size(umodes,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "umodes"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "umodes"
+  end if
+  if (allocated(troubled_cell)) then
+    call array%set( storage_size(troubled_cell,kind=inttype) , &
+                            size(troubled_cell,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "troubled_cell"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "troubled_cell"
+  end if
+  if (allocated(needs_limiting)) then
+    call array%set( storage_size(needs_limiting,kind=inttype) , &
+                            size(needs_limiting,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "needs_limiting"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "needs_limiting"
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module module_limiters")
+  2 format (" Array: ",a7,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+end subroutine limiters_memory_usage
 !
 !###############################################################################
 !
