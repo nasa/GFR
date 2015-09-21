@@ -761,8 +761,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -770,75 +769,72 @@ continue
   !
   if (allocated(vand)) then
     !
-    dt%siz = size(vand)
-    dt%mem = dt%siz*storage_size(vand)
+    call dt%set( storage_size(vand,kind=inttype) , &
+                         size(vand,kind=inttype) )
     !
     do j = lbound(vand,dim=2),ubound(vand,dim=2)
       do i = lbound(vand,dim=1),ubound(vand,dim=1)
         !
         if (allocated(vand(i,j)%nodal2modal%mat)) then
           !
-          array%siz = 1
-          array%mem = array%siz*storage_size(vand(i,j)%nodal2modal)
+          call array%set( storage_size(vand(i,j)%nodal2modal,kind=inttype) )
           !
           write (array_name,4) Geom_Name(i),j,"nodal2modal"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
-          array%siz = size(vand(i,j)%nodal2modal%mat)
-          array%mem = array%siz*storage_size(vand(i,j)%nodal2modal%mat)
+          array = vand(i,j)%nodal2modal%memory_usage()
           !
           write (array_name,4) Geom_Name(i),j,"nodal2modal%mat"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
         if (allocated(vand(i,j)%modal2nodal%mat)) then
           !
-          array%siz = 1
-          array%mem = array%siz*storage_size(vand(i,j)%modal2nodal)
+          call array%set( storage_size(vand(i,j)%modal2nodal,kind=inttype) )
           !
           write (array_name,4) Geom_Name(i),j,"modal2nodal"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
-          array%siz = size(vand(i,j)%modal2nodal%mat)
-          array%mem = array%siz*storage_size(vand(i,j)%modal2nodal%mat)
+          array = vand(i,j)%modal2nodal%memory_usage()
           !
           write (array_name,4) Geom_Name(i),j,"modal2nodal%mat"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
         end if
         !
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "vand"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "vand"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module vandermonde_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format ("vand(",a,",",i0,")%",a)
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine vandermonde_memory_usage
 !
