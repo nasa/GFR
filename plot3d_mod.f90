@@ -13,6 +13,7 @@ module module_plot3d
   ! ##################################
   !
   public :: read_plot3d_gridfile
+  public :: plot3d_memory_usage
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -3170,6 +3171,147 @@ continue
   return_value = [i,j,k]
   !
 end function map1dto3d
+!
+!###############################################################################
+!
+subroutine plot3d_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  call total%reset
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(bcs_info)) then
+    !
+    call dt%set( storage_size(bcs_info,kind=inttype) , &
+                         size(bcs_info,kind=inttype) )
+    !
+    do i = lbound(bcs_info,dim=1),ubound(bcs_info,dim=1)
+      !
+      call dt%add( storage_size(bcs_info(i)%bc_type,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%nfaces,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%block,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%dir,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%dir1,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%dir2,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%loc,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%begpt,kind=inttype) , &
+                           size(bcs_info(i)%bc%begpt,kind=inttype) )
+      call dt%add( storage_size(bcs_info(i)%bc%endpt,kind=inttype) , &
+                           size(bcs_info(i)%bc%endpt,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "bcs_info"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "bcs_info"
+    !
+  end if
+  !
+  if (allocated(cut_info)) then
+    !
+    call dt%set( storage_size(cut_info,kind=inttype) , &
+                         size(cut_info,kind=inttype) )
+    !
+    do i = lbound(cut_info,dim=1),ubound(cut_info,dim=1)
+      !
+      call dt%add( storage_size(cut_info(i)%points,kind=inttype) )
+      call dt%add( storage_size(cut_info(i)%cut_name,kind=inttype) , &
+                           size(cut_info(i)%cut_name,kind=inttype) )
+      call dt%add( storage_size(cut_info(i)%side,kind=inttype) , &
+                           size(cut_info(i)%side,kind=inttype) )
+      !
+      do j = lbound(cut_info(i)%side,dim=1),ubound(cut_info(i)%side,dim=1)
+        call dt%add( storage_size(cut_info(i)%side(j)%block,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%dir,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%dir1,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%dir2,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%loc,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%begpt,kind=inttype) , &
+                             size(cut_info(i)%side(j)%begpt,kind=inttype) )
+        call dt%add( storage_size(cut_info(i)%side(j)%endpt,kind=inttype) , &
+                             size(cut_info(i)%side(j)%endpt,kind=inttype) )
+      end do
+      !
+      call dt%add( storage_size(cut_info(i)%nodes,kind=inttype) , &
+                           size(cut_info(i)%nodes,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "cut_info"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "cut_info"
+    !
+  end if
+  !
+  if (allocated(offset)) then
+    call array%set( storage_size(offset,kind=inttype) , &
+                            size(offset,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "offset"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "offset"
+  end if
+  if (allocated(ijkpts)) then
+    call array%set( storage_size(ijkpts,kind=inttype) , &
+                            size(ijkpts,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "ijkpts"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "ijkpts"
+  end if
+  if (allocated(lpnew)) then
+    call array%set( storage_size(lpnew,kind=inttype) , &
+                            size(lpnew,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "lpnew"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "lpnew"
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module module_plot3d")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  4 format ("cut_info(",a,",",i0,")%nodes")
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+end subroutine plot3d_memory_usage
 !
 !###############################################################################
 !
