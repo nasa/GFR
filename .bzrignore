@@ -3,3 +3,7 @@ objects/debug/*
 objects/optimize/*
 modules/debug/*
 modules/optimize/*
+recon
+debug_recon
+grid_files
+other
