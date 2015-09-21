@@ -116,7 +116,7 @@ continue
       !
       allocate ( this_dmat%d(1:ndim) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
       !
       ! Compute the derivative matrices depending on geometry type
       !
@@ -182,7 +182,9 @@ continue
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
-      call deriv(this_geom,this_order)%d%check_for_sparsity
+      if (allocated(deriv(this_geom,this_order)%d)) then
+        call deriv(this_geom,this_order)%d%check_for_sparsity
+      end if
     end do
   end do
   !
@@ -923,8 +925,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -932,37 +933,30 @@ continue
   !
   if (allocated(deriv)) then
     !
-    dt%siz = size(deriv)
-    dt%mem = dt%siz*storage_size(deriv)
+    call dt%set( storage_size(deriv,kind=inttype) , &
+                         size(deriv,kind=inttype) )
     !
     do j = lbound(deriv,dim=2),ubound(deriv,dim=2)
       do i = lbound(deriv,dim=1),ubound(deriv,dim=1)
         !
         if (allocated(deriv(i,j)%d)) then
           !
-          array%siz = size(deriv(i,j)%d)
-          array%mem = array%siz*storage_size(deriv(i,j)%d)
+          call array%set( storage_size(deriv(i,j)%d,kind=inttype) , &
+                                  size(deriv(i,j)%d,kind=inttype) )
           !
           write (array_name,4) "deriv",Geom_Name(i),j
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(deriv(i,j)%d,dim=1),ubound(deriv(i,j)%d,dim=1)
             !
-            if (allocated(deriv(i,j)%d(k)%mat)) then
-              !
-              array%siz = size(deriv(i,j)%d(k)%mat)
-              array%mem = array%siz*storage_size(deriv(i,j)%d(k)%mat)
-              !
-              write (array_name,4) "deriv",Geom_Name(i),j,k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = deriv(i,j)%d(k)%memory_usage()
+            !
+            write (array_name,4) "deriv",Geom_Name(i),j,k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -971,45 +965,42 @@ continue
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "deriv"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "deriv"
     !
   end if
   !
   if (allocated(dqmat)) then
     !
-    dt%siz = size(dqmat)
-    dt%mem = dt%siz*storage_size(dqmat)
+    call dt%set( storage_size(dqmat,kind=inttype) , &
+                         size(dqmat,kind=inttype) )
     !
     do j = lbound(dqmat,dim=2),ubound(dqmat,dim=2)
       do i = lbound(dqmat,dim=1),ubound(dqmat,dim=1)
         !
         if (allocated(dqmat(i,j)%d)) then
           !
-          array%siz = size(dqmat(i,j)%d)
-          array%mem = array%siz*storage_size(dqmat(i,j)%d)
+          call array%set( storage_size(dqmat(i,j)%d,kind=inttype) , &
+                                  size(dqmat(i,j)%d,kind=inttype) )
           !
           write (array_name,4) "dqmat",Geom_Name(i),j
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(dqmat(i,j)%d,dim=1),ubound(dqmat(i,j)%d,dim=1)
             !
-            if (allocated(dqmat(i,j)%d(k)%mat)) then
-              !
-              array%siz = size(dqmat(i,j)%d(k)%mat)
-              array%mem = array%siz*storage_size(dqmat(i,j)%d(k)%mat)
-              !
-              write (array_name,4) "dqmat",Geom_Name(i),j,k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = dqmat(i,j)%d(k)%memory_usage()
+            !
+            write (array_name,4) "dqmat",Geom_Name(i),j,k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -1018,22 +1009,27 @@ continue
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "dqmat"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "dqmat"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module derivatives_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format (a,"(",a,",",i0,")%d",:,"(",i0,")%mat")
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine derivatives_memory_usage
 !
