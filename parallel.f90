@@ -7,7 +7,9 @@ module parallel_mod
   implicit none
   !
   private
+#ifdef METIS_5
   include "metis.fh"
+#endif
   !
   !.. Public Module Procedures ..
   !
@@ -19,6 +21,7 @@ module parallel_mod
   public :: exchange_faceusp
   public :: wait_facedusp
   public :: exchange_facedusp
+  public :: parallel_memory_usage
  !public :: exchange_modes
  !public :: test_nonblocking_fexchange
   !
@@ -261,7 +264,7 @@ subroutine create_serial_cell_map(ncell)
 continue
   !
   allocate ( cell_map(1:1) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_map",1,ierr,error_message)
+  call alloc_error(pname,"cell_map",1,ierr,error_message,skip_alloc_pause)
   !
   allocate ( cell_map(1)%loc_to_glb(1:ncell) , source=intseq(1,ncell) , &
              stat=ierr , errmsg=error_message )
@@ -321,6 +324,7 @@ continue
   !
   ! Create the dual graph for the global grid not including ghost cells
   !
+  call memory_pause("Before: calling create_dual_graph")
   call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
                          nodes_of_cell_ptr,bface,xadj,adjncy)
   !
@@ -336,12 +340,14 @@ continue
   !
 #ifdef METIS_4
   !
+  call memory_pause("Before: calling partition_using_metis_4")
   call partition_using_metis_4(metis_option_requested,npart, &
                                ngcell,cell_geom,cell_order, &
                                xadj,adjncy,epart)
   !
 #elif METIS_5
   !
+  call memory_pause("Before: calling partition_using_metis_5")
   call partition_using_metis_5(metis_option_requested,npart, &
                                ngcell,xadj,adjncy,epart)
   !
@@ -375,6 +381,7 @@ continue
   ! Find the faces that separate two adjacent partitions
   ! and add these faces to boundary faces array
   !
+  call memory_pause("Before: calling find_partition_boundaries")
   call find_partition_boundaries(epart,bface)
   !
   ! Now that we have created boundary conditions for faces
@@ -383,16 +390,21 @@ continue
   ! This also includes creating the reverse mapping arrays
   ! or the maps from global to local block orderings
   !
+  call memory_pause("Before: calling create_grid_mappings")
   call create_grid_mappings(npart,epart,nodes_of_cell,nodes_of_cell_ptr)
+  !
+ !call parallel_memory_usage(iout)
   !
   ! Now that the mappings have been created, we
   ! need to localize the grid on each processor
   !
+  call memory_pause("Before: calling localize_grid")
   call localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
                      xyz_nodes,epart,cell_geom,cell_order)
   !
   ! Finally, create MPI datatypes for exchanging data between processes
   !
+  call memory_pause("Before: calling create_face_nonblocking_datatypes")
   call create_face_nonblocking_datatypes(bface)
   !
   ! Deallocate the mapping arrays since they are no longer needed
@@ -420,6 +432,13 @@ continue
       call alloc_error(pname,array_name,2,ierr,error_message)
     end if
   end do
+  !
+  ! Deallocate the face array because I dont think it is needed anymore
+  !
+  if (allocated(face)) then
+    deallocate ( face , stat=ierr ,errmsg=error_message )
+    call alloc_error(pname,"face",2,ierr,error_message)
+  end if
   !
  !call create_exchange_datatypes()
   !
@@ -680,7 +699,9 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   !
   !.. Local Arrays ..
   integer, dimension(1:5) :: metis_option_hierarchy
+#ifdef METIS_5
   integer, dimension(0:METIS_NOPTIONS-1) :: options
+#endif
   !
   !.. Local Allocatable Arrays ..
   integer,       allocatable, dimension(:) :: vwgt
@@ -1441,7 +1462,7 @@ continue
     allocate ( face(nf)%left%flxpts(1:nfp) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) nf,"left"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! The indices of the flux points for the left cell are just the 
     ! sequential values of [1:nfp]
@@ -1460,7 +1481,7 @@ continue
     allocate ( face(nf)%right%flxpts(1:nfp) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) nf,"right"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     if (nf <= ngfbnd) then
       !
@@ -1994,7 +2015,9 @@ continue
   !
   ! Create the reverse maps for cells
   !
+#ifdef USE_GLB_TO_LOC_ARRAYS
   call create_reverse_map(ngcell,cell_map,"cell")
+#endif
   !
   ! #######
   ! ## 2 ##
@@ -2050,7 +2073,9 @@ continue
   !
   ! Create the reverse maps for nodes
   !
+#ifdef USE_GLB_TO_LOC_ARRAYS
   call create_reverse_map(ngnode,node_map,"node")
+#endif
   !
   ! #######
   ! ## 3 ##
@@ -2087,7 +2112,9 @@ continue
   !
   ! Create the reverse maps for faces
   !
+#ifdef USE_GLB_TO_LOC_ARRAYS
   call create_reverse_map(ngface,face_map,"face")
+#endif
   !
   ! Format Statements
   !
@@ -2239,7 +2266,11 @@ continue
       !
       master_cpu = epart( bface(2,glb_face) )
       !
+#ifdef USE_GLB_TO_LOC_ARRAYS
       loc_face = face_map(master_cpu)%glb_to_loc(glb_face)
+#else
+      loc_face = findloc( face_map(master_cpu)%loc_to_glb , glb_face)
+#endif
       !
       bc_conflict(n)%master%face = loc_face
       bc_conflict(n)%master%cpu = master_cpu
@@ -2256,7 +2287,11 @@ continue
         !
         slave_cpu = epart( bface(2,glb_face) )
         !
+#ifdef USE_GLB_TO_LOC_ARRAYS
         loc_face = face_map(slave_cpu)%glb_to_loc(glb_face)
+#else
+        loc_face = findloc( face_map(slave_cpu)%loc_to_glb , glb_face)
+#endif
         !
         bc_conflict(n)%slave(nf)%face = loc_face
         bc_conflict(n)%slave(nf)%cpu = slave_cpu
@@ -2337,7 +2372,11 @@ continue
   ncell = size( cell_map(my_part)%loc_to_glb )
   nnode = size( node_map(my_part)%loc_to_glb )
   nface = size( face_map(my_part)%loc_to_glb )
+#ifdef USE_GLB_TO_LOC_ARRAYS
   nfbnd = count( face_map(my_part)%glb_to_loc(1:ngfbnd) /= 0 )
+#else
+  nfbnd = count( face_map(my_part)%loc_to_glb <= ngfbnd )
+#endif
   !
   ! Now that all ghost cells are actually faces and not cells,
   ! n_totnod is just the same as nnode
@@ -2371,7 +2410,11 @@ continue
     !
     ! Now localize the information for this face
     !
+#ifdef USE_GLB_TO_LOC_ARRAYS
     bface(2,loc_face) = cell_map(my_part)%glb_to_loc( bface(2,loc_face) ) ! local host cell
+#else
+    bface(2,loc_face) = findloc( cell_map(my_part)%loc_to_glb ,  bface(2,loc_face) ) ! local host cell
+#endif
     !
     if ( any(bface(1,loc_face) == bc_comm) ) then
       !
@@ -2379,8 +2422,13 @@ continue
       adj_cell = bface(6,loc_face)      ! connecting host cell
       adj_part = bface(7,loc_face) + 1  ! partition of connecting cell
       !
+#ifdef USE_GLB_TO_LOC_ARRAYS
       bface(5,loc_face) = face_map(adj_part)%glb_to_loc(adj_face)
       bface(6,loc_face) = cell_map(adj_part)%glb_to_loc(adj_cell)
+#else
+      bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face)
+      bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell)
+#endif
       !
     end if
     !
@@ -2699,7 +2747,11 @@ continue
   !
   do loc_node = 1,size(nodes_of_cell)
     glb_node = nodes_of_cell(loc_node)
+#ifdef USE_GLB_TO_LOC_ARRAYS
     nodes_of_cell(loc_node) = node_map(my_part)%glb_to_loc( glb_node )
+#else
+    nodes_of_cell(loc_node) = findloc( node_map(my_part)%loc_to_glb ,  glb_node )
+#endif
   end do
   !
   ! #######
@@ -3275,6 +3327,9 @@ end subroutine create_face_nonblocking_datatypes
 subroutine exchange_faceusp(faceusp)
   !
   !.. Use Statements ..
+#ifndef USE_TYPEBOUND_FACE_PACK
+  use geovar,  only : nfbnd,bface
+#endif
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
@@ -3285,10 +3340,25 @@ subroutine exchange_faceusp(faceusp)
   integer(int_mpi) :: send_cpu,send_dtype
   integer(int_mpi) :: recv_cpu,recv_dtype
   integer(int_mpi) :: mesg_tag
+#ifndef USE_TYPEBOUND_FACE_PACK
+  integer :: nf,nsz,ibeg,iend
+#endif
   !
 continue
   !
+#ifdef USE_TYPEBOUND_FACE_PACK
   call faceusp%pack(fusp_send_buffer)
+#else
+  iend = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz = size(faceusp(nf)%v(:,:,1))
+    ibeg = iend + 1
+    iend = iend + nsz
+    fusp_send_buffer(ibeg:iend) = &
+                 reshape( real(faceusp(nf)%v(:,:,1),kind=r8) , [nsz] )
+  end do
+#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -3324,10 +3394,20 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp(faceusp)
   !
   !.. Use Statements ..
+#ifndef USE_TYPEBOUND_FACE_PACK
+  use geovar,  only : nfbnd,bface
+#endif
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
   type(face_var), dimension(:), intent(inout) :: faceusp
+  !
+#ifndef USE_TYPEBOUND_FACE_PACK
+  !.. Local Scalars ..
+  integer :: ibeg,iend,nf
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: nsz
+#endif
   !
 continue
   !
@@ -3337,7 +3417,20 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
+#ifdef USE_TYPEBOUND_FACE_PACK
   call faceusp%unpack(fusp_recv_buffer)
+#else
+  iend = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz(1) = size(faceusp(nf)%v,dim=1)
+    nsz(2) = size(faceusp(nf)%v,dim=2)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    faceusp(nf)%v(:,:,2) = &
+                 reshape( real(fusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
+  end do
+#endif
   !
 end subroutine wait_faceusp
 !
@@ -3346,6 +3439,9 @@ end subroutine wait_faceusp
 subroutine exchange_facedusp(facedusp)
   !
   !.. Use Statements ..
+#ifndef USE_TYPEBOUND_FACE_PACK
+  use geovar,  only : nfbnd,bface
+#endif
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
@@ -3356,10 +3452,25 @@ subroutine exchange_facedusp(facedusp)
   integer(int_mpi) :: send_cpu,send_dtype
   integer(int_mpi) :: recv_cpu,recv_dtype
   integer(int_mpi) :: mesg_tag
+#ifndef USE_TYPEBOUND_FACE_PACK
+  integer :: nf,nsz,ibeg,iend
+#endif
   !
 continue
   !
+#ifdef USE_TYPEBOUND_FACE_PACK
   call facedusp%pack(fdusp_send_buffer)
+#else
+  iend = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz = size(facedusp(nf)%v(:,:,:,1))
+    ibeg = iend + 1
+    iend = iend + nsz
+    fdusp_send_buffer(ibeg:iend) = &
+                 reshape( real(facedusp(nf)%v(:,:,:,1),kind=r8) , [nsz] )
+  end do
+#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -3395,10 +3506,20 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp(facedusp)
   !
   !.. Use Statements ..
+#ifndef USE_TYPEBOUND_FACE_PACK
+  use geovar,  only : nfbnd,bface
+#endif
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
   type(face_vec), dimension(:), intent(inout) :: facedusp
+  !
+#ifndef USE_TYPEBOUND_FACE_PACK
+  !.. Local Scalars ..
+  integer :: ibeg,iend,nf
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: nsz
+#endif
   !
 continue
   !
@@ -3408,7 +3529,21 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
+#ifdef USE_TYPEBOUND_FACE_PACK
   call facedusp%unpack(fdusp_recv_buffer)
+#else
+  iend = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz(1) = size(facedusp(nf)%v,dim=1)
+    nsz(2) = size(facedusp(nf)%v,dim=2)
+    nsz(3) = size(facedusp(nf)%v,dim=3)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    facedusp(nf)%v(:,:,:,2) = &
+                 reshape( real(fdusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
+  end do
+#endif
   !
 end subroutine wait_facedusp
 !
@@ -4019,6 +4154,441 @@ continue
   14 format (4(3x,i0))
   !
 end subroutine output_partitions
+!
+!###############################################################################
+!
+subroutine parallel_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i
+  integer :: loc_siz,glb_siz
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  call total%reset
+  !
+  write (iou,1)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(cell_map)) then
+    !
+    call dt%set( storage_size(cell_map,kind=inttype) , &
+                         size(cell_map,kind=inttype) )
+    !
+   !write (iout,*)
+   !write (iout,*) "cell_map(:)"
+   !write (iout,*) "size = ",size(cell_map)
+   !write (iout,*) "storage_size = ",storage_size(cell_map)
+   !!
+   !loc_siz = 0
+   !glb_siz = 0
+    !
+    do i = lbound(cell_map,dim=1),ubound(cell_map,dim=1)
+      !
+      if (allocated(cell_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(cell_map(i)%loc_to_glb,kind=inttype) , &
+                             size(cell_map(i)%loc_to_glb,kind=inttype) )
+   !    loc_siz = loc_siz + size(cell_map(i)%loc_to_glb)
+      end if
+      if (allocated(cell_map(i)%glb_to_loc)) then
+        call dt%add( storage_size(cell_map(i)%glb_to_loc,kind=inttype) , &
+                             size(cell_map(i)%glb_to_loc,kind=inttype) )
+   !    glb_siz = glb_siz + size(cell_map(i)%glb_to_loc)
+      end if
+      !
+    end do
+    !
+   !i = lbound(cell_map,dim=1)
+   !if (allocated(cell_map(i)%loc_to_glb)) then
+   !  write (iout,*)
+   !  write (iout,*) "cell_map(:)%loc_to_glb"
+   !  write (iout,*) "size = ",loc_siz
+   !  write (iout,*) "storage_size = ",storage_size(cell_map(i)%loc_to_glb)
+   !end if
+   !if (allocated(cell_map(i)%glb_to_loc)) then
+   !  write (iout,*)
+   !  write (iout,*) "cell_map(:)%glb_to_loc"
+   !  write (iout,*) "size = ",glb_siz
+   !  write (iout,*) "storage_size = ",storage_size(cell_map(i)%glb_to_loc)
+   !end if
+    !
+    call total%add(dt)
+    write (array_name,5) "cell_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "cell_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(node_map)) then
+    !
+    call dt%set( storage_size(node_map,kind=inttype) , &
+                         size(node_map,kind=inttype) )
+   !write (iout,*)
+   !write (iout,*) "node_map(:)"
+   !write (iout,*) "size = ",size(node_map)
+   !write (iout,*) "storage_size = ",storage_size(node_map)
+   !!
+   !loc_siz = 0
+   !glb_siz = 0
+    !
+    do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
+      !
+      if (allocated(node_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
+                             size(node_map(i)%loc_to_glb,kind=inttype) )
+   !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
+      end if
+      if (allocated(node_map(i)%glb_to_loc)) then
+        call dt%add( storage_size(node_map(i)%glb_to_loc,kind=inttype) , &
+                             size(node_map(i)%glb_to_loc,kind=inttype) )
+   !    glb_siz = glb_siz + size(node_map(i)%glb_to_loc)
+      end if
+      !
+    end do
+    !
+   !i = lbound(node_map,dim=1)
+   !if (allocated(node_map(i)%loc_to_glb)) then
+   !  write (iout,*)
+   !  write (iout,*) "node_map(:)%loc_to_glb"
+   !  write (iout,*) "size = ",loc_siz
+   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
+   !end if
+   !if (allocated(node_map(i)%glb_to_loc)) then
+   !  write (iout,*)
+   !  write (iout,*) "node_map(:)%glb_to_loc"
+   !  write (iout,*) "size = ",glb_siz
+   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%glb_to_loc)
+   !end if
+    !
+    call total%add(dt)
+    write (array_name,5) "node_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "node_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(face_map)) then
+    !
+    call dt%set( storage_size(face_map,kind=inttype) , &
+                         size(face_map,kind=inttype) )
+   !write (iout,*)
+   !write (iout,*) "face_map(:)"
+   !write (iout,*) "size = ",size(face_map)
+   !write (iout,*) "storage_size = ",storage_size(face_map)
+   !!
+   !loc_siz = 0
+   !glb_siz = 0
+    !
+    do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
+      !
+      if (allocated(face_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
+                             size(face_map(i)%loc_to_glb,kind=inttype) )
+   !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
+      end if
+      if (allocated(face_map(i)%glb_to_loc)) then
+        call dt%add( storage_size(face_map(i)%glb_to_loc,kind=inttype) , &
+                             size(face_map(i)%glb_to_loc,kind=inttype) )
+   !    glb_siz = glb_siz + size(face_map(i)%glb_to_loc)
+      end if
+      !
+    end do
+    !
+   !i = lbound(face_map,dim=1)
+   !if (allocated(face_map(i)%loc_to_glb)) then
+   !  write (iout,*)
+   !  write (iout,*) "face_map(:)%loc_to_glb"
+   !  write (iout,*) "size = ",loc_siz
+   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
+   !end if
+   !if (allocated(face_map(i)%glb_to_loc)) then
+   !  write (iout,*)
+   !  write (iout,*) "face_map(:)%glb_to_loc"
+   !  write (iout,*) "size = ",glb_siz
+   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%glb_to_loc)
+   !end if
+    !
+    call total%add(dt)
+    write (array_name,5) "face_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "face_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(face)) then
+    !
+    call dt%set( storage_size(face,kind=inttype) , &
+                         size(face,kind=inttype) )
+    !
+    do i = lbound(face,dim=1),ubound(face,dim=1)
+      !
+      call dt%add( storage_size(face(i)%geom,kind=inttype) )
+      call dt%add( storage_size(face(i)%order,kind=inttype) )
+      !
+      call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
+                           size(face(i)%nodes,kind=inttype) )
+      !
+      call dt%add( storage_size(face(i)%left,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%geom,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%partition,kind=inttype) )
+      !
+      if (allocated(face(i)%left%flxpts)) then
+        call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                             size(face(i)%left%flxpts,kind=inttype) )
+      end if
+      !
+      call dt%add( storage_size(face(i)%right,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%geom,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%partition,kind=inttype) )
+      !
+      if (allocated(face(i)%right%flxpts)) then
+        call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
+                             size(face(i)%right%flxpts,kind=inttype) )
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "face"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "face"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(exch_fusp)) then
+    !
+    call dt%set( storage_size(exch_fusp,kind=inttype) , &
+                         size(exch_fusp,kind=inttype) )
+    !
+    do i = lbound(exch_fusp,dim=1),ubound(exch_fusp,dim=1)
+      !
+      call dt%add( storage_size(exch_fusp(i)%adj_cpu,kind=inttype) )
+      call dt%add( storage_size(exch_fusp(i)%send_tag,kind=inttype) )
+      call dt%add( storage_size(exch_fusp(i)%recv_tag,kind=inttype) )
+      call dt%add( storage_size(exch_fusp(i)%send_datatype,kind=inttype) )
+      call dt%add( storage_size(exch_fusp(i)%recv_datatype,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "exch_fusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "exch_fusp"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(exch_fdusp)) then
+    !
+    call dt%set( storage_size(exch_fdusp,kind=inttype) , &
+                         size(exch_fdusp,kind=inttype) )
+    !
+    do i = lbound(exch_fdusp,dim=1),ubound(exch_fdusp,dim=1)
+      !
+      call dt%add( storage_size(exch_fdusp(i)%adj_cpu,kind=inttype) )
+      call dt%add( storage_size(exch_fdusp(i)%send_tag,kind=inttype) )
+      call dt%add( storage_size(exch_fdusp(i)%recv_tag,kind=inttype) )
+      call dt%add( storage_size(exch_fdusp(i)%send_datatype,kind=inttype) )
+      call dt%add( storage_size(exch_fdusp(i)%recv_datatype,kind=inttype) )
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "exch_fdusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "exch_fdusp"
+    !
+  end if
+  !
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(exch_cpu)) then
+    call array%set( storage_size(exch_cpu,kind=inttype) , &
+                            size(exch_cpu,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "exch_cpu"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "exch_cpu"
+  end if
+  if (allocated(testf_send)) then
+    call array%set( storage_size(testf_send,kind=inttype) , &
+                            size(testf_send,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "testf_send"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "testf_send"
+  end if
+  if (allocated(testf_recv)) then
+    call array%set( storage_size(testf_recv,kind=inttype) , &
+                            size(testf_recv,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "testf_recv"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "testf_recv"
+  end if
+  if (allocated(fusp_rqst)) then
+    call array%set( storage_size(fusp_rqst,kind=inttype) , &
+                            size(fusp_rqst,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fusp_rqst"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fusp_rqst"
+  end if
+  if (allocated(fusp_istat)) then
+    call array%set( storage_size(fusp_istat,kind=inttype) , &
+                            size(fusp_istat,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fusp_istat"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fusp_istat"
+  end if
+  if (allocated(fdusp_rqst)) then
+    call array%set( storage_size(fdusp_rqst,kind=inttype) , &
+                            size(fdusp_rqst,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fdusp_rqst"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fdusp_rqst"
+  end if
+  if (allocated(fdusp_istat)) then
+    call array%set( storage_size(fdusp_istat,kind=inttype) , &
+                            size(fdusp_istat,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fdusp_istat"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fdusp_istat"
+  end if
+  if (allocated(fusp_send_buffer)) then
+    call array%set( storage_size(fusp_send_buffer,kind=inttype) , &
+                            size(fusp_send_buffer,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fusp_send_buffer"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fusp_send_buffer"
+  end if
+  if (allocated(fusp_recv_buffer)) then
+    call array%set( storage_size(fusp_recv_buffer,kind=inttype) , &
+                            size(fusp_recv_buffer,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fusp_recv_buffer"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fusp_recv_buffer"
+  end if
+  if (allocated(fdusp_send_buffer)) then
+    call array%set( storage_size(fdusp_send_buffer,kind=inttype) , &
+                            size(fdusp_send_buffer,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fdusp_send_buffer"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fdusp_send_buffer"
+  end if
+  if (allocated(fdusp_recv_buffer)) then
+    call array%set( storage_size(fdusp_recv_buffer,kind=inttype) , &
+                            size(fdusp_recv_buffer,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "fdusp_recv_buffer"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "fdusp_recv_buffer"
+  end if
+  if (allocated(recv_xyz)) then
+    call array%set( storage_size(recv_xyz,kind=inttype) , &
+                            size(recv_xyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "recv_xyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "recv_xyz"
+  end if
+  if (allocated(recv_sol)) then
+    call array%set( storage_size(recv_sol,kind=inttype) , &
+                            size(recv_sol,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "recv_sol"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "recv_sol"
+  end if
+  if (allocated(recv_var)) then
+    call array%set( storage_size(recv_var,kind=inttype) , &
+                            size(recv_var,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "recv_var"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "recv_var"
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module parallel_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  4 format (a,"(",i0,")%",a)
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+end subroutine parallel_memory_usage
 !
 !###############################################################################
 !
