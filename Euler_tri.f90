@@ -21,15 +21,17 @@ program Euler_tri
   use ovar, only : restart_interval,output_interval
   use ovar, only : dump_memory_usage,mms_opt
   use ovar, only : recon_cpu_time,this_is_final_timestep
+  use ovar, only : ovar_memory_usage
   !
   use flowvar, only : usp,uoldsp
+  use flowvar, only : flowvar_memory_usage
   !
   use quadrature_mod, only : solpts_edge
   use quadrature_mod, only : quadrature_memory_usage
   !
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error
-  use io_mod, only : write_nodal_parallel_cgns
+  use io_mod, only : write_parallel_cgns
   use io_mod, only : write_results_file
   use io_mod, only : check_flux_point_orderings
   !
@@ -40,6 +42,7 @@ program Euler_tri
   use connectivity_mod, only : get_grid_connectivity
   !
   use metrics_mod, only : get_metrics
+  use metrics_mod, only : metrics_memory_usage
   !
   use vandermonde_mod, only : init_vandermonde_matrices
   use vandermonde_mod, only : vandermonde_memory_usage
@@ -70,8 +73,8 @@ program Euler_tri
   use generic_mod, only : rgeterr
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_final_error
-  use generic_mod, only : TaylorGreen_integrated_quantities
-  use generic_mod, only : TaylorGreen_finalize_KEDR
+  use generic_mod, only : compute_TaylorGreen_KEDR
+  use generic_mod, only : generic_memory_usage
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
@@ -93,15 +96,22 @@ program Euler_tri
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
+  use parallel_mod, only : parallel_memory_usage
   !
   use module_limiters, only : initialize_limiters
   use module_limiters, only : compute_cell_ave
+  use module_limiters, only : limiters_memory_usage
   !
   use mms_mod, only : mms_src
   use mms_mod, only : initialize_mms
   !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles
+  use bnd_profiles_mod, only : bnd_profiles_memory_usage
+  !
+  use module_plot3d, only : plot3d_memory_usage
+  !
+  use module_gmsh, only : gmsh_memory_usage
   !
   use iso_c_binding, only : c_long
   !
@@ -109,9 +119,11 @@ program Euler_tri
   !
   character(len=*), parameter :: pname = "Euler_tri(main)"
   !
-  integer  :: iter,i,ierr,k
+  integer  :: iter,i,ierr,k,npart
   integer  :: completed_timesteps
   real(wp) :: dtmin
+  !
+  character(len=50) :: memfile
   !
   integer, parameter :: iostp = 2683
   !
@@ -175,70 +187,63 @@ continue
   ! Initialize all the random constants that must be initialized at run time
   !
   call initialize_runtime_parameters
+  call memory_pause("base initializations","reading input and grid files")
   !
   ! Read in the input file
   !
   call read_input_file
+  call memory_pause("reading input and grid files","partitioning the grid")
   !
   ! Partition the grid if using more than one processor. 
   ! Upon entry:  These arrays define the global grid
   ! Upon return: These arrays define the partition local
   !              to the respective processor along with
   !              connectivities for the partition boundaries
-  !
-  if (ncpu > 1) then
-    call partition_grid(ncpu,metis_option,bface,nodes_of_cell, &
+  npart = ncpu
+ !npart = 1200
+  if (npart > 1) then
+    call partition_grid(npart,metis_option,bface,nodes_of_cell, &
                         nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
+    call memory_pause("partitioning the grid","getting the solution points")
   else
     call create_serial_cell_map(ncell)
+    call memory_pause("getting serial cell map","getting the solution points")
   end if
   !
   ! Get the coordinates of the solution points within each grid cell
   !
   call get_solution_points
+  call memory_pause("getting the solution points","getting grid connectivity")
   !
   ! Get the grid connectivity and metrics
   !
   call get_grid_connectivity
+  call memory_pause("getting grid connectivity","initializing vandermonde matrices")
   !
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
   call init_vandermonde_matrices
+  call memory_pause("initializing vandermonde matrices","initializing derivative matrices")
   call init_derivative_matrices
+  call memory_pause("initializing derivative matrices","initializing correction matrices")
   call init_correction_matrices
+  call memory_pause("initializing correction matrices","initializing interpolation matrices")
   call init_interpolation_matrices
+  call memory_pause("initializing interpolation matrices","initializing outerpolation matrices")
   call init_outerpolation_matrices
+  call memory_pause("initializing outerpolation matrices","initializing projection matrices")
   call init_projection_matrices
+  call memory_pause("initializing projection matrices","initializing filter matrices")
   call init_filter_matrices
+  call memory_pause("initializing filter matrices","initializing boundary profile stuff")
   call init_bnd_profile_structures
-  !
-  ! If requested, dump the memory usage of the advanced data types from some of
-  ! the modules
-  !
-  if (dump_memory_usage) then
-    !
-    open (newunit=i,file="memory_usage.dat",status="replace", &
-          action="write",form="formatted",position="rewind",iostat=ierr)
-    call io_error(pname,"memory_usage.dat",1,ierr)
-    !
-    call geovar_memory_usage(i)
-    call vandermonde_memory_usage(i)
-    call derivatives_memory_usage(i)
-    call correction_memory_usage(i)
-    call interpolation_memory_usage(i)
-    call quadrature_memory_usage(i)
-    call projection_memory_usage(i)
-    call filter_memory_usage(i)
-    !
-    close (i,iostat=ierr)
-    call io_error(pname,"memory_usage.dat",2,ierr)
-    !
-  end if
+  call memory_pause("initializing boundary profile stuff","initializing metrics")
   !
   ! Get the grid metrics
   !
   call get_metrics
+  call memory_pause("initializing metrics","initializing solution")
   !
   ! Output information about each partition
   !
@@ -270,13 +275,16 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
+  call memory_pause("initializing solution","writing initial CGNS file")
   !
   ! Output the initialized solution
   !
-  call write_nodal_parallel_cgns(open_CGNS)
+  call write_parallel_cgns(open_CGNS)
   CGNS_action = add_to_CGNS
+  call memory_pause("writing initial CGNS file","initializing results file")
   !
   if (mypnum == 0) call write_results_file(1,itcur)
+  call memory_pause("initializing results file","initializing generic module")
   !
   if (mypnum == 0) then
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
@@ -287,6 +295,15 @@ continue
   ! Initialize any necessary information for use in the module generic_mod
   !
   call init_generic_mod
+  if (num_ts > 0) then
+    call memory_pause("initializing generic module","initial interpolation of C.V. to flux points")
+  else
+    if (dump_memory_usage) then
+      call memory_pause("initializing generic module","dumping memory usage")
+    else
+      call memory_pause("initializing ge!neric module","main iteration loop")
+    end if
+  end if
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -296,13 +313,79 @@ continue
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
+  ! Initialize the wall time
+  !
+  call recon_cpu_time(0)
+  !
  !call initialize_limiters
  !call compute_cell_ave
   !
   !
   if (num_ts > 0) then
+    !
     call interp_cv_to_flxpts
+    call memory_pause("initial interpolation of C.V. to flux points", &
+                      "initial evaluation of boundary conditions")
     call get_faceusp_bc
+    call memory_pause("initial evaluation of boundary conditions","initial TGV KEDR evaluation")
+    !
+    if (itestcase == Taylor_Green_Vortex) then
+      call compute_TaylorGreen_KEDR(0,zero)
+      if (dump_memory_usage) then
+        call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
+      else
+        call memory_pause("initial TGV KEDR evaluation","main iteration loop")
+      end if
+    end if
+    !
+  end if
+  !
+#ifdef PAUSE_BETWEEN_ITERATIONS
+  if (mypnum == 0) then
+    write (iout,8260)
+  end if
+  8260 format (//," Pausing before starting the main iteration loop!",/, &
+                    " Press any key to continue!",//)
+  read (*,*)
+#endif
+  !
+  ! If requested, dump the memory usage of the advanced data types from some of
+  ! the modules
+  !
+  if (dump_memory_usage) then
+    !
+    if (ncpu > 1) then
+      write (memfile,'("memory_usage.",i0,".dat")') mypnum
+    else
+      memfile = "memory_usage.dat"
+    end if
+    open (newunit=i,file=trim(adjustl(memfile)),status="replace", &
+          action="write",form="formatted",position="rewind",iostat=ierr)
+    call io_error(pname,memfile,1,ierr)
+    !
+    call geovar_memory_usage(i)
+    call vandermonde_memory_usage(i)
+    call derivatives_memory_usage(i)
+    call correction_memory_usage(i)
+    call interpolation_memory_usage(i)
+    call quadrature_memory_usage(i)
+    call projection_memory_usage(i)
+    call filter_memory_usage(i)
+    call ovar_memory_usage(i)
+    call limiters_memory_usage(i)
+    call generic_memory_usage(i)
+    call plot3d_memory_usage(i)
+    call bnd_profiles_memory_usage(i)
+    call gmsh_memory_usage(i)
+    call metrics_memory_usage(i)
+    call flowvar_memory_usage(i)
+    call parallel_memory_usage(i)
+    !
+    close (i,iostat=ierr)
+    call io_error(pname,memfile,2,ierr)
+    !
+    call stop_recon(stop_mpi,pname,"After dumping memory usage")
+    !
   end if
   !
   main_loop: do iter = 1, num_ts
@@ -419,13 +502,6 @@ continue
     !
     completed_timesteps = iter
     !
-    ! If solving the Taylor-Green Vortex problem, compute the various integrated
-    ! quantities needed to get the different the kinetic energy dissipation rates
-    !
-    if (itestcase == Taylor_Green_Vortex) then
-      call TaylorGreen_integrated_quantities(iter,dtmin)
-    end if
-    !
     ! Exit the main loop if we have reached the requested final simulation
     ! time when running a time accurate simulation with a global time step.
     !
@@ -536,7 +612,7 @@ continue
         ! the CGNS subroutine know that the file needs to be reopened.
         !
         if (request_solution) then
-          call write_nodal_parallel_cgns(dump_CGNS)
+          call write_parallel_cgns(dump_CGNS)
           CGNS_action = reopen_CGNS
         end if
         !
@@ -556,11 +632,39 @@ continue
     !
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
-        call write_nodal_parallel_cgns(CGNS_action)
+        call write_parallel_cgns(CGNS_action)
       end if
     end if
     !
+    ! If solving the Taylor-Green Vortex problem, compute the various integrated
+    ! quantities needed to get the different the kinetic energy dissipation rates
+    !
+    if (itestcase == Taylor_Green_Vortex .and. iter/=num_ts) then
+      call compute_TaylorGreen_KEDR(iter,dtmin)
+    end if
+    !
+#ifdef PAUSE_BETWEEN_ITERATIONS
+    if (iter /= num_ts) then
+      if (mypnum == 0) then
+        write (iout,8261) iter,num_ts
+      end if
+      8261 format (//," Pausing after completing ",i0," of ",i0, &
+                        " trips through the main iteration loop!",/, &
+                        " Press any key to continue!",//)
+      read (*,*)
+    end if
+#endif
+    !
   end do main_loop
+  !
+#ifdef PAUSE_BETWEEN_ITERATIONS
+  if (mypnum == 0) then
+    write (iout,8262)
+  end if
+  8262 format (//," Pausing after finishing the main iteration loop!",/, &
+                    " Press any key to continue!",//)
+  read (*,*)
+#endif
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -577,14 +681,16 @@ continue
   ! If solving the Taylor-Green Vortex problem,
   ! finalize the kinetic energy dissipation rates
   !
-  if (itestcase == Taylor_Green_Vortex) then
-    call TaylorGreen_finalize_KEDR(completed_timesteps)
+  if (num_ts > 0) then
+    if (itestcase == Taylor_Green_Vortex) then
+      call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
+    end if
   end if
   !
   !.. get min and max entropy value and location
   if (.not. ignore_errors) call getmaxent
   !
-  call write_nodal_parallel_cgns(close_CGNS)
+  call write_parallel_cgns(close_CGNS)
   !
   call write_restart_file(-1)
   !
