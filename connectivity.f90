@@ -37,24 +37,36 @@ continue
   !
   ! Get the cells surrounding each node
   !
+  call memory_pause("entering grid connectivity master subroutine", &
+                    "finding cells surrounding each node")
   call find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
   !
   ! Get the cells surrounding each cell
   !
+  call memory_pause("finding cells surrounding each node", &
+                    "finding the cells surrounding each cell")
   call find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr, &
                                         cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Get the cells on each face
   !
+  call memory_pause("finding the cells surrounding each cell", &
+                    "finding the cells on each face")
   call find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Get the indices for the flux points for each cell
   !
+  call memory_pause("finding the cells on each face", &
+                    "finding the flux points of each cell")
   call find_flxpts_of_each_cell
   !
   ! Get the unit cell subconnectivities for use when writing solution file
   !
+  call memory_pause("finding the flux points of each cell", &
+                    "getting the unit cell subconnectivities")
   call get_unit_cell_subconnectivity
+  call memory_pause("getting the unit cell subconnectivities", &
+                    "leaving the grid connectivity master subroutine")
   !
 end subroutine get_grid_connectivity
 !
@@ -79,9 +91,12 @@ subroutine find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
   !
   !.. Local Scalars ..
   integer :: i,ip,is,ibeg,iend,n,nc,ierr
+  integer :: n1,n2,np
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:,:) :: ghost_msk
+  integer, allocatable, dimension(:) :: cwn
+ !logical, allocatable, dimension(:,:) :: ghost_msk
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_cells_surrounding_each_node"
@@ -111,8 +126,16 @@ continue
   !       prevent this loop from finding a particular ghost
   !       cell more than once on an individual node.
   !
-  allocate ( ghost_msk(ncell+1:n_totcel,1:nnode) , source=fals , stat=ierr )
-  call alloc_error(pname,"ghost_msk",1,ierr)
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  ! BAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+! allocate ( ghost_msk(ncell+1:n_totcel,1:nnode) , &
+!            source=logical(fals,kind=kind(ghost_msk)) , stat=ierr )
+! call alloc_error(pname,"ghost_msk",1,ierr)
   !
   do n = 1,nfbnd
     !
@@ -123,12 +146,12 @@ continue
     !
     do i = ibeg,iend
       ip = nodes_of_cell(i)
-      if (ip <= nnode) then
-        if (.not. ghost_msk(nc,ip)) then
+!     if (ip <= nnode) then
+!       if (.not. ghost_msk(nc,ip)) then
           cells_with_node_ptr(ip+1) = cells_with_node_ptr(ip+1) + 1
-          ghost_msk(nc,ip) = true
-        end if
-      end if
+!         ghost_msk(nc,ip) = logical(true,kind=kind(ghost_msk))
+!       end if
+!     end if
     end do
     !
   end do
@@ -164,7 +187,7 @@ continue
   !       prevent this loop from finding a particular ghost
   !       cell more than once on an individual node.
   !
-  ghost_msk(:,:) = fals
+! ghost_msk(:,:) = logical(fals,kind=kind(ghost_msk))
   !
   do n = 1,nfbnd
     !
@@ -175,22 +198,22 @@ continue
     !
     do i = ibeg,iend
       ip = nodes_of_cell(i)
-      if (ip <= nnode) then
-        if (.not. ghost_msk(nc,ip)) then
+!     if (ip <= nnode) then
+!       if (.not. ghost_msk(nc,ip)) then
           is = cells_with_node_ptr(ip) + 1
           cells_with_node_ptr(ip) = is
           cells_with_node(is) = nc
-          ghost_msk(nc,ip) = true
-        end if
-      end if
+!         ghost_msk(nc,ip) = logical(true,kind=kind(ghost_msk))
+!       end if
+!     end if
     end do
     !
   end do
   !
   ! We are finished with ghost_msk so deallocate
   !
-  deallocate ( ghost_msk , stat=ierr )
-  call alloc_error(pname,"ghost_msk",2,ierr)
+! deallocate ( ghost_msk , stat=ierr )
+! call alloc_error(pname,"ghost_msk",2,ierr)
   !
   ! Finally, reorder cells_with_node_ptr
   !
@@ -198,6 +221,104 @@ continue
     cells_with_node_ptr(n) = cells_with_node_ptr(n-1)
   end do
   cells_with_node_ptr(1) = 0
+  !
+  ! Perform one last error check to make sure that no cells have been added
+  ! more than once to a given node. This was known to happen when the ghost
+  ! cells were treated as actual cells but shouldnt happen anymore now that
+  ! ghost cells are actually ghost faces. I have removed the old code that
+  ! prevented this from happening in the above loops since it required a mask
+  ! array that had the potential to consume a lot of memory. This error check
+  ! has been added JUST-IN-CASE I have overlooked a scenario in which this
+  ! could possible happen.
+  !
+ !nc = maxval( cells_with_node_ptr(2:nnode+1) - cells_with_node_ptr(1:nnode) )
+  nc = 0
+  do n = 1,nnode
+    nc = max( nc , cells_with_node_ptr(n+1) - cells_with_node_ptr(n) )
+  end do
+  !
+  allocate ( cwn(1:nc) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cwn",1,ierr,error_message,skip_alloc_pause)
+  !
+  do n = 1,nnode
+    !
+    n1 = cells_with_node_ptr(n)+1
+    n2 = cells_with_node_ptr(n+1)
+    np = n2-n1+1
+    !
+    cwn(1:np) = cells_with_node(n1:n2)
+    call make_unique(cwn(1:np),ip)
+    if (ip /= np) then
+      !
+      write (iout,9023) n,(cells_with_node(i),i=n1,n2)
+      9023 format ("Found a duplicate cell around node ",i0,/, &
+                   "  Cell list: ",*(2x,i0))
+      !
+      ! Compute the difference from the original number of cells found for
+      ! this node and the new unique number of cells that surround this node
+      nc = np - ip
+      ! Adjust the pointer index for the remaining nodes
+      cells_with_node_ptr(n+1:) = cells_with_node_ptr(n+1:) - nc
+      ! Get the new value for n2
+      n2 = n1 + ip - 1
+      ! Copy the unique cell list back into cells_with_node
+      cells_with_node(n1:n2) = cwn(1:ip)
+      ! Perform end-off-shifts to move the remaining parts of cells_with_node
+      ! to the end of the list of cells for the current node
+      cells_with_node(n2+1:) = eoshift(cells_with_node(n2+1:),shift=nc)
+      !
+    end if
+    !
+  end do
+  !
+  if (allocated(cwn)) then
+    deallocate ( cwn , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cwn",2,ierr,error_message,skip_alloc_pause)
+  end if
+  !
+  ! Reallocate cells_with_node if it was changed
+  !
+  if (last(cells_with_node_ptr) /= size(cells_with_node)) then
+    !
+    n1 = last(cells_with_node_ptr) + 1
+    n2 = ubound(cells_with_node,dim=1)
+    !
+    if (any(cells_with_node(n1:n2) /= 0)) then
+      write (error_message,10)
+      call stop_recon(abort,pname,error_message)
+    else
+      call reallocate(cells_with_node,last(cells_with_node_ptr))
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  10 format ("Error: The end of cells_with_node should be zero!")
+  !
+contains
+  !
+  pure subroutine make_unique(cell_list,nc)
+    !.. Formal Arguments ..
+    integer,                 intent(out) :: nc
+    integer, dimension(:), intent(inout) :: cell_list
+    !.. Local Scalars ..
+    integer :: i
+    !.. Local Arrays ..
+    integer, dimension(1:size(cell_list)) :: array_of_zeros
+  continue
+    !
+    array_of_zeros = 0
+    !
+    nc = size(cell_list)
+    do i = 1,nc-1
+      where (cell_list(i+1:nc) == cell_list(i)) cell_list(i+1:nc) = 0
+    end do
+    !
+    nc = count( cell_list /= 0 )
+    cell_list = pack( cell_list , cell_list /= 0 , array_of_zeros )
+    !
+  end subroutine make_unique
   !
 end subroutine find_cells_surrounding_each_node
 !
@@ -753,7 +874,7 @@ continue
     allocate ( face(nf)%left%flxpts(1:nfp) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) nf,"left"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! For the left cell, the starting index is the sum of all face points
     ! for all faces up to the current face + 1. The '+1' is why face_pts
@@ -790,7 +911,7 @@ continue
     allocate ( face(nf)%right%flxpts(1:nfp) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,2) nf,"right"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     if (nf <= nfbnd) then
       !
@@ -1465,7 +1586,7 @@ continue
     allocate ( cell(nc)%face(1:num_faces) , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) nc
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
   end do
   !
@@ -1488,7 +1609,7 @@ continue
     allocate ( cell(host_cell)%face(host_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
     write (array_name,1) host_cell,host_face,"cell_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! Copy in the face information for the current cell face
     !
@@ -1533,7 +1654,7 @@ continue
     allocate ( cell(left_cell)%face(left_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
     write (array_name,1) left_cell,left_face,"cell_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! Copy in the face information for the left cell face.
     ! For now, initialize the face_idx component to [1:nfp]
@@ -1562,7 +1683,7 @@ continue
     allocate ( cell(right_cell)%face(right_face)%cell_idx(1:nfp) , &
                source=0 , stat=ierr , errmsg=error_message )
     write (array_name,1) right_cell,right_face,"cell_idx"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! Copy in the face information for the right cell face.
     ! For now, initialize the face_idx component to [1:nfp]
@@ -1601,6 +1722,7 @@ subroutine get_unit_cell_subconnectivity()
   integer :: no1d,no2d,no3d,np1d
   integer :: p1,p2,p3,p4,p5,p6,p7,p8
   integer :: omin,omax,order
+  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   integer, allocatable, dimension(:,:) :: counter
@@ -1616,8 +1738,9 @@ continue
   omin = minval( global_cell_order )
   omax = maxval( global_cell_order )
   !
-  allocate ( pst_geom(Geom_Min:Geom_Max,omin:omax) , stat=ierr )
-  call alloc_error(pname,"pst_geom",1,ierr)
+  allocate ( pst_geom(Geom_Min:Geom_Max,omin:omax) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pst_geom",1,ierr,error_message,skip_alloc_pause)
   !
   ! Loop through all the possible cell orders to get the connectivity
   ! for each of them
@@ -1631,10 +1754,12 @@ continue
     !
     ! Allocate counter and counter3 for this order
     !
-    allocate ( counter(1:no1d+1,1:no1d+1) , source=0 , stat=ierr )
-    call alloc_error(pname,"counter",1,ierr)
-    allocate ( counter3(1:no1d+1,1:no1d+1,1:no1d+1) , source=0 , stat=ierr )
-    call alloc_error(pname,"counter3",1,ierr)
+    allocate ( counter(1:no1d+1,1:no1d+1) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counter",1,ierr,error_message,skip_alloc_pause)
+    allocate ( counter3(1:no1d+1,1:no1d+1,1:no1d+1) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counter3",1,ierr,error_message,skip_alloc_pause)
     !
     ! ###########################
     ! ## IGNORE NODAL GEOMETRY ##
@@ -1653,7 +1778,7 @@ continue
     ! ###################
     !
     allocate ( pst_geom(Geom_Edge,order)%connectivity(1:2,1:no1d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     do i = 1,no1d
       pst_geom(Geom_Edge,order)%connectivity(1,i) = i
@@ -1677,7 +1802,7 @@ continue
     ! #######################
     !
     allocate ( pst_geom(Geom_Tria,order)%connectivity(1:4,1:no2d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     ! Get the subconnectivity for the unit triangle
     !
@@ -1724,7 +1849,7 @@ continue
     ! ############################
     !
     allocate ( pst_geom(Geom_Quad,order)%connectivity(1:4,1:no2d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     ! Get the subconnectivity for the unit square
     !
@@ -1758,7 +1883,7 @@ continue
     ! ##########################
     !
     allocate ( pst_geom(Geom_Tetr,order)%connectivity(1:8,1:no3d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     sk = 0
     do k = 1,np1d
@@ -1840,7 +1965,7 @@ continue
     ! ######################
     !
     allocate ( pst_geom(Geom_Pyra,order)%connectivity(1:8,1:no3d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
@@ -1851,7 +1976,7 @@ continue
     ! ####################
     !
     allocate ( pst_geom(Geom_Pris,order)%connectivity(1:8,1:no3d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     counter3 = 0
     sk = 0
@@ -1909,7 +2034,7 @@ continue
     ! #########################
     !
     allocate ( pst_geom(Geom_Hexa,order)%connectivity(1:8,1:no3d) , &
-               source=0 , stat=ierr)
+               source=0 , stat=ierr , errmsg=error_message )
     !
     sk = 0
     do k = 1,no1d
@@ -1934,10 +2059,10 @@ continue
     !
     ! Deallocate counter and counter3 before going on to the next order
     !
-    deallocate ( counter , stat=ierr )
-    call alloc_error(pname,"counter",2,ierr)
-    deallocate ( counter3 , stat=ierr )
-    call alloc_error(pname,"counter3",2,ierr)
+    deallocate ( counter , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counter",2,ierr,error_message,skip_alloc_pause)
+    deallocate ( counter3 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"counter3",2,ierr,error_message,skip_alloc_pause)
     !
   end do loop_over_orders
   !
