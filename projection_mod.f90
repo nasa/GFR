@@ -867,8 +867,7 @@ continue
   iou = iout
   if (present(iunit)) iou = iunit
   !
-  total%siz = 0
-  total%mem = 0
+  call total%reset
   !
   write (iou,1)
   !
@@ -876,37 +875,30 @@ continue
   !
   if (allocated(projct)) then
     !
-    dt%siz = size(projct)
-    dt%mem = dt%siz*storage_size(projct)
+    call dt%set( storage_size(projct,kind=inttype) , &
+                         size(projct,kind=inttype) )
     !
     do j = lbound(projct,dim=2),ubound(projct,dim=2)
       do i = lbound(projct,dim=1),ubound(projct,dim=1)
         !
         if (allocated(projct(i,j)%toFace)) then
           !
-          array%siz = size(projct(i,j)%toFace)
-          array%mem = array%siz*storage_size(projct(i,j)%toFace)
+          call array%set( storage_size(projct(i,j)%toFace,kind=inttype) , &
+                                  size(projct(i,j)%toFace,kind=inttype) )
           !
           write (array_name,4) Geom_Name(i),j,"toFace"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(projct(i,j)%toFace,dim=1),ubound(projct(i,j)%toFace,dim=1)
             !
-            if (allocated(projct(i,j)%toFace(k)%mat)) then
-              !
-              array%siz = size(projct(i,j)%toFace(k)%mat)
-              array%mem = array%siz*storage_size(projct(i,j)%toFace(k)%mat)
-              !
-              write (array_name,4) Geom_Name(i),j,"toFace",k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = projct(i,j)%toFace(k)%memory_usage()
+            !
+            write (array_name,4) Geom_Name(i),j,"toFace",k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -914,29 +906,22 @@ continue
         !
         if (allocated(projct(i,j)%toCell)) then
           !
-          array%siz = size(projct(i,j)%toCell)
-          array%mem = array%siz*storage_size(projct(i,j)%toCell)
+          call array%set( storage_size(projct(i,j)%toCell,kind=inttype) , &
+                                  size(projct(i,j)%toCell,kind=inttype) )
           !
           write (array_name,4) Geom_Name(i),j,"toCell"
           write (iou,2) array_name,array%get_units()
           !
-          dt%siz = dt%siz + array%siz
-          dt%mem = dt%mem + array%mem
+          call dt%add(array)
           !
           do k = lbound(projct(i,j)%toCell,dim=1),ubound(projct(i,j)%toCell,dim=1)
             !
-            if (allocated(projct(i,j)%toCell(k)%mat)) then
-              !
-              array%siz = size(projct(i,j)%toCell(k)%mat)
-              array%mem = array%siz*storage_size(projct(i,j)%toCell(k)%mat)
-              !
-              write (array_name,4) Geom_Name(i),j,"toCell",k
-              write (iou,2) array_name,array%get_units()
-              !
-              dt%siz = dt%siz + array%siz
-              dt%mem = dt%mem + array%mem
-              !
-            end if
+            array = projct(i,j)%toCell(k)%memory_usage()
+            !
+            write (array_name,4) Geom_Name(i),j,"toCell",k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
             !
           end do
           !
@@ -945,22 +930,27 @@ continue
       end do
     end do
     !
-    total%mem = total%mem + dt%mem
+    call total%add(dt)
     write (array_name,5) "projct"
     write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "projct"
     !
   end if
   !
   total = total%get_units()
-  write (iou,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module projection_mod")
   2 format (" Array: ",a,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  3 format (" Total memory = ",f8.2,1x,a)
   4 format ("projct(",a,",",i0,")%",a,:,"(",i0,")%mat")
   5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine projection_memory_usage
 !
