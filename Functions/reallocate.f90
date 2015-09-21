@@ -3,11 +3,13 @@ subroutine reallocate1_i4(array,new_size)
   integer(i4), allocatable, dimension(:), intent(inout) :: array
   integer(i4), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
+  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_i4"
 continue
   ! Allocate the temporary array to store the old contents of array
-  allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:new_size) , source=0_i4 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   ! If array is allocated, copy the old contents of array into the temporary
   ! array. If decreasing the size of array, make sure to limit the amount of
   ! information copied over from array to the size of temp_array.
@@ -30,10 +32,12 @@ subroutine reallocate1_i8(array,new_size)
   integer(i8), allocatable, dimension(:), intent(inout) :: array
   integer(i8), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
+  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_i8"
 continue
-  allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:new_size) , source=0_i8 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -48,10 +52,12 @@ subroutine reallocate1_r4(array,new_size)
   real(r4), allocatable, dimension(:), intent(inout) :: array
   real(r4), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
+  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_r4"
 continue
-  allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:new_size) , source=0.0_r4 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -66,10 +72,12 @@ subroutine reallocate1_r8(array,new_size)
   real(r8), allocatable, dimension(:), intent(inout) :: array
   real(r8), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
+  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_r8"
 continue
-  allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:new_size) , source=0.0_r8 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -84,11 +92,12 @@ subroutine reallocate1_c(array,new_size)
   character(len=*), allocatable, dimension(:), intent(inout) :: array
   character(len=len(array)), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
+  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_c"
 continue
  !write (iout,1) size(array),new_size
-  allocate ( temp_array(1:new_size) , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:new_size) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -108,6 +117,7 @@ subroutine reallocate2_i4(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer(i4), allocatable, dimension(:,:) :: temp_array
@@ -131,8 +141,9 @@ continue
   !
   ! Allocate the temporary array to store the old contents of array
   !
-  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i4 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i4 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -163,6 +174,7 @@ subroutine reallocate2_i8(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer(i8), allocatable, dimension(:,:) :: temp_array
@@ -186,8 +198,9 @@ continue
   !
   ! Allocate the temporary array to store the old contents of array
   !
-  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i8 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i8 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -218,6 +231,7 @@ subroutine reallocate2_r4(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: temp_array
@@ -241,8 +255,9 @@ continue
   !
   ! Allocate the temporary array to store the old contents of array
   !
-  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r4 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r4 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -273,6 +288,7 @@ subroutine reallocate2_r8(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: temp_array
@@ -296,8 +312,9 @@ continue
   !
   ! Allocate the temporary array to store the old contents of array
   !
-  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r8 , stat=ierr )
-  call alloc_error(pname,"temp_array",1,ierr)
+  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r8 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
   !
   ! Copy the old contents of array into the temporary array
   !
