@@ -15,6 +15,7 @@ module bnd_profiles_mod
   !
   public :: init_bnd_profile_structures
   public :: compute_bnd_profiles
+  public :: bnd_profiles_memory_usage
   !
   !
   !
@@ -105,13 +106,15 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:nr) :: xyz_fp
   real(wp), dimension(1:nq) :: cvfp
   real(wp), dimension(1:nq) :: pvfp
-  real(wp), dimension(1:maxSP) :: lmat
   real(wp), dimension(1:nr,1:nq) :: dcvdx
   real(wp), dimension(1:nr,1:nq) :: dpvdx
   real(wp), dimension(1:maxSP,1:nq) :: tusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdvsp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: dvsp
+#ifndef USE_MATRIX_PROCEDURES
+  real(wp), dimension(1:maxSP) :: lmat
+#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_bnd_profiles"
@@ -173,18 +176,32 @@ continue
         !
         unrm(1:nr) = geofa(nf)%v(1:nr,k)
         !
-        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
-        !
         ! Interpolate the conservative variables from the interior sol-pts
         ! to the current flux point on face nf
+        !
+#ifdef USE_MATRIX_PROCEDURES
+        do m = 1,nq
+          cvfp(m) = &
+           interp(host_geom,host_order)%toFace(face_order)%dot( kl , tusp(1:np,m) )
+          do l = 1,nr
+            dcvdx(l,m) = &
+           interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdusp(1:np,l,m) )
+          ! dpvdx(l,m) = &
+          !interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdvsp(1:np,l,m) )
+          end do
+        end do
+        !
+#else
+        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
         !
         do m = 1,nq
           cvfp(m) = dot( lmat(1:np) , tusp(1:np,m) )
           do l = 1,nr
             dcvdx(l,m) = dot( lmat(1:np) , tdusp(1:np,l,m) )
-     !      dpvdx(l,m) = dot( lmat(1:np) , tdvsp(1:np,l,m) )
+           !dpvdx(l,m) = dot( lmat(1:np) , tdvsp(1:np,l,m) )
           end do
         end do
+#endif
         !
         ! Compute the primitive variables and their
         ! gradients at the current flux point
@@ -321,9 +338,14 @@ continue
         n2 = ndata + size(face(nf)%left%flxpts)
         !
         do m = 1,size(bnd_prof(n)%qty)
+#ifdef USE_MATRIX_PROCEDURES
           bnd_prof(n)%qty(m)%qty_data(n1:n2) = &
-                matmul( outerp(face_geom,face_order)%output , &
+            outerp(face_geom,face_order)%output%mv_mult( bnd_prof(n)%qty(m)%qty_data(n1:n2) )
+#else
+          bnd_prof(n)%qty(m)%qty_data(n1:n2) = &
+                matmul( outerp(face_geom,face_order)%output%mat , &
                         bnd_prof(n)%qty(m)%qty_data(n1:n2) )
+#endif
         end do
         !
       end if
@@ -416,8 +438,10 @@ subroutine init_bnd_profile_structures
   character(len=200) :: error_message
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxSP) :: lmat
   real(wp), dimension(1:maxSP,1:nr) :: txyz
+#ifndef USE_MATRIX_PROCEDURES
+  real(wp), dimension(1:maxSP) :: lmat
+#endif
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: msk
@@ -593,7 +617,7 @@ continue
     !
     allocate ( bnd_prof(n)%qty(1:nqty) , stat=ierr , errmsg=error_message )
     write (array_name,1) n,"qty"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
     ! Get the total number of data points for this boundary group by summing
     ! the number of face points for each face that belongs to this group.
@@ -637,7 +661,7 @@ continue
   ! bface_map because they no longer needed
   !
   deallocate ( grp_ids , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grp_ids",2,ierr,error_message)
+  call alloc_error(pname,"grp_ids",2,ierr,error_message,skip_alloc_pause)
   deallocate ( bface_nc , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bface_nc",2,ierr,error_message)
   deallocate ( bface_map , stat=ierr , errmsg=error_message )
@@ -682,14 +706,22 @@ continue
         kl = face(nf)%left%flxpts(k) ! Index of flx-pt local to the current host cell
         kf = ndata + k               ! Index within qty_data for current flx-pt
         !
-        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
-        !
         ! Interpolate the coordinates of the interior sol-pts to the
         ! current flux point on face nf
+        !
+#ifdef USE_MATRIX_PROCEDURES
+        do l = 1,nr
+          bnd_prof(n)%qty(l)%qty_data(kf) = &
+             interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,l) )
+        end do
+        !
+#else
+        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
         !
         do l = 1,nr
           bnd_prof(n)%qty(l)%qty_data(kf) = dot( lmat(1:np) , txyz(1:np,l) )
         end do
+#endif
         !
       end do
       !
@@ -814,9 +846,14 @@ continue
           n2 = ndata + size(face(nf)%left%flxpts)
           !
           do l = 1,nr
+#ifdef USE_MATRIX_PROCEDURES
             bnd_prof(n)%qty(l)%qty_data(n1:n2) = &
-                  matmul( outerp(face_geom,face_order)%output , &
+              outerp(face_geom,face_order)%output%mv_mult( bnd_prof(n)%qty(l)%qty_data(n1:n2) )
+#else
+            bnd_prof(n)%qty(l)%qty_data(n1:n2) = &
+                  matmul( outerp(face_geom,face_order)%output%mat , &
                           bnd_prof(n)%qty(l)%qty_data(n1:n2) )
+#endif
           end do
           !
         end if
@@ -876,6 +913,163 @@ continue
   103 format (4(1x,i0))
   !
 end subroutine init_bnd_profile_structures
+!
+!###############################################################################
+!
+subroutine bnd_profiles_memory_usage(iunit)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer, optional, intent(in) :: iunit
+  !
+  !.. Local Scalars ..
+  integer :: iou,i,j
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  !
+continue
+  !
+  iou = iout
+  if (present(iunit)) iou = iunit
+  !
+  call total%reset
+  !
+  write (iou,1)
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(bnd_prof)) then
+    !
+    call dt%set( storage_size(bnd_prof,kind=inttype) , &
+                         size(bnd_prof,kind=inttype) )
+    !
+    do i = lbound(bnd_prof,dim=1),ubound(bnd_prof,dim=1)
+      !
+      call dt%add( storage_size(bnd_prof(i)%prof_name,kind=inttype) )
+      call dt%add( storage_size(bnd_prof(i)%group_num,kind=inttype) )
+      !
+      call array%set( storage_size(bnd_prof(i)%faces,kind=inttype) , &
+                              size(bnd_prof(i)%faces,kind=inttype) )
+      !
+      write (array_name,4) "bnd_prof",i,"faces"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+      call array%set( storage_size(bnd_prof(i)%connectivity,kind=inttype) , &
+                              size(bnd_prof(i)%connectivity,kind=inttype) )
+      !
+      write (array_name,4) "bnd_prof",i,"connectivity"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+      call array%set( storage_size(bnd_prof(i)%qty,kind=inttype) , &
+                              size(bnd_prof(i)%qty,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+      do j = lbound(bnd_prof(i)%qty,dim=1),ubound(bnd_prof(i)%qty,dim=1)
+        !
+        call dt%add( storage_size(bnd_prof(i)%qty(j)%qty_name,kind=inttype) )
+        !
+        call array%set( storage_size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) , &
+                                size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) )
+        !
+        write (array_name,4) "bnd_prof",i,"qty",j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
+        !
+      end do
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "bnd_prof"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "bnd_prof"
+    !
+  end if
+  !
+  ! Check the memory of the arrays within this module
+  !
+  if (allocated(sol_prof)) then
+    !
+    call dt%set( storage_size(sol_prof,kind=inttype) , &
+                         size(sol_prof,kind=inttype) )
+    !
+    do i = lbound(sol_prof,dim=1),ubound(sol_prof,dim=1)
+      !
+      call dt%add( storage_size(sol_prof(i)%prof_name,kind=inttype) )
+      call dt%add( storage_size(sol_prof(i)%group_num,kind=inttype) )
+      !
+      call array%set( storage_size(sol_prof(i)%faces,kind=inttype) , &
+                              size(sol_prof(i)%faces,kind=inttype) )
+      !
+      write (array_name,4) "sol_prof",i,"faces"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+      call array%set( storage_size(sol_prof(i)%connectivity,kind=inttype) , &
+                              size(sol_prof(i)%connectivity,kind=inttype) )
+      !
+      write (array_name,4) "sol_prof",i,"connectivity"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+      !
+      call array%set( storage_size(sol_prof(i)%qty,kind=inttype) , &
+                              size(sol_prof(i)%qty,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+      do j = lbound(sol_prof(i)%qty,dim=1),ubound(sol_prof(i)%qty,dim=1)
+        !
+        call dt%add( storage_size(sol_prof(i)%qty(j)%qty_name,kind=inttype) )
+        !
+        call array%set( storage_size(sol_prof(i)%qty(j)%qty_data,kind=inttype) , &
+                                size(sol_prof(i)%qty(j)%qty_data,kind=inttype) )
+        !
+        write (array_name,4) "sol_prof",i,"qty",j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
+        !
+      end do
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "sol_prof"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "sol_prof"
+    !
+  end if
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of arrays in module bnd_profiles_mod")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  4 format (a,"(",i0,")%",a,:,"(",i0,")%qty_data")
+  5 format ("'",a,"'")
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+end subroutine bnd_profiles_memory_usage
 !
 !###############################################################################
 !
