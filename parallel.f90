@@ -868,6 +868,8 @@ continue
         exit part_loop
       end if
       !
+      if (mypnum == 0) write (iout,104) method,npart,weight,minmzd
+      !
     end do
     !
     write (error_message,102)
@@ -910,6 +912,18 @@ continue
               " able to find a quality partitioning of the grid!")
   103 format (" The METIS partitioning method requested in the input file is", &
               " invalid!")
+  104 format (///,'########################################################',/, &
+                  '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
+                  '########################################################',//, &
+                  '  METIS 5.1 failed to successfully partition the graph  ',/, &
+                  '    using a multilevel ',a,' algorithm    ',/, &
+                  '       into ',i0,' ',a,' partitions',/, &
+                  '   while minimizing the ',a,'!',/, &
+                  '         Switching to the next METIS algorithm         ',/, &
+                  '               to partition the graph...               ',//, &
+                  '########################################################',/, &
+                  '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
+                  '########################################################',///)
   !
 #endif
 end subroutine partition_using_metis_5
@@ -1648,6 +1662,7 @@ continue
   do n = 1,npart
     if (any(epart == n)) cycle
     write (iout,100) n
+    passes_inspection = fals
    !call stop_recon(abort,pname)
   end do
   !
