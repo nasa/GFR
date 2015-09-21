@@ -102,6 +102,13 @@ module io_mod
   !
   integer, dimension(1:3) :: zone_size
   !
+  ! DISABLE_CGNS_OUTPUT: Private module variable to disable CGNS output. It
+  !                      is currently only relevant to the Taylor-Green Vortex
+  !                      problem and is more of a temporary addition until the
+  !                      output logic/code becomes more robust.
+  !
+  logical, save :: disable_cgns_output = fals
+  !
   !.. CGNS Data Array ..
   !
   ! NOTE: This is to ensure coordinate and solution variables
@@ -500,6 +507,12 @@ continue
       results_interval = num_ts/abs(results_interval)
     end if
     results_interval = max(results_interval,1)
+    !
+    if (itestcase == Taylor_Green_Vortex) then
+      if (output_interval == 0) then
+        disable_cgns_output = true
+      end if
+    end if
     !
     if (output_interval == 0) then
       output_interval = num_ts/50
@@ -2937,6 +2950,8 @@ subroutine write_parallel_cgns(iflag)
   real(wp), allocatable, dimension(:)   :: vartmp
   !
 continue
+  !
+  if (disable_cgns_output) return
   !
   if (iflag == 1) then
     !
