@@ -1,19 +1,19 @@
 module flowvar
   !
   use module_kind_types, only : r8,wp
-  use module_kind_types, only : zero
+  use module_kind_types, only : zero,iout
   use module_kind_types, only : Classic_RK
   use module_kind_types, only : CK4_RK
   use module_kind_types, only : TVD4_RK
   use module_kind_types, only : alloc_error
   use module_kind_types, only : bc_cpu_bnd
-  use module_kind_types, only : Taylor_Green_Vortex
+  use module_kind_types, only : skip_alloc_pause
   !
   implicit none
   !
   private
   !
-  public :: flowvar_alloc_status
+  public :: flowvar_memory_usage
   public :: allocate_flowvar_arrays
   !
   ! USP  : conservative variables at the solution points (@SP)
@@ -65,8 +65,13 @@ module flowvar
     real(wp), allocatable :: v(:,:,:)
   contains
     procedure :: zero => zero_face_var
+#ifdef USE_TYPEBOUND_FACE_PACK
+    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
+    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
+    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
     procedure :: pack => pack_face_var_data
     procedure :: unpack => unpack_face_var_data
+#endif
   end type face_var
   !
   !
@@ -80,8 +85,13 @@ module flowvar
     real(wp), allocatable :: v(:,:,:,:)
   contains
     procedure :: zero => zero_face_vec
+#ifdef USE_TYPEBOUND_FACE_PACK
+    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
+    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
+    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
     procedure :: pack => pack_face_vec_data
     procedure :: unpack => unpack_face_vec_data
+#endif
   end type face_vec
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
@@ -99,12 +109,6 @@ module flowvar
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
   !
   !
-  ! TAYLORGREEN_SOL : array used for the Taylor-Green vortex problem that
-  !                   contains the temporal evolution of various integrated
-  !                   quantities relating to the kinetic energy
-  !
-  real(wp), public, save, allocatable, dimension(:,:) :: TaylorGreen_sol
-  !                   
 contains
 !
 !###############################################################################
@@ -119,6 +123,7 @@ subroutine allocate_flowvar_arrays()
   use order_mod, only : n_fp1de
   use ovar,      only : iRKtype,num_stages,mms_opt
   use ovar,      only : itestcase,num_ts
+  use ovar,      only : convert_restart_to_cgns
   !
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
@@ -157,57 +162,61 @@ continue
   !
   ! Allocate the outer part of the face solution/flux arrays
   !
-  allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceusp",1,ierr,error_message)
-  !
-  allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"facedusp",1,ierr,error_message)
-  !
-  allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faceflx",1,ierr,error_message)
-  !
-  ! If using MMS, allocate the facexyz array
-  !
-  if (mms_opt /= 0) then
-    allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",1,ierr,error_message)
-  end if
-  !
-  ! Allocate the data component of these arrays based on the face geometry
-  !
-  do nf = 1,nface
+  if (.not. convert_restart_to_cgns) then
     !
-    face_geom = face(nf)%geom
-    face_order = face(nf)%order
+    allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp",1,ierr,error_message)
     !
-    nfpts = geom_solpts(face_geom,face_order)
+    allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp",1,ierr,error_message)
     !
-    allocate ( faceusp(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "faceusp",nf
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceflx",1,ierr,error_message)
     !
-    allocate ( facedusp(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "facedusp",nf
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    ! If using MMS, allocate the facexyz array
     !
-    allocate ( faceflx(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "faceflx",nf
-    call alloc_error(pname,array_name,1,ierr,error_message)
-    !
-    ! If using MMS and this is a boundary face,
-    ! allocate the v component of facexyz
-    !
-    if (mms_opt /= 0 .and. nf <= nfbnd) then
-      allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "facexyz",nf
-      call alloc_error(pname,array_name,1,ierr,error_message)
+    if (mms_opt /= 0) then
+      allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz",1,ierr,error_message)
     end if
     !
-  end do
+    ! Allocate the data component of these arrays based on the face geometry
+    !
+    do nf = 1,nface
+      !
+      face_geom = face(nf)%geom
+      face_order = face(nf)%order
+      !
+      nfpts = geom_solpts(face_geom,face_order)
+      !
+      allocate ( faceusp(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) "faceusp",nf
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+      allocate ( facedusp(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) "facedusp",nf
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+      allocate ( faceflx(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) "faceflx",nf
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+      ! If using MMS and this is a boundary face,
+      ! allocate the v component of facexyz
+      !
+      if (mms_opt /= 0 .and. nf <= nfbnd) then
+        allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "facexyz",nf
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      end if
+      !
+    end do
+    !
+  end if
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
@@ -237,18 +246,6 @@ continue
   !
   allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"global_usp",1,ierr)
-  !
-  ! If solving the Taylor-Green vortex problem, allocate the array to
-  ! store the temporal evolution of various integrated quantities relating
-  ! to the kinetic energy and its dissipation rate
-  !
-  if (itestcase == Taylor_Green_Vortex) then
-    !
-    allocate ( TaylorGreen_sol(1:7,1:num_ts) , source=zero , &
-               stat=ierr ,errmsg=error_message )
-    call alloc_error(pname,"TaylorGreen_sol",1,ierr,error_message)
-    !
-  end if
   !
   ! Format Statements
   !
@@ -425,89 +422,257 @@ end subroutine unpack_face_vec_data
 !
 !###############################################################################
 !
-subroutine flowvar_alloc_status(iunit)
+subroutine flowvar_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: iunit
+  integer, optional, intent(in) :: iunit
   !
   !.. Local Scalars ..
+  integer :: iou,i,j,k
+  character(len=36) :: array_name
+  type(memory) :: array,dt
   type(memory) :: total
-  type(memory) :: array
   !
 continue
   !
-  total%mem = 0
+  iou = iout
+  if (present(iunit)) iou = iunit
   !
-  write (iunit,1)
+  call total%reset
+  !
+  write (iou,1)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(faceusp)) then
+    !
+    write (iou,8) "faceusp",storage_size(faceusp),storage_size(faceusp)/8
+    call dt%set( storage_size(faceusp,kind=inttype) , &
+                         size(faceusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(faceusp,dim=1),ubound(faceusp,dim=1)
+      !
+      call array%add( storage_size(faceusp(i)%v,kind=inttype) , &
+                              size(faceusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "faceusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "faceusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "faceusp"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(facedusp)) then
+    !
+    write (iou,8) "facedusp",storage_size(facedusp),storage_size(facedusp)/8
+    call dt%set( storage_size(facedusp,kind=inttype) , &
+                         size(facedusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(facedusp,dim=1),ubound(facedusp,dim=1)
+      !
+      call array%add( storage_size(facedusp(i)%v,kind=inttype) , &
+                              size(facedusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "facedusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "facedusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "facedusp"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(faceflx)) then
+    !
+    write (iou,8) "faceflx",storage_size(faceflx),storage_size(faceflx)/8
+    call dt%set( storage_size(faceflx,kind=inttype) , &
+                         size(faceflx,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(faceflx,dim=1),ubound(faceflx,dim=1)
+      !
+      call array%add( storage_size(faceflx(i)%v,kind=inttype) , &
+                              size(faceflx(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "faceflx(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "faceflx"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "faceflx"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(facexyz)) then
+    !
+    write (iou,8) "facexyz",storage_size(facexyz),storage_size(facexyz)/8
+    call dt%set( storage_size(facexyz,kind=inttype) , &
+                         size(facexyz,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(facexyz,dim=1),ubound(facexyz,dim=1)
+      !
+      call array%add( storage_size(facexyz(i)%v,kind=inttype) , &
+                              size(facexyz(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "facexyz(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "facexyz"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "facexyz"
+  end if
+  !
+  !-----------------------------------------------------------------------------
   !
   if (allocated(usp)) then
-    array%siz = size(usp)
-    array%mem = array%siz*storage_size(usp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'usp'",array%get_units()
+    call array%set( storage_size(usp,kind=inttype) , &
+                            size(usp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "usp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "usp"
   end if
   if (allocated(dusp)) then
-    array%siz = size(dusp)
-    array%mem = array%siz*storage_size(dusp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dusp'",array%get_units()
+    call array%set( storage_size(dusp,kind=inttype) , &
+                            size(dusp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "dusp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "dusp"
   end if
   if (allocated(uoldsp)) then
-    array%siz = size(uoldsp)
-    array%mem = array%siz*storage_size(uoldsp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'uoldsp'",array%get_units()
+    call array%set( storage_size(uoldsp,kind=inttype) , &
+                            size(uoldsp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "uoldsp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "uoldsp"
   end if
   if (allocated(residual)) then
-    array%siz = size(residual)
-    array%mem = array%siz*storage_size(residual)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'residual'",array%get_units()
+    call array%set( storage_size(residual,kind=inttype) , &
+                            size(residual,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "residual"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "residual"
   end if
   if (allocated(global_usp)) then
-    array%siz = size(global_usp)
-    array%mem = array%siz*storage_size(global_usp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_usp'",array%get_units()
+    call array%set( storage_size(global_usp,kind=inttype) , &
+                            size(global_usp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_usp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_usp"
   end if
   if (allocated(global_var)) then
-    array%siz = size(global_var)
-    array%mem = array%siz*storage_size(global_var)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'global_var'",array%get_units()
+    call array%set( storage_size(global_var,kind=inttype) , &
+                            size(global_var,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_var"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_var"
   end if
   if (allocated(usp_sum)) then
-    array%siz = size(usp_sum)
-    array%mem = array%siz*storage_size(usp_sum)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'usp_sum'",array%get_units()
+    call array%set( storage_size(usp_sum,kind=inttype) , &
+                            size(usp_sum,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "usp_sum"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "usp_sum"
   end if
   if (allocated(rssprk)) then
-    array%siz = size(rssprk)
-    array%mem = array%siz*storage_size(rssprk)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'rssprk'",array%get_units()
+    call array%set( storage_size(rssprk,kind=inttype) , &
+                            size(rssprk,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "rssprk"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "rssprk"
   end if
   if (allocated(dtsp)) then
-    array%siz = size(dtsp)
-    array%mem = array%siz*storage_size(dtsp)
-    total%mem = total%mem + array%mem
-    write (iunit,2) "'dtsp'",array%get_units()
+    call array%set( storage_size(dtsp,kind=inttype) , &
+                            size(dtsp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "dtsp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "dtsp"
+  end if
+  if (allocated(troubled_cell)) then
+    call array%set( storage_size(troubled_cell,kind=inttype) , &
+                            size(troubled_cell,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "troubled_cell"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "troubled_cell"
   end if
   !
   total = total%get_units()
-  write (iunit,3) total%mem,trim(adjustl(total%units))
+  write (iou,3) total%rmem,trim(adjustl(total%units))
   !
   ! Format Statements
   !
   1 format (/,"Status of arrays in module flowvar")
-  2 format (" Array: ",a12,dt)
-  3 format (" Total memory = ",i0,1x,a)
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a)
+  4 format (a,"(",i0,")%",a)
+  5 format ("'",a,"'")
+  6 format (" Array Component: ",a,dt)
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  8 format (" Storage size for ",a," = ",i0," Bits, ",i0," Bytes")
   !
-end subroutine flowvar_alloc_status
+end subroutine flowvar_memory_usage
 !
 !###############################################################################
 !
