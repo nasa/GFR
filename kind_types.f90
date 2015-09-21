@@ -411,6 +411,10 @@ module module_kind_types
   ! Using Intel version 10 compilers
  !real(wp), parameter :: one_work_unit = 7.026_wp
   !
+  ! Global parameter to help clarify calls to alloc_error
+  !
+  logical, parameter :: skip_alloc_pause = fals
+  !
   ! ############################################################################
   ! ############################################################################
   ! ############################################################################
@@ -1116,7 +1120,8 @@ end subroutine initialize_runtime_parameters
 !!!
 !!!###############################################################################
 !!!
-subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag,iemessag)
+subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag, &
+                       iemessag,override_memory_pause)
   !
   ! Subroutine to generate an error message when
   ! an allocate or deallocate returns an error code
@@ -1127,6 +1132,13 @@ subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag,iemessag)
   integer,                    intent(in) :: ioptype
   integer,                    intent(in) :: error_flag
   character(len=*), optional, intent(in) :: iemessag
+  logical,          optional, intent(in) :: override_memory_pause
+  !
+#ifdef TRACK_MEMORY_ALLOCATIONS
+  !.. Local Scalars ..
+  logical :: alloc_memory_pause
+  character(len=50+len(procedure_name)+len(variable_name)) :: pause_message
+#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "alloc_error"
@@ -1148,6 +1160,23 @@ continue
     !
     call stop_recon(abort,pname)
     !
+#ifdef TRACK_MEMORY_ALLOCATIONS
+#define MEMORY_TEST_PAUSE
+  else
+    !
+    alloc_memory_pause = true
+    if (present(override_memory_pause)) then
+      alloc_memory_pause = override_memory_pause
+    end if
+    !
+    if (alloc_memory_pause) then
+      write (pause_message,7) trim(merge("  ","de",ioptype == 1)), &
+                              trim(adjustl(variable_name)), &
+                              trim(adjustl(procedure_name))
+      call memory_pause(pause_message)
+    end if
+    !
+#endif
   end if
   !
   ! Format statements
@@ -1159,8 +1188,76 @@ continue
             " ERROR INDICATOR = ",i0)
   5 format (" ERROR MESSAGE: ",a)
   6 format (" ***************************************************** ",//)
+  7 format ("    After ",a,"allocating array '",a, &
+            "' in subroutine '",a,"'")
   !
 end subroutine alloc_error
+!
+!###############################################################################
+!
+subroutine memory_pause(message_1,message_2)
+  !
+  character(len=*),           intent(in) :: message_1
+  character(len=*), optional, intent(in) :: message_2
+  !
+  character(len=1) :: keyval
+  integer :: stop_value,ifmt
+  character(len=300) :: msgfmt
+  character(len=300) :: error_message
+  character(len=999) :: before_message
+  character(len=999) :: after_message
+  !
+  character(len=*), parameter :: pname = "memory_pause"
+  !
+continue
+  !
+#ifdef MEMORY_TEST_PAUSE
+  !
+  if (present(message_2)) then
+    after_message  = "    After: " // trim(adjustl(message_1))
+    before_message = "   Before: " // trim(adjustl(message_2))
+    write (msgfmt,1)
+  else
+    after_message  = trim(adjustl(message_1))
+    before_message = ""
+    write (msgfmt,2)
+  end if
+  !
+  if (mypnum == 0) then
+    !
+    write (iout,msgfmt,advance='no') trim(adjustl(after_message)), &
+                                     trim(adjustl(before_message))
+    !
+    flush (iout)
+    read (*,*) keyval
+    !
+    stop_value = merge( 1 , 0 , uppercase(keyval)=="N" )
+    !
+  end if
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(stop_value,1,mpi_inttyp,0,mpi_comm_world,mpierr)
+    call mpi_barrier(mpi_comm_world,mpierr)
+  end if
+  !
+  if (stop_value == 1) then
+    error_message = "Abort issused during memory test at: " // &
+                    trim(adjustl(after_message))
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  1 format ('(/," Memory test pause",/,a,/,a,/,', &
+               '" Press ',"'N'",' to abort or any other key to continue:")')
+  2 format ('(/," Memory test pause",/,4x,a,a,/,', &
+               '" Press ',"'N'",' to abort or any other key to continue:")')
+ !1 format (/," Memory test pause",/,a,/,a,/, &
+ !            " Press 'N' to abort or any other key to continue:")
+ !2 format (/," Memory test pause",/,4x,a,a,/, &
+ !            " Press 'N' to abort or any other key to continue:")
+  !
+#endif
+  !
+end subroutine memory_pause
 !
 !###############################################################################
 !
@@ -1514,61 +1611,106 @@ end module module_kind_types
 !
 module module_memory
   !
+  use module_kind_types, only : wp,zero,one
+ !use module_kind_types, only : inttype => i8
+  use module_kind_types, only : inttype => i4
+  !
   implicit none
   !
   private
   !
+  public :: memory
+  public :: inttype
+  !
   ! Derived type for working with memory information
   !
-  type, public :: memory
-    character(len=6) :: units
-    integer :: mem
-    integer :: siz
+  type :: memory
+    character(len=6) :: units = " Bytes"
+    integer(inttype) :: mem = 0_inttype
+    integer(inttype) :: siz = 0_inttype
+    real(wp)         :: rmem = zero
   contains
     procedure :: get_units
     procedure :: memout
+    procedure :: reset => reset_mem
+    procedure, private :: reset_and_compute_memory_usage
+    procedure, private :: reset_and_add_memory
+    procedure, private :: compute_memory_usage
+    procedure, private :: add_memory
+    generic :: add => compute_memory_usage, add_memory
+    generic :: set => reset_and_compute_memory_usage, &
+                      reset_and_add_memory
     generic :: write(formatted) => memout
   end type memory
+  !
+  !.. Module Parameters ..
+  real(wp), parameter :: prefix_multiple = 1024.0_wp
   !
 contains
 !
 !###############################################################################
 !
-pure function get_units(a) result(return_value)
+pure function get_units(this) result(return_value)
   !
   !.. Formal Arguments ..
-  class(memory), intent(in) :: a
+  class(memory), intent(in) :: this
   !
   !.. Function Result ..
   type(memory) :: return_value
   !
   !.. Local Scalars ..
-  integer :: i
+  real(wp) :: rmem
   character(len=6) :: c
   !
 continue
   !
-  i = a%mem / 8
-  c = " Bytes"
+  rmem = this%rmem
+  c = this%units
   !
-  if (i/1024 > 0) then
-    i = i/1024
-    c(1:1) = "k"
-  end if
+  select case ( c(1:1) )
+    !
+    case ("M")
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "G"
+      end if
+      !
+    case ("k")
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "M"
+      end if
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "G"
+      end if
+      !
+    case default
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "k"
+      end if
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "M"
+      end if
+      !
+      if (rmem/prefix_multiple > one) then
+        rmem = rmem/prefix_multiple
+        c(1:1) = "G"
+      end if
+      !
+  end select
   !
-  if (i/1024 > 0) then
-    i = i/1024
-    c(1:1) = "M"
-  end if
-  !
-  if (i/1024 > 0) then
-    i = i/1024
-    c(1:1) = "G"
-  end if
-  !
-  return_value%mem = i
   return_value%units = c
-  return_value%siz = a%siz
+  return_value%mem = nint(rmem)
+  return_value%siz = this%siz
+  return_value%rmem = rmem
   !
 end function get_units
 !
@@ -1586,11 +1728,155 @@ subroutine memout(dtv,iunit,iotype,vlist,my_iostat,my_iomsg)
   !
 continue
   !
-  write (iunit,1,iostat=my_iostat) dtv%siz, dtv%mem, trim(dtv%units)
+  write (iunit,1,iostat=my_iostat) dtv%siz, dtv%rmem, trim(dtv%units)
   !
-  1 format (" - size = ",i8,", memory = ",i4,1x,a)
+  1 format (" - size = ",i11,", memory = ",f8.2,1x,a)
   !
 end subroutine memout
+!
+!###############################################################################
+!
+pure subroutine compute_memory_usage(this,obj_storage,obj_size)
+  !
+  class(memory), intent(inout) :: this
+  integer(inttype), intent(in) :: obj_storage
+  integer(inttype), optional, intent(in) :: obj_size
+  !
+  type(memory) :: obj
+  !
+continue
+  !
+  obj%siz = 1_inttype
+  if (present(obj_size)) then
+    obj%siz = obj_size
+  end if
+  !
+  obj%mem = obj_storage / 8_inttype
+  obj%rmem = real(obj%mem,kind=wp) * real(obj%siz,kind=wp)
+  !
+  call this%add(obj)
+  !
+end subroutine compute_memory_usage
+!
+!###############################################################################
+!
+pure subroutine reset_and_compute_memory_usage(this,obj_storage,obj_size)
+  !
+  class(memory), intent(inout) :: this
+  integer(inttype), intent(in) :: obj_storage
+  integer(inttype), optional, intent(in) :: obj_size
+  !
+  type(memory) :: obj
+  !
+continue
+  !
+  obj%siz = 1_inttype
+  if (present(obj_size)) then
+    obj%siz = obj_size
+  end if
+  !
+  obj%mem = obj_storage / 8_inttype
+  obj%rmem = real(obj%mem,kind=wp) * real(obj%siz,kind=wp)
+  !
+  call this%reset
+  call this%add(obj)
+  !
+end subroutine reset_and_compute_memory_usage
+!
+!###############################################################################
+!
+pure subroutine add_memory(this,obj)
+  !
+  class(memory), intent(inout) :: this
+  type(memory), intent(in) :: obj
+  !
+  type(memory) :: tmp_obj
+  real(wp) :: rmem
+  !
+continue
+  !
+  select case ( this%units(1:1) )
+    case ("k")
+      this%rmem = this%rmem * prefix_multiple
+    case ("M")
+      this%rmem = this%rmem * prefix_multiple * prefix_multiple
+    case ("G")
+      this%rmem = this%rmem * prefix_multiple * prefix_multiple * prefix_multiple
+  end select
+  !
+  rmem = obj%rmem
+  select case ( obj%units(1:1) )
+    case ("k")
+      rmem = rmem * prefix_multiple
+    case ("M")
+      rmem = rmem * prefix_multiple * prefix_multiple
+    case ("G")
+      rmem = rmem * prefix_multiple * prefix_multiple * prefix_multiple
+  end select
+  !
+  tmp_obj%rmem = this%rmem + rmem
+  tmp_obj%siz  = this%siz  + obj%siz
+  !
+  tmp_obj = tmp_obj%get_units()
+  !
+  this%units = tmp_obj%units
+  this%mem   = tmp_obj%mem
+  this%siz   = tmp_obj%siz
+  this%rmem  = tmp_obj%rmem
+  !
+end subroutine add_memory
+!
+!###############################################################################
+!
+pure subroutine reset_and_add_memory(this,obj)
+  !
+  class(memory), intent(inout) :: this
+  type(memory), intent(in) :: obj
+  !
+  type(memory) :: tmp_obj
+  real(wp) :: rmem
+  !
+continue
+  !
+  rmem = obj%rmem
+  select case ( obj%units(1:1) )
+    case ("k")
+      rmem = rmem * prefix_multiple
+    case ("M")
+      rmem = rmem * prefix_multiple * prefix_multiple
+    case ("G")
+      rmem = rmem * prefix_multiple * prefix_multiple * prefix_multiple
+  end select
+  !
+  tmp_obj%rmem = rmem
+  tmp_obj%siz  = obj%siz
+  !
+  tmp_obj = tmp_obj%get_units()
+  !
+  call this%reset
+  !
+  this%units = tmp_obj%units
+  this%mem   = tmp_obj%mem
+  this%siz   = tmp_obj%siz
+  this%rmem  = tmp_obj%rmem
+  !
+end subroutine reset_and_add_memory
+!
+!###############################################################################
+!
+elemental subroutine reset_mem(this)
+  !
+  !.. Formal Arguments ..
+  class(memory), intent(inout) :: this
+  !
+continue
+  !
+  this%siz = 0_inttype
+  this%mem = 0_inttype
+  this%rmem = zero
+  this%units = " Bytes"
+  !
+end subroutine reset_mem
 !
 !###############################################################################
 !
