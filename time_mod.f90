@@ -270,7 +270,8 @@ continue
   mul = zero
   mur = zero
   !
-  pp1sq = real( (n_order+1)**2 , kind=wp )
+ !pp1sq = real( (n_order+1)**2 , kind=wp )
+  pp1sq = real( (n_order+1)**nr , kind=wp )
   !
   dtmin = huge(zero)
   dtsp(:) = dtmin
