@@ -301,7 +301,7 @@ continue
     if (dump_memory_usage) then
       call memory_pause("initializing generic module","dumping memory usage")
     else
-      call memory_pause("initializing ge!neric module","main iteration loop")
+      call memory_pause("initializing generic module","main iteration loop")
     end if
   end if
   !
