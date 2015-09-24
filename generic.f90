@@ -809,7 +809,8 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   !.. Use Statements ..
   use order_mod, only : maxpts,n_order
   use geovar, only : nr,ncell,cell
-  use ovar, only : muref_nd,total_volume,time_ref
+  use ovar, only : muref_nd,total_volume
+  use ovar, only : time,time_ref
   use ovar, only : TaylorGreen_DOF
   use ovar, only : iter_out_interval
   use flowvar, only : usp,dusp
@@ -936,6 +937,11 @@ continue
     ! two for square of velocity derivatives (from vorticity**2)
     tgv_dimen(6) = half / time_ref / time_ref
     !
+    ! Set tgv_kedr(ndt,-1) to time the first time through
+    ! time will have the value zero for a new simulation or the
+    ! restart time if restarting a simulation
+    !
+    tgv_kedr(ndt,-1) = time * time_ref
     !
     ! Open the output file for the root process
     !
