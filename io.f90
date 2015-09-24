@@ -3106,7 +3106,7 @@ continue
       call alloc_error(pname,"ipelem",2,ierr)
     end if
     !
-  else if (iflag == 2) then
+  else!if (iflag == 2) then
     !
     ! The CGNS file was dumped last time this subroutine was called
     ! so the CGNS file needs to be reopened in modification mode.
@@ -3154,7 +3154,7 @@ continue
   !
   ! If last iteration or a solution dump was requested, close CGNS file
   !
-  if (any(iflag == [-1,-2])) then
+ !if (any(iflag == [-1,-2])) then
     !
     ! Update the base iterative node
     !
@@ -3190,7 +3190,7 @@ continue
     call cgp_close_f(ifile_n,ierr)
     call io_error(pname,cgns_grid_file,2,ierr)
     !
-  end if
+ !end if
   !
   ! Update the zone counter
   !
