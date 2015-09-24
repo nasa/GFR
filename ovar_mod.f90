@@ -240,6 +240,9 @@ module ovar
   !
   integer,  public, save :: Total_Periods
   !
+  logical,  public, save :: write_TaylorGreen_8s_solution = fals
+  logical,  public, save :: write_TaylorGreen_full_solution = fals
+  !
   logical,  public, save :: convergence_reached = fals
   logical,  public, save :: this_is_final_timestep = fals
   logical,  public, save :: walltime_expiring
