@@ -1357,9 +1357,19 @@ subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
   character(len=*), optional, intent(in) :: optmessag
   integer,          optional, intent(in) :: optinteger
   !
+  !.. Local Scalars ..
+  integer :: ierror
+  !
 continue
   !
-  if (iemessag == CG_OK) return
+  if (iemessag == CG_OK) then
+    ierror = 0
+  else
+    ierror = 1
+  end if
+  call mpi_allreduce(MPI_IN_PLACE,ierror,1,mpi_inttyp, &
+                     MPI_MAX,mpi_comm_world,mpierr)
+  if (ierror == 0) return
   !
   write (iout,10)
   !
