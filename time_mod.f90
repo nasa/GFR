@@ -60,10 +60,17 @@ contains
 subroutine get_dtsp(dtmin)
   !
   !.. Use Statements ..
-  use ovar, only : Timestep_Type,time,d_t
+  use ovar,    only : Timestep_Type,time,d_t
+  use ovar,    only : itestcase,time_ref
+  use ovar,    only : write_TaylorGreen_8s_solution
+  use ovar,    only : write_TaylorGreen_full_solution
+  use flowvar, only : dtsp
   !
-  !.. rmal Arguments ..
+  !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  real(wp) :: tstar,new_tstar
   !
 continue
   !
@@ -84,6 +91,57 @@ continue
   end if
   !
  !write (iout,1) time,dtmin,time+dtmin
+  !
+  if (itestcase == Taylor_Green_Vortex) then
+    !
+    tstar = time*time_ref
+    new_tstar = tstar + dtmin*time_ref
+    !
+    if (tstar < eight .and. new_tstar >= eight) then
+      !
+      dtmin = (eight - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_8s_solution = true
+      !
+    else if (tstar < three .and. new_tstar >= three) then
+      !
+      dtmin = (three - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    else if (tstar < five .and. new_tstar >= five) then
+      !
+      dtmin = (five - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    else if (tstar < seven .and. new_tstar >= seven) then
+      !
+      dtmin = (seven - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    else if (tstar < nine .and. new_tstar >= nine) then
+      !
+      dtmin = (nine - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    else if (tstar < 11.0_wp .and. new_tstar >= 11.0_wp) then
+      !
+      dtmin = (11.0_wp - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    else if (tstar < 15.0_wp .and. new_tstar >= 15.0_wp) then
+      !
+      dtmin = (15.0_wp - tstar) / time_ref
+      dtsp(:) = dtmin
+      write_TaylorGreen_full_solution = true
+      !
+    end if
+    !
+  end if
   !
   time = time + dtmin
   d_t = dtmin

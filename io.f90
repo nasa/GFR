@@ -25,6 +25,7 @@ module io_mod
   public :: write_parallel_cgns
   public :: write_results_file
   public :: check_flux_point_orderings
+  public :: TaylorGreen_8s_vorticity_solution
   !
   ! ###########################
   ! ###  Module Parameters  ###
@@ -2921,6 +2922,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar,    only : time,aref,uref,rhoref,time_ref
   use ovar,    only : itestcase,cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
+  use ovar,    only : write_TaylorGreen_full_solution
   use flowvar, only : usp,dusp
   !
   !.. Formal Arguments ..
@@ -2951,7 +2953,13 @@ subroutine write_parallel_cgns(iflag)
   !
 continue
   !
-  if (disable_cgns_output) return
+  if (disable_cgns_output) then
+    if (iflag == 0) then
+      if (.not. write_TaylorGreen_full_solution) then
+        return
+      end if
+    end if
+  end if
   !
   if (iflag == 1) then
     !
@@ -3766,6 +3774,7 @@ subroutine TaylorGreen_8s_vorticity_solution()
   !
   !.. Use Statements ..
   use ovar, only : cgns_use_queue
+  use ovar, only : write_TaylorGreen_8s_solution
   !
   !.. Local Scalars ..
   integer :: my_beg,my_end,my_pts,ierr
@@ -3979,6 +3988,8 @@ continue
   !
   call cgp_close_f(ifile_v,ierr)
   call io_error(pname,cgns_vort_file,2,ierr)
+  !
+  write_TaylorGreen_8s_solution = fals
   !
 end subroutine TaylorGreen_8s_vorticity_solution
 !

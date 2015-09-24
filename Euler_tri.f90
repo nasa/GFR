@@ -22,6 +22,8 @@ program Euler_tri
   use ovar, only : dump_memory_usage,mms_opt
   use ovar, only : recon_cpu_time,this_is_final_timestep
   use ovar, only : ovar_memory_usage
+  use ovar, only : write_TaylorGreen_8s_solution
+  use ovar, only : write_TaylorGreen_full_solution
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : flowvar_memory_usage
@@ -34,6 +36,7 @@ program Euler_tri
   use io_mod, only : write_parallel_cgns
   use io_mod, only : write_results_file
   use io_mod, only : check_flux_point_orderings
+  use io_mod, only : TaylorGreen_8s_vorticity_solution
   !
   use restart_mod, only : write_restart_file
   !
@@ -633,6 +636,16 @@ continue
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
         call write_parallel_cgns(CGNS_action)
+      end if
+    end if
+    !
+    if (itestcase == Taylor_Green_Vortex) then
+      if (write_TaylorGreen_8s_solution) then
+        call TaylorGreen_8s_vorticity_solution
+      end if
+      if (write_TaylorGreen_full_solution) then
+        call write_parallel_cgns(CGNS_action)
+        write_TaylorGreen_full_solution = fals
       end if
     end if
     !
