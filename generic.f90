@@ -295,6 +295,9 @@ continue
     if (itcur > minimum_timesteps) then
       convergence_reached = (entL2 <= convergence_order_max_res) .or. &
                             (log10(rltwo) <= convergence_order_abs_res)
+      if (itestcase == Taylor_Green_Vortex) then
+        convergence_reached = fals
+      end if
     end if
   end if
   !
