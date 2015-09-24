@@ -3869,16 +3869,28 @@ continue
   call get_vort_face_coordinates(my_vort_faces,vary,varz)
   !
   ! Add the data for the y-coordinate to the output queue
+  ! NOTE: It is an error for a processor to try an write data if it doesnt
+  !       have any data to write, so make sure that only those processors
+  !       that have data to write call the CGNS write subroutine.
   !
-  call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(1), &
-                              my_beg,my_end,vary,ierr)
+  ierr = 0
+  if (my_end-my_beg+1 > 0) then
+    call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(1), &
+                                my_beg,my_end,vary,ierr)
+  end if
   call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f",ierr, &
                   "Write data: Coordinate = 1 (Y)")
   !
   ! Add the data for the z-coordinate to the output queue
+  ! NOTE: It is an error for a processor to try an write data if it doesnt
+  !       have any data to write, so make sure that only those processors
+  !       that have data to write call the CGNS write subroutine.
   !
-  call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(2), &
-                              my_beg,my_end,varz,ierr)
+  ierr = 0
+  if (my_end-my_beg+1 > 0) then
+    call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(2), &
+                                my_beg,my_end,varz,ierr)
+  end if
   call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f",ierr, &
                   "Write data: Coordinate = 2 (Z)")
   !
@@ -3908,9 +3920,15 @@ continue
   my_end = my_vort_cells(3)
   !
   ! Add the element connectivity data to the output queue.
+  ! NOTE: It is an error for a processor to try an write data if it doesnt
+  !       have any data to write, so make sure that only those processors
+  !       that have data to write call the CGNS write subroutine.
   !
-  call cgp_elements_write_data_f(ifile_v,ibase_v,izone_v,isect_v, &
-                                 my_beg,my_end,ipelem,ierr)
+  ierr = 0
+  if (my_end-my_beg+1 > 0) then
+    call cgp_elements_write_data_f(ifile_v,ibase_v,izone_v,isect_v, &
+                                   my_beg,my_end,ipelem,ierr)
+  end if
   call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f",ierr)
   !
   ! Finally, flush the queue containing the
@@ -3963,9 +3981,15 @@ continue
   end if
   !
   ! Add the data for current variable to the output queue.
+  ! NOTE: It is an error for a processor to try an write data if it doesnt
+  !       have any data to write, so make sure that only those processors
+  !       that have data to write call the CGNS write subroutine.
   !
-  call cgp_field_write_data_f(ifile_v,ibase_v,izone_v,isol_v,isvar_v, &
-                              my_beg,my_end,vary,ierr)
+  ierr = 0
+  if (my_end-my_beg+1 > 0) then
+    call cgp_field_write_data_f(ifile_v,ibase_v,izone_v,isol_v,isvar_v, &
+                                my_beg,my_end,vary,ierr)
+  end if
   call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f",ierr, &
                   "Write data: Solution variable = 1 (VorticityMagnitude)")
   !
