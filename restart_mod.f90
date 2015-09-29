@@ -18,19 +18,25 @@ subroutine read_restart_file
   !.. Use Statements ..
   use geovar,       only : ncell,pts_in_cell_ptr
   use geovar,       only : n_global_cell,global_nofc_ptr,global_pinc_ptr
-  use ovar,         only : itrst,tmrst,dtrst
+  use ovar,         only : itrst,tmrst,dtrst,use_global_usp
   use flowvar,      only : usp,global_usp
   use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,np,gp,ierr
   integer :: iorst
+  character(len=300) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_restart_file"
   character(len=*), parameter :: fname = "out.rst"
   !
 continue
+  !
+  if (.not. use_global_usp) then
+    write (error_message,1)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
   !
   open(newunit=iorst,file=fname,status="old",action="read", &
                      form="unformatted",iostat=ierr)
@@ -73,6 +79,12 @@ continue
     !
   end if
   !
+  ! Format Statements
+  !
+  1 format ("Error trying to read restart file! The array global_usp is ", &
+            "required to read the restart file but the input variable ", &
+            "use_global_usp is false, preventing it from being allocated!")
+  !
 end subroutine read_restart_file
 !
 !###############################################################################
@@ -80,7 +92,7 @@ end subroutine read_restart_file
 subroutine write_restart_file(itnum)
   !
   !.. Use Statements ..
-  use ovar,    only : itcur,time,d_t
+  use ovar,    only : itcur,time,d_t,use_global_usp
   use flowvar, only : global_usp
   use parallel_mod, only : collect_global_solution
   !
@@ -95,6 +107,8 @@ subroutine write_restart_file(itnum)
   character(len=*), parameter :: pname = "write_restart_file"
   !
 continue
+  !
+  if (.not. use_global_usp) return
   !
   ! Collect the global solution
   !
