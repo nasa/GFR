@@ -165,7 +165,7 @@ subroutine rgeterr()
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,  only : nr,ncell,cell
-  use geovar,  only : global_pinc_ptr,global_xyz
+  use geovar,  only : global_pinc_ptr
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
@@ -325,8 +325,7 @@ continue
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
                               rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
-                              global_xyz(1,global_pinc_ptr(nloc)+kloc), &
-                              global_xyz(2,global_pinc_ptr(nloc)+kloc), &
+                              xentmax,yentmax, &
                               hrs_left,min_left,sec_left
     !
 #else
@@ -336,8 +335,7 @@ continue
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
                               rltwo,entL2,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
-                              global_xyz(1,global_pinc_ptr(nloc)+kloc), &
-                              global_xyz(2,global_pinc_ptr(nloc)+kloc)
+                              xentmax,yentmax
     !
     !
 #endif
