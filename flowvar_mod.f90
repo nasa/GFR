@@ -124,6 +124,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : iRKtype,num_stages,mms_opt
   use ovar,      only : itestcase,num_ts
   use ovar,      only : convert_restart_to_cgns
+  use ovar,      only : use_global_usp
   !
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
@@ -244,8 +245,10 @@ continue
   !
   ! Allocate the global_usp array
   !
-  allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"global_usp",1,ierr)
+  if (use_global_usp) then
+    allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
+    call alloc_error(pname,"global_usp",1,ierr)
+  end if
   !
   ! Format Statements
   !
