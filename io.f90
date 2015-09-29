@@ -1817,7 +1817,6 @@ subroutine save_global_grid
   use geovar,    only : global_pinc_ptr,global_xyz
   use geovar,    only : cell_geom,global_cell_geom
   use geovar,    only : cell_order,global_cell_order
-  use flowvar,   only : global_usp
   use order_mod, only : geom_solpts
   !
   !.. Local Scalars ..
@@ -1875,16 +1874,13 @@ continue
   n_global_solpts = global_pinc_ptr(ncell+1)
   n_global_totpts = last(global_pinc_ptr)
   !
-  ! Now the only remaining global grid arrays to create are global_xyz
-  ! and global_usp. We will have to do a collective communication of the
-  ! local arrays to accomplish this after they are created. We will only
-  ! allocate the array here since we have the parameters needed to do so.
+  ! Now the only remaining global grid arrays to create is global_xyz.
+  ! We will have to do a collective communication of the local arrays
+  ! to accomplish this after they are created. We will only allocate
+  ! the array here since we have the parameters needed to do so.
   !
   allocate ( global_xyz(1:nr,1:n_global_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"global_xyz",1,ierr)
-  !
- !allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
- !call alloc_error(pname,"global_usp",1,ierr)
   !
 end subroutine save_global_grid
 !
