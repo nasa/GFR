@@ -246,7 +246,6 @@ $(OBJDIR)/mappings.o : mappings.f90 \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/quadrature_mod.o \
-              $(OBJDIR)/parallel.o \
               $(FUNDIR)/last.f90
 
 $(OBJDIR)/metrics.o : metrics.f90 \
