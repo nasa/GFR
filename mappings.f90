@@ -26,8 +26,6 @@ subroutine get_solution_points()
   use geovar,         only : bface,xyz_nodes,xyz
   use geovar,         only : cell_geom,cell_order
   !
-  use parallel_mod,   only : collect_global_solpts
-  !
   use order_mod,      only : geom_solpts
   !
   use quadrature_mod, only : std_elem
@@ -167,10 +165,6 @@ continue
     if (associated(tria_pts)) tria_pts => null()
     !
   end do
-  !
-  ! Collect the solution point coordinates for the global grid
-  !
-  call collect_global_solpts
   !
   ! Format Statements
   !
