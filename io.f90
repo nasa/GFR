@@ -1814,7 +1814,7 @@ subroutine save_global_grid
   use geovar,    only : xyz_nodes,global_xyz_nodes
   use geovar,    only : nodes_of_cell_ptr,global_nofc_ptr
   use geovar,    only : nodes_of_cell,global_nofc
-  use geovar,    only : global_pinc_ptr,global_xyz
+  use geovar,    only : global_pinc_ptr
   use geovar,    only : cell_geom,global_cell_geom
   use geovar,    only : cell_order,global_cell_order
   use order_mod, only : geom_solpts
@@ -1873,14 +1873,6 @@ continue
   !
   n_global_solpts = global_pinc_ptr(ncell+1)
   n_global_totpts = last(global_pinc_ptr)
-  !
-  ! Now the only remaining global grid arrays to create is global_xyz.
-  ! We will have to do a collective communication of the local arrays
-  ! to accomplish this after they are created. We will only allocate
-  ! the array here since we have the parameters needed to do so.
-  !
-  allocate ( global_xyz(1:nr,1:n_global_totpts) , source=zero , stat=ierr )
-  call alloc_error(pname,"global_xyz",1,ierr)
   !
 end subroutine save_global_grid
 !
@@ -2757,64 +2749,47 @@ end subroutine check_flux_point_orderings
 !
 subroutine write_final_error
   !
-  use geovar, only : n_global_cell
+  use geovar, only : nr,n_global_cell
   use geovar, only : n_global_solpts,global_pinc_ptr
   use ovar,   only : itestcase,flux_divergence
   use ovar,   only : vnloc,vkloc,vlone,vlinf,vltwo
   use ovar,   only : unloc,ukloc,ulone,ulinf,ultwo
   use order_mod, only : n_order
   !
-  !.. Aliased Use Statements ..
-  use geovar, only : xyz => global_xyz
-  !
-  !.. Local Scalars ..
-  integer :: i
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_final_error"
   !
 continue
   !
-  write (iout,*)
-  !
-  write (iout,34) itestcase,flux_divergence, &
+  write (iout,31) itestcase,flux_divergence, &
                   n_order,n_global_cell,n_global_solpts, &
-                  vnloc(1),global_pinc_ptr(vnloc(1))+vkloc(1), &
-                  xyz(1,global_pinc_ptr(vnloc(1))+vkloc(1)), &
-                  xyz(2,global_pinc_ptr(vnloc(1))+vkloc(1))
+                  vnloc(1),global_pinc_ptr(vnloc(1))+vkloc(1)
   !
-  write (iout,35) (vlone(i), &
-                   vlinf(i), &
-                   vltwo(i), &
-                   xyz(1,global_pinc_ptr(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_pinc_ptr(vnloc(i))+vkloc(i)), i=1,nq-1)
-  write (iout,36) (ulone(i), &
-                   ulinf(i), &
-                   ultwo(i), &
-                   xyz(1,global_pinc_ptr(unloc(i))+ukloc(i)), &
-                   xyz(2,global_pinc_ptr(unloc(i))+ukloc(i)), i=nq+1,nq+1)
-  write (iout,37) (vlone(i), &
-                   vlinf(i), &
-                   vltwo(i), &
-                   xyz(1,global_pinc_ptr(vnloc(i))+vkloc(i)), &
-                   xyz(2,global_pinc_ptr(vnloc(i))+vkloc(i)), i=nq+1,nq+1)
+  write (iout,32) vlone(nec),  vlinf(nec),  vltwo(nec)
+  write (iout,33) vlone(nmx),  vlinf(nmx),  vltwo(nmx)
+  if (nr > 1) &
+  write (iout,34) vlone(nmy),  vlinf(nmy),  vltwo(nmy)
+  if (nr > 2) &
+  write (iout,35) vlone(nmz),  vlinf(nmz),  vltwo(nmz)
+  write (iout,36) ulone(nq+1), ulinf(nq+1), ultwo(nq+1)
+  write (iout,37) vlone(nq+1), vlinf(nq+1), vltwo(nq+1)
   !
-  34 format ('itestcase =',i2,/, &
-             'flux_divergence  =',i2,//, &
-             'Order of solution polynomial = ',i10,/, &
-             'Number of grid cells         = ',i10,/, &
-             'Number of solution points    = ',i10,//, &
-             'Max density error in cell = ',i10,/, &
-             '        at solution point = ',i10,/, &
-             '         with coordinates = ',2es14.6,/)
-  35 format (/,'  Error  -      L1           Max            L2     @      x             y',/,&
-        ' ------------------------------------------------------------------------------',/,&
-        ' Density ',5es14.6,/,&
-        '   Vx    ',5es14.6,/,&
-        '   Vy    ',5es14.6)
-  36 format (' Entropy ',5es14.6)
-  37 format (' Vel Mag ',5es14.6,/,&
-        ' ------------------------------------------------------------------------------',/)
+  31 format (/,'itestcase =',i2,/, &
+               'flux_divergence  =',i2,//, &
+               'Order of solution polynomial = ',i10,/, &
+               'Number of grid cells         = ',i10,/, &
+               'Number of solution points    = ',i10,//, &
+               'Max density error in cell = ',i10,/, &
+               '        at solution point = ',i10,/)
+  32 format (/,'  Error  -      L1           Max            L2',/, &
+               ' --------------------------------------------------',/, &
+               ' Density ',3es14.6)
+  33 format (  '   Vx    ',3es14.6)
+  34 format (  '   Vy    ',3es14.6)
+  35 format (  '   Vz    ',3es14.6)
+  36 format (  ' Entropy ',5es14.6)
+  37 format (  ' Vel Mag ',5es14.6,/, &
+        ' --------------------------------------------------',/)
   !
 end subroutine write_final_error
 !
