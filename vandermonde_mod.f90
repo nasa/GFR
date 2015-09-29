@@ -62,6 +62,12 @@ module vandermonde_mod
   !
   type(vandermonde_matrix), public, save, target, allocatable :: vand(:,:)
   !
+  ! monomials : generalized Vandermonde matrix to convert a polynomial between
+  !             the nodal coefficients and the monomial modal coefficients.
+  !
+  type(vandermonde_matrix), public, save, target, allocatable :: monomials(:,:)
+  !             
+  !
 contains
 !
 !###############################################################################
