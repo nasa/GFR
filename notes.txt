@@ -82,20 +82,13 @@
   (e.g., P <= 4). This will probably require making a lot of very specific
   versions of these functions, i.e. one each for P1, P2, P3, etc.
 
-* Need to rework the restart module to make the restart files more generalized
-  and improve the efficiency/performance of the i/o operations.
-   - Find a way to parallelize the i/o operations.
-      - Input/Read: Currently all processors simultaneously read the entire 
-                    solution contained in the restart file and each processor
-                    stores this data in its own copy of the global_usp array.
-                    After the read is completed, each processor then copies
-                    the solution for the cells in their local partition into
-                    their unique usp array.
-      - Output/Write: Currently all processors send their solution to the
-                      root processor which gathers the global solution and
-                      then broadcasts the global solution back to all the
-                      processors. The root processor then writes the restart
-                      file by itself.
+* A few tasks remain to complete the rework of the restart module.
+   - Need to add a subroutine similar to check_cgns_dir that will create a
+     directory for restart files and use lfs to optimize this directory
+     for the lustre file system.
+   - Need to tweak the MPI_FILE_INFO used for the restart subroutines so that
+     it provides the correct hints so that it can optimize the MPI I/O for
+     the lustre file system.
    - Look at possibly storing the monomial modal coefficients in the restart
      file instead of the flow variables at the solution points. This way the
      simulation could be restarted with different solution points, solution
