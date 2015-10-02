@@ -148,7 +148,7 @@ module ovar
   !
   logical, public, save :: convert_restart_to_cgns = fals
   !
-  logical, public, save :: use_global_usp = true
+  logical, public, save :: use_old_restart_format = fals
   !
   ! #################################
   ! ####   Non-Input Variables   ####
@@ -475,7 +475,7 @@ module input_namelist_mod
   use ovar,      only : num_ts, Final_Time, dt_in
   use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles
   use ovar,      only : Timestep_Type, minimum_timesteps
-  use ovar,      only : all_points, metis_option, use_global_usp
+  use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, governing_equations
   use ovar,      only : irestart, restart_interval, results_interval
@@ -532,7 +532,7 @@ module input_namelist_mod
   ! INITIALIZATION / TEST CASE
   namelist / input / itestcase
   ! RESTART OPTIONS
-  namelist / input / irestart, restart_interval, use_global_usp
+  namelist / input / irestart, restart_interval, use_old_restart_format
   ! OUTPUT OPTIONS
   namelist / input / output_dir, iter_out_interval, output_solution, &
                      output_interval, results_interval, o_order

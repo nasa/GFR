@@ -3862,25 +3862,41 @@ continue
   !
   if (ncpu > 1) then
     !
-    allocate ( sp_r8(1:size(usp,1),1:size(usp,2)) , source=real(usp,r8) , stat=ierr )
+    allocate ( sp_r8(1:size(usp,1),1:size(usp,2)) , &
+               source=real(usp,r8) , stat=ierr )
     call alloc_error(pname,"sp_r8",1,ierr)
-    allocate ( global_r8(1:size(global_usp,1),1:size(global_usp,2)) , &
-               source=0.0_r8 , stat=ierr )
-    call alloc_error(pname,"global_r8",1,ierr)
     !
-    ! Collect the global usp array on all processors
+    ! Collect the global usp array on the root processor
     !
     n = size(sp_r8(:,1:n_solpts))
     !
     if (mypnum /= 0) then
       !
+      ! Have all the non-root processors send their
+      ! local solutions to the root processor.
+      !
       call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
       !
     else
       !
+      ! Only collect the global solution on the root processor. It is the
+      ! only processor that will be writing the restart file so there is
+      ! no need for the other processors to also have a copy of the global
+      ! solution.
+      !
+      allocate ( global_r8(1:size(global_usp,1),1:size(global_usp,2)) , &
+                 source=0.0_r8 , stat=ierr )
+      call alloc_error(pname,"global_r8",1,ierr)
+      !
+      ! Have the root processor send its own solution to itself so
+      ! it gets put in the right location within the global array.
+      !
       call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
                         global_r8,1,recv_sol(1),0,n, &
                         mpi_comm_world,istat,mpierr)
+      !
+      ! Now have the root processor receive the local
+      ! solutions from all the other processors.
       !
       do i = 2,ncpu
         !
@@ -3891,16 +3907,19 @@ continue
         !
       end do
       !
+      ! Convert the global_r8 array to working precision
+      !
+      global_usp(:,:) = real( global_r8(:,:) , kind=wp )
+      !
+      ! Deallocate the global_r8 array
+      !
+      deallocate ( global_r8 , stat=ierr )
+      call alloc_error(pname,"global_r8",2,ierr)
+      !
     end if
-    !
-    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
-    !
-    global_usp(:,:) = real( global_r8(:,:) , kind=wp )
     !
     deallocate ( sp_r8 , stat=ierr )
     call alloc_error(pname,"sp_r8",2,ierr)
-    deallocate ( global_r8 , stat=ierr )
-    call alloc_error(pname,"global_r8",2,ierr)
     !
   else
     !

@@ -21,9 +21,6 @@ module restart_mod
   !###  Module Parameters  ###
   !###########################
   !
- !logical, parameter :: use_old_restart = true
-  logical, parameter :: use_old_restart = fals
-  !
   integer, parameter :: restart_gauss_nodal_solution    = -Legendre_Gauss
   integer, parameter :: restart_lobatto_nodal_solution  = -Legendre_Gauss_Lobatto
   integer, parameter :: restart_legendre_modal_solution = +Legendre_Gauss
@@ -93,8 +90,9 @@ subroutine read_restart_file
   use ovar,         only : iop_solpts
   use flowvar,      only : usp
   !.. Use Statements for old restart files ..
+  use geovar,       only : n_global_totpts
   use geovar,       only : global_pinc_ptr
-  use ovar,         only : use_global_usp
+  use ovar,         only : use_old_restart_format
   use flowvar,      only : global_usp
   use parallel_mod, only : cell_map
   !
@@ -138,12 +136,11 @@ continue
   !
   solution_errors = 0
   !
-  if (use_old_restart) then
+  if (use_old_restart_format) then
     !
-    if (.not. use_global_usp) then
-      write (error_message,1)
-      call stop_recon(stop_mpi,pname,error_message)
-    end if
+    allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_usp",1,ierr,error_message)
     !
     open(newunit=iorst,file=fname,status="old",action="read", &
                        form="unformatted",iostat=ierr)
@@ -185,6 +182,9 @@ continue
       usp(:,:) = global_usp(:,:)
       !
     end if
+    !
+    deallocate ( global_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_usp",2,ierr,error_message)
     !
   else
     !
@@ -512,10 +512,6 @@ continue
   !
   ! Format Statements
   !
-  1 format ("Error trying to read restart file! The array global_usp is ", &
-            "required to read the restart file but the input variable ", &
-            "use_global_usp is false, preventing it from being allocated!")
-  !
   10 format("The number of equations in the restart file does not match the ", &
             "current simulation: restart_nq=",i0,", current_nq=",i0,".")
   11 format("The number of global grid cells in the restart file does not ", &
@@ -564,7 +560,8 @@ subroutine write_restart_file(itnum)
   use ovar,    only : iop_solpts
   use flowvar, only : usp
   !.. Use Statements for old restart files ..
-  use ovar,    only : use_global_usp
+  use geovar,  only : n_global_totpts
+  use ovar,    only : use_old_restart_format
   use flowvar, only : global_usp
   use parallel_mod, only : collect_global_solution
   !
@@ -603,9 +600,13 @@ continue
     write (fname,'("out.",i0.8,".done.rst")') itcur
   end if
   !
-  if (use_old_restart) then
+  if (use_old_restart_format) then
     !
-    if (.not. use_global_usp) return
+    if (mypnum == 0) then
+      allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"global_usp",1,ierr,error_message)
+    end if
     !
     ! Collect the global solution
     !
@@ -624,6 +625,9 @@ continue
       !
       close (iorst,iostat=ierr)
       call io_error(pname,trim(adjustl(fname)),2,ierr)
+      !
+      deallocate ( global_usp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"global_usp",2,ierr,error_message)
       !
     end if
     !

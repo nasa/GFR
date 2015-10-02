@@ -118,13 +118,11 @@ subroutine allocate_flowvar_arrays()
   !.. Use Statements ..
   use eqn_idx,   only : nq
   use geovar,    only : nr,n_solpts,n_totpts,nface,nfbnd,face
-  use geovar,    only : n_global_totpts
   use order_mod, only : geom_solpts
   use order_mod, only : n_fp1de
   use ovar,      only : iRKtype,num_stages,mms_opt
   use ovar,      only : itestcase,num_ts
   use ovar,      only : convert_restart_to_cgns
-  use ovar,      only : use_global_usp
   !
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
@@ -241,13 +239,6 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",1,ierr,error_message)
     !
-  end if
-  !
-  ! Allocate the global_usp array
-  !
-  if (use_global_usp) then
-    allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"global_usp",1,ierr)
   end if
   !
   ! Format Statements
