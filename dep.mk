@@ -319,10 +319,12 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
 
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/kind_types.o \
+                $(OBJDIR)/eqn_idx_mod.o \
                 $(OBJDIR)/geovar_mod.o \
 		$(OBJDIR)/ovar_mod.o \
 		$(OBJDIR)/flowvar_mod.o \
-		$(OBJDIR)/parallel.o
+		$(OBJDIR)/parallel.o \
+                $(FUNDIR)/cell_solpts.f90
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
               $(OBJDIR)/kind_types.o \
