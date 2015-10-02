@@ -1203,6 +1203,8 @@ subroutine create_TaylorGreenVortex_grid()
   !.. Use Statements ..
   use order_mod, only : n_order
   use ovar,      only : TaylorGreen_DOF,Lref
+  use ovar,      only : TaylorGreen_random_perturb
+  use ovar,      only : TaylorGreen_perturb_percent
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
@@ -1210,6 +1212,11 @@ subroutine create_TaylorGreenVortex_grid()
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,n
   integer :: nf_min,nf_max
+  real(r4) :: x,y,z,dl
+  real(r4) :: rbas,radj,rval
+  !
+  !.. Local Allocatable Arrays ..
+  real(r4), allocatable :: perturb(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_TaylorGreenVortex_grid"
@@ -1254,6 +1261,9 @@ continue
   allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
   call alloc_error(pname,"cell_order",1,ierr)
   !
+  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , stat=ierr )
+  call alloc_error(pname,"perturb",1,ierr)
+  !
   ! #######
   ! #######
   ! ## 1 ##
@@ -1294,21 +1304,117 @@ continue
   ! #######
   ! #######
   !
+  ! Compute the cell length for a Cartesian/uniform grid
+  !
+  dl = real(1,kind=r4) / real(np-1,kind=r4)
+  !
+  ! Compute the random perturbations if the flag was set on input
+  !
+  if (TaylorGreen_random_perturb) then
+    !
+    rbas = dl * real(abs(TaylorGreen_perturb_percent),kind=r4) / real(100,kind=r4)
+    radj = rbas / real(2,kind=r4)
+    !
+    if (TaylorGreen_perturb_percent < 0) then
+      !
+      ! Randomly perturb the crap out of everything
+      !
+      do k = 2,np-1
+        do j = 2,np-1
+          do i = 2,np-1
+            !
+            n = map3dto1d(i,j,k,np)
+            !
+            rval = random(rbas) - radj
+            perturb(1,n) = rval
+            !
+            rval = random(rbas) - radj
+            perturb(2,n) = rval
+            !
+            rval = random(rbas) - radj
+            perturb(3,n) = rval
+            !
+          end do
+        end do
+      end do
+      !
+    else
+      !
+      ! Get the random perturbation in along i for y
+      !
+      do i = 2,np-1
+        rval = random(rbas) - radj
+        do k = 2,np-1
+          do j = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(2,n) = rval
+          end do
+        end do
+      end do
+      !
+      ! Get the random perturbation along j for z
+      !
+      do j = 2,np-1
+        rval = random(rbas) - radj
+        do k = 2,np-1
+          do i = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(3,n) = rval
+          end do
+        end do
+      end do
+      !
+      ! Get the random perturbation along k for x
+      !
+      do k = 2,np-1
+        rval = random(rbas) - radj
+        do j = 2,np-1
+          do i = 2,np-1
+            n = map3dto1d(i,j,k,np)
+            perturb(1,n) = rval
+          end do
+        end do
+      end do
+      !
+    end if
+    !
+    ! Have the root processor broadcast its perturbations to all the
+    ! other processors so that the perturbations will be consistent
+    ! on all processors.
+    !
+    call mpi_bcast(perturb,size(perturb,kind=int_mpi), &
+                   MPI_REAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    !
+  end if
+  !
   ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
   !
   do k = 1,np
+    !
+    z = dl * real(k-1,kind=r4)
+    !
     do j = 1,np
+      !
+      y = dl * real(j-1,kind=r4)
+      !
       do i = 1,np
+        !
+        x = dl * real(i-1,kind=r4)
         !
         n = map3dto1d(i,j,k,np)
         !
-        xyz_nodes(1,n) = real(i-1,kind=wp) / real(np-1,kind=wp)
-        xyz_nodes(2,n) = real(j-1,kind=wp) / real(np-1,kind=wp)
-        xyz_nodes(3,n) = real(k-1,kind=wp) / real(np-1,kind=wp)
+        xyz_nodes(1,n) = real( x + perturb(1,n) , kind=wp )
+        xyz_nodes(2,n) = real( y + perturb(2,n) , kind=wp )
+        xyz_nodes(3,n) = real( z + perturb(3,n) , kind=wp )
         !
       end do
     end do
   end do
+  !
+  ! Deallocate perturb since it is no longer needed
+  !
+  deallocate ( perturb , stat=ierr )
+  call alloc_error(pname,"perturb",2,ierr)
   !
   ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
   !
