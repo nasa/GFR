@@ -119,6 +119,7 @@ module ovar
   real(wp), public, save :: vortex_bigGam = 5.0_wp
   !
   integer,  public, save :: TaylorGreen_DOF = 64
+  logical,  public, save :: TaylorGreen_random_perturb = fals
   !
   logical, public, save :: output_plot3d_to_tecplot = fals
   logical, public, save :: output_bface_array = fals
@@ -495,7 +496,8 @@ module input_namelist_mod
   use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
-  use ovar,      only : TaylorGreen_DOF,convert_restart_to_cgns
+  use ovar,      only : TaylorGreen_DOF,TaylorGreen_random_perturb
+  use ovar,      only : convert_restart_to_cgns
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -557,7 +559,7 @@ module input_namelist_mod
   ! VORTEX CONSTANTS
   namelist / input / vortex_bigR, vortex_bigGam
   ! TAYLOR-GREEN VORTEX CONSTANTS
-  namelist / input / TaylorGreen_DOF
+  namelist / input / TaylorGreen_DOF, TaylorGreen_random_perturb
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
