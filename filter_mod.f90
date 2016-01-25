@@ -7,6 +7,7 @@ module filter_mod
   !
   use ovar, only : Filter_Option,Filter_etac
   use ovar, only : Filter_Order,Filter_Alpha
+  use ovar, only : Filter_eps
   !
   implicit none
   !
@@ -288,6 +289,7 @@ pure function FilterMatrix_Quad(vand,vand_inv) result(return_value)
   integer  :: Filter_Cutoff,ierr
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Arrays ..
   real(qp), allocatable :: filter_1D_qp(:)
@@ -311,6 +313,7 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  feps_qp   = real( one - Filter_eps , kind=qp )
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -346,7 +349,7 @@ continue
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
         rd_qp = qone - fetac_qp
         !
-        filter_1D_qp(i+1) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        filter_1D_qp(i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
         !
       end if
     end do
@@ -380,7 +383,7 @@ continue
           rn_qp = real(i+j-Filter_Cutoff,kind=qp)
           rd_qp = real(2*order-Filter_Cutoff,kind=qp)
           !
-          fmat_qp(k,k) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
           !
         end if
         !
@@ -783,6 +786,7 @@ pure function FilterMatrix_Hexa(vand,vand_inv) result(return_value)
   integer  :: Filter_Cutoff,ierr
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Arrays ..
   real(qp), allocatable :: filter_1D_qp(:)
@@ -806,6 +810,7 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  feps_qp  = real( one - Filter_eps , kind=qp )
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -841,7 +846,7 @@ continue
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
         rd_qp = qone - fetac_qp
         !
-        filter_1D_qp(i+1) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        filter_1D_qp(i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
         !
       end if
     end do
@@ -878,7 +883,7 @@ continue
             rn_qp = real(i+j+k-Filter_Cutoff,kind=qp)
             rd_qp = real(3*order-Filter_Cutoff,kind=qp)
             !
-            fmat_qp(l,l) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
             !
           end if
           !
