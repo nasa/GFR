@@ -9,7 +9,7 @@ AUTOTARGETCPU :=
 ALIGN         := -align array16byte
 
 # Library flags, NOTE: HDF5LIB is defined in slv.mk
-SZIPLIB  := -lsz
+SZIPLIB  := -lsz -lz
 CGNSLIB  := -lcgns
 METISLIB := -lmetis5
 PBSLIB   :=
