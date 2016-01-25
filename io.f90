@@ -3000,6 +3000,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar,    only : itestcase,cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : write_TaylorGreen_full_solution
+  use ovar,    only : completely_disable_cgns
   use flowvar, only : usp,dusp
   !
   !.. Formal Arguments ..
@@ -3029,6 +3030,8 @@ subroutine write_parallel_cgns(iflag)
   real(wp), allocatable, dimension(:)   :: vartmp
   !
 continue
+  !
+  if (completely_disable_cgns) return
   !
   if (disable_cgns_output) then
     if (iflag == 0) then
