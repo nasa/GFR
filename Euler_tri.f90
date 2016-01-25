@@ -178,7 +178,7 @@ continue
 #else
     current_wtl = huge(int(0,kind=c_long))
 #endif
-    write (iout,16) current_wtl
+    write (iout,16) current_wtl,ncpu
     max_wall_time = real(current_wtl,kind=wp)
     wall_time_left = max_wall_time
   end if
@@ -529,6 +529,10 @@ continue
       !
       if (convergence_reached) exit main_loop
       !
+      if (iter /= num_ts) then
+        if (walltime_expiring) exit main_loop
+      end if
+      !
     end if
     !
     ! Output the error at the specified interval
@@ -556,8 +560,6 @@ continue
       ! Only do the rest if this is not the last time step
       !
       if (iter /= num_ts) then
-        !
-        if (walltime_expiring) exit main_loop
         !
         ! Have the root processor check for various temporary files
         !
@@ -742,7 +744,7 @@ continue
   13 format ('  Partition Volume = ',f13.6)
   14 format ('  Total Grid Volume = ',f13.6)
   15 format ('  1D Solution Points = ',8f9.5)
-  16 format (/," Allocated Wall Time = ",i0," s.",/)
+  16 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
                ' Highest Cell Order = ',i4,/)
