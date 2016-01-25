@@ -48,6 +48,7 @@ subroutine init_correction_matrices()
   use order_mod,      only : geom_solpts,geom_flxpts
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
+  use order_mod,      only : n_order
   use quadrature_mod, only : geom_is_used
   use quadrature_mod, only : std_elem
   !
@@ -55,6 +56,7 @@ subroutine init_correction_matrices()
   integer :: gmin,gmax,omin,omax
   integer :: this_geom,this_order
   integer :: nsolpts,nflxpts,ierr
+  integer :: n,n1,n2,i
   character(len=200) :: array_name
   character(len=200) :: error_message
   !
@@ -181,6 +183,34 @@ continue
   ! Check for sparsity within each of the correction matrices
   !
   call correct%check_for_sparsity
+  !
+ !write (iout,6) "Quad correct: ", &
+ !               count(abs(correct(Geom_Quad,n_order)%mat) > zero), &
+ !               size(correct(Geom_Quad,n_order)%mat), &
+ !               100.0_wp*(one - &
+ !            real(count(abs(correct(Geom_Quad,n_order)%mat) > zero),kind=wp) / &
+ !            real(size(correct(Geom_Quad,n_order)%mat),kind=wp) )
+ !write (iout,6) "Hexa correct: ", &
+ !               count(abs(correct(Geom_Hexa,n_order)%mat) > zero), &
+ !               size(correct(Geom_Hexa,n_order)%mat), &
+ !               100.0_wp*(one - &
+ !            real(count(abs(correct(Geom_Hexa,n_order)%mat) > zero),kind=wp) / &
+ !            real(size(correct(Geom_Hexa,n_order)%mat),kind=wp) )
+ !6 format (a,i8,i8,f7.2)
+ !call correct(Geom_Quad,n_order)%output_sparsity("quad.correct.tec.dat")
+ !call correct(Geom_Hexa,n_order)%output_sparsity("hexa.correct.tec.dat")
+ !n1 = size(correct(geom_hexa,n_order)%mat,dim=1)
+ !n2 = size(correct(geom_hexa,n_order)%mat,dim=2)
+ !do n = 1,n2
+ ! !write (151,3) (correct(geom_hexa,2)%d(ndim)%mat(i,n),i=1,n1)
+ ! !write (151,4)
+ !  write (151,5) ( merge('1','-', &
+ !                  abs(correct(geom_hexa,n_order)%mat(i,n))>zero) , i=1,n1 )
+ !end do
+ !3 format (3(es14.6,6x))
+ !4 format (/,"##########################################################",/)
+ !5 format (*(1x,a1))
+ !call stop_recon(stop_mpi,"After output of correction matrices for hexa geometries")
   !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
