@@ -107,6 +107,7 @@ module ovar
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
   real(wp), public, save :: Filter_etac   = 0.0_wp
+  real(wp), public, save :: Filter_eps    = 0.0_wp
   !
   ! Default to output solution at Legendre Gauss Lobatto points
   integer,  public, save :: loc_output_pts = Legendre_Gauss_Lobatto
@@ -133,6 +134,7 @@ module ovar
   !
   logical, public, save :: cgns_use_queue = fals
   logical, public, save :: interpolate_before_output_variable = true
+  logical, public, save :: completely_disable_cgns = fals
   !
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
   real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
@@ -488,7 +490,8 @@ module input_namelist_mod
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : alpha_aoaref, beta_aoaref
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
-  use ovar,      only : Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+  use ovar,      only : Filter_Option, Filter_etac, Filter_Order
+  use ovar,      only : Filter_Alpha, Filter_eps
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
@@ -499,7 +502,7 @@ module input_namelist_mod
   use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
   use ovar,      only : TaylorGreen_DOF,TaylorGreen_random_perturb
   use ovar,      only : TaylorGreen_perturb_percent
-  use ovar,      only : convert_restart_to_cgns
+  use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -555,7 +558,8 @@ module input_namelist_mod
   ! SUTHERLANDS LAW COEFFICIENTS
   namelist / input / suth_muref, suth_Tref, suth_Sref
   ! FILTER OPTIONS
-  namelist / input / Filter_Option, Filter_etac, Filter_Order, Filter_Alpha
+  namelist / input / Filter_Option, Filter_etac, Filter_Order, &
+                     Filter_Alpha, Filter_eps
   ! INITIALIZATION/ERROR LOCATIONS
   namelist / input / loc_init_pts, loc_error_pts
   ! VORTEX CONSTANTS
@@ -571,7 +575,7 @@ module input_namelist_mod
   namelist / input / output_bface_array
   ! CGNS OUTPUT OPTIONS
   namelist / input / cgns_use_queue, interpolate_before_output_variable, &
-                     convert_restart_to_cgns
+                     convert_restart_to_cgns, completely_disable_cgns
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
   ! ADVANCED METRICS TERMS
