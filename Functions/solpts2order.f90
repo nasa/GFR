@@ -82,7 +82,7 @@ elemental function solpts2order_quad(npts) result(return_value)
   integer, intent(in) :: npts
   integer :: return_value
 continue
-  return_value = nint( sqrt(real(npts,kind=wp)) )
+  return_value = nint( sqrt(real(npts,kind=wp)) ) - 1
 end function solpts2order_quad
 !
 !###############################################################################
@@ -139,5 +139,5 @@ elemental function solpts2order_hexa(npts) result(return_value)
   integer, intent(in) :: npts
   integer :: return_value
 continue
-  return_value = nint( real(npts,kind=wp)**one3 )
+  return_value = nint( real(npts,kind=wp)**one3 ) - 1
 end function solpts2order_hexa
