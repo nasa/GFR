@@ -1,6 +1,7 @@
 module generic_types_mod
   !
-  use module_kind_types, only : wp,zero,dot,intseq
+  use module_kind_types, only : wp,zero,half,dot,intseq
+  use module_kind_types, only : alloc_error,io_error
   !
   implicit none
   !
@@ -29,6 +30,7 @@ module generic_types_mod
   contains
     !
     procedure :: check_for_sparsity
+    procedure :: output_sparsity
     procedure :: memory_usage
     !
   end type matrix
@@ -860,6 +862,71 @@ continue
   return_value = this%row_ptr(idx+1) - this%row_ptr(idx)
   !
 end function num_nz
+!
+!###############################################################################
+!
+subroutine output_sparsity(this,fname)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(inout) :: this
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: fname
+  !
+  !.. Local Scalars ..
+  integer :: ifu,ierr
+  integer :: i,j,n1,n2,np1,np2
+  character(len=300) :: error_message
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: xy(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "output_sparsity"
+  !
+continue
+  !
+  n1 = size(this%mat,dim=1)
+  n2 = size(this%mat,dim=2)
+  !
+  np1 = n1 + 1
+  np2 = n2 + 1
+  !
+  allocate ( xy(1:np1,1:np2,1:2) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xy",1,ierr,error_message)
+  !
+  do j = 1,np2
+    do i = 1,np1
+      xy(i,j,1) = real(i-1,kind=wp) + half
+      xy(i,j,2) = real(j-1,kind=wp) + half
+    end do
+  end do
+  !
+  open (newunit=ifu,file=trim(adjustl(fname)),status="replace",action="write", &
+        position="rewind",form="formatted",iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,ierr,error_message)
+  !
+  write (ifu,1) np1,np2
+  !
+  write (ifu,2) ((xy(i,j,1), i=1,np1), j=1,np2)
+  write (ifu,2) ((xy(i,j,2), i=1,np1), j=1,np2)
+  !
+ !write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), j=n2,1,-1)
+  write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), j=1,n2)
+  !
+  close (ifu,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,ierr,error_message)
+  !
+  deallocate ( xy , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xy",2,ierr,error_message)
+  !
+  1 format ('VARIABLES = "Vector" "Node" "Value"',/, &
+            'Zone T="Matrix Sparsity", I=',i0,', J=',i0, &
+            ', DATAPACKING=BLOCK, VARLOCATION=([3]=CELLCENTERED)')
+  2 format (12f7.1)
+  3 format (42i2)
+  !
+end subroutine output_sparsity
 !
 !###############################################################################
 !
