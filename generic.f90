@@ -311,7 +311,7 @@ continue
     wall_time = mpi_wtime() - beg_wall_time
     wall_time_left = min( max_wall_time - wall_time , max_sec )
     !
-    next_time_est = (wall_time_last - wall_time_left) * (one+eps1)
+    next_time_est = (wall_time_last - wall_time_left) * (two+eps1)
     walltime_expiring = (wall_time_left-next_time_est <= zero)
     !
     sec_left = abs(nint(wall_time_left))
