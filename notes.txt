@@ -9,6 +9,16 @@
 ################################################################################
 ################################################################################
 
+* Make a correct fix to computing the time step size using the correct
+  (n_order)**(-2) instead of the incorrect (n_order+1)**(-nr). Currently
+  having to use a large CFL to work around this bug.
+
+* Look into bug where the TGV problem is giving different KEDR values for
+  different numbers of processors when using a filter. Found using a P6 solution
+  with 64^3 DoF with both filters using 6 cores on lab workstation vs 120 cores
+  on 6 ivy bridge nodes on Pleiades.
+  BE CAREFUL, THIS MIGHT NOT BE LIMITED TO JUST WHEN USING THE FILTER!
+
 * Fix the way integrated quantities are handled for output at the intervals
   specified in the input file. Currently these quantities are computed only
   at the said intervals and not in between because of they require costly
@@ -22,6 +32,13 @@
   a solution file during a simulation.
 
 * Look for ways to fix the discontinuity artifacts in the CGNS solution file
+   - Use the correction procedure to reconstruct a continuous solution of
+     degree P+1
+   - Use the correction procedure to reconstruct a continuous derivative of
+     degree P+1
+   - Will a reconstructed continuous function still remain continuous when it
+     is interpolated to the Lobatto points if the correction was applied to
+     the Gauss points.
 
 * Fix output from write_final_error for 3D. It currently has some hard-wired
   formatting with the assumption that the simulation is in 2D.
@@ -76,11 +93,18 @@
 ################################################################################
 ################################################################################
 
-* Create "unrolled" versions of the sparse dot product and matrix multiply
-  functions that are assigned to the procedure pointers contained in the
-  matrix derived type. This could improve performance when using lower orders
-  (e.g., P <= 4). This will probably require making a lot of very specific
-  versions of these functions, i.e. one each for P1, P2, P3, etc.
+* Need to perform an analysis on the unrolled versions of the matrix type-bound
+  procedure pointers on NAS using a large scale problem (e.g., TGV 256^3) to
+  determine which unrolled versions are better and if we should create unrolled
+  versions for even larger P than the current limit of P4.
+    - Create "unrolled" versions of the sparse dot product and matrix multiply
+      functions that are assigned to the procedure pointers contained in the
+      matrix derived type. This could improve performance when using lower orders
+      (e.g., P <= 4). This will probably require making a lot of very specific
+      versions of these functions, i.e. one each for P1, P2, P3, etc.
+
+* Need to figure out way to optimize the matrix sparsity stuff for use with
+  Lobatto solution points.
 
 * A few tasks remain to complete the rework of the restart module.
    - Need to add a subroutine similar to check_cgns_dir that will create a
