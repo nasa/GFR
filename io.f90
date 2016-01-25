@@ -432,8 +432,8 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
-    cfl_beg = one
-    cfl_end = one
+    cfl_beg = CFL
+    cfl_end = CFL
     cfl_cycles = 1
     !
     ! Set the variable time_ref to adjust our nondimension time to match
