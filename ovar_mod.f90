@@ -488,6 +488,7 @@ module input_namelist_mod
   use ovar,      only : machref, reyref, gam, Pr, Prt
   use ovar,      only : ptotref, ttotref, ptot2p_ratio
   use ovar,      only : rhoref, tref, pref, rgasref
+  use ovar,      only : turbulence_model, tinref, tvrref
   use ovar,      only : alpha_aoaref, beta_aoaref
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
   use ovar,      only : Filter_Option, Filter_etac, Filter_Order
@@ -544,13 +545,15 @@ module input_namelist_mod
   namelist / input / output_dir, iter_out_interval, output_solution, &
                      output_interval, results_interval, o_order
   ! GOVERNING EQUATIONS
-  namelist / input / governing_equations
+  namelist / input / governing_equations, turbulence_model
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! TOTAL REFERENCE CONDITIONS
   namelist / input / ptotref, ttotref, ptot2p_ratio
   ! REFERENCE CONDITIONS
   namelist / input / rhoref, tref, pref, rgasref
+  ! REFERENCE TURBULENCE CONDITIONS
+  namelist / input / tinref, tvrref
   ! REFERENCE ANGLES OF ATTACK
   namelist / input / alpha_aoaref, beta_aoaref
   ! LAMINAR AND TURBULENT PRANDTL NUMBERS
