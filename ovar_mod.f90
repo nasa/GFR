@@ -72,10 +72,10 @@ module ovar
   integer,  public, save :: irestart         = 0
   integer,  public, save :: restart_interval = 0
   !
-  integer,  public, save :: iter_out_interval = 1
-  integer,  public, save :: output_solution   = 1
-  integer,  public, save :: output_interval   = 0
-  integer,  public, save :: results_interval  = 0
+  integer,  public, save :: iter_out_interval =  1
+  integer,  public, save :: output_solution   =  1
+  integer,  public, save :: output_interval   = -5
+  integer,  public, save :: results_interval  =  0
   !
   real(wp), public, save :: rhoref  =     -1.00_wp ! should evaluate to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.00_wp
