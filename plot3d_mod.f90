@@ -258,21 +258,28 @@ subroutine readplot3d(gridfile)
   !.. Use Statements ..
   use geovar, only : nr,xyz_nodes
   use geovar, only : ncell,nnode
+  use ovar,   only : plot3d_node_stride
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: gridfile
   !
   !.. Local Scalars ..
-  integer :: i,l,iblk,ierr,cpos,recl_max,noff,npts
+  integer :: i,j,k,l,n,iblk,ierr,cpos,recl_max
+  integer :: noff,npts,nnode_new,ncell_new
+  integer :: ibeg,iend,jbeg,jend,kbeg,kend
   integer :: iogrd
+  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: r4_nodes
+  real(wp), allocatable, dimension(:,:) :: temp_xyz
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "readplot3d"
   !
 continue
+  !
+  plot3d_node_stride = max(1,plot3d_node_stride)
   !
   ! Before we start, extract the name of the
   ! folder that the grid file resides within
@@ -299,6 +306,20 @@ continue
   else
     call read_p3d_unformatted_header(iogrd,gridfile)
   end if
+  !
+  ! Check that the requested plot3d node stride is acceptable
+  !
+  l = 0
+  do iblk = 1,nblk
+    do i = 1,nr
+      if (mod(ijkpts(i,iblk)-1,plot3d_node_stride) /= 0) then
+        if (l == 0) write (iout,4)
+        l = 1
+        write (iout,5) i,iblk
+      end if
+    end do
+  end do
+  if (l == 1) call stop_recon(stop_mpi,pname)
   !
   ! Allocate the node and cell offset array
   !
@@ -422,7 +443,7 @@ continue
     write (iout,2) " ncell = ", ncell
     write (iout,2) " nnode = ", nnode
     !
-    write (iout,2) "Number of blocks = ",nblk
+    write (iout,2) " Number of blocks = ",nblk
     do iblk = 1,nblk
       write (iout,3) iblk,(ijkpts(l,iblk),l=1,3)
     end do
@@ -448,13 +469,115 @@ continue
     !
   end if
   !
+  !
+  !
+  if (plot3d_node_stride > 1) then
+    !
+    nnode_new = 0
+    do iblk = 1,size(ijkpts,dim=2)
+      npts = 1
+      do l = 1,size(ijkpts,dim=1)
+        npts = npts * ( (ijkpts(l,iblk)-1)/plot3d_node_stride + 1 )
+      end do
+      nnode_new = nnode_new + npts
+    end do
+    !
+    allocate ( temp_xyz(1:nr,1:nnode_new) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"temp_xyz",1,ierr,error_message)
+    !
+    n = 0
+    !
+    do iblk = 1,size(ijkpts,dim=2)
+      !
+      noff = offset(1,iblk)-1
+      !
+      ibeg = 1
+      jbeg = 1
+      kbeg = 1
+      !
+      iend = max( ibeg , ijkpts(1,iblk) )
+      jend = max( jbeg , ijkpts(2,iblk) )
+      kend = max( kbeg , ijkpts(3,iblk) )
+      !
+      do k = kbeg,kend,plot3d_node_stride
+        do j = jbeg,jend,plot3d_node_stride
+          do i = ibeg,iend,plot3d_node_stride
+            !
+            l = map3dto1d( [i,j,k] , iblk , 1 )
+            n = n + 1
+            !
+            temp_xyz(1:nr,n) = xyz_nodes(1:nr,l+noff)
+            !
+          end do
+        end do
+      end do
+      !
+    end do
+    !
+    npts = n
+    !
+    do iblk = 1,size(ijkpts,dim=2)
+      do l = 1,size(ijkpts,dim=1)
+        ijkpts(l,iblk) = (ijkpts(l,iblk)-1) / plot3d_node_stride + 1
+      end do
+    end do
+    !
+    nnode_new = sum( product( ijkpts(1:nr,1:nblk)   , dim=1 ) )
+    ncell_new = sum( product( ijkpts(1:nr,1:nblk)-1 , dim=1 ) )
+    !
+    if (npts /= nnode_new) then
+      write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
+      write (iout,*) " npts      = ",npts
+      write (iout,*) " nnode_new = ",nnode_new
+      call stop_recon(stop_mpi,pname)
+    end if
+    !
+    offset(1,1) = 1 ! node offset
+    offset(2,1) = 1 ! cell offset
+    !
+    do iblk = 2,nblk
+      !
+      offset(1,iblk) = offset(1,iblk-1) + product( ijkpts(1:nr,iblk-1) )
+      offset(2,iblk) = offset(2,iblk-1) + product( ijkpts(1:nr,iblk-1)-1 )
+      !
+    end do
+    !
+    if (mypnum == 0) then
+      !
+      write (iout,*)
+      write (iout,2) " AFTER COARSENING USING PLOT3D_NODE_STRIDE = ", &
+                     plot3d_node_stride
+      write (iout,*)
+      write (iout,2) " nblk = ", nblk
+      write (iout,2) " ncell = ", ncell
+      write (iout,2) " nnode = ", nnode
+      !
+      write (iout,2) " Number of blocks = ",nblk
+      do iblk = 1,nblk
+        write (iout,3) iblk,(ijkpts(l,iblk),l=1,3)
+      end do
+      !
+    end if
+    !
+    call move_alloc( from=temp_xyz , to=xyz_nodes )
+    !
+    nnode = nnode_new
+    ncell = ncell_new
+    !
+  end if
+  !
  !call stop_recon(stop_mpi,pname,"multiblock testing in readplot3d")
   !
   ! Format Statements
   !
   1 format (a)
   2 format (a,i0)
-  3 format ("Block #",i0," dimensions: ",i0,2(" x ",i0))
+  3 format ("   Block #",i0," dimensions: ",i0,2(" x ",i0))
+  4 format (/," ERROR TRYING TO USE PLOT3D_NODE_STRIDE!!!",/, &
+              " THE NUMBER OF GRID CELLS MUST BE EVENLY",/, &
+              " DIVISIBLE BY PLOT3D_NODE_STRIDE!!!",/)
+  5 format (3x,"Cells not evenly divisible in block ",i0," for direction ",i0)
   !
 end subroutine readplot3d
 !
