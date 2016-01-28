@@ -335,6 +335,7 @@ pure function initial_conditions(xyz) result(return_value)
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
   use mms_mod, only : mms_solution_at_xyz
+  use channel_mod, only : channel_initialization
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: xyz
@@ -360,6 +361,10 @@ continue
     do k = 1,np
       return_value(:,k) = taylor_green_initialization( xyz(:,k) )
     end do
+    !
+  else if (itestcase == Channel_Flow) then
+    !
+    return_value(:,:) = channel_initialization( xyz(:,:) )
     !
   else if (mms_opt /= 0) then
     !
