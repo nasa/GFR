@@ -225,38 +225,39 @@ pure function CorrectionMatrix_Edge(xi) result(return_value)
   real(wp), dimension(:), intent(in) :: xi
   !
   !.. Function Return Value ..
-  real(wp), allocatable :: return_value(:)
+  real(wp), dimension(1:size(xi)) :: return_value
   !
   !.. Local Scalars ..
   integer  :: i,j,nfp,ierr
   real(qp) :: c1,c2
   !
-  !.. Local Allocatable Arrays ..
-  real(qp), allocatable :: cmat_qp(:)
-  real(qp), allocatable :: cdRR_qp(:)
-  real(qp), allocatable :: coefLe_qp(:,:)
+  !.. Local Arrays ..
+  real(qp), dimension(1:size(xi)) :: x
+  real(qp), dimension(1:size(xi)) :: cmat
+  real(qp), dimension(0:size(xi)) :: coef_dRR
+  !
+  real(qp), dimension(-1:size(xi),-1:size(xi)) :: coef_Le
   !
 continue
   !
   nfp = size(xi)
   !
-  ! Allocate the return array containing the working
-  ! precision correction matrix
+  ! Initialize the function result
   !
-  allocate ( return_value(1:nfp) , source=zero , stat=ierr )
+  return_value(:) = zero
   !
-  ! Create the correction matrix and the polynomial
-  ! coefficient arrays using quad precision
+  ! Initialize the local arrays
   !
-  allocate ( cmat_qp(1:nfp) , source=qzero , stat=ierr )
-  allocate ( cdRR_qp(0:nfp) , source=qzero , stat=ierr )
-  allocate ( coefLe_qp(-1:nfp,-1:nfp) , source=qzero , stat=ierr )
+  x(:) = real( xi(:) , kind=qp )
   !
-  ! Initialize the coefficients of Legendre polynomial up to degree nfp
+  cmat(:)      = qzero
+  coef_dRR(:)  = qzero
+  coef_Le(:,:) = qzero
   !
-  coefLe_qp(:,:) = qzero
-  coefLe_qp(0,0) = qone
-  coefLe_qp(1,1) = qone
+  ! Initialize specific coefficients of Legendre polynomial
+  !
+  coef_Le(0,0) = qone
+  coef_Le(1,1) = qone
   !
   ! Get the coefficients for every Legendre polynomial up to degree nfp
   !
@@ -266,7 +267,7 @@ continue
       c1 = real( 2*i-1 , kind=qp ) / real( i , kind=qp )
       c2 = real(   i-1 , kind=qp ) / real( i , kind=qp )
       !
-      coefLe_qp(i,j) = c1*coefLe_qp(i-1,j-1) - c2*coefLe_qp(i-2,j)
+      coef_Le(i,j) = c1*coef_Le(i-1,j-1) - c2*coef_Le(i-2,j)
       !
     end do
   end do
@@ -276,20 +277,20 @@ continue
   !
   c1 = qhalf * real( (-1)**nfp , kind=qp )
   do i = 1,nfp
-    cdRR_qp(i-1) = c1 * real( i , kind=qp ) * (coefLe_qp(nfp,i) - coefLe_qp(nfp-1,i))
+    coef_dRR(i-1) = c1 * real(i,kind=qp) * (coef_Le(nfp,i) - coef_Le(nfp-1,i))
   end do
   !
   ! Finally, get the value for the derivative of the
   ! right Radau polynomial at each 1D solution point
   !
   do i = 1,nfp
-    cmat_qp(i) = -sum( (xi(i)**intseq(0,nfp-1)) * cdRR_qp(0:nfp-1) )
+    cmat(i) = -sum( (x(i)**intseq(0,nfp-1)) * coef_dRR(0:nfp-1) )
   end do
   !
-  ! Use the chop function to copy cmat_qp into return_value while also
+  ! Use the chop function to copy cmat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( cmat_qp )
+  return_value = chop( cmat )
   !
 end function CorrectionMatrix_Edge
 !
