@@ -1651,7 +1651,7 @@ continue
       end if
       !
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-        if (mypnum == 0) write (iout,1000) nb,dir,dir1
+        if (mypnum == 0) write (iout,3) nb,dir,dir1
         call stop_recon(stop_mpi,pname)
       end if
       !
@@ -1720,11 +1720,11 @@ continue
   !
   ! Format Statements
   !
-  1    format (a)
-  1000 format (" ERROR READING BCS FILE! THE DIRECTIONS GIVEN ARE NOT VALID!",/, &
-               "        BOUNDARY CONDITION = ",i0,/, &
-               "        MAIN DIRECTION = ",i0,/, &
-               "        FIRST DIRECTION = ",i0,/)
+  1 format (a)
+  3 format (" ERROR READING BCS FILE! THE DIRECTIONS GIVEN ARE NOT VALID!",/, &
+            "        BOUNDARY CONDITION = ",i0,/, &
+            "        MAIN DIRECTION = ",i0,/, &
+            "        FIRST DIRECTION = ",i0,/)
   !
 end subroutine readbcsinfo
 !
@@ -1864,7 +1864,7 @@ continue
         end if
         !
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-          if (mypnum == 0) write (iout,1000) n,m,dir,dir1
+          if (mypnum == 0) write (iout,3) n,m,dir,dir1
           call stop_recon(stop_mpi,pname)
         end if
         !
@@ -1935,20 +1935,20 @@ continue
   !
   ! Format Statements
   !
-  1    format (a)
-  2    format (/," *********************************", &
-                 "  ERROR!  *********************************",/, &
-                 " ***  The number of points on each side of cut '", &
-                        a,"' do not match! ***",/, &
-                 " ***          Number of points on side 1 = ",i0,/, &
-                 " ***          Number of points on side 2 = ",i0,/, &
-                 " *********************************", &
-                 "  ERROR!  *********************************",/)
-  1000 format (" ERROR READING CUT FILE! THE DIRECTIONS GIVEN ARE NOT VALID!",/, &
-               "        CUT CONDITION = ",i0,/, &
-               "        SIDE OF CUT = ",i0,/, &
-               "        MAIN DIRECTION = ",i0,/, &
-               "        FIRST DIRECTION = ",i0,/)
+  1 format (a)
+  2 format (/," *********************************", &
+              "  ERROR!  *********************************",/, &
+              " ***  The number of points on each side of cut '", &
+                     a,"' do not match! ***",/, &
+              " ***          Number of points on side 1 = ",i0,/, &
+              " ***          Number of points on side 2 = ",i0,/, &
+              " *********************************", &
+              "  ERROR!  *********************************",/)
+  3 format (" ERROR READING CUT FILE! THE DIRECTIONS GIVEN ARE NOT VALID!",/, &
+            "        CUT CONDITION = ",i0,/, &
+            "        SIDE OF CUT = ",i0,/, &
+            "        MAIN DIRECTION = ",i0,/, &
+            "        FIRST DIRECTION = ",i0,/)
   !
 end subroutine readcutinfo
 !
@@ -1963,7 +1963,7 @@ subroutine findcutpoints()
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,np,iblk,ierr
-  integer :: ipcut,ip1,ip2,ib1,ib2
+  integer :: ipcut,p1,p2,b1,b2
   integer :: loc,dir,dir1,dir2
   integer :: beg1,beg2,end1,end2,stp1,stp2,n1,n2
   real(wp) :: diff
@@ -2052,27 +2052,27 @@ continue
     !
     do ipcut = 1,cut_info(n)%points
       !
-      ip1 = cut_info(n)%nodes(1,ipcut)
-      ip2 = cut_info(n)%nodes(2,ipcut)
+      p1 = cut_info(n)%nodes(1,ipcut)
+      p2 = cut_info(n)%nodes(2,ipcut)
       !
-      ib1 = cut_info(n)%side(1)%block
-      ib2 = cut_info(n)%side(2)%block
+      b1 = cut_info(n)%side(1)%block
+      b2 = cut_info(n)%side(2)%block
       !
-      ijk1(1:3) = map1dto3d(ip1,ib1,1)
-      ijk2(1:3) = map1dto3d(ip2,ib2,1)
+      ijk1(1:3) = map1dto3d(p1,b1,1)
+      ijk2(1:3) = map1dto3d(p2,b2,1)
       !
       diff = zero
       do l = 1,nr
-        diff = diff + abs(xyz_nodes(l,ip1)-xyz_nodes(l,ip2)) / &
-                        (abs(xyz_nodes(l,ip1))+eps7)
+        diff = diff + abs(xyz_nodes(l,p1)-xyz_nodes(l,p2)) / &
+                     (abs(xyz_nodes(l,p1))+eps7)
       end do
       if (diff > eps2) then
         if (nr == 2) then
-          write (iout,70) ipcut, ip1, (ijk1(l),l=1,nr), (xyz_nodes(l,ip1),l=1,nr)
-          write (iout,70) ipcut, ip2, (ijk2(l),l=1,nr), (xyz_nodes(l,ip2),l=1,nr)
+          write (iout,70) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+          write (iout,70) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
         else
-          write (iout,71) ipcut, ip1, (ijk1(l),l=1,nr), (xyz_nodes(l,ip1),l=1,nr)
-          write (iout,71) ipcut, ip2, (ijk2(l),l=1,nr), (xyz_nodes(l,ip2),l=1,nr)
+          write (iout,71) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+          write (iout,71) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
         end if
       end if
     end do
@@ -2099,6 +2099,10 @@ subroutine remove_duplicate_nodes()
   integer :: nnode_new,nnode_old
   logical :: first_line_not_output
  !real(wp) :: diff
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:3) :: old_xyz
+  real(wp), dimension(1:3) :: new_xyz
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable, dimension(:)   :: lpoin
@@ -2248,18 +2252,25 @@ continue
     end do
   end do
   !
+ !new_xyz = zero
+ !old_xyz = zero
+ !!
  !do ip = 1,nnode_old
+ !  !
  !  new_node = lpnew(ip)
- ! !old_node = lpold(new_node)
- !  write (44,3) ip, new_node ,lpoin(ip)
- ! !diff = abs(xyz_nodes(1,ip)-xyz_nodes(1,old_node))/(abs(xyz_nodes(1,ip))+eps7) &
- ! !     + abs(xyz_nodes(2,ip)-xyz_nodes(2,old_node))/(abs(xyz_nodes(2,ip))+eps7) &
- ! !     + abs(xyz_nodes(3,ip)-xyz_nodes(3,old_node))/(abs(xyz_nodes(3,ip))+eps7)
- ! !if (diff > eps2) then
- ! !  write (44,4) ip, lpnew(ip),xyz_nodes(1,ip),xyz_nodes(1,old_node), &
- ! !                             xyz_nodes(2,ip),xyz_nodes(2,old_node), &
- ! !                             xyz_nodes(3,ip),xyz_nodes(3,old_node)
- ! !end if
+ !  old_node = lpold(new_node)
+ !  !
+ !  new_xyz(1:nr) = xyz_nodes(1:nr,new_node)
+ !  old_xyz(1:nr) = xyz_nodes(1:nr,old_node)
+ !  !
+ !  write (44,3) ip, new_node, old_node, lpoin(ip)
+ !  !
+ !  diff = sum( abs(new_xyz-old_xyz) / (abs(new_xyz)+eps7) )
+ !  !
+ !  if (diff > eps2) then
+ !    write (44,4) ip, lpnew(ip), (new_xyz(n), old_xyz(n), n=1,nr)
+ !  end if
+ !  !
  !end do
   !
   ! Deallocate lpoin since we are done with it
@@ -2308,7 +2319,7 @@ continue
               "      new nnode = ",i0)
   2 format (/," Error checking the consistency !!!!",/, &
               "   n, ipcut, ip1, ip2, ipn1, ipn2")
-  3 format (3i10)
+  3 format (4i10)
   4 format (i8,i10,6e14.6)
   9 format (i4,i8, 4i12)
   !
@@ -2422,10 +2433,9 @@ subroutine getbface()
   !
   !.. Use Statements ..
   use geovar, only : nr,nbfai,ncell,nfbnd,bface
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   !
   !.. Local Scalars ..
-  integer :: nf,nb,bc_type,iblk,h1,h2,ierr
+  integer :: nf,nb,bc_type,iblk,ierr
   integer :: i,j,k,host_cell,dir,loc
   integer :: ibeg,iend,jbeg,jend,kbeg,kend
   !
@@ -2467,9 +2477,11 @@ continue
     iblk = bcs_info(nb)%bc%block
     !
     ! Side/Direction (i,j,k) of this BC and its location (min,max)
+    !   dir: [1,2,3]       = [i,j,k]
+    !   loc: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
     !
     dir = bcs_info(nb)%bc%dir
-    loc = bcs_info(nb)%bc%loc ! loc: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
+    loc = bcs_info(nb)%bc%loc
     !
     ! Beginning index in each direction
     !
@@ -2523,12 +2535,9 @@ continue
           !
           host_cell = map3dto1d( [i,j,k] , iblk , 2 )
           !
-          h1 = nodes_of_cell(host_cell)+1
-          h2 = nodes_of_cell(host_cell+1)
-          !
           bface( 1,nf) = bc_type ! actual boundary condition for this face
           bface( 2,nf) = host_cell 
-          bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geometry of host cell
+          bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geom of host cell
           bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
           bface( 5,nf) = nb ! boundary condition group for this boundary face
           bface(10,nf) = ncell + nf ! ghost cell number
