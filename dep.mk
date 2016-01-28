@@ -22,8 +22,9 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/parallel.o \
               $(OBJDIR)/time_mod.o \
               $(OBJDIR)/mms_mod.o \
+              $(OBJDIR)/channel_mod.o \
               $(OBJDIR)/limiters.o \
-              $(OBJDIR)/restart_mod.o \
+              $(OBJDIR)/restart_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
               $(OBJDIR)/kind_types.o \
@@ -54,6 +55,14 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
               $(FUNDIR)/temperature.f90 \
               $(FUNDIR)/viscosity.f90 \
               $(FUNDIR)/usp2v.f90
+
+$(OBJDIR)/channel_mod.o : channel_mod.f90 \
+                $(OBJDIR)/kind_types.o \
+                $(OBJDIR)/eqn_idx_mod.o \
+                $(OBJDIR)/geovar_mod.o \
+                $(OBJDIR)/ovar_mod.o \
+	        $(OBJDIR)/flowvar_mod.o \
+	        $(OBJDIR)/metrics.o
 
 $(OBJDIR)/connectivity.o : connectivity.f90 \
               $(OBJDIR)/kind_types.o \
@@ -163,6 +172,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/flowvar_mod.o \
               $(OBJDIR)/mms_mod.o \
+              $(OBJDIR)/channel_mod.o \
               $(OBJDIR)/metrics.o \
               $(OBJDIR)/restart_mod.o \
               $(OBJDIR)/projection_mod.o \
@@ -196,6 +206,7 @@ $(OBJDIR)/io.o : io.f90 \
               $(OBJDIR)/interpolation_mod.o \
               $(OBJDIR)/derivatives_mod.o \
               $(OBJDIR)/initialize.o \
+              $(OBJDIR)/channel_mod.o \
               $(FUNDIR)/last.f90 \
               $(FUNDIR)/vortex.f90 \
               $(FUNDIR)/bc_priority.f90 \

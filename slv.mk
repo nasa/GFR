@@ -77,6 +77,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/connectivity.o \
         $(OBJDIR)/limiters.o \
         $(OBJDIR)/mms_mod.o \
+        $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o
 
 .PHONY: O2-ip-opt
