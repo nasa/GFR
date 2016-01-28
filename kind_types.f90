@@ -187,7 +187,7 @@ module module_kind_types
   ! Parameters defining workshop test cases
   !
   integer, parameter :: Generic_MeanFlow = 1
-  integer, parameter :: Ringleb_Problem  = 2
+  integer, parameter :: Channel_Flow     = 2
   integer, parameter :: NACA0012_Airfoil = 3
   integer, parameter :: Laminar_BndLyr   = 4
   integer, parameter :: Shu_Vortex       = 5
