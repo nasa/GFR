@@ -89,8 +89,8 @@ module ovar
   real(wp), public, save :: ptotref = -1.00_wp
   real(wp), public, save :: ttotref = -1.00_wp
   !
-  real(wp), public, save :: alpha_aoaref = 45.00_wp
-  real(wp), public, save :: beta_aoaref  =  0.00_wp
+  real(wp), public, save :: alpha_aoaref = 0.00_wp
+  real(wp), public, save :: beta_aoaref  = 0.00_wp
   !
   real(wp), public, save :: Pr = 0.72_wp
   real(wp), public, save :: Prt = 0.72_wp
