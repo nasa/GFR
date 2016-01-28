@@ -228,6 +228,11 @@ module module_kind_types
   integer, parameter :: OnConservativeVariables = 2
   integer, parameter :: OnFluxes = 3
   !
+  ! Choices for correction function
+  integer, parameter :: Correction_gDG = 1
+  integer, parameter :: Correction_g2 = 2
+  integer, parameter :: Correction_gGauss = 3
+  !
   integer, parameter :: project_derivatives = 1
   integer, parameter :: derivative_of_proj_fluxes = 2
   !
