@@ -195,6 +195,8 @@ subroutine read_nml_input_file
   !
   use initialization_mod, only : initialize_reference
   !
+  use channel_mod, only : read_channel_init_file
+  !
   !.. Local Scalars ..
   integer  :: it1,it2,ierr,ival
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
@@ -354,6 +356,10 @@ continue
       Final_Time = zero
     end if
     !
+  end if
+  !
+  if (itestcase == Channel_Flow) then
+    call read_channel_init_file
   end if
   !
   ! Initialize the reference conditions
