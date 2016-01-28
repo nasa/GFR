@@ -12,6 +12,7 @@ module ovar
   use module_kind_types, only : one_work_unit
   use module_kind_types, only : iout,zero
   use module_kind_types, only : mpi_wtime
+  use module_kind_types, only : Correction_gDG
   !
   implicit none
   !
@@ -38,6 +39,7 @@ module ovar
   integer,  public, save :: iop_flxpts       = Legendre_Gauss
   integer,  public, save :: iop_tripts       = 2
   integer,  public, save :: flux_divergence  = 1
+  integer,  public, save :: correction_function = Correction_gDG
   !
   integer,  public, save :: governing_equations = Euler_Eqns
   !
@@ -123,6 +125,9 @@ module ovar
   logical,  public, save :: TaylorGreen_random_perturb = fals
   integer,  public, save :: TaylorGreen_perturb_percent = 30
   !
+  real(wp),           public, save :: channel_body_force = 0.0_wp
+  character(len=150), public, save :: channel_init_file = ""
+  !
   logical, public, save :: output_plot3d_to_tecplot = fals
   logical, public, save :: output_bface_array = fals
   !
@@ -131,6 +136,7 @@ module ovar
   character(len=150), public, save :: output_dir = "."
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
+  integer,            public, save :: plot3d_node_stride = 1
   !
   logical, public, save :: cgns_use_queue = fals
   logical, public, save :: interpolate_before_output_variable = true
@@ -469,10 +475,10 @@ end module ovar
 module input_namelist_mod
   !
   !.. Use Statements ..
-  use ovar,      only : grid_format, gridfile
+  use ovar,      only : grid_format, gridfile, plot3d_node_stride
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile
   use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
-  use ovar,      only : flux_divergence, dflux_opt
+  use ovar,      only : flux_divergence, correction_function, dflux_opt
   use ovar,      only : iRKtype, num_stages
   use ovar,      only : invs_flux_method, visc_flux_method
   use ovar,      only : visc_variables_to_ave, walls_are_exact
@@ -503,6 +509,7 @@ module input_namelist_mod
   use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
   use ovar,      only : TaylorGreen_DOF,TaylorGreen_random_perturb
   use ovar,      only : TaylorGreen_perturb_percent
+  use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
@@ -517,10 +524,11 @@ module input_namelist_mod
   ! ########################
   !
   ! GRID INFORMATION
-  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
+                     plot3d_node_stride
   ! BASE FR OPTIONS
   namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
-                     flux_divergence
+                     flux_divergence, correction_function
   ! SOLVER OPTIONS
   namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS
@@ -570,6 +578,8 @@ module input_namelist_mod
   ! TAYLOR-GREEN VORTEX CONSTANTS
   namelist / input / TaylorGreen_DOF, TaylorGreen_random_perturb, &
                      TaylorGreen_perturb_percent
+  ! CHANNEL FLOW PARAMETERS
+  namelist / input / channel_body_force, channel_init_file
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
