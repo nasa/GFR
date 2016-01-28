@@ -136,7 +136,11 @@ module ovar
   character(len=150), public, save :: output_dir = "."
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
-  integer,            public, save :: plot3d_node_stride = 1
+  !
+  integer, public, save :: plot3d_all_strides = -1
+  integer, public, save :: plot3d_i_stride    = -1
+  integer, public, save :: plot3d_j_stride    = -1
+  integer, public, save :: plot3d_k_stride    = -1
   !
   logical, public, save :: cgns_use_queue = fals
   logical, public, save :: interpolate_before_output_variable = true
@@ -475,7 +479,8 @@ end module ovar
 module input_namelist_mod
   !
   !.. Use Statements ..
-  use ovar,      only : grid_format, gridfile, plot3d_node_stride
+  use ovar,      only : grid_format, gridfile, plot3d_all_strides
+  use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile
   use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
   use ovar,      only : flux_divergence, correction_function, dflux_opt
@@ -524,8 +529,10 @@ module input_namelist_mod
   ! ########################
   !
   ! GRID INFORMATION
-  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
-                     plot3d_node_stride
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+  ! PLOT3D COARSENING OPTIONS
+  namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
+                     plot3d_all_strides
   ! BASE FR OPTIONS
   namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
                      flux_divergence, correction_function

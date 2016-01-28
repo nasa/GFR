@@ -266,7 +266,10 @@ subroutine readplot3d(gridfile)
   !.. Use Statements ..
   use geovar, only : nr,xyz_nodes
   use geovar, only : ncell,nnode
-  use ovar,   only : plot3d_node_stride
+  use ovar,   only : plot3d_all_strides
+  use ovar,   only : plot3d_i_stride
+  use ovar,   only : plot3d_j_stride
+  use ovar,   only : plot3d_k_stride
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: gridfile
@@ -278,6 +281,9 @@ subroutine readplot3d(gridfile)
   integer :: iogrd
   character(len=300) :: error_message
   !
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: strides
+  !
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: r4_nodes
   real(wp), allocatable, dimension(:,:) :: temp_xyz
@@ -287,7 +293,11 @@ subroutine readplot3d(gridfile)
   !
 continue
   !
-  plot3d_node_stride = max(1,plot3d_node_stride)
+  strides(:) = max(1,plot3d_all_strides)
+  !
+  if (plot3d_i_stride > 0) strides(1) = plot3d_i_stride
+  if (plot3d_j_stride > 0) strides(2) = plot3d_j_stride
+  if (plot3d_k_stride > 0) strides(3) = plot3d_k_stride
   !
   ! Before we start, extract the name of the
   ! folder that the grid file resides within
@@ -320,7 +330,7 @@ continue
   l = 0
   do iblk = 1,nblk
     do i = 1,nr
-      if (mod(ijkpts(i,iblk)-1,plot3d_node_stride) /= 0) then
+      if (mod(ijkpts(i,iblk)-1,strides(i)) /= 0) then
         if (l == 0) write (iout,4)
         l = 1
         write (iout,5) i,iblk
@@ -479,13 +489,13 @@ continue
   !
   !
   !
-  if (plot3d_node_stride > 1) then
+  if (any(strides > 1)) then
     !
     nnode_new = 0
     do iblk = 1,size(ijkpts,dim=2)
       npts = 1
       do l = 1,size(ijkpts,dim=1)
-        npts = npts * ( (ijkpts(l,iblk)-1)/plot3d_node_stride + 1 )
+        npts = npts * ( (ijkpts(l,iblk)-1)/strides(l) + 1 )
       end do
       nnode_new = nnode_new + npts
     end do
@@ -508,9 +518,9 @@ continue
       jend = max( jbeg , ijkpts(2,iblk) )
       kend = max( kbeg , ijkpts(3,iblk) )
       !
-      do k = kbeg,kend,plot3d_node_stride
-        do j = jbeg,jend,plot3d_node_stride
-          do i = ibeg,iend,plot3d_node_stride
+      do k = kbeg,kend,strides(3)
+        do j = jbeg,jend,strides(2)
+          do i = ibeg,iend,strides(1)
             !
             l = map3dto1d( [i,j,k] , iblk , 1 )
             n = n + 1
@@ -527,7 +537,7 @@ continue
     !
     do iblk = 1,size(ijkpts,dim=2)
       do l = 1,size(ijkpts,dim=1)
-        ijkpts(l,iblk) = (ijkpts(l,iblk)-1) / plot3d_node_stride + 1
+        ijkpts(l,iblk) = (ijkpts(l,iblk)-1) / strides(l) + 1
       end do
     end do
     !
@@ -554,8 +564,10 @@ continue
     if (mypnum == 0) then
       !
       write (iout,*)
-      write (iout,2) " AFTER COARSENING USING PLOT3D_NODE_STRIDE = ", &
-                     plot3d_node_stride
+      write (iout,1) " AFTER COARSENING USING STRIDES OF"
+      write (iout,2) "    Stride in I-direction = ",strides(1)
+      write (iout,2) "    Stride in J-direction = ",strides(2)
+      write (iout,2) "    Stride in K-direction = ",strides(3)
       write (iout,*)
       write (iout,2) " nblk = ", nblk
       write (iout,2) " ncell = ", ncell
@@ -582,9 +594,9 @@ continue
   1 format (a)
   2 format (a,i0)
   3 format ("   Block #",i0," dimensions: ",i0,2(" x ",i0))
-  4 format (/," ERROR TRYING TO USE PLOT3D_NODE_STRIDE!!!",/, &
+  4 format (/," ERROR TRYING TO USE COARSENING STRIDES WITH PLOT3D!!!",/, &
               " THE NUMBER OF GRID CELLS MUST BE EVENLY",/, &
-              " DIVISIBLE BY PLOT3D_NODE_STRIDE!!!",/)
+              " DIVISIBLE BY THE COARSENING STRIDES!!!",/)
   5 format (3x,"Cells not evenly divisible in block ",i0," for direction ",i0)
   !
 end subroutine readplot3d
