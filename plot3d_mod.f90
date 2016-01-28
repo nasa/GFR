@@ -39,6 +39,8 @@ module module_plot3d
   integer, save :: nbc
   integer, save :: ncut
   !
+  logical, save :: plot3d_has_periodic_faces = fals
+  !
   character(len=150), save :: grid_folder
   !
   ! ###################################
@@ -208,6 +210,12 @@ continue
   ! Get the boundary face information
   !
   call getbface
+  !
+  ! Match the periodic boundaries if they exist
+  !
+  if (plot3d_has_periodic_faces) then
+    call match_plot3d_periodic_boundaries
+  end if
   !
   ! Write the output file for tecplot
   !
@@ -2595,6 +2603,10 @@ continue
     !
     bc_type = bcs_info(nb)%bc_type
     !
+    if (bc_type == bc_periodic) then
+      plot3d_has_periodic_faces = true
+    end if
+    !
     ! Block number for this face
     !
     iblk = bcs_info(nb)%bc%block
@@ -2695,6 +2707,221 @@ continue
   3 format (a," - hc=",i0,", geo=",i1,", loc=",i1,", gc=",i0)
   !
 end subroutine getbface
+!
+!###############################################################################
+!
+subroutine match_plot3d_periodic_boundaries()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nfbnd,bface,xyz_nodes
+  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  !
+  !.. Local Scalars ..
+  integer :: n,npf,nf,pf,p1,p2,ierr
+  integer :: host_cell,host_geom,host_side
+  integer :: nmin,nmax,pmin,pmax,nfnods
+  real(wp) :: dscoef
+  character(len=300) :: error_message
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:4) :: ip
+  integer, dimension(1:6) :: hostface
+  integer, dimension(1:6) :: pfaces
+  integer, dimension(1:2,1:3) :: idx
+  !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable :: face_msk(:,:)
+  logical, allocatable :: matched(:)
+  integer, allocatable :: minfac(:)
+  integer, allocatable :: maxfac(:)
+  real(wp), allocatable :: ds(:)
+  real(wp), allocatable :: xyz_min(:,:)
+  real(wp), allocatable :: xyz_max(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "match_plot3d_periodic_boundaries"
+  !
+continue
+  !
+  if (nr == 3) then
+    hostface = HostFace3D
+    dscoef  = one
+    idx(1:2,1:3) = reshape( [2,3,1,3,1,2] , [2,3] )
+  else
+    hostface = HostFace2D
+    dscoef  = one / sqrt(two)
+    idx(1:2,1:3) = reshape( [2,2,1,1,0,0] , [2,3] )
+  end if
+  !
+  allocate ( face_msk(1:nfbnd,1:6) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_msk",1,ierr,error_message)
+  !
+  ! Count the number of periodic faces for each direction
+  !
+  do n = 1,6
+    face_msk(:,n) = ( bface(1,:)==bc_periodic .and. bface(4,:)==hostface(n) )
+  end do
+  !
+  pfaces(1:6) = count( face_msk(:,1:6) , dim=1 )
+  !
+  ! Check to make sure the number of faces in each direction is consistent
+  !
+  if (any( pfaces([1,3,5]) /= pfaces([2,4,6]) )) then
+    if (pfaces(1) /= pfaces(2)) then
+      write (iout,1) "X",pfaces(1),pfaces(2)
+    end if
+    if (pfaces(3) /= pfaces(4)) then
+      write (iout,1) "Y",pfaces(3),pfaces(4)
+    end if
+    if (pfaces(5) /= pfaces(6)) then
+      write (iout,1) "Z",pfaces(5),pfaces(6)
+    end if
+    call stop_recon(stop_mpi,pname)
+  end if
+  !
+  !
+  !
+  do n = 1,nr
+    !
+    nmin = (n-1)*2 + 1
+    nmax = nmin + 1
+    !
+    npf = pfaces(nmin)
+    !
+    allocate ( minfac(1:npf) , source=pack(intseq(1,nfbnd),face_msk(:,nmin)) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"minfac",1,ierr,error_message)
+    !
+    allocate ( maxfac(1:npf) , source=pack(intseq(1,nfbnd),face_msk(:,nmax)) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"maxfac",1,ierr,error_message)
+    !
+    allocate ( xyz_min(1:nr,1:npf) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_min",1,ierr,error_message)
+    !
+    allocate ( xyz_max(1:nr,1:npf) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_max",1,ierr,error_message)
+    !
+    allocate ( matched(1:npf) , source=fals , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"matched",1,ierr,error_message)
+    !
+    allocate ( ds(1:npf) , source=zero , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ds",1,ierr,error_message)
+    !
+    !
+    !
+    do nf = 1,npf
+      !
+      ! Get the coordinates for the centers of all
+      ! the minimum faces in the current direction
+      !
+      pf = minfac(nf)
+      !
+      host_cell = bface(2,pf)
+      host_geom = bface(3,pf)
+      host_side = bface(4,pf)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      p1 = nodes_of_cell_ptr(host_cell)+1
+      p2 = nodes_of_cell_ptr(host_cell+1)
+      !
+      ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+      !
+      ip(1:nfnods) = nodes_of_cell( p1 + ip(1:nfnods) )
+      !
+      xyz_min(1:nr,nf) = sum( xyz_nodes(1:nr,ip(1:nfnods)) , dim=2 )
+      xyz_min(1:nr,nf) = xyz_min(1:nr,nf) / real(nfnods,kind=wp)
+      !
+      ! Now for all the max faces
+      !
+      pf = maxfac(nf)
+      !
+      host_cell = bface(2,pf)
+      host_geom = bface(3,pf)
+      host_side = bface(4,pf)
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      p1 = nodes_of_cell_ptr(host_cell)+1
+      p2 = nodes_of_cell_ptr(host_cell+1)
+      !
+      ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+      !
+      ip(1:nfnods) = nodes_of_cell( p1 + ip(1:nfnods) )
+      !
+      xyz_min(1:nr,nf) = sum( xyz_nodes(1:nr,ip(1:nfnods)) , dim=2 )
+      xyz_min(1:nr,nf) = xyz_min(1:nr,nf) / real(nfnods,kind=wp)
+      !
+    end do
+    !
+    !
+    !
+    do nf = 1,npf
+      !
+      ds(:) = huge(zero)
+      !
+      do pf = 1,npf
+        !
+        if (matched(pf)) cycle
+        !
+        ds(pf) = dscoef * rnorm2( xyz_min(idx(:,n),nf) - &
+                                  xyz_max(idx(:,n),pf) )
+        !
+      end do
+      !
+      pf = minloc( ds , dim=1 )
+      matched(pf) = true
+      !
+      pmin = minfac( nf )
+      pmax = maxfac( pf )
+      !
+      bface(5,pmin) = pmax
+      bface(6,pmin) = bface(2,pmax)
+      bface(8,pmin) = bface(3,pmax)
+      bface(9,pmin) = bface(4,pmax)
+      !
+      bface(5,pmax) = pmin
+      bface(6,pmax) = bface(2,pmin)
+      bface(8,pmax) = bface(3,pmin)
+      bface(9,pmax) = bface(4,pmin)
+      !
+    end do
+    !
+    !
+    !
+    deallocate ( minfac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"minfac",2,ierr,error_message)
+    !
+    deallocate ( maxfac , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"maxfac",2,ierr,error_message)
+    !
+    deallocate ( xyz_min , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_min",2,ierr,error_message)
+    !
+    deallocate ( xyz_max , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_max",2,ierr,error_message)
+    !
+    deallocate ( matched , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"matched",2,ierr,error_message)
+    !
+    deallocate ( ds , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ds",2,ierr,error_message)
+    !
+  end do
+  !
+  deallocate ( face_msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_msk",2,ierr,error_message)
+  !
+  1 format (/," The number of periodic faces in the ",a, &
+              " direction is not consistent!",/, &
+              "     Periodic faces on MIN boundary: ",i0,/, &
+              "     Periodic faces on MAX boundary: ",i0,/)
+  !
+end subroutine match_plot3d_periodic_boundaries
 !
 !###############################################################################
 !
