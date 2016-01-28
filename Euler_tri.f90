@@ -108,6 +108,8 @@ program Euler_tri
   use mms_mod, only : mms_src
   use mms_mod, only : initialize_mms
   !
+  use channel_mod, only : channel_source
+  !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles
   use bnd_profiles_mod, only : bnd_profiles_memory_usage
@@ -482,6 +484,10 @@ continue
       ! Compute the source terms for the method of manufactured solutions (MMS)
       !
       if (mms_opt /= 0) call mms_src
+      !
+      ! Compute the source terms for the channel flow
+      !
+      if (itestcase == Channel_Flow) call channel_source
       !
       ! Compute the final residual for each solution point
       !
