@@ -279,7 +279,6 @@ subroutine readplot3d(gridfile)
   integer :: noff,npts,nnode_new,ncell_new
   integer :: ibeg,iend,jbeg,jend,kbeg,kend
   integer :: iogrd
-  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: strides
@@ -2733,7 +2732,6 @@ subroutine match_plot3d_periodic_boundaries()
   integer :: host_cell,host_geom,host_side
   integer :: nmin,nmax,pmin,pmax,nfnods
   real(wp) :: dscoef
-  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: ip

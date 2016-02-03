@@ -2,6 +2,7 @@ module generic_types_mod
   !
   use module_kind_types, only : wp,zero,half,dot,intseq
   use module_kind_types, only : alloc_error,io_error
+  use module_kind_types, only : error_message
   !
   implicit none
   !
@@ -876,7 +877,6 @@ subroutine output_sparsity(this,fname)
   !.. Local Scalars ..
   integer :: ifu,ierr
   integer :: i,j,n1,n2,np1,np2
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xy(:,:,:)

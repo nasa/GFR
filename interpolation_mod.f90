@@ -98,7 +98,6 @@ subroutine init_interpolation_matrices()
   integer :: this_omin,this_omax
   integer :: nsolpts,nflxpts
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(interpolation_matrix), pointer :: this_interp
@@ -293,7 +292,6 @@ subroutine init_outerpolation_matrices()
   logical :: lobatto_matrix_is_needed
   logical :: error_weights_are_needed
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(outerpolation_matrix), pointer :: this_outerp

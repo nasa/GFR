@@ -70,7 +70,6 @@ subroutine init_derivative_matrices()
   integer :: this_geom,this_order,ndim
   integer :: n,n1,n2,i
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(derivative_matrices), pointer :: this_dmat

@@ -162,7 +162,6 @@ subroutine init_geom_quadrature_rules()
   integer :: n,npts,ndim,ierr
   integer :: this_geom,this_order
   character(len=100) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(element_type), pointer :: this_elem

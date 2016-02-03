@@ -42,7 +42,6 @@ subroutine init_filter_matrices()
   !.. Local Scalars ..
   integer :: ierr,gmin,gmax,omin,omax
   integer :: this_geom,this_order,npts
-  character(len=200) :: error_message
   character(len=200) :: array_name
   !
   !.. Local Pointers ..

@@ -99,7 +99,6 @@ subroutine read_restart_file
   !.. Local Scalars ..
   integer :: n,nc,np,n1,n2,l1,l2,gp,ierr
   integer :: iorst
-  character(len=1000) :: error_message
   !
   !.. Need to be default integers
   integer :: restart_ip,restart_rp
@@ -579,7 +578,6 @@ subroutine write_restart_file(itnum)
   integer(MPI_OFFSET_KIND) :: file_offset
   !
   character(len=40) :: fname
-  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   integer(wip) :: int_header(1:4)
@@ -908,7 +906,6 @@ subroutine get_output_mpi_datatypes()
   integer :: n,nc,n1,n2,ierr
   integer :: local_cell
   integer :: global_cell
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   logical,          allocatable :: msk(:)
@@ -1077,7 +1074,6 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
   integer :: local_cell,global_cell
   integer :: this_cell,this_geom,this_order
   integer :: inp_cell,inp_geom,inp_order
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   logical,          allocatable :: msk(:)

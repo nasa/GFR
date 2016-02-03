@@ -392,7 +392,6 @@ subroutine init_generic_mod
   integer :: max_cell_digits
   integer :: max_solpt_digits
   character(len=100) :: char_num
-  character(len=300) :: error_message
   character(len=1000) :: iter_header
   !
   !.. Local Parameters ..
@@ -835,8 +834,6 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp) :: kem,kec,kep,dtm,dtp
   real(wp) :: solution_time
   real(wp) :: div_vel,muref_star
-  !
-  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   real(wp) :: vort(1:nr)

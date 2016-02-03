@@ -435,7 +435,6 @@ subroutine init_bnd_profile_structures
   integer :: flow_qtys,wall_qtys
   integer :: iogrd
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nr) :: txyz

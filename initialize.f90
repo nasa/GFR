@@ -55,7 +55,6 @@ subroutine initialize_flow()
   integer :: this_geom,this_order
   real(wp) :: rhoa2
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xyz_init(:,:)
@@ -544,8 +543,6 @@ subroutine initialize_reference
   real(wp) :: gm1_over_gam
   real(wp) :: total_cond
   real(wp) :: pres_check
-  !
-  character(len=1000) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_reference"

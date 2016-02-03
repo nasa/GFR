@@ -86,7 +86,6 @@ subroutine init_vandermonde_matrices()
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_geom,this_order,npts
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(vandermonde_matrix), pointer :: this_vand

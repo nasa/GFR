@@ -372,7 +372,6 @@ subroutine get_metrics()
   real(r8) :: loc_vol,tot_vol
   real(wp) :: val,rm1,rp1,sm1,sp1,tm1,tp1,zm1,zp1
   character(len=200) :: array_name
-  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: ksize

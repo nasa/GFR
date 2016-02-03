@@ -3,7 +3,6 @@ subroutine reallocate1_i4(array,new_size)
   integer(i4), allocatable, dimension(:), intent(inout) :: array
   integer(i4), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
-  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_i4"
 continue
   ! Allocate the temporary array to store the old contents of array
@@ -32,7 +31,6 @@ subroutine reallocate1_i8(array,new_size)
   integer(i8), allocatable, dimension(:), intent(inout) :: array
   integer(i8), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
-  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_i8"
 continue
   allocate ( temp_array(1:new_size) , source=0_i8 , &
@@ -52,7 +50,6 @@ subroutine reallocate1_r4(array,new_size)
   real(r4), allocatable, dimension(:), intent(inout) :: array
   real(r4), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
-  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_r4"
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r4 , &
@@ -72,7 +69,6 @@ subroutine reallocate1_r8(array,new_size)
   real(r8), allocatable, dimension(:), intent(inout) :: array
   real(r8), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
-  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_r8"
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r8 , &
@@ -92,7 +88,6 @@ subroutine reallocate1_c(array,new_size)
   character(len=*), allocatable, dimension(:), intent(inout) :: array
   character(len=len(array)), allocatable, dimension(:) :: temp_array
   integer :: ierr,num_copy
-  character(len=300) :: error_message
   character(len=*), parameter :: pname = "reallocate1_c"
 continue
  !write (iout,1) size(array),new_size
@@ -117,7 +112,6 @@ subroutine reallocate2_i4(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer(i4), allocatable, dimension(:,:) :: temp_array
@@ -174,7 +168,6 @@ subroutine reallocate2_i8(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer(i8), allocatable, dimension(:,:) :: temp_array
@@ -231,7 +224,6 @@ subroutine reallocate2_r4(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: temp_array
@@ -288,7 +280,6 @@ subroutine reallocate2_r8(array,new_size1,new_size2)
   !
   !.. Local Scalars ..
   integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: temp_array

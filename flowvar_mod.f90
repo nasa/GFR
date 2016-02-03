@@ -8,6 +8,7 @@ module flowvar
   use module_kind_types, only : alloc_error
   use module_kind_types, only : bc_cpu_bnd
   use module_kind_types, only : skip_alloc_pause
+  use module_kind_types, only : error_message
   !
   implicit none
   !
@@ -127,7 +128,6 @@ subroutine allocate_flowvar_arrays()
   !.. Local Scalars ..
   integer :: n,ierr,face_geom,face_order,nfpts,nf
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Constants ..
   character(len=*), parameter :: pname = "allocate_flowvar_arrays"
