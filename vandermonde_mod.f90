@@ -54,8 +54,8 @@ module vandermonde_mod
   !     Where :
   !        nsp = # of solution points within this cell geometry determined
   !              by the order of the cell
-  !        this_geom = cell_geom(n)
-  !        this_order = cell_order(n)
+  !        this_geom = cell(n)%geom
+  !        this_order = cell(n)%order
   !        mat has dimensions and extents mat(1:nsp,1:nsp)
   !        nodal_solution(1:nsp) : nodal solution vector for cell 'n'
   !        modal_solution(1:nsp) : modal solution vector for cell 'n'
@@ -75,7 +75,6 @@ contains
 subroutine init_vandermonde_matrices()
   !
   !.. Use Statements ..
-  use geovar,         only : cell_geom,cell_order
   use order_mod,      only : geom_solpts
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order

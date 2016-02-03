@@ -159,8 +159,7 @@ end subroutine init_filter_matrices
 subroutine filter_usp
   !
   !.. Use Statements ..
-  use geovar,     only : ncell,pts_in_cell_ptr
-  use geovar,     only : cell_geom,cell_order
+  use geovar,     only : ncell,cell
   use flowvar,    only : usp
   !
   !.. Local Scalars ..
@@ -173,11 +172,11 @@ continue
   !
   do n = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(n)%beg_sp
+    n2 = cell(n)%end_sp
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
     do m = 1,size(usp,dim=1)
 #ifdef USE_MATRIX_PROCEDURES

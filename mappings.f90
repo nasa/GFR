@@ -21,7 +21,7 @@ contains
 subroutine get_solution_points()
   !
   use geovar,         only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
-  use geovar,         only : n_solpts,n_totpts,pts_in_cell_ptr
+  use geovar,         only : n_solpts,n_totpts
   use geovar,         only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,         only : bface,xyz_nodes,xyz
   use geovar,         only : cell_geom,cell_order
@@ -61,39 +61,37 @@ continue
   n_totnod = size(xyz_nodes,dim=2)
   nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
   !
-  ! Save the number of solution points within a cell to pts_in_cell_ptr
+  ! Get the total number of interior solution points
   !
-  allocate ( pts_in_cell_ptr(1:n_totcel+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"pts_in_cell_ptr",1,ierr)
-  !
-  do n = 1,n_totcel
-    pts_in_cell_ptr(n+1) = pts_in_cell_ptr(n) + &
-                           geom_solpts( cell_geom(n) , cell_order(n) )
+  n_solpts = 0
+  do n = 1,ncell
+    n_solpts = n_solpts + geom_solpts( cell_geom(n) , cell_order(n) )
   end do
   !
-  ! Total number of interior solution points
+  ! Get the total number of interior plus ghost cell solution points
   !
-  n_solpts = pts_in_cell_ptr(ncell+1)
-  !
-  ! Total number of interior plus ghost cell solution points
-  !
-  n_totpts = last(pts_in_cell_ptr)
+  n_totpts = n_solpts
+  do n = ncell+1,n_totcel
+    n_totpts = n_totpts + geom_solpts( cell_geom(n) , cell_order(n) )
+  end do
   !
   ! Now calculate the coordinates of the solution points within each cell
   !
   allocate ( xyz(1:nr,1:n_totpts) , source=zero , stat=ierr )
   call alloc_error(pname,"xyz",1,ierr)
   !
+  p2 = 0
+  !
   do i = 1,n_totcel
+    !
+    this_geom = cell_geom(i)
+    this_order = cell_order(i)
     !
     n1 = nodes_of_cell_ptr(i)+1
     n2 = nodes_of_cell_ptr(i+1)
     !
-    p1 = pts_in_cell_ptr(i)+1
-    p2 = pts_in_cell_ptr(i+1)
-    !
-    this_geom = cell_geom(i)
-    this_order = cell_order(i)
+    p1 = p2 + 1
+    p2 = p2 + geom_solpts(this_geom,this_order)
     !
     do j = n1,n2
       cell_xyz(1:nr,j-n1+1) = xyz_nodes(1:nr,nodes_of_cell(j))

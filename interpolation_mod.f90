@@ -41,8 +41,8 @@ module interpolation_mod
   !
   !     Where :
   !
-  !        this_geom = cell_geom(n)
-  !        this_order = cell_order(n)
+  !        this_geom = cell(n)%geom
+  !        this_order = cell(n)%order
   !        to_order = order of face or cell to which we are interpolating
   !        k = if using toFace, the face solution point we are interpolating to
   !            if using toCell, the cell solution point we are interpolating to
@@ -84,7 +84,6 @@ contains
 subroutine init_interpolation_matrices()
   !
   !.. Use Statements ..
-  use geovar,         only : cell_geom,cell_order
   use order_mod,      only : geom_solpts,geom_flxpts
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
@@ -271,7 +270,6 @@ end subroutine init_interpolation_matrices
 subroutine init_outerpolation_matrices()
   !
   !.. Use Statements ..
-  use geovar,          only : cell_geom,cell_order
   use ovar,            only : iop_solpts,loc_output_pts
   use ovar,            only : loc_error_pts,loc_init_pts
   use order_mod,       only : geom_solpts,geom_flxpts

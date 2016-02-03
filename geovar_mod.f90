@@ -49,12 +49,6 @@ module geovar
   integer, public, save :: n_totnod
   integer, public, save :: n_totpts
   !
-  ! For cell i_cell
-  ! pts_in_cell_ptr(i_cell)+1 gives the first solution point within i_cell
-  ! pts_in_cell_ptr(i_cell+1) gives the last  solution point within i_cell
-  !
-  integer, public, save, allocatable, dimension(:) :: pts_in_cell_ptr
-  !
   ! cell_geom : this gives the geometry of each cell
   !
   integer, public, save, allocatable, dimension(:) :: cell_geom
@@ -540,15 +534,6 @@ continue
   !
   ! Memory usage for all the remaining arrays of intrinsic datatypes
   !
-  if (allocated(pts_in_cell_ptr)) then
-    call array%set( storage_size(pts_in_cell_ptr,kind=inttype) , &
-                            size(pts_in_cell_ptr,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "pts_in_cell_ptr"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "pts_in_cell_ptr"
-  end if
   if (allocated(xyz_nodes)) then
     call array%set( storage_size(xyz_nodes,kind=inttype) , &
                             size(xyz_nodes,kind=inttype) )

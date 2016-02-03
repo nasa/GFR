@@ -349,9 +349,8 @@ subroutine get_metrics()
   !.. Use Statements ..
   use geovar, only : nr,nface,n_totpts,n_totcel,ncell
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : nodes_on_face,pts_in_cell_ptr
-  use geovar, only : xyz_nodes,cell_geom,cell_order
-  use geovar, only : face
+  use geovar, only : nodes_on_face,xyz_nodes
+  use geovar, only : face,cell
   !
   use quadrature_mod, only : std_elem
   !
@@ -474,11 +473,11 @@ continue
     n1 = nodes_of_cell_ptr(nc)+1
     n2 = nodes_of_cell_ptr(nc+1)
     !
-    p1 = pts_in_cell_ptr(nc)+1
-    p2 = pts_in_cell_ptr(nc+1)
+    p1 = cell(nc)%beg_sp
+    p2 = cell(nc)%end_sp
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     ! Associate weights with the quadrature weights of the
     ! current cells geometry and order
@@ -500,7 +499,7 @@ continue
     ! y metrics - dy/dr,dy/ds,d2y/dr2,d2y/ds2,d2y/drds,
     ! Jacobians - J,dJ/dr,dJ/ds
     !
-    if (cell_geom(nc) == Geom_Edge) then
+    if (this_geom == Geom_Edge) then
       !
       ! ###################################
       ! #####  Metrics for edge cell  #####
@@ -524,7 +523,7 @@ continue
         !
       end do
       !
-   else if (cell_geom(nc) == Geom_Tria) then
+   else if (this_geom == Geom_Tria) then
       !
       ! ########################################
       ! #####  Metrics for triangular cell #####
@@ -582,15 +581,15 @@ continue
         !
       end do
       !
-    else if (cell_geom(nc) == Geom_Quad) then
+    else if (this_geom == Geom_Quad) then
       !
       ! ############################################
       ! #####  Metrics for quadrilateral cell  #####
       ! ############################################
       !
-      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,this_order)
       !
-      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
+      edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
       !
       do n = p1,p2
         !
@@ -669,7 +668,7 @@ continue
       ! ##########################################################################
       ! ##########################################################################
       !
-    else if (cell_geom(nc) == Geom_Tetr) then
+    else if (this_geom == Geom_Tetr) then
       !
       ! ##########################################
       ! #####  Metrics for tetrahedral cell  #####
@@ -678,7 +677,7 @@ continue
       write (error_message,101)
       call stop_recon(stop_mpi,pname,error_message)
       !
-    else if (cell_geom(nc) == Geom_Pyra) then
+    else if (this_geom == Geom_Pyra) then
       !
       ! ######################################
       ! #####  Metrics for pyramid cell  #####
@@ -696,16 +695,16 @@ continue
       ! ##########################################################################
       ! ##########################################################################
       !
-    else if (cell_geom(nc) == Geom_Pris) then
+    else if (this_geom == Geom_Pris) then
       !
       ! ####################################
       ! #####  Metrics for prism cell  #####
       ! ####################################
       !
-      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,this_order)
       !
-      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
-      rs_pts => std_elem(Geom_Tria,cell_order(nc))%pts
+      edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
+      rs_pts => std_elem(Geom_Tria,this_order)%pts
       !
       do n = p1,p2
         !
@@ -832,15 +831,15 @@ continue
       write (error_message,103)
       call stop_recon(stop_mpi,pname,error_message)
       !
-    else if (cell_geom(nc) == Geom_Hexa) then
+    else if (this_geom == Geom_Hexa) then
       !
       ! #########################################
       ! #####  Metrics for hexahedral cell  #####
       ! #########################################
       !
-      n_edge_pts = geom_solpts(Geom_Edge,cell_order(nc))
+      n_edge_pts = geom_solpts(Geom_Edge,this_order)
       !
-      edge_pts => std_elem(Geom_Edge,cell_order(nc))%pts(1,:)
+      edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
       !
       do n = p1,p2
         !

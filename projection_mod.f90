@@ -41,14 +41,14 @@ module projection_mod
   !
   !     Where :
   !
-  !        this_geom = cell_geom(n)
+  !        this_geom = cell(n)%geom
   !
   !   IF: over-integrating by projecting the residual (i.e. p_order < n_order)
-  !        from_order = cell_order(n)
+  !        from_order = cell(n)%order
   !        to_order   = p_order
   !   ELSE IF: over-integrating by using quadrature (i.e. q_order > n_order)
   !        from_order = q_order
-  !        to_order   = cell_order(n)
+  !        to_order   = cell(n)%order
   !   END IF
   !        k = if using toFace, the face solution point we are projecting to
   !            if using toCell, the cell solution point we are projecting to
@@ -62,7 +62,7 @@ contains
 subroutine init_projection_matrices()
   !
   !.. Use Statements ..
-  use geovar,         only : cell_geom,cell_order
+  use geovar,         only : cell
   use quadrature_mod, only : geom_is_used
   use quadrature_mod, only : std_elem
   use vandermonde_mod, only : vand
@@ -76,21 +76,18 @@ end subroutine init_projection_matrices
 !
 !###############################################################################
 !
-subroutine project_to_porder(ncell,cell_geom,cell_order, &
-                             pts_in_cell_ptr,array,order)
+subroutine project_to_porder(cell,array,order)
   !
   !... calculates d(utd)/dt
   !
   !.. Use Statements ..
   use order_mod,  only : maxpts,p_order
+  use geovar,     only : cell_t
   !
   !.. Formal Arguments ..
-  integer,                     intent(in) :: ncell
-  integer,  dimension(:),      intent(in) :: cell_geom
-  integer,  dimension(:),      intent(in) :: cell_order
-  integer,  dimension(:),      intent(in) :: pts_in_cell_ptr
-  real(wp), dimension(:,:), intent(inout) :: array
-  integer,  optional,          intent(in) :: order
+  type(cell_t), dimension(:),    intent(in) :: cell
+  real(wp),   dimension(:,:), intent(inout) :: array
+  integer,          optional,    intent(in) :: order
   !
   !.. Local Scalars ..
   integer :: k,n,l,n1,n2,nsp,nvar
@@ -107,14 +104,14 @@ continue
   !
   nvar = size(array,dim=1)
   !
-  do n = 1,ncell
+  do n = 1,size(cell)
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(n)%beg_sp
+    n2 = cell(n)%end_sp
     nsp = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
     if (proj_order < this_order) then
       !

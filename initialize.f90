@@ -24,9 +24,7 @@ subroutine initialize_flow()
   !.. Use Statements ..
   use generic_types_mod, only : matrix
   !
-  use geovar, only : nr,n_solpts,ncell
-  use geovar, only : pts_in_cell_ptr,xyz
-  use geovar, only : cell_geom,cell_order
+  use geovar, only : nr,n_solpts,ncell,cell,xyz
   !
   use ovar, only : rhoref,aref,itestcase
   use ovar, only : cv_in,iop_solpts
@@ -113,11 +111,11 @@ continue
   !
   do n = 1,ncell
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(n)%beg_sp
+    n2 = cell(n)%end_sp
     np = n2-n1+1
     !
     ! Check whether the init component of outerp is associated with
@@ -210,7 +208,7 @@ continue
     ! Project the initial solution from the
     ! initialization points to the solution points
     !
-   !call project_to_porder(ncell,cell_geom,cell_order,pts_in_cell_ptr,uspstart)
+   !call project_to_porder(cell,uspstart)
     !
     ! Initialize usp to uspstart
     !

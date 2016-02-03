@@ -618,8 +618,7 @@ subroutine rresi
   !.. Use Statements ..
   use order_mod, only : p_order,n_order
   use geovar,  only : n_solpts
-  use geovar,  only : ncell,pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : ncell,cell
   use ovar,    only : itestcase
   use metrics_mod,  only : jacobian
   use flowvar, only : residual
@@ -646,7 +645,7 @@ continue
   end if
   !
   if (p_order < n_order) then
-    call project_to_porder(ncell,cell_geom,cell_order,pts_in_cell_ptr,residual)
+    call project_to_porder(cell,residual)
   end if
   !
 end subroutine rresi

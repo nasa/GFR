@@ -521,8 +521,7 @@ subroutine getmaxent
   !
   !.. Use Statements ..
   use order_mod, only : maxpts
-  use geovar,  only : nr,ncell,pts_in_cell_ptr,xyz
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : nr,ncell,cell,xyz
   use ovar,    only : nentmax,kentmax,entmax,gam,cv_in
   use ovar,    only : xentmax,yentmax,entL2,total_volume
   use metrics_mod,  only : jacobian
@@ -551,12 +550,12 @@ continue
   !
   do n = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1
-    n2 = pts_in_cell_ptr(n+1)
+    n1 = cell(n)%beg_sp
+    n2 = cell(n)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
     ! Interpolate the new and old solution to the error points
     !

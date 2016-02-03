@@ -88,8 +88,7 @@ end subroutine initialize_limiters
 subroutine compute_cell_ave
   !
   !.. Use Statements ..
-  use geovar, only : ncell,pts_in_cell_ptr
-  use geovar, only : cell_geom,cell_order
+  use geovar, only : ncell,cell
   use order_mod, only : maxpts
   use flowvar, only : usp
   !
@@ -109,12 +108,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1
-    n2 = pts_in_cell_ptr(nc+1)
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     const_mode(1:np) = vand(this_geom,this_order)%nodal2modal%mat(1,1:np)
     !
@@ -133,8 +132,7 @@ end subroutine compute_cell_ave
 subroutine moment_limiter
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell_geom,cell_order
-  use geovar, only : pts_in_cell_ptr
+  use geovar, only : ncell,cell
   use flowvar, only : usp
   !
   use vandermonde_mod, only : vand
@@ -162,12 +160,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1
-    n2 = pts_in_cell_ptr(nc+1)
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
 #ifdef USE_MATRIX_PROCEDURES
     do m = 1,nq
@@ -198,8 +196,7 @@ subroutine limit_by_projecting
   !
   !.. Use Statements ..
   use order_mod,  only : maxpts,n_max_order
-  use geovar,     only : ncell,pts_in_cell_ptr
-  use geovar,     only : cell_geom,cell_order
+  use geovar,     only : ncell,cell
   use flowvar,    only : usp
   use projection_mod, only : projct
   !
@@ -252,12 +249,12 @@ continue
       !
       if (.not.troubled_cell(nc)) cycle cell_loop
       !
-      n1 = pts_in_cell_ptr(nc)+1
-      n2 = pts_in_cell_ptr(nc+1)
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
       nsp = n2-n1+1
       !
-      this_geom = cell_geom(nc)
-      this_order = cell_order(nc)
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
       !
       proj_order = this_order - dropped_orders
       !
@@ -316,8 +313,7 @@ end subroutine limit_by_projecting
 subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !
   !.. Use Statements ..
-  use geovar,  only : ncell,pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : ncell,cell
   use flowvar, only : usp
   !
   !.. Formal Arguments ..
@@ -356,11 +352,11 @@ continue
     !
     if (.not. troubled_cell(nc)) cycle
     !
-    n1 = pts_in_cell_ptr(nc)+1
-    n2 = pts_in_cell_ptr(nc+1)
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     ! If the projection has reduced the solution to first order, mark
     ! this cell as no longer troubled and skip to the next cell
