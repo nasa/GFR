@@ -386,7 +386,6 @@ subroutine init_face_quadrature_rules()
   logical :: there_are_quad_faces
   logical :: there_are_tria_faces
   character(len=100) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(element_type), pointer :: this_elem
