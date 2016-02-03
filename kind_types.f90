@@ -323,10 +323,15 @@ module module_kind_types
   !
   integer, protected, save :: geom_dimen(Geom_Min:Geom_Max)
   integer, protected, save :: geom_nodes(Geom_Min:Geom_Max)
+  integer, protected, save :: geom_edges(Geom_Min:Geom_Max)
   integer, protected, save :: geom_faces(Geom_Min:Geom_Max)
-  integer, protected, save :: num_face_nodes(1:6,Geom_Min:Geom_Max)
   integer, protected, save :: cell_face_geom(1:6,Geom_Min:Geom_Max)
+  integer, protected, save :: num_face_nodes(1:6,Geom_Min:Geom_Max)
+  integer, protected, save :: num_node_edges(1:8,Geom_Min:Geom_Max)
+  integer, protected, save :: edge_nodes(1:2,1:12,Geom_Min:Geom_Max)
   integer, protected, save :: side_nodes(1:4,1:6,Geom_Min:Geom_Max)
+  integer, protected, save :: node_edges(1:4,1:8,Geom_Min:Geom_Max)
+  integer, protected, save :: node_nodes(1:4,1:8,Geom_Min:Geom_Max)
   !
   character(len=100), protected, save :: Geom_String(Geom_Min:Geom_Max)
   character(len=9),   protected, save :: Geom_Name(Geom_Min:Geom_Max)
@@ -385,6 +390,10 @@ module module_kind_types
   !      = 1.0 for everything else
   !
   real(wp), protected, save :: cl(Geom_Min:Geom_Max)
+  !
+  ! General character variable for storing error messages
+  !
+  character(len=1000), save :: error_message
   !
   ! MPI Scalars 
   !
@@ -678,6 +687,12 @@ subroutine initialize_runtime_parameters
   ! ############################################################################
   ! ############################################################################
   !
+  !.. Local Scalars ..
+  integer :: this_geom,this_node,this_face,this_edge,i
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_runtime_parameters"
+  !
 continue
   !
   Geom_Name(Geom_Node) = "Geom_Node"
@@ -702,9 +717,17 @@ continue
   !
   geom_dimen = 0
   geom_nodes = 0
+  geom_edges = 0
   geom_faces = 0
+  !
   num_face_nodes = 0
+  num_node_edges = 0
+  !
+  edge_nodes = 0
   side_nodes = 0
+  node_edges = 0
+  node_nodes = 0
+  !
   cl = one
   !
   geom_dimen(Geom_0D) = 0
@@ -721,6 +744,14 @@ continue
   geom_nodes(Geom_Pris) = 6
   geom_nodes(Geom_Hexa) = 8
   !
+  geom_edges(Geom_Edge) = 1
+  geom_edges(Geom_Tria) = 3
+  geom_edges(Geom_Quad) = 4
+  geom_edges(Geom_Tetr) = 6
+  geom_edges(Geom_Pyra) = 8
+  geom_edges(Geom_Pris) = 9
+  geom_edges(Geom_Hexa) = 12
+  !
   geom_faces(Geom_Edge) = 2
   geom_faces(Geom_Tria) = 3
   geom_faces(Geom_Quad) = 4
@@ -729,15 +760,81 @@ continue
   geom_faces(Geom_Pris) = 5
   geom_faces(Geom_Hexa) = 6
   !
-  num_face_nodes(1:2,Geom_Edge) = geom_nodes(Geom_Node)
-  num_face_nodes(1:3,Geom_Tria) = geom_nodes(Geom_Edge)
-  num_face_nodes(1:4,Geom_Quad) = geom_nodes(Geom_Edge)
-  num_face_nodes(1:4,Geom_Tetr) = geom_nodes(Geom_Tria)
-  num_face_nodes(1:4,Geom_Pyra) = geom_nodes(Geom_Tria)
-  num_face_nodes(5:5,Geom_Pyra) = geom_nodes(Geom_Quad)
-  num_face_nodes(1:2,Geom_Pris) = geom_nodes(Geom_Tria)
-  num_face_nodes(3:5,Geom_Pris) = geom_nodes(Geom_Quad)
-  num_face_nodes(1:6,Geom_Hexa) = geom_nodes(Geom_Quad)
+  ! Define the geometry type of each cell face
+  !
+  cell_face_geom(1:2,Geom_Edge) = Geom_Node
+  cell_face_geom(1:3,Geom_Tria) = Geom_Edge
+  cell_face_geom(1:4,Geom_Quad) = Geom_Edge
+  cell_face_geom(1:4,Geom_Tetr) = Geom_Tria
+  cell_face_geom(1:4,Geom_Pyra) = Geom_Tria
+  cell_face_geom(5:5,Geom_Pyra) = Geom_Quad
+  cell_face_geom(1:2,Geom_Pris) = Geom_Tria
+  cell_face_geom(3:5,Geom_Pris) = Geom_Quad
+  cell_face_geom(1:6,Geom_Hexa) = Geom_Quad
+  !
+  ! Store the number of nodes that define the faces of each geometry
+  !
+  do this_geom = Geom_Min,Geom_Max
+    do this_face = 1,geom_faces(this_geom)
+      num_face_nodes(this_face,this_geom) = &
+                         geom_nodes(cell_face_geom(this_face,this_geom))
+    end do
+  end do
+  !
+  !
+  ! Nodes defining the edges of each geometry
+  !
+  edge_nodes(1:2,1,Geom_Edge) = [0,1]
+  !
+  edge_nodes(1:2,1,Geom_Tria) = [0,1]
+  edge_nodes(1:2,2,Geom_Tria) = [1,2]
+  edge_nodes(1:2,3,Geom_Tria) = [2,0]
+  !
+  edge_nodes(1:2,1,Geom_Quad) = [0,1]
+  edge_nodes(1:2,2,Geom_Quad) = [1,2]
+  edge_nodes(1:2,3,Geom_Quad) = [2,3]
+  edge_nodes(1:2,4,Geom_Quad) = [3,0]
+  !
+  edge_nodes(1:2,1,Geom_Tetr) = [1,2]
+  edge_nodes(1:2,2,Geom_Tetr) = [2,3]
+  edge_nodes(1:2,3,Geom_Tetr) = [3,1]
+  edge_nodes(1:2,4,Geom_Tetr) = [2,0]
+  edge_nodes(1:2,5,Geom_Tetr) = [0,3]
+  edge_nodes(1:2,6,Geom_Tetr) = [0,1]
+  !
+  edge_nodes(1:2,1,Geom_Pyra) = [1,2]
+  edge_nodes(1:2,2,Geom_Pyra) = [2,4]
+  edge_nodes(1:2,3,Geom_Pyra) = [4,1]
+  edge_nodes(1:2,4,Geom_Pyra) = [2,3]
+  edge_nodes(1:2,5,Geom_Pyra) = [3,4]
+  edge_nodes(1:2,6,Geom_Pyra) = [3,0]
+  edge_nodes(1:2,7,Geom_Pyra) = [0,4]
+  edge_nodes(1:2,8,Geom_Pyra) = [0,1]
+  !
+  edge_nodes(1:2,1,Geom_Pris) = [0,2]
+  edge_nodes(1:2,2,Geom_Pris) = [2,1]
+  edge_nodes(1:2,3,Geom_Pris) = [1,0]
+  edge_nodes(1:2,4,Geom_Pris) = [3,4]
+  edge_nodes(1:2,5,Geom_Pris) = [4,5]
+  edge_nodes(1:2,6,Geom_Pris) = [5,3]
+  edge_nodes(1:2,7,Geom_Pris) = [1,4]
+  edge_nodes(1:2,8,Geom_Pris) = [3,0]
+  edge_nodes(1:2,9,Geom_Pris) = [2,5]
+  !
+  edge_nodes(1:2, 1,Geom_Hexa) = [0,3]
+  edge_nodes(1:2, 2,Geom_Hexa) = [3,2]
+  edge_nodes(1:2, 3,Geom_Hexa) = [2,1]
+  edge_nodes(1:2, 4,Geom_Hexa) = [1,0]
+  edge_nodes(1:2, 5,Geom_Hexa) = [4,5]
+  edge_nodes(1:2, 6,Geom_Hexa) = [5,6]
+  edge_nodes(1:2, 7,Geom_Hexa) = [6,7]
+  edge_nodes(1:2, 8,Geom_Hexa) = [7,4]
+  edge_nodes(1:2, 9,Geom_Hexa) = [2,6]
+  edge_nodes(1:2,10,Geom_Hexa) = [5,1]
+  edge_nodes(1:2,11,Geom_Hexa) = [0,4]
+  edge_nodes(1:2,12,Geom_Hexa) = [7,3]
+  !
+  ! Nodes defining the faces of each geometry
   !
   side_nodes(1:1,1,Geom_Edge) = Xmin1D
   side_nodes(1:1,2,Geom_Edge) = Xmax1D
@@ -746,20 +843,10 @@ continue
   side_nodes(1:2,2,Geom_Tria) = [1,2]
   side_nodes(1:2,3,Geom_Tria) = [2,0]
   !
- !integer, parameter :: HostFace2D(1:6) = [Xmin2D_Face,Xmax2D_Face, &
- !                                         Ymin2D_Face,Ymax2D_Face, &
- !                                         Zmin2D_Face,Zmax2D_Face]
- !integer, parameter :: Ymin2D_Face = 1
- !integer, parameter :: Xmax2D_Face = 2
- !integer, parameter :: Ymax2D_Face = 3
- !integer, parameter :: Xmin2D_Face = 4
- !integer, parameter :: Zmin2D_Face = 0
- !integer, parameter :: Zmax2D_Face = 0
-  !
-  side_nodes(1:2,HostFace2D(3),Geom_Quad) = Ymin2D
-  side_nodes(1:2,HostFace2D(2),Geom_Quad) = Xmax2D
-  side_nodes(1:2,HostFace2D(4),Geom_Quad) = Ymax2D
-  side_nodes(1:2,HostFace2D(1),Geom_Quad) = Xmin2D
+  side_nodes(1:2,Ymin2D_Face,Geom_Quad) = Ymin2D ! [0,1]
+  side_nodes(1:2,Xmax2D_Face,Geom_Quad) = Xmax2D ! [1,2]
+  side_nodes(1:2,Ymax2D_Face,Geom_Quad) = Ymax2D ! [2,3]
+  side_nodes(1:2,Xmin2D_Face,Geom_Quad) = Xmin2D ! [3,0]
   !
   side_nodes(1:3,1,Geom_Tetr) = [1,2,3]
   side_nodes(1:3,2,Geom_Tetr) = [2,0,3]
@@ -778,44 +865,42 @@ continue
   side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
   side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
   !
- !integer, parameter :: HostFace3D(1:6) = [Xmin3D_Face,Xmax3D_Face, &
- !                                         Ymin3D_Face,Ymax3D_Face, &
- !                                         Zmin3D_Face,Zmax3D_Face]
- !integer, parameter :: Zmin3D_Face = 1
- !integer, parameter :: Zmax3D_Face = 2
- !integer, parameter :: Xmax3D_Face = 3
- !integer, parameter :: Xmin3D_Face = 4
- !integer, parameter :: Ymin3D_Face = 5
- !integer, parameter :: Ymax3D_Face = 6
+  side_nodes(1:4,Zmin3D_Face,Geom_Hexa) = Zmin3D ! [0,3,2,1]
+  side_nodes(1:4,Zmax3D_Face,Geom_Hexa) = Zmax3D ! [4,5,6,7]
+  side_nodes(1:4,Xmax3D_Face,Geom_Hexa) = Xmax3D ! [1,2,6,5]
+  side_nodes(1:4,Xmin3D_Face,Geom_Hexa) = Xmin3D ! [0,4,7,3]
+  side_nodes(1:4,Ymin3D_Face,Geom_Hexa) = Ymin3D ! [0,1,5,4]
+  side_nodes(1:4,Ymax3D_Face,Geom_Hexa) = Ymax3D ! [3,7,6,2]
   !
-  side_nodes(1:4,HostFace3D(5),Geom_Hexa) = Zmin3D
-  side_nodes(1:4,HostFace3D(6),Geom_Hexa) = Zmax3D
-  side_nodes(1:4,HostFace3D(2),Geom_Hexa) = Xmax3D
-  side_nodes(1:4,HostFace3D(1),Geom_Hexa) = Xmin3D
-  side_nodes(1:4,HostFace3D(3),Geom_Hexa) = Ymin3D
-  side_nodes(1:4,HostFace3D(4),Geom_Hexa) = Ymax3D
- !side_nodes(1:4,1,Geom_Hexa) = [0,3,2,1] ! [1,4,3,2]
- !side_nodes(1:4,2,Geom_Hexa) = [4,5,6,7] ! [5,6,7,8]
- !side_nodes(1:4,3,Geom_Hexa) = [1,2,6,5] ! [2,3,7,6]
- !side_nodes(1:4,4,Geom_Hexa) = [0,4,7,3] ! [1,5,8,4]
- !side_nodes(1:4,5,Geom_Hexa) = [0,1,5,4] ! [1,2,6,5]
- !side_nodes(1:4,6,Geom_Hexa) = [3,7,6,2] ! [4,8,7,3]
- !!
- !write (iout,1) side_nodes(1:4,1:6,Geom_Hexa)
- !1 format (*("[",3(i0,","),i0,"]",/,:))
- !call stop_recon(stop_mpi,"error")
+  ! Create the connectivity information between the nodes and edges
+  ! of each geometry type
   !
-  cell_face_geom(1:2,Geom_Edge) = Geom_Node
-  cell_face_geom(1:3,Geom_Tria) = Geom_Edge
-  cell_face_geom(1:4,Geom_Quad) = Geom_Edge
-  cell_face_geom(1:4,Geom_Tetr) = Geom_Tria
-  cell_face_geom(1:4,Geom_Pyra) = Geom_Tria
-  cell_face_geom(5:5,Geom_Pyra) = Geom_Quad
-  cell_face_geom(1:2,Geom_Pris) = Geom_Tria
-  cell_face_geom(3:5,Geom_Pris) = Geom_Quad
-  cell_face_geom(1:6,Geom_Hexa) = Geom_Quad
+  do this_geom = Geom_Min,Geom_Max
+    do this_node = 1,geom_nodes(this_geom)
+      i = 0
+      do this_edge = 1,geom_edges(this_geom)
+        if (this_node-1 == edge_nodes(1,this_edge,this_geom)) then
+          i = i + 1
+          node_edges(i,this_node,this_geom) = +this_edge
+          node_nodes(i,this_node,this_geom) = &
+                                          edge_nodes(2,this_edge,this_geom)
+        else if (this_node-1 == edge_nodes(2,this_edge,this_geom)) then
+          i = i + 1
+          node_edges(i,this_node,this_geom) = -this_edge
+          node_nodes(i,this_node,this_geom) = &
+                                          edge_nodes(1,this_edge,this_geom)
+        end if
+      end do
+      num_node_edges(this_node,this_geom) = i
+    end do
+  end do
+  !
+  ! Set the value of cl for triangles depending on if the reference
+  ! triangle is based on the unit or biunit triangle
   !
   if (.not. tria_is_biunit) cl(Geom_Tria) = two
+  !
+ !call stop_recon(stop_mpi,pname,error_message)
   !
 end subroutine initialize_runtime_parameters
 !
@@ -1208,7 +1293,6 @@ subroutine memory_pause(message_1,message_2)
   character(len=1) :: keyval
   integer :: stop_value,ifmt
   character(len=300) :: msgfmt
-  character(len=300) :: error_message
   character(len=999) :: before_message
   character(len=999) :: after_message
   !
