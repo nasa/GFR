@@ -173,6 +173,8 @@ subroutine init_geom_quadrature_rules()
   !
 continue
   !
+ !call dump_solpts
+  !
   ! Initialize this_elem to disassociated
   !
   this_elem => null()
@@ -1293,6 +1295,635 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine quadrature_memory_usage
+!
+!###############################################################################
+!
+subroutine dump_solpts()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order,geom_solpts
+  use order_mod, only : n_min_geom,n_max_geom
+  use order_mod, only : n_min_order,n_max_order
+  use ovar,      only : iop_solpts
+  use ovar,      only : iop_tripts
+  !
+  !.. Local Scalars ..
+  integer :: npts,ndim,ierr,loc,io
+  integer :: this_geom,this_order
+  character(len=100) :: array_name
+  !
+  !.. Local Pointers ..
+  type(element_type), pointer :: this_elem
+  type(element_type), pointer :: ref_edge
+  !
+  !.. Local Allocatable Arrays ..
+  type(element_type), target, allocatable, dimension(:,:) :: edge_elem
+  type(element_type), target, allocatable, dimension(:,:) :: quad_elem
+  type(element_type), target, allocatable, dimension(:,:) :: hexa_elem
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "dump_solpts"
+  character(len=*), parameter :: filename = "geom_pts.dat"
+  integer, parameter :: min_order = 1
+  integer, parameter :: max_order = 8
+  !
+continue
+  !
+  open (newunit=io,file=filename,status="replace",action="write", &
+        position="rewind",form="formatted",iostat=ierr,iomsg=error_message)
+  call io_error(pname,filename,1,ierr,error_message)
+  !
+  write (io,10)
+  !
+  ! Initialize this_elem to disassociated
+  !
+  this_elem => null()
+  !
+  allocate ( edge_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge_elem",1,ierr,error_message)
+  !
+  allocate ( quad_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"quad_elem",1,ierr,error_message)
+  !
+  allocate ( hexa_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"hexa_elem",1,ierr,error_message)
+  !
+  ! Loop through all the possible orders and get the quadrature rules
+  ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
+  ! We need to do this before all other geometry types because the
+  ! remaining geometries are dependent on these quadrature rules. 
+  ! NOTE: The pts array within the type element_type is only needed for these
+  !       two geometries (maybe tetrahedra as well) so they will be the only
+  !       ones in which this array will be allocated and created.
+  !
+  this_geom = Geom_Edge
+  !
+  do loc = 1,3
+    !
+    basic_order_loop: do this_order = min_order,max_order
+      !
+      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
+      ! to simplify the remaining code in this loop and make it more legible
+      !
+      this_elem => edge_elem(this_order,loc)
+      !
+      ! Spatial dimension of the current geometry
+      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
+      !
+      ndim = max( 1 , geom_dimen(this_geom) )
+      !
+      ! Number of solution points for the current geometry/order combination
+      !
+      npts = geom_solpts(this_geom,this_order)
+      !
+      if (loc == 3) npts = npts + 2
+      !
+      ! Allocate the wts component of the current geometry/order combination
+      !
+      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Allocate the pts component of the current geometry/order combination
+      !
+      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Fill in the solution points and quadrature weights
+      ! for an edge with the current order
+      !
+      this_elem = get_edge_points(this_order,loc)
+      !
+      ! Disassociate this_elem before continuing to the next loop combo
+      !
+      if (associated(this_elem)) this_elem => null()
+      !
+    end do basic_order_loop
+    !
+  end do
+  !
+  ! Change this_geom to Geom_Tria so the second pass through
+  ! basic_order_loop works on triangle geometry
+  !
+  this_geom = Geom_Quad
+  !
+  ! Loop through all the possible combinations of cell geometry and order
+  ! and get the quadrature rules for each one
+  !
+  quad_loc_loop: do loc = 1,3
+    !
+    quad_order_loop: do this_order = min_order,max_order
+      !
+      ! Assign pointers to the edge and triangle elements of the std_elem
+      ! array in order to simplify the remaining code in this loop and
+      ! make it more legible.
+      !
+      ref_edge => edge_elem(this_order,loc)
+      !
+      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
+      ! to simplify the remaining code in this loop and make it more legible
+      !
+      this_elem => quad_elem(this_order,loc)
+      !
+      ! Spatial dimension of the current geometry
+      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
+      !
+      ndim = max( 1 , geom_dimen(this_geom) )
+      !
+      ! Number of solution points for the current geometry/order combination
+      !
+      npts = size(ref_edge%wts)**ndim
+      !
+      ! Allocate the wts component of the current geometry/order combination
+      !
+      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Allocate the pts component of the current geometry/order combination
+      !
+      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Fill in the quadrature weights for the current geometry/order combination
+      !
+      this_elem = get_quad_points(ref_edge)
+      !
+      ! Disassociate the pointer 'this_elem' before
+      ! continuing to the next geometry
+      !
+      if (associated(this_elem)) this_elem => null()
+      !
+      ! Disassociate the pointers 'edge_elem' and 'tria_elem' before
+      ! continuing to the next order
+      !
+      if (associated(ref_edge)) ref_edge => null()
+      !
+    end do quad_order_loop
+    !
+  end do quad_loc_loop
+  !
+  ! Change this_geom to Geom_Tria so the second pass through
+  ! basic_order_loop works on triangle geometry
+  !
+  this_geom = Geom_Hexa
+  !
+  ! Loop through all the possible combinations of cell geometry and order
+  ! and get the quadrature rules for each one
+  !
+  hexa_loc_loop: do loc = 1,3
+    !
+    hexa_order_loop: do this_order = min_order,max_order
+      !
+      ! Assign pointers to the edge and triangle elements of the std_elem
+      ! array in order to simplify the remaining code in this loop and
+      ! make it more legible.
+      !
+      ref_edge => edge_elem(this_order,loc)
+      !
+      ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
+      ! to simplify the remaining code in this loop and make it more legible
+      !
+      this_elem => hexa_elem(this_order,loc)
+      !
+      ! Spatial dimension of the current geometry
+      ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
+      !
+      ndim = max( 1 , geom_dimen(this_geom) )
+      !
+      ! Number of solution points for the current geometry/order combination
+      !
+      npts = size(ref_edge%wts)**ndim
+      !
+      ! Allocate the wts component of the current geometry/order combination
+      !
+      allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"wts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Allocate the pts component of the current geometry/order combination
+      !
+      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
+      call alloc_error(pname,array_name,1,ierr,error_message)
+      !
+      ! Fill in the quadrature weights for the current geometry/order combination
+      !
+      this_elem = get_hexa_points(ref_edge)
+      !
+      ! Disassociate the pointer 'this_elem' before
+      ! continuing to the next geometry
+      !
+      if (associated(this_elem)) this_elem => null()
+      !
+      ! Disassociate the pointers 'edge_elem' and 'tria_elem' before
+      ! continuing to the next order
+      !
+      if (associated(ref_edge)) ref_edge => null()
+      !
+    end do hexa_order_loop
+    !
+  end do hexa_loc_loop
+  !
+  this_geom = Geom_Quad
+  do this_order = min_order,max_order
+    call write_points(quad_elem(this_order,3),this_geom,this_order,3)
+    call write_points(quad_elem(this_order,2),this_geom,this_order,2)
+    call write_points(quad_elem(this_order,1),this_geom,this_order,1)
+  end do
+  !
+  this_geom = Geom_Hexa
+  do this_order = min_order,max_order
+    call write_points(hexa_elem(this_order,3),this_geom,this_order,3)
+    call write_points(hexa_elem(this_order,2),this_geom,this_order,2)
+    call write_points(hexa_elem(this_order,1),this_geom,this_order,1)
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,filename,2,ierr,error_message)
+  !
+  call stop_recon(stop_mpi,pname,"dumping solution points")
+  !
+  ! Format Statements
+  !
+  1 format ("std_elem(",a,",",i0,")%",a)
+  2 format (" A grid cell of an unknown geometry type was found!")
+  3 format (" A grid cell of geometry type '",a,"' was encountered while", &
+            " trying to compute the quadrature rules for each geometry type.", &
+            " This geometry type is currently invalid because it has not", &
+            " yet been fully implemented.")
+  !
+  10 format ('VARIABLES = "X","Y","Z"')
+  !
+  contains
+  !
+  !###############################################################################
+  !
+  pure function get_edge_points(n,nloc) result(return_value)
+    !
+    use order_mod,      only : geom_solpts
+    use polynomial_mod, only : nodes_legendre_gauss
+    use polynomial_mod, only : nodes_legendre_gauss_lobatto
+    use polynomial_mod, only : weights_legendre_gauss
+    use polynomial_mod, only : weights_legendre_gauss_lobatto
+    !
+    integer, intent(in) :: n
+    integer, intent(in) :: nloc
+    !
+    type(element_type) :: return_value
+    !
+    integer :: nd,np,ierr
+    !
+    real(qp), allocatable :: pts(:)
+    real(qp), allocatable :: wts(:)
+    real(qp), allocatable :: val_at_pts(:)
+    !
+  continue
+    !
+    nd = geom_dimen(Geom_Edge)
+    np = geom_solpts(Geom_Edge,n)
+    !
+    allocate ( pts(1:np) , source=qzero , stat=ierr )
+    allocate ( wts(1:np) , source=qzero , stat=ierr )
+    allocate ( val_at_pts(1:np) , source=qzero , stat=ierr )
+    !
+    select case (nloc)
+      !
+      case (Legendre_Gauss)
+        !
+        ! Edge quadrature using Legendre Gauss nodes
+        !
+        call nodes_legendre_gauss(np,pts,val_at_pts)
+        call weights_legendre_gauss(np,pts,val_at_pts,wts)
+        !
+      case (Legendre_Gauss_Lobatto)
+        !
+        ! Edge quadrature using Legendre Gauss Lobatto nodes
+        !
+        call nodes_legendre_gauss_lobatto(n,pts,val_at_pts)
+        call weights_legendre_gauss_lobatto(n,val_at_pts,wts)
+        !
+      case (3)
+        !
+        ! Edge quadrature using [-1,Legendre Gauss nodes,+1]
+        !
+        call nodes_legendre_gauss(np,pts,val_at_pts)
+        call weights_legendre_gauss(np,pts,val_at_pts,wts)
+        !
+    end select
+    !
+    deallocate ( val_at_pts , stat=ierr )
+    !
+    if (nloc == 3) then
+      !
+      allocate ( return_value%pts(1:nd,1:np+2) , source=zero , stat=ierr )
+      allocate ( return_value%wts(1:np+2) , source=zero , stat=ierr )
+      !
+      return_value%pts(1,:) = [-one,chop( pts ),+one]
+      return_value%wts = [zero,chop( wts ),zero]
+      !
+    else
+      !
+      allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
+      allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
+      !
+      return_value%pts(1,:) = chop( pts )
+      return_value%wts = chop( wts )
+      !
+    end if
+    !
+    deallocate ( pts , stat=ierr )
+    deallocate ( wts , stat=ierr )
+    !
+  end function get_edge_points
+  !
+  !###############################################################################
+  !
+  pure function get_quad_points(edge) result(return_value)
+    !
+    use order_mod, only : geom_solpts
+    !
+    type(element_type), intent(in) :: edge
+    !
+    type(element_type) :: return_value
+    !
+    integer :: i,j,l,nd,np,ierr
+    !
+    real(qp), allocatable :: pts(:,:)
+    !
+  continue
+    !
+    nd = geom_dimen(Geom_Quad)
+    np = size(edge%pts,dim=2)**nd
+    !
+    ! Compute the tensor product of the 1D solution points
+    !
+    allocate ( pts(1:nd,1:np) , source=qzero , stat=ierr )
+    !
+    l = 0
+    do j = 1,size(edge%pts,dim=2)
+      do i = 1,size(edge%pts,dim=2)
+        l = l + 1
+        pts(1,l) = real( edge%pts(1,i) , kind=qp )
+        pts(2,l) = real( edge%pts(1,j) , kind=qp )
+      end do
+    end do
+    !
+    allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
+    !
+    return_value%pts = chop( pts )
+    !
+    deallocate ( pts , stat=ierr )
+    !
+    allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
+    !
+    l = 0
+    do j = 1,size(edge%wts)
+      do i = 1,size(edge%wts)
+        l = l + 1
+        return_value%wts(l) = real( l , kind=wp )
+      end do
+    end do
+    !
+  end function get_quad_points
+  !
+  !###############################################################################
+  !
+  pure function get_hexa_points(edge) result(return_value)
+    !
+    use order_mod, only : geom_solpts
+    !
+    type(element_type), intent(in) :: edge
+    !
+    type(element_type) :: return_value
+    !
+    integer :: i,j,k,l,nd,np,ierr
+    !
+    real(qp), allocatable :: pts(:,:)
+    !
+  continue
+    !
+    nd = geom_dimen(Geom_Hexa)
+    np = size(edge%pts,dim=2)**nd
+    !
+    ! Compute the tensor product of the 1D solution points
+    !
+    allocate ( pts(1:nd,1:np) , source=qzero , stat=ierr )
+    !
+    l = 0
+    do k = 1,size(edge%pts,dim=2)
+      do j = 1,size(edge%pts,dim=2)
+        do i = 1,size(edge%pts,dim=2)
+          l = l + 1
+          pts(1,l) = real( edge%pts(1,i) , kind=qp )
+          pts(2,l) = real( edge%pts(1,j) , kind=qp )
+          pts(3,l) = real( edge%pts(1,k) , kind=qp )
+        end do
+      end do
+    end do
+    !
+    allocate ( return_value%pts(1:nd,1:np) , source=zero , stat=ierr )
+    !
+    return_value%pts = chop( pts )
+    !
+    deallocate ( pts , stat=ierr )
+    !
+    allocate ( return_value%wts(1:np) , source=zero , stat=ierr )
+    !
+    l = 0
+    do k = 1,size(edge%wts)
+      do j = 1,size(edge%wts)
+        do i = 1,size(edge%wts)
+          l = l + 1
+          return_value%wts(l) = real( l , kind=wp )
+        end do
+      end do
+    end do
+    !
+  end function get_hexa_points
+  !
+  !###############################################################################
+  !
+  subroutine write_points(elem,geom,order,nloc)
+    !
+    !.. Formal Arguments ..
+    integer,            intent(in) :: geom
+    integer,            intent(in) :: order
+    integer,            intent(in) :: nloc
+    type(element_type), intent(in) :: elem
+    !
+    !.. Local Scalars ..
+    integer :: i,j,k,l,m,n,ierr
+    integer :: nc,nc1d,nd,np,np1d,nnpc
+    integer :: ncells,totcel,totpts
+    !
+    character(len=20) :: zonetype
+    character(len=40) :: zonename
+    !
+    !.. Local Allocatable Arrays ..
+    integer,  allocatable, dimension(:,:,:) :: ipelem
+    real(wp), allocatable, dimension(:,:,:) :: xyz
+    real(wp), allocatable, dimension(:,:)   :: xyz_offset
+    !
+    !.. Local Parameters ..
+    character(len=*), parameter :: pname = "write_points"
+    character(len=*), parameter :: cloc(1:3) = ["Gauss     ", &
+                                                "Lobatto   ", &
+                                                "Gauss+Ends"]
+    real(wp), parameter :: ds = one/ten
+    !
+  continue
+    !
+    nd = size(elem%pts,dim=1)
+    np = size(elem%pts,dim=2)
+    !
+    if (geom == Geom_Quad) then
+      !
+      np1d = nint( sqrt( real(np,kind=wp) ) )
+      if (np1d*np1d /= np) then
+        write (error_message,100) "Quad",np,np1d
+        call stop_recon(stop_mpi,pname,error_message)
+      end if
+      nc1d = np1d-1
+      nc = nc1d*nc1d
+      !
+      zonetype = "FEQUADRILATERAL"
+      ncells = 4
+      nnpc = 4
+      !
+    else if (geom == Geom_Hexa) then
+      !
+      np1d = nint( (real(np,kind=wp)**one3) )
+      if (np1d*np1d*np1d /= np) then
+        write (error_message,100) "Hexa",np,np1d
+        call stop_recon(stop_mpi,pname,error_message)
+      end if
+      nc1d = np1d-1
+      nc = nc1d*nc1d*nc1d
+      !
+      zonetype = "FEBRICK"
+      ncells = 8
+      nnpc = 8
+      !
+    else
+      !
+      write (error_message,101)
+      call stop_recon(stop_mpi,pname,error_message)
+      !
+    end if
+    !
+    totcel = nc*ncells
+    totpts = np*ncells
+    !
+    !
+    !
+    allocate ( ipelem(1:nnpc,1:nc,1:ncells) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",1,ierr,error_message)
+    !
+    allocate ( xyz(1:3,1:np,1:ncells) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz",1,ierr,error_message)
+    !
+    allocate ( xyz_offset(1:3,1:ncells) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_offset",1,ierr,error_message)
+    !
+    m = 0
+    do n = 1,ncells
+      !
+      l = 0
+      do k = 1,merge(nc1d,1,geom == Geom_Hexa)
+        do j = 1,nc1d
+          do i = 1,nc1d
+            !
+            l = l + 1
+            ipelem(1,l,n) = m + np1d*np1d*(k-1) + np1d*(j-1) + i
+            ipelem(2,l,n) = m + np1d*np1d*(k-1) + np1d*(j-1) + i + 1
+            ipelem(3,l,n) = m + np1d*np1d*(k-1) + np1d*(j  ) + i + 1
+            ipelem(4,l,n) = m + np1d*np1d*(k-1) + np1d*(j  ) + i
+            if (geom == Geom_Hexa) then
+              ipelem(5,l,n) = m + np1d*np1d*(k  ) + np1d*(j-1) + i
+              ipelem(6,l,n) = m + np1d*np1d*(k  ) + np1d*(j-1) + i + 1
+              ipelem(7,l,n) = m + np1d*np1d*(k  ) + np1d*(j  ) + i + 1
+              ipelem(8,l,n) = m + np1d*np1d*(k  ) + np1d*(j  ) + i
+            end if
+            !
+          end do
+        end do
+      end do
+      m = m + np
+    end do
+    !
+    n = 0
+    do k = 1,merge(2,1,geom==Geom_Hexa)
+      do j = 1,2
+        do i = 1,2
+          n = n + 1
+          xyz_offset(1,n) = real( 2*i - 3 , kind=wp ) * (one + ds)
+          xyz_offset(2,n) = real( 2*j - 3 , kind=wp ) * (one + ds)
+          xyz_offset(3,n) = real( 2*k - 3 , kind=wp ) * (one + ds)
+        end do
+      end do
+    end do
+    !
+    do n = 1,ncells
+      do l = 1,np
+        xyz(1:nd,l,n) = elem%pts(1:nd,l) + xyz_offset(1:nd,n)
+      end do
+    end do
+    !
+    !
+    write (zonename,1) order,trim(Geom_Name(geom)),trim(cloc(nloc))
+    !
+    write (io,2) trim(adjustl(zonename)),totpts,totcel, &
+                 trim(adjustl(zonetype))
+    !
+    do i = 1,3
+      write (io,3) ((xyz(i,l,n), l=1,np), n=1,ncells)
+    end do
+    !
+    do n = 1,ncells
+      do l = 1,nc
+        write (io,4) (ipelem(i,l,n), i=1,nnpc)
+      end do
+    end do
+    !
+    !
+    if (allocated(ipelem)) then
+      deallocate ( ipelem , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipelem",2,ierr,error_message)
+    end if
+    !
+    if (allocated(xyz)) then
+      deallocate ( xyz , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"xyz",2,ierr,error_message)
+    end if
+    !
+    if (allocated(xyz_offset)) then
+      deallocate ( xyz_offset , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"xyz_offset",2,ierr,error_message)
+    end if
+    !
+    ! Format Statements
+    !
+    1 format ("P",i0," - ",a," at ",a)
+    2 format ('ZONE T="',a,'", N=',i0,', E=',i0, &
+              ', DATAPACKING=BLOCK, ZONETYPE=',a)
+    3 format (5es16.8)
+    4 format (8(1x,i6))
+    !
+    100 format ("  Error finding np1d for ",a,"!",/, &
+                "       np   = ",i0,/,"       np1d = ",i0)
+    101 format ("  ERROR! Invalid element type!")
+    !
+  end subroutine write_points
+  !
+  !###############################################################################
+  !
+end subroutine dump_solpts
 !
 !###############################################################################
 !
