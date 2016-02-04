@@ -44,6 +44,7 @@ module geovar
   integer, public, save :: nnode
   integer, public, save :: ncell
   integer, public, save :: nface
+  integer, public, save :: nedge
   integer, public, save :: nfbnd
   integer, public, save :: n_totcel
   integer, public, save :: n_totnod
@@ -71,6 +72,7 @@ module geovar
   integer, public, save :: n_global_totnod
   integer, public, save :: n_global_cell
   integer, public, save :: n_global_totcel
+  integer, public, save :: n_global_edge
   integer, public, save :: n_global_fbnd
   integer, public, save :: n_global_solpts
   integer, public, save :: n_global_totpts
