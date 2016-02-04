@@ -67,6 +67,12 @@
 
 * The subroutine get_point_timestep needs to be extended to 3D.
 
+* Bug with function reformat string: If a constant string is sent in to
+  input_string and the length of the input string is greater than 50 (or the
+  value of the optional argument line_length if present), the function will
+  crash since the added new line characters will try to increase the length
+  of the string with constant length.
+
 ################################################################################
 ################################################################################
 ################################################################################
