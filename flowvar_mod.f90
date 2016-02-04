@@ -102,12 +102,85 @@ module flowvar
   !
   ! faceflx(1:nface)%v(1:nq,1:n_sp1de,1:2) ! this is the normal face flux
   ! faceusp(1:nface)%v(1:nq,1:n_sp1de,1:2)
-  ! facedusp(1:nface)%v(1:2,1:nq,1:n_sp1de,1:2)
+  ! facedusp(1:nface)%v(1:nr,1:nq,1:n_sp1de,1:2)
   !
   type(face_var), public, save, allocatable, dimension(:) :: faceusp
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp
   type(face_var), public, save, allocatable, dimension(:) :: faceflx
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
+  !
+  !
+  !
+  ! NE1D_T : Derived type containing a 1D array for storing edge/node
+  !          solutions for a processor
+  !
+  type, public :: ne1d_t
+    integer :: beg_pt
+    real(wp), allocatable :: v(:)
+  contains
+    procedure :: zero => zero_ne1d_t
+#ifdef USE_TYPEBOUND_FACE_PACK
+    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
+    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
+    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
+    procedure :: pack => pack_ne1d_t_data
+    procedure :: unpack => unpack_ne1d_t_data
+#endif
+  end type ne1d_t
+  !
+  ! NE2D_T : Derived type containing a 2D array for storing edge/node
+  !          solutions for a processor
+  !
+  type, public :: ne2d_t
+    integer :: beg_pt
+    real(wp), allocatable :: v(:,:)
+  contains
+    procedure :: zero => zero_ne2d_t
+#ifdef USE_TYPEBOUND_FACE_PACK
+    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
+    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
+    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
+    procedure :: pack => pack_ne2d_t_data
+    procedure :: unpack => unpack_ne2d_t_data
+#endif
+  end type ne2d_t
+  !
+  ! NE3D_T : Derived type containing a 3D array for storing edge/node
+  !          solutions for a processor
+  !
+  type, public :: ne3d_t
+    integer :: beg_pt
+    real(wp), allocatable :: v(:,:,:)
+  contains
+    procedure :: zero => zero_ne3d_t
+#ifdef USE_TYPEBOUND_FACE_PACK
+    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
+    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
+    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
+    procedure :: pack => pack_ne3d_t_data
+    procedure :: unpack => unpack_ne3d_t_data
+#endif
+  end type ne3d_t
+  !
+  ! NODEUSP  : conservative variables at the nodes
+  !                nodeusp(1:nnode)%v(1:nq)
+  !
+  type(ne1d_t), public, save, allocatable, dimension(:) :: nodeusp
+  !
+  ! NODEDUSP : conservative variable gradients at the nodes
+  !                nodedusp(1:nnode)%v(1:nr,1:nq)
+  !
+  type(ne2d_t), public, save, allocatable, dimension(:) :: nodedusp
+  !
+  ! EDGEUSP  : conservative variables at the edge points
+  !                edgeusp(1:nedge)%v(1:nq,1:n_sp1de)
+  !
+  type(ne2d_t), public, save, allocatable, dimension(:) :: edgeusp
+  !
+  ! EDGEDUSP : conservative variable gradients at the edge points
+  !                edgedusp(1:nedge)%v(1:nr,1:nq,1:n_sp1de)
+  !
+  type(ne3d_t), public, save, allocatable, dimension(:) :: edgedusp
   !
   !
 contains
@@ -248,172 +321,314 @@ continue
 end subroutine allocate_flowvar_arrays
 !
 !###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   FACE RELATED PROCEDURES FOR THE FACE_VAR DERIVED TYPE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !
 elemental subroutine zero_face_var(this)
-  !
-  !.. Formal Arguments ..
   class(face_var), intent(inout) :: this
-  !
-continue
-  !
   if (allocated(this%v)) this%v = zero
-  !
 end subroutine zero_face_var
 !
 !###############################################################################
 !
-elemental subroutine zero_face_vec(this)
-  !
-  !.. Formal Arguments ..
-  class(face_vec), intent(inout) :: this
-  !
-continue
-  !
-  if (allocated(this%v)) this%v = zero
-  !
-end subroutine zero_face_vec
-!
-!###############################################################################
-!
 subroutine pack_face_var_data(this,package)
-  !
   !.. Use Statements ..
   use geovar, only : nfbnd,bface
-  !
   !.. Formal Arguments ..
   class(face_var), dimension(:),    intent(in) :: this
   real(r8),        dimension(:), intent(inout) :: package
-  !
   !.. Local Scalars ..
   integer :: nf,ibeg,iend,nsz
-  !
 continue
-  !
   iend = 0
-  !
   do nf = 1,nfbnd
-    !
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    !
     nsz = size(this(nf)%v(:,:,1))
-    !
     ibeg = iend + 1
     iend = iend + nsz
-    !
     package(ibeg:iend) = reshape( real(this(nf)%v(:,:,1),kind=r8) , [nsz] )
-    !
   end do
-  !
 end subroutine pack_face_var_data
 !
 !###############################################################################
 !
-subroutine pack_face_vec_data(this,package)
-  !
+subroutine unpack_face_var_data(this,package)
   !.. Use Statements ..
   use geovar, only : nfbnd,bface
-  !
+  !.. Formal Arguments ..
+  class(face_var), dimension(:), intent(inout) :: this
+  real(r8),        dimension(:),    intent(in) :: package
+  !.. Local Scalars ..
+  integer :: nf,ibeg,iend
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: nsz
+continue
+  iend = 0
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz(1) = size(this(nf)%v,dim=1)
+    nsz(2) = size(this(nf)%v,dim=2)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    this(nf)%v(:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+  end do
+end subroutine unpack_face_var_data
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   FACE RELATED PROCEDURES FOR THE FACE_VEC DERIVED TYPE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+elemental subroutine zero_face_vec(this)
+  class(face_vec), intent(inout) :: this
+  if (allocated(this%v)) this%v = zero
+end subroutine zero_face_vec
+!
+!###############################################################################
+!
+subroutine pack_face_vec_data(this,package)
+  !.. Use Statements ..
+  use geovar, only : nfbnd,bface
   !.. Formal Arguments ..
   class(face_vec), dimension(:),    intent(in) :: this
   real(r8),        dimension(:), intent(inout) :: package
-  !
   !.. Local Scalars ..
   integer :: nf,ibeg,iend,nsz
-  !
 continue
-  !
   iend = 0
-  !
   do nf = 1,nfbnd
-    !
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    !
     nsz = size(this(nf)%v(:,:,:,1))
-    !
     ibeg = iend + 1
     iend = iend + nsz
-    !
     package(ibeg:iend) = reshape( real(this(nf)%v(:,:,:,1),kind=r8) , [nsz] )
-    !
   end do
-  !
 end subroutine pack_face_vec_data
 !
 !###############################################################################
 !
-subroutine unpack_face_var_data(this,package)
-  !
-  !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  !
-  !.. Formal Arguments ..
-  class(face_var), dimension(:), intent(inout) :: this
-  real(r8),        dimension(:),    intent(in) :: package
-  !
-  !.. Local Scalars ..
-  integer :: nf,ibeg,iend
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
-  !
-continue
-  !
-  iend = 0
-  !
-  do nf = 1,nfbnd
-    !
-    if (bface(1,nf) /= bc_cpu_bnd) cycle
-    !
-    nsz(1) = size(this(nf)%v,dim=1)
-    nsz(2) = size(this(nf)%v,dim=2)
-    !
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    !
-    this(nf)%v(:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
-    !
-  end do
-  !
-end subroutine unpack_face_var_data
-!
-!###############################################################################
-!
 subroutine unpack_face_vec_data(this,package)
-  !
   !.. Use Statements ..
   use geovar, only : nfbnd,bface
-  !
   !.. Formal Arguments ..
   class(face_vec), dimension(:), intent(inout) :: this
   real(r8),        dimension(:),    intent(in) :: package
-  !
   !.. Local Scalars ..
   integer :: nf,ibeg,iend
-  !
   !.. Local Arrays ..
   integer, dimension(1:3) :: nsz
-  !
 continue
-  !
   iend = 0
-  !
   do nf = 1,nfbnd
-    !
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    !
     nsz(1) = size(this(nf)%v,dim=1)
     nsz(2) = size(this(nf)%v,dim=2)
     nsz(3) = size(this(nf)%v,dim=3)
-    !
     ibeg = iend + 1
     iend = iend + product(nsz)
-    !
     this(nf)%v(:,:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
-    !
   end do
-  !
 end subroutine unpack_face_vec_data
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   EDGE/NODE RELATED PROCEDURES FOR THE NE1D_T DERIVED TYPE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+elemental subroutine zero_ne1d_t(this)
+  class(ne1d_t), intent(inout) :: this
+  if (allocated(this%v)) this%v = zero
+end subroutine zero_ne1d_t
+!
+!###############################################################################
+!
+subroutine pack_ne1d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne1d_t), dimension(:),    intent(in) :: this
+  real(r8),      dimension(:), intent(inout) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend,nsz
+continue
+  do n = 1,size(this)
+    nsz = size(this(n)%v(:))
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + nsz
+    package(ibeg:iend) = reshape( real(this(n)%v(:),kind=r8) , [nsz] )
+  end do
+end subroutine pack_ne1d_t_data
+!
+!###############################################################################
+!
+subroutine unpack_ne1d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne1d_t), dimension(:), intent(inout) :: this
+  real(r8),      dimension(:),    intent(in) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend
+  !.. Local Arrays ..
+  integer, dimension(1:1) :: nsz
+continue
+  do n = 1,size(this)
+    nsz(1) = size(this(n)%v,dim=1)
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + product(nsz)
+    this(n)%v(:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+  end do
+end subroutine unpack_ne1d_t_data
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   EDGE/NODE RELATED PROCEDURES FOR THE NE2D_T DERIVED TYPE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+elemental subroutine zero_ne2d_t(this)
+  class(ne2d_t), intent(inout) :: this
+  if (allocated(this%v)) this%v = zero
+end subroutine zero_ne2d_t
+!
+!###############################################################################
+!
+subroutine pack_ne2d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne2d_t), dimension(:),    intent(in) :: this
+  real(r8),      dimension(:), intent(inout) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend,nsz
+continue
+  do n = 1,size(this)
+    nsz = size(this(n)%v(:,:))
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + nsz
+    package(ibeg:iend) = reshape( real(this(n)%v(:,:),kind=r8) , [nsz] )
+  end do
+end subroutine pack_ne2d_t_data
+!
+!###############################################################################
+!
+subroutine unpack_ne2d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne2d_t), dimension(:), intent(inout) :: this
+  real(r8),      dimension(:),    intent(in) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: nsz
+continue
+  do n = 1,size(this)
+    nsz(1) = size(this(n)%v,dim=1)
+    nsz(2) = size(this(n)%v,dim=2)
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + product(nsz)
+    this(n)%v(:,:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+  end do
+end subroutine unpack_ne2d_t_data
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   EDGE/NODE RELATED PROCEDURES FOR THE NE3D_T DERIVED TYPE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+elemental subroutine zero_ne3d_t(this)
+  class(ne3d_t), intent(inout) :: this
+  if (allocated(this%v)) this%v = zero
+end subroutine zero_ne3d_t
+!
+!###############################################################################
+!
+subroutine pack_ne3d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne3d_t), dimension(:),    intent(in) :: this
+  real(r8),      dimension(:), intent(inout) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend,nsz
+continue
+  do n = 1,size(this)
+    nsz = size(this(n)%v(:,:,:))
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + nsz
+    package(ibeg:iend) = reshape( real(this(n)%v(:,:,:),kind=r8) , [nsz] )
+  end do
+end subroutine pack_ne3d_t_data
+!
+!###############################################################################
+!
+subroutine unpack_ne3d_t_data(this,package)
+  !.. Formal Arguments ..
+  class(ne3d_t), dimension(:), intent(inout) :: this
+  real(r8),      dimension(:),    intent(in) :: package
+  !.. Local Scalars ..
+  integer :: n,ibeg,iend
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: nsz
+continue
+  do n = 1,size(this)
+    nsz(1) = size(this(n)%v,dim=1)
+    nsz(2) = size(this(n)%v,dim=2)
+    nsz(3) = size(this(n)%v,dim=3)
+    ibeg = this(n)%beg_pt
+    iend = ibeg-1 + product(nsz)
+    this(n)%v(:,:,:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+  end do
+end subroutine unpack_ne3d_t_data
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+!   MEMORY USAGE
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine flowvar_memory_usage(iunit)
@@ -557,6 +772,126 @@ continue
     !
   else
     write (iou,7) "facexyz"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(edgeusp)) then
+    !
+    write (iou,8) "edgeusp",storage_size(edgeusp),storage_size(edgeusp)/8
+    call dt%set( storage_size(edgeusp,kind=inttype) , &
+                         size(edgeusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(edgeusp,dim=1),ubound(edgeusp,dim=1)
+      !
+      call array%add( storage_size(edgeusp(i)%v,kind=inttype) , &
+                              size(edgeusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "edgeusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "edgeusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "edgeusp"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(edgedusp)) then
+    !
+    write (iou,8) "edgedusp",storage_size(edgedusp),storage_size(edgedusp)/8
+    call dt%set( storage_size(edgedusp,kind=inttype) , &
+                         size(edgedusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(edgedusp,dim=1),ubound(edgedusp,dim=1)
+      !
+      call array%add( storage_size(edgedusp(i)%v,kind=inttype) , &
+                              size(edgedusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "edgedusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "edgedusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "edgedusp"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(nodeusp)) then
+    !
+    write (iou,8) "nodeusp",storage_size(nodeusp),storage_size(nodeusp)/8
+    call dt%set( storage_size(nodeusp,kind=inttype) , &
+                         size(nodeusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(nodeusp,dim=1),ubound(nodeusp,dim=1)
+      !
+      call array%add( storage_size(nodeusp(i)%v,kind=inttype) , &
+                              size(nodeusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "nodeusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "nodeusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "nodeusp"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(nodedusp)) then
+    !
+    write (iou,8) "nodedusp",storage_size(nodedusp),storage_size(nodedusp)/8
+    call dt%set( storage_size(nodedusp,kind=inttype) , &
+                         size(nodedusp,kind=inttype) )
+    !
+    call array%reset
+    !
+    do i = lbound(nodedusp,dim=1),ubound(nodedusp,dim=1)
+      !
+      call array%add( storage_size(nodedusp(i)%v,kind=inttype) , &
+                              size(nodedusp(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "nodedusp(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "nodedusp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "nodedusp"
   end if
   !
   !-----------------------------------------------------------------------------
