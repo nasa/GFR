@@ -1483,7 +1483,7 @@ end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
-subroutine find_flxpts_of_each_cell()
+subroutine create_cell_derived_type()
   !
   !.. Use Statements ..
   use geovar, only : nfbnd,ncell,nface,bface
@@ -1506,7 +1506,7 @@ subroutine find_flxpts_of_each_cell()
   integer, parameter :: right_side = 2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "find_flxpts_of_each_cell"
+  character(len=*), parameter :: pname = "create_cell_derived_type"
   !
 continue
   !
@@ -1685,7 +1685,7 @@ continue
   !
   1 format ("cell(",i0,")%face",:,"(",i0,")%",a)
   !
-end subroutine find_flxpts_of_each_cell
+end subroutine create_cell_derived_type
 !
 !###############################################################################
 !
