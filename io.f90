@@ -3369,10 +3369,16 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_solution_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_sname(1:4) = ["Density  ", &
-                                                    "Velocity ", &
-                                                    "Pressure ", &
-                                                    "Vorticity" ]
+  character(len=*), parameter :: char_sname(1:6) = ["Density     ", &
+                                                    "Momentum    ", &
+                                                    "Energy      ", &
+                                                    "GradDensity ", &
+                                                    "GradMomentum", &
+                                                    "GradEnergy  "]
+ !character(len=*), parameter :: char_sname(1:4) = ["Density  ", &
+ !                                                  "Velocity ", &
+ !                                                  "Pressure ", &
+ !                                                  "Vorticity" ]
   !
   !.. Local Arrays ..
   integer :: ifile_s,ibase_s,izone_s,isol_s
@@ -3587,8 +3593,51 @@ continue
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
         end do
+      else if (trim(char_sname(l)) == "Momentum") then
+        do m = 1,nr
+          n = n + 1
+          varname = "Momentum"//char_xyz(m)
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end do
+      else if (trim(char_sname(l)) == "GradDensity") then
+        do m = 1,nr
+          n = n + 1
+          varname = "DensityGradient"//char_xyz(m)
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end do
+      else if (trim(char_sname(l)) == "GradMomentum") then
+        do m = 1,nr
+          do k = 1,nr
+            n = n + 1
+            varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(k)
+            call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                   cgns_kind_real,trim(varname),isvar_s(n),ierr)
+            call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                            "Write node: Solution variable",n)
+          end do
+        end do
+      else if (trim(char_sname(l)) == "GradEnergy") then
+        do m = 1,nr
+          n = n + 1
+          varname = "EnergyGradient"//char_xyz(m)
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end do
       else
         n = n + 1
+        if (trim(char_sname(l)) == "Energy") then
+          varname = "EnergyStagnationDensity"
+        else
+          varname = trim(char_sname(l))
+        end if
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
                                trim(char_sname(l)),isvar_s(n),ierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
@@ -3621,6 +3670,41 @@ continue
           vartmp(1:n_solpts) = interp_usp(nec,1:n_solpts)
           vartmp = vartmp * rhoref
           call cgns_write_field_parallel
+        case ("Momentum") ! Momentum
+          do m = nmb,nme
+            n = n + 1
+            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts)
+            vartmp = vartmp * rhoref * aref
+            call cgns_write_field_parallel
+          end do
+        case ("Energy") ! Energy
+          n = n + 1
+          vartmp(1:n_solpts) = interp_usp(nee,1:n_solpts)
+          vartmp = vartmp * rhoref * aref * aref
+          call cgns_write_field_parallel
+        case ("GradDensity") ! GradDensity
+          do m = 1,nr
+            n = n + 1
+            vartmp(1:n_solpts) = interp_dusp(m,nec,1:n_solpts)
+            vartmp = vartmp * rhoref
+            call cgns_write_field_parallel
+          end do
+        case ("GradMomentum") ! GradMomentum
+          do m = nmb,nme
+            do k = 1,nr
+              n = n + 1
+              vartmp(1:n_solpts) = interp_dusp(k,m,1:n_solpts)
+              vartmp = vartmp * rhoref * aref
+              call cgns_write_field_parallel
+            end do
+          end do
+        case ("GradEnergy") ! GradEnergy
+          do m = 1,nr
+            n = n + 1
+            vartmp(1:n_solpts) = interp_dusp(m,nee,1:n_solpts)
+            vartmp = vartmp * rhoref * aref * aref
+            call cgns_write_field_parallel
+          end do
         case ("Velocity") ! Velocity
           do m = nmb,nme
             n = n + 1
