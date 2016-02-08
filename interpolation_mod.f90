@@ -393,7 +393,6 @@ continue
           case (Geom_Hexa)
             !
             solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts => face_elem(Geom_Edge,face_order)%pts
             !
             this_node%mat = InterpToNode_Hexa( solpts(1,:) )
             !
