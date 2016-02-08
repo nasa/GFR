@@ -219,26 +219,44 @@ end subroutine init_correction_matrices
 !
 pure function CorrectionMatrix_Edge(xi) result(return_value)
   !
+  !.. Use Statements ..
+  use ovar, only : correction_function
+  !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
   !
-  !.. Function Return Value ..
+  !.. Function Result ..
   real(wp), dimension(1:size(xi)) :: return_value
   !
   !.. Local Scalars ..
-  integer  :: i,j,nfp,ierr
-  real(qp) :: c1,c2
+  integer  :: n,k,j,npts,ndeg
+  real(qp) :: cn,cnm1,cnm2
   !
   !.. Local Arrays ..
   real(qp), dimension(1:size(xi)) :: x
   real(qp), dimension(1:size(xi)) :: cmat
-  real(qp), dimension(0:size(xi)) :: coef_dRR
+  real(qp), dimension(0:size(xi)) :: coef_c
+  real(qp), dimension(0:size(xi)) :: coef_dc
   !
+  real(qp), dimension( 0:size(xi), 1:size(xi)) :: xexp
   real(qp), dimension(-1:size(xi),-1:size(xi)) :: coef_Le
+  real(qp), dimension( 0:size(xi), 0:size(xi)) :: coef_RR
   !
 continue
   !
-  nfp = size(xi)
+  ! #########################################################################
+  !
+  !       THE LOOP INDICES IN THIS FUNCTION ARE USED FOR THE FOLLOWING
+  !       SPECIFIC TASKS
+  !
+  !    n : index used for looping through polynomial degrees / exponents
+  !    k : index used for looping over the solution points
+  !    j : index used for looping through the coefficients of a polynomial
+  !
+  ! #########################################################################
+  !
+  npts = size(xi) ! number of solution points
+  ndeg = size(xi) ! polynomial degree of the correction function
   !
   ! Initialize the function result
   !
@@ -249,40 +267,101 @@ continue
   x(:) = real( xi(:) , kind=qp )
   !
   cmat(:)      = qzero
-  coef_dRR(:)  = qzero
+  coef_c(:)    = qzero
+  coef_dc(:)   = qzero
   coef_Le(:,:) = qzero
+  coef_RR(:,:) = qzero
   !
   ! Initialize specific coefficients of Legendre polynomial
   !
   coef_Le(0,0) = qone
   coef_Le(1,1) = qone
   !
-  ! Get the coefficients for every Legendre polynomial up to degree nfp
+  ! Get the value of each nodal coordinate raised to all possible powers
+  !   using xk = x(k), xexp(0:neg,k) contains the values of
+  !        [ xk^0, xk^1, xk^2, ..., xk^(ndeg-1), xk^ndeg]
   !
-  do i = 2,nfp
-    do j = 0,i
-      !
-      c1 = real( 2*i-1 , kind=qp ) / real( i , kind=qp )
-      c2 = real(   i-1 , kind=qp ) / real( i , kind=qp )
-      !
-      coef_Le(i,j) = c1*coef_Le(i-1,j-1) - c2*coef_Le(i-2,j)
-      !
+  xexp(0,:) = qone
+  do k = 1,npts
+    do n = 1,ndeg
+      xexp(n,k) = xexp(n-1,k) * x(k)
     end do
   end do
   !
-  ! Get the coefficients for the derivative of
-  ! the right Radau polynomial of degree nfp
+  ! Get the coefficients for every Legendre polynomial up to degree ndeg
   !
-  c1 = qhalf * real( (-1)**nfp , kind=qp )
-  do i = 1,nfp
-    coef_dRR(i-1) = c1 * real(i,kind=qp) * (coef_Le(nfp,i) - coef_Le(nfp-1,i))
+  do n = 2,ndeg
+    !
+    cnm1 = real( 2*n-1 , kind=qp ) / real( n , kind=qp )
+    cnm2 = real(   n-1 , kind=qp ) / real( n , kind=qp )
+    !
+    ! Loop to get the coefficients for Legendre polynomial of degree n
+    !
+    do j = 0,n
+      coef_Le(j,n) = cnm1*coef_Le(j-1,n-1) - cnm2*coef_Le(j,n-2)
+    end do
+    !
+  end do
+  !
+  ! Get the coefficients for every right Radau polynomial up to degree ndeg
+  !
+  do n = 1,ndeg
+    !
+    cn = qhalf * real( (-1)**n , kind=qp )
+    !
+    ! Loop to get the coefficients for right Radau polynomial of degree n
+    !
+    do j = 0,n
+      coef_RR(j,n) = cn * (coef_Le(j,n) - coef_Le(j,n-1))
+    end do
+    !
+  end do
+  !
+  ! Get the coefficients for the correction function
+  !
+  if (correction_function == Correction_g2) then
+    !
+    ! Use the g2 correction function
+    !
+    cn   = real( ndeg-1 , kind=qp ) / real( 2*ndeg-1 , kind=qp )
+    cnm1 = real( ndeg   , kind=qp ) / real( 2*ndeg-1 , kind=qp )
+    !
+    do j = 0,ndeg
+      coef_c(j) = cn*coef_RR(j,ndeg) + cnm1*coef_RR(j,ndeg-1)
+    end do
+    !
+  else if (correction_function == Correction_gGauss) then
+    !
+    ! Use the gGauss correction function
+    !
+    cn   = real( ndeg-1 , kind=qp ) / real( 2*ndeg-1 , kind=qp )
+    cnm1 = real( ndeg   , kind=qp ) / real( 2*ndeg-1 , kind=qp )
+    !
+    do j = 0,ndeg
+      coef_c(j) = cn*coef_RR(j,ndeg) + cnm1*coef_RR(j,ndeg-1)
+    end do
+    !
+  else
+    !
+    ! Use the right Radau polynomial for the correction function
+    !
+    do j = 0,ndeg
+      coef_c(j) = coef_RR(j,ndeg)
+    end do
+    !
+  end if
+  !
+  ! Compute the coefficients for the derivative of the correction function
+  !
+  do j = 1,ndeg
+    coef_dc(j-1) = real( j , kind=qp ) * coef_c(j)
   end do
   !
   ! Finally, get the value for the derivative of the
-  ! right Radau polynomial at each 1D solution point
+  ! correction function at each 1D solution point
   !
-  do i = 1,nfp
-    cmat(i) = -sum( (x(i)**intseq(0,nfp-1)) * coef_dRR(0:nfp-1) )
+  do k = 1,npts
+    cmat(k) = -sum( xexp(0:ndeg-1,k) * coef_dc(0:ndeg-1) )
   end do
   !
   ! Use the chop function to copy cmat into return_value while also
@@ -303,7 +382,7 @@ pure function CorrectionMatrix_Quad_DG(pts1d,wts1d) result(return_value)
   real(wp), dimension(:), intent(in) :: pts1d
   real(wp), dimension(:), intent(in) :: wts1d
   !
-  !.. Function Return Value ..
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -390,7 +469,7 @@ pure function CorrectionMatrix_Quad(xi) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
   !
-  !.. Function Return Value ..
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -486,8 +565,10 @@ pure function CorrectionMatrix_Tria(rs) result(return_value)
   !.. Use Statements ..
   use vandermonde_mod, only : vand
   !
+  !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -603,8 +684,10 @@ pure function CorrectionMatrix_Tetr(rs) result(return_value)
   !.. Use Statements ..
   use vandermonde_mod, only : vand
   !
+  !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -720,8 +803,10 @@ pure function CorrectionMatrix_Pyra(rs) result(return_value)
   !.. Use Statements ..
   use vandermonde_mod, only : vand
   !
+  !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -837,8 +922,10 @@ pure function CorrectionMatrix_Pris(rs) result(return_value)
   !.. Use Statements ..
   use vandermonde_mod, only : vand
   !
+  !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
@@ -951,7 +1038,7 @@ pure function CorrectionMatrix_Hexa(xi) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
   !
-  !.. Function Return Value ..
+  !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
