@@ -217,7 +217,7 @@ end subroutine init_correction_matrices
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Edge(xi) result(return_value)
+pure function CorrectionMatrix_Edge(xi,eval_deriv) result(return_value)
   !
   !.. Use Statements ..
   use ovar, only : correction_function
@@ -225,11 +225,15 @@ pure function CorrectionMatrix_Edge(xi) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), dimension(1:size(xi)) :: return_value
   !
   !.. Local Scalars ..
   integer  :: n,k,j,npts,ndeg
+  logical :: compute_derivative
   real(qp) :: cn,cnm1,cnm2
   !
   !.. Local Arrays ..
@@ -257,6 +261,11 @@ continue
   !
   npts = size(xi) ! number of solution points
   ndeg = size(xi) ! polynomial degree of the correction function
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Initialize the function result
   !
@@ -351,18 +360,31 @@ continue
     !
   end if
   !
-  ! Compute the coefficients for the derivative of the correction function
-  !
-  do j = 1,ndeg
-    coef_dc(j-1) = real( j , kind=qp ) * coef_c(j)
-  end do
-  !
-  ! Finally, get the value for the derivative of the
-  ! correction function at each 1D solution point
-  !
-  do k = 1,npts
-    cmat(k) = -sum( xexp(0:ndeg-1,k) * coef_dc(0:ndeg-1) )
-  end do
+  if (compute_derivative) then
+    !
+    ! Compute the coefficients for the derivative of the correction function
+    !
+    do j = 1,ndeg
+      coef_dc(j-1) = real( j , kind=qp ) * coef_c(j)
+    end do
+    !
+    ! Finally, get the value for the derivative of the
+    ! correction function at each 1D solution point
+    !
+    do k = 1,npts
+      cmat(k) = -sum( xexp(0:ndeg-1,k) * coef_dc(0:ndeg-1) )
+    end do
+    !
+  else
+    !
+    ! Finally get the value of the correction function
+    ! at each 1D solution point
+    !
+    do k = 1,npts
+      cmat(k) = sum( xexp(0:ndeg,k) * coef_c(0:ndeg) )
+    end do
+    !
+  end if
   !
   ! Use the chop function to copy cmat into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
@@ -373,7 +395,7 @@ end function CorrectionMatrix_Edge
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Quad_DG(pts1d,wts1d) result(return_value)
+pure function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly1D
@@ -382,11 +404,15 @@ pure function CorrectionMatrix_Quad_DG(pts1d,wts1d) result(return_value)
   real(wp), dimension(:), intent(in) :: pts1d
   real(wp), dimension(:), intent(in) :: wts1d
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,k,nf,np,nsp,nfp,ierr
+  logical :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: cmat_qp(:,:)
@@ -398,6 +424,11 @@ continue
   np = size(pts1d)
   nsp = np*np
   nfp = 4*np
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -464,10 +495,13 @@ end function CorrectionMatrix_Quad_DG
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Quad(xi) result(return_value)
+pure function CorrectionMatrix_Quad(xi,eval_deriv) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
+  !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -507,7 +541,7 @@ continue
   !
   ! 1D Correction matrix
   !
-  cmat1D = CorrectionMatrix_Edge(xi)
+  cmat1D = CorrectionMatrix_Edge(xi,eval_deriv)
   !
   ! Face 1 - y/eta min face of quad (bottom/south)
   !
@@ -557,7 +591,7 @@ end function CorrectionMatrix_Quad
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Tria(rs) result(return_value)
+pure function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -568,12 +602,16 @@ pure function CorrectionMatrix_Tria(rs) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
+  logical :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -588,6 +626,11 @@ continue
   this_order = np2n(nsp)
   np = this_order+1
   nfp = 3*np
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -676,7 +719,7 @@ end function CorrectionMatrix_Tria
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Tetr(rs) result(return_value)
+pure function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -687,12 +730,16 @@ pure function CorrectionMatrix_Tetr(rs) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
+  logical :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -707,6 +754,11 @@ continue
   this_order = np2n(nsp)
   np = this_order+1
   nfp = 3*np
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -795,7 +847,7 @@ end function CorrectionMatrix_Tetr
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Pyra(rs) result(return_value)
+pure function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -806,12 +858,16 @@ pure function CorrectionMatrix_Pyra(rs) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
+  logical :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -826,6 +882,11 @@ continue
   this_order = np2n(nsp)
   np = this_order+1
   nfp = 3*np
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -914,7 +975,7 @@ end function CorrectionMatrix_Pyra
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Pris(rs) result(return_value)
+pure function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -925,12 +986,16 @@ pure function CorrectionMatrix_Pris(rs) result(return_value)
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
+  !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
+  logical :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -945,6 +1010,11 @@ continue
   this_order = np2n(nsp)
   np = this_order+1
   nfp = 3*np
+  !
+  compute_derivative = true
+  if (present(eval_deriv)) then
+    compute_derivative = eval_deriv
+  end if
   !
   ! Allocate the return array containing the working
   ! precision correction matrix
@@ -1033,10 +1103,13 @@ end function CorrectionMatrix_Pris
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Hexa(xi) result(return_value)
+pure function CorrectionMatrix_Hexa(xi,eval_deriv) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
+  !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -1092,7 +1165,7 @@ continue
   !
   ! 1D Correction matrix
   !
-  cmat1D = CorrectionMatrix_Edge(xi)
+  cmat1D = CorrectionMatrix_Edge(xi,eval_deriv)
   !
   ! ############################################################
   ! ############################################################
