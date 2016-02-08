@@ -23,7 +23,6 @@ module parallel_mod
   public :: exchange_facedusp
   public :: parallel_memory_usage
  !public :: exchange_modes
- !public :: test_nonblocking_fexchange
   !
   ! IDEA: 1. all processors send in their global versions of bface, xyz_nodes, 
   !          nodes_of_cell, nodes_of_cell_ptr, etc. to a single subroutine
@@ -3656,115 +3655,6 @@ end subroutine wait_facedusp
 !  call mpi_waitall(int(2*ncomm,kind=int_mpi),rqst,istat,mpierr)
 !  !
 !end subroutine exchange_modes_r8
-!
-!###############################################################################
-!
-!subroutine test_nonblocking_fexchange()
-!  !
-!  use geovar, only : nr,xyz,nfbnd,bface
-!  use geovar, only : face,pts_in_cell_ptr
-!  use geovar, only : cell_geom,cell_order
-!  use interpolation_mod, only : interp
-!  !
-!  !.. Local Scalars..
-!  integer :: i,n,s,r,dtype,ierr,nf,n1,n2,np,wlocl,k,kl
-!  integer :: host_cell,host_geom,host_order
-!  real(wp) :: tmp
-!  !
-!  !.. Local Arrays ..
-!  integer, dimension(1:2*ncomm) :: rqst
-!  integer, dimension(1:mpi_status_size,1:2*ncomm) :: istat
-!  !
-!  !.. Local Allocatable Arrays ..
-!  real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: recv_buffer
-!  real(r8), dimension(1:nr,1:n_sp1de,1:2,1:nfbnd) :: send_buffer
-!  !
-!  !.. Local Pointers ..
-!  real(wp), pointer, contiguous :: host_interp(:,:)
-!  !
-!continue
-!  !
-!  ! Initialize the local pointers to disassociated
-!  !
-!  host_interp => null()
-!  !
-!  send_buffer(:,:,:,:) = real(0.0,kind=r8)
-!  recv_buffer(:,:,:,:) = real(0.0,kind=r8)
-!  do nf = 1,nfbnd
-!    !
-!    host_cell = face(nf)%left%cell
-!    !
-!    n1 = pts_in_cell_ptr(host_cell)+1
-!    n2 = pts_in_cell_ptr(host_cell+1)
-!    np = n2-n1+1
-!    !
-!    host_geom = cell_geom(host_cell)
-!    host_order = cell_order(host_cell)
-!    !
-!    ! Assign local pointer as an alias to the
-!    ! interpolation matrix to simplify the code
-!    !
-!    host_interp => interp(host_geom,host_order)%toFace(host_order)%mat
-!    !
-!    do k = 1,n_sp1de
-!      kl = face(nf)%left%flxpts(k)
-!      do n = 1,nr
-!        tmp = dot( host_interp(1:np,kl) , xyz(n,n1:n2) )
-!        send_buffer(n,k,1,nf) = real(tmp,kind=r8)
-!      end do
-!    end do
-!    !
-!    ! Disassociate host_interp before continuing to the next face
-!    !
-!    if (associated(host_interp)) host_interp => null()
-!    !
-!  end do
-!  !
-!  recv_buffer(:,:,:,:) = send_buffer(:,:,:,:)
-!  !
-!  ! Initialize all the receives so each process
-!  ! is ready once the send is posted
-!  !
-!  do n = 1,ncomm
-!    s = exch_cpu(n)
-!    dtype = testf_recv(n)
-!    call mpi_irecv(recv_buffer,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
-!  end do
-!  !
-!  ! Send out the adjacent cells
-!  !
-!  do n = 1,ncomm
-!    r = exch_cpu(n)
-!    dtype = testf_send(n)
-!    call mpi_isend(send_buffer,1,dtype,r,mypnum,mpi_comm_world,rqst(n+ncomm),mpierr)
-!  end do
-!  !
-!  ! Wait for all sends and receives to complete
-!  !
-!  call mpi_waitall(2*ncomm,rqst,istat,mpierr)
-!  !
-!  ! Update the adjacent elements
-!  !
-!  send_buffer(:,:,:,:) = recv_buffer(:,:,:,:)
-!  !
-!  do nf = 1,nfbnd
-!    if (bface(1,nf) /= bc_cpu_bnd) cycle
-!    write (150+mypnum,1) nf,face(nf)%left%cell,face(nf)%right%cell
-!    do k = 1,n_sp1de
-!      write (150+mypnum,2) k,send_buffer(1,k,1,nf),send_buffer(2,k,1,nf), &
-!                             send_buffer(1,k,2,nf),send_buffer(2,k,2,nf)
-!    end do
-!  end do
-!  !
-! !call stop_recon(stop_mpi,"test_nonblocking_fexchange")
-!  !
-!  1 format (" Face = ",i6,4x,"=> Left cell = ",i5,"  |  Right Cell = ",i5)
-!  2 format ("    k = ",i2," -   xl,yl = ",g12.4,",",g12.4, &
-!                          "  |  xr,yr = ",g12.4,",",g12.4)
-! !2 format ("    k = ",i2," -   xl = ",g12.4,"  |  xr = ",g12.4,/, &
-! !          "               yl = ",g12.4,"  |  yr = ",g12.4)
-!  !
-!end subroutine test_nonblocking_fexchange
 !
 !###############################################################################
 !
