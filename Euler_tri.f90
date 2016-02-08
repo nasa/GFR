@@ -222,7 +222,7 @@ continue
   !
   ! Get the grid connectivity and metrics
   !
-  call get_grid_connectivity
+  call get_grid_connectivity(bface,cell_geom,nodes_of_cell,nodes_of_cell_ptr)
   call memory_pause("getting grid connectivity","initializing vandermonde matrices")
   !
   ! Compute the remaining quadrature information

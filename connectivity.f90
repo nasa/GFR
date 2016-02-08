@@ -17,21 +17,33 @@ module connectivity_mod
   public :: GetFaceNodes_for_TriaFace
   public :: RotateFluxPoints_Quad
   public :: RotateFluxPoints_Tria
+  public :: find_cells_surrounding_each_node
+  public :: find_cells_surrounding_each_cell
   !
 contains
 !
 !###############################################################################
 !
-subroutine get_grid_connectivity()
+subroutine get_grid_connectivity(bface,cell_geom, &
+                                 nodes_of_cell,nodes_of_cell_ptr)
   !
-  !.. Use Statements ..
-  use geovar, only : bface
+  !.. Formal Arguments ..
+  integer,  dimension(:,:), intent(in) :: bface
+  integer,  dimension(:),   intent(in) :: cell_geom
+  integer,  dimension(:),   intent(in) :: nodes_of_cell
+  integer,  dimension(:),   intent(in) :: nodes_of_cell_ptr
+  !
+  !.. Local Scalars ..
+  integer :: ierr
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:)   :: cells_with_node
-  integer, allocatable, dimension(:)   :: cells_with_node_ptr
-  integer, allocatable, dimension(:)   :: cells_surr_cell
-  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:) :: cells_with_node
+  integer, allocatable, dimension(:) :: cells_with_node_ptr
+  integer, allocatable, dimension(:) :: cells_surr_cell
+  integer, allocatable, dimension(:) :: cells_surr_cell_ptr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_grid_connectivity"
   !
 continue
   !
@@ -39,13 +51,17 @@ continue
   !
   call memory_pause("entering grid connectivity master subroutine", &
                     "finding cells surrounding each node")
-  call find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
+  call find_cells_surrounding_each_node(bface, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr)
   !
   ! Get the cells surrounding each cell
   !
   call memory_pause("finding cells surrounding each node", &
                     "finding the cells surrounding each cell")
-  call find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr, &
+  call find_cells_surrounding_each_cell(bface,cell_geom, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
                                         cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Get the cells on each face
@@ -68,11 +84,35 @@ continue
   call memory_pause("getting the unit cell subconnectivities", &
                     "leaving the grid connectivity master subroutine")
   !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(cells_with_node)) then
+    deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_node",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_node_ptr)) then
+    deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_node_ptr",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_surr_cell)) then
+    deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_surr_cell_ptr)) then
+    deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+  end if
+  !
 end subroutine get_grid_connectivity
 !
 !###############################################################################
 !
-subroutine find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
+subroutine find_cells_surrounding_each_node(bface, &
+                                            nodes_of_cell,nodes_of_cell_ptr, &
+                                            cells_with_node,cells_with_node_ptr)
   !
   ! Find the cells that surround each node
   !
@@ -81,34 +121,36 @@ subroutine find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
   ! where : ibeg = cells_with_node_ptr(i_node)+1
   !         iend = cells_with_node_ptr(i_node+1)
   !
-  !.. Use Statements ..
-  use geovar, only : nnode,ncell,n_totcel,nfbnd,bface
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  !
   !.. Formal Arguments ..
+  integer,              dimension(:,:),  intent(in) :: bface
+  integer,              dimension(:),    intent(in) :: nodes_of_cell
+  integer,              dimension(:),    intent(in) :: nodes_of_cell_ptr
   integer, allocatable, dimension(:), intent(inout) :: cells_with_node
   integer, allocatable, dimension(:), intent(inout) :: cells_with_node_ptr
   !
   !.. Local Scalars ..
   integer :: i,ip,is,ibeg,iend,n,nc,ierr
-  integer :: n1,n2,np
+  integer :: n1,n2,np,lnode,lfbnd,lcell
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: cwn
- !logical, allocatable, dimension(:,:) :: ghost_msk
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_cells_surrounding_each_node"
   !
 continue
   !
-  allocate ( cells_with_node_ptr(1:nnode+1) , source=0 , &
+  lnode = maxval(nodes_of_cell)
+  lfbnd = size(bface,dim=2)
+  lcell = size(nodes_of_cell_ptr)-1 - lfbnd
+  !
+  allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
   !
   ! Loop over the cells, storing 'ahead'
   !
-  do n = 1,ncell
+  do n = 1,lcell
     !
     ibeg = nodes_of_cell_ptr(n)+1
     iend = nodes_of_cell_ptr(n+1)
@@ -122,7 +164,7 @@ continue
   !
   ! Add in the nodes of the ghost faces
   !
-  do n = 1,nfbnd
+  do n = 1,lfbnd
     !
     nc = bface(10,n)
     !
@@ -148,7 +190,7 @@ continue
   !
   ! Now store the cells surrounding each node in cells_with_node
   !
-  do n = 1,ncell
+  do n = 1,lcell
     !
     ibeg = nodes_of_cell_ptr(n)+1
     iend = nodes_of_cell_ptr(n+1)
@@ -164,7 +206,7 @@ continue
   !
   ! Add in the nodes of the ghost faces
   !
-  do n = 1,nfbnd
+  do n = 1,lfbnd
     !
     nc = bface(10,n)
     !
@@ -197,14 +239,14 @@ continue
   ! could possible happen.
   !
   nc = 0
-  do n = 1,nnode
+  do n = 1,lnode
     nc = max( nc , cells_with_node_ptr(n+1) - cells_with_node_ptr(n) )
   end do
   !
   allocate ( cwn(1:nc) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cwn",1,ierr,error_message,skip_alloc_pause)
   !
-  do n = 1,nnode
+  do n = 1,lnode
     !
     n1 = cells_with_node_ptr(n)+1
     n2 = cells_with_node_ptr(n+1)
@@ -288,7 +330,9 @@ end subroutine find_cells_surrounding_each_node
 !
 !###############################################################################
 !
-subroutine find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr, &
+subroutine find_cells_surrounding_each_cell(bface,cell_geom, &
+                                            nodes_of_cell,nodes_of_cell_ptr, &
+                                            cells_with_node,cells_with_node_ptr, &
                                             cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Find the cells that surround each cell
@@ -299,13 +343,13 @@ subroutine find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr,
   ! where : ibeg = cells_surr_cell_ptr(i_cell)+1
   !         iend = cells_surr_cell_ptr(i_cell+1)
   !
-  !.. Use Statements ..
-  use geovar, only : cell_geom,n_totnod,ncell
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  !
   !.. Formal Arguments ..
-  integer, allocatable, dimension(:), intent(inout) :: cells_with_node
-  integer, allocatable, dimension(:), intent(inout) :: cells_with_node_ptr
+  integer,              dimension(:,:),  intent(in) :: bface
+  integer,              dimension(:),    intent(in) :: cell_geom
+  integer,              dimension(:),    intent(in) :: nodes_of_cell
+  integer,              dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,              dimension(:),    intent(in) :: cells_with_node
+  integer,              dimension(:),    intent(in) :: cells_with_node_ptr
   integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell
   integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell_ptr
   !
@@ -313,6 +357,7 @@ subroutine find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr,
   integer :: i,i1,i2,ieadj,csc_ptr
   integer :: j,j1,j2,n,n1,n2,ierr
   integer :: this_geom,this_side,nfnods
+  integer :: lnode,lcell
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: ip
@@ -326,16 +371,19 @@ subroutine find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr,
   !
 continue
   !
-  allocate ( lpoin(1:n_totnod) , source=0 , stat=ierr , errmsg=error_message )
+  lnode = maxval(nodes_of_cell)
+  lcell = size(nodes_of_cell_ptr) - size(bface,dim=2)
+  !
+  allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,ierr,error_message)
   !
-  allocate ( cells_surr_cell_ptr(1:ncell+1) , source=0 , &
+  allocate ( cells_surr_cell_ptr(1:lcell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
   !
   ! Loop to set up cells_surr_cell_ptr
   !
-  do n = 1,ncell
+  do n = 1,lcell
     cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
   end do
   !
@@ -345,7 +393,7 @@ continue
   !
   ! Loop to find cells_surr_cell
   !
-  do n = 1,ncell
+  do n = 1,lcell
     !
     ! Get the surrounding cells based on the geometry of the current cell
     !
@@ -433,14 +481,6 @@ continue
   !
   deallocate ( lpoin , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",2,ierr,error_message)
-  !
-  ! We are also finished with cells_with_node
-  ! and cells_with_node_ptr so deallocate
-  !
-  deallocate ( cells_with_node , stat=ierr )
-  call alloc_error(pname,"cells_with_node",2,ierr)
-  deallocate ( cells_with_node_ptr , stat=ierr )
-  call alloc_error(pname,"cells_with_node_ptr",2,ierr)
   !
 end subroutine find_cells_surrounding_each_cell
 !
