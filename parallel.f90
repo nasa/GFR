@@ -236,6 +236,36 @@ module parallel_mod
   !
   type(exch_data_t), save, allocatable :: exch_fdusp(:)
   !
+  ! CPU_T : Derived type containing the information for one CPU that
+  !         constitutes half of a communication pair
+  !
+  type :: cpu_t
+    ! cpu_pnum : process/CPU ID for one of a communication pair
+    integer(int_mpi) :: cpu_pnum
+    ! send_datatype : handle for the MPI user-defined datatype to send data
+    integer(int_mpi) :: send_datatype = MPI_DATATYPE_NULL
+    ! recv_datatype : handle for the MPI user-defined datatype to receive data
+    integer(int_mpi) :: recv_datatype = MPI_DATATYPE_NULL
+  end type cpu_t
+  !
+  ! EXCH_PAIR_T : Derived type containing information for each of the
+  !               communication pairs
+  !
+  type :: exch_pair_t
+    ! tag1 : tag for the cpu1->cpu2 communication
+    integer(int_mpi) :: tag1
+    ! tag2 : tag for the cpu2->cpu1 communication
+    integer(int_mpi) :: tag2
+    ! cpu : information for the two cpus making up this pair
+    type(cpu_t) :: cpu(1:2)
+  end type exch_pair_t
+  !
+  ! EXCH_NEUSP : Array containing the information for all the communication
+  !              pairs that need to exchange edge and node solutions
+  !              
+  type(exch_pair_t), save, allocatable :: exch_neusp(:)
+  !
+  !
   ! #########################################
   ! #####   MODULE GENERIC INTERFACES   #####
   ! #########################################
