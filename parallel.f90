@@ -256,7 +256,6 @@ subroutine create_serial_cell_map(ncell)
   !
   !.. Local Scalars ..
   integer :: ierr
-  character(len=200) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_serial_cell_map"
@@ -290,7 +289,6 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !.. Local Scalars ..
   integer :: n,ierr
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: xadj
@@ -480,7 +478,6 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   character(len=19) :: method
   character(len=12) :: weight
   character(len=20) :: minmzd
-  character(len=200) :: error_message
   !
   !.. Local Arrays ..
   integer,       dimension(1:5)     :: metis_option_hierarchy
@@ -503,11 +500,12 @@ continue
   !
   ! Allocate the weighting arrays
   !
-  allocate ( vwgt(1:ngcell) , source=0 , stat=ierr )
-  call alloc_error(pname,"vwgt",1,ierr)
+  allocate ( vwgt(1:ngcell) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vwgt",1,ierr,error_message)
   !
-  allocate ( adjwgt(1:last(xadj)-1) , source=0 , stat=ierr )
-  call alloc_error(pname,"adjwgt",1,ierr)
+  allocate ( adjwgt(1:last(xadj)-1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjwgt",1,ierr,error_message)
   !
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
@@ -695,7 +693,6 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   character(len=19) :: method
   character(len=12) :: weight
   character(len=20) :: minmzd
-  character(len=200) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:5) :: metis_option_hierarchy
@@ -733,17 +730,21 @@ continue
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  allocate ( vwgt(1:ncon*ngcell) , source=1 , stat=ierr )
+  allocate ( vwgt(1:ncon*ngcell) , source=1 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vwgt",1,ierr,error_message)
-  allocate ( vsize(1:ngcell) , source=1 , stat=ierr )
+  allocate ( vsize(1:ngcell) , source=1 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vsize",1,ierr,error_message)
-  allocate ( adjwgt(1:size(adjncy)) , source=1 , stat=ierr )
+  allocate ( adjwgt(1:size(adjncy)) , source=1 , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"adjwgt",1,ierr,error_message)
-  allocate ( tpwgts(0:ncon*npart-1) , source=1.0_c_float/real(npart,c_float) , stat=ierr )
+  allocate ( tpwgts(0:ncon*npart-1) , &
+             source=1.0_c_float/real(npart,c_float) , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tpwgts",1,ierr,error_message)
   tpwgts = real( one/real(npart,kind=wp) , kind=kind(tpwgts) )
   tpwgts = tpwgts / sum(tpwgts)
-  allocate ( ubvec(1:ncon) , source=1.01_c_float , stat=ierr )
+  allocate ( ubvec(1:ncon) , source=1.01_c_float , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ubvec",1,ierr,error_message)
   write (iout,*) mypnum,sum(tpwgts)
 #endif
@@ -960,7 +961,6 @@ subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
   integer :: face_geom,face_order,face_counter
   logical :: error_finding_rotation
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: ip
@@ -987,8 +987,9 @@ continue
   !
   ! Find the cells that surround each node
   !
-  allocate ( cells_with_node_ptr(1:ngnode+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_with_node_ptr",1,ierr)
+  allocate ( cells_with_node_ptr(1:ngnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
   !
   ! Loop over the cells, storing 'ahead'
   !
@@ -1007,8 +1008,9 @@ continue
     cells_with_node_ptr(n) = cells_with_node_ptr(n) + cells_with_node_ptr(n-1)
   end do
   !
-  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_with_node",1,ierr)
+  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",1,ierr,error_message)
   !
   ! Now store the cells surrounding each node in cells_with_node
   !
@@ -1037,8 +1039,9 @@ continue
   ! Find the cells surrounding each cell which
   ! defines the dual graph of the nodal grid 
   !
-  allocate ( cells_surr_cell_ptr(1:ngcell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr)
+  allocate ( cells_surr_cell_ptr(1:ngcell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
   !
   ! Loop to set up cells_surr_cell_ptr
   !
@@ -1054,13 +1057,14 @@ continue
  !  cells_surr_cell_ptr(n) = cells_surr_cell_ptr(n) + cells_surr_cell_ptr(n-1)
  !end do
   !
-  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell",1,ierr)
+  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",1,ierr,error_message)
   !
   ! Loop to find cells_surr_cells
   !
-  allocate ( lpoin(1:ngnode) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpoin",1,ierr)
+  allocate ( lpoin(1:ngnode) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,ierr,error_message)
   !
   do n = 1,ngcell
     !
@@ -1150,10 +1154,10 @@ continue
   !
   ! We are finished with cells_with_node and cells_with_node_ptr so deallocate
   !
-  deallocate ( cells_with_node , stat=ierr )
-  call alloc_error(pname,"cells_with_node",2,ierr)
-  deallocate ( cells_with_node_ptr , stat=ierr )
-  call alloc_error(pname,"cells_with_node_ptr",2,ierr)
+  deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",2,ierr,error_message)
+  deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",2,ierr,error_message)
   !
   ! #######
   ! ## 3 ##
@@ -1177,13 +1181,13 @@ continue
  !  write (101,'(4(3x,i8))') cells_surr_cell(n1:n2)
  !end do
   !
-  allocate ( xadj(1:ngcell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"xadj",1,ierr)
+  allocate ( xadj(1:ngcell+1) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xadj",1,ierr,error_message)
   xadj(1) = 1
   !
   n = count( cells_surr_cell(:) /= 0 )
-  allocate ( adjncy(1:n) , source=0 , stat=ierr )
-  call alloc_error(pname,"adjncy",1,ierr)
+  allocate ( adjncy(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjncy",1,ierr,error_message)
   !
   ! Loop through the cells to copy only the non-zero
   ! locations of cells_surr_cell into the adjncy array and
@@ -1234,11 +1238,12 @@ continue
   !
   ! Create the face and faces_of_cell arrays
   !
-  allocate ( face(1:ngface) , stat=ierr )
-  call alloc_error(pname,"face",1,ierr)
+  allocate ( face(1:ngface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face",1,ierr,error_message)
   !
-  allocate ( faces_of_cell(1:6,1:ngcell) , source=0 , stat=ierr )
-  call alloc_error(pname,"faces_of_cell",1,ierr)
+  allocate ( faces_of_cell(1:6,1:ngcell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
   !
   ! ##########
   ! ##      ##
@@ -1363,10 +1368,10 @@ continue
   !
   ! We no longer need cells_surr_cell and cells_surr_cell_ptr so deallocate
   !
-  deallocate ( cells_surr_cell , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell",2,ierr)
-  deallocate ( cells_surr_cell_ptr , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr)
+  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
   !
   ! ##########
   ! ##      ##
@@ -1421,8 +1426,8 @@ continue
   !
   ! We dont need lpoin anymore so deallocate
   !
-  deallocate ( lpoin , stat=ierr )
-  call alloc_error(pname,"lpoin",2,ierr)
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,ierr,error_message)
   !
   ! ##########
   ! ##      ##
@@ -1564,8 +1569,8 @@ continue
   !
   ! Deallocate faces_of_cell before we leave
   !
-  deallocate ( faces_of_cell , stat=ierr )
-  call alloc_error(pname,"faces_of_cell",2,ierr)
+  deallocate ( faces_of_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_of_cell",2,ierr,error_message)
   !
   ! Report and stop execution if there was an error finding
   ! the rotation of the flux points on any of the faces.
@@ -1717,8 +1722,8 @@ continue
   ! ## 1 ##
   ! #######
   !
-  allocate ( msk(1:ngface) , source=fals , stat=ierr )
-  call alloc_error(pname,"msk",1,ierr)
+  allocate ( msk(1:ngface) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,ierr,error_message)
   !
   ! Find the interior faces that divide two partitions
   !
@@ -1816,8 +1821,8 @@ continue
   !
   ! Allocate a temporary array to resize and reorder face
   !
-  allocate ( temp_face(1:new_ngface) , stat=ierr )
-  call alloc_error(pname,"temp_face",1,ierr)
+  allocate ( temp_face(1:new_ngface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_face",1,ierr,error_message)
   !
   ! Redo the boundary face section of face
   ! because of the new additions to bface
@@ -1896,8 +1901,8 @@ continue
   !
   ! Deallocate msk since we are finished with it
   !
-  deallocate ( msk , stat=ierr )
-  call alloc_error(pname,"msk",2,ierr)
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,ierr,error_message)
   !
   ! #######
   ! ## 4 ##
@@ -1986,7 +1991,6 @@ subroutine create_grid_mappings(npart,epart,nodes_of_cell,nodes_of_cell_ptr)
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,ncount,ierr
   character(len=200) :: array_name 
-  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: msk
@@ -2046,8 +2050,8 @@ continue
   ! Loop through the partitions to find the
   ! local number of nodes for each partition
   !
-  allocate ( msk(1:ngnode) , source=fals , stat=ierr )
-  call alloc_error(pname,"msk",1,ierr)
+  allocate ( msk(1:ngnode) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,ierr,error_message)
   !
   do n = 1,npart
     !
@@ -2149,7 +2153,6 @@ subroutine create_reverse_map(nsize,map,cloc)
   !.. Local Scalars ..
   integer :: n,ierr
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_reverse_map"
@@ -2233,7 +2236,6 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   integer :: glb_face,glb_cell,glb_node
   integer :: adj_face,adj_cell,adj_part
   integer :: my_part,this_part,master_cpu,slave_cpu
-  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   logical,   allocatable, dimension(:)   :: msk
@@ -2834,7 +2836,6 @@ subroutine create_face_nonblocking_datatypes(bface)
   integer(int_mpi) :: block_size,np
   integer(int_mpi) :: this_flxpt,tag_ub
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Derived Data Types
   type :: comm_pts_t
@@ -3773,7 +3774,7 @@ subroutine collect_global_solpts
   use geovar, only : n_solpts,xyz,global_xyz
   !
   !.. Local Scalars ..
-  integer :: i,icpu,n,ierr
+  integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
   integer, dimension(1:mpi_status_size) :: istat
@@ -3789,12 +3790,19 @@ continue
   !
   if (ncpu > 1) then
     !
-    allocate ( xyz_r8(1:size(xyz,1),1:size(xyz,2)) , source=real(xyz,r8) , stat=ierr )
-    call alloc_error(pname,"xyz_r8",1,ierr)
+    n1 = size(xyz,dim=1)
+    n2 = size(xyz,dim=2)
     !
-    allocate ( global_xyz_r8(1:size(global_xyz,1),1:size(global_xyz,2)) , &
-               source=0.0_r8 , stat=ierr )
-    call alloc_error(pname,"global_xyz_r8",1,ierr)
+    allocate ( xyz_r8(1:n1,1:n2) , source=real(xyz,r8) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_r8",1,ierr,error_message)
+    !
+    n1 = size(global_xyz,dim=1)
+    n2 = size(global_xyz,dim=2)
+    !
+    allocate ( global_xyz_r8(1:n1,1:n2) , source=0.0_r8 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_xyz_r8",1,ierr,error_message)
     !
     n = size(xyz(:,1:n_solpts))
     !
@@ -3824,10 +3832,10 @@ continue
     !
     global_xyz(:,:) = real( global_xyz_r8(:,:) , kind=wp )
     !
-    deallocate ( xyz_r8 , stat=ierr )
-    call alloc_error(pname,"xyz_r8",2,ierr)
-    deallocate ( global_xyz_r8 , stat=ierr )
-    call alloc_error(pname,"global_xyz_r8",2,ierr)
+    deallocate ( xyz_r8 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_r8",2,ierr,error_message)
+    deallocate ( global_xyz_r8 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_xyz_r8",2,ierr,error_message)
     !
   else
     !
@@ -3846,7 +3854,7 @@ subroutine collect_global_solution
   use flowvar, only : usp,global_usp
   !
   !.. Local Scalars ..
-  integer :: i,icpu,n,ierr
+  integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
   integer, dimension(1:mpi_status_size) :: istat
@@ -3862,9 +3870,12 @@ continue
   !
   if (ncpu > 1) then
     !
-    allocate ( sp_r8(1:size(usp,1),1:size(usp,2)) , &
-               source=real(usp,r8) , stat=ierr )
-    call alloc_error(pname,"sp_r8",1,ierr)
+    n1 = size(usp,dim=1)
+    n2 = size(usp,dim=2)
+    !
+    allocate ( sp_r8(1:n1,1:n2) , source=real(usp,kind=r8) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sp_r8",1,ierr,error_message)
     !
     ! Collect the global usp array on the root processor
     !
@@ -3884,9 +3895,12 @@ continue
       ! no need for the other processors to also have a copy of the global
       ! solution.
       !
-      allocate ( global_r8(1:size(global_usp,1),1:size(global_usp,2)) , &
-                 source=0.0_r8 , stat=ierr )
-      call alloc_error(pname,"global_r8",1,ierr)
+      n1 = size(global_usp,dim=1)
+      n2 = size(global_usp,dim=2)
+      !
+      allocate ( global_r8(1:n1,1:n2) , source=0.0_r8 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"global_r8",1,ierr,error_message)
       !
       ! Have the root processor send its own solution to itself so
       ! it gets put in the right location within the global array.
@@ -3913,13 +3927,13 @@ continue
       !
       ! Deallocate the global_r8 array
       !
-      deallocate ( global_r8 , stat=ierr )
-      call alloc_error(pname,"global_r8",2,ierr)
+      deallocate ( global_r8 , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"global_r8",2,ierr,error_message)
       !
     end if
     !
-    deallocate ( sp_r8 , stat=ierr )
-    call alloc_error(pname,"sp_r8",2,ierr)
+    deallocate ( sp_r8 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sp_r8",2,ierr,error_message)
     !
   else
     !
@@ -3956,16 +3970,19 @@ subroutine collect_global_variable(var)
 continue
   !
   if (.not. allocated(global_var)) then
-    allocate ( global_var(1:n_global_solpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"global_var",1,ierr)
+    allocate ( global_var(1:n_global_solpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_var",1,ierr,error_message)
   end if
   !
   if (ncpu > 1) then
     !
-    allocate ( sp_r8(1:size(var)) , source=real(var,r8) , stat=ierr )
-    call alloc_error(pname,"sp_r8",1,ierr)
-    allocate ( global_r8(1:size(global_var)) , source=0.0_r8 , stat=ierr )
-    call alloc_error(pname,"global_r8",1,ierr)
+    allocate ( sp_r8(1:size(var)) , source=real(var,r8) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sp_r8",1,ierr,error_message)
+    allocate ( global_r8(1:size(global_var)) , source=0.0_r8 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_r8",1,ierr,error_message)
     !
     ! Collect the global variable array on all processors
     !
@@ -3996,10 +4013,10 @@ continue
     !
     global_var(:) = real( global_r8(:) , kind=wp )
     !
-    deallocate ( sp_r8 , stat=ierr )
-    call alloc_error(pname,"sp_r8",2,ierr)
-    deallocate ( global_r8 , stat=ierr )
-    call alloc_error(pname,"global_r8",2,ierr)
+    deallocate ( sp_r8 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sp_r8",2,ierr,error_message)
+    deallocate ( global_r8 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"global_r8",2,ierr,error_message)
     !
   else
     !
@@ -4025,7 +4042,6 @@ subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   character(len=100) :: fname
   character(len=20)  :: zonetype
   character(len=50)  :: variables
-  character(len=200) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:,:) :: ipelem
@@ -4137,8 +4153,9 @@ continue
     !
   end if 
   !
-  open (iot,file=trim(fname),status="replace",action="write",iostat=ierr)
-  call io_error(pname,trim(fname),1,ierr)
+  open (iot,file=trim(fname),status="replace",action="write", &
+        iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(fname),1,ierr,error_message)
   !
   ! Tecplot header with grid size parameters
   !
@@ -4161,8 +4178,8 @@ continue
     write (iot,13) (ipelem(i,n), i=1,size(ipelem,dim=1))
   end do
   !
-  close (iot,iostat=ierr)
-  call io_error(pname,trim(fname),2,ierr)
+  close (iot,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(fname),2,ierr,error_message)
   !
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
