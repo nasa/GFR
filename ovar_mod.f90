@@ -80,6 +80,7 @@ module ovar
   character(len=150), public, save :: output_dir = "."
   integer,            public, save :: output_interval = -5
   logical,            public, save :: correct_output  = fals
+  logical,            public, save :: continuous_output  = fals
   !
   real(wp), public, save :: rhoref  =     -1.00_wp ! should evaluate to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.00_wp
@@ -496,7 +497,8 @@ module input_namelist_mod
   use ovar,      only : itestcase, governing_equations
   use ovar,      only : irestart, restart_interval
   use ovar,      only : iter_out_interval, results_interval
-  use ovar,      only : output_dir, output_interval, correct_output
+  use ovar,      only : output_dir, output_interval
+  use ovar,      only : correct_output, continuous_output
   use ovar,      only : output_bnd_profiles
   use ovar,      only : machref, reyref, gam, Pr, Prt
   use ovar,      only : ptotref, ttotref, ptot2p_ratio
@@ -561,7 +563,8 @@ module input_namelist_mod
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
-  namelist / input / output_dir, output_interval, correct_output, o_order
+  namelist / input / output_dir, output_interval, o_order, &
+                     correct_output, continuous_output
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
   ! NONDIMENSIONAL REFERENCE CONDITIONS
