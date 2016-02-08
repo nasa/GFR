@@ -68,6 +68,10 @@ module order_mod
   !
   integer, public, protected, save :: geom_flxpts(Geom_Min:Geom_Max,Order_Min:Order_Max)
   !
+  ! Number of edge/flux points for all geometries of orders 0 to max_order
+  !
+  integer, public, protected, save :: geom_edgpts(Geom_Min:Geom_Max,Order_Min:Order_Max)
+  !
   ! geom_mio "geom_max_interp_order" gives the maximum interpolation order
   ! required for a given combination of cell geometry and cell order
   !
@@ -91,6 +95,7 @@ continue
     do i = lbound(geom_solpts,dim=1),ubound(geom_solpts,dim=1)
       geom_solpts(i,j) = Cell_Solpts(i,j)
       geom_flxpts(i,j) = Cell_Flxpts(i,j)
+      geom_edgpts(i,j) = Cell_Edgpts(i,j)
     end do
   end do
   !
