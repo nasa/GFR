@@ -29,8 +29,8 @@ module correction_mod
   !
   !     Where :
   !
-  !        this_geom = cell_geom(n)
-  !        this_order = cell_order(n)
+  !        this_geom = cell(n)%geom
+  !        this_order = cell(n)%order
   !        k = the flux point on a face of cell 'n' that is currently of interest
   !
   type(matrix), public, save, target, allocatable :: correct(:,:)
@@ -44,7 +44,6 @@ contains
 subroutine init_correction_matrices()
   !
   !.. Use Statements ..
-  use geovar,         only : cell_geom,cell_order
   use order_mod,      only : geom_solpts,geom_flxpts
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
