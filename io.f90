@@ -204,7 +204,6 @@ subroutine read_nml_input_file
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
-  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -1736,7 +1735,6 @@ subroutine adjust_for_ghost_cells()
   !.. Local Scalars ..
   integer :: g1,g2,h1,nf,nfnods,switch_index
   integer :: ghost_cell,host_cell,host_geom,host_side
-  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: ip
@@ -2008,7 +2006,6 @@ subroutine adjust_for_same_dimension_ghost_cells()
   integer  :: ni1,ni2,ierr
   integer  :: periodic_cell,periodic_geom,periodic_side,pcnods
   real(wp) :: theta
-  character(len=1000) :: error_message
   integer :: nfnods
   !
   !.. Local Arrays ..
@@ -2458,7 +2455,6 @@ subroutine find_bc_conflicts
   integer :: host_cell,host_geom,host_side
   integer :: n_2bc_nodes,nfm,nfnods
   character(len=100) :: array_name
-  character(len=1000) :: error_message
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: node_offsets
@@ -2477,8 +2473,9 @@ continue
   !
   error_count = 0
   !
-  allocate ( bface_nodes(1:4,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error(pname,"bface_nodes",1,ierr)
+  allocate ( bface_nodes(1:4,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface_nodes",1,ierr,error_message)
   !
   ! Find the nodes that define each boundary face
   !
@@ -2535,8 +2532,9 @@ continue
   ! Mark the nodes defining each boundary face, storing ahead
   ! NOTE: Skip all communication type boundary faces
   !
-  allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"faces_with_node_ptr",1,ierr)
+  allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_with_node_ptr",1,ierr,error_message)
   !
   do nf = 1,nfbnd
     if (any(bface(1,nf) == bc_comm)) cycle ! skip all communication boundaries
@@ -2552,8 +2550,9 @@ continue
     faces_with_node_ptr(n) = faces_with_node_ptr(n) + faces_with_node_ptr(n-1)
   end do
   !
-  allocate ( faces_with_node(1:last(faces_with_node_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"faces_with_node",1,ierr)
+  allocate ( faces_with_node(1:last(faces_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_with_node",1,ierr,error_message)
   !
   ! Now store the faces surrounding each node in faces_with_node
   ! NOTE: Skip all communication type boundary faces
@@ -2579,8 +2578,8 @@ continue
   ! containing the node have non-matching boundary conditions.
   ! Mark any nodes that are found.
   !
-  allocate ( mskp(1:nnode) , source=fals , stat=ierr )
-  call alloc_error(pname,"mskp",1,ierr)
+  allocate ( mskp(1:nnode) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"mskp",1,ierr,error_message)
   !
   do n = 1,size(faces_with_node_ptr)-1
     nf1 = faces_with_node_ptr(n)+1
@@ -2591,8 +2590,8 @@ continue
     mskp(n) = all_not_equal( bface(1,faces_with_node(nf1:nf2)) )
   end do
   !
-  allocate ( bc_conflict(1:count(mskp)) , stat=ierr )
-  call alloc_error(pname,"bc_conflict",1,ierr)
+  allocate ( bc_conflict(1:count(mskp)) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_conflict",1,ierr,error_message)
   !
   ! Use the mask and faces_with_node arrays to extract the nodes
   ! and corresponding boundary faces that have non-matching
@@ -2617,9 +2616,10 @@ continue
       write (iout,*) "Error: Function bc_priority returned value 0!"
     end if
     !
-    allocate ( bc_conflict(i)%slave(1:nf2-nf1) , stat=ierr )
+    allocate ( bc_conflict(i)%slave(1:nf2-nf1) , &
+               stat=ierr , errmsg=error_message )
     write (array_name,1) "bc_conflict(",i,")%slave"
-    call alloc_error(pname,array_name,1,ierr)
+    call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Save the master boundary face information and set the
     ! partition number to the root partition number (zero).
@@ -2728,14 +2728,14 @@ continue
   !
   ! Deallocate the local arrays before leaving
   !
-  deallocate ( bface_nodes , stat=ierr )
-  call alloc_error(pname,"bface_nodes",2,ierr)
-  deallocate ( faces_with_node_ptr , stat=ierr )
-  call alloc_error(pname,"faces_with_node_ptr",2,ierr)
-  deallocate ( faces_with_node , stat=ierr )
-  call alloc_error(pname,"faces_with_node",2,ierr)
-  deallocate ( mskp , stat=ierr )
-  call alloc_error(pname,"mskp",2,ierr)
+  deallocate ( bface_nodes , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface_nodes",2,ierr,error_message)
+  deallocate ( faces_with_node_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_with_node_ptr",2,ierr,error_message)
+  deallocate ( faces_with_node , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_with_node",2,ierr,error_message)
+  deallocate ( mskp , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"mskp",2,ierr,error_message)
   !
   ! Format Statements
   !
@@ -3381,20 +3381,24 @@ continue
   ! Allocate var and vartmp if they arent already allocated
   !
   if (.not. allocated(vartmp)) then
-    allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"vartmp",1,ierr)
+    allocate ( vartmp(1:n_solpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",1,ierr,error_message)
   end if
   if (.not. allocated(var)) then
-    allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , stat=ierr )
-    call alloc_error(pname,"var",1,ierr)
+    allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",1,ierr,error_message)
   end if
   if (.not. allocated(interp_usp)) then
-    allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"interp_usp",1,ierr)
+    allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_usp",1,ierr,error_message)
   end if
   if (.not. allocated(interp_dusp)) then
-    allocate ( interp_dusp(1:nr,1:nq,1:n_solpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"interp_dusp",1,ierr)
+    allocate ( interp_dusp(1:nr,1:nq,1:n_solpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_dusp",1,ierr,error_message)
   end if
   !
   ! Write the flow variables
@@ -3594,20 +3598,20 @@ continue
   ! Deallocate the arrays var and vartmp
   !
   if (allocated(var)) then
-    deallocate ( var , stat=ierr )
-    call alloc_error(pname,"var",2,ierr)
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,ierr,error_message)
   end if
   if (allocated(vartmp)) then
-    deallocate ( vartmp , stat=ierr )
-    call alloc_error(pname,"vartmp",2,ierr)
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,ierr,error_message)
   end if
   if (allocated(interp_usp)) then
-    deallocate ( interp_usp , stat=ierr )
-    call alloc_error(pname,"interp_usp",2,ierr)
+    deallocate ( interp_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_usp",2,ierr,error_message)
   end if
   if (allocated(interp_dusp)) then
-    deallocate ( interp_dusp , stat=ierr )
-    call alloc_error(pname,"interp_dusp",2,ierr)
+    deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_dusp",2,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -3688,7 +3692,6 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   integer :: n_total_output_cells
   integer :: n_total_output_pts
   integer :: n_my_output_cells
-  character(len=200) :: error_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_initial_data_for_cgns"
@@ -3868,7 +3871,6 @@ subroutine TaylorGreen_8s_vorticity_solution()
   integer :: isect_v,isol_v,isvar_v
   !
   character(len=170) :: cgns_vort_file
-  character(len=300) :: error_message
   !
   !.. Local Arrays ..
   integer,  dimension(1:2) :: ixyz_v
@@ -4134,8 +4136,6 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
   integer :: n_total_vort_cells,n_total_vort_pts
   !
   real(wp) :: LPI,half_LPI,dx_eps,cell_dx,x,y,z
-  !
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:)   :: maskf
