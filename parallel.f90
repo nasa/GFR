@@ -78,6 +78,13 @@ module parallel_mod
   real(r8), save, allocatable, dimension(:) :: fdusp_send_buffer
   real(r8), save, allocatable, dimension(:) :: fdusp_recv_buffer
   !
+  integer, save :: eusp_size
+  integer, save :: edusp_size
+  integer, save :: nusp_size
+  integer, save :: ndusp_size
+  !
+  real(r8), save, allocatable, dimension(:) :: neusp_buffer
+  !
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
   !
@@ -2870,6 +2877,10 @@ end subroutine localize_grid
 !
 subroutine create_face_nonblocking_datatypes(bface)
   !
+  !.. Use Statements ..
+  use geovar, only : n_global_node
+  use geovar, only : n_global_edge
+  !
   !.. Formal Arguments ..
   integer, dimension(:,:), intent(inout) :: bface
   !
@@ -3372,6 +3383,19 @@ continue
   allocate ( fdusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fdusp_istat",1,ierr,error_message)
+  !
+  ! Buffer for communicating node/edge solutions and gradients
+  !
+  eusp_size  =    nq*n_global_edge
+  edusp_size = nr*nq*n_global_edge
+  nusp_size  =    nq*n_global_node
+  ndusp_size = nr*nq*n_global_node
+  !
+  n = max(edusp_size,ndusp_size)
+  !
+  allocate ( neusp_buffer(1:n) , source=0.0_r8 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"neusp_buffer",1,ierr,error_message)
   !
   ! Format Statements
   !
