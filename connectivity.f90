@@ -1489,7 +1489,8 @@ subroutine create_cell_derived_type()
   use geovar, only : nfbnd,ncell,nface,bface
   use geovar, only : cell
   use geovar, only : face
-  use geovar, only : cell_geom,cell_order,pts_in_cell_ptr
+  use geovar, only : cell_geom
+  use geovar, only : cell_order
   use order_mod, only : geom_solpts
   !
   !.. Local Scalars ..
@@ -1498,6 +1499,8 @@ subroutine create_cell_derived_type()
   integer :: host_cell,host_face
   integer :: left_cell,left_face
   integer :: right_cell,right_face
+  integer :: this_geom,this_order
+  integer :: this_beg,this_end
   character(len=200) :: array_name
   character(len=200) :: error_message
   !
@@ -1553,14 +1556,22 @@ continue
   ! doing this, store the geometry, solution order, first solution point,
   ! and last solution point of each cell within the cell array. 
   !
+  this_end = 0
+  !
   do nc = 1,ncell
     !
-    num_faces = geom_faces(cell_geom(nc))
+    this_geom = cell_geom(nc)
+    this_order = cell_order(nc)
     !
-    cell(nc)%geom = cell_geom(nc)
-    cell(nc)%order = cell_order(nc)
-    cell(nc)%beg_sp = pts_in_cell_ptr(nc)+1
-    cell(nc)%end_sp = pts_in_cell_ptr(nc+1)
+    this_beg = this_end + 1
+    this_end = this_end + geom_solpts( this_geom , this_order )
+    !
+    cell(nc)%geom = this_geom
+    cell(nc)%order = this_order
+    cell(nc)%beg_sp = this_beg
+    cell(nc)%end_sp = this_end
+    !
+    num_faces = geom_faces(this_geom)
     !
     allocate ( cell(nc)%face(1:num_faces) , stat=ierr , errmsg=error_message )
     write (array_name,1) nc
