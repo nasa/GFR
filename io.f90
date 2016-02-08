@@ -3350,7 +3350,10 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   use ovar,    only : aref,rhoref,time_ref
   use ovar,    only : cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
+  use ovar,    only : correct_output
   use flowvar, only : usp,dusp
+  !
+  use flux_mod, only : correct_solution_for_output
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
@@ -3545,6 +3548,16 @@ continue
     ! #####   WRITING SOLUTION FIELD VARIABLES   #####
     ! ################################################
     !
+    ! Copy the solution and gradients into interp_usp and interp_dusp
+    !
+    interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+    interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
+    !
+    ! Correct the solution and gradients before writing to the CGNS file
+    !
+    if (correct_output) then
+      call correct_solution_for_output(interp_usp,interp_dusp)
+    end if
     !
     ! Count the total number of solution variables that will be written
     ! and allocate isvar_s accordingly
@@ -3654,9 +3667,6 @@ continue
         interp_dusp(1:nr,l,1:n_solpts) = &
                  interpolate_for_output( interp_dusp(1:nr,l,1:n_solpts) )
       end do
-    else
-      interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
-      interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
     end if
     !
     ! Now create the output data and write it to the CGNS file in parallel
