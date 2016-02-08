@@ -718,9 +718,12 @@ continue
   !
   ! Customize some of these options
   !
-  options(METIS_OPTION_NUMBERING) = 1 ! set numbering to Fortran style (begins at 1)
-  options(METIS_OPTION_CONTIG) = 1    ! force contiguous partitions
-  options(METIS_OPTION_MINCONN) = 1   ! explicitly minimize the maximum connectivity
+  ! Set numbering to Fortran style (begins at 1)
+  options(METIS_OPTION_NUMBERING) = 1
+  ! Force contiguous partitions
+  options(METIS_OPTION_CONTIG) = 1
+  ! Explicitly minimize the maximum connectivity
+  options(METIS_OPTION_MINCONN) = 1
   !
   ! Define other METIS variables
   !
@@ -840,7 +843,7 @@ continue
         !
         ! The METIS option requested is invalid!
         !
-        write (error_message,103)
+        write (error_message,3)
         call stop_recon(stop_mpi,pname,error_message)
         !
       end if
@@ -864,15 +867,15 @@ continue
       ! output the results of the partitioning and exit from part_loop.
       !
       if (passes_inspection) then
-        if (mypnum == 0) write (iout,101) method,npart,weight,minmzd,objval
+        if (mypnum == 0) write (iout,1) method,npart,weight,minmzd,objval
         exit part_loop
       end if
       !
-      if (mypnum == 0) write (iout,104) method,npart,weight,minmzd
+      if (mypnum == 0) write (iout,4) method,npart,weight,minmzd
       !
     end do
     !
-    write (error_message,102)
+    write (error_message,2)
     call stop_recon(stop_mpi,pname,error_message)
     !
   end do part_loop
@@ -902,28 +905,28 @@ continue
   !
   ! Format statements
   !
-  101 format (/,'-------------------------------------------------------',//, &
-                '         Used METIS 5.1 to partition the graph         ',/, &
+  1 format (/,'-------------------------------------------------------',//, &
+              '         Used METIS 5.1 to partition the graph         ',/, &
+              '    using a multilevel ',a,' algorithm    ',/, &
+              '           into ',i0,' ',a,' partitions.          ',/, &
+              '     The minimized ',a,' was ',i0,'.    ',//, &
+              '-------------------------------------------------------',/)
+  2 format (" None of the partitioning methods available in METIS 5.1 were", &
+            " able to find a quality partitioning of the grid!")
+  3 format (" The METIS partitioning method requested in the input file is", &
+            " invalid!")
+  4 format (///,'########################################################',/, &
+                '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
+                '########################################################',//, &
+                '  METIS 5.1 failed to successfully partition the graph  ',/, &
                 '    using a multilevel ',a,' algorithm    ',/, &
-                '           into ',i0,' ',a,' partitions.          ',/, &
-                '     The minimized ',a,' was ',i0,'.    ',//, &
-                '-------------------------------------------------------',/)
-  102 format (" None of the partitioning methods available in METIS 5.1 were", &
-              " able to find a quality partitioning of the grid!")
-  103 format (" The METIS partitioning method requested in the input file is", &
-              " invalid!")
-  104 format (///,'########################################################',/, &
-                  '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
-                  '########################################################',//, &
-                  '  METIS 5.1 failed to successfully partition the graph  ',/, &
-                  '    using a multilevel ',a,' algorithm    ',/, &
-                  '       into ',i0,' ',a,' partitions',/, &
-                  '   while minimizing the ',a,'!',/, &
-                  '         Switching to the next METIS algorithm         ',/, &
-                  '               to partition the graph...               ',//, &
-                  '########################################################',/, &
-                  '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
-                  '########################################################',///)
+                '       into ',i0,' ',a,' partitions',/, &
+                '   while minimizing the ',a,'!',/, &
+                '         Switching to the next METIS algorithm         ',/, &
+                '               to partition the graph...               ',//, &
+                '########################################################',/, &
+                '########## !! PARTITIONING ATTEMPT FAILED !! ###########',/, &
+                '########################################################',///)
   !
 #endif
 end subroutine partition_using_metis_5
@@ -1262,8 +1265,10 @@ continue
     host_side = bface(4,nf)                      ! face of host cell on boundary
     nfnods = num_face_nodes(host_side,host_geom) ! # of nodes defining bnd face
     !
-    n1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index of nodes defining host cell
-    n2 = nodes_of_cell_ptr(host_cell+1) ! ending    index of nodes defining host cell
+    ! beginning index of nodes defining host cell
+    n1 = nodes_of_cell_ptr(host_cell)+1
+    ! ending    index of nodes defining host cell
+    n2 = nodes_of_cell_ptr(host_cell+1)
     !
     ! Node offsets for this face
     ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
@@ -1326,8 +1331,10 @@ continue
         !
         this_side = nc-c1+1
         !
-        nfnods = num_face_nodes(this_side,this_geom)             ! # of nodes defining this face
-        ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom) ! node offsets for this face
+        ! # of nodes defining this face
+        nfnods = num_face_nodes(this_side,this_geom)
+        ! node offsets for this face
+        ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom)
         !
         ! Store the cells on this interior face
         !
@@ -1510,7 +1517,8 @@ continue
       !
     else
       !
-      ! This is an interior face so get the nodes for this side of the right cell
+      ! This is an interior face so get the nodes
+      ! for this side of the right cell
       !
       ip(1:nfnods) = side_nodes(1:nfnods,right_side,right_geom)
       right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
@@ -1784,33 +1792,33 @@ continue
     !
     ! Left side of the face
     !
-    bface( 1,nf) = bc_cpu_bnd             ! boundary condition
-    bface( 2,nf) = left_cell              ! host cell
-    bface( 3,nf) = left_geom              ! host cell geometry type
-    bface( 4,nf) = left_side              ! face of host cell on boundary
-    bface( 5,nf) = nf + 1                 ! adjacent partition boundary face
-    bface( 6,nf) = right_cell             ! adjacent partition host cell
+    bface( 1,nf) = bc_cpu_bnd  ! boundary condition
+    bface( 2,nf) = left_cell   ! host cell
+    bface( 3,nf) = left_geom   ! host cell geometry type
+    bface( 4,nf) = left_side   ! face of host cell on boundary
+    bface( 5,nf) = nf + 1      ! adjacent partition boundary face
+    bface( 6,nf) = right_cell  ! adjacent partition host cell
     bface( 7,nf) = epart(right_cell) - 1  ! adjacent partition processor ID
-    bface( 8,nf) = right_geom             ! adjacent partition host cell geometry type
-    bface( 9,nf) = right_side             ! face of adjacent partition host cell on boundary
-    bface(10,nf) = n                      ! location within face array to extract data
+    bface( 8,nf) = right_geom  ! adjacent partition host cell geometry type
+    bface( 9,nf) = right_side  ! face of adjacent partition host cell on boundary
+    bface(10,nf) = n           ! location within face array to extract data
     !
     nf = nf + 1
     !
     ! Right side of the face
     !
-    bface( 1,nf) = bc_cpu_bnd            ! boundary condition
-    bface( 2,nf) = right_cell            ! host cell
-    bface( 3,nf) = right_geom            ! host cell geometry type
-    bface( 4,nf) = right_side            ! face of host cell on boundary
-    bface( 5,nf) = nf - 1                ! adjacent partition boundary face
-    bface( 6,nf) = left_cell             ! adjacent partition host cell
+    bface( 1,nf) = bc_cpu_bnd  ! boundary condition
+    bface( 2,nf) = right_cell  ! host cell
+    bface( 3,nf) = right_geom  ! host cell geometry type
+    bface( 4,nf) = right_side  ! face of host cell on boundary
+    bface( 5,nf) = nf - 1      ! adjacent partition boundary face
+    bface( 6,nf) = left_cell   ! adjacent partition host cell
     bface( 7,nf) = epart(left_cell) - 1  ! adjacent partition processor ID
-    bface( 8,nf) = left_geom             ! adjacent partition host cell geometry type
-    bface( 9,nf) = left_side             ! face of adjacent partition host cell on boundary
-    bface(10,nf) = -n                    ! location within face array to extract data
-    !                                    ! NOTE: This is negative to mark that this host
-    nf = nf + 1                          !       cell used to be a right cell on the face
+    bface( 8,nf) = left_geom   ! adjacent partition host cell geometry type
+    bface( 9,nf) = left_side   ! face of adjacent partition host cell on boundary
+    bface(10,nf) = -n          ! location within face array to extract data
+    !                          ! NOTE: This is negative to mark that this host
+    nf = nf + 1                !       cell used to be a right cell on the face
     !
   end do
   !
@@ -1838,9 +1846,10 @@ continue
       ! face used to be the right cell when this partition boundary previously
       ! was an interior face. Therefore, we need to flip the left and right
       ! cells on the boundary face in order to make the right cell the host
-      ! cell for this boundary face. We also need to reverse the rotation/ordering
-      ! of the face nodes so that the nodes of the ghost cell are defined such that
-      ! the normal of the face points outside the grid domain.
+      ! cell for this boundary face. We also need to reverse the 
+      ! rotation/ordering of the face nodes so that the nodes of the
+      ! ghost cell are defined such that the normal of the face points
+      ! outside the grid domain.
       !
       if (bface(10,nf) < 0) then
         !
@@ -2343,12 +2352,12 @@ continue
    !                         bc_conflict(n)%master%face, &
    !                         bc_conflict(n)%master%flux_point, &
    !                         bc_conflict(n)%master%cpu, &
-   !                         trim(bc_integer_to_string(bface(1,bc_conflict(n)%master%face)))
+   !          trim(bc_integer_to_string(bface(1,bc_conflict(n)%master%face)))
    !  do nf = 1,size(bc_conflict(n)%slave)
    !    write (mypnum+200,2) nf,bc_conflict(n)%slave(nf)%face, &
    !                            bc_conflict(n)%slave(nf)%flux_point, &
    !                            bc_conflict(n)%slave(nf)%cpu, &
-   !                            trim(bc_integer_to_string(bface(1,bc_conflict(n)%slave(nf)%face)))
+   !          trim(bc_integer_to_string(bface(1,bc_conflict(n)%slave(nf)%face)))
    !  end do
    !end do
    !1 format ("Conflict #",i0," - is_local=",l1,", not_my_conflict=",l1,/, &
@@ -2427,9 +2436,12 @@ continue
     ! Now localize the information for this face
     !
 #ifdef USE_GLB_TO_LOC_ARRAYS
-    bface(2,loc_face) = cell_map(my_part)%glb_to_loc( bface(2,loc_face) ) ! local host cell
+    ! local host cell
+    bface(2,loc_face) = cell_map(my_part)%glb_to_loc( bface(2,loc_face) )
 #else
-    bface(2,loc_face) = findloc( cell_map(my_part)%loc_to_glb ,  bface(2,loc_face) ) ! local host cell
+    ! local host cell
+    bface(2,loc_face) = &
+         findloc( cell_map(my_part)%loc_to_glb ,  bface(2,loc_face) )
 #endif
     !
     if ( any(bface(1,loc_face) == bc_comm) ) then
@@ -2690,8 +2702,9 @@ continue
     ! Now create the receive MPI datatype for the local
     ! solution point coordinates on the current processor
     !
-    recv_offset(1:np) = recv_offset(1:np)*nr ! adjust the offset for nr dimensions
-    recv_blklen(1:np) = recv_blklen(1:np)*nr ! adjust the offset for nr dimensions
+    ! adjust the offset for nr dimensions
+    recv_offset(1:np) = recv_offset(1:np)*nr
+    recv_blklen(1:np) = recv_blklen(1:np)*nr
     !
     recv_offset_int_mpi(1:np) = int( recv_offset(1:np) , kind=int_mpi )
     recv_blklen_int_mpi(1:np) = int( recv_blklen(1:np) , kind=int_mpi )
@@ -2702,14 +2715,16 @@ continue
                           mpi_flttyp,recv_xyz(this_part),mpierr)
     call mpi_type_commit(recv_xyz(this_part),mpierr)
     !
-    recv_offset(1:np) = recv_offset(1:np)/nr ! cancel out the nr adjustment above
-    recv_blklen(1:np) = recv_blklen(1:np)/nr ! cancel out the nr adjustment above
+    ! cancel out the nr adjustment above
+    recv_offset(1:np) = recv_offset(1:np)/nr
+    recv_blklen(1:np) = recv_blklen(1:np)/nr
     !
     ! Now create the receive MPI datatype for the local
     ! solution at the solution points on the current processor
     !
-    recv_offset(1:np) = recv_offset(1:np)*nq ! adjust the offset for nq flow equations
-    recv_blklen(1:np) = recv_blklen(1:np)*nq ! adjust the offset for nq flow equations
+    ! adjust the offset for nq flow equations
+    recv_offset(1:np) = recv_offset(1:np)*nq
+    recv_blklen(1:np) = recv_blklen(1:np)*nq
     !
     recv_offset_int_mpi(1:np) = int( recv_offset(1:np) , kind=int_mpi )
     recv_blklen_int_mpi(1:np) = int( recv_blklen(1:np) , kind=int_mpi )
@@ -2720,8 +2735,9 @@ continue
                           mpi_flttyp,recv_sol(this_part),mpierr)
     call mpi_type_commit(recv_sol(this_part),mpierr)
     !
-    recv_offset(1:np) = recv_offset(1:np)/nq ! cancel out the nq adjustment above
-    recv_blklen(1:np) = recv_blklen(1:np)/nq ! cancel out the nq adjustment above
+    ! cancel out the nq adjustment above
+    recv_offset(1:np) = recv_offset(1:np)/nq
+    recv_blklen(1:np) = recv_blklen(1:np)/nq
     !
     ! Now create the receive MPI datatype for an arbitrary
     ! variable at the solution points on the current processor
@@ -2766,7 +2782,8 @@ continue
 #ifdef USE_GLB_TO_LOC_ARRAYS
     nodes_of_cell(loc_node) = node_map(my_part)%glb_to_loc( glb_node )
 #else
-    nodes_of_cell(loc_node) = findloc( node_map(my_part)%loc_to_glb ,  glb_node )
+    nodes_of_cell(loc_node) = &
+      findloc( node_map(my_part)%loc_to_glb ,  glb_node )
 #endif
   end do
   !
@@ -2931,14 +2948,14 @@ continue
   ! Copy the process IDs that the current process needs to communicate
   ! with into these arrays.
   !
-  exch_fusp(1:ncomm)%adj_cpu = int( pack( cpu_id , cpu_id >= 0 ) , kind=int_mpi )
+  exch_fusp(1:ncomm)%adj_cpu = int(pack( cpu_id , cpu_id >= 0 ),kind=int_mpi)
   exch_fdusp(1:ncomm)%adj_cpu = exch_fusp(1:ncomm)%adj_cpu
   !
   ! Find the range of face indices that this process will be
   ! receiving from all of its adjacent partitions
   !
-  rmin = minval(bface(5,:)) ! minimum face index this process will be receiving from
-  rmax = maxval(bface(5,:)) ! maximum face index this process will be receiving from
+  rmin = minval(bface(5,:)) ! min face index this process will be receiving from
+  rmax = maxval(bface(5,:)) ! max face index this process will be receiving from
   !
   ! Allocate all the arrays needed for creating the send and receive face maps
   !
@@ -3113,7 +3130,8 @@ continue
                                        mpierr)
     call mpi_type_commit(exch_fusp(i)%recv_datatype,mpierr)
     !
-    ! Remove the solution array adjustment from comm_pts(i)%send and comm_pts(i)%recv
+    ! Remove the solution array adjustment from
+    ! comm_pts(i)%send and comm_pts(i)%recv
     !
     comm_pts(i)%send = comm_pts(i)%send / block_size
     comm_pts(i)%recv = comm_pts(i)%recv / block_size
@@ -3152,7 +3170,8 @@ continue
                                        mpierr)
     call mpi_type_commit(exch_fdusp(i)%recv_datatype,mpierr)
     !
-    ! Remove the solution array adjustment from comm_pts(i)%send and comm_pts(i)%recv
+    ! Remove the solution array adjustment from
+    ! comm_pts(i)%send and comm_pts(i)%recv
     !
     comm_pts(i)%send = comm_pts(i)%send / block_size
     comm_pts(i)%recv = comm_pts(i)%recv / block_size
@@ -3214,7 +3233,8 @@ continue
                                        mpi_flttyp,testf_recv(i),mpierr)
     call mpi_type_commit(testf_recv(i),mpierr)
     !
-    ! Remove the solution array adjustment from comm_pts(i)%send and comm_pts(i)%recv
+    ! Remove the solution array adjustment from
+    ! comm_pts(i)%send and comm_pts(i)%recv
     !
     comm_pts(i)%send = comm_pts(i)%send / block_size
     comm_pts(i)%recv = comm_pts(i)%recv / block_size
@@ -3380,9 +3400,12 @@ continue
   !
   do n = 1,ncomm
     !
-    send_cpu   = exch_fusp(n)%adj_cpu       ! Process sending this message
-    mesg_tag   = exch_fusp(n)%recv_tag      ! Message tag
-    recv_dtype = exch_fusp(n)%recv_datatype ! MPI user-defined datatype for receive
+    ! Process sending this message
+    send_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fusp(n)%recv_datatype
     !
     call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
                    mpi_comm_world,fusp_rqst(n),mpierr)
@@ -3393,9 +3416,12 @@ continue
   !
   do n = 1,ncomm
     !
-    recv_cpu   = exch_fusp(n)%adj_cpu       ! Process receiving this message
-    mesg_tag   = exch_fusp(n)%send_tag      ! Message tag
-    send_dtype = exch_fusp(n)%send_datatype ! MPI user-defined datatype for send
+    ! Process receiving this message
+    recv_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fusp(n)%send_datatype
     !
     call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
                    mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
@@ -3492,9 +3518,12 @@ continue
   !
   do n = 1,ncomm
     !
-    send_cpu   = exch_fdusp(n)%adj_cpu       ! Process sending this message
-    mesg_tag   = exch_fdusp(n)%recv_tag      ! Message tag
-    recv_dtype = exch_fdusp(n)%recv_datatype ! MPI user-defined datatype for receive
+    ! Process sending this message
+    send_cpu   = exch_fdusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fdusp(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fdusp(n)%recv_datatype
     !
     call mpi_irecv(fdusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
                    mpi_comm_world,fdusp_rqst(n),mpierr)
@@ -3505,9 +3534,12 @@ continue
   !
   do n = 1,ncomm
     !
-    recv_cpu   = exch_fdusp(n)%adj_cpu       ! Process receiving this message
-    mesg_tag   = exch_fdusp(n)%send_tag      ! Message tag
-    send_dtype = exch_fdusp(n)%send_datatype ! MPI user-defined datatype for send
+    ! Process receiving this message
+    recv_cpu   = exch_fdusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fdusp(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fdusp(n)%send_datatype
     !
     call mpi_isend(fdusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
                    mpi_comm_world,fdusp_rqst(n+ncomm),mpierr)
@@ -3698,7 +3730,8 @@ continue
     !
     if (mypnum /= 0) then
       !
-      call mpi_send(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
+      call mpi_send(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0, &
+                    mypnum,mpi_comm_world,mpierr)
       !
     else
       !
@@ -3776,7 +3809,8 @@ continue
       ! Have all the non-root processors send their
       ! local solutions to the root processor.
       !
-      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
+      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0, &
+                    mypnum,mpi_comm_world,mpierr)
       !
     else
       !
@@ -3880,7 +3914,8 @@ continue
     !
     if (mypnum /= 0) then
       !
-      call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0,mypnum,mpi_comm_world,mpierr)
+      call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0, &
+                    mypnum,mpi_comm_world,mpierr)
       !
     else
       !
