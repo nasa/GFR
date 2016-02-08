@@ -275,6 +275,38 @@ module geovar
     integer, allocatable :: cell_idx(:)
   end type face_of_cell_t
   !
+  !
+  ! EDGE_OF_CELL_T : derived type to store the information about the solution
+  !                  points on a given edge (this is only used for output)
+  !
+  type, public :: edge_of_cell_t
+    ! idx : index of this edge within the edgeusp and edgedusp arrays
+    integer :: idx
+    ! order : polynomial order of the edge
+    integer :: order
+    ! ave_coef : gives the coefficient needed to compute an average
+    !            i.e., ave_coef = 1/(number of cells that contain this edge)
+    real(wp) :: ave_coef
+    ! cell_idx : index of edge-pt relative to all edge-pts of the current cell
+    integer, allocatable :: cell_idx(:)
+  end type edge_of_cell_t
+  !
+  !
+  ! NODE_OF_CELL_T : derived type to store the information about a node
+  !                  (this is only used for output)
+  !
+  type, public :: node_of_cell_t
+    ! node_idx : index of this node within the nodeusp and nodedusp arrays
+    integer :: node_idx
+    ! ave_coef : gives the coefficient needed to compute an average
+    !            i.e., ave_coef = 1/(number of cells that contain this node)
+    real(wp) :: ave_coef
+    ! cell_idx : index of the node in the cell
+    !            i.e., 1 <= cell_index <= geom_nodes(cell_geometry)
+    integer :: cell_idx
+  end type node_of_cell_t
+  !
+  !
   ! CELL_T : derived type to store information for each grid cell
   !
   type, public :: cell_t
@@ -288,6 +320,10 @@ module geovar
     integer :: end_sp
     ! face : array giving the flx-pt information for all faces of the current cell
     type(face_of_cell_t), allocatable :: face(:)
+    ! edge : array giving the edge-pt information for all edges of the current cell
+    type(edge_of_cell_t), allocatable :: edge(:)
+    ! node : array giving the information for all nodes of the current cell
+    type(node_of_cell_t), allocatable :: node(:)
   end type cell_t
   !
   ! CELL : Array of type cell_t that contains information for all grid cells
@@ -310,7 +346,8 @@ subroutine geovar_memory_usage(iunit)
   integer :: iou,i,j,k
   character(len=36) :: array_name
   type(memory) :: array,dt
-  type(memory) :: cell_idx
+  type(memory) :: face_idx
+  type(memory) :: edge_idx
   type(memory) :: total
   !
 continue
@@ -319,7 +356,8 @@ continue
   if (present(iunit)) iou = iunit
   !
   call total%reset
-  call cell_idx%reset
+  call face_idx%reset
+  call edge_idx%reset
   !
   write (iou,1)
   !
@@ -394,12 +432,25 @@ continue
    !  integer :: order
    !  integer, allocatable :: cell_idx(:)
    !end type face_of_cell_t
+   !type, public :: edge_of_cell_t
+   !  integer :: idx
+   !  integer :: order
+   !  real(wp) :: ave_coef
+   !  integer, allocatable :: cell_idx(:)
+   !end type edge_of_cell_t
+   !type, public :: node_of_cell_t
+   !  integer :: node_idx
+   !  real(wp) :: ave_coef
+   !  integer :: cell_idx
+   !end type node_of_cell_t
    !type, public :: cell_t
    !  integer :: geom
    !  integer :: order
    !  integer :: beg_sp
    !  integer :: end_sp
    !  type(face_of_cell_t), allocatable :: face(:)
+   !  type(edge_of_cell_t), allocatable :: edge(:)
+   !  type(node_of_cell_t), allocatable :: node(:)
    !end type cell_t
    !type(cell_t), public, save, allocatable :: cell(:)
     !##########################################################
@@ -435,9 +486,48 @@ continue
           if (allocated(cell(i)%face(j)%cell_idx)) then
             call array%set( storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
                                     size(cell(i)%face(j)%cell_idx,kind=inttype) )
-            call cell_idx%add(array)
+            call face_idx%add(array)
             call dt%add(array)
           end if
+          !
+        end do
+        !
+      end if
+      !
+      if (allocated(cell(i)%edge)) then
+        !
+        call array%set( storage_size(cell(i)%edge,kind=inttype) , &
+                                size(cell(i)%edge,kind=inttype) )
+        call dt%add(array)
+        !
+        do j = lbound(cell(i)%edge,dim=1),ubound(cell(i)%edge,dim=1)
+          !
+          call dt%add( storage_size(cell(i)%edge(j)%idx,kind=inttype) )
+          call dt%add( storage_size(cell(i)%edge(j)%order,kind=inttype) )
+          call dt%add( storage_size(cell(i)%edge(j)%ave_coef,kind=inttype) )
+          !
+          if (allocated(cell(i)%edge(j)%cell_idx)) then
+            call array%set( storage_size(cell(i)%edge(j)%cell_idx,kind=inttype) , &
+                                    size(cell(i)%edge(j)%cell_idx,kind=inttype) )
+            call edge_idx%add(array)
+            call dt%add(array)
+          end if
+          !
+        end do
+        !
+      end if
+      !
+      if (allocated(cell(i)%node)) then
+        !
+        call array%set( storage_size(cell(i)%node,kind=inttype) , &
+                                size(cell(i)%node,kind=inttype) )
+        call dt%add(array)
+        !
+        do j = lbound(cell(i)%node,dim=1),ubound(cell(i)%node,dim=1)
+          !
+          call dt%add( storage_size(cell(i)%node(j)%node_idx,kind=inttype) )
+          call dt%add( storage_size(cell(i)%node(j)%ave_coef,kind=inttype) )
+          call dt%add( storage_size(cell(i)%node(j)%cell_idx,kind=inttype) )
           !
         end do
         !
@@ -446,7 +536,10 @@ continue
     end do
     !
     write (array_name,5) "cell%face%cell_idx"
-    write (iou,6) array_name,cell_idx%get_units()
+    write (iou,6) array_name,face_idx%get_units()
+    !
+    write (array_name,5) "cell%edge%cell_idx"
+    write (iou,6) array_name,edge_idx%get_units()
     !
     call total%add(dt)
     write (array_name,5) "cell"
