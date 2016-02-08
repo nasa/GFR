@@ -41,6 +41,11 @@ subroutine get_grid_connectivity(bface,cell_geom, &
   integer, allocatable, dimension(:) :: cells_with_node_ptr
   integer, allocatable, dimension(:) :: cells_surr_cell
   integer, allocatable, dimension(:) :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:) :: cells_with_edge
+  integer, allocatable, dimension(:) :: cells_with_edge_ptr
+  integer, allocatable, dimension(:) :: edges_with_node
+  integer, allocatable, dimension(:) :: edges_with_node_ptr
+  integer, allocatable, dimension(:,:) :: nodes_on_edge
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_grid_connectivity"
@@ -63,6 +68,20 @@ continue
                                         nodes_of_cell,nodes_of_cell_ptr, &
                                         cells_with_node,cells_with_node_ptr, &
                                         cells_surr_cell,cells_surr_cell_ptr)
+  !
+  ! Get the nodes defining each edge as well as the edges surrounding each node
+  !
+  call find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
+                               cells_with_node,cells_with_node_ptr, &
+                               edges_with_node,edges_with_node_ptr, &
+                               nodes_on_edge)
+  !
+  ! Get the cells that surround each edge
+  !
+  call find_cells_surrounding_each_edge(nodes_on_edge, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_with_edge,cells_with_edge_ptr)
   !
   ! Get the cells on each face
   !
@@ -106,6 +125,31 @@ continue
   if (allocated(cells_surr_cell_ptr)) then
     deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+  end if
+  !
+  if (allocated(edges_with_node)) then
+    deallocate ( edges_with_node , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edges_with_node",2,ierr,error_message)
+  end if
+  !
+  if (allocated(edges_with_node_ptr)) then
+    deallocate ( edges_with_node_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edges_with_node_ptr",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_edge)) then
+    deallocate ( cells_with_edge , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_edge",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_edge_ptr)) then
+    deallocate ( cells_with_edge_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_edge_ptr",2,ierr,error_message)
+  end if
+  !
+  if (allocated(nodes_on_edge)) then
+    deallocate ( nodes_on_edge , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_on_edge",2,ierr,error_message)
   end if
   !
 end subroutine get_grid_connectivity
@@ -2126,6 +2170,436 @@ continue
   end do loop_over_orders
   !
 end subroutine get_unit_cell_subconnectivity
+!
+!###############################################################################
+!
+subroutine find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
+                                   cells_with_node,cells_with_node_ptr, &
+                                   edges_with_node,edges_with_node_ptr, &
+                                   nodes_on_edge)
+  !
+  !.. Formal Arguments ..
+  integer,              dimension(:),      intent(in) :: cell_geom
+  integer,              dimension(:),      intent(in) :: nodes_of_cell
+  integer,              dimension(:),      intent(in) :: nodes_of_cell_ptr
+  integer,              dimension(:),      intent(in) :: cells_with_node
+  integer,              dimension(:),      intent(in) :: cells_with_node_ptr
+  integer, allocatable, dimension(:),   intent(inout) :: edges_with_node
+  integer, allocatable, dimension(:),   intent(inout) :: edges_with_node_ptr
+  integer, allocatable, dimension(:,:), intent(inout) :: nodes_on_edge
+  !
+  !.. Local Scalars ..
+  integer :: i,ibeg,iend,ierr,idx,np,n1,n2,lnode,ledge
+  integer :: this_node,this_cell,this_edge,this_geom
+  integer :: other_node,unique_edges,next_edge_idx
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:8) :: ip
+  !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable, dimension(:) :: edge_already_found
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_nodes_on_each_edge"
+  !
+continue
+  !
+  lnode = maxval(nodes_of_cell)
+  !
+  !##################################################################
+  !##################################################################
+  !##################################################################
+  !#####  1. Count the total number of unique edges that exist  #####
+  !#####     and create the pointer array needed to create the  #####
+  !#####     list of edges attached to each grid node.          #####
+  !##################################################################
+  !##################################################################
+  !##################################################################
+  !
+  allocate ( edge_already_found(1:lnode) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge_already_found",1,ierr,error_message)
+  !
+  allocate ( edges_with_node_ptr(1:lnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edges_with_node_ptr",1,ierr,error_message)
+  !
+  ! Loop through the grid nodes and count the number of edges that
+  ! contain each node
+  !
+  unique_edges = 0
+  !
+  node_count_loop: do this_node = 1,lnode
+    !
+    ! Initialize edges_with_node_ptr(this_node+1) to the value in
+    ! edges_with_node_ptr(this_node) to make the array cumulative
+    !
+    edges_with_node_ptr(this_node+1) = edges_with_node_ptr(this_node)
+    !
+    ! Beginning and ending indices for the cells surrounding the current node
+    !
+    ibeg = cells_with_node_ptr(this_node)+1
+    iend = cells_with_node_ptr(this_node+1)
+    !
+    ! Loop over the cells that surround this node
+    !
+    cell_count_loop: do i = ibeg,iend
+      !
+      this_cell = cells_with_node(i)
+      this_geom = cell_geom(this_cell)
+      !
+      n1 = nodes_of_cell_ptr(this_cell)+1
+      n2 = nodes_of_cell_ptr(this_cell+1)
+      !
+      np = geom_nodes(this_geom)
+      !
+      ! Get the indices for all nodes defining this cell
+      !
+      ip(1:np) = nodes_of_cell(n1:n2)
+      !
+      ! Get the local node index (i.e., 1<=idx<=geom_nodes(this_geom))
+      ! of this_node for this_cell
+      !
+      idx = minloc( ip(1:np) , dim=1 , mask=(this_node==ip(1:np)) )
+      !
+      ! Loop through the cell edges connected to this node
+      !
+      edge_count_loop: do this_edge = 1,num_node_edges(idx,this_geom)
+        !
+        ! Get the index for the other node that is connected to
+        ! this_node through this_edge
+        !
+        other_node = ip( node_nodes(this_edge,idx,this_geom)+1 )
+        !
+        ! Skip to the next edge of this cell if this edge has already been found
+        !
+        if ( edge_already_found(other_node) ) cycle edge_count_loop
+        !
+        ! Add this edge to the edge counter ONLY IF the index for the other
+        ! node is GREATER than the index for the current node. This ensures
+        ! that the counted edges remain unique, i.e. a-b and b-a are the same
+        ! edge and arent counted twice.
+        !
+        if (other_node > this_node) unique_edges = unique_edges + 1
+        !
+        ! Regardless of which node index is greater, increase the edge counter
+        ! for this node by one so that later we can add this edge to the list
+        ! of edges containing the current node
+        !
+        edges_with_node_ptr(this_node+1) = edges_with_node_ptr(this_node+1) + 1
+        !
+        ! Mark the edge between this_node and other_node as already found
+        !
+        edge_already_found(other_node) = true
+        !
+      end do edge_count_loop
+      !
+    end do cell_count_loop
+    !
+    ! Reset the edge_already_found mask array for the next grid node
+    !
+    edge_already_found = fals
+    !
+  end do node_count_loop
+  !
+  ! Save the number of unique edges in ledge
+  !
+  ledge = unique_edges
+  !
+  !###################################################################
+  !###################################################################
+  !###################################################################
+  !#####  2. Repeat step 1, but this time store the nodes that   #####
+  !#####     define each unique edge in the array nodes_on_edge  #####
+  !###################################################################
+  !###################################################################
+  !###################################################################
+  !
+  ! Allocate the nodes_on_edge array
+  !
+  allocate ( nodes_on_edge(1:2,1:ledge) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_on_edge",1,ierr,error_message)
+  !
+  ! Loop back through the grid nodes, but this time store the edge information
+  ! now that we have properly allocated the necessary arrays
+  !
+  unique_edges = 0
+  !
+  node_store_loop: do this_node = 1,lnode
+    !
+    ! Beginning and ending indices for the cells surrounding the current node
+    !
+    ibeg = cells_with_node_ptr(this_node)+1
+    iend = cells_with_node_ptr(this_node+1)
+    !
+    ! Loop over the cells that surround this node
+    !
+    cell_store_loop: do i = ibeg,iend
+      !
+      this_cell = cells_with_node(i)
+      this_geom = cell_geom(this_cell)
+      !
+      n1 = nodes_of_cell_ptr(this_cell)+1
+      n2 = nodes_of_cell_ptr(this_cell+1)
+      !
+      np = geom_nodes(this_geom)
+      !
+      ! Get the indices for all nodes defining this cell
+      !
+      ip(1:np) = nodes_of_cell(n1:n2)
+      !
+      ! Get the local node index (i.e., 1<=idx<=geom_nodes(this_geom))
+      ! of this_node for this_cell
+      !
+      idx = minloc( ip(1:np) , dim=1 , mask=(this_node==ip(1:np)) )
+      !
+      ! Loop through the cell edges connected to this node
+      !
+      edge_store_loop: do this_edge = 1,num_node_edges(idx,this_geom)
+        !
+        ! Get the index for the other node that is connected to
+        ! this_node through this_edge
+        !
+        other_node = ip( node_nodes(this_edge,idx,this_geom)+1 )
+        !
+        ! Skip to the next edge of this cell if this edge has already been found
+        !
+        if ( edge_already_found(other_node) ) cycle edge_store_loop
+        !
+        ! Add this edge to the edge counter ONLY IF the index for the other
+        ! node is GREATER than the index for the current node. This ensures
+        ! that the counted edges remain unique, i.e. a-b and b-a are the same
+        ! edge and arent counted twice.
+        !
+        if (other_node > this_node) then
+          unique_edges = unique_edges + 1
+          nodes_on_edge(1,unique_edges) = this_node
+          nodes_on_edge(2,unique_edges) = other_node
+        end if
+        !
+        ! Mark the edge between this_node and other_node as already found
+        !
+        edge_already_found(other_node) = true
+        !
+      end do edge_store_loop
+      !
+    end do cell_store_loop
+    !
+    ! Reset the edge_already_found mask array for the next grid node
+    !
+    edge_already_found = fals
+    !
+  end do node_store_loop
+  !
+  ! Deallocate edge_already_found since it is no longer needed
+  !
+  deallocate ( edge_already_found , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge_already_found",2,ierr,error_message)
+  !
+  !#########################################################################
+  !#########################################################################
+  !#########################################################################
+  !#####  3. Use the newly created nodes_on_edge array to go back and  #####
+  !#####     create the list of edges attached to each grid node.      #####
+  !#########################################################################
+  !#########################################################################
+  !#########################################################################
+  !
+  ! Allocate the edges_with_node array
+  !
+  allocate ( edges_with_node(1:last(edges_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edges_with_node",1,ierr,error_message)
+  !
+  ! Add each edge to the list of attached edges for the two nodes
+  ! defining the edge
+  !
+  do this_edge = 1,ledge
+    do i = 1,2
+      this_node = nodes_on_edge(i,this_edge)
+      next_edge_idx = edges_with_node_ptr(this_node) + 1
+      edges_with_node(next_edge_idx) = this_edge
+      edges_with_node_ptr(this_node) = next_edge_idx
+    end do
+  end do
+  !
+  ! The previous loop has shifted edges_with_node_ptr left 1 index so we
+  ! need to shift it back to the right 1 index
+  !
+  edges_with_node_ptr = eoshift( edges_with_node_ptr , shift=-1 , boundary=0 )
+  !
+  if (last(edges_with_node_ptr) /= size(edges_with_node)) then
+    write (error_message,1)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  write (iout,2) mypnum,"ledge",ledge
+  write (iout,2) mypnum,"size(edges_with_node)",size(edges_with_node)
+  2 format (" CPU-",i0," : ",a," = ",i0)
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR! The number of edges found with nodes is inconsistent!")
+  !
+end subroutine find_nodes_on_each_edge
+!
+!###############################################################################
+!
+subroutine find_cells_surrounding_each_edge(nodes_on_edge, &
+                                   nodes_of_cell,nodes_of_cell_ptr, &
+                                   cells_with_node,cells_with_node_ptr, &
+                                   cells_with_edge,cells_with_edge_ptr)
+  !
+  !.. Formal Arguments ..
+  integer,              dimension(:,:),  intent(in) :: nodes_on_edge
+  integer,              dimension(:),    intent(in) :: nodes_of_cell
+  integer,              dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,              dimension(:),    intent(in) :: cells_with_node
+  integer,              dimension(:),    intent(in) :: cells_with_node_ptr
+  integer, allocatable, dimension(:), intent(inout) :: cells_with_edge
+  integer, allocatable, dimension(:), intent(inout) :: cells_with_edge_ptr
+  !
+  !.. Local Scalars ..
+  integer :: i,ibeg,iend,ierr,n1,n2,ledge
+  integer :: this_node,this_cell,this_edge
+  integer :: other_node,next_cell_idx
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_cells_surrounding_each_edge"
+  !
+continue
+  !
+  ledge = size(nodes_on_edge,dim=2)
+  !
+  !###################################################################
+  !###################################################################
+  !###################################################################
+  !#####  1. Create the pointer array needed to create the list  #####
+  !#####     of cells that contain each edge.                    #####
+  !###################################################################
+  !###################################################################
+  !###################################################################
+  !
+  allocate ( cells_with_edge_ptr(1:ledge+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_edge_ptr",1,ierr,error_message)
+  !
+  ! Loop through all the edges and count the number of cells that
+  ! contain each edge
+  !
+  do this_edge = 1,ledge
+    !
+    ! Initialize cells_with_edge_ptr(this_edge+1) to the value in
+    ! cells_with_edge_ptr(this_edge) to make the array cumulative
+    !
+    cells_with_edge_ptr(this_edge+1) = cells_with_edge_ptr(this_edge)
+    !
+    ! Get the two nodes defining this edge
+    !
+    this_node  = nodes_on_edge(1,this_edge)
+    other_node = nodes_on_edge(2,this_edge)
+    !
+    ! Beginning and ending indices for the cells surrounding the current node
+    !
+    ibeg = cells_with_node_ptr(this_node)+1
+    iend = cells_with_node_ptr(this_node+1)
+    !
+    ! Loop over the cells that surround this_node and find those cells that
+    ! also contain other_node. As long as there is a 1-to-1 matching of all
+    ! grid faces (e.g., C(0) continuous, and triangle and quad faces only
+    ! match faces of the same geometry), any cell containing these two nodes
+    ! also contains this edge.
+    !
+    do i = ibeg,iend
+      !
+      this_cell = cells_with_node(i)
+      !
+      n1 = nodes_of_cell_ptr(this_cell)+1
+      n2 = nodes_of_cell_ptr(this_cell+1)
+      !
+      ! If other_node matches any of the nodes in nodes_of_cell(n1:n2),
+      ! increase the cell counter for this edge by one so that later we
+      ! can add this cell to the list of cells containing the current edge
+      !
+      if (any(other_node == nodes_of_cell(n1:n2))) then
+        cells_with_edge_ptr(this_edge+1) = cells_with_edge_ptr(this_edge+1) + 1
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  !#####################################################################
+  !#####################################################################
+  !#####################################################################
+  !#####  2. Use the previously created integer pointer array      #####
+  !#####     cells_with_edge_ptr to store the list of cells        #####
+  !#####     containing each edge in the array cells_with_edge.    #####
+  !#####################################################################
+  !#####################################################################
+  !#####################################################################
+  !
+  allocate ( cells_with_edge(1:last(cells_with_edge_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_edge",1,ierr,error_message)
+  !
+  ! Loop back through the edges, but this time add the found cells
+  ! to the list of cells containing each edge
+  !
+  do this_edge = 1,ledge
+    !
+    ! Get the two nodes defining this edge
+    !
+    this_node  = nodes_on_edge(1,this_edge)
+    other_node = nodes_on_edge(2,this_edge)
+    !
+    ! Beginning and ending indices for the cells surrounding the current node
+    !
+    ibeg = cells_with_node_ptr(this_node)+1
+    iend = cells_with_node_ptr(this_node+1)
+    !
+    ! Loop over the cells that surround this_node and find those cells that
+    ! also contain other_node. As long as there is a 1-to-1 matching of all
+    ! grid faces (e.g., C(0) continuous, and triangle and quad faces only
+    ! match faces of the same geometry), any cell containing these two nodes
+    ! also contains this edge.
+    !
+    do i = ibeg,iend
+      !
+      this_cell = cells_with_node(i)
+      !
+      n1 = nodes_of_cell_ptr(this_cell)+1
+      n2 = nodes_of_cell_ptr(this_cell+1)
+      !
+      ! If other_node matches any of the nodes in nodes_of_cell(n1:n2),
+      ! add this cell to the list of cells containing the current edge
+      !
+      if (any(other_node == nodes_of_cell(n1:n2))) then
+        next_cell_idx = cells_with_edge_ptr(this_edge) + 1
+        cells_with_edge(next_cell_idx) = this_cell
+        cells_with_edge_ptr(this_edge) = next_cell_idx
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! The previous loop has shifted cells_with_edge_ptr left 1 index so we
+  ! need to shift it back to the right 1 index
+  !
+  cells_with_edge_ptr = eoshift( cells_with_edge_ptr , shift=-1 , boundary=0 )
+  !
+  if (last(cells_with_edge_ptr) /= size(cells_with_edge)) then
+    write (error_message,1)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR! The number of cells found with edges is inconsistent!")
+  !
+end subroutine find_cells_surrounding_each_edge
 !
 !###############################################################################
 !
