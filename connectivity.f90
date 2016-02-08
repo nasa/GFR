@@ -92,7 +92,6 @@ subroutine find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
   !.. Local Scalars ..
   integer :: i,ip,is,ibeg,iend,n,nc,ierr
   integer :: n1,n2,np
-  character(len=300) :: error_message
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: cwn
@@ -103,8 +102,9 @@ subroutine find_cells_surrounding_each_node(cells_with_node,cells_with_node_ptr)
   !
 continue
   !
-  allocate ( cells_with_node_ptr(1:nnode+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_with_node_ptr",1,ierr)
+  allocate ( cells_with_node_ptr(1:nnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
   !
   ! Loop over the cells, storing 'ahead'
   !
@@ -142,8 +142,9 @@ continue
     cells_with_node_ptr(n) = cells_with_node_ptr(n) + cells_with_node_ptr(n-1)
   end do
   !
-  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_with_node",1,ierr)
+  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",1,ierr,error_message)
   !
   ! Now store the cells surrounding each node in cells_with_node
   !
@@ -325,10 +326,12 @@ subroutine find_cells_surrounding_each_cell(cells_with_node,cells_with_node_ptr,
   !
 continue
   !
-  allocate ( lpoin(1:n_totnod) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpoin",1,ierr)
-  allocate ( cells_surr_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr)
+  allocate ( lpoin(1:n_totnod) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,ierr,error_message)
+  !
+  allocate ( cells_surr_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
   !
   ! Loop to set up cells_surr_cell_ptr
   !
@@ -336,8 +339,9 @@ continue
     cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
   end do
   !
-  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell",1,ierr)
+  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",1,ierr,error_message)
   !
   ! Loop to find cells_surr_cell
   !
@@ -427,8 +431,8 @@ continue
     !
   end do
   !
-  deallocate ( lpoin , stat=ierr )
-  call alloc_error(pname,"lpoin",2,ierr)
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,ierr,error_message)
   !
   ! We are also finished with cells_with_node
   ! and cells_with_node_ptr so deallocate
@@ -473,7 +477,6 @@ subroutine create_face_derived_type(cells_surr_cell,cells_surr_cell_ptr)
   integer :: c1,c2,this_cell,this_geom,adj_cell
   integer :: left_order,right_order
   character(len=200) :: array_name
-  character(len=200) :: error_message
   logical :: error_finding_rotation
   !
   real(wp) :: dir
@@ -521,11 +524,13 @@ continue
   allocate ( face(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face",1,ierr,error_message)
   !
-  allocate ( nodes_on_face(1:4,1:nface) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_on_face",1,ierr)
+  allocate ( nodes_on_face(1:4,1:nface) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_on_face",1,ierr,error_message)
   !
-  allocate ( faces_of_cell(1:6,1:ncell) , source=-99 , stat=ierr )
-  call alloc_error(pname,"faces_of_cell",1,ierr)
+  allocate ( faces_of_cell(1:6,1:ncell) , source=-99 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
   !
   ! ###########
   ! ###########
@@ -645,11 +650,11 @@ continue
   ! We are finished with cells_surr_cell
   ! and cells_surr_cell_ptr so deallocate
   !
-  deallocate ( cells_surr_cell , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell",2,ierr)
+  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
   !
-  deallocate ( cells_surr_cell_ptr , stat=ierr )
-  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr)
+  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
   !
   ! ###########
   ! ###########
@@ -723,8 +728,8 @@ continue
   ! ###########
   ! ###########
   !
-  allocate ( lpoin(1:n_totnod) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpoin",1,ierr)
+  allocate ( lpoin(1:nnode) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,ierr,error_message)
   !
   ! Find the side of the right cell that is on each interior face
   !
@@ -769,8 +774,8 @@ continue
     !
   end do loop_right_cell_face
   !
-  deallocate ( lpoin , stat=ierr )
-  call alloc_error(pname,"lpoin",2,ierr)
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,ierr,error_message)
   !
   ! ###########
   ! ###########
@@ -1486,9 +1491,8 @@ end function RotateFluxPoints_Tria
 subroutine create_cell_derived_type()
   !
   !.. Use Statements ..
-  use geovar, only : nfbnd,ncell,nface,bface
-  use geovar, only : cell
-  use geovar, only : face
+  use geovar, only : ncell,cell
+  use geovar, only : nfbnd,nface,face
   use geovar, only : cell_geom
   use geovar, only : cell_order
   use order_mod, only : geom_solpts
@@ -1502,7 +1506,6 @@ subroutine create_cell_derived_type()
   integer :: this_geom,this_order
   integer :: this_beg,this_end
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Parameters ..
   integer, parameter :: left_side = 1
