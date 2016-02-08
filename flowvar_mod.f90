@@ -470,37 +470,44 @@ end subroutine zero_ne1d_t
 !
 !###############################################################################
 !
-subroutine pack_ne1d_t_data(this,package)
+subroutine pack_ne1d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne1d_t), dimension(:),    intent(in) :: this
   real(r8),      dimension(:), intent(inout) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend,nsz
+  integer :: n,ibeg,nsz
 continue
   do n = 1,size(this)
     nsz = size(this(n)%v(:))
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + nsz
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + nsz
+    ibeg = iend + 1
+    iend = iend + nsz
     package(ibeg:iend) = reshape( real(this(n)%v(:),kind=r8) , [nsz] )
   end do
 end subroutine pack_ne1d_t_data
 !
 !###############################################################################
 !
-subroutine unpack_ne1d_t_data(this,package)
+subroutine unpack_ne1d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne1d_t), dimension(:), intent(inout) :: this
   real(r8),      dimension(:),    intent(in) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend
+  integer :: n,ibeg
   !.. Local Arrays ..
   integer, dimension(1:1) :: nsz
 continue
   do n = 1,size(this)
     nsz(1) = size(this(n)%v,dim=1)
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    this(n)%v(:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + product(nsz)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    this(n)%v(:) = this(n)%v(:) + &
+                   reshape( real(package(ibeg:iend),kind=wp) , nsz )
   end do
 end subroutine unpack_ne1d_t_data
 !
@@ -525,38 +532,45 @@ end subroutine zero_ne2d_t
 !
 !###############################################################################
 !
-subroutine pack_ne2d_t_data(this,package)
+subroutine pack_ne2d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne2d_t), dimension(:),    intent(in) :: this
   real(r8),      dimension(:), intent(inout) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend,nsz
+  integer :: n,ibeg,nsz
 continue
   do n = 1,size(this)
     nsz = size(this(n)%v(:,:))
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + nsz
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + nsz
+    ibeg = iend + 1
+    iend = iend + nsz
     package(ibeg:iend) = reshape( real(this(n)%v(:,:),kind=r8) , [nsz] )
   end do
 end subroutine pack_ne2d_t_data
 !
 !###############################################################################
 !
-subroutine unpack_ne2d_t_data(this,package)
+subroutine unpack_ne2d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne2d_t), dimension(:), intent(inout) :: this
   real(r8),      dimension(:),    intent(in) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend
+  integer :: n,ibeg
   !.. Local Arrays ..
   integer, dimension(1:2) :: nsz
 continue
   do n = 1,size(this)
     nsz(1) = size(this(n)%v,dim=1)
     nsz(2) = size(this(n)%v,dim=2)
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    this(n)%v(:,:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + product(nsz)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    this(n)%v(:,:) = this(n)%v(:,:) + &
+                     reshape( real(package(ibeg:iend),kind=wp) , nsz )
   end do
 end subroutine unpack_ne2d_t_data
 !
@@ -581,29 +595,33 @@ end subroutine zero_ne3d_t
 !
 !###############################################################################
 !
-subroutine pack_ne3d_t_data(this,package)
+subroutine pack_ne3d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne3d_t), dimension(:),    intent(in) :: this
   real(r8),      dimension(:), intent(inout) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend,nsz
+  integer :: n,ibeg,nsz
 continue
   do n = 1,size(this)
     nsz = size(this(n)%v(:,:,:))
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + nsz
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + nsz
+    ibeg = iend + 1
+    iend = iend + nsz
     package(ibeg:iend) = reshape( real(this(n)%v(:,:,:),kind=r8) , [nsz] )
   end do
 end subroutine pack_ne3d_t_data
 !
 !###############################################################################
 !
-subroutine unpack_ne3d_t_data(this,package)
+subroutine unpack_ne3d_t_data(this,package,iend)
   !.. Formal Arguments ..
   class(ne3d_t), dimension(:), intent(inout) :: this
   real(r8),      dimension(:),    intent(in) :: package
+  integer,                     intent(inout) :: iend
   !.. Local Scalars ..
-  integer :: n,ibeg,iend
+  integer :: n,ibeg
   !.. Local Arrays ..
   integer, dimension(1:3) :: nsz
 continue
@@ -611,9 +629,12 @@ continue
     nsz(1) = size(this(n)%v,dim=1)
     nsz(2) = size(this(n)%v,dim=2)
     nsz(3) = size(this(n)%v,dim=3)
-    ibeg = this(n)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    this(n)%v(:,:,:) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
+   !ibeg = this(n)%beg_pt
+   !iend = ibeg-1 + product(nsz)
+    ibeg = iend + 1
+    iend = iend + product(nsz)
+    this(n)%v(:,:,:) = this(n)%v(:,:,:) + &
+                       reshape( real(package(ibeg:iend),kind=wp) , nsz )
   end do
 end subroutine unpack_ne3d_t_data
 !
