@@ -35,6 +35,29 @@ module correction_mod
   !
   type(matrix), public, save, target, allocatable :: correct(:,:)
   !
+  !
+  ! correct_sol : correction matrix used for reconstructing a continuous
+  !               solution for post-processing. The correction matrices in
+  !               'correct' actually contain derivatives of the correction
+  !               function and these matrices contain the actual correction
+  !               functions themselves.
+  !
+  !     For cell 'n' :
+  !
+  !         The correction matrix (giving the contribution to each solution
+  !         point within cell 'n' from the interface flux point 'k' that is
+  !         currently of interest) is given by the expression
+  !
+  !         correct_sol(this_geom,this_order)%mat(:,k)
+  !
+  !     Where :
+  !
+  !        this_geom = cell(n)%geom
+  !        this_order = cell(n)%order
+  !        k = the flux point on a face of cell 'n' that is currently of interest
+  !
+  type(matrix), public, save, target, allocatable :: correct_sol(:,:)
+  !
   ! Generic interfaces for functions within this module
   !
 contains
@@ -50,6 +73,7 @@ subroutine init_correction_matrices()
   use order_mod,      only : n_order
   use quadrature_mod, only : geom_is_used
   use quadrature_mod, only : std_elem
+  use ovar,           only : correct_output
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax
@@ -181,6 +205,116 @@ continue
   ! Check for sparsity within each of the correction matrices
   !
   call correct%check_for_sparsity
+  !
+  ! Create the output correction matrices if required
+  !
+  if (correct_output) then
+    !
+    ! Allocate the correct_sol array
+    !
+    allocate ( correct_sol(gmin:gmax,omin:omax) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"correct_sol",1,ierr,error_message)
+    !
+    output_geom_loop: do this_geom = gmin,gmax
+      !
+      if (.not. geom_is_used(this_geom)) cycle output_geom_loop
+      if (all(this_geom /= Geom_Valid)) cycle output_geom_loop
+      if (this_geom == Geom_Node) cycle output_geom_loop
+      !
+      output_order_loop: do this_order = omin,omax
+        !
+        ! Assign local pointer as alias to simplify the code
+        !
+        this_correct => correct_sol(this_geom,this_order)
+        !
+        ! Get the number of solution points for this cell
+        !
+        nsolpts = geom_solpts(this_geom,this_order)
+        !
+        ! Get the number of face/flux points for this cell
+        !
+        nflxpts = geom_flxpts(this_geom,this_order)
+        !
+        ! Allocate the correction matrix
+        !
+        allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        ! Assign local pointers to these matrices as aliases to simplify the code
+        !
+        cmat => this_correct%mat
+        !
+        ! Compute the correction matrices depending on geometry type
+        !
+        select case (this_geom)
+          case (Geom_Edge)
+            !
+            solpts => std_elem(this_geom,this_order)%pts
+            !
+            cmat(:,1) = CorrectionMatrix_Edge( solpts(1,:) , fals )
+            cmat(:,2) = cmat(nsolpts:1:-1,1)
+            !
+          case (Geom_Tria)
+            !
+            solpts => std_elem(this_geom,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Tria( solpts , fals )
+            !
+          case (Geom_Quad)
+            !
+            solpts => std_elem(Geom_Edge,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Quad( solpts(1,:) , fals )
+            !
+          case (Geom_Tetr)
+            !
+            solpts => std_elem(this_geom,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Tetr( solpts , fals )
+            !
+          case (Geom_Pyra)
+            !
+            solpts => std_elem(this_geom,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Pyra( solpts , fals )
+            !
+          case (Geom_Pris)
+            !
+            solpts => std_elem(this_geom,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Pris( solpts , fals )
+            !
+          case (Geom_Hexa)
+            !
+            solpts => std_elem(Geom_Edge,this_order)%pts
+            !
+            cmat = CorrectionMatrix_Hexa( solpts(1,:) , fals )
+            !
+          case default
+            !
+            write (error_message,2)
+            call stop_recon(stop_mpi,pname,error_message)
+            !
+        end select
+        !
+        ! Remove all associations of the local pointers before continuing
+        !
+        if (associated(this_correct)) this_correct => null()
+        if (associated(solpts   ))    solpts       => null()
+        if (associated(cmat     ))    cmat         => null()
+        !
+      end do output_order_loop
+      !
+    end do output_geom_loop
+    !
+    ! Check for sparsity within each of the output correction matrices
+    !
+    call correct_sol%check_for_sparsity
+    !
+  end if
   !
  !write (iout,6) "Quad correct: ", &
  !               count(abs(correct(Geom_Quad,n_order)%mat) > zero), &
