@@ -3671,12 +3671,10 @@ end subroutine write_solution_parallel_cgns
 subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,nodes_of_cell_ptr
-  use geovar,       only : n_global_cell,global_nofc_ptr
+  use geovar,       only : ncell,n_global_cell,cell
   use geovar,       only : pst_geom
- !use geovar,       only : geom_conn
-  use geovar,       only : cell_geom,global_cell_geom
-  use geovar,       only : cell_order,global_cell_order
+  use geovar,       only : global_cell_geom
+  use geovar,       only : global_cell_order
   use parallel_mod, only : cell_map
   use order_mod,    only : geom_solpts
   !
@@ -3814,11 +3812,11 @@ continue
     !
     ! Geometry of this grid cell
     !
-    this_geom = cell_geom(this_cell)
+    this_geom = cell(this_cell)%geom
     !
     ! Polynomial order for this grid cell
     !
-    this_order = cell_order(this_cell)
+    this_order = cell(this_cell)%order
     !
     ! Number of solution points for this cell geometry at this order
     !
@@ -4705,10 +4703,10 @@ pure function interpolate_for_output_1d(array) result(return_value)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,n_global_solpts
-  use geovar,  only : ncell,n_global_cell
-  use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
-  use geovar,  only : cell_geom,global_cell_geom
-  use geovar,  only : cell_order,global_cell_order
+  use geovar,  only : ncell,n_global_cell,cell
+  use geovar,  only : global_pinc_ptr
+  use geovar,  only : global_cell_geom
+  use geovar,  only : global_cell_order
   !
   use interpolation_mod, only : outerp
   !
@@ -4731,11 +4729,11 @@ continue
     !
     do nc = 1,ncell
       !
-      this_geom = cell_geom(nc)
-      this_order = cell_order(nc)
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
       !
-      n1 = pts_in_cell_ptr(nc)+1
-      n2 = pts_in_cell_ptr(nc+1)
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
       np = n2-n1+1
       !
       if (associated(outerp(this_geom,this_order)%output)) then
@@ -4795,10 +4793,10 @@ pure function interpolate_for_output_2d(array) result(return_value)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts,n_global_solpts
-  use geovar,  only : ncell,n_global_cell
-  use geovar,  only : pts_in_cell_ptr,global_pinc_ptr
-  use geovar,  only : cell_geom,global_cell_geom
-  use geovar,  only : cell_order,global_cell_order
+  use geovar,  only : ncell,n_global_cell,cell
+  use geovar,  only : global_pinc_ptr
+  use geovar,  only : global_cell_geom
+  use geovar,  only : global_cell_order
   !
   use interpolation_mod, only : outerp
   !
@@ -4824,11 +4822,11 @@ continue
     !
     do nc = 1,ncell
       !
-      this_geom = cell_geom(nc)
-      this_order = cell_order(nc)
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
       !
-      n1 = pts_in_cell_ptr(nc)+1
-      n2 = pts_in_cell_ptr(nc+1)
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
       np = n2-n1+1
       !
       if (associated(outerp(this_geom,this_order)%output)) then
@@ -4902,8 +4900,7 @@ pure function vorticity_cv(uu) result(return_value)
   !
   !.. Use Statements ..
   use order_mod, only : maxpts
-  use geovar, only : nr,ncell,pts_in_cell_ptr
-  use geovar, only : cell_geom,cell_order
+  use geovar, only : nr,ncell,cell
   use metrics_mod, only : jacobian,metrics
   use derivatives_mod, only : deriv
   !
@@ -4924,12 +4921,12 @@ continue
   !
   do n = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
+    n1 = cell(n)%beg_sp ! beginning index for sol-pts in cell n
+    n2 = cell(n)%end_sp ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
     do k = n1,n2
       vel(1:nr,k-n1+1) = uu(nmb:nme,k)/uu(1,k)
@@ -4975,8 +4972,7 @@ end function vorticity_cv
 pure function vorticity_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,pts_in_cell_ptr
-  use geovar, only : cell_geom,cell_order
+  use geovar, only : ncell,cell
   use metrics_mod, only : jacobian,metrics
   use derivatives_mod, only : deriv
   !
@@ -4994,12 +4990,12 @@ continue
   !
   do n = 1,ncell
     !
-    n1 = pts_in_cell_ptr(n)+1 ! beginning index for sol-pts in cell n
-    n2 = pts_in_cell_ptr(n+1) ! ending    index for sol-pts in cell n
+    n1 = cell(n)%beg_sp ! beginning index for sol-pts in cell n
+    n2 = cell(n)%end_sp ! ending    index for sol-pts in cell n
     np = n2-n1+1
     !
-    this_geom = cell_geom(n)
-    this_order = cell_order(n)
+    this_geom = cell(n)%geom
+    this_order = cell(n)%order
     !
     do k = n1,n2
       !
