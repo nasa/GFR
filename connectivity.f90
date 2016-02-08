@@ -68,13 +68,15 @@ continue
   !
   call memory_pause("finding the cells surrounding each cell", &
                     "finding the cells on each face")
-  call find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
+  call create_face_derived_type(bface,cell_geom, &
+                                nodes_of_cell,nodes_of_cell_ptr, &
+                                cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Get the indices for the flux points for each cell
   !
   call memory_pause("finding the cells on each face", &
                     "finding the flux points of each cell")
-  call find_flxpts_of_each_cell
+  call create_cell_derived_type
   !
   ! Get the unit cell subconnectivities for use when writing solution file
   !
@@ -486,7 +488,9 @@ end subroutine find_cells_surrounding_each_cell
 !
 !###############################################################################
 !
-subroutine create_face_derived_type(cells_surr_cell,cells_surr_cell_ptr)
+subroutine create_face_derived_type(bface,cell_geom, &
+                                    nodes_of_cell,nodes_of_cell_ptr, &
+                                    cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Procedure that creates the face and nodes_on_face arrays. Look in
   ! the module geovar for definitions of each array.
@@ -494,15 +498,18 @@ subroutine create_face_derived_type(cells_surr_cell,cells_surr_cell_ptr)
   !.. Use Statements ..
   use order_mod, only : geom_solpts
   use order_mod, only : find_geom_max_interp_order
-  use geovar,    only : nr,nfbnd,nface,ncell,n_totnod
-  use geovar,    only : xyz_nodes,bface,cell_geom,cell_order
-  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar,    only : nodes_on_face,pts_in_cell_ptr,xyz
-  use geovar,    only : face
+  use geovar,    only : nr,nnode,nfbnd,nface,ncell
+  use geovar,    only : face,nodes_on_face
+  use geovar,    only : xyz_nodes,cell_order
   !
   !.. Formal Arguments ..
+  integer,              dimension(:,:),  intent(in) :: bface
+  integer,              dimension(:),    intent(in) :: cell_geom
+  integer,              dimension(:),    intent(in) :: nodes_of_cell
+  integer,              dimension(:),    intent(in) :: nodes_of_cell_ptr
   integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell
   integer, allocatable, dimension(:), intent(inout) :: cells_surr_cell_ptr
+  !
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
@@ -522,15 +529,14 @@ subroutine create_face_derived_type(cells_surr_cell,cells_surr_cell_ptr)
   real(wp) :: dir
   !
   !.. Local Arrays ..
-  integer, dimension(1:4) :: lnode
-  integer, dimension(1:4) :: ip
-  integer, dimension(1:4) :: left_nodes
-  integer, dimension(1:4) :: right_nodes
+  integer,  dimension(1:4)  :: ip
+  integer,  dimension(1:4)  :: left_nodes
+  integer,  dimension(1:4)  :: right_nodes
   real(wp), dimension(1:nr) :: rnrm
   real(wp), dimension(1:nr) :: face_center
   real(wp), dimension(1:nr) :: cell_center
-  real(wp), dimension(1:3,1:4) :: xyz_face
-  real(wp), dimension(1:3,1:8) :: xyz_cell
+  real(wp), dimension(1:nr,1:4) :: xyz_face
+  real(wp), dimension(1:nr,1:8) :: xyz_cell
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: lpoin
@@ -743,7 +749,7 @@ continue
     !
     ! Get the normal to this face using the nodes that define it
     !
-    rnrm = face_normal( xyz_face(1:nr,1:nfnods) )
+    rnrm(1:nr) = face_normal( xyz_face(1:nr,1:nfnods) )
     !
     ! Compute the dot product of the vector from the center of
     ! the left cell to the center of the face with the face normal
