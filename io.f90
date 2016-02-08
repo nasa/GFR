@@ -273,6 +273,13 @@ continue
     call stop_recon(stop_mpi,pname)
   end if
   !
+  if (iop_solpts == Legendre_Gauss_Lobatto) then
+    if (continuous_output) then
+      write (error_message,106)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+  end if
+  !
   ! Adjust the solution order and compute the number
   ! of solution points for the different cell shapes
   !
@@ -588,6 +595,8 @@ continue
   105 format (/,"#######################################",/, &
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
+  106 format ("Lobatto solutions points are not yet compatible with the ", &
+              "option to correct the output solution so that it is continuous!")
   21 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
   22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
   23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
