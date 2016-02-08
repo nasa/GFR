@@ -1754,13 +1754,14 @@ subroutine get_unit_cell_subconnectivity()
   !.. Use Statements ..
   use geovar, only : pst_geom
   use geovar, only : global_cell_order
+  use ovar,   only : continuous_output
   !
   !.. Local Scalars ..
   integer :: i,j,k,sk,ierr
   integer :: no1d,no2d,no3d,np1d
   integer :: p1,p2,p3,p4,p5,p6,p7,p8
   integer :: omin,omax,order
-  character(len=300) :: error_message
+  integer :: add_points
   !
   !.. Local Arrays ..
   integer, allocatable, dimension(:,:) :: counter
@@ -1783,9 +1784,11 @@ continue
   ! Loop through all the possible cell orders to get the connectivity
   ! for each of them
   !
+  add_points = merge(2,0,continuous_output)
+  !
   loop_over_orders: do order = omin,omax
     !
-    no1d = max(1,order)
+    no1d = max(1,order) + add_points
     no2d = no1d**2
     no3d = no1d**3
     np1d = no1d + 1
