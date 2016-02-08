@@ -3357,7 +3357,7 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: l,m,n,ierr
+  integer :: k,l,m,n,ierr
   integer :: n_total_output_pts
   integer :: n_total_output_cells
   !
@@ -3377,9 +3377,9 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !.. Local Arrays ..
   integer :: ifile_s,ibase_s,izone_s,isol_s
   integer, dimension(1:(nme-nec)*nr) :: idvar_s
-  integer, dimension(1:size(char_sname)+2*(nr-1)) :: isvar_s
   !
   !.. Local Allocatable Arrays ..
+  integer,  allocatable, dimension(:)     :: isvar_s
   real(wp), allocatable, dimension(:)     :: vartmp
   real(wp), allocatable, dimension(:,:)   :: interp_usp
   real(wp), allocatable, dimension(:,:,:) :: interp_dusp
@@ -3539,6 +3539,32 @@ continue
     ! #####   WRITING SOLUTION FIELD VARIABLES   #####
     ! ################################################
     !
+    !
+    ! Count the total number of solution variables that will be written
+    ! and allocate isvar_s accordingly
+    !
+    n = 0
+    do l = 1,size(char_sname)
+      if (trim(char_sname(l)) == "Velocity") then
+        n = n + nr
+      else if (trim(char_sname(l)) == "Vorticity") then
+        n = n + nr
+      else if (trim(char_sname(l)) == "Momentum") then
+        n = n + nr
+      else if (trim(char_sname(l)) == "GradDensity") then
+        n = n + nr
+      else if (trim(char_sname(l)) == "GradMomentum") then
+        n = n + nr*nr
+      else if (trim(char_sname(l)) == "GradEnergy") then
+        n = n + nr
+      else
+        n = n + 1
+      end if
+    end do
+    !
+    allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"isvar_s",1,ierr,error_message)
+    !
     ! Create data nodes for the solution variables
     !
     n = 0
@@ -3666,6 +3692,10 @@ continue
   if (allocated(interp_dusp)) then
     deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_dusp",2,ierr,error_message)
+  end if
+  if (allocated(isvar_s)) then
+    deallocate ( isvar_s , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"isvar_s",2,ierr,error_message)
   end if
   !
   ! Format Statements
