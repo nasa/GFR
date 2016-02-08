@@ -17,6 +17,7 @@ module flux_mod
   public :: discontinuous_gradient_at_solpts
   public :: correct_gradients_at_solpts
   public :: correct_gradients_br2
+  public :: correct_solution_for_output
   !
   real(wp), parameter :: amco2m = 1.0e-4_wp
   real(wp), parameter :: alphax = 0.1875_wp
@@ -1841,6 +1842,282 @@ continue
   if (ncpu > 1) call exchange_facedusp(facedusp)
   !
 end subroutine correct_gradients_br2
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+! Procedure for correcting the solution and gradient before output
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine correct_solution_for_output(interp_usp,interp_dusp)
+  !
+  use generic_types_mod, only : matrix
+  use order_mod,  only : maxFP,geom_solpts
+  use geovar,  only : nr,nfbnd,nface,n_solpts
+  use geovar,  only : bface,face,cell
+  use ovar,    only : invs_flux_method,visc_flux_method
+  use metrics_mod,  only : geofa,jacobian
+  use correction_mod, only : correct_sol
+  use flowvar, only : usp,dusp,uoldsp,faceusp
+  !
+  use module_bc, only : get_faceusp_bc
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:),   intent(inout) :: interp_usp
+  real(wp), dimension(:,:,:), intent(inout) :: interp_dusp
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,m,n,nf,r1,r2,l1,l2
+  integer  :: kl,kr,nfp
+  integer  :: face_geom,face_order
+  integer  :: host_cell,host_geom,host_order
+  integer  :: left_cell,left_geom,left_order
+  integer  :: right_cell,right_geom,right_order
+  real(wp) :: ds,dsl,dsr,correct_n
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nq) :: ucom,ljfp,rjfp
+  real(wp), dimension(1:nr,1:maxFP) :: rnrm
+  real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
+  !
+  type(matrix), pointer :: left_cmat
+  type(matrix), pointer :: right_cmat
+  !
+  real(wp), parameter :: addsub_cor =  one
+ !real(wp), parameter :: addsub_cor = -one
+  !
+ !logical, parameter :: use_jacobian = true
+  logical, parameter :: use_jacobian = fals
+  !
+  real(wp), parameter :: dscoef = one
+ !real(wp), parameter :: dscoef = half
+  !
+  integer, parameter :: dsexp = 1
+ !integer, parameter :: dsexp = 0
+  !
+  real(wp), parameter :: left_coef =  one
+ !real(wp), parameter :: left_coef = -one
+  !
+  real(wp), parameter :: right_coef =  one
+ !real(wp), parameter :: right_coef = -one
+  !
+  integer :: iloops
+  integer, parameter :: npasses = 1
+  !
+continue
+  !
+  ! Save the updated solution into uoldsp since this has yet to be done
+  !
+  uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
+  !
+  left_cmat => null()
+  right_cmat => null()
+  !
+  npass_loop: do iloops = 1,npasses
+    !
+  call interp_cv_to_flxpts
+  call get_faceusp_bc
+  call discontinuous_gradient_at_solpts
+ !if (visc_flux_method == visc_flux_BR2) then
+ !  call correct_gradients_br2
+ !else
+    call correct_gradients_at_solpts
+ !end if
+  !
+  ! ##############################################################
+  ! ##############################################################
+  ! ##############################################################
+  ! ##########              BOUNDARY FACES              ##########
+  ! ##############################################################
+  ! ##############################################################
+  ! ##############################################################
+  !
+  ! Loop through the boundary faces to apply the correction
+  ! due to the boundary fluxes.
+  !
+  boundary_fluxes: do nf = 1,nfbnd
+    !
+    face_geom  = face(nf)%geom  ! geometry of face
+    face_order = face(nf)%order ! order of face
+    !
+    nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
+    !
+    host_cell  = face(nf)%left%cell    ! host cell on boundary face
+    host_geom  = cell(host_cell)%geom  ! geometry of host cell
+    host_order = cell(host_cell)%order ! order of host cell
+    !
+    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
+    !
+    lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1) ! FP solution from left  cell on face
+    rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2) ! FP solution from right cell on face
+    !
+    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
+    !
+    ! Apply the flux correction due to the flux jump
+    ! NOTE: We only need to apply the correction to the left cell because
+    !       this is a boundary face and the right cell is a ghost cell.
+    !
+    left_cmat => correct_sol(host_geom,host_order)
+    !
+    do k = 1,nfp
+      !
+      ! Get the index for the correction function 
+      ! corresponding to the current interface flux point
+      !
+      kl = face(nf)%left%flxpts(k)
+      !
+      ! Get the contribution to the face length/area from the current flux
+      ! point for the left cell
+      !
+      ds  = ( dscoef * rnorm2(rnrm(:,k)) )**dsexp
+      !
+      dsl = ds * cl(host_geom)
+      !
+      ! Compute the common interface solutions
+      !
+      if (any(bface(1,nf) == bc_walls)) then
+        ucom(1:nq) = rufp(1:nq,k)
+      else
+        ucom(1:nq) = half * (lufp(1:nq,k) + rufp(1:nq,k))
+      end if
+      !
+      do m = 1,nq
+        ljfp(m) = addsub_cor * dsl * (ucom(m) - lufp(m,k))
+      end do
+      !
+      ! Now use the correction function with the interface jump
+      ! to correct the conservative variables in the left cell
+      !
+      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
+        n = l1 - 1 + left_cmat%row_idx(i)
+        correct_n = left_cmat%row_val(i)
+        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        do m = 1,nq
+          usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
+        end do
+      end do
+      !
+    end do
+    !
+    if (associated(left_cmat)) left_cmat => null()
+    !
+  end do boundary_fluxes
+  !
+  ! ##############################################################
+  ! ##############################################################
+  ! ##############################################################
+  ! ##########              INTERIOR FACES              ##########
+  ! ##############################################################
+  ! ##############################################################
+  ! ##############################################################
+  !
+  ! Loop over the interior faces and reconstruct the
+  ! interface fluxes at each cell solution point
+  !
+ !interior_fluxes: do nf = nfbnd+1,nface
+  interior_fluxes: do nf = nface,nfbnd+1,-1
+    !
+    face_geom = face(nf)%geom  ! geometry of face
+    face_order = face(nf)%order ! order of face
+    !
+    nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
+    !
+    left_cell = face(nf)%left%cell ! left  cell on face
+    right_cell = face(nf)%right%cell ! right cell on face
+    !
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    right_geom = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
+    !
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
+    !
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
+    !
+    lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
+    rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
+    !
+    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
+    !
+    ! Apply the flux correction due to the flux jump
+    !
+    left_cmat => correct_sol(left_geom,left_order)
+    right_cmat => correct_sol(right_geom,right_order)
+    !
+    do k = 1,nfp
+      !
+      ! Get the index for the correction function 
+      ! corresponding to the current interface flux point
+      !
+      kl = face(nf)%left%flxpts(k)
+      kr = face(nf)%right%flxpts(k)
+      !
+      ! Get the face length for the left and right cell
+      !
+      ds  = ( dscoef * rnorm2(rnrm(:,k)) )**dsexp
+      !
+      dsl = ds * cl(left_geom)
+      dsr = ds * cl(right_geom)
+      !
+      ucom(1:nq) = half * (lufp(1:nq,k) + rufp(1:nq,k))
+      !
+      do m = 1,nq
+        ljfp(m) = addsub_cor * dsl * (ucom(m) - lufp(m,k))
+        rjfp(m) = addsub_cor * dsr * (ucom(m) - rufp(m,k))
+      end do
+      !
+      ! Add the flux correction to the residuals of the sol-pts in cell
+      ! left_cell
+      !
+      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
+        n = l1 - 1 + left_cmat%row_idx(i)
+        correct_n = left_cmat%row_val(i)
+        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        do m = 1,nq
+          usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
+        end do
+      end do
+      !
+      ! Add the flux correction to the residuals of the sol-pts in cell
+      ! right_cell
+      ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
+      !
+      do i = right_cmat%row_ptr(kr)+1, right_cmat%row_ptr(kr+1)
+        n = r1 - 1 + right_cmat%row_idx(i)
+        correct_n = right_cmat%row_val(i)
+        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        do m = 1,nq
+          usp(m,n) = usp(m,n) + rjfp(m) * correct_n * right_coef
+        end do
+      end do
+      !
+    end do
+    !
+    if (associated(left_cmat)) left_cmat => null()
+    if (associated(right_cmat)) right_cmat => null()
+    !
+  end do interior_fluxes
+  !
+  end do npass_loop
+  !
+  ! Copy the corrected solution and derivatives into interp_usp and interp_dusp
+  !
+  interp_usp(:,1:n_solpts) = usp(:,1:n_solpts)
+  interp_dusp(:,:,1:n_solpts) = dusp(:,:,1:n_solpts)
+  !
+  ! Copy the saved updated solution back into usp
+  !
+  usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
+  !
+end subroutine correct_solution_for_output
 !
 !###############################################################################
 !###############################################################################
