@@ -57,7 +57,6 @@ subroutine init_correction_matrices()
   integer :: nsolpts,nflxpts,ierr
   integer :: n,n1,n2,i
   character(len=200) :: array_name
-  character(len=200) :: error_message
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_correct
