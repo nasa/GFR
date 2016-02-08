@@ -3371,13 +3371,11 @@ subroutine exchange_faceusp(faceusp)
   type(face_var), dimension(:), intent(in) :: faceusp
   !
   !.. Local Scalars..
-  integer :: n
+  integer :: n,nf,nsz,ibeg,iend
+  !
   integer(int_mpi) :: send_cpu,send_dtype
   integer(int_mpi) :: recv_cpu,recv_dtype
   integer(int_mpi) :: mesg_tag
-#ifndef USE_TYPEBOUND_FACE_PACK
-  integer :: nf,nsz,ibeg,iend
-#endif
   !
 continue
   !
@@ -3443,12 +3441,11 @@ subroutine wait_faceusp(faceusp)
   !.. Formal Arguments ..
   type(face_var), dimension(:), intent(inout) :: faceusp
   !
-#ifndef USE_TYPEBOUND_FACE_PACK
   !.. Local Scalars ..
   integer :: ibeg,iend,nf
+  !
   !.. Local Arrays ..
   integer, dimension(1:2) :: nsz
-#endif
   !
 continue
   !
@@ -3489,13 +3486,11 @@ subroutine exchange_facedusp(facedusp)
   type(face_vec), dimension(:), intent(in) :: facedusp
   !
   !.. Local Scalars..
-  integer :: n
+  integer :: n,nf,nsz,ibeg,iend
+  !
   integer(int_mpi) :: send_cpu,send_dtype
   integer(int_mpi) :: recv_cpu,recv_dtype
   integer(int_mpi) :: mesg_tag
-#ifndef USE_TYPEBOUND_FACE_PACK
-  integer :: nf,nsz,ibeg,iend
-#endif
   !
 continue
   !
@@ -3561,12 +3556,11 @@ subroutine wait_facedusp(facedusp)
   !.. Formal Arguments ..
   type(face_vec), dimension(:), intent(inout) :: facedusp
   !
-#ifndef USE_TYPEBOUND_FACE_PACK
   !.. Local Scalars ..
   integer :: ibeg,iend,nf
   !.. Local Arrays ..
+  !
   integer, dimension(1:3) :: nsz
-#endif
   !
 continue
   !
