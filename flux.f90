@@ -141,10 +141,7 @@ end subroutine interp_cv_to_flxpts
 subroutine interp_dusp_to_flxpts()
   !
   use order_mod,  only : maxSP
-  use geovar,  only : nr,ncell
-  use geovar,  only : pts_in_cell_ptr
-  use geovar,  only : cell
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : nr,ncell,cell
   use interpolation_mod, only : interp
   use flowvar, only : dusp,facedusp
   !
@@ -168,12 +165,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1 ! beginning index of sol-pts for this cell
-    n2 = pts_in_cell_ptr(nc+1) ! ending    index of sol-pts for this cell
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
     np = n2-n1+1               ! number of sol-pts in this cell
     !
-    this_geom = cell_geom(nc)   ! geometry type of this cell
-    this_order = cell_order(nc) ! solution order of this cell
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
     !
     ! Create transpose of dusp array to reduce cache misses
     !
@@ -254,9 +251,8 @@ subroutine flux_gradient_at_solpts_visc
   !
   !.. Use Statements ..
   use order_mod,  only : maxSP
-  use geovar,  only : nr,ncell,pts_in_cell_ptr,using_quadrature
+  use geovar,  only : nr,ncell,using_quadrature
   use geovar,  only : cell
-  use geovar,  only : cell_geom,cell_order
   use interpolation_mod, only : interp
   use derivatives_mod, only : deriv
   use metrics_mod,  only : metrics,geofa,jacobian
@@ -467,8 +463,7 @@ subroutine correct_interface_flux_visc()
   use generic_types_mod, only : matrix
   use order_mod,  only : maxFP,geom_solpts
   use geovar,  only : nr,nfbnd,nface
-  use geovar,  only : bface,face,pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : bface,face,cell
   use ovar,    only : invs_flux_method,governing_equations
   use metrics_mod,  only : geofa,volj
   use correction_mod, only : correct
@@ -526,11 +521,11 @@ continue
     nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
     !
     host_cell  = face(nf)%left%cell    ! host cell on boundary face
-    host_geom  = cell_geom(host_cell)  ! geometry of host cell
-    host_order = cell_order(host_cell) ! order of host cell
+    host_geom  = cell(host_cell)%geom  ! geometry of host cell
+    host_order = cell(host_cell)%order ! order of host cell
     !
-    l1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in left cell
+    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
     !
     lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1) ! value of interior flux polynomial at FP
     !
@@ -673,17 +668,17 @@ continue
     left_cell = face(nf)%left%cell ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
     !
-    left_geom = cell_geom(left_cell)
-    left_order = cell_order(left_cell)
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
     !
-    right_geom = cell_geom(right_cell)
-    right_order = cell_order(right_cell)
+    right_geom = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
     !
-    l1 = pts_in_cell_ptr(left_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(left_cell+1) ! ending    index for sol-pts in left cell
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
     !
-    r1 = pts_in_cell_ptr(right_cell)+1 ! beginning index for sol-pts in right cell
-    r2 = pts_in_cell_ptr(right_cell+1) ! ending    index for sol-pts in right cell
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
     !
     lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1)
     rflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,2)
@@ -1190,9 +1185,7 @@ subroutine discontinuous_gradient_at_solpts()
   !
   !.. Use Statements ..
   use order_mod,  only : maxpts
-  use geovar,  only : nr,ncell
-  use geovar,  only : pts_in_cell_ptr
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : nr,ncell,cell
   use metrics_mod,  only : jacobian
   use metrics_mod,  only : metrics
   use derivatives_mod, only : deriv
@@ -1214,12 +1207,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1 ! beginning index for solpts in cell nc
-    n2 = pts_in_cell_ptr(nc+1) ! ending    index for solpts in cell nc
+    n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
+    n2 = cell(nc)%end_sp ! ending    index for solpts in cell nc
     np = n2-n1+1 ! number of solution points in this cell
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     ! Store the transpose of usp for this cell to reduce cache misses
     !
@@ -1269,8 +1262,7 @@ subroutine correct_gradients_at_solpts()
   use generic_types_mod, only : matrix
   use order_mod,  only : maxpts,geom_solpts
   use geovar,  only : nfbnd,nface,nr,n_solpts,ncell
-  use geovar,  only : face,pts_in_cell_ptr,bface
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : face,cell,bface
   use metrics_mod,  only : geofa,jacobian,volj
   use correction_mod, only : correct
   use flowvar, only : dusp,faceusp
@@ -1323,11 +1315,11 @@ continue
     !
     host_cell = face(nf)%left%cell ! left  cell on face
     !
-    host_geom = cell_geom(host_cell)
-    host_order = cell_order(host_cell)
+    host_geom = cell(host_cell)%geom
+    host_order = cell(host_cell)%order
     !
-    l1 = pts_in_cell_ptr(host_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(host_cell+1) ! ending    index for sol-pts in left cell
+    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
     !
 #ifdef USE_MATRIX_PROCEDURES
     left_cmat => correct(host_geom,host_order)
@@ -1465,17 +1457,17 @@ continue
     left_cell = face(nf)%left%cell ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
     !
-    left_geom = cell_geom(left_cell)
-    left_order = cell_order(left_cell)
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
     !
-    right_geom = cell_geom(right_cell)
-    right_order = cell_order(right_cell)
+    right_geom = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
     !
-    l1 = pts_in_cell_ptr(left_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(left_cell+1) ! ending    index for sol-pts in left cell
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
     !
-    r1 = pts_in_cell_ptr(right_cell)+1 ! beginning index for sol-pts in right cell
-    r2 = pts_in_cell_ptr(right_cell+1) ! ending    index for sol-pts in right cell
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
     !
 #ifdef USE_MATRIX_PROCEDURES
     left_cmat => correct(left_geom,left_order)
@@ -1868,9 +1860,7 @@ subroutine flux_gradient_at_solpts_with_qdtr
   !
   !.. Use Statements ..
   use order_mod, only : maxSP,maxQP,q_order,geom_solpts
-  use geovar,  only : nr,ncell,pts_in_cell_ptr,using_quadrature
-  use geovar,  only : cell
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : nr,ncell,cell,using_quadrature
   use projection_mod, only : projct
   use interpolation_mod, only : interp
   use derivatives_mod, only : deriv,dqmat
@@ -1913,12 +1903,12 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = pts_in_cell_ptr(nc)+1 ! beginning index for sol-pts in cell nc
-    n2 = pts_in_cell_ptr(nc+1) ! ending    index for sol-pts in cell nc
+    n1 = cell(nc)%beg_sp ! beginning index for sol-pts in cell nc
+    n2 = cell(nc)%end_sp ! ending    index for sol-pts in cell nc
     nsp = n2-n1+1 ! number of solution points in this cell
     !
-    this_geom = cell_geom(nc)
-    this_order = cell_order(nc)
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     nqp = geom_solpts(this_geom,q_order) ! no. of quadrature points for this cell
     !
@@ -2171,8 +2161,7 @@ subroutine correct_interface_flux_with_qdtr()
   !
   use order_mod,  only : maxFP,maxGP,q_order,geom_solpts
   use geovar,  only : nfbnd,nface,nr
-  use geovar,  only : bface,face,pts_in_cell_ptr,xyz
-  use geovar,  only : cell_geom,cell_order
+  use geovar,  only : bface,face,cell,xyz
   use geovar,  only : using_quadrature
   use ovar,    only : flux_divergence,dflux_opt,itcur,nst
   use ovar,    only : invs_flux_method
@@ -2220,17 +2209,17 @@ continue
     left_cell = face(nf)%left%cell ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
     !
-    left_geom = cell_geom(left_cell)
-    left_order = cell_order(left_cell)
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
     !
-    right_geom = cell_geom(right_cell)
-    right_order = cell_order(right_cell)
+    right_geom = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
     !
-    l1 = pts_in_cell_ptr(left_cell)+1 ! beginning index for sol-pts in left cell
-    l2 = pts_in_cell_ptr(left_cell+1) ! ending    index for sol-pts in left cell
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
     !
-    r1 = pts_in_cell_ptr(right_cell)+1 ! beginning index for sol-pts in right cell
-    r2 = pts_in_cell_ptr(right_cell+1) ! ending    index for sol-pts in right cell
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
     !
     ! Interpolate the conserved variables and face normals at
     ! the solution flux points to the quadrature flux points
