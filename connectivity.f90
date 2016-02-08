@@ -442,7 +442,7 @@ end subroutine find_cells_surrounding_each_cell
 !
 !###############################################################################
 !
-subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
+subroutine create_face_derived_type(cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Procedure that creates the face and nodes_on_face arrays. Look in
   ! the module geovar for definitions of each array.
@@ -494,7 +494,7 @@ subroutine find_cells_on_each_face(cells_surr_cell,cells_surr_cell_ptr)
   integer, allocatable, dimension(:,:) :: faces_of_cell
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "find_cells_on_each_face"
+  character(len=*), parameter :: pname = "create_face_derived_type"
   !
 continue
   !
@@ -998,7 +998,7 @@ continue
   1 format (" Error on face - ",i0,",  nodes ",i0,3(:,2x,i0))
   2 format ("face(",i0,")%",a,"%flxpts")
   !
-end subroutine find_cells_on_each_face
+end subroutine create_face_derived_type
 !
 !###############################################################################
 !
