@@ -6,7 +6,7 @@ program Euler_tri
   use geovar, only : nnode,n_global_node
   use geovar, only : nfbnd,n_global_fbnd
   use geovar, only : n_solpts,n_global_solpts
-  use geovar, only : bface,xyz_nodes
+  use geovar, only : bface,xyz_nodes,nface
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : geovar_memory_usage
@@ -254,9 +254,7 @@ continue
   !
   do i = 0,ncpu-1
     if (mypnum == i) then
-      write (iout,10) mypnum
-      write (iout,12) ncell, nnode, nfbnd, n_solpts
-      write (iout,13) local_volume
+      write (iout,10) mypnum, ncell, nnode, nfbnd, nface, n_solpts, local_volume
     end if
     call mpi_barrier(mpi_comm_world,mpierr)
   end do
@@ -265,10 +263,9 @@ continue
   ! Output information about the global grid
   !
   if (mypnum == 0) then
-    write (iout,11)
-    write (iout,12) n_global_cell,n_global_node,n_global_fbnd,n_global_solpts
-    write (iout,14) total_volume
-    write (iout,15) (solpts_edge(k), k=1,size(solpts_edge))
+    write (iout,11) n_global_cell, n_global_node, n_global_fbnd, &
+                    n_global_solpts, total_volume, &
+                    (solpts_edge(k), k=1,size(solpts_edge))
   end if
   call mpi_barrier(mpi_comm_world,mpierr)
   !
@@ -744,12 +741,14 @@ continue
   !
   !
   !
-  10 format (/,' For Processor ',i0,/,'------------------')
-  11 format (/,' For the Global Grid ',/,'---------------------')
-  12 format ('  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0,'  nDOF = ',i0)
-  13 format ('  Partition Volume = ',f13.6)
-  14 format ('  Total Grid Volume = ',f13.6)
-  15 format ('  1D Solution Points = ',8f9.5)
+  10 format (/,' For Processor ',i0,/,'------------------',/, &
+               '  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0, &
+               '  nface = ',i0,'  nDOF = ',i0,/, &
+               '  Partition Volume = ',f13.6)
+  11 format (/,' For the Global Grid ',/,'---------------------',/, &
+               '  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0,'  nDOF = ',i0,/, &
+               '  Total Grid Volume = ',f13.6,/, &
+               '  1D Solution Points = ',6f9.5,:,*(/,23x,6f9.5))
   16 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
