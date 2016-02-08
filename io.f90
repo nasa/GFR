@@ -332,16 +332,16 @@ continue
     !
     mms_error = fals
     if (any(mms_opt == [1,2]) .and. nr < 2) then ! 1 and 2 are for 2D or 3D
-      write (error_message,201)
+      write (error_message,21)
       mms_error = true
     else if (mms_opt == 3 .and. nr > 2) then ! 3 is for 1D or 2D
-      write (error_message,202)
+      write (error_message,22)
       mms_error = true
     else if (mms_opt == 4 .and. nr /= 2) then ! 4 is for 2D only
-      write (error_message,203)
+      write (error_message,23)
       mms_error = true
     else if (all(mms_opt /= [1,2,3,4])) then
-      write (error_message,204)
+      write (error_message,24)
       mms_error = true
     end if
     if (mms_error) call stop_recon(stop_mpi,pname,error_message)
@@ -377,20 +377,28 @@ continue
     if (abs(velref(1)) < eps3) then
       !
       Period_Time_Y = Grid_Length(2) * reciprocal(velref(2)/aref)
-      Period_Time_Y = merge( Period_Time_Y , Grid_Length(2) , Period_Time_Y > eps3 )
+      Period_Time_Y = merge( Period_Time_Y, &
+                             Grid_Length(2), &
+                             Period_Time_Y > eps3 )
       Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
       Period_Timesteps = Period_Timesteps_Y
       !
-     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+     !if (mypnum == 0) then
+     !  write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+     !end if
       !
     else if (abs(velref(2)) < eps3) then
       !
       Period_Time_X = Grid_Length(1) * reciprocal(velref(1)/aref)
-      Period_Time_X = merge( Period_Time_X , Grid_Length(1) , Period_Time_X > eps3 )
+      Period_Time_X = merge( Period_Time_X, &
+                             Grid_Length(1), &
+                             Period_Time_X > eps3 )
       Period_Timesteps_X = nint(Period_Time_X/dt_in)
       Period_Timesteps = Period_Timesteps_X
       !
-     !if (mypnum == 0) write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+     !if (mypnum == 0) then
+     !  write (*,*) Period_Time_Y,Period_Timesteps_Y,Period_Timesteps
+     !end if
       !
     else
       !
@@ -580,10 +588,10 @@ continue
   105 format (/,"#######################################",/, &
                 "#####   END OF INPUT PARAMETERS   #####",/, &
                 "#######################################",/)
-  201 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
-  202 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
-  203 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
-  204 format ("MMS ERROR: The MMS solution chosen is invalid!")
+  21 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
+  22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
+  23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
+  24 format ("MMS ERROR: The MMS solution chosen is invalid!")
   !
 end subroutine read_nml_input_file
 !
@@ -882,9 +890,11 @@ continue
   ! faces with non-matching boundary conditions
   !
   if (use_bc_conflicts) then
-    call memory_pause("adjusting for ghost cells","finding boundary condition conflicts")
+    call memory_pause("adjusting for ghost cells", &
+                      "finding boundary condition conflicts")
     call find_bc_conflicts
-    call memory_pause("finding boundary condition conflicts","finding valid geometries")
+    call memory_pause("finding boundary condition conflicts", &
+                      "finding valid geometries")
   else
     call memory_pause("adjusting for ghost cells","finding valid geometries")
   end if
@@ -1317,7 +1327,8 @@ continue
   !
   if (TaylorGreen_random_perturb) then
     !
-    rbas = dl * real(abs(TaylorGreen_perturb_percent),kind=r4) / real(100,kind=r4)
+    rbas = dl * real(abs(TaylorGreen_perturb_percent),kind=r4) &
+              / real(100,kind=r4)
     radj = rbas / real(2,kind=r4)
     !
     if (TaylorGreen_perturb_percent < 0) then
@@ -1871,9 +1882,9 @@ continue
     nodes_of_cell(g1:g2) = face_nodes(1:nfnods)
     !
     ! Get the index of the node to switch with node 1.
-    ! NOTE: switch_index evaluates to nfnods (i.e. 2) for a 2D host cell
-    !       switch_index evaluates to nfnods (i.e. 3) for a triangular boundary face
-    !       switch_index evaluates to 3 for a quadrilateral boundary face
+    ! NOTE: switch_index = nfnods (i.e. 2) for a 2D host cell
+    !       switch_index = nfnods (i.e. 3) for a triangular boundary face
+    !       switch_index = 3               for a quadrilateral boundary face
     ! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
     !                  a 1D host cell which is the correct value if the 
     !                  rest of the code is ever set up to run 1D.
@@ -1964,8 +1975,9 @@ continue
   allocate ( global_cell_order(1:n1) , source=cell_order , stat=ierr )
   call alloc_error(pname,"global_cell_order",1,ierr)
   !
-  ! Create the global pts_in_cell_ptr. This will be done later
-  ! but a global version is never made before the global grid
+  ! Create the global integer pointer for the beginning and ending
+  ! indices for the solution points in each cell. This will be done
+  ! later but a global version is never made before the global grid
   ! is partitioned and each processor creates its own separate
   ! local grid.
   !
@@ -1977,7 +1989,8 @@ continue
     this_geom = global_cell_geom(n)
     this_order = global_cell_order(n)
     !
-    global_pinc_ptr(n+1) = global_pinc_ptr(n) + geom_solpts(this_geom,this_order)
+    global_pinc_ptr(n+1) = global_pinc_ptr(n) &
+                         + geom_solpts(this_geom,this_order)
     !
   end do
   !
@@ -2013,6 +2026,9 @@ subroutine adjust_for_same_dimension_ghost_cells()
   integer,  dimension(1:4)      :: face_nodes
   integer,  dimension(1:4)      :: pface_nodes
   real(wp), dimension(1:nr)     :: ptf
+  real(wp), dimension(1:nr)     :: xyz_h1
+  real(wp), dimension(1:nr)     :: xyz_h2
+  real(wp), dimension(1:nr)     :: xyz_ni
   real(wp), dimension(1:nr)     :: ds,ds1,ds2
   real(wp), dimension(1:nr)     :: rnrm,pnrm
   real(wp), dimension(1:nr,1:8) :: periodic_nodes
@@ -2144,9 +2160,9 @@ continue
    !nodes_of_cell(g1:g1-1+nfnods) = face_nodes(1:nfnods)
    !!
    !! Get the index of the node to switch with node 1.
-   !! NOTE: switch_index evaluates to nfnods (i.e. 2) for a 2D host cell
-   !!       switch_index evaluates to nfnods (i.e. 3) for a triangular boundary face
-   !!       switch_index evaluates to 3 for a quadrilateral boundary face
+   !! NOTE: switch_index = nfnods (i.e. 2) for a 2D host cell
+   !!       switch_index = nfnods (i.e. 3) for a triangular boundary face
+   !!       switch_index = 3               for a quadrilateral boundary face
    !! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
    !!                  a 1D host cell which is the correct value if the 
    !!                  rest of the code is ever set up to run 1D.
@@ -2247,13 +2263,19 @@ continue
     rnrm = face_normal( xyz_nodes(1:nr,face_nodes(1:nfnods)) )
     rnrm = unit_vector( rnrm )
     !
+    ! Store the coordinates for the first and last node of the cell
+    !
+    xyz_h1(:) = xyz_nodes(:,h1)
+    xyz_h2(:) = xyz_nodes(:,h2)
+    !
     ! Conditional to treat periodic boundary conditions separately
     !
     if (bface(1,nf) /= bc_periodic) then
       !
       ! This is not a periodic boundary face
       !
-      ! Center of boundary face by averaging the coordinates of the two boundary nodes
+      ! Center of boundary face by averaging the
+      ! coordinates of the two boundary nodes
       !
       ptf(1:nr) = node_center( xyz_nodes(1:nr,face_nodes(1:nfnods)) )
       !
@@ -2267,10 +2289,14 @@ continue
         ni = nodes_of_cell( h1 + mod(host_side+1,host_geom) )
         ng = nodes_of_cell( g1 + 2 )
         !
+        ! Store the coordinates for node ni
+        !
+        xyz_ni(:) = xyz_nodes(:,ni)
+        !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
-                                reflect(xyz_nodes(:,ni),ptf,rnrm), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+                                reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
       else if (host_geom == 4) then
@@ -2278,23 +2304,33 @@ continue
         ! Ghost node 3 for quadrilateral
         !
         ng = nodes_of_cell( g1 + 2 )
-        ni = nodes_of_cell( h1 + mod(host_side+2-max(0,min(1,rotation)),host_geom) )
+        ni = nodes_of_cell( h1 + &
+                            mod(host_side+2-max(0,min(1,rotation)),host_geom) )
+        !
+        ! Store the coordinates for node ni
+        !
+        xyz_ni(:) = xyz_nodes(:,ni)
         !
         ! Get the coordinates of ghost node 3
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
-                                reflect(xyz_nodes(:,ni),ptf,rnrm), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+                                reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
         ! Ghost node 4 for quadrilateral
         !
         ng = nodes_of_cell( g1 + 3 )
-        ni = nodes_of_cell( h1 + mod(host_side+1+max(0,min(1,rotation)),host_geom) )
+        ni = nodes_of_cell( h1 + &
+                            mod(host_side+1+max(0,min(1,rotation)),host_geom) )
+        !
+        ! Store the coordinates for node ni
+        !
+        xyz_ni(:) = xyz_nodes(:,ni)
         !
         ! Get the coordinates of ghost node 4
         !
-        xyz_nodes(:,ng) = merge(rotate(xyz_nodes(:,h1),xyz_nodes(:,h2),xyz_nodes(:,ni)), &
-                                reflect(xyz_nodes(:,ni),ptf,rnrm), &
+        xyz_nodes(:,ng) = merge(rotate(xyz_h1(:),xyz_h2(:),xyz_ni(:)), &
+                                reflect(xyz_ni(:),ptf,rnrm), &
                                 rotation == 1)
         !
       end if
@@ -2351,18 +2387,20 @@ continue
       !
       ptf(1:nr) = node_center( xyz_nodes(1:nr,pface_nodes(1:nfnods)) )
       !
-      ! Nodes on the boundary face for periodic_cell ! NOW STORED IN pface_nodes(1:nfnods)
+      ! Nodes on the boundary face for periodic_cell
+      ! NOTE: NOW STORED IN pface_nodes(1:nfnods)
       !
-      ! Nodes on the boundary face for host_cell ! NOW STORED IN face_nodes(1:nfnods)
+      ! Nodes on the boundary face for host_cell
+      ! NOTE: NOW STORED IN face_nodes(1:nfnods)
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ###############  ||||||||||                   ||||||||||  ################
-      ! ###############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ##############  ||||||||||                   ||||||||||  ###############
+      ! ##############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ###############
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
       !
       ! Get the angle between the two outward unit normals
       !
@@ -2410,14 +2448,14 @@ continue
      !  !
      !end do
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ###############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ################
-      ! ###############  ||||||||||                   ||||||||||  ################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ##############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ###############
+      ! ##############  ||||||||||                   ||||||||||  ###############
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
       !
     end if
     !
@@ -2684,7 +2722,7 @@ continue
     else if (n == bface_nodes(2,nf)) then
       bc_conflict(i)%master%flux_point = n_fp1de
     else
-      write (iout,*) "ERROR: Conflict node doesn't seem to match a boundary node!"
+      write (iout,8)
     end if
     !
     ! Now do the same for the slave faces
@@ -2693,11 +2731,11 @@ continue
       !
       nf = bc_conflict(i)%slave(j)%face
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ###################### !!!! START OF TEMPORARY !!!! ######################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ##################### !!!! START OF TEMPORARY !!!! #####################
+      ! ########################################################################
+      ! ########################################################################
       !
       ! Quick check to see if the host cell geometry is not 2D. The following
       ! conditional statements need to be altered before they are valid
@@ -2708,18 +2746,18 @@ continue
         call stop_recon(stop_mpi,pname,error_message)
       end if
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ####################### !!!! END OF TEMPORARY !!!! #######################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ###################### !!!! END OF TEMPORARY !!!! ######################
+      ! ########################################################################
+      ! ########################################################################
       !
       if (n == bface_nodes(1,nf)) then
         bc_conflict(i)%slave(j)%flux_point = 1
       else if (n == bface_nodes(2,nf)) then
         bc_conflict(i)%slave(j)%flux_point = n_fp1de
       else
-        write (iout,*) "ERROR: Conflict node doesn't seem to match a boundary node!"
+        write (iout,8)
       end if
       !
     end do
@@ -2746,6 +2784,7 @@ continue
   5 format (a,20x,i10,' - ',a)
   6 format (a,23x,"HOST CELLS ON ",i0," BOUNDARY FACES!")
   7 format ("The following conditionals need updating for non-2D Geometries.")
+  8 format (" ERROR: Conflict node doesn't seem to match a boundary node!")
   !
 end subroutine find_bc_conflicts
 !
@@ -2816,10 +2855,11 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
         xyz_fp(l) = &
-         interp(left_geom,left_order)%toFace(face_order)%dot( kl , xyz(l,l1:l2) )
+        interp(left_geom,left_order)%toFace(face_order)%dot( kl , xyz(l,l1:l2) )
       end do
 #else
-      lmat(1:npl) = interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
+      lmat(1:npl) = &
+        interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
       do l = 1,nr
         xyz_fp(l) = dot( lmat(1:npl) , xyz(l,l1:l2) )
       end do
@@ -2830,10 +2870,11 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
         xyz_fp(l) = &
-         interp(right_geom,right_order)%toFace(face_order)%dot( kr , xyz(l,r1:r2) )
+    interp(right_geom,right_order)%toFace(face_order)%dot( kr , xyz(l,r1:r2) )
       end do
 #else
-      lmat(1:npr) = interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
+      lmat(1:npr) = &
+        interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
       do l = 1,nr
         xyz_fp(l) = dot( lmat(1:npr) , xyz(l,r1:r2) )
       end do
@@ -3250,7 +3291,8 @@ continue
     call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
     call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
     !
-    call cg_array_write_f("TimeValues",cgns_kind_real,1,size(soltime),soltime,ierr)
+    call cg_array_write_f("TimeValues",cgns_kind_real,1, &
+                          size(soltime),soltime,ierr)
     call cgns_error(pname,cgns_grid_file,"cg_array_write_f",ierr)
     !
     ! Update the zone iterative node
@@ -3362,7 +3404,8 @@ continue
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
-  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname),trim(link_path),ierr)
+  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
+                       trim(link_path),ierr)
   call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)",ierr)
   !
   ! Create a link to the element connectivity in the grid file
@@ -3374,7 +3417,8 @@ continue
   end if
   link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
   !
-  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname),trim(link_path),ierr)
+  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
+                       trim(link_path),ierr)
   call cgns_error(pname,cgns_sol_file, &
                   "cg_link_write_f("//trim(sect_name)//")",ierr)
   !
@@ -3494,8 +3538,8 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "Velocity"//char_xyz(m)
-          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
-                                 trim(varname),isvar_s(n),ierr)
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
         end do
@@ -3503,8 +3547,8 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "Vorticity"//char_xyz(m)
-          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
-                                 trim(varname),isvar_s(n),ierr)
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
         end do
@@ -3521,10 +3565,10 @@ continue
     !
     if (interpolate_before_output_variable) then
       interp_usp(1:nq,1:n_solpts) = &
-                           interpolate_for_output( usp(1:nq,1:n_solpts) )
+            interpolate_for_output( interp_usp(1:nq,1:n_solpts) )
       do l = 1,nq
         interp_dusp(1:nr,l,1:n_solpts) = &
-                           interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
+                 interpolate_for_output( interp_dusp(1:nr,l,1:n_solpts) )
       end do
     else
       interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
@@ -3545,7 +3589,8 @@ continue
         case ("Velocity") ! Velocity
           do m = nmb,nme
             n = n + 1
-            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts)/interp_usp(nec,1:n_solpts)
+            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts) / &
+                                 interp_usp(nec,1:n_solpts)
             vartmp = vartmp * aref
             call cgns_write_field_parallel
           end do
@@ -3935,8 +3980,8 @@ continue
   end if
   !
   ! For each boundary face within the grid region of interest, interpolate the
-  ! coordinates of the solution points for the host cell to the boundary face and
-  ! this interpolate those face points to the output face points.
+  ! coordinates of the solution points for the host cell to the boundary face
+  ! and this interpolate those face points to the output face points.
   !
   my_pts = my_vort_pts(1)
   my_beg = my_vort_pts(2)
@@ -3980,7 +4025,8 @@ continue
   call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f",ierr, &
                   "Write data: Coordinate = 2 (Z)")
   !
-  ! Finally, flush the queue containing the coordinate variables to the CGNS file
+  ! Finally, flush the queue containing the
+  ! coordinate variables to the CGNS file
   !
   if (cgns_use_queue) then
     call cgp_queue_flush_f(ierr)
@@ -4184,8 +4230,8 @@ continue
       !       for this face are duplicates. The if statements will just produce
       !       a false value for the second time.  We only care if the value
       !       ip that is returned is zero because this will cause the xyz_nodes
-      !       array to go out-of-bounds so cycle the inner loop if this situation
-      !       arrises.
+      !       array to go out-of-bounds so cycle the inner loop if this
+      !       situation arrises.
       !       
       ip = nodes_on_face(n,nf)
       !
@@ -4423,13 +4469,17 @@ continue
     !
     do k = 1,size(face(this_face)%left%flxpts)
       !
-      kl = face(this_face)%left%flxpts(k) ! Index of flx-pt local to the current host cell
+      ! Index of flx-pt local to the current host cell
+      !
+      kl = face(this_face)%left%flxpts(k)
       !
       ! First interpolate to the face flux points
       !
 #ifdef USE_MATRIX_PROCEDURES
-      face_y(k) = interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,1) )
-      face_z(k) = interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,2) )
+      face_y(k) = &
+       interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,1) )
+      face_z(k) = &
+       interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,2) )
 #else
       lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
       !
@@ -4439,7 +4489,8 @@ continue
       !
     end do
     !
-    ! Finally, interpolate the face flux points to the output face solution points
+    ! Finally, interpolate the face flux points
+    ! to the output face solution points
     !
     if (associated(outerp(face_geom,face_order)%output)) then
       !
@@ -4447,8 +4498,10 @@ continue
       face_y(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:fp) )
       face_z(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:fp) )
 #else
-      face_y(1:fp) = matmul( outerp(face_geom,face_order)%output%mat , face_y(1:fp) )
-      face_z(1:fp) = matmul( outerp(face_geom,face_order)%output%mat , face_z(1:fp) )
+      face_y(1:fp) = matmul( outerp(face_geom,face_order)%output%mat, &
+                             face_y(1:fp) )
+      face_z(1:fp) = matmul( outerp(face_geom,face_order)%output%mat, &
+                             face_z(1:fp) )
 #endif
       !
     end if
@@ -4533,17 +4586,19 @@ continue
     !
     do k = 1,size(face(this_face)%left%flxpts)
       !
-      kl = face(this_face)%left%flxpts(k) ! Index of flx-pt local to the current host cell
+      ! Index of flx-pt local to the current host cell
+      !
+      kl = face(this_face)%left%flxpts(k)
       !
       ! First interpolate to the face flux points
       !
 #ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
         cv_tmp(k,m) = &
-          interp(host_geom,host_order)%toFace(face_order)%dot( kl , tusp(1:np,m) )
+    interp(host_geom,host_order)%toFace(face_order)%dot( kl , tusp(1:np,m) )
         do l = 1,nr
           dcvdx_tmp(k,l,m) = &
-            interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdusp(1:np,l,m) )
+    interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdusp(1:np,l,m) )
         end do
       end do
 #else
@@ -4579,7 +4634,8 @@ continue
             matmul( outerp(face_geom,face_order)%output%mat , cv_tmp(1:fp,m) )
         do l = 1,nr
           dcvdx(l,m,1:fp) = &
-            matmul( outerp(face_geom,face_order)%output%mat , dcvdx_tmp(1:fp,l,m) )
+            matmul( outerp(face_geom,face_order)%output%mat , &
+                    dcvdx_tmp(1:fp,l,m) )
         end do
       end do
 #endif
@@ -4637,7 +4693,7 @@ pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
   integer,                    intent(in) :: ndr ! index for derivative direction
   integer,                    intent(in) :: npv ! index for primitive variable
   real(wp), dimension(:,:),   intent(in) :: uu  ! conservative solution
-  real(wp), dimension(:,:,:), intent(in) :: dcvdx ! conservative variable gradients
+  real(wp), dimension(:,:,:), intent(in) :: dcvdx ! conservative var gradients
   !
   !.. Function Results ..
   real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
@@ -4741,8 +4797,8 @@ continue
         return_value(n1:n2) = &
           outerp(this_geom,this_order)%output%mv_mult( array(n1:n2) )
 #else
-        return_value(n1:n2) = matmul( outerp(this_geom,this_order)%output%mat , &
-                                      array(n1:n2) )
+        return_value(n1:n2) = &
+          matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
 #endif
       else
         return_value(n1:n2) = array(n1:n2)
@@ -4766,8 +4822,8 @@ continue
         return_value(n1:n2) = &
           outerp(this_geom,this_order)%output%mv_mult( array(n1:n2) )
 #else
-        return_value(n1:n2) = matmul( outerp(this_geom,this_order)%output%mat , &
-                                      array(n1:n2) )
+        return_value(n1:n2) = &
+          matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
 #endif
       else
         return_value(n1:n2) = array(n1:n2)
@@ -4835,8 +4891,8 @@ continue
           return_value(m,n1:n2) = &
             outerp(this_geom,this_order)%output%mv_mult( array(m,n1:n2) )
 #else
-          return_value(m,n1:n2) = matmul( outerp(this_geom,this_order)%output%mat , &
-                                          array(m,n1:n2) )
+          return_value(m,n1:n2) = &
+            matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
 #endif
         end do
       else
@@ -4866,8 +4922,8 @@ continue
           return_value(m,n1:n2) = &
             outerp(this_geom,this_order)%output%mv_mult( array(m,n1:n2) )
 #else
-          return_value(m,n1:n2) = matmul( outerp(this_geom,this_order)%output%mat , &
-                                          array(m,n1:n2) )
+          return_value(m,n1:n2) = &
+            matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
 #endif
         end do
       else
