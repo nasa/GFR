@@ -70,6 +70,34 @@ end function cell_flxpts
 !
 !###############################################################################
 !
+elemental function cell_edgpts(cell_geom,cell_order) result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: cell_geom
+  integer, intent(in) :: cell_order
+  !
+  !.. Function Result ..
+  integer :: return_value
+  !
+continue
+  !
+  select case (cell_geom)
+    case (Geom_Tetr)
+      return_value =  6 * edge_solpts(cell_order)
+    case (Geom_Pyra)
+      return_value =  8 * edge_solpts(cell_order)
+    case (Geom_Pris)
+      return_value =  9 * edge_solpts(cell_order)
+    case (Geom_Hexa)
+      return_value = 12 * edge_solpts(cell_order)
+    case default
+      return_value = 0
+  end select
+  !
+end function cell_edgpts
+!
+!###############################################################################
+!
 elemental function node_solpts(order) result(return_value)
   integer, intent(in) :: order
   integer :: return_value
