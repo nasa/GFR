@@ -120,22 +120,7 @@ continue
     !
   end do
   !
-  ! Add in the ghost cells. Make sure to only use the nodes
-  ! of the ghost cell which lie on the boundary face.
-  ! NOTE: We need a mask array here for the ghost cells to
-  !       prevent this loop from finding a particular ghost
-  !       cell more than once on an individual node.
-  !
-  !#############################################################################
-  !#############################################################################
-  !#############################################################################
-  ! BAD!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !#############################################################################
-  !#############################################################################
-  !#############################################################################
-! allocate ( ghost_msk(ncell+1:n_totcel,1:nnode) , &
-!            source=logical(fals,kind=kind(ghost_msk)) , stat=ierr )
-! call alloc_error(pname,"ghost_msk",1,ierr)
+  ! Add in the nodes of the ghost faces
   !
   do n = 1,nfbnd
     !
@@ -146,12 +131,7 @@ continue
     !
     do i = ibeg,iend
       ip = nodes_of_cell(i)
-!     if (ip <= nnode) then
-!       if (.not. ghost_msk(nc,ip)) then
-          cells_with_node_ptr(ip+1) = cells_with_node_ptr(ip+1) + 1
-!         ghost_msk(nc,ip) = logical(true,kind=kind(ghost_msk))
-!       end if
-!     end if
+      cells_with_node_ptr(ip+1) = cells_with_node_ptr(ip+1) + 1
     end do
     !
   end do
@@ -181,13 +161,7 @@ continue
     !
   end do
   !
-  ! Add in the ghost cells. Make sure to only use the nodes
-  ! of the ghost cell which lie on the boundary face. 
-  ! NOTE: We need a mask array here for the ghost cells to
-  !       prevent this loop from finding a particular ghost
-  !       cell more than once on an individual node.
-  !
-! ghost_msk(:,:) = logical(fals,kind=kind(ghost_msk))
+  ! Add in the nodes of the ghost faces
   !
   do n = 1,nfbnd
     !
@@ -198,22 +172,12 @@ continue
     !
     do i = ibeg,iend
       ip = nodes_of_cell(i)
-!     if (ip <= nnode) then
-!       if (.not. ghost_msk(nc,ip)) then
-          is = cells_with_node_ptr(ip) + 1
-          cells_with_node_ptr(ip) = is
-          cells_with_node(is) = nc
-!         ghost_msk(nc,ip) = logical(true,kind=kind(ghost_msk))
-!       end if
-!     end if
+      is = cells_with_node_ptr(ip) + 1
+      cells_with_node_ptr(ip) = is
+      cells_with_node(is) = nc
     end do
     !
   end do
-  !
-  ! We are finished with ghost_msk so deallocate
-  !
-! deallocate ( ghost_msk , stat=ierr )
-! call alloc_error(pname,"ghost_msk",2,ierr)
   !
   ! Finally, reorder cells_with_node_ptr
   !
@@ -231,7 +195,6 @@ continue
   ! has been added JUST-IN-CASE I have overlooked a scenario in which this
   ! could possible happen.
   !
- !nc = maxval( cells_with_node_ptr(2:nnode+1) - cells_with_node_ptr(1:nnode) )
   nc = 0
   do n = 1,nnode
     nc = max( nc , cells_with_node_ptr(n+1) - cells_with_node_ptr(n) )
@@ -586,8 +549,10 @@ continue
     host_side = bface(4,nf)                      ! face of host cell on boundary
     nfnods = num_face_nodes(host_side,host_geom) ! # of nodes defining bnd face
     !
-    n1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index of nodes defining host cell
-    n2 = nodes_of_cell_ptr(host_cell+1) ! ending    index of nodes defining host cell
+    ! beginning index of nodes defining host cell
+    n1 = nodes_of_cell_ptr(host_cell)+1
+    ! ending    index of nodes defining host cell
+    n2 = nodes_of_cell_ptr(host_cell+1)
     !
     ! Node offsets for this face
     ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
@@ -648,8 +613,10 @@ continue
         face(face_counter)%left%cell  = this_cell
         face(face_counter)%right%cell = adj_cell
         !
-        nfnods = num_face_nodes(nf,this_geom)             ! # of nodes defining this face
-        ip(1:nfnods) = side_nodes(1:nfnods,nf,this_geom) ! node offsets for this face
+        ! # of nodes defining this face
+        nfnods = num_face_nodes(nf,this_geom)
+        ! node offsets for this face
+        ip(1:nfnods) = side_nodes(1:nfnods,nf,this_geom)
         !
         ! Store the nodes on this interior face
         !
@@ -712,7 +679,8 @@ continue
     !
     ! Coordinates of the center of this face
     !
-    face_center(1:nr) = sum(xyz_face(1:nr,1:nfnods),dim=2) / real(nfnods,kind=wp)
+    face_center(1:nr) = sum(xyz_face(1:nr,1:nfnods),dim=2) &
+                      / real(nfnods,kind=wp)
     !
     ! Get the coordinates of the center of the left cell on this face
     !
@@ -725,7 +693,8 @@ continue
     !
     ! Coordinates of the center of the left cell
     !
-    cell_center(1:nr) = sum(xyz_cell(1:nr,1:ncnods),dim=2) / real(ncnods,kind=wp)
+    cell_center(1:nr) = sum(xyz_cell(1:nr,1:ncnods),dim=2) &
+                      / real(ncnods,kind=wp)
     !
     ! Get the normal to this face using the nodes that define it
     !
@@ -979,9 +948,10 @@ continue
       ! this rotation to get the correct ordering of the flux points for the
       ! right cell relative to the flux points of the left cell.
       !
-      face(nf)%right%flxpts = face_pts + RotateFluxPoints_Quad(left_nodes(1:nfnods), &
-                                                               right_nodes(1:nfnods), &
-                                                               face_order)
+      face(nf)%right%flxpts = face_pts + &
+                              RotateFluxPoints_Quad(left_nodes(1:nfnods), &
+                                                    right_nodes(1:nfnods), &
+                                                    face_order)
       !
       ! If the previous function made no changes, mark that there was an error
       ! finding the correct face rotation between cells.
@@ -994,9 +964,10 @@ continue
                                      nodes_of_cell(r1:r2),right_geom,right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
-      face(nf)%right%flxpts = face_pts + RotateFluxPoints_Tria(left_nodes(1:nfnods), &
-                                                               right_nodes(1:nfnods), &
-                                                               nfp)
+      face(nf)%right%flxpts = face_pts + &
+                              RotateFluxPoints_Tria(left_nodes(1:nfnods), &
+                                                    right_nodes(1:nfnods), &
+                                                    nfp)
       !
       if (all(face(nf)%right%flxpts == face_pts)) error_finding_rotation = true
       !
@@ -1307,7 +1278,8 @@ continue
   !
   if (all(abcd_left == abcd_right(rotation(:,1)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to +a_right
     !                            and
@@ -1325,7 +1297,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,2)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to +a_right
     !                            and
@@ -1343,7 +1316,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,3)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to -a_right
     !                            and
@@ -1361,7 +1335,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,4)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to -a_right
     !                            and
@@ -1379,7 +1354,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,5)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to +b_right
     !                            and
@@ -1403,7 +1379,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,6)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to +b_right
     !                            and
@@ -1427,7 +1404,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,7)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to -b_right
     !                            and
@@ -1451,7 +1429,8 @@ continue
     !
   else if (all(abcd_left == abcd_right(rotation(:,8)))) then
     !
-    ! The 'a_right' and 'b_right' vectors of the right cell are oriented such that:
+    ! The 'a_right' and 'b_right' vectors of
+    ! the right cell are oriented such that:
     !
     !                a_left corresponds to -b_right
     !                            and
@@ -1583,8 +1562,7 @@ continue
     cell(nc)%beg_sp = pts_in_cell_ptr(nc)+1
     cell(nc)%end_sp = pts_in_cell_ptr(nc+1)
     !
-    allocate ( cell(nc)%face(1:num_faces) , &
-               stat=ierr , errmsg=error_message )
+    allocate ( cell(nc)%face(1:num_faces) , stat=ierr , errmsg=error_message )
     write (array_name,1) nc
     call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
@@ -1651,8 +1629,8 @@ continue
     !
     ! Allocate the cell_idx array for the left cell face
     !
-    allocate ( cell(left_cell)%face(left_face)%cell_idx(1:nfp) , &
-               source=0 , stat=ierr , errmsg=error_message )
+    allocate ( cell(left_cell)%face(left_face)%cell_idx(1:nfp) , source=0 , &
+               stat=ierr , errmsg=error_message )
     write (array_name,1) left_cell,left_face,"cell_idx"
     call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
@@ -1680,8 +1658,8 @@ continue
     !
     ! Allocate the cell_idx array for the right cell face
     !
-    allocate ( cell(right_cell)%face(right_face)%cell_idx(1:nfp) , &
-               source=0 , stat=ierr , errmsg=error_message )
+    allocate ( cell(right_cell)%face(right_face)%cell_idx(1:nfp) , source=0 , &
+               stat=ierr , errmsg=error_message )
     write (array_name,1) right_cell,right_face,"cell_idx"
     call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
@@ -1787,7 +1765,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Edge,order)%connectivity = pst_geom(Geom_Edge,order)%connectivity - 1
+    pst_geom(Geom_Edge,order)%connectivity = &
+                                   pst_geom(Geom_Edge,order)%connectivity - 1
     !
     !
     ! ##################################################################
@@ -1842,7 +1821,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Tria,order)%connectivity = pst_geom(Geom_Tria,order)%connectivity - 1
+    pst_geom(Geom_Tria,order)%connectivity = &
+                                   pst_geom(Geom_Tria,order)%connectivity - 1
     !
     ! ############################
     ! ## Quadrilateral Geometry ##
@@ -1868,7 +1848,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Quad,order)%connectivity = pst_geom(Geom_Quad,order)%connectivity - 1
+    pst_geom(Geom_Quad,order)%connectivity = &
+                                   pst_geom(Geom_Quad,order)%connectivity - 1
     !
     !
     ! ##################################################################
@@ -1958,7 +1939,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Tetr,order)%connectivity = pst_geom(Geom_Tetr,order)%connectivity - 1
+    pst_geom(Geom_Tetr,order)%connectivity = &
+                                   pst_geom(Geom_Tetr,order)%connectivity - 1
     !
     ! ######################
     ! ## Pyramid Geometry ##
@@ -1969,7 +1951,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Pyra,order)%connectivity = pst_geom(Geom_Pyra,order)%connectivity - 1
+    pst_geom(Geom_Pyra,order)%connectivity = &
+                                   pst_geom(Geom_Pyra,order)%connectivity - 1
     !
     ! ####################
     ! ## Prism Geometry ##
@@ -2027,7 +2010,8 @@ continue
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Pris,order)%connectivity = pst_geom(Geom_Pris,order)%connectivity - 1
+    pst_geom(Geom_Pris,order)%connectivity = &
+                                   pst_geom(Geom_Pris,order)%connectivity - 1
     !
     ! #########################
     ! ## Hexahedral Geometry ##
@@ -2040,22 +2024,34 @@ continue
     do k = 1,no1d
       do j = 1,no1d
         do i = 1,no1d
+          !
+          p1 = np1d*np1d*(k-1) + np1d*(j-1) + i
+          p2 = np1d*np1d*(k-1) + np1d*(j-1) + i + 1
+          p3 = np1d*np1d*(k-1) + np1d*(j  ) + i + 1
+          p4 = np1d*np1d*(k-1) + np1d*(j  ) + i
+          p5 = np1d*np1d*(k  ) + np1d*(j-1) + i
+          p6 = np1d*np1d*(k  ) + np1d*(j-1) + i + 1
+          p7 = np1d*np1d*(k  ) + np1d*(j  ) + i + 1
+          p8 = np1d*np1d*(k  ) + np1d*(j  ) + i
+          !
           sk = sk + 1
-          pst_geom(Geom_Hexa,order)%connectivity(1,sk) = np1d*np1d*(k-1) + np1d*(j-1) + i
-          pst_geom(Geom_Hexa,order)%connectivity(2,sk) = np1d*np1d*(k-1) + np1d*(j-1) + i + 1
-          pst_geom(Geom_Hexa,order)%connectivity(3,sk) = np1d*np1d*(k-1) + np1d*(j  ) + i + 1
-          pst_geom(Geom_Hexa,order)%connectivity(4,sk) = np1d*np1d*(k-1) + np1d*(j  ) + i
-          pst_geom(Geom_Hexa,order)%connectivity(5,sk) = np1d*np1d*(k  ) + np1d*(j-1) + i
-          pst_geom(Geom_Hexa,order)%connectivity(6,sk) = np1d*np1d*(k  ) + np1d*(j-1) + i + 1
-          pst_geom(Geom_Hexa,order)%connectivity(7,sk) = np1d*np1d*(k  ) + np1d*(j  ) + i + 1
-          pst_geom(Geom_Hexa,order)%connectivity(8,sk) = np1d*np1d*(k  ) + np1d*(j  ) + i
+          pst_geom(Geom_Hexa,order)%connectivity(1,sk) = p1
+          pst_geom(Geom_Hexa,order)%connectivity(2,sk) = p2
+          pst_geom(Geom_Hexa,order)%connectivity(3,sk) = p3
+          pst_geom(Geom_Hexa,order)%connectivity(4,sk) = p4
+          pst_geom(Geom_Hexa,order)%connectivity(5,sk) = p5
+          pst_geom(Geom_Hexa,order)%connectivity(6,sk) = p6
+          pst_geom(Geom_Hexa,order)%connectivity(7,sk) = p7
+          pst_geom(Geom_Hexa,order)%connectivity(8,sk) = p8
+          !
         end do
       end do
     end do
     !
     ! Subtract one from the sub-connectivity so that it starts at zero
     !
-    pst_geom(Geom_Hexa,order)%connectivity = pst_geom(Geom_Hexa,order)%connectivity - 1
+    pst_geom(Geom_Hexa,order)%connectivity = &
+                                   pst_geom(Geom_Hexa,order)%connectivity - 1
     !
     ! Deallocate counter and counter3 before going on to the next order
     !
