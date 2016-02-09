@@ -99,6 +99,11 @@ continue
                                 cells_with_node_ptr,nodes_on_edge, &
                                 cells_with_edge,cells_with_edge_ptr)
   !
+  ! Create the edge derived type array
+  !
+  call create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
+                                nodes_on_edge)
+  !
   ! Get the unit cell subconnectivities for use when writing solution file
   !
   call memory_pause("finding the flux points of each cell", &
@@ -2766,6 +2771,66 @@ continue
   1 format ("ERROR! The number of cells found with edges is inconsistent!")
   !
 end subroutine find_cells_surrounding_each_edge
+!
+!###############################################################################
+!
+subroutine create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
+                                    nodes_on_edge)
+  !
+  !.. Use Statements ..
+  use geovar, only : edge,cell
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),   intent(in) :: cells_with_edge
+  integer, dimension(:),   intent(in) :: cells_with_edge_ptr
+  integer, dimension(:,:), intent(in) :: nodes_on_edge
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,nc,ne,ierr
+  integer :: ledge,this_order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_edge_derived_type"
+  !
+continue
+  !
+  ledge = size(nodes_on_edge,dim=2)
+  !
+  ! Allocate the edge array
+  !
+  allocate ( edge(1:ledge) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge",1,ierr,error_message)
+  !
+  ! Loop through the edges and save the required information in the edge array
+  !
+  do ne = 1,ledge
+    !
+    n1 = cells_with_edge_ptr(ne)+1
+    n2 = cells_with_edge_ptr(ne+1)
+    !
+    ! Initialize the order for this edge to a large negative number
+    !
+    this_order = -huge( int(0,kind=kind(this_order)) )
+    !
+    ! Find the maximum order of all cells containing this edge
+    !
+    do n = n1,n2
+      !
+      nc = cells_with_edge(n)
+      !
+      this_order = max( this_order , cell(nc)%order )
+      !
+    end do
+    !
+    ! Save this information in the edge array
+    !
+    edge(ne)%nodes(1) = nodes_on_edge(1,ne)
+    edge(ne)%nodes(2) = nodes_on_edge(2,ne)
+    edge(ne)%order    = this_order
+    !
+  end do
+  !
+end subroutine create_edge_derived_type
 !
 !###############################################################################
 !
