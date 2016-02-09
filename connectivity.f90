@@ -27,6 +27,9 @@ contains
 subroutine get_grid_connectivity(bface,cell_geom, &
                                  nodes_of_cell,nodes_of_cell_ptr)
   !
+  !.. Use Statements ..
+  use ovar, only : continuous_output
+  !
   !.. Formal Arguments ..
   integer,  dimension(:,:), intent(in) :: bface
   integer,  dimension(:),   intent(in) :: cell_geom
@@ -37,14 +40,14 @@ subroutine get_grid_connectivity(bface,cell_geom, &
   integer :: ierr
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:) :: cells_with_node
-  integer, allocatable, dimension(:) :: cells_with_node_ptr
-  integer, allocatable, dimension(:) :: cells_surr_cell
-  integer, allocatable, dimension(:) :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:) :: cells_with_edge
-  integer, allocatable, dimension(:) :: cells_with_edge_ptr
-  integer, allocatable, dimension(:) :: edges_with_node
-  integer, allocatable, dimension(:) :: edges_with_node_ptr
+  integer, allocatable, dimension(:)   :: cells_with_node
+  integer, allocatable, dimension(:)   :: cells_with_node_ptr
+  integer, allocatable, dimension(:)   :: cells_surr_cell
+  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:)   :: cells_with_edge
+  integer, allocatable, dimension(:)   :: cells_with_edge_ptr
+  integer, allocatable, dimension(:)   :: edges_with_node
+  integer, allocatable, dimension(:)   :: edges_with_node_ptr
   integer, allocatable, dimension(:,:) :: nodes_on_edge
   !
   !.. Local Parameters ..
@@ -69,19 +72,26 @@ continue
                                         cells_with_node,cells_with_node_ptr, &
                                         cells_surr_cell,cells_surr_cell_ptr)
   !
-  ! Get the nodes defining each edge as well as the edges surrounding each node
+  ! If using the continuous output option, find the
+  ! node and cell connectivity for all the grid edges
   !
-  call find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
-                               cells_with_node,cells_with_node_ptr, &
-                               edges_with_node,edges_with_node_ptr, &
-                               nodes_on_edge)
-  !
-  ! Get the cells that surround each edge
-  !
-  call find_cells_surrounding_each_edge(nodes_on_edge, &
-                                        nodes_of_cell,nodes_of_cell_ptr, &
-                                        cells_with_node,cells_with_node_ptr, &
-                                        cells_with_edge,cells_with_edge_ptr)
+  if (continuous_output) then
+    !
+    ! Get the nodes defining each edge as well as the edges surrounding each node
+    !
+    call find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
+                                 cells_with_node,cells_with_node_ptr, &
+                                 edges_with_node,edges_with_node_ptr, &
+                                 nodes_on_edge)
+    !
+    ! Get the cells that surround each edge
+    !
+    call find_cells_surrounding_each_edge(nodes_on_edge, &
+                                          nodes_of_cell,nodes_of_cell_ptr, &
+                                          cells_with_node,cells_with_node_ptr, &
+                                          cells_with_edge,cells_with_edge_ptr)
+    !
+  end if
   !
   ! Get the cells on each face
   !
@@ -99,10 +109,12 @@ continue
                                 cells_with_node_ptr,nodes_on_edge, &
                                 cells_with_edge,cells_with_edge_ptr)
   !
-  ! Create the edge derived type array
+  ! If using the continuous output option, create the edge derived type array
   !
-  call create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
-                                nodes_on_edge)
+  if (continuous_output) then
+    call create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
+                                  nodes_on_edge)
+  end if
   !
   ! Get the unit cell subconnectivities for use when writing solution file
   !
@@ -1598,12 +1610,12 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   use ovar,      only : continuous_output
   !
   !.. Formal Arguments ..
-  integer, dimension(:),   intent(in) :: nodes_of_cell
-  integer, dimension(:),   intent(in) :: nodes_of_cell_ptr
-  integer, dimension(:),   intent(in) :: cells_with_node_ptr
-  integer, dimension(:),   intent(in) :: cells_with_edge
-  integer, dimension(:),   intent(in) :: cells_with_edge_ptr
-  integer, dimension(:,:), intent(in) :: nodes_on_edge
+  integer,              dimension(:),   intent(in) :: nodes_of_cell
+  integer,              dimension(:),   intent(in) :: nodes_of_cell_ptr
+  integer, allocatable, dimension(:),   intent(in) :: cells_with_node_ptr
+  integer, allocatable, dimension(:),   intent(in) :: cells_with_edge
+  integer, allocatable, dimension(:),   intent(in) :: cells_with_edge_ptr
+  integer, allocatable, dimension(:,:), intent(in) :: nodes_on_edge
   !
   !.. Local Scalars ..
   integer :: k,l,i,ibeg,iend,iint,ierr
