@@ -95,7 +95,9 @@ continue
   !
   call memory_pause("finding the cells on each face", &
                     "finding the flux points of each cell")
-  call create_cell_derived_type
+  call create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
+                                cells_with_node_ptr,nodes_on_edge, &
+                                cells_with_edge,cells_with_edge_ptr)
   !
   ! Get the unit cell subconnectivities for use when writing solution file
   !
@@ -1578,24 +1580,42 @@ end function RotateFluxPoints_Tria
 !
 !###############################################################################
 !
-subroutine create_cell_derived_type()
+subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
+                                    cells_with_node_ptr,nodes_on_edge, &
+                                    cells_with_edge,cells_with_edge_ptr)
   !
   !.. Use Statements ..
-  use geovar, only : ncell,cell
-  use geovar, only : nfbnd,nface,face
-  use geovar, only : cell_geom
-  use geovar, only : cell_order
+  use geovar,    only : ncell,cell,nedge
+  use geovar,    only : nfbnd,nface,face
+  use geovar,    only : cell_geom
+  use geovar,    only : cell_order
   use order_mod, only : geom_solpts
+  use ovar,      only : continuous_output
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),   intent(in) :: nodes_of_cell
+  integer, dimension(:),   intent(in) :: nodes_of_cell_ptr
+  integer, dimension(:),   intent(in) :: cells_with_node_ptr
+  integer, dimension(:),   intent(in) :: cells_with_edge
+  integer, dimension(:),   intent(in) :: cells_with_edge_ptr
+  integer, dimension(:,:), intent(in) :: nodes_on_edge
   !
   !.. Local Scalars ..
-  integer :: nc,ncf,nf,nfp,ierr,lbeg,rbeg,k
-  integer :: face_geom,face_order,num_faces
-  integer :: host_cell,host_face
-  integer :: left_cell,left_face
-  integer :: right_cell,right_face
-  integer :: this_geom,this_order
-  integer :: this_beg,this_end
+  integer :: k,l,i,ibeg,iend,iint,ierr
+  integer :: n,nc,nc1,nc2,np,np1,np2
+  integer :: ncf,nf,nfp,nep,lbeg,rbeg
+  integer :: num_faces,num_edges,num_nodes
+  integer :: face_geom,face_order,bad_edges
+  integer :: host_cell,left_cell,right_cell
+  integer :: host_face,left_face,right_face
+  integer :: this_cell,this_geom,this_order
+  integer :: this_edge,this_node,cell_edge
+  real(wp) :: ave
   character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: cp,ep
+  integer, dimension(1:8) :: ip
   !
   !.. Local Parameters ..
   integer, parameter :: left_side = 1
@@ -1645,30 +1665,46 @@ continue
   allocate ( cell(1:ncell) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell",1,ierr,error_message)
   !
-  ! Go through the cells and allocate the face part of cell. While we are
-  ! doing this, store the geometry, solution order, first solution point,
-  ! and last solution point of each cell within the cell array. 
+  ! Go through the cells and allocate the face, edge, and node parts of cell.
+  ! While we are doing this, store the geometry, solution order, first solution
+  ! point, and last solution point of each cell within the cell array. 
   !
-  this_end = 0
+  iend = 0
   !
   do nc = 1,ncell
     !
     this_geom = cell_geom(nc)
     this_order = cell_order(nc)
     !
-    this_beg = this_end + 1
-    this_end = this_end + geom_solpts( this_geom , this_order )
+    ibeg = iend + 1
+    iend = iend + geom_solpts( this_geom , this_order )
     !
     cell(nc)%geom = this_geom
     cell(nc)%order = this_order
-    cell(nc)%beg_sp = this_beg
-    cell(nc)%end_sp = this_end
+    cell(nc)%beg_sp = ibeg
+    cell(nc)%end_sp = iend
     !
     num_faces = geom_faces(this_geom)
     !
     allocate ( cell(nc)%face(1:num_faces) , stat=ierr , errmsg=error_message )
     write (array_name,1) nc
     call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    !
+    if (continuous_output) then
+      !
+      num_edges = geom_edges(this_geom)
+      !
+      allocate ( cell(nc)%edge(1:num_edges) , stat=ierr , errmsg=error_message )
+      write (array_name,2) nc
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+      num_nodes = geom_nodes(this_geom)
+      !
+      allocate ( cell(nc)%node(1:num_nodes) , stat=ierr , errmsg=error_message )
+      write (array_name,3) nc
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+    end if
     !
   end do
   !
@@ -1785,9 +1821,139 @@ continue
     !
   end do
   !
+  if (.not. continuous_output) return
+  !
+  ! Loop through the edges and create the edg-pt information for each 
+  ! cell attached to the edge
+  !
+  nedge = size(nodes_on_edge)
+  !
+  bad_edges = 0
+  !
+  do this_edge = 1,size(nodes_on_edge,dim=2)
+    !
+    ep(1:2) = nodes_on_edge(1:2,this_edge)
+    !
+    nc1 = cells_with_edge_ptr(this_edge)+1
+    nc2 = cells_with_edge_ptr(this_edge+1)
+    ave = one / real(nc2-nc1+1,kind=wp)
+    !
+    cell_loop: do nc = nc1,nc2
+      !
+      this_cell = cells_with_edge(nc)
+      !
+      if (this_cell > ncell) cycle cell_loop
+      !
+      this_geom = cell(this_cell)%geom
+      this_order = cell(this_cell)%order
+      !
+      np1 = nodes_of_cell_ptr(this_cell)+1
+      np2 = nodes_of_cell_ptr(this_cell+1)
+      np  = np2-np1+1
+      !
+      nep = geom_solpts(Geom_Edge,this_order)
+      !
+      ip(1:np) = nodes_of_cell(np1:np2)
+      !
+      ! Loop through the edges of this cell to find the edge with the same nodes
+      !
+      one_pass: do l = 1,1
+        !
+        find_cell_edge: do i = 1,geom_edges(this_geom)
+          !
+          cp(1:2) = ip( edge_nodes(1:2,i,this_geom) + 1 )
+          !
+          if (cp(1)==ep(1) .and. cp(2)==ep(2)) then
+            !
+            cell_edge = i
+            ibeg = nep*(i-1) + 1
+            iend = nep*i
+            iint = 1
+            !
+            exit one_pass
+            !
+          else if (cp(1)==ep(2) .and. cp(2)==ep(1)) then
+            !
+            cell_edge = i
+            ibeg = nep*i
+            iend = nep*(i-1) + 1
+            iint = -1
+            !
+            exit one_pass
+            !
+          else
+            !
+            ! This nodes for this cell edge do not match so cycle to the
+            ! next cell edge
+            !
+            cycle find_cell_edge
+            !
+          end if
+          !
+        end do find_cell_edge
+        !
+        if (bad_edges == 0) write (iout,10)
+        !
+        bad_edges = bad_edges + 1
+        write (iout,11) this_edge,this_cell
+        !
+      end do one_pass
+      !
+      !
+      !
+      cell(this_cell)%edge(cell_edge)%idx = this_edge
+      cell(this_cell)%edge(cell_edge)%ave_coef = ave
+      !
+      allocate ( cell(this_cell)%edge(cell_edge)%cell_idx(1:nep) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,2) this_cell,cell_edge,"cell_idx"
+      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      !
+      cell(this_cell)%edge(cell_edge)%cell_idx(1:nep) = intseq(ibeg,iend,iint)
+      !
+    end do cell_loop
+    !
+  end do
+  !
+  ! Kill the program with an error message if any bad edges were found
+  !
+  if (bad_edges /= 0) then
+    write (error_message,12)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  ! Loop through the cells and create the information for each node of the cell
+  !
+  do this_cell = 1,ncell
+    !
+    np1 = nodes_of_cell_ptr(this_cell)+1
+    np2 = nodes_of_cell_ptr(this_cell+1)
+    !
+    do n = np1,np2
+      !
+      this_node = nodes_of_cell(n)
+      !
+      nc1 = cells_with_node_ptr(this_node)+1
+      nc2 = cells_with_node_ptr(this_node+1)
+      !
+      l = n-np1+1
+      !
+      cell(this_cell)%node(l)%node_idx = this_node
+      cell(this_cell)%node(l)%ave_coef = one / real(nc2-nc1+1,kind=wp)
+      !
+    end do
+    !
+  end do
+  !
   ! Format Statements
   !
   1 format ("cell(",i0,")%face",:,"(",i0,")%",a)
+  2 format ("cell(",i0,")%edge",:,"(",i0,")%",a)
+  3 format ("cell(",i0,")%node",:,"(",i0,")%",a)
+  !
+  10 format (/,"ERROR! Bad edges detected!",/)
+  11 format ("   BAD EDGE: this_edge = ",i8,";  this_cell = ",i8)
+  12 format ("ERROR! Bad edges detected!")
   !
 end subroutine create_cell_derived_type
 !
