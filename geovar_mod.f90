@@ -330,6 +330,20 @@ module geovar
   !
   type(cell_t), public, save, allocatable :: cell(:)
   !
+  !
+  ! EDGE_T : derived type to store information for each grid edge
+  !
+  type, public :: edge_t
+    ! nodes : the two nodes that define this edge
+    integer :: nodes(1:2)
+    ! order : the maximum order of all cells containing this edge
+    integer :: order
+  end type edge_t
+  !
+  ! EDGE : Array of type edge_t that contains information for all grid edges
+  !
+  type(edge_t), public, save, allocatable :: edge(:)
+  !
 contains
 !
 !###############################################################################
