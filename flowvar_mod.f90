@@ -9,6 +9,7 @@ module flowvar
   use module_kind_types, only : bc_cpu_bnd
   use module_kind_types, only : skip_alloc_pause
   use module_kind_types, only : error_message
+  use module_kind_types, only : Geom_Edge
   !
   implicit none
   !
@@ -182,6 +183,11 @@ module flowvar
   !
   type(ne3d_t), public, save, allocatable, dimension(:) :: edgedusp
   !
+  ! EDGEXYZ : conservative variable gradients at the edge points
+  !               edgexyz(1:nedge)%v(1:nr,1:n_sp1de)
+  !
+  type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz
+  !
   !
 contains
 !
@@ -191,15 +197,18 @@ subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
   use eqn_idx,   only : nq
-  use geovar,    only : nr,n_solpts,n_totpts,nface,nfbnd,face
+  use geovar,    only : nr,n_solpts,n_totpts
+  use geovar,    only : nfbnd,nface,face
+  use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
-  use order_mod, only : n_fp1de
   use ovar,      only : iRKtype,num_stages,mms_opt
   use ovar,      only : itestcase,num_ts
   use ovar,      only : convert_restart_to_cgns
+  use ovar,      only : continuous_output
   !
   !.. Local Scalars ..
-  integer :: n,ierr,face_geom,face_order,nfpts,nf
+  integer :: n,ne,nf,nn,nepts,nfpts
+  integer :: face_geom,face_order,ierr
   character(len=200) :: array_name
   !
   !.. Local Constants ..
@@ -234,7 +243,7 @@ continue
   !
   ! Allocate the outer part of the face solution/flux arrays
   !
-  if (.not. convert_restart_to_cgns) then
+  if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
     allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"faceusp",1,ierr,error_message)
@@ -245,11 +254,24 @@ continue
     allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"faceflx",1,ierr,error_message)
     !
-    ! If using MMS, allocate the facexyz array
+    ! If using the continuous output option or MMS, allocate the facexyz array
     !
-    if (mms_opt /= 0) then
+    if (continuous_output) then
+      !
+      ! If using continuous output, facexyz needs to be defined
+      ! for both interior and boundary faces
+      !
+      allocate ( facexyz(1:nface) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz",1,ierr,error_message)
+      !
+    else if (mms_opt /= 0) then
+      !
+      ! If using MMS but not using continuous output, facexyz only needs
+      ! to be defined for the boundary faces
+      !
       allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"facexyz",1,ierr,error_message)
+      !
     end if
     !
     ! Allocate the data component of these arrays based on the face geometry
@@ -276,17 +298,108 @@ continue
       write (array_name,1) "faceflx",nf
       call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
       !
-      ! If using MMS and this is a boundary face,
-      ! allocate the v component of facexyz
+      ! If facexyz is allocated, allocate the v component of facexyz
+      ! if the current face is within the size of facexyz
       !
-      if (mms_opt /= 0 .and. nf <= nfbnd) then
-        allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "facexyz",nf
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      if (allocated(facexyz)) then
+        if (nf <= size(facexyz)) then
+          allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
+                     stat=ierr , errmsg=error_message )
+          write (array_name,1) "facexyz",nf
+          call alloc_error(pname,array_name,1,ierr,error_message, &
+                           skip_alloc_pause)
+        end if
       end if
       !
     end do
+    !
+    ! If using continuous output, allocate the nodeusp, nodedusp, edgeusp,
+    ! and edgedusp arrays
+    !
+    !##########################################################################
+    !##########################################################################
+    !##  NOTE : THE LOOPS ALLOCATING THE INNER COMPONENTS ARE KEPT SEPARATE  ##
+    !##         FROM EACH OTHER TO TRY AND KEEP THE ALLOCATABLE COMPONENTS   ##
+    !##         OF EACH ARRAY CONTIGUOUS IN PHYSICAL MEMORY                  ##
+    !##########################################################################
+    !##########################################################################
+    !
+    if (continuous_output) then
+      !
+      ! Allocate the nodeusp array and its data components
+      !
+      allocate ( nodeusp(1:nnode) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodeusp",1,ierr,error_message)
+      !
+      do nn = 1,nnode
+        allocate ( nodeusp(nn)%v(1:nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "nodeusp",nn
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      end do
+      !
+      !
+      ! Allocate the nodedusp array and its data components
+      !
+      allocate ( nodedusp(1:nnode) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodedusp",1,ierr,error_message)
+      !
+      do nn = 1,nnode
+        allocate ( nodedusp(nn)%v(1:nr,1:nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "nodedusp",nn
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      end do
+      !
+      ! Allocate the edgeusp array and its data components
+      !
+      allocate ( edgeusp(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgeusp",1,ierr,error_message)
+      !
+      do ne = 1,nedge
+        !
+        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
+        !
+        allocate ( edgeusp(ne)%v(1:nq,1:nepts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "edgeusp",ne
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        !
+      end do
+      !
+      ! Allocate the edgedusp array and its data components
+      !
+      allocate ( edgedusp(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgedusp",1,ierr,error_message)
+      !
+      do ne = 1,nedge
+        !
+        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
+        !
+        allocate ( edgedusp(ne)%v(1:nr,1:nq,1:nepts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "edgedusp",ne
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        !
+      end do
+      !
+      ! Allocate the edgexyz array and its data components
+      !
+      allocate ( edgexyz(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgexyz",1,ierr,error_message)
+      !
+      do ne = 1,nedge
+        !
+        nepts = geom_solpts(Geom_Edge,edge(ne)%order)
+        !
+        allocate ( edgexyz(ne)%v(1:nr,1:nepts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "edgexyz",ne
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        !
+      end do
+      !
+    end if
     !
   end if
   !
