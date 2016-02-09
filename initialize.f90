@@ -270,9 +270,10 @@ continue
   if (associated(numer2init)) numer2init => null()
   if (associated(init2numer)) init2numer => null()
   !
-  ! If using MMS, we need to create the facexyz array
+  ! Create the facexyz and edgexyz arrays if
+  ! using the continuous output option or MMS
   !
-  call get_boundary_fp_coordinates
+  call get_face_and_edge_point_coordinates
   !
   ! Format Statements
   !
@@ -455,41 +456,61 @@ end subroutine initialize_dusp
 !
 !###############################################################################
 !
-subroutine get_boundary_fp_coordinates
+subroutine get_face_and_edge_point_coordinates
   !
-  use order_mod, only : maxSP
-  use geovar, only : nr,nfbnd,face,cell,xyz
-  use flowvar, only : facexyz
+  use order_mod,         only : maxSP
+  use geovar,            only : nr,cell,face,xyz
+  use flowvar,           only : edgexyz,facexyz
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
-  integer :: nf,n1,n2,np
-  integer :: kf,lf,l
-  integer :: host_cell,host_geom
-  integer :: host_order,face_order
+  integer :: n,nc,ne,nf,np,n1,n2
+  integer :: k,kf,l,lf,ierr
+  integer :: face_order,edge_order
+  integer :: this_order,this_geom
   !
-#ifndef USE_MATRIX_PROCEDURES
   !.. Local Arrays ..
+  real(wp) :: txyz(1:maxSP,1:nr)
+#ifndef USE_MATRIX_PROCEDURES
   real(wp) :: lmat(1:maxSP)
 #endif
   !
+  !.. Local Allocatable Arrays ..
+  logical, allocatable, dimension(:) :: msk
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_face_and_edge_point_coordinates"
+  !
 continue
   !
-  ! Only do this if facexyz is allocated which means that we are using MMS
+  ! Only do this if facexyz is allocated which means that either
+  ! the continuous output option or MMS is being used
   !
   if (allocated(facexyz)) then
     !
-    do nf = 1,nfbnd
+    do nf = 1,size(facexyz)
       !
       face_order = face(nf)%order
       !
-      host_cell = face(nf)%left%cell
-      host_geom = cell(host_cell)%geom
-      host_order = cell(host_cell)%order
+      nc = face(nf)%left%cell
       !
-      n1 = cell(host_cell)%beg_sp
-      n2 = cell(host_cell)%end_sp
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
       np = n2-n1+1
+      !
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
+      !
+      ! Create transpose of xyz array to reduce cache misses
+      !
+      do k = 1,np
+        do l = 1,nr
+          txyz(k,l) = xyz(l,k+n1-1)
+        end do
+      end do
+      !
+      ! Interpolate the solution point coordinates to each flux point
+      ! on the current face
       !
       do kf = 1,size(face(nf)%left%flxpts)
         !
@@ -497,14 +518,16 @@ continue
         !
 #ifdef USE_MATRIX_PROCEDURES
         do l = 1,nr
-          facexyz(nf)%v(l,kf) = &
-           interp(host_geom,host_order)%toFace(face_order)%dot( lf , xyz(l,n1:n2) )
+          facexyz(nf)%v(l,kf) = interp(this_geom,this_order)% &
+                                          toFace(face_order)% &
+                                dot( lf , txyz(1:np,l) )
         end do
 #else
-        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,lf)
+        lmat(1:np) = interp(this_geom,this_order)% &
+                               toFace(face_order)%mat(1:np,lf)
         !
         do l = 1,nr
-          facexyz(nf)%v(l,kf) = dot( lmat(1:np) , xyz(l,n1:n2) )
+          facexyz(nf)%v(l,kf) = dot( lmat(1:np) , txyz(1:np,l) )
         end do
 #endif
         !
@@ -514,7 +537,86 @@ continue
     !
   end if
   !
-end subroutine get_boundary_fp_coordinates
+  ! Only do this if edgexyz is allocated which means
+  ! that the continuous output option is being used
+  !
+  if (allocated(edgexyz)) then
+    !
+    ! Initialize edgexyz to zero
+    !
+    call edgexyz%zero
+    !
+    ! Allocate the mask array to mark which edges have been finished
+    !
+    allocate ( msk(1:size(edgexyz)) , source=fals , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",1,ierr,error_message)
+    !
+    ! Loop through the cells and compute the coordinates
+    ! of the edge points on each grid edge by interpolating
+    ! the coordinates of the cell solution points
+    !
+    do nc = 1,size(cell)
+      !
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
+      np = n2-n1+1
+      !
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
+      !
+      ! Create transpose of xyz array to reduce cache misses
+      !
+      do k = 1,np
+        do l = 1,nr
+          txyz(k,l) = xyz(l,k+n1-1)
+        end do
+      end do
+      !
+      ! Interpolate the solution point coordinates to each edge point
+      ! on the current edge
+      !
+      edges_of_cell: do n = 1,size(cell(nc)%edge)
+        !
+        ne = cell(nc)%edge(n)%idx
+        !
+        ! Skip to the next edge of this cell if this edge has already been done
+        !
+        if (msk(ne)) cycle edges_of_cell
+        !
+        edge_order = cell(nc)%edge(n)%order
+        !
+        ! Loop over the edge points on this edge and interpolate the
+        ! coordinates of the cell solution points to each edge point
+        !
+        do kf = 1,size(cell(nc)%edge(n)%cell_idx)
+          !
+          lf = cell(nc)%edge(n)%cell_idx(kf)
+          !
+          do l = 1,nr
+            edgexyz(ne)%v(l,kf) = interp(this_geom,this_order)% &
+                                            toEdge(edge_order)% &
+                                  dot(lf,txyz(1:np,l))
+          end do
+          !
+        end do
+        !
+        ! Mark this edge as finished
+        !
+        msk(ne) = true
+        !
+      end do edges_of_cell
+      !
+    end do
+    !
+    ! Deallocate the msk array before leaving
+    !
+    deallocate ( msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",2,ierr,error_message)
+    !
+  end if
+  !
+end subroutine get_face_and_edge_point_coordinates
 !
 !###############################################################################
 !
