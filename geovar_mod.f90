@@ -30,7 +30,8 @@ module geovar
   !
   logical, public, save :: using_quadrature
   !
-  ! nbfai : number of storage locations needed for each boundary face in array bface
+  ! nbfai : number of storage locations needed for
+  !         each boundary face in array bface
   !
   integer, public :: nbfai = 10
   !
@@ -99,22 +100,24 @@ module geovar
   !                       = 6 -> prism
   !                       = 8 -> hexahedra
   !        bface( 4,:) = Face of host cell on boundary
-  !                      for triangles: 1 -> nodes 1 and 2 of cell are on the boundary
-  !                      for triangles: 2 -> nodes 2 and 3 of cell are on the boundary
-  !                      for triangles: 3 -> nodes 3 and 1 of cell are on the boundary
-  !                      for quads: 1 -> nodes 1 and 2 of cell are on the boundary
-  !                      for quads: 2 -> nodes 2 and 3 of cell are on the boundary
-  !                      for quads: 3 -> nodes 3 and 4 of cell are on the boundary
-  !                      for quads: 4 -> nodes 4 and 1 of cell are on the boundary
+  !                for triangles: 1 -> nodes 1 and 2 of cell are on the boundary
+  !                for triangles: 2 -> nodes 2 and 3 of cell are on the boundary
+  !                for triangles: 3 -> nodes 3 and 1 of cell are on the boundary
+  !                for quads: 1 -> nodes 1 and 2 of cell are on the boundary
+  !                for quads: 2 -> nodes 2 and 3 of cell are on the boundary
+  !                for quads: 3 -> nodes 3 and 4 of cell are on the boundary
+  !                for quads: 4 -> nodes 4 and 1 of cell are on the boundary
   !        bface( 5,:) = A) For a non-communication (i.e., physical boundary)
-  !                         boundary face i_face, this gives the boundary condition
-  !                         group to which i_face belongs. This is used to group
-  !                         together boundary faces for analysis during the
-  !                         output/post-processing parts of the simulation.
-  !                      B) For a periodic or partition boundary face i_face with
-  !                         host cell i_cell, this gives the boundary face j_face
-  !                         that links to i_face. To find host cell j_cell for
-  !                         periodic face j_face, use bface(2,bface(5,i_face)).
+  !                         boundary face i_face, this gives the boundary
+  !                         condition group to which i_face belongs. This is
+  !                         used to group together boundary faces for analysis
+  !                         during the output/post-processing parts of the
+  !                         simulation.
+  !                      B) For a periodic or partition boundary face i_face
+  !                         with host cell i_cell, this gives the boundary
+  !                         face j_face that links to i_face. To find host cell
+  !                         j_cell for periodic face j_face, use
+  !                         bface(2,bface(5,i_face)).
   !        bface( 6,:) = For a periodic or partition boundary face i_face
   !                      with host cell i_cell, this gives the host cell
   !                      j_cell (i.e., bface(2,bface(5,i_face)) if they are
@@ -170,9 +173,13 @@ module geovar
   end type point
   !
   type, public :: conflict
-    logical :: is_local ! true if conflict not on a partition boundary
-    logical :: not_my_conflict ! true if processor has no involvement with conflict
+    ! is_local : true if conflict not on a partition boundary
+    logical :: is_local
+    ! not_my_conflict :  true if processor has no involvement with conflict
+    logical :: not_my_conflict
+    ! master : 
     type(point) :: master
+    ! slave : 
     type(point), allocatable, dimension(:) :: slave
   end type conflict
   !
@@ -318,9 +325,11 @@ module geovar
     integer :: beg_sp
     ! end_sp : index of last  solution point in the current cell
     integer :: end_sp
-    ! face : array giving the flx-pt information for all faces of the current cell
+    ! face : array giving the flx-pt information
+    !        for all faces of the current cell
     type(face_of_cell_t), allocatable :: face(:)
-    ! edge : array giving the edge-pt information for all edges of the current cell
+    ! edge : array giving the edge-pt information
+    !        for all edges of the current cell
     type(edge_of_cell_t), allocatable :: edge(:)
     ! node : array giving the information for all nodes of the current cell
     type(node_of_cell_t), allocatable :: node(:)
@@ -498,8 +507,9 @@ continue
           call dt%add( storage_size(cell(i)%face(j)%order,kind=inttype) )
           !
           if (allocated(cell(i)%face(j)%cell_idx)) then
-            call array%set( storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
-                                    size(cell(i)%face(j)%cell_idx,kind=inttype) )
+            call array%set( &
+                       storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
+                               size(cell(i)%face(j)%cell_idx,kind=inttype) )
             call face_idx%add(array)
             call dt%add(array)
           end if
@@ -521,8 +531,9 @@ continue
           call dt%add( storage_size(cell(i)%edge(j)%ave_coef,kind=inttype) )
           !
           if (allocated(cell(i)%edge(j)%cell_idx)) then
-            call array%set( storage_size(cell(i)%edge(j)%cell_idx,kind=inttype) , &
-                                    size(cell(i)%edge(j)%cell_idx,kind=inttype) )
+            call array%set( &
+                       storage_size(cell(i)%edge(j)%cell_idx,kind=inttype) , &
+                               size(cell(i)%edge(j)%cell_idx,kind=inttype) )
             call edge_idx%add(array)
             call dt%add(array)
           end if
@@ -579,8 +590,9 @@ continue
     do j = lbound(pst_geom,dim=2),ubound(pst_geom,dim=2)
       do i = lbound(pst_geom,dim=1),ubound(pst_geom,dim=1)
         !
-        call array%set( storage_size(pst_geom(i,j)%connectivity,kind=inttype) , &
-                                size(pst_geom(i,j)%connectivity,kind=inttype) )
+        call array%set( &
+                   storage_size(pst_geom(i,j)%connectivity,kind=inttype) , &
+                           size(pst_geom(i,j)%connectivity,kind=inttype) )
         !
         write (array_name,8) Geom_Name(i),j
         write (iou,2) array_name,array%get_units()
@@ -621,8 +633,10 @@ continue
         call dt%add( storage_size(bc_conflict(i)%slave,kind=inttype) , &
                              size(bc_conflict(i)%slave,kind=inttype) )
         !
-        do j = lbound(bc_conflict(i)%slave,dim=1),ubound(bc_conflict(i)%slave,dim=1)
-          call dt%add( storage_size(bc_conflict(i)%slave(j)%flux_point,kind=inttype) )
+        do j = lbound(bc_conflict(i)%slave,dim=1), &
+               ubound(bc_conflict(i)%slave,dim=1)
+          call dt%add( storage_size(bc_conflict(i)%slave(j)%flux_point, &
+                                    kind=inttype) )
           call dt%add( storage_size(bc_conflict(i)%slave(j)%face,kind=inttype) )
           call dt%add( storage_size(bc_conflict(i)%slave(j)%cpu,kind=inttype) )
         end do
