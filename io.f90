@@ -4292,7 +4292,7 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
   !
   !.. Use Statements ..
   use ovar, only : Lref,TaylorGreen_DOF
-  use geovar, only : nfbnd,face,nodes_on_face
+  use geovar, only : nfbnd,face
   use geovar, only : xyz_nodes,pst_geom
   use order_mod, only : geom_solpts,n_order
   !
@@ -4354,19 +4354,19 @@ continue
   !
   maskf_loop: do nf = 1,nfbnd
     !
-    bface_node_loop: do n = 1,size(nodes_on_face,dim=1)
+    bface_node_loop: do n = 1,size(face(nf)%nodes)
       !
       face_geom = face(nf)%geom
       face_order = face(nf)%order ! order of boundary face
       !
-      ! NOTE: We dont care here if any of the nodes stored in nodes_on_face
+      ! NOTE: We dont care here if any of the nodes stored in face(nf)%nodes
       !       for this face are duplicates. The if statements will just produce
       !       a false value for the second time.  We only care if the value
       !       ip that is returned is zero because this will cause the xyz_nodes
       !       array to go out-of-bounds so cycle the inner loop if this
       !       situation arrises.
       !       
-      ip = nodes_on_face(n,nf)
+      ip = face(nf)%nodes(n)
       !
       if (ip == 0) cycle bface_node_loop
       !
