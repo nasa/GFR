@@ -37,7 +37,8 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:)   :: global_var
   !
   ! USP_SUM : auxilary array needed for SSP-RK4 method
-  ! RSSPRK  : auxilary array containing old residuals, needed for some RK methods
+  ! RSSPRK  : auxilary array containing old residuals,
+  !           needed for some RK methods
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp_sum
   real(wp), public, save, allocatable, dimension(:,:,:) :: rssprk
@@ -99,7 +100,7 @@ module flowvar
   ! FACEFLX  : flux normal to cell faces at each interface flux point
   ! FACEUSP  : conservative variables at the interface flux points
   ! FACEDUSP : conservative variable gradients at the interface flux points
-  ! FACEXYZ  : coordinates of the flux points on the boundary faces (used only for MMS)
+  ! FACEXYZ  : coordinates of the flux points on the boundary faces
   !
   ! faceflx(1:nface)%v(1:nq,1:n_sp1de,1:2) ! this is the normal face flux
   ! faceusp(1:nface)%v(1:nq,1:n_sp1de,1:2)
