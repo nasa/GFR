@@ -73,7 +73,7 @@ module metrics_mod
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics2
   !
   ! metrics3: third derivative metrics terms at the solution points
-  !     For solution point 'n', metrics3(l,i,j,k,n) gives the partial derivative 
+  !     For solution point 'n', metrics3(l,i,j,k,n) gives the partial derivative
   !                                      3
   !                                     d (x_l)
   !                             -----------------------
@@ -198,7 +198,8 @@ module metrics_mod
   !           means that the length parameter, n, in the type definition is a
   !           deferred parameter that is to be specified at allocation of the
   !           array. If no value is passed to the length parameter, n, at
-  !           allocation, it defaults to the value 2 given in the type definition.
+  !           allocation, it defaults to the value 2 given in the type
+  !           definition.
   !
   class(sp_metrics), public, allocatable, dimension(:) :: pdt_metrics
   !
@@ -275,13 +276,13 @@ module metrics_mod
   !            variables/fluxes from the solution points in the cell
   !            interior to the flux points on the cell faces
   !
- !real(wp), public, save, allocatable, dimension(:,:) :: spmat       !(3,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spcemat     !(ksp1d+1,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spceximat   !(ksp1d+1,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spceetmat   !(ksp1d+1,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spcexi2mat  !(ksp1d+1,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spceet2mat  !(ksp1d+1,ksp2d)
- !real(wp), public, save, allocatable, dimension(:,:) :: spcexietmat !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spmat(:,:)       !(3,ksp2d)
+ !real(wp), public, save, allocatable :: spcemat(:,:)     !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spceximat(:,:)   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spceetmat(:,:)   !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spcexi2mat(:,:)  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spceet2mat(:,:)  !(ksp1d+1,ksp2d)
+ !real(wp), public, save, allocatable :: spcexietmat(:,:) !(ksp1d+1,ksp2d)
   !
   ! wsp  : quadrature weights
   ! xiSP : xi coordinates of the edge solution points
@@ -296,7 +297,7 @@ module metrics_mod
  !real(wp), public, save, allocatable, dimension(:) :: xiCE !(ksp1d)
   !
   ! XYSP    : x,y coordinates of the cell solution points
-  ! XYSPxi  : d_(x,y)/d_xi  of the cell solution points (i.e. d_x/d_xi and d_y/d_xi)
+  ! XYSPxi  : d_(x,y)/d_xi  of the cell solution points, i.e. d_x/d_xi, d_y/d_xi
   ! XYSPet  : d_(x,y)/d_eta of the cell solution points
   ! XYeSP   : x,y coordinates of the edge solution points !! not used
   ! XYeSPxi : d_(x,y)/d_xi of the edge solution points 
@@ -309,11 +310,11 @@ module metrics_mod
   ! XYSPet(1,:,:) = xs = matmul(Ds,x) -> sx = -yr/J
   ! XYSPet(2,:,:) = ys = matmul(Ds,y) -> sy =  xr/J
   !
- !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSP    !(2,ksp2d,-nfbnd:ncell)
- !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPxi  !(2,ksp2d,-nfbnd:ncell)
- !real(wp), public, save, allocatable, dimension(:,:,:) :: XYSPet  !(2,ksp2d,-nfbnd:ncell)
- !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSP   !(2,ksp1d,1:nface)
- !real(wp), public, save, allocatable, dimension(:,:,:) :: XYeSPxi !(2,ksp1d,1:nface)
+ !real(wp), public, save, allocatable :: XYSP(:,:,:)    !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: XYSPxi(:,:,:)  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: XYSPet(:,:,:)  !(2,ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: XYeSP(:,:,:)   !(2,ksp1d,1:nface)
+ !real(wp), public, save, allocatable :: XYeSPxi(:,:,:) !(2,ksp1d,1:nface)
   !
   ! DxyDrs : d_(x,y)/d_(r,s) of the cell solution points
   !
@@ -326,9 +327,9 @@ module metrics_mod
   ! Hesthaven and Warburthon equivalencies
   ! rjaSP = J = -xs*yr + xr*ys
   !
- !real(wp), public, save, allocatable, dimension(:,:) :: rjaSP   !(ksp2d,-nfbnd:ncell)
- !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPxi !(ksp2d,-nfbnd:ncell)
- !real(wp), public, save, allocatable, dimension(:,:) :: rjaSPet !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: rjaSP(:,:)   !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: rjaSPxi(:,:) !(ksp2d,-nfbnd:ncell)
+ !real(wp), public, save, allocatable :: rjaSPet(:,:) !(ksp2d,-nfbnd:ncell)
   !
   !... for boundary cells, if id_be(j) = 0, then the cell has a curved edge
   !
@@ -337,8 +338,8 @@ module metrics_mod
   ! be_cSPind(3,k,j) k = 1,ksp: the solution point index of cell be_pc(j)
   ! e_cSPind(1,k,j) k = 1,ksp: the solution point index for the left cell
   ! e_cSPind(2,k,j) k = 1,ksp: the solution point index for the right cell
- !integer, public, save, allocatable, dimension(:,:,:) :: e_cSPind  !(2,ksp1d,nface)
- !integer, public, save, allocatable, dimension(:,:,:) :: be_cSPind !(3,ksp1d,nfbnd)
+ !integer, public, save, allocatable :: e_cSPind(:,:,:)  !(2,ksp1d,nface)
+ !integer, public, save, allocatable :: be_cSPind(:,:,:) !(3,ksp1d,nfbnd)
   !
 contains
 !
@@ -659,14 +660,14 @@ continue
         !
       end do
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ###############  ||||||||||                   ||||||||||  ################
-      ! ###############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ##############  ||||||||||                   ||||||||||  ###############
+      ! ##############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ###############
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
       !
     else if (this_geom == Geom_Tetr) then
       !
@@ -674,7 +675,7 @@ continue
       ! #####  Metrics for tetrahedral cell  #####
       ! ##########################################
       !
-      write (error_message,101)
+      write (error_message,2)
       call stop_recon(stop_mpi,pname,error_message)
       !
     else if (this_geom == Geom_Pyra) then
@@ -683,17 +684,17 @@ continue
       ! #####  Metrics for pyramid cell  #####
       ! ######################################
       !
-      write (error_message,102)
+      write (error_message,3)
       call stop_recon(stop_mpi,pname,error_message)
       !
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ###############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ################
-      ! ###############  ||||||||||                   ||||||||||  ################
-      ! ##########################################################################
-      ! ##########################################################################
-      ! ##########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
+      ! ##############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ###############
+      ! ##############  ||||||||||                   ||||||||||  ###############
+      ! ########################################################################
+      ! ########################################################################
+      ! ########################################################################
       !
     else if (this_geom == Geom_Pris) then
       !
@@ -710,27 +711,27 @@ continue
         !
         np = n-p1+1
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ###############  VVVVVVVVVV   NEEDS WORK!!!   VVVVVVVVVV  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! #############  VVVVVVVVVV   NEEDS WORK!!!   VVVVVVVVVV  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         k = (np-1)/(n_edge_pts**2) + 1
         j = (np-1)/n_edge_pts - (k-1)*n_edge_pts + 1
         i = np - (j-1)*n_edge_pts - (k-1)*n_edge_pts*n_edge_pts
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  AAAAAAAAAA   NEEDS WORK!!!   AAAAAAAAAA  ################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  AAAAAAAAAA   NEEDS WORK!!!   AAAAAAAAAA  ##############
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         r = tria_coef * (rs_pts(1,i) + deltafun(tria_is_biunit))
         s = tria_coef * (rs_pts(2,i) + deltafun(tria_is_biunit))
@@ -781,14 +782,14 @@ continue
         !
         metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ###############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! #############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         ! First derivative of jacobian
         !
@@ -812,14 +813,14 @@ continue
           !
         end if
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ##############
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         ! Add the jacobian and quadrature weight to this cells volume
         !
@@ -828,7 +829,7 @@ continue
       end do
       !
       !
-      write (error_message,103)
+      write (error_message,4)
       call stop_recon(stop_mpi,pname,error_message)
       !
     else if (this_geom == Geom_Hexa) then
@@ -845,27 +846,27 @@ continue
         !
         np = n-p1+1
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ###############  VVVVVVVVVV DOUBLE CHECK THIS VVVVVVVVVV  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! #############  VVVVVVVVVV DOUBLE CHECK THIS VVVVVVVVVV  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         k = (np-1)/(n_edge_pts**2) + 1
         j = (np-1)/n_edge_pts - (k-1)*n_edge_pts + 1
         i = np - (j-1)*n_edge_pts - (k-1)*n_edge_pts*n_edge_pts
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  AAAAAAAAAA DOUBLE CHECK THIS AAAAAAAAAA  ################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  AAAAAAAAAA DOUBLE CHECK THIS AAAAAAAAAA  ##############
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         rm1 = edge_pts(i) - one
         rp1 = edge_pts(i) + one
@@ -876,41 +877,41 @@ continue
         tm1 = edge_pts(k) - one
         tp1 = edge_pts(k) + one
         !
-        metrics(1:nr,1,n,1) = one8 * ( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
-                                       sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
-                                       sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
-                                       sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
+        metrics(1:nr,1,n,1) = one8*( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
+                                     sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
+                                     sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
+                                     sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
         !
-        metrics(1:nr,2,n,1) = one8 * ( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
-                                       rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
-                                       rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
-                                       rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
+        metrics(1:nr,2,n,1) = one8*( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
+                                     rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
+                                     rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
+                                     rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
         !
-        metrics(1:nr,3,n,1) = one8 * ( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
-                                       rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
-                                       rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
-                                       rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
+        metrics(1:nr,3,n,1) = one8*( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
+                                     rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
+                                     rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
+                                     rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
         !
         ! Second derivative metrics
         !
         if (allocated(metrics2)) then
           !
-          metrics2(1:nr,2,1,n) = one8 * ( tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
-                                          tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
-                                          tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
-                                          tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
+          metrics2(1:nr,2,1,n) = one8*( tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
+                                        tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
+                                        tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
+                                        tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
           metrics2(1:nr,1,2,n) = metrics2(1:nr,2,1,n)
           !
-          metrics2(1:nr,3,2,n) = one8 * ( rm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
-                                          rm1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
-                                          rp1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
-                                          rp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
+          metrics2(1:nr,3,2,n) = one8*( rm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
+                                        rm1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
+                                        rp1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
+                                        rp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
           metrics2(1:nr,2,3,n) = metrics2(1:nr,3,2,n)
           !
-          metrics2(1:nr,1,3,n) = one8 * ( sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
-                                          sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
-                                          sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
-                                          sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
+          metrics2(1:nr,1,3,n) = one8*( sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
+                                        sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
+                                        sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
+                                        sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
           metrics2(1:nr,3,1,n) = metrics2(1:nr,1,3,n)
           !
         end if
@@ -941,14 +942,14 @@ continue
         !
         ! First derivative of jacobian
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ###############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! #############  VVVVVVVVVV  NEED TO WORK ON  VVVVVVVVVV  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         if (allocated(dJ)) then
           !
@@ -970,14 +971,14 @@ continue
           !
         end if
         !
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ###############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ################
-        ! ###############  ||||||||||                   ||||||||||  ################
-        ! ##########################################################################
-        ! ##########################################################################
-        ! ##########################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
+        ! #############  AAAAAAAAAA  NEED TO WORK ON  AAAAAAAAAA  ##############
+        ! #############  ||||||||||                   ||||||||||  ##############
+        ! ######################################################################
+        ! ######################################################################
+        ! ######################################################################
         !
         ! Add the jacobian and quadrature weight to this cells volume
         !
@@ -989,7 +990,7 @@ continue
       !
       ! Unknown or unsupported geometry
       !
-      write (error_message,100)
+      write (error_message,6)
       call stop_recon(stop_mpi,pname,error_message)
       !
     end if
@@ -1049,9 +1050,9 @@ continue
       !
       nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
       !
-      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
+      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!
       ! Assumption 1: the normal is the same for all flux points on the face
-      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!!
+      ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!
       !
       ! Compute the face normal at the first flux point
       !
@@ -1087,7 +1088,8 @@ continue
  !  write (182,10) nf
  !  do n = 1,size(geofa2(nf)%v,dim=2)
  !    write (182,11) n,( abs( (one4*geofa(nf)%v(i,n)-geofa2(nf)%v(i,n)) * &
- !                            reciprocal(one4*geofa(nf)%v(i,n)) ),i=1,size(geofa2(nf)%v,dim=1))
+ !                  reciprocal(one4*geofa(nf)%v(i,n)) ), &
+ !                          i=1,size(geofa2(nf)%v,dim=1))
  !  end do
  !end do
  !!
@@ -1105,7 +1107,8 @@ continue
  !do nf = 1,nface
  !  l = size(geofa(nf)%v,dim=1)
  !  n = size(geofa(nf)%v,dim=2)
- !  diff(1:l,1:n) = abs( (one4*geofa2(nf)%v - geofa(nf)%v) * reciprocal(one4*geofa2(nf)%v) )
+ !  diff(1:l,1:n) = abs( (one4*geofa2(nf)%v - geofa(nf)%v) * &
+ !                             reciprocal(one4*geofa2(nf)%v) )
  !  if (any(diff > 1.0e-02_wp)) then
  !    nfnods = geom_nodes(face(nf)%geom)
  !    nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
@@ -1170,20 +1173,20 @@ continue
   !
   ! Format Statements
   !
-  1   format (a,"(",i0,")%v")
-  100 format (" Encountered an unknown or unsupported cell geometry while", &
-              " trying to compute the grid metrics!")
-  101 format (" Encountered a tetrahedral grid cell while trying to compute", &
-              " the grid metrics! This grid geometry is not currently supported!")
-  102 format (" Encountered a pyramid grid cell while trying to compute", &
-              " the grid metrics! This grid geometry is not currently supported!")
-  103 format (" Encountered a prism grid cell while trying to compute", &
-              " the grid metrics! This grid geometry is not currently supported!")
-  104 format (" Encountered an invalid metrics derived type!")
+  1 format (a,"(",i0,")%v")
+  2 format (" Encountered a tetrahedral grid cell while trying to compute", &
+            " the grid metrics! This grid geometry is not currently supported!")
+  3 format (" Encountered a pyramid grid cell while trying to compute", &
+            " the grid metrics! This grid geometry is not currently supported!")
+  4 format (" Encountered a prism grid cell while trying to compute", &
+            " the grid metrics! This grid geometry is not currently supported!")
+  5 format (" Encountered an invalid metrics derived type!")
+  6 format (" Encountered an unknown or unsupported cell geometry while", &
+            " trying to compute the grid metrics!")
   !
-  10 format (/,"#######################################################",/, &
-               "#################  FACE ",i0,"  ###########################",/, &
-               "#######################################################",/)
+  10 format (/,"######################################################",/, &
+               "#################  FACE ",i0,"  ##########################",/, &
+               "######################################################",/)
   11 format (i4,*(es18.10))
   12 format (i6,/,*(3(es18.10),/,:))
   !
@@ -1222,6 +1225,7 @@ subroutine compute_face_normals
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals"
+  character(len=*), parameter :: fname = "face_normals.tec.dat"
  !logical, parameter :: output_face_normals = true
   logical, parameter :: output_face_normals = fals
   !
@@ -1237,9 +1241,9 @@ continue
       nfpts = nfpts + size(geofa(nf)%v,dim=2)
     end do
     !
-    open (newunit=inrm,file="face_normals.tec.dat",status="replace",action="write", &
+    open (newunit=inrm,file=fname,status="replace",action="write", &
                        form="formatted",position="rewind",iostat=ierr)
-    call io_error(pname,"face_normals.tec.dat",1,ierr)
+    call io_error(pname,fname,1,ierr)
     !
     if (nr == 2) then
       !
@@ -1274,15 +1278,18 @@ continue
       end do
     end do
    !!
-   !! Compute the coordinates for the center of the current cell and save for later
+   !! Compute the coordinates for the center of
+   !! the current cell and save for later
    !!
    !i1 = nodes_of_cell_ptr(nc)+1
    !i2 = nodes_of_cell_ptr(nc+1)
    !ip = i2-i1+1
    !!
-   !cell_center(1:nr) = sum(xyz_nodes(1:nr,nodes_of_cell(i1:i2)))/real(ip,kind=wp)
+   !cell_center(1:nr) = sum(xyz_nodes(1:nr,nodes_of_cell(i1:i2))) / &
+   !                                                   real(ip,kind=wp)
     !
-    ! Loop through the faces of the current cell to get the normals at each face point
+    ! Loop through the faces of the current cell
+    ! to get the normals at each face point
     !
     cell_face_loop: do ncf = 1,size(cell(nc)%face)
       !
@@ -1306,10 +1313,13 @@ continue
           lf = cell(nc)%face(ncf)%cell_idx(kf)
           !
 #ifdef USE_MATRIX_PROCEDURES
-          xyz_face(kf,l) = &
-           interp(left_geom,left_order)%toFace(face_order)%dot( lf , txyz(1:np,l) )
+          xyz_face(kf,l) = interp(left_geom,left_order)% &
+                                     toFace(face_order)% &
+                           dot( lf , txyz(1:np,l) )
 #else
-          lmat(1:np) = interp(left_geom,left_order)%toFace(face_order)%mat(1:np,lf)
+          lmat(1:np) = interp(left_geom,left_order)% &
+                                 toFace(face_order)% &
+                       mat(1:np,lf)
           !
           xyz_face(kf,l) = dot( lmat(1:np) , txyz(1:np,l) )
 #endif
@@ -1338,9 +1348,10 @@ continue
         !
         do n = 1,ndim
           !
-          ! If the current cell face is a x-min, y-max, or z-min face, we need to
-          ! reverse the order of the derivatives so that the cross_product computed
-          ! below results in a outward facing normal for the left cell on the face.
+          ! If the current cell face is a x-min, y-max, or z-min face, we need
+          ! to reverse the order of the derivatives so that the cross_product
+          ! computed below results in a outward facing normal for the left cell
+          ! on the face.
           !
           kf = n
           if (face_geom /= Geom_Edge) then
@@ -1352,8 +1363,9 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
           !
           do l = 1,nr
-            dvec(l,kf) = &
-              deriv(face_geom,face_order)%d(n)%dot( k , xyz_face(1:nfp,l) )
+            dvec(l,kf) = deriv(face_geom,face_order)% &
+                                                d(n)% &
+                         dot( k , xyz_face(1:nfp,l) )
           end do
 #else
           dmat(1:nfp) = deriv(face_geom,face_order)%d(n)%mat(1:nfp,k)
@@ -1389,7 +1401,8 @@ continue
               ipface(2,nf) = npcount
             end if
             !
-            write (inrm,22) (xyz_face(k,l),l=1,nr),(geofa(nf)%v(l,k),l=1,nr)!,npcount
+            write (inrm,22) (xyz_face(k,l),l=1,nr), &
+                            (geofa(nf)%v(l,k),l=1,nr)!,npcount
             !
           else if (nr == 3) then
             !
@@ -1407,7 +1420,8 @@ continue
             !
             if (face_geom == Geom_Tria) ipface(4,nf) = ipface(3,nf)
             !
-            write (inrm,23) (xyz_face(k,l),l=1,nr),(geofa(nf)%v(l,k),l=1,nr)!,npcount
+            write (inrm,23) (xyz_face(k,l),l=1,nr), &
+                            (geofa(nf)%v(l,k),l=1,nr)!,npcount
             !
           end if
           !
@@ -1438,9 +1452,9 @@ continue
   !
   ! Format Statements
   !
-  10 format (/,"#######################################################",/, &
-               "#################  FACE ",i0,"  ###########################",/, &
-               "#######################################################",/)
+  10 format (/,"######################################################",/, &
+               "#################  FACE ",i0,"  ##########################",/, &
+               "######################################################",/)
   11 format (2i4,/,*(3(es18.10),/,:))
  !12 format (/,"############",/, &
  !             "###  ",i0,"  ###",/, &
