@@ -195,10 +195,6 @@ module geovar
   integer, public, save, allocatable, dimension(:) :: nodes_of_cell_ptr
   integer, public, save, allocatable, dimension(:) :: nodes_of_cell
   !
-  ! For face i_face, with the face vector going from
-  ! nodes_on_face(1,i_face) to nodes_on_face(2,i_face), ...
-  !
-  integer, public, save, allocatable, dimension(:,:) :: nodes_on_face
   !
   !
   ! GEOM_CONN : 
@@ -236,6 +232,14 @@ module geovar
     !         NOTE: This should be the maximum solution order between the two
     !               cells attached to the current face.
     integer :: order
+    ! nodes : array containing the indices for the grid nodes that define this
+    !         face. At most this array will contain four node indices for a
+    !         quadrilateral face. For triangular or edge faces, the remaining
+    !         unused nodes will remain zero. For example:
+    !            edge_face => face(i)%nodes(1:4) = [1,2,0,0]
+    !            tria_face => face(i)%nodes(1:4) = [1,2,3,0]
+    !            quad_face => face(i)%nodes(1:4) = [1,2,3,4]
+    integer, dimension(1:4) :: nodes = 0
     ! left : Information for the cell on the left side of the current face.
     !        NOTE: The normal to the current face always points AWAY FROM the
     !              left cell on the face.
@@ -398,6 +402,7 @@ continue
    !type, public :: face_t
    !  integer :: geom
    !  integer :: order
+   !  integer :: nodes(1:4)
    !  type(cell_on_face_t) :: left
    !  type(cell_on_face_t) :: right
    !end type face_t
@@ -416,6 +421,8 @@ continue
       !
       call dt%add( storage_size(face(i)%geom,kind=inttype) )
       call dt%add( storage_size(face(i)%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
+                           size(face(i)%nodes,kind=inttype) )
       call dt%add( storage_size(face(i)%left,kind=inttype) )
       call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
       call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
@@ -782,15 +789,6 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "nodes_of_cell"
-  end if
-  if (allocated(nodes_on_face)) then
-    call array%set( storage_size(nodes_on_face,kind=inttype) , &
-                            size(nodes_on_face,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "nodes_on_face"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "nodes_on_face"
   end if
   !
   total = total%get_units()
