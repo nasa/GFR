@@ -350,7 +350,7 @@ subroutine get_metrics()
   !.. Use Statements ..
   use geovar, only : nr,nface,n_totpts,n_totcel,ncell
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : nodes_on_face,xyz_nodes
+  use geovar, only : xyz_nodes
   use geovar, only : face,cell
   !
   use quadrature_mod, only : std_elem
@@ -1048,7 +1048,7 @@ continue
       !
       ! Coordinates of the nodes on this face
       !
-      nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
+      nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,face(nf)%nodes(1:nfnods))
       !
       ! !!!!!!!!!!!!!! WARNING: POSSIBLY BAD ASSUMPTIONS MADE HERE !!!!!!!!!!!!!
       ! Assumption 1: the normal is the same for all flux points on the face
@@ -1101,7 +1101,7 @@ continue
  !end do
  !do nf = 1,nface
  !  nfnods = geom_nodes(face(nf)%geom)
- !  write (nfpts,22) (nodes_on_face(l,nf),l=1,nfnods)
+ !  write (nfpts,22) (face(nf)%nodes(l),l=1,nfnods)
  !end do
  !ksize = 0
  !do nf = 1,nface
@@ -1111,17 +1111,17 @@ continue
  !                             reciprocal(one4*geofa2(nf)%v) )
  !  if (any(diff > 1.0e-02_wp)) then
  !    nfnods = geom_nodes(face(nf)%geom)
- !    nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
+ !    nodes(1:nr,1:nfnods) = xyz_nodes(1:nr,face(nf)%nodes(1:nfnods))
  !   !write (183,12) nf,((nodes(l,n),l=1,nr),n=1,nfnods)
  !    if (any(abs(nodes(3,:)-0.0_wp) < eps9)) then
  !      ksize(1) = ksize(1) + 1
- !      knodes(1:nfnods,ksize(1),1) = nodes_on_face(1:nfnods,nf)
+ !      knodes(1:nfnods,ksize(1),1) = face(nf)%nodes(1:nfnods)
  !    else if (any(abs(nodes(3,:)-0.075_wp) < eps9)) then
  !      ksize(2) = ksize(2) + 1
- !      knodes(1:nfnods,ksize(2),2) = nodes_on_face(1:nfnods,nf)
+ !      knodes(1:nfnods,ksize(2),2) = face(nf)%nodes(1:nfnods)
  !    else if (any(abs(nodes(3,:)-0.15_wp) < eps9)) then
  !      ksize(3) = ksize(3) + 1
- !      knodes(1:nfnods,ksize(3),3) = nodes_on_face(1:nfnods,nf)
+ !      knodes(1:nfnods,ksize(3),3) = face(nf)%nodes(1:nfnods)
  !    end if
  !  end if
  !end do
