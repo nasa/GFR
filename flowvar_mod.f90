@@ -117,7 +117,6 @@ module flowvar
   !          solutions for a processor
   !
   type, public :: ne1d_t
-    integer :: beg_pt
     real(wp), allocatable :: v(:)
   contains
     procedure :: zero => zero_ne1d_t
@@ -134,7 +133,6 @@ module flowvar
   !          solutions for a processor
   !
   type, public :: ne2d_t
-    integer :: beg_pt
     real(wp), allocatable :: v(:,:)
   contains
     procedure :: zero => zero_ne2d_t
@@ -151,7 +149,6 @@ module flowvar
   !          solutions for a processor
   !
   type, public :: ne3d_t
-    integer :: beg_pt
     real(wp), allocatable :: v(:,:,:)
   contains
     procedure :: zero => zero_ne3d_t
