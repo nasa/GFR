@@ -121,7 +121,9 @@ continue
         end do
       end do
       !
-      pmat(1:nsp,1:nsp) = projct(this_geom,this_order)%toCell(proj_order)%mat(1:nsp,1:nsp)
+      pmat(1:nsp,1:nsp) = projct(this_geom,this_order)% &
+                                    toCell(proj_order)% &
+                          mat(1:nsp,1:nsp)
       !
       do k = 1,nsp
         do l = 1,nvar
@@ -173,7 +175,8 @@ end function generic_projection_matrix
 !
 !###############################################################################
 !
-!!subroutine interp2quadrature(vand_1d_qp,vand_1d_inv_qp,vand_quad_qp,vand_quad_inv_qp)
+!!subroutine interp2quadrature(vand_1d_qp,vand_1d_inv_qp, &
+!!                             vand_quad_qp,vand_quad_inv_qp)
 !!  !
 !!  !.. Use Statements ..
 !!  use order_mod, only : n_order,p_order,o_order,n_sp1de,n_sp2dt,n_sp2dq
@@ -226,7 +229,7 @@ end function generic_projection_matrix
 !!  real(qp), dimension(1:n_qp2dq,1:n_sp2dq,1:2) :: vand2D_s2q_qp
 !!  real(qp), dimension(1:n_sp2dq,1:(p_order+1)**2,1:2) :: vand2D_p2s_qp
 !!  real(qp), dimension(1:(abs(o_order)+1)**2,1:n_sp2dq,1:2) :: vand2D_s2o_qp
-!!  real(qp), dimension(1:(abs(o_order)+1)**2,1:(p_order+1)**2,1:2) :: vand2D_p2o_qp
+!!  real(qp) :: vand2D_p2o_qp(1:(abs(o_order)+1)**2,1:(p_order+1)**2,1:2)
 !!  !
 !!  !.. Local Allocatable Arrays From Module qpvar ..
 !!  real(qp), allocatable :: qdtwts_1d_qp(:)
@@ -339,15 +342,20 @@ end function generic_projection_matrix
 !!  call alloc_error(pname,"qdtwts_2d_qp",1,ierr)
 !!  allocate ( vand_qdtr_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
 !!  call alloc_error(pname,"vand_qdtr_qp",1,ierr)
-!!  allocate ( vand_qdtr_inv_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , stat=ierr )
+!!  allocate ( vand_qdtr_inv_qp(1:n_qp2dq,1:n_qp2dq,1:2), source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"vand_qdtr_inv_qp",1,ierr)
-!!  allocate ( interp_s2q_qp(1:n_sp2dq,1:n_qp2dq,1:2) , source=qzero , stat=ierr )
+!!  allocate ( interp_s2q_qp(1:n_sp2dq,1:n_qp2dq,1:2) , source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"interp_s2q_qp",1,ierr)
-!!  allocate ( interp_s2o_qp(1:n_sp2dq,1:nop,1:2,1:3) , source=qzero , stat=ierr )
+!!  allocate ( interp_s2o_qp(1:n_sp2dq,1:nop,1:2,1:3) , source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"interp_s2o_qp",1,ierr)
-!!  allocate ( projct_q2s_qp(1:n_qp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
+!!  allocate ( projct_q2s_qp(1:n_qp2dq,1:n_sp2dq,1:2) , source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"projct_q2s_qp",1,ierr)
-!!  allocate ( projct_s2p_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=qzero , stat=ierr )
+!!  allocate ( projct_s2p_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"projct_s2p_qp",1,ierr)
 !!  allocate ( projct_limiter_qp(1:n_sp2dq,1:n_sp2dq,1:2,1:n_order) , &
 !!             source=qzero , stat=ierr )
@@ -366,7 +374,8 @@ end function generic_projection_matrix
 !!  call alloc_error(pname,"dqs_CRmat_qp",1,ierr)
 !!  allocate ( invM_mat_qp(1:n_sp2dq,1:n_sp2dq,1:2) , source=qzero , stat=ierr )
 !!  call alloc_error(pname,"invM_mat_qp",1,ierr)
-!!  allocate ( interp_s2g_qp(1:n_sp2dq,1:4*n_qp1de,1:2) , source=qzero , stat=ierr )
+!!  allocate ( interp_s2g_qp(1:n_sp2dq,1:4*n_qp1de,1:2) , source=qzero , &
+!!             stat=ierr )
 !!  call alloc_error(pname,"interp_s2g_qp",1,ierr)
 !!  !
 !!  ! ####################################
@@ -486,8 +495,8 @@ end function generic_projection_matrix
 !!  vand2D_p2s_qp(1:nsp,1:npp,2) = Vandermonde2D_quad_N(solpts_1d_qp,p_order)
 !!  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
 !!  !
-!!  projct_s2p_qp(1:nsp,1:nsp,2,1) = &
-!!    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
+!!  projct_s2p_qp(1:nsp,1:nsp,2,1) = matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , &
+!!                                 transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
 !!  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
 !!  do i = 1,nsp
 !!    projct_s2p_qp(i,1:nsp,2,1) = projct_s2p_qp(i,1:nsp,2,1) * &
@@ -501,10 +510,12 @@ end function generic_projection_matrix
 !!  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
 !!  !
 !!  projct_s2p_qp(1:nsp,1:nsp,2,2) = &
-!!    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
+!!    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , &
+!!    transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
 !!  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
 !!  do i = 1,nsp
-!!    projct_s2p_qp(i,1:nsp,2,2) = projct_s2p_qp(i,1:nsp,2,2) * gauss_wts_2d_qp(i)
+!!    projct_s2p_qp(i,1:nsp,2,2) = projct_s2p_qp(i,1:nsp,2,2) * &
+!!                                 gauss_wts_2d_qp(i)
 !!  end do
 !!  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
 !!  !
@@ -514,10 +525,12 @@ end function generic_projection_matrix
 !!  vand2D_p2s_qp = chop( vand2D_p2s_qp , vand2D_p2s_qp )
 !!  !
 !!  projct_s2p_qp(1:nsp,1:nsp,2,3) = &
-!!    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
+!!    matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , &
+!!            transpose(vand2D_p2s_qp(1:nsp,1:npp,2)) )
 !!  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
 !!  do i = 1,nsp
-!!    projct_s2p_qp(i,1:nsp,2,3) = projct_s2p_qp(i,1:nsp,2,3) * lobatto_wts_2d_qp(i)
+!!    projct_s2p_qp(i,1:nsp,2,3) = projct_s2p_qp(i,1:nsp,2,3) * &
+!!                                 lobatto_wts_2d_qp(i)
 !!  end do
 !!  projct_s2p_qp = chop( projct_s2p_qp , projct_s2p_qp )
 !!  !
@@ -544,13 +557,15 @@ end function generic_projection_matrix
 !!    !
 !!    ! Get the 2D Vandermonde matrix for the current projection limiter order
 !!    !
-!!    vand2D_lim_qp(1:nsp,1:npp) = Vandermonde2D_quad_N(solpts_1d_qp,limit_order)
+!!    vand2D_lim_qp(1:nsp,1:npp) = Vandermonde2D_quad_N(solpts_1d_qp, &
+!!                                                      limit_order)
 !!    vand2D_lim_qp = chop( vand2D_lim_qp , vand2D_lim_qp )
 !!    !
 !!    ! Compute the matrix multiplication of Vand*transpose(Vand)
 !!    !
 !!    projct_limiter_qp(1:nsp,1:nsp,2,n) = &
-!!      matmul( vand2D_lim_qp(1:nsp,1:npp) , transpose(vand2D_lim_qp(1:nsp,1:npp)) )
+!!      matmul( vand2D_lim_qp(1:nsp,1:npp) , &
+!!              transpose(vand2D_lim_qp(1:nsp,1:npp)) )
 !!    projct_limiter_qp = chop( projct_limiter_qp , projct_limiter_qp )
 !!    !
 !!    ! Finally add in the quadrature weights for the solution points to
@@ -579,7 +594,8 @@ end function generic_projection_matrix
 !!  ! Matrix for interpolating cell nodal values at SPs to face QPs
 !!  ! ###########################################
 !!  !
-!!  interp_s2g_qp(1:nsp,1:4*n_qp1de,2) = InterpToFace2D_quad(qdtpts_1d_qp,solpts_1d_qp)
+!!  interp_s2g_qp(1:nsp,1:4*n_qp1de,2) = InterpToFace2D_quad(qdtpts_1d_qp, &
+!!                                                           solpts_1d_qp)
 !!  interp_s2g_qp = chop( interp_s2g_qp , interp_s2g_qp )
 !!  !
 !!  ! ###########################################
@@ -588,12 +604,15 @@ end function generic_projection_matrix
 !!  !
 !!  vand2D_p2o_qp(1:nop,1:npp,2) = Vandermonde2D_quad_N(outpts_1d_qp,p_order)
 !!  vand2D_p2o_qp = chop( vand2D_p2o_qp , vand2D_p2o_qp )
-!! !call output2d(true,real(vand2D_p2o_qp(1:nop,1:npp,2),kind=wp),2,2,2,'vand2d_p2o')
-!! !call output2d(true,real(vand2D_p2s_qp(1:nsp,1:npp,2),kind=wp),2,2,2,'vand2d_p2s')
+!! !call output2d(true,real(vand2D_p2o_qp(1:nop,1:npp,2),kind=wp), &
+!!                2,2,2,'vand2d_p2o')
+!! !call output2d(true,real(vand2D_p2s_qp(1:nsp,1:npp,2),kind=wp), &
+!!                2,2,2,'vand2d_p2s')
 !!  !
-!!  interp_s2o_qp(1:nsp,1:nop,2,1) = interpolation_matrix(vand2d_p2s_qp(1:nsp,1:npp,2), &
-!!                                                        vand2d_p2o_qp(1:nop,1:npp,2), &
-!!                                                        wt_mat_qp(1:nsp,1:nsp))
+!!  interp_s2o_qp(1:nsp,1:nop,2,1) = &
+!!                       interpolation_matrix(vand2d_p2s_qp(1:nsp,1:npp,2), &
+!!                                            vand2d_p2o_qp(1:nop,1:npp,2), &
+!!                                            wt_mat_qp(1:nsp,1:nsp))
 !!  !
 !!  vand2D_s2o_qp(1:nop,1:nsp,2) = Vandermonde2D_quad_N(outpts_1d_qp,n_order)
 !!  vand2D_s2o_qp = chop( vand2D_s2o_qp , vand2D_s2o_qp )
@@ -603,8 +622,10 @@ end function generic_projection_matrix
 !!  interp_s2o_qp = chop( interp_s2o_qp , interp_s2o_qp )
 !!  !
 !!  interp_s2o_qp(1:nsp,1:nop,2,3) = &
-!!   matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , transpose(vand2d_p2o_qp(1:nop,1:npp,2)) )
-!!  !transpose(matmul( vand2D_p2o_qp(1:nop,1:npp,2) , transpose(vand2d_p2s_qp(1:nsp,1:npp,2)) ))
+!!   matmul( vand2D_p2s_qp(1:nsp,1:npp,2) , &
+!!           transpose(vand2d_p2o_qp(1:nop,1:npp,2)) )
+!!  !transpose(matmul( vand2D_p2o_qp(1:nop,1:npp,2) , &
+!!                     transpose(vand2d_p2s_qp(1:nsp,1:npp,2)) ))
 !!  interp_s2o_qp = chop( interp_s2o_qp , interp_s2o_qp )
 !!  do i = 1,nop
 !!    interp_s2o_qp(1:nsp,i,2,3) = interp_s2o_qp(1:nsp,i,2,3) * &
@@ -620,7 +641,8 @@ end function generic_projection_matrix
 !!        matmul( vand2D_s2q_qp(1:nqp,1:nsp,2) , transpose(vand_quad_qp) )
 !!  projct_q2s_qp = chop( projct_q2s_qp , projct_q2s_qp )
 !!  do i = 1,nsp
-!!    projct_q2s_qp(1:nqp,i,2) = projct_q2s_qp(1:nqp,i,2) * qdtwts_2d_qp(1:nqp,2)
+!!    projct_q2s_qp(1:nqp,i,2) = projct_q2s_qp(1:nqp,i,2) * &
+!!                               qdtwts_2d_qp(1:nqp,2)
 !!  end do
 !!  projct_q2s_qp = chop( projct_q2s_qp , projct_q2s_qp )
 !!  !
@@ -628,7 +650,8 @@ end function generic_projection_matrix
 !!  ! 2D Derivative matrix for the quadrature points
 !!  ! ###########################################
 !!  !
-!!  call Dmatrix2D_quad(dq1d_mat_qp,dqr_mat_qp(1:nqp,1:nqp,2),dqs_mat_qp(1:nqp,1:nqp,2))
+!!  call Dmatrix2D_quad(dq1d_mat_qp,dqr_mat_qp(1:nqp,1:nqp,2), &
+!!                                  dqs_mat_qp(1:nqp,1:nqp,2))
 !!  dqr_mat_qp = chop( dqr_mat_qp , dqr_mat_qp )
 !!  dqs_mat_qp = chop( dqs_mat_qp , dqs_mat_qp )
 !!  !
@@ -636,9 +659,11 @@ end function generic_projection_matrix
 !!  ! matrix for when using the derivative of the Lagrange polynomial
 !!  !
 !!  dqr_LPmat_qp(1:nqp,1:nsp,2) = &
-!!      matmul( transpose(dqr_mat_qp(1:nqp,1:nqp,2)) , projct_q2s_qp(1:nqp,1:nsp,2) )
+!!      matmul( transpose(dqr_mat_qp(1:nqp,1:nqp,2)) , &
+!!              projct_q2s_qp(1:nqp,1:nsp,2) )
 !!  dqs_LPmat_qp(1:nqp,1:nsp,2) = &
-!!      matmul( transpose(dqs_mat_qp(1:nqp,1:nqp,2)) , projct_q2s_qp(1:nqp,1:nsp,2) )
+!!      matmul( transpose(dqs_mat_qp(1:nqp,1:nqp,2)) , &
+!!              projct_q2s_qp(1:nqp,1:nsp,2) )
 !!  dqr_LPmat_qp = chop( dqr_LPmat_qp , dqr_LPmat_qp )
 !!  dqs_LPmat_qp = chop( dqs_LPmat_qp , dqs_LPmat_qp )
 !!  !
@@ -646,15 +671,17 @@ end function generic_projection_matrix
 !!  ! interpolation matrix for when using the chain-rule
 !!  !
 !!  dqr_CRmat_qp(1:nsp,1:nqp,2) = &
-!!      matmul( interp_s2q_qp(1:nsp,1:nqp,2) , transpose(dqr_mat_qp(1:nqp,1:nqp,2)) )
+!!      matmul( interp_s2q_qp(1:nsp,1:nqp,2) , &
+!!              transpose(dqr_mat_qp(1:nqp,1:nqp,2)) )
 !!  dqs_CRmat_qp(1:nsp,1:nqp,2) = &
-!!      matmul( interp_s2q_qp(1:nsp,1:nqp,2) , transpose(dqs_mat_qp(1:nqp,1:nqp,2)) )
+!!      matmul( interp_s2q_qp(1:nsp,1:nqp,2) , &
+!!              transpose(dqs_mat_qp(1:nqp,1:nqp,2)) )
 !!  dqr_CRmat_qp = chop( dqr_CRmat_qp , dqr_CRmat_qp )
 !!  dqs_CRmat_qp = chop( dqs_CRmat_qp , dqs_CRmat_qp )
 !!  !
 !!  ! Inverse of the mass matrix
 !!  !
-!!  invM_mat_qp(1:nsp,1:nsp,2) = matmul( vand_quad_qp , transpose(vand_quad_qp) )
+!!  invM_mat_qp(1:nsp,1:nsp,2) = matmul( vand_quad_qp , transpose(vand_quad_qp))
 !!  invM_mat_qp = chop( invM_mat_qp , invM_mat_qp )
 !!  !
 !!  ! ##############################################
@@ -689,7 +716,7 @@ end function generic_projection_matrix
 !!  call alloc_error(pname,"interp_s2o",1,ierr)
 !!  allocate ( projct_q2s(1:n_qp2dq,1:n_sp2dq,1:2) , source=zero , stat=ierr )
 !!  call alloc_error(pname,"projct_q2s",1,ierr)
-!!  allocate ( projct_s2p(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=zero , stat=ierr )
+!!  allocate ( projct_s2p(1:n_sp2dq,1:n_sp2dq,1:2,1:5) , source=zero,stat=ierr )
 !!  call alloc_error(pname,"projct_s2p",1,ierr)
 !!  allocate ( dqr_mat(1:n_qp2dq,1:n_qp2dq,1:2), source=zero , stat=ierr )
 !!  call alloc_error(pname,"dqr_mat",1,ierr)
@@ -733,22 +760,36 @@ end function generic_projection_matrix
 !!  dqs_CRmat      = chop( dqs_CRmat_qp )
 !!  invM_mat       = chop( invM_mat_qp )
 !!  !
-!!  call output2d(array_debugging,interp_f2g(:,:),2,2,3,'interp_f2g')
-!!  call output2d(array_debugging,projct_g2f(:,:),2,2,3,'projct_g2f')
-!!  call output2d(array_debugging,interp_s2q(1:nsp,1:nqp,2),2,2,2,'interp_s2q')
-!!  call output2d(array_debugging,interp_s2o(1:nsp,1:nqp,2,1),2,2,2,'interp_s2o')
-!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,1),2,2,2,'interp_s2o1')
-!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,2),2,2,2,'interp_s2o2')
-!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,3),2,2,2,'interp_s2o3')
-!!  call output2d(array_debugging,interp_s2g(1:nsp,1:4*n_qp1de,2),2,1,2,'interp_s2g')
-!!  call output2d(array_debugging,projct_q2s(1:nqp,1:nsp,2),2,2,2,'projct_q2s')
-!!  call output2d(array_debugging,projct_s2p(1:nsp,1:nsp,2,1),2,2,2,'projct_s2p')
-!! !call output2d(true,projct_s2p(1:nsp,1:nsp,2,1),2,2,2,'projct_s2p1')
-!! !call output2d(true,projct_s2p(1:nsp,1:nsp,2,5),2,2,2,'projct_s2p5')
+!!  call output2d(array_debugging,interp_f2g(:,:), &
+!!                2,2,3,'interp_f2g')
+!!  call output2d(array_debugging,projct_g2f(:,:), &
+!!                2,2,3,'projct_g2f')
+!!  call output2d(array_debugging,interp_s2q(1:nsp,1:nqp,2), &
+!!                2,2,2,'interp_s2q')
+!!  call output2d(array_debugging,interp_s2o(1:nsp,1:nqp,2,1), &
+!!                2,2,2,'interp_s2o')
+!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,1), &
+!!                2,2,2,'interp_s2o1')
+!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,2), &
+!!                2,2,2,'interp_s2o2')
+!! !call output2d(true,interp_s2o(1:nsp,1:nop,2,3), &
+!!                2,2,2,'interp_s2o3')
+!!  call output2d(array_debugging,interp_s2g(1:nsp,1:4*n_qp1de,2), &
+!!                2,1,2,'interp_s2g')
+!!  call output2d(array_debugging,projct_q2s(1:nqp,1:nsp,2), &
+!!                2,2,2,'projct_q2s')
+!!  call output2d(array_debugging,projct_s2p(1:nsp,1:nsp,2,1), &
+!!                2,2,2,'projct_s2p')
+!! !call output2d(true,projct_s2p(1:nsp,1:nsp,2,1), &
+!!                2,2,2,'projct_s2p1')
+!! !call output2d(true,projct_s2p(1:nsp,1:nsp,2,5), &
+!!                2,2,2,'projct_s2p5')
 !!  do n = n_order,1,-1
 !!    write (array_name,'("projct_limiter",i0)') n
-!!   !call output2d(true,           projct_limiter(1:nsp,1:nsp,2,n),wp),2,2,2,array_name)
-!!    call output2d(array_debugging,projct_limiter(1:nsp,1:nsp,2,n),wp),2,2,2,array_name)
+!!   !call output2d(true,           projct_limiter(1:nsp,1:nsp,2,n),wp), &
+!!                  2,2,2,array_name)
+!!    call output2d(array_debugging,projct_limiter(1:nsp,1:nsp,2,n),wp), &
+!!                  2,2,2,array_name)
 !!  end do
 !!  call output2d(array_debugging,dqr_mat(1:nqp,1:nqp,2),2,2,2,'dqr_mat')
 !!  call output2d(array_debugging,dqs_mat(1:nqp,1:nqp,2),2,2,2,'dqs_mat')
@@ -888,7 +929,8 @@ continue
           !
           call dt%add(array)
           !
-          do k = lbound(projct(i,j)%toFace,dim=1),ubound(projct(i,j)%toFace,dim=1)
+          do k = lbound(projct(i,j)%toFace,dim=1), &
+                 ubound(projct(i,j)%toFace,dim=1)
             !
             array = projct(i,j)%toFace(k)%memory_usage()
             !
@@ -911,7 +953,8 @@ continue
           !
           call dt%add(array)
           !
-          do k = lbound(projct(i,j)%toCell,dim=1),ubound(projct(i,j)%toCell,dim=1)
+          do k = lbound(projct(i,j)%toCell,dim=1), &
+                 ubound(projct(i,j)%toCell,dim=1)
             !
             array = projct(i,j)%toCell(k)%memory_usage()
             !

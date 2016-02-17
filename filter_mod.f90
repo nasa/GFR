@@ -347,7 +347,8 @@ continue
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
         rd_qp = qone - fetac_qp
         !
-        filter_1D_qp(i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        filter_1D_qp(i+1) = feps_qp * &
+                            exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
         !
       end if
     end do
@@ -844,7 +845,8 @@ continue
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
         rd_qp = qone - fetac_qp
         !
-        filter_1D_qp(i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        filter_1D_qp(i+1) = feps_qp * &
+                            exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
         !
       end if
     end do

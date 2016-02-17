@@ -57,17 +57,20 @@ module interpolation_mod
   !                        points.
   !                        
   type, public :: outerpolation_matrix
-    ! Interpolate to gauss quadrature points
+    ! gauss : Interpolate to gauss quadrature points
     type(matrix), allocatable :: gauss
-    ! Interpolate to lobatto quadrature points
+    ! lobatto : Interpolate to lobatto quadrature points
     type(matrix), allocatable :: lobatto
-    ! Pointer to quadrature points used to output the solution for post-processing
+    ! output : Pointer to quadrature points used to
+    !          output the solution for post-processing
     type(matrix), pointer :: output => null()
-    ! Pointer to quadrature points used to compute initial conditions
+    ! init : Pointer to quadrature points used
+    !        to compute initial conditions
     type(matrix), pointer :: init => null()
-    ! Pointer to quadrature points used for error computations
+    ! error : Pointer to quadrature points used for error computations
     type(matrix), pointer :: error => null()
-    ! Array containing the quadrature weights for the error computations
+    ! err_wts : Array containing the quadrature weights
+    !           for the error computations
     real(wp), allocatable :: err_wts(:)
   end type outerpolation_matrix
   !
@@ -175,7 +178,8 @@ continue
       !
       face_order_loop: do face_order = this_omin,this_omax
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         this_face => this_interp%toFace(face_order)
         !
@@ -273,7 +277,8 @@ continue
         !
         if (nedgpts == 0) cycle edge_order_loop
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         this_edge => this_interp%toEdge(edge_order)
         !
@@ -342,7 +347,8 @@ continue
         write (array_name,1) Geom_Name(this_geom),this_order,"toNode"
         call alloc_error(pname,array_name,1,ierr,error_message)
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         this_node => this_interp%toNode
         !
@@ -523,8 +529,12 @@ continue
   ! Check if we need either matrix to output the solution for post-processing
   !
   if (iop_solpts /= loc_output_pts) then
-    if (loc_output_pts == Legendre_Gauss) gauss_matrix_is_needed = true
-    if (loc_output_pts == Legendre_Gauss_Lobatto) lobatto_matrix_is_needed = true
+    if (loc_output_pts == Legendre_Gauss) then
+      gauss_matrix_is_needed = true
+    end if
+    if (loc_output_pts == Legendre_Gauss_Lobatto) then
+      lobatto_matrix_is_needed = true
+    end if
   end if
   !
   ! If neither matrix is needed, just return from this subroutine
@@ -562,7 +572,8 @@ continue
         write (array_name,1) Geom_Name(this_geom),this_order,"gauss%mat"
         call alloc_error(pname,array_name,1,ierr,error_message)
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         gmat => this_outerp%gauss%mat
         !
@@ -571,11 +582,13 @@ continue
         !
         allocate ( gauss_pts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_pts",1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"gauss_pts",1,ierr,error_message, &
+                         skip_alloc_pause)
         !
         allocate ( gauss_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_wts",1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"gauss_wts",1,ierr,error_message, &
+                         skip_alloc_pause)
         !
         call legendre_gauss_quadrature(gauss_pts,gauss_wts)
         !
@@ -594,7 +607,8 @@ continue
         write (array_name,1) Geom_Name(this_geom),this_order,"lobatto%mat"
         call alloc_error(pname,array_name,1,ierr,error_message)
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         lmat => this_outerp%lobatto%mat
         !
@@ -603,11 +617,13 @@ continue
         !
         allocate ( lobatto_pts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_pts",1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"lobatto_pts",1,ierr,error_message, &
+                         skip_alloc_pause)
         !
         allocate ( lobatto_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_wts",1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"lobatto_wts",1,ierr,error_message, &
+                         skip_alloc_pause)
         !
         call legendre_gauss_lobatto_quadrature(lobatto_pts,lobatto_wts)
         !
@@ -625,7 +641,8 @@ continue
         !
         allocate ( error_wts(1:this_order+1) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"error_wts",1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"error_wts",1,ierr,error_message, &
+                         skip_alloc_pause)
         !
         if (loc_error_pts == Legendre_Gauss) then
           error_wts = gauss_wts
@@ -762,23 +779,28 @@ continue
       !
       if (allocated(gauss_pts)) then
         deallocate ( gauss_pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_pts",2,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"gauss_pts",2,ierr,error_message, &
+                         skip_alloc_pause)
       end if
       if (allocated(gauss_wts)) then
         deallocate ( gauss_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"gauss_wts",2,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"gauss_wts",2,ierr,error_message, &
+                         skip_alloc_pause)
       end if
       if (allocated(lobatto_pts)) then
         deallocate ( lobatto_pts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_pts",2,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"lobatto_pts",2,ierr,error_message, &
+                         skip_alloc_pause)
       end if
       if (allocated(lobatto_wts)) then
         deallocate ( lobatto_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"lobatto_wts",2,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"lobatto_wts",2,ierr,error_message, &
+                         skip_alloc_pause)
       end if
       if (allocated(error_wts)) then
         deallocate ( error_wts , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"error_wts",2,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,"error_wts",2,ierr,error_message, &
+                         skip_alloc_pause)
       end if
       !
       ! Remove all associations of the local pointers before continuing
@@ -810,7 +832,8 @@ end subroutine init_outerpolation_matrices
 !
 !###############################################################################
 !
-pure function generic_interpolation_matrix(basis,newbasis,wmat) result(return_value)
+pure function generic_interpolation_matrix(basis,newbasis,wmat) &
+                                    result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: basis
@@ -2768,7 +2791,8 @@ continue
           !
           call dt%add(array)
           !
-          do k = lbound(interp(i,j)%toFace,dim=1),ubound(interp(i,j)%toFace,dim=1)
+          do k = lbound(interp(i,j)%toFace,dim=1), &
+                 ubound(interp(i,j)%toFace,dim=1)
             !
             array = interp(i,j)%toFace(k)%memory_usage()
             !
@@ -2791,7 +2815,8 @@ continue
           !
           call dt%add(array)
           !
-          do k = lbound(interp(i,j)%toCell,dim=1),ubound(interp(i,j)%toCell,dim=1)
+          do k = lbound(interp(i,j)%toCell,dim=1), &
+                 ubound(interp(i,j)%toCell,dim=1)
             !
             array = interp(i,j)%toCell(k)%memory_usage()
             !
@@ -2814,7 +2839,8 @@ continue
           !
           call dt%add(array)
           !
-          do k = lbound(interp(i,j)%toEdge,dim=1),ubound(interp(i,j)%toEdge,dim=1)
+          do k = lbound(interp(i,j)%toEdge,dim=1), &
+                 ubound(interp(i,j)%toEdge,dim=1)
             !
             array = interp(i,j)%toEdge(k)%memory_usage()
             !

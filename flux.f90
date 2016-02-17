@@ -100,8 +100,8 @@ continue
       !
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
-        !
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
+        !                                         local to this face
         lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         !######################################################################
@@ -114,11 +114,14 @@ continue
         !
 #ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
-          faceusp(nf)%v(m,kf,sf) = &
-        interp(this_geom,this_order)%toFace(face_order)%dot( lf , tusp(1:np,m) )
+          faceusp(nf)%v(m,kf,sf) = interp(this_geom,this_order)% &
+                                             toFace(face_order)% &
+                                   dot( lf , tusp(1:np,m) )
         end do
 #else
-        lmat(1:np) = interp(this_geom,this_order)%toFace(face_order)%mat(1:np,lf)
+        lmat(1:np) = interp(this_geom,this_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,lf)
         !
         do m = 1,nq
           faceusp(nf)%v(m,kf,sf) = dot( lmat(1:np) , tusp(1:np,m) )
@@ -194,8 +197,8 @@ continue
       !
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
-        !
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
+        !                                         local to this face
         lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         !######################################################################
@@ -209,12 +212,15 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = &
-      interp(this_geom,this_order)%toFace(face_order)%dot( lf , tdusp(1:np,l,m) )
+            facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
+                                                  toFace(face_order)% &
+                                        dot( lf , tdusp(1:np,l,m) )
           end do
         end do
 #else
-        lmat(1:np) = interp(this_geom,this_order)%toFace(face_order)%mat(1:np,lf)
+        lmat(1:np) = interp(this_geom,this_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,lf)
         !
         do m = 1,nq
           do l = 1,nr
@@ -354,7 +360,9 @@ continue
     do k = 1,np
       do l = 1,nr
         do m = 1,nq
-          vflx(m,l) = deriv(this_geom,this_order)%d(l)%dot( k , rsflx(1:np,m,l) )
+          vflx(m,l) = deriv(this_geom,this_order)% &
+                                             d(l)% &
+                      dot( k , rsflx(1:np,m,l) )
         end do
       end do
       lcl_res(1:nq,k) = sum( vflx , dim=2 )
@@ -400,12 +408,14 @@ continue
       face_order = cell(nc)%face(n)%order ! order of current face
       !
      !nf = size(interp(this_geom,this_order)%toFace(face_order)%mat,dim=2)
-     !write (161,15) ((interp(this_geom,this_order)%toFace(face_order)%mat(k,l),k=1,np),l=1,nf)
+     !write (161,15) ((interp(this_geom,this_order)% &
+     !                           toFace(face_order)% &
+     !                 mat(k,l), k=1,np), l=1,nf)
      !15 format (25(5es16.8,/),/)
      !call stop_recon(stop_mpi,"flux_gradient_at_solpts_visc")
       !
-      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
-        !
+      do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
+        !                                         local to this face
         lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
         ! Get the unit normal for this face flux/solution point
@@ -424,8 +434,9 @@ continue
         !
         do l = 1,nr
           do m = 1,nq
-            vflx(m,l) = &
-     interp(this_geom,this_order)%toFace(face_order)%dot( lf , xyflx(1:np,m,l) )
+            vflx(m,l) = interp(this_geom,this_order)% &
+                                  toFace(face_order)% &
+                        dot( lf , xyflx(1:np,m,l) )
           end do
         end do
         !
@@ -439,7 +450,9 @@ continue
     !     end do
     !   end do
 #else
-        lmat(1:np) = interp(this_geom,this_order)%toFace(face_order)%mat(1:np,lf)
+        lmat(1:np) = interp(this_geom,this_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,lf)
         !
         do l = 1,nr
           do m = 1,nq
@@ -528,10 +541,13 @@ continue
     l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
     l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
     !
-    lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1) ! value of interior flux polynomial at FP
+    ! value of interior flux polynomial at FP
+    lflx(1:nq,1:nfp) = faceflx(nf)%v(1:nq,1:nfp,1)
     !
-    luqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1) ! FP solution from left  cell on face
-    ruqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2) ! FP solution from right cell on face
+    ! FP solution from left  cell on face
+    luqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
+    ! FP solution from right cell on face
+    ruqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
     !
     if (governing_equations == NavierStokes_Eqns) then
       ! Solution gradient at FP from left  cell on face
@@ -1098,8 +1114,9 @@ continue
       !
     end do
     !
-    ! Finally, add the penalty term, (simply the differencing (jump) operator
-    ! [[.]] applied to the interface solutions) to the common viscous flux vector
+    ! Finally, add the penalty term, (simply the differencing (jump)
+    ! operator [[.]] applied to the interface solutions) to the
+    ! common viscous flux vector
     !
     do m = 1,nq
       penalty = LDG_tau * ( ur(m) - ul(m) )
@@ -1235,9 +1252,13 @@ continue
         !
         do l = 1,nr
 #ifdef USE_MATRIX_PROCEDURES
-          dudr(l) = deriv(this_geom,this_order)%d(l)%dot( k , tusp(1:np,m) )
+          dudr(l) = deriv(this_geom,this_order)% &
+                                           d(l)% &
+                    dot( k , tusp(1:np,m) )
 #else
-          dudr(l) = dot( deriv(this_geom,this_order)%d(l)%mat(1:np,k) , tusp(1:np,m) )
+          dudr(l) = dot( deriv(this_geom,this_order)% &
+                                                d(l)% &
+                         mat(1:np,k) , tusp(1:np,m) )
 #endif
         end do
         !
@@ -1784,7 +1805,8 @@ continue
         end do
 #else
         do n = 1,np
-         !correct_n = dsl * correct(this_geom,this_order)%mat(n,lf) / jacobian(n+n1-1)
+         !correct_n = dsl * correct(this_geom,this_order)%mat(n,lf) / &
+         !                  jacobian(n+n1-1)
           if (cmat_jac(n,lf) /= zero) then
             correct_n = dsl * cmat_jac(n,lf)
             do m = 1,nq
@@ -1812,12 +1834,15 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = &
-     interp(this_geom,this_order)%toFace(face_order)%dot( lf ,face_dusp(1:np,l,m) )
+            facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
+                                                  toFace(face_order)% &
+                                        dot( lf ,face_dusp(1:np,l,m) )
           end do
         end do
 #else
-        lmat(1:np) = interp(this_geom,this_order)%toFace(face_order)%mat(1:np,lf)
+        lmat(1:np) = interp(this_geom,this_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,lf)
         !
         do m = 1,nq
           do l = 1,nr
@@ -1953,8 +1978,10 @@ continue
     l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
     l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
     !
-    lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1) ! FP solution from left  cell on face
-    rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2) ! FP solution from right cell on face
+    ! FP solution from left  cell on face
+    lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
+    ! FP solution from right cell on face
+    rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
     !
     rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
     !
@@ -2187,7 +2214,8 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    nqp = geom_solpts(this_geom,q_order) ! no. of quadrature points for this cell
+    ! no. of quadrature points for this cell
+    nqp = geom_solpts(this_geom,q_order)
     !
     ! Store the transpose of usp to reduce cache misses
     !
@@ -2260,7 +2288,8 @@ continue
       !
       if (using_quadrature) then
         !
-        pmat(1:nqp,1:nsp) = projct(this_geom,q_order)%toCell(this_order)%mat(1:nqp,1:nsp)
+        pmat(1:nqp,1:nsp) = projct(this_geom,q_order)% &
+                                   toCell(this_order)%mat(1:nqp,1:nsp)
         !
         do l = 1,nr
           do m = 1,nq
@@ -2283,8 +2312,8 @@ continue
       do m = 1,nq
         do k = 1,nsp
           do l = 1,nr
-            dflx_sp(k,m,l) = dot( deriv(this_geom,this_order)%d(l)%mat(1:nsp,k) , &
-                                  rsflx_sp(1:nsp,m,l) )
+            dflx_sp(k,m,l) = dot( deriv(this_geom,this_order)%d(l)% &
+                                  mat(1:nsp,k) , rsflx_sp(1:nsp,m,l) )
           end do
         end do
       end do
@@ -2304,23 +2333,25 @@ continue
         !
         face_order = cell(nc)%face(n)%order ! order of current face
         !
-        do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
-          !
+        do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
+          !                                         local to this face
           lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
           !
           ! Get the unit normal for this face flux/solution point
           !
           unrm(:) = unit_vector( geofa(nf)%v(:,kf) )
           !
-          !######################################################################
-          !######################################################################
+          !#####################################################################
+          !#####################################################################
           ! IF USING LOBATTO SOLUTION POINTS WE SHOULD CHANGE lf TO GIVE THE
           ! INTERIOR SOLUTION POINT THAT CORRESPONDS TO THE CURRENT FLUX POINT
           ! TO PREVENT HAVING TO DO THE ENTIRE DOT_PRODUCT COMPUTATION
-          !######################################################################
-          !######################################################################
+          !#####################################################################
+          !#####################################################################
           !
-          lmat(1:nsp) = interp(this_geom,this_order)%toFace(face_order)%mat(1:nsp,lf)
+          lmat(1:nsp) = interp(this_geom,this_order)% &
+                                  toFace(face_order)% &
+                        mat(1:nsp,lf)
           !
           do l = 1,nr
             do m = 1,nq
@@ -2371,23 +2402,25 @@ continue
      !  !
      !  face_order = cell(nc)%face(n)%order ! order of current face
      !  !
-     !  do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of flx-pt local to this face
-     !    !
+     !  do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
+     !    !                                         local to this face
      !    lf = cell(nc)%face(n)%cell_idx(kf) ! index of flx-pt within interp%mat
      !    !
      !    ! Get the unit normal for this face flux/solution point
      !    !
      !    unrm(:) = unit_vector( geofa(nf)%v(:,kf) )
      !    !
-     !    !######################################################################
-     !    !######################################################################
+     !    !#####################################################################
+     !    !#####################################################################
      !    ! IF USING LOBATTO SOLUTION POINTS WE SHOULD CHANGE lf TO GIVE THE
      !    ! INTERIOR SOLUTION POINT THAT CORRESPONDS TO THE CURRENT FLUX POINT
      !    ! TO PREVENT HAVING TO DO THE ENTIRE DOT_PRODUCT COMPUTATION
-     !    !######################################################################
-     !    !######################################################################
+     !    !#####################################################################
+     !    !#####################################################################
      !    !
-     !    lmat(1:nsp) = interp(this_geom,this_order)%toFace(q_order)%mat(1:nsp,lf)
+     !    lmat(1:nsp) = interp(this_geom,this_order)% &
+     !                               toFace(q_order)% &
+     !                  mat(1:nsp,lf)
      !    !
      !    do l = 1,nr
      !      do m = 1,nq
@@ -2413,17 +2446,21 @@ continue
    !do k = 1,nsp
    !  do m = 1,nq
    !   !
-   !   !residual(m,k+n1-1) = dot( deriv(this_geom,this_order)%d(1)%mat(1:nsp,k) , &
-   !   !                          ftdc(1:nsp,m) )
-   !    residual(m,k+n1-1) = dot( deriv(this_geom,this_order)%d(1)%mat(1:nsp,k) , &
-   !                              dfsp(1:nsp,m) )
+   !   !residual(m,k+n1-1) = dot( deriv(this_geom,this_order)% &
+   !   !                                                 d(1)% &
+   !   !                          mat(1:nsp,k) , ftdc(1:nsp,m) )
+   !    residual(m,k+n1-1) = dot( deriv(this_geom,this_order)% &
+   !                                                     d(1)% &
+   !                              mat(1:nsp,k) , dfsp(1:nsp,m) )
    !    do l = 2,nr
    !   !  residual(m,k+n1-1) = residual(m,k+n1-1) + &
-   !   !                       dot( deriv(this_geom,this_order)%d(l)%mat(1:nsp,k) , &
-   !   !                            gtdc(1:nsp,m) )
+   !   !                       dot( deriv(this_geom,this_order)% &
+   !   !                                                   d(l)% &
+   !   !                            mat(1:nsp,k) , gtdc(1:nsp,m) )
    !      residual(m,k+n1-1) = residual(m,k+n1-1) + &
-   !                           dot( deriv(this_geom,this_order)%d(l)%mat(1:nsp,k) , &
-   !                                dgsp(1:nsp,m) )
+   !                           dot( deriv(this_geom,this_order)% &
+   !                                                       d(l)% &
+   !                                mat(1:nsp,k) , dgsp(1:nsp,m) )
    !    end do
    !  end do
    !end do
@@ -2572,7 +2609,9 @@ continue
     !
     if (using_quadrature) then
       !
-      pmat(1:ngp,1:nfp) = projct(face_geom,q_order)%toCell(face_order)%mat(1:ngp,1:nfp)
+      pmat(1:ngp,1:nfp) = projct(face_geom,q_order)% &
+                                 toCell(face_order)% &
+                          mat(1:ngp,1:nfp)
       !
       if (dflux_opt == project_derivatives) then
         !

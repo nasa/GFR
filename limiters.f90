@@ -275,12 +275,14 @@ continue
       !
 #ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
-        usp(m,n1:n2) = &
-          projct(this_geom,this_order)%toCell(proj_order)%mv_mult( tusp(1:nsp,m) )
+        usp(m,n1:n2) = projct(this_geom,this_order)% &
+                                 toCell(proj_order)% &
+                       mv_mult( tusp(1:nsp,m) )
       end do
 #else
       !
-      ! Assign local pointer to projection matrix as an alias to simplify the code
+      ! Assign local pointer to projection matrix
+      ! as an alias to simplify the code
       ! 
       plim => projct(this_geom,this_order)%toCell(proj_order)%mat
       !

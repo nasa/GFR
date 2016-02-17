@@ -31,7 +31,7 @@ module correction_mod
   !
   !        this_geom = cell(n)%geom
   !        this_order = cell(n)%order
-  !        k = the flux point on a face of cell 'n' that is currently of interest
+  !        k = the flx-pt on a face of cell 'n' that is currently of interest
   !
   type(matrix), public, save, target, allocatable :: correct(:,:)
   !
@@ -54,7 +54,7 @@ module correction_mod
   !
   !        this_geom = cell(n)%geom
   !        this_order = cell(n)%order
-  !        k = the flux point on a face of cell 'n' that is currently of interest
+  !        k = the flx-pt on a face of cell 'n' that is currently of interest
   !
   type(matrix), public, save, target, allocatable :: correct_sol(:,:)
   !
@@ -243,7 +243,8 @@ continue
         write (array_name,1) Geom_Name(this_geom),this_order
         call alloc_error(pname,array_name,1,ierr,error_message)
         !
-        ! Assign local pointers to these matrices as aliases to simplify the code
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
         !
         cmat => this_correct%mat
         !
@@ -320,14 +321,14 @@ continue
  !               count(abs(correct(Geom_Quad,n_order)%mat) > zero), &
  !               size(correct(Geom_Quad,n_order)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(correct(Geom_Quad,n_order)%mat) > zero),kind=wp) / &
- !            real(size(correct(Geom_Quad,n_order)%mat),kind=wp) )
+ !          real(count(abs(correct(Geom_Quad,n_order)%mat) > zero),kind=wp) / &
+ !          real(size(correct(Geom_Quad,n_order)%mat),kind=wp) )
  !write (iout,6) "Hexa correct: ", &
  !               count(abs(correct(Geom_Hexa,n_order)%mat) > zero), &
  !               size(correct(Geom_Hexa,n_order)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(correct(Geom_Hexa,n_order)%mat) > zero),kind=wp) / &
- !            real(size(correct(Geom_Hexa,n_order)%mat),kind=wp) )
+ !          real(count(abs(correct(Geom_Hexa,n_order)%mat) > zero),kind=wp) / &
+ !          real(size(correct(Geom_Hexa,n_order)%mat),kind=wp) )
  !6 format (a,i8,i8,f7.2)
  !call correct(Geom_Quad,n_order)%output_sparsity("quad.correct.tec.dat")
  !call correct(Geom_Hexa,n_order)%output_sparsity("hexa.correct.tec.dat")
@@ -342,7 +343,9 @@ continue
  !3 format (3(es14.6,6x))
  !4 format (/,"##########################################################",/)
  !5 format (*(1x,a1))
- !call stop_recon(stop_mpi,"After output of correction matrices for hexa geometries")
+ !6 format ("After output of correction matrices for hexa geometries")
+ !write (error_message,6)
+ !call stop_recon(stop_mpi,pname,error_message)
   !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
@@ -529,7 +532,8 @@ end function CorrectionMatrix_Edge
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) result(return_value)
+pure function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
+                                result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly1D

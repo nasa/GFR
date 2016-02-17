@@ -82,13 +82,15 @@ module ovar
   logical,            public, save :: correct_output  = fals
   logical,            public, save :: continuous_output  = fals
   !
-  real(wp), public, save :: rhoref  =     -1.00_wp ! should evaluate to 1.160833478437518_wp
+  real(wp), public, save :: rhoref  =     -1.00_wp
+  ! rhoref default evaluates to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.00_wp
   real(wp), public, save :: pref    = 100000.00_wp
   real(wp), public, save :: machref =      0.40_wp
   real(wp), public, save :: gam     =      1.40_wp
   real(wp), public, save :: rgasref =    287.15_wp
-  real(wp), public, save :: reyref  =     -1.00_wp ! default evaluates to 8.7319053606e+6
+  real(wp), public, save :: reyref  =     -1.00_wp
+  ! reyref default evaluates to 8.7319053606e+6
   !
   real(wp), public, save :: ptot2p_ratio = -1.00_wp
   real(wp), public, save :: ptotref = -1.00_wp
@@ -135,7 +137,8 @@ module ovar
   logical, public, save :: output_bface_array = fals
   !
   integer,            public, save :: grid_format = Gambit_Neutral
-  character(len=150), public, save :: gridfile = "grid_files/meilin/quad.40x40.2X.neu"
+  character(len=150), public, save :: gridfile = &
+                                      "grid_files/meilin/quad.40x40.2X.neu"
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
@@ -174,7 +177,8 @@ module ovar
   real(wp), public, save :: aref
   real(wp), public, save :: uref
   real(wp), public, save :: cpref
-  real(wp), public, save :: muref   ! default evaluates to 1.84671531762365e-5_wp
+  real(wp), public, save :: muref
+  ! muref default evaluates to 1.84671531762365e-5_wp
   real(wp), public, save, dimension(3) :: velref
   !
   real(wp), public, save :: pref_nd
@@ -538,8 +542,8 @@ module input_namelist_mod
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides
   ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, loc_output_pts, &
-                     flux_divergence, correction_function
+  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, &
+                     loc_output_pts, flux_divergence, correction_function
   ! SOLVER OPTIONS
   namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS

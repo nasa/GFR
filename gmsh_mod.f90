@@ -314,11 +314,11 @@ continue
   ! before we leave this subroutine.
   !
   if (allocated(cell_data)) then
-    deallocate ( cell_data , stat=ierr )
+    deallocate ( cell_data , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cell_data",2,ierr)
   end if
   if (allocated(phys_grps)) then
-    deallocate ( phys_grps , stat=ierr )
+    deallocate ( phys_grps , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"phys_grps",2,ierr)
   end if
   !
@@ -513,7 +513,8 @@ continue
   !
   ! Allocate the temporary array to read in the coordinates of the grid nodes
   !
-  allocate ( temp_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
+  allocate ( temp_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"temp_nodes",1,ierr)
   !
   ! Read the coordinates of the grid nodes
@@ -532,12 +533,13 @@ continue
   !
   ! Allocate the xyz_nodes array and use the temp_nodes array as the data source
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=temp_nodes(1:nr,1:nnode) , stat=ierr )
-  call alloc_error(pname,"xyz_nodes",1,ierr)
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=temp_nodes(1:nr,1:nnode) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
   !
   ! Deallocate temp_nodes now that we no longer need it
   !
-  deallocate ( temp_nodes , stat=ierr )
+  deallocate ( temp_nodes , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"temp_nodes",2,ierr)
   !
   ! Return if the line marking the end of the Nodes section is found
@@ -604,7 +606,7 @@ continue
   !
   ! Allocate the array for the element definitions
   !
-  allocate ( cell_data(1:num_cell_data) , stat=ierr )
+  allocate ( cell_data(1:num_cell_data) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_data",1,ierr)
   !
   ! Read the element definitions
@@ -640,11 +642,13 @@ continue
     cell_data(i)%num_nodes = nnods
     !
     write (array_name,4) "cell_data(", i, ")%nodes"
-    allocate ( cell_data(i)%nodes(1:nnods) , source=0 , stat=ierr )
+    allocate ( cell_data(i)%nodes(1:nnods) , source=0 , &
+               stat=ierr , errmsg=error_message )
     call alloc_error(pname,array_name,1,ierr)
     !
     write (array_name,4) "cell_data(", i, ")%tags "
-    allocate ( cell_data(i)%tags(1:ntags) , source=0 , stat=ierr )
+    allocate ( cell_data(i)%tags(1:ntags) , source=0 , &
+               stat=ierr , errmsg=error_message )
     call alloc_error(pname,array_name,1,ierr)
     !
     ! Continue reading the remaining information for this cell
@@ -723,7 +727,7 @@ continue
   !
   ! Allocate the array for the element definitions
   !
-  allocate ( phys_grps(1:num_phys_grps) , stat=ierr )
+  allocate ( phys_grps(1:num_phys_grps) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"phys_grps",1,ierr)
   !
   ! Read the element definitions
@@ -846,13 +850,15 @@ continue
   igrps = count(phys_grps(:)%phys_dim == nr)
   bgrps = count(phys_grps(:)%phys_dim < nr)
   !
-  allocate ( int_grps(1:igrps) , source=0 , stat=ierr)
+  allocate ( int_grps(1:igrps) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"int_grps",1,ierr)
-  allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr)
+  allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bnd_grps",1,ierr)
   !
-  int_grps(1:igrps) = pack( intseq(1,num_phys_grps) , phys_grps(:)%phys_dim == nr )
-  bnd_grps(1:bgrps) = pack( intseq(1,num_phys_grps) , phys_grps(:)%phys_dim < nr )
+  int_grps(1:igrps) = pack( intseq(1,num_phys_grps) , &
+                            phys_grps(:)%phys_dim == nr )
+  bnd_grps(1:bgrps) = pack( intseq(1,num_phys_grps) , &
+                            phys_grps(:)%phys_dim < nr )
   !
   ! Check that the total number of interior and boundary groups is correct
   !
@@ -886,7 +892,8 @@ continue
     ! Allocate the cells array for this physical group
     !
     write (array_name,3) "phys_grps(", i, ")%cells "
-    allocate ( phys_grps(i)%cells(1:inum) , source=0 , stat=ierr )
+    allocate ( phys_grps(i)%cells(1:inum) , source=0 , &
+               stat=ierr , errmsg=error_message )
     call alloc_error(pname,array_name,1,ierr)
     !
     ! Create the list of elements that are in this physical group
@@ -936,13 +943,16 @@ continue
   !
   ! Allocate the nodes_of_cell_ptr array
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
   !
-  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
+  allocate ( cell_geom(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_geom",1,ierr)
   !
-  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_order",1,ierr)
   !
   ! Loop through the cells for each interior physical
@@ -984,7 +994,8 @@ continue
   !
   ! Allocate the nodes_of_cell array
   !
-  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
+  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nodes_of_cell",1,ierr)
   !
   ! Loop over the interior cells and fill in the node connectivity
@@ -1005,9 +1016,9 @@ continue
   !
   ! Allocate mask arrays for all the grid cells and nodes
   !
-  allocate ( mskp(1:nnode) , source=fals , stat=ierr )
+  allocate ( mskp(1:nnode) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"mskp",1,ierr)
-  allocate ( mske(1:ncell) , source=fals , stat=ierr )
+  allocate ( mske(1:ncell) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"mske",1,ierr)
   !
   ! Identify the nodes that are on boundary faces
@@ -1032,14 +1043,14 @@ continue
   !
   ! Deallocate mskp and int_grps since we dont need them anymore
   !
-  deallocate ( mskp , stat=ierr )
+  deallocate ( mskp , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"mskp",2,ierr)
-  deallocate ( int_grps , stat=ierr )
+  deallocate ( int_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"int_grps",2,ierr)
   !
   ! Allocate the point counting array, lpoin, and the host_cell array
   !
-  allocate ( lpoin(1:nnode) , source=0 , stat=ierr )
+  allocate ( lpoin(1:nnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,ierr)
   !
   ! Find the host cells for each boundary face
@@ -1078,9 +1089,9 @@ continue
   !
   ! Deallocate mske and lpoin since we no longer need them
   !
-  deallocate ( mske , stat=ierr )
+  deallocate ( mske , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"mske",2,ierr)
-  deallocate ( lpoin , stat=ierr )
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",2,ierr)
   !
   ! #######
@@ -1103,7 +1114,8 @@ continue
   !
   ! Allocate the bface array
   !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bface",1,ierr)
   !
   ! Loop through the faces for each boundary physical
@@ -1147,9 +1159,12 @@ continue
         !
         ! Find which face of the host cell is on the boundary
         !
-        h1 = nodes_of_cell_ptr(host_cell)+1 ! beginning index for host cell nodes
-        h2 = nodes_of_cell_ptr(host_cell+1) ! ending    index for host cell nodes
-        ncnods = h2-h1+1                    ! total number of host cell nodes
+        ! beginning index for host cell nodes
+        h1 = nodes_of_cell_ptr(host_cell)+1
+        ! ending    index for host cell nodes
+        h2 = nodes_of_cell_ptr(host_cell+1)
+        ! total number of host cell nodes
+        ncnods = h2-h1+1
         !
         ! Create a local copy of the interior nodes
         !
@@ -1204,17 +1219,23 @@ continue
      !  case (Geom_Edge)
      !    ifa = -2
      !  case (Geom_Quad)
-     !    ifa = host_face_quad( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_quad( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case (Geom_Tria)
-     !    ifa = host_face_tria( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_tria( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case (Geom_Tetr)
-     !    ifa = host_face_tetr( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_tetr( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case (Geom_Pyra)
-     !    ifa = host_face_pyra( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_pyra( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case (Geom_Pris)
-     !    ifa = host_face_pris( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_pris( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case (Geom_Hexa)
-     !    ifa = host_face_hexa( nodes_of_cell(h1:h2) , cell_data(bnd_cell)%nodes(:) )
+     !    ifa = host_face_hexa( nodes_of_cell(h1:h2) , &
+     !                          cell_data(bnd_cell)%nodes(:) )
      !  case default
      !    ifa = -10
      !end select
@@ -1258,7 +1279,7 @@ continue
   !
   ! Deallocate bnd_grps since we dont need it anymore
   !
-  deallocate ( bnd_grps , stat=ierr )
+  deallocate ( bnd_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bnd_grps",2,ierr)
   !
   ! #######
@@ -1510,16 +1531,18 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'ElementNodeData' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'ElementNodeData' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndElementNodeData'",/, &
-              "  line signifiying the end of the 'ElementNodeData' section!",/, &
-              "*********************** ERROR! ************************",/)
+  1 format (/, &
+            "******************** ERROR! *********************",/, &
+            "  Pre-mature end-of-file while trying to read",/, &
+            "  the 'ElementNodeData' section of the GMSH grid file!",/, &
+            "******************** ERROR! *********************",/)
+  2 format (/, &
+            "*********************** ERROR! ************************",/, &
+            "  While trying to read the 'ElementNodeData' section of the",/, &
+            "  GMSH grid file, an unknown and invalid section",/, &
+            "  header was found before the required '$EndElementNodeData'",/, &
+            "  line signifiying the end of the 'ElementNodeData' section!",/, &
+            "*********************** ERROR! ************************",/)
   !
 end subroutine read_gmsh_section_elementnodedata
 !
@@ -1545,25 +1568,21 @@ continue
   if (text == "ENDINTERPOLATIONSCHEME") then
     return
   else if (end_of_file) then
-    if (mypnum == 0) write (iout,1)
+    write (error_message,1)
   else
-    if (mypnum == 0) write (iout,2)
+    write (error_message,2)
   end if
   !
   call stop_recon(stop_mpi,pname)
   !
   ! Format Statements
   !
-  1 format (/,"******************** ERROR! *********************",/, &
-              "  Pre-mature end-of-file while trying to read",/, &
-              "  the 'InterpolationScheme' section of the GMSH grid file!",/, &
-              "******************** ERROR! *********************",/)
-  2 format (/,"*********************** ERROR! ************************",/, &
-              "  While trying to read the 'InterpolationScheme' section of the",/, &
-              "  GMSH grid file, an unknown and invalid section",/, &
-              "  header was found before the required '$EndInterpolationScheme'",/, &
-              "  line signifiying the end of the 'InterpolationScheme' section!",/, &
-              "*********************** ERROR! ************************",/)
+  1 format ("Pre-mature end-of-file while trying to read the ", &
+            "'InterpolationScheme' section of the GMSH grid file!")
+  2 format ("While trying to read the 'InterpolationScheme' section of the ", &
+            "GMSH grid file, an unknown and invalid section header was ", &
+            "found before the required '$EndInterpolationScheme' line ", &
+            "signifiying the end of the 'InterpolationScheme' section!")
   !
 end subroutine read_gmsh_section_interpolationscheme
 !

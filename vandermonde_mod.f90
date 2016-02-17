@@ -576,7 +576,8 @@ continue
           !
           ! Evaluate the basis function psi(m) at node l
           !
-          vmat_qp(l,m) = qtwo*sqrt(qtwo) * h1 * h2 * h3 * (qone-b)**i * (qone-c)**(i+j)
+          vmat_qp(l,m) = qtwo*sqrt(qtwo) * h1 * h2 * h3 * (qone-b)**(i  ) &
+                                                        * (qone-c)**(i+j)
           !
         end do
         !

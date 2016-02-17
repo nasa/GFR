@@ -34,9 +34,9 @@ module quadrature_mod
   !                                            within the standard region of the
   !                                            current element geometry.
   !
-  !  std_elem(this_geom,this_order)%wts(k) : The quadrature weight of the solution
-  !                                          point 'k' within the standard region
-  !                                          of the current element geometry.
+  !  std_elem(this_geom,this_order)%wts(k) : 
+  !                       The quadrature weight of the solution point 'k' within
+  !                       the standard region of the current element geometry.
   !
   type(element_type), public, save, target, allocatable :: std_elem(:,:)
   !
@@ -52,15 +52,14 @@ module quadrature_mod
   !  For a given face geometry, this_geom,
   !              and its order, this_order :
   !
-  !  face_elem(this_geom,this_order)%pts(l,k) : The location of the flux
-  !                                             point 'k' in the direction 'l' of
-  !                                             the local coordinate system
-  !                                             within the standard region of the
-  !                                             current face geometry.
+  !  face_elem(this_geom,this_order)%pts(l,k) : 
+  !                       The location of the flux point 'k' in the direction
+  !                       'l' of the local coordinate system within the
+  !                       standard region of the current face geometry.
   !
-  !  face_elem(this_geom,this_order)%wts(k) : The quadrature weight of the flux
-  !                                           point 'k' within the standard region
-  !                                           of the current face geometry.
+  !  face_elem(this_geom,this_order)%wts(k) : 
+  !                       The quadrature weight of the flux point 'k' within
+  !                       the standard region of the current face geometry.
   !
   type(element_type), public, save, target, allocatable :: face_elem(:,:)
   !
@@ -223,7 +222,8 @@ continue
       !
       ! Allocate the pts component of the current geometry/order combination
       !
-      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
@@ -298,11 +298,13 @@ continue
       ! We dont want to allocate the pts component for this geometry since
       ! it will never be used and will just be a waste of memory.
       !
-     !allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+     !allocate ( this_elem%pts(1:ndim,1:npts) , &
+     !           stat=ierr , errmsg=error_message )
      !write (array_name,1) Geom_Name(this_geom),this_order,"pts"
      !call alloc_error(pname,array_name,1,ierr,error_message)
       !
-      ! Fill in the quadrature weights for the current geometry/order combination
+      ! Fill in the quadrature weights for the
+      ! current geometry/order combination
       !
       select case (this_geom)
         case (Geom_Node)
@@ -494,7 +496,8 @@ continue
       !
       ! Allocate the pts component of the current geometry/order combination
       !
-      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Tria),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
@@ -545,7 +548,8 @@ continue
      !!
      !! Allocate the pts component of the current geometry/order combination
      !!
-     !allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+     !allocate ( this_elem%pts(1:ndim,1:npts) , &
+     !           stat=ierr , errmsg=error_message )
      !write (array_name,1) Geom_Name(Geom_Quad),this_order,"pts"
      !call alloc_error(pname,array_name,1,ierr,error_message)
       !
@@ -1339,13 +1343,16 @@ continue
   !
   this_elem => null()
   !
-  allocate ( edge_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  allocate ( edge_elem(min_order:max_order,1:3) , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edge_elem",1,ierr,error_message)
   !
-  allocate ( quad_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  allocate ( quad_elem(min_order:max_order,1:3) , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"quad_elem",1,ierr,error_message)
   !
-  allocate ( hexa_elem(min_order:max_order,1:3) , stat=ierr , errmsg=error_message )
+  allocate ( hexa_elem(min_order:max_order,1:3) , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"hexa_elem",1,ierr,error_message)
   !
   ! Loop through all the possible orders and get the quadrature rules
@@ -1386,7 +1393,8 @@ continue
       !
       ! Allocate the pts component of the current geometry/order combination
       !
-      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
@@ -1443,11 +1451,13 @@ continue
       !
       ! Allocate the pts component of the current geometry/order combination
       !
-      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
-      ! Fill in the quadrature weights for the current geometry/order combination
+      ! Fill in the quadrature weights for the
+      ! current geometry/order combination
       !
       this_elem = get_quad_points(ref_edge)
       !
@@ -1505,11 +1515,13 @@ continue
       !
       ! Allocate the pts component of the current geometry/order combination
       !
-      allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
       call alloc_error(pname,array_name,1,ierr,error_message)
       !
-      ! Fill in the quadrature weights for the current geometry/order combination
+      ! Fill in the quadrature weights for the
+      ! current geometry/order combination
       !
       this_elem = get_hexa_points(ref_edge)
       !
@@ -1559,7 +1571,7 @@ continue
   !
   contains
   !
-  !###############################################################################
+  !#############################################################################
   !
   pure function get_edge_points(n,nloc) result(return_value)
     !
@@ -1639,7 +1651,7 @@ continue
     !
   end function get_edge_points
   !
-  !###############################################################################
+  !#############################################################################
   !
   pure function get_quad_points(edge) result(return_value)
     !
@@ -1689,7 +1701,7 @@ continue
     !
   end function get_quad_points
   !
-  !###############################################################################
+  !#############################################################################
   !
   pure function get_hexa_points(edge) result(return_value)
     !
@@ -1744,7 +1756,7 @@ continue
     !
   end function get_hexa_points
   !
-  !###############################################################################
+  !#############################################################################
   !
   subroutine write_points(elem,geom,order,nloc)
     !
@@ -1921,7 +1933,7 @@ continue
     !
   end subroutine write_points
   !
-  !###############################################################################
+  !#############################################################################
   !
 end subroutine dump_solpts
 !

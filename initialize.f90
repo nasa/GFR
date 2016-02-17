@@ -233,7 +233,7 @@ continue
   ! Output the free-stream conditions
   !
   if (mypnum == 0) then
-    if (itestcase /= Density_Transport .and. itestcase /= Entropy_Transport) then
+    if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
       !
       write (iout,1) rhoref,pref,tref,machref,aref,velref(1),velref(2), &
                      alpha_aoaref,beta_aoaref,gam,rgasref,cpref,muref,reyref

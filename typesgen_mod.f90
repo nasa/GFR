@@ -892,7 +892,8 @@ continue
   np1 = n1 + 1
   np2 = n2 + 1
   !
-  allocate ( xy(1:np1,1:np2,1:2) , source=zero , stat=ierr , errmsg=error_message )
+  allocate ( xy(1:np1,1:np2,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xy",1,ierr,error_message)
   !
   do j = 1,np2
@@ -911,8 +912,10 @@ continue
   write (ifu,2) ((xy(i,j,1), i=1,np1), j=1,np2)
   write (ifu,2) ((xy(i,j,2), i=1,np1), j=1,np2)
   !
- !write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), j=n2,1,-1)
-  write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), j=1,n2)
+ !write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), &
+ !                                                            j=n2,1,-1)
+  write (ifu,3) ((merge( 1 , 0 , abs(this%mat(i,j)) > zero ), i=1,n1), &
+                                                              j=1,n2)
   !
   close (ifu,iostat=ierr,iomsg=error_message)
   call io_error(pname,fname,2,ierr,error_message)

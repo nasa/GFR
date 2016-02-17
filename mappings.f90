@@ -134,7 +134,8 @@ continue
         edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
         tria_pts => std_elem(Geom_Tria,this_order)%pts
         !
-        xyz(1:nr,p1:p2) = get_solpts_pyra( edge_pts , tria_pts , cell_xyz(1:nr,1:5) )
+        xyz(1:nr,p1:p2) = get_solpts_pyra( edge_pts , tria_pts , &
+                                           cell_xyz(1:nr,1:5) )
         !
       case (Geom_Pris)
         !
@@ -144,7 +145,8 @@ continue
         edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
         tria_pts => std_elem(Geom_Tria,this_order)%pts
         !
-        xyz(1:nr,p1:p2) = get_solpts_pris( edge_pts , tria_pts , cell_xyz(1:nr,1:6) )
+        xyz(1:nr,p1:p2) = get_solpts_pris( edge_pts , tria_pts , &
+                                           cell_xyz(1:nr,1:6) )
         !
       case (Geom_Hexa)
         !

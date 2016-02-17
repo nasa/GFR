@@ -795,10 +795,11 @@ continue
                   " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT",/, &
                   " BUT THE NUMBER OF BLOCKS ON THE FIRST LINE OF THE",/, &
                   " GRID FILE WAS INVALID!",/,a,/)
-  4 format (/,a,/," ERROR READING THE FORMATTED PLOT3D GRID FILE HEADER!",/, &
-                  " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT BUT THE",/, &
-                  " NUMBER OF GRID DIMENSIONS WAS NOT EVENLY DIVISIBLE BY",/, &
-                  " THE NUMBER OF BLOCKS, TELLING US IF THE GRID IS 2D OR 3D!",/,a,/)
+  4 format (/,a,/, &
+            " ERROR READING THE FORMATTED PLOT3D GRID FILE HEADER!",/, &
+            " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT BUT THE",/, &
+            " NUMBER OF GRID DIMENSIONS WAS NOT EVENLY DIVISIBLE BY",/, &
+            " THE NUMBER OF BLOCKS, TELLING US IF THE GRID IS 2D OR 3D!",/,a,/)
   5 format (/,a,/," ERROR READING THE FIRST LINE OF", &
                   " THE FORMATTED PLOT3D GRID FILE!",/,a,/)
   6 format (/,a,/," ERROR READING THE FORMATTED PLOT3D GRID FILE HEADER!",/, &
@@ -946,473 +947,487 @@ continue
   !
   ! Format Statements
   !
-  2 format (/,a,/," AN ERROR OCCURED WITH THE UNFORMATTED PLOT3D GRID FILE",/, &
-                  " WHILE TRYING TO DETERMINE IF THE NODE COORDINATES ARE",/, &
-                  " STORED IN SINGLE OR DOUBLE PRECISION!",/,a,/)
-  3 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-                  " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT",/, &
-                  " BUT THE NUMBER OF BLOCKS ON THE FIRST LINE OF THE",/, &
-                  " GRID FILE WAS INVALID!",/,a,/)
-  4 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-                  " THE GRID DIMENSIONS COULD NOT BE READ IN EITHER 2D OR 3D!",/,a,/)
-  5 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-                  " THE MINIMUM NUMBER OF NODES IN ANY DIRECTION IS 1!",/,a,/)
+  2 format (/,a,/, &
+            " AN ERROR OCCURED WITH THE UNFORMATTED PLOT3D GRID FILE",/, &
+            " WHILE TRYING TO DETERMINE IF THE NODE COORDINATES ARE",/, &
+            " STORED IN SINGLE OR DOUBLE PRECISION!",/,a,/)
+  3 format (/,a,/, &
+            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+            " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT",/, &
+            " BUT THE NUMBER OF BLOCKS ON THE FIRST LINE OF THE",/, &
+            " GRID FILE WAS INVALID!",/,a,/)
+  4 format (/,a,/, &
+            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+            " THE GRID DIMENSIONS COULD NOT BE READ IN EITHER 2D OR 3D!",/,a,/)
+  5 format (/,a,/, &
+            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+            " THE MINIMUM NUMBER OF NODES IN ANY DIRECTION IS 1!",/,a,/)
   !
 end subroutine read_p3d_unformatted_header
 !
 !###############################################################################
 !
-!!subroutine read_p3d_unformatted_header_generic_endian(iogrd,gridfile)
-!!  !
-!!  !.. Use Statements ..
-!!  use geovar, only : nr
-!!  !
-!!  !.. Formal Arguments ..
-!!  integer,          intent(in) :: iogrd
-!!  character(len=*), intent(in) :: gridfile
-!!  !
-!!  !.. Local Scalars ..
-!!  integer :: int_rec1,int_rec2
-!!  integer :: ierr,n,l,npass
-!!  real(r4) :: rl4_rec2
-!!  real(r8) :: rl8_rec2
-!!  real(qp) :: max_int
-!!  real(qp) :: tot_pts_i4,tot_pts_i8
-!!  !
-!!  integer, dimension(1:20) :: ijktest
-!!  real(wp), dimension(1:100) :: xyztest
-!!  !
-!!  !.. Local Allocatable Arrays ..
-!!  integer(i8), allocatable :: ijkpts_i8(:,:)
-!!  !
-!!  !.. Local Parameters ..
-!!  character(len=*), parameter :: pname = "read_p3d_unformatted_header"
-!!  !
-!!continue
-!!  !
-!!  ! Determine the structure of the unformatted Plot3D file
-!!  !
-!!  call determine_unformatted_structure(gridfile)
-!!  !
-!!  ! Open the grid file and read the header
-!!  !
-!!  open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
-!!                      action="read",access="stream", &
-!!                      iostat=ierr,iomsg=error_message)
-!!  call io_error(pname,gridfile,1,ierr,error_message)
-!!  !
-!!  ! Initialize the file position
-!!  !
-!!  file_pos = 1
-!!  !
-!!  ! Read the first record if this is a multiblock grid file
-!!  !
-!!  if (is_multiblock) then
-!!    !
-!!    if (blk_header_is_dbl_precision) then
-!!      !
-!!      ! Read the opening record marker
-!!      !
-!!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Read the number of blocks
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
-!!      !
-!!      nblk = int( int_i8 , kind=kind(nblk) )
-!!      !
-!!      ! Read the closing record marker
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!    else
-!!      !
-!!      ! Read the opening record marker
-!!      !
-!!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
-!!      error_message = "int_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Read the number of blocks
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
-!!      error_message = "int_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
-!!      !
-!!      nblk = int( int_i4 , kind=kind(nblk) )
-!!      !
-!!      ! Read the closing record marker
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
-!!      error_message = "int_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!    end if
-!!    !
-!!    ! Allocate ijkpts and initialize to 1 node in each direction
-!!    !
-!!    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr , errmsg=error_message )
-!!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
-!!    !
-!!    ! Get the current file position before continuing
-!!    !
-!!    inquire (iogrd,pos=file_pos)
-!!    !
-!!    ! Try reading the opening record marker for the block
-!!    ! dimensions using a 4-byte integer
-!!    !
-!!    read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i4
-!!    error_message = "int_i4 "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
-!!    !
-!!    if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
-!!    !
-!!    nr = int( int_i4 / 4_i4 / int(nblk,kind=i4) , kind=kind(nr) )
-!!    !
-!!    if (any(nr == [2,3])) then
-!!      !
-!!      ! Read in the block dimensions
-!!      !
-!!
-!!      !
-!!    else
-!!      !
-!!      ! Try reading as an 8-byte integer
-!!      !
-!!      read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
-!!      !
-!!      nr = int( int_i8 / 8_i8 / int(nblk,kind=i8) , kind=kind(nr) )
-!!      !
-!!      if (all(nr /= [2,3])) then
-!!        write (error_message,20)
-!!        call stop_recon(stop_mpi,pname,error_message)
-!!      end if
-!!      !
-!!    end if
-!!    !
-!!
-!!  else
-!!    !
-!!    ! This is a single block grid file so set nblk to 1
-!!    !
-!!    nblk = 1
-!!    !
-!!    ! Allocate ijkpts and initialize to 1 node in each direction
-!!    !
-!!    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr , errmsg=error_message )
-!!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
-!!    !
-!!    if (blk_header_is_dbl_precision) then
-!!      !
-!!      ! Allocate ijkpts_i8 and initialize to 1 node in each direction
-!!      !
-!!      allocate ( ijkpts_i8(1:3,1:nblk) , source=1_i8 , &
-!!                 stat=ierr , errmsg=error_message )
-!!      call alloc_error(pname,"ijkpts_i8",1,ierr,error_message)
-!!      !
-!!      ! Read the opening record marker for the block dimensions
-!!      !
-!!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Read the block dimensions
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i8(l,1),l=1,nr)
-!!      error_message = "ijkpts_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      if (is_big_endian) then
-!!        ijkpts_i8(1:nr,:) = big_to_little_endian(ijkpts_i8(1:nr,:))
-!!      end if
-!!      !
-!!      ! Read the closing record marker for the block dimensions
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
-!!      error_message = "int_i8 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Copy ijkpts_i8 into ijkpts
-!!      !
-!!      ijkpts = int( ijkpts_i8 , kind=kind(ijkpts) )
-!!      !
-!!      ! Deallocate ijkpts_i8
-!!      !
-!!      deallocate ( ijkpts_i8 , stat=ierr , errmsg=error_message )
-!!      call alloc_error(pname,"ijkpts_i8",2,ierr,error_message)
-!!      !
-!!    else
-!!      !
-!!      ! Allocate ijkpts_i4 and initialize to 1 node in each direction
-!!      !
-!!      allocate ( ijkpts_i4(1:3,1:nblk) , source=1_i4 , &
-!!                 stat=ierr , errmsg=error_message )
-!!      call alloc_error(pname,"ijkpts_i4",1,ierr,error_message)
-!!      !
-!!      ! Read the opening record marker for the block dimensions
-!!      !
-!!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
-!!      error_message = "int_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Read the block dimensions
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i4(l,1),l=1,nr)
-!!      error_message = "ijkpts_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      if (is_big_endian) then
-!!        ijkpts_i4(1:nr,:) = big_to_little_endian(ijkpts_i4(1:nr,:))
-!!      end if
-!!      !
-!!      ! Read the closing record marker for the block dimensions
-!!      !
-!!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
-!!      error_message = "int_i4 "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
-!!      !
-!!      ! Copy ijkpts_i4 into ijkpts
-!!      !
-!!      ijkpts = int( ijkpts_i4 , kind=kind(ijkpts) )
-!!      !
-!!      ! Deallocate ijkpts_i4
-!!      !
-!!      deallocate ( ijkpts_i4 , stat=ierr , errmsg=error_message )
-!!      call alloc_error(pname,"ijkpts_i4",2,ierr,error_message)
-!!      !
-!!    end if
-!!    !
-!!  end if
-!!  ! Try reading the marker using 4-byte integer
-!!  !
-!!  read (iogrd,pos=file_pos,iostat=ierr
-!!  ! Test to see if the 
-!!  
-!!  !
-!!  !
-!!  ! Loop through this procedure twice incase there the grid file is in big endian
-!!  !
-!!  endian_check_loop: do npass = 1,2
-!!    !
-!!    rewind (iogrd)
-!!    !
-!!    ! Whatever the Plot3D format, the first record
-!!    ! should contain at least one integer
-!!    !
-!!    read (iogrd,iostat=ierr) int_rec1
-!!    call io_error(pname,gridfile,-1,ierr,"int_rec1")
-!!    !
-!!    if (npass == 2) int_rec1 = big_to_little_endian( int_rec1 )
-!!    !
-!!    ! #######
-!!    ! ## 1 ##
-!!    ! #######
-!!    !
-!!    ! Determine whether this grid is in single or multi block format
-!!    !
-!!    ! Try reading the second record as an integer
-!!    !
-!!    read (iogrd,iostat=ierr) int_rec2
-!!    !
-!!    int_check: if (ierr == 0) then
-!!      !
-!!      ! This seems to be a multiblock grid file
-!!      !
-!!      is_multiblock = true
-!!      !
-!!    else
-!!      !
-!!      ! Failed to read the second record as an integer.
-!!      ! This seems to indicate this is a single block grid file.
-!!      !
-!!      is_multiblock = fals
-!!      !
-!!      ! Backspace and try to read it again, this time as a single precision real.
-!!      !
-!!      backspace (iogrd)
-!!      !
-!!    end if int_check
-!!    !
-!!    ! #######
-!!    ! ## 2 ##
-!!    ! #######
-!!    !
-!!    ! Determine whether this is a 2D or 3D grid by reading the block dimensions
-!!    !
-!!    ! Rewind the grid file to start over
-!!    !
-!!    rewind (iogrd)
-!!    !
-!!    ! If multiblock read the number of blocks
-!!    !
-!!    if (is_multiblock) then
-!!      !
-!!      read (iogrd,iostat=ierr) nblk
-!!      call io_error(pname,gridfile,-1,ierr,"nblk")
-!!      !
-!!      if (npass == 2) nblk = big_to_little_endian( nblk )
-!!      !
-!!      ! Make sure that nblk is a valid number of blocks
-!!      !
-!!      if (nblk <= 0) goto 101 ! go to 101 error statement
-!!      !
-!!    else
-!!      !
-!!      nblk = 1
-!!      !
-!!    end if
-!!    !
-!!    ! Allocate ijkpts, and initialize to 1 node in each direction
-!!    !
-!!    if (allocated(ijkpts)) then
-!!      deallocate ( ijkpts , stat=ierr )
-!!      call alloc_error(pname,"ijkpts",2,ierr)
-!!    end if
-!!    !
-!!    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr )
-!!    call alloc_error(pname,"ijkpts",1,ierr)
-!!    !
-!!    ! Read the grid dimensions, assuming it is a 3D grid
-!!    !
-!!   !read (iogrd,iostat=ierr) ((ijkpts(l,n), l=1,3), n=1,nblk)
-!!    ijktest = 0
-!!    read (iogrd,iostat=ierr) (ijktest(l), l=1,2)
-!!    if (npass == 2) ijktest = big_to_little_endian(ijktest)
-!!    write (iout,*) ierr,(ijktest(l),l=1,2)
-!!    xyztest = real(0.0,kind=kind(xyztest))
-!!    read (iogrd,iostat=ierr) (xyztest(l),l=1,size(xyztest))
-!!    if (npass == 2) xyztest = big_to_little_endian(xyztest)
-!!    write (iout,*) ierr,(xyztest(l),l=1,size(xyztest))
-!!    cycle endian_check_loop
-!!    !
-!!    if (npass == 2) ijkpts = big_to_little_endian( ijkpts )
-!!    !
-!!    ! If the read was not successful, try reading the
-!!    ! header again but assuming it is a 2D grid.
-!!    !
-!!    if (ierr /= 0) then
-!!      !
-!!      ! Reinitialize ijkpts to 1 node in each direction
-!!      !
-!!      ijkpts(1:3,1:nblk) = 1
-!!      !
-!!      ! Try reading the block dimensions again but in 2D
-!!      !
-!!      backspace (iogrd)
-!!      read (iogrd,iostat=ierr) ((ijkpts(l,n), l=1,2), n=1,nblk)
-!!      !
-!!      if (npass == 2) then
-!!        ijkpts(1:2,1:nblk) = big_to_little_endian( ijkpts(1:2,1:nblk) )
-!!      end if
-!!      !
-!!      if (ierr /= 0) goto 102 ! go to 102 error statement
-!!      !
-!!    end if
-!!    !
-!!    ! Reading the header seemed to be successful. Make sure
-!!    ! that all the block dimensions are valid values.
-!!    !
-!!    if (any(ijkpts(:,:) < 1)) goto 103 ! go to 104 error statement
-!!    !
-!!    ! If all the third dimensions are 1, this is a 2D grid
-!!    !
-!!    nr = merge( 2 , 3 , all(ijkpts(3,1:nblk) == 1) )
-!!    !
-!!    ! Make an i8 copy of ijkpts
-!!    !
-!!    if (allocated(ijkpts_i8)) then
-!!      deallocate ( ijkpts_i8 , stat=ierr )
-!!      call alloc_error(pname,"ijkpts_i8",2,ierr)
-!!    end if
-!!    !
-!!    allocate ( ijkpts_i8(1:3,1:nblk) , source=int(ijkpts,kind=i8) , stat=ierr )
-!!    call alloc_error(pname,"ijkpts_i8",1,ierr)
-!!    !
-!!    ! Get the total number of points in i4 and i8 integer types
-!!    !
-!!    tot_pts_i4 = sum( product( real( abs(ijkpts) , kind=qp ) , dim=1 ) )
-!!    tot_pts_i8 = sum( product( real( abs(ijkpts_i8) , kind=qp ) , dim=1 ) )
-!!    write (iout,*) "tot_pts_i4 = ",tot_pts_i4
-!!    write (iout,*) "tot_pts_i8 = ",tot_pts_i8
-!!    write (iout,*)
-!!    write (iout,*) "ijkpts"
-!!    do n = 1,nblk
-!!      write (iout,'(*(2x,i0))') (ijkpts(l,n),l=1,3)
-!!    end do
-!!    write (iout,*)
-!!    write (iout,*) "ijkpts_i8"
-!!    do n = 1,nblk
-!!      write (iout,'(*(2x,i0))') (ijkpts_i8(l,n),l=1,3)
-!!    end do
-!!    !
-!!    ! If these two values are equal, more than likely the Plot3D header
-!!    ! was successfully read
-!!    !
-!!    if (tot_pts_i4 < real(huge(0),kind=qp)) then
-!!      is_big_endian = (npass == 2)
-!!      exit endian_check_loop
-!!    else if (tot_pts_i8 < real(huge(0_i8),kind=qp)) then
-!!      is_big_endian = (npass == 2)
-!!      exit endian_check_loop
-!!    else if (npass == 2) then
-!!      goto 104
-!!    end if
-!!    !
-!!  end do endian_check_loop
-!!  !
-!!  if (allocated(ijkpts_i8)) then
-!!    deallocate ( ijkpts_i8 , stat=ierr )
-!!    call alloc_error(pname,"ijkpts_i8",2,ierr)
-!!  end if
-!!  !
-!!  ! Return statement to ignore the remaining error crap
-!!  !
-!!  return
-!!  !
-!!  ! Error continuations
-!!  !
-!!  100 if (mypnum == 0) write (iout,2) errstr,errstr ; goto 999
-!!  101 if (mypnum == 0) write (iout,3) errstr,errstr ; goto 999
-!!  102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
-!!  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
-!!  104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
-!!  !
-!!  999 call stop_recon(stop_mpi,pname)
-!!  !
-!!  ! Format Statements
-!!  !
-!!  2 format (/,a,/," AN ERROR OCCURED WITH THE UNFORMATTED PLOT3D GRID FILE",/, &
-!!                  " WHILE TRYING TO DETERMINE IF THE NODE COORDINATES ARE",/, &
-!!                  " STORED IN SINGLE OR DOUBLE PRECISION!",/,a,/)
-!!  3 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-!!                  " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT",/, &
-!!                  " BUT THE NUMBER OF BLOCKS ON THE FIRST LINE OF THE",/, &
-!!                  " GRID FILE WAS INVALID!",/,a,/)
-!!  4 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-!!                  " THE GRID DIMENSIONS COULD NOT BE READ IN EITHER 2D OR 3D!",/,a,/)
-!!  5 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-!!                  " THE MINIMUM NUMBER OF NODES IN ANY DIRECTION IS 1!",/,a,/)
-!!  6 format (/,a,/," ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
-!!                  " FAILED TO READ THE HEADER IN LITTLE OR BIG ENDIAN FORMAT!",/,a,/)
-!!  !
-!!end subroutine read_p3d_unformatted_header_generic_endian
-!!!
-!!!###############################################################################
-!!!
+!subroutine read_p3d_unformatted_header_generic_endian(iogrd,gridfile)
+!  !
+!  !.. Use Statements ..
+!  use geovar, only : nr
+!  !
+!  !.. Formal Arguments ..
+!  integer,          intent(in) :: iogrd
+!  character(len=*), intent(in) :: gridfile
+!  !
+!  !.. Local Scalars ..
+!  integer :: int_rec1,int_rec2
+!  integer :: ierr,n,l,npass
+!  real(r4) :: rl4_rec2
+!  real(r8) :: rl8_rec2
+!  real(qp) :: max_int
+!  real(qp) :: tot_pts_i4,tot_pts_i8
+!  !
+!  integer, dimension(1:20) :: ijktest
+!  real(wp), dimension(1:100) :: xyztest
+!  !
+!  !.. Local Allocatable Arrays ..
+!  integer(i8), allocatable :: ijkpts_i8(:,:)
+!  !
+!  !.. Local Parameters ..
+!  character(len=*), parameter :: pname = "read_p3d_unformatted_header"
+!  !
+!continue
+!  !
+!  ! Determine the structure of the unformatted Plot3D file
+!  !
+!  call determine_unformatted_structure(gridfile)
+!  !
+!  ! Open the grid file and read the header
+!  !
+!  open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
+!                      action="read",access="stream", &
+!                      iostat=ierr,iomsg=error_message)
+!  call io_error(pname,gridfile,1,ierr,error_message)
+!  !
+!  ! Initialize the file position
+!  !
+!  file_pos = 1
+!  !
+!  ! Read the first record if this is a multiblock grid file
+!  !
+!  if (is_multiblock) then
+!    !
+!    if (blk_header_is_dbl_precision) then
+!      !
+!      ! Read the opening record marker
+!      !
+!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Read the number of blocks
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
+!      !
+!      nblk = int( int_i8 , kind=kind(nblk) )
+!      !
+!      ! Read the closing record marker
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!    else
+!      !
+!      ! Read the opening record marker
+!      !
+!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
+!      error_message = "int_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Read the number of blocks
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
+!      error_message = "int_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
+!      !
+!      nblk = int( int_i4 , kind=kind(nblk) )
+!      !
+!      ! Read the closing record marker
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
+!      error_message = "int_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!    end if
+!    !
+!    ! Allocate ijkpts and initialize to 1 node in each direction
+!    !
+!    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+!               stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
+!    !
+!    ! Get the current file position before continuing
+!    !
+!    inquire (iogrd,pos=file_pos)
+!    !
+!    ! Try reading the opening record marker for the block
+!    ! dimensions using a 4-byte integer
+!    !
+!    read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i4
+!    error_message = "int_i4 "//trim(adjustl(error_message))
+!    call io_error(pname,gridfile,-1,ierr,error_message)
+!    !
+!    if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
+!    !
+!    nr = int( int_i4 / 4_i4 / int(nblk,kind=i4) , kind=kind(nr) )
+!    !
+!    if (any(nr == [2,3])) then
+!      !
+!      ! Read in the block dimensions
+!      !
+!
+!      !
+!    else
+!      !
+!      ! Try reading as an 8-byte integer
+!      !
+!      read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
+!      !
+!      nr = int( int_i8 / 8_i8 / int(nblk,kind=i8) , kind=kind(nr) )
+!      !
+!      if (all(nr /= [2,3])) then
+!        write (error_message,20)
+!        call stop_recon(stop_mpi,pname,error_message)
+!      end if
+!      !
+!    end if
+!    !
+!
+!  else
+!    !
+!    ! This is a single block grid file so set nblk to 1
+!    !
+!    nblk = 1
+!    !
+!    ! Allocate ijkpts and initialize to 1 node in each direction
+!    !
+!    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+!               stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
+!    !
+!    if (blk_header_is_dbl_precision) then
+!      !
+!      ! Allocate ijkpts_i8 and initialize to 1 node in each direction
+!      !
+!      allocate ( ijkpts_i8(1:3,1:nblk) , source=1_i8 , &
+!                 stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts_i8",1,ierr,error_message)
+!      !
+!      ! Read the opening record marker for the block dimensions
+!      !
+!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Read the block dimensions
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i8(l,1),l=1,nr)
+!      error_message = "ijkpts_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      if (is_big_endian) then
+!        ijkpts_i8(1:nr,:) = big_to_little_endian(ijkpts_i8(1:nr,:))
+!      end if
+!      !
+!      ! Read the closing record marker for the block dimensions
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
+!      error_message = "int_i8 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Copy ijkpts_i8 into ijkpts
+!      !
+!      ijkpts = int( ijkpts_i8 , kind=kind(ijkpts) )
+!      !
+!      ! Deallocate ijkpts_i8
+!      !
+!      deallocate ( ijkpts_i8 , stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts_i8",2,ierr,error_message)
+!      !
+!    else
+!      !
+!      ! Allocate ijkpts_i4 and initialize to 1 node in each direction
+!      !
+!      allocate ( ijkpts_i4(1:3,1:nblk) , source=1_i4 , &
+!                 stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts_i4",1,ierr,error_message)
+!      !
+!      ! Read the opening record marker for the block dimensions
+!      !
+!      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
+!      error_message = "int_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Read the block dimensions
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i4(l,1),l=1,nr)
+!      error_message = "ijkpts_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      if (is_big_endian) then
+!        ijkpts_i4(1:nr,:) = big_to_little_endian(ijkpts_i4(1:nr,:))
+!      end if
+!      !
+!      ! Read the closing record marker for the block dimensions
+!      !
+!      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
+!      error_message = "int_i4 "//trim(adjustl(error_message))
+!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      !
+!      ! Copy ijkpts_i4 into ijkpts
+!      !
+!      ijkpts = int( ijkpts_i4 , kind=kind(ijkpts) )
+!      !
+!      ! Deallocate ijkpts_i4
+!      !
+!      deallocate ( ijkpts_i4 , stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts_i4",2,ierr,error_message)
+!      !
+!    end if
+!    !
+!  end if
+!  ! Try reading the marker using 4-byte integer
+!  !
+!  read (iogrd,pos=file_pos,iostat=ierr
+!  ! Test to see if the 
+!  
+!  !
+!  !
+!  ! Loop through this procedure twice incase
+!  ! there the grid file is in big endian
+!  !
+!  endian_check_loop: do npass = 1,2
+!    !
+!    rewind (iogrd)
+!    !
+!    ! Whatever the Plot3D format, the first record
+!    ! should contain at least one integer
+!    !
+!    read (iogrd,iostat=ierr) int_rec1
+!    call io_error(pname,gridfile,-1,ierr,"int_rec1")
+!    !
+!    if (npass == 2) int_rec1 = big_to_little_endian( int_rec1 )
+!    !
+!    ! #######
+!    ! ## 1 ##
+!    ! #######
+!    !
+!    ! Determine whether this grid is in single or multi block format
+!    !
+!    ! Try reading the second record as an integer
+!    !
+!    read (iogrd,iostat=ierr) int_rec2
+!    !
+!    int_check: if (ierr == 0) then
+!      !
+!      ! This seems to be a multiblock grid file
+!      !
+!      is_multiblock = true
+!      !
+!    else
+!      !
+!      ! Failed to read the second record as an integer.
+!      ! This seems to indicate this is a single block grid file.
+!      !
+!      is_multiblock = fals
+!      !
+!      ! Backspace and try to read it again,
+!      ! this time as a single precision real.
+!      !
+!      backspace (iogrd)
+!      !
+!    end if int_check
+!    !
+!    ! #######
+!    ! ## 2 ##
+!    ! #######
+!    !
+!    ! Determine whether this is a 2D or 3D grid by reading the block dimensions
+!    !
+!    ! Rewind the grid file to start over
+!    !
+!    rewind (iogrd)
+!    !
+!    ! If multiblock read the number of blocks
+!    !
+!    if (is_multiblock) then
+!      !
+!      read (iogrd,iostat=ierr) nblk
+!      call io_error(pname,gridfile,-1,ierr,"nblk")
+!      !
+!      if (npass == 2) nblk = big_to_little_endian( nblk )
+!      !
+!      ! Make sure that nblk is a valid number of blocks
+!      !
+!      if (nblk <= 0) goto 101 ! go to 101 error statement
+!      !
+!    else
+!      !
+!      nblk = 1
+!      !
+!    end if
+!    !
+!    ! Allocate ijkpts, and initialize to 1 node in each direction
+!    !
+!    if (allocated(ijkpts)) then
+!      deallocate ( ijkpts , stat=ierr )
+!      call alloc_error(pname,"ijkpts",2,ierr)
+!    end if
+!    !
+!    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr )
+!    call alloc_error(pname,"ijkpts",1,ierr)
+!    !
+!    ! Read the grid dimensions, assuming it is a 3D grid
+!    !
+!   !read (iogrd,iostat=ierr) ((ijkpts(l,n), l=1,3), n=1,nblk)
+!    ijktest = 0
+!    read (iogrd,iostat=ierr) (ijktest(l), l=1,2)
+!    if (npass == 2) ijktest = big_to_little_endian(ijktest)
+!    write (iout,*) ierr,(ijktest(l),l=1,2)
+!    xyztest = real(0.0,kind=kind(xyztest))
+!    read (iogrd,iostat=ierr) (xyztest(l),l=1,size(xyztest))
+!    if (npass == 2) xyztest = big_to_little_endian(xyztest)
+!    write (iout,*) ierr,(xyztest(l),l=1,size(xyztest))
+!    cycle endian_check_loop
+!    !
+!    if (npass == 2) ijkpts = big_to_little_endian( ijkpts )
+!    !
+!    ! If the read was not successful, try reading the
+!    ! header again but assuming it is a 2D grid.
+!    !
+!    if (ierr /= 0) then
+!      !
+!      ! Reinitialize ijkpts to 1 node in each direction
+!      !
+!      ijkpts(1:3,1:nblk) = 1
+!      !
+!      ! Try reading the block dimensions again but in 2D
+!      !
+!      backspace (iogrd)
+!      read (iogrd,iostat=ierr) ((ijkpts(l,n), l=1,2), n=1,nblk)
+!      !
+!      if (npass == 2) then
+!        ijkpts(1:2,1:nblk) = big_to_little_endian( ijkpts(1:2,1:nblk) )
+!      end if
+!      !
+!      if (ierr /= 0) goto 102 ! go to 102 error statement
+!      !
+!    end if
+!    !
+!    ! Reading the header seemed to be successful. Make sure
+!    ! that all the block dimensions are valid values.
+!    !
+!    if (any(ijkpts(:,:) < 1)) goto 103 ! go to 104 error statement
+!    !
+!    ! If all the third dimensions are 1, this is a 2D grid
+!    !
+!    nr = merge( 2 , 3 , all(ijkpts(3,1:nblk) == 1) )
+!    !
+!    ! Make an i8 copy of ijkpts
+!    !
+!    if (allocated(ijkpts_i8)) then
+!      deallocate ( ijkpts_i8 , stat=ierr )
+!      call alloc_error(pname,"ijkpts_i8",2,ierr)
+!    end if
+!    !
+!    allocate ( ijkpts_i8(1:3,1:nblk) , source=int(ijkpts,kind=i8) , &
+!               stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"ijkpts_i8",1,ierr,error_message)
+!    !
+!    ! Get the total number of points in i4 and i8 integer types
+!    !
+!    tot_pts_i4 = sum( product( real( abs(ijkpts) , kind=qp ) , dim=1 ) )
+!    tot_pts_i8 = sum( product( real( abs(ijkpts_i8) , kind=qp ) , dim=1 ) )
+!    write (iout,*) "tot_pts_i4 = ",tot_pts_i4
+!    write (iout,*) "tot_pts_i8 = ",tot_pts_i8
+!    write (iout,*)
+!    write (iout,*) "ijkpts"
+!    do n = 1,nblk
+!      write (iout,'(*(2x,i0))') (ijkpts(l,n),l=1,3)
+!    end do
+!    write (iout,*)
+!    write (iout,*) "ijkpts_i8"
+!    do n = 1,nblk
+!      write (iout,'(*(2x,i0))') (ijkpts_i8(l,n),l=1,3)
+!    end do
+!    !
+!    ! If these two values are equal, more than likely the Plot3D header
+!    ! was successfully read
+!    !
+!    if (tot_pts_i4 < real(huge(0),kind=qp)) then
+!      is_big_endian = (npass == 2)
+!      exit endian_check_loop
+!    else if (tot_pts_i8 < real(huge(0_i8),kind=qp)) then
+!      is_big_endian = (npass == 2)
+!      exit endian_check_loop
+!    else if (npass == 2) then
+!      goto 104
+!    end if
+!    !
+!  end do endian_check_loop
+!  !
+!  if (allocated(ijkpts_i8)) then
+!    deallocate ( ijkpts_i8 , stat=ierr )
+!    call alloc_error(pname,"ijkpts_i8",2,ierr)
+!  end if
+!  !
+!  ! Return statement to ignore the remaining error crap
+!  !
+!  return
+!  !
+!  ! Error continuations
+!  !
+!  100 if (mypnum == 0) write (iout,2) errstr,errstr ; goto 999
+!  101 if (mypnum == 0) write (iout,3) errstr,errstr ; goto 999
+!  102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
+!  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
+!  104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
+!  !
+!  999 call stop_recon(stop_mpi,pname)
+!  !
+!  ! Format Statements
+!  !
+!  2 format (/,a,/, &
+!            " AN ERROR OCCURED WITH THE UNFORMATTED PLOT3D GRID FILE",/, &
+!            " WHILE TRYING TO DETERMINE IF THE NODE COORDINATES ARE",/, &
+!            " STORED IN SINGLE OR DOUBLE PRECISION!",/,a,/)
+!  3 format (/,a,/, &
+!            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+!                  " THE GRID FILE SEEMED TO BE IN MULTIBLOCK FORMAT",/, &
+!                  " BUT THE NUMBER OF BLOCKS ON THE FIRST LINE OF THE",/, &
+!                  " GRID FILE WAS INVALID!",/,a,/)
+!  4 format (/,a,/, &
+!            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+!            " THE GRID DIMENSIONS COULD NOT BE READ IN EITHER 2D OR 3D!",/,a,/)
+!  5 format (/,a,/, &
+!            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+!                  " THE MINIMUM NUMBER OF NODES IN ANY DIRECTION IS 1!",/,a,/)
+!  6 format (/,a,/, &
+!            " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
+!            " FAILED TO READ THE HEADER IN LITTLE OR BIG ENDIAN FORMAT!",/,a,/)
+!  !
+!end subroutine read_p3d_unformatted_header_generic_endian
+!
+!###############################################################################
+!
 !!subroutine determine_unformatted_structure(gridfile)
 !!  !
 !!  character(len=*), intent(in) :: gridfile
@@ -1645,7 +1660,8 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  ! Format Statements
 !!  !
-!!  1 format ("UNABLE TO READ THE FIRST RECORD OF THE UNFORMATTED PLOT3D GRID FILE!")
+!!  1 format ("UNABLE TO READ THE FIRST RECORD OF", &
+!!            "THE UNFORMATTED PLOT3D GRID FILE!")
 !!  2 format ("THE FIRST RECORD OF THE UNFORMATTED PLOT3D GRID FILE SEEMS", &
 !!            " TO BE AN 8-BYTE RECORD BUT THE ENDIANESS OF THE FILE", &
 !!            " COULD NOT BE DETERMINED!")
@@ -1657,9 +1673,9 @@ end subroutine read_p3d_unformatted_header
 !!  call stop_recon(stop_mpi,pname)
 !!  !
 !!end subroutine determine_unformatted_structure
-!!!
-!!!###############################################################################
-!!!
+!
+!###############################################################################
+!
 subroutine readbcsinfo( bcsfile )
   !
   ! This subs reads boundary conditions information by vulcan input file
@@ -3176,8 +3192,9 @@ continue
   !
   if (repeats_exist) then
     !
-    ! Allocate the array giving the location of the asterisk in each clist element
-    ! and the array giving the number of repeat counts for those elements
+    ! Allocate the array giving the location of the asterisk
+    ! in each clist element and the array giving the number
+    ! of repeat counts for those elements
     !
     allocate ( ast_loc(1:num_str) , source=0 , stat=ierr )
     call alloc_error(pname,"ast_loc",1,ierr)
@@ -3450,7 +3467,8 @@ continue
   !
   nr = size(ijk)
   !
-  ! offset_type determines whether we are offsetting for nodes or cells if at all
+  ! offset_type determines whether we are offsetting or not,
+  ! and if we are, whether the offset is for nodes or cells
   !     = 1 : offset for nodes
   !     = 2 : offset for cells
   !     = anything else : no offset
@@ -3498,7 +3516,8 @@ pure function map1dto3d(ijk1d,n,offset_type) result(return_value)
   !
 continue
   !
-  ! offset_type determines whether we are offsetting for nodes or cells if at all
+  ! offset_type determines whether we are offsetting or not,
+  ! and if we are, whether the offset is for nodes or cells
   !     = 1 : offset for nodes
   !     = 2 : offset for cells
   !     = anything else : no offset

@@ -20,11 +20,15 @@ module time_mod
   ! Classic N stage Runge-Kutta coefficients
   !
   real(wp), parameter, dimension(4,4,4) :: &
-  alphaRK = reshape( &                                                  ! Coefficients
-       (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   & ! 1-Stage
-         HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   & ! 2-Stage
-         ONE3,o,o,o,o,TWO3,o,o,ONE4,o,THREE4,o, o  , o  , o  , o  ,   & ! 3-Stage
-         HALF,o,o,o,o,HALF,o,o, o  ,o, ONE  ,o,ONE6,ONE3,ONE3,ONE6/), & ! 4-Stage
+  alphaRK = reshape( &
+                        ! 1-Stage Coefficients
+       (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
+                        ! 2-Stage Coefficients
+         HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
+                        ! 3-Stage Coefficients
+         ONE3,o,o,o,o,TWO3,o,o,ONE4,o,THREE4,o, o  , o  , o  , o  ,   &
+                        ! 4-Stage Coefficients
+         HALF,o,o,o,o,HALF,o,o, o  ,o, ONE  ,o,ONE6,ONE3,ONE3,ONE6/), &
        (/4,4,4/) )
   !
   ! TVD 4th-order/5-stage Runge-Kutta coefficients
@@ -38,18 +42,19 @@ module time_mod
                           (/2,5/) )
   !
   real(wp), parameter, dimension(1:3,1:5) :: &
-    alphaRK_TVD = reshape( (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
-                              0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
-                              0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
-                              0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
-                              0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
-                           (/3,5/) )
+    alphaRK_TVD = reshape( &
+         (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
+            0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
+            0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
+            0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
+            0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
+         (/3,5/) )
   !
   real(wp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_wp, &
-                                                           0.51723167208978_wp, &
-                                                           0.12759831133288_wp, &
-                                                           0.00000000000000_wp, &
-                                                           0.00000000000000_wp /)
+                                                          0.51723167208978_wp, &
+                                                          0.12759831133288_wp, &
+                                                          0.00000000000000_wp, &
+                                                          0.00000000000000_wp /)
   !
   character(len=100), save :: iter_out_fmt
   !
@@ -284,7 +289,8 @@ continue
   !        T rhoi = 1./q[ir];
   !        u = u+q[ix]*rhoi;
   !        v = v+q[iy]*rhoi;
-  !        p = (gas_.gamma-1.)*(q[ie]-0.5*(q[ix]*q[ix]+q[iy]*q[iy])*rhoi);//? why not +=
+  !        p = (gas_.gamma-1.)*
+  !            (q[ie]-0.5*(q[ix]*q[ix]+q[iy]*q[iy])*rhoi);//? why not +=
   !        c = c+sqrt(gas_.gamma*p*rhoi);
   !        mu_k = mu_k+gas_.mu*rhoi;
   !        nx+=fm_fp_.nx_[face][j];
@@ -372,9 +378,13 @@ continue
       ! Interpolate the jacobian to the flux point
       !
 #ifdef USE_MATRIX_PROCEDURES
-      jacl = interp(host_geom,host_order)%toFace(face_order)%dot( kl , jacobian(l1:l2) )
+      jacl = interp(host_geom,host_order)% &
+                       toFace(face_order)% &
+             dot( kl , jacobian(l1:l2) )
 #else
-      lmat(1:npl) = interp(host_geom,host_order)%toFace(face_order)%mat(1:npl,kl)
+      lmat(1:npl) = interp(host_geom,host_order)% &
+                              toFace(face_order)% &
+                    mat(1:npl,kl)
       !
       jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
 #endif
@@ -452,9 +462,13 @@ continue
       ! Interpolate the jacobian to the flux point for the left cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      jacl = interp(left_geom,left_order)%toFace(face_order)%dot( kl , jacobian(l1:l2) )
+      jacl = interp(left_geom,left_order)% &
+                       toFace(face_order)% &
+             dot( kl , jacobian(l1:l2) )
 #else
-      lmat(1:npl) = interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
+      lmat(1:npl) = interp(left_geom,left_order)% &
+                              toFace(face_order)% &
+                    mat(1:npl,kl)
       !
       jacl = dot( lmat(1:npl) , jacobian(l1:l2) )
 #endif
@@ -462,9 +476,13 @@ continue
       ! Interpolate the jacobian to the flux point for the right cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      jacr = interp(right_geom,right_order)%toFace(face_order)%dot( kr , jacobian(r1:r2) )
+      jacr = interp(right_geom,right_order)% &
+                         toFace(face_order)% &
+             dot( kr , jacobian(r1:r2) )
 #else
-      lmat(1:npr) = interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
+      lmat(1:npr) = interp(right_geom,right_order)% &
+                                toFace(face_order)% &
+                    mat(1:npr,kr)
       !
       jacr = dot( lmat(1:npr) , jacobian(r1:r2) )
 #endif
@@ -758,7 +776,9 @@ continue
   !
   do n = 1,n_solpts
     !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + dtsp(n)*residual(:,n))
+    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + &
+                            usp(:,n) + &
+                            dtsp(n)*residual(:,n))
     !
   end do
   !
@@ -790,7 +810,9 @@ continue
   !
   do n = 1,n_solpts
     !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + usp(:,n) + dtsp(n)*residual(:,n))
+    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + &
+                            usp(:,n) + &
+                            dtsp(n)*residual(:,n))
     !
   end do
   !

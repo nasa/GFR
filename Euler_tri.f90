@@ -223,27 +223,36 @@ continue
   ! Get the grid connectivity and metrics
   !
   call get_grid_connectivity(bface,cell_geom,nodes_of_cell,nodes_of_cell_ptr)
-  call memory_pause("getting grid connectivity","initializing vandermonde matrices")
+  call memory_pause("getting grid connectivity", &
+                    "initializing vandermonde matrices")
   !
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
   call init_vandermonde_matrices
-  call memory_pause("initializing vandermonde matrices","initializing derivative matrices")
+  call memory_pause("initializing vandermonde matrices", &
+                    "initializing derivative matrices")
   call init_derivative_matrices
-  call memory_pause("initializing derivative matrices","initializing correction matrices")
+  call memory_pause("initializing derivative matrices", &
+                    "initializing correction matrices")
   call init_correction_matrices
-  call memory_pause("initializing correction matrices","initializing interpolation matrices")
+  call memory_pause("initializing correction matrices", &
+                    "initializing interpolation matrices")
   call init_interpolation_matrices
-  call memory_pause("initializing interpolation matrices","initializing outerpolation matrices")
+  call memory_pause("initializing interpolation matrices", &
+                    "initializing outerpolation matrices")
   call init_outerpolation_matrices
-  call memory_pause("initializing outerpolation matrices","initializing projection matrices")
+  call memory_pause("initializing outerpolation matrices", &
+                    "initializing projection matrices")
   call init_projection_matrices
-  call memory_pause("initializing projection matrices","initializing filter matrices")
+  call memory_pause("initializing projection matrices", &
+                    "initializing filter matrices")
   call init_filter_matrices
-  call memory_pause("initializing filter matrices","initializing boundary profile stuff")
+  call memory_pause("initializing filter matrices", &
+                    "initializing boundary profile stuff")
   call init_bnd_profile_structures
-  call memory_pause("initializing boundary profile stuff","initializing metrics")
+  call memory_pause("initializing boundary profile stuff", &
+                    "initializing metrics")
   !
   ! Get the grid metrics
   !
@@ -298,7 +307,8 @@ continue
   !
   call init_generic_mod
   if (num_ts > 0) then
-    call memory_pause("initializing generic module","initial interpolation of C.V. to flux points")
+    call memory_pause("initializing generic module", &
+                      "initial interpolation of C.V. to flux points")
   else
     if (dump_memory_usage) then
       call memory_pause("initializing generic module","dumping memory usage")
@@ -329,7 +339,8 @@ continue
     call memory_pause("initial interpolation of C.V. to flux points", &
                       "initial evaluation of boundary conditions")
     call get_faceusp_bc
-    call memory_pause("initial evaluation of boundary conditions","initial TGV KEDR evaluation")
+    call memory_pause("initial evaluation of boundary conditions", &
+                      "initial TGV KEDR evaluation")
     !
     if (itestcase == Taylor_Green_Vortex) then
       call compute_TaylorGreen_KEDR(0,zero)
@@ -654,8 +665,9 @@ continue
       end if
     end if
     !
-    ! If solving the Taylor-Green Vortex problem, compute the various integrated
-    ! quantities needed to get the different the kinetic energy dissipation rates
+    ! If solving the Taylor-Green Vortex problem, compute
+    ! the various integrated quantities needed to get the
+    ! different the kinetic energy dissipation rates
     !
     if (itestcase == Taylor_Green_Vortex .and. iter/=num_ts) then
       call compute_TaylorGreen_KEDR(iter,dtmin)
@@ -746,7 +758,8 @@ continue
                '  nface = ',i0,'  nDOF = ',i0,/, &
                '  Partition Volume = ',f13.6)
   11 format (/,' For the Global Grid ',/,'---------------------',/, &
-               '  ncell = ',i0,'  nnode = ',i0,'  nfbnd = ',i0,'  nDOF = ',i0,/, &
+               '  ncell = ',i0,'  nnode = ',i0, &
+               '  nfbnd = ',i0,'  nDOF = ',i0,/, &
                '  Total Grid Volume = ',f13.6,/, &
                '  1D Solution Points = ',6f9.5,:,*(/,23x,6f9.5))
   16 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)

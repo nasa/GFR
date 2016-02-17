@@ -192,32 +192,32 @@ continue
  !               count(abs(deriv(Geom_Quad,n_order)%d(1)%mat) > zero), &
  !               size(deriv(Geom_Quad,n_order)%d(1)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(deriv(Geom_Quad,n_order)%d(1)%mat) > zero),kind=wp) / &
- !            real(size(deriv(Geom_Quad,n_order)%d(1)%mat),kind=wp) )
+ !        real(count(abs(deriv(Geom_Quad,n_order)%d(1)%mat) > zero),kind=wp) / &
+ !        real(size(deriv(Geom_Quad,n_order)%d(1)%mat),kind=wp) )
  !write (iout,6) "Quad ds: ", &
  !               count(abs(deriv(Geom_Quad,n_order)%d(2)%mat) > zero), &
  !               size(deriv(Geom_Quad,n_order)%d(2)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(deriv(Geom_Quad,n_order)%d(2)%mat) > zero),kind=wp) / &
- !            real(size(deriv(Geom_Quad,n_order)%d(2)%mat),kind=wp) )
+ !        real(count(abs(deriv(Geom_Quad,n_order)%d(2)%mat) > zero),kind=wp) / &
+ !        real(size(deriv(Geom_Quad,n_order)%d(2)%mat),kind=wp) )
  !write (iout,6) "Hexa dr: ", &
  !               count(abs(deriv(Geom_Hexa,n_order)%d(1)%mat) > zero), &
  !               size(deriv(Geom_Hexa,n_order)%d(1)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(deriv(Geom_Hexa,n_order)%d(1)%mat) > zero),kind=wp) / &
- !            real(size(deriv(Geom_Hexa,n_order)%d(1)%mat),kind=wp) )
+ !        real(count(abs(deriv(Geom_Hexa,n_order)%d(1)%mat) > zero),kind=wp) / &
+ !        real(size(deriv(Geom_Hexa,n_order)%d(1)%mat),kind=wp) )
  !write (iout,6) "Hexa ds: ", &
  !               count(abs(deriv(Geom_Hexa,n_order)%d(2)%mat) > zero), &
  !               size(deriv(Geom_Hexa,n_order)%d(2)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(deriv(Geom_Hexa,n_order)%d(2)%mat) > zero),kind=wp) / &
- !            real(size(deriv(Geom_Hexa,n_order)%d(2)%mat),kind=wp) )
+ !        real(count(abs(deriv(Geom_Hexa,n_order)%d(2)%mat) > zero),kind=wp) / &
+ !        real(size(deriv(Geom_Hexa,n_order)%d(2)%mat),kind=wp) )
  !write (iout,6) "Hexa dt: ", &
  !               count(abs(deriv(Geom_Hexa,n_order)%d(3)%mat) > zero), &
  !               size(deriv(Geom_Hexa,n_order)%d(3)%mat), &
  !               100.0_wp*(one - &
- !            real(count(abs(deriv(Geom_Hexa,n_order)%d(3)%mat) > zero),kind=wp) / &
- !            real(size(deriv(Geom_Hexa,n_order)%d(3)%mat),kind=wp) )
+ !        real(count(abs(deriv(Geom_Hexa,n_order)%d(3)%mat) > zero),kind=wp) / &
+ !        real(size(deriv(Geom_Hexa,n_order)%d(3)%mat),kind=wp) )
  !6 format (a,i8,i8,f7.2)
  !call deriv(Geom_Quad,n_order)%d(1)%output_sparsity("quad.dr.tec.dat")
  !call deriv(Geom_Quad,n_order)%d(2)%output_sparsity("quad.ds.tec.dat")
@@ -231,13 +231,15 @@ continue
  !   !write (140+ndim,3) (deriv(geom_hexa,2)%d(ndim)%mat(i,n),i=1,n1)
  !   !write (140+ndim,4)
  !    write (140+ndim,5) ( merge('1','-', &
- !                         abs(deriv(geom_hexa,n_order)%d(ndim)%mat(i,n))>zero) , i=1,n1 )
+ !               abs(deriv(geom_hexa,n_order)%d(ndim)%mat(i,n))>zero) , i=1,n1 )
  !  end do
  !end do
  !3 format (3(es14.6,6x))
  !4 format (/,"##########################################################",/)
  !5 format (*(1x,a1))
- !call stop_recon(stop_mpi,"After output of derivative matrices for hexa geometries")
+ !6 format ("After output of derivative matrices for hexa geometries")
+ !write (error_message,6)
+ !call stop_recon(stop_mpi,pname,error_message)
   !
   1 format ("deriv(",a,",",i0,")%d")
   2 format (" A grid cell of an unknown geometry type was found!")
@@ -775,7 +777,8 @@ continue
       !
       idx = [ ( (k-1)*np*np + (j-1)*np + i , i=1,np ) ]
       !
-      ! Copy the 1D derivative matrix to the corresponding locations given by idx
+      ! Copy the 1D derivative matrix to the
+      ! corresponding locations given by idx
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
@@ -795,7 +798,8 @@ continue
       !
       idx = [ ( (k-1)*np*np + (j-1)*np + i , j=1,np ) ]
       !
-      ! Copy the 1D derivative matrix to the corresponding locations given by idx
+      ! Copy the 1D derivative matrix to the
+      ! corresponding locations given by idx
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
@@ -815,7 +819,8 @@ continue
       !
       idx = [ ( (k-1)*np*np + (j-1)*np + i , k=1,np ) ]
       !
-      ! Copy the 1D derivative matrix to the corresponding locations given by idx
+      ! Copy the 1D derivative matrix to the
+      ! corresponding locations given by idx
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
@@ -851,7 +856,8 @@ continue
   do j = 2,size(xi)
     do i = 1,size(xi)
       rj = real(j-1,kind=wp)
-      return_value(i,j) = sqrt(rj*(rj+one)) * normalized_jacobi_poly(j-2,one,one,xi(i))
+      return_value(i,j) = sqrt(rj*(rj+one)) * &
+                          normalized_jacobi_poly(j-2,one,one,xi(i))
     end do
   end do
   !

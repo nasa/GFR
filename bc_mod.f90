@@ -572,8 +572,10 @@ continue
     !
     ! Compute the speed of sound in the host cell
     !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )   ! interior speed of sound 
-    aspd_ext = sqrt( max( gam*pv_in(nee)/pv_in(nec) , rndoff ) ) ! exterior speed of sound 
+    ! interior speed of sound 
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
+    ! exterior speed of sound 
+    aspd_ext = sqrt( max( gam*pv_in(nee)/pv_in(nec) , rndoff ) )
     !
     ! Compute the interior normal velocity at this flux point
     !
@@ -1777,8 +1779,9 @@ continue
   ! Output the bface array
   !
   do n = 1,size(bface,dim=2)
-    write (myio,fmt=trim(write_format)) trim(bc_integer_to_string(bface(1,n))), &
-                                        (bface(i,n),i=1,size(bface,dim=1))
+    write (myio,fmt=trim(write_format)) &
+                               trim(bc_integer_to_string(bface(1,n))), &
+                                   (bface(i,n),i=1,size(bface,dim=1))
   end do
   !
   ! Close the output file

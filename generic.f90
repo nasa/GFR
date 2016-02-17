@@ -68,7 +68,7 @@ subroutine compute_final_error()
   !
   ! error(1:nq+1,:,:) = error value for each flow equation + extra variable
   ! error(:,1,:) = error for conserved variables [rho,rho(u,v,..),rhoe,entropy]
-  ! error(:,2,:) = error for primitive variables [rho,u,v,..,pressure,mag of vel]
+  ! error(:,2,:) = error for primitive variables [rho,u,v,..,pressure,vel mag]
   ! error(:,:,1) = L1 norm of total error for all solution points
   ! error(:,:,2) = L2 norm of total error for all solution points
   ! error(:,:,3) = maximum value of error for all solution points
@@ -505,11 +505,14 @@ continue
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
+              "x,'Solpt',5x,'x',8x,'y'")
   202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
+              "x,'Solpt',5x,'x',8x,'y'")
   203 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
+              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
+              "x,'Solpt',5x,'x',8x,'y'")
   !
 end subroutine init_generic_mod
 !
@@ -562,20 +565,29 @@ continue
     if (associated(outerp(this_geom,this_order)%error)) then
 #ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
-        xyz_err(l,1:np) = outerp(this_geom,this_order)%error%mv_mult( xyz(l,n1:n2) )
+        xyz_err(l,1:np) = outerp(this_geom,this_order)% &
+                                                 error% &
+                          mv_mult( xyz(l,n1:n2) )
       end do
       do m = 1,nq
-        unew(m,1:np) = outerp(this_geom,this_order)%error%mv_mult( usp(m,n1:n2) )
+        unew(m,1:np) = outerp(this_geom,this_order)% &
+                                              error% &
+                       mv_mult( usp(m,n1:n2) )
       end do
-      jac(1:np) = outerp(this_geom,this_order)%error%mv_mult( jacobian(n1:n2) )
+      jac(1:np) = outerp(this_geom,this_order)% &
+                                         error% &
+                  mv_mult( jacobian(n1:n2) )
 #else
       do l = 1,nr
-        xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , xyz(l,n1:n2) )
+        xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                                  xyz(l,n1:n2) )
       end do
       do m = 1,nq
-        unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , usp(m,n1:n2) )
+        unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                               usp(m,n1:n2) )
       end do
-      jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , jacobian(n1:n2) )
+      jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                          jacobian(n1:n2) )
 #endif
       weights(1:np) = outerp(this_geom,this_order)%err_wts
     else
@@ -678,9 +690,12 @@ continue
     !
     do m = 1,nq
 #ifdef USE_MATRIX_PROCEDURES
-      unew(m,1:np) = outerp(this_geom,this_order)%error%mv_mult( usp(m,n1:n2) )
+      unew(m,1:np) = outerp(this_geom,this_order)% &
+                                            error% &
+                     mv_mult( usp(m,n1:n2) )
 #else
-      unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , usp(m,n1:n2) )
+      unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                             usp(m,n1:n2) )
 #endif
     end do
     !
@@ -699,9 +714,12 @@ continue
   if (associated(outerp(this_geom,this_order)%error)) then
     !
 #ifdef USE_MATRIX_PROCEDURES
-    jac(1:np) = outerp(this_geom,this_order)%error%mv_mult( jacobian(n1:n2) )
+    jac(1:np) = outerp(this_geom,this_order)% &
+                                       error% &
+                mv_mult( jacobian(n1:n2) )
 #else
-    jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , jacobian(n1:n2) )
+    jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                        jacobian(n1:n2) )
 #endif
     !
   else
@@ -736,9 +754,12 @@ continue
     !
     do l = 1,nr
 #ifdef USE_MATRIX_PROCEDURES
-      xyz_err(l,1:np) = outerp(this_geom,this_order)%error%mv_mult( xyz(l,n1:n2) )
+      xyz_err(l,1:np) = outerp(this_geom,this_order)% &
+                                               error% &
+                        mv_mult( xyz(l,n1:n2) )
 #else
-      xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , xyz(l,n1:n2) )
+      xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                                xyz(l,n1:n2) )
 #endif
     end do
     !
@@ -783,9 +804,12 @@ continue
       !
       do m = 1,nq
 #ifdef USE_MATRIX_PROCEDURES
-        uold(m,1:np) = outerp(this_geom,this_order)%error%mv_mult( uoldsp(m,n1:n2) )
+        uold(m,1:np) = outerp(this_geom,this_order)% &
+                                              error% &
+                       mv_mult( uoldsp(m,n1:n2) )
 #else
-        uold(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , uoldsp(m,n1:n2) )
+        uold(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
+                               uoldsp(m,n1:n2) )
 #endif
       end do
       !
@@ -950,7 +974,8 @@ continue
             iostat=ierr,iomsg=error_message)
       call io_error(pname,fname,1,ierr,error_message)
       !
-      write (iotg,1) n_order,nc*(n_order+1),n_order,TaylorGreen_DOF,nc*(n_order+1)
+      write (iotg,1) n_order,nc*(n_order+1),n_order, &
+                     TaylorGreen_DOF,nc*(n_order+1)
       !
     end if
     !
@@ -994,16 +1019,22 @@ continue
 #ifdef USE_MATRIX_PROCEDURES
       ! NOTE: The vsp array will temporarily hold the conservative variables
       do m = 1,nq
-        vsp(m,1:np) = outerp(this_geom,this_order)%error%mv_mult( usp(m,n1:n2) )
+        vsp(m,1:np) = outerp(this_geom,this_order)% &
+                                             error% &
+                      mv_mult( usp(m,n1:n2) )
       end do
       !
       do m = 1,nq
         do l = 1,nr
-          dcvdx(l,m,1:np) = outerp(this_geom,this_order)%error%mv_mult( dusp(l,m,n1:n2) )
+          dcvdx(l,m,1:np) = outerp(this_geom,this_order)% &
+                                                   error% &
+                            mv_mult( dusp(l,m,n1:n2) )
         end do
       end do
       !
-      wtdjac(1:np) = outerp(this_geom,this_order)%error%mv_mult( jacobian(n1:n2) )
+      wtdjac(1:np) = outerp(this_geom,this_order)% &
+                                            error% &
+                     mv_mult( jacobian(n1:n2) )
 #else
       lmat(1:np,1:np) = outerp(this_geom,this_order)%error%mat
       !
@@ -1041,7 +1072,8 @@ continue
     ! NOTE: The vsp array currently contains the conservative variables
     !
     do k = 1,np
-      dpvdx(1:nr,1:nq,k) = grad_cv_to_grad_pv_sp( vsp(1:nq,k) , dcvdx(1:nr,1:nq,k) )
+      dpvdx(1:nr,1:nq,k) = grad_cv_to_grad_pv_sp( vsp(1:nq,k) , &
+                                                  dcvdx(1:nr,1:nq,k) )
     end do
     !
     ! Convert the conservative variables in vsp to primitive variables
@@ -1088,7 +1120,8 @@ continue
       sum_kedr(3,tgv_idx) = sum_kedr(3,tgv_idx) + &
                             wtdjac(k)*vsp(nee,k)*div_vel
       !
-      ! Integrated kinetic energy (later, it will be differenced in time to get KEDR)
+      ! Integrated kinetic energy (later, it will
+      ! be differenced in time to get KEDR)
       !
       sum_kedr(4,tgv_idx) = sum_kedr(4,tgv_idx) + &
                             wtdjac(k)*vsp(nec,k)*selfdot( vsp(nmb:nme,k) )

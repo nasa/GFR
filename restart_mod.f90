@@ -21,10 +21,10 @@ module restart_mod
   !###  Module Parameters  ###
   !###########################
   !
-  integer, parameter :: restart_gauss_nodal_solution    = -Legendre_Gauss
-  integer, parameter :: restart_lobatto_nodal_solution  = -Legendre_Gauss_Lobatto
-  integer, parameter :: restart_legendre_modal_solution = +Legendre_Gauss
-  integer, parameter :: restart_monomial_modal_solution = +Legendre_Gauss_Lobatto
+  integer, parameter :: restart_gauss_nodal_solution   = -Legendre_Gauss
+  integer, parameter :: restart_lobatto_nodal_solution = -Legendre_Gauss_Lobatto
+  integer, parameter :: restart_legendre_modal_solution = Legendre_Gauss
+  integer, parameter :: restart_monomial_modal_solution = Legendre_Gauss_Lobatto
   !
   character(len=*), parameter :: file_datarep = "native"
   !
@@ -538,13 +538,15 @@ continue
   23 format("Unknown real type when trying to read the solution data ", &
             "from the restart file.")
   !
-  30 format(" CPU-",i0,": Error copying restart solution into solution array.",/, &
+  30 format(" CPU-",i0, &
+            ": Error copying restart solution into solution array.",/, &
             "      restart cell: ",i0,":   geom = ",i0,", order = ",i0,/, &
             "      current cell: ",i0,":   geom = ",i0,", order = ",i0)
   31 format("The geometry and structure of the solution data in the restart ", &
             "file does not match the current simulation. There were ",i0," ", &
-            "total errors encountered across all the processors when trying ", &
-            "to copy the restart solution data into the current solution array.")
+            "total errors encountered across all the processors when ", &
+            "trying to copy the restart solution data into the current ", &
+            "solution array.")
   !
 end subroutine read_restart_file
 !

@@ -171,8 +171,10 @@ continue
       !
       do k = 1,size(face(nf)%left%flxpts)
         !
-        kl = face(nf)%left%flxpts(k) ! Index of flx-pt local to the current host cell
-        kf = ndata + k               ! Index within qty_data for current flx-pt
+        ! Index of flx-pt local to the current host cell
+        kl = face(nf)%left%flxpts(k)
+        ! Index within qty_data for current flx-pt
+        kf = ndata + k
         !
         unrm(1:nr) = geofa(nf)%v(1:nr,k)
         !
@@ -181,18 +183,23 @@ continue
         !
 #ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
-          cvfp(m) = &
-           interp(host_geom,host_order)%toFace(face_order)%dot( kl , tusp(1:np,m) )
+          cvfp(m) = interp(host_geom,host_order)% &
+                              toFace(face_order)% &
+                    dot( kl , tusp(1:np,m) )
           do l = 1,nr
-            dcvdx(l,m) = &
-           interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdusp(1:np,l,m) )
-          ! dpvdx(l,m) = &
-          !interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdvsp(1:np,l,m) )
+            dcvdx(l,m) = interp(host_geom,host_order)% &
+                                   toFace(face_order)% &
+                         dot( kl , tdusp(1:np,l,m) )
+          ! dpvdx(l,m) = interp(host_geom,host_order)% &
+          !                        toFace(face_order)% &
+          !              dot( kl , tdvsp(1:np,l,m) )
           end do
         end do
         !
 #else
-        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
+        lmat(1:np) = interp(host_geom,host_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,kl)
         !
         do m = 1,nq
           cvfp(m) = dot( lmat(1:np) , tusp(1:np,m) )
@@ -228,7 +235,8 @@ continue
         !
         if (any(bface(1,nf) == bc_walls)) then
           !
-         !tauwall = visc * normal_streamwise_velocity_gradient_pv(pvfp,dpvdx,unrm)
+         !tauwall = visc * &
+         !          normal_streamwise_velocity_gradient_pv(pvfp,dpvdx,unrm)
           tauwall = visc * dpvdx(2,nmx)
          !tauwall = muref * dpvdx(2,nmx)
           tauwall = abs(tauwall)
@@ -339,8 +347,9 @@ continue
         !
         do m = 1,size(bnd_prof(n)%qty)
 #ifdef USE_MATRIX_PROCEDURES
-          bnd_prof(n)%qty(m)%qty_data(n1:n2) = &
-            outerp(face_geom,face_order)%output%mv_mult( bnd_prof(n)%qty(m)%qty_data(n1:n2) )
+          bnd_prof(n)%qty(m)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
+                                                                     output% &
+                                 mv_mult( bnd_prof(n)%qty(m)%qty_data(n1:n2) )
 #else
           bnd_prof(n)%qty(m)%qty_data(n1:n2) = &
                 matmul( outerp(face_geom,face_order)%output%mat , &
@@ -406,7 +415,8 @@ continue
   ! Format Statements
   !
   100 format ('VARIABLES =',*(' "',a,'"',:))
-  101 format ('ZONE T="',a,'", N=',i0,', E=',i0,', DATAPACKING=BLOCK, ZONETYPE=',a,:, &
+  101 format ('ZONE T="',a,'", N=',i0,', E=',i0, &
+              ', DATAPACKING=BLOCK, ZONETYPE=',a,:, &
               ', PASSIVEVARLIST=[',i0,'-',i0,']')
   102 format (5es18.10)
   103 format (4(1x,i0))
@@ -604,7 +614,8 @@ continue
     !
     bnd_prof(n)%faces = pack( bface_map , mask = (bface_nc(5,:) == group_id) )
     !
-    ! Get the name of the BC for this group ID using the first face in the group.
+    ! Get the name of the BC for this group ID
+    ! using the first face in the group.
     !
     nf = bnd_prof(n)%faces(1)
     bnd_prof(n)%prof_name = trim( bc_integer_to_string(bface(1,nf)) )
@@ -702,20 +713,25 @@ continue
       !
       do k = 1,size(face(nf)%left%flxpts)
         !
-        kl = face(nf)%left%flxpts(k) ! Index of flx-pt local to the current host cell
-        kf = ndata + k               ! Index within qty_data for current flx-pt
+        ! Index of flx-pt local to the current host cell
+        kl = face(nf)%left%flxpts(k)
+        ! Index within qty_data for current flx-pt
+        kf = ndata + k
         !
         ! Interpolate the coordinates of the interior sol-pts to the
         ! current flux point on face nf
         !
 #ifdef USE_MATRIX_PROCEDURES
         do l = 1,nr
-          bnd_prof(n)%qty(l)%qty_data(kf) = &
-             interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,l) )
+          bnd_prof(n)%qty(l)%qty_data(kf) = interp(host_geom,host_order)% &
+                                                      toFace(face_order)% &
+                                            dot( kl , txyz(1:np,l) )
         end do
         !
 #else
-        lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
+        lmat(1:np) = interp(host_geom,host_order)% &
+                               toFace(face_order)% &
+                     mat(1:np,kl)
         !
         do l = 1,nr
           bnd_prof(n)%qty(l)%qty_data(kf) = dot( lmat(1:np) , txyz(1:np,l) )
@@ -846,8 +862,9 @@ continue
           !
           do l = 1,nr
 #ifdef USE_MATRIX_PROCEDURES
-            bnd_prof(n)%qty(l)%qty_data(n1:n2) = &
-              outerp(face_geom,face_order)%output%mv_mult( bnd_prof(n)%qty(l)%qty_data(n1:n2) )
+            bnd_prof(n)%qty(l)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
+                                                                       output% &
+                                 mv_mult( bnd_prof(n)%qty(l)%qty_data(n1:n2) )
 #else
             bnd_prof(n)%qty(l)%qty_data(n1:n2) = &
                   matmul( outerp(face_geom,face_order)%output%mat , &
@@ -897,7 +914,8 @@ continue
     close (iogrd,iostat=ierr)
     call io_error(pname,fname,2,ierr)
     !
-    call stop_recon(stop_mpi,pname,"Temporary stop after writing bndprof.tec.dat")
+    write (error_message,104)
+    call stop_recon(stop_mpi,pname,error_message)
     !
   end if
   !
@@ -907,9 +925,11 @@ continue
   2 format (2x,i0,5x,"'",a,"'")
   3 format ("BC Group# = ",i0,": ",a)
   100 format ('VARIABLES =',100(' "',a,'"',:))
-  101 format ('ZONE T="',a,'", N=',i0,', E=',i0,', DATAPACKING=BLOCK, ZONETYPE=',a)
+  101 format ('ZONE T="',a,'", N=',i0,', E=',i0, &
+              ', DATAPACKING=BLOCK, ZONETYPE=',a)
   102 format (5es18.10)
   103 format (4(1x,i0))
+  104 format ("Temporary stop after writing bndprof.tec.dat")
   !
 end subroutine init_bnd_profile_structures
 !
@@ -975,8 +995,9 @@ continue
         !
         call dt%add( storage_size(bnd_prof(i)%qty(j)%qty_name,kind=inttype) )
         !
-        call array%set( storage_size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) , &
-                                size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) )
+        call array%set( &
+                   storage_size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) , &
+                           size(bnd_prof(i)%qty(j)%qty_data,kind=inttype) )
         !
         write (array_name,4) "bnd_prof",i,"qty",j
         write (iou,2) array_name,array%get_units()
@@ -1034,8 +1055,9 @@ continue
         !
         call dt%add( storage_size(sol_prof(i)%qty(j)%qty_name,kind=inttype) )
         !
-        call array%set( storage_size(sol_prof(i)%qty(j)%qty_data,kind=inttype) , &
-                                size(sol_prof(i)%qty(j)%qty_data,kind=inttype) )
+        call array%set( &
+                   storage_size(sol_prof(i)%qty(j)%qty_data,kind=inttype) , &
+                           size(sol_prof(i)%qty(j)%qty_data,kind=inttype) )
         !
         write (array_name,4) "sol_prof",i,"qty",j
         write (iou,2) array_name,array%get_units()

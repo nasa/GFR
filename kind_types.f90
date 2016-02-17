@@ -305,11 +305,13 @@ module module_kind_types
   integer, parameter :: Geom_Hexa = 8
   !
   integer, parameter :: Geom_Min = min(Geom_Unknown, &
-                                       Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad, &
+                                       Geom_Node,Geom_Edge, &
+                                       Geom_Tria,Geom_Quad, &
                                        Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa)
   !
   integer, parameter :: Geom_Max = max(Geom_Unknown, &
-                                       Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad, &
+                                       Geom_Node,Geom_Edge, &
+                                       Geom_Tria,Geom_Quad, &
                                        Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa)
   !
   integer, parameter :: Geom_0D(1:1) = [Geom_Node]
@@ -406,10 +408,14 @@ module module_kind_types
   !
   ! MPI datatypes to match Fortran intrinsic datatypes
   !
-  integer(int_mpi), protected, save :: mpi_flttyp ! working real precision
-  integer(int_mpi), protected, save :: mpi_hlftyp ! half working real precision
-  integer(int_mpi), protected, save :: mpi_dbltyp ! double working real precision
-  integer(int_mpi), protected, save :: mpi_inttyp ! working integer precision
+  ! working real precision
+  integer(int_mpi), protected, save :: mpi_flttyp
+  ! half working real precision
+  integer(int_mpi), protected, save :: mpi_hlftyp
+  ! double working real precision
+  integer(int_mpi), protected, save :: mpi_dbltyp
+  ! working integer precision
+  integer(int_mpi), protected, save :: mpi_inttyp
   !
   logical, private, save :: random_is_initialized = fals
   !
@@ -906,310 +912,6 @@ end subroutine initialize_runtime_parameters
 !
 !###############################################################################
 !
-!!subroutine reallocate1_i4(array,new_size)
-!!  integer, intent(in) :: new_size
-!!  integer(i4), allocatable, dimension(:), intent(inout) :: array
-!!  integer(i4), allocatable, dimension(:) :: temp_array
-!!  integer :: ierr,num_copy
-!!continue
-!!  ! Allocate the temporary array to store the old contents of array
-!!  allocate ( temp_array(1:new_size) , source=0_i4 , stat=ierr )
-!!  call alloc_error("reallocate1_i4","temp_array",1,ierr)
-!!  ! If array is allocated, copy the old contents of array into the temporary
-!!  ! array. If decreasing the size of array, make sure to limit the amount of
-!!  ! information copied over from array to the size of temp_array.
-!!  if (allocated(array)) then
-!!    num_copy = min( size(temp_array) , size(array) )
-!!    temp_array(1:num_copy) = array(1:num_copy)
-!!  end if
-!!  ! move_alloc does:
-!!  !     1. deallocates array if it is allocated
-!!  !     2. allocates array with the same type, type parameters,
-!!  !        array bounds, and value as temp_array
-!!  !     3. deallocates temp_array
-!!  call move_alloc( from=temp_array , to=array )
-!!end subroutine reallocate1_i4
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate1_i8(array,new_size)
-!!  integer, intent(in) :: new_size
-!!  integer(i8), allocatable, dimension(:), intent(inout) :: array
-!!  integer(i8), allocatable, dimension(:) :: temp_array
-!!  integer :: ierr,num_copy
-!!continue
-!!  allocate ( temp_array(1:new_size) , source=0_i8 , stat=ierr )
-!!  call alloc_error("reallocate1_i8","temp_array",1,ierr)
-!!  if (allocated(array)) then
-!!    num_copy = min( size(temp_array) , size(array) )
-!!    temp_array(1:num_copy) = array(1:num_copy)
-!!  end if
-!!  call move_alloc( from=temp_array , to=array )
-!!end subroutine reallocate1_i8
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate1_r4(array,new_size)
-!!  integer, intent(in) :: new_size
-!!  real(r4), allocatable, dimension(:), intent(inout) :: array
-!!  real(r4), allocatable, dimension(:) :: temp_array
-!!  integer :: ierr,num_copy
-!!continue
-!!  allocate ( temp_array(1:new_size) , source=0.0_r4 , stat=ierr )
-!!  call alloc_error("reallocate1_r4","temp_array",1,ierr)
-!!  if (allocated(array)) then
-!!    num_copy = min( size(temp_array) , size(array) )
-!!    temp_array(1:num_copy) = array(1:num_copy)
-!!  end if
-!!  call move_alloc( from=temp_array , to=array )
-!!end subroutine reallocate1_r4
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate1_r8(array,new_size)
-!!  integer, intent(in) :: new_size
-!!  real(r8), allocatable, dimension(:), intent(inout) :: array
-!!  real(r8), allocatable, dimension(:) :: temp_array
-!!  integer :: ierr,num_copy
-!!continue
-!!  allocate ( temp_array(1:new_size) , source=0.0_r8 , stat=ierr )
-!!  call alloc_error("reallocate1_r8","temp_array",1,ierr)
-!!  if (allocated(array)) then
-!!    num_copy = min( size(temp_array) , size(array) )
-!!    temp_array(1:num_copy) = array(1:num_copy)
-!!  end if
-!!  call move_alloc( from=temp_array , to=array )
-!!end subroutine reallocate1_r8
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate1_c(array,new_size)
-!!  integer, intent(in) :: new_size
-!!  character(len=*), allocatable, dimension(:), intent(inout) :: array
-!!  character(len=len(array)), allocatable, dimension(:) :: temp_array
-!!  integer :: ierr,num_copy
-!!continue
-!! !write (iout,1) size(array),new_size
-!!  allocate ( temp_array(1:new_size) , stat=ierr )
-!!  call alloc_error("reallocate1_c","temp_array",1,ierr)
-!!  if (allocated(array)) then
-!!    num_copy = min( size(temp_array) , size(array) )
-!!    temp_array(1:num_copy) = array(1:num_copy)
-!!  end if
-!!  call move_alloc( from=temp_array , to=array )
-!!  1 format ("size(array) = ",i0,"; new_size = ",i0)
-!!end subroutine reallocate1_c
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate2_i4(array,new_size1,new_size2)
-!!  !
-!!  !.. Formal Arguments ..
-!!  integer, optional,                       intent(in) :: new_size1
-!!  integer, optional,                       intent(in) :: new_size2
-!!  integer(i4), allocatable, dimension(:,:), intent(inout) :: array
-!!  !
-!!  !.. Local Scalars ..
-!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-!!  !
-!!  !.. Local Allocatable Arrays ..
-!!  integer(i4), allocatable, dimension(:,:) :: temp_array
-!!  !
-!!continue
-!!  !
-!!  ! Get the old dimensions of array
-!!  !
-!!  temp_size1 = 1
-!!  temp_size2 = 1
-!!  if (allocated(array)) then
-!!    temp_size1 = size(array,1)
-!!    temp_size2 = size(array,2)
-!!  end if
-!!  !
-!!  if (present(new_size1)) temp_size1 = new_size1
-!!  if (present(new_size2)) temp_size2 = new_size2
-!!  !
-!!  ! Allocate the temporary array to store the old contents of array
-!!  !
-!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i4 , stat=ierr )
-!!  call alloc_error("reallocate2_i4","temp_array",1,ierr)
-!!  !
-!!  ! Copy the old contents of array into the temporary array
-!!  !
-!!  if (allocated(array)) then
-!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
-!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
-!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
-!!  end if
-!!  !
-!!  ! move_alloc does:
-!!  !     1. deallocates array
-!!  !     2. allocates array with the same type, type parameters,
-!!  !        array bounds, and value as temp_array
-!!  !     3. deallocates temp_array
-!!  !
-!!  call move_alloc( from=temp_array , to=array )
-!!  !
-!!end subroutine reallocate2_i4
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate2_i8(array,new_size1,new_size2)
-!!  !
-!!  !.. Formal Arguments ..
-!!  integer, optional,                       intent(in) :: new_size1
-!!  integer, optional,                       intent(in) :: new_size2
-!!  integer(i8), allocatable, dimension(:,:), intent(inout) :: array
-!!  !
-!!  !.. Local Scalars ..
-!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-!!  !
-!!  !.. Local Allocatable Arrays ..
-!!  integer(i8), allocatable, dimension(:,:) :: temp_array
-!!  !
-!!continue
-!!  !
-!!  ! Get the old dimensions of array
-!!  !
-!!  temp_size1 = 1
-!!  temp_size2 = 1
-!!  if (allocated(array)) then
-!!    temp_size1 = size(array,1)
-!!    temp_size2 = size(array,2)
-!!  end if
-!!  !
-!!  if (present(new_size1)) temp_size1 = new_size1
-!!  if (present(new_size2)) temp_size2 = new_size2
-!!  !
-!!  ! Allocate the temporary array to store the old contents of array
-!!  !
-!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i8 , stat=ierr )
-!!  call alloc_error("reallocate2_i8","temp_array",1,ierr)
-!!  !
-!!  ! Copy the old contents of array into the temporary array
-!!  !
-!!  if (allocated(array)) then
-!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
-!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
-!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
-!!  end if
-!!  !
-!!  ! move_alloc does:
-!!  !     1. deallocates array
-!!  !     2. allocates array with the same type, type parameters,
-!!  !        array bounds, and value as temp_array
-!!  !     3. deallocates temp_array
-!!  !
-!!  call move_alloc( from=temp_array , to=array )
-!!  !
-!!end subroutine reallocate2_i8
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate2_r4(array,new_size1,new_size2)
-!!  !
-!!  !.. Formal Arguments ..
-!!  integer,  optional,                       intent(in) :: new_size1
-!!  integer,  optional,                       intent(in) :: new_size2
-!!  real(r4), allocatable, dimension(:,:), intent(inout) :: array
-!!  !
-!!  !.. Local Scalars ..
-!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-!!  !
-!!  !.. Local Allocatable Arrays ..
-!!  real(r4), allocatable, dimension(:,:) :: temp_array
-!!  !
-!!continue
-!!  !
-!!  ! Get the old dimensions of array
-!!  !
-!!  temp_size1 = 1
-!!  temp_size2 = 1
-!!  if (allocated(array)) then
-!!    temp_size1 = size(array,1)
-!!    temp_size2 = size(array,2)
-!!  end if
-!!  !
-!!  if (present(new_size1)) temp_size1 = new_size1
-!!  if (present(new_size2)) temp_size2 = new_size2
-!!  !
-!!  ! Allocate the temporary array to store the old contents of array
-!!  !
-!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r4 , stat=ierr )
-!!  call alloc_error("reallocate2_r4","temp_array",1,ierr)
-!!  !
-!!  ! Copy the old contents of array into the temporary array
-!!  !
-!!  if (allocated(array)) then
-!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
-!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
-!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
-!!  end if
-!!  !
-!!  ! move_alloc does:
-!!  !     1. deallocates array
-!!  !     2. allocates array with the same type, type parameters,
-!!  !        array bounds, and value as temp_array
-!!  !     3. deallocates temp_array
-!!  !
-!!  call move_alloc( from=temp_array , to=array )
-!!  !
-!!end subroutine reallocate2_r4
-!!!
-!!!###############################################################################
-!!!
-!!subroutine reallocate2_r8(array,new_size1,new_size2)
-!!  !
-!!  !.. Formal Arguments ..
-!!  integer,  optional,                       intent(in) :: new_size1
-!!  integer,  optional,                       intent(in) :: new_size2
-!!  real(r8), allocatable, dimension(:,:), intent(inout) :: array
-!!  !
-!!  !.. Local Scalars ..
-!!  integer :: temp_size1,temp_size2,num_copy1,num_copy2,ierr
-!!  !
-!!  !.. Local Allocatable Arrays ..
-!!  real(r8), allocatable, dimension(:,:) :: temp_array
-!!  !
-!!continue
-!!  !
-!!  ! Get the old dimensions of array
-!!  !
-!!  temp_size1 = 1
-!!  temp_size2 = 1
-!!  if (allocated(array)) then
-!!    temp_size1 = size(array,1)
-!!    temp_size2 = size(array,2)
-!!  end if
-!!  !
-!!  if (present(new_size1)) temp_size1 = new_size1
-!!  if (present(new_size2)) temp_size2 = new_size2
-!!  !
-!!  ! Allocate the temporary array to store the old contents of array
-!!  !
-!!  allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r8 , stat=ierr )
-!!  call alloc_error("reallocate2_r8","temp_array",1,ierr)
-!!  !
-!!  ! Copy the old contents of array into the temporary array
-!!  !
-!!  if (allocated(array)) then
-!!    num_copy1 = min( size(temp_array,dim=1) , size(array,dim=1) )
-!!    num_copy2 = min( size(temp_array,dim=2) , size(array,dim=2) )
-!!    temp_array(1:num_copy1,1:num_copy2) = array(1:num_copy1,1:num_copy2)
-!!  end if
-!!  !
-!!  ! move_alloc does:
-!!  !     1. deallocates array
-!!  !     2. allocates array with the same type, type parameters,
-!!  !        array bounds, and value as temp_array
-!!  !     3. deallocates temp_array
-!!  !
-!!  call move_alloc( from=temp_array , to=array )
-!!  !
-!!end subroutine reallocate2_r8
-!!!
-!!!###############################################################################
-!!!
 subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag, &
                        iemessag,override_memory_pause)
   !
@@ -1661,12 +1363,12 @@ continue
   !
   ! Format Statements
   !
-  1 format (//,"##################################################################")
-  2 format (   "    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
-  3 format (   "           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
-  4 format (   " STOP ISSUED FROM PROCEDURE '",a,"'")
-  5 format (   " ERROR MESSAGE: '",a,"'")
-  6 format (   "##################################################################",//)
+  1 format (//,66("#"))
+  2 format ("    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
+  3 format ("           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
+  4 format (" STOP ISSUED FROM PROCEDURE '",a,"'")
+  5 format (" ERROR MESSAGE: '",a,"'")
+  6 format (66("#"),//)
   !
 end subroutine stop_recon
 !
@@ -1898,9 +1600,9 @@ continue
     case ("k")
       this%rmem = this%rmem * prefix_multiple
     case ("M")
-      this%rmem = this%rmem * prefix_multiple * prefix_multiple
+      this%rmem = this%rmem * (prefix_multiple**2)
     case ("G")
-      this%rmem = this%rmem * prefix_multiple * prefix_multiple * prefix_multiple
+      this%rmem = this%rmem * (prefix_multiple**3)
   end select
   !
   rmem = obj%rmem
@@ -1908,9 +1610,9 @@ continue
     case ("k")
       rmem = rmem * prefix_multiple
     case ("M")
-      rmem = rmem * prefix_multiple * prefix_multiple
+      rmem = rmem * (prefix_multiple**2)
     case ("G")
-      rmem = rmem * prefix_multiple * prefix_multiple * prefix_multiple
+      rmem = rmem * (prefix_multiple**3)
   end select
   !
   tmp_obj%rmem = this%rmem + rmem
