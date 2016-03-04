@@ -161,6 +161,10 @@ module ovar
   logical, public, save :: use_bc_conflicts = true
   logical, public, save :: dump_memory_usage = fals
   !
+  logical, public, save :: profile_io_all     = fals
+  logical, public, save :: profile_io_cgns    = fals
+  logical, public, save :: profile_io_restart = fals
+  !
   logical, public, save :: output_bnd_profiles = fals
   !
   logical, public, save :: use_unrolled_dot_products = true
@@ -509,6 +513,7 @@ module input_namelist_mod
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
   use ovar,      only : alpha_aoaref, beta_aoaref
+  use ovar,      only : profile_io_all,profile_io_cgns,profile_io_restart
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
   use ovar,      only : Filter_Option, Filter_etac, Filter_Order
   use ovar,      only : Filter_Alpha, Filter_eps
@@ -612,6 +617,8 @@ module input_namelist_mod
   namelist / input / using_curved_boundaries, use_3rd_derivative_metrics
   ! MEMORY USAGE
   namelist / input / dump_memory_usage
+  ! PROFILE PARALLEL IO
+  namelist / input / profile_io_all, profile_io_cgns, profile_io_restart
   ! TEMPORARY DEBUGGING LOGICALS
   namelist / input / use_bc_conflicts, use_advanced_face_metrics
   ! PROFILE OUTPUT OPTIONS
