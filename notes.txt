@@ -73,6 +73,9 @@
   crash since the added new line characters will try to increase the length
   of the string with constant length.
 
+* See 5th sub-item within the item labeled IMPORTANT MEMORY RAMIFICATIONS under
+  the OPTIMIZATION IDEAS / TO-DO LIST section.
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -151,6 +154,19 @@
      consumes additional memory but it adds the benefit of the either the flxpts
      or cell_idx arrays being quicker to load from memory depending on whether
      we are using the face(:) or cell(:) arrays, respectively.
+   - POSSIBLE SOLUTION: A possible solution is to replace these arrays entirely
+     with a single scalar integer that gives the face rotation, from which the
+     order of the face/flux point indices can be found.
+     REASONING: The order of these face/flux point indices is ***I THINK***
+     limited to 1 of 8 possibilities for quad faces (see subroutine
+     RotateFluxPoints_Quad in connectivity.f90) and a yet unknown but finite
+     number of possibilities for triangle faces. If we were to simply store
+     an integer value of in the range [1-8], we should be able to back out
+     the rotation of the face/flux point indices. To prevent having to perform
+     the rotation everytime the indices are used, we could very easily and
+     cheaply store the 8 rotations as use these rotation arrays when we are
+     using the indices. HOWEVER, we will need to store the 8 different
+     rotations for each of the face orders that exist in the simulation.
 
 * Create complimentary variables to maxpts such as maxSP and maxFP so that
   temporary storage can be minimized if we know a temporary array is only used
@@ -166,6 +182,25 @@
 
 * Look at making the default logical use 1 Byte instead of the 4 Bytes it
   currently defaults to.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################             OUTPUT TO-DO LIST              ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* The new continuous output option is going to be nasty for unstructured cell
+  geometries. A possible idea to simplify the stupidness of it would be to use
+  the same structured geometry type output and subdivide the unstructured
+  geometries into quads or hexes, e.g. a triangle can be turned into three
+  quadrilaterals. However, this adds some new complications since the
+  information for the face, edge, and node points for the parts of the new quad
+  cells that used to be the interior of the triangle does not exist. This path
+  could end up just as nasty if not worse, so be forewarned.
 
 ################################################################################
 ################################################################################
