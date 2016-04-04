@@ -15,6 +15,9 @@ module connectivity_mod
   public :: get_grid_connectivity
   public :: find_cells_surrounding_each_node
   public :: find_cells_surrounding_each_cell
+  public :: find_nodes_on_each_edge
+  public :: find_cells_surrounding_each_edge
+  public :: create_face_derived_type
   !
   public :: GetFaceNodes_for_QuadFace
   public :: GetFaceNodes_for_TriaFace
