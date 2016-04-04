@@ -1579,8 +1579,8 @@ continue
       ! and in the correct ABCD ordering needed for the RotateFluxPoints_Quad
       ! function.
       !
-      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_geom,left_side, &
-                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       ! Find the face rotation between the two cells on the interface and use
@@ -1598,8 +1598,8 @@ continue
       !
     else if (face_geom == Geom_Tria) then
       !
-      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_geom,left_side, &
-                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       face(nf)%right%flxpts = RotateFluxPoints_Tria(left_nodes(1:nfnods), &

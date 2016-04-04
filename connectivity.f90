@@ -1056,8 +1056,8 @@ continue
       ! and in the correct ABCD ordering needed for the RotateFluxPoints_Quad
       ! function.
       !
-      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_geom,left_side, &
-                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       ! Find the face rotation between the two cells on the interface and use
@@ -1076,8 +1076,8 @@ continue
       !
     else if (face_geom == Geom_Tria) then
       !
-      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_geom,left_side, &
-                                     nodes_of_cell(r1:r2),right_geom,right_side, &
+      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
                                      left_nodes(1:nfnods),right_nodes(1:nfnods))
       !
       face(nf)%right%flxpts = face_pts + &
@@ -1118,19 +1118,21 @@ end subroutine create_face_derived_type
 !
 !###############################################################################
 !
-subroutine GetFaceNodes_for_QuadFace(left_cell_nodes,left_geom,left_side, &
-                                     right_cell_nodes,right_geom,right_side, &
+subroutine GetFaceNodes_for_QuadFace(left_cell_nodes,left_side, &
+                                     right_cell_nodes,right_side, &
                                      left_face_nodes,right_face_nodes)
   !
   !.. Formal Arguments ..
   integer, dimension(:),    intent(in) :: left_cell_nodes
-  integer,                  intent(in) :: left_geom
   integer,                  intent(in) :: left_side
   integer, dimension(:),    intent(in) :: right_cell_nodes
-  integer,                  intent(in) :: right_geom
   integer,                  intent(in) :: right_side
   integer, dimension(:), intent(inout) :: left_face_nodes
   integer, dimension(:), intent(inout) :: right_face_nodes
+  !
+  !.. Local Scalars ..
+  integer :: i,left_geom,right_geom
+  integer :: left_ncnods,right_ncnods
   !
   !.. Local Arrays ..
   integer, dimension(1:4) :: ip
@@ -1139,8 +1141,40 @@ subroutine GetFaceNodes_for_QuadFace(left_cell_nodes,left_geom,left_side, &
   integer, parameter :: flip_left_hand_to_right_hand(1:4) = [1,4,3,2]
   integer, parameter :: min_face_ABCD(1:4) = [4,2,1,3]
   integer, parameter :: max_face_ABCD(1:4) = [2,4,1,3]
+  integer, parameter :: ncnod_to_geom(4:8) = [Geom_Quad,Geom_Pyra,Geom_Pris, &
+                                              Geom_Unknown,Geom_Hexa]
+  !
+  character(len=*), parameter :: pname = "GetFaceNodes_for_QuadFace"
   !
 continue
+  !
+  ! Count the number of cell nodes for the left and right cells
+  !
+  left_ncnods  = size( left_cell_nodes)
+  right_ncnods = size(right_cell_nodes)
+  !
+  ! Make sure the number of nodes for the left cell is between 5 and 8 because
+  ! only pyramids, prisms, and hexahedra are valid geometries for the left cell
+  !
+  if ( left_ncnods < 5 .or. left_ncnods > 8 ) then
+    write (error_message,1) ("left",i=1,3),left_ncnods
+    call stop_recon(abort,pname,error_message)
+  end if
+  !
+  ! Make sure the number of nodes for the right cell is between 4 and 8 because
+  ! only pyramids, prisms, hexahedra and quadrilateral boundary faces are valid
+  ! geometries for the right cell
+  !
+  if ( right_ncnods < 4 .or. right_ncnods > 8 ) then
+    write (error_message,2) ("right",i=1,3),right_ncnods
+    call stop_recon(abort,pname,error_message)
+  end if
+  !
+  ! Get the geometry of the left and right cells from the number of nodes
+  ! defining the cells
+  !
+  left_geom  = ncnod_to_geom( left_ncnods)
+  right_geom = ncnod_to_geom(right_ncnods)
   !
   ! Get the nodes of the left cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
@@ -1194,6 +1228,13 @@ continue
         ip = ip( max_face_ABCD )
       end if
       !
+    case default
+      !
+      ! ERROR! This geometry is invalid
+      !
+      write (error_message,2) ("left",i=1,2),left_geom
+      call stop_recon(abort,pname,error_message)
+      !
   end select
   !
   ! Extract the nodes of the left cell on the interface in the order [a,b,c,d]
@@ -1227,11 +1268,11 @@ continue
       !
     case (Geom_Hexa)
       !
-      ! If the side of the right cell on the interface is either a Y-min or Y-max
-      ! face, we need to flip the second and fourth indices. This is because the
-      ! vectors 'a' and 'b' for 'Y' faces dont follow the standard rotation of a
-      ! right-handed coordinate system like the 'X' and 'Z' face do. To further
-      ! illustrate: 
+      ! If the side of the right cell on the interface is either a Y-min or
+      ! Y-max face, we need to flip the second and fourth indices. This is
+      ! because the vectors 'a' and 'b' for 'Y' faces dont follow the standard
+      ! rotation of a right-handed coordinate system like the 'X' and 'Z' face
+      ! do. To further illustrate: 
       !               For a 'Z' face:   a -> 'X'   and   b -> 'Y'
       !               For a 'X' face:   a -> 'Y'   and   b -> 'Z'
       !
@@ -1259,34 +1300,87 @@ continue
         ip = ip( max_face_ABCD )
       end if
       !
+    case default
+      !
+      ! ERROR! This geometry is invalid
+      !
+      write (error_message,2) ("right",i=1,2),right_geom
+      call stop_recon(abort,pname,error_message)
+      !
   end select
   !
   ! Extract the nodes of the right cell on the interface in the order [a,b,c,d]
   !
   right_face_nodes = right_cell_nodes( ip )
   !
+  ! Format Statements
+  !
+  1 format ("ERROR! The number of cell nodes contained in ",a,"_cell_nodes ", &
+            "does not match a valid geometry for the ",a," cell on an ", &
+            "interface. The number of cell nodes in ",a,"_cell_nodes is ", &
+            i0,".")
+  2 format ("ERROR! Encountered an invalid geometry when trying to find ", &
+            "the nodes of the ",a," cell on the interface in the order ", &
+            "[a,b,c,d]. The value of ",a,"_geom is ",i0".")
+  !
 end subroutine GetFaceNodes_for_QuadFace
 !
 !###############################################################################
 !
-subroutine GetFaceNodes_for_TriaFace(left_cell_nodes,left_geom,left_side, &
-                                     right_cell_nodes,right_geom,right_side, &
+subroutine GetFaceNodes_for_TriaFace(left_cell_nodes,left_side, &
+                                     right_cell_nodes,right_side, &
                                      left_face_nodes,right_face_nodes)
   !
   !.. Formal Arguments ..
   integer, dimension(:),    intent(in) :: left_cell_nodes
-  integer,                  intent(in) :: left_geom
   integer,                  intent(in) :: left_side
   integer, dimension(:),    intent(in) :: right_cell_nodes
-  integer,                  intent(in) :: right_geom
   integer,                  intent(in) :: right_side
   integer, dimension(:), intent(inout) :: left_face_nodes
   integer, dimension(:), intent(inout) :: right_face_nodes
   !
+  !.. Local Scalars ..
+  integer :: i,left_geom,right_geom
+  integer :: left_ncnods,right_ncnods
+  !
   !.. Local Arrays ..
   integer, dimension(1:3) :: ip
   !
+  !.. Local Parameters ..
+  integer, parameter :: ncnod_to_geom(3:6) = [Geom_Tria,Geom_Tetr, &
+                                              Geom_Pyra,Geom_Pris]
+  !
+  character(len=*), parameter :: pname = "GetFaceNodes_for_TriaFace"
+  !
 continue
+  !
+  ! Count the number of cell nodes for the left and right cells
+  !
+  left_ncnods  = size( left_cell_nodes)
+  right_ncnods = size(right_cell_nodes)
+  !
+  ! Make sure the number of nodes for the left cell is between 4 and 6 because
+  ! only tetrahedra, pyramids, and prisms are valid geometries for the left cell
+  !
+  if ( left_ncnods < 4 .or. left_ncnods > 6 ) then
+    write (error_message,1) ("left",i=1,3),left_ncnods
+    call stop_recon(abort,pname,error_message)
+  end if
+  !
+  ! Make sure the number of nodes for the right cell is between 3 and 6 because
+  ! only tetrahedra, pyramids, prisms, and triangular boundary faces are valid
+  ! geometries for the right cell
+  !
+  if ( right_ncnods < 3 .or. right_ncnods > 6 ) then
+    write (error_message,2) ("right",i=1,3),right_ncnods
+    call stop_recon(abort,pname,error_message)
+  end if
+  !
+  ! Get the geometry of the left and right cells from the number of nodes
+  ! defining the cells
+  !
+  left_geom  = ncnod_to_geom( left_ncnods)
+  right_geom = ncnod_to_geom(right_ncnods)
   !
   ! Get the nodes of the left cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
@@ -1307,6 +1401,13 @@ continue
     case (Geom_Pyra)
       !
     case (Geom_Pris)
+      !
+    case default
+      !
+      ! ERROR! This geometry is invalid
+      !
+      write (error_message,2) ("left",i=1,2),left_geom
+      call stop_recon(abort,pname,error_message)
       !
   end select
   !
@@ -1339,11 +1440,28 @@ continue
       !
     case (Geom_Pris)
       !
+    case default
+      !
+      ! ERROR! This geometry is invalid
+      !
+      write (error_message,2) ("right",i=1,2),right_geom
+      call stop_recon(abort,pname,error_message)
+      !
   end select
   !
   ! Extract the nodes of the right cell on the interface
   !
   right_face_nodes = right_cell_nodes( ip )
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR! The number of cell nodes contained in ",a,"_cell_nodes ", &
+            "does not match a valid geometry for the ",a," cell on an ", &
+            "interface. The number of cell nodes in ",a,"_cell_nodes is ", &
+            i0,".")
+  2 format ("ERROR! Encountered an invalid geometry when trying to find ", &
+            "the nodes of the ",a," cell on the interface in the order ", &
+            "[a,b,c]. The value of ",a,"_geom is ",i0".")
   !
 end subroutine GetFaceNodes_for_TriaFace
 !
