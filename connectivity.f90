@@ -398,9 +398,9 @@ end subroutine find_cells_surrounding_each_node
 !###############################################################################
 !
 subroutine find_cells_surrounding_each_cell(bface,cell_geom, &
-                                            nodes_of_cell,nodes_of_cell_ptr, &
-                                            cells_with_node,cells_with_node_ptr, &
-                                            cells_surr_cell,cells_surr_cell_ptr)
+                                          nodes_of_cell,nodes_of_cell_ptr, &
+                                          cells_with_node,cells_with_node_ptr, &
+                                          cells_surr_cell,cells_surr_cell_ptr)
   !
   ! Find the cells that surround each cell
   !
@@ -507,7 +507,7 @@ continue
       !
       ! Loop over the cells that contain the first node on the face
       !
-      do i = i1,i2
+      find_cell: do i = i1,i2
         !
         ! Current cell containing this node
         !
@@ -515,7 +515,7 @@ continue
         !
         ! Skip to the next cell if this is the current cell we are working on
         !
-        if (j == n) cycle
+        if (j == n) cycle find_cell
         !
         ! Get the beginning and ending indices of the nodes defining the
         ! possible adjacent cell
@@ -528,11 +528,11 @@ continue
         ! this is the adjacent cell to the current face.
         !
         if (sum(lpoin(nodes_of_cell(j1:j2))) == nfnods) then
-          ieadj = j
-          exit
+          ieadj = cells_with_node(i)
+          exit find_cell
         end if
         !
-      end do
+      end do find_cell
       !
       ! Store the adjacent cell index
       !
@@ -557,8 +557,8 @@ subroutine create_face_derived_type(bface,cell_geom, &
                                     nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_surr_cell,cells_surr_cell_ptr)
   !
-  ! Procedure that creates the face and nodes_on_face arrays. Look in
-  ! the module geovar for definitions of each array.
+  ! Procedure that creates the face array.
+  ! Look in the module geovar for the definition of the derived type.
   !
   !.. Use Statements ..
   use order_mod, only : geom_solpts
@@ -773,9 +773,8 @@ continue
   ! ###########
   ! ###########
   !
-  ! For the face vector going from nodes_on_face(1,nf) to nodes_on_face(2,nf),
-  ! this is a test to make sure that face(nf)%left%cell is to the left of
-  ! this face vector and face(nf)%right%cell is on the right
+  ! This is a test to make sure that face(nf)%left%cell is on the left side of
+  ! this face and face(nf)%right%cell is on the right side
   !
   ic = 0
   do nf = nfbnd+1,nface
@@ -838,6 +837,8 @@ continue
   ! ###  5  ###
   ! ###########
   ! ###########
+  !
+  ! Allocate the array for marking the face nodes of a cell
   !
   allocate ( lpoin(1:nnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,ierr,error_message)
@@ -1046,9 +1047,6 @@ continue
       ! points for the left cell.
       !
       face(nf)%right%flxpts = face_pts + intseq(nfp-1,0,-1)
-     !do n = 1,nfp
-     !  face(nf)%right%flxpts(n) = face_pts + nfp - n
-     !end do
       !
     else if (face_geom == Geom_Quad) then
       !
@@ -1072,7 +1070,9 @@ continue
       ! If the previous function made no changes, mark that there was an error
       ! finding the correct face rotation between cells.
       !
-      if (all(face(nf)%right%flxpts == face_pts)) error_finding_rotation = true
+      if (all(face(nf)%right%flxpts == face_pts)) then
+        error_finding_rotation = true
+      end if
       !
     else if (face_geom == Geom_Tria) then
       !
@@ -1085,7 +1085,9 @@ continue
                                                     right_nodes(1:nfnods), &
                                                     nfp)
       !
-      if (all(face(nf)%right%flxpts == face_pts)) error_finding_rotation = true
+      if (all(face(nf)%right%flxpts == face_pts)) then
+        error_finding_rotation = true
+      end if
       !
     end if
     !
@@ -1485,10 +1487,11 @@ pure function RotateFluxPoints_Quad(abcd_left,abcd_right,face_order) &
   integer, dimension(1:face_order+1,1:face_order+1) :: fp_idx
   !
   !.. Local Parameters ..
-  integer, parameter :: rotation(1:4,1:8) = reshape( [1,2,3,4, 4,3,2,1, &
-                                                      3,4,1,2, 2,1,4,3, &
-                                                      2,1,3,4, 4,3,1,2, &
-                                                      3,4,2,1, 1,2,4,3] , [4,8] )
+  integer, parameter :: rotation(1:4,1:8) = &
+                                         reshape( [1,2,3,4, 4,3,2,1, &
+                                                   3,4,1,2, 2,1,4,3, &
+                                                   2,1,3,4, 4,3,1,2, &
+                                                   3,4,2,1, 1,2,4,3] , [4,8] )
   !
 continue
   !
@@ -2739,11 +2742,11 @@ continue
   !
   write (iout,2) mypnum,"ledge",ledge
   write (iout,2) mypnum,"size(edges_with_node)",size(edges_with_node)
-  2 format (" CPU-",i0," : ",a," = ",i0)
   !
   ! Format Statements
   !
   1 format ("ERROR! The number of edges found with nodes is inconsistent!")
+  2 format (" CPU-",i0," : ",a," = ",i0)
   !
 end subroutine find_nodes_on_each_edge
 !
@@ -2880,7 +2883,7 @@ continue
       !
       if (any(other_node == nodes_of_cell(n1:n2))) then
         next_cell_idx = cells_with_edge_ptr(this_edge) + 1
-        cells_with_edge(next_cell_idx) = this_cell
+        cells_with_edge(next_cell_idx) = cells_with_node(i)
         cells_with_edge_ptr(this_edge) = next_cell_idx
       end if
       !
