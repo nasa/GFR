@@ -801,44 +801,44 @@ continue
   edge_nodes(1:2,3,Geom_Quad) = [2,3]
   edge_nodes(1:2,4,Geom_Quad) = [3,0]
   !
-  edge_nodes(1:2,1,Geom_Tetr) = [1,2]
-  edge_nodes(1:2,2,Geom_Tetr) = [2,3]
-  edge_nodes(1:2,3,Geom_Tetr) = [3,1]
-  edge_nodes(1:2,4,Geom_Tetr) = [2,0]
-  edge_nodes(1:2,5,Geom_Tetr) = [0,3]
-  edge_nodes(1:2,6,Geom_Tetr) = [0,1]
+  edge_nodes(1:2,1,Geom_Tetr) = [0,1]
+  edge_nodes(1:2,2,Geom_Tetr) = [1,2]
+  edge_nodes(1:2,3,Geom_Tetr) = [2,0]
+  edge_nodes(1:2,4,Geom_Tetr) = [0,3]
+  edge_nodes(1:2,5,Geom_Tetr) = [1,3]
+  edge_nodes(1:2,6,Geom_Tetr) = [2,3]
   !
-  edge_nodes(1:2,1,Geom_Pyra) = [1,2]
-  edge_nodes(1:2,2,Geom_Pyra) = [2,4]
-  edge_nodes(1:2,3,Geom_Pyra) = [4,1]
-  edge_nodes(1:2,4,Geom_Pyra) = [2,3]
-  edge_nodes(1:2,5,Geom_Pyra) = [3,4]
-  edge_nodes(1:2,6,Geom_Pyra) = [3,0]
-  edge_nodes(1:2,7,Geom_Pyra) = [0,4]
-  edge_nodes(1:2,8,Geom_Pyra) = [0,1]
+  edge_nodes(1:2,1,Geom_Pyra) = [0,1]
+  edge_nodes(1:2,2,Geom_Pyra) = [1,2]
+  edge_nodes(1:2,3,Geom_Pyra) = [2,3]
+  edge_nodes(1:2,4,Geom_Pyra) = [3,0]
+  edge_nodes(1:2,5,Geom_Pyra) = [0,4]
+  edge_nodes(1:2,6,Geom_Pyra) = [1,4]
+  edge_nodes(1:2,7,Geom_Pyra) = [2,4]
+  edge_nodes(1:2,8,Geom_Pyra) = [3,4]
   !
-  edge_nodes(1:2,1,Geom_Pris) = [0,2]
-  edge_nodes(1:2,2,Geom_Pris) = [2,1]
-  edge_nodes(1:2,3,Geom_Pris) = [1,0]
-  edge_nodes(1:2,4,Geom_Pris) = [3,4]
-  edge_nodes(1:2,5,Geom_Pris) = [4,5]
-  edge_nodes(1:2,6,Geom_Pris) = [5,3]
-  edge_nodes(1:2,7,Geom_Pris) = [1,4]
-  edge_nodes(1:2,8,Geom_Pris) = [3,0]
-  edge_nodes(1:2,9,Geom_Pris) = [2,5]
+  edge_nodes(1:2,1,Geom_Pris) = [0,1]
+  edge_nodes(1:2,2,Geom_Pris) = [1,2]
+  edge_nodes(1:2,3,Geom_Pris) = [2,0]
+  edge_nodes(1:2,4,Geom_Pris) = [0,3]
+  edge_nodes(1:2,5,Geom_Pris) = [1,4]
+  edge_nodes(1:2,6,Geom_Pris) = [2,5]
+  edge_nodes(1:2,7,Geom_Pris) = [3,4]
+  edge_nodes(1:2,8,Geom_Pris) = [4,5]
+  edge_nodes(1:2,9,Geom_Pris) = [5,3]
   !
   edge_nodes(1:2, 1,Geom_Hexa) = [0,3]
   edge_nodes(1:2, 2,Geom_Hexa) = [3,2]
   edge_nodes(1:2, 3,Geom_Hexa) = [2,1]
   edge_nodes(1:2, 4,Geom_Hexa) = [1,0]
-  edge_nodes(1:2, 5,Geom_Hexa) = [4,5]
-  edge_nodes(1:2, 6,Geom_Hexa) = [5,6]
-  edge_nodes(1:2, 7,Geom_Hexa) = [6,7]
-  edge_nodes(1:2, 8,Geom_Hexa) = [7,4]
-  edge_nodes(1:2, 9,Geom_Hexa) = [2,6]
-  edge_nodes(1:2,10,Geom_Hexa) = [5,1]
-  edge_nodes(1:2,11,Geom_Hexa) = [0,4]
-  edge_nodes(1:2,12,Geom_Hexa) = [7,3]
+  edge_nodes(1:2, 5,Geom_Hexa) = [0,4]
+  edge_nodes(1:2, 6,Geom_Hexa) = [1,5]
+  edge_nodes(1:2, 7,Geom_Hexa) = [2,6]
+  edge_nodes(1:2, 8,Geom_Hexa) = [3,7]
+  edge_nodes(1:2, 9,Geom_Hexa) = [4,5]
+  edge_nodes(1:2,10,Geom_Hexa) = [5,6]
+  edge_nodes(1:2,11,Geom_Hexa) = [6,7]
+  edge_nodes(1:2,12,Geom_Hexa) = [7,4]
   !
   ! Nodes defining the faces of each geometry
   !
@@ -848,6 +848,13 @@ continue
   side_nodes(1:2,1,Geom_Tria) = [0,1]
   side_nodes(1:2,2,Geom_Tria) = [1,2]
   side_nodes(1:2,3,Geom_Tria) = [2,0]
+  !
+ !integer, parameter :: Ymin2D_Face = 1
+ !integer, parameter :: Xmax2D_Face = 2
+ !integer, parameter :: Ymax2D_Face = 3
+ !integer, parameter :: Xmin2D_Face = 4
+ !integer, parameter :: Zmin2D_Face = 0
+ !integer, parameter :: Zmax2D_Face = 0
   !
   side_nodes(1:2,Ymin2D_Face,Geom_Quad) = Ymin2D ! [0,1]
   side_nodes(1:2,Xmax2D_Face,Geom_Quad) = Xmax2D ! [1,2]
@@ -870,6 +877,13 @@ continue
   side_nodes(1:4,3,Geom_Pris) = [0,1,4,3]
   side_nodes(1:4,4,Geom_Pris) = [1,2,5,4]
   side_nodes(1:4,5,Geom_Pris) = [3,5,2,0]
+  !
+ !integer, parameter :: Zmin3D_Face = 1
+ !integer, parameter :: Zmax3D_Face = 2
+ !integer, parameter :: Xmax3D_Face = 3
+ !integer, parameter :: Xmin3D_Face = 4
+ !integer, parameter :: Ymin3D_Face = 5
+ !integer, parameter :: Ymax3D_Face = 6
   !
   side_nodes(1:4,Zmin3D_Face,Geom_Hexa) = Zmin3D ! [0,3,2,1]
   side_nodes(1:4,Zmax3D_Face,Geom_Hexa) = Zmax3D ! [4,5,6,7]
