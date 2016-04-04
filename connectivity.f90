@@ -79,12 +79,15 @@ continue
   !
   if (continuous_output) then
     !
-    ! Get the nodes defining each edge as well as the edges surrounding each node
+    ! Get the nodes defining each edge as well as the edges
+    ! surrounding each node
     !
-    call find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
+    call find_nodes_on_each_edge(cell_geom, &
+                                 nodes_of_cell,nodes_of_cell_ptr, &
                                  cells_with_node,cells_with_node_ptr, &
-                                 edges_with_node,edges_with_node_ptr, &
                                  nodes_on_edge)
+                                !nodes_on_edge, &
+                                !edges_with_node,edges_with_node_ptr)
     !
     ! Get the cells that surround each edge
     !
@@ -2479,10 +2482,11 @@ end subroutine get_unit_cell_subconnectivity
 !
 !###############################################################################
 !
-subroutine find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
+subroutine find_nodes_on_each_edge(cell_geom, &
+                                   nodes_of_cell,nodes_of_cell_ptr, &
                                    cells_with_node,cells_with_node_ptr, &
-                                   edges_with_node,edges_with_node_ptr, &
-                                   nodes_on_edge)
+                                   nodes_on_edge, &
+                                   edges_with_node,edges_with_node_ptr)
   !
   !.. Formal Arguments ..
   integer,              dimension(:),      intent(in) :: cell_geom
@@ -2490,9 +2494,11 @@ subroutine find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
   integer,              dimension(:),      intent(in) :: nodes_of_cell_ptr
   integer,              dimension(:),      intent(in) :: cells_with_node
   integer,              dimension(:),      intent(in) :: cells_with_node_ptr
-  integer, allocatable, dimension(:),   intent(inout) :: edges_with_node
-  integer, allocatable, dimension(:),   intent(inout) :: edges_with_node_ptr
   integer, allocatable, dimension(:,:), intent(inout) :: nodes_on_edge
+  !
+  !.. Optional Arguments ..
+  integer, optional, allocatable, intent(inout) :: edges_with_node(:)
+  integer, optional, allocatable, intent(inout) :: edges_with_node_ptr(:)
   !
   !.. Local Scalars ..
   integer :: i,ibeg,iend,ierr,idx,np,n1,n2,lnode,ledge
@@ -2526,21 +2532,12 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edge_already_found",1,ierr,error_message)
   !
-  allocate ( edges_with_node_ptr(1:lnode+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edges_with_node_ptr",1,ierr,error_message)
-  !
   ! Loop through the grid nodes and count the number of edges that
   ! contain each node
   !
   unique_edges = 0
   !
   node_count_loop: do this_node = 1,lnode
-    !
-    ! Initialize edges_with_node_ptr(this_node+1) to the value in
-    ! edges_with_node_ptr(this_node) to make the array cumulative
-    !
-    edges_with_node_ptr(this_node+1) = edges_with_node_ptr(this_node)
     !
     ! Beginning and ending indices for the cells surrounding the current node
     !
@@ -2587,12 +2584,6 @@ continue
         ! edge and arent counted twice.
         !
         if (other_node > this_node) unique_edges = unique_edges + 1
-        !
-        ! Regardless of which node index is greater, increase the edge counter
-        ! for this node by one so that later we can add this edge to the list
-        ! of edges containing the current node
-        !
-        edges_with_node_ptr(this_node+1) = edges_with_node_ptr(this_node+1) + 1
         !
         ! Mark the edge between this_node and other_node as already found
         !
@@ -2712,36 +2703,62 @@ continue
   !#########################################################################
   !#########################################################################
   !
-  ! Allocate the edges_with_node array
-  !
-  allocate ( edges_with_node(1:last(edges_with_node_ptr)) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edges_with_node",1,ierr,error_message)
-  !
-  ! Add each edge to the list of attached edges for the two nodes
-  ! defining the edge
-  !
-  do this_edge = 1,ledge
-    do i = 1,2
-      this_node = nodes_on_edge(i,this_edge)
-      next_edge_idx = edges_with_node_ptr(this_node) + 1
-      edges_with_node(next_edge_idx) = this_edge
-      edges_with_node_ptr(this_node) = next_edge_idx
+  if (present(edges_with_node_ptr) .and. present(edges_with_node)) then
+    !
+    ! Allocate the edges_with_node_ptr array
+    !
+    allocate ( edges_with_node_ptr(1:lnode+1) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edges_with_node_ptr",1,ierr,error_message)
+    !
+    ! Create the edges_with_node_ptr array
+    !
+    do this_edge = 1,ledge
+      do i = 1,2
+        this_node = nodes_on_edge(i,this_edge) + 1
+        edges_with_node_ptr(this_node) = edges_with_node_ptr(this_node) + 1
+      end do
     end do
-  end do
-  !
-  ! The previous loop has shifted edges_with_node_ptr left 1 index so we
-  ! need to shift it back to the right 1 index
-  !
-  edges_with_node_ptr = eoshift( edges_with_node_ptr , shift=-1 , boundary=0 )
-  !
-  if (last(edges_with_node_ptr) /= size(edges_with_node)) then
-    write (error_message,1)
-    call stop_recon(stop_mpi,pname,error_message)
+    !
+    ! Reshuffle edges_with_node_ptr so that its cumulative
+    !
+    do this_node = 2,size(edges_with_node_ptr)
+      edges_with_node_ptr(this_node) = edges_with_node_ptr(this_node) + &
+                                       edges_with_node_ptr(this_node-1)
+    end do
+    !
+    ! Allocate the edges_with_node array
+    !
+    allocate ( edges_with_node(1:last(edges_with_node_ptr)) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edges_with_node",1,ierr,error_message)
+    !
+    ! Add each edge to the list of attached edges for the two nodes
+    ! defining the edge
+    !
+    do this_edge = 1,ledge
+      do i = 1,2
+        this_node = nodes_on_edge(i,this_edge)
+        next_edge_idx = edges_with_node_ptr(this_node) + 1
+        edges_with_node(next_edge_idx) = this_edge
+        edges_with_node_ptr(this_node) = next_edge_idx
+      end do
+    end do
+    !
+    ! The previous loop has shifted edges_with_node_ptr left 1 index so we
+    ! need to shift it back to the right 1 index
+    !
+    edges_with_node_ptr = eoshift( edges_with_node_ptr , shift=-1 , boundary=0 )
+    !
+    if (last(edges_with_node_ptr) /= size(edges_with_node)) then
+      write (error_message,1)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
+    write (iout,2) mypnum,"ledge",ledge
+    write (iout,2) mypnum,"size(edges_with_node)",size(edges_with_node)
+    !
   end if
-  !
-  write (iout,2) mypnum,"ledge",ledge
-  write (iout,2) mypnum,"size(edges_with_node)",size(edges_with_node)
   !
   ! Format Statements
   !
