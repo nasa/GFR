@@ -24,7 +24,7 @@ contains
 !
 !###############################################################################
 !
-subroutine get_grid_connectivity(bface,cell_geom, &
+subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
                                  nodes_of_cell,nodes_of_cell_ptr)
   !
   !.. Use Statements ..
@@ -33,8 +33,10 @@ subroutine get_grid_connectivity(bface,cell_geom, &
   !.. Formal Arguments ..
   integer,  dimension(:,:), intent(in) :: bface
   integer,  dimension(:),   intent(in) :: cell_geom
+  integer,  dimension(:),   intent(in) :: cell_order
   integer,  dimension(:),   intent(in) :: nodes_of_cell
   integer,  dimension(:),   intent(in) :: nodes_of_cell_ptr
+  real(wp), dimension(:,:), intent(in) :: xyz_nodes
   !
   !.. Local Scalars ..
   integer :: ierr
