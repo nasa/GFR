@@ -567,7 +567,7 @@ subroutine create_face_derived_type(bface,cell_geom, &
   use order_mod, only : geom_solpts
   use order_mod, only : find_geom_max_interp_order
   use geovar,    only : nr,nnode,nfbnd,nface,ncell
-  use geovar,    only : face,nodes_on_face
+  use geovar,    only : face
   use geovar,    only : xyz_nodes,cell_order
   !
   !.. Formal Arguments ..
@@ -638,10 +638,6 @@ continue
   allocate ( face(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face",1,ierr,error_message)
   !
-  allocate ( nodes_on_face(1:4,1:nface) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_on_face",1,ierr,error_message)
-  !
   allocate ( faces_of_cell(1:6,1:ncell) , source=-99 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
@@ -678,7 +674,7 @@ continue
     !
     ! Store the nodes on this boundary face
     !
-    nodes_on_face(1:nfnods,nf) = nodes_of_cell( n1 + ip(1:nfnods) )
+    face(nf)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
     !
     ! Store the geometry of this face
     !
@@ -739,7 +735,7 @@ continue
         !
         ! Store the nodes on this interior face
         !
-        nodes_on_face(1:nfnods,face_counter) = nodes_of_cell( n1 + ip(1:nfnods) )
+        face(face_counter)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
         !
         ! Store the geometry of this face
         !
@@ -793,7 +789,7 @@ continue
     !
     ! Coordinates of the nodes on this face
     !
-    xyz_face(1:nr,1:nfnods) = xyz_nodes(1:nr,nodes_on_face(1:nfnods,nf))
+    xyz_face(1:nr,1:nfnods) = xyz_nodes(1:nr,face(nf)%nodes(1:nfnods))
     !
     ! Coordinates of the center of this face
     !
@@ -828,7 +824,7 @@ continue
     ! to be stored in face(nf)%left%cell
     !
     if (dir < zero) then
-      write (*,1) nf,(nodes_on_face(i,nf),i=1,nfnods)
+      write (*,1) nf,(face(nf)%nodes(i),i=1,nfnods)
       ic = 1
     end if
     !
@@ -854,7 +850,7 @@ continue
     !
     ! Mark the nodes on the current face
     !
-    lpoin( nodes_on_face(1:nfnods,nf) ) = 1
+    lpoin( face(nf)%nodes(1:nfnods) ) = 1
     !
     ! Information for the right cell on the face
     !
