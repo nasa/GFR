@@ -307,8 +307,8 @@ module geovar
   !                  (this is only used for output)
   !
   type, public :: node_of_cell_t
-    ! node_idx : index of this node within the nodeusp and nodedusp arrays
-    integer :: node_idx
+    ! idx : index of this node within the nodeusp and nodedusp arrays
+    integer :: idx
     ! ave_coef : gives the coefficient needed to compute an average
     !            i.e., ave_coef = 1/(number of cells that contain this node)
     real(wp) :: ave_coef
@@ -469,7 +469,7 @@ continue
    !  integer, allocatable :: cell_idx(:)
    !end type edge_of_cell_t
    !type, public :: node_of_cell_t
-   !  integer :: node_idx
+   !  integer :: idx
    !  real(wp) :: ave_coef
    !  integer :: cell_idx
    !end type node_of_cell_t
@@ -557,7 +557,7 @@ continue
         !
         do j = lbound(cell(i)%node,dim=1),ubound(cell(i)%node,dim=1)
           !
-          call dt%add( storage_size(cell(i)%node(j)%node_idx,kind=inttype) )
+          call dt%add( storage_size(cell(i)%node(j)%idx,kind=inttype) )
           call dt%add( storage_size(cell(i)%node(j)%ave_coef,kind=inttype) )
           call dt%add( storage_size(cell(i)%node(j)%cell_idx,kind=inttype) )
           !

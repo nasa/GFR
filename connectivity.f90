@@ -1955,7 +1955,7 @@ continue
       !
       l = n-np1+1
       !
-      cell(this_cell)%node(l)%node_idx = this_node
+      cell(this_cell)%node(l)%idx = this_node
       cell(this_cell)%node(l)%ave_coef = one / real(nc2-nc1+1,kind=wp)
       !
     end do
