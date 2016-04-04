@@ -181,8 +181,10 @@ end subroutine get_grid_connectivity
 !###############################################################################
 !
 subroutine find_cells_surrounding_each_node(bface, &
-                                            nodes_of_cell,nodes_of_cell_ptr, &
-                                            cells_with_node,cells_with_node_ptr)
+                                          nodes_of_cell,nodes_of_cell_ptr, &
+                                          cells_with_node,cells_with_node_ptr, &
+                                          include_bnd_faces, &
+                                          make_bnd_faces_negative)
   !
   ! Find the cells that surround each node
   !
@@ -198,9 +200,15 @@ subroutine find_cells_surrounding_each_node(bface, &
   integer, allocatable, dimension(:), intent(inout) :: cells_with_node
   integer, allocatable, dimension(:), intent(inout) :: cells_with_node_ptr
   !
+  !.. Optional Arguments ..
+  logical, optional, intent(in) :: include_bnd_faces
+  logical, optional, intent(in) :: make_bnd_faces_negative
+  !
   !.. Local Scalars ..
   integer :: i,ip,is,ibeg,iend,n,nc,ierr
   integer :: n1,n2,np,lnode,lfbnd,lcell
+  integer :: bnd_face_coef
+  logical :: include_bnd_face_ghost_cells
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: cwn
@@ -210,9 +218,29 @@ subroutine find_cells_surrounding_each_node(bface, &
   !
 continue
   !
+  ! Get the grid size from the input arrays
+  !
   lnode = maxval(nodes_of_cell)
   lfbnd = size(bface,dim=2)
   lcell = size(nodes_of_cell_ptr)-1 - lfbnd
+  !
+  ! Determine whether to include the boundary face ghost cells
+  ! when finding the cells surrounding each node
+  !
+  include_bnd_face_ghost_cells = true
+  if (present(include_bnd_faces)) then
+    include_bnd_face_ghost_cells = include_bnd_faces
+  end if
+  !
+  ! Determine the coefficient for the boundary face ghost cell indices
+  ! based on the optional argument make_bnd_faces_negative
+  !
+  bnd_face_coef = 1
+  if (present(make_bnd_faces_negative)) then
+    bnd_face_coef = merge(-1,1,make_bnd_faces_negative)
+  end if
+  !
+  ! Allocate cells_with_node_ptr
   !
   allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
              stat=ierr , errmsg=error_message )
@@ -234,19 +262,23 @@ continue
   !
   ! Add in the nodes of the ghost faces
   !
-  do n = 1,lfbnd
+  if (include_bnd_face_ghost_cells) then
     !
-    nc = bface(10,n)
-    !
-    ibeg = nodes_of_cell_ptr(nc)+1
-    iend = nodes_of_cell_ptr(nc+1)
-    !
-    do i = ibeg,iend
-      ip = nodes_of_cell(i)
-      cells_with_node_ptr(ip+1) = cells_with_node_ptr(ip+1) + 1
+    do n = 1,lfbnd
+      !
+      nc = bface(10,n)
+      !
+      ibeg = nodes_of_cell_ptr(nc)+1
+      iend = nodes_of_cell_ptr(nc+1)
+      !
+      do i = ibeg,iend
+        ip = nodes_of_cell(i)
+        cells_with_node_ptr(ip+1) = cells_with_node_ptr(ip+1) + 1
+      end do
+      !
     end do
     !
-  end do
+  end if
   !
   ! Reshuffle cells_with_node_ptr
   !
@@ -276,21 +308,31 @@ continue
   !
   ! Add in the nodes of the ghost faces
   !
-  do n = 1,lfbnd
+  if (include_bnd_face_ghost_cells) then
     !
-    nc = bface(10,n)
-    !
-    ibeg = nodes_of_cell_ptr(nc)+1
-    iend = nodes_of_cell_ptr(nc+1)
-    !
-    do i = ibeg,iend
-      ip = nodes_of_cell(i)
-      is = cells_with_node_ptr(ip) + 1
-      cells_with_node_ptr(ip) = is
-      cells_with_node(is) = nc
+    do n = 1,lfbnd
+      !
+      nc = bface(10,n)
+      !
+      ibeg = nodes_of_cell_ptr(nc)+1
+      iend = nodes_of_cell_ptr(nc+1)
+      !
+      do i = ibeg,iend
+        ip = nodes_of_cell(i)
+        is = cells_with_node_ptr(ip) + 1
+        cells_with_node_ptr(ip) = is
+        !
+        ! Make the index for this boundary face ghost cell negative
+        ! if the optional argument make_bnd_faces_negative is present
+        ! with the value .TRUE.
+        !
+        cells_with_node(is) = bnd_face_coef * nc
+        !
+      end do
+      !
     end do
     !
-  end do
+  end if
   !
   ! Finally, reorder cells_with_node_ptr
   !
@@ -442,7 +484,7 @@ subroutine find_cells_surrounding_each_cell(bface,cell_geom, &
 continue
   !
   lnode = maxval(nodes_of_cell)
-  lcell = size(nodes_of_cell_ptr) - size(bface,dim=2)
+  lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
   allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,ierr,error_message)
@@ -513,8 +555,13 @@ continue
       find_cell: do i = i1,i2
         !
         ! Current cell containing this node
+        ! NOTE: We need the absolute value of this because the cell index could
+        !       be negative if it is for a boundary face ghost cell and the
+        !       optional argument make_bnd_faces_negative was present with the
+        !       value .TRUE. when subroutine find_cells_surrounding_each_node
+        !       was called
         !
-        j = cells_with_node(i)
+        j = abs(cells_with_node(i))
         !
         ! Skip to the next cell if this is the current cell we are working on
         !
@@ -529,6 +576,9 @@ continue
         ! If summing the lpoin array using the current nodes of the possible
         ! adjacent cell is equal to the number of nodes we need to match, then
         ! this is the adjacent cell to the current face.
+        ! NOTE: We need to use the actual value of cells_with_node(i) instead
+        !       of j because we want to keep the cell index negative if this
+        !       is a boundary face ghost cell
         !
         if (sum(lpoin(nodes_of_cell(j1:j2))) == nfnods) then
           ieadj = cells_with_node(i)
@@ -2544,7 +2594,13 @@ continue
     !
     cell_count_loop: do i = ibeg,iend
       !
-      this_cell = cells_with_node(i)
+      ! NOTE: We need the absolute value of this because the cell index could
+      !       be negative if it is for a boundary face ghost cell and the
+      !       optional argument make_bnd_faces_negative was present with the
+      !       value .TRUE. when subroutine find_cells_surrounding_each_node
+      !       was called
+      !
+      this_cell = abs(cells_with_node(i))
       this_geom = cell_geom(this_cell)
       !
       n1 = nodes_of_cell_ptr(this_cell)+1
@@ -2630,7 +2686,13 @@ continue
     !
     cell_store_loop: do i = ibeg,iend
       !
-      this_cell = cells_with_node(i)
+      ! NOTE: We need the absolute value of this because the cell index could
+      !       be negative if it is for a boundary face ghost cell and the
+      !       optional argument make_bnd_faces_negative was present with the
+      !       value .TRUE. when subroutine find_cells_surrounding_each_node
+      !       was called
+      !
+      this_cell = abs(cells_with_node(i))
       this_geom = cell_geom(this_cell)
       !
       n1 = nodes_of_cell_ptr(this_cell)+1
@@ -2832,7 +2894,13 @@ continue
     !
     do i = ibeg,iend
       !
-      this_cell = cells_with_node(i)
+      ! NOTE: We need the absolute value of this because the cell index could
+      !       be negative if it is for a boundary face ghost cell and the
+      !       optional argument make_bnd_faces_negative was present with the
+      !       value .TRUE. when subroutine find_cells_surrounding_each_node
+      !       was called
+      !
+      this_cell = abs(cells_with_node(i))
       !
       n1 = nodes_of_cell_ptr(this_cell)+1
       n2 = nodes_of_cell_ptr(this_cell+1)
@@ -2886,13 +2954,22 @@ continue
     !
     do i = ibeg,iend
       !
-      this_cell = cells_with_node(i)
+      ! NOTE: We need the absolute value of this because the cell index could
+      !       be negative if it is for a boundary face ghost cell and the
+      !       optional argument make_bnd_faces_negative was present with the
+      !       value .TRUE. when subroutine find_cells_surrounding_each_node
+      !       was called
+      !
+      this_cell = abs(cells_with_node(i))
       !
       n1 = nodes_of_cell_ptr(this_cell)+1
       n2 = nodes_of_cell_ptr(this_cell+1)
       !
       ! If other_node matches any of the nodes in nodes_of_cell(n1:n2),
       ! add this cell to the list of cells containing the current edge
+      ! NOTE: We need to use the actual value of cells_with_node(i) instead
+      !       of this_cell because we want to keep the cell index negative if
+      !       this is a boundary face ghost cell
       !
       if (any(other_node == nodes_of_cell(n1:n2))) then
         next_cell_idx = cells_with_edge_ptr(this_edge) + 1
