@@ -67,6 +67,7 @@ $(OBJDIR)/channel_mod.o : channel_mod.f90 \
 $(OBJDIR)/connectivity.o : connectivity.f90 \
               $(OBJDIR)/kind_types.o \
               $(OBJDIR)/geovar_mod.o \
+              $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/order_mod.o \
               $(FUNDIR)/last.f90
 
@@ -122,6 +123,7 @@ $(OBJDIR)/flux.o : flux.f90 \
               $(OBJDIR)/order_mod.o \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/flowvar_mod.o \
+              $(OBJDIR)/bc_mod.o \
               $(OBJDIR)/metrics.o \
               $(OBJDIR)/parallel.o \
               $(OBJDIR)/quadrature_mod.o \
@@ -206,6 +208,7 @@ $(OBJDIR)/io.o : io.f90 \
               $(OBJDIR)/interpolation_mod.o \
               $(OBJDIR)/derivatives_mod.o \
               $(OBJDIR)/initialize.o \
+              $(OBJDIR)/flux.o \
               $(OBJDIR)/channel_mod.o \
               $(FUNDIR)/last.f90 \
               $(FUNDIR)/vortex.f90 \

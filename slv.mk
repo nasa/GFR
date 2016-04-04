@@ -15,7 +15,8 @@ FSFXFLG = .f90
 HDF5LIB = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl
 
 O2OPT = -O2 -ip
-O3OPT = -O3 -ipo
+#O3OPT = -O3 -ipo
+ O3OPT = -O3 -ip
 
 TARGET = $(AUTOTARGETCPU) $(TARGETCPU)
 ADDOPT = -debug inline-debug-info $(ALIGN)
