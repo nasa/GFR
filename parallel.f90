@@ -3123,6 +3123,34 @@ continue
   !
   lfbnd = size(bface,dim=2)
   !
+  ! Count the number of faces located on partition boundaries
+  !
+  n = count(bface(1,:) == bc_cpu_bnd)
+  !
+  ! Allocate the bnd_faces array
+  !
+  allocate ( bnd_faces(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bnd_faces",1,ierr,error_message)
+  !
+  ! Now fill in the components within the bnd_faces array
+  !
+  n = 0
+  fill_bnd_faces: do loc_face = 1,lfbnd
+    !
+    if (bface(1,loc_face) /= bc_cpu_bnd) cycle fill_bnd_faces
+    !
+    n = n + 1
+    !
+    bnd_faces(n)%idx = loc_face
+    !
+    glb_face = face_map(my_part)%loc_to_glb(loc_face)
+    !
+    if (my_part == fpart(glb_face)) then
+      bnd_faces(n)%my_responsibility = true
+    end if
+    !
+  end do fill_bnd_faces
+  !
   ! Create an offset array for the number of flux
   ! points on each communication boundary faces
   !
