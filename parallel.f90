@@ -1067,663 +1067,6 @@ end subroutine partition_using_metis_5
 !
 !###############################################################################
 !
-subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
-                             nodes_of_cell_ptr,bface,xadj,adjncy,face)
-  !
-  !.. Use Statements ..
-  use order_mod,        only : geom_solpts
-  use connectivity_mod, only : GetFaceNodes_for_QuadFace
-  use connectivity_mod, only : GetFaceNodes_for_TriaFace
-  use connectivity_mod, only : RotateFluxPoints_Quad
-  use connectivity_mod, only : RotateFluxPoints_Tria
-  !
-  !.. Formal Arguments ..
-  integer,                   dimension(:),    intent(in) :: cell_geom
-  integer,                   dimension(:),    intent(in) :: cell_order
-  integer,                   dimension(:),    intent(in) :: nodes_of_cell
-  integer,                   dimension(:),    intent(in) :: nodes_of_cell_ptr
-  integer,                   dimension(:,:),  intent(in) :: bface
-  integer,      allocatable, dimension(:), intent(inout) :: xadj
-  integer,      allocatable, dimension(:), intent(inout) :: adjncy
-  type(face_t), allocatable, dimension(:), intent(inout) :: face
-  !
-  !.. Local Scalars ..
-  integer :: ic,jc,n,nc,nf,ncf,nfp,nfnods,ifa,ieadj,ierr
-  integer :: i1,i2,j1,j2,l1,l2,n1,n2,r1,r2,c1,c2,csc_ptr
-  integer :: this_cell,this_side,this_geom,this_order
-  integer :: ghost_cell,adj_cell,adj_geom,adj_order
-  integer :: host_cell,host_side,host_geom,host_order
-  integer :: left_cell,left_side,left_geom,left_order
-  integer :: right_cell,right_side,right_geom,right_order
-  integer :: face_geom,face_order,face_counter
-  integer :: lnode,lfbnd,lface,lcell
-  logical :: error_finding_rotation
-  character(len=200) :: array_name
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:4) :: ip
-  integer, dimension(1:4) :: face_nodes
-  integer, dimension(1:4) :: left_nodes
-  integer, dimension(1:4) :: right_nodes
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:)   :: lpoin
-  integer, allocatable, dimension(:)   :: cells_surr_cell
-  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:)   :: cells_with_node
-  integer, allocatable, dimension(:)   :: cells_with_node_ptr
-  integer, allocatable, dimension(:,:) :: faces_of_cell
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_dual_graph"
-  !
-continue
-  !
-  lnode = maxval(nodes_of_cell)
-  lfbnd = size(bface,dim=2)
-  lcell = size(nodes_of_cell_ptr)-1 - lfbnd
-  !
-  ! #######
-  ! ## 1 ##
-  ! #######
-  !
-  ! Find the cells that surround each node
-  !
-  allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
-  !
-  ! Loop over the cells, storing 'ahead'
-  !
-  do n = 1,lcell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    do ic = n1,n2
-      i1 = nodes_of_cell(ic) + 1
-      cells_with_node_ptr(i1) = cells_with_node_ptr(i1) + 1
-    end do
-  end do
-  !
-  ! Reshuffle cells_with_node_ptr
-  !
-  do n = 2,size(cells_with_node_ptr)
-    cells_with_node_ptr(n) = cells_with_node_ptr(n) + cells_with_node_ptr(n-1)
-  end do
-  !
-  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_with_node",1,ierr,error_message)
-  !
-  ! Now store the cells surrounding each node in cells_with_node
-  !
-  do n = 1,lcell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    do ic = n1,n2
-      i1 = nodes_of_cell(ic)
-      i2 = cells_with_node_ptr(i1) + 1
-      cells_with_node_ptr(i1) = i2
-      cells_with_node(i2) = n
-    end do
-  end do
-  !
-  ! Finally, reorder cells_with_node_ptr
-  !
-  do n = size(cells_with_node_ptr),2,-1
-    cells_with_node_ptr(n) = cells_with_node_ptr(n-1)
-  end do
-  cells_with_node_ptr(1) = 0
-  !
-  ! #######
-  ! ## 2 ##
-  ! #######
-  !
-  ! Find the cells surrounding each cell which
-  ! defines the dual graph of the nodal grid 
-  !
-  allocate ( cells_surr_cell_ptr(1:lcell+1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
-  !
-  ! Loop to set up cells_surr_cell_ptr
-  !
-  do n = 1,lcell
-    cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
-  end do
- !!
- !! Reshuffle cells_surr_cell_ptr
- !!
- !do n = 2,size(cells_surr_cell_ptr)
- !  cells_surr_cell_ptr(n) = cells_surr_cell_ptr(n) + cells_surr_cell_ptr(n-1)
- !end do
-  !
-  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell",1,ierr,error_message)
-  !
-  ! Loop to find cells_surr_cells
-  !
-  allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpoin",1,ierr,error_message)
-  !
-  do n = 1,lcell
-    !
-    ! Get the surrounding cells based on the geometry of the current cell
-    !
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    !
-    ! Get the pointer index of cells_surr_cell for this cell
-    !
-    csc_ptr = cells_surr_cell_ptr(n)
-    !
-    ! Geometry of the current cell
-    !
-    this_geom = cell_geom(n)
-    !
-    ! Loop over the number of cell faces for the current geometry
-    !
-    do this_side = 1,geom_faces(this_geom)
-      !
-      ! Find the number of nodes that need to be matched for this face
-      !
-      nfnods = num_face_nodes(this_side,this_geom)
-      !
-      ! Node offsets for this face of the current cell
-      !
-      ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom)
-      !
-      ! Store nodes of the current face for the current cell
-      !
-      face_nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
-      !
-      ! Mark each of these nodes on the current face
-      !
-      lpoin ( face_nodes(1:nfnods) ) = 1
-      !
-      ! Get the beginning and ending indices for the
-      ! cells surrounding the first node on the face
-      !
-      i1 = cells_with_node_ptr( face_nodes(1) )+1
-      i2 = cells_with_node_ptr( face_nodes(1) +1)
-      !
-      ! Initialize the adjacent face marker to zero
-      !
-      ieadj = 0
-      !
-      ! Loop over the cells that contain the first node on this face
-      !
-      find_cell: do ic = i1,i2
-        !
-        ! Current cell containing this node
-        !
-        jc = cells_with_node(ic)
-        !
-        ! Skip to the next cell if this is the current cell we are working on
-        !
-        if (jc == n) cycle
-        !
-        ! Get the beginning and ending indices of the nodes defining the
-        ! possible adjacent cell
-        !
-        j1 = nodes_of_cell_ptr(jc)+1
-        j2 = nodes_of_cell_ptr(jc+1)
-        !
-        ! If summing the lpoin array using the current nodes of the possible
-        ! adjacent cell is equal to the number of nodes we need to match, then
-        ! this is the adjacent cell to the current face.
-        !
-        if (sum(lpoin(nodes_of_cell(j1:j2))) == nfnods) then
-          ieadj = jc
-          exit find_cell
-        end if
-        !
-      end do find_cell
-      !
-      ! Store the adjacent cell index
-      !
-      cells_surr_cell(csc_ptr+this_side) = ieadj
-      !
-      ! Re-mark the nodes in lpoin to zero
-      !
-      lpoin( face_nodes(1:nfnods) ) = 0
-      !
-    end do
-    !
-  end do
-  !
-  ! We are finished with cells_with_node and cells_with_node_ptr so deallocate
-  !
-  deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_with_node",2,ierr,error_message)
-  deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_with_node_ptr",2,ierr,error_message)
-  !
-  ! #######
-  ! ## 3 ##
-  ! #######
-  !
-  ! We cant just use cells_surr_cell_ptr and cells_surr_cell as xadj
-  ! and adjncy because cells_surr_cell is zero for faces of cells
-  ! that correspond to boundary faces. In the loop "find_cell" above,
-  ! if the sum(lpoin(nodes_of_cell(j1:j2))) term never equals nfnods then
-  ! this loop exits with ieadj still equal to 0. We cannot send adjncy
-  ! containing zeros to the METIS routines so these need to be removed
-  ! and the locations in xadj also have to be adjusted accordingly.
-  ! Additionally, have xadj to start the indexing for adjncy at 1,
-  ! i.e., xadj(1)=1 (cells_surr_cell_ptr indexing for cells_surr_cell
-  ! begins at 0, i.e. cells_surr_cell_ptr(1)=0) since this is what
-  ! METIS expects when using Fortran array ordering.
-  !
- !do n = 1,lcell
- !  n1 = cells_surr_cell_ptr(n)+1
- !  n2 = cells_surr_cell_ptr(n+1)
- !  write (101,'(4(3x,i8))') cells_surr_cell(n1:n2)
- !end do
-  !
-  allocate ( xadj(1:lcell+1) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xadj",1,ierr,error_message)
-  xadj(1) = 1
-  !
-  n = count( cells_surr_cell(:) /= 0 )
-  allocate ( adjncy(1:n) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjncy",1,ierr,error_message)
-  !
-  ! Loop through the cells to copy only the non-zero
-  ! locations of cells_surr_cell into the adjncy array and
-  ! keep count of the number copied for each cell in xadj
-  !
-  ic = 0
-  do n = 1,lcell
-    n1 = cells_surr_cell_ptr(n)+1
-    n2 = cells_surr_cell_ptr(n+1)
-    do nf = n1,n2
-      if (cells_surr_cell(nf) /= 0) then
-        xadj(n+1) = xadj(n+1) + 1
-        ic = ic + 1
-        adjncy(ic) = cells_surr_cell(nf)
-      end if
-    end do
-  end do
-  !
-  ! Finally, reshuffle xadj
-  !
-  do n = 2,size(xadj)
-    xadj(n) = xadj(n) + xadj(n-1)
-  end do
-  !
- !do n = 1,lcell
- !  n1 = xadj(n)
- !  n2 = xadj(n+1)-1
- !  write (102,'(4(3x,i8))') adjncy(n1:n2)
- !end do
-  !
-  ! #######
-  ! ## 4 ##
-  ! #######
-  !
-  ! Find the cells on each face. Once the grid is partitioned,
-  ! this will be needed to adjust the boundary faces to include
-  ! former interior faces that now separate adjacent partitions
-  !
-  ! Find the total number of faces and then
-  ! allocate the face and faces_of_cell arrays
-  !
-  lface = lfbnd
-  do n = 1,lcell
-    n1 = cells_surr_cell_ptr(n)+1
-    n2 = cells_surr_cell_ptr(n+1)
-    lface = lface + count( cells_surr_cell(n1:n2) > n )
-  end do
-  !
-  ! Create the face and faces_of_cell arrays
-  !
-  allocate ( face(1:lface) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face",1,ierr,error_message)
-  !
-  allocate ( faces_of_cell(1:6,1:lcell) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
-  !
-  ! ##########
-  ! ##      ##
-  ! ## 4(A) ##
-  ! ##      ##
-  ! ##########
-  !
-  ! Get the cells on each boundary face
-  !
-  do nf = 1,lfbnd
-    !
-    host_cell = bface(2,nf)   ! Host cell on boundary face
-    ghost_cell = bface(10,nf) ! Ghost cell on boundary face
-    !
-    host_geom = cell_geom(host_cell)             ! geometry of host cell
-    host_order = cell_order(host_cell)           ! order of host cell
-    host_side = bface(4,nf)                      ! face of host cell on boundary
-    nfnods = num_face_nodes(host_side,host_geom) ! # of nodes defining bnd face
-    !
-    ! beginning index of nodes defining host cell
-    n1 = nodes_of_cell_ptr(host_cell)+1
-    ! ending    index of nodes defining host cell
-    n2 = nodes_of_cell_ptr(host_cell+1)
-    !
-    ! Node offsets for this face
-    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
-    !
-    ! Store the cells on this boundary face
-    !
-    face(nf)%left%cell = host_cell
-    face(nf)%left%cell_face = host_side
-    !
-    face(nf)%right%cell = ghost_cell
-    face(nf)%right%cell_face = 1
-    !
-    face(nf)%geom = geom_of_face(nfnods)
-    face(nf)%order = host_order
-    !
-    ! Store the nodes on this boundary face
-    !
-    face(nf)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
-    !
-    ! Store this face for the host cell
-    !
-    faces_of_cell(host_side,host_cell) = nf
-    !
-  end do
-  !
-  ! ##########
-  ! ##      ##
-  ! ## 4(B) ##
-  ! ##      ##
-  ! ##########
-  !
-  ! Get the cells for the interior faces
-  !
-  face_counter = lfbnd
-  do this_cell = 1,lcell
-    !
-    c1 = cells_surr_cell_ptr(this_cell)+1
-    c2 = cells_surr_cell_ptr(this_cell+1)
-    !
-    n1 = nodes_of_cell_ptr(this_cell)+1
-    n2 = nodes_of_cell_ptr(this_cell+1)
-    !
-    this_geom = cell_geom(this_cell)
-    this_order = cell_order(this_cell)
-    !
-    do nc = c1,c2
-      !
-      adj_cell = cells_surr_cell(nc)
-      !
-      if (adj_cell>this_cell .and. adj_cell<=lcell) then
-        !
-        adj_geom = cell_geom(adj_cell)   ! geometry of adjacent cell
-        adj_order = cell_order(adj_cell) ! order    of adjacent cell
-        !
-        face_counter = face_counter + 1
-        !
-        this_side = nc-c1+1
-        !
-        ! # of nodes defining this face
-        nfnods = num_face_nodes(this_side,this_geom)
-        ! node offsets for this face
-        ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom)
-        !
-        ! Store the cells on this interior face
-        !
-        face(face_counter)%left%cell = this_cell
-        face(face_counter)%right%cell = adj_cell
-        !
-        ! Store the nodes on this interior face
-        !
-        face(face_counter)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
-        !
-        ! Store the geometry of this face
-        !
-        face(face_counter)%geom = geom_of_face(nfnods)
-        face(face_counter)%order = max( this_order, adj_order )
-        !
-        ! Store the side of the left cell that is on this face since we have
-        ! this information available right now. We will figure out the side of
-        ! the right cell in section 4(C).
-        !
-        face(face_counter)%left%cell_face = this_side
-        !
-        ! Store this face for the left cell
-        !
-        faces_of_cell(this_side,this_cell) = face_counter
-        !
-      end if
-      !
-    end do
-    !
-  end do
-  !
-  ! We no longer need cells_surr_cell and cells_surr_cell_ptr so deallocate
-  !
-  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
-  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
-  !
-  ! ##########
-  ! ##      ##
-  ! ## 4(C) ##
-  ! ##      ##
-  ! ##########
-  !
-  ! Find the side of the right cell that is on each interior face
-  !
-  lpoin = 0
-  !
-  loop_right_cell_face: do nf = lfbnd+1,lface
-    !
-    nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
-    !
-    ! Mark the nodes on the current face
-    !
-    lpoin( face(nf)%nodes(1:nfnods) ) = 1
-    !
-    ! Information for the right cell on the face
-    !
-    right_cell = face(nf)%right%cell
-    right_geom = cell_geom(right_cell)
-    !
-    n1 = nodes_of_cell_ptr(right_cell)+1
-    n2 = nodes_of_cell_ptr(right_cell+1)
-    !
-    loop_cell_faces: do ncf = 1,geom_faces(right_geom)
-      !
-      ! Skip this cell face if the number of face nodes doesnt match
-      !
-      if (num_face_nodes(ncf,right_geom) /= nfnods) cycle loop_cell_faces
-      !
-      ! Store the nodes of the cell face in question
-      !
-      ip(1:nfnods) = nodes_of_cell(n1+side_nodes(1:nfnods,ncf,right_geom))
-      !
-      ! If this face subset of lpoin sums up to nfnods, this is the side
-      ! of the right cell on the current face. Store the value, reset all
-      ! of lpoin to zero, and skip to the next face.
-      !
-      if (sum(lpoin(ip(1:nfnods))) == nfnods) then
-        face(nf)%right%cell_face = ncf
-        faces_of_cell(ncf,right_cell) = nf
-        lpoin( ip(1:nfnods) ) = 0
-        cycle loop_right_cell_face
-      end if
-      !
-    end do loop_cell_faces
-    !
-  end do loop_right_cell_face
-  !
-  ! We dont need lpoin anymore so deallocate
-  !
-  deallocate ( lpoin , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpoin",2,ierr,error_message)
-  !
-  ! ##########
-  ! ##      ##
-  ! ## 4(D) ##
-  ! ##      ##
-  ! ##########
-  !
-  !
-  ! For each cell on the face, get the indices for the face/flux points of the
-  ! cell that are on this face. These indices are used in the correct and
-  ! interp(:)%toFace matrices.
-  !
-  error_finding_rotation = fals
-  !
-  do nf = 1,lface
-    !
-    left_cell = face(nf)%left%cell
-    right_cell = face(nf)%right%cell
-    !
-    left_side = face(nf)%left%cell_face
-    right_side = face(nf)%right%cell_face
-    !
-    left_geom = cell_geom(left_cell)
-    right_geom = cell_geom(right_cell)
-    !
-    left_order = cell_order(left_cell)
-    right_order = cell_order(right_cell)
-    !
-    face_geom = face(nf)%geom
-    face_order = face(nf)%order
-    !
-    nfp = geom_solpts(face_geom,face_order)
-    !
-    nfnods = geom_nodes(face_geom)
-    !
-    l1 = nodes_of_cell_ptr(left_cell)+1
-    l2 = nodes_of_cell_ptr(left_cell+1)
-    !
-    r1 = nodes_of_cell_ptr(right_cell)+1
-    r2 = nodes_of_cell_ptr(right_cell+1)
-    !
-    ip(1:nfnods) = side_nodes(1:nfnods,left_side,left_geom)
-    left_nodes(1:nfnods) = nodes_of_cell(l1 + ip(1:nfnods))
-    !
-    ! #############################
-    ! ### LEFT CELL ON THE FACE ###
-    ! #############################
-    !
-    ! Allocate the flxpts component of the face array for the left cell
-    !
-    allocate ( face(nf)%left%flxpts(1:nfp) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,2) nf,"left"
-    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
-    !
-    ! The indices of the flux points for the left cell are just the 
-    ! sequential values of [1:nfp]
-    !
-    face(nf)%left%flxpts = intseq(0,nfp-1)!+ 1
-    !
-    ! ##############################
-    ! ### RIGHT CELL ON THE FACE ###
-    ! ##############################
-    !
-    ! For the right cell, it depends on whether
-    ! this is a boundary or interior face
-    !
-    ! Allocate the flxpts component of the face array for the left cell
-    !
-    allocate ( face(nf)%right%flxpts(1:nfp) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,2) nf,"right"
-    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
-    !
-    if (nf <= lfbnd) then
-      !
-      ! This is a boundary face so get the boundary nodes
-      !
-      ip(1:nfnods) = intseq(0,nfnods-1)
-      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
-      !
-    else
-      !
-      ! This is an interior face so get the nodes
-      ! for this side of the right cell
-      !
-      ip(1:nfnods) = side_nodes(1:nfnods,right_side,right_geom)
-      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
-      !
-    end if
-    !
-    ! Get the flux point rotation for the right cell
-    !
-    if (face_geom == Geom_Edge) then
-      !
-      ! If this is a 1D edge between two 2D cells, the ordering of the flux
-      ! points for the right cell is just the reverse ordering of the flux
-      ! points for the left cell.
-      !
-      face(nf)%right%flxpts = intseq(nfp-1,0,-1)!+ 1
-      !
-    else if (face_geom == Geom_Quad) then
-      !
-      ! Get the nodes from the left and right cells that are on the current face
-      ! and in the correct ABCD ordering needed for the RotateFluxPoints_Quad
-      ! function.
-      !
-      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_side, &
-                                     nodes_of_cell(r1:r2),right_side, &
-                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
-      !
-      ! Find the face rotation between the two cells on the interface and use
-      ! this rotation to get the correct ordering of the flux points for the
-      ! right cell relative to the flux points of the left cell.
-      !
-      face(nf)%right%flxpts = RotateFluxPoints_Quad(left_nodes(1:nfnods), &
-                                                    right_nodes(1:nfnods), &
-                                                    face_order)!+ 1
-      !
-      ! If the previous function made no changes, mark that there was an error
-      ! finding the correct face rotation between cells.
-      !
-      if (all(face(nf)%right%flxpts == 1)) error_finding_rotation = true
-      !
-    else if (face_geom == Geom_Tria) then
-      !
-      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_side, &
-                                     nodes_of_cell(r1:r2),right_side, &
-                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
-      !
-      face(nf)%right%flxpts = RotateFluxPoints_Tria(left_nodes(1:nfnods), &
-                                                    right_nodes(1:nfnods), &
-                                                    nfp)!+ 1
-      !
-      if (all(face(nf)%right%flxpts == 1)) error_finding_rotation = true
-      !
-    end if
-    !
-  end do
-  !
-  ! Deallocate faces_of_cell before we leave
-  !
-  deallocate ( faces_of_cell , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_of_cell",2,ierr,error_message)
-  !
-  ! Report and stop execution if there was an error finding
-  ! the rotation of the flux points on any of the faces.
-  !
-  if (error_finding_rotation) then
-    write (iout,*) "There was an error rotating flux points!"
-    call stop_recon(stop_mpi,pname)
-  end if
-  !
-  ! Format Statements
-  !
-  1 format (" Error on face - ",i0,",  nodes ",i0,3(:,2x,i0))
-  2 format ("face(",i0,")%",a,"%flxpts")
-  !
-end subroutine create_dual_graph
-!
-!###############################################################################
-!
 subroutine get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
                                    nodes_of_cell,nodes_of_cell_ptr, &
                                    cells_with_node,cells_with_node_ptr, &
@@ -6880,6 +6223,663 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine parallel_memory_usage
+!
+!###############################################################################
+!
+subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
+                             nodes_of_cell_ptr,bface,xadj,adjncy,face)
+  !
+  !.. Use Statements ..
+  use order_mod,        only : geom_solpts
+  use connectivity_mod, only : GetFaceNodes_for_QuadFace
+  use connectivity_mod, only : GetFaceNodes_for_TriaFace
+  use connectivity_mod, only : RotateFluxPoints_Quad
+  use connectivity_mod, only : RotateFluxPoints_Tria
+  !
+  !.. Formal Arguments ..
+  integer,                   dimension(:),    intent(in) :: cell_geom
+  integer,                   dimension(:),    intent(in) :: cell_order
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,                   dimension(:,:),  intent(in) :: bface
+  integer,      allocatable, dimension(:), intent(inout) :: xadj
+  integer,      allocatable, dimension(:), intent(inout) :: adjncy
+  type(face_t), allocatable, dimension(:), intent(inout) :: face
+  !
+  !.. Local Scalars ..
+  integer :: ic,jc,n,nc,nf,ncf,nfp,nfnods,ifa,ieadj,ierr
+  integer :: i1,i2,j1,j2,l1,l2,n1,n2,r1,r2,c1,c2,csc_ptr
+  integer :: this_cell,this_side,this_geom,this_order
+  integer :: ghost_cell,adj_cell,adj_geom,adj_order
+  integer :: host_cell,host_side,host_geom,host_order
+  integer :: left_cell,left_side,left_geom,left_order
+  integer :: right_cell,right_side,right_geom,right_order
+  integer :: face_geom,face_order,face_counter
+  integer :: lnode,lfbnd,lface,lcell
+  logical :: error_finding_rotation
+  character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:4) :: ip
+  integer, dimension(1:4) :: face_nodes
+  integer, dimension(1:4) :: left_nodes
+  integer, dimension(1:4) :: right_nodes
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable, dimension(:)   :: lpoin
+  integer, allocatable, dimension(:)   :: cells_surr_cell
+  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:)   :: cells_with_node
+  integer, allocatable, dimension(:)   :: cells_with_node_ptr
+  integer, allocatable, dimension(:,:) :: faces_of_cell
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_dual_graph"
+  !
+continue
+  !
+  lnode = maxval(nodes_of_cell)
+  lfbnd = size(bface,dim=2)
+  lcell = size(nodes_of_cell_ptr)-1 - lfbnd
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Find the cells that surround each node
+  !
+  allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
+  !
+  ! Loop over the cells, storing 'ahead'
+  !
+  do n = 1,lcell
+    n1 = nodes_of_cell_ptr(n)+1
+    n2 = nodes_of_cell_ptr(n+1)
+    do ic = n1,n2
+      i1 = nodes_of_cell(ic) + 1
+      cells_with_node_ptr(i1) = cells_with_node_ptr(i1) + 1
+    end do
+  end do
+  !
+  ! Reshuffle cells_with_node_ptr
+  !
+  do n = 2,size(cells_with_node_ptr)
+    cells_with_node_ptr(n) = cells_with_node_ptr(n) + cells_with_node_ptr(n-1)
+  end do
+  !
+  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",1,ierr,error_message)
+  !
+  ! Now store the cells surrounding each node in cells_with_node
+  !
+  do n = 1,lcell
+    n1 = nodes_of_cell_ptr(n)+1
+    n2 = nodes_of_cell_ptr(n+1)
+    do ic = n1,n2
+      i1 = nodes_of_cell(ic)
+      i2 = cells_with_node_ptr(i1) + 1
+      cells_with_node_ptr(i1) = i2
+      cells_with_node(i2) = n
+    end do
+  end do
+  !
+  ! Finally, reorder cells_with_node_ptr
+  !
+  do n = size(cells_with_node_ptr),2,-1
+    cells_with_node_ptr(n) = cells_with_node_ptr(n-1)
+  end do
+  cells_with_node_ptr(1) = 0
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Find the cells surrounding each cell which
+  ! defines the dual graph of the nodal grid 
+  !
+  allocate ( cells_surr_cell_ptr(1:lcell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
+  !
+  ! Loop to set up cells_surr_cell_ptr
+  !
+  do n = 1,lcell
+    cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
+  end do
+ !!
+ !! Reshuffle cells_surr_cell_ptr
+ !!
+ !do n = 2,size(cells_surr_cell_ptr)
+ !  cells_surr_cell_ptr(n) = cells_surr_cell_ptr(n) + cells_surr_cell_ptr(n-1)
+ !end do
+  !
+  allocate ( cells_surr_cell(1:last(cells_surr_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",1,ierr,error_message)
+  !
+  ! Loop to find cells_surr_cells
+  !
+  allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,ierr,error_message)
+  !
+  do n = 1,lcell
+    !
+    ! Get the surrounding cells based on the geometry of the current cell
+    !
+    n1 = nodes_of_cell_ptr(n)+1
+    n2 = nodes_of_cell_ptr(n+1)
+    !
+    ! Get the pointer index of cells_surr_cell for this cell
+    !
+    csc_ptr = cells_surr_cell_ptr(n)
+    !
+    ! Geometry of the current cell
+    !
+    this_geom = cell_geom(n)
+    !
+    ! Loop over the number of cell faces for the current geometry
+    !
+    do this_side = 1,geom_faces(this_geom)
+      !
+      ! Find the number of nodes that need to be matched for this face
+      !
+      nfnods = num_face_nodes(this_side,this_geom)
+      !
+      ! Node offsets for this face of the current cell
+      !
+      ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom)
+      !
+      ! Store nodes of the current face for the current cell
+      !
+      face_nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
+      !
+      ! Mark each of these nodes on the current face
+      !
+      lpoin ( face_nodes(1:nfnods) ) = 1
+      !
+      ! Get the beginning and ending indices for the
+      ! cells surrounding the first node on the face
+      !
+      i1 = cells_with_node_ptr( face_nodes(1) )+1
+      i2 = cells_with_node_ptr( face_nodes(1) +1)
+      !
+      ! Initialize the adjacent face marker to zero
+      !
+      ieadj = 0
+      !
+      ! Loop over the cells that contain the first node on this face
+      !
+      find_cell: do ic = i1,i2
+        !
+        ! Current cell containing this node
+        !
+        jc = cells_with_node(ic)
+        !
+        ! Skip to the next cell if this is the current cell we are working on
+        !
+        if (jc == n) cycle
+        !
+        ! Get the beginning and ending indices of the nodes defining the
+        ! possible adjacent cell
+        !
+        j1 = nodes_of_cell_ptr(jc)+1
+        j2 = nodes_of_cell_ptr(jc+1)
+        !
+        ! If summing the lpoin array using the current nodes of the possible
+        ! adjacent cell is equal to the number of nodes we need to match, then
+        ! this is the adjacent cell to the current face.
+        !
+        if (sum(lpoin(nodes_of_cell(j1:j2))) == nfnods) then
+          ieadj = jc
+          exit find_cell
+        end if
+        !
+      end do find_cell
+      !
+      ! Store the adjacent cell index
+      !
+      cells_surr_cell(csc_ptr+this_side) = ieadj
+      !
+      ! Re-mark the nodes in lpoin to zero
+      !
+      lpoin( face_nodes(1:nfnods) ) = 0
+      !
+    end do
+    !
+  end do
+  !
+  ! We are finished with cells_with_node and cells_with_node_ptr so deallocate
+  !
+  deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",2,ierr,error_message)
+  deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",2,ierr,error_message)
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  ! We cant just use cells_surr_cell_ptr and cells_surr_cell as xadj
+  ! and adjncy because cells_surr_cell is zero for faces of cells
+  ! that correspond to boundary faces. In the loop "find_cell" above,
+  ! if the sum(lpoin(nodes_of_cell(j1:j2))) term never equals nfnods then
+  ! this loop exits with ieadj still equal to 0. We cannot send adjncy
+  ! containing zeros to the METIS routines so these need to be removed
+  ! and the locations in xadj also have to be adjusted accordingly.
+  ! Additionally, have xadj to start the indexing for adjncy at 1,
+  ! i.e., xadj(1)=1 (cells_surr_cell_ptr indexing for cells_surr_cell
+  ! begins at 0, i.e. cells_surr_cell_ptr(1)=0) since this is what
+  ! METIS expects when using Fortran array ordering.
+  !
+ !do n = 1,lcell
+ !  n1 = cells_surr_cell_ptr(n)+1
+ !  n2 = cells_surr_cell_ptr(n+1)
+ !  write (101,'(4(3x,i8))') cells_surr_cell(n1:n2)
+ !end do
+  !
+  allocate ( xadj(1:lcell+1) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xadj",1,ierr,error_message)
+  xadj(1) = 1
+  !
+  n = count( cells_surr_cell(:) /= 0 )
+  allocate ( adjncy(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjncy",1,ierr,error_message)
+  !
+  ! Loop through the cells to copy only the non-zero
+  ! locations of cells_surr_cell into the adjncy array and
+  ! keep count of the number copied for each cell in xadj
+  !
+  ic = 0
+  do n = 1,lcell
+    n1 = cells_surr_cell_ptr(n)+1
+    n2 = cells_surr_cell_ptr(n+1)
+    do nf = n1,n2
+      if (cells_surr_cell(nf) /= 0) then
+        xadj(n+1) = xadj(n+1) + 1
+        ic = ic + 1
+        adjncy(ic) = cells_surr_cell(nf)
+      end if
+    end do
+  end do
+  !
+  ! Finally, reshuffle xadj
+  !
+  do n = 2,size(xadj)
+    xadj(n) = xadj(n) + xadj(n-1)
+  end do
+  !
+ !do n = 1,lcell
+ !  n1 = xadj(n)
+ !  n2 = xadj(n+1)-1
+ !  write (102,'(4(3x,i8))') adjncy(n1:n2)
+ !end do
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Find the cells on each face. Once the grid is partitioned,
+  ! this will be needed to adjust the boundary faces to include
+  ! former interior faces that now separate adjacent partitions
+  !
+  ! Find the total number of faces and then
+  ! allocate the face and faces_of_cell arrays
+  !
+  lface = lfbnd
+  do n = 1,lcell
+    n1 = cells_surr_cell_ptr(n)+1
+    n2 = cells_surr_cell_ptr(n+1)
+    lface = lface + count( cells_surr_cell(n1:n2) > n )
+  end do
+  !
+  ! Create the face and faces_of_cell arrays
+  !
+  allocate ( face(1:lface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face",1,ierr,error_message)
+  !
+  allocate ( faces_of_cell(1:6,1:lcell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
+  !
+  ! ##########
+  ! ##      ##
+  ! ## 4(A) ##
+  ! ##      ##
+  ! ##########
+  !
+  ! Get the cells on each boundary face
+  !
+  do nf = 1,lfbnd
+    !
+    host_cell = bface(2,nf)   ! Host cell on boundary face
+    ghost_cell = bface(10,nf) ! Ghost cell on boundary face
+    !
+    host_geom = cell_geom(host_cell)             ! geometry of host cell
+    host_order = cell_order(host_cell)           ! order of host cell
+    host_side = bface(4,nf)                      ! face of host cell on boundary
+    nfnods = num_face_nodes(host_side,host_geom) ! # of nodes defining bnd face
+    !
+    ! beginning index of nodes defining host cell
+    n1 = nodes_of_cell_ptr(host_cell)+1
+    ! ending    index of nodes defining host cell
+    n2 = nodes_of_cell_ptr(host_cell+1)
+    !
+    ! Node offsets for this face
+    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    ! Store the cells on this boundary face
+    !
+    face(nf)%left%cell = host_cell
+    face(nf)%left%cell_face = host_side
+    !
+    face(nf)%right%cell = ghost_cell
+    face(nf)%right%cell_face = 1
+    !
+    face(nf)%geom = geom_of_face(nfnods)
+    face(nf)%order = host_order
+    !
+    ! Store the nodes on this boundary face
+    !
+    face(nf)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
+    !
+    ! Store this face for the host cell
+    !
+    faces_of_cell(host_side,host_cell) = nf
+    !
+  end do
+  !
+  ! ##########
+  ! ##      ##
+  ! ## 4(B) ##
+  ! ##      ##
+  ! ##########
+  !
+  ! Get the cells for the interior faces
+  !
+  face_counter = lfbnd
+  do this_cell = 1,lcell
+    !
+    c1 = cells_surr_cell_ptr(this_cell)+1
+    c2 = cells_surr_cell_ptr(this_cell+1)
+    !
+    n1 = nodes_of_cell_ptr(this_cell)+1
+    n2 = nodes_of_cell_ptr(this_cell+1)
+    !
+    this_geom = cell_geom(this_cell)
+    this_order = cell_order(this_cell)
+    !
+    do nc = c1,c2
+      !
+      adj_cell = cells_surr_cell(nc)
+      !
+      if (adj_cell>this_cell .and. adj_cell<=lcell) then
+        !
+        adj_geom = cell_geom(adj_cell)   ! geometry of adjacent cell
+        adj_order = cell_order(adj_cell) ! order    of adjacent cell
+        !
+        face_counter = face_counter + 1
+        !
+        this_side = nc-c1+1
+        !
+        ! # of nodes defining this face
+        nfnods = num_face_nodes(this_side,this_geom)
+        ! node offsets for this face
+        ip(1:nfnods) = side_nodes(1:nfnods,this_side,this_geom)
+        !
+        ! Store the cells on this interior face
+        !
+        face(face_counter)%left%cell = this_cell
+        face(face_counter)%right%cell = adj_cell
+        !
+        ! Store the nodes on this interior face
+        !
+        face(face_counter)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
+        !
+        ! Store the geometry of this face
+        !
+        face(face_counter)%geom = geom_of_face(nfnods)
+        face(face_counter)%order = max( this_order, adj_order )
+        !
+        ! Store the side of the left cell that is on this face since we have
+        ! this information available right now. We will figure out the side of
+        ! the right cell in section 4(C).
+        !
+        face(face_counter)%left%cell_face = this_side
+        !
+        ! Store this face for the left cell
+        !
+        faces_of_cell(this_side,this_cell) = face_counter
+        !
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! We no longer need cells_surr_cell and cells_surr_cell_ptr so deallocate
+  !
+  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+  !
+  ! ##########
+  ! ##      ##
+  ! ## 4(C) ##
+  ! ##      ##
+  ! ##########
+  !
+  ! Find the side of the right cell that is on each interior face
+  !
+  lpoin = 0
+  !
+  loop_right_cell_face: do nf = lfbnd+1,lface
+    !
+    nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
+    !
+    ! Mark the nodes on the current face
+    !
+    lpoin( face(nf)%nodes(1:nfnods) ) = 1
+    !
+    ! Information for the right cell on the face
+    !
+    right_cell = face(nf)%right%cell
+    right_geom = cell_geom(right_cell)
+    !
+    n1 = nodes_of_cell_ptr(right_cell)+1
+    n2 = nodes_of_cell_ptr(right_cell+1)
+    !
+    loop_cell_faces: do ncf = 1,geom_faces(right_geom)
+      !
+      ! Skip this cell face if the number of face nodes doesnt match
+      !
+      if (num_face_nodes(ncf,right_geom) /= nfnods) cycle loop_cell_faces
+      !
+      ! Store the nodes of the cell face in question
+      !
+      ip(1:nfnods) = nodes_of_cell(n1+side_nodes(1:nfnods,ncf,right_geom))
+      !
+      ! If this face subset of lpoin sums up to nfnods, this is the side
+      ! of the right cell on the current face. Store the value, reset all
+      ! of lpoin to zero, and skip to the next face.
+      !
+      if (sum(lpoin(ip(1:nfnods))) == nfnods) then
+        face(nf)%right%cell_face = ncf
+        faces_of_cell(ncf,right_cell) = nf
+        lpoin( ip(1:nfnods) ) = 0
+        cycle loop_right_cell_face
+      end if
+      !
+    end do loop_cell_faces
+    !
+  end do loop_right_cell_face
+  !
+  ! We dont need lpoin anymore so deallocate
+  !
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,ierr,error_message)
+  !
+  ! ##########
+  ! ##      ##
+  ! ## 4(D) ##
+  ! ##      ##
+  ! ##########
+  !
+  !
+  ! For each cell on the face, get the indices for the face/flux points of the
+  ! cell that are on this face. These indices are used in the correct and
+  ! interp(:)%toFace matrices.
+  !
+  error_finding_rotation = fals
+  !
+  do nf = 1,lface
+    !
+    left_cell = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    left_side = face(nf)%left%cell_face
+    right_side = face(nf)%right%cell_face
+    !
+    left_geom = cell_geom(left_cell)
+    right_geom = cell_geom(right_cell)
+    !
+    left_order = cell_order(left_cell)
+    right_order = cell_order(right_cell)
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    nfnods = geom_nodes(face_geom)
+    !
+    l1 = nodes_of_cell_ptr(left_cell)+1
+    l2 = nodes_of_cell_ptr(left_cell+1)
+    !
+    r1 = nodes_of_cell_ptr(right_cell)+1
+    r2 = nodes_of_cell_ptr(right_cell+1)
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,left_side,left_geom)
+    left_nodes(1:nfnods) = nodes_of_cell(l1 + ip(1:nfnods))
+    !
+    ! #############################
+    ! ### LEFT CELL ON THE FACE ###
+    ! #############################
+    !
+    ! Allocate the flxpts component of the face array for the left cell
+    !
+    allocate ( face(nf)%left%flxpts(1:nfp) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,2) nf,"left"
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    !
+    ! The indices of the flux points for the left cell are just the 
+    ! sequential values of [1:nfp]
+    !
+    face(nf)%left%flxpts = intseq(0,nfp-1)!+ 1
+    !
+    ! ##############################
+    ! ### RIGHT CELL ON THE FACE ###
+    ! ##############################
+    !
+    ! For the right cell, it depends on whether
+    ! this is a boundary or interior face
+    !
+    ! Allocate the flxpts component of the face array for the left cell
+    !
+    allocate ( face(nf)%right%flxpts(1:nfp) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,2) nf,"right"
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    !
+    if (nf <= lfbnd) then
+      !
+      ! This is a boundary face so get the boundary nodes
+      !
+      ip(1:nfnods) = intseq(0,nfnods-1)
+      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
+      !
+    else
+      !
+      ! This is an interior face so get the nodes
+      ! for this side of the right cell
+      !
+      ip(1:nfnods) = side_nodes(1:nfnods,right_side,right_geom)
+      right_nodes(1:nfnods) = nodes_of_cell(r1 + ip(1:nfnods))
+      !
+    end if
+    !
+    ! Get the flux point rotation for the right cell
+    !
+    if (face_geom == Geom_Edge) then
+      !
+      ! If this is a 1D edge between two 2D cells, the ordering of the flux
+      ! points for the right cell is just the reverse ordering of the flux
+      ! points for the left cell.
+      !
+      face(nf)%right%flxpts = intseq(nfp-1,0,-1)!+ 1
+      !
+    else if (face_geom == Geom_Quad) then
+      !
+      ! Get the nodes from the left and right cells that are on the current face
+      ! and in the correct ABCD ordering needed for the RotateFluxPoints_Quad
+      ! function.
+      !
+      call GetFaceNodes_for_QuadFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
+                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
+      !
+      ! Find the face rotation between the two cells on the interface and use
+      ! this rotation to get the correct ordering of the flux points for the
+      ! right cell relative to the flux points of the left cell.
+      !
+      face(nf)%right%flxpts = RotateFluxPoints_Quad(left_nodes(1:nfnods), &
+                                                    right_nodes(1:nfnods), &
+                                                    face_order)!+ 1
+      !
+      ! If the previous function made no changes, mark that there was an error
+      ! finding the correct face rotation between cells.
+      !
+      if (all(face(nf)%right%flxpts == 1)) error_finding_rotation = true
+      !
+    else if (face_geom == Geom_Tria) then
+      !
+      call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_side, &
+                                     nodes_of_cell(r1:r2),right_side, &
+                                     left_nodes(1:nfnods),right_nodes(1:nfnods))
+      !
+      face(nf)%right%flxpts = RotateFluxPoints_Tria(left_nodes(1:nfnods), &
+                                                    right_nodes(1:nfnods), &
+                                                    nfp)!+ 1
+      !
+      if (all(face(nf)%right%flxpts == 1)) error_finding_rotation = true
+      !
+    end if
+    !
+  end do
+  !
+  ! Deallocate faces_of_cell before we leave
+  !
+  deallocate ( faces_of_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faces_of_cell",2,ierr,error_message)
+  !
+  ! Report and stop execution if there was an error finding
+  ! the rotation of the flux points on any of the faces.
+  !
+  if (error_finding_rotation) then
+    write (iout,*) "There was an error rotating flux points!"
+    call stop_recon(stop_mpi,pname)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (" Error on face - ",i0,",  nodes ",i0,3(:,2x,i0))
+  2 format ("face(",i0,")%",a,"%flxpts")
+  !
+end subroutine create_dual_graph
 !
 !###############################################################################
 !
