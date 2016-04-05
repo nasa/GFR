@@ -526,6 +526,11 @@ continue
     call alloc_error(pname,"epart",2,ierr,error_message)
   end if
   !
+  ! Create MPI datatypes for exchanging node and edge data between processes
+  !
+  call memory_pause("Before: calling create_node_and_edge_datatypes")
+  call create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+  !
   ! Deallocate the node and edge arrays and the node and edge
   ! mapping arrays since they are no longer needed
   !
@@ -4302,6 +4307,796 @@ continue
   100 format ("comm_pts(",i0,")%",a)
   !
 end subroutine create_face_nonblocking_datatypes
+!
+!###############################################################################
+!
+subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+  !
+  !.. Formal Arguments ..
+  type(node_t), dimension(:), intent(in) :: node
+  type(map_t),  dimension(:), intent(in) :: node_map
+  type(edge_t), dimension(:), intent(in) :: edge
+  type(map_t),  dimension(:), intent(in) :: edge_map
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,n,n1,n2,nep,nvar,scnt,rcnt,rmin,rmax
+  integer :: my_part,adj_part,adj_cpu,npair,this_pair
+  integer :: lnode,loc_node,glb_node,adj_node,node_part
+  integer :: ledge,loc_edge,glb_edge,adj_edge,edge_part
+  integer(int_mpi) :: this_edgpt,tag12,np
+  integer(int_mpi) :: block_size,tag21
+  real(wp) :: rd,rn
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:ncpu) :: rnmin
+  integer, dimension(1:ncpu) :: rnmax
+  integer, dimension(1:ncpu) :: remin
+  integer, dimension(1:ncpu) :: remax
+  integer, dimension(1:ncpu) :: cpu_nums
+  integer, dimension(1:ncpu) :: cpu_disp
+  logical, dimension(1:ncpu) :: cpu_msk
+  !
+  !.. Local Allocatable Arrays ..
+  logical,          allocatable :: send_node_msk(:)
+  integer,          allocatable :: recv_node_map(:)
+  logical,          allocatable :: send_edge_msk(:)
+  integer,          allocatable :: recv_edge_map(:)
+  integer,          allocatable :: comm_pair(:,:)
+  integer(int_mpi), allocatable :: send_disp(:)
+  integer(int_mpi), allocatable :: recv_disp(:)
+  integer(int_mpi), allocatable :: edgpt_offset(:)
+  integer(int_mpi), allocatable :: nodpt_offset(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_node_and_edge_datatypes"
+  !
+continue
+  !
+  my_part = mypnum + 1
+  !
+  lnode = size( node_map(my_part)%loc_to_glb )
+  ledge = size( edge_map(my_part)%loc_to_glb )
+  !
+  ! Count the number of nodes located on multiple processors
+  !
+  n = 0
+  do loc_node = 1,lnode
+    glb_node = node_map(my_part)%loc_to_glb(loc_node)
+    if (allocated(node(glb_node)%cpu)) then
+      if (size(node(glb_node)%cpu) > 1) then
+        n = n + 1
+      end if
+    end if
+  end do
+  !
+  ! Allocate the bnd_nodes array
+  !
+  allocate ( bnd_nodes(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bnd_nodes",1,ierr,error_message)
+  !
+  ! Now fill in the components within the bnd_nodes array
+  !
+  n = 0
+  fill_bnd_nodes: do loc_node = 1,lnode
+    !
+    glb_node = node_map(my_part)%loc_to_glb(loc_node)
+    !
+    if (allocated(node(glb_node)%cpu)) then
+      if (size(node(glb_node)%cpu) > 1) then
+        !
+        n = n + 1
+        !
+        bnd_nodes(n)%idx = loc_node
+        !
+        if (my_part == node(glb_node)%controlling_partition) then
+          bnd_nodes(n)%my_responsibility = true
+        end if
+        !
+        rd = real( sum( node(glb_node)%cpu(:)%num_cells ) , kind=wp )
+        !
+        do i = 1,size(node(glb_node)%cpu)
+          if (my_part == node(glb_node)%cpu(i)%partition) then
+            rn = real( node(glb_node)%cpu(i)%num_cells , kind=wp ) 
+            bnd_nodes(n)%ave_correction = rn / rd
+            cycle fill_bnd_nodes
+          end if
+        end do
+        !
+      end if
+    end if
+    !
+  end do fill_bnd_nodes
+  !
+  ! Count the number of edges located on multiple processors
+  !
+  n = 0
+  do loc_edge = 1,ledge
+    glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+    if (allocated(edge(glb_edge)%cpu)) then
+      if (size(edge(glb_edge)%cpu) > 1) then
+        n = n + 1
+      end if
+    end if
+  end do
+  !
+  ! Allocate the bnd_edges array
+  !
+  allocate ( bnd_edges(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bnd_edges",1,ierr,error_message)
+  !
+  ! Now fill in the components within the bnd_edges array
+  !
+  n = 0
+  fill_bnd_edges: do loc_edge = 1,ledge
+    !
+    glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+    !
+    if (allocated(edge(glb_edge)%cpu)) then
+      if (size(edge(glb_edge)%cpu) > 1) then
+        !
+        n = n + 1
+        !
+        bnd_edges(n)%idx = loc_edge
+        !
+        if (my_part == edge(glb_edge)%controlling_partition) then
+          bnd_edges(n)%my_responsibility = true
+        end if
+        !
+        rd = real( sum( edge(glb_edge)%cpu(:)%num_cells ) , kind=wp )
+        !
+        do i = 1,size(edge(glb_edge)%cpu)
+          if (my_part == edge(glb_edge)%cpu(i)%partition) then
+            rn = real( edge(glb_edge)%cpu(i)%num_cells , kind=wp ) 
+            bnd_edges(n)%ave_correction = rn / rd
+            cycle fill_bnd_edges
+          end if
+        end do
+        !
+      end if
+    end if
+    !
+  end do fill_bnd_edges
+  !
+  ! Number of variables being stored for each node or edge point
+  !
+  nvar = nq * (nr + 1)
+  !
+  ! Allocate the node and edge point offset array
+  !
+  allocate ( nodpt_offset(1:lnode) , source=0_int_mpi , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodpt_offset",1,ierr,error_message)
+  !
+  allocate ( edgpt_offset(1:ledge) , source=0_int_mpi , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edgpt_offset",1,ierr,error_message)
+  !
+  ! Compute the total size of the buffer for
+  ! communicating node/edge solutions and gradients
+  !
+  ! Node solution points are 1-to-1 with the grid nodes so initialize
+  ! n_node_edge_pts to just nvar times the number of grid nodes located
+  ! on partition boundaries
+  !
+  n_node_edge_pts = nvar * size(bnd_nodes)
+  !
+  ! Loop through the edges on partition boundaries and add nvar times
+  ! the number of edge points for each edge to n_node_edge_pts
+  !
+  do n = 1,size(bnd_edges)
+    !
+    loc_edge = bnd_edges(n)%idx
+    glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+    !
+    !
+    if (use_edgpts) then
+      !
+      do i = 1,size(edge(glb_edge)%cpu)
+        if (edge(glb_edge)%cpu(i)%partition == my_part) then
+          nep = size(edge(glb_edge)%cpu(i)%edgpts)
+          n_node_edge_pts = n_node_edge_pts +  nvar*nep
+        end if
+      end do
+      !
+    else
+      !
+      nep = Cell_Solpts( Geom_Edge , edge(glb_edge)%order )
+      n_node_edge_pts = n_node_edge_pts +  nvar*nep
+      !
+    end if
+    !
+  end do
+  !
+  ! Initialize the min/max edge/node indices
+  !
+  rnmin =  huge(0)
+  remin =  huge(0)
+  rnmax = -huge(0)
+  remax = -huge(0)
+  !
+  ! Create an array that identifies all processors that the current processor
+  ! needs to communicate with and are of a higher CPU rank
+  !
+  cpu_msk = fals
+  !
+  ! First, find the communication required for nodes while also creating an
+  ! offset array for the number of node points that lie on a partition boundary
+  !
+  do n = 1,size(bnd_nodes)
+    !
+    loc_node = bnd_nodes(n)%idx
+    glb_node = node_map(my_part)%loc_to_glb(loc_node)
+    !
+    do i = 1,size(node(glb_node)%cpu)
+      !
+      ! Mark this partition for communication
+      !
+      cpu_msk( node(glb_node)%cpu(i)%partition ) = true
+      !
+      node_part = node(glb_node)%cpu(i)%partition
+      !
+      if (node_part == my_part) then
+        !
+        ! This is the node for this processor so
+        ! create the node point offset for this node
+        !
+        nodpt_offset(loc_node) = 1_int_mpi
+        !
+      else
+        !
+        ! This is a node is on an adjacent processor so update the
+        ! min and max node index used to allocate recv_node_map
+        !
+        rnmin(node_part) = min( rnmin(node_part) , &
+                                node(glb_node)%cpu(i)%loc_node )
+        rnmax(node_part) = max( rnmax(node_part) , &
+                                node(glb_node)%cpu(i)%loc_node )
+        !
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! Reshuffle nodpt_offset by summing the total number of nodes for
+  ! all the communication nodes before the current one
+  !
+  do n = size(bnd_nodes),1,-1
+    !
+    loc_node = bnd_nodes(n)%idx
+    !
+    nodpt_offset(loc_node) = sum( nodpt_offset(1:loc_node-1) )
+    !
+  end do
+  !
+  if (maxval(nodpt_offset,dim=1) /= size(bnd_nodes)) then
+    write (error_message,1) "Something is wrong here with the node offset"
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  ! Second, find the communication required for edges while also creating an
+  ! offset array for the number of edge points for each edge that lies on a
+  ! partition boundary
+  !
+  do n = 1,size(bnd_edges)
+    !
+    loc_edge = bnd_edges(n)%idx
+    glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+    !
+    do i = 1,size(edge(glb_edge)%cpu)
+      !
+      ! Mark this partition for communication
+      !
+      cpu_msk( edge(glb_edge)%cpu(i)%partition ) = true
+      !
+      edge_part = edge(glb_edge)%cpu(i)%partition
+      !
+      if (edge_part == my_part) then
+        !
+        ! This is the edge for this processor so
+        ! create the edge point offset for this edge
+        !
+        nep = Cell_Solpts( Geom_Edge , edge(glb_edge)%order )
+        edgpt_offset(loc_edge) = int( nep , kind=int_mpi )
+        !
+      else
+        !
+        ! This is an edge on an adjacent processor so update the
+        ! min and max edge index used to allocate recv_edge_map
+        !
+        remin(edge_part) = min( remin(edge_part) , &
+                                edge(glb_edge)%cpu(i)%loc_edge )
+        remax(edge_part) = max( remax(edge_part) , &
+                                edge(glb_edge)%cpu(i)%loc_edge )
+        !
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! Reshuffle edgpt_offset by summing the total number of edge points for
+  ! all the communication edges before the current one
+  !
+  do n = size(bnd_edges),1,-1
+    !
+    loc_edge = bnd_edges(n)%idx
+    !
+    edgpt_offset(loc_edge) = sum( edgpt_offset(1:loc_edge-1) )
+    !
+  end do
+  !
+  ! Finally, add the total node point offset into
+  ! the offset for each of the edge points
+  !
+  edgpt_offset = edgpt_offset + size(bnd_nodes,kind=int_mpi)
+  !
+  ! Count the number of communication pairs of the current processor
+  ! with all other processors that have a higher rank
+  !
+  cpu_nums = 0
+  cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) )
+  !
+  ! Collect the number of communication pairs for all processors
+  !
+  call mpi_allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL, &
+                     cpu_nums,1,mpi_inttyp,mpi_comm_world,mpierr)
+  !
+  ! Count the total number of communication pairs for nodes and edges
+  !
+  npair = sum(cpu_nums)
+  !
+  ! Allocate the comm_pair array
+  !
+  allocate ( comm_pair(1:2,1:npair) , source=-1 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"comm_pair",1,ierr,error_message)
+  !
+  ! Create the displacement array for gathering the comm_pair array
+  ! NOTE: cpu_nums is multiplied by 2 because each pair contains two
+  !       pieces of information when collecting comm_pair
+  !
+  cpu_disp = 0
+  do n = 2,ncpu
+    cpu_disp(n) = cpu_disp(n-1) + cpu_nums(n-1)*size(comm_pair,dim=1)
+  end do
+  !
+  ! Fill in the section of comm_pair for the
+  ! current processor before communicating
+  !
+  ! beginning index for the second dim of comm_pair for the current processor
+  n1 = cpu_disp(my_part)+1
+  ! ending    index for the second dim of comm_pair for the current processor
+  n2 = cpu_disp(my_part)+cpu_nums(my_part)
+  !
+  ! processor of lower  rank that belongs to this communication pair
+  comm_pair(1,n1:n2) = mypnum
+  ! processor of higher rank that belongs to this communication pair
+  comm_pair(2,n1:n2) = pack( intseq(mypnum+1,ncpu-1) , &
+                             mask=cpu_msk(my_part+1:ncpu) )
+  !
+  ! Collect the individual comm_pair arrays for all processors
+  !
+  call mpi_allgatherv(MPI_IN_PLACE,0,MPI_DATATYPE_NULL, &
+                      comm_pair,cpu_nums,cpu_disp,mpi_inttyp, &
+                      mpi_comm_world,mpierr)
+  !
+  ! Allocate the array containing the communication information
+  !
+  allocate ( exch_neusp(1:npair) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"exch_neusp",1,ierr,error_message)
+  !
+  ! Fill in the adj_cpu and tag parts of exch_neusp
+  !
+  do this_pair = 1,size(exch_neusp)
+    !
+    tag12 = int( this_pair                    , kind=int_mpi )
+    tag21 = int( this_pair + size(exch_neusp) , kind=int_mpi )
+    !
+    if (comm_pair(1,this_pair) == mypnum) then
+      !
+      exch_neusp(this_pair)%adj_cpu  = int(comm_pair(2,this_pair),kind=int_mpi)
+      exch_neusp(this_pair)%send_tag = tag12
+      exch_neusp(this_pair)%recv_tag = tag21
+     !exch_neusp(this_pair)%send_tag = mypnum
+     !exch_neusp(this_pair)%recv_tag = int(comm_pair(2,this_pair),kind=int_mpi)
+      !
+    else if (comm_pair(2,this_pair) == mypnum) then
+      !
+      exch_neusp(this_pair)%adj_cpu  = int(comm_pair(1,this_pair),kind=int_mpi)
+      exch_neusp(this_pair)%send_tag = tag21
+      exch_neusp(this_pair)%recv_tag = tag12
+     !exch_neusp(this_pair)%send_tag = mypnum
+     !exch_neusp(this_pair)%recv_tag = int(comm_pair(1,this_pair),kind=int_mpi)
+      !
+    end if
+    !
+  end do
+  !
+  ! Deallocate comm_pair since it is no longer needed
+  !
+  deallocate ( comm_pair , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"comm_pair",2,ierr,error_message)
+  !
+  ! Allocate all the arrays needed for creating
+  ! the send and receive node and edge maps
+  !
+  allocate ( send_node_msk(1:lnode) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_node_msk",1,ierr,error_message)
+  !
+  allocate ( send_edge_msk(1:ledge) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_edge_msk",1,ierr,error_message)
+  !
+  ! Loop through each of the node/edge communication pairs and create the
+  ! send and receive MPI datatypes for the two processors of this pair
+  !
+  pair_loop: do this_pair = 1,size(exch_neusp)
+    !
+    if (exch_neusp(this_pair)%adj_cpu < 0_int_mpi) cycle pair_loop
+    !
+    adj_cpu = exch_neusp(this_pair)%adj_cpu
+    !
+    adj_part = adj_cpu + 1
+    !
+    ! Reset the mask arrays for this communication pair
+    !
+    send_node_msk(:) = fals
+    send_edge_msk(:) = fals
+    !
+    ! Allocate the mapping arrays for this communication pair
+    !
+    rmin = rnmin(adj_part)
+    rmax = rnmax(adj_part)
+    allocate ( recv_node_map(rmin:rmax) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_node_map",1,ierr,error_message)
+    !
+    rmin = remin(adj_part)
+    rmax = remax(adj_part)
+    allocate ( recv_edge_map(rmin:rmax) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_edge_map",1,ierr,error_message)
+    !
+    ! Loop to find the communication boundary nodes between the
+    ! current processor and the current exchange partner, adj_cpu.
+    ! 1. We will create a mask array, send_node_msk, to identify all
+    !    the local boundary nodes that need to be sent to adj_cpu.
+    ! 2. We will also create an array, recv_node_map, that maps
+    !    the boundary nodes of adj_cpu to the local boundary nodes
+    !    whose data needs to be received from adj_cpu.
+    !
+    find_nodes: do n = 1,size(bnd_nodes)
+      !
+      loc_node = bnd_nodes(n)%idx
+      glb_node = node_map(my_part)%loc_to_glb(loc_node)
+      !
+      find_nodes_find_cpu: do i = 1,size(node(glb_node)%cpu)
+        !
+        if (node(glb_node)%cpu(i)%partition == adj_part) then
+          !
+          adj_node = node(glb_node)%cpu(i)%loc_node
+          send_node_msk(loc_node) = true
+          recv_node_map(adj_node) = loc_node
+          !
+          exit find_nodes_find_cpu
+          !
+        end if
+        !
+      end do find_nodes_find_cpu
+      !
+    end do find_nodes
+    !
+    ! Loop to find the communication boundary edges between the
+    ! current processor and the current exchange partner, adj_cpu.
+    ! 1. We will also create a mask array, send_edge_msk, to identify
+    !    all the local boundary edges that need to be sent to adj_cpu.
+    ! 2. We will also create an array, recv_edge_map, that maps
+    !    the boundary edges of adj_cpu to the local boundary edges
+    !    whose data needs to be received from adj_cpu.
+    !
+    find_edges: do n = 1,size(bnd_edges)
+      !
+      loc_edge = bnd_edges(n)%idx
+      glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+      !
+      find_edges_find_cpu: do i = 1,size(edge(glb_edge)%cpu)
+        !
+        if (edge(glb_edge)%cpu(i)%partition == adj_part) then
+          !
+          adj_edge = edge(glb_edge)%cpu(i)%loc_edge
+          send_edge_msk(loc_edge) = true
+          recv_edge_map(adj_edge) = loc_edge
+          !
+          exit find_edges_find_cpu
+          !
+        end if
+        !
+      end do find_edges_find_cpu
+      !
+    end do find_edges
+    !
+    ! Now create the send and receive maps. These maps will contain,
+    ! in order, the faces that need to be sent to and received from the
+    ! current adjacent partition adj_cpu
+    ! NOTE: Each processor will send its node and edge data in the order of
+    !       the local node and edge IDs. The receiving datatypes need to
+    !       account for this so that the received data is placed in the
+    !       correct location within an array. This is why we have created
+    !       the arrays recv_node_map and recv_edge_map so that we can loop,
+    !       in order, through the nodes and edges of the adjacent partition
+    !       to create the receive offsets in the same order of the adjacent
+    !       partitions edge and node IDs.
+    !
+    ! Create the send node maps
+    !
+    !
+    ! Count how many node and edge points in total will need to be communicated.
+    ! NOTE: This should be the same for both sending and receiving
+    !
+    ! Initialize the counter to the number of node points
+    ! that need to be communicated
+    !
+    scnt = count( send_node_msk )
+    !
+    ! Loop through the edges and add to the counter the number of edge points
+    ! for each edge that needs to be communicated
+    !
+    count_edges: do loc_edge = 1,ledge
+      !
+      if (.not. send_edge_msk(loc_edge)) cycle count_edges
+      !
+      glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+      !
+      if (use_edgpts) then
+        !
+        count_edges_find_cpu: do i = 1,size(edge(glb_edge)%cpu)
+          if (edge(glb_edge)%cpu(i)%partition == my_part) then
+            scnt = scnt + size( edge(glb_edge)%cpu(i)%edgpts )
+            exit count_edges_find_cpu
+          end if
+        end do count_edges_find_cpu
+        !
+      else
+        !
+        scnt = scnt + Cell_Solpts( Geom_Edge , edge(glb_edge)%order )
+        !
+      end if
+      !
+    end do count_edges
+    !
+    ! Allocate the send and recv arrays needed to create the MPI datatypes now
+    ! that we know the total number of points that will need to be communicated.
+    !
+    allocate ( send_disp(1:scnt) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"send_disp",1,ierr,error_message)
+    !
+    allocate ( recv_disp(1:scnt) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_disp",1,ierr,error_message)
+    !
+    !###########################################################################
+    !###########################################################################
+    ! Create the send displacement offsets for the edge and node points that
+    ! need to be communicated for this communication pair so that we can create
+    ! the MPI datatypes to easily exchange this data with adj_cpu
+    !###########################################################################
+    !###########################################################################
+    !
+    ! Create the send displacement offsets for the node points
+    !
+    scnt = 0
+    node_send_disp: do loc_node = 1,lnode
+      !
+      if (.not. send_node_msk(loc_node)) cycle node_send_disp
+      !
+      scnt = scnt + 1
+      !
+      send_disp(scnt) = nodpt_offset(loc_node)
+      !
+    end do node_send_disp
+    !
+    ! Create the send displacement offsets for the edge points
+    !
+    edge_send_disp: do loc_edge = 1,ledge
+      !
+      if (.not. send_edge_msk(loc_edge)) cycle edge_send_disp
+      !
+      glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+      !
+      if (use_edgpts) then
+        !
+        edge_send_disp_find_cpu: do i = 1,size(edge(glb_edge)%cpu)
+          !
+          if (edge(glb_edge)%cpu(i)%partition == my_part) then
+            !
+            do n = 1,size( edge(glb_edge)%cpu(i)%edgpts )
+              !
+              scnt = scnt + 1
+              !
+              this_edgpt = int( edge(glb_edge)%cpu(i)%edgpts(n) , kind=int_mpi )
+              !
+              send_disp(scnt) = edgpt_offset(loc_edge) + this_edgpt
+              !
+            end do
+            !
+            exit edge_send_disp_find_cpu
+            !
+          end if
+          !
+        end do edge_send_disp_find_cpu
+        !
+      else
+        !
+        nep = Cell_Solpts( Geom_Edge , edge(glb_edge)%order )
+        !
+        do n = 0,nep-1
+          !
+          scnt = scnt + 1
+          !
+          this_edgpt = int( n , kind=int_mpi )
+          !
+          send_disp(scnt) = edgpt_offset(loc_edge) + this_edgpt
+          !
+        end do
+        !
+      end if
+      !
+    end do edge_send_disp
+    !
+    !###########################################################################
+    !###########################################################################
+    ! Create the receive displacement offsets for the edge and node points that
+    ! need to be communicated for this communication pair so that we can create
+    ! the MPI datatypes to easily exchange this data with adj_cpu
+    !###########################################################################
+    !###########################################################################
+    !
+    ! Initialize the receive counter to zero
+    !
+    rcnt = 0
+    !
+    ! Create the receive displacement offsets for the node points
+    !
+    node_recv_disp: do adj_node = lbound(recv_node_map,dim=1), &
+                                  ubound(recv_node_map,dim=1)
+      !
+      if (recv_node_map(adj_node) == 0) cycle node_recv_disp
+      !
+      loc_node = recv_node_map(adj_node)
+      !
+      rcnt = rcnt + 1
+      !
+      recv_disp(rcnt) = nodpt_offset(loc_node)
+      !
+    end do node_recv_disp
+    !
+    ! Create the receive displacement offsets for the edge points
+    !
+    edge_recv_disp: do adj_edge = lbound(recv_edge_map,dim=1), &
+                                  ubound(recv_edge_map,dim=1)
+      !
+      if (recv_edge_map(adj_edge) == 0) cycle edge_recv_disp
+      !
+      loc_edge = recv_edge_map(adj_edge)
+      !
+      glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
+      !
+      if (use_edgpts) then
+        !
+        edge_recv_disp_find_cpu: do i = 1,size(edge(glb_edge)%cpu)
+          !
+          if (edge(glb_edge)%cpu(i)%partition == my_part) then
+            !
+            do n = 1,size( edge(glb_edge)%cpu(i)%edgpts )
+              !
+              rcnt = rcnt + 1
+              !
+              this_edgpt = int( edge(glb_edge)%cpu(i)%edgpts(n) , kind=int_mpi )
+              !
+              recv_disp(rcnt) = edgpt_offset(loc_edge) + this_edgpt
+              !
+            end do
+            !
+            exit edge_recv_disp_find_cpu
+            !
+          end if
+          !
+        end do edge_recv_disp_find_cpu
+        !
+      else
+        !
+        nep = Cell_Solpts( Geom_Edge , edge(glb_edge)%order )
+        !
+        do n = 0,nep-1
+          !
+          rcnt = rcnt + 1
+          !
+          this_edgpt = int( n , kind=int_mpi )
+          !
+          recv_disp(rcnt) = edgpt_offset(loc_edge) + this_edgpt
+          !
+        end do
+        !
+      end if
+      !
+    end do edge_recv_disp
+    !
+    ! Deallocate recv_node_map and recv_edge_map since they are
+    ! no longer needed for the current communication pair
+    !
+    deallocate ( recv_node_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_node_map",2,ierr,error_message)
+    !
+    deallocate ( recv_edge_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_edge_map",2,ierr,error_message)
+    !
+    !##########################################################
+    !##########################################################
+    ! Create the MPI datatypes for exchanging node and edge
+    ! solution and gradient data between adjacent partitions
+    !##########################################################
+    !##########################################################
+    !
+    ! The block size is the number of data values for each node or edge point
+    ! i.e., nq + nr*nq
+    !
+    block_size = int( nvar , kind=int_mpi )
+    !
+    ! Adjust send_disp and recv_disp to account for the block size
+    !
+    send_disp = send_disp * block_size
+    recv_disp = recv_disp * block_size
+    !
+    ! Create and commit the send MPI datatype for this communication pair
+    !
+    np = size( send_disp , kind=int_mpi )
+    call mpi_type_create_indexed_block(np,block_size,send_disp,mpi_flttyp, &
+                                       exch_neusp(this_pair)%send_datatype, &
+                                       mpierr)
+    call mpi_type_commit(exch_neusp(this_pair)%send_datatype,mpierr)
+    !
+    ! Create and commit the receive MPI datatype for this communication pair
+    !
+    np = size( recv_disp , kind=int_mpi )
+    call mpi_type_create_indexed_block(np,block_size,recv_disp,mpi_flttyp, &
+                                       exch_neusp(this_pair)%recv_datatype, &
+                                       mpierr)
+    call mpi_type_commit(exch_neusp(this_pair)%recv_datatype,mpierr)
+    !
+    ! Deallocate the arrays for this communication
+    ! pair before continuing to the next pair
+    !
+    deallocate ( send_disp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"send_disp",2,ierr,error_message)
+    !
+    deallocate ( recv_disp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_disp",2,ierr,error_message)
+    !
+  end do pair_loop
+  !
+  ! Deallocate send_node_msk, send_edge_msk, nodpt_offset,
+  ! and edgpt_offset before we leave
+  !
+  deallocate ( send_node_msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_node_msk",2,ierr,error_message)
+  !
+  deallocate ( send_edge_msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_edge_msk",2,ierr,error_message)
+  !
+  deallocate ( nodpt_offset , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodpt_offset",2,ierr,error_message)
+  !
+  deallocate ( edgpt_offset , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edgpt_offset",2,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format (a)
+  !
+end subroutine create_node_and_edge_datatypes
 !
 !###############################################################################
 !
