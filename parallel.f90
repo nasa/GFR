@@ -1731,6 +1731,90 @@ end subroutine get_global_connectivity
 !
 !###############################################################################
 !
+subroutine create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
+                                   xadj,adjncy)
+  !
+  ! This subroutine takes the grid cells and nodes and creates the
+  ! dual graph arrays required by METIS to partition the global grid
+  !
+  !.. Formal Arguments ..
+  integer,              dimension(:),    intent(in) :: cells_surr_cell
+  integer,              dimension(:),    intent(in) :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:), intent(inout) :: xadj
+  integer, allocatable, dimension(:), intent(inout) :: adjncy
+  !
+  !.. Local Scalars ..
+  integer :: n,nf,n1,n2,ic,ierr,lcell
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_metis_dual_graph"
+  !
+continue
+  !
+  lcell = size(cells_surr_cell_ptr)-1
+  !
+  ! We cant just use cells_surr_cell_ptr and cells_surr_cell as xadj and adjncy
+  ! because cells_surr_cell is:
+  !
+  !   1. negative for faces of cells that correspond to boundary faces if the
+  !      optional arguments include_bnd_faces and make_bnd_faces_negative are
+  !      both sent into subroutine find_cells_surrounding_each_node with the
+  !      value .TRUE.
+  !
+  !   OR
+  !
+  !   2. zero for faces of cells that correspond to boundary faces if the
+  !      optional argument include_bnd_faces was either absent or present with
+  !      the value .FALSE. in the call to the subroutine
+  !      find_cells_surrounding_each_node above. In the loop "find_cell" within
+  !      subroutine find_cells_surrounding_each_cell, if the
+  !      sum(lpoin(nodes_of_cell(j1:j2))) term never equals nfnods then this
+  !      loop exits with ieadj still equal to 0.
+  !
+  ! We cannot send adjncy containing values less than 1 to the METIS routines so
+  ! these need to be removed and the locations in xadj also have to be adjusted
+  ! accordingly. Additionally, have xadj to start the indexing for adjncy at 1,
+  ! i.e., xadj(1)=1 (cells_surr_cell_ptr indexing for cells_surr_cell begins
+  ! at 0, i.e. cells_surr_cell_ptr(1)=0) since this is what METIS expects when
+  ! using Fortran array ordering.
+  !
+  ! Allocate the xadj and adjncy arrays
+  !
+  allocate ( xadj(1:lcell+1) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xadj",1,ierr,error_message)
+  xadj(1) = 1
+  !
+  n = count( cells_surr_cell(:) > 0 )
+  allocate ( adjncy(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"adjncy",1,ierr,error_message)
+  !
+  ! Loop through the cells to copy only the greater than zero
+  ! locations of cells_surr_cell into the adjncy array and
+  ! keep count of the number copied for each cell in xadj
+  !
+  ic = 0
+  do n = 1,lcell
+    n1 = cells_surr_cell_ptr(n)+1
+    n2 = cells_surr_cell_ptr(n+1)
+    do nf = n1,n2
+      if (cells_surr_cell(nf) > 0) then
+        xadj(n+1) = xadj(n+1) + 1
+        ic = ic + 1
+        adjncy(ic) = cells_surr_cell(nf)
+      end if
+    end do
+  end do
+  !
+  ! Finally, reshuffle xadj
+  !
+  do n = 2,size(xadj)
+    xadj(n) = xadj(n) + xadj(n-1)
+  end do
+  !
+end subroutine create_metis_dual_graph
+!
+!###############################################################################
+!
 subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
                                vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
   !
