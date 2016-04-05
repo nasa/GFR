@@ -42,15 +42,6 @@ module parallel_mod
   !
   integer, save :: nr
   !
-  ! Dimensions of the global grid
-  !
-  integer, save :: ngcell
-  integer, save :: ngnode
-  integer, save :: ngfbnd
-  integer, save :: ngface
-  integer, save :: ngtotcel
-  integer, save :: ngtotnod
-  !
   ! Number of communication partners
   !
   integer, save :: ncomm
@@ -324,10 +315,10 @@ contains
 !
 !###############################################################################
 !
-subroutine create_serial_cell_map(ncell)
+subroutine create_serial_cell_map(lcell)
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: ncell
+  integer, intent(in) :: lcell
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -340,7 +331,7 @@ continue
   allocate ( cell_map(1:1) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_map",1,ierr,error_message,skip_alloc_pause)
   !
-  allocate ( cell_map(1)%loc_to_glb(1:ncell) , source=intseq(1,ncell) , &
+  allocate ( cell_map(1)%loc_to_glb(1:lcell) , source=intseq(1,lcell) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_map(1)%loc_to_glb",1,ierr,error_message)
   !
@@ -389,20 +380,6 @@ continue
   !
   lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
-  ! The total number of nodes and cells, including ghost cells
-  !
-  ngtotcel = size(nodes_of_cell_ptr) - 1
-  ngtotnod = size(xyz_nodes,dim=2)
-  !
-  ! The number of boundary faces and interior cells
-  !
-  ngfbnd = size(bface,dim=2)
-  ngcell = ngtotcel - ngfbnd
-  !
-  ! Get the number of nodes that define the interior cells
-  !
-  n = nodes_of_cell_ptr(ngcell+1)
-  ngnode = maxval(nodes_of_cell(1:n))
   !
   ! Create the dual graph for the global grid not including ghost cells
   !
@@ -1044,6 +1021,7 @@ subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
   integer :: left_cell,left_side,left_geom,left_order
   integer :: right_cell,right_side,right_geom,right_order
   integer :: face_geom,face_order,face_counter
+  integer :: lnode,lfbnd,lface,lcell
   logical :: error_finding_rotation
   character(len=200) :: array_name
   !
@@ -1066,19 +1044,23 @@ subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
   !
 continue
   !
+  lnode = maxval(nodes_of_cell)
+  lfbnd = size(bface,dim=2)
+  lcell = size(nodes_of_cell_ptr)-1 - lfbnd
+  !
   ! #######
   ! ## 1 ##
   ! #######
   !
   ! Find the cells that surround each node
   !
-  allocate ( cells_with_node_ptr(1:ngnode+1) , source=0 , &
+  allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cells_with_node_ptr",1,ierr,error_message)
   !
   ! Loop over the cells, storing 'ahead'
   !
-  do n = 1,ngcell
+  do n = 1,lcell
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
     do ic = n1,n2
@@ -1099,7 +1081,7 @@ continue
   !
   ! Now store the cells surrounding each node in cells_with_node
   !
-  do n = 1,ngcell
+  do n = 1,lcell
     n1 = nodes_of_cell_ptr(n)+1
     n2 = nodes_of_cell_ptr(n+1)
     do ic = n1,n2
@@ -1124,13 +1106,13 @@ continue
   ! Find the cells surrounding each cell which
   ! defines the dual graph of the nodal grid 
   !
-  allocate ( cells_surr_cell_ptr(1:ngcell+1) , source=0 , &
+  allocate ( cells_surr_cell_ptr(1:lcell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cells_surr_cell_ptr",1,ierr,error_message)
   !
   ! Loop to set up cells_surr_cell_ptr
   !
-  do n = 1,ngcell
+  do n = 1,lcell
     cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
   end do
  !!
@@ -1146,10 +1128,10 @@ continue
   !
   ! Loop to find cells_surr_cells
   !
-  allocate ( lpoin(1:ngnode) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,ierr,error_message)
   !
-  do n = 1,ngcell
+  do n = 1,lcell
     !
     ! Get the surrounding cells based on the geometry of the current cell
     !
@@ -1258,13 +1240,13 @@ continue
   ! begins at 0, i.e. cells_surr_cell_ptr(1)=0) since this is what
   ! METIS expects when using Fortran array ordering.
   !
- !do n = 1,ngcell
+ !do n = 1,lcell
  !  n1 = cells_surr_cell_ptr(n)+1
  !  n2 = cells_surr_cell_ptr(n+1)
  !  write (101,'(4(3x,i8))') cells_surr_cell(n1:n2)
  !end do
   !
-  allocate ( xadj(1:ngcell+1) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( xadj(1:lcell+1) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xadj",1,ierr,error_message)
   xadj(1) = 1
   !
@@ -1277,7 +1259,7 @@ continue
   ! keep count of the number copied for each cell in xadj
   !
   ic = 0
-  do n = 1,ngcell
+  do n = 1,lcell
     n1 = cells_surr_cell_ptr(n)+1
     n2 = cells_surr_cell_ptr(n+1)
     do nf = n1,n2
@@ -1295,7 +1277,7 @@ continue
     xadj(n) = xadj(n) + xadj(n-1)
   end do
   !
- !do n = 1,ngcell
+ !do n = 1,lcell
  !  n1 = xadj(n)
  !  n2 = xadj(n+1)-1
  !  write (102,'(4(3x,i8))') adjncy(n1:n2)
@@ -1312,19 +1294,19 @@ continue
   ! Find the total number of faces and then
   ! allocate the face and faces_of_cell arrays
   !
-  ngface = ngfbnd
-  do n = 1,ngcell
+  lface = lfbnd
+  do n = 1,lcell
     n1 = cells_surr_cell_ptr(n)+1
     n2 = cells_surr_cell_ptr(n+1)
-    ngface = ngface + count( cells_surr_cell(n1:n2) > n )
+    lface = lface + count( cells_surr_cell(n1:n2) > n )
   end do
   !
   ! Create the face and faces_of_cell arrays
   !
-  allocate ( face(1:ngface) , stat=ierr , errmsg=error_message )
+  allocate ( face(1:lface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face",1,ierr,error_message)
   !
-  allocate ( faces_of_cell(1:6,1:ngcell) , source=0 , &
+  allocate ( faces_of_cell(1:6,1:lcell) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"faces_of_cell",1,ierr,error_message)
   !
@@ -1336,7 +1318,7 @@ continue
   !
   ! Get the cells on each boundary face
   !
-  do nf = 1,ngfbnd
+  do nf = 1,lfbnd
     !
     host_cell = bface(2,nf)   ! Host cell on boundary face
     ghost_cell = bface(10,nf) ! Ghost cell on boundary face
@@ -1383,8 +1365,8 @@ continue
   !
   ! Get the cells for the interior faces
   !
-  face_counter = ngfbnd
-  do this_cell = 1,ngcell
+  face_counter = lfbnd
+  do this_cell = 1,lcell
     !
     c1 = cells_surr_cell_ptr(this_cell)+1
     c2 = cells_surr_cell_ptr(this_cell+1)
@@ -1399,7 +1381,7 @@ continue
       !
       adj_cell = cells_surr_cell(nc)
       !
-      if (adj_cell>this_cell .and. adj_cell<=ngcell) then
+      if (adj_cell>this_cell .and. adj_cell<=lcell) then
         !
         adj_geom = cell_geom(adj_cell)   ! geometry of adjacent cell
         adj_order = cell_order(adj_cell) ! order    of adjacent cell
@@ -1460,7 +1442,7 @@ continue
   !
   lpoin = 0
   !
-  loop_right_cell_face: do nf = ngfbnd+1,ngface
+  loop_right_cell_face: do nf = lfbnd+1,lface
     !
     nfnods = geom_nodes(face(nf)%geom) ! # of nodes defining this face
     !
@@ -1519,7 +1501,7 @@ continue
   !
   error_finding_rotation = fals
   !
-  do nf = 1,ngface
+  do nf = 1,lface
     !
     left_cell = face(nf)%left%cell
     right_cell = face(nf)%right%cell
@@ -1579,7 +1561,7 @@ continue
     write (array_name,2) nf,"right"
     call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
     !
-    if (nf <= ngfbnd) then
+    if (nf <= lfbnd) then
       !
       ! This is a boundary face so get the boundary nodes
       !
@@ -1839,8 +1821,9 @@ subroutine find_partition_boundaries(cell_geom,epart,bface,fpart,face)
   type(face_t), allocatable, dimension(:),   intent(inout) :: face
   !
   !.. Local Scalars ..
-  integer :: new_ngfbnd,new_ngface,ierr
-  integer :: n,nf,n1,n2,np
+  integer :: new_lfbnd,new_lface
+  integer :: lfbnd,lface,lcell
+  integer :: n,nf,n1,n2,np,ierr
   integer :: i,ic,l1,l2,lp,ifa,pf
   integer :: j,jc,r1,r2,rp,jfa,pc
   integer :: host_cell,host_geom,host_side
@@ -1860,16 +1843,20 @@ subroutine find_partition_boundaries(cell_geom,epart,bface,fpart,face)
   !
 continue
   !
+  lfbnd = size(bface,dim=2)
+  lface = size(face)
+  lcell = size(epart)
+  !
   ! #######
   ! ## 1 ##
   ! #######
   !
-  allocate ( msk(1:ngface) , source=fals , stat=ierr , errmsg=error_message )
+  allocate ( msk(1:lface) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,ierr,error_message)
   !
   ! Find the interior faces that divide two partitions
   !
-  do nf = ngfbnd+1,ngface
+  do nf = lfbnd+1,lface
     msk(nf) = epart( face(nf)%left%cell ) /= epart( face(nf)%right%cell )
   end do
   !
@@ -1880,8 +1867,8 @@ continue
   !   2. the number of boundary faces will increase by 2*count(msk)
   !   3. the total number of faces will increase by count(msk)
   !
-  new_ngfbnd = ngfbnd + 2*count(msk)
-  new_ngface = ngface + 1*count(msk)
+  new_lfbnd = lfbnd + 2*count(msk)
+  new_lface = lface + 1*count(msk)
   !
   ! #######
   ! ## 2 ##
@@ -1889,27 +1876,27 @@ continue
   !
   ! Reallocate bface to make room for new partition boundary faces
   !
-  call reallocate(bface,new_size2=new_ngfbnd)
+  call reallocate(bface,new_size2=new_lfbnd)
   !
   ! Allocate the fpart array that identifies which partition/processor is
   ! is responsible for the face/flux point indices for each boundary face
   ! on a partition boundary thats needed for creating the CGNS connectivity
   !
-  allocate ( fpart(1:new_ngfbnd) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( fpart(1:new_lfbnd) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fpart",1,ierr,error_message)
   !
   ! Replace bface(10,nf) with the location within the face array to extract data
   ! and set the responsible partition to the partition for the host cell
   !
-  do nf = 1,ngfbnd
+  do nf = 1,lfbnd
     bface(10,nf) = nf
     fpart(nf) = epart( bface(2,nf) )
   end do
   !
   ! Collect and add the new boundary faces to bface
   !
-  nf = ngfbnd + 1
-  do n = ngfbnd+1,ngface
+  nf = lfbnd + 1
+  do n = lfbnd+1,lface
     !
     if (.not. msk(n)) cycle
     !
@@ -1973,13 +1960,13 @@ continue
   !
   ! Allocate a temporary array to resize and reorder face
   !
-  allocate ( temp_face(1:new_ngface) , stat=ierr , errmsg=error_message )
+  allocate ( temp_face(1:new_lface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"temp_face",1,ierr,error_message)
   !
   ! Redo the boundary face section of face
   ! because of the new additions to bface
   !
-  do nf = 1,new_ngfbnd
+  do nf = 1,new_lfbnd
     !
     ! Copy everything over from the old location in the face array
     !
@@ -2025,15 +2012,15 @@ continue
     !
     ! Reset bface(10,nf) back to the index for the ghost cell
     !
-    bface(10,nf) = ngcell + nf
+    bface(10,nf) = lcell + nf
     !
   end do
   !
   ! Copy the interior face information to the temporary array
   ! but skip those interior faces that are now boundary faces
   !
-  nf = new_ngfbnd + 1
-  do n = ngfbnd+1,ngface
+  nf = new_lfbnd + 1
+  do n = lfbnd+1,lface
     if ( msk(n) ) cycle
     temp_face(nf) = face(n)
     nf = nf + 1
@@ -2049,8 +2036,8 @@ continue
   !
   ! We need to update the global grid parameters
   !
-  ngfbnd = new_ngfbnd
-  ngface = new_ngface
+  lfbnd = new_lfbnd
+  lface = new_lface
   !
   ! Deallocate msk since we are finished with it
   !
@@ -2069,7 +2056,7 @@ continue
   ! will also set the processor value in bface(7,nf) to the current
   ! processor ID for all other non-communication boundaries.
   !
-  do nf = 1,ngfbnd
+  do nf = 1,lfbnd
     if (bface(1,nf) == bc_periodic) then
       pf = bface(5,nf)
       pc = bface(2,pf)
@@ -2110,8 +2097,8 @@ continue
   ! Perform one last quick test to make sure that the attached cells
   ! for each interior face are located within the same partition
   !
-  if ( any( epart(face(ngfbnd+1:ngface)%left%cell) /= &
-            epart(face(ngfbnd+1:ngface)%right%cell) ) ) then
+  if ( any( epart(face(lfbnd+1:lface)%left%cell) /= &
+            epart(face(lfbnd+1:lface)%right%cell) ) ) then
     write (iout,1)
     call stop_recon(stop_mpi,pname)
   end if
@@ -2154,7 +2141,7 @@ continue
   !
   npart = maxval(epart) - minval(epart) + 1
   lcell = size(epart)
-  lnode = ngnode
+  lnode = maxval(nodes_of_cell)
   lface = size(face)
   !
   ! #######
@@ -2341,7 +2328,8 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   !
   !.. Local Scalars ..
   integer :: n,nf,np,nmin,nmax,ierr
-  integer :: nfbnd,ncell,nnode,nface
+  integer :: gnode,gfbnd,gface,gcell
+  integer :: lnode,lfbnd,lface,lcell
   integer :: n_totcel,nfnods,nbfai
   integer :: rev_glb_node,glb_geom,glb_order
   integer :: l1,l2,g1,g2,loc_ghost_cell
@@ -2374,6 +2362,14 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   character(len=*), parameter :: pname = "localize_grid"
   !
 continue
+  !
+  ! Before we deallocate any of the input arrays, get the size of the global
+  ! grid from these arrays
+  !
+  gnode = size(xyz_nodes,dim=2)
+  gfbnd = size(bface,dim=2)
+  gface = size(face)
+  gcell = size(epart)
   !
   ! Before we start localizing everything, localize bc_conflict.
   ! Go through each bc conflict and get the partition to which the
@@ -2491,10 +2487,10 @@ continue
   !
   ! Count the local number of cells, nodes, faces, and boundary faces
   !
-  ncell = size( cell_map(my_part)%loc_to_glb )
-  nnode = size( node_map(my_part)%loc_to_glb )
-  nface = size( face_map(my_part)%loc_to_glb )
-  nfbnd = count( face_map(my_part)%loc_to_glb <= ngfbnd )
+  lcell = size( cell_map(my_part)%loc_to_glb )
+  lnode = size( node_map(my_part)%loc_to_glb )
+  lface = size( face_map(my_part)%loc_to_glb )
+  lfbnd = count( face_map(my_part)%loc_to_glb <= gfbnd )
   !
   ! #######
   ! ## 1 ##
@@ -2504,7 +2500,7 @@ continue
   !
   nbfai = size(global_bface,dim=1)
   !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+  allocate ( bface(1:nbfai,1:lfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bface",1,ierr,error_message)
   !
@@ -2513,7 +2509,7 @@ continue
   ! Also create a mapping array to identify the global ghost cells
   ! needed for the local grid.
   !
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     !
     ! Global face ID for this local boundary face
     !
@@ -2548,11 +2544,11 @@ continue
     !       each ghost cell is uniquely defined so the ghost cell index is just
     !        (the number of interior cells) + (index of current boundary face)
     !
-    bface(10,loc_face) = ncell + loc_face
+    bface(10,loc_face) = lcell + loc_face
     !
   end do
   !
-  n_totcel = ncell + nfbnd
+  n_totcel = lcell + lfbnd
   !
   ! #######
   ! ## 2 ##
@@ -2570,7 +2566,7 @@ continue
   !
   ! Get the geometry and order for the interior cells local to this partition
   !
-  do loc_cell = 1,ncell
+  do loc_cell = 1,lcell
     glb_cell = cell_map(my_part)%loc_to_glb(loc_cell)
     cell_geom(loc_cell) = global_geom(glb_cell)
     cell_order(loc_cell) = global_order(glb_cell)
@@ -2578,9 +2574,9 @@ continue
   !
   ! Get the geometry and order for the ghost cells of this partition
   !
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     glb_face = face_map(my_part)%loc_to_glb(loc_face)
-    loc_cell = ncell + loc_face
+    loc_cell = lcell + loc_face
     cell_geom(loc_cell) = face(glb_face)%geom
     cell_order(loc_cell) = face(glb_face)%order
   end do
@@ -2600,7 +2596,7 @@ continue
   ! First set the node connectivity pointer to the number
   ! of nodes that define each of the interior cells
   !
-  do loc_cell = 1,ncell
+  do loc_cell = 1,lcell
     glb_cell = cell_map(my_part)%loc_to_glb(loc_cell)
     nodes_of_cell_ptr(loc_cell+1) = global_nofc_ptr(glb_cell+1) - &
                                     global_nofc_ptr(glb_cell)
@@ -2609,7 +2605,7 @@ continue
   ! Next set the node connectivity pointer to the number of nodes that
   ! define each of the ghost cells by using the face(:)%nodes array.
   !
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     loc_ghost_cell = bface(10,loc_face)
     glb_face = face_map(my_part)%loc_to_glb(loc_face)
     nfnods = geom_nodes(face(glb_face)%geom) ! # of nodes defining this face
@@ -2638,7 +2634,7 @@ continue
   ! First extract the information that is local to the current
   ! processor from the global_nofc array to the nodes_of_cell array.
   !
-  do loc_cell = 1,ncell
+  do loc_cell = 1,lcell
     !
     l1 = nodes_of_cell_ptr(loc_cell)+1
     l2 = nodes_of_cell_ptr(loc_cell+1)
@@ -2655,7 +2651,7 @@ continue
   ! Now go through the boundary faces and extract the nodal information for
   ! the ghost cells from the faces(:)%nodes array.
   !
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     !
     glb_face = face_map(my_part)%loc_to_glb(loc_face)
     !
@@ -2671,7 +2667,7 @@ continue
   end do
   !
  !if (mypnum == 0) then
- !  write (mypnum+130,'(a,i0)') "ncell = ",ngcell
+ !  write (mypnum+130,'(a,i0)') "gcell = ",gcell
  !  do loc_cell = 1,size(global_nofc_ptr)-1
  !    write (mypnum+130,*)
  !    l1 = global_nofc_ptr(loc_cell)+1
@@ -2683,7 +2679,7 @@ continue
  !!
  !flush (mypnum+130)
  !call mpi_barrier(mpi_comm_world,mpierr)
- !write (mypnum+120,'(a,i0)') "ncell = ",ncell
+ !write (mypnum+120,'(a,i0)') "lcell = ",lcell
  !do loc_cell = 1,size(nodes_of_cell_ptr)-1
  !  write (mypnum+120,*)
  !  l1 = nodes_of_cell_ptr(loc_cell)+1
@@ -2714,11 +2710,11 @@ continue
   ! First, we need to create an array containing the
   ! solution point offsets for every global cell
   !
-  allocate ( cell_offset(1:ngcell) , source=0 , &
+  allocate ( cell_offset(1:gcell) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_offset",1,ierr,error_message)
   !
-  do glb_cell = 1,ngcell-1
+  do glb_cell = 1,gcell-1
     !
     glb_geom = global_geom(glb_cell)
     glb_order = global_order(glb_cell)
@@ -2868,13 +2864,13 @@ continue
   !
   ! Localize the node coordinates
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+  allocate ( xyz_nodes(1:nr,1:lnode) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
   !
   ! Localize the interior nodes
   !
-  do loc_node = 1,nnode
+  do loc_node = 1,lnode
     glb_node = node_map(my_part)%loc_to_glb(loc_node)
     xyz_nodes(:,loc_node) = global_xyz(:,glb_node)
   end do
@@ -2891,7 +2887,7 @@ continue
   ! Now that we have localized the grid, change any periodic boundary conditions
   ! that require communication across processors to communication boundaries
   !
-  do nf = 1,nfbnd
+  do nf = 1,lfbnd
     if (bface(1,nf) == bc_periodic .and. bface(7,nf) /= mypnum) then
       bface(1,nf) = bc_cpu_bnd
     end if
@@ -2906,8 +2902,8 @@ continue
  !call output_partitions(my_part,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes)
  !!
  !call output_partitions(my_part+ncpu+1,nodes_of_cell, &
- !                       nodes_of_cell_ptr(1:ncell+1), &
- !                       xyz_nodes(1:nr,1:nnode))
+ !                       nodes_of_cell_ptr(1:lcell+1), &
+ !                       xyz_nodes(1:nr,1:lnode))
   !
 end subroutine localize_grid
 !
@@ -4499,8 +4495,8 @@ continue
   !
   if (present(epart)) then
     fname = "partitions.tec"
-    np = ngnode
-    nc = ngcell
+    np = size(xyz_nodes,dim=2)
+    nc = size(epart)
     variables = trim(adjustl(variables)) // ', "Partition"'
   else
     write (fname,'("partitions.",i0,".tec")') id
