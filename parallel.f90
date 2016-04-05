@@ -101,6 +101,58 @@ module parallel_mod
   !
   !
   !
+  ! ######################################################################
+  ! #####   BOUNDARY NODE/EDGE DERIVED TYPES AND ASSOCIATED ARRAYS   #####
+  ! ######################################################################
+  !
+  ! BND_DATA_T : derived type to compactly store the local indices of either
+  !              the nodes or edges of a partition that are located on a
+  !              partition boundary
+  !
+  type :: bnd_data_t
+    ! idx : local index of the node or edge on a partition boundary
+    integer :: idx
+    ! ave_correction : the averaging coefficient used to compute the local node
+    !                  or edge point values is based on the number of cells on
+    !                  the local partition that contribute to this node/edge.
+    !                  If the number of local cells containing this node/edge
+    !                  is lc, these values are locally averaged using the
+    !                  coefficient (1/lc). If the number of global cells
+    !                  containing this node/edge is gc, this averaging
+    !                  correction is simply multiplying these node/edge
+    !                  values by (lc/gc), resulting in the final averaging
+    !                  coefficient of (1/gc) for this node/edge.
+    real(wp) :: ave_correction
+    ! my_responsibility : logical flag that indicates if the node or edge point
+    !                     indices for the subcell connectivities involving this
+    !                     this node or edge are the responsibility of this
+    !                     processor
+    logical :: my_responsibility = fals
+  end type bnd_data_t
+  !
+  ! BND_NODES : Array of type bnd_data_t to store the local index and
+  !             averaging correction for all nodes of the partition that
+  !             are located on a partition boundary
+  !
+  type(bnd_data_t), save, allocatable, dimension(:) :: bnd_nodes
+  !
+  ! BND_EDGES : Array of type bnd_data_t to store the local index and
+  !             averaging correction for all edges of the partition that
+  !             are located on a partition boundary
+  !
+  type(bnd_data_t), save, allocatable, dimension(:) :: bnd_edges
+  !
+  ! BND_FACES : Array of type bnd_data_t to store the local index and
+  !             averaging correction for all faces of the partition that
+  !             are located on a partition boundary
+  !             NOTE: The averaging correction is not needed for faces as
+  !                   this is only really used to identify the partition
+  !                   that is responsible for the face point indices
+  !
+  type(bnd_data_t), save, allocatable, dimension(:) :: bnd_faces
+  !
+  !
+  !
   ! ##########################################################
   ! #####   MAPPING DERIVED TYPE AND ASSOCIATED ARRAYS   #####
   ! ##########################################################
