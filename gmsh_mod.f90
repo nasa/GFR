@@ -1209,36 +1209,6 @@ continue
         end do
         !
       end if
-     !!
-     !! Find which face of the host cell is on the boundary
-     !! depending on the element type of the host cell
-     !!
-     !select case (bface(3,nf))
-     !  case (Geom_Node)
-     !    ifa = -1
-     !  case (Geom_Edge)
-     !    ifa = -2
-     !  case (Geom_Quad)
-     !    ifa = host_face_quad( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case (Geom_Tria)
-     !    ifa = host_face_tria( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case (Geom_Tetr)
-     !    ifa = host_face_tetr( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case (Geom_Pyra)
-     !    ifa = host_face_pyra( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case (Geom_Pris)
-     !    ifa = host_face_pris( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case (Geom_Hexa)
-     !    ifa = host_face_hexa( nodes_of_cell(h1:h2) , &
-     !                          cell_data(bnd_cell)%nodes(:) )
-     !  case default
-     !    ifa = -10
-     !end select
       !
       ! Check for an error finding which face of the host cell is on the
       ! boundary, and if there is no error, store the value in bface
@@ -1704,7 +1674,6 @@ end subroutine gmsh_memory_usage
 !
 include "Functions/bc_string_to_integer.f90"
 include "Functions/last.f90"
-!include "Functions/host_face.f90"
 !
 !###############################################################################
 !

@@ -162,7 +162,6 @@ $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/order_mod.o \
               $(FUNDIR)/bc_string_to_integer.f90 \
-              $(FUNDIR)/host_face.f90 \
               $(FUNDIR)/last.f90
 
 $(OBJDIR)/initialize.o : initialize.f90 \
