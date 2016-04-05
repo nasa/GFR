@@ -4082,9 +4082,6 @@ end subroutine exchange_nodedusp
 !
 !subroutine exchange_modes_r4(umodes)
 !  !
-!  !.. Use Statements ..
-!  use geovar, only : nfbnd
-!  !
 !  !.. Formal Arguments ..
 !  real(r4), dimension(:,:), intent(inout) :: umodes
 !  !
@@ -4128,9 +4125,6 @@ end subroutine exchange_nodedusp
 !###############################################################################
 !
 !subroutine exchange_modes_r8(umodes)
-!  !
-!  !.. Use Statements ..
-!  use geovar, only : nfbnd
 !  !
 !  !.. Formal Arguments ..
 !  real(r8), dimension(:,:), intent(inout) :: umodes
@@ -4648,16 +4642,7 @@ continue
     call dt%set( storage_size(cell_map,kind=inttype) , &
                          size(cell_map,kind=inttype) )
     !
-   !write (iout,*)
-   !write (iout,*) "cell_map(:)"
-   !write (iout,*) "size = ",size(cell_map)
-   !write (iout,*) "storage_size = ",storage_size(cell_map)
-   !!
-   !loc_siz = 0
-   !glb_siz = 0
-    !
     do i = lbound(cell_map,dim=1),ubound(cell_map,dim=1)
-      !
       if (allocated(cell_map(i)%loc_to_glb)) then
         call dt%add( storage_size(cell_map(i)%loc_to_glb,kind=inttype) , &
                              size(cell_map(i)%loc_to_glb,kind=inttype) )
@@ -4670,20 +4655,6 @@ continue
       end if
       !
     end do
-    !
-   !i = lbound(cell_map,dim=1)
-   !if (allocated(cell_map(i)%loc_to_glb)) then
-   !  write (iout,*)
-   !  write (iout,*) "cell_map(:)%loc_to_glb"
-   !  write (iout,*) "size = ",loc_siz
-   !  write (iout,*) "storage_size = ",storage_size(cell_map(i)%loc_to_glb)
-   !end if
-   !if (allocated(cell_map(i)%glb_to_loc)) then
-   !  write (iout,*)
-   !  write (iout,*) "cell_map(:)%glb_to_loc"
-   !  write (iout,*) "size = ",glb_siz
-   !  write (iout,*) "storage_size = ",storage_size(cell_map(i)%glb_to_loc)
-   !end if
     !
     call total%add(dt)
     write (array_name,5) "cell_map"
