@@ -121,13 +121,6 @@ module parallel_mod
   !
   type(map_t), public, save, allocatable :: cell_map(:)
   !
-  ! NODE_MAP : mappings between local and global node indices
-  !
-  type(map_t),         save, allocatable :: node_map(:)
-  !
-  ! FACE_MAP : mappings between local and global face indices
-  !
-  type(map_t),         save, allocatable :: face_map(:)
   !
   !
   !
@@ -330,6 +323,10 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   integer, allocatable, dimension(:) :: adjncy
   integer, allocatable, dimension(:) :: epart
   !
+  !.. Local Allocatable Derived-Type Arrays ..
+  type(map_t),  allocatable, dimension(:) :: node_map
+  type(map_t),  allocatable, dimension(:) :: face_map
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_grid"
   !
@@ -424,7 +421,9 @@ continue
   ! or the maps from global to local block orderings
   !
   call memory_pause("Before: calling create_grid_mappings")
-  call create_grid_mappings(npart,epart,nodes_of_cell,nodes_of_cell_ptr)
+  call create_grid_mappings(npart,epart, &
+                            nodes_of_cell,nodes_of_cell_ptr, &
+                            node_map,face_map,cell_map)
   !
  !call parallel_memory_usage(iout)
   !
@@ -433,33 +432,39 @@ continue
   !
   call memory_pause("Before: calling localize_grid")
   call localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
-                     xyz_nodes,epart,cell_geom,cell_order)
+                     xyz_nodes,epart,cell_geom,cell_order, &
+                     node_map,face_map,cell_map)
   !
-  ! Finally, create MPI datatypes for exchanging data between processes
-  !
-  call memory_pause("Before: calling create_face_nonblocking_datatypes")
-  call create_face_nonblocking_datatypes(bface)
-  !
-  ! Deallocate the mapping arrays since they are no longer needed
+  ! Deallocate epart since it is no longer needed
   !
   if (allocated(epart)) then
     deallocate ( epart , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"epart",2,ierr,error_message)
   end if
+  !
+  ! Deallocate the node and edge arrays and the node and edge
+  ! mapping arrays since they are no longer needed
+  !
   if (allocated(node_map)) then
     deallocate ( node_map , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"node_map",2,ierr,error_message)
   end if
-  if (allocated(face_map)) then
-    deallocate ( face_map , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"face_map",2,ierr,error_message)
-  end if
+  !
+  ! Finally, create MPI datatypes for exchanging face data between processes
+  !
+  call memory_pause("Before: calling create_face_nonblocking_datatypes")
+  call create_face_nonblocking_datatypes(bface,face_map)
   !
   ! Deallocate the face array because I dont think it is needed anymore
   !
   if (allocated(face)) then
     deallocate ( face , stat=ierr ,errmsg=error_message )
     call alloc_error(pname,"face",2,ierr,error_message)
+  end if
+  !
+  if (allocated(face_map)) then
+    deallocate ( face_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"face_map",2,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -2010,13 +2015,18 @@ end subroutine find_partition_boundaries
 !
 !###############################################################################
 !
-subroutine create_grid_mappings(npart,epart,nodes_of_cell,nodes_of_cell_ptr)
+subroutine create_grid_mappings(npart,epart, &
+                                nodes_of_cell,nodes_of_cell_ptr, &
+                                node_map,face_map,cell_map)
   !
   !.. Formal Arguments ..
-  integer,                                 intent(in) :: npart
-  integer,              dimension(:),      intent(in) :: epart
-  integer,              dimension(:),      intent(in) :: nodes_of_cell
-  integer,              dimension(:),      intent(in) :: nodes_of_cell_ptr
+  integer,                                   intent(in) :: npart
+  integer,                  dimension(:),    intent(in) :: epart
+  integer,                  dimension(:),    intent(in) :: nodes_of_cell
+  integer,                  dimension(:),    intent(in) :: nodes_of_cell_ptr
+  type(map_t), allocatable, dimension(:), intent(inout) :: node_map
+  type(map_t), allocatable, dimension(:), intent(inout) :: face_map
+  type(map_t), allocatable, dimension(:), intent(inout) :: cell_map
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,ncount,ierr
@@ -2180,7 +2190,8 @@ end function find_subset
 !###############################################################################
 !
 subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
-                         xyz_nodes,epart,cell_geom,cell_order)
+                         xyz_nodes,epart,cell_geom,cell_order, &
+                         node_map,face_map,cell_map)
   !
   !.. Use Statements ..
   use order_mod, only : geom_solpts
@@ -2188,6 +2199,9 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   !
   !.. Formal Arguments ..
   integer,                dimension(:),      intent(in) :: epart
+  type(map_t),            dimension(:),      intent(in) :: node_map
+  type(map_t),            dimension(:),      intent(in) :: face_map
+  type(map_t),            dimension(:),      intent(in) :: cell_map
   integer,   allocatable, dimension(:),   intent(inout) :: cell_geom
   integer,   allocatable, dimension(:),   intent(inout) :: cell_order
   integer,   allocatable, dimension(:),   intent(inout) :: nodes_of_cell
@@ -2772,14 +2786,15 @@ end subroutine localize_grid
 !
 !###############################################################################
 !
-subroutine create_face_nonblocking_datatypes(bface)
+subroutine create_face_nonblocking_datatypes(bface,face_map)
   !
   !.. Use Statements ..
   use geovar, only : n_global_node
   use geovar, only : n_global_edge
   !
   !.. Formal Arguments ..
-  integer, dimension(:,:), intent(inout) :: bface
+  integer,     dimension(:,:), intent(in) :: bface
+  type(map_t), dimension(:),   intent(in) :: face_map
   !
   !.. Local Scalars ..
   logical :: flag
@@ -4558,87 +4573,87 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(node_map)) then
-    !
-    call dt%set( storage_size(node_map,kind=inttype) , &
-                         size(node_map,kind=inttype) )
-   !write (iout,*)
-   !write (iout,*) "node_map(:)"
-   !write (iout,*) "size = ",size(node_map)
-   !write (iout,*) "storage_size = ",storage_size(node_map)
-   !!
-   !loc_siz = 0
-   !glb_siz = 0
-    !
-    do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
-      !
-      if (allocated(node_map(i)%loc_to_glb)) then
-        call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
-                             size(node_map(i)%loc_to_glb,kind=inttype) )
-   !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
-      end if
-      !
-    end do
-    !
-   !i = lbound(node_map,dim=1)
-   !if (allocated(node_map(i)%loc_to_glb)) then
-   !  write (iout,*)
-   !  write (iout,*) "node_map(:)%loc_to_glb"
-   !  write (iout,*) "size = ",loc_siz
-   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
-   !end if
-    !
-    call total%add(dt)
-    write (array_name,5) "node_map"
-    write (iou,2) array_name,dt%get_units()
-    !
-  else
-    !
-    write (iou,7) "node_map"
-    !
-  end if
-  !
-  !-----------------------------------------------------------------------------
-  !
-  if (allocated(face_map)) then
-    !
-    call dt%set( storage_size(face_map,kind=inttype) , &
-                         size(face_map,kind=inttype) )
-   !write (iout,*)
-   !write (iout,*) "face_map(:)"
-   !write (iout,*) "size = ",size(face_map)
-   !write (iout,*) "storage_size = ",storage_size(face_map)
-   !!
-   !loc_siz = 0
-   !glb_siz = 0
-    !
-    do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
-      !
-      if (allocated(face_map(i)%loc_to_glb)) then
-        call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
-                             size(face_map(i)%loc_to_glb,kind=inttype) )
-   !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
-      end if
-      !
-    end do
-    !
-   !i = lbound(face_map,dim=1)
-   !if (allocated(face_map(i)%loc_to_glb)) then
-   !  write (iout,*)
-   !  write (iout,*) "face_map(:)%loc_to_glb"
-   !  write (iout,*) "size = ",loc_siz
-   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
-   !end if
-    !
-    call total%add(dt)
-    write (array_name,5) "face_map"
-    write (iou,2) array_name,dt%get_units()
-    !
-  else
-    !
-    write (iou,7) "face_map"
-    !
-  end if
+!!  if (allocated(node_map)) then
+!!    !
+!!    call dt%set( storage_size(node_map,kind=inttype) , &
+!!                         size(node_map,kind=inttype) )
+!!   !write (iout,*)
+!!   !write (iout,*) "node_map(:)"
+!!   !write (iout,*) "size = ",size(node_map)
+!!   !write (iout,*) "storage_size = ",storage_size(node_map)
+!!   !!
+!!   !loc_siz = 0
+!!   !glb_siz = 0
+!!    !
+!!    do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
+!!      !
+!!      if (allocated(node_map(i)%loc_to_glb)) then
+!!        call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
+!!                             size(node_map(i)%loc_to_glb,kind=inttype) )
+!!   !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
+!!      end if
+!!      !
+!!    end do
+!!    !
+!!   !i = lbound(node_map,dim=1)
+!!   !if (allocated(node_map(i)%loc_to_glb)) then
+!!   !  write (iout,*)
+!!   !  write (iout,*) "node_map(:)%loc_to_glb"
+!!   !  write (iout,*) "size = ",loc_siz
+!!   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
+!!   !end if
+!!    !
+!!    call total%add(dt)
+!!    write (array_name,5) "node_map"
+!!    write (iou,2) array_name,dt%get_units()
+!!    !
+!!  else
+!!    !
+!!    write (iou,7) "node_map"
+!!    !
+!!  end if
+!!  !
+!!  !-----------------------------------------------------------------------------
+!!  !
+!!  if (allocated(face_map)) then
+!!    !
+!!    call dt%set( storage_size(face_map,kind=inttype) , &
+!!                         size(face_map,kind=inttype) )
+!!   !write (iout,*)
+!!   !write (iout,*) "face_map(:)"
+!!   !write (iout,*) "size = ",size(face_map)
+!!   !write (iout,*) "storage_size = ",storage_size(face_map)
+!!   !!
+!!   !loc_siz = 0
+!!   !glb_siz = 0
+!!    !
+!!    do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
+!!      !
+!!      if (allocated(face_map(i)%loc_to_glb)) then
+!!        call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
+!!                             size(face_map(i)%loc_to_glb,kind=inttype) )
+!!   !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
+!!      end if
+!!      !
+!!    end do
+!!    !
+!!   !i = lbound(face_map,dim=1)
+!!   !if (allocated(face_map(i)%loc_to_glb)) then
+!!   !  write (iout,*)
+!!   !  write (iout,*) "face_map(:)%loc_to_glb"
+!!   !  write (iout,*) "size = ",loc_siz
+!!   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
+!!   !end if
+!!    !
+!!    call total%add(dt)
+!!    write (array_name,5) "face_map"
+!!    write (iou,2) array_name,dt%get_units()
+!!    !
+!!  else
+!!    !
+!!    write (iou,7) "face_map"
+!!    !
+!!  end if
   !
   !-----------------------------------------------------------------------------
   !
