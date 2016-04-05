@@ -254,14 +254,18 @@ module parallel_mod
   !
   ! EXCH_DATA_T : Derived type containing the information needed to communicate
   !               data between two processes
+  !               NOTE: adj_cpu, send_tag, and recv_tag all default to -1
+  !                     because this represents an invalid value if these
+  !                     components are used without explicitly redefining
+  !                     them to a valid value
   !
   type :: exch_data_t
     ! adj_cpu : process/CPU ID for the communication partner
-    integer(int_mpi) :: adj_cpu
+    integer(int_mpi) :: adj_cpu = -1_int_mpi
     ! send_tag : message tag for matching the MPI communication
-    integer(int_mpi) :: send_tag
+    integer(int_mpi) :: send_tag = -1_int_mpi
     ! recv_tag : message tag for matching the MPI communication
-    integer(int_mpi) :: recv_tag
+    integer(int_mpi) :: recv_tag = -1_int_mpi
     ! send_datatype : handle for the MPI user-defined datatype to send data
     integer(int_mpi) :: send_datatype = MPI_DATATYPE_NULL
     ! recv_datatype : handle for the MPI user-defined datatype to receive data
