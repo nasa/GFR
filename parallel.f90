@@ -70,6 +70,7 @@ module parallel_mod
   real(r8), save, allocatable, dimension(:) :: fdusp_send_buffer
   real(r8), save, allocatable, dimension(:) :: fdusp_recv_buffer
   !
+  integer, save :: n_node_edge_pts
   integer, save :: eusp_size
   integer, save :: edusp_size
   integer, save :: nusp_size
@@ -361,14 +362,26 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   integer, allocatable, dimension(:)   :: adjncy
   integer, allocatable, dimension(:)   :: epart
   integer, allocatable, dimension(:)   :: fpart
+  integer, allocatable, dimension(:)   :: cells_with_node
+  integer, allocatable, dimension(:)   :: cells_with_node_ptr
+  integer, allocatable, dimension(:)   :: cells_surr_cell
+  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:)   :: cells_with_edge
+  integer, allocatable, dimension(:)   :: cells_with_edge_ptr
+  integer, allocatable, dimension(:,:) :: nodes_on_edge
   !
   !.. Local Allocatable Derived-Type Arrays ..
+  type(node_t), allocatable, dimension(:) :: node
   type(map_t),  allocatable, dimension(:) :: node_map
+  type(edge_t), allocatable, dimension(:) :: edge
+  type(map_t),  allocatable, dimension(:) :: edge_map
   type(face_t), allocatable, dimension(:) :: face
   type(map_t),  allocatable, dimension(:) :: face_map
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_grid"
+  logical, parameter :: use_old_dual_graph = true
+ !logical, parameter :: use_old_dual_graph = fals
   !
 continue
   !
@@ -380,12 +393,43 @@ continue
   !
   lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
-  !
-  ! Create the dual graph for the global grid not including ghost cells
-  !
-  call memory_pause("Before: calling create_dual_graph")
-  call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
-                         nodes_of_cell_ptr,bface,xadj,adjncy,face)
+  if (use_old_dual_graph) then
+    !
+    ! Create the dual graph for the global grid not including ghost cells
+    !
+    call memory_pause("Before: calling create_dual_graph")
+    call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
+                           nodes_of_cell_ptr,bface,xadj,adjncy,face)
+  else
+    !
+    ! Create the global grid connectivity
+    !
+    call get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
+                                 nodes_of_cell,nodes_of_cell_ptr, &
+                                 cells_with_node,cells_with_node_ptr, &
+                                 cells_surr_cell,cells_surr_cell_ptr, &
+                                 cells_with_edge,cells_with_edge_ptr, &
+                                 nodes_on_edge,face)
+    !
+    ! Create the dual graph for the global grid not including ghost cells
+    !
+    call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
+                                 xadj,adjncy)
+    !
+    ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
+    ! are no longer needed
+    !
+    if (allocated(cells_surr_cell)) then
+      deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+    end if
+    !
+    if (allocated(cells_surr_cell_ptr)) then
+      deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+    end if
+    !
+  end if
   !
   ! Allocate the epart array to store the cell partition numbers
   !
@@ -437,6 +481,33 @@ continue
  !end if
  !call stop_recon(stop_mpi,pname,"outputing partitions")
   !
+  ! Create the node and edge arrays
+  !
+  call memory_pause("Before: calling create_node_and_edge_arrays")
+  call create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
+                                   cells_with_node,cells_with_node_ptr, &
+                                   cells_with_edge,cells_with_edge_ptr, &
+                                  !nodes_on_edge, &
+                                   cell_order,epart,bface,node,edge)
+  !
+  ! Deallocate nodes_on_edge, cells_with_node, and cells_with_node_ptr
+  ! since they are no longer needed
+  !
+  if (allocated(nodes_on_edge)) then
+    deallocate ( nodes_on_edge , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_on_edge",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_node)) then
+    deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_node",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_node_ptr)) then
+    deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_node_ptr",2,ierr,error_message)
+  end if
+  !
   ! Find the faces that separate two adjacent partitions
   ! and add these faces to boundary faces array
   !
@@ -450,9 +521,23 @@ continue
   ! or the maps from global to local block orderings
   !
   call memory_pause("Before: calling create_grid_mappings")
-  call create_grid_mappings(epart,face, &
+  call create_grid_mappings(epart,face,node,edge, &
                             nodes_of_cell,nodes_of_cell_ptr, &
-                            node_map,face_map,cell_map)
+                            cells_with_edge,cells_with_edge_ptr, &
+                            node_map,edge_map,face_map,cell_map)
+  !
+  ! Deallocate cells_with_edge and cells_with_edge_ptr since they
+  ! are no longer needed
+  !
+  if (allocated(cells_with_edge)) then
+    deallocate ( cells_with_edge , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_edge",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_with_edge_ptr)) then
+    deallocate ( cells_with_edge_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_with_edge_ptr",2,ierr,error_message)
+  end if
   !
  !call parallel_memory_usage(iout)
   !
@@ -474,9 +559,24 @@ continue
   ! Deallocate the node and edge arrays and the node and edge
   ! mapping arrays since they are no longer needed
   !
+  if (allocated(node)) then
+    deallocate ( node , stat=ierr ,errmsg=error_message )
+    call alloc_error(pname,"node",2,ierr,error_message)
+  end if
+  !
+  if (allocated(edge)) then
+    deallocate ( edge , stat=ierr ,errmsg=error_message )
+    call alloc_error(pname,"edge",2,ierr,error_message)
+  end if
+  !
   if (allocated(node_map)) then
     deallocate ( node_map , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"node_map",2,ierr,error_message)
+  end if
+  !
+  if (allocated(edge_map)) then
+    deallocate ( edge_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edge_map",2,ierr,error_message)
   end if
   !
   ! Finally, create MPI datatypes for exchanging face data between processes
@@ -1977,6 +2077,532 @@ end subroutine check_quality_of_partitioning
 !
 !###############################################################################
 !
+subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
+                                       cells_with_node,cells_with_node_ptr, &
+                                       cells_with_edge,cells_with_edge_ptr, &
+                                      !nodes_on_edge, &
+                                       cell_order,epart,bface,node,edge)
+  !
+  !.. Formal Arguments ..
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,                   dimension(:),    intent(in) :: cells_with_node
+  integer,                   dimension(:),    intent(in) :: cells_with_node_ptr
+  integer,                   dimension(:),    intent(in) :: cells_with_edge
+  integer,                   dimension(:),    intent(in) :: cells_with_edge_ptr
+ !integer,                   dimension(:,:),  intent(in) :: nodes_on_edge
+  integer,                   dimension(:),    intent(in) :: epart
+  integer,                   dimension(:),    intent(in) :: cell_order
+  integer,                   dimension(:,:),  intent(in) :: bface
+  type(node_t), allocatable, dimension(:), intent(inout) :: node
+  type(edge_t), allocatable, dimension(:), intent(inout) :: edge
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,nf,np,i,ierr
+  integer :: lnode,ledge,lcell
+  integer :: lcpu,ucpu,num_cpus
+  integer :: host_cell,ghost_cell
+  character(len=100) :: array_name
+  !
+  !.. Local Arrays ..
+  logical, dimension(1:ncpu) :: cpu_mask
+  integer, dimension(1:ncpu) :: cpu_cells
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable, dimension(:) :: bc_list
+  integer, allocatable, dimension(:) :: cell_list
+  integer, allocatable, dimension(:) :: part_list
+  !
+  !.. Local Paramters ..
+  character(len=*), parameter :: pname = "create_node_and_edge_arrays"
+  !
+continue
+  !
+  lnode = size(cells_with_node_ptr)-1
+  ledge = size(cells_with_edge_ptr)-1
+  lcell = size(epart)
+  !
+  ! Find the maximum number of cells with a single node
+  !
+  n1 = maxval( cells_with_node_ptr(2:lnode+1) - &
+               cells_with_node_ptr(1:lnode  ) )
+  !
+  ! Find the maximum number of cells with a single edge
+  !
+  n2 = maxval( cells_with_edge_ptr(2:ledge+1) - &
+               cells_with_edge_ptr(1:ledge  ) )
+  !
+  ! Allocate the array to store the partitions numbers for all cells with a
+  ! given node/edge, and the array to store the BCs those boundary faces
+  ! with a given node/edge.
+  !
+  n = max(n1,n2)
+  !
+  allocate ( cell_list(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_list",1,ierr,error_message)
+  !
+  allocate ( part_list(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"part_list",1,ierr,error_message)
+  !
+  allocate ( bc_list(1:n) , source=not_a_bc , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_list",1,ierr,error_message)
+  !
+  ! Create the node array
+  !
+  allocate ( node(1:lnode) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"node",1,ierr,error_message)
+  !
+  ! Loop through the grid nodes and find any nodes that exist on multiple
+  ! partitions. Save these partition numbers to the node array
+  !
+  do n = 1,lnode
+    !
+    ! Reset the local arrays for this node
+    !
+    cpu_mask(:) = fals
+    cpu_cells(:) = 0
+    part_list(:) = 0
+    cell_list(:) = 0
+    bc_list(:) = not_a_bc
+    !
+    n1 = cells_with_node_ptr(n)+1 ! index of first cell containing this node
+    n2 = cells_with_node_ptr(n+1) ! index of last  cell containing this node
+    np = n2-n1+1                  ! number of cells containing this node
+    !
+    ! We first need to check if this node lies
+    ! on a non-communication boundary face
+    !
+    if (any( cells_with_node(n1:n2) < 0 )) then
+      !
+      ! One or more of the cells containing this node are actually a
+      ! non-communication boundary face so we need to treat this node
+      ! a little differently
+      !
+      ! Set the logical flag that identifies
+      ! this node is part of a boundary face
+      !
+      node(n)%is_on_boundary = true
+      !
+      np = 0
+      !
+      do i = n1,n2
+        !
+        if (cells_with_node(i) < 0) then
+          !
+          np = np + 1
+          !
+          nf = abs(cells_with_node(i)) - lcell
+          !
+          host_cell  = bface(2,nf)
+          ghost_cell = bface(10,nf)
+          !
+          if (abs(cells_with_node(i)) /= ghost_cell) then
+            write (error_message,2) n,n,nf,cells_with_node(i), &
+                                    ghost_cell,host_cell
+            call stop_recon(stop_mpi,pname,error_message)
+          end if
+          !
+          ! Store the host cell for this boundary face
+          !
+          cell_list(np) = host_cell
+          !
+          ! Store the B.C. for this boundary face
+          !
+          bc_list(np) = bface(1,nf)
+          !
+        end if
+        !
+      end do
+      !
+      ! Save the partitions numbers of the cells with this edge to a local array
+      !
+      part_list(1:np) = epart( cell_list(1:np) )
+      !
+      ! Find the boundary faces with this node that have the highest
+      ! BC priority, and set the BC to bc_unknown for all the other
+      ! boundary faces with a BC of lesser priority.
+      !
+      call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
+      !
+    else
+      !
+      ! This node is not part of a boundary face
+      !
+      ! Set bc_list to not_a_bc to indicate that we want
+      ! to add each of these cells to cpu_cells
+      !
+      bc_list(1:np) = not_a_bc
+      !
+      ! Save the cells with this node to a local array
+      !
+      cell_list(1:np) = cells_with_node(n1:n2)
+      !
+      ! Save the partitions numbers of the cells with this edge to a local array
+      !
+      part_list(1:np) = epart( cell_list(1:np) )
+      !
+    end if
+    !
+    ! Get the lower and upper bounds of the partitions with this node
+    !
+    lcpu = minval( part_list(1:np) )
+    ucpu = maxval( part_list(1:np) )
+    !
+    ! Skip this node if the partition number is
+    ! the same for all cells with this node
+    !
+    if (lcpu == ucpu) cycle
+    !
+    ! Sum the number of cells containing this node on each partition
+    !
+    do i = 1,np
+      !
+      ! Mark this partition as having a cell containing this node
+      !
+      cpu_mask( part_list(i) ) = true
+      !
+      ! Only add another cell to this partition if this is not
+      ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
+      ! is a boundary face with the BC of highest priority for
+      ! this node (i.e., bc_list(i) /= bc_unknown).
+      !
+      if (bc_list(i) /= bc_unknown) then
+        cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
+      end if
+      !
+    end do
+    !
+    ! Count the number of cpus that contain this node
+    !
+    num_cpus = count( cpu_mask(lcpu:ucpu) )
+    !
+    ! Allocate the cpu component of the node array for this node
+    !
+    allocate ( node(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
+    write (array_name,1) "node",n
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    !
+    node(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
+                                              cpu_mask(lcpu:ucpu) )
+    !
+    ! Save the number of cells that contain this node on each partition
+    ! NOTE: This may be zero for a partition if:
+    !         1) this node is on a boundary face, and
+    !         2) on this partition, all the boundary faces with this node
+    !            have BCs that are of lesser priority than a higher
+    !            priority BC for a boundary face on another partition.
+    !       In such a case, we want this to be zero because that means the
+    !       averaging correction for this node (computed later in subroutine
+    !       create_node_and_edge_datatypes) will also be zero for this
+    !       partition, and therefore the contribution to the solution for
+    !       this node from this partition will be canceled out.
+    !
+    do i = 1,size(node(n)%cpu)
+      node(n)%cpu(i)%num_cells = cpu_cells( node(n)%cpu(i)%partition )
+    end do
+    !
+    ! Assign the partition that contains the cell with the lowest index
+    ! value with this node as the controlling partition for this node
+    !
+    i = minval( cell_list , mask=(cell_list>0 .and. cell_list<lcell) )
+    !
+    node(n)%controlling_partition = epart(i)
+    !
+  end do
+  !
+  ! Create the edge array
+  !
+  allocate ( edge(1:ledge) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge",1,ierr,error_message)
+  !
+  ! Loop through the grid edges and find any edges that exist on multiple
+  ! partitions. Save these partition numbers to the edge array
+  !
+  do n = 1,ledge
+    !
+    ! Reset the local arrays for this edge
+    !
+    cpu_mask(:) = fals
+    cpu_cells(:) = 0
+    part_list(:) = 0
+    cell_list(:) = 0
+    bc_list(:) = not_a_bc
+    !
+    n1 = cells_with_edge_ptr(n)+1 ! index of first cell containing this edge
+    n2 = cells_with_edge_ptr(n+1) ! index of last  cell containing this edge
+    np = n2-n1+1                  ! number of cells containing this edge
+    !
+    ! We first need to check if this edge lies
+    ! on a non-communication boundary face
+    !
+    if (any( cells_with_edge(n1:n2) < 0 )) then
+      !
+      ! One or more of the cells containing this edge are actually a
+      ! non-communication boundary face so we need to treat this edge
+      ! a little differently
+      !
+      ! Set the logical flag that identifies
+      ! this edge is part of a boundary face
+      !
+      edge(n)%is_on_boundary = true
+      !
+      edge(n)%order = 0
+      np = 0
+      !
+      do i = n1,n2
+        !
+        if (cells_with_edge(i) < 0) then
+          !
+          np = np + 1
+          !
+          nf = abs(cells_with_edge(i)) - lcell
+          !
+          host_cell  = bface(2,nf)
+          ghost_cell = bface(10,nf)
+          !
+          if (abs(cells_with_edge(i)) /= ghost_cell) then
+            write (error_message,3) n,n,nf,cells_with_edge(i), &
+                                    ghost_cell,host_cell
+            call stop_recon(stop_mpi,pname,error_message)
+          end if
+          !
+          ! Store the host cell for this boundary face
+          !
+          cell_list(np) = host_cell
+          !
+          ! Store the B.C. for this boundary face
+          !
+          bc_list(np) = bface(1,nf)
+          !
+        end if
+        !
+      end do
+      !
+      ! Temporarily store the host cells in part_list
+      !
+      part_list(1:np) = cell_list(1:np)
+      !
+      ! Find the boundary faces with this edge that have the highest
+      ! BC priority, and set the BC to bc_unknown for all the other
+      ! boundary faces with a BC of lesser priority.
+      !
+      call find_priority_bc( bc_list(1:np) , cell_list(1:np) )
+      !
+      ! Now that we have removed all the boundary faces with BC of lower
+      ! priority, find the maximum order of all the host cells for the
+      ! remaining boundary faces. Also replace the index for the host cells
+      ! that are temporarily stored in part_list with the partition numbers
+      ! for each of these host cells.
+      !
+      do i = 1,np
+        host_cell = part_list(i)
+        if (bc_list(i) /= bc_unknown) then
+          edge(n)%order = max( edge(n)%order , cell_order(host_cell) )
+        end if
+        part_list(i) = epart( host_cell )
+      end do
+      !
+    else
+      !
+      ! This edge is not part of a boundary face
+      !
+      ! Set bc_list to not_a_bc to indicate that we want
+      ! to add each of these cells to cpu_cells
+      !
+      bc_list(1:np) = not_a_bc
+      !
+      ! Save the cells with this edge to a local array
+      !
+      cell_list(1:np) = cells_with_edge(n1:n2)
+      !
+      ! Save the partitions numbers of the cells with this edge to a local array
+      !
+      part_list(1:np) = epart( cell_list(1:np) )
+      !
+      ! Get the maximum order of the cells with this edge
+      ! and save this to the edge array
+      !
+      edge(n)%order = maxval( cell_order(cells_list(1:np)) )
+      !
+    end if
+    !
+    ! Get the lower and upper bounds of the partitions with this edge
+    !
+    lcpu = minval( part_list(1:np) )
+    ucpu = maxval( part_list(1:np) )
+    !
+    ! Skip this edge if the partition number is
+    ! the same for all cells with this edge
+    !
+    if (lcpu == ucpu) cycle
+    !
+    ! Sum the number of cells containing this edge on each partition
+    !
+    do i = 1,np
+      !
+      ! Mark this partition as having a cell containing this edge
+      !
+      cpu_mask( part_list(i) ) = true
+      !
+      ! Only add another cell to this partition if this is not
+      ! a boundary face (i.e., bc_list(i) == not_a_bc) or this
+      ! is a boundary face with the BC of highest priority for
+      ! this edge (i.e., bc_list(i) /= bc_unknown).
+      !
+      if (bc_list(i) /= bc_unknown) then
+        cpu_cells( part_list(i) ) = cpu_cells( part_list(i) ) + 1
+      end if
+      !
+    end do
+    !
+    ! Count the number of cpus that contain this edge
+    !
+    num_cpus = count( cpu_mask(lcpu:ucpu) )
+    !
+    ! Allocate the cpu component of the edge array for this edge
+    !
+    allocate ( edge(n)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
+    write (array_name,1) "edge",n
+    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    !
+    edge(n)%cpu(1:num_cpus)%partition = pack( intseq(lcpu,ucpu) , &
+                                              cpu_mask(lcpu:ucpu) )
+    !
+    ! Save the number of cells that contain this edge on each partition
+    ! NOTE: This may be zero for a partition if:
+    !         1) this edge is on a boundary face, and
+    !         2) on this partition, all the boundary faces with this edge
+    !            have BCs that are of lesser priority than a higher
+    !            priority BC for a boundary face on another partition.
+    !       In such a case, we want this to be zero because that means the
+    !       averaging correction for this edge (computed later in subroutine
+    !       create_node_and_edge_datatypes) will also be zero for this
+    !       partition, and therefore the contribution to the solution for
+    !       this edge from this partition will be canceled out.
+    !
+    do i = 1,size(edge(n)%cpu)
+      edge(n)%cpu(i)%num_cells = cpu_cells( edge(n)%cpu(i)%partition )
+    end do
+    !
+    ! Assign the partition that contains the cell with the lowest index
+    ! value with this edge as the controlling partition for this edge
+    !
+    i = minval( cell_list , mask=(cell_list>0 .and. cell_list<lcell) )
+    !
+    edge(n)%controlling_partition = epart(i)
+    !
+    ! Finally, we need to create the ordering of the edge points
+    !
+    if (use_edgpts) then
+      !
+      np = Cell_Solpts( Geom_Edge , edge(n)%order )
+      !
+      do i = 1,size(edge(n)%cpu)
+        !
+        allocate ( edge(n)%cpu(i)%edgpts(1:np) , source=0 , &
+                   stat=ierr , errmsg=error_message )
+        write (array_name,1) "edge",n,i
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        !
+        ! NOT SURE IF THIS IS CORRECT. WE MIGHT NEED TO CHECK THE NODES ON
+        ! THE EDGE AND THE ORDERING AND USE intseq(np,1,-1) IF THE NODES ARE
+        ! REVERSED
+        !
+        edge(n)%cpu(i)%edgpts(1:np) = intseq(1,np)
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  ! Deallocate cell_list, part_list, and bc_list before we leave
+  !
+  deallocate ( cell_list , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_list",2,ierr,error_message)
+  !
+  deallocate ( part_list , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"part_list",2,ierr,error_message)
+  !
+  deallocate ( bc_list , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_list",2,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format(a,"(",i0,")%cpu",:,"(",i0,")%edgpts")
+  2 format("ERROR! A cell containing the node ",i0," was found to ", &
+           "be a boundary",/,8x,"face, but the ghost cell value in ", &
+           "cells_with_node was not the",/,8x,"negative of the ghost ", &
+           "cell value in the face array.",/, &
+           11x,"node index = ",i0,/, &
+           11x,"face index = ",i0,/, &
+           11x,"cells_with_node(i)  = ",i0,/, &
+           11x,"face(nf)%right%cell = ",i0,/, &
+           11x,"face(nf)%left%cell  = ",i0,/)
+  3 format("ERROR! A cell containing the edge ",i0," was found to ", &
+           "be a boundary",/,8x,"face, but the ghost cell value in ", &
+           "cells_with_edge was not the",/,8x,"negative of the ghost ", &
+           "cell value in the face array.",/, &
+           11x,"edge index = ",i0,/, &
+           11x,"face index = ",i0,/, &
+           11x,"cells_with_edge(i)  = ",i0,/, &
+           11x,"face(nf)%right%cell = ",i0,/, &
+           11x,"face(nf)%left%cell  = ",i0,/)
+  !
+end subroutine create_node_and_edge_arrays
+!
+!###############################################################################
+!
+subroutine find_priority_bc(bc_list,cell_list)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:), intent(inout) :: bc_list
+  !
+  !.. Optional Arguments ..
+  integer, optional, dimension(:), intent(inout) :: cell_list
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(bc_list)) :: array_of_zeros
+  !
+continue
+  !
+  ! Loop through the priority heirarchy of the different BC
+  ! until we find the BC of highest priority within bc_list
+  !
+  do n = 1,size(bc_heirarchy)
+    !
+    if (any(bc_list == bc_heirarchy(n))) then
+      !
+      ! We found the BC of highest priority within bc_list.
+      ! Now set all other BCs within bc_list to the parameter
+      ! bc_unknown so that only the current BC remains.
+      !
+      where (bc_list /= bc_heirarchy(n)) bc_list = bc_unknown
+      !
+      ! Exit now that we have collected the boundary faces
+      ! that have the BC of highest priority
+      !
+      exit
+      !
+    end if
+    !
+  end do
+  !
+  ! Now pack the host cells in cell_list that correspond to the
+  ! non-bc_unknown boundary faces in bc_list up to the front of cell_list
+  ! and pad the remaining elements of cell_list with zeros.
+  !
+  if (present(cell_list)) then
+    cell_list = pack( cell_list , bc_list /= bc_unknown , array_of_zeros )
+  end if
+  !
+end subroutine find_priority_bc
+!
+!###############################################################################
+!
 subroutine find_partition_boundaries(cell_geom,epart,bface,fpart,face)
   !
   !.. Formal Arguments ..
@@ -2278,23 +2904,31 @@ end subroutine find_partition_boundaries
 !
 !###############################################################################
 !
-subroutine create_grid_mappings(epart,face, &
+subroutine create_grid_mappings(epart,face,node,edge, &
                                 nodes_of_cell,nodes_of_cell_ptr, &
-                                node_map,face_map,cell_map)
+                                cells_with_edge,cells_with_edge_ptr, &
+                                node_map,edge_map,face_map,cell_map)
   !
   !.. Formal Arguments ..
   integer,                  dimension(:),    intent(in) :: epart
   integer,                  dimension(:),    intent(in) :: nodes_of_cell
   integer,                  dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,                  dimension(:),    intent(in) :: cells_with_edge
+  integer,                  dimension(:),    intent(in) :: cells_with_edge_ptr
   type(face_t),             dimension(:),    intent(in) :: face
+  type(node_t),             dimension(:), intent(inout) :: node
+  type(edge_t),             dimension(:), intent(inout) :: edge
   type(map_t), allocatable, dimension(:), intent(inout) :: node_map
+  type(map_t), allocatable, dimension(:), intent(inout) :: edge_map
   type(map_t), allocatable, dimension(:), intent(inout) :: face_map
   type(map_t), allocatable, dimension(:), intent(inout) :: cell_map
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,ierr
+  integer :: n,nc,ne,n1,n2,ierr
   integer :: npart,this_part,ncount
-  integer :: lcell,lnode,lface
+  integer :: loc_edge,glb_edge
+  integer :: loc_node,glb_node
+  integer :: lcell,lnode,lface,ledge
   character(len=200) :: array_name 
   !
   !.. Local Allocatable Arrays ..
@@ -2307,7 +2941,8 @@ continue
   !
   npart = maxval(epart) - minval(epart) + 1
   lcell = size(epart)
-  lnode = maxval(nodes_of_cell)
+  lnode = size(node)
+  ledge = size(edge)
   lface = size(face)
   !
   ! #######
@@ -2316,7 +2951,7 @@ continue
   !
   ! Allocate the msk array
   !
-  ncount = max( lcell , lnode , lface )
+  ncount = max( lcell , lnode , lface , ledge )
   !
   allocate ( msk(1:ncount) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,ierr,error_message)
@@ -2395,6 +3030,26 @@ continue
     !
     node_map(this_part)%loc_to_glb = pack( intseq(1,lnode) , msk(1:lnode) )
     !
+    ! Save the local node index for each node of this partition that
+    ! also exists on a different partition
+    ! NOTE: The cpu component of the node array should only be allocated
+    !       if the global node exists on multiple partitions
+    !
+    local_nodes: do loc_node = 1,size(node_map(this_part)%loc_to_glb)
+      !
+      glb_node = node_map(this_part)%loc_to_glb(loc_node)
+      !
+      if (.not. allocated(node(glb_node)%cpu)) cycle local_nodes
+      !
+      do n = 1,size(node(glb_node)%cpu)
+        if (this_part == node(glb_node)%cpu(n)%partition) then
+          node(glb_node)%cpu(n)%loc_node = loc_node
+          cycle local_nodes
+        end if
+      end do
+      !
+    end do local_nodes
+    !
   end do
   !
   ! #######
@@ -2431,6 +3086,69 @@ continue
     face_map(this_part)%loc_to_glb = pack( intseq(1,lface) , msk(1:lface) )
    !face_map(this_part)%loc_to_glb = &
    !                  find_subset(epart(face(1:lface)%left%cell),this_part)
+    !
+  end do
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Create the edge mappings
+  !
+  allocate ( edge_map(1:npart) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edge_map",1,ierr,error_message)
+  !
+  ! Loop through the partitions to find the
+  ! local number of edges for each partition
+  !
+  do this_part = 1,npart
+    !
+    ! Initialize/Reset msk
+    !
+    msk(:) = fals
+    !
+    ! Mark the edges that are within this partition
+    !
+    do ne = 1,ledge
+      n1 = cells_with_edge_ptr(ne)+1
+      n2 = cells_with_edge_ptr(ne+1)
+      msk(ne) = any( epart(cells_with_edge(n1:n2)) == this_part )
+    end do
+    !
+    ! Count the edges on this partition
+    !
+    ncount = count( msk(1:ledge) )
+    !
+    ! Allocate the loc_to_glb component of edge_map for this partition
+    !
+    allocate ( edge_map(this_part)%loc_to_glb(1:ncount) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "edge_map",this_part
+    call alloc_error(pname,array_name,1,ierr,error_message)
+    !
+    ! Add the edges of the current partition to edge_map
+    !
+    edge_map(this_part)%loc_to_glb = pack( intseq(1,ledge) , msk(1:ledge) )
+    !
+    ! Save the local edge index for each edge of this partition that
+    ! also exists on a different partition
+    ! NOTE: The cpu component of the edge array should only be allocated
+    !       if the global edge exists on multiple partitions
+    ! 
+    local_edges: do loc_edge = 1,size(edge_map(this_part)%loc_to_glb)
+      !
+      glb_edge = edge_map(this_part)%loc_to_glb(loc_edge)
+      !
+      if (.not. allocated(edge(glb_edge)%cpu)) cycle local_edges
+      ! 
+      do n = 1,size(edge(glb_edge)%cpu)
+        if (this_part == edge(glb_edge)%cpu(n)%partition) then
+          edge(glb_edge)%cpu(n)%loc_edge = loc_edge
+          cycle local_edges
+        end if
+      end do
+      !
+    end do local_edges
     !
   end do
   !
