@@ -123,6 +123,77 @@ module parallel_mod
   !
   !
   !
+  ! #####################################################################
+  ! #####   EDGE CONNECTIVITY DERIVED TYPES AND ASSOCIATED ARRAYS   #####
+  ! #####################################################################
+  !
+  ! CPU_WITH_EDGE_T : derived type to store the information about
+  !                   a partition/processor that contains a given edge
+  !
+  type :: cpu_with_edge_t
+    ! partition : grid partition/processor containing this edge
+    integer :: partition
+    ! loc_edge : index of this edge local this partition
+    integer :: loc_edge
+    ! num_cells : number of cells on this partition containing this edge
+    integer :: num_cells
+    ! edgpts : indices for the edge points on the current edge
+    integer, allocatable :: edgpts(:)
+  end type cpu_with_edge_t
+  !
+  logical, parameter :: use_edgpts = true
+ !logical, parameter :: use_edgpts = fals
+  !
+  ! EDGE_T : Derived type to store information for each grid edge
+  !          NOTE: This is different from the derived type
+  !                of the same name in the module geovar
+  !
+  type :: edge_t
+    ! is_on_boundary : logical that identifies if this edge is on a
+    !                  non-communication boundary face
+    logical :: is_on_boundary = fals
+    ! controlling_partition : partition that is responsible for the index
+    !                         of this node for the CGNS connectivity
+    integer :: controlling_partition
+    ! order : solution order of the current edge
+    integer :: order
+    ! cpu : information for each cpu that contains the current edge
+    type(cpu_with_edge_t), allocatable :: cpu(:)
+  end type edge_t
+  !
+  !
+  !
+  ! #####################################################################
+  ! #####   NODE CONNECTIVITY DERIVED TYPES AND ASSOCIATED ARRAYS   #####
+  ! #####################################################################
+  !
+  ! CPU_WITH_NODE_T : derived type to store the information about
+  !                   a partition/processor that contains a given node
+  !
+  type :: cpu_with_node_t
+    ! partition : grid partition/processor containing this node
+    integer :: partition
+    ! loc_node : index of this node local this partition
+    integer :: loc_node
+    ! num_cells : number of cells on this partition containing this edge
+    integer :: num_cells
+  end type cpu_with_node_t
+  !
+  ! NODE_T : Derived type to store information for each grid node
+  !          NOTE: This is different from the derived type
+  !                of the same name in the module geovar
+  !
+  type :: node_t
+    ! is_on_boundary : logical that identifies if this edge is on a
+    !                  non-communication boundary face
+    logical :: is_on_boundary = fals
+    ! controlling_partition : partition that is responsible for the index
+    !                         of this node for the CGNS connectivity
+    integer :: controlling_partition
+    ! cpu : information for each cpu that contains the current node
+    type(cpu_with_node_t), allocatable :: cpu(:)
+  end type node_t
+  !
   !
   !
   ! #####################################################################
