@@ -111,8 +111,6 @@ module parallel_mod
   type :: map_t
     ! loc_to_glb : local index to global index mapping array
     integer, allocatable :: loc_to_glb(:)
-    ! glb_to_loc : global index to local index mapping array
-    integer, allocatable :: glb_to_loc(:)
   end type map_t
   !
   ! CELL_MAP : mappings between local and global cell indices
@@ -457,17 +455,6 @@ continue
     call alloc_error(pname,"face_map",2,ierr,error_message)
   end if
   !
-  ! Deallocate the glb_to_loc component of cell_map to save memory because
-  ! I dont think it will be needed anymore
-  !
-  do n = 1,npart
-    if (allocated(cell_map(n)%glb_to_loc)) then
-      deallocate ( cell_map(n)%glb_to_loc , stat=ierr , errmsg=error_message )
-      write (array_name,1) n
-      call alloc_error(pname,array_name,2,ierr,error_message)
-    end if
-  end do
-  !
   ! Deallocate the face array because I dont think it is needed anymore
   !
   if (allocated(face)) then
@@ -475,11 +462,8 @@ continue
     call alloc_error(pname,"face",2,ierr,error_message)
   end if
   !
- !call create_exchange_datatypes()
-  !
   ! Format Statements
   !
-  1 format("cell_map(",i0,")%glb_to_loc")
   2 format(" It seems that the code was compiled without either of the METIS", &
            " pre-processor options being defined. One of these options needs", &
            " to be defined in order to partition the grid and allow the use", &
@@ -2078,12 +2062,6 @@ continue
     !
   end do
   !
-  ! Create the reverse maps for cells
-  !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-  call create_reverse_map(ngcell,cell_map,"cell")
-#endif
-  !
   ! #######
   ! ## 2 ##
   ! #######
@@ -2136,12 +2114,6 @@ continue
   deallocate ( msk , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",2,ierr,error_message)
   !
-  ! Create the reverse maps for nodes
-  !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-  call create_reverse_map(ngnode,node_map,"node")
-#endif
-  !
   ! #######
   ! ## 3 ##
   ! #######
@@ -2175,60 +2147,11 @@ continue
     !
   end do
   !
-  ! Create the reverse maps for faces
-  !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-  call create_reverse_map(ngface,face_map,"face")
-#endif
-  !
   ! Format Statements
   !
   1 format (a,"(",i0,")%loc_to_glb")
   !
 end subroutine create_grid_mappings
-!
-!###############################################################################
-!
-subroutine create_reverse_map(nsize,map,cloc)
-  !
-  !.. Formal Arguments ..
-  integer,                      intent(in) :: nsize
-  character(len=*),             intent(in) :: cloc
-  type(map_t), dimension(:), intent(inout) :: map
-  !
-  !.. Local Scalars ..
-  integer :: n,ierr
-  character(len=200) :: array_name
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_reverse_map"
-  !
-continue
-  !
-  ! Create the reverse mapping array for each partition
-  !
-  do n = 1,size(map)
-    !
-    ! Allocate the reverse mapping array component of the current partition
-    !
-    allocate ( map(n)%glb_to_loc(1:nsize) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) trim(adjustl(cloc)),n
-    call alloc_error(pname,array_name,1,ierr,error_message)
-    !
-    ! Store a sequence of integers giving the local index into the global
-    ! index locations given by the local to global mapping component of the
-    ! current partition.
-    !
-    map(n)%glb_to_loc( map(n)%loc_to_glb ) = intseq(1,size(map(n)%loc_to_glb))
-    !
-  end do
-  !
-  ! Format Statements
-  !
-  1 format (a,"_map(",i0,")%glb_to_loc")
-  !
-end subroutine create_reverse_map
 !
 !###############################################################################
 !
@@ -2329,11 +2252,7 @@ continue
       !
       master_cpu = epart( bface(2,glb_face) )
       !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-      loc_face = face_map(master_cpu)%glb_to_loc(glb_face)
-#else
       loc_face = findloc( face_map(master_cpu)%loc_to_glb , glb_face)
-#endif
       !
       bc_conflict(n)%master%face = loc_face
       bc_conflict(n)%master%cpu = master_cpu
@@ -2350,11 +2269,7 @@ continue
         !
         slave_cpu = epart( bface(2,glb_face) )
         !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-        loc_face = face_map(slave_cpu)%glb_to_loc(glb_face)
-#else
         loc_face = findloc( face_map(slave_cpu)%loc_to_glb , glb_face)
-#endif
         !
         bc_conflict(n)%slave(nf)%face = loc_face
         bc_conflict(n)%slave(nf)%cpu = slave_cpu
@@ -2435,11 +2350,7 @@ continue
   ncell = size( cell_map(my_part)%loc_to_glb )
   nnode = size( node_map(my_part)%loc_to_glb )
   nface = size( face_map(my_part)%loc_to_glb )
-#ifdef USE_GLB_TO_LOC_ARRAYS
-  nfbnd = count( face_map(my_part)%glb_to_loc(1:ngfbnd) /= 0 )
-#else
   nfbnd = count( face_map(my_part)%loc_to_glb <= ngfbnd )
-#endif
   !
   ! Now that all ghost cells are actually faces and not cells,
   ! n_totnod is just the same as nnode
@@ -2473,14 +2384,9 @@ continue
     !
     ! Now localize the information for this face
     !
-#ifdef USE_GLB_TO_LOC_ARRAYS
     ! local host cell
-    bface(2,loc_face) = cell_map(my_part)%glb_to_loc( bface(2,loc_face) )
-#else
-    ! local host cell
-    bface(2,loc_face) = &
-         findloc( cell_map(my_part)%loc_to_glb ,  bface(2,loc_face) )
-#endif
+    bface(2,loc_face) = findloc( cell_map(my_part)%loc_to_glb , &
+                                 bface(2,loc_face) )
     !
     if ( any(bface(1,loc_face) == bc_comm) ) then
       !
@@ -2488,13 +2394,8 @@ continue
       adj_cell = bface(6,loc_face)      ! connecting host cell
       adj_part = bface(7,loc_face) + 1  ! partition of connecting cell
       !
-#ifdef USE_GLB_TO_LOC_ARRAYS
-      bface(5,loc_face) = face_map(adj_part)%glb_to_loc(adj_face)
-      bface(6,loc_face) = cell_map(adj_part)%glb_to_loc(adj_cell)
-#else
       bface(5,loc_face) = findloc( face_map(adj_part)%loc_to_glb , adj_face)
       bface(6,loc_face) = findloc( cell_map(adj_part)%loc_to_glb , adj_cell)
-#endif
       !
     end if
     !
@@ -2817,12 +2718,7 @@ continue
   !
   do loc_node = 1,size(nodes_of_cell)
     glb_node = nodes_of_cell(loc_node)
-#ifdef USE_GLB_TO_LOC_ARRAYS
-    nodes_of_cell(loc_node) = node_map(my_part)%glb_to_loc( glb_node )
-#else
-    nodes_of_cell(loc_node) = &
-      findloc( node_map(my_part)%loc_to_glb ,  glb_node )
-#endif
+    nodes_of_cell(loc_node) = findloc( node_map(my_part)%loc_to_glb , glb_node )
   end do
   !
   ! #######
@@ -4646,12 +4542,6 @@ continue
       if (allocated(cell_map(i)%loc_to_glb)) then
         call dt%add( storage_size(cell_map(i)%loc_to_glb,kind=inttype) , &
                              size(cell_map(i)%loc_to_glb,kind=inttype) )
-   !    loc_siz = loc_siz + size(cell_map(i)%loc_to_glb)
-      end if
-      if (allocated(cell_map(i)%glb_to_loc)) then
-        call dt%add( storage_size(cell_map(i)%glb_to_loc,kind=inttype) , &
-                             size(cell_map(i)%glb_to_loc,kind=inttype) )
-   !    glb_siz = glb_siz + size(cell_map(i)%glb_to_loc)
       end if
       !
     end do
@@ -4687,11 +4577,6 @@ continue
                              size(node_map(i)%loc_to_glb,kind=inttype) )
    !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
       end if
-      if (allocated(node_map(i)%glb_to_loc)) then
-        call dt%add( storage_size(node_map(i)%glb_to_loc,kind=inttype) , &
-                             size(node_map(i)%glb_to_loc,kind=inttype) )
-   !    glb_siz = glb_siz + size(node_map(i)%glb_to_loc)
-      end if
       !
     end do
     !
@@ -4701,12 +4586,6 @@ continue
    !  write (iout,*) "node_map(:)%loc_to_glb"
    !  write (iout,*) "size = ",loc_siz
    !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
-   !end if
-   !if (allocated(node_map(i)%glb_to_loc)) then
-   !  write (iout,*)
-   !  write (iout,*) "node_map(:)%glb_to_loc"
-   !  write (iout,*) "size = ",glb_siz
-   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%glb_to_loc)
    !end if
     !
     call total%add(dt)
@@ -4740,11 +4619,6 @@ continue
                              size(face_map(i)%loc_to_glb,kind=inttype) )
    !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
       end if
-      if (allocated(face_map(i)%glb_to_loc)) then
-        call dt%add( storage_size(face_map(i)%glb_to_loc,kind=inttype) , &
-                             size(face_map(i)%glb_to_loc,kind=inttype) )
-   !    glb_siz = glb_siz + size(face_map(i)%glb_to_loc)
-      end if
       !
     end do
     !
@@ -4754,12 +4628,6 @@ continue
    !  write (iout,*) "face_map(:)%loc_to_glb"
    !  write (iout,*) "size = ",loc_siz
    !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
-   !end if
-   !if (allocated(face_map(i)%glb_to_loc)) then
-   !  write (iout,*)
-   !  write (iout,*) "face_map(:)%glb_to_loc"
-   !  write (iout,*) "size = ",glb_siz
-   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%glb_to_loc)
    !end if
     !
     call total%add(dt)
