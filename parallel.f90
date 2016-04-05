@@ -2029,7 +2029,9 @@ subroutine create_grid_mappings(npart,epart, &
   type(map_t), allocatable, dimension(:), intent(inout) :: cell_map
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,ncount,ierr
+  integer :: n,nc,n1,n2,ierr
+  integer :: this_part,ncount
+  integer :: lcell,lnode,lface
   character(len=200) :: array_name 
   !
   !.. Local Allocatable Arrays ..
@@ -2040,9 +2042,20 @@ subroutine create_grid_mappings(npart,epart, &
   !
 continue
   !
+  lcell = size(epart)
+  lnode = ngnode
+  lface = ngface
+  !
   ! #######
   ! ## 1 ##
   ! #######
+  !
+  ! Allocate the msk array
+  !
+  ncount = max( lcell , lnode , lface )
+  !
+  allocate ( msk(1:ncount) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,ierr,error_message)
   !
   ! Create the cell mappings
   !
@@ -2052,23 +2065,27 @@ continue
   ! Loop through the partitions to find the
   ! local number of cells for each partition
   !
-  do n = 1,npart
+  do this_part = 1,npart
+    !
+    ! Mark the cells on this partition
+    !
+    msk(1:lcell) = ( epart(1:lcell) == this_part )
     !
     ! Count the cells on this partition
     !
-    ncount = count( epart == n )
+    ncount = count( msk(1:lcell) )
     !
     ! Allocate the loc_to_glb component of cell_map for this partition
     !
-    allocate ( cell_map(n)%loc_to_glb(1:ncount) , source=0 , &
+    allocate ( cell_map(this_part)%loc_to_glb(1:ncount) , source=0 , &
                stat=ierr , errmsg=error_message )
-    write (array_name,1) "cell_map",n
+    write (array_name,1) "cell_map",this_part
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Add the cells of the current partition to cell_map
     !
-    cell_map(n)%loc_to_glb = pack( intseq(1,ngcell) , epart(1:ngcell) == n )
-   !cell_map(n)%loc_to_glb = find_subset(epart,n)
+    cell_map(this_part)%loc_to_glb = pack( intseq(1,lcell) , msk(1:lcell) )
+   !cell_map(this_part)%loc_to_glb = find_subset(epart,this_part)
     !
   end do
   !
@@ -2084,10 +2101,7 @@ continue
   ! Loop through the partitions to find the
   ! local number of nodes for each partition
   !
-  allocate ( msk(1:ngnode) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
-  !
-  do n = 1,npart
+  do this_part = 1,npart
     !
     ! Initialize/Reset msk
     !
@@ -2095,8 +2109,8 @@ continue
     !
     ! Mark the nodes that are within this partition
     !
-    do nc = 1,ngcell
-      if (epart(nc) /= n) cycle
+    do nc = 1,lcell
+      if (epart(nc) /= this_part) cycle
       n1 = nodes_of_cell_ptr(nc)+1
       n2 = nodes_of_cell_ptr(nc+1)
       msk(nodes_of_cell(n1:n2)) = true
@@ -2104,25 +2118,20 @@ continue
     !
     ! Count the nodes on this partition
     !
-    ncount = count( msk(1:ngnode) )
+    ncount = count( msk(1:lnode) )
     !
     ! Allocate the loc_to_glb component of node_map for this partition
     !
-    allocate ( node_map(n)%loc_to_glb(1:ncount) , source=0 , &
+    allocate ( node_map(this_part)%loc_to_glb(1:ncount) , source=0 , &
                stat=ierr , errmsg=error_message )
-    write (array_name,1) "node_map",n
+    write (array_name,1) "node_map",this_part
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Add the nodes of the current partition to node_map
     !
-    node_map(n)%loc_to_glb = pack( intseq(1,ngnode) , msk(1:ngnode) )
+    node_map(this_part)%loc_to_glb = pack( intseq(1,lnode) , msk(1:lnode) )
     !
   end do
-  !
-  ! Deallocate msk because it is no longer needed
-  !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,ierr,error_message)
   !
   ! #######
   ! ## 3 ##
@@ -2136,26 +2145,35 @@ continue
   ! Loop through the partitions to find the
   ! local number of faces for each partition
   !
-  do n = 1,npart
+  do this_part = 1,npart
+    !
+    ! Mark the faces that are within this partition
+    !
+    msk(1:lface) = ( face(1:lface)%left%partition == this_part )
     !
     ! Count the faces that are within this partition
     !
-    ncount = count( face(1:ngface)%left%partition == n )
+    ncount = count( msk(1:lface) )
     !
     ! Allocate the loc_to_glb component of face_map for this partition
     !
-    allocate ( face_map(n)%loc_to_glb(1:ncount) , source=0 , &
+    allocate ( face_map(this_part)%loc_to_glb(1:ncount) , source=0 , &
                stat=ierr , errmsg=error_message )
-    write (array_name,1) "face_map",n
+    write (array_name,1) "face_map",this_part
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
     ! Add the faces of the current partition to face_map
     !
-    face_map(n)%loc_to_glb = pack( intseq(1,ngface) , &
-                                   face(1:ngface)%left%partition == n )
-   !face_map(n)%loc_to_glb = find_subset(face(1:ngface)%left%partition,n)
+    face_map(this_part)%loc_to_glb = pack( intseq(1,lface) , msk(1:lface) )
+   !face_map(this_part)%loc_to_glb = &
+   !                  find_subset(face(1:lface)%left%partition,this_part)
     !
   end do
+  !
+  ! Deallocate msk before we leave
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,ierr,error_message)
   !
   ! Format Statements
   !
