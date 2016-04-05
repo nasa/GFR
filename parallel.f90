@@ -1649,6 +1649,88 @@ end subroutine create_dual_graph
 !
 !###############################################################################
 !
+subroutine get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
+                                   nodes_of_cell,nodes_of_cell_ptr, &
+                                   cells_with_node,cells_with_node_ptr, &
+                                   cells_surr_cell,cells_surr_cell_ptr, &
+                                   cells_with_edge,cells_with_edge_ptr, &
+                                   nodes_on_edge,face)
+  !
+  !.. Use Statements ..
+  use connectivity_mod, only : find_cells_surrounding_each_node
+  use connectivity_mod, only : find_cells_surrounding_each_cell
+  use connectivity_mod, only : find_nodes_on_each_edge
+  use connectivity_mod, only : find_cells_surrounding_each_edge
+  use connectivity_mod, only : create_face_derived_type
+  !
+  !.. Formal Arguments ..
+  integer,              dimension(:),      intent(in) :: cell_geom
+  integer,              dimension(:),      intent(in) :: cell_order
+  integer,              dimension(:,:),    intent(in) :: bface
+  integer,              dimension(:),      intent(in) :: nodes_of_cell
+  integer,              dimension(:),      intent(in) :: nodes_of_cell_ptr
+  real(wp),             dimension(:,:),    intent(in) :: xyz_nodes
+  integer, allocatable, dimension(:),   intent(inout) :: cells_with_node
+  integer, allocatable, dimension(:),   intent(inout) :: cells_with_node_ptr
+  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell
+  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:),   intent(inout) :: cells_with_edge
+  integer, allocatable, dimension(:),   intent(inout) :: cells_with_edge_ptr
+  integer, allocatable, dimension(:,:), intent(inout) :: nodes_on_edge
+  !
+  type(face_t), allocatable, dimension(:), intent(inout) :: face
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_global_connectivity"
+  !
+continue
+  !
+  ! Find the cells that surround each node
+  !
+  call find_cells_surrounding_each_node(bface, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        include_bnd_faces=true, &
+                                        make_bnd_faces_negative=true)
+  !
+  ! Find the cells surrounding each cell which
+  ! defines the dual graph of the nodal grid 
+  !
+  call find_cells_surrounding_each_cell(bface,cell_geom, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_surr_cell,cells_surr_cell_ptr)
+  !
+  ! Find the nodes defining each edge as well as the edges surrounding each node
+  !
+  call find_nodes_on_each_edge(cell_geom, &
+                               nodes_of_cell,nodes_of_cell_ptr, &
+                               cells_with_node,cells_with_node_ptr, &
+                               nodes_on_edge)
+  !
+  ! Find the cells that surround each edge
+  !
+  call find_cells_surrounding_each_edge(nodes_on_edge, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_with_edge,cells_with_edge_ptr)
+  !
+  ! Find the cells on each face. Once the grid is partitioned,
+  ! this will be needed to adjust the boundary faces to include
+  ! former interior faces that now separate adjacent partitions
+  !
+  call create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
+                                nodes_of_cell,nodes_of_cell_ptr, &
+                                cells_surr_cell,cells_surr_cell_ptr, &
+                                face,force_flxpt_offset_to_zero=true)
+  !
+end subroutine get_global_connectivity
+!
+!###############################################################################
+!
 subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
                                vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
   !
