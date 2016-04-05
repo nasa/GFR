@@ -3089,10 +3089,10 @@ subroutine create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   !
   !.. Local Scalars ..
   logical :: flag
-  integer :: n,nfp,nfbnd,i,ierr
+  integer :: n,nfp,lfbnd,i,ierr
   integer :: rmin,rmax,scnt,rcnt,p1,p2
   integer :: loc_face,glb_face,my_part
-  integer :: adj_cpu,adj_part,adj_face
+  integer :: adj_face,adj_part,adj_cpu
   integer(int_mpi) :: block_size,np
   integer(int_mpi) :: this_flxpt,tag_ub
   character(len=200) :: array_name
@@ -3121,16 +3121,16 @@ continue
   !
   my_part = mypnum + 1
   !
-  nfbnd = size(bface,dim=2)
+  lfbnd = size(bface,dim=2)
   !
   ! Create an offset array for the number of flux
   ! points on each communication boundary faces
   !
-  allocate ( flxpt_offset(1:nfbnd) , source=0_int_mpi , &
+  allocate ( flxpt_offset(1:lfbnd) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"flxpt_offset",1,ierr,error_message)
   !
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     !
     if (bface(1,loc_face) /= bc_cpu_bnd) cycle
     !
@@ -3143,7 +3143,7 @@ continue
   ! Reshuffle flxpt_offset by summing the total number of flux points for
   ! all the communication boundary faces before the current one.
   !
-  do loc_face = nfbnd,1,-1
+  do loc_face = lfbnd,1,-1
     !
     if (bface(1,loc_face) /= bc_cpu_bnd) cycle
     !
@@ -3157,7 +3157,7 @@ continue
   ! current process needs to exchange with
   !
   cpu_id(:) = -99
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     if (bface(1,loc_face) == bc_cpu_bnd) then
       cpu_id( bface(7,loc_face)+1 ) = bface(7,loc_face)
     end if
@@ -3193,7 +3193,7 @@ continue
   !
   ! Allocate all the arrays needed for creating the send and receive face maps
   !
-  allocate ( send_msk(1:nfbnd) , source=fals , &
+  allocate ( send_msk(1:lfbnd) , source=fals , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"send_msk",1,ierr,error_message)
   !
@@ -3220,7 +3220,7 @@ continue
     ! the host cells of adj_cpu to the local ghost cells whose data
     ! needs to be received from adj_cpu.
     !
-    do loc_face = 1,nfbnd
+    do loc_face = 1,lfbnd
       !
       if (bface(1,loc_face) /= bc_cpu_bnd) cycle
       !
@@ -3250,7 +3250,7 @@ continue
     ! NOTE: This should be the same for both sending and receiving
     !
     scnt = 0
-    do loc_face = 1,nfbnd
+    do loc_face = 1,lfbnd
       !
       if (.not. send_msk(loc_face)) cycle
       !
@@ -3276,7 +3276,7 @@ continue
     ! Create the send point offsets
     !
     scnt = 0
-    do loc_face = 1,nfbnd
+    do loc_face = 1,lfbnd
       !
       if (.not. send_msk(loc_face)) cycle
       !
@@ -3517,7 +3517,7 @@ continue
   ! Count the total number of flux points on all boundary faces
   !
   nfp = 0
-  do loc_face = 1,nfbnd
+  do loc_face = 1,lfbnd
     glb_face = face_map(my_part)%loc_to_glb(loc_face)
     nfp = nfp + size( face(glb_face)%left%flxpts )
   end do
