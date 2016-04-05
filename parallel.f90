@@ -41,7 +41,6 @@ module parallel_mod
   !          after the partitions are created and localized to the processors
   !
   integer, save :: nr
-  integer, save :: nbfai
   !
   ! Dimensions of the global grid
   !
@@ -236,7 +235,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   real(wp), allocatable, dimension(:,:), intent(inout) :: xyz_nodes
   !
   !.. Local Scalars ..
-  integer :: n,ierr
+  integer :: lcell,ierr
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
@@ -257,7 +256,10 @@ continue
   ! Get the size of the global grid
   !
   nr = size(xyz_nodes,dim=1)
-  nbfai = size(bface,dim=1)
+  !
+  ! Get the number of interior grid cells
+  !
+  lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
   ! The total number of nodes and cells, including ghost cells
   !
@@ -282,7 +284,7 @@ continue
   !
   ! Allocate the epart array to store the cell partition numbers
   !
-  allocate ( epart(1:ngcell) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( epart(1:lcell) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"epart",1,ierr,error_message)
  !if (mypnum == 0) then
  !  call output_partitions(99,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes)
@@ -294,14 +296,14 @@ continue
   !
   call memory_pause("Before: calling partition_using_metis_4")
   call partition_using_metis_4(metis_option_requested,npart, &
-                               ngcell,cell_geom,cell_order, &
+                               cell_geom,cell_order, &
                                xadj,adjncy,epart)
   !
 #elif METIS_5
   !
   call memory_pause("Before: calling partition_using_metis_5")
   call partition_using_metis_5(metis_option_requested,npart, &
-                               ngcell,xadj,adjncy,epart)
+                               xadj,adjncy,epart)
   !
 #else
   !
@@ -319,7 +321,7 @@ continue
   !
   ! Distribute partitions across all processors
   !
-  call mpi_bcast(epart,int(ngcell,kind=kind(int_mpi)), &
+  call mpi_bcast(epart,int(lcell,kind=kind(int_mpi)), &
                  mpi_inttyp,0,mpi_comm_world,mpierr)
   !
   ! Output the partition grid to a tecplot file
@@ -343,7 +345,7 @@ continue
   ! or the maps from global to local block orderings
   !
   call memory_pause("Before: calling create_grid_mappings")
-  call create_grid_mappings(npart,epart,face, &
+  call create_grid_mappings(epart,face, &
                             nodes_of_cell,nodes_of_cell_ptr, &
                             node_map,face_map,cell_map)
   !
@@ -401,7 +403,7 @@ end subroutine partition_grid
 !###############################################################################
 !
 subroutine partition_using_metis_4(metis_option_requested,npart, &
-                                   ngcell,cell_geom,cell_order, &
+                                   cell_geom,cell_order, &
                                    xadj,adjncy,epart)
   !
   !.. Use Statements ..
@@ -411,7 +413,6 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   !.. Formal Arguments ..
   integer,                  intent(in) :: metis_option_requested
   integer,                  intent(in) :: npart
-  integer,                  intent(in) :: ngcell
   integer, dimension(:),    intent(in) :: cell_geom
   integer, dimension(:),    intent(in) :: cell_order
   integer, dimension(:),    intent(in) :: xadj
@@ -419,7 +420,7 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   integer, dimension(:), intent(inout) :: epart
   !
   !.. Local Scalars ..
-  integer :: n,ip,ierr
+  integer :: n,ip,ierr,lcell
   integer :: wgtflag,numflag,vol
   integer :: metis_option
   logical :: passes_inspection
@@ -435,6 +436,7 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   !.. Local Allocatable Arrays ..
   integer, allocatable, dimension(:) :: vwgt
   integer, allocatable, dimension(:) :: adjwgt
+  integer, allocatable, dimension(:) :: vsize
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_using_metis_4"
@@ -442,18 +444,11 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
 continue
 #ifdef METIS_4
   !
+  lcell = size(epart)
+  !
   ! Create the priority list for METIS options to try
   !
   metis_option_hierarchy = [metis_option_requested,3,2,1,4]
-  !
-  ! Allocate the weighting arrays
-  !
-  allocate ( vwgt(1:ngcell) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vwgt",1,ierr,error_message)
-  !
-  allocate ( adjwgt(1:last(xadj)-1) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjwgt",1,ierr,error_message)
   !
   ! One-pass loop to allow for easy error handling if none of the
   ! partitioning methods produce a quality grid partitioning
@@ -468,20 +463,14 @@ continue
       !
       ! Create the weights for the vertices of the dual graph
       !
-      call create_grid_weights(metis_option,vwgt,adjwgt, &
-                               cell_geom,cell_order)
+      call create_grid_weights(metis_option,1,lcell,size(adjncy), &
+                               vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
       !
       ! Define other METIS variables
       !
       numflag = 1
       options(:) = 0
       vol = 0
-      !
-      ! Determine whether weights are being used and set wgtflag accordingly
-      !
-      wgtflag = 0
-      if (minval(adjwgt) /= maxval(adjwgt)) wgtflag = 1
-      if (minval(  vwgt) /= maxval(  vwgt)) wgtflag = wgtflag + 2
       !
       ! Partition the grid using one of the METIS routines
       !
@@ -494,7 +483,7 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
-        call metis_partgraphrecursive(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+        call metis_partgraphrecursive(lcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
                                       numflag,npart,options,vol,epart)
         !
       else if (metis_option == 2) then
@@ -507,7 +496,7 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
-        call metis_partgraphkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+        call metis_partgraphkway(lcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
                                  numflag,npart,options,vol,epart)
         !
       else if (metis_option == 3) then
@@ -520,7 +509,7 @@ continue
         weight = "non-weighted"
         method = "k-way partitioning "
         !
-        call metis_partgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+        call metis_partgraphvkway(lcell,xadj,adjncy,vwgt,vsize,wgtflag, &
                                   numflag,npart,options,vol,epart)
         !
       else if (metis_option == 4) then
@@ -550,7 +539,7 @@ continue
         !##############################################################
         !##############################################################
         !
-        call metis_wpartgraphvkway(ngcell,xadj,adjncy,vwgt,adjwgt,wgtflag, &
+        call metis_wpartgraphvkway(lcell,xadj,adjncy,vwgt,vsize,wgtflag, &
                                    numflag,npart,tpwgts,options,vol,epart)
         !
       else
@@ -594,10 +583,20 @@ continue
   !
   ! Deallocate the weight arrays before we leave
   !
-  deallocate ( vwgt , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vwgt",2,ierr,error_message)
-  deallocate ( adjwgt , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"adjwgt",2,ierr,error_message)
+  if (allocated(vwgt)) then
+    deallocate ( vwgt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vwgt",2,ierr,error_message)
+  end if
+  !
+  if (allocated(adjwgt)) then
+    deallocate ( adjwgt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"adjwgt",2,ierr,error_message)
+  end if
+  !
+  if (allocated(vsize)) then
+    deallocate ( vsize , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vsize",2,ierr,error_message)
+  end if
   !
   ! Format statements
   !
@@ -618,7 +617,7 @@ end subroutine partition_using_metis_4
 !###############################################################################
 !
 subroutine partition_using_metis_5(metis_option_requested,npart, &
-                                   ngcell,xadj,adjncy,epart)
+                                   xadj,adjncy,epart)
   !
   !.. Use Statements ..
   use iso_c_binding, only : c_float
@@ -628,13 +627,12 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
   !.. Formal Arguments ..
   integer,                  intent(in) :: metis_option_requested
   integer,                  intent(in) :: npart
-  integer,                  intent(in) :: ngcell
   integer, dimension(:),    intent(in) :: xadj
   integer, dimension(:),    intent(in) :: adjncy
   integer, dimension(:), intent(inout) :: epart
   !
   !.. Local Scalars ..
-  integer :: n,ip,ierr
+  integer :: n,ip,ierr,lcell
   integer :: ncon,objval
   integer :: metis_option
   logical :: passes_inspection
@@ -661,6 +659,8 @@ subroutine partition_using_metis_5(metis_option_requested,npart, &
 continue
 #ifdef METIS_5
   !
+  lcell = size(epart)
+  !
   ! Set the default options for METIS
   !
   call METIS_SetDefaultOptions(options)
@@ -681,9 +681,9 @@ continue
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  allocate ( vwgt(1:ncon*ngcell) , source=1 , stat=ierr , errmsg=error_message )
+  allocate ( vwgt(1:ncon*lcell) , source=1 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vwgt",1,ierr,error_message)
-  allocate ( vsize(1:ngcell) , source=1 , stat=ierr , errmsg=error_message )
+  allocate ( vsize(1:lcell) , source=1 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vsize",1,ierr,error_message)
   allocate ( adjwgt(1:size(adjncy)) , source=1 , &
              stat=ierr , errmsg=error_message )
@@ -726,7 +726,7 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
-        call metis_partgraphrecursive(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+        call metis_partgraphrecursive(lcell,ncon,xadj,adjncy,vwgt,vsize, &
                                       adjwgt,npart,tpwgts,ubvec,options, &
                                       objval,epart)
         !
@@ -742,7 +742,7 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
-        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,npart,tpwgts,ubvec,options, &
                                  objval,epart)
         !
@@ -758,7 +758,7 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,npart,tpwgts,ubvec,options, &
                                  objval,epart)
         !
@@ -784,7 +784,7 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call metis_partgraphkway(ngcell,ncon,xadj,adjncy,vwgt,vsize, &
+        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
                                  adjwgt,npart,tpwgts,ubvec,options, &
                                  objval,epart)
         !
@@ -1534,24 +1534,43 @@ end subroutine create_dual_graph
 !
 !###############################################################################
 !
-subroutine create_grid_weights(metis_option,vwgt,adjwgt,cell_geom,cell_order)
+subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
+                               vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
   !
   !.. Formal Arguments ..
-  integer,                  intent(in) :: metis_option
-  integer, dimension(:),    intent(in) :: cell_geom
-  integer, dimension(:),    intent(in) :: cell_order
-  integer, dimension(:), intent(inout) :: vwgt
-  integer, dimension(:), intent(inout) :: adjwgt
+  integer,                               intent(in) :: metis_option
+  integer,                               intent(in) :: ncon
+  integer,                               intent(in) :: n_dual_vertices
+  integer,                               intent(in) :: n_dual_edges
+  integer,              dimension(:),    intent(in) :: cell_geom
+  integer,              dimension(:),    intent(in) :: cell_order
+  integer,                            intent(inout) :: wgtflag
+  integer, allocatable, dimension(:), intent(inout) :: vwgt
+  integer, allocatable, dimension(:), intent(inout) :: adjwgt
+  integer, allocatable, dimension(:), intent(inout) :: vsize
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_grid_weights"
   !
 continue
   !
+  ! Initialize the weighting flag
+  !
+  wgtflag = 0
+  !
   ! Initialize vwgt
   ! NOTE: vwgt gives the computational weight of each cell
   !
-  vwgt = 0
+  if (allocated(vwgt)) then
+    deallocate ( vwgt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vwgt",2,ierr,error_message)
+  end if
+  !
+  allocate ( vwgt(1:ncon*n_dual_vertices) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vwgt",1,ierr,error_message)
+  !
+ !vwgt = 0
   !
   !############################################################
   !############################################################
@@ -1564,6 +1583,17 @@ continue
   !
   if ( any(metis_option == (/1,2/)) ) then
     !
+    ! Allocate the adjwgt array
+    !
+    if (allocated(adjwgt)) then
+      deallocate ( adjwgt , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"adjwgt",2,ierr,error_message)
+    end if
+    !
+    allocate ( adjwgt(1:n_dual_edges) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"adjwgt",1,ierr,error_message)
+    !
     ! If minimizing the edgecut, adjwgt gives the weights of the faces
     !
     !###############################################################
@@ -1573,15 +1603,46 @@ continue
     !###############################################################
     !###############################################################
     !
+    ! Determine whether edge weights are being used
+    ! and adjust wgtflag accordingly
+    !
+    if (minval(adjwgt) /= maxval(adjwgt)) wgtflag = wgtflag + 1
+    !
+    ! Determine whether vertex weights are being used
+    ! and adjust wgtflag accordingly
+    !
+    if (minval(vwgt) /= maxval(vwgt)) wgtflag = wgtflag + 2
+    !
   else if ( any(metis_option == (/3,4/)) ) then
     !
-    ! If minimizing the communication volume, adjwgt gives the communication
+    ! Allocate the vsize array
+    !
+    if (allocated(vsize)) then
+      deallocate ( vsize , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vsize",2,ierr,error_message)
+    end if
+    !
+    allocate ( vsize(1:n_dual_vertices) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vsize",1,ierr,error_message)
+    !
+    ! If minimizing the communication volume, vsize gives the communication
     ! weight of the cells (i.e., how much data has to be sent to/from this cell)
     !
     ! Set the communication weight of the cells to
     ! the number of solution points for each cell
     !
-    adjwgt = Cell_Solpts( cell_geom , cell_order )
+    vsize = Cell_Solpts( cell_geom , cell_order )
+    !
+    ! Determine whether communication weights are being used
+    ! and adjust wgtflag accordingly
+    !
+    if (minval(vsize) /= maxval(vsize)) wgtflag = wgtflag + 1
+    !
+    ! Determine whether computation weights are being used
+    ! and adjust wgtflag accordingly
+    !
+    if (minval(vwgt) /= maxval(vwgt)) wgtflag = wgtflag + 2
     !
   end if
   !
@@ -1911,12 +1972,11 @@ end subroutine find_partition_boundaries
 !
 !###############################################################################
 !
-subroutine create_grid_mappings(npart,epart,face, &
+subroutine create_grid_mappings(epart,face, &
                                 nodes_of_cell,nodes_of_cell_ptr, &
                                 node_map,face_map,cell_map)
   !
   !.. Formal Arguments ..
-  integer,                                   intent(in) :: npart
   integer,                  dimension(:),    intent(in) :: epart
   integer,                  dimension(:),    intent(in) :: nodes_of_cell
   integer,                  dimension(:),    intent(in) :: nodes_of_cell_ptr
@@ -1927,7 +1987,7 @@ subroutine create_grid_mappings(npart,epart,face, &
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,ierr
-  integer :: this_part,ncount
+  integer :: npart,this_part,ncount
   integer :: lcell,lnode,lface
   character(len=200) :: array_name 
   !
@@ -1939,6 +1999,7 @@ subroutine create_grid_mappings(npart,epart,face, &
   !
 continue
   !
+  npart = maxval(epart) - minval(epart) + 1
   lcell = size(epart)
   lnode = ngnode
   lface = size(face)
@@ -2128,7 +2189,7 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   !.. Local Scalars ..
   integer :: n,nf,np,nmin,nmax,ierr
   integer :: nfbnd,ncell,nnode,nface
-  integer :: n_totcel,n_totnod,nfnods
+  integer :: n_totcel,nfnods,nbfai
   integer :: rev_glb_node,glb_geom,glb_order
   integer :: l1,l2,g1,g2,loc_ghost_cell
   integer :: loc_face,loc_cell,loc_node
@@ -2282,16 +2343,13 @@ continue
   nface = size( face_map(my_part)%loc_to_glb )
   nfbnd = count( face_map(my_part)%loc_to_glb <= ngfbnd )
   !
-  ! Now that all ghost cells are actually faces and not cells,
-  ! n_totnod is just the same as nnode
-  !
-  n_totnod = nnode
-  !
   ! #######
   ! ## 1 ##
   ! #######
   !
   ! Localize the boundary face array, but not the information it contains.
+  !
+  nbfai = size(global_bface,dim=1)
   !
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
