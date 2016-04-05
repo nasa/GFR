@@ -239,9 +239,10 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:) :: xadj
-  integer, allocatable, dimension(:) :: adjncy
-  integer, allocatable, dimension(:) :: epart
+  integer, allocatable, dimension(:)   :: xadj
+  integer, allocatable, dimension(:)   :: adjncy
+  integer, allocatable, dimension(:)   :: epart
+  integer, allocatable, dimension(:)   :: fpart
   !
   !.. Local Allocatable Derived-Type Arrays ..
   type(map_t),  allocatable, dimension(:) :: node_map
@@ -336,7 +337,7 @@ continue
   ! and add these faces to boundary faces array
   !
   call memory_pause("Before: calling find_partition_boundaries")
-  call find_partition_boundaries(cell_geom,epart,bface,face)
+  call find_partition_boundaries(cell_geom,epart,bface,fpart,face)
   !
   ! Now that we have created boundary conditions for faces
   ! located on partition boundaries, use epart to create
@@ -377,9 +378,9 @@ continue
   ! Finally, create MPI datatypes for exchanging face data between processes
   !
   call memory_pause("Before: calling create_face_nonblocking_datatypes")
-  call create_face_nonblocking_datatypes(bface,face,face_map)
+  call create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   !
-  ! Deallocate the face array because I dont think it is needed anymore
+  ! Deallocate face, face_map, and fpart since they are no longer needed
   !
   if (allocated(face)) then
     deallocate ( face , stat=ierr ,errmsg=error_message )
@@ -389,6 +390,11 @@ continue
   if (allocated(face_map)) then
     deallocate ( face_map , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"face_map",2,ierr,error_message)
+  end if
+  !
+  if (allocated(fpart)) then
+    deallocate ( fpart , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"fpart",2,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -1696,12 +1702,13 @@ end subroutine check_quality_of_partitioning
 !
 !###############################################################################
 !
-subroutine find_partition_boundaries(cell_geom,epart,bface,face)
+subroutine find_partition_boundaries(cell_geom,epart,bface,fpart,face)
   !
   !.. Formal Arguments ..
   integer,                   dimension(:),      intent(in) :: cell_geom
   integer,                   dimension(:),      intent(in) :: epart
   integer,      allocatable, dimension(:,:), intent(inout) :: bface
+  integer,      allocatable, dimension(:),   intent(inout) :: fpart
   type(face_t), allocatable, dimension(:),   intent(inout) :: face
   !
   !.. Local Scalars ..
@@ -1757,10 +1764,19 @@ continue
   !
   call reallocate(bface,new_size2=new_ngfbnd)
   !
+  ! Allocate the fpart array that identifies which partition/processor is
+  ! is responsible for the face/flux point indices for each boundary face
+  ! on a partition boundary thats needed for creating the CGNS connectivity
+  !
+  allocate ( fpart(1:new_ngfbnd) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"fpart",1,ierr,error_message)
+  !
   ! Replace bface(10,nf) with the location within the face array to extract data
+  ! and set the responsible partition to the partition for the host cell
   !
   do nf = 1,ngfbnd
     bface(10,nf) = nf
+    fpart(nf) = epart( bface(2,nf) )
   end do
   !
   ! Collect and add the new boundary faces to bface
@@ -1793,6 +1809,11 @@ continue
     bface( 9,nf) = right_side  ! face of adj partition host cell on boundary
     bface(10,nf) = n           ! location within face array to extract data
     !
+    ! Set the responsible partition for this new boundary face to the
+    ! partition for what was originally the left cell on this interior face
+    !
+    fpart(nf) = epart(left_cell)
+    !
     nf = nf + 1
     !
     ! Right side of the face
@@ -1809,6 +1830,11 @@ continue
     bface(10,nf) = -n          ! location within face array to extract data
     !                          ! NOTE: This is negative to mark that this host
     !                          !       cell used to be a right cell on the face
+    !
+    ! Set the responsible partition for this new boundary face to the
+    ! partition for what was originally the left cell on this interior face
+    !
+    fpart(nf) = epart(left_cell)
     !
     nf = nf + 1
     !
@@ -2760,7 +2786,7 @@ end subroutine localize_grid
 !
 !###############################################################################
 !
-subroutine create_face_nonblocking_datatypes(bface,face,face_map)
+subroutine create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   !
   !.. Use Statements ..
   use geovar, only : n_global_node
@@ -2768,6 +2794,7 @@ subroutine create_face_nonblocking_datatypes(bface,face,face_map)
   !
   !.. Formal Arguments ..
   integer,      dimension(:,:), intent(in) :: bface
+  integer,      dimension(:),   intent(in) :: fpart
   type(face_t), dimension(:),   intent(in) :: face
   type(map_t),  dimension(:),   intent(in) :: face_map
   !
