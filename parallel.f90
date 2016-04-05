@@ -3,6 +3,7 @@ module parallel_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nq
+  use geovar,  only : face_t
   !
   implicit none
   !
@@ -122,86 +123,6 @@ module parallel_mod
   type(map_t), public, save, allocatable :: cell_map(:)
   !
   !
-  !
-  !
-  ! #####################################################################
-  ! #####   FACE CONNECTIVITY DERIVED TYPES AND ASSOCIATED ARRAYS   #####
-  ! #####################################################################
-  !
-  ! CELL_ON_FACE_T : derived type to store the information about
-  !                  a cell on one side of a given face
-  !                  NOTE: This is similar to the datatype of the same name
-  !                        in the module geovar but with some slight changes.
-  !
-  type :: cell_on_face_t
-    ! cell : index of the grid cell on the current side of the face
-    integer :: cell
-    ! cell_face : index for the side/surface of the cell that comprises
-    !             the current face
-    !               Examples: for a triangle, in the range 1:3, quad 1:4,
-    !                         tetr 1:4, pyra 1:5, pris 1:5, hexa 1:6
-    integer :: cell_face
-    ! geom : geometry of this cell
-    integer :: geom
-    ! order : order of this cell
-    integer :: order
-    ! partition : grid partition/processor on which this cell resides
-    integer :: partition
-    ! flxpts : indices for the flux points of this cell on the current face
-    !          NOTE: In the version of the datatype cell_on_face_t in the module
-    !                geovar, flxpts gives an index that is relative to all of
-    !                the flux points for a given cell.
-    !                Where flxpts is used in this module, we only care about the
-    !                ordering on the current face so flxpts will contain indices
-    !                from 1 to size(flxpts).
-    integer, allocatable :: flxpts(:)
-  end type cell_on_face_t
-  !
-  ! FACE_T : derived type to store information for each grid face
-  !          NOTE: This is similar to the datatype of the same name
-  !                in the module geovar but with some slight changes.
-  !
-  type :: face_t
-    ! geom : geometry type of the current face
-    integer :: geom
-    ! order : solution order of the current face
-    !         NOTE: This should be the maximum solution order between the two
-    !               cells attached to the current face.
-    integer :: order
-    ! nodes : array containing the indices for the grid nodes that define this
-    !         face. At most this array will contain four node indices for a
-    !         quadrilateral face. For triangular or edge faces, the remaining
-    !         unused nodes will remain zero. For example:
-    !            edge_face => face(i)%nodes(1:4) = [1,2,0,0]
-    !            tria_face => face(i)%nodes(1:4) = [1,2,3,0]
-    !            quad_face => face(i)%nodes(1:4) = [1,2,3,4]
-    integer, dimension(1:4) :: nodes = 0
-    ! left : Information for the cell on the left side of the current face.
-    !        NOTE: The normal to the current face always points AWAY FROM the
-    !              left cell on the face.
-    !        NOTE: If the current face is a boundary face, the left side is the
-    !              host/interior cell.
-    type(cell_on_face_t) :: left
-    ! right : Information for the cell on the right side of the current face.
-    !         NOTE: The normal to the current face always points TOWARDS / INTO
-    !               the right cell on the face.
-    !         NOTE: If the current face is a boundary face, the right side is
-    !               the ghost cell.
-    type(cell_on_face_t) :: right
-    ! side : Possible replacement for left and right components above. This
-    !        would allow for the cell_idx component of face_of_cell_t to be
-    !        removed since it is a duplicate of the flxpts component of
-    !        cell_on_face_t. The side component of face_of_cell_t would give
-    !        either the value 1 or 2 which would correspond to the location in
-    !        this side component of face_t.
-    !        side(1) is the same as the left  component
-    !        side(2) is the same as the right component
-   !type(cell_on_face_t) :: side(1:2)
-  end type face_t
-  !
-  ! FACE : Array of type face_t that contains information for all grid faces
-  !
-  type(face_t), save, allocatable :: face(:)
   !
   !
   !
@@ -325,6 +246,7 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Local Allocatable Derived-Type Arrays ..
   type(map_t),  allocatable, dimension(:) :: node_map
+  type(face_t), allocatable, dimension(:) :: face
   type(map_t),  allocatable, dimension(:) :: face_map
   !
   !.. Local Parameters ..
@@ -356,7 +278,7 @@ continue
   !
   call memory_pause("Before: calling create_dual_graph")
   call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
-                         nodes_of_cell_ptr,bface,xadj,adjncy)
+                         nodes_of_cell_ptr,bface,xadj,adjncy,face)
   !
   ! Allocate the epart array to store the cell partition numbers
   !
@@ -383,7 +305,7 @@ continue
   !
 #else
   !
-  write (error_message,2)
+  write (error_message,1)
   call stop_recon(stop_mpi,pname,error_message)
   !
 #endif
@@ -412,7 +334,7 @@ continue
   ! and add these faces to boundary faces array
   !
   call memory_pause("Before: calling find_partition_boundaries")
-  call find_partition_boundaries(epart,bface)
+  call find_partition_boundaries(cell_geom,epart,bface,face)
   !
   ! Now that we have created boundary conditions for faces
   ! located on partition boundaries, use epart to create
@@ -421,7 +343,7 @@ continue
   ! or the maps from global to local block orderings
   !
   call memory_pause("Before: calling create_grid_mappings")
-  call create_grid_mappings(npart,epart, &
+  call create_grid_mappings(npart,epart,face, &
                             nodes_of_cell,nodes_of_cell_ptr, &
                             node_map,face_map,cell_map)
   !
@@ -433,7 +355,7 @@ continue
   call memory_pause("Before: calling localize_grid")
   call localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
                      xyz_nodes,epart,cell_geom,cell_order, &
-                     node_map,face_map,cell_map)
+                     face,node_map,face_map,cell_map)
   !
   ! Deallocate epart since it is no longer needed
   !
@@ -453,7 +375,7 @@ continue
   ! Finally, create MPI datatypes for exchanging face data between processes
   !
   call memory_pause("Before: calling create_face_nonblocking_datatypes")
-  call create_face_nonblocking_datatypes(bface,face_map)
+  call create_face_nonblocking_datatypes(bface,face,face_map)
   !
   ! Deallocate the face array because I dont think it is needed anymore
   !
@@ -469,7 +391,7 @@ continue
   !
   ! Format Statements
   !
-  2 format(" It seems that the code was compiled without either of the METIS", &
+  1 format(" It seems that the code was compiled without either of the METIS", &
            " pre-processor options being defined. One of these options needs", &
            " to be defined in order to partition the grid and allow the use", &
            " of multiple processors.")
@@ -961,7 +883,7 @@ end subroutine partition_using_metis_5
 !###############################################################################
 !
 subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
-                             nodes_of_cell_ptr,bface,xadj,adjncy)
+                             nodes_of_cell_ptr,bface,xadj,adjncy,face)
   !
   !.. Use Statements ..
   use order_mod,        only : geom_solpts
@@ -971,13 +893,14 @@ subroutine create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
   use connectivity_mod, only : RotateFluxPoints_Tria
   !
   !.. Formal Arguments ..
-  integer,              dimension(:),      intent(in) :: cell_geom
-  integer,              dimension(:),      intent(in) :: cell_order
-  integer,              dimension(:),      intent(in) :: nodes_of_cell
-  integer,              dimension(:),      intent(in) :: nodes_of_cell_ptr
-  integer,              dimension(:,:),    intent(in) :: bface
-  integer, allocatable, dimension(:),   intent(inout) :: xadj
-  integer, allocatable, dimension(:),   intent(inout) :: adjncy
+  integer,                   dimension(:),    intent(in) :: cell_geom
+  integer,                   dimension(:),    intent(in) :: cell_order
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell
+  integer,                   dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer,                   dimension(:,:),  intent(in) :: bface
+  integer,      allocatable, dimension(:), intent(inout) :: xadj
+  integer,      allocatable, dimension(:), intent(inout) :: adjncy
+  type(face_t), allocatable, dimension(:), intent(inout) :: face
   !
   !.. Local Scalars ..
   integer :: ic,jc,n,nc,nf,ncf,nfp,nfnods,ifa,ieadj,ierr
@@ -1075,9 +998,7 @@ continue
   ! Loop to set up cells_surr_cell_ptr
   !
   do n = 1,ngcell
-    n1 = nodes_of_cell_ptr(n)+1
-    n2 = nodes_of_cell_ptr(n+1)
-    cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + n2-n1+1
+    cells_surr_cell_ptr(n+1) = cells_surr_cell_ptr(n) + geom_faces(cell_geom(n))
   end do
  !!
  !! Reshuffle cells_surr_cell_ptr
@@ -1195,7 +1116,7 @@ continue
   ! We cant just use cells_surr_cell_ptr and cells_surr_cell as xadj
   ! and adjncy because cells_surr_cell is zero for faces of cells
   ! that correspond to boundary faces. In the loop "find_cell" above,
-  ! if the sum(lpoin(nodes_of_cell(j1:j2))) term never equals 2 then
+  ! if the sum(lpoin(nodes_of_cell(j1:j2))) term never equals nfnods then
   ! this loop exits with ieadj still equal to 0. We cannot send adjncy
   ! containing zeros to the METIS routines so these need to be removed
   ! and the locations in xadj also have to be adjusted accordingly.
@@ -1304,13 +1225,9 @@ continue
     !
     face(nf)%left%cell = host_cell
     face(nf)%left%cell_face = host_side
-    face(nf)%left%geom = host_geom
-    face(nf)%left%order = host_order
     !
     face(nf)%right%cell = ghost_cell
     face(nf)%right%cell_face = 1
-    face(nf)%right%geom = geom_of_face(nfnods)
-    face(nf)%right%order = host_order
     !
     face(nf)%geom = geom_of_face(nfnods)
     face(nf)%order = host_order
@@ -1368,12 +1285,6 @@ continue
         face(face_counter)%left%cell = this_cell
         face(face_counter)%right%cell = adj_cell
         !
-        face(face_counter)%left%geom = this_geom
-        face(face_counter)%right%geom = adj_geom
-        !
-        face(face_counter)%left%order = this_order
-        face(face_counter)%right%order = adj_order
-        !
         ! Store the nodes on this interior face
         !
         face(face_counter)%nodes(1:nfnods) = nodes_of_cell( n1 + ip(1:nfnods) )
@@ -1427,7 +1338,7 @@ continue
     ! Information for the right cell on the face
     !
     right_cell = face(nf)%right%cell
-    right_geom = face(nf)%right%geom
+    right_geom = cell_geom(right_cell)
     !
     n1 = nodes_of_cell_ptr(right_cell)+1
     n2 = nodes_of_cell_ptr(right_cell+1)
@@ -1483,11 +1394,11 @@ continue
     left_side = face(nf)%left%cell_face
     right_side = face(nf)%right%cell_face
     !
-    left_geom = face(nf)%left%geom
-    right_geom = face(nf)%right%geom
+    left_geom = cell_geom(left_cell)
+    right_geom = cell_geom(right_cell)
     !
-    left_order = face(nf)%left%order
-    right_order = face(nf)%right%order
+    left_order = cell_order(left_cell)
+    right_order = cell_order(right_cell)
     !
     face_geom = face(nf)%geom
     face_order = face(nf)%order
@@ -1724,11 +1635,13 @@ end subroutine check_quality_of_partitioning
 !
 !###############################################################################
 !
-subroutine find_partition_boundaries(epart,bface)
+subroutine find_partition_boundaries(cell_geom,epart,bface,face)
   !
   !.. Formal Arguments ..
-  integer,              dimension(:),      intent(in) :: epart
-  integer, allocatable, dimension(:,:), intent(inout) :: bface
+  integer,                   dimension(:),      intent(in) :: cell_geom
+  integer,                   dimension(:),      intent(in) :: epart
+  integer,      allocatable, dimension(:,:), intent(inout) :: bface
+  type(face_t), allocatable, dimension(:),   intent(inout) :: face
   !
   !.. Local Scalars ..
   integer :: new_ngfbnd,new_ngface,ierr
@@ -1765,17 +1678,6 @@ continue
     msk(nf) = epart( face(nf)%left%cell ) /= epart( face(nf)%right%cell )
   end do
   !
-  ! Copy the partition information into the face array. For now, dont
-  ! do anything about the partition information for the ghost cells
-  ! on the boundary faces.
-  !
-  do nf = 1,ngface
-    face(nf)%left%partition = epart(face(nf)%left%cell)
-    if (nf > ngfbnd) then
-      face(nf)%right%partition = epart(face(nf)%right%cell)
-    end if
-  end do
-  !
   ! Recompute the number of boundary faces and the total number of faces.
   !   Each internal face dividing unstructured blocks will be turned
   !   into two boundary faces, one for each side of the face meaning:
@@ -1809,11 +1711,11 @@ continue
     !
     left_cell = face(n)%left%cell
     left_side = face(n)%left%cell_face
-    left_geom = face(n)%left%geom
+    left_geom = cell_geom(left_cell)
     !
     right_cell = face(n)%right%cell
     right_side = face(n)%right%cell_face
-    right_geom = face(n)%right%geom
+    right_geom = cell_geom(right_cell)
     !
     ! Now add this information the boundary face array
     !
@@ -1827,7 +1729,7 @@ continue
     bface( 6,nf) = right_cell  ! adjacent partition host cell
     bface( 7,nf) = epart(right_cell) - 1  ! adjacent partition processor ID
     bface( 8,nf) = right_geom  ! adjacent partition host cell geometry type
-    bface( 9,nf) = right_side  ! face of adjacent partition host cell on boundary
+    bface( 9,nf) = right_side  ! face of adj partition host cell on boundary
     bface(10,nf) = n           ! location within face array to extract data
     !
     nf = nf + 1
@@ -1842,10 +1744,12 @@ continue
     bface( 6,nf) = left_cell   ! adjacent partition host cell
     bface( 7,nf) = epart(left_cell) - 1  ! adjacent partition processor ID
     bface( 8,nf) = left_geom   ! adjacent partition host cell geometry type
-    bface( 9,nf) = left_side   ! face of adjacent partition host cell on boundary
+    bface( 9,nf) = left_side   ! face of adj partition host cell on boundary
     bface(10,nf) = -n          ! location within face array to extract data
     !                          ! NOTE: This is negative to mark that this host
-    nf = nf + 1                !       cell used to be a right cell on the face
+    !                          !       cell used to be a right cell on the face
+    !
+    nf = nf + 1
     !
   end do
   !
@@ -1962,14 +1866,6 @@ continue
     end if
   end do
   !
-  ! Now copy the partition information for boundary faces into the face array
-  !
-  do nf = 1,ngfbnd
-    if (bface(1,nf) /= bc_cpu_bnd) then
-      face(nf)%right%partition = bface(7,nf)
-    end if
-  end do
-  !
   ! ##########################################################################
   ! ##########################################################################
   ! ##########################################################################
@@ -2000,8 +1896,8 @@ continue
   ! Perform one last quick test to make sure that the attached cells
   ! for each interior face are located within the same partition
   !
-  if ( any( face(ngfbnd+1:ngface)%left%partition /= &
-            face(ngfbnd+1:ngface)%right%partition ) ) then
+  if ( any( epart(face(ngfbnd+1:ngface)%left%cell) /= &
+            epart(face(ngfbnd+1:ngface)%right%cell) ) ) then
     write (iout,1)
     call stop_recon(stop_mpi,pname)
   end if
@@ -2015,7 +1911,7 @@ end subroutine find_partition_boundaries
 !
 !###############################################################################
 !
-subroutine create_grid_mappings(npart,epart, &
+subroutine create_grid_mappings(npart,epart,face, &
                                 nodes_of_cell,nodes_of_cell_ptr, &
                                 node_map,face_map,cell_map)
   !
@@ -2024,6 +1920,7 @@ subroutine create_grid_mappings(npart,epart, &
   integer,                  dimension(:),    intent(in) :: epart
   integer,                  dimension(:),    intent(in) :: nodes_of_cell
   integer,                  dimension(:),    intent(in) :: nodes_of_cell_ptr
+  type(face_t),             dimension(:),    intent(in) :: face
   type(map_t), allocatable, dimension(:), intent(inout) :: node_map
   type(map_t), allocatable, dimension(:), intent(inout) :: face_map
   type(map_t), allocatable, dimension(:), intent(inout) :: cell_map
@@ -2044,7 +1941,7 @@ continue
   !
   lcell = size(epart)
   lnode = ngnode
-  lface = ngface
+  lface = size(face)
   !
   ! #######
   ! ## 1 ##
@@ -2149,7 +2046,7 @@ continue
     !
     ! Mark the faces that are within this partition
     !
-    msk(1:lface) = ( face(1:lface)%left%partition == this_part )
+    msk(1:lface) = ( epart(face(1:lface)%left%cell) == this_part )
     !
     ! Count the faces that are within this partition
     !
@@ -2166,7 +2063,7 @@ continue
     !
     face_map(this_part)%loc_to_glb = pack( intseq(1,lface) , msk(1:lface) )
    !face_map(this_part)%loc_to_glb = &
-   !                  find_subset(face(1:lface)%left%partition,this_part)
+   !                  find_subset(epart(face(1:lface)%left%cell),this_part)
     !
   end do
   !
@@ -2209,7 +2106,7 @@ end function find_subset
 !
 subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
                          xyz_nodes,epart,cell_geom,cell_order, &
-                         node_map,face_map,cell_map)
+                         face,node_map,face_map,cell_map)
   !
   !.. Use Statements ..
   use order_mod, only : geom_solpts
@@ -2217,6 +2114,7 @@ subroutine localize_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   !
   !.. Formal Arguments ..
   integer,                dimension(:),      intent(in) :: epart
+  type(face_t),           dimension(:),      intent(in) :: face
   type(map_t),            dimension(:),      intent(in) :: node_map
   type(map_t),            dimension(:),      intent(in) :: face_map
   type(map_t),            dimension(:),      intent(in) :: cell_map
@@ -2804,15 +2702,16 @@ end subroutine localize_grid
 !
 !###############################################################################
 !
-subroutine create_face_nonblocking_datatypes(bface,face_map)
+subroutine create_face_nonblocking_datatypes(bface,face,face_map)
   !
   !.. Use Statements ..
   use geovar, only : n_global_node
   use geovar, only : n_global_edge
   !
   !.. Formal Arguments ..
-  integer,     dimension(:,:), intent(in) :: bface
-  type(map_t), dimension(:),   intent(in) :: face_map
+  integer,      dimension(:,:), intent(in) :: bface
+  type(face_t), dimension(:),   intent(in) :: face
+  type(map_t),  dimension(:),   intent(in) :: face_map
   !
   !.. Local Scalars ..
   logical :: flag
@@ -2849,16 +2748,6 @@ continue
   my_part = mypnum + 1
   !
   nfbnd = size(bface,dim=2)
-  !
- !call stop_recon(stop_mpi,"NEED TO SET UP FACEDUSP COMMUNICATION FIRST!!!")
- !!
- !call get_solution_points_2d
- !do n = 1,ncpu
- !  if (mypnum == n-1) np = n_totpts
- !  call mpi_bcast(np,1,mpi_inttyp,n-1,mpi_comm_world,mpierr)
- !  if (mypnum == n-1) gxyz(1:nr,1:np,n) = real(xyz(1:nr,1:n_totpts),kind=r8)
- !  call mpi_bcast(gxyz(1:nr,1:np,n),np*nr,mpi_flttyp,n-1,mpi_comm_world,mpierr)
- !end do
   !
   ! Create an offset array for the number of flux
   ! points on each communication boundary faces
@@ -3347,7 +3236,7 @@ subroutine exchange_faceusp(faceusp)
   !
   !.. Use Statements ..
 #ifndef USE_TYPEBOUND_FACE_PACK
-  use geovar,  only : nfbnd,bface
+  use geovar,  only : bface
 #endif
   use flowvar, only : face_var
   !
@@ -3367,7 +3256,7 @@ continue
   call faceusp%pack(fusp_send_buffer)
 #else
   iend = 0
-  do nf = 1,nfbnd
+  do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
     nsz = size(faceusp(nf)%v(:,:,1))
     ibeg = iend + 1
@@ -3418,7 +3307,7 @@ subroutine wait_faceusp(faceusp)
   !
   !.. Use Statements ..
 #ifndef USE_TYPEBOUND_FACE_PACK
-  use geovar,  only : nfbnd,bface
+  use geovar,  only : bface
 #endif
   use flowvar, only : face_var
   !
@@ -3443,7 +3332,7 @@ continue
   call faceusp%unpack(fusp_recv_buffer)
 #else
   iend = 0
-  do nf = 1,nfbnd
+  do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
     nsz(1) = size(faceusp(nf)%v,dim=1)
     nsz(2) = size(faceusp(nf)%v,dim=2)
@@ -3462,7 +3351,7 @@ subroutine exchange_facedusp(facedusp)
   !
   !.. Use Statements ..
 #ifndef USE_TYPEBOUND_FACE_PACK
-  use geovar,  only : nfbnd,bface
+  use geovar,  only : bface
 #endif
   use flowvar, only : face_vec
   !
@@ -3482,7 +3371,7 @@ continue
   call facedusp%pack(fdusp_send_buffer)
 #else
   iend = 0
-  do nf = 1,nfbnd
+  do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
     nsz = size(facedusp(nf)%v(:,:,:,1))
     ibeg = iend + 1
@@ -3533,7 +3422,7 @@ subroutine wait_facedusp(facedusp)
   !
   !.. Use Statements ..
 #ifndef USE_TYPEBOUND_FACE_PACK
-  use geovar,  only : nfbnd,bface
+  use geovar,  only : bface
 #endif
   use flowvar, only : face_vec
   !
@@ -3558,7 +3447,7 @@ continue
   call facedusp%unpack(fdusp_recv_buffer)
 #else
   iend = 0
-  do nf = 1,nfbnd
+  do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
     nsz(1) = size(facedusp(nf)%v,dim=1)
     nsz(2) = size(facedusp(nf)%v,dim=2)
@@ -4591,138 +4480,132 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-!!  if (allocated(node_map)) then
-!!    !
-!!    call dt%set( storage_size(node_map,kind=inttype) , &
-!!                         size(node_map,kind=inttype) )
-!!   !write (iout,*)
-!!   !write (iout,*) "node_map(:)"
-!!   !write (iout,*) "size = ",size(node_map)
-!!   !write (iout,*) "storage_size = ",storage_size(node_map)
-!!   !!
-!!   !loc_siz = 0
-!!   !glb_siz = 0
-!!    !
-!!    do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
-!!      !
-!!      if (allocated(node_map(i)%loc_to_glb)) then
-!!        call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
-!!                             size(node_map(i)%loc_to_glb,kind=inttype) )
-!!   !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
-!!      end if
-!!      !
-!!    end do
-!!    !
-!!   !i = lbound(node_map,dim=1)
-!!   !if (allocated(node_map(i)%loc_to_glb)) then
-!!   !  write (iout,*)
-!!   !  write (iout,*) "node_map(:)%loc_to_glb"
-!!   !  write (iout,*) "size = ",loc_siz
-!!   !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
-!!   !end if
-!!    !
-!!    call total%add(dt)
-!!    write (array_name,5) "node_map"
-!!    write (iou,2) array_name,dt%get_units()
-!!    !
-!!  else
-!!    !
-!!    write (iou,7) "node_map"
-!!    !
-!!  end if
+!!if (allocated(node_map)) then
 !!  !
-!!  !-----------------------------------------------------------------------------
+!!  call dt%set( storage_size(node_map,kind=inttype) , &
+!!                       size(node_map,kind=inttype) )
+!! !write (iout,*)
+!! !write (iout,*) "node_map(:)"
+!! !write (iout,*) "size = ",size(node_map)
+!! !write (iout,*) "storage_size = ",storage_size(node_map)
+!! !!
+!! !loc_siz = 0
+!! !glb_siz = 0
 !!  !
-!!  if (allocated(face_map)) then
+!!  do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
 !!    !
-!!    call dt%set( storage_size(face_map,kind=inttype) , &
-!!                         size(face_map,kind=inttype) )
-!!   !write (iout,*)
-!!   !write (iout,*) "face_map(:)"
-!!   !write (iout,*) "size = ",size(face_map)
-!!   !write (iout,*) "storage_size = ",storage_size(face_map)
-!!   !!
-!!   !loc_siz = 0
-!!   !glb_siz = 0
+!!    if (allocated(node_map(i)%loc_to_glb)) then
+!!      call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
+!!                           size(node_map(i)%loc_to_glb,kind=inttype) )
+!! !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
+!!    end if
 !!    !
-!!    do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
-!!      !
-!!      if (allocated(face_map(i)%loc_to_glb)) then
-!!        call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
-!!                             size(face_map(i)%loc_to_glb,kind=inttype) )
-!!   !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
-!!      end if
-!!      !
-!!    end do
+!!  end do
+!!  !
+!! !i = lbound(node_map,dim=1)
+!! !if (allocated(node_map(i)%loc_to_glb)) then
+!! !  write (iout,*)
+!! !  write (iout,*) "node_map(:)%loc_to_glb"
+!! !  write (iout,*) "size = ",loc_siz
+!! !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
+!! !end if
+!!  !
+!!  call total%add(dt)
+!!  write (array_name,5) "node_map"
+!!  write (iou,2) array_name,dt%get_units()
+!!  !
+!!else
+!!  !
+!!  write (iou,7) "node_map"
+!!  !
+!!end if
+!!!
+!!!-----------------------------------------------------------------------------
+!!!
+!!if (allocated(face_map)) then
+!!  !
+!!  call dt%set( storage_size(face_map,kind=inttype) , &
+!!                       size(face_map,kind=inttype) )
+!! !write (iout,*)
+!! !write (iout,*) "face_map(:)"
+!! !write (iout,*) "size = ",size(face_map)
+!! !write (iout,*) "storage_size = ",storage_size(face_map)
+!! !!
+!! !loc_siz = 0
+!! !glb_siz = 0
+!!  !
+!!  do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
 !!    !
-!!   !i = lbound(face_map,dim=1)
-!!   !if (allocated(face_map(i)%loc_to_glb)) then
-!!   !  write (iout,*)
-!!   !  write (iout,*) "face_map(:)%loc_to_glb"
-!!   !  write (iout,*) "size = ",loc_siz
-!!   !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
-!!   !end if
+!!    if (allocated(face_map(i)%loc_to_glb)) then
+!!      call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
+!!                           size(face_map(i)%loc_to_glb,kind=inttype) )
+!! !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
+!!    end if
 !!    !
-!!    call total%add(dt)
-!!    write (array_name,5) "face_map"
-!!    write (iou,2) array_name,dt%get_units()
+!!  end do
+!!  !
+!! !i = lbound(face_map,dim=1)
+!! !if (allocated(face_map(i)%loc_to_glb)) then
+!! !  write (iout,*)
+!! !  write (iout,*) "face_map(:)%loc_to_glb"
+!! !  write (iout,*) "size = ",loc_siz
+!! !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
+!! !end if
+!!  !
+!!  call total%add(dt)
+!!  write (array_name,5) "face_map"
+!!  write (iou,2) array_name,dt%get_units()
+!!  !
+!!else
+!!  !
+!!  write (iou,7) "face_map"
+!!  !
+!!end if
+!!!
+!!!-----------------------------------------------------------------------------
+!!!
+!!if (allocated(face)) then
+!!  !
+!!  call dt%set( storage_size(face,kind=inttype) , &
+!!                       size(face,kind=inttype) )
+!!  !
+!!  do i = lbound(face,dim=1),ubound(face,dim=1)
 !!    !
-!!  else
+!!    call dt%add( storage_size(face(i)%geom,kind=inttype) )
+!!    call dt%add( storage_size(face(i)%order,kind=inttype) )
 !!    !
-!!    write (iou,7) "face_map"
+!!    call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
+!!                         size(face(i)%nodes,kind=inttype) )
 !!    !
-!!  end if
-  !
-  !-----------------------------------------------------------------------------
-  !
-  if (allocated(face)) then
-    !
-    call dt%set( storage_size(face,kind=inttype) , &
-                         size(face,kind=inttype) )
-    !
-    do i = lbound(face,dim=1),ubound(face,dim=1)
-      !
-      call dt%add( storage_size(face(i)%geom,kind=inttype) )
-      call dt%add( storage_size(face(i)%order,kind=inttype) )
-      !
-      call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
-                           size(face(i)%nodes,kind=inttype) )
-      !
-      call dt%add( storage_size(face(i)%left,kind=inttype) )
-      call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
-      call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
-      call dt%add( storage_size(face(i)%left%geom,kind=inttype) )
-      call dt%add( storage_size(face(i)%left%order,kind=inttype) )
-      call dt%add( storage_size(face(i)%left%partition,kind=inttype) )
-      !
-      if (allocated(face(i)%left%flxpts)) then
-        call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                             size(face(i)%left%flxpts,kind=inttype) )
-      end if
-      !
-      call dt%add( storage_size(face(i)%right,kind=inttype) )
-      call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
-      call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
-      call dt%add( storage_size(face(i)%right%geom,kind=inttype) )
-      call dt%add( storage_size(face(i)%right%order,kind=inttype) )
-      call dt%add( storage_size(face(i)%right%partition,kind=inttype) )
-      !
-      if (allocated(face(i)%right%flxpts)) then
-        call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
-                             size(face(i)%right%flxpts,kind=inttype) )
-      end if
-      !
-    end do
-    !
-    call total%add(dt)
-    write (array_name,5) "face"
-    write (iou,2) array_name,dt%get_units()
-    !
-  else
-    !
-    write (iou,7) "face"
-    !
-  end if
+!!    call dt%add( storage_size(face(i)%left,kind=inttype) )
+!!    call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
+!!    call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
+!!    !
+!!    if (allocated(face(i)%left%flxpts)) then
+!!      call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
+!!                           size(face(i)%left%flxpts,kind=inttype) )
+!!    end if
+!!    !
+!!    call dt%add( storage_size(face(i)%right,kind=inttype) )
+!!    call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
+!!    call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
+!!    !
+!!    if (allocated(face(i)%right%flxpts)) then
+!!      call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
+!!                           size(face(i)%right%flxpts,kind=inttype) )
+!!    end if
+!!    !
+!!  end do
+!!  !
+!!  call total%add(dt)
+!!  write (array_name,5) "face"
+!!  write (iou,2) array_name,dt%get_units()
+!!  !
+!!else
+!!  !
+!!  write (iou,7) "face"
+!!  !
+!!end if
   !
   !-----------------------------------------------------------------------------
   !
