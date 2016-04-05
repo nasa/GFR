@@ -71,12 +71,6 @@ module parallel_mod
   real(r8), save, allocatable, dimension(:) :: fdusp_recv_buffer
   !
   integer, save :: n_node_edge_pts
-  integer, save :: eusp_size
-  integer, save :: edusp_size
-  integer, save :: nusp_size
-  integer, save :: ndusp_size
-  !
-  real(r8), save, allocatable, dimension(:) :: neusp_buffer
   !
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
@@ -274,34 +268,10 @@ module parallel_mod
   !
   type(exch_data_t), save, allocatable :: exch_fdusp(:)
   !
-  ! CPU_T : Derived type containing the information for one CPU that
-  !         constitutes half of a communication pair
-  !
-  type :: cpu_t
-    ! cpu_pnum : process/CPU ID for one of a communication pair
-    integer(int_mpi) :: cpu_pnum
-    ! send_datatype : handle for the MPI user-defined datatype to send data
-    integer(int_mpi) :: send_datatype = MPI_DATATYPE_NULL
-    ! recv_datatype : handle for the MPI user-defined datatype to receive data
-    integer(int_mpi) :: recv_datatype = MPI_DATATYPE_NULL
-  end type cpu_t
-  !
-  ! EXCH_PAIR_T : Derived type containing information for each of the
-  !               communication pairs
-  !
-  type :: exch_pair_t
-    ! tag1 : tag for the cpu1->cpu2 communication
-    integer(int_mpi) :: tag1
-    ! tag2 : tag for the cpu2->cpu1 communication
-    integer(int_mpi) :: tag2
-    ! cpu : information for the two cpus making up this pair
-    type(cpu_t) :: cpu(1:2)
-  end type exch_pair_t
-  !
   ! EXCH_NEUSP : Array containing the information for all the communication
   !              pairs that need to exchange edge and node solutions
   !              
-  type(exch_pair_t), save, allocatable :: exch_neusp(:)
+  type(exch_data_t), save, allocatable :: exch_neusp(:)
   !
   !
   ! #########################################
@@ -3795,10 +3765,6 @@ end subroutine localize_grid
 !
 subroutine create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   !
-  !.. Use Statements ..
-  use geovar, only : n_global_node
-  use geovar, only : n_global_edge
-  !
   !.. Formal Arguments ..
   integer,      dimension(:,:), intent(in) :: bface
   integer,      dimension(:),   intent(in) :: fpart
@@ -4323,19 +4289,6 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fdusp_istat",1,ierr,error_message)
   !
-  ! Buffer for communicating node/edge solutions and gradients
-  !
-  eusp_size  =    nq*n_global_edge
-  edusp_size = nr*nq*n_global_edge
-  nusp_size  =    nq*n_global_node
-  ndusp_size = nr*nq*n_global_node
-  !
-  n = max(edusp_size,ndusp_size)
-  !
-  allocate ( neusp_buffer(1:n) , source=0.0_r8 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"neusp_buffer",1,ierr,error_message)
-  !
   ! Format Statements
   !
   1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
@@ -4595,13 +4548,15 @@ subroutine exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
   type(ne3d_t), dimension(:), intent(inout) :: edgedusp
   !
   !.. Local Scalars..
-  integer :: n,n1,n2,n3,nsz
-  integer :: ibeg,iend,ierr
-  integer :: this_pair,npts
+  integer  :: n,n1,n2,n3,nsz
+  integer  :: i,ibeg,iend,ierr
+  integer  :: this_pair
+  real(wp) :: ave_correction
   !
   !.. MPI integers ..
-  integer(int_mpi) :: cpu1,tag1,send_dtype
-  integer(int_mpi) :: cpu2,tag2,recv_dtype
+  integer(int_mpi) :: adj_cpu
+  integer(int_mpi) :: send_tag,send_dtype
+  integer(int_mpi) :: recv_tag,recv_dtype
   integer(int_mpi) :: istat(1:mpi_status_size)
   !
   !.. Local Allocatable Arrays ..
@@ -4613,33 +4568,13 @@ subroutine exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
   !
 continue
   !
-  ! Get the total size of all the edge and node data
-  !
-  npts = 0
-  !
-  do n = 1,size(nodeusp)
-    npts = npts + size(nodeusp(n)%v)
-  end do
-  !
-  do n = 1,size(nodedusp)
-    npts = npts + size(nodedusp(n)%v)
-  end do
-  !
-  do n = 1,size(edgeusp)
-    npts = npts + size(edgeusp(n)%v)
-  end do
-  !
-  do n = 1,size(edgedusp)
-    npts = npts + size(edgedusp(n)%v)
-  end do
-  !
   ! Allocate the send and receive buffer arrays
   !
-  allocate ( send_buffer(1:npts) , source=0.0_r8 , &
+  allocate ( send_buffer(1:n_node_edge_pts) , source=0.0_r8 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"send_buffer",1,ierr,error_message)
   !
-  allocate ( recv_buffer(1:npts) , source=0.0_r8 , &
+  allocate ( recv_buffer(1:n_node_edge_pts) , source=0.0_r8 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"recv_buffer",1,ierr,error_message)
   !
@@ -4647,43 +4582,87 @@ continue
   !
   iend = 0
   !
-  do n = 1,size(nodeusp)
+  ! Gather and pack up the node solutions and gradients
+  ! NOTE: This data will be stored in the 1D send_buffer array such that
+  !       it would be equivalent to send_buffer(1:nr+1,1:nq,:) where
+  !       send_buffer(1,1:nq,:) are the conserved solution variables and
+  !       send_buffer(2:nr+1,1:nq,:) are the solution gradients
+  !       
+  pack_nodes: do i = 1,size(bnd_nodes)
+    !
+    n = bnd_nodes(i)%idx
+    !
+    ! First correct the values in nodeusp and nodedusp since the averaging
+    ! coefficient used to compute the node values was based on the number
+    ! of cells on the local partition that contribute to this node. If the
+    ! number of local cells containing this node is lc, these values are
+    ! currently averaged using the coefficient (1/lc). If the number of global
+    ! cells containing this node is gc, this averaging correction is simply
+    ! multiplying these nodal values by (lc/gc) resulting in the final
+    ! averaging coefficient of (1/gc).
+    !
+    ave_correction = bnd_nodes(i)%ave_correction
+    !
+    nodeusp(n)%v(:)    = ave_correction * nodeusp(n)%v(:)
+    nodedusp(n)%v(:,:) = ave_correction * nodedusp(n)%v(:,:)
+    !
+    ! Pack the conserved solution variables for this node point
+    !
     nsz = size(nodeusp(n)%v(:))
-   !ibeg = nodeusp(n)%beg_pt
-   !iend = ibeg-1 + nsz
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = reshape( real(nodeusp(n)%v(:),kind=r8) , [nsz] )
-  end do
-  !
-  do n = 1,size(nodedusp)
+    !
+    ! Pack the solution gradients for this node point
+    !
     nsz = size(nodedusp(n)%v(:,:))
-   !ibeg = nodedusp(n)%beg_pt
-   !iend = ibeg-1 + nsz
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = &
                  reshape( real(nodedusp(n)%v(:,:),kind=r8) , [nsz] )
-  end do
+    !
+  end do pack_nodes
   !
-  do n = 1,size(edgeusp)
+  ! Gather and pack up the edge solutions and gradients
+  ! NOTE: This data will be stored in the 1D send_buffer array such that
+  !       it would be equivalent to send_buffer(1:nr+1,1:nq,:) where
+  !       send_buffer(1,1:nq,:) are the conserved solution variables and
+  !       send_buffer(2:nr+1,1:nq,:) are the solution gradients
+  !
+  pack_edges: do i = 1,size(bnd_edges)
+    !
+    n = bnd_edges(i)%idx
+    !
+    ! First correct the values in edgeusp and edgedusp since the averaging
+    ! coefficient used to compute the edge values was based on the number
+    ! of cells on the local partition that contribute to this edge. If the
+    ! number of local cells containing this edge is lc, these values are
+    ! currently averaged using the coefficient (1/lc). If the number of global
+    ! cells containing this edge is gc, this averaging correction is simply
+    ! multiplying these nodal values by (lc/gc) resulting in the final
+    ! averaging coefficient of (1/gc).
+    !
+    ave_correction = bnd_edges(i)%ave_correction
+    !
+    edgeusp(n)%v(:,:)    = ave_correction * edgeusp(n)%v(:,:)
+    edgedusp(n)%v(:,:,:) = ave_correction * edgedusp(n)%v(:,:,:)
+    !
+    ! Pack the conserved solution variables for these edge points
+    !
     nsz = size(edgeusp(n)%v(:,:))
-   !ibeg = edgeusp(n)%beg_pt
-   !iend = ibeg-1 + nsz
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = reshape( real(edgeusp(n)%v(:,:),kind=r8) , [nsz] )
-  end do
-  !
-  do n = 1,size(edgedusp)
+    !
+    ! Pack the solution gradients for these edge points
+    !
     nsz = size(edgedusp(n)%v(:,:,:))
-   !ibeg = edgedusp(n)%beg_pt
-   !iend = ibeg-1 + nsz
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = &
                  reshape( real(edgedusp(n)%v(:,:,:),kind=r8) , [nsz] )
-  end do
+    !
+  end do pack_edges
   !
   ! Loop through all the communication pairs and exchange solutions
   ! for the nodes and edge points, adding the received values to the
@@ -4691,33 +4670,27 @@ continue
   !
   exchange_loop: do this_pair = 1,size(exch_neusp)
     !
-    tag1 = exch_neusp(this_pair)%tag1
-    tag2 = exch_neusp(this_pair)%tag2
+    ! If exch_neusp(this_pair)%adj_cpu is not the default value, this processor
+    ! is one of the two processors making up this communication pair.
     !
-    cpu1 = exch_neusp(this_pair)%cpu(1)%cpu_pnum
-    cpu2 = exch_neusp(this_pair)%cpu(2)%cpu_pnum
-    !
-    if (mypnum == cpu1) then
+    if (exch_neusp(this_pair)%adj_cpu >= 0) then
       !
-      send_dtype = exch_neusp(this_pair)%cpu(1)%send_datatype
-      recv_dtype = exch_neusp(this_pair)%cpu(1)%recv_datatype
+      adj_cpu = exch_neusp(this_pair)%adj_cpu
       !
-      call mpi_send(send_buffer,1,send_dtype,cpu2,tag1,mpi_comm_world,mpierr)
+      send_tag = exch_neusp(this_pair)%send_tag
+      recv_tag = exch_neusp(this_pair)%recv_tag
       !
-      call mpi_recv(recv_buffer,1,recv_dtype,cpu2,tag2,mpi_comm_world,istat,mpierr)
+      send_dtype = exch_neusp(this_pair)%send_datatype
+      recv_dtype = exch_neusp(this_pair)%recv_datatype
       !
-    else if (mypnum == cpu2) then
+      ! Use MPI_SENDRECV to concurrently send and receive the necessary
+      ! solution data from the adjacent processor. This is essentially
+      ! the same as processor 1 calling MPI_SEND then MPI_RECV while
+      ! processor 2 calls MPI_RECV then MPI_SEND.
       !
-      send_dtype = exch_neusp(this_pair)%cpu(2)%send_datatype
-      recv_dtype = exch_neusp(this_pair)%cpu(2)%recv_datatype
-      !
-      call mpi_recv(recv_buffer,1,recv_dtype,cpu2,tag1,mpi_comm_world,istat,mpierr)
-      !
-      call mpi_send(send_buffer,1,send_dtype,cpu2,tag2,mpi_comm_world,mpierr)
-      !
-    end if
-    !
-    if (any(mypnum == [cpu1,cpu2])) then
+      call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
+                        recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
+                        mpi_comm_world,istat,mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
@@ -4725,49 +4698,61 @@ continue
       !
       iend = 0
       !
-      do n = 1,size(nodeusp)
+      ! Unpack the received node solutions and gradients
+      !
+      unpack_nodes: do i = 1,size(bnd_nodes)
+        !
+        n = bnd_nodes(i)%idx
+        !
+        ! Unpack the conserved solution variables for this node point
+        ! and add them to the local node values
+        !
         n1 = size(nodeusp(n)%v,dim=1)
-       !ibeg = nodeusp(n)%beg_pt
-       !iend = ibeg-1 + n1
         ibeg = iend + 1
         iend = iend + n1
         nodeusp(n)%v(:) = nodeusp(n)%v(:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1] )
-      end do
-      !
-      do n = 1,size(nodedusp)
+        !
+        ! Unpack the solution gradients for this node point
+        ! and add them to the local node values
+        !
         n1 = size(nodedusp(n)%v,dim=1)
         n2 = size(nodedusp(n)%v,dim=2)
-       !ibeg = nodedusp(n)%beg_pt
-       !iend = ibeg-1 + n1*n2
         ibeg = iend + 1
         iend = iend + n1*n2
         nodedusp(n)%v(:,:) = nodedusp(n)%v(:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2] )
-      end do
+        !
+      end do unpack_nodes
       !
-      do n = 1,size(edgeusp)
+      ! Unpack the received edge solutions and gradients
+      !
+      unpack_edges: do i = 1,size(bnd_edges)
+        !
+        n = bnd_edges(i)%idx
+        !
+        ! Unpack the conserved solution variables for these edge points
+        ! and add them to the local edge values
+        !
         n1 = size(edgeusp(n)%v,dim=1)
         n2 = size(edgeusp(n)%v,dim=2)
-       !ibeg = edgeusp(n)%beg_pt
-       !iend = ibeg-1 + n1*n2
         ibeg = iend + 1
         iend = iend + n1*n2
         edgeusp(n)%v(:,:) = edgeusp(n)%v(:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2] )
-      end do
-      !
-      do n = 1,size(edgedusp)
+        !
+        ! Unpack the solution gradients for these edge points
+        ! and add them to the local edge values
+        !
         n1 = size(edgedusp(n)%v,dim=1)
         n2 = size(edgedusp(n)%v,dim=2)
         n3 = size(edgedusp(n)%v,dim=3)
-       !ibeg = edgedusp(n)%beg_pt
-       !iend = ibeg-1 + n1*n2*n3
         ibeg = iend + 1
         iend = iend + n1*n2*n3
         edgedusp(n)%v(:,:,:) = edgedusp(n)%v(:,:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2,n3] )
-      end do
+        !
+      end do unpack_edges
       !
       ! Reset the receiver buffer to zero for the next communication
       !
@@ -4798,223 +4783,399 @@ end subroutine exch_edge_and_node_solutions
 !
 !###############################################################################
 !
-subroutine exchange_edgeusp(edgeusp)
+subroutine exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
   !
   !.. Use Statements ..
-  use flowvar, only : ne2d_t
+  use flowvar, only : ne1d_t,ne2d_t,ne3d_t,face_var
   !
   !.. Formal Arguments ..
-  type(ne2d_t), dimension(:), intent(inout) :: edgeusp
+  type(ne1d_t),   dimension(:), intent(inout) :: nodeusp
+  type(ne2d_t),   dimension(:), intent(inout) :: nodedusp
+  type(ne2d_t),   dimension(:), intent(inout) :: edgeusp
+  type(ne3d_t),   dimension(:), intent(inout) :: edgedusp
+  type(face_var), dimension(:), intent(inout) :: faceusp
   !
   !.. Local Scalars..
-  integer :: ne,vsz,ibeg,iend
+  integer  :: n,n1,n2,k
+  integer  :: i,ibeg,iend,ierr
+  integer  :: this_pair
   !
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
+  !.. MPI integers ..
+  integer(int_mpi) :: adj_cpu,mesg_tag
+  integer(int_mpi) :: send_cpu,send_tag,send_dtype
+  integer(int_mpi) :: recv_cpu,recv_tag,recv_dtype
+  integer(int_mpi) :: istat(1:mpi_status_size)
+  !
+  !.. Local Allocatable Arrays ..
+  real(r8), allocatable, dimension(:) :: send_buffer
+  real(r8), allocatable, dimension(:) :: recv_buffer
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exch_connectivity"
   !
 continue
   !
-  ! Initialize neusp_buffer to zero
+  ! ##########################################################################
+  ! ##########################################################################
+  ! ##########################################################################
+  ! #####                                                                #####
+  ! #####  1) Exchange the point indices for the duplicated node and     #####
+  ! #####     edge points on partition boundaries in order to establish  #####
+  ! #####     the global cell subconnectivity thats needed to create     #####
+  ! #####     the CGNS solution files.                                   #####
+  ! #####                                                                #####
+  ! ##########################################################################
+  ! ##########################################################################
+  ! ##########################################################################
   !
-  neusp_buffer = 0.0_r8
+  ! Allocate the send and receive buffer arrays. Initialize these arrays
+  ! to +1 so the correct point index from the responsible processor can
+  ! be identified by making their point index negative
   !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call edgeusp%pack(neusp_buffer(1:eusp_size))
-#else
-  do ne = 1,size(edgeusp)
-    vsz = size(edgeusp(ne)%v(:,:))
-    ibeg = edgeusp(ne)%beg_pt
-    iend = ibeg-1 + vsz
-    neusp_buffer(ibeg:iend) = reshape( real(edgeusp(ne)%v(:,:),kind=r8) , [vsz] )
+  allocate ( send_buffer(1:n_node_edge_pts) , &
+             source=real(one,kind=kind(send_buffer)) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"send_buffer",1,ierr,error_message)
+  !
+  allocate ( recv_buffer(1:n_node_edge_pts) , &
+             source=real(one,kind=kind(recv_buffer)) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"recv_buffer",1,ierr,error_message)
+  !
+  !##################################################################
+  !##################################################################
+  !###                                                            ###
+  !###  1.1) Create the send buffer for the node and edge points  ###
+  !###                                                            ###
+  !##################################################################
+  !##################################################################
+  !
+  iend = 0
+  !
+  ! 1.1.1) Gather and pack up the node points for
+  !        the nodes on boundary partitions
+  !       
+  pack_nodes: do i = 1,size(bnd_nodes)
+    !
+    n = bnd_nodes(i)%idx
+    !
+    ibeg = iend + 1
+    iend = iend + size(nodeusp(n)%v(:))
+    !
+    ! Make the index for the node point negative if this partition
+    ! is responsible for the point index of this node
+    !
+    if (bnd_nodes(i)%my_responsibility) then
+      send_buffer(ibeg) = real( -nodeusp(n)%v(1) , kind=kind(send_buffer) )
+    end if
+    !
+    ! There is no information to pack up from the nodedusp array, but we do
+    ! need to update the ibeg and iend indices so we can continue to pack up
+    ! the next node point from nodeusp and store it in the correct location
+    ! in send_buffer
+    !
+    ibeg = iend + 1
+    iend = iend + size(nodedusp(n)%v)
+    !
+  end do pack_nodes
+  !
+  ! 1.1.2) Gather and pack up the edge points for
+  !        the edges on partition boundaries
+  !
+  pack_edges: do i = 1,size(bnd_edges)
+    !
+    n = bnd_edges(i)%idx
+    !
+    n1 = size(edgeusp(n)%v,dim=1)
+    n2 = size(edgeusp(n)%v,dim=2)
+    !
+    do k = 1,n2
+      !
+      ibeg = iend + 1
+      iend = iend + n1
+      !
+      ! Make the index for the edge point negative if this partition
+      ! is responsible for the point indices of this edge
+      !
+      if (bnd_edges(i)%my_responsibility) then
+        send_buffer(ibeg) = real( -edgeusp(n)%v(1,k) , kind=kind(send_buffer) )
+      end if
+      !
+    end do
+    !
+    ! There is no information to pack up from the edgedusp array, but we do
+    ! need to update the ibeg and iend indices so we can continue to pack up
+    ! the edge points of the next edge from edgeusp and store them in the
+    ! correct location in send_buffer
+    !
+    ibeg = iend + 1
+    iend = iend + size(edgedusp(n)%v)
+    !
+  end do pack_edges
+  !
+  !#######################################################################
+  !#######################################################################
+  !###                                                                 ###
+  !### 1.2) Loop through all the communication pairs and exchange the  ###
+  !###      indices for the node and edge points, and save the index   ###
+  !###      for each point if the received index value is negative     ###
+  !###      which indicates the adjacent partition is responsible for  ###
+  !###      the index of that point.                                   ###
+  !###                                                                 ###
+  !#######################################################################
+  !#######################################################################
+  !
+  exchange_loop: do this_pair = 1,size(exch_neusp)
+    !
+    ! If exch_neusp(this_pair)%adj_cpu is not the default value, this processor
+    ! is one of the two processors making up this communication pair.
+    !
+    if (exch_neusp(this_pair)%adj_cpu >= 0) then
+      !
+      adj_cpu = exch_neusp(this_pair)%adj_cpu
+      !
+      send_tag = exch_neusp(this_pair)%send_tag
+      recv_tag = exch_neusp(this_pair)%recv_tag
+      !
+      send_dtype = exch_neusp(this_pair)%send_datatype
+      recv_dtype = exch_neusp(this_pair)%recv_datatype
+      !
+      ! Use MPI_SENDRECV to concurrently send and receive the necessary
+      ! solution data from the adjacent processor. This is essentially
+      ! the same as processor 1 calling MPI_SEND then MPI_RECV while
+      ! processor 2 calls MPI_RECV then MPI_SEND.
+      !
+      call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
+                        recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
+                        mpi_comm_world,istat,mpierr)
+      !
+      ! Add the received data to the solutions at the nodes and edges
+      ! NOTE: This will unfortunately add a bunch of zeros because of
+      !       how its implemented
+      !
+      iend = 0
+      !
+      ! Unpack the received node solutions and gradients
+      !
+      unpack_nodes: do i = 1,size(bnd_nodes)
+        !
+        n = bnd_nodes(i)%idx
+        !
+        ! Unpack the node point index for this node
+        !
+        ibeg = iend + 1
+        iend = iend + size(nodeusp(n)%v)
+        !
+        ! If the value of recv_buffer(ibeg) is negative, the adjacent
+        ! partition is responsible for the point index of this node
+        ! so copy the negative value of this point index into nodeusp
+        ! for the current node.
+        ! NOTE: We need to keep this negative so that later we can identify
+        !       that this processor is not responsible for writing the
+        !       solution variables for this node point.
+        !
+        if (recv_buffer(ibeg) < real(zero,kind=kind(recv_buffer))) then
+          nodeusp(n)%v(1) = real( recv_buffer(ibeg) , &
+                                  kind=kind(nodeusp(n)%v) )
+        end if
+        !
+        ! We dont need to unpack anything for nodedusp, but we do need
+        ! to update the ibeg and iend indices so we can continue to unpack
+        ! the next node point for nodeusp from the correct location in
+        ! recv_buffer
+        !
+        ibeg = iend + 1
+        iend = iend + size(nodedusp(n)%v)
+        !
+      end do unpack_nodes
+      !
+      ! Unpack the received edge points in edgeusp
+      !
+      unpack_edges: do i = 1,size(bnd_edges)
+        !
+        n = bnd_edges(i)%idx
+        !
+        ! Unpack the edge point indices for these edge points
+        !
+        n1 = size(edgeusp(n)%v,dim=1)
+        n2 = size(edgeusp(n)%v,dim=2)
+        !
+        do k = 1,n2
+          !
+          ibeg = iend + 1
+          iend = iend + n1
+          !
+          ! If the value of recv_buffer(ibeg) is negative, the adjacent
+          ! partition is responsible for the point indices of this edge
+          ! so copy the negative value of this point index into edgeusp
+          ! for this edge point on the current edge.
+          ! NOTE: We need to keep this negative so that later we can identify
+          !       that this processor is not responsible for writing the
+          !       solution variables for this edge point.
+          !
+          if (recv_buffer(ibeg) < real(zero,kind=kind(recv_buffer))) then
+            edgeusp(n)%v(1,k) = real( recv_buffer(ibeg) , &
+                                      kind=kind(edgeusp(n)%v) )
+          end if
+          !
+        end do
+        !
+        ! We dont need to unpack anything for edgedusp, but we do need
+        ! to update the ibeg and iend indices so we can continue to unpack
+        ! the edge points of the next edge for edgeusp from the correct
+        ! location in recv_buffer
+        !
+        ibeg = iend + 1
+        iend = iend + size(edgedusp(n)%v)
+        !
+      end do unpack_edges
+      !
+      ! Reset the receiver buffer to one for the next communication
+      !
+      recv_buffer = real( one , kind=kind(recv_buffer) )
+      !
+    end if
+    !
+    ! Have all processors wait for the current communication to complete
+    ! before going on to the next communication pair.  This is to ensure
+    ! there are no hangups and shouldnt be too much of a slowdown since
+    ! this is only done for writing the solution files.
+    !
+    call mpi_barrier(mpi_comm_world,mpierr)
+    !
+  end do exchange_loop
+  !
+  if (allocated(send_buffer)) then
+    deallocate ( send_buffer , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"send_buffer",2,ierr,error_message)
+  end if
+  !
+  if (allocated(recv_buffer)) then
+    deallocate ( recv_buffer , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"recv_buffer",2,ierr,error_message)
+  end if
+  !
+  ! ##########################################################################
+  ! ##########################################################################
+  ! ##########################################################################
+  ! #####                                                                #####
+  ! #####  2) Exchange the point indices for the duplicated face points  #####
+  ! #####     on partition boundaries in order to establish the global   #####
+  ! #####     cell subconnectivity thats needed to create the CGNS       #####
+  ! #####     solution files.                                            #####
+  ! #####                                                                #####
+  ! ##########################################################################
+  ! ##########################################################################
+  ! ##########################################################################
+  !
+  ! Reset the fusp_send_buffer and fusp_recv_buffer arrays to +1
+  !
+  fusp_send_buffer(:) = real( one , kind=kind(fusp_send_buffer) )
+  fusp_recv_buffer(:) = real( one , kind=kind(fusp_recv_buffer) )
+  !
+  ! 2.1) Pack up the face points
+  !
+  iend = 0
+  pack_faces: do i = 1,size(bnd_faces)
+    !
+    n = bnd_faces(i)%idx
+    !
+    n1 = size(faceusp(n)%v,dim=1)
+    n2 = size(faceusp(n)%v,dim=2)
+    !
+    do k = 1,n2
+      !
+      ibeg = iend + 1
+      iend = iend + n1
+      !
+      ! Make the index for the face point negative if this partition
+      ! is responsible for the point indices of this face
+      !
+      if (bnd_faces(i)%my_responsibility) then
+        fusp_send_buffer(ibeg) = real( -faceusp(n)%v(1,k,1) , &
+                                       kind=kind(fusp_send_buffer) )
+      end if
+      !
+    end do
+    !
+  end do pack_faces
+  !
+  ! 2.2) Initialize all the receives so each process
+  !      is ready once the send is posted
+  !
+  do n = 1,ncomm
+    !
+    ! Process sending this message
+    send_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fusp(n)%recv_datatype
+    !
+    call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
+                   mpi_comm_world,fusp_rqst(n),mpierr)
+    !
   end do
-#endif
   !
-  ! Sum all the edge point values from all the processors
+  ! 2.3) Send out the face flux point solution variables
+  !      to the adjacent processes
   !
-  call mpi_allreduce(MPI_IN_PLACE,neusp_buffer(1:eusp_size),eusp_size, &
-                     mpi_flttyp,MPI_SUM,mpi_comm_world,mpierr)
-  !
-  ! Update the right states for only the communication boundary faces
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call edgeusp%unpack(neusp_buffer(1:eusp_size))
-#else
-  do ne = 1,size(edgeusp)
-    nsz(1) = size(edgeusp(ne)%v,dim=1)
-    nsz(2) = size(edgeusp(ne)%v,dim=2)
-    ibeg = edgeusp(ne)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    edgeusp(ne)%v(:,:) = reshape( real(neusp_buffer(ibeg:iend),kind=wp) , nsz )
+  do n = 1,ncomm
+    !
+    ! Process receiving this message
+    recv_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fusp(n)%send_datatype
+    !
+    call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
+                   mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
+    !
   end do
-#endif
   !
-end subroutine exchange_edgeusp
-!
-!###############################################################################
-!
-subroutine exchange_edgedusp(edgedusp)
+  ! 2.4) Wait for all faceusp sends and receives to complete
   !
-  !.. Use Statements ..
-  use flowvar, only : ne3d_t
+  call mpi_waitall(int(2*ncomm,kind=int_mpi),fusp_rqst,fusp_istat,mpierr)
   !
-  !.. Formal Arguments ..
-  type(ne3d_t), dimension(:), intent(inout) :: edgedusp
+  ! 2.5) Update the right states for only the communication boundary faces
   !
-  !.. Local Scalars..
-  integer :: ne,vsz,ibeg,iend
+  iend = 0
+  unpack_faces: do i = 1,size(bnd_faces)
+    !
+    n = bnd_faces(i)%idx
+    !
+    n1 = size(faceusp(n)%v,dim=1)
+    n2 = size(faceusp(n)%v,dim=2)
+    !
+    do k = 1,n2
+      !
+      ibeg = iend + 1
+      iend = iend + n1
+      !
+      ! If the value of fusp_recv_buffer(ibeg) is negative, the adjacent
+      ! partition is responsible for the point indices of this face
+      ! so copy the negative value of this point index into faceusp
+      ! for this face point on the current face.
+      ! NOTE: We need to keep this negative so that later we can identify
+      !       that this processor is not responsible for writing the
+      !       solution variables for this face point.
+      !
+      if (fusp_recv_buffer(ibeg) < real(zero,kind=kind(fusp_recv_buffer))) then
+        faceusp(n)%v(1,k,1) = real( fusp_recv_buffer(ibeg) , &
+                                    kind=kind(faceusp(n)%v) )
+      end if
+      !
+    end do
+    !
+  end do unpack_faces
   !
-  !.. Local Arrays ..
-  integer, dimension(1:3) :: nsz
+  ! The bnd_faces array should no longer be needed so deallocate before leaving
   !
-continue
+  deallocate ( bnd_faces , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bnd_faces",2,ierr,error_message
   !
-  ! Initialize neusp_buffer to zero
-  !
-  neusp_buffer = 0.0_r8
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call edgedusp%pack(neusp_buffer(1:edusp_size))
-#else
-  do ne = 1,size(edgedusp)
-    vsz = size(edgedusp(ne)%v(:,:,:))
-    ibeg = edgedusp(ne)%beg_pt
-    iend = ibeg-1 + vsz
-    neusp_buffer(ibeg:iend) = &
-                 reshape( real(edgedusp(ne)%v(:,:,:),kind=r8) , [vsz] )
-  end do
-#endif
-  !
-  ! Sum all the edge point values from all the processors
-  !
-  call mpi_allreduce(MPI_IN_PLACE,neusp_buffer(1:edusp_size),edusp_size, &
-                     mpi_flttyp,MPI_SUM,mpi_comm_world,mpierr)
-  !
-  ! Update the edge point values using the reduced values
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call edgedusp%unpack(neusp_buffer(1:edusp_size))
-#else
-  do ne = 1,size(edgedusp)
-    nsz(1) = size(edgedusp(ne)%v,dim=1)
-    nsz(2) = size(edgedusp(ne)%v,dim=2)
-    nsz(3) = size(edgedusp(ne)%v,dim=3)
-    ibeg = edgedusp(ne)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    edgedusp(ne)%v(:,:,:) = &
-                 reshape( real(neusp_buffer(ibeg:iend),kind=wp) , nsz )
-  end do
-#endif
-  !
-end subroutine exchange_edgedusp
-!
-!###############################################################################
-!
-subroutine exchange_nodeusp(nodeusp)
-  !
-  !.. Use Statements ..
-  use flowvar, only : ne1d_t
-  !
-  !.. Formal Arguments ..
-  type(ne1d_t), dimension(:), intent(inout) :: nodeusp
-  !
-  !.. Local Scalars..
-  integer :: nn,vsz,ibeg,iend
-  !
-  !.. Local Arrays ..
-  integer, dimension(1) :: nsz
-  !
-continue
-  !
-  ! Initialize neusp_buffer to zero
-  !
-  neusp_buffer = 0.0_r8
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call nodeusp%pack(neusp_buffer(1:nusp_size))
-#else
-  do nn = 1,size(nodeusp)
-    vsz = size(nodeusp(nn)%v(:))
-    ibeg = nodeusp(nn)%beg_pt
-    iend = ibeg-1 + vsz
-    neusp_buffer(ibeg:iend) = reshape( real(nodeusp(nn)%v(:),kind=r8) , [vsz] )
-  end do
-#endif
-  !
-  ! Sum all the node point values from all the processors
-  !
-  call mpi_allreduce(MPI_IN_PLACE,neusp_buffer(1:nusp_size),nusp_size, &
-                     mpi_flttyp,MPI_SUM,mpi_comm_world,mpierr)
-  !
-  ! Update the right states for only the communication boundary faces
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call nodeusp%unpack(neusp_buffer(1:nusp_size))
-#else
-  do nn = 1,size(nodeusp)
-    nsz(1) = size(nodeusp(nn)%v,dim=1)
-    ibeg = nodeusp(nn)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    nodeusp(nn)%v(:) = reshape( real(neusp_buffer(ibeg:iend),kind=wp) , nsz )
-  end do
-#endif
-  !
-end subroutine exchange_nodeusp
-!
-!###############################################################################
-!
-subroutine exchange_nodedusp(nodedusp)
-  !
-  !.. Use Statements ..
-  use flowvar, only : ne2d_t
-  !
-  !.. Formal Arguments ..
-  type(ne2d_t), dimension(:), intent(inout) :: nodedusp
-  !
-  !.. Local Scalars..
-  integer :: nn,vsz,ibeg,iend
-  !
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
-  !
-continue
-  !
-  ! Initialize neusp_buffer to zero
-  !
-  neusp_buffer = 0.0_r8
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call nodedusp%pack(neusp_buffer(1:ndusp_size))
-#else
-  do nn = 1,size(nodedusp)
-    vsz = size(nodedusp(nn)%v(:,:))
-    ibeg = nodedusp(nn)%beg_pt
-    iend = ibeg-1 + vsz
-    neusp_buffer(ibeg:iend) = &
-                 reshape( real(nodedusp(nn)%v(:,:),kind=r8) , [vsz] )
-  end do
-#endif
-  !
-  ! Sum all the node point values from all the processors
-  !
-  call mpi_allreduce(MPI_IN_PLACE,neusp_buffer(1:ndusp_size),ndusp_size, &
-                     mpi_flttyp,MPI_SUM,mpi_comm_world,mpierr)
-  !
-  ! Update the node point values using the reduced values
-  !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call nodedusp%unpack(neusp_buffer(1:ndusp_size))
-#else
-  do nn = 1,size(nodedusp)
-    nsz(1) = size(nodedusp(nn)%v,dim=1)
-    nsz(2) = size(nodedusp(nn)%v,dim=2)
-    ibeg = nodedusp(nn)%beg_pt
-    iend = ibeg-1 + product(nsz)
-    nodedusp(nn)%v(:,:) = &
-                 reshape( real(neusp_buffer(ibeg:iend),kind=wp) , nsz )
-  end do
-#endif
-  !
-end subroutine exchange_nodedusp
+end subroutine exch_connectivity
 !
 !###############################################################################
 !
