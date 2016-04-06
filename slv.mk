@@ -1,4 +1,8 @@
 
+ifndef VERBOSE
+  QUIET := @
+endif
+
 include system_variables.mk
 
 OBJDIR = objects/$(BUILDDIR)
@@ -81,6 +85,9 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o
 
+
+HighlightName := | /bin/grep -Phi --color '[^ ]+\.f[0-9]*'
+
 .PHONY: O2-ip-opt
 O2-ip-opt: OPTIM = $(O2OPT) $(TARGET) $(ADDOPT)
 O2-ip-opt: optimize
@@ -127,13 +134,13 @@ all: $(OBJS)
 
 
 %.o:%$(FSFXFLG)
-	@echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
+	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
 	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
 
 
 $(OBJS):
-	@echo $(FC) $(FPP) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG) | /bin/grep -Phi --color '[^ ]+\.f[0-9]*';\
-	$(FC) $(FPP) $(FCFLAG) -c -o $*.o $(*F)$(FSFXFLG)
+	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
+	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
 
 
 .PHONY: clean
@@ -142,15 +149,15 @@ clean:
 
 .PHONY: dump-variables
 dump-variables:
-	@echo "FC = $(FC)"
-	@echo "FPP = $(FPP)"
-	@echo "FCBASE = $(FCBASE)"
-	@echo "O3OPT = $(O3OPT)"
-	@echo "ADDOPT = $(ADDOPT)"
-	@echo "ADDFLAGS = $(ADDFLAGS)"
-	@echo "FCFLAG = $(FCFLAG)"
-	@echo "OBJDIR = $(OBJDIR)"
-	@echo "MODDIR = $(MODDIR)"
-	@echo "EXECUTABLE = $(EXECUTABLE)"
+	$(QUIET) echo "FC = $(FC)"
+	$(QUIET) echo "FPP = $(FPP)"
+	$(QUIET) echo "FCBASE = $(FCBASE)"
+	$(QUIET) echo "O3OPT = $(O3OPT)"
+	$(QUIET) echo "ADDOPT = $(ADDOPT)"
+	$(QUIET) echo "ADDFLAGS = $(ADDFLAGS)"
+	$(QUIET) echo "FCFLAG = $(FCFLAG)"
+	$(QUIET) echo "OBJDIR = $(OBJDIR)"
+	$(QUIET) echo "MODDIR = $(MODDIR)"
+	$(QUIET) echo "EXECUTABLE = $(EXECUTABLE)"
 
 include dep.mk
