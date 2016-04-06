@@ -1248,6 +1248,9 @@ subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
   integer, allocatable, dimension(:), intent(inout) :: adjwgt
   integer, allocatable, dimension(:), intent(inout) :: vsize
   !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_grid_weights"
   !
@@ -1740,7 +1743,7 @@ continue
       ! Get the maximum order of the cells with this edge
       ! and save this to the edge array
       !
-      edge(n)%order = maxval( cell_order(cells_list(1:np)) )
+      edge(n)%order = maxval( cell_order(cell_list(1:np)) )
       !
     end if
     !
@@ -5311,7 +5314,7 @@ continue
   ! The bnd_faces array should no longer be needed so deallocate before leaving
   !
   deallocate ( bnd_faces , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bnd_faces",2,ierr,error_message
+  call alloc_error(pname,"bnd_faces",2,ierr,error_message)
   !
 end subroutine exch_connectivity
 !
