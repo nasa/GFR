@@ -169,6 +169,10 @@ rebuild-O3-ipo-opt:
 				     O3-ipo-opt
 	@echo "-----------------------------------------------------"
 
+time-optimize:
+	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" time
+
 deplist:
 	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
 	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=debug_recon" \
@@ -188,5 +192,10 @@ clean-optimize:
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
 
 clean:
-	make -f slv.mk "EXECUTABLE=$(EXEF)" "BUILDDIR=$(BDIR)" clean
+	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
+	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=recon_westmere" "BUILDDIR=optimize_westmere" clean
+	make -f slv.mk "EXECUTABLE=recon_sandybridge" "BUILDDIR=optimize_sandybridge" clean
+	make -f slv.mk "EXECUTABLE=recon_ivybridge" "BUILDDIR=optimize_ivybridge" clean
+	make -f slv.mk "EXECUTABLE=recon_haswell" "BUILDDIR=optimize_haswell" clean
 

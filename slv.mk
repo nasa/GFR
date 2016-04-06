@@ -126,22 +126,28 @@ debug: all
 deplist: FCBASE += -gen-dep=deplist.txt
 deplist: debug
 
-
-.PHONY: all
-all: $(OBJS)
+.PHONY: time
+time: Command-Beg := /usr/bin/time -f '%e'
+time: Command-End  = 2>&1 | awk '{ printf "%-25s%8.2f seconds", "$<", $$1 }' $(HighlightName)
+time: FCFLAG = $(FCBASE) $(O3OPT) $(TARGET) $(ADDOPT) $(ADDFLAGS)
+time: $(OBJS)
 	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 
+.PHONY: all
+all: Command-Beg := echo
+all: Command-End  = $(HighlightName); $(FC) $(FPP) $(FCFLAG) -c -o $@ $<
+all: $(OBJS)
+	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
+	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 
 %.o:%$(FSFXFLG)
 	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
 	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
 
-
 $(OBJS):
-	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
-	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
-
+	$(QUIET) $(Command-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Command-End)
+##$(QUIET) $(Time-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Time-End) $(HighlightName)
 
 .PHONY: clean
 clean:
