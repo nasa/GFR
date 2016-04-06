@@ -363,6 +363,15 @@ continue
   !
   lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
+  ! Create the global grid connectivity
+  !
+  call get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
+                               nodes_of_cell,nodes_of_cell_ptr, &
+                               cells_with_node,cells_with_node_ptr, &
+                               cells_surr_cell,cells_surr_cell_ptr, &
+                               cells_with_edge,cells_with_edge_ptr, &
+                               nodes_on_edge,face)
+  !
   if (use_old_dual_graph) then
     !
     ! Create the dual graph for the global grid not including ghost cells
@@ -372,33 +381,25 @@ continue
                            nodes_of_cell_ptr,bface,xadj,adjncy,face)
   else
     !
-    ! Create the global grid connectivity
-    !
-    call get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
-                                 nodes_of_cell,nodes_of_cell_ptr, &
-                                 cells_with_node,cells_with_node_ptr, &
-                                 cells_surr_cell,cells_surr_cell_ptr, &
-                                 cells_with_edge,cells_with_edge_ptr, &
-                                 nodes_on_edge,face)
-    !
     ! Create the dual graph for the global grid not including ghost cells
     !
+    call memory_pause("Before: calling create_metis_dual_graph")
     call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
                                  xadj,adjncy)
     !
-    ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
-    ! are no longer needed
-    !
-    if (allocated(cells_surr_cell)) then
-      deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
-    end if
-    !
-    if (allocated(cells_surr_cell_ptr)) then
-      deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
-    end if
-    !
+  end if
+  !
+  ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
+  ! are no longer needed
+  !
+  if (allocated(cells_surr_cell)) then
+    deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  end if
+  !
+  if (allocated(cells_surr_cell_ptr)) then
+    deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
   end if
   !
   ! Allocate the epart array to store the cell partition numbers
