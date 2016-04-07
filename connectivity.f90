@@ -19,6 +19,8 @@ module connectivity_mod
   public :: find_cells_surrounding_each_edge
   public :: create_face_derived_type
   !
+  public :: get_unit_cell_subconnectivity
+  !
   public :: GetFaceNodes_for_QuadFace
   public :: GetFaceNodes_for_TriaFace
   public :: RotateFluxPoints_Quad
