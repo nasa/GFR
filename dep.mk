@@ -325,7 +325,8 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(FUNDIR)/temperature.f90 \
                  $(FUNDIR)/mach_number.f90 \
                  $(FUNDIR)/entropy.f90 \
-                 $(FUNDIR)/grad_cv_to_grad_pv.f90
+                 $(FUNDIR)/grad_cv_to_grad_pv.f90 \
+                 $(FUNDIR)/cell_solpts.f90
 
 
 $(OBJDIR)/projection_mod.o : projection_mod.f90 \
