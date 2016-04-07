@@ -24,6 +24,7 @@ module parallel_mod
   public :: exchange_facedusp
   public :: exch_edge_and_node_solutions
   public :: parallel_memory_usage
+  public :: exch_connectivity
  !public :: exchange_modes
   !
   ! IDEA: 1. all processors send in their global versions of bface, xyz_nodes, 
