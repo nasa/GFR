@@ -1,4 +1,5 @@
-pure function rotate_DP(face_node1,face_node2,node_off_face) result(return_value)
+pure function rotate_DP(face_node1,face_node2,node_off_face) &
+                 result(return_value)
   !
   real(dp), dimension(:), intent(in) :: face_node1
   real(dp), dimension(:), intent(in) :: face_node2
@@ -12,7 +13,8 @@ continue
   !
 end function rotate_DP
 !
-pure function rotate_QP(face_node1,face_node2,node_off_face) result(return_value)
+pure function rotate_QP(face_node1,face_node2,node_off_face) &
+                 result(return_value)
   !
   real(qp), dimension(:), intent(in) :: face_node1
   real(qp), dimension(:), intent(in) :: face_node2

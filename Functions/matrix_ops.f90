@@ -288,8 +288,9 @@ continue
     if (a(j,j) == zero) a(j,j) = rndoff
     !
     a(j+1:np,j) = a(j+1:np,j)/a(j,j)
-    a(j+1:np,j+1:np) = a(j+1:np,j+1:np) - spread(a(j+1:np,j),dim=2,ncopies=np-j)* &
-                                          spread(a(j,j+1:np),dim=1,ncopies=np-j)
+    a(j+1:np,j+1:np) = a(j+1:np,j+1:np) - &
+                       spread(a(j+1:np,j),dim=2,ncopies=np-j)* &
+                       spread(a(j,j+1:np),dim=1,ncopies=np-j)
     !
   end do
   !
@@ -335,8 +336,9 @@ continue
     if (a(j,j) == zero) a(j,j) = rndoff
     !
     a(j+1:np,j) = a(j+1:np,j)/a(j,j)
-    a(j+1:np,j+1:np) = a(j+1:np,j+1:np) - spread(a(j+1:np,j),dim=2,ncopies=np-j)* &
-                                          spread(a(j,j+1:np),dim=1,ncopies=np-j)
+    a(j+1:np,j+1:np) = a(j+1:np,j+1:np) - &
+                       spread(a(j+1:np,j),dim=2,ncopies=np-j)* &
+                       spread(a(j,j+1:np),dim=1,ncopies=np-j)
     !
   end do
   !

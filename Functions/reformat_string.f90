@@ -1,5 +1,7 @@
-pure function reformat_string(input_strng,line_length,leading_blanks) result(return_value)
-!function reformat_string(input_strng,line_length,leading_blanks) result(return_value)
+pure function reformat_string(input_strng,line_length,leading_blanks) &
+                       result(return_value)
+!function reformat_string(input_strng,line_length,leading_blanks) &
+!                  result(return_value)
   !
   character(len=*), intent(in) :: input_strng
   integer, optional, intent(in) :: line_length
