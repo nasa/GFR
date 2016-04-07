@@ -2,7 +2,7 @@ module postprocessor_mod
   !
   !.. Global Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nq
+  use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk
   !
   implicit none
   !
@@ -14,17 +14,13 @@ module postprocessor_mod
   ! ##################################
   !
   public :: get_output_connectivity
+  public :: collect_cell_subconnectivity
+  public :: get_plot_functions
   !
   !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
-  !
-  integer, save :: lcell
-  integer, save :: lnode
-  integer, save :: lfbnd
-  integer, save :: lface
-  integer, save :: ledge
   !
   type :: pnt_map_t
     integer, allocatable :: sp(:)
@@ -61,307 +57,143 @@ module postprocessor_mod
   end type plot_func_t
   !
   type(plot_func_t), public, parameter :: &
-              plot_static_density     = plot_func_t(1), &
-              plot_velocity_x         = plot_func_t(2), &
-              plot_velocity_y         = plot_func_t(3), &
-              plot_velocity_z         = plot_func_t(4), &
-              plot_static_pressure    = plot_func_t(5), &
-              plot_static_temperature = plot_func_t(6), &
-              plot_momentum_x         = plot_func_t(7), &
-              plot_momentum_y         = plot_func_t(8), &
-              plot_momentum_z         = plot_func_t(9), &
-              plot_entropy            = plot_func_t(10), &
-              plot_mach_number        = plot_func_t(11), &
-              plot_vorticity_x        = plot_func_t(12), &
-              plot_vorticity_y        = plot_func_t(13), &
-              plot_vorticity_z        = plot_func_t(14)
+              plot_static_density     =  plot_func_t( 1),    &
+              plot_velocity_x         =  plot_func_t( 2),    &
+              plot_velocity_y         =  plot_func_t( 3),    &
+              plot_velocity_z         =  plot_func_t( 4),    &
+              plot_static_pressure    =  plot_func_t( 5),    &
+              plot_static_temperature =  plot_func_t( 6),    &
+              plot_momentum_x         =  plot_func_t( 7),    &
+              plot_momentum_y         =  plot_func_t( 8),    &
+              plot_momentum_z         =  plot_func_t( 9),    &
+              plot_total_energy       =  plot_func_t(10),    &
+              plot_entropy            =  plot_func_t(11),    &
+              plot_mach_number        =  plot_func_t(12),    &
+              plot_vorticity_x        =  plot_func_t(13),    &
+              plot_vorticity_y        =  plot_func_t(14),    &
+              plot_vorticity_z        =  plot_func_t(15),    &
+              plot_grad_density(3)    = [plot_func_t(16), &
+                                         plot_func_t(17), &
+                                         plot_func_t(18)],   &
+              plot_grad_momentum_x(3) = [plot_func_t(19), &
+                                         plot_func_t(20), &
+                                         plot_func_t(21)],   &
+              plot_grad_momentum_y(3) = [plot_func_t(22), &
+                                         plot_func_t(23), &
+                                         plot_func_t(24)],   &
+              plot_grad_momentum_z(3) = [plot_func_t(25), &
+                                         plot_func_t(26), &
+                                         plot_func_t(27)],   &
+              plot_grad_energy(3)     = [plot_func_t(28), &
+                                         plot_func_t(29), &
+                                         plot_func_t(30)]
   !
-  public :: get_plot_functions
-  !
-  !
-  FINISHED SUBROUTINE MAP_TO_OUTPUT_POINTS AND THE RELATED FUNCTIONS FOR
-  HEXAHEDRA CELLS. NOW NEED TO GO BACK AND FIGURE OUT HOW TO APPLY THIS
-  FOR THE CONNECTIVITY AND FOR CREATING THE SOLUTION ARRAY SENT TO CGNS.
-  !
-  WHEN CREATING THE SOLUTION ARRAY, NEED TO FIGURE OUT WHAT TO DO ABOUT
-  POINTS FOR WHICH AN ADJACENT PARTITION IS RESPONSIBLE. IN THESE CASES
-  THERE IS A POINT IN THE SOLUTION ARRAY THAT NEEDS TO BE SKIPPED FOR A
-  PARTITION THAT SHARES THIS POINT BUT IS NOT RESPONSIBLE FOR ITS SOLUTION.
-  !
-  !
-  " NEED FIGURE OUT CONNECTIVITY OF THE GLOBAL GRID AND WHICH CELLS ARE"
-  " RESPONSIBLE FOR WHICH OUTPUT POINTS."
-  "  - NEED TO FIGURE THIS OUT FOR BOTH SERIAL AND PARALLEL CASES."
-  "  - USE CELL(:)%NODE(:)%CELL_IDX, CELL(:)%EDGE(:)%CELL_IDX(:), AND"
-  "    CELL(:)%FACE(:)%CELL_IDX(:) TO MAP THE LOCATIONS OF THE NODE, EDGE,"
-  "    AND FACE VALUES WITHIN NODEUSP, NODEDUSP, EDGEUSP, EDGEDUSP, FACEUSP,"
-  "    AND FACEDUSP TO THE CORRECT LOCATIONS WITHIN THE ARRAY THATS CREATED"
-  "    TO COLLECT THE SOLUTIONS FOR SENDING TO CGNS."
-  "  - TO REMOVE THE DUPLICATE POINT INDICES ON PARTITION BOUNDARIES IN THE"
-  "    CGNS FILE, A POSSIBLE PATH COULD BE TO USE THE NODEUSP, EDGEUSP, AND"
-  "    FACEUSP ARRAYS TO STORE A REAL VALUE OF A GIVEN POINT INDEX ON THE"
-  "    PROCESSOR THAT IS RESPONSIBLE FOR WRITING THE SOLUTION AT THIS POINT,"
-  "    AND ALL OTHER PROCESSORS STORE A NEGATIVE VALUE (OR SOMETHING THAT CAN"
-  "    BE IDENTIFIED AS A POINT INDEX FROM THE WRONG PROCESSOR) AND USE THE"
-  "    EXISTING COMMUNICATION/EXCHANGE CODE TO SYNCRONIZE THE CORRECT POINT"
-  "    INDEX ON ALL PROCESSORS. THERE COULD BE SOME LOGIC THAT ONLY ADDS"
-  "    POSITIVE VALUES FROM THE RECEIVE BUFFER BACK INTO NODEUSP, EDGEUSP,"
-  "    OR FACEUSP. AFTER THAT, ITS JUST A MATTER OF CONVERTING THE REAL"
-  "    VALUES TO INTEGERS AND USE THEM TO OVERWRITE THE PROPER POINT INDICES"
-  "    IN THE CONNECTIVITY ARRAY THAT SENT INTO CGNS. JUST MAKE SURE NOT"
-  "    TO INCLUDE ANY AVERAGING COEFFICIENTS."
-  !
-  " NEED TO FIGURE OUT HOW TO OVERRIDE THE INTERIOR SOLUTIONS FOR THE"
-  " SOLUTIONS ON BOUNDARY FACES, EDGES, AND NODES."
-  "   - NEED TO ADJUST THE LOCAL CELLS_WITH_NODE AND CELLS_WITH_EDGE ARRAYS"
-  "     ON EACH PARTITION SO THAT IF A NODE OR AN EDGE ARE ON A BOUNDARY"
-  "     FACES THE ONLY CELLS REMAINING WITHIN THESE ARRAYS ARE THE GHOST"
-  "     CELLS/FACES THAT CONTRIBUTE TO THE SOLUTION AT THE NODE/EDGE."
-  "       - NEED TO TAKE INTO ACCOUNT LOCAL BC PRIORITIES AS WELL."
-  "   - NEED TO CREATE SOMETHING TO INTERPOLATE THE BOUNDARY FACE SOLUTION"
-  "     FOR THE GHOST CELLS/FACES TO THE NODES/EDGES FOR THE BOUNDARY FACES."
-  "     INTERPOLATING THE INTERIOR SOLUTION TO THOSE NODE/EDGE POINTS WOULD"
-  "     NOT BE CORRECT, FOR EXAMPLE INTERPOLATING THE HOST CELL SOLUTION"
-  "     TO A BOUNDARY FACE THAT HAS A NO-SLIP WALL BOUNDARY CONDITION."
-  "   - THIS WILL PROBABLY NEED TO BE DONE BEFORE EXCHANGING SINCE THE"
-  "     SOLUTION FROM AN ADJACENT PARTITION MIGHT OVERRIDE THE LOCAL"
-  "     SOLUTION OR VICE-VERSA."
-  "   + IF THIS IS DONE BEFORE THE EXCHANGE, WE NEED TO MAKE SURE THE"
-  "     AVERAGING CORRECTION IS BASED ON THE NUMBER OF BOUNDARY FACES"
-  "     THAT CONTAIN THE NODE/EDGE AND NOT THE NUMBER OF INTERNAL GRID"
-  "     CELLS."
-  !
-  " NEED TO FIGURE OUT HOW TO CONSTRUCT THE GLOBAL EDGE AND NODE"
-  " CONNECTIVITY SO THAT WE CAN CREATE THE MPI DATA TYPES FOR EXCHANGING"
-  " EDGE AND NODE SOLUTIONS."
-  "   - NEED TO CREATE THE EDGE DERIVED TYPE ARRAY"
-  "       + MAKE SURE THAT THE INDICES IN EDGE(:)%CPU(:)%EDGPTS STARTS AT 0"
-  "       - MIGHT NEED TO FIX THE ORDERING OF THE EDGE POINT INDICES THAT"
-  "         ARE STORED IN EDGE(:)%CPU(:)%EDGPTS. CURRENTLY IT JUST ASSUMES"
-  "         THE ORDERING IS [0:NUMBER OF EDGE POINTS-1]."
-  "   + NEED TO CREATE THE NODE DERIVED TYPE ARRAY"
-  "   + NEED TO CREATE THE EDGE_MAP ARRAY"
-  "   + NEED TO CREATE THE EXCH_NEUSP ARRAY"
-  "   - "
-  "   - "
-  !
-  " NEED TO FIGURE OUT HOW TO COLLECT THE INTERIOR, FACE, EDGE, AND NODE"
-  " SOLUTIONS TOGETHER AS ONE SOLUTION FOR A CELL BEFORE WRITING IT TO"
-  " THE CGNS SOLUTION FILE."
-  "   - USE THE SAME SUBCONNECTIVITY FROM BEFORE INCLUDING THE ADD POINTS"
-  "     VALUE DEPENDING ON THE CONTINUOUS SOLUTION INPUT PARAMETER. WE JUST"
-  "     NEED A SIMPLE INTEGER ARRAY THAT MAPS THE VARIOUS FACE, EDGE, AND"
-  "     NODE POINTS TO THE CORRECT LOCATIONS WITHIN THE ARRAY THAT WILL"
-  "     STORE THE SOLUTION FOR THE CELL."
-  !
-  " NEED TO DEALLOCATE THE EDGEXYZ AND FACEXYZ (EXCEPT WHEN USING MMS)"
-  " ARRAYS AFTER WRITING THE FIRST GRID CGNS FILE SINCE THEY WILL NO"
-  " LONGER BE NEEDED."
-  !
-  " THE LOCAL AVERAGING COEFFICIENTS SHOULD ACCOUNT ONLY FOR LOCAL CELLS."
-  " THE BND_NODES AND BND_EDGES ARRAYS WILL CORRECT THE LOCAL AVERAGING"
-  " COEFFICIENTS TO THE CORRECT GLOBAL AVERAGING COEFFICIENT."
+  type(plot_func_t), allocatable :: plot_var(:)
   !
   !
+!!" FINISHED SUBROUTINE MAP_TO_OUTPUT_POINTS AND THE RELATED FUNCTIONS FOR"
+!!" HEXAHEDRA CELLS. NOW NEED TO GO BACK AND FIGURE OUT HOW TO APPLY THIS"
+!!" FOR THE CONNECTIVITY AND FOR CREATING THE SOLUTION ARRAY SENT TO CGNS."
+!!!
+!!" WHEN CREATING THE SOLUTION ARRAY, NEED TO FIGURE OUT WHAT TO DO ABOUT"
+!!" POINTS FOR WHICH AN ADJACENT PARTITION IS RESPONSIBLE. IN THESE CASES"
+!!" THERE IS A POINT IN THE SOLUTION ARRAY THAT NEEDS TO BE SKIPPED FOR A"
+!!" PARTITION THAT SHARES THIS POINT BUT IS NOT RESPONSIBLE FOR ITS SOLUTION."
+!!!
+!!!
+!!" NEED TO FIGURE OUT CONNECTIVITY OF THE GLOBAL GRID AND WHICH CELLS ARE"
+!!" RESPONSIBLE FOR WHICH OUTPUT POINTS."
+!!"  - NEED TO FIGURE THIS OUT FOR BOTH SERIAL AND PARALLEL CASES."
+!!"  - USE CELL(:)%NODE(:)%CELL_IDX, CELL(:)%EDGE(:)%CELL_IDX(:), AND"
+!!"    CELL(:)%FACE(:)%CELL_IDX(:) TO MAP THE LOCATIONS OF THE NODE, EDGE,"
+!!"    AND FACE VALUES WITHIN NODEUSP, NODEDUSP, EDGEUSP, EDGEDUSP, FACEUSP,"
+!!"    AND FACEDUSP TO THE CORRECT LOCATIONS WITHIN THE ARRAY THATS CREATED"
+!!"    TO COLLECT THE SOLUTIONS FOR SENDING TO CGNS."
+!!"  - TO REMOVE THE DUPLICATE POINT INDICES ON PARTITION BOUNDARIES IN THE"
+!!"    CGNS FILE, A POSSIBLE PATH COULD BE TO USE THE NODEUSP, EDGEUSP, AND"
+!!"    FACEUSP ARRAYS TO STORE A REAL VALUE OF A GIVEN POINT INDEX ON THE"
+!!"    PROCESSOR THAT IS RESPONSIBLE FOR WRITING THE SOLUTION AT THIS POINT,"
+!!"    AND ALL OTHER PROCESSORS STORE A NEGATIVE VALUE (OR SOMETHING THAT CAN"
+!!"    BE IDENTIFIED AS A POINT INDEX FROM THE WRONG PROCESSOR) AND USE THE"
+!!"    EXISTING COMMUNICATION/EXCHANGE CODE TO SYNCRONIZE THE CORRECT POINT"
+!!"    INDEX ON ALL PROCESSORS. THERE COULD BE SOME LOGIC THAT ONLY ADDS"
+!!"    POSITIVE VALUES FROM THE RECEIVE BUFFER BACK INTO NODEUSP, EDGEUSP,"
+!!"    OR FACEUSP. AFTER THAT, ITS JUST A MATTER OF CONVERTING THE REAL"
+!!"    VALUES TO INTEGERS AND USE THEM TO OVERWRITE THE PROPER POINT INDICES"
+!!"    IN THE CONNECTIVITY ARRAY THAT SENT INTO CGNS. JUST MAKE SURE NOT"
+!!"    TO INCLUDE ANY AVERAGING COEFFICIENTS."
+!!!
+!!" NEED TO FIGURE OUT HOW TO OVERRIDE THE INTERIOR SOLUTIONS FOR THE"
+!!" SOLUTIONS ON BOUNDARY FACES, EDGES, AND NODES."
+!!"   - NEED TO ADJUST THE LOCAL CELLS_WITH_NODE AND CELLS_WITH_EDGE ARRAYS"
+!!"     ON EACH PARTITION SO THAT IF A NODE OR AN EDGE ARE ON A BOUNDARY"
+!!"     FACES THE ONLY CELLS REMAINING WITHIN THESE ARRAYS ARE THE GHOST"
+!!"     CELLS/FACES THAT CONTRIBUTE TO THE SOLUTION AT THE NODE/EDGE."
+!!"       - NEED TO TAKE INTO ACCOUNT LOCAL BC PRIORITIES AS WELL."
+!!"   - NEED TO CREATE SOMETHING TO INTERPOLATE THE BOUNDARY FACE SOLUTION"
+!!"     FOR THE GHOST CELLS/FACES TO THE NODES/EDGES FOR THE BOUNDARY FACES."
+!!"     INTERPOLATING THE INTERIOR SOLUTION TO THOSE NODE/EDGE POINTS WOULD"
+!!"     NOT BE CORRECT, FOR EXAMPLE INTERPOLATING THE HOST CELL SOLUTION"
+!!"     TO A BOUNDARY FACE THAT HAS A NO-SLIP WALL BOUNDARY CONDITION."
+!!"   - THIS WILL PROBABLY NEED TO BE DONE BEFORE EXCHANGING SINCE THE"
+!!"     SOLUTION FROM AN ADJACENT PARTITION MIGHT OVERRIDE THE LOCAL"
+!!"     SOLUTION OR VICE-VERSA."
+!!"   + IF THIS IS DONE BEFORE THE EXCHANGE, WE NEED TO MAKE SURE THE"
+!!"     AVERAGING CORRECTION IS BASED ON THE NUMBER OF BOUNDARY FACES"
+!!"     THAT CONTAIN THE NODE/EDGE AND NOT THE NUMBER OF INTERNAL GRID"
+!!"     CELLS."
+!!!
+!!" NEED TO FIGURE OUT HOW TO CONSTRUCT THE GLOBAL EDGE AND NODE"
+!!" CONNECTIVITY SO THAT WE CAN CREATE THE MPI DATA TYPES FOR EXCHANGING"
+!!" EDGE AND NODE SOLUTIONS."
+!!"   - NEED TO CREATE THE EDGE DERIVED TYPE ARRAY"
+!!"       + MAKE SURE THAT THE INDICES IN EDGE(:)%CPU(:)%EDGPTS STARTS AT 0"
+!!"       - MIGHT NEED TO FIX THE ORDERING OF THE EDGE POINT INDICES THAT"
+!!"         ARE STORED IN EDGE(:)%CPU(:)%EDGPTS. CURRENTLY IT JUST ASSUMES"
+!!"         THE ORDERING IS [0:NUMBER OF EDGE POINTS-1]."
+!!"   + NEED TO CREATE THE NODE DERIVED TYPE ARRAY"
+!!"   + NEED TO CREATE THE EDGE_MAP ARRAY"
+!!"   + NEED TO CREATE THE EXCH_NEUSP ARRAY"
+!!"   - "
+!!"   - "
+!!!
+!!" NEED TO FIGURE OUT HOW TO COLLECT THE INTERIOR, FACE, EDGE, AND NODE"
+!!" SOLUTIONS TOGETHER AS ONE SOLUTION FOR A CELL BEFORE WRITING IT TO"
+!!" THE CGNS SOLUTION FILE."
+!!"   - USE THE SAME SUBCONNECTIVITY FROM BEFORE INCLUDING THE ADD POINTS"
+!!"     VALUE DEPENDING ON THE CONTINUOUS SOLUTION INPUT PARAMETER. WE JUST"
+!!"     NEED A SIMPLE INTEGER ARRAY THAT MAPS THE VARIOUS FACE, EDGE, AND"
+!!"     NODE POINTS TO THE CORRECT LOCATIONS WITHIN THE ARRAY THAT WILL"
+!!"     STORE THE SOLUTION FOR THE CELL."
+!!!
+!!" NEED TO DEALLOCATE THE EDGEXYZ AND FACEXYZ (EXCEPT WHEN USING MMS)"
+!!" ARRAYS AFTER WRITING THE FIRST GRID CGNS FILE SINCE THEY WILL NO"
+!!" LONGER BE NEEDED."
+!!!
+!!" THE LOCAL AVERAGING COEFFICIENTS SHOULD ACCOUNT ONLY FOR LOCAL CELLS."
+!!" THE BND_NODES AND BND_EDGES ARRAYS WILL CORRECT THE LOCAL AVERAGING"
+!!" COEFFICIENTS TO THE CORRECT GLOBAL AVERAGING COEFFICIENT."
+  !
+  !
+  interface operator(==)
+    module procedure plot_func_type_equals
+  end interface
   !
 contains
 !
 !###############################################################################
 !
-subroutine get_output_connectivity(bface,cell_geom, &
-                                   nodes_of_cell,nodes_of_cell_ptr)
+subroutine collect_solution_for_output(var)
   !
   !.. Use Statements ..
-  use connectivity_mod, only : find_cells_surrounding_each_node
-  use connectivity_mod, only : find_cells_surrounding_each_cell
-  !
-  !.. Formal Arguments ..
-  integer, dimension(:,:), intent(in) :: bface
-  integer, dimension(:),   intent(in) :: cell_geom
-  integer, dimension(:),   intent(in) :: nodes_of_cell
-  integer, dimension(:),   intent(in) :: nodes_of_cell_ptr
-  !
-  !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:)   :: cells_surr_cell
-  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:)   :: edges_with_node
-  integer, allocatable, dimension(:)   :: edges_with_node_ptr
-  integer, allocatable, dimension(:,:) :: nodes_on_edge
-  !
-  integer, allocatable, dimension(:)   :: cells_with_node
-  integer, allocatable, dimension(:)   :: cells_with_node_ptr
-  integer, allocatable, dimension(:)   :: cells_with_edge
-  integer, allocatable, dimension(:)   :: cells_with_edge_ptr
-  integer, allocatable, dimension(:,:) :: cells_on_face
-  !
-continue
-  !
-  ! Set the module size parameters
-  !
-  lnode = maxval(nodes_of_cell)
-  lfbnd = size(bface,dim=2)
-  lcell = size(cell_geom) - lfbnd
-  !
-  ! Get the cells surrounding each node
-  !
-  call find_cells_surrounding_each_node(bface, &
-                                        nodes_of_cell,nodes_of_cell_ptr, &
-                                        cells_with_node,cells_with_node_ptr)
-  !
-  ! Get the cells surrounding each cell
-  !
-  call find_cells_surrounding_each_cell(bface,cell_geom, &
-                                        nodes_of_cell,nodes_of_cell_ptr, &
-                                        cells_with_node,cells_with_node_ptr, &
-                                        cells_surr_cell,cells_surr_cell_ptr)
-  !
-  ! Get the nodes defining each edge as well as the edges surrounding each node
-  !
-  call find_nodes_on_each_edge(cell_geom,nodes_of_cell,nodes_of_cell_ptr, &
-                               cells_with_node,cells_with_node_ptr, &
-                               edges_with_node,edges_with_node_ptr, &
-                               nodes_on_edge)
-  !
-  ! Get the cells that surround each edge
-  !
-  call find_cells_surrounding_each_edge(nodes_on_edge, &
-                                        nodes_of_cell,nodes_of_cell_ptr, &
-                                        cells_with_node,cells_with_node_ptr, &
-                                        cells_with_edge,cells_with_edge_ptr)
-  !
-  ! Get the cells on each face
-  !
-  call find_cells_on_each_face(bface,cells_surr_cell,cells_surr_cell_ptr, &
-                               cells_on_face)
-  !
-  ! Get the unit cell subconnectivities for use when writing solution file
-  !
-  call get_unit_cell_subconnectivity
-  !
-end subroutine get_output_connectivity
-!
-!###############################################################################
-!
-subroutine find_cells_on_each_face(bface,cells_surr_cell,cells_surr_cell_ptr, &
-                                   cells_on_face)
-  !
-  ! Procedure that creates the face arrays. Look in
-  ! the module geovar for definitions of each array.
-  !
-  !.. Formal Arguments ..
-  integer,              dimension(:,:),    intent(in) :: bface
-  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell
-  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:,:), intent(inout) :: cells_on_face
-  !
-  !.. Local Scalars ..
-  integer :: c1,c2,n1,n2,nf,nc,ierr
-  integer :: face_counter
-  integer :: this_cell,adj_cell
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "find_cells_on_each_face"
-  !
-continue
-  !
-  ! ###########
-  ! ###########
-  ! ###  1  ###
-  ! ###########
-  ! ###########
-  !
-  ! Find the total number of faces
-  ! and then allocate the face array
-  !
-  lface = lfbnd
-  do nc = 1,lcell
-    !
-    n1 = cells_surr_cell_ptr(nc)+1
-    n2 = cells_surr_cell_ptr(nc+1)
-    !
-    lface = lface + count( cells_surr_cell(n1:n2)>nc .and. &
-                           cells_surr_cell(n1:n2)<=lcell )
-    !
-  end do
-  !
-  allocate ( cells_on_face(1:2,1:lface) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_on_face",1,ierr,error_message)
-  !
-  ! ###########
-  ! ###########
-  ! ###  2  ###
-  ! ###########
-  ! ###########
-  !
-  ! Get the cells on each boundary face
-  !
-  do nf = 1,lfbnd
-    !
-    cells_on_face(1,nf) = bface( 2,nf) ! Host  cell on boundary face
-    cells_on_face(2,nf) = bface(10,nf) ! Ghost cell on boundary face
-    !
-  end do
-  !
-  ! ###########
-  ! ###########
-  ! ###  3  ###
-  ! ###########
-  ! ###########
-  !
-  ! Get the cells for the interior faces
-  !
-  face_counter = lfbnd
-  !
-  do this_cell = 1,lcell
-    !
-    c1 = cells_surr_cell_ptr(this_cell)+1
-    c2 = cells_surr_cell_ptr(this_cell+1)
-    !
-    do nc = c1,c2
-      !
-      adj_cell = cells_surr_cell(nc)
-      !
-      if (adj_cell>this_cell .and. adj_cell<=lcell) then
-        !
-        face_counter = face_counter + 1
-        !
-        ! Store the cells on this interior face
-        !
-        cells_on_face(1,face_counter) = this_cell
-        cells_on_face(2,face_counter) = adj_cell
-        !
-      end if
-      !
-    end do
-    !
-  end do
-  !
-  ! We are finished with cells_surr_cell
-  ! and cells_surr_cell_ptr so deallocate
-  !
-  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
-  !
-  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
-  !
-end subroutine find_cells_on_each_face
-!
-!###############################################################################
-!
-subroutine collect_solution_for_output(var_sp,var_fp,var_ep,var_np)
-  !
-  !.. Use Statements ..
-  use geovar,  only : cell
+  use geovar,  only : ncell,cell
   use flowvar, only : usp,dusp
   use flowvar, only : faceusp,facedusp
   use flowvar, only : nodeusp,nodedusp
   use flowvar, only : edgeusp,edgedusp
   !
   !.. Formal Arguments ..
-  integer,                 intent(in) :: plot_function
-  real(wp), dimension(:), intent(out) :: var
+  real(wp), dimension(:,:), intent(out) :: var
   !
   !.. Local Scalars ..
   integer :: k,l,n,nc,ne,nf,nn,np1,np2
@@ -372,6 +204,11 @@ subroutine collect_solution_for_output(var_sp,var_fp,var_ep,var_np)
   !
 continue
   !
+  call get_face_solutions
+  !
+  call get_edge_and_node_solutions
+  !
+  !
   cell_loop: do nc = 1,ncell
     !
     np1 = cell(nc)%beg_sp
@@ -381,7 +218,7 @@ continue
       !
       l = output_sol_pts(n)
       !
-      var(l) = compute_output_variable(plot_function,usp(:,n),dusp(:,:,n))
+      var(:,l) = compute_output_variable(usp(:,n),dusp(:,:,n))
       !
     end do
     !
@@ -397,9 +234,8 @@ continue
       !
       l = output_face_pts(nf)%out_idx(k)
       !
-      var(l) = compute_output_variable(plot_function, &
-                                       faceusp(face_idx)%v(:,k,1), &
-                                       facedusp(face_idx)%v(:,:,k,1))
+      var(:,l) = compute_output_variable(faceusp(face_idx)%v(:,k,1), &
+                                        facedusp(face_idx)%v(:,:,k,1))
       !
     end do
     !
@@ -415,9 +251,8 @@ continue
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
-      var(l) = compute_output_variable(plot_function, &
-                                       edgeusp(edge_idx)%v(:,k), &
-                                       edgedusp(edge_idx)%v(:,:,k))
+      var(:,l) = compute_output_variable(edgeusp(edge_idx)%v(:,k), &
+                                        edgedusp(edge_idx)%v(:,:,k))
       !
     end do
     !
@@ -431,9 +266,8 @@ continue
     !
     l = output_node_pts(nn)%out_idx
     !
-    var(l) = compute_output_variable(plot_function, &
-                                     nodeusp(node_idx)%v(:), &
-                                     nodedusp(node_idx)%v(:,:))
+    var(:,l) = compute_output_variable(nodeusp(node_idx)%v(:), &
+                                      nodedusp(node_idx)%v(:,:))
     !
   end do node_loop
   !
@@ -497,7 +331,7 @@ end subroutine get_face_solutions
 subroutine get_edge_and_node_solutions
   !
   !.. Use Statements ..
-  use order_mode, only : maxSP
+  use order_mod,  only : maxSP
   use geovar,     only : nr,ncell,cell
   use flowvar,    only : usp,dusp
   use flowvar,    only : edgeusp,edgedusp
@@ -555,7 +389,7 @@ continue
     do k = 1,np
       do m = 1,nq
         do l = 1,nr
-          tusp(k,l,m) = dusp(l,m,k+n1-1)
+          tdusp(k,l,m) = dusp(l,m,k+n1-1)
         end do
       end do
     end do
@@ -645,10 +479,23 @@ subroutine collect_cell_subconnectivity
   use order_mod, only : gmax => n_max_geom
   use order_mod, only : omin => n_min_order
   use order_mod, only : omax => n_max_order
+  use geovar,    only : n_solpts,ncell,cell
+  use flowvar,   only : faceusp
+  use flowvar,   only : edgeusp,edgedusp
+  use flowvar,   only : nodeusp,nodedusp
+  !
+  use parallel_mod, only : exch_connectivity
   !
   !.. Local Scalars ..
   integer :: nop,nsp,nfp,nep,nnp
   integer :: mop,msp,mfp,mep,mnp
+  integer :: n,m,nc,ne,nf,nn,n1,n2
+  integer :: this_geom,this_order
+  integer :: mxpt,my_pts_offset
+  integer :: bad_indices,sf,kf,lf
+  integer :: ifc,iec,inc,ierr,nop1,nop2
+  !
+  character(len=100) :: array_name
   !
   !.. Local Arrays ..
   integer, dimension(1:ncpu) :: cpu_mxpts
@@ -698,9 +545,12 @@ continue
   ! Loop through each cell and count the number of output points
   ! for each cell on this partition
   !
+  msp = 0
   mfp = 0
   mep = 0
   mnp = 0
+  mop = 0
+  !
   do nc = 1,ncell
     !
     this_geom = cell(nc)%geom
@@ -754,7 +604,7 @@ continue
   if (ncpu > 1) then
     call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
                        cpu_mxpts,1_int_mpi,mpi_inttyp, &
-                       mpi_comm_world,mpierr)
+                       MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Create the point offset for this processor
@@ -1036,8 +886,6 @@ continue
       !
       nf = cell(nc)%face(n)%idx
       !
-      nfp = 
-      !
       do kf = 1,size(cell(nc)%face(n)%cell_idx)
         !
         lf = cell(nc)%face(n)%cell_idx(kf)
@@ -1087,25 +935,23 @@ continue
   !#############################################################################
   !#############################################################################
   !###                                                                       ###
-  !###  6.                                                                   ###
-  !###                                                                       ###
-  !###                                                                       ###
-  !###                                                                       ###
+  !###  6. Find the nodes, edges, and faces of the grid that this processor  ###
+  !###     is responsible for writing to the CGNS solution file.             ###
   !###                                                                       ###
   !#############################################################################
   !#############################################################################
   !
   nf = size(faceusp)
   allocate ( my_faces(1:nf) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_faces",1,ierr,error_message
+  call alloc_error(pname,"my_faces",1,ierr,error_message)
   !
   ne = size(edgeusp)
   allocate ( my_edges(1:ne) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_edges",1,ierr,error_message
+  call alloc_error(pname,"my_edges",1,ierr,error_message)
   !
   nn = size(nodeusp)
   allocate ( my_nodes(1:nn) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_nodes",1,ierr,error_message
+  call alloc_error(pname,"my_nodes",1,ierr,error_message)
   !
   bad_indices = 0
   !
@@ -1122,10 +968,10 @@ continue
       !
     else if (m > 0) then
       !
-      if (bad_indices == 0) write (iout,1)
+      if (bad_indices == 0) write (iout,11)
       !
       bad_indices = bad_indices + 1
-      write (iout,2) nf,m,n
+      write (iout,12) "Face",nf,m,n
       !
     end if
     !
@@ -1144,10 +990,10 @@ continue
       !
     else if (m > 0) then
       !
-      if (bad_indices == 0) write (iout,1)
+      if (bad_indices == 0) write (iout,11)
       !
       bad_indices = bad_indices + 1
-      write (iout,3) ne,m,n
+      write (iout,12) "Edge",ne,m,n
       !
     end if
     !
@@ -1162,6 +1008,20 @@ continue
     end if
     !
   end do find_my_nodes
+  !
+  ! Reduce the maximum value of bad_indices across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,bad_indices,1_int_mpi,mpi_inttyp, &
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Abort execution if bad_indices was non-zero on any processor
+  !
+  if (bad_indices /= 0) then
+    write (error_message,13)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
   !
   !############################################################################
   !############################################################################
@@ -1184,7 +1044,7 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allreduce(MPI_IN_PLACE,mxpt,1_int_mpi,mpi_inttyp, &
-                       MPI_MAX,mpi_comm_world,mpierr)
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Allocate the array to mark the points on each processor that still remain
@@ -1205,7 +1065,7 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allreduce(MPI_IN_PLACE,remaining_pts,int(mxpt,kind=int_mpi), &
-                       mpi_inttyp,MPI_MAX,mpi_comm_world,mpierr)
+                       mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Convert remaining_pts into an array that maps a point index in cell_points
@@ -1257,18 +1117,15 @@ continue
   call alloc_error(pname,"output_sol_pts",1,ierr,error_message)
   !
   nf = count( my_faces )
-  allocate ( output_face_pts(1:nf) , source=0 , &
-             stat=ierr , errmsg=error_message )
+  allocate ( output_face_pts(1:nf) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_face_pts",1,ierr,error_message)
   !
   ne = count( my_edges )
-  allocate ( output_edge_pts(1:ne) , source=0 , &
-             stat=ierr , errmsg=error_message )
+  allocate ( output_edge_pts(1:ne) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_edge_pts",1,ierr,error_message)
   !
   nn = count( my_nodes )
-  allocate ( output_node_pts(1:nn) , source=0 , &
-             stat=ierr , errmsg=error_message )
+  allocate ( output_node_pts(1:nn) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_node_pts",1,ierr,error_message)
   !
   !
@@ -1446,7 +1303,54 @@ continue
     end do create_output_node_pts
     !
   end do
-
+  !
+  ! Check to make sure that the indices for all faces, edges, and nodes
+  ! that this processor is responsible for were found and saved.
+  !
+  bad_indices = merge(1,0,any([my_faces,my_edges,my_nodes]))
+  !
+  ! Reduce the maximum value of bad_indices across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,bad_indices,1_int_mpi,mpi_inttyp, &
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Dump some error messages and abort execution
+  ! if bad_indices was non-zero on any processor
+  !
+  if (bad_indices /= 0) then
+    !
+    if (mypnum == 0) write (iout,21)
+    flush (iout)
+    !
+    ! Write an error if any faces for this processor were not found and saved
+    !
+    if (any(my_faces)) then
+      write (iout,22) mypnum,count(my_faces),"Faces"
+      flush (iout)
+    end if
+    !
+    ! Write an error if any edges for this processor were not found and saved
+    !
+    if (any(my_edges)) then
+      write (iout,22) mypnum,count(my_edges),"Edges"
+      flush (iout)
+    end if
+    !
+    ! Write an error if any nodes for this processor were not found and saved
+    !
+    if (any(my_nodes)) then
+      write (iout,22) mypnum,count(my_nodes),"Nodes"
+      flush (iout)
+    end if
+    !
+    ! Abort execution if bad_indices was non-zero on any processor
+    !
+    write (error_message,23)
+    call stop_recon(stop_mpi,pname,error_message)
+    !
+  end if
   !
   !#######################################################
   !#######################################################
@@ -1506,81 +1410,202 @@ continue
     call alloc_error(pname,"node_pt",2,ierr,error_message)
   end if
   !
+  ! Format Statements
+  !
+  1  format ("output_",a,"_pts(",i0,")%out_idx")
+  11 format ("Error with inconsistent output point indices!")
+  12 format (1x,a,1x,i0,1x,i0,1x,i0)
+  13 format ("Error with inconsistent output point indices!")
+  21 format ("Error: There appears to be faces, edges, or nodes, that",/, &
+             "       were not found and saved on a processor!")
+  22 format (4x,"on CPU ",i0," : ",i0," missed ",a)
+  23 format ("There appears to be faces, edges, or nodes, that were not ", &
+             "found and saved on a processor!")
+  !
 end subroutine collect_cell_subconnectivity
 !
 !###############################################################################
 !
-pure function compute_output_variable(plot_function,upt,dupt)
+elemental function plot_func_type_equals(a,b) result(return_value)
+  !
+  type(plot_func_t), intent(in) :: a
+  type(plot_func_t), intent(in) :: b
+  !
+  logical :: return_value
+  !
+continue
+  !
+  return_value = (a%func == b%func)
+  !
+end function plot_func_type_equals
+!
+!###############################################################################
+!
+pure function compute_output_variable(upt,dupt) result(return_value)
   !
   !.. Formal Arguments ..
-  type(plot_func_t),        intent(in) :: plot_function
   real(wp), dimension(:),   intent(in) :: upt
   real(wp), dimension(:,:), intent(in) :: dupt
   !
   !.. Function Result ..
-  real(wp) :: return_value
+  real(wp) :: return_value(1:size(plot_var))
+  !
+  !.. Local Scalars ..
+  integer :: i
   !
 continue
   !
-  if (plot_function == plot_static_density) then
+  do i = 1,size(plot_var)
     !
-    return_value = upt(nec)
+    if (plot_var(i) == plot_static_density) then
+      !
+      return_value(i) = upt(nec)
+      !
+    else if (plot_var(i) == plot_velocity_x) then
+      !
+      return_value(i) = upt(nmx) / upt(nec)
+      !
+    else if (plot_var(i) == plot_velocity_y) then
+      !
+      return_value(i) = upt(nmy) / upt(nec)
+      !
+    else if (plot_var(i) == plot_velocity_z) then
+      !
+      return_value(i) = upt(nmz) / upt(nec)
+      !
+    else if (plot_var(i) == plot_momentum_x) then
+      !
+      return_value(i) = upt(nmx)
+      !
+    else if (plot_var(i) == plot_momentum_y) then
+      !
+      return_value(i) = upt(nmy)
+      !
+    else if (plot_var(i) == plot_momentum_z) then
+      !
+      return_value(i) = upt(nmz)
+      !
+    else if (plot_var(i) == plot_static_pressure) then
+      !
+      return_value(i) = pressure_cv_sp( upt )
+      !
+    else if (plot_var(i) == plot_static_temperature) then
+      !
+      return_value(i) = temperature_cv_sp( upt )
+      !
+    else if (plot_var(i) == plot_mach_number) then
+      !
+      return_value(i) = mach_number_cv_sp( upt )
+      !
+    else if (plot_var(i) == plot_entropy) then
+      !
+      return_value(i) = entropy_cv_sp( upt )
+      !
+    else if (plot_var(i) == plot_vorticity_x) then
+      !
+      return_value(i) = vorticity_dusp( upt , dupt , 1 )
+      !
+    else if (plot_var(i) == plot_vorticity_y) then
+      !
+      return_value(i) = vorticity_dusp( upt , dupt , 2 )
+      !
+    else if (plot_var(i) == plot_vorticity_z) then
+      !
+      return_value(i) = vorticity_dusp( upt , dupt , 3 )
+      !
+    else if (plot_var(i) == plot_grad_density(1)) then
+      !
+      return_value(i) = dupt(1,nec)
+      !
+    else if (plot_var(i) == plot_grad_density(2)) then
+      !
+      return_value(i) = dupt(2,nec)
+      !
+    else if (plot_var(i) == plot_grad_density(3)) then
+      !
+      return_value(i) = dupt(3,nec)
+      !
+    else if (plot_var(i) == plot_grad_momentum_x(1)) then
+      !
+      return_value(i) = dupt(1,nmx)
+      !
+    else if (plot_var(i) == plot_grad_momentum_x(2)) then
+      !
+      return_value(i) = dupt(2,nmx)
+      !
+    else if (plot_var(i) == plot_grad_momentum_x(3)) then
+      !
+      return_value(i) = dupt(3,nmx)
+      !
+    else if (plot_var(i) == plot_grad_momentum_y(1)) then
+      !
+      return_value(i) = dupt(1,nmy)
+      !
+    else if (plot_var(i) == plot_grad_momentum_y(2)) then
+      !
+      return_value(i) = dupt(2,nmy)
+      !
+    else if (plot_var(i) == plot_grad_momentum_y(3)) then
+      !
+      return_value(i) = dupt(3,nmy)
+      !
+    else if (plot_var(i) == plot_grad_momentum_z(1)) then
+      !
+      return_value(i) = dupt(1,nmz)
+      !
+    else if (plot_var(i) == plot_grad_momentum_z(2)) then
+      !
+      return_value(i) = dupt(2,nmz)
+      !
+    else if (plot_var(i) == plot_grad_momentum_z(3)) then
+      !
+      return_value(i) = dupt(3,nmz)
+      !
+    else if (plot_var(i) == plot_grad_energy(1)) then
+      !
+      return_value(i) = dupt(1,nee)
+      !
+    else if (plot_var(i) == plot_grad_energy(2)) then
+      !
+      return_value(i) = dupt(2,nee)
+      !
+    else if (plot_var(i) == plot_grad_energy(3)) then
+      !
+      return_value(i) = dupt(3,nee)
+      !
+    end if
     !
-  else if (plot_function == plot_velocity_x) then
-    !
-    return_value = upt(nmx) / upt(nec)
-    !
-  else if (plot_function == plot_velocity_y) then
-    !
-    return_value = upt(nmy) / upt(nec)
-    !
-  else if (plot_function == plot_velocity_z) then
-    !
-    return_value = upt(nmz) / upt(nec)
-    !
-  else if (plot_function == plot_momentum_x) then
-    !
-    return_value = upt(nmx)
-    !
-  else if (plot_function == plot_momentum_y) then
-    !
-    return_value = upt(nmy)
-    !
-  else if (plot_function == plot_momentum_z) then
-    !
-    return_value = upt(nmz)
-    !
-  else if (plot_function == plot_static_pressure) then
-    !
-    return_value = pressure_cv( upt )
-    !
-  else if (plot_function == plot_static_temperature) then
-    !
-    return_value = temperature_cv( upt )
-    !
-  else if (plot_function == plot_mach_number) then
-    !
-    return_value = mach_number_cv( upt )
-    !
-  else if (plot_function == plot_entropy) then
-    !
-    return_value = entropy_cv( upt )
-    !
-  else if (plot_function == plot_vorticity_x) then
-    !
-    return_value = vorticity_dusp( upt , dupt , 1 )
-    !
-  else if (plot_function == plot_vorticity_y) then
-    !
-    return_value = vorticity_dusp( upt , dupt , 2 )
-    !
-  else if (plot_function == plot_vorticity_z) then
-    !
-    return_value = vorticity_dusp( upt , dupt , 3 )
-    !
-  end if
+  end do
   !
 end function compute_output_variable
+!
+!###############################################################################
+!
+subroutine get_plot_functions
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_plot_functions"
+  !
+continue
+  !
+  allocate ( plot_var(1:20) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"plot_var",1,ierr,error_message)
+  !
+  plot_var = [ plot_static_density, &
+               plot_momentum_x, &
+               plot_momentum_y, &
+               plot_momentum_z, &
+               plot_total_energy, &
+               plot_grad_density, &
+               plot_grad_momentum_x, &
+               plot_grad_momentum_y, &
+               plot_grad_momentum_z, &
+               plot_grad_energy ]
+  !
+end subroutine get_plot_functions
 !
 !###############################################################################
 !
@@ -2334,7 +2359,236 @@ end function get_pris_node_indices
 !
 !###############################################################################
 !
+subroutine get_output_connectivity(bface,cell_geom, &
+                                   nodes_of_cell,nodes_of_cell_ptr)
+  !
+  !.. Use Statements ..
+  use connectivity_mod, only : find_cells_surrounding_each_node
+  use connectivity_mod, only : find_cells_surrounding_each_cell
+  use connectivity_mod, only : find_nodes_on_each_edge
+  use connectivity_mod, only : find_cells_surrounding_each_edge
+  use connectivity_mod, only : get_unit_cell_subconnectivity
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:,:), intent(in) :: bface
+  integer, dimension(:),   intent(in) :: cell_geom
+  integer, dimension(:),   intent(in) :: nodes_of_cell
+  integer, dimension(:),   intent(in) :: nodes_of_cell_ptr
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable, dimension(:)   :: cells_surr_cell
+  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:,:) :: nodes_on_edge
+  !
+  integer, allocatable, dimension(:)   :: cells_with_node
+  integer, allocatable, dimension(:)   :: cells_with_node_ptr
+  integer, allocatable, dimension(:)   :: cells_with_edge
+  integer, allocatable, dimension(:)   :: cells_with_edge_ptr
+  integer, allocatable, dimension(:,:) :: cells_on_face
+  !
+  !.. Local Scalars ..
+  integer :: lnode,lfbnd,lcell
+  !
+continue
+  !
+  ! Set the module size parameters
+  !
+  lnode = maxval(nodes_of_cell)
+  lfbnd = size(bface,dim=2)
+  lcell = size(cell_geom) - lfbnd
+  !
+  ! Get the cells surrounding each node
+  !
+  call find_cells_surrounding_each_node(bface, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr)
+  !
+  ! Get the cells surrounding each cell
+  !
+  call find_cells_surrounding_each_cell(bface,cell_geom, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_surr_cell,cells_surr_cell_ptr)
+  !
+  ! Get the nodes defining each edge as well as the edges surrounding each node
+  !
+  call find_nodes_on_each_edge(cell_geom, &
+                               nodes_of_cell,nodes_of_cell_ptr, &
+                               cells_with_node,cells_with_node_ptr, &
+                               nodes_on_edge)
+  !
+  ! Get the cells that surround each edge
+  !
+  call find_cells_surrounding_each_edge(nodes_on_edge, &
+                                        nodes_of_cell,nodes_of_cell_ptr, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_with_edge,cells_with_edge_ptr)
+  !
+  ! Get the cells on each face
+  !
+  call find_cells_on_each_face(bface,cells_surr_cell,cells_surr_cell_ptr, &
+                               cells_on_face)
+  !
+  ! Get the unit cell subconnectivities for use when writing solution file
+  !
+  call get_unit_cell_subconnectivity
+  !
+end subroutine get_output_connectivity
+!
+!###############################################################################
+!
+subroutine find_cells_on_each_face(bface,cells_surr_cell,cells_surr_cell_ptr, &
+                                   cells_on_face)
+  !
+  ! Procedure that creates the face arrays. Look in
+  ! the module geovar for definitions of each array.
+  !
+  !.. Formal Arguments ..
+  integer,              dimension(:,:),    intent(in) :: bface
+  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell
+  integer, allocatable, dimension(:),   intent(inout) :: cells_surr_cell_ptr
+  integer, allocatable, dimension(:,:), intent(inout) :: cells_on_face
+  !
+  !.. Local Scalars ..
+  integer :: c1,c2,n1,n2,nf,nc,ierr
+  integer :: face_counter
+  integer :: lfbnd,lface,lcell
+  integer :: this_cell,adj_cell
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_cells_on_each_face"
+  !
+continue
+  !
+  lfbnd = size(bface,dim=2)
+  lcell = size(cells_surr_cell_ptr)-1
+  !
+  ! ###########
+  ! ###########
+  ! ###  1  ###
+  ! ###########
+  ! ###########
+  !
+  ! Find the total number of faces
+  ! and then allocate the face array
+  !
+  lface = lfbnd
+  do nc = 1,lcell
+    !
+    n1 = cells_surr_cell_ptr(nc)+1
+    n2 = cells_surr_cell_ptr(nc+1)
+    !
+    lface = lface + count( cells_surr_cell(n1:n2)>nc .and. &
+                           cells_surr_cell(n1:n2)<=lcell )
+    !
+  end do
+  !
+  allocate ( cells_on_face(1:2,1:lface) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_on_face",1,ierr,error_message)
+  !
+  ! ###########
+  ! ###########
+  ! ###  2  ###
+  ! ###########
+  ! ###########
+  !
+  ! Get the cells on each boundary face
+  !
+  do nf = 1,lfbnd
+    !
+    cells_on_face(1,nf) = bface( 2,nf) ! Host  cell on boundary face
+    cells_on_face(2,nf) = bface(10,nf) ! Ghost cell on boundary face
+    !
+  end do
+  !
+  ! ###########
+  ! ###########
+  ! ###  3  ###
+  ! ###########
+  ! ###########
+  !
+  ! Get the cells for the interior faces
+  !
+  face_counter = lfbnd
+  !
+  do this_cell = 1,lcell
+    !
+    c1 = cells_surr_cell_ptr(this_cell)+1
+    c2 = cells_surr_cell_ptr(this_cell+1)
+    !
+    do nc = c1,c2
+      !
+      adj_cell = cells_surr_cell(nc)
+      !
+      if (adj_cell>this_cell .and. adj_cell<=lcell) then
+        !
+        face_counter = face_counter + 1
+        !
+        ! Store the cells on this interior face
+        !
+        cells_on_face(1,face_counter) = this_cell
+        cells_on_face(2,face_counter) = adj_cell
+        !
+      end if
+      !
+    end do
+    !
+  end do
+  !
+  ! We are finished with cells_surr_cell
+  ! and cells_surr_cell_ptr so deallocate
+  !
+  deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  !
+  deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+  !
+end subroutine find_cells_on_each_face
+!
+!###############################################################################
+!
+pure function vorticity_dusp(usp,dusp,dir) result(return_value)
+  !
+  integer,                  intent(in) :: dir
+  real(wp), dimension(:),   intent(in) :: usp
+  real(wp), dimension(:,:), intent(in) :: dusp
+  !
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n1,n2
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(dusp,dim=1),1:size(dusp,dim=2)) :: dpvdx
+  !
+  !.. Local Parameters ..
+  integer, parameter, dimension(3) :: idx = [2,3,1]
+  integer, parameter, dimension(3) :: jdx = [3,1,2]
+  !
+continue
+  !
+  n1 = size(dusp,dim=1)
+  n2 = size(dusp,dim=2)
+  !
+  i = idx(dir)
+  j = jdx(dir)
+  !
+  dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( usp(:) , dusp(:,:) )
+  return_value = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
+  !
+end function vorticity_dusp
+!
+!###############################################################################
+!
 include "Functions/last.f90"
+include "Functions/pressure.f90"
+include "Functions/temperature.f90"
+include "Functions/mach_number.f90"
+include "Functions/entropy.f90"
+include "Functions/grad_cv_to_grad_pv.f90"
+include "Functions/cell_solpts.f90"
 !
 !###############################################################################
 !
