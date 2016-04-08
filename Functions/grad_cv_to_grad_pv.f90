@@ -103,7 +103,7 @@ pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
   real(wp) :: cv_inv,rho_inv,rho_inv2,temp
   !
   !.. Local Arrays ..
-  real(wp) :: vel(nmb:nme)
+  real(wp) :: var(1:nq)
   !
 continue
   !
@@ -112,7 +112,7 @@ continue
   rho_inv = one/rusp(nec)
   rho_inv2 = rho_inv * rho_inv
   !
-  vel(nmb:nme) = rho_inv*rusp(nmb:nme)
+  var(1:nq) = rho_inv*rusp(1:nq)
   !
   ! Copy the density gradient
   !
@@ -126,7 +126,7 @@ continue
   !
   do m = nmb,nee
     do l = 1,nr
-      return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv*vel(m)*dcvdx(l,nec)
+      return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv*var(m)*dcvdx(l,nec)
     end do
   end do
   !
@@ -137,7 +137,7 @@ continue
   ! 
   do m = nmb,nme
     do l = 1,nr
-      return_value(l,nee) = return_value(l,nee) - vel(m)*return_value(l,m)
+      return_value(l,nee) = return_value(l,nee) - var(m)*return_value(l,m)
     end do
   end do
   !
