@@ -35,7 +35,7 @@ subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
   !
   !.. Use Statements ..
   use ovar,   only : continuous_output
-  use geovar, only : face
+  use geovar, only : nface,face
   !
   !.. Formal Arguments ..
   integer,  dimension(:,:), intent(in) :: bface
@@ -113,6 +113,10 @@ continue
                                 nodes_of_cell,nodes_of_cell_ptr, &
                                 cells_surr_cell,cells_surr_cell_ptr, &
                                 face)
+  !
+  ! Save the total number of faces to nface
+  !
+  nface = size(face)
   !
   ! Get the indices for the flux points for each cell
   !
