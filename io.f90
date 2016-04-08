@@ -1596,6 +1596,7 @@ subroutine create_postproc_debug_grid
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: lpoin(:)
+  integer,  allocatable :: original_noc(:)
   real(r4), allocatable :: perturb(:,:)
   !
   !.. Local Parameters ..
@@ -1606,6 +1607,8 @@ subroutine create_postproc_debug_grid
                                                      2,6,7,3,1,5,8,4, &
                                                      1,5,6,2,4,8,7,3] , [8,3] )
   integer, parameter :: flip(4) = [1,4,3,2]
+  logical, parameter :: randomize_node_order = true
+ !logical, parameter :: randomize_node_order = fals
   !
 continue
   !
@@ -1711,6 +1714,34 @@ continue
         end do
       end do
     end do
+    !
+    ! Randomize the node ordering for all cells
+    !
+    if (randomize_node_order) then
+      !
+      ! Create a copy of nodes_of_cell before it is randomized
+      !
+      allocate ( original_noc(1:size(nodes_of_cell)) , source=nodes_of_cell , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"original_noc",1,ierr,error_message)
+      !
+      do k = 1,nc
+        do j = 1,nc
+          do i = 1,nc
+            !
+            n = map3dto1d(i,j,k,nc)
+            !
+            l = random(size(node_order,dim=2))
+            l = min( max(1,l) , size(node_order,dim=2) )
+            n1 = nodes_of_cell_ptr(n)+1
+            n2 = nodes_of_cell_ptr(n+1)
+            nodes_of_cell(n1:n2) = nodes_of_cell( n1 + node_order(:,l) )
+            !
+          end do
+        end do
+      end do
+      !
+    end if
     !
     ! #######
     ! #######
@@ -1820,80 +1851,85 @@ continue
         no_min = 0
         no_max = 0
         !
-        ! ******************
-        ! *** X-Min Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_min)+1
-        n2 = nodes_of_cell_ptr(nc_min+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Xmin3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_xmin_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_min = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_xmin_face
+        if (randomize_node_order) then
+          !
+          ! ******************
+          ! *** X-Min Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_min)+1
+          n2 = nodes_of_cell_ptr(nc_min+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Xmin3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_xmin_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_min = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_xmin_face
+            end if
+          end do find_xmin_face
+          !
+          ! Make sure that no_min was set
+          !
+          if (no_min == 0) then
+            bnd_face_error = true
+            write (iout,1) "X-Min"
           end if
-        end do find_xmin_face
-        !
-        ! Make sure that no_min was set
-        !
-        if (no_min == 0) then
-          bnd_face_error = true
-          write (iout,1) "X-Min"
-        end if
-        !
-        ! ******************
-        ! *** X-Max Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_max)+1
-        n2 = nodes_of_cell_ptr(nc_max+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Xmax3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_xmax_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_max = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_xmax_face
+          !
+          ! ******************
+          ! *** X-Max Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_max)+1
+          n2 = nodes_of_cell_ptr(nc_max+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Xmax3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_xmax_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_max = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_xmax_face
+            end if
+          end do find_xmax_face
+          !
+          ! Make sure that no_max was set
+          !
+          if (no_max == 0) then
+            bnd_face_error = true
+            write (iout,1) "X-Max"
           end if
-        end do find_xmax_face
-        !
-        ! Make sure that no_max was set
-        !
-        if (no_max == 0) then
-          bnd_face_error = true
-          write (iout,1) "X-Max"
+          !
+        else
+          !
+          no_min = HostFace3D(1)
+          no_max = HostFace3D(2)
+          !
         end if
         !
         bface( 1,nf_min) = bc_periodic
@@ -1933,80 +1969,85 @@ continue
         no_min = 0
         no_max = 0
         !
-        ! ******************
-        ! *** Y-Min Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_min)+1
-        n2 = nodes_of_cell_ptr(nc_min+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Ymin3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_ymin_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_min = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_ymin_face
+        if (randomize_node_order) then
+          !
+          ! ******************
+          ! *** Y-Min Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_min)+1
+          n2 = nodes_of_cell_ptr(nc_min+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Ymin3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_ymin_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_min = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_ymin_face
+            end if
+          end do find_ymin_face
+          !
+          ! Make sure that no_min was set
+          !
+          if (no_min == 0) then
+            bnd_face_error = true
+            write (iout,1) "Y-Min"
           end if
-        end do find_ymin_face
-        !
-        ! Make sure that no_min was set
-        !
-        if (no_min == 0) then
-          bnd_face_error = true
-          write (iout,1) "Y-Min"
-        end if
-        !
-        ! ******************
-        ! *** Y-Max Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_max)+1
-        n2 = nodes_of_cell_ptr(nc_max+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Ymax3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_ymax_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_max = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_ymax_face
+          !
+          ! ******************
+          ! *** Y-Max Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_max)+1
+          n2 = nodes_of_cell_ptr(nc_max+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Ymax3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_ymax_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_max = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_ymax_face
+            end if
+          end do find_ymax_face
+          !
+          ! Make sure that no_max was set
+          !
+          if (no_max == 0) then
+            bnd_face_error = true
+            write (iout,1) "Y-Max"
           end if
-        end do find_ymax_face
-        !
-        ! Make sure that no_max was set
-        !
-        if (no_max == 0) then
-          bnd_face_error = true
-          write (iout,1) "Y-Max"
+          !
+        else
+          !
+          no_min = HostFace3D(3)
+          no_max = HostFace3D(4)
+          !
         end if
         !
         bface( 1,nf_min) = bc_periodic
@@ -2046,80 +2087,85 @@ continue
         no_min = 0
         no_max = 0
         !
-        ! ******************
-        ! *** Z-Min Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_min)+1
-        n2 = nodes_of_cell_ptr(nc_min+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Zmin3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_zmin_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_min = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_zmin_face
+        if (randomize_node_order) then
+          !
+          ! ******************
+          ! *** Z-Min Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_min)+1
+          n2 = nodes_of_cell_ptr(nc_min+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Zmin3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_zmin_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_min = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_zmin_face
+            end if
+          end do find_zmin_face
+          !
+          ! Make sure that no_min was set
+          !
+          if (no_min == 0) then
+            bnd_face_error = true
+            write (iout,1) "Z-Min"
           end if
-        end do find_zmin_face
-        !
-        ! Make sure that no_min was set
-        !
-        if (no_min == 0) then
-          bnd_face_error = true
-          write (iout,1) "Z-Min"
-        end if
-        !
-        ! ******************
-        ! *** Z-Max Face ***
-        ! ******************
-        !
-        n1 = nodes_of_cell_ptr(nc_max)+1
-        n2 = nodes_of_cell_ptr(nc_max+1)
-        !
-        ! Mark the nodes on this face
-        !
-        lpoin( nodes_of_cell(n1 + Zmax3D) ) = 1
-        !
-        ! Randomize the node ordering for the host cell 
-        !
-        l = random( size(node_order,dim=2) )
-        cell_nodes(1:8) = nodes_of_cell(n1 + node_order(:,l))
-        nodes_of_cell(n1:n2) = cell_nodes
-        !
-        ! Find which side of the host cell is now on the boundary
-        !
-        find_zmax_face: do n = 1,6
-          ! Node offsets for this face of the cell
-          ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
-          ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
-          ! Check if all nodes for this face have been marked
-          if (sum(lpoin(ip)) == 4) then
-            no_max = n    ! Save the cell face on the boundary
-            lpoin(ip) = 0 ! Reset the marked nodes to zero
-            exit find_zmax_face
+          !
+          ! ******************
+          ! *** Z-Max Face ***
+          ! ******************
+          !
+          n1 = nodes_of_cell_ptr(nc_max)+1
+          n2 = nodes_of_cell_ptr(nc_max+1)
+          !
+          ! Mark the nodes on this face
+          !
+          lpoin( original_noc(n1 + Zmax3D) ) = 1
+          !
+          ! Extract the nodes of this cell in the new randomized order 
+          !
+          cell_nodes(1:8) = nodes_of_cell(n1:n2)
+          !
+          ! Find which side of the host cell is now on the boundary
+          !
+          find_zmax_face: do n = 1,6
+            ! Node offsets for this face of the cell
+            ! NOTE: The +1 is because the indexing in side_nodes starts at 0.
+            ip(1:4) = side_nodes(1:4,n,Geom_Hexa) + 1
+            ! Check if all nodes for this face have been marked
+            if (sum(lpoin(cell_nodes(ip))) == 4) then
+              no_max = n                ! Save the cell face on the boundary
+              lpoin(cell_nodes(ip)) = 0 ! Reset the marked nodes to zero
+              exit find_zmax_face
+            end if
+          end do find_zmax_face
+          !
+          ! Make sure that no_max was set
+          !
+          if (no_max == 0) then
+            bnd_face_error = true
+            write (iout,1) "Z-Max"
           end if
-        end do find_zmax_face
-        !
-        ! Make sure that no_max was set
-        !
-        if (no_max == 0) then
-          bnd_face_error = true
-          write (iout,1) "Z-Max"
+          !
+        else
+          !
+          no_min = HostFace3D(5)
+          no_max = HostFace3D(6)
+          !
         end if
         !
         bface( 1,nf_min) = bc_periodic
@@ -2145,27 +2191,30 @@ continue
       end do
     end do
     !
-    deallocate ( lpoin , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"lpoin",2,ierr,error_message)
+    if (allocated(lpoin)) then
+      deallocate ( lpoin , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"lpoin",2,ierr,error_message)
+    end if
     !
-    ! Randomize the node ordering for each interior grid cell
-    !
-    do k = 2,nc-1
-      do j = 2,nc-1
-        do i = 2,nc-1
-          !
-          n = map3dto1d(i,j,k,nc)
-          !
-          l = random(size(node_order,dim=2))
-          n1 = nodes_of_cell_ptr(n)+1
-          n2 = nodes_of_cell_ptr(n+1)
-          nodes_of_cell(n1:n2) = nodes_of_cell( n1 + node_order(:,l) )
-          !
-        end do
-      end do
-    end do
+    if (allocated(original_noc))  then
+      deallocate ( original_noc , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"original_noc",2,ierr,error_message)
+    end if
     !
   end if only_root_creates_grid
+  !
+  ! Have the root processor broadcast the value of bnd_face_error so that
+  ! the simulation can be aborted before continuing if there was an error
+  !
+  if (ncpu > 1) then
+    call mpi_bcast(bnd_face_error,1_int_mpi, &
+                   MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  if (bnd_face_error) then
+    write (error_message,2)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
   !
   ! Have the root processor broadcast all the grid
   ! information to all the other processors.
@@ -2197,6 +2246,9 @@ continue
   ! Format Statements
   !
   1 format (" Error finding new side of host cell on ",a," boundary face!")
+  2 format ("An error was detected finding the side of one or more host ", &
+            "cells that is on the boundary after randomizing the order of ", &
+            "the nodes defining each cell!")
   !
   contains
   !
