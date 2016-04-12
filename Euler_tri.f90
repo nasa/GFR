@@ -130,8 +130,6 @@ program Euler_tri
   !
   character(len=50) :: memfile
   !
-  integer, parameter :: iostp = 2683
-  !
   integer :: CGNS_action
   !
   logical :: request_stop
@@ -588,8 +586,8 @@ continue
             ! We dont care about the exit status here since we are
             ! going to be stopping execution after this anyways
             !
-            open (iostp,file="STOP_RECON",iostat=ierr)
-            close (iostp,status="delete",iostat=ierr)
+            open (newunit=i,file="STOP_RECON",iostat=ierr)
+            close (i,status="delete",iostat=ierr)
             !
           end if
           !
@@ -603,8 +601,8 @@ continue
             !
             write (iout,97)
             !
-            open (iostp,file="DUMP_SOLUTION",iostat=ierr)
-            close (iostp,status="delete",iostat=ierr)
+            open (newunit=i,file="DUMP_SOLUTION",iostat=ierr)
+            close (i,status="delete",iostat=ierr)
             !
           end if
           !
