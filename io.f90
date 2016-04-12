@@ -48,9 +48,6 @@ module io_mod
   !
   !.. Output File Names ..
   character(len=*),      parameter :: cgns_base_fname = "solution.grid.cgns"
-  character(len=170), public, save :: fname_nodal = "solution.nodal.cgns"
-  character(len=170), public, save :: fname_modal = "solution.modal.cgns"
-  character(len=170), public, save :: error_file = "error.dat"
   character(len=170),         save :: cgns_dir = ""
   character(len=170),         save :: cgns_grid_file
   !
@@ -72,14 +69,10 @@ module io_mod
   integer, save :: ifld_m
   !
   !.. CGNS Time Dependent Variables ..
-  integer, save :: cgnsnodalzone_counter
-  integer, save :: cgnsmodalzone_counter
-  integer, save :: cgns_sol_counter
+  integer, save :: cgns_zone_counter
   !
   real(sp),          save, allocatable, dimension(:) :: soltime
-  real(sp),          save, allocatable, dimension(:) :: modtime
   character(len=32), save, allocatable, dimension(:) :: solname
-  character(len=32), save, allocatable, dimension(:) :: modname
   !
   character(len=*), parameter :: base_name = "recon_base"
   character(len=*), parameter :: zone_name = "Solution"
@@ -228,12 +221,6 @@ continue
   ! Check for the CGNS output directory
   !
   call check_cgns_dir
-  !
-  ! Append the name of the solution and error files to output_dir
-  !
-  fname_nodal = trim(adjustl(cgns_dir)) // trim(adjustl(fname_nodal))
-  fname_modal = trim(adjustl(cgns_dir)) // trim(adjustl(fname_modal))
-  error_file = trim(output_dir) // trim(adjustl(error_file))
   !
   ! Adjust the name of the grid file
   !
@@ -3810,7 +3797,7 @@ continue
     !
     ! Initialize the zone counter
     !
-    cgnsnodalzone_counter = 0
+    cgns_zone_counter = 0
     !
     call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,ierr)
     call io_error(pname,cgns_grid_file,1,ierr)
@@ -3939,14 +3926,14 @@ continue
   !
   ! Get the name for the current solution node
   !
-  write (tname,'("FlowSolution",i0)') cgnsnodalzone_counter
-  write (sol_file,'("solution.",i0,".cgns")') cgnsnodalzone_counter
+  write (tname,'("FlowSolution",i0)') cgns_zone_counter
+  write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
   !
   ! Reallocate the soltime and solname arrays so we
   ! can concatenate this solution onto those arrays
   !
-  call reallocate(soltime,cgnsnodalzone_counter+1)
-  call reallocate(solname,cgnsnodalzone_counter+1)
+  call reallocate(soltime,cgns_zone_counter+1)
+  call reallocate(solname,cgns_zone_counter+1)
   soltime(size(soltime)) = real(time*time_ref,kind(soltime))
   solname(size(solname)) = tname
   !
@@ -4016,7 +4003,7 @@ continue
   !
   ! Update the zone counter
   !
-  cgnsnodalzone_counter = cgnsnodalzone_counter + 1
+  cgns_zone_counter = cgns_zone_counter + 1
   !
   ! Format Statements
   !
