@@ -5944,7 +5944,6 @@ end function vorticity_dusp
 !###############################################################################
 !
 include "Functions/last.f90"
-include "Functions/vortex.f90"
 include "Functions/bc_priority.f90"
 include "Functions/entropy.f90"
 include "Functions/pressure.f90"
