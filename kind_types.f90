@@ -293,6 +293,13 @@ module module_kind_types
   integer, parameter :: Gmsh_Format = 2
   integer, parameter :: Plot3D_Format = 3
   !
+  ! CGNS constants
+  integer, parameter :: reopen_CGNS = 2
+  integer, parameter :: open_CGNS   =  1
+  integer, parameter :: add_to_CGNS =  0
+  integer, parameter :: close_CGNS  = -1
+  integer, parameter :: dump_CGNS   = -2
+  !
   ! Cell Geometry Types
   integer, parameter :: Geom_Node = 0
   integer, parameter :: Geom_Edge = 1

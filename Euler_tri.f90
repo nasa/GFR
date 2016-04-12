@@ -132,12 +132,6 @@ program Euler_tri
   !
   integer, parameter :: iostp = 2683
   !
-  integer, parameter :: reopen_CGNS = 2
-  integer, parameter :: open_CGNS = 1
-  integer, parameter :: add_to_CGNS = 0
-  integer, parameter :: close_CGNS = -1
-  integer, parameter :: dump_CGNS = -2
-  !
   integer :: CGNS_action
   !
   logical :: request_stop
