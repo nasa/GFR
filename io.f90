@@ -31,15 +31,6 @@ module io_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  ! Plot3D grid formats
-  !
-  character(len=11), parameter :: clas_rk(1:4) = ["RK1-Classic","RK2-Classic", &
-                                                  "RK3-Classic","RK4-Classic"]
-  character(len=11), parameter :: char_rk(1:5) = ["           ", &
-                                                  "RK2-SSP    ","RK3-SSP    ", &
-                                                  "RK4-SSP    ","RK4-CK     "]
-  character(len=3), parameter :: char_init(-1:2) = ["iRa","iSP","iGa","iLo"]
-  !
 #ifdef CGNS_ADF
   integer, parameter :: file_type = CG_FILE_ADF
 #elif CGNS_ADF2
