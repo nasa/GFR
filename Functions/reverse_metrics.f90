@@ -32,9 +32,9 @@ continue
   !
   ! Load the metrics into the local vector arrays
   !
-  rev_met(:,1) = cross_product( met(:,2) , met(:,3) )
-  rev_met(:,2) = cross_product( met(:,3) , met(:,1) )
-  rev_met(:,3) = cross_product( met(:,1) , met(:,2) )
+  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
   !
   return_value = rev_met(1:n1,1:n2)
   !
@@ -76,9 +76,9 @@ continue
   !
   ! Load the metrics into the local vector arrays
   !
-  rev_met(:,1) = cross_product( met(:,2) , met(:,3) )
-  rev_met(:,2) = cross_product( met(:,3) , met(:,1) )
-  rev_met(:,3) = cross_product( met(:,1) , met(:,2) )
+  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
   !
   return_value = rev_met(1:n1,1:n2)
   !
@@ -120,9 +120,9 @@ continue
   !
   ! Load the metrics into the local vector arrays
   !
-  rev_met(:,1) = cross_product( met(:,2) , met(:,3) )
-  rev_met(:,2) = cross_product( met(:,3) , met(:,1) )
-  rev_met(:,3) = cross_product( met(:,1) , met(:,2) )
+  rev_met(1,:) = cross_product( met(:,2) , met(:,3) )
+  rev_met(2,:) = cross_product( met(:,3) , met(:,1) )
+  rev_met(3,:) = cross_product( met(:,1) , met(:,2) )
   !
   return_value = rev_met(1:n1,1:n2)
   !
