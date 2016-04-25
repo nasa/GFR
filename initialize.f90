@@ -326,12 +326,15 @@ end subroutine initialize_flow
 !
 !###############################################################################
 !
-pure function initial_conditions(xyz) result(return_value)
+pure &
+function initial_conditions(xyz) result(return_value)
   !
   !.. Use Statements ..
+  use geovar, only : ncell
   use ovar, only : cv_in
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
+  use ovar, only : postproc_debug_grid
   use mms_mod, only : mms_solution_at_xyz
   use channel_mod, only : channel_initialization
   !
@@ -342,7 +345,11 @@ pure function initial_conditions(xyz) result(return_value)
   real(wp), dimension(1:nq,1:size(xyz,dim=2)) :: return_value
   !
   !.. Local Scalars ..
-  integer :: k,np
+  integer  :: k,np,ierr
+  real(wp) :: dl
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: adj_xyz(:,:)
   !
 continue
   !
@@ -356,8 +363,15 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
+    allocate ( adj_xyz , source=xyz , stat=ierr )
+    !
+    if (postproc_debug_grid) then
+      dl = real(ncell,kind=wp)**(-one3)
+      adj_xyz = PI * (two*dl*xyz - one)
+    end if
+    !
     do k = 1,np
-      return_value(:,k) = taylor_green_initialization( xyz(:,k) )
+      return_value(:,k) = taylor_green_initialization( adj_xyz(:,k) )
     end do
     !
   else if (itestcase == Channel_Flow) then
@@ -399,10 +413,17 @@ subroutine initialize_dusp()
   !.. Local Scalars ..
   integer :: k,l,m,n,nc,n1,n2,np
   integer :: this_geom,this_order
+  integer :: i,i1,i2,i3
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: dudr
   real(wp), dimension(1:maxSP,1:nq) :: tusp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp"
+  !
+ !logical, parameter :: use_conservative_form = true
+  logical, parameter :: use_conservative_form = fals
   !
 continue
   !
@@ -432,19 +453,45 @@ continue
       !
       n = k+n1-1 ! total index of solution point on current partition
       !
+      i = this_order+1
+      i3 = (k-1)/(i*i) + 1
+      i2 = (k-1)/i - (i3-1)*i + 1
+      i1 = k - (i2-1)*i - (i3-1)*i*i
+      !
       do m = 1,nq
         !
-        ! Compute the derivatives in r-s space
-        !
-        do l = 1,nr
-          dudr(l) = deriv(this_geom,this_order)%d(l)%dot( k , tusp(1:np,m) )
-        end do
-        !
-        ! Transform the derivatives back to x-y space
-        !
-        do l = 1,nr
-          dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
-        end do
+        if (use_conservative_form) then
+          !
+          do l = 1,nr
+            !
+            dudr(1) = deriv(this_geom,this_order)%d(1)% &
+              dot( k , tusp(1:np,m)*metrics(1,l,n1:n2,2)/jacobian(n1:n2) )
+            !
+            dudr(2) = deriv(this_geom,this_order)%d(2)% &
+              dot( k , tusp(1:np,m)*metrics(2,l,n1:n2,2)/jacobian(n1:n2) )
+            !
+            dudr(3) = deriv(this_geom,this_order)%d(3)% &
+              dot( k , tusp(1:np,m)*metrics(3,l,n1:n2,2)/jacobian(n1:n2) )
+            !
+            dusp(l,m,n) = sum(dudr)!* jacobian(n)
+            !
+          end do
+          !
+        else
+          !
+          ! Compute the derivatives in r-s space
+          !
+          do l = 1,nr
+            dudr(l) = deriv(this_geom,this_order)%d(l)%dot( k , tusp(1:np,m) )
+          end do
+          !
+          ! Transform the derivatives back to x-y space
+          !
+          do l = 1,nr
+            dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
+          end do
+          !
+        end if
         !
       end do
       !
