@@ -782,7 +782,6 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-     !return_value(1)%mat(idx,idx) = transpose( d1_mat )
       return_value(1)%mat(idx,idx) = d1_mat
       !
     end do
@@ -803,7 +802,6 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-     !return_value(2)%mat(idx,idx) = transpose( d1_mat )
       return_value(2)%mat(idx,idx) = d1_mat
       !
     end do
@@ -824,7 +822,6 @@ continue
       ! NOTE: We need to copy the transpose due to the
       !       way the derivative matrices are stored
       !
-     !return_value(3)%mat(idx,idx) = transpose( d1_mat )
       return_value(3)%mat(idx,idx) = d1_mat
       !
     end do
