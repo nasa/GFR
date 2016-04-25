@@ -1825,6 +1825,7 @@ pure function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
   integer :: i,j,k,ifa,jfa,kfa,n,ne,ierr
   integer :: nep1d,nep3d
   integer :: nsp1d,nsp3d
+  integer :: this_edge,n1,n2,l,lbeg,lend,lint,lp
   !
   !.. Local Arrays ..
   real(qp), dimension(1:3) :: xyz_qp
@@ -1833,6 +1834,15 @@ pure function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: interp_mat_qp(:,:)
+  !
+  !.. Local Parameters ..
+  integer, parameter :: unit_cell(1:3,1:8) = reshape( [ 0,0,0, 1,0,0, &
+                                                        1,1,0, 0,1,0, &
+                                                        0,0,1, 1,0,1, &
+                                                        1,1,1, 0,1,1], &
+                                                      shape(unit_cell) )
+  logical, parameter :: use_condensed_loop = true
+ !logical, parameter :: use_condensed_loop = fals
   !
 continue
   !
@@ -1857,443 +1867,492 @@ continue
   solpts_qp = real( xi_sp , kind=qp )
   edgpts_qp = real( xi_ep , kind=qp )
   !
-  ! For each edge point, get the coefficients for interpolating
-  ! a polynomial from the solution points to the edge point.
-  ! These coefficients are simply the value of the 3D Lagrange
-  ! polynomial for a specified solution point evaluated at
-  ! the coordinates of the edge point.
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  1 - x/xi  min and z/zeta min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 0*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-  xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do jfa = 1,nep1d
+  if (use_condensed_loop) then
     !
-    xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+    ne = 0
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
-    !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do this_edge = 1,geom_edges(Geom_Hexa)
+      !
+      n1 = edge_nodes(1,this_edge,Geom_Hexa) + 1
+      n2 = edge_nodes(2,this_edge,Geom_Hexa) + 1
+      !
+      xyz_qp(1) = merge( -qone , qone , unit_cell(1,n1) == 0 )
+      xyz_qp(2) = merge( -qone , qone , unit_cell(2,n1) == 0 )
+      xyz_qp(3) = merge( -qone , qone , unit_cell(3,n1) == 0 )
+      !
+      if (unit_cell(1,n1) /= unit_cell(1,n2)) then
+        l = 1
+      else if (unit_cell(2,n1) /= unit_cell(2,n2)) then
+        l = 2
+      else if (unit_cell(3,n1) /= unit_cell(3,n2)) then
+        l = 3
+      end if
+      !
+      lbeg = max( 1 , nep1d*unit_cell(l,n1) )
+      lend = max( 1 , nep1d*unit_cell(l,n2) )
+      lint = merge( 1 , -1 , unit_cell(l,n1) < unit_cell(l,n2) )
+      !
+      do lp = lbeg,lend,lint
+        !
+        ne = ne + 1 ! Proceed to next point on this edge
+        !
+        xyz_qp(l) = edgpts_qp(lp)
+        !
+        n = 0
+        do k = 1,nsp1d
+          do j = 1,nsp1d
+            do i = 1,nsp1d
+              n = n + 1
+              interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+            end do
+          end do
         end do
+        !
       end do
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+  else
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  2 - y/eta max and z/zeta min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 1*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-  xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do ifa = 1,nep1d
+    ! For each edge point, get the coefficients for interpolating
+    ! a polynomial from the solution points to the edge point.
+    ! These coefficients are simply the value of the 3D Lagrange
+    ! polynomial for a specified solution point evaluated at
+    ! the coordinates of the edge point.
     !
-    xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  1 - x/xi  min and z/zeta min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ne = 0*nep1d+1 ! First point on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
+    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
+    !
+    ! Loops over points on this edge
+    !
+    do jfa = 1,nep1d
+      !
+      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  2 - y/eta max and z/zeta min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  3 - x/xi  max and z/zeta min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 2*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-  xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do jfa = 1,nep1d
+    ne = 1*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
+    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do ifa = 1,nep1d
+      !
+      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  3 - x/xi  max and z/zeta min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  4 - y/eta min and z/zeta min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 3*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-  xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do ifa = 1,nep1d
+    ne = 2*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
+    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do jfa = 1,nep1d
+      !
+      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  4 - y/eta min and z/zeta min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  5 - y/eta min and z/zeta max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 4*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-  xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do ifa = 1,nep1d
+    ne = 3*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
+    xyz_qp(3) = -qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do ifa = 1,nep1d
+      !
+      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  5 - y/eta min and z/zeta max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  6 - x/xi  max and z/zeta max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 5*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-  xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do jfa = 1,nep1d
+    ne = 4*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
+    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do ifa = 1,nep1d
+      !
+      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  6 - x/xi  max and z/zeta max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  7 - y/eta max and z/zeta max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 6*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-  xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do ifa = 1,nep1d
+    ne = 5*nep1d+1 ! First point on this edge
     !
-    xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
+    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do jfa = 1,nep1d
+      !
+      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  7 - y/eta max and z/zeta max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  8 - x/xi  min and z/zeta max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 7*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-  xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do jfa = 1,nep1d
+    ne = 6*nep1d+1 ! First point on this edge
     !
-    xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
+    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do ifa = 1,nep1d
+      !
+      xyz_qp(1) = edgpts_qp(ifa) ! x/xi  coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  8 - x/xi  min and z/zeta max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge  9 - x/xi  max and y/eta  max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 8*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-  xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do kfa = 1,nep1d
+    ne = 7*nep1d+1 ! First point on this edge
     !
-    xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
+    xyz_qp(3) = +qone ! z/zeta coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do jfa = 1,nep1d
+      !
+      xyz_qp(2) = edgpts_qp(jfa) ! y/eta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge  9 - x/xi  max and y/eta  max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge 10 - x/xi  max and y/eta  min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 9*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
-  xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do kfa = 1,nep1d
+    ne = 8*nep1d+1 ! First point on this edge
     !
-    xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
+    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do kfa = 1,nep1d
+      !
+      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge 10 - x/xi  max and y/eta  min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge 11 - x/xi  min and y/eta  min edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 10*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-  xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do kfa = 1,nep1d
+    ne = 9*nep1d+1 ! First point on this edge
     !
-    xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+    xyz_qp(1) = +qone ! x/xi   coordinate of current edge point
+    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do kfa = 1,nep1d
+      !
+      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge 11 - x/xi  min and y/eta  min edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
-  !
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  ! #####  Edge 12 - x/xi  min and y/eta  max edge  #####
-  ! #####################################################
-  ! #####################################################
-  ! #####################################################
-  !
-  ne = 11*nep1d+1 ! First point on this edge
-  !
-  xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
-  xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
-  !
-  ! Loops over points on this edge
-  !
-  do kfa = 1,nep1d
+    ne = 10*nep1d+1 ! First point on this edge
     !
-    xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
+    xyz_qp(2) = -qone ! y/eta  coordinate of current edge point
     !
-    ! Loop to get the value of the Lagrange polynomial for the current
-    ! edge point at each of the interior solution points
+    ! Loops over points on this edge
     !
-    n = 0
-    do k = 1,nsp1d
-      do j = 1,nsp1d
-        do i = 1,nsp1d
-          n = n + 1
-          interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+    do kfa = 1,nep1d
+      !
+      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
         end do
       end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
     end do
     !
-    ne = ne + 1 ! Proceed to next point on this face
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
+    ! #####  Edge 12 - x/xi  min and y/eta  max edge  #####
+    ! #####################################################
+    ! #####################################################
+    ! #####################################################
     !
-  end do
+    ne = 11*nep1d+1 ! First point on this edge
+    !
+    xyz_qp(1) = -qone ! x/xi   coordinate of current edge point
+    xyz_qp(2) = +qone ! y/eta  coordinate of current edge point
+    !
+    ! Loops over points on this edge
+    !
+    do kfa = 1,nep1d
+      !
+      xyz_qp(3) = edgpts_qp(kfa) ! z/zeta coordinate of current edge point
+      !
+      ! Loop to get the value of the Lagrange polynomial for the current
+      ! edge point at each of the interior solution points
+      !
+      n = 0
+      do k = 1,nsp1d
+        do j = 1,nsp1d
+          do i = 1,nsp1d
+            n = n + 1
+            interp_mat_qp(n,ne) = eval_LagrangePoly([i,j,k],xyz_qp,solpts_qp)
+          end do
+        end do
+      end do
+      !
+      ne = ne + 1 ! Proceed to next point on this face
+      !
+    end do
+    !
+  end if
   !
   ! Use the chop function to copy interp_mat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
