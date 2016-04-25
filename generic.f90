@@ -850,13 +850,16 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   integer :: ierr,nke,ndt,nmin,nmax,nbeg,nend
   integer :: this_cell,this_geom,this_order
   !
-  logical :: needs_initialization
   logical :: first_output,final_output
   logical :: this_is_output_iter
   !
   real(wp) :: kem,kec,kep,dtm,dtp
   real(wp) :: solution_time
   real(wp) :: div_vel,muref_star
+  !
+  !.. Local Saved Scalars ..
+  logical, save :: completed_first_output = fals
+  logical, save :: needs_initialization = true
   !
   !.. Local Arrays ..
   real(wp) :: vort(1:nr)
@@ -889,9 +892,9 @@ continue
   !
   ! Create some logical variables to help readability
   !
-  needs_initialization = (iter == 0)
-  first_output = (iter == nmax)
   final_output = (iter < 0)
+  first_output = (iter == nmax) .or. &
+                 (final_output .and. .not. completed_first_output)
   this_is_output_iter = ((tgv_idx == nmax .or. final_output) .and. (iter /= 0))
   !
 #ifdef DEBUG_ON
@@ -978,6 +981,10 @@ continue
                      TaylorGreen_DOF,nc*(n_order+1)
       !
     end if
+    !
+    ! Unset needs_initialization now that everything has been initialized
+    !
+    needs_initialization = fals
     !
   end if
   !
@@ -1310,6 +1317,11 @@ continue
       sum_kedr = zero
       !
     end if
+    !
+    ! Set completed_first_output to true since
+    ! we have now completed at least one output
+    !
+    completed_first_output = true
     !
   end if
   !
