@@ -350,8 +350,10 @@ subroutine get_metrics()
   !.. Use Statements ..
   use geovar, only : nr,nface,n_totpts,n_totcel,ncell
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : xyz_nodes
+  use geovar, only : xyz_nodes,xyz
   use geovar, only : face,cell
+  !
+  use derivatives_mod, only : deriv
   !
   use quadrature_mod, only : std_elem
   !
@@ -359,15 +361,17 @@ subroutine get_metrics()
   use ovar, only : using_curved_boundaries
   use ovar, only : use_3rd_derivative_metrics
   use ovar, only : use_advanced_face_metrics
+  use ovar, only : TaylorGreen_random_perturb
   !
-  use order_mod, only : geom_solpts
+  use order_mod, only : geom_solpts,maxSP
   !
   !.. Local Scalars ..
-  integer  :: i,j,k,l,ierr
-  integer  :: n,nc,n1,n2,nf,np,p1,p2
+  integer  :: i,j,k,l,ierr,j1,j2,ibeg,iend
+  integer  :: n,nc,n1,n2,nf,np,p1,p2,p3
   integer  :: n_edge_pts,nfnods,nfpts
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
+  integer  :: ref_dir,phys_dir
   real(wp) :: tvol,tria_coef,tc2,r,s,t
   real(r8) :: loc_vol,tot_vol
   real(wp) :: val,rm1,rp1,sm1,sp1,tm1,tp1,zm1,zp1
@@ -378,6 +382,9 @@ subroutine get_metrics()
   integer, dimension(1:4,1:136,1:3) :: knodes
   real(wp), dimension(1:nr,1:16) :: diff
   real(wp), dimension(1:nr,1:8) :: nodes
+  real(wp), dimension(1:maxSP,1:nr) :: txyz
+  !
+  integer, dimension(1:4) :: iom
   !
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: weights(:)
@@ -386,8 +393,38 @@ subroutine get_metrics()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
+  character(len=*), parameter :: fname(4) = ["metrics.fwd.dat", &
+                                             "metrics.rev.dat", &
+                                             "uniform.fwd.dat", &
+                                             "uniform.rev.dat"]
+  !
+ !logical, parameter :: output_metrics = true
+  logical, parameter :: output_metrics = fals
+  !
+  logical, parameter :: use_derivative_matrices = true
+ !logical, parameter :: use_derivative_matrices = fals
+  !
+  character(len=*), parameter :: cxyz(3,2) = reshape( ["X","Y","Z", &
+                                                       "R","S","T"], &
+                                                      shape(cxyz) )
   !
 continue
+  !
+  if (TaylorGreen_random_perturb) then
+    ibeg = 1
+    iend = 2
+  else
+    ibeg = 3
+    iend = 4
+  end if
+  if (output_metrics) then
+    do i = ibeg,iend
+      open(newunit=iom(i),file=fname(i),status="replace",action="write", &
+                          form="formatted",position="rewind", &
+                          iostat=ierr,iomsg=error_message)
+      call io_error(pname,fname(i),1,ierr,error_message)
+    end do
+  end if
   !
   ! Initialize the local pointers to disassociated
   !
@@ -476,9 +513,16 @@ continue
     !
     p1 = cell(nc)%beg_sp
     p2 = cell(nc)%end_sp
+    p3 = p2-p1+1
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
+    !
+    if (output_metrics) then
+      do i = ibeg,iend
+        write (iom(i),21) nc
+      end do
+    end if
     !
     ! Associate weights with the quadrature weights of the
     ! current cells geometry and order
@@ -842,6 +886,14 @@ continue
       !
       edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
       !
+      if (use_derivative_matrices) then
+        do k = p1,p2
+          do l = 1,nr
+            txyz(k-p1+1,l) = xyz(l,k)
+          end do
+        end do
+      end if
+      !
       do n = p1,p2
         !
         np = n-p1+1
@@ -877,20 +929,55 @@ continue
         tm1 = edge_pts(k) - one
         tp1 = edge_pts(k) + one
         !
-        metrics(1:nr,1,n,1) = one8*( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
-                                     sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
-                                     sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
-                                     sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
-        !
-        metrics(1:nr,2,n,1) = one8*( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
-                                     rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
-                                     rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
-                                     rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
-        !
-        metrics(1:nr,3,n,1) = one8*( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
-                                     rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
-                                     rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
-                                     rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
+        if (use_derivative_matrices) then
+          !
+          do ref_dir = 1,nr
+            do phys_dir = 1,nr
+              metrics(phys_dir,ref_dir,n,1) = deriv(this_geom,this_order)% &
+                                                               d(ref_dir)% &
+                                              dot( np , txyz(1:p3,phys_dir) )
+            end do
+          end do
+          !
+        else
+          !
+          do l = 1,nr
+            metrics(l,1,n,1) = one8*( sm1*tm1*(nodes(l,2) - nodes(l,1)) + &
+                                      sm1*tp1*(nodes(l,5) - nodes(l,6)) + &
+                                      sp1*tm1*(nodes(l,4) - nodes(l,3)) + &
+                                      sp1*tp1*(nodes(l,7) - nodes(l,8)) )
+          end do
+          !
+          do l = 1,nr
+            metrics(l,2,n,1) = one8*( rm1*tm1*(nodes(l,4) - nodes(l,1)) + &
+                                      rm1*tp1*(nodes(l,5) - nodes(l,8)) + &
+                                      rp1*tm1*(nodes(l,2) - nodes(l,3)) + &
+                                      rp1*tp1*(nodes(l,7) - nodes(l,6)) )
+          end do
+          !
+          do l = 1,nr
+            metrics(l,3,n,1) = one8*( rm1*sm1*(nodes(l,5) - nodes(l,1)) + &
+                                      rm1*sp1*(nodes(l,4) - nodes(l,8)) + &
+                                      rp1*sm1*(nodes(l,2) - nodes(l,6)) + &
+                                      rp1*sp1*(nodes(l,7) - nodes(l,3)) )
+          end do
+          !
+        end if
+       !!
+       !metrics(1:nr,1,n,1) = one8*( sm1*tm1*(nodes(1:nr,2) - nodes(1:nr,1)) + &
+       !                             sm1*tp1*(nodes(1:nr,5) - nodes(1:nr,6)) + &
+       !                             sp1*tm1*(nodes(1:nr,4) - nodes(1:nr,3)) + &
+       !                             sp1*tp1*(nodes(1:nr,7) - nodes(1:nr,8)) )
+       !!
+       !metrics(1:nr,2,n,1) = one8*( rm1*tm1*(nodes(1:nr,4) - nodes(1:nr,1)) + &
+       !                             rm1*tp1*(nodes(1:nr,5) - nodes(1:nr,8)) + &
+       !                             rp1*tm1*(nodes(1:nr,2) - nodes(1:nr,3)) + &
+       !                             rp1*tp1*(nodes(1:nr,7) - nodes(1:nr,6)) )
+       !!
+       !metrics(1:nr,3,n,1) = one8*( rm1*sm1*(nodes(1:nr,5) - nodes(1:nr,1)) + &
+       !                             rm1*sp1*(nodes(1:nr,4) - nodes(1:nr,8)) + &
+       !                             rp1*sm1*(nodes(1:nr,2) - nodes(1:nr,6)) + &
+       !                             rp1*sp1*(nodes(1:nr,7) - nodes(1:nr,3)) )
         !
         ! Second derivative metrics
         !
@@ -939,6 +1026,20 @@ continue
         ! Compute the inverse metrics
         !
         metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
+        !
+        if (output_metrics) then
+          do i = ibeg,iend
+            j1 = mod(i+1,2) + 1
+            j2 = mod(i  ,2) + 1
+            write (iom(i),22) n
+            write (iom(i),23) ((cxyz(k,j1),k=1,nr), &
+                                cxyz(l,j2), &
+                               (metrics(k,l,n,j1), k=1,nr), l=1,nr)
+          end do
+        end if
+        21 format (/,60("-"),/," Cell ",i0,/,60("-"))
+        22 format (5x,"Solution Point ",i4)
+        23 format (3(2x,"d(",a,",",a,",",a,")/d",a,"  :  ",3es14.6,:,/))
         !
         ! First derivative of jacobian
         !
