@@ -2103,7 +2103,7 @@ continue
   ! Loop through the edges and create the edg-pt information for each 
   ! cell attached to the edge
   !
-  nedge = size(nodes_on_edge)
+  nedge = size(nodes_on_edge,dim=2)
   !
   bad_edges = 0
   !
@@ -3100,7 +3100,7 @@ subroutine create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nc,ne,ierr
-  integer :: ledge,this_order
+  integer :: ledge,lcell,this_order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_edge_derived_type"
@@ -3108,6 +3108,7 @@ subroutine create_edge_derived_type(cells_with_edge,cells_with_edge_ptr, &
 continue
   !
   ledge = size(nodes_on_edge,dim=2)
+  lcell = size(cell)
   !
   ! Allocate the edge array
   !
@@ -3129,9 +3130,22 @@ continue
     !
     do n = n1,n2
       !
-      nc = cells_with_edge(n)
+      ! The index for a cell containing this edge
+      ! NOTE: We want to ignore all boundary faces within cells_with_edge
+      !       since the order of the boundary face is determined by its host
+      !       cell, and the host cell will already be included in the list
+      !       of cells containing this edge thats stored in cells_with_edge.
+      ! NOTE: We need the absolute value of this because the cell index could
+      !       be negative if it is for a boundary face ghost cell and the
+      !       optional argument make_bnd_faces_negative was present with the
+      !       value .TRUE. when subroutine find_cells_surrounding_each_node
+      !       was called
       !
-      this_order = max( this_order , cell(nc)%order )
+      nc = abs(cells_with_edge(n))
+      !
+      if (nc <= lcell) then
+        this_order = max( this_order , cell(nc)%order )
+      end if
       !
     end do
     !
@@ -3141,6 +3155,15 @@ continue
     edge(ne)%nodes(2) = nodes_on_edge(2,ne)
     edge(ne)%order    = this_order
     !
+  end do
+  !
+  ! Go back through the cell derived type and save the order of the
+  ! the edges into the derived type component cell(:)%edge(:)%order
+  !
+  do nc = 1,lcell
+    do ne = 1,size(cell(nc)%edge)
+      cell(nc)%edge(ne)%order = edge( cell(nc)%edge(ne)%idx )%order
+    end do
   end do
   !
 end subroutine create_edge_derived_type
