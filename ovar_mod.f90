@@ -549,8 +549,11 @@ module input_namelist_mod
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides
   ! BASE FR OPTIONS
-  namelist / input / n_order, iop_solpts, iop_flxpts, iop_tripts, &
-                     loc_output_pts, flux_divergence, correction_function
+  namelist / input / n_order, flux_divergence, correction_function
+  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
+  namelist / input / iop_solpts, iop_flxpts, iop_tripts
+  ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
+  namelist / input / loc_output_pts, loc_init_pts, loc_error_pts
   ! SOLVER OPTIONS
   namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS
@@ -597,8 +600,6 @@ module input_namelist_mod
   ! FILTER OPTIONS
   namelist / input / Filter_Option, Filter_etac, Filter_Order, &
                      Filter_Alpha, Filter_eps
-  ! INITIALIZATION/ERROR LOCATIONS
-  namelist / input / loc_init_pts, loc_error_pts
   ! VORTEX CONSTANTS
   namelist / input / vortex_bigR, vortex_bigGam
   ! TAYLOR-GREEN VORTEX CONSTANTS
