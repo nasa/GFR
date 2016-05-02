@@ -1731,15 +1731,11 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"perturb",1,ierr,error_message)
     !
-    ! Compute the cell length for a Cartesian/uniform grid
-    !
-    dl = real(1,kind=r4) / real(np-1,kind=r4)
-    !
     if (TaylorGreen_random_perturb) then
       !
       ! Compute the random perturbations of the interior node coordinates
       !
-      rbas = dl * real(30,kind=r4) / real(100,kind=r4)
+      rbas = real(30,kind=r4) / real(100,kind=r4)
       radj = rbas / real(2,kind=r4)
       !
       ! Randomly perturb the crap out of everything
@@ -1769,15 +1765,15 @@ continue
     !
     do k = 1,np
       !
-      z = dl * real(k-1,kind=r4)
+      z = real(k-1,kind=r4)
       !
       do j = 1,np
         !
-        y = dl * real(j-1,kind=r4)
+        y = real(j-1,kind=r4)
         !
         do i = 1,np
           !
-          x = dl * real(i-1,kind=r4)
+          x = real(i-1,kind=r4)
           !
           n = map3dto1d(i,j,k,np)
           !
@@ -1793,14 +1789,6 @@ continue
     !
     deallocate ( perturb , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"perturb",2,ierr,error_message)
-    !
-    ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
-    !
-    xyz_nodes = two*xyz_nodes - one
-    !
-    ! Scale the grid node coordinates to the cube (-pi,-pi,-pi) to (pi,pi,pi)
-    !
-    xyz_nodes = PI * xyz_nodes
     !
     ! #######
     ! #######
@@ -2224,6 +2212,18 @@ continue
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
   end if
+  !
+  ! Scale the grid node coordinates to the cube (0,0,0) to (1,1,1)
+  !
+ !xyz_nodes = dl * xyz_nodes
+  !
+  ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
+  !
+ !xyz_nodes = two*xyz_nodes - one
+  !
+  ! Scale the grid node coordinates to the cube (-pi,-pi,-pi) to (pi,pi,pi)
+  !
+ !xyz_nodes = PI * xyz_nodes
   !
   ! Format Statements
   !
