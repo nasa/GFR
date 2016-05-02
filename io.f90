@@ -1557,6 +1557,8 @@ subroutine create_postproc_debug_grid
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
+  use ovar,      only : TaylorGreen_random_perturb
+  use ovar,      only : TaylorGreen_perturb_percent
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n
@@ -1585,8 +1587,6 @@ subroutine create_postproc_debug_grid
                                                      2,6,7,3,1,5,8,4, &
                                                      1,5,6,2,4,8,7,3] , [8,3] )
   integer, parameter :: flip(4) = [1,4,3,2]
-  logical, parameter :: randomize_node_order = true
- !logical, parameter :: randomize_node_order = fals
   !
 continue
   !
@@ -1695,7 +1695,7 @@ continue
     !
     ! Randomize the node ordering for all cells
     !
-    if (randomize_node_order) then
+    if (TaylorGreen_random_perturb) then
       !
       ! Create a copy of nodes_of_cell before it is randomized
       !
@@ -1735,31 +1735,35 @@ continue
     !
     dl = real(1,kind=r4) / real(np-1,kind=r4)
     !
-    ! Compute the random perturbations of the interior node coordinates
-    !
-    rbas = dl * real(30,kind=r4) / real(100,kind=r4)
-    radj = rbas / real(2,kind=r4)
-    !
-    ! Randomly perturb the crap out of everything
-    !
-    do k = 2,np-1
-      do j = 2,np-1
-        do i = 2,np-1
-          !
-          n = map3dto1d(i,j,k,np)
-          !
-          rval = random(rbas) - radj
-          perturb(1,n) = rval
-          !
-          rval = random(rbas) - radj
-          perturb(2,n) = rval
-          !
-          rval = random(rbas) - radj
-          perturb(3,n) = rval
-          !
+    if (TaylorGreen_random_perturb) then
+      !
+      ! Compute the random perturbations of the interior node coordinates
+      !
+      rbas = dl * real(30,kind=r4) / real(100,kind=r4)
+      radj = rbas / real(2,kind=r4)
+      !
+      ! Randomly perturb the crap out of everything
+      !
+      do k = 2,np-1
+        do j = 2,np-1
+          do i = 2,np-1
+            !
+            n = map3dto1d(i,j,k,np)
+            !
+            rval = random(rbas) - radj
+            perturb(1,n) = rval
+            !
+            rval = random(rbas) - radj
+            perturb(2,n) = rval
+            !
+            rval = random(rbas) - radj
+            perturb(3,n) = rval
+            !
+          end do
         end do
       end do
-    end do
+      !
+    end if
     !
     ! Create the grid node coordinates as a cube from (0,0,0) to (1,1,1)
     !
@@ -1829,7 +1833,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (randomize_node_order) then
+        if (TaylorGreen_random_perturb) then
           !
           ! ******************
           ! *** X-Min Face ***
@@ -1947,7 +1951,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (randomize_node_order) then
+        if (TaylorGreen_random_perturb) then
           !
           ! ******************
           ! *** Y-Min Face ***
@@ -2065,7 +2069,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (randomize_node_order) then
+        if (TaylorGreen_random_perturb) then
           !
           ! ******************
           ! *** Z-Min Face ***
