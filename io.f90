@@ -1253,26 +1253,33 @@ continue
   !
   ! Allocate all the arrays needed to define the grid
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error(pname,"xyz_nodes",1,ierr)
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
   !
-  allocate ( nodes_of_cell(1:8*ncell) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell",1,ierr)
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
   !
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error(pname,"bface",1,ierr)
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,ierr,error_message)
   !
-  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , stat=ierr )
-  call alloc_error(pname,"cell_geom",1,ierr)
+  allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,ierr,error_message)
   !
-  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
-  call alloc_error(pname,"cell_order",1,ierr)
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,ierr,error_message)
   !
-  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , stat=ierr )
-  call alloc_error(pname,"perturb",1,ierr)
+  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",1,ierr,error_message)
   !
   ! #######
   ! #######
@@ -1424,8 +1431,8 @@ continue
   !
   ! Deallocate perturb since it is no longer needed
   !
-  deallocate ( perturb , stat=ierr )
-  call alloc_error(pname,"perturb",2,ierr)
+  deallocate ( perturb , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",2,ierr,error_message)
   !
   ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
   !
