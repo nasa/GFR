@@ -24,6 +24,7 @@ program Euler_tri
   use ovar, only : ovar_memory_usage
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
+  use ovar, only : continuous_output
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : flowvar_memory_usage
@@ -117,6 +118,8 @@ program Euler_tri
   use module_plot3d, only : plot3d_memory_usage
   !
   use module_gmsh, only : gmsh_memory_usage
+  !
+  use postprocessor_mod, only : new_write_parallel_cgns
   !
   use iso_c_binding, only : c_long
   !
@@ -283,7 +286,11 @@ continue
   !
   ! Output the initialized solution
   !
-  call write_parallel_cgns(open_CGNS)
+  if (continuous_output) then
+    call new_write_parallel_cgns
+  else
+    call write_parallel_cgns(open_CGNS)
+  end if
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","initializing results file")
   !
@@ -624,7 +631,11 @@ continue
         ! the CGNS subroutine know that the file needs to be reopened.
         !
         if (request_solution) then
-          call write_parallel_cgns(dump_CGNS)
+          if (continuous_output) then
+            call new_write_parallel_cgns
+          else
+            call write_parallel_cgns(dump_CGNS)
+          end if
           CGNS_action = reopen_CGNS
         end if
         !
@@ -644,7 +655,11 @@ continue
     !
     if (output_interval > 0) then
       if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
-        call write_parallel_cgns(CGNS_action)
+        if (continuous_output) then
+          call new_write_parallel_cgns
+        else
+          call write_parallel_cgns(CGNS_action)
+        end if
       end if
     end if
     !
@@ -653,7 +668,11 @@ continue
         call TaylorGreen_8s_vorticity_solution
       end if
       if (write_TaylorGreen_full_solution) then
-        call write_parallel_cgns(CGNS_action)
+        if (continuous_output) then
+          call new_write_parallel_cgns
+        else
+          call write_parallel_cgns(CGNS_action)
+        end if
         write_TaylorGreen_full_solution = fals
       end if
     end if
@@ -713,7 +732,11 @@ continue
   !.. get min and max entropy value and location
   if (.not. ignore_errors) call getmaxent
   !
-  call write_parallel_cgns(close_CGNS)
+  if (continuous_output) then
+    call new_write_parallel_cgns
+  else
+    call write_parallel_cgns(close_CGNS)
+  end if
   !
   call write_restart_file(-1)
   !
