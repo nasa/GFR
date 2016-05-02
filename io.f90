@@ -3711,12 +3711,14 @@ continue
       !
 #ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
-        xyz_fp(l) = &
-        interp(left_geom,left_order)%toFace(face_order)%dot( kl , xyz(l,l1:l2) )
+        xyz_fp(l) = interp(left_geom,left_order)% &
+                              toFace(face_order)% &
+                    dot( kl , xyz(l,l1:l2) )
       end do
 #else
-      lmat(1:npl) = &
-        interp(left_geom,left_order)%toFace(face_order)%mat(1:npl,kl)
+      lmat(1:npl) = interp(left_geom,left_order)% &
+                              toFace(face_order)% &
+                    mat(1:npl,kl)
       do l = 1,nr
         xyz_fp(l) = dot( lmat(1:npl) , xyz(l,l1:l2) )
       end do
@@ -3726,12 +3728,14 @@ continue
       !
 #ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
-        xyz_fp(l) = &
-    interp(right_geom,right_order)%toFace(face_order)%dot( kr , xyz(l,r1:r2) )
+        xyz_fp(l) = interp(right_geom,right_order)% &
+                                toFace(face_order)% &
+                    dot( kr , xyz(l,r1:r2) )
       end do
 #else
-      lmat(1:npr) = &
-        interp(right_geom,right_order)%toFace(face_order)%mat(1:npr,kr)
+      lmat(1:npr) = interp(right_geom,right_order)% &
+                                toFace(face_order)% &
+                    mat(1:npr,kr)
       do l = 1,nr
         xyz_fp(l) = dot( lmat(1:npr) , xyz(l,r1:r2) )
       end do
@@ -5457,10 +5461,12 @@ continue
       ! First interpolate to the face flux points
       !
 #ifdef USE_MATRIX_PROCEDURES
-      face_y(k) = &
-       interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,1) )
-      face_z(k) = &
-       interp(host_geom,host_order)%toFace(face_order)%dot( kl , txyz(1:np,2) )
+      face_y(k) = interp(host_geom,host_order)% &
+                            toFace(face_order)% &
+                  dot( kl , txyz(1:np,1) )
+      face_z(k) = interp(host_geom,host_order)% &
+                            toFace(face_order)% &
+                  dot( kl , txyz(1:np,2) )
 #else
       lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
       !
@@ -5575,11 +5581,13 @@ continue
       !
 #ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
-        cv_tmp(k,m) = &
-    interp(host_geom,host_order)%toFace(face_order)%dot( kl , tusp(1:np,m) )
+        cv_tmp(k,m) = interp(host_geom,host_order)% &
+                                toFace(face_order)% &
+                      dot( kl , tusp(1:np,m) )
         do l = 1,nr
-          dcvdx_tmp(k,l,m) = &
-    interp(host_geom,host_order)%toFace(face_order)%dot( kl , tdusp(1:np,l,m) )
+          dcvdx_tmp(k,l,m) = interp(host_geom,host_order)% &
+                                       toFace(face_order)% &
+                             dot( kl , tdusp(1:np,l,m) )
         end do
       end do
 #else
@@ -5602,21 +5610,22 @@ continue
       !
 #ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
-        cvfp(m,1:fp) = &
-            outerp(face_geom,face_order)%output%mv_mult( cv_tmp(1:fp,m) )
+        cvfp(m,1:fp) = outerp(face_geom,face_order)% &
+                                             output% &
+                       mv_mult( cv_tmp(1:fp,m) )
         do l = 1,nr
-          dcvdx(l,m,1:fp) = &
-            outerp(face_geom,face_order)%output%mv_mult( dcvdx_tmp(1:fp,l,m) )
+          dcvdx(l,m,1:fp) = outerp(face_geom,face_order)% &
+                                                  output% &
+                            mv_mult( dcvdx_tmp(1:fp,l,m) )
         end do
       end do
 #else
       do m = 1,nq
-        cvfp(m,1:fp) = &
-            matmul( outerp(face_geom,face_order)%output%mat , cv_tmp(1:fp,m) )
+        cvfp(m,1:fp) = matmul( outerp(face_geom,face_order)%output%mat , &
+                               cv_tmp(1:fp,m) )
         do l = 1,nr
-          dcvdx(l,m,1:fp) = &
-            matmul( outerp(face_geom,face_order)%output%mat , &
-                    dcvdx_tmp(1:fp,l,m) )
+          dcvdx(l,m,1:fp) = matmul( outerp(face_geom,face_order)%output%mat , &
+                                    dcvdx_tmp(1:fp,l,m) )
         end do
       end do
 #endif
@@ -5775,8 +5784,9 @@ continue
       !
       if (associated(outerp(this_geom,this_order)%output)) then
 #ifdef USE_MATRIX_PROCEDURES
-        return_value(n1:n2) = &
-          outerp(this_geom,this_order)%output%mv_mult( array(n1:n2) )
+        return_value(n1:n2) = outerp(this_geom,this_order)% &
+                                                    output% &
+                              mv_mult( array(n1:n2) )
 #else
         return_value(n1:n2) = &
           matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
@@ -5800,8 +5810,9 @@ continue
       !
       if (associated(outerp(this_geom,this_order)%output)) then
 #ifdef USE_MATRIX_PROCEDURES
-        return_value(n1:n2) = &
-          outerp(this_geom,this_order)%output%mv_mult( array(n1:n2) )
+        return_value(n1:n2) = outerp(this_geom,this_order)% &
+                                                    output% &
+                              mv_mult( array(n1:n2) )
 #else
         return_value(n1:n2) = &
           matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
@@ -5869,8 +5880,9 @@ continue
       if (associated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
 #ifdef USE_MATRIX_PROCEDURES
-          return_value(m,n1:n2) = &
-            outerp(this_geom,this_order)%output%mv_mult( array(m,n1:n2) )
+          return_value(m,n1:n2) = outerp(this_geom,this_order)% &
+                                                        output% &
+                                  mv_mult( array(m,n1:n2) )
 #else
           return_value(m,n1:n2) = &
             matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
@@ -5900,8 +5912,9 @@ continue
       if (associated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
 #ifdef USE_MATRIX_PROCEDURES
-          return_value(m,n1:n2) = &
-            outerp(this_geom,this_order)%output%mv_mult( array(m,n1:n2) )
+          return_value(m,n1:n2) = outerp(this_geom,this_order)% &
+                                                        output% &
+                                  mv_mult( array(m,n1:n2) )
 #else
           return_value(m,n1:n2) = &
             matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
