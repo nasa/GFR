@@ -1585,7 +1585,8 @@ subroutine create_postproc_debug_grid
   integer, parameter :: cells_per_cpu = 3**3
   integer, parameter :: basic_order(8,3) = reshape( [1,2,3,4,5,6,7,8, &
                                                      2,6,7,3,1,5,8,4, &
-                                                     1,5,6,2,4,8,7,3] , [8,3] )
+                                                     1,5,6,2,4,8,7,3] , &
+                                                    shape(basic_order) )
   integer, parameter :: flip(4) = [1,4,3,2]
   !
 continue
