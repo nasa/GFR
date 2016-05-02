@@ -219,8 +219,13 @@ continue
   call check_output_dir
   !
   ! Check for the CGNS output directory
+  ! NOTE: This will be done later in the post-processor
+  !       module if continuous_output is true, so only
+  !       do this if continuous_output is false.
   !
-  call check_cgns_dir
+  if (.not. continuous_output) then
+    call check_cgns_dir
+  end if
   !
   ! Adjust the name of the grid file
   !
