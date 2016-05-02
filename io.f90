@@ -1215,7 +1215,8 @@ subroutine create_IsentropicVortex_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : VortexGrid_DOF,Lref
+  use ovar,      only : Lref,itestcase
+  use ovar,      only : VortexGrid_DOF,VortexGrid_Lref
   use ovar,      only : VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
@@ -1381,9 +1382,9 @@ continue
   !
   xyz_nodes = two*xyz_nodes - one
   !
-  ! Scale the grid node coordinates to the square (-10,-10) to (10,10)
+  ! Scale the grid node coordinates to the square (-Lref,-Lref) to (+Lref,+Lref)
   !
-  xyz_nodes = ten * xyz_nodes
+  xyz_nodes = abs(VortexGrid_Lref) * xyz_nodes
   !
   ! #######
   ! #######
@@ -1426,6 +1427,21 @@ continue
     bface( 9,nf_max) = bface(4,nf_min)
     bface(10,nf_max) = ncell + nf_max
     !
+    ! Adjust boundary conditions for stationary vortex or 
+    ! vortex propagation in only the vertical direction
+    !
+    if (any(itestcase == [-Shu_Vortex,-Vortex_Transport])) then
+      !
+      bface(  1,nf_min) = bc_characteristic
+      bface(  5,nf_min) = 1
+      bface(6:9,nf_min) = 0
+      !
+      bface(  1,nf_max) = bc_characteristic
+      bface(  5,nf_max) = 1
+      bface(6:9,nf_max) = 0
+      !
+    end if
+    !
   end do
   !
   nf_min = nf_max
@@ -1454,6 +1470,20 @@ continue
     bface( 8,nf_max) = bface(3,nf_min)
     bface( 9,nf_max) = bface(4,nf_min)
     bface(10,nf_max) = ncell + nf_max
+    !
+    ! Adjust boundary conditions for stationary vortex
+    !
+    if (itestcase == -Shu_Vortex) then
+      !
+      bface(  1,nf_min) = bc_characteristic
+      bface(  5,nf_min) = 1
+      bface(6:9,nf_min) = 0
+      !
+      bface(  1,nf_max) = bc_characteristic
+      bface(  5,nf_max) = 1
+      bface(6:9,nf_max) = 0
+      !
+    end if
     !
   end do
   !
