@@ -1220,7 +1220,7 @@ subroutine create_TaylorGreenVortex_grid()
   use geovar,    only : cell_geom,cell_order
   !
   !.. Local Scalars ..
-  integer :: nc,np,ierr,i,j,k,n
+  integer :: nc,np,ierr,i,j,k,l,n
   integer :: nf_min,nf_max
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
@@ -1291,7 +1291,7 @@ continue
   !
   nodes_of_cell_ptr(1) = 0
   do n = 2,size(nodes_of_cell_ptr)
-    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + 8
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
   end do
   !
   ! Create the nodes_of_cell array
@@ -1343,14 +1343,10 @@ continue
             !
             n = map3dto1d(i,j,k,np)
             !
-            rval = random(rbas) - radj
-            perturb(1,n) = rval
-            !
-            rval = random(rbas) - radj
-            perturb(2,n) = rval
-            !
-            rval = random(rbas) - radj
-            perturb(3,n) = rval
+            do l = 1,nr
+              rval = random(rbas) - radj
+              perturb(l,n) = rval
+            end do
             !
           end do
         end do
@@ -1654,7 +1650,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
   !
-  allocate ( nodes_of_cell(1:8*ncell) , source=0 , &
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
   !
@@ -1686,7 +1682,7 @@ continue
     !
     nodes_of_cell_ptr(1) = 0
     do n = 2,size(nodes_of_cell_ptr)
-      nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + 8
+      nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Hexa)
     end do
     !
     ! Create the nodes_of_cell array
@@ -1763,14 +1759,10 @@ continue
             !
             n = map3dto1d(i,j,k,np)
             !
-            rval = random(rbas) - radj
-            perturb(1,n) = rval
-            !
-            rval = random(rbas) - radj
-            perturb(2,n) = rval
-            !
-            rval = random(rbas) - radj
-            perturb(3,n) = rval
+            do l = 1,nr
+              rval = random(rbas) - radj
+              perturb(l,n) = rval
+            end do
             !
           end do
         end do
