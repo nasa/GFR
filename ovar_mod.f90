@@ -130,6 +130,7 @@ module ovar
   integer,  public, save :: VortexGrid_DOF = 64
   logical,  public, save :: VortexGrid_random_perturb = fals
   integer,  public, save :: VortexGrid_perturb_percent = 30
+  real(wp), public, save :: VortexGrid_Lref = 10.0_wp
   !
   real(wp),           public, save :: channel_body_force = 0.0_wp
   character(len=150), public, save :: channel_init_file = ""
@@ -528,7 +529,7 @@ module input_namelist_mod
   use ovar,      only : dump_memory_usage,use_bc_conflicts
   use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
-  use ovar,      only : VortexGrid_perturb_percent
+  use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
@@ -604,7 +605,7 @@ module input_namelist_mod
   namelist / input / vortex_bigR, vortex_bigGam
   ! TAYLOR-GREEN VORTEX CONSTANTS
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
-                     VortexGrid_perturb_percent
+                     VortexGrid_perturb_percent, VortexGrid_Lref
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
