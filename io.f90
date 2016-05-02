@@ -861,6 +861,9 @@ continue
     call create_postproc_debug_grid
   else if (itestcase == Taylor_Green_Vortex .and. VortexGrid_DOF > 0) then
     call create_TaylorGreenVortex_grid
+  else if (any(abs(itestcase) == Transport_Problems) .and. &
+           VortexGrid_DOF > 0) then
+    call create_IsentropicVortex_grid
   else if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
   else if (grid_format == Gmsh_Format) then
@@ -1205,6 +1208,264 @@ continue
                 " changes have yet to be applied to triangles.",///)
   !
 end subroutine read_gambit_neutral_gridfile
+!
+!###############################################################################
+!
+subroutine create_IsentropicVortex_grid()
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use ovar,      only : VortexGrid_DOF,Lref
+  use ovar,      only : VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_perturb_percent
+  use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
+  use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order
+  !
+  !.. Local Scalars ..
+  integer :: nc,np,ierr,i,j,l,n
+  integer :: nf_min,nf_max
+  real(r4) :: x,y,dl
+  real(r4) :: rbas,radj,rval
+  !
+  !.. Local Allocatable Arrays ..
+  real(r4), allocatable :: perturb(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_IsentropicVortex_grid"
+  !
+continue
+  !
+  ! If we are generating the grid on the fly, make the reference length 1
+  !
+  Lref = one
+  !
+  ! The isentropic Euler vortex problem is always 2D
+  !
+  nr = 2
+  !
+  ! Estimate the number of cells required to get the requested DOF
+  !
+  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  !
+  np = nc + 1 ! number of grid nodes in each direction
+  !
+  ncell = nc*nc ! total number of grid cells
+  nnode = np*np ! total number of grid nodes
+  nfbnd = 4*nc  ! total number of boundary faces
+  !
+  ! Allocate all the arrays needed to define the grid
+  !
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
+  !
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
+  !
+  allocate ( nodes_of_cell(1:geom_nodes(Geom_Quad)*ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
+  !
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,ierr)
+  !
+  allocate ( cell_geom(1:ncell) , source=Geom_Quad , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,ierr,error_message)
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,ierr,error_message)
+  !
+  allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",1,ierr,error_message)
+  !
+  ! #######
+  ! #######
+  ! ## 1 ##
+  ! #######
+  ! #######
+  !
+  ! Create the nodes_of_cell_ptr array
+  !
+  nodes_of_cell_ptr(1) = 0
+  do n = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(n) = nodes_of_cell_ptr(n-1) + geom_nodes(Geom_Quad)
+  end do
+  !
+  ! Create the nodes_of_cell array
+  !
+  do j = 1,nc
+    do i = 1,nc
+      !
+      n = nodes_of_cell_ptr( map2dto1d(i,j,nc) )
+      !
+      nodes_of_cell(n+1) = map2dto1d(i  ,j  ,np)
+      nodes_of_cell(n+2) = map2dto1d(i+1,j  ,np)
+      nodes_of_cell(n+3) = map2dto1d(i+1,j+1,np)
+      nodes_of_cell(n+4) = map2dto1d(i  ,j+1,np)
+      !
+    end do
+  end do
+  !
+  ! #######
+  ! #######
+  ! ## 2 ##
+  ! #######
+  ! #######
+  !
+  ! Compute the cell length for a Cartesian/uniform grid
+  !
+  dl = real(1,kind=r4) / real(np-1,kind=r4)
+  !
+  ! Compute the random perturbations if the flag was set on input
+  !
+  if (VortexGrid_random_perturb) then
+    !
+    rbas = dl * real(abs(VortexGrid_perturb_percent),kind=r4) &
+              / real(100,kind=r4)
+    radj = rbas / real(2,kind=r4)
+    !
+    ! Randomly perturb the crap out of everything
+    !
+    do j = 2,np-1
+      do i = 2,np-1
+        !
+        n = map2dto1d(i,j,np)
+        !
+        do l = 1,nr
+          rval = random(rbas) - radj
+          perturb(l,n) = rval
+        end do
+        !
+      end do
+    end do
+    !
+    ! Have the root processor broadcast its perturbations to all the
+    ! other processors so that the perturbations will be consistent
+    ! on all processors.
+    !
+    call mpi_bcast(perturb,size(perturb,kind=int_mpi), &
+                   MPI_REAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    !
+  end if
+  !
+  ! Create the grid node coordinates as a square from (0,0) to (1,1)
+  !
+  do j = 1,np
+    !
+    y = dl * real(j-1,kind=r4)
+    !
+    do i = 1,np
+      !
+      x = dl * real(i-1,kind=r4)
+      !
+      n = map2dto1d(i,j,np)
+      !
+      xyz_nodes(1,n) = real( x + perturb(1,n) , kind=wp )
+      xyz_nodes(2,n) = real( y + perturb(2,n) , kind=wp )
+      !
+    end do
+  end do
+  !
+  ! Deallocate perturb since it is no longer needed
+  !
+  deallocate ( perturb , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"perturb",2,ierr,error_message)
+  !
+  ! Scale the grid node coordinates to the square (-1,-1) to (1,1)
+  !
+  xyz_nodes = two*xyz_nodes - one
+  !
+  ! Scale the grid node coordinates to the square (-10,-10) to (10,10)
+  !
+  xyz_nodes = ten * xyz_nodes
+  !
+  ! #######
+  ! #######
+  ! ## 3 ##
+  ! #######
+  ! #######
+  !
+  ! Create the bface array
+  !
+  nf_max = 0
+  !
+  ! Loop through the 4 grid boundaries
+  ! NOTE: This corresponds to the grid boundaries in
+  !       the order [imin,imax,jmin,jmax]
+  !
+  nf_min = nf_max
+  !
+  do j = 1,nc
+    !
+    nf_min = nf_min + 1
+    nf_max = nf_min + nc
+    !
+    bface( 1,nf_min) = bc_periodic
+    bface( 2,nf_min) = map2dto1d(1 ,j,nc)
+    bface( 3,nf_min) = Geom_Quad
+    bface( 4,nf_min) = HostFace2D(1)
+    bface( 5,nf_min) = nf_max
+    bface( 6,nf_min) = map2dto1d(nc,j,nc)
+    bface( 8,nf_min) = Geom_Quad
+    bface( 9,nf_min) = HostFace2D(2)
+    bface(10,nf_min) = ncell + nf_min
+    !
+    bface( 1,nf_max) = bc_periodic
+    bface( 2,nf_max) = bface(6,nf_min)
+    bface( 3,nf_max) = bface(8,nf_min)
+    bface( 4,nf_max) = bface(9,nf_min)
+    bface( 5,nf_max) = nf_min
+    bface( 6,nf_max) = bface(2,nf_min)
+    bface( 8,nf_max) = bface(3,nf_min)
+    bface( 9,nf_max) = bface(4,nf_min)
+    bface(10,nf_max) = ncell + nf_max
+    !
+  end do
+  !
+  nf_min = nf_max
+  !
+  do i = 1,nc
+    !
+    nf_min = nf_min + 1
+    nf_max = nf_min + nc
+    !
+    bface( 1,nf_min) = bc_periodic
+    bface( 2,nf_min) = map2dto1d(i,1 ,nc)
+    bface( 3,nf_min) = Geom_Quad
+    bface( 4,nf_min) = HostFace2D(3)
+    bface( 5,nf_min) = nf_max
+    bface( 6,nf_min) = map2dto1d(i,nc,nc)
+    bface( 8,nf_min) = Geom_Quad
+    bface( 9,nf_min) = HostFace2D(4)
+    bface(10,nf_min) = ncell + nf_min
+    !
+    bface( 1,nf_max) = bc_periodic
+    bface( 2,nf_max) = bface(6,nf_min)
+    bface( 3,nf_max) = bface(8,nf_min)
+    bface( 4,nf_max) = bface(9,nf_min)
+    bface( 5,nf_max) = nf_min
+    bface( 6,nf_max) = bface(2,nf_min)
+    bface( 8,nf_max) = bface(3,nf_min)
+    bface( 9,nf_max) = bface(4,nf_min)
+    bface(10,nf_max) = ncell + nf_max
+    !
+  end do
+  !
+  contains
+  !
+  pure function map2dto1d(i,j,n) result(return_value)
+    integer, intent(in) :: i,j,n
+    integer :: return_value
+    return_value = i + n*(j-1)
+  end function map2dto1d
+  !
+end subroutine create_IsentropicVortex_grid
 !
 !###############################################################################
 !
