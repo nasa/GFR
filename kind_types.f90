@@ -642,9 +642,11 @@ module module_kind_types
   !
   !
   private :: findloc_i4,findloc_i8,findloc_r4,findloc_r8
+  private :: recursive_findloc_i4,recursive_findloc_i8
   !
   interface findloc
-    module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8
+    module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8, &
+                     recursive_findloc_i4,recursive_findloc_i8
   end interface findloc
   !
   !
