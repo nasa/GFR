@@ -1627,6 +1627,10 @@ continue
   nnode = np*np*np ! total number of grid nodes
   nfbnd = 6*nc*nc  ! total number of boundary faces
   !
+  ! Compute the cell length for a Cartesian/uniform grid
+  !
+  dl = real(1,kind=r4) / real(np-1,kind=r4)
+  !
   ! Allocate all the arrays needed to define the grid
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
@@ -1735,7 +1739,7 @@ continue
       !
       ! Compute the random perturbations of the interior node coordinates
       !
-      rbas = real(30,kind=r4) / real(100,kind=r4)
+      rbas = real(abs(TaylorGreen_perturb_percent),kind=r4) / real(100,kind=r4)
       radj = rbas / real(2,kind=r4)
       !
       ! Randomly perturb the crap out of everything
