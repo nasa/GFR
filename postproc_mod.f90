@@ -8,26 +8,25 @@ module postprocessor_mod
   !
   private
   !
+  include "cgnslib_f95.h"
   !
   ! ##################################
   ! ###  Module Public Procedures  ###
   ! ##################################
   !
-  public :: get_output_connectivity
-  public :: collect_cell_subconnectivity
-  public :: get_plot_functions
+  public :: new_write_parallel_cgns
   !
   !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
   !
-  type :: pnt_map_t
+  type :: geom_pnt_map_t
     integer, allocatable :: sp(:)
     integer, allocatable :: fp(:)
     integer, allocatable :: ep(:)
     integer, allocatable :: np(:)
-  end type pnt_map_t
+  end type geom_pnt_map_t
   !
   type :: output_face_pts_t
     integer              :: face_idx
@@ -54,6 +53,9 @@ module postprocessor_mod
   !
   type :: plot_func_t
     integer :: func
+    character(len=32) :: varname = ""
+  contains
+    procedure :: get_function_name
   end type plot_func_t
   !
   type(plot_func_t), public, parameter :: &
@@ -89,6 +91,94 @@ module postprocessor_mod
                                          plot_func_t(30)]
   !
   type(plot_func_t), allocatable :: plot_var(:)
+  !
+  integer, save :: npvar = 20
+  !
+  integer, save, allocatable :: ipelem_of_cells(:,:,:)
+  !
+  ! INITIALIZATION_NEEDED: Private module variable that indicates whether the
+  !                        initializations required for CGNS have been completed
+  !                        or not.
+  !
+  logical, save :: initialization_needed = true
+  !
+  character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  !
+  ! ###########################
+  ! ###  Module Parameters  ###
+  ! ###########################
+  !
+#ifdef CGNS_ADF
+  integer, parameter :: file_type = CG_FILE_ADF
+#elif CGNS_ADF2
+  integer, parameter :: file_type = CG_FILE_ADF2
+#else
+  integer, parameter :: file_type = CG_FILE_HDF5
+#endif
+  !
+  logical, parameter :: check_gradients = fals
+ !logical, parameter :: check_gradients = true
+  !
+  ! ################################
+  ! ###  Module Local Variables  ###
+  ! ################################
+  !
+  !.. Output File Names ..
+  character(len=*),      parameter :: cgns_base_fname = "solution.grid.cgns"
+  character(len=170),         save :: cgns_dir = ""
+  character(len=170),         save :: cgns_grid_file
+  !
+  !.. CGNS Path Variables ..
+  integer, save :: ifile_n
+  integer, save :: ibase_n
+  integer, save :: izone_n
+  integer, save :: isect_n
+  integer, save :: icoord_n
+  integer, save :: isol_n
+  integer, save :: ifld_n
+  !
+  integer, save :: ifile_m
+  integer, save :: ibase_m
+  integer, save :: izone_m
+  integer, save :: isect_m
+  integer, save :: icoord_m
+  integer, save :: isol_m
+  integer, save :: ifld_m
+  !
+  integer, save, allocatable, dimension(:) :: isvar_s
+  !
+  !.. CGNS Time Dependent Variables ..
+  integer, save :: cgns_zone_counter
+  !
+  real(sp),          save, allocatable, dimension(:) :: soltime
+  character(len=32), save, allocatable, dimension(:) :: solname
+  !
+  character(len=*), parameter :: base_name = "recon_base"
+  character(len=*), parameter :: zone_name = "Solution"
+  !
+  !.. CGNS Kind Types ..
+  integer, save :: cgns_kind_real = RealSingle
+  !
+  !.. CGNS Parallel Point Indices ..
+  integer, save :: n_my_output_pts
+  integer, save :: my_pts_beg
+  integer, save :: my_pts_end
+  !
+  integer, dimension(1:3) :: zone_size
+  !
+  ! DISABLE_CGNS_OUTPUT: Private module variable to disable CGNS output. It
+  !                      is currently only relevant to the Taylor-Green Vortex
+  !                      problem and is more of a temporary addition until the
+  !                      output logic/code becomes more robust.
+  !
+  logical, save :: disable_cgns_output = fals
+  !
+  !.. CGNS Data Array ..
+  !
+  ! NOTE: This is to ensure coordinate and solution variables
+  !       are the same real type
+  !
+  integer, parameter :: cgns_flt = r4
   !
   !
 !!" FINISHED SUBROUTINE MAP_TO_OUTPUT_POINTS AND THE RELATED FUNCTIONS FOR"
@@ -183,6 +273,649 @@ contains
 !
 !###############################################################################
 !
+subroutine new_write_parallel_cgns()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : time,time_ref
+  use ovar,   only : completely_disable_cgns
+  use ovar,   only : write_TaylorGreen_full_solution
+  use ovar,   only : cgns_use_queue
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  !
+  character(len=32) :: tname
+  character(len=170) :: sol_file
+  character(len=300) :: link_path
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:2) :: idata
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "new_write_parallel_cgns"
+  !
+continue
+  !
+  if (completely_disable_cgns) return
+  !
+  if (disable_cgns_output) then
+    if (.not. initialization_needed) then
+      if (.not. write_TaylorGreen_full_solution) then
+        return
+      end if
+    end if
+  end if
+  !
+  if (initialization_needed) then
+    !
+    ! Check for the CGNS output directory and create it if not found
+    !
+    call check_cgns_dir
+    !
+    ! Initialize the functions that will be written to the CGNS solution files
+    !
+    call get_plot_functions
+    !
+    ! Write the CGNS grid file
+    !
+    call write_grid_parallel_cgns
+    !
+    ! Now that the CGNS grid file has been successfully created, set the
+    ! initialization flag to false so this isnt done again.
+    !
+    initialization_needed = fals
+    !
+  else
+    !
+    ! The CGNS grid file has already been created so we need to reopen
+    ! it in modification mode.
+    !
+    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_open_f",ierr, &
+                    "Mode = CG_MODE_MODIFY")
+    !
+  end if
+  !
+  ! Get the name for the current solution node
+  !
+  write (tname,'("FlowSolution",i0)') cgns_zone_counter
+  write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
+  !
+  ! Reallocate the soltime and solname arrays so we
+  ! can concatenate this solution onto those arrays
+  !
+  call reallocate(soltime,cgns_zone_counter+1)
+  call reallocate(solname,cgns_zone_counter+1)
+  soltime(size(soltime)) = real(time*time_ref,kind(soltime))
+  solname(size(solname)) = tname
+  !
+  ! Create a link to the solution node in the current solution file
+  !
+  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n,"end")
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  !
+  link_path = base_name//"/"//zone_name//"/"//trim(tname)
+  !
+  call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_link_write_f",ierr)
+  !
+  ! Write the solution file
+  !
+  call write_solution_parallel_cgns(sol_file,tname)
+  !
+  ! ################################################
+  ! #####   FINISHED WRITING FIELD VARIABLES   #####
+  ! ################################################
+  !
+  if (cgns_use_queue) then
+    call cgp_queue_set_f(0,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
+  end if
+  !
+  ! Update the solution times within the base iterative node
+  !
+  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",ierr)
+  !
+  call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  !
+  call cg_array_write_f("TimeValues",cgns_kind_real,1, &
+                        size(soltime),soltime,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",ierr)
+  !
+  ! Update the names of the zone iterative nodes
+  !
+  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",ierr)
+  !
+  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
+                                      "ZoneIterativeData_t",1,"end")
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  !
+  idata(:) = [32,size(solname)]
+  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",ierr)
+  !
+  ! Identify the flow solution within the CGNS file as time dependent
+  !
+  call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",ierr)
+  !
+  ! Close the CGNS FILE
+  !
+  call cgp_close_f(ifile_n,ierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_close_f",ierr)
+  !
+  ! Update the zone counter
+  !
+  cgns_zone_counter = cgns_zone_counter + 1
+  !
+  write (error_message,100)
+  100 format ("Temporary stop after writing initial CGNS files using the ", &
+              "new continuous output from the post-processor module.")
+  call stop_recon(stop_mpi,pname,error_message)
+  !
+  ! Format Statements
+  !
+  1 format ("#############################################",/, &
+            "    FOR PROCESSOR #",i0)
+  2 format (a," = ",i0)
+  !
+end subroutine new_write_parallel_cgns
+!
+!###############################################################################
+!
+subroutine write_grid_parallel_cgns()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : cgns_use_queue
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  integer :: my_cells_beg,my_cells_end
+  integer :: n_total_output_pts
+  integer :: n_total_output_cells
+  !
+  character(len=32) :: varname
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:nr) :: ixyz_n
+  !
+  !.. Local Allocatable Arrays ..
+  integer,        allocatable :: ipelem(:,:)
+  real(wp),       allocatable :: vartmp(:,:)
+  real(cgns_flt), allocatable :: var(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_grid_parallel_cgns"
+  !
+continue
+  !
+  cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
+  !
+  cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
+  !
+  ! Initialize the variables and data arrays needed for CGNS output
+  ! NOTE: This call to routine create_cell_subconnectivity will initialize
+  !       the module variables my_pts_beg, my_pts_end, and n_my_output_pts.
+  !
+  call create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
+  !
+  ! Extract the total number of pts and cells from the zone_size array
+  !
+  n_total_output_pts = zone_size(1)
+  n_total_output_cells = zone_size(2)
+  !
+  ! Allocate the temporary variable arrays
+  !
+  allocate ( vartmp(1:nr,1:n_my_output_pts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vartmp",1,ierr,error_message)
+  !
+  allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var",1,ierr,error_message)
+  !
+  ! Initialize the zone counter
+  !
+  cgns_zone_counter = 0
+  !
+  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,ierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_open_f",ierr, &
+                  "Mode = CG_MODE_WRITE")
+  !
+  ! Set the CGNS base (who knows what this is for)
+  !
+  call cg_base_write_f(ifile_n,base_name,nr,nr,ibase_n,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_base_write_f",ierr)
+  !
+  ! Write the title for this solution
+  !
+  call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
+                       Unstructured,izone_n,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f",ierr)
+  !
+  ! Create data nodes for the coordinates
+  !
+  do n = 1,nr
+    varname = "Coordinate"//char_xyz(n)
+    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,cgns_kind_real, &
+                           trim(varname),ixyz_n(n),ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f",ierr, &
+                    "Write node: Coordinate",n)
+  end do
+  !
+  ! Now create and write the coordinate data in parallel
+  !
+  if (.not. cgns_use_queue) then
+    call cgp_queue_set_f(0,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
+  end if
+  !
+  ! Collect the coordinates for all the output points that this processor
+  ! is responsible for writing to the CGNS files
+  !
+  call collect_coordinates_for_output(vartmp)
+  !
+  if (ncpu == 1) then
+    call write_tecplot_file(vartmp,ipelem)
+  end if
+  !
+  ! Write the coordinates for the output points to the CGNS grid file
+  !
+  do n = 1,nr
+    !
+    ! Copy the current coordinate variable into the array var
+    ! and convert to the real type required for the CGNS file.
+    !
+    var(:) = real( vartmp(n,:) , kind=kind(var) )
+    !
+    ! Reset the queue.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_set_f(1,ierr)
+      call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
+    end if
+    !
+    ! Add the data for current coordinate variable to the output queue.
+    !
+    call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
+                                my_pts_beg,my_pts_end,var,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f",ierr, &
+                    "Write data: Coordinate",n)
+    !
+    ! Finally, flush the queue containing the
+    ! current coordinate variable to the CGNS file.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_flush_f(ierr)
+      call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f",ierr)
+    end if
+    !
+  end do
+  !
+  ! Create the data node for the grid connectivity
+  !
+  if (nr == 2) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
+                             QUAD_4,1,n_total_output_cells,0,isect_n,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",ierr, &
+                    "Element Type = QUAD_4")
+  else if (nr == 3) then
+    call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
+                             HEXA_8,1,n_total_output_cells,0,isect_n,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",ierr, &
+                    "Element Type = HEXA_8")
+  end if
+  !
+  ! Write the element connectivity in parallel
+  !
+  ! Reset the queue.
+  !
+  if (cgns_use_queue) then
+    call cgp_queue_set_f(1,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
+  end if
+  !
+  ! Add the element connectivity data to the output queue.
+  !
+  call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
+                                 my_cells_beg,my_cells_end,ipelem,ierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f",ierr)
+  !
+  ! Finally, flush the queue containing the
+  ! element connectivity to the CGNS file.
+  !
+  if (cgns_use_queue) then
+    call cgp_queue_flush_f(ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f",ierr)
+  end if
+  !
+  ! Deallocate the arrays var, vartmp, and ipelem
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,ierr,error_message)
+  end if
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,ierr,error_message)
+  end if
+  if (allocated(ipelem)) then
+    deallocate ( ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",2,ierr,error_message)
+  end if
+  !
+end subroutine write_grid_parallel_cgns
+!
+!###############################################################################
+!
+subroutine write_solution_parallel_cgns(sol_file,tname)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr
+  use ovar,    only : cgns_use_queue
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: sol_file
+  character(len=*), intent(in) :: tname
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  !
+  character(len=32)  :: sect_name
+  character(len=170) :: cgns_sol_file
+  character(len=300) :: link_path
+  !
+  !.. Local Arrays ..
+  integer :: ifile_s,ibase_s,izone_s,isol_s
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp),       allocatable :: vartmp(:,:)
+  real(cgns_flt), allocatable :: var(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_solution_parallel_cgns"
+  !
+continue
+  !
+  cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
+  !
+  ! Open the cgns output file if iflag is equal to open_CGNS
+  !
+  ! Initialize the zone counter
+  !
+  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,ierr)
+  call io_error(pname,cgns_sol_file,1,ierr)
+  !
+  ! Set the CGNS base (who knows what this is for)
+  !
+  call cg_base_write_f(ifile_s,base_name,nr,nr,ibase_s,ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_base_write_f",ierr)
+  !
+  ! Write the title for this solution
+  !
+  call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
+                       Unstructured,izone_s,ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f",ierr)
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  call cg_goto_f(ifile_s,ibase_s,ierr,"Zone_t",izone_s,"end")
+  call cgns_error(pname,cgns_sol_file,"cg_goto_f",ierr)
+  !
+  link_path = base_name//"/"//zone_name//"/GridCoordinates"
+  !
+  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
+                       trim(link_path),ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)",ierr)
+  !
+  ! Create a link to the element connectivity in the grid file
+  !
+  if (nr == 2) then
+    sect_name = "Quadrilaterals"
+  else if (nr == 3) then
+    sect_name = "Hexahedrals"
+  end if
+  link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
+  !
+  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
+                       trim(link_path),ierr)
+  call cgns_error(pname,cgns_sol_file, &
+                  "cg_link_write_f("//trim(sect_name)//")",ierr)
+  !
+  ! Allocate var and vartmp if they arent already allocated
+  !
+  allocate ( vartmp(1:npvar,1:n_my_output_pts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"vartmp",1,ierr,error_message)
+  !
+  allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var",1,ierr,error_message)
+  !
+  ! Collect the solution into vartmp
+  !
+  call collect_solution_for_output(vartmp)
+  !
+  ! Write the flow variables
+  !
+  call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,Vertex,isol_s,ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",ierr)
+  !
+  ! ################################################
+  ! #####   WRITING SOLUTION FIELD VARIABLES   #####
+  ! ################################################
+  !
+  ! Create data nodes for the solution variables
+  !
+  do n = 1,size(plot_var)
+    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
+                           trim(plot_var(n)%varname),isvar_s(n),ierr)
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                    "Write node: Solution variable",n)
+  end do
+  !
+  ! Now create the output data and write it to the CGNS file in parallel
+  !
+  do n = 1,size(plot_var)
+    !
+    ! Save this plot function into a separate contiguous array
+    !
+    var(:) = real( vartmp(n,:) , kind=kind(var) )
+    !
+    ! Reset the queue.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_set_f(1,ierr)
+      call cgns_error(pname,cgns_sol_file,"cgp_queue_set_f",ierr)
+    end if
+    !
+    ! Add the data for current variable to the output queue.
+    !
+    call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
+                                my_pts_beg,my_pts_end,var,ierr)
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f",ierr, &
+                    "Write data: Solution variable",n)
+    !
+    ! Finally, flush the queue containing
+    ! the current variable to the CGNS file.
+    !
+    if (cgns_use_queue) then
+      call cgp_queue_flush_f(ierr)
+      call cgns_error(pname,cgns_sol_file,"cgp_queue_flush_f",ierr)
+    end if
+    !
+  end do
+  !
+  ! ################################################
+  ! #####   FINISHED WRITING FIELD VARIABLES   #####
+  ! ################################################
+  !
+  if (cgns_use_queue) then
+    call cgp_queue_set_f(0,ierr)
+    call cgns_error(pname,cgns_sol_file,"cgp_queue_set_f",ierr)
+  end if
+  !
+  ! Close the CGNS FILE
+  !
+  call cgp_close_f(ifile_s,ierr)
+  call io_error(pname,cgns_grid_file,2,ierr)
+  !
+  ! Deallocate the arrays var and vartmp
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,ierr,error_message)
+  end if
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("#############################################",/, &
+            "    FOR PROCESSOR #",i0)
+  2 format (a," = ",i0)
+  !
+end subroutine write_solution_parallel_cgns
+!
+!###############################################################################
+!
+subroutine collect_coordinates_for_output(var)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nfbnd,ncell,cell
+  use geovar,  only : xyz,xyz_nodes
+  use flowvar, only : edgexyz,facexyz
+  use flowvar, only : face_xyz
+  use ovar,    only : mms_opt
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(out) :: var
+  !
+  !.. Local Scalars ..
+  integer :: k,l,n,nc,ne,nf,nn,np1,np2,ierr
+  integer :: face_idx,edge_idx,node_idx
+  !
+  !.. Local Allocatable Arrays ..
+  type(face_xyz), allocatable :: temp_facexyz(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "collect_coordinates_for_output"
+  !
+continue
+  !
+  cell_loop: do nc = 1,ncell
+    !
+    np1 = cell(nc)%beg_sp
+    np2 = cell(nc)%end_sp
+    !
+    write (170,1) nc
+    do n = np1,np2
+      !
+      l = output_sol_pts(n)
+      write (170,2) n,l,(xyz(nn,n), nn=1,size(var,dim=1))
+      !
+      var(:,l) = xyz(:,n)
+      !
+    end do
+    !
+  end do cell_loop
+  1 format (" Cell ",i0)
+  2 format ("    SP ",i0," => ",i0,"  : ",3es14.6)
+  3 format (" Face ",i0)
+  4 format ("    FP ",i0," => ",i0,"  : ",3es14.6)
+  5 format (" Edge ",i0)
+  6 format ("    EP ",i0," => ",i0,"  : ",3es14.6)
+  7 format (" Node")
+  8 format ("    NP ",i0," => ",i0,"  : ",3es14.6)
+  !
+  !
+  !
+  face_loop: do nf = 1,size(output_face_pts)
+    !
+    face_idx = output_face_pts(nf)%face_idx
+    !
+    write (170,3) face_idx
+    do k = 1,size(output_face_pts(nf)%out_idx)
+      !
+      l = output_face_pts(nf)%out_idx(k)
+      !
+      write (170,4) k,l,(facexyz(face_idx)%v(n,k), n=1,size(var,dim=1))
+      var(:,l) = facexyz(face_idx)%v(:,k)
+      !
+    end do
+    !
+  end do face_loop
+  !
+  !
+  !
+  edge_loop: do ne = 1,size(output_edge_pts)
+    !
+    edge_idx = output_edge_pts(ne)%edge_idx
+    !
+    write (170,5) edge_idx
+    do k = 1,size(output_edge_pts(ne)%out_idx)
+      !
+      l = output_edge_pts(ne)%out_idx(k)
+      !
+      write (170,6) k,l,(edgexyz(edge_idx)%v(n,k), n=1,size(var,dim=1))
+      var(:,l) = edgexyz(edge_idx)%v(:,k)
+      !
+    end do
+    !
+  end do edge_loop
+  !
+  !
+  !
+  write (170,7)
+  node_loop: do nn = 1,size(output_node_pts)
+    !
+    node_idx = output_node_pts(nn)%node_idx
+    !
+    l = output_node_pts(nn)%out_idx
+    !
+    write (170,8) node_idx,l,(xyz_nodes(n,node_idx), n=1,size(var,dim=1))
+    var(:,l) = xyz_nodes(:,node_idx)
+    !
+  end do node_loop
+  !
+  ! Deallocate edgexyz since it is no longer needed
+  !
+  deallocate ( edgexyz , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edgexyz",2,ierr,error_message)
+  !
+  ! Deallocate or shrink facexyz depending on if MMS is enabled
+  !
+  if (mms_opt /= 0) then
+    !
+    ! MMS is enabled, so shrink facexyz to only the boundary faces because the
+    ! coordinates for the face points on the interior faces are no longer needed
+    !
+    allocate ( temp_facexyz(1:nfbnd) , source=facexyz(1:nfbnd) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"temp_facexyz",1,ierr,error_message)
+    call move_alloc( from=temp_facexyz , to=facexyz )
+    !
+  else
+    !
+    ! MMS is not enabled, so deallocate facexyz
+    ! entirely since it is no longer needed
+    !
+    deallocate ( facexyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz",2,ierr,error_message)
+    !
+  end if
+  !
+end subroutine collect_coordinates_for_output
+!
+!###############################################################################
+!
 subroutine collect_solution_for_output(var)
   !
   !.. Use Statements ..
@@ -218,7 +951,7 @@ continue
       !
       l = output_sol_pts(n)
       !
-      var(:,l) = compute_output_variable(usp(:,n),dusp(:,:,n))
+      var(:,l) = compute_output_variables(usp(:,n),dusp(:,:,n))
       !
     end do
     !
@@ -234,8 +967,8 @@ continue
       !
       l = output_face_pts(nf)%out_idx(k)
       !
-      var(:,l) = compute_output_variable(faceusp(face_idx)%v(:,k,1), &
-                                        facedusp(face_idx)%v(:,:,k,1))
+      var(:,l) = compute_output_variables(faceusp(face_idx)%v(:,k,1), &
+                                         facedusp(face_idx)%v(:,:,k,1))
       !
     end do
     !
@@ -251,8 +984,8 @@ continue
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
-      var(:,l) = compute_output_variable(edgeusp(edge_idx)%v(:,k), &
-                                        edgedusp(edge_idx)%v(:,:,k))
+      var(:,l) = compute_output_variables(edgeusp(edge_idx)%v(:,k), &
+                                         edgedusp(edge_idx)%v(:,:,k))
       !
     end do
     !
@@ -266,8 +999,8 @@ continue
     !
     l = output_node_pts(nn)%out_idx
     !
-    var(:,l) = compute_output_variable(nodeusp(node_idx)%v(:), &
-                                      nodedusp(node_idx)%v(:,:))
+    var(:,l) = compute_output_variables(nodeusp(node_idx)%v(:), &
+                                       nodedusp(node_idx)%v(:,:))
     !
   end do node_loop
   !
@@ -472,7 +1205,7 @@ end subroutine get_edge_and_node_solutions
 !
 !###############################################################################
 !
-subroutine collect_cell_subconnectivity
+subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   !
   !.. Use Statements ..
   use order_mod, only : gmin => n_min_geom
@@ -480,32 +1213,51 @@ subroutine collect_cell_subconnectivity
   use order_mod, only : omin => n_min_order
   use order_mod, only : omax => n_max_order
   use geovar,    only : n_solpts,ncell,cell
+  use geovar,    only : pst_geom,nr
   use flowvar,   only : faceusp
   use flowvar,   only : edgeusp,edgedusp
   use flowvar,   only : nodeusp,nodedusp
+  use ovar,      only : postproc_debug_grid
   !
   use parallel_mod, only : exch_connectivity
+  !
+  !.. Formal Arguments ..
+  integer,                              intent(inout) :: my_cells_beg
+  integer,                              intent(inout) :: my_cells_end
+  integer, allocatable, dimension(:,:), intent(inout) :: ipelem
   !
   !.. Local Scalars ..
   integer :: nop,nsp,nfp,nep,nnp
   integer :: mop,msp,mfp,mep,mnp
-  integer :: n,m,nc,ne,nf,nn,n1,n2
+  integer :: n,m,nc,ne,nf,nn,n1,n2,np
   integer :: this_geom,this_order
   integer :: mxpt,my_pts_offset
+  integer :: this_subcells,n_my_output_cells
   integer :: bad_indices,sf,kf,lf
   integer :: ifc,iec,inc,ierr,nop1,nop2
+  integer :: n_total_output_cells
+  integer :: n_total_output_pts
+  integer :: running_offset,this_cpu
+  integer :: ibeg,iend,i,j
+  integer :: loc_n_my_output_pts
+  integer :: loc_my_pts_beg
+  integer :: loc_my_pts_end
+  integer :: debug_unit
   !
   character(len=100) :: array_name
   !
   !.. Local Arrays ..
   integer, dimension(1:ncpu) :: cpu_mxpts
+  integer, dimension(1:ncpu) :: cpu_subcells
   !
   !.. Local Allocatable Arrays ..
-  type(pnt_map_t), allocatable :: map(:,:)
+  type(geom_pnt_map_t), allocatable :: map(:,:)
   !
   integer, allocatable :: cell_points_ptr(:)
   integer, allocatable :: cell_points(:)
+  integer, allocatable :: tmp_cell_points(:)
   integer, allocatable :: cell_pts(:)
+  integer, allocatable :: rev_pts(:)
   integer, allocatable :: face_pt(:)
   integer, allocatable :: edge_pt(:)
   integer, allocatable :: node_pt(:)
@@ -516,11 +1268,14 @@ subroutine collect_cell_subconnectivity
   logical, allocatable :: my_nodes(:)
   logical, allocatable :: node_already_done(:)
   logical, allocatable :: edge_already_done(:)
+  logical, allocatable :: msk(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "collect_cell_subconnectivity"
+  character(len=*), parameter :: pname = "create_cell_subconnectivity"
   !
 continue
+  !
+  debug_unit = 160
   !
   ! Initialize the maximum number of output points to zero for all processors
   !
@@ -595,7 +1350,7 @@ continue
     !
   end do
   !
-  ! Save the total number of number of output points for this processor
+  ! Save the total number of output points for this processor
   !
   cpu_mxpts(mypnum+1) = last(cell_points_ptr)
   !
@@ -813,6 +1568,11 @@ continue
     call alloc_error(pname,"edge_already_done",2,ierr,error_message)
   end if
   !
+  if (ncpu == 1) then
+    ! debug_unit = 160
+    call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
+  end if
+  !
   !###########################################################################
   !###########################################################################
   !###                                                                     ###
@@ -932,6 +1692,11 @@ continue
     !
   end do
   !
+  if (ncpu == 1) then
+    ! debug_unit = 161
+    call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
+  end if
+  !
   !#############################################################################
   !#############################################################################
   !###                                                                       ###
@@ -1038,7 +1803,7 @@ continue
   !
   ! Find the maximum point index
   !
-  mxpt = maxval(cell_points)
+  mxpt = maxval(abs(cell_points))
   !
   ! Collectively find the maximum point index from all processors
   !
@@ -1060,6 +1825,9 @@ continue
   !       the point.
   !
   remaining_pts( abs(cell_points(:)) ) = 1
+  write (iout,100) "                     mxpt = ",mxpt
+  write (iout,100) "count(  cell_points <= 0) = ",count(cell_points<=0)
+  write (iout,100) "count(remaining_pts == 1) = ",count(remaining_pts==1)
   !
   ! Collectively reduce the remaining points on all processors
   !
@@ -1071,11 +1839,6 @@ continue
   ! Convert remaining_pts into an array that maps a point index in cell_points
   ! into the equivalent point index if all non-used point indices were removed
   !
- !do n = size(remaining_pts),1,-1
- !  if (remaining_pts(n) /= 0) then
- !    remaining_pts(n) = sum( remaining_pts(1:n-1) )
- !  end if
- !end do
   mxpt = 0
   do n = 1,size(remaining_pts)
     if (remaining_pts(n) /= 0) then
@@ -1083,6 +1846,10 @@ continue
       remaining_pts(n) = mxpt
     end if
   end do
+  !
+  ! Save the total number of output points across all processors
+  !
+  n_total_output_pts = mxpt
   !
   ! Now redo the point indices in cell_points to account
   ! for only the remaining point indices
@@ -1095,10 +1862,156 @@ continue
                            cell_points(n) )
   end do
   !
+  if (ncpu == 1) then
+    ! debug_unit = 162
+    call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
+  end if
+  !
+  allocate ( msk(1:n_total_output_pts) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,ierr,error_message)
+  !
+ !where (cell_points > 0) msk(cell_points) = true
+  do n = 1,size(cell_points)
+    if (cell_points(n) > 0) then
+      msk(cell_points(n)) = true
+    end if
+  end do
+  loc_n_my_output_pts = count(msk)
+  !
+  if (ncpu > 1) then
+    !
+    ! Reallocate remaining_pts to the new maximum point index
+    ! and reset it to 0
+    !
+    call reallocate( remaining_pts , n_total_output_pts )
+    remaining_pts(:) = 0
+    !
+    allocate ( tmp_cell_points , source=cell_points , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tmp_cell_points",1,ierr,error_message)
+    !
+    running_offset = 0
+    !
+    do n = 1,ncpu
+      !
+      this_cpu = int(n-1,kind=int_mpi)
+      !
+      ! Reset remaining_pts to 0 on all processors
+      !
+      remaining_pts(:) = 0
+      !
+      ! 
+      if (mypnum == this_cpu) then
+        ibeg = running_offset + 1
+        iend = running_offset + loc_n_my_output_pts
+        loc_my_pts_beg = ibeg
+        loc_my_pts_end = iend
+        remaining_pts(:) = unpack( intseq(ibeg,iend) , mask=msk , field=0 )
+      end if
+      !
+      call mpi_bcast(remaining_pts,size(remaining_pts,kind=int_mpi), &
+                     mpi_inttyp,this_cpu,MPI_COMM_WORLD,mpierr)
+      !
+      if (mypnum == this_cpu) then
+        do i = 1,size(cell_points)
+          if (cell_points(i) > 0) then
+            tmp_cell_points(i) = remaining_pts( cell_points(i) )
+          end if
+        end do
+      else
+        do i = 1,size(cell_points)
+          if (cell_points(i) < 0) then
+            j = abs(cell_points(i))
+            if (remaining_pts(j) > 0) then
+              tmp_cell_points(i) = -remaining_pts(j)
+            end if
+          end if
+        end do
+      end if
+      !
+      ! Update the running offset needed to get the
+      ! starting point index for the next processor
+      !
+      running_offset = running_offset + count(remaining_pts /= 0)
+      !
+    end do
+    !
+    ! Transfer tmp_cell_points to cell_points
+    ! NOTE: This should leave tmp_cell_pts deallocated
+    !
+    call move_alloc( from=tmp_cell_points , to=cell_points )
+    !
+    remaining_pts(:) = 0
+   !where (cell_points > 0) remaining_pts(cell_points) = cell_points
+    do n = 1,size(cell_points)
+      if (cell_points(n) > 0) then
+        remaining_pts(cell_points(n)) = cell_points(n)
+      end if
+    end do
+    !
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    do n = 1,ncpu
+      !
+      flush (iout)
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == int(n-1,kind=int_mpi)) then
+        write (iout,31) mypnum,minval(remaining_pts)
+        write (iout,32) mypnum,maxval(remaining_pts)
+        write (iout,33) mypnum,maxval(remaining_pts)-minval(remaining_pts)+1
+        write (iout,34) mypnum,count(remaining_pts /= 0)
+        write (iout,35) mypnum,loc_my_pts_beg
+        write (iout,36) mypnum,loc_my_pts_end
+        write (iout,37) mypnum,loc_n_my_output_pts
+        if (n == ncpu) write (iout,38)
+      end if
+      flush (iout)
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      !
+    end do
+    !
+  end if
+  !
+  if (allocated(msk)) then
+    deallocate ( msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",2,ierr,error_message)
+  end if
+  !
   if (allocated(remaining_pts)) then
     deallocate ( remaining_pts , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"remaining_pts",2,ierr,error_message)
   end if
+  !
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  if (ncpu == 1) then
+    nsp = (omin+1)**3
+    nfp = (omin+1)**2
+    nep = (omin+1)
+    loc_n_my_output_pts = ncell*nsp + size(faceusp)*nfp + &
+                                      size(edgeusp)*nep + &
+                                      size(nodeusp)
+    write (iout,40) loc_n_my_output_pts
+    ! debug_unit = 163
+    call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)
+  end if
+  n1 = minval( cell_points , mask=(cell_points>0) )
+  n2 = maxval( cell_points , mask=(cell_points>0) )
+  allocate ( msk(n1:n2) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,ierr,error_message)
+  do n = 1,size(cell_points)
+    if (cell_points(n) > 0) then
+      msk(cell_points(n)) = true
+    end if
+  end do
+  loc_n_my_output_pts = count(msk)
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,ierr,error_message)
+  write (iout,41) loc_n_my_output_pts
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
   !
   !###########################################################################
   !###########################################################################
@@ -1128,6 +2041,11 @@ continue
   allocate ( output_node_pts(1:nn) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_node_pts",1,ierr,error_message)
   !
+  cpu_subcells(:) = 0
+  !
+  ifc = 0
+  iec = 0
+  inc = 0
   !
   do nc = 1,ncell
     !
@@ -1141,6 +2059,19 @@ continue
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
+    !
+    ! Get the number of subcells for this cell geometry at this order.
+    ! The number of subcells is basically:
+    !     (this_order+2)**(spatial dimension of this_geom)
+    !
+    this_subcells = (this_order+2)**geom_dimen(this_geom)
+    !
+    ! Add the number of subcells for this cell geometry to the running
+    ! count of total number of output subcells for this processor
+    !
+    cpu_subcells(mypnum+1) = cpu_subcells(mypnum+1) + this_subcells
+    !
+    ! Get the beginning and ending indices for the output point indices
     !
     nop1 = cell_points_ptr(nc)+1
     nop2 = cell_points_ptr(nc+1)
@@ -1181,7 +2112,6 @@ continue
     !
     ! Get the output point indices for the face points of this cell    
     !
-    ifc = 0
     create_output_face_pts: do n = 1,size(cell(nc)%face)
       !
       nf = cell(nc)%face(n)%idx
@@ -1222,11 +2152,15 @@ continue
         !
       end do
       !
+     !if (any(n == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+     !  output_face_pts(ifc)%out_idx = &
+     !                transpose_face(output_face_pts(ifc)%out_idx)
+     !end if
+      !
     end do create_output_face_pts
     !
     ! Get the output point indices for the edge points of this cell    
     !
-    iec = 0
     create_output_edge_pts: do n = 1,size(cell(nc)%edge)
       !
       ne = cell(nc)%edge(n)%idx
@@ -1271,7 +2205,6 @@ continue
     !
     ! Get the output point indices for the nodes of this cell    
     !
-    inc = 0
     create_output_node_pts: do n = 1,size(cell(nc)%node)
       !
       nn = cell(nc)%node(n)%idx
@@ -1352,6 +2285,176 @@ continue
     !
   end if
   !
+  ! Count the updated total number of output points for this processor
+  !
+  cpu_mxpts(:) = 0
+  cpu_mxpts(mypnum+1) = size(output_sol_pts) + size(output_node_pts)
+  do n = 1,size(output_face_pts)
+    cpu_mxpts(mypnum+1) = cpu_mxpts(mypnum+1) + size(output_face_pts(n)%out_idx)
+  end do
+  do n = 1,size(output_edge_pts)
+    cpu_mxpts(mypnum+1) = cpu_mxpts(mypnum+1) + size(output_edge_pts(n)%out_idx)
+  end do
+  !
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  n_my_output_pts = cpu_mxpts(mypnum+1)
+  write (iout,42) n_my_output_pts
+  n_my_output_cells = cpu_subcells(mypnum+1)
+  write (iout,43) n_my_output_cells
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  !
+  ! Collect the updated total number of output points
+  ! and subcells from all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                       cpu_mxpts,1_int_mpi,mpi_inttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                       cpu_subcells,1_int_mpi,mpi_inttyp, &
+                       MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  my_pts_beg = sum( cpu_mxpts(1:mypnum) ) + 1
+  my_pts_end = sum( cpu_mxpts(1:mypnum+1) )
+  !
+  my_cells_beg = sum( cpu_subcells(1:mypnum) ) + 1
+  my_cells_end = sum( cpu_subcells(1:mypnum+1) )
+  !
+  n_total_output_pts = sum( cpu_mxpts )
+  n_total_output_cells = sum( cpu_subcells )
+  !
+  ! Save n_total_output_pts and n_total_output_cells to zone_size
+  !
+  zone_size = [n_total_output_pts,n_total_output_cells,0]
+  !
+  ! n_my_output_pts: number of output points for this processor
+  !
+  n_my_output_pts = my_pts_end - my_pts_beg + 1
+  !
+  ! n_my_output_cells: number of output cell for this processor
+  !
+  n_my_output_cells = my_cells_end - my_cells_beg + 1
+  !
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  write (iout,44) n_my_output_pts
+  write (iout,45) n_my_output_cells
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  ! TEMPORARY DEBUG STUFF
+  !
+  !#######################################################
+  !#######################################################
+  !###                                                 ###
+  !###  9.                                             ###
+  !###                                                 ###
+  !#######################################################
+  !#######################################################
+  !
+  np = 2**nr
+  !
+  ! Create the connectivity array
+  !
+  if (allocated(ipelem)) then
+    deallocate ( ipelem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem",2,ierr,error_message)
+  end if
+  !
+  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipelem",1,ierr,error_message)
+  !
+  if (postproc_debug_grid .and. ncpu == 1) then
+    if (mod(n_my_output_cells,ncell) == 0) then
+      n = n_my_output_cells / ncell
+      allocate ( ipelem_of_cells(1:np,1:n,1:ncell) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipelem_of_cells",1,ierr,error_message)
+    else
+      write (error_message,'(a)') &
+            "n_my_output_cells should be a multiple of ncell!"
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+  end if
+  !
+  allocate ( rev_pts(1:size(cell_pts)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rev_pts",1,ierr,error_message)
+  !
+  inc = 0
+  !
+  do nc = 1,ncell
+    !
+    rev_pts(:) = 0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    nop1 = cell_points_ptr(nc)+1
+    nop2 = cell_points_ptr(nc+1)
+    nop  = nop2-nop1+1
+    !
+    ! Any points in this cell that another processor is responsible for
+    ! will be identified with a negative value in cell_points, so take
+    ! the absolute value of cell_points so that the subcell connectivities
+    ! are correct when stored in ipelem.
+    !
+    cell_pts(1:nop) = abs( cell_points(nop1:nop2) )
+    !
+    ! Total number of solution points for this cell
+    !
+    nsp = size( map(this_geom,this_order)%sp )
+    !
+    ! Find the total number of face points for this cell and create the
+    ! map from the face point lf to the correct location in cell_pts
+    !
+    nfp = size( map(this_geom,this_order)%fp )
+    !
+    face_pt(1:nfp) = nsp + intseq(1,nfp)
+    !
+    ! Find the total number of edge points for this cell and create the
+    ! map from the edge point lf to the correct location in cell_pts
+    !
+    nep = size( map(this_geom,this_order)%ep )
+    !
+    edge_pt(1:nep) = nsp + nfp + intseq(1,nep)
+    !
+    ! Find the total number of node points for this cell and create the
+    ! map from the node point lf to the correct location in cell_pts
+    !
+    nnp = size( map(this_geom,this_order)%np )
+    !
+    node_pt(1:nnp) = nsp + nfp + nep + intseq(1,nnp)
+    !
+    rev_pts(map(this_geom,this_order)%sp+1) = cell_pts(1:nsp)
+    rev_pts(map(this_geom,this_order)%fp+1) = cell_pts(face_pt(1:nfp))
+    rev_pts(map(this_geom,this_order)%ep+1) = cell_pts(edge_pt(1:nep))
+    rev_pts(map(this_geom,this_order)%np+1) = cell_pts(node_pt(1:nnp))
+    !
+    ! Loop through the number of subcells for this cell and get the
+    ! connectivity for each one using the output indices in cell_pts
+    !
+    do n = 1,size(pst_geom(this_geom,this_order)%connectivity,dim=2)
+      !
+      inc = inc + 1
+      !
+      ipelem(:,inc) = rev_pts(pst_geom(this_geom,this_order)% &
+                                           connectivity(:,n) + 1)
+      if (allocated(ipelem_of_cells)) then
+        ipelem_of_cells(:,n,nc) = rev_pts(pst_geom(this_geom,this_order)% &
+                                             connectivity(:,n) + 1)
+      end if
+      !
+    end do
+    !
+  end do
+  !
   !#######################################################
   !#######################################################
   !###                                                 ###
@@ -1410,6 +2513,11 @@ continue
     call alloc_error(pname,"node_pt",2,ierr,error_message)
   end if
   !
+  if (allocated(rev_pts)) then
+    deallocate ( rev_pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rev_pts",2,ierr,error_message)
+  end if
+  !
   ! Format Statements
   !
   1  format ("output_",a,"_pts(",i0,")%out_idx")
@@ -1421,8 +2529,38 @@ continue
   22 format (4x,"on CPU ",i0," : ",i0," missed ",a)
   23 format ("There appears to be faces, edges, or nodes, that were not ", &
              "found and saved on a processor!")
+  31 format (60("-"),/, &
+             " (31) CPU-",i0," : minval(remaining_pts)     = ",i0)
+  32 format (" (32) CPU-",i0," : maxval(remaining_pts)     = ",i0)
+  33 format (" (33) CPU-",i0," : maxval - minval + 1       = ",i0)
+  34 format (" (34) CPU-",i0," : count(remaining_pts /= 0) = ",i0)
+  35 format (" (35) CPU-",i0," : loc_n_my_pts_beg          = ",i0)
+  36 format (" (36) CPU-",i0," : loc_n_my_pts_end          = ",i0)
+  37 format (" (37) CPU-",i0," : loc_n_my_output_pts       = ",i0)
+  38 format (60("-"))
+  40 format (" (40) Correct value : loc_n_my_output_pts   = ",i0)
+  41 format (" (41) Using msk: loc_n_my_output_pts        = ",i0)
+  42 format (" (42) Using cpu_mxpts: n_my_output_pts      = ",i0)
+  43 format (" (43) Using cpu_subcells: n_my_output_cells = ",i0)
+  44 format (" (44) Final n_my_output_pts                 = ",i0)
+  45 format (" (45) Final n_my_output_cells               = ",i0)
   !
-end subroutine collect_cell_subconnectivity
+  100 format (1x,a,i0)
+  !
+end subroutine create_cell_subconnectivity
+!
+!###############################################################################
+!
+pure function transpose_face(face_pts) result(return_value)
+  integer, dimension(:), intent(in) :: face_pts
+  integer, dimension(1:size(face_pts)) :: return_value
+  integer :: np1d
+continue
+  np1d = nint( sqrt(real(size(face_pts),kind=wp)) )
+  return_value = reshape( &
+                   transpose( reshape(face_pts,[np1d,np1d]) ) , &
+                   shape(face_pts) )
+end function transpose_face
 !
 !###############################################################################
 !
@@ -1441,7 +2579,7 @@ end function plot_func_type_equals
 !
 !###############################################################################
 !
-pure function compute_output_variable(upt,dupt) result(return_value)
+pure function compute_output_variables(upt,dupt) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:),   intent(in) :: upt
@@ -1456,128 +2594,227 @@ pure function compute_output_variable(upt,dupt) result(return_value)
 continue
   !
   do i = 1,size(plot_var)
-    !
-    if (plot_var(i) == plot_static_density) then
-      !
-      return_value(i) = upt(nec)
-      !
-    else if (plot_var(i) == plot_velocity_x) then
-      !
-      return_value(i) = upt(nmx) / upt(nec)
-      !
-    else if (plot_var(i) == plot_velocity_y) then
-      !
-      return_value(i) = upt(nmy) / upt(nec)
-      !
-    else if (plot_var(i) == plot_velocity_z) then
-      !
-      return_value(i) = upt(nmz) / upt(nec)
-      !
-    else if (plot_var(i) == plot_momentum_x) then
-      !
-      return_value(i) = upt(nmx)
-      !
-    else if (plot_var(i) == plot_momentum_y) then
-      !
-      return_value(i) = upt(nmy)
-      !
-    else if (plot_var(i) == plot_momentum_z) then
-      !
-      return_value(i) = upt(nmz)
-      !
-    else if (plot_var(i) == plot_static_pressure) then
-      !
-      return_value(i) = pressure_cv_sp( upt )
-      !
-    else if (plot_var(i) == plot_static_temperature) then
-      !
-      return_value(i) = temperature_cv_sp( upt )
-      !
-    else if (plot_var(i) == plot_mach_number) then
-      !
-      return_value(i) = mach_number_cv_sp( upt )
-      !
-    else if (plot_var(i) == plot_entropy) then
-      !
-      return_value(i) = entropy_cv_sp( upt )
-      !
-    else if (plot_var(i) == plot_vorticity_x) then
-      !
-      return_value(i) = vorticity_dusp( upt , dupt , 1 )
-      !
-    else if (plot_var(i) == plot_vorticity_y) then
-      !
-      return_value(i) = vorticity_dusp( upt , dupt , 2 )
-      !
-    else if (plot_var(i) == plot_vorticity_z) then
-      !
-      return_value(i) = vorticity_dusp( upt , dupt , 3 )
-      !
-    else if (plot_var(i) == plot_grad_density(1)) then
-      !
-      return_value(i) = dupt(1,nec)
-      !
-    else if (plot_var(i) == plot_grad_density(2)) then
-      !
-      return_value(i) = dupt(2,nec)
-      !
-    else if (plot_var(i) == plot_grad_density(3)) then
-      !
-      return_value(i) = dupt(3,nec)
-      !
-    else if (plot_var(i) == plot_grad_momentum_x(1)) then
-      !
-      return_value(i) = dupt(1,nmx)
-      !
-    else if (plot_var(i) == plot_grad_momentum_x(2)) then
-      !
-      return_value(i) = dupt(2,nmx)
-      !
-    else if (plot_var(i) == plot_grad_momentum_x(3)) then
-      !
-      return_value(i) = dupt(3,nmx)
-      !
-    else if (plot_var(i) == plot_grad_momentum_y(1)) then
-      !
-      return_value(i) = dupt(1,nmy)
-      !
-    else if (plot_var(i) == plot_grad_momentum_y(2)) then
-      !
-      return_value(i) = dupt(2,nmy)
-      !
-    else if (plot_var(i) == plot_grad_momentum_y(3)) then
-      !
-      return_value(i) = dupt(3,nmy)
-      !
-    else if (plot_var(i) == plot_grad_momentum_z(1)) then
-      !
-      return_value(i) = dupt(1,nmz)
-      !
-    else if (plot_var(i) == plot_grad_momentum_z(2)) then
-      !
-      return_value(i) = dupt(2,nmz)
-      !
-    else if (plot_var(i) == plot_grad_momentum_z(3)) then
-      !
-      return_value(i) = dupt(3,nmz)
-      !
-    else if (plot_var(i) == plot_grad_energy(1)) then
-      !
-      return_value(i) = dupt(1,nee)
-      !
-    else if (plot_var(i) == plot_grad_energy(2)) then
-      !
-      return_value(i) = dupt(2,nee)
-      !
-    else if (plot_var(i) == plot_grad_energy(3)) then
-      !
-      return_value(i) = dupt(3,nee)
-      !
-    end if
-    !
+    return_value(i) = compute_output_variable(upt,dupt,plot_var(i))
   end do
   !
+end function compute_output_variables
+!
+!###############################################################################
+!
+pure function compute_output_variable(upt,dupt,plot_variable) &
+                               result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : rhoref,aref,tref,time_ref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:),   intent(in) :: upt
+  real(wp), dimension(:,:), intent(in) :: dupt
+  type(plot_func_t),        intent(in) :: plot_variable
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  if (plot_variable == plot_static_density) then
+    !
+    return_value = upt(nec)                           * rhoref
+    !
+  else if (plot_variable == plot_velocity_x) then
+    !
+    return_value = upt(nmx) / upt(nec)                * aref
+    !
+  else if (plot_variable == plot_velocity_y) then
+    !
+    return_value = upt(nmy) / upt(nec)                * aref
+    !
+  else if (plot_variable == plot_velocity_z) then
+    !
+    return_value = upt(nmz) / upt(nec)                * aref
+    !
+  else if (plot_variable == plot_momentum_x) then
+    !
+    return_value = upt(nmx)                           * rhoref * aref
+    !
+  else if (plot_variable == plot_momentum_y) then
+    !
+    return_value = upt(nmy)                           * rhoref * aref
+    !
+  else if (plot_variable == plot_momentum_z) then
+    !
+    return_value = upt(nmz)                           * rhoref * aref
+    !
+  else if (plot_variable == plot_static_pressure) then
+    !
+    return_value = pressure_cv_sp( upt )              * rhoref * aref * aref
+    !
+  else if (plot_variable == plot_static_temperature) then
+    !
+    return_value = temperature_cv_sp( upt )           * tref
+    !
+  else if (plot_variable == plot_total_energy) then
+    !
+    return_value = upt(nee)                           * rhoref * aref * aref
+    !
+  else if (plot_variable == plot_mach_number) then
+    !
+    return_value = mach_number_cv_sp( upt )
+    !
+  else if (plot_variable == plot_entropy) then
+    !
+    return_value = entropy_cv_sp( upt )
+    !
+  else if (plot_variable == plot_vorticity_x) then
+    !
+    return_value = vorticity_dusp( upt , dupt , 1 )   / time_ref
+    !
+  else if (plot_variable == plot_vorticity_y) then
+    !
+    return_value = vorticity_dusp( upt , dupt , 2 )   / time_ref
+    !
+  else if (plot_variable == plot_vorticity_z) then
+    !
+    return_value = vorticity_dusp( upt , dupt , 3 )   / time_ref
+    !
+  else if (plot_variable == plot_grad_density(1)) then
+    !
+    return_value = dupt(1,nec)                        * rhoref
+    !
+  else if (plot_variable == plot_grad_density(2)) then
+    !
+    return_value = dupt(2,nec)                        * rhoref
+    !
+  else if (plot_variable == plot_grad_density(3)) then
+    !
+    return_value = dupt(3,nec)                        * rhoref
+    !
+  else if (plot_variable == plot_grad_momentum_x(1)) then
+    !
+    return_value = dupt(1,nmx)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_x(2)) then
+    !
+    return_value = dupt(2,nmx)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_x(3)) then
+    !
+    return_value = dupt(3,nmx)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_y(1)) then
+    !
+    return_value = dupt(1,nmy)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_y(2)) then
+    !
+    return_value = dupt(2,nmy)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_y(3)) then
+    !
+    return_value = dupt(3,nmy)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_z(1)) then
+    !
+    return_value = dupt(1,nmz)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_z(2)) then
+    !
+    return_value = dupt(2,nmz)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_momentum_z(3)) then
+    !
+    return_value = dupt(3,nmz)                        * rhoref * aref
+    !
+  else if (plot_variable == plot_grad_energy(1)) then
+    !
+    return_value = dupt(1,nee)                        * rhoref * aref * aref
+    !
+  else if (plot_variable == plot_grad_energy(2)) then
+    !
+    return_value = dupt(2,nee)                        * rhoref * aref * aref
+    !
+  else if (plot_variable == plot_grad_energy(3)) then
+    !
+    return_value = dupt(3,nee)                        * rhoref * aref * aref
+    !
+  end if
+  !
 end function compute_output_variable
+!
+!###############################################################################
+!
+elemental subroutine get_function_name(this)
+  !
+  !.. Formal Arguments ..
+  class(plot_func_t), intent(inout) :: this
+  !
+continue
+  !
+  if (this == plot_static_density) then
+    this%varname = "Density"
+  else if (this == plot_velocity_x) then
+    this%varname = "VelocityX"
+  else if (this == plot_velocity_y) then
+    this%varname = "VelocityY"
+  else if (this == plot_velocity_z) then
+    this%varname = "VelocityZ"
+  else if (this == plot_momentum_x) then
+    this%varname = "MomentumX"
+  else if (this == plot_momentum_y) then
+    this%varname = "MomentumY"
+  else if (this == plot_momentum_z) then
+    this%varname = "MomentumZ"
+  else if (this == plot_static_pressure) then
+    this%varname = "Pressure"
+  else if (this == plot_static_temperature) then
+    this%varname = "Temperature"
+  else if (this == plot_total_energy) then
+    this%varname = "EnergyStagnationDensity"
+  else if (this == plot_mach_number) then
+    this%varname = "Mach"
+  else if (this == plot_entropy) then
+    this%varname = "Entropy"
+  else if (this == plot_vorticity_x) then
+    this%varname = "VorticityX"
+  else if (this == plot_vorticity_y) then
+    this%varname = "VorticityY"
+  else if (this == plot_vorticity_z) then
+    this%varname = "VorticityZ"
+  else if (this == plot_grad_density(1)) then
+    this%varname = "DensityGradientX"
+  else if (this == plot_grad_density(2)) then
+    this%varname = "DensityGradientY"
+  else if (this == plot_grad_density(3)) then
+    this%varname = "DensityGradientZ"
+  else if (this == plot_grad_momentum_x(1)) then
+    this%varname = "MomentumXGradientX"
+  else if (this == plot_grad_momentum_x(2)) then
+    this%varname = "MomentumXGradientY"
+  else if (this == plot_grad_momentum_x(3)) then
+    this%varname = "MomentumXGradientZ"
+  else if (this == plot_grad_momentum_y(1)) then
+    this%varname = "MomentumYGradientX"
+  else if (this == plot_grad_momentum_y(2)) then
+    this%varname = "MomentumYGradientY"
+  else if (this == plot_grad_momentum_y(3)) then
+    this%varname = "MomentumYGradientZ"
+  else if (this == plot_grad_momentum_z(1)) then
+    this%varname = "MomentumZGradientX"
+  else if (this == plot_grad_momentum_z(2)) then
+    this%varname = "MomentumZGradientY"
+  else if (this == plot_grad_momentum_z(3)) then
+    this%varname = "MomentumZGradientZ"
+  else if (this == plot_grad_energy(1)) then
+    this%varname = "EnergyGradientX"
+  else if (this == plot_grad_energy(2)) then
+    this%varname = "EnergyGradientY"
+  else if (this == plot_grad_energy(3)) then
+    this%varname = "EnergyGradientZ"
+  end if
+  !
+  this%varname = trim(adjustl(this%varname))
+  !
+end subroutine get_function_name
 !
 !###############################################################################
 !
@@ -1591,7 +2828,9 @@ subroutine get_plot_functions
   !
 continue
   !
-  allocate ( plot_var(1:20) , stat=ierr , errmsg=error_message )
+  npvar = 20
+  !
+  allocate ( plot_var(1:npvar) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"plot_var",1,ierr,error_message)
   !
   plot_var = [ plot_static_density, &
@@ -1605,6 +2844,15 @@ continue
                plot_grad_momentum_z, &
                plot_grad_energy ]
   !
+  ! Get the name for each of the functions that will be plotted
+  !
+  call plot_var%get_function_name
+  !
+  ! Allocate the index array for the CGNS field solutions
+  !
+  allocate ( isvar_s(1:npvar) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"isvar_s",1,ierr,error_message)
+  !
 end subroutine get_plot_functions
 !
 !###############################################################################
@@ -1612,12 +2860,16 @@ end subroutine get_plot_functions
 subroutine map_to_output_points(this_geom,this_order,map)
   !
   !.. Formal Arguments ..
-  integer,            intent(in) :: this_geom
-  integer,            intent(in) :: this_order
-  type(pnt_map_t), intent(inout) :: map
+  integer,                 intent(in) :: this_geom
+  integer,                 intent(in) :: this_order
+  type(geom_pnt_map_t), intent(inout) :: map
   !
   !.. Local Scalars ..
   integer :: ne,nf,nep,nfp,nnp,nsp,ierr
+  integer :: i,j,k,l,m,n,np1d,np2d,nt1d,nt2d
+  !
+  integer, dimension(1:2,1:this_order+1,1:12) :: edge_values
+  integer, dimension(1:2,1:(this_order+1)**2,1:6) :: face_values
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "map_to_output_points"
@@ -1728,11 +2980,75 @@ continue
   map%ep = map%ep - 1
   map%np = map%np - 1
   !
+  np1d = this_order+1
+  np2d = np1d*np1d
+  nt1d = np1d + 2
+  nt2d = nt1d*nt1d
+  !
+  edge_values = 0
+  face_values = 0
+  !
+  l = 0
+  do n = 1,size(face_values,dim=3)
+    do m = 1,size(face_values,dim=2)
+      l = l + 1
+      face_values(:,m,n) = [l,map%fp(l)+1]
+    end do
+  end do
+  !
+  do n = 1,2
+    write (iout,14) (j,j=3*n-2,3*n)
+    do m = 1,np2d
+      write (iout,15) ((face_values(i,m,j), i=1,2), j=3*n-2,3*n)
+    end do
+  end do
+  !
+  write (iout,21)
+  do l = 1,size(map%np)
+    write (iout,22) l,map%np(l)+1
+  end do
+  !
+  l = 0
+  do n = 1,size(edge_values,dim=3)
+    do m = 1,size(edge_values,dim=2)
+      l = l + 1
+      edge_values(:,m,n) = [l,map%ep(l)+1]
+    end do
+  end do
+  !
+  do n = 1,4
+    write (iout,35) (j,j=3*n-2,3*n)
+    do m = 1,np1d
+      write (iout,36) ((edge_values(i,m,j), i=1,2), j=3*n-2,3*n)
+    end do
+  end do
+  !
+  write (iout,41)
+  l = 0
+  do k = 2,np1d+1
+    write (iout,42) k-1
+    do j = 2,np1d+1
+      write (iout,43) j-1, (l+i, i=1,np1d), &
+                         ((k-1)*nt2d+(j-1)*nt1d+i, i=2,np1d+1), &
+                         (map%sp(l+i)+1, i=1,np1d)
+      l = l + np1d
+    end do
+  end do
+  !
   ! Format Statements
   !
   1 format ("ERROR! Encountered invalid geometry when trying to compute ", &
             "the arrays to map local point indices to the corresponding ", &
             "output indices.")
+  14 format (/,3(2x,"Face",i2,:,17x))
+  15 format (3(4x,"fp",i4," =>",i4,:,4x))
+  21 format (//,"  Nodes")
+  22 format ("    np ",i2," =>",2(1x,i3),";  [i,j,k] = [",i0,",",i0,",",i0,"]")
+  35 format (/,3(2x,"Edge",i2,:,17x))
+  36 format (3(4x,"ep",i4," =>",i4,:,4x))
+  41 format (//,"  Solution Points")
+  42 format (" SP  k = ",i0)
+  43 format (7x,"j = ",i0,3x,<np1d>i3,3x,<np1d>i4,3x,<np1d>i4)
   !
 end subroutine map_to_output_points
 !
@@ -1834,7 +3150,7 @@ pure function get_hexa_face_indices(order) result(return_value)
   integer :: i,ip,iexp,istride
   integer :: j,jp,jexp,jstride
   integer :: k,kp,kexp,kstride
-  integer :: l,nf,np1d,nt1d
+  integer :: l,l1,l2,nf,np1d,nt1d
   !
   !.. Local Parameters ..
   integer, parameter :: dx = 0 ! The i/x/xi   direction
@@ -1849,7 +3165,7 @@ pure function get_hexa_face_indices(order) result(return_value)
   !
   integer, parameter :: fexp(2,6) = reshape( [dy,dx, dx,dy, &
                                               dy,dz, dz,dy, &
-                                              dy,dz, dz,dx], shape(fexp) )
+                                              dx,dz, dz,dx], shape(fexp) )
   !
 continue
   !
@@ -1860,6 +3176,8 @@ continue
   !
   l = 0
   do nf = 1,6
+    !
+    l1 = l + 1
     !
     k = merge( 1 , nt1d , any(nf == [Xmin3D_Face,Ymin3D_Face,ZMin3D_Face]) )
     !
@@ -1880,6 +3198,12 @@ continue
         return_value(l) = kp + jp + ip + 1
       end do
     end do
+    !
+    l2 = l
+    !
+    if (any(nf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+      return_value(l1:l2) = transpose_face(return_value(l1:l2))
+    end if
     !
   end do
   !
@@ -2579,6 +3903,219 @@ continue
   return_value = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
   !
 end function vorticity_dusp
+!
+!###############################################################################
+!
+subroutine check_cgns_dir
+  !
+  !.. Use Statements ..
+  use ovar, only : output_dir
+  !
+  !.. Local Scalars ..
+  integer :: clen,ierr,iodir
+  integer :: exitstat,cmndstat
+  logical :: using_cgns_dir
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
+  character(len=200) :: test_file
+  character(len=200) :: test_dir
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_cgns_dir"
+  !
+  logical, parameter :: wait_for_completion = true
+  !
+continue
+  !
+  ! Initialize exitstat and cmndmsg
+  !
+  exitstat = 0
+  cmndmsg = ""
+  !
+  ! Try to open a file in the directory named CGNS_files
+  !
+  test_dir = trim(output_dir) // "CGNS_files/"
+  test_file = trim(test_dir) // "cgns_dir.test_file.dat"
+  !
+  ! Only perform the following tests using the root processor
+  ! to minimize contention and prevent each MPI process from
+  ! executing the same command.
+  !
+  if (mypnum == 0) then
+    !
+    open (newunit=iodir,file=trim(test_file),status="replace", &
+                        action="write",iostat=ierr)
+    !
+    if (ierr == 0) then
+      !
+      ! The open was successful, so close and delete the test file
+      !
+      close (iodir,status="delete",iostat=ierr)
+      !
+      ! Set the logical saying that we are using a separate CGNS directory
+      !
+      using_cgns_dir = true
+      cgns_dir = trim(test_dir)
+      !
+    else
+      !
+      ! The open failed, so more than likely the directory CGNS_files
+      ! doesnt exist. Try to use the intrinsic execute_command_line
+      ! to create the directory.
+      !
+      command = "mkdir -p "//trim(test_dir)
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      if (exitstat /= 0 .or. cmndstat /= 0) then
+        using_cgns_dir = fals
+        cgns_dir = trim(output_dir)
+      else
+        using_cgns_dir = true
+        cgns_dir = trim(test_dir)
+      end if
+      !
+    end if
+    !
+#ifdef PBS_ENV
+    !
+    ! If we are using a separate CGNS directory and we are running
+    ! this through PBS on NAS, try to modify the lfs striping for
+    ! the CGNS directory for better I/O performance.
+    !
+    if (using_cgns_dir) then
+      !
+      command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      ! We arent going to test the status of executing this command because
+      ! it worked or it didnt. Either way, we will continue on and output
+      ! the CGNS solution to the CGNS directory.
+      !
+    end if
+    !
+#endif
+    !
+  end if
+  !
+  ! Broadcast the value of cgns_dir to all the non-root MPI processes
+  !
+  clen = len_trim(cgns_dir)
+  !
+  call mpi_bcast(clen,1_int_mpi, &
+                 mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  !
+  call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi), &
+                 MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  !
+end subroutine check_cgns_dir
+!
+!###############################################################################
+!
+subroutine write_tecplot_file(xyz_pts,ipelem)
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: xyz_pts
+  integer,  dimension(:,:), intent(in) :: ipelem
+  !
+  !.. Local Scalars ..
+  integer :: l,n,nc,iotec,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_tecplot_file"
+  character(len=*), parameter :: fname = "postproc.tec.dat"
+  character(len=*), parameter :: cname = "postproc.cells.tec.dat"
+  !
+continue
+  !
+  open (newunit=iotec,file=fname,form="formatted",status="replace", &
+                      action="write",position="rewind",iostat=ierr)
+  call io_error(pname,fname,1,ierr)
+  !
+  write (iotec,1) size(xyz_pts,dim=2),size(ipelem,dim=2)
+  !
+  do l = 1,size(xyz_pts,dim=1)
+    write (iotec,2) (xyz_pts(l,n), n=1,size(xyz_pts,dim=2))
+  end do
+  !
+  do n = 1,size(ipelem,dim=2)
+    write (iotec,3) (ipelem(l,n), l=1,size(ipelem,dim=1))
+  end do
+  !
+  if (allocated(ipelem_of_cells)) then
+    !
+    do nc = 1,size(ipelem_of_cells,dim=3)
+      !
+      write (iotec,4) nc,size(xyz_pts,dim=2),size(ipelem_of_cells,dim=2)
+      !
+      do n = 1,size(ipelem_of_cells,dim=2)
+        write (iotec,3) (ipelem_of_cells(l,n,nc), &
+                                l=1,size(ipelem_of_cells,dim=1))
+      end do
+      !
+    end do
+    !
+    deallocate ( ipelem_of_cells , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipelem_of_cells",2,ierr,error_message)
+    !
+  end if
+  !
+  close (iotec,iostat=ierr)
+  call io_error(pname,fname,2,ierr)
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "X", "Y", "Z"',/, &
+            'ZONE T="Continuous Output", N=',i0,', E=',i0, &
+            ', DATAPACKING=BLOCK, ZONETYPE=FEBRICK')
+  2 format (5e18.10)
+  3 format (8i6)
+  4 format ('ZONE T="Grid Cell ',i0,'", N=',i0,', E=',i0, &
+            ', DATAPACKING=BLOCK, ZONETYPE=FEBRICK',/, &
+            'VARSHARELIST=([1-3]=1)')
+  !
+end subroutine write_tecplot_file
+!
+!###############################################################################
+!
+subroutine write_cell_points(iunit,nep,cell_points_ptr,cell_points)
+  !
+  !.. Formal Arguments ..
+  integer,            intent(inout) :: iunit
+  integer,               intent(in) :: nep
+  integer, dimension(:), intent(in) :: cell_points_ptr
+  integer, dimension(:), intent(in) :: cell_points
+  !
+  !.. Local Scalars ..
+  integer :: i,n,n1,n2
+  !
+continue
+  !
+  do n = 1,size(cell_points_ptr)-1
+    n1 = cell_points_ptr(n)+1
+    n2 = cell_points_ptr(n+1)
+    write (iunit,1) n,(cell_points(i),i=n1,n2)
+  end do
+  !
+  iunit = iunit + 1
+  !
+  ! Format Statements
+  !
+  1 format ("  CELL ",i0,/,60("-"),/, &
+            "Solution Points",/, &
+            <nep>(<nep>(<nep>i5,/),/),/, &
+            "Face Points",/, &
+                6(<nep>(<nep>i5,/),/),/, &
+            "Edge Points",/, &
+                     12(<nep>i5,/),/, &
+            "Node Points",/, &
+                            8i5,/, &
+            60("-"),/)
+  !
+end subroutine write_cell_points
 !
 !###############################################################################
 !
