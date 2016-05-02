@@ -138,7 +138,9 @@ time: $(OBJS)
 .PHONY: all
 all: Command-Beg := echo
 all: Command-End  = $(HighlightName); $(FC) $(FPP) $(FCFLAG) -c -o $@ $<
-all: $(OBJS)
+all: $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJS)
 	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 
