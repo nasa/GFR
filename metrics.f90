@@ -361,7 +361,7 @@ subroutine get_metrics()
   use ovar, only : using_curved_boundaries
   use ovar, only : use_3rd_derivative_metrics
   use ovar, only : use_advanced_face_metrics
-  use ovar, only : TaylorGreen_random_perturb
+  use ovar, only : VortexGrid_random_perturb
   !
   use order_mod, only : geom_solpts,maxSP
   !
@@ -410,7 +410,7 @@ subroutine get_metrics()
   !
 continue
   !
-  if (TaylorGreen_random_perturb) then
+  if (VortexGrid_random_perturb) then
     ibeg = 1
     iend = 2
   else

@@ -834,7 +834,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   use geovar, only : nr,ncell,cell
   use ovar, only : muref_nd,total_volume
   use ovar, only : time,time_ref
-  use ovar, only : TaylorGreen_DOF
+  use ovar, only : VortexGrid_DOF
   use ovar, only : iter_out_interval
   use flowvar, only : usp,dusp
   use interpolation_mod, only : outerp
@@ -971,14 +971,14 @@ continue
     !
     if (mypnum == 0) then
       !
-      nc = nint( real(TaylorGreen_DOF,kind=wp) / real(n_order+1,kind=wp) )
+      nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
       !
       open (newunit=iotg,file=fname,status="replace",action="write", &
             iostat=ierr,iomsg=error_message)
       call io_error(pname,fname,1,ierr,error_message)
       !
       write (iotg,1) n_order,nc*(n_order+1),n_order, &
-                     TaylorGreen_DOF,nc*(n_order+1)
+                     VortexGrid_DOF,nc*(n_order+1)
       !
     end if
     !

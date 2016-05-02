@@ -848,7 +848,7 @@ subroutine read_grid_file()
   use module_plot3d,  only : read_plot3d_gridfile
   use quadrature_mod, only : find_valid_geometries
   use ovar,           only : use_bc_conflicts
-  use ovar,           only : itestcase,TaylorGreen_DOF
+  use ovar,           only : itestcase,VortexGrid_DOF
   use ovar,           only : postproc_debug_grid
   !
   ! Routine that uses the variable grid_format to choose
@@ -859,7 +859,7 @@ continue
   call memory_pause("reading input file","reading grid file")
   if (postproc_debug_grid) then
     call create_postproc_debug_grid
-  else if (itestcase == Taylor_Green_Vortex .and. TaylorGreen_DOF > 0) then
+  else if (itestcase == Taylor_Green_Vortex .and. VortexGrid_DOF > 0) then
     call create_TaylorGreenVortex_grid
   else if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
@@ -1212,9 +1212,9 @@ subroutine create_TaylorGreenVortex_grid()
   !
   !.. Use Statements ..
   use order_mod, only : n_order
-  use ovar,      only : TaylorGreen_DOF,Lref
-  use ovar,      only : TaylorGreen_random_perturb
-  use ovar,      only : TaylorGreen_perturb_percent
+  use ovar,      only : VortexGrid_DOF,Lref
+  use ovar,      only : VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_perturb_percent
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
@@ -1243,7 +1243,7 @@ continue
   !
   ! Estimate the number of cells required to get the requested DOF
   !
-  nc = nint( real(TaylorGreen_DOF,kind=wp) / real(n_order+1,kind=wp) )
+  nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
   !
   np = nc + 1 ! number of grid nodes in each direction
   !
@@ -1320,13 +1320,13 @@ continue
   !
   ! Compute the random perturbations if the flag was set on input
   !
-  if (TaylorGreen_random_perturb) then
+  if (VortexGrid_random_perturb) then
     !
-    rbas = dl * real(abs(TaylorGreen_perturb_percent),kind=r4) &
+    rbas = dl * real(abs(VortexGrid_perturb_percent),kind=r4) &
               / real(100,kind=r4)
     radj = rbas / real(2,kind=r4)
     !
-    if (TaylorGreen_perturb_percent < 0) then
+    if (VortexGrid_perturb_percent < 0) then
       !
       ! Randomly perturb the crap out of everything
       !
@@ -1562,8 +1562,8 @@ subroutine create_postproc_debug_grid
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
-  use ovar,      only : TaylorGreen_random_perturb
-  use ovar,      only : TaylorGreen_perturb_percent
+  use ovar,      only : VortexGrid_random_perturb
+  use ovar,      only : VortexGrid_perturb_percent
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n
@@ -1705,7 +1705,7 @@ continue
     !
     ! Randomize the node ordering for all cells
     !
-    if (TaylorGreen_random_perturb) then
+    if (VortexGrid_random_perturb) then
       !
       ! Create a copy of nodes_of_cell before it is randomized
       !
@@ -1741,11 +1741,11 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"perturb",1,ierr,error_message)
     !
-    if (TaylorGreen_random_perturb) then
+    if (VortexGrid_random_perturb) then
       !
       ! Compute the random perturbations of the interior node coordinates
       !
-      rbas = real(abs(TaylorGreen_perturb_percent),kind=r4) / real(100,kind=r4)
+      rbas = real(abs(VortexGrid_perturb_percent),kind=r4) / real(100,kind=r4)
       radj = rbas / real(2,kind=r4)
       !
       ! Randomly perturb the crap out of everything
@@ -1831,7 +1831,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (TaylorGreen_random_perturb) then
+        if (VortexGrid_random_perturb) then
           !
           ! ******************
           ! *** X-Min Face ***
@@ -1949,7 +1949,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (TaylorGreen_random_perturb) then
+        if (VortexGrid_random_perturb) then
           !
           ! ******************
           ! *** Y-Min Face ***
@@ -2067,7 +2067,7 @@ continue
         no_min = 0
         no_max = 0
         !
-        if (TaylorGreen_random_perturb) then
+        if (VortexGrid_random_perturb) then
           !
           ! ******************
           ! *** Z-Min Face ***
@@ -5157,7 +5157,7 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
                                               ipelem)
   !
   !.. Use Statements ..
-  use ovar, only : Lref,TaylorGreen_DOF
+  use ovar, only : Lref,VortexGrid_DOF
   use geovar, only : nfbnd,face
   use geovar, only : xyz_nodes,pst_geom
   use order_mod, only : geom_solpts,n_order
@@ -5198,7 +5198,7 @@ continue
   ! percentage of the cell height to use a limit to identify boundary
   ! faces within the grid region of interest
   !
-  cell_dx = two * LPI / anint( real(TaylorGreen_DOF,kind=wp) / &
+  cell_dx = two * LPI / anint( real(VortexGrid_DOF,kind=wp) / &
                                real(n_order+1,kind=wp) , kind=wp )
   dx_eps = cell_dx * eps3 / ten
   !
