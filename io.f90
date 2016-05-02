@@ -2240,6 +2240,182 @@ end subroutine create_postproc_debug_grid
 !
 !###############################################################################
 !
+subroutine tecplot_rotations(node_order)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:,:), intent(in) :: node_order
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,n,nn,m,ierr,iotec
+  !
+  !.. Local Arrays ..
+  integer, dimension(3,8) :: coord
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "tecplot_rotations"
+  character(len=*), parameter :: fname = "rotations.tec.dat"
+  !
+  integer, parameter :: base(3,8) = reshape( [0,0,0, 1,0,0, 1,1,0, 0,1,0, &
+                                              0,0,1, 1,0,1, 1,1,1, 0,1,1] , &
+                                             shape(base) )
+  !
+continue
+  !
+  open (newunit=iotec,file=fname,status="replace",action="write", &
+                      form="formatted",position="rewind", &
+                      iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,ierr,error_message)
+  !
+  write (iotec,1)
+  !
+  do nn = 1,size(node_order,dim=2)
+    !
+    j = (nn-1)/4
+    i = mod(nn+3,4)
+    !
+    coord = base
+    coord(1,:) = coord(1,:) + 2*i
+    coord(3,:) = coord(3,:) + 2*j
+    !
+    write (iotec,2) nn
+    do k = 1,size(coord,dim=2)
+      write (iotec,4) (base(l,node_order(k,nn)), l=1,size(coord,dim=1)), &
+                      node_order(k,nn), k
+    end do
+   !write (iotec,4) (node_order(k,nn), k=1,size(node_order,dim=1))
+    write (iotec,4) (k, k=1,size(node_order,dim=1))
+    !
+    write (iotec,3) "r",nn,4*(nn-1)+1
+    write (iotec,4) node_order(1,nn),node_order(2,nn)
+    write (iotec,3) "s",nn,4*(nn-1)+1
+    write (iotec,4) node_order(1,nn),node_order(4,nn)
+    write (iotec,3) "t",nn,4*(nn-1)+1
+    write (iotec,4) node_order(1,nn),node_order(5,nn)
+    !
+  end do
+  !
+  close (iotec,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format('VARIABLES = "X", "Y", "Z", "Node", "Index"')
+  2 format('ZONE T="Rotation ',i0,'", N=8, E=1, ', &
+           'DATAPACKING=POINT, ZONETYPE=FEBRICK')
+  3 format('ZONE T="',a,' - R(',i0,')", N=8, E=1, ', &
+           'DATAPACKING=POINT, ZONETYPE=FELINESEG',/, &
+           'VARSHARELIST=([1-5]=',i0,')')
+  4 format(*(1x,i0))
+  !
+end subroutine tecplot_rotations
+!
+!###############################################################################
+!
+subroutine tecplot_cell_rotations(nodes_of_cell_ptr,nodes_of_cell, &
+                                  old_noc,xyz_nodes,rotation,node_order)
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:),    intent(in) :: nodes_of_cell_ptr
+  integer, dimension(:),    intent(in) :: nodes_of_cell
+  integer, dimension(:),    intent(in) :: old_noc
+  integer, dimension(:,:),  intent(in) :: node_order
+  real(wp), dimension(:,:), intent(in) :: xyz_nodes
+  integer, dimension(:),    intent(in) :: rotation
+  !
+  !.. Local Scalars ..
+  integer :: l,m,n,nc,ierr,iotec,n1,n2
+  !
+  !.. Local Arrays ..
+  integer, dimension(8) :: ip
+  integer, dimension(8) :: old_ip
+  integer, dimension(8) :: rev_rot
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "tecplot_cell_rotations"
+  character(len=*), parameter :: fname = "cell_rotations.tec.dat"
+  !
+continue
+  !
+  open (newunit=iotec,file=fname,status="replace",action="write", &
+                      form="formatted",position="rewind", &
+                      iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,ierr,error_message)
+  !
+  write (iotec,1)
+  !
+  write (iotec,6) size(xyz_nodes,dim=2),size(rotation)
+  !
+  do n = 1,size(xyz_nodes,dim=2)
+    write (iotec,4) (nint(xyz_nodes(l,n)), l=1,size(xyz_nodes,dim=1)), &
+                    n,n,n
+  end do
+  !
+  do nc = 1,size(nodes_of_cell_ptr)-1
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    write (iotec,5) (old_noc(n), n=n1,n2)
+  end do
+  !
+  do nc = 1,size(nodes_of_cell_ptr)-1
+    !
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    !
+    ip = nodes_of_cell(n1:n2)
+    old_ip = old_noc(n1:n2)
+    !
+    write (iotec,2) nc,rotation(nc)
+    !
+    rev_rot(node_order(:,rotation(nc))+1) = intseq(1,8)
+    !
+    do n = 1,8
+      !
+     !write (iotec,4) (nint(xyz_nodes(l,old_ip(n))), l=1,size(xyz_nodes,dim=1)), &
+     !                ip(n),old_ip(n),node_order(n,rotation(nc))+1
+      write (iotec,4) (nint(xyz_nodes(l,ip(n))), l=1,size(xyz_nodes,dim=1)), &
+                      n, ip(n), rev_rot(n)
+      !               
+    end do
+    !
+   !write (iotec,5) (node_order(n,rotation(nc))+1, n=1,8)
+    write (iotec,5) (n, n=1,8)
+    !
+    write (iotec,3) "r",nc,4*(nc-1)+2
+    write (iotec,5) 1,2
+   !write (iotec,5) rev_rot(1),rev_rot(2)
+   !write (iotec,5) node_order(1,rotation(nc))+1,node_order(2,rotation(nc))+1
+    write (iotec,3) "s",nc,4*(nc-1)+2
+    write (iotec,5) 1,4
+   !write (iotec,5) rev_rot(1),rev_rot(4)
+   !write (iotec,5) node_order(1,rotation(nc))+1,node_order(4,rotation(nc))+1
+    write (iotec,3) "t",nc,4*(nc-1)+2
+    write (iotec,5) 1,5
+   !write (iotec,5) rev_rot(1),rev_rot(5)
+   !write (iotec,5) node_order(1,rotation(nc))+1,node_order(5,rotation(nc))+1
+    !
+  end do
+  !
+  !
+  close (iotec,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format('VARIABLES = "X", "Y", "Z", "NoC", "Original NoC", "Local Index"')
+  2 format('ZONE T="Cell ',i0,' - R(',i0,')", N=8, E=1, ', &
+           'DATAPACKING=POINT, ZONETYPE=FEBRICK')
+  3 format('ZONE T="',a,' - Cell ',i0,'", N=8, E=1, ', &
+           'DATAPACKING=POINT, ZONETYPE=FELINESEG',/, &
+           'VARSHARELIST=([1-6]=',i0,')')
+  4 format(3(1x,i0),2(1x,i3),1x,i0)
+  5 format(*(1x,i0))
+  6 format('ZONE T="Full Grid", N=',i0,', E=',i0,', ', &
+           'DATAPACKING=POINT, ZONETYPE=FEBRICK')
+  !
+end subroutine tecplot_cell_rotations
+!
+!###############################################################################
+!
 subroutine check_node_ordering()
   !
   !.. Use Statements ..
