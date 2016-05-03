@@ -9,6 +9,17 @@
 ################################################################################
 ################################################################################
 
+* The new continuous_output capability is now working in serial for a 3D grid
+  with only hexahedra elements, but just barely and still needs to be thoroughly
+  tested.
+   - The solution along the grid boundaries is not correct. These solutions
+     should only have contributions from the boundary face solutions and needs
+     to incorporate logic based on the BC heirarchy similar to bc_conflicts.
+   - Need to extend this capability to 2D grids/flows.
+      a) This will require deactivating everything relating to edges since
+         the edges are actually faces in 2D.
+   - Needs to be tested and debugged for running in parallel.
+
 * Make a correct fix to computing the time step size using the correct
   (n_order)**(-2) instead of the incorrect (n_order+1)**(-nr). Currently
   having to use a large CFL to work around this bug.
