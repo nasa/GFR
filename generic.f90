@@ -16,6 +16,9 @@ module generic_mod
   !
   character(len=100), save :: iter_out_fmt
   !
+  real(wp), save :: Density_Maximum_Residual = -huge(zero)
+  logical,  save :: vortex_has_collapsed = fals
+  integer,  save :: final_countdown = 0
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that
   !            contains the temporal evolution of various integrated
@@ -174,6 +177,8 @@ subroutine rgeterr()
   use ovar,    only : walltime_expiring,convergence_reached
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : this_is_final_timestep
+  use ovar,    only : iter_out_interval
+  use ovar,    only : Period_Timesteps
   use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
@@ -289,9 +294,38 @@ continue
   rl2mx = max( rltwo , rl2mx )
   !
   if (any(itestcase == Transport_Problems)) then
+    !
     entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
+    convergence_reached = fals
+    !
+    ! Check for a collapse of the vortex, or update the final
+    ! countdown if a collapse has already been detected
+    !
+    if (vortex_has_collapsed) then
+      !
+      ! Need to subtract from final_countdown the number of time steps
+      ! that have been completed since the last call to rgeterr
+      !
+      final_countdown = max(final_countdown - iter_out_interval,0)
+      !
+    else if (rltwo > zero) then
+      !
+      if (log10(rltwo) > Density_Maximum_Residual) then
+        Density_Maximum_Residual = log10(rltwo)
+      end if
+      if (Density_Maximum_Residual > -two) then
+        vortex_has_collapsed = true
+        final_countdown = 26*Period_Timesteps - mod(itcur,Period_Timesteps)
+      end if
+      !
+    end if
+    !
   else
+    !
     entL2 = log10(rl2mx) - log10(rltwo)
+    !
+    ! Check for convergence
+    !
     if (itcur > minimum_timesteps) then
       convergence_reached = (entL2 <= convergence_order_max_res) .or. &
                             (log10(rltwo) <= convergence_order_abs_res)
@@ -299,6 +333,7 @@ continue
         convergence_reached = fals
       end if
     end if
+    !
   end if
   !
   ! Output the results for the current time step
@@ -355,7 +390,17 @@ continue
   !
   call mpi_bcast(walltime_expiring,1,mpi_logical,0,mpi_comm_world,mpierr)
   !
-
+  ! If a vortex collapse has been detected and final_countdown has reached 0,
+  ! activate convergence_reached so that the main_loop can be exited when
+  ! we return from this subroutine to the main program.
+  !
+  if (vortex_has_collapsed .and. final_countdown==0) then
+    if (mypnum == 0) write (iout,6)
+    convergence_reached = true
+  end if
+  !
+  ! Format Statements
+  !
   1 format (i9,4(1x,es11.4),2i8,2es9.1,1x,i3,2(":",i2.2))
   2 format (/,"*******************************************************",/, &
               " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
@@ -373,6 +418,11 @@ continue
   5 format (/,"*******************************************************",/, &
               " THE SIMULATION HAS REACHED THE REQUESTED FINAL TIME!",/, &
               "*******************************************************",/)
+  6 format (/,"******************************************************",/, &
+              " VORTEX HAS APPEARED TO COLLAPSE! THE SIMULATION WAS",/, &
+              " RUN ANOTHER 25 PERIODS PAST THE POINT OF COLLAPSE!",/, &
+              " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
+              "******************************************************",/)
   !
 end subroutine rgeterr
 !
