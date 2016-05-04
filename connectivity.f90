@@ -2652,6 +2652,41 @@ continue
   !
   lnode = maxval(nodes_of_cell)
   !
+  ! Before we start trying to find the edges, check to make sure that
+  ! the grid contains 3D elements. If the grid is 2D, the edges are
+  ! actually the faces so set the number of edges to zero. We will
+  ! still allocate the edge arrays (to zero size) because they will
+  ! be still be accessed later.
+  !
+  if (all(geom_dimen(cell_geom) <= 2)) then
+    !
+    ledge = 0
+    !
+    ! Allocate the nodes_on_edge array
+    !
+    allocate ( nodes_on_edge(1:2,1:ledge) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_on_edge",1,ierr,error_message)
+    !
+    ! Allocate the edges_with_node_ptr and edges_with_node
+    ! arrays if they are present
+    !
+    if (present(edges_with_node_ptr) .and. present(edges_with_node)) then
+      !
+      allocate ( edges_with_node_ptr(1:lnode+1) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edges_with_node_ptr",1,ierr,error_message)
+      !
+      allocate ( edges_with_node(1:last(edges_with_node_ptr)) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edges_with_node",1,ierr,error_message)
+      !
+    end if
+    !
+    return
+    !
+  end if
+  !
   !##################################################################
   !##################################################################
   !##################################################################
