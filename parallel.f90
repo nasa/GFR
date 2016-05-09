@@ -1551,7 +1551,7 @@ continue
   ! Loop through the grid nodes and find any nodes that exist on multiple
   ! partitions. Save these partition numbers to the node array
   !
-  do n = 1,lnode
+  create_node_loop: do n = 1,lnode
     !
     ! Reset the local arrays for this node
     !
@@ -1647,7 +1647,9 @@ continue
     ! Skip this node if the partition number is
     ! the same for all cells with this node
     !
-    if (lcpu == ucpu) cycle
+    if (lcpu == ucpu) then
+      cycle create_node_loop
+    end if
     !
     ! Sum the number of cells containing this node on each partition
     !
@@ -1704,7 +1706,7 @@ continue
     !
     node(n)%controlling_partition = epart(i)
     !
-  end do
+  end do create_node_loop
   !
   ! Create the edge array
   !
@@ -1714,7 +1716,7 @@ continue
   ! Loop through the grid edges and find any edges that exist on multiple
   ! partitions. Save these partition numbers to the edge array
   !
-  do n = 1,ledge
+  create_edge_loop: do n = 1,ledge
     !
     ! Reset the local arrays for this edge
     !
@@ -1830,7 +1832,9 @@ continue
     ! Skip this edge if the partition number is
     ! the same for all cells with this edge
     !
-    if (lcpu == ucpu) cycle
+    if (lcpu == ucpu) then
+      cycle create_edge_loop
+    end if
     !
     ! Sum the number of cells containing this edge on each partition
     !
@@ -1910,7 +1914,7 @@ continue
       !
     end if
     !
-  end do
+  end do create_edge_loop
   !
   ! Deallocate cell_list, part_list, and bc_list before we leave
   !
