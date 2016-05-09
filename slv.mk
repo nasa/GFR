@@ -44,11 +44,11 @@ FINC = $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-FCBASE = -ftrapuv -traceback -g
+FCBASE = -traceback -g
 
 ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
 
-DEBUGFLAGS = -check all -debug -fp-stack-check
+DEBUGFLAGS = -ftrapuv -check all -debug -fp-stack-check
 
 OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/Euler_tri.o \
