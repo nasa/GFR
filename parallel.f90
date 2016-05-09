@@ -1400,6 +1400,77 @@ end subroutine check_quality_of_partitioning
 !
 !###############################################################################
 !
+subroutine output_value(char_input,val_input,io_unit,extra_line,surpress_cpu)
+  !
+  character(len=*),  intent(in) :: char_input
+  integer,           intent(in) :: val_input
+  integer, optional, intent(in) :: io_unit
+  logical, optional, intent(in) :: extra_line
+  logical, optional, intent(in) :: surpress_cpu
+  !
+  integer :: n,io
+  logical :: add_extra_line
+  logical :: include_cpu
+  character(len=10) :: cval
+  character(len=50) :: frmt
+  !
+continue
+  !
+  io = iout
+  if (present(io_unit)) then
+    io = io_unit
+  end if
+  !
+  add_extra_line = true
+  if (present(extra_line)) then
+    add_extra_line = extra_line
+  end if
+  !
+  include_cpu = true
+  if (present(surpress_cpu)) then
+    include_cpu = surpress_cpu
+  end if
+  !
+  if (include_cpu) then
+    !
+    write (cval,'(i0)') ncpu
+    write (frmt,1) len_trim(adjustl(cval))
+    !
+    flush (io)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+    do n = 0,ncpu-1
+      if (mypnum == n) then
+        write (io,frmt) mypnum,trim(adjustl(char_input)),val_input
+        flush (io)
+      end if
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    end do
+    !
+    flush (io)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+    if (mypnum == 0) write (io,*)
+    !
+    flush (io)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+  else
+    !
+    write (io,2) trim(adjustl(char_input)),val_input
+    if (add_extra_line) then
+      write (io,*)
+    end if
+    !
+  end if
+  !
+  1 format ('(" CPU ",i',i0,',": ",a," = ",i0)')
+  2 format (a," = ",i0)
+  !
+end subroutine output_value
+!
+!###############################################################################
+!
 subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cells_with_node,cells_with_node_ptr, &
                                        cells_with_edge,cells_with_edge_ptr, &
@@ -2224,6 +2295,75 @@ continue
                "       that are not located within the same partition!",//)
   !
 end subroutine find_partition_boundaries
+!
+!###############################################################################
+!
+subroutine output_node_arrays(node,node_map,bnd_nodes)
+  !
+  type(node_t),     optional, dimension(:), intent(in) :: node
+  type(map_t),      optional, dimension(:), intent(in) :: node_map
+  type(bnd_data_t), optional, dimension(:), intent(in) :: bnd_nodes
+  !
+  integer :: i,n,io
+  !
+continue
+  !
+  if (present(node)) then
+    io = mypnum+140
+    do n = 1,size(node)
+      write (io,10) n
+      write (io,11) node(n)%is_on_boundary
+      write (io,12) node(n)%controlling_partition
+      if (allocated(node(n)%cpu)) then
+        do i = 1,size(node(n)%cpu)
+          write (io,13) i
+          write (io,14) node(n)%cpu(i)%partition
+          write (io,15) node(n)%cpu(i)%loc_node
+          write (io,16) node(n)%cpu(i)%num_cells
+        end do
+      end if
+    end do
+  end if
+  !
+  10 format (" Contents of node(",i0,")")
+  11 format (5x,"%is_on_boundary        = ",l1)
+  12 format (5x,"%controlling_partition = ",i0)
+  13 format (5x,"%cpu(",i0,")")
+  14 format (10x,"%partition = ",i0)
+  15 format (10x,"%loc_node  = ",i0)
+  16 format (10x,"%num_cells = ",i0)
+  !
+  if (present(node_map)) then
+    io = mypnum+150
+    do n = 1,size(node_map)
+      write (io,20) n
+      do i = 1,size(node_map(n)%loc_to_glb)
+        write (io,21) i,node_map(n)%loc_to_glb(i)
+      end do
+      write (io,22)
+    end do
+  end if
+  !
+  20 format (" Map for CPU ",i0)
+  21 format ("   loc = ",i5," => glb = ",i5)
+  22 format (30("#"))
+  !
+  if (present(bnd_nodes)) then
+    io = mypnum+160
+    do n = 1,size(bnd_nodes)
+      write (io,30) n
+      write (io,31) bnd_nodes(n)%idx
+      write (io,32) bnd_nodes(n)%ave_correction
+      write (io,33) bnd_nodes(n)%my_responsibility
+    end do
+  end if
+  !
+  30 format (" Contents of bnd_nodes(",i0,")")
+  31 format (5x,"%idx               = ",i0)
+  32 format (5x,"%ave_correction    = ",f9.6)
+  33 format (5x,"%my_responsibility = ",l1)
+  !
+end subroutine output_node_arrays
 !
 !###############################################################################
 !
