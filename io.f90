@@ -1234,6 +1234,8 @@ subroutine create_IsentropicVortex_grid()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_IsentropicVortex_grid"
+ !logical, parameter :: test_random_bc = true
+  logical, parameter :: test_random_bc = fals
   !
 continue
   !
@@ -1394,98 +1396,131 @@ continue
   !
   ! Create the bface array
   !
-  nf_max = 0
+  only_root_creates_bface: if (mypnum == 0) then
+    !
+    nf_max = 0
+    !
+    ! Loop through the 4 grid boundaries
+    ! NOTE: This corresponds to the grid boundaries in
+    !       the order [imin,imax,jmin,jmax]
+    !
+    nf_min = nf_max
+    !
+    do j = 1,nc
+      !
+      nf_min = nf_min + 1
+      nf_max = nf_min + nc
+      !
+      bface( 1,nf_min) = bc_periodic
+      bface( 2,nf_min) = map2dto1d(1 ,j,nc)
+      bface( 3,nf_min) = Geom_Quad
+      bface( 4,nf_min) = HostFace2D(1)
+      bface( 5,nf_min) = nf_max
+      bface( 6,nf_min) = map2dto1d(nc,j,nc)
+      bface( 8,nf_min) = Geom_Quad
+      bface( 9,nf_min) = HostFace2D(2)
+      bface(10,nf_min) = ncell + nf_min
+      !
+      bface( 1,nf_max) = bc_periodic
+      bface( 2,nf_max) = bface(6,nf_min)
+      bface( 3,nf_max) = bface(8,nf_min)
+      bface( 4,nf_max) = bface(9,nf_min)
+      bface( 5,nf_max) = nf_min
+      bface( 6,nf_max) = bface(2,nf_min)
+      bface( 8,nf_max) = bface(3,nf_min)
+      bface( 9,nf_max) = bface(4,nf_min)
+      bface(10,nf_max) = ncell + nf_max
+      !
+      ! Adjust boundary conditions for stationary vortex or 
+      ! vortex propagation in only the vertical direction
+      !
+      if (any(itestcase == [-Shu_Vortex,-Vortex_Transport])) then
+        !
+        if (test_random_bc) then
+          l = size(bc_heirarchy)
+          l = max( 1 , min(l,random(l)) )
+          bface(1,nf_min) = bc_heirarchy(l)
+        else
+          bface(1,nf_min) = bc_characteristic
+        end if
+        bface(  5,nf_min) = 1
+        bface(6:9,nf_min) = 0
+        !
+        if (test_random_bc) then
+          l = size(bc_heirarchy)
+          l = max( 1 , min(l,random(l)) )
+          bface(1,nf_max) = bc_heirarchy(l)
+        else
+          bface(1,nf_max) = bc_characteristic
+        end if
+        bface(  5,nf_max) = 1
+        bface(6:9,nf_max) = 0
+        !
+      end if
+      !
+    end do
+    !
+    nf_min = nf_max
+    !
+    do i = 1,nc
+      !
+      nf_min = nf_min + 1
+      nf_max = nf_min + nc
+      !
+      bface( 1,nf_min) = bc_periodic
+      bface( 2,nf_min) = map2dto1d(i,1 ,nc)
+      bface( 3,nf_min) = Geom_Quad
+      bface( 4,nf_min) = HostFace2D(3)
+      bface( 5,nf_min) = nf_max
+      bface( 6,nf_min) = map2dto1d(i,nc,nc)
+      bface( 8,nf_min) = Geom_Quad
+      bface( 9,nf_min) = HostFace2D(4)
+      bface(10,nf_min) = ncell + nf_min
+      !
+      bface( 1,nf_max) = bc_periodic
+      bface( 2,nf_max) = bface(6,nf_min)
+      bface( 3,nf_max) = bface(8,nf_min)
+      bface( 4,nf_max) = bface(9,nf_min)
+      bface( 5,nf_max) = nf_min
+      bface( 6,nf_max) = bface(2,nf_min)
+      bface( 8,nf_max) = bface(3,nf_min)
+      bface( 9,nf_max) = bface(4,nf_min)
+      bface(10,nf_max) = ncell + nf_max
+      !
+      ! Adjust boundary conditions for stationary vortex
+      !
+      if (itestcase == -Shu_Vortex) then
+        !
+        if (test_random_bc) then
+          l = size(bc_heirarchy)
+          l = max( 1 , min(l,random(l)) )
+          bface(1,nf_min) = bc_heirarchy(l)
+        else
+          bface(1,nf_min) = bc_characteristic
+        end if
+        bface(  5,nf_min) = 1
+        bface(6:9,nf_min) = 0
+        !
+        if (test_random_bc) then
+          l = size(bc_heirarchy)
+          l = max( 1 , min(l,random(l)) )
+          bface(1,nf_max) = bc_heirarchy(l)
+        else
+          bface(1,nf_max) = bc_characteristic
+        end if
+        bface(  5,nf_max) = 1
+        bface(6:9,nf_max) = 0
+        !
+      end if
+      !
+    end do
+    !
+  end if only_root_creates_bface
   !
-  ! Loop through the 4 grid boundaries
-  ! NOTE: This corresponds to the grid boundaries in
-  !       the order [imin,imax,jmin,jmax]
-  !
-  nf_min = nf_max
-  !
-  do j = 1,nc
-    !
-    nf_min = nf_min + 1
-    nf_max = nf_min + nc
-    !
-    bface( 1,nf_min) = bc_periodic
-    bface( 2,nf_min) = map2dto1d(1 ,j,nc)
-    bface( 3,nf_min) = Geom_Quad
-    bface( 4,nf_min) = HostFace2D(1)
-    bface( 5,nf_min) = nf_max
-    bface( 6,nf_min) = map2dto1d(nc,j,nc)
-    bface( 8,nf_min) = Geom_Quad
-    bface( 9,nf_min) = HostFace2D(2)
-    bface(10,nf_min) = ncell + nf_min
-    !
-    bface( 1,nf_max) = bc_periodic
-    bface( 2,nf_max) = bface(6,nf_min)
-    bface( 3,nf_max) = bface(8,nf_min)
-    bface( 4,nf_max) = bface(9,nf_min)
-    bface( 5,nf_max) = nf_min
-    bface( 6,nf_max) = bface(2,nf_min)
-    bface( 8,nf_max) = bface(3,nf_min)
-    bface( 9,nf_max) = bface(4,nf_min)
-    bface(10,nf_max) = ncell + nf_max
-    !
-    ! Adjust boundary conditions for stationary vortex or 
-    ! vortex propagation in only the vertical direction
-    !
-    if (any(itestcase == [-Shu_Vortex,-Vortex_Transport])) then
-      !
-      bface(  1,nf_min) = bc_characteristic
-      bface(  5,nf_min) = 1
-      bface(6:9,nf_min) = 0
-      !
-      bface(  1,nf_max) = bc_characteristic
-      bface(  5,nf_max) = 1
-      bface(6:9,nf_max) = 0
-      !
-    end if
-    !
-  end do
-  !
-  nf_min = nf_max
-  !
-  do i = 1,nc
-    !
-    nf_min = nf_min + 1
-    nf_max = nf_min + nc
-    !
-    bface( 1,nf_min) = bc_periodic
-    bface( 2,nf_min) = map2dto1d(i,1 ,nc)
-    bface( 3,nf_min) = Geom_Quad
-    bface( 4,nf_min) = HostFace2D(3)
-    bface( 5,nf_min) = nf_max
-    bface( 6,nf_min) = map2dto1d(i,nc,nc)
-    bface( 8,nf_min) = Geom_Quad
-    bface( 9,nf_min) = HostFace2D(4)
-    bface(10,nf_min) = ncell + nf_min
-    !
-    bface( 1,nf_max) = bc_periodic
-    bface( 2,nf_max) = bface(6,nf_min)
-    bface( 3,nf_max) = bface(8,nf_min)
-    bface( 4,nf_max) = bface(9,nf_min)
-    bface( 5,nf_max) = nf_min
-    bface( 6,nf_max) = bface(2,nf_min)
-    bface( 8,nf_max) = bface(3,nf_min)
-    bface( 9,nf_max) = bface(4,nf_min)
-    bface(10,nf_max) = ncell + nf_max
-    !
-    ! Adjust boundary conditions for stationary vortex
-    !
-    if (itestcase == -Shu_Vortex) then
-      !
-      bface(  1,nf_min) = bc_characteristic
-      bface(  5,nf_min) = 1
-      bface(6:9,nf_min) = 0
-      !
-      bface(  1,nf_max) = bc_characteristic
-      bface(  5,nf_max) = 1
-      bface(6:9,nf_max) = 0
-      !
-    end if
-    !
-  end do
+  if (ncpu > 1) then
+    call mpi_bcast(bface,size(bface,kind=int_mpi), &
+                   mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  end if
   !
   contains
   !
