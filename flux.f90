@@ -484,7 +484,7 @@ subroutine correct_interface_flux_visc()
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
   !.. Local Scalars ..
-  integer  :: k,l,m,n,nf,r1,r2,l1,l2
+  integer  :: i,k,l,m,n,nf,r1,r2,l1,l2
   integer  :: kl,kr,iu,nfp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
@@ -501,18 +501,7 @@ subroutine correct_interface_flux_visc()
   real(wp), dimension(1:nq,1:maxFP) :: luqp,ruqp,fncq
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: lduqp,rduqp
   !
-#ifdef USE_MATRIX_PROCEDURES
-  integer :: i
-  type(matrix), pointer :: left_cmat
-  type(matrix), pointer :: right_cmat
-#endif
-  !
 continue
-  !
-#ifdef USE_MATRIX_PROCEDURES
-  left_cmat => null()
-  right_cmat => null()
-#endif
   !
   vflx = zero
   !
@@ -617,10 +606,6 @@ continue
     ! NOTE: We only need to apply the correction to the left cell because
     !       this is a boundary face and the right cell is a ghost cell.
     !
-#ifdef USE_MATRIX_PROCEDURES
-    left_cmat => correct(host_geom,host_order)
-#endif
-    !
     do k = 1,nfp
       !
       ! Get the index for the correction function 
@@ -638,9 +623,10 @@ continue
       ! host_cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        cmat_val = dsl * left_cmat%row_val(i)
+      do i = correct(host_geom,host_order)%row_ptr(kl)+1, &
+             correct(host_geom,host_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct(host_geom,host_order)%row_idx(i)
+        cmat_val = dsl * correct(host_geom,host_order)%row_val(i)
         do m = 1,nq
           residual(m,n) = residual(m,n) + fjl(m,k) * cmat_val
         end do
@@ -657,10 +643,6 @@ continue
 #endif
       !
     end do
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    if (associated(left_cmat)) left_cmat => null()
-#endif
     !
   end do boundary_fluxes
   !
@@ -748,11 +730,6 @@ continue
     !
     ! Apply the flux correction due to the flux jump
     !
-#ifdef USE_MATRIX_PROCEDURES
-    left_cmat => correct(left_geom,left_order)
-    right_cmat => correct(right_geom,right_order)
-#endif
-    !
     do k = 1,nfp
       !
       ! Get the index for the correction function 
@@ -771,9 +748,10 @@ continue
       ! left_cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        cmat_val = dsl * left_cmat%row_val(i)
+      do i = correct(left_geom,left_order)%row_ptr(kl)+1, &
+             correct(left_geom,left_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct(left_geom,left_order)%row_idx(i)
+        cmat_val = dsl * correct(left_geom,left_order)%row_val(i)
         do m = 1,nq
           residual(m,n) = residual(m,n) + fjl(m,k) * cmat_val
         end do
@@ -794,9 +772,10 @@ continue
       ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = right_cmat%row_ptr(kr)+1, right_cmat%row_ptr(kr+1)
-        n = r1 - 1 + right_cmat%row_idx(i)
-        cmat_val = dsr * right_cmat%row_val(i)
+      do i = correct(right_geom,right_order)%row_ptr(kr)+1, &
+             correct(right_geom,right_order)%row_ptr(kr+1)
+        n = r1 - 1 + correct(right_geom,right_order)%row_idx(i)
+        cmat_val = dsr * correct(right_geom,right_order)%row_val(i)
         do m = 1,nq
           residual(m,n) = residual(m,n) - fjr(m,k) * cmat_val
         end do
@@ -813,11 +792,6 @@ continue
 #endif
       !
     end do
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    if (associated(left_cmat)) left_cmat => null()
-    if (associated(right_cmat)) right_cmat => null()
-#endif
     !
   end do interior_fluxes
   !
@@ -1292,7 +1266,7 @@ subroutine correct_gradients_at_solpts()
   use ovar,   only : LDG_beta
   !
   !.. Local Scalars ..
-  integer  :: k,l,m,n,nf,r1,r2,l1,l2,n1,n2,nc
+  integer  :: i,k,l,m,n,nf,r1,r2,l1,l2,n1,n2,nc
   integer  :: kl,kr,nfp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
@@ -1307,18 +1281,8 @@ subroutine correct_gradients_at_solpts()
   real(wp), dimension(1:nq)          :: ljfp,rjfp
   real(wp), dimension(1:nq,1:maxpts) :: lufp,rufp
   !
-#ifdef USE_MATRIX_PROCEDURES
-  integer :: i
-  type(matrix), pointer :: left_cmat
-  type(matrix), pointer :: right_cmat
-#endif
-  !
 continue
   !
-#ifdef USE_MATRIX_PROCEDURES
-  left_cmat => null()
-  right_cmat => null()
-#endif
   ! #######################
   ! #######################
   ! ### BOUNDARY FACES  ###
@@ -1342,10 +1306,6 @@ continue
     !
     l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
     l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    left_cmat => correct(host_geom,host_order)
-#endif
     !
     ! For all the flux points on the current face, extract the conservative
     ! conservative variables for the left and right cells from faceusp
@@ -1427,9 +1387,11 @@ continue
       ! the gradients of the conservative variables in the left cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        correct_n = dsl * left_cmat%row_val(i) / jacobian(n)
+      do i = correct(host_geom,host_order)%row_ptr(kl)+1, &
+             correct(host_geom,host_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct(host_geom,host_order)%row_idx(i)
+        correct_n = dsl * correct(host_geom,host_order)%row_val(i) &
+                        / jacobian(n)
         do m = 1,nq
           correct_m = correct_n * ljfp(m)
           do l = 1,nr
@@ -1453,10 +1415,6 @@ continue
 #endif
       !
     end do
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    if (associated(left_cmat)) left_cmat => null()
-#endif
     !
   end do boundary_faces
   !
@@ -1490,11 +1448,6 @@ continue
     !
     r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
     r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    left_cmat => correct(left_geom,left_order)
-    right_cmat => correct(right_geom,right_order)
-#endif
     !
     ! For all the flux points on the current face, extract the conservative
     ! conservative variables for the left and right cells from faceusp
@@ -1560,9 +1513,11 @@ continue
       ! the gradients of the conservative variables in the left cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        correct_n = dsl * left_cmat%row_val(i) / jacobian(n)
+      do i = correct(left_geom,left_order)%row_ptr(kl)+1, &
+             correct(left_geom,left_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct(left_geom,left_order)%row_idx(i)
+        correct_n = dsl * correct(left_geom,left_order)%row_val(i) &
+                        / jacobian(n)
         do m = 1,nq
           correct_m = correct_n * ljfp(m)
           do l = 1,nr
@@ -1589,9 +1544,11 @@ continue
       ! the gradients of the conservative variables in the right cell
       !
 #ifdef USE_MATRIX_PROCEDURES
-      do i = right_cmat%row_ptr(kr)+1, right_cmat%row_ptr(kr+1)
-        n = r1 - 1 + right_cmat%row_idx(i)
-        correct_n = dsr * right_cmat%row_val(i) / jacobian(n)
+      do i = correct(right_geom,right_order)%row_ptr(kr)+1, &
+             correct(right_geom,right_order)%row_ptr(kr+1)
+        n = r1 - 1 + correct(right_geom,right_order)%row_idx(i)
+        correct_n = dsr * correct(right_geom,right_order)%row_val(i) &
+                        / jacobian(n)
         do m = 1,nq
           correct_m = correct_n * rjfp(m)
           do l = 1,nr
@@ -1615,11 +1572,6 @@ continue
 #endif
       !
     end do
-    !
-#ifdef USE_MATRIX_PROCEDURES
-    if (associated(left_cmat)) left_cmat => null()
-    if (associated(right_cmat)) right_cmat => null()
-#endif
     !
   end do interior_faces
   !
@@ -1909,9 +1861,6 @@ subroutine correct_solution_for_output(interp_usp,interp_dusp)
   real(wp), dimension(1:nr,1:maxFP) :: rnrm
   real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
   !
-  type(matrix), pointer :: left_cmat
-  type(matrix), pointer :: right_cmat
-  !
   real(wp), parameter :: addsub_cor =  one
  !real(wp), parameter :: addsub_cor = -one
   !
@@ -1938,9 +1887,6 @@ continue
   ! Save the updated solution into uoldsp since this has yet to be done
   !
   uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
-  !
-  left_cmat => null()
-  right_cmat => null()
   !
   npass_loop: do iloops = 1,npasses
     !
@@ -1989,8 +1935,6 @@ continue
     ! NOTE: We only need to apply the correction to the left cell because
     !       this is a boundary face and the right cell is a ghost cell.
     !
-    left_cmat => correct_sol(host_geom,host_order)
-    !
     do k = 1,nfp
       !
       ! Get the index for the correction function 
@@ -2020,9 +1964,10 @@ continue
       ! Now use the correction function with the interface jump
       ! to correct the conservative variables in the left cell
       !
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        correct_n = left_cmat%row_val(i)
+      do i = correct_sol(host_geom,host_order)%row_ptr(kl)+1, &
+             correct_sol(host_geom,host_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct_sol(host_geom,host_order)%row_idx(i)
+        correct_n = correct_sol(host_geom,host_order)%row_val(i)
         if (use_jacobian) correct_n = correct_n / jacobian(n)
         do m = 1,nq
           usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
@@ -2030,8 +1975,6 @@ continue
       end do
       !
     end do
-    !
-    if (associated(left_cmat)) left_cmat => null()
     !
   end do boundary_fluxes
   !
@@ -2076,9 +2019,6 @@ continue
     !
     ! Apply the flux correction due to the flux jump
     !
-    left_cmat => correct_sol(left_geom,left_order)
-    right_cmat => correct_sol(right_geom,right_order)
-    !
     do k = 1,nfp
       !
       ! Get the index for the correction function 
@@ -2104,9 +2044,10 @@ continue
       ! Add the flux correction to the residuals of the sol-pts in cell
       ! left_cell
       !
-      do i = left_cmat%row_ptr(kl)+1, left_cmat%row_ptr(kl+1)
-        n = l1 - 1 + left_cmat%row_idx(i)
-        correct_n = left_cmat%row_val(i)
+      do i = correct_sol(left_geom,left_order)%row_ptr(kl)+1, &
+             correct_sol(left_geom,left_order)%row_ptr(kl+1)
+        n = l1 - 1 + correct_sol(left_geom,left_order)%row_idx(i)
+        correct_n = correct_sol(left_geom,left_order)%row_val(i)
         if (use_jacobian) correct_n = correct_n / jacobian(n)
         do m = 1,nq
           usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
@@ -2117,9 +2058,10 @@ continue
       ! right_cell
       ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
       !
-      do i = right_cmat%row_ptr(kr)+1, right_cmat%row_ptr(kr+1)
-        n = r1 - 1 + right_cmat%row_idx(i)
-        correct_n = right_cmat%row_val(i)
+      do i = correct_sol(right_geom,right_order)%row_ptr(kr)+1, &
+             correct_sol(right_geom,right_order)%row_ptr(kr+1)
+        n = r1 - 1 + correct_sol(right_geom,right_order)%row_idx(i)
+        correct_n = correct_sol(right_geom,right_order)%row_val(i)
         if (use_jacobian) correct_n = correct_n / jacobian(n)
         do m = 1,nq
           usp(m,n) = usp(m,n) + rjfp(m) * correct_n * right_coef
@@ -2127,9 +2069,6 @@ continue
       end do
       !
     end do
-    !
-    if (associated(left_cmat)) left_cmat => null()
-    if (associated(right_cmat)) right_cmat => null()
     !
   end do interior_fluxes
   !
