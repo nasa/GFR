@@ -351,8 +351,8 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_grid"
-  logical, parameter :: use_old_dual_graph = true
- !logical, parameter :: use_old_dual_graph = fals
+ !logical, parameter :: use_old_dual_graph = true
+  logical, parameter :: use_old_dual_graph = fals
   !
 continue
   !
@@ -364,23 +364,25 @@ continue
   !
   lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
-  ! Create the global grid connectivity
-  !
-  call get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
-                               nodes_of_cell,nodes_of_cell_ptr, &
-                               cells_with_node,cells_with_node_ptr, &
-                               cells_surr_cell,cells_surr_cell_ptr, &
-                               cells_with_edge,cells_with_edge_ptr, &
-                               nodes_on_edge,face)
-  !
-  if (use_old_dual_graph) then
+ !if (use_old_dual_graph) then
+ !  !
+ !  ! Create the dual graph for the global grid not including ghost cells
+ !  !
+ !  call memory_pause("Before: calling create_dual_graph")
+ !  call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
+ !                         nodes_of_cell_ptr,bface,xadj,adjncy,face)
+ !  !
+ !else
     !
-    ! Create the dual graph for the global grid not including ghost cells
+    ! Create the global grid connectivity
     !
-    call memory_pause("Before: calling create_dual_graph")
-    call create_dual_graph(cell_geom,cell_order,nodes_of_cell, &
-                           nodes_of_cell_ptr,bface,xadj,adjncy,face)
-  else
+    call memory_pause("Before: calling get_global_connectivity")
+    call get_global_connectivity(cell_geom,cell_order,bface,xyz_nodes, &
+                                 nodes_of_cell,nodes_of_cell_ptr, &
+                                 cells_with_node,cells_with_node_ptr, &
+                                 cells_surr_cell,cells_surr_cell_ptr, &
+                                 cells_with_edge,cells_with_edge_ptr, &
+                                 nodes_on_edge,face)
     !
     ! Create the dual graph for the global grid not including ghost cells
     !
@@ -388,7 +390,7 @@ continue
     call create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
                                  xadj,adjncy)
     !
-  end if
+ !end if
   !
   ! Deallocate cells_surr_cell and cells_surr_cell_ptr since they
   ! are no longer needed
