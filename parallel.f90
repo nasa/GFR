@@ -171,11 +171,11 @@ module parallel_mod
   !
   type :: cpu_with_edge_t
     ! partition : grid partition/processor containing this edge
-    integer :: partition
+    integer :: partition = 0
     ! loc_edge : index of this edge local this partition
-    integer :: loc_edge
+    integer :: loc_edge = 0
     ! num_cells : number of cells on this partition containing this edge
-    integer :: num_cells
+    integer :: num_cells = 0
     ! edgpts : indices for the edge points on the current edge
     integer, allocatable :: edgpts(:)
   end type cpu_with_edge_t
@@ -193,9 +193,9 @@ module parallel_mod
     logical :: is_on_boundary = fals
     ! controlling_partition : partition that is responsible for the index
     !                         of this node for the CGNS connectivity
-    integer :: controlling_partition
+    integer :: controlling_partition = 0
     ! order : solution order of the current edge
-    integer :: order
+    integer :: order = 0
     ! cpu : information for each cpu that contains the current edge
     type(cpu_with_edge_t), allocatable :: cpu(:)
   end type edge_t
@@ -211,11 +211,11 @@ module parallel_mod
   !
   type :: cpu_with_node_t
     ! partition : grid partition/processor containing this node
-    integer :: partition
+    integer :: partition = 0
     ! loc_node : index of this node local this partition
-    integer :: loc_node
+    integer :: loc_node = 0
     ! num_cells : number of cells on this partition containing this edge
-    integer :: num_cells
+    integer :: num_cells = 0
   end type cpu_with_node_t
   !
   ! NODE_T : Derived type to store information for each grid node
@@ -228,7 +228,7 @@ module parallel_mod
     logical :: is_on_boundary = fals
     ! controlling_partition : partition that is responsible for the index
     !                         of this node for the CGNS connectivity
-    integer :: controlling_partition
+    integer :: controlling_partition = 0
     ! cpu : information for each cpu that contains the current node
     type(cpu_with_node_t), allocatable :: cpu(:)
   end type node_t
