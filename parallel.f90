@@ -1656,6 +1656,14 @@ continue
     do i = 1,np
       !
       ! Mark this partition as having a cell containing this node
+      ! NOTE: For a boundary node, we want to keep all partitions
+      !       that contain this node, not just the ones with
+      !       bc_list /= bc_unknown, because all partitions will
+      !       still have to provide the connectivity for this node.
+      !       To make sure that those partitions with
+      !       bc_list == bc_unknown dont contribute to the solution
+      !       at this node, the num_cells component will be 0 for
+      !       these partitions.
       !
       cpu_mask( part_list(i) ) = true
       !
@@ -1918,14 +1926,20 @@ continue
   !
   ! Deallocate cell_list, part_list, and bc_list before we leave
   !
-  deallocate ( cell_list , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_list",2,ierr,error_message)
+  if (allocated(cell_list)) then
+    deallocate ( cell_list , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_list",2,ierr,error_message)
+  end if
   !
-  deallocate ( part_list , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"part_list",2,ierr,error_message)
+  if (allocated(part_list)) then
+    deallocate ( part_list , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"part_list",2,ierr,error_message)
+  end if
   !
-  deallocate ( bc_list , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bc_list",2,ierr,error_message)
+  if (allocated(bc_list)) then
+    deallocate ( bc_list , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bc_list",2,ierr,error_message)
+  end if
   !
   ! Format Statements
   !
@@ -2522,6 +2536,8 @@ continue
     end do local_nodes
     !
   end do
+  !
+ !call output_node_arrays(node,node_map)
   !
   ! #######
   ! ## 3 ##
