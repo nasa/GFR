@@ -3837,6 +3837,7 @@ subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   integer :: ledge,loc_edge,glb_edge,adj_edge,edge_part
   integer(int_mpi) :: this_edgpt,tag12,np
   integer(int_mpi) :: block_size,tag21
+  integer(int_mpi) :: max_nodpt_offset
   real(wp) :: rd,rn
   !
   !.. Local Arrays ..
@@ -3844,9 +3845,10 @@ subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   integer, dimension(1:ncpu) :: rnmax
   integer, dimension(1:ncpu) :: remin
   integer, dimension(1:ncpu) :: remax
-  integer, dimension(1:ncpu) :: cpu_nums
-  integer, dimension(1:ncpu) :: cpu_disp
   logical, dimension(1:ncpu) :: cpu_msk
+  !
+  integer(int_mpi), dimension(1:ncpu) :: cpu_nums
+  integer(int_mpi), dimension(1:ncpu) :: cpu_disp
   !
   !.. Local Allocatable Arrays ..
   logical,          allocatable :: send_node_msk(:)
@@ -4043,9 +4045,9 @@ continue
       !
       ! Mark this partition for communication
       !
-      cpu_msk( node(glb_node)%cpu(i)%partition ) = true
-      !
       node_part = node(glb_node)%cpu(i)%partition
+      !
+      cpu_msk(node_part) = true
       !
       if (node_part == my_part) then
         !
@@ -4081,7 +4083,7 @@ continue
     !
   end do
   !
-  if (maxval(nodpt_offset,dim=1) /= size(bnd_nodes)) then
+  if (maxval(nodpt_offset,dim=1)+1 /= size(bnd_nodes)) then
     write (error_message,1) "Something is wrong here with the node offset"
     call stop_recon(stop_mpi,pname,error_message)
   end if
@@ -4099,9 +4101,9 @@ continue
       !
       ! Mark this partition for communication
       !
-      cpu_msk( edge(glb_edge)%cpu(i)%partition ) = true
-      !
       edge_part = edge(glb_edge)%cpu(i)%partition
+      !
+      cpu_msk(edge_part) = true
       !
       if (edge_part == my_part) then
         !
@@ -4127,32 +4129,37 @@ continue
     !
   end do
   !
+  ! Extract the last non-zero nodpt_offset
+  !
+  max_nodpt_offset = maxval(nodpt_offset,dim=1)
+  !
   ! Reshuffle edgpt_offset by summing the total number of edge points for
-  ! all the communication edges before the current one
+  ! all the communication edges before the current one, making sure to
+  ! also account for the last node offset by adding in max_nodpt_offset
   !
   do n = size(bnd_edges),1,-1
     !
     loc_edge = bnd_edges(n)%idx
     !
-    edgpt_offset(loc_edge) = sum( edgpt_offset(1:loc_edge-1) )
+    edgpt_offset(loc_edge) = sum(edgpt_offset(1:loc_edge-1)) + max_nodpt_offset
     !
   end do
   !
   ! Finally, add the total node point offset into
   ! the offset for each of the edge points
   !
-  edgpt_offset = edgpt_offset + size(bnd_nodes,kind=int_mpi)
+ !edgpt_offset = edgpt_offset + (size(bnd_nodes,kind=int_mpi)-1)
   !
   ! Count the number of communication pairs of the current processor
   ! with all other processors that have a higher rank
   !
-  cpu_nums = 0
-  cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) )
+  cpu_nums = 0_int_mpi
+  cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) , kind=int_mpi )
   !
   ! Collect the number of communication pairs for all processors
   !
-  call mpi_allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL, &
-                     cpu_nums,1,mpi_inttyp,mpi_comm_world,mpierr)
+  call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+                     cpu_nums,1_int_mpi,MPI_INTEGER,MPI_COMM_WORLD,mpierr)
   !
   ! Count the total number of communication pairs for nodes and edges
   !
@@ -4164,34 +4171,37 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"comm_pair",1,ierr,error_message)
   !
-  ! Create the displacement array for gathering the comm_pair array
-  ! NOTE: cpu_nums is multiplied by 2 because each pair contains two
-  !       pieces of information when collecting comm_pair
-  !
-  cpu_disp = 0
-  do n = 2,ncpu
-    cpu_disp(n) = cpu_disp(n-1) + cpu_nums(n-1)*size(comm_pair,dim=1)
-  end do
-  !
   ! Fill in the section of comm_pair for the
   ! current processor before communicating
   !
   ! beginning index for the second dim of comm_pair for the current processor
-  n1 = cpu_disp(my_part)+1
+  n1 = sum( cpu_nums(1:my_part-1) ) + 1
   ! ending    index for the second dim of comm_pair for the current processor
-  n2 = cpu_disp(my_part)+cpu_nums(my_part)
+  n2 = sum( cpu_nums(1:my_part) )
   !
   ! processor of lower  rank that belongs to this communication pair
   comm_pair(1,n1:n2) = mypnum
   ! processor of higher rank that belongs to this communication pair
-  comm_pair(2,n1:n2) = pack( intseq(mypnum+1,ncpu-1) , &
-                             mask=cpu_msk(my_part+1:ncpu) )
+  comm_pair(2,n1:n2) = pack( intseq(my_part+1,ncpu) - 1 , &
+                       mask=cpu_msk(my_part+1:ncpu) )
+  !
+  ! Create the displacement and count arrays for gathering the comm_pair array
+  ! NOTE: We first need to multiply cpu_nums by the size of the first
+  !       dimension of comm_pair because each pair contains that many
+  !       pieces of information when collecting comm_pair
+  !
+  cpu_nums = cpu_nums * size(comm_pair,dim=1,kind=int_mpi)
+  !
+  cpu_disp = 0_int_mpi
+  do n = 2,ncpu
+    cpu_disp(n) = cpu_disp(n-1) + cpu_nums(n-1)
+  end do
   !
   ! Collect the individual comm_pair arrays for all processors
   !
-  call mpi_allgatherv(MPI_IN_PLACE,0,MPI_DATATYPE_NULL, &
+  call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
                       comm_pair,cpu_nums,cpu_disp,mpi_inttyp, &
-                      mpi_comm_world,mpierr)
+                      MPI_COMM_WORLD,mpierr)
   !
   ! Allocate the array containing the communication information
   !
