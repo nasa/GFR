@@ -1959,9 +1959,11 @@ subroutine find_priority_bc(bc_list,cell_list)
   integer :: n
   !
   !.. Local Arrays ..
-  integer, dimension(1:size(bc_list)) :: array_of_zeros
+ !integer, dimension(1:size(bc_list)) :: array_of_zeros
   !
 continue
+  !
+ !array_of_zeros(:) = 0
   !
   ! Loop through the priority heirarchy of the different BC
   ! until we find the BC of highest priority within bc_list
@@ -1989,9 +1991,9 @@ continue
   ! non-bc_unknown boundary faces in bc_list up to the front of cell_list
   ! and pad the remaining elements of cell_list with zeros.
   !
-  if (present(cell_list)) then
-    cell_list = pack( cell_list , bc_list /= bc_unknown , array_of_zeros )
-  end if
+ !if (present(cell_list)) then
+ !  cell_list = pack( cell_list , bc_list /= bc_unknown , array_of_zeros )
+ !end if
   !
 end subroutine find_priority_bc
 !
