@@ -1525,8 +1525,12 @@ continue
   !
   ! Find the maximum number of cells with a single edge
   !
-  n2 = maxval( cells_with_edge_ptr(2:ledge+1) - &
-               cells_with_edge_ptr(1:ledge  ) )
+  n2 = 0
+  if (ledge > 0) then
+    n2 = maxval( cells_with_edge_ptr(2:ledge+1) - &
+                 cells_with_edge_ptr(1:ledge  ) )
+  end if
+  !
   !
   ! Allocate the array to store the partitions numbers for all cells with a
   ! given node/edge, and the array to store the BCs those boundary faces
@@ -1648,6 +1652,7 @@ continue
     ! the same for all cells with this node
     !
     if (lcpu == ucpu) then
+      node(n)%controlling_partition = lcpu
       cycle create_node_loop
     end if
     !
@@ -1710,7 +1715,8 @@ continue
     ! Assign the partition that contains the cell with the lowest index
     ! value with this node as the controlling partition for this node
     !
-    i = minval( cell_list , mask=(cell_list>0 .and. cell_list<lcell) )
+    i = minval( cell_list(1:np) , &
+                mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
     !
     node(n)%controlling_partition = epart(i)
     !
@@ -1841,6 +1847,7 @@ continue
     ! the same for all cells with this edge
     !
     if (lcpu == ucpu) then
+      edge(n)%controlling_partition = lcpu
       cycle create_edge_loop
     end if
     !
@@ -1895,7 +1902,8 @@ continue
     ! Assign the partition that contains the cell with the lowest index
     ! value with this edge as the controlling partition for this edge
     !
-    i = minval( cell_list , mask=(cell_list>0 .and. cell_list<lcell) )
+    i = minval( cell_list(1:np) , &
+                mask=(cell_list(1:np)>0 .and. cell_list(1:np)<=lcell) )
     !
     edge(n)%controlling_partition = epart(i)
     !
