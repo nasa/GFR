@@ -4,9 +4,9 @@
 FC := mpiifort
 
 # Compilation flags for this specific architecture
-TARGETCPU     := -xHost
+TARGETCPU     := -xSSE4.2
 AUTOTARGETCPU :=
-ALIGN         := -align array16byte
+ALIGN         := -align array32byte
 
 # Library flags, NOTE: HDF5LIB is defined in slv.mk
 SZIPLIB  := -lsz -lz
