@@ -9,6 +9,8 @@
 ################################################################################
 ################################################################################
 
+* Update to the latest version of CGNS.
+
 * The new continuous_output capability is now working in serial for a 3D grid
   with only hexahedra elements, but just barely and still needs to be thoroughly
   tested.
@@ -84,8 +86,23 @@
   crash since the added new line characters will try to increase the length
   of the string with constant length.
 
-* See 5th sub-item within the item labeled IMPORTANT MEMORY RAMIFICATIONS under
-  the OPTIMIZATION IDEAS / TO-DO LIST section.
+* IMPORTANT MEMORY RAMIFICATIONS: Eliminate the cell(:)%face(:)%cell_idx and
+  face(:)%left/right%flxpts arrays and replace them with a scalar integer
+  index that points to a set of arrays giving the point indices for the
+  face rotation.
+   - POSSIBLE SOLUTION: A possible solution is to replace these arrays entirely
+     with a single scalar integer that gives the face rotation, from which the
+     order of the face/flux point indices can be found.
+     REASONING: The order of these face/flux point indices is ***I THINK***
+     limited to 1 of 8 possibilities for quad faces (see subroutine
+     RotateFluxPoints_Quad in connectivity.f90) and a yet unknown but finite
+     number of possibilities for triangle faces. If we were to simply store
+     an integer value of in the range [1-8], we should be able to back out
+     the rotation of the face/flux point indices. To prevent having to perform
+     the rotation everytime the indices are used, we could very easily and
+     cheaply store the 8 rotations as use these rotation arrays when we are
+     using the indices. HOWEVER, we will need to store the 8 different
+     rotations for each of the face orders that exist in the simulation.
 
 ################################################################################
 ################################################################################
@@ -126,6 +143,16 @@
 * Need to figure out way to optimize the matrix sparsity stuff for use with
   Lobatto solution points.
 
+* Look at possibly changing correction operations to loop over the cells
+  instead of looping over the faces.
+   - Loop over all the faces and compute the common flux from the values stored
+     in faceusp and facedusp, then compute the flux jumps using this common
+     flux and the values stored in faceflx.  Overwrite faceflx with the new
+     flux jumps.
+   - Loop through the cells and update the residuals for all the solution
+     points in the cell using a matrix operation with the correction matrices
+     and the flux jumps.
+
 * A few tasks remain to complete the rework of the restart module.
    - Need to add a subroutine similar to check_cgns_dir that will create a
      directory for restart files and use lfs to optimize this directory
@@ -165,19 +192,6 @@
      consumes additional memory but it adds the benefit of the either the flxpts
      or cell_idx arrays being quicker to load from memory depending on whether
      we are using the face(:) or cell(:) arrays, respectively.
-   - POSSIBLE SOLUTION: A possible solution is to replace these arrays entirely
-     with a single scalar integer that gives the face rotation, from which the
-     order of the face/flux point indices can be found.
-     REASONING: The order of these face/flux point indices is ***I THINK***
-     limited to 1 of 8 possibilities for quad faces (see subroutine
-     RotateFluxPoints_Quad in connectivity.f90) and a yet unknown but finite
-     number of possibilities for triangle faces. If we were to simply store
-     an integer value of in the range [1-8], we should be able to back out
-     the rotation of the face/flux point indices. To prevent having to perform
-     the rotation everytime the indices are used, we could very easily and
-     cheaply store the 8 rotations as use these rotation arrays when we are
-     using the indices. HOWEVER, we will need to store the 8 different
-     rotations for each of the face orders that exist in the simulation.
 
 * Create complimentary variables to maxpts such as maxSP and maxFP so that
   temporary storage can be minimized if we know a temporary array is only used
@@ -222,20 +236,6 @@
 ################################################################################
 ################################################################################
 ################################################################################
-
-* Use the cell array from the very beginning. The arrays pts_in_cell_ptr,
-  pts_in_cell, cell_geom, and cell_order are created and used to read in
-  all the grid information from the grid file. These arrays need to be
-  replaced throughout as follows:
-   - Replace cell_geom(nc) with cell(nc)%geom.
-   - Replace cell_order(nc) with cell(nc)%order.
-   - Replace pts_in_cell_ptr(nc)+1 with cell(nc)%beg_sp.
-   - Replace pts_in_cell_ptr(nc+1) with cell(nc)%end_sp.
-
-* Look into accuracy of differencing method used to compute the kinetic energy
-  dissipation rate over time using the value of the integrated kinetic energy
-  at each time step (i.e., computing TaylorGreen_sol(1,:) in the subroutine
-  TaylorGreen_finalize_KEDR). 
 
 * Need to allow the error quadrature points to possibly be of higher order than
   the solution points.
@@ -353,6 +353,9 @@
 ################################################################################
 ################################################################################
 ################################################################################
+
+* Look into recursive h-refinement within each cell for visualization
+   - See Gmsh paper
 
 * Look into the hyperbolic form of the Navier-Stokes equations
 
