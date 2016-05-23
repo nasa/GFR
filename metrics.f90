@@ -347,6 +347,7 @@ contains
 !
 subroutine get_metrics()
   !
+ !use ifport
   !.. Use Statements ..
   use geovar, only : nr,nface,n_totpts,n_totcel,ncell
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
@@ -377,12 +378,16 @@ subroutine get_metrics()
   real(wp) :: val,rm1,rp1,sm1,sp1,tm1,tp1,zm1,zp1
   character(len=200) :: array_name
   !
+ !integer :: exitstat,cmndstat
+ !character(len=1000) :: cmndmsg,command
+  !
   !.. Local Arrays ..
   integer, dimension(1:3) :: ksize
   integer, dimension(1:4,1:136,1:3) :: knodes
   real(wp), dimension(1:nr,1:16) :: diff
   real(wp), dimension(1:nr,1:8) :: nodes
   real(wp), dimension(1:maxSP,1:nr) :: txyz
+  real(wp), dimension(1:nr,1:nr) :: outmet
   !
   integer, dimension(1:4) :: iom
   !
@@ -1031,10 +1036,15 @@ continue
           do i = ibeg,iend
             j1 = mod(i+1,2) + 1
             j2 = mod(i  ,2) + 1
+            outmet = metrics(1:nr,1:nr,n,j1)
+           !if (j1 == 2) then
+           !  outmet = outmet / jacobian(n)
+           !end if
+            where (abs(outmet) < eps14) outmet = zero
             write (iom(i),22) n
             write (iom(i),23) ((cxyz(k,j1),k=1,nr), &
                                 cxyz(l,j2), &
-                               (metrics(k,l,n,j1), k=1,nr), l=1,nr)
+                               (outmet(k,l), k=1,nr), l=1,nr)
           end do
         end if
         21 format (/,60("-"),/," Cell ",i0,/,60("-"))
@@ -1113,6 +1123,33 @@ continue
     !
   end do metrics_loop
  !write (*,*) mypnum,local_volume,sum(volj(1:ncell))
+  !
+ !if (output_metrics) then
+ !  exitstat = 0
+ !  cmndstat = 0
+ !  do i = ibeg,iend
+ !        command = "sed -i " // &
+ !                      "-e 's/-0\.000000E+00/      -      /g' " // &
+ !                      "-e 's/0\.000000E+00/     -      /g' " // &
+ !                  trim(adjustl(fname(i)))
+ !    write (iout,194) "Executing: ",trim(adjustl(command))
+ !    !
+ !    exitstat = system( trim(command) )
+ !   !call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
+ !    !
+ !    if (exitstat /= 0 .or. cmndstat /= 0) then
+ !      write (iout,199) exitstat,cmndstat,trim(adjustl(cmndmsg))
+ !    end if
+ !  end do
+ !  write (error_message,*) "After outputting the metrics because ", &
+ !                          "the output_metrics parameter is active!"
+ !  call stop_recon(stop_mpi,pname,error_message)
+ !  194 format (a,a)
+ !  199 format (/," Error attempting to use command line!",/, &
+ !                " exit status    = ",i0,/, &
+ !                " command status = ",i0,/, &
+ !                " error message  = ",a,//)
+ !end if
   !
   ! ##########################################################################
   ! ##########################################################################
