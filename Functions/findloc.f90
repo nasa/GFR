@@ -194,3 +194,51 @@ end function recursive_findloc_i8
 !
 !##############################################################################
 !
+pure recursive function recursive_findloc_jeff_patch(array,value) &
+                                               result(return_value)
+  !
+  ! Seths recursive version of find_loc
+  ! with mods to prevent race condition
+  !
+  !.. Formal Arguments ..
+  integer, dimension(:), intent(in) :: array
+  integer,               intent(in) :: value
+  !.. Function Result ..
+  integer :: return_value
+  !.. Local Scalars ..
+  integer :: i,imid,asiz,amid
+  !
+continue
+  !
+  asiz = size(array)
+  !
+  if (asiz == 0) then
+    return_value = 0 ; return
+  endif
+  !
+  imid = max( 1 , asiz/2 )
+  !
+  amid = array(imid)
+  !
+  return_value = -1
+  !
+  !write(iout,*) " size(array), imid, array(imid), value =", &
+  !                asiz, imid, array(imid), value
+  if (value == amid) then
+    return_value = imid
+  else if (asiz == 1 .and. value /= amid) then
+    return_value = 0
+  else if (value < amid) then
+    return_value = recursive_findloc_jeff_patch( array(:imid-1) , value )
+  else
+    return_value = recursive_findloc_jeff_patch( array(imid+1:) , value )
+    if (return_value > 0) then
+      return_value = imid  + return_value
+    end if
+  end if
+  !write(iout,*) " imid, return_value = ", imid, return_value
+  !
+end function recursive_findloc_jeff_patch
+!
+!##############################################################################
+!
