@@ -3,13 +3,23 @@
 ################################################################################
 ################################################################################
 ##################                                            ##################
-##################          BUGS NEEDING TO BE FIXED          ##################
+##################        BUGS NEEDING TO BE FIXED OR         ##################
+##################     NEW FEATURES WITH HIGHER PRIORITY      ##################
 ##################                                            ##################
 ################################################################################
 ################################################################################
 ################################################################################
 
 * Update to the latest version of CGNS.
+
+* For using Plot3D restart files (channel flow), figure out how to project
+  restart solution into polynomial spaces within each cell.
+   - Use Lagrange polynomial to create very high-order solution for entire
+     computational domain.
+   - Sample very high-order solution at quadrature points within each cell and
+     project quadrature solution to solution polynomial space within each cell.
+   - Possibly do something with creating derivatives of restart solution using
+     Lagrange polynomial or large FD stencil.
 
 * The new continuous_output capability is now working in serial for a 3D grid
   with only hexahedra elements, but just barely and still needs to be thoroughly
@@ -129,6 +139,8 @@
 ################################################################################
 ################################################################################
 ################################################################################
+
+* Add timing/profiling mechanism for I/O tasks.
 
 * Need to perform an analysis on the unrolled versions of the matrix type-bound
   procedure pointers on NAS using a large scale problem (e.g., TGV 256^3) to
