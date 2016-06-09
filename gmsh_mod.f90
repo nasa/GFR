@@ -829,6 +829,8 @@ subroutine create_gmsh_grid_arrays
   integer, allocatable, dimension(:) :: lpoin
   logical, allocatable, dimension(:) :: bc_done
   !
+  type (cell_t), allocatable, dimension(:) :: tmp_cell_data
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_gmsh_grid_arrays"
   !
@@ -851,9 +853,9 @@ continue
   bgrps = count(phys_grps(:)%phys_dim < nr)
   !
   allocate ( int_grps(1:igrps) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"int_grps",1,ierr)
+  call alloc_error(pname,"int_grps",1,ierr,error_message)
   allocate ( bnd_grps(1:bgrps) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bnd_grps",1,ierr)
+  call alloc_error(pname,"bnd_grps",1,ierr,error_message)
   !
   int_grps(1:igrps) = pack( intseq(1,num_phys_grps) , &
                             phys_grps(:)%phys_dim == nr )
@@ -869,6 +871,51 @@ continue
   !
   ! #######
   ! ## 2 ##
+  ! #######
+  !
+  ! Reorder cell_data so that the interior cells are first followed by
+  ! the boundary faces
+  !
+  allocate ( tmp_cell_data(1:size(cell_data)) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_cell_data",1,ierr,error_message)
+  !
+  n = 0
+  !
+  ! Find all the interior cells and put them at the front of tmp_cell_data
+  !
+  do j = 1,size(cell_data)
+    if (allocated(cell_data(j)%tags)) then
+      if (any(cell_data(j)%tags(1) == phys_grps(int_grps(:))%phys_id)) then
+        n = n + 1
+        tmp_cell_data(n) = cell_data(j)
+      end if
+    end if
+  end do
+  !
+  ! Now append all the boundary faces to the end of tmp_cell_data
+  !
+  do j = 1,size(cell_data)
+    if (allocated(cell_data(j)%tags)) then
+      if (any(cell_data(j)%tags(1) == phys_grps(bnd_grps(:))%phys_id)) then
+        n = n + 1
+        tmp_cell_data(n) = cell_data(j)
+      end if
+    end if
+  end do
+  !
+  if (n /= size(cell_data)) then
+    write (error_message,9) size(cell_data),n
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
+  ! Finally, use move_alloc to rebuild cell_data with the new ordering
+  ! from tmp_cell_data, and then deallocate tmp_cell_data
+  !
+  call move_alloc( from=tmp_cell_data , to=cell_data )
+  !
+  ! #######
+  ! ## 3 ##
   ! #######
   !
   ! Loop through the physical groups and collect
@@ -913,7 +960,7 @@ continue
   end do
   !
   ! #######
-  ! ## 3 ##
+  ! ## 4 ##
   ! #######
   !
   ! Count the total number of interior cells and boundary faces
@@ -938,7 +985,7 @@ continue
   end if
   !
   ! #######
-  ! ## 4 ##
+  ! ## 5 ##
   ! #######
   !
   ! Allocate the nodes_of_cell_ptr array
@@ -989,7 +1036,7 @@ continue
   end do
   !
   ! #######
-  ! ## 5 ##
+  ! ## 6 ##
   ! #######
   !
   ! Allocate the nodes_of_cell array
@@ -1008,7 +1055,7 @@ continue
   end do
   !
   ! #######
-  ! ## 6 ##
+  ! ## 7 ##
   ! #######
   !
   ! Before we create the bface array, we need to
@@ -1095,7 +1142,7 @@ continue
   call alloc_error(pname,"lpoin",2,ierr)
   !
   ! #######
-  ! ## 7 ##
+  ! ## 8 ##
   ! #######
   !
   ! Create and fill out bface with data from the
@@ -1253,7 +1300,7 @@ continue
   call alloc_error(pname,"bnd_grps",2,ierr)
   !
   ! #######
-  ! ## 8 ##
+  ! ## 9 ##
   ! #######
   !
   ! Finish any remaining tasks for the grid geometry
@@ -1284,10 +1331,10 @@ continue
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
-  if (any(cell_geom == Geom_Tria)) then
-    if (mypnum == 0) write (iout,8)
-    call stop_recon(stop_mpi,pname)
-  end if
+ !if (any(cell_geom == Geom_Tria)) then
+ !  if (mypnum == 0) write (iout,8)
+ !  call stop_recon(stop_mpi,pname)
+ !end if
   !
   if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
       iop_flxpts /= Legendre_Gauss_Lobatto) then
@@ -1327,6 +1374,10 @@ continue
   8 format (///," Triangles are temporarily disabled due to significant",/, &
                 " changes in the quadrilateral part of the code. These ",/, &
                 " changes have yet to be applied to triangles.",///)
+  9 format ("  The final counter for tmp_cell_data does not",/, &
+            "  match the size of the cell_data array!",/, &
+            "         final tmp_cell_data counter = ",i0,/, &
+            "                     size(cell_data) = ",i0,/)
   !
 end subroutine create_gmsh_grid_arrays
 !
