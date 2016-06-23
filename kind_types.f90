@@ -123,7 +123,6 @@ module module_kind_types
   ! I/O constants
   !
   integer, parameter :: iout = 6
-  integer, parameter :: inpt = 7
   integer, parameter :: iorst = 10
   !
   ! Boundary condition constants

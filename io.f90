@@ -115,49 +115,139 @@ contains
 subroutine read_input_file
   !
   !.. Local Scalars ..
-  integer :: ierr
-  character(len=80) :: text
+  integer :: i,j,ierr,input_status
+  integer :: command_count,command_length
+  character(len=1000) :: command_value
+  character(len=1000) :: input_fname
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_input_file"
-  character(len=*), parameter :: fname = "recon3.in"
+  character(len=*), parameter :: default_fname = "recon3.in"
   !
 continue
   !
-  open (inpt,file=fname,status="old",action="read", &
-             form="formatted",iostat=ierr)
-  call io_error(pname,fname,1,ierr)
+  ! Check for additional command line arguments
   !
-  read (inpt,*,iostat=ierr,err=100,end=100) text
+  command_count = command_argument_count()
   !
-  close (inpt,iostat=ierr)
-  call io_error(pname,fname,2,ierr)
+  one_pass_loop: do i = 1,1
+    !
+    if (command_count == 1) then
+      !
+      call get_command_argument(1,input_fname,command_length,ierr)
+      !
+      call check_input_file(input_fname,input_status)
+      !
+      if (input_status == 0) exit one_pass_loop
+      !
+    else if (command_count > 1) then
+      !
+      do j = 1,command_count
+        !
+        call get_command_argument(j,command_value,command_length,ierr)
+        !
+        if (trim(adjustl(command_value)) == "-f") then
+          !
+          call get_command_argument(j+1,input_fname,command_length,ierr)
+          !
+          call check_input_file(input_fname,input_status)
+          !
+          if (input_status == 0) exit one_pass_loop
+          !
+        end if
+        !
+      end do
+      !
+    end if
+    !
+    input_fname = default_fname
+    !
+    call check_input_file(input_fname,input_status)
+    !
+    if (input_status /= 0) then
+      write (error_message,11)
+      call stop_recon(stop_mpi,pname,error_message)
+    end if
+    !
+  end do one_pass_loop
   !
-  text = trim(adjustl(text))
-  text = uppercase( text )
+  call read_nml_input_file(input_fname)
   !
-  if (text(1:6) == "&INPUT") then
-    call read_nml_input_file
-  else
-    goto 100
+  ! Format statements
+  !
+  11 format ("ERROR FINDING A VALID INPUT FILE!")
+  !
+end subroutine read_input_file
+!
+!###############################################################################
+!
+subroutine check_input_file(input_fname,input_status)
+  !
+  !.. Formal Arguments ..
+  character(len=*),  intent(in) :: input_fname
+  integer,          intent(out) :: input_status
+  !
+  !.. Local Scalars ..
+  integer :: ierr,inpt
+  logical :: file_exists
+  character(len=80) :: text
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_input_file"
+  !
+continue
+  !
+  input_status = -1
+  !
+  ! Inquire whether the input file name exists
+  !
+  inquire (file=input_fname,exist=file_exists)
+  !
+  if (file_exists) then
+    !
+    ! Try opening the input file name 
+    !
+    open (newunit=inpt,file=input_fname,status="old",action="read", &
+                       form="formatted",iostat=ierr,iomsg=error_message)
+    call io_error(pname,input_fname,1,ierr,error_message)
+    !
+    ! Read the first line of the input file
+    !
+    read (inpt,*,iostat=ierr,err=100,end=100) text
+    !
+    close (inpt,iostat=ierr,iomsg=error_message)
+    call io_error(pname,input_fname,2,ierr,error_message)
+    !
+    ! Check the first line for neccessary string
+    !
+    text = trim(adjustl(text))
+    text = uppercase( text )
+    !
+    ! Change input_status to 0 if the first line
+    ! matches the required namelist value
+    !
+    if (text(1:6) == "&INPUT") input_status = 0
+    !
   end if
   !
   return
   !
   ! Read error continuation statements
   !
-  100 write (iout,10) ierr ; call stop_recon(stop_mpi,pname)
+  100 continue
+  write (error_message,10) trim(adjustl(input_fname)), ierr
+  call stop_recon(stop_mpi,pname,error_message)
   !
   ! Format statements
   !
-  10 format (/," Error checking the format of the input file 'recon3.in'!",/, &
+  10 format (/," Error checking the format of the input file '",a,"'!",/, &
                " IO Error = ",i0,/)
   !
-end subroutine read_input_file
+end subroutine check_input_file
 !
 !###############################################################################
 !
-subroutine read_nml_input_file
+subroutine read_nml_input_file(input_fname)
   !
   !.. Use Statements ..
   use order_mod, only : initialize_geom_solpts
@@ -181,8 +271,11 @@ subroutine read_nml_input_file
   !
   use channel_mod, only : read_channel_init_file
   !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: input_fname
+  !
   !.. Local Scalars ..
-  integer  :: it1,it2,ierr,ival
+  integer  :: it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
   logical  :: use_qdtr_face_pts,mms_error
   real(wp) :: Period_Time_X,Period_Time_Y
@@ -194,15 +287,14 @@ subroutine read_nml_input_file
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_nml_input_file"
-  character(len=*), parameter :: fname = "recon3.in"
   !
 continue
   !
   ! Open the input file
   !
-  open (inpt,file=fname,status="old",action="read", &
-             form="formatted",iostat=ierr)
-  call io_error(pname,fname,1,ierr)
+  open (newunit=inpt,file=input_fname,status="old",action="read", &
+                     form="formatted",iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,1,ierr,error_message)
   !
   ! Read in the input file using the input namelist
   !
@@ -210,8 +302,8 @@ continue
   !
   ! Close the input file now that we are finished reading it
   !
-  close (inpt,iostat=ierr)
-  call io_error(pname,fname,2,ierr)
+  close (inpt,iostat=ierr,iomsg=error_message)
+  call io_error(pname,input_fname,2,ierr,error_message)
   !
   ! Check the output directory
   !
