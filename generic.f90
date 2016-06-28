@@ -322,7 +322,7 @@ continue
     !
   else
     !
-    entL2 = log10(rl2mx) - log10(rltwo)
+    entL2 = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
     !
     ! Check for convergence
     !
