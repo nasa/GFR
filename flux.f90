@@ -335,7 +335,7 @@ continue
       !
       do m = 1,nq
         do l = 1,nr
-          rsflx(k,m,l) = dot( xyflx(k,m,1:nr) , metrics(1:nr,l,n,2) )
+          rsflx(k,m,l) = dot( xyflx(k,m,1:nr) , metrics(l,1:nr,n,2) )
         end do
       end do
       !
