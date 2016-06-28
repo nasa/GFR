@@ -641,6 +641,14 @@ continue
       !
       edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
       !
+      if (use_derivative_matrices) then
+        do k = p1,p2
+          do l = 1,nr
+            txyz(k-p1+1,l) = xyz(l,k)
+          end do
+        end do
+      end if
+      !
       do n = p1,p2
         !
         np = n-p1+1
@@ -656,11 +664,29 @@ continue
         !
         ! First derivative metrics
         !
-        metrics(1:nr,1,n,1) = one4 * ( sm1*(nodes(1:nr,1)-nodes(1:nr,2)) + &
-                                       sp1*(nodes(1:nr,3)-nodes(1:nr,4)) )
-        !
-        metrics(1:nr,2,n,1) = one4 * ( rm1*(nodes(1:nr,1)-nodes(1:nr,4)) + &
-                                       rp1*(nodes(1:nr,3)-nodes(1:nr,2)) )
+        if (use_derivative_matrices) then
+          !
+          do ref_dir = 1,nr
+            do phys_dir = 1,nr
+              metrics(phys_dir,ref_dir,n,1) = deriv(this_geom,this_order)% &
+                                                               d(ref_dir)% &
+                                              dot( np , txyz(1:p3,phys_dir) )
+            end do
+          end do
+          !
+        else
+          !
+          do l = 1,nr
+            metrics(l,1,n,1) = one4 * ( sm1*(nodes(l,1)-nodes(l,2)) + &
+                                        sp1*(nodes(l,3)-nodes(l,4)) )
+          end do
+          !
+          do l = 1,nr
+            metrics(l,2,n,1) = one4 * ( rm1*(nodes(l,1)-nodes(l,4)) + &
+                                        rp1*(nodes(l,3)-nodes(l,2)) )
+          end do
+          !
+        end if
         !
         ! Second derivative metrics
         !
