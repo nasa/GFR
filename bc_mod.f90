@@ -714,7 +714,17 @@ continue
       ! The normal velocity at this flux point seems to
       ! indicate this should be an outflow boundary.
       !
-      write (iout,*) "Error with bc_generic_inflow boundary condition!"
+      write (iout,1) mach_int,aspd_int,hvfp(nq),hvfp(1),hufp(2,k),hufp(3,k),hufp(4,k),rnrm(1),rnrm(2)
+      1 format ("Error with bc_generic_inflow boundary condition!",/, &
+                "   mach_int = ",es14.6,/, &
+                "   aspd_int = ",es14.6,/, &
+                "   pres_int = ",es14.6,/, &
+                "   dens_int = ",es14.6,/, &
+                "   momx_int = ",es14.6,/, &
+                "   momy_int = ",es14.6,/, &
+                "   enrg_int = ",es14.6,/, &
+                "         nx = ",es14.6,/, &
+                "         ny = ",es14.6)
       !
     end if
     !
