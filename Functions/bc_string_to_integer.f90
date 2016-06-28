@@ -11,7 +11,9 @@ pure function bc_string_to_integer(bc_text) result(return_value)
   character(len=len_trim(bc_text)) :: text
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: cbnd = "BOUNDARY"
+  character(len=*), parameter :: cbnd   = "BOUNDARY"
+  character(len=*), parameter :: csuper = "SUPERSONIC"
+  character(len=*), parameter :: csonic = "SONIC"
   !
 continue
   !
@@ -45,6 +47,22 @@ continue
   n = index(text(nb:ne),cbnd)
   if (n > 0) then
     text = text(nb:n-1) // text(n+len_trim(cbnd):ne)
+    ne = len_trim(text)
+  end if
+  !
+  ! Change the substring "SUPERSONIC" TO "SUP" if it exists
+  !
+  n = index(text(nb:ne),csuper)
+  if (n > 0) then
+    text = text(nb:n+2) // text(n+len_trim(csuper):ne)
+    ne = len_trim(text)
+  end if
+  !
+  ! Remove the substring "SONIC" if it exists
+  !
+  n = index(text(nb:ne),csonic)
+  if (n > 0) then
+    text = text(nb:n-1) // text(n+len_trim(csonic):ne)
     ne = len_trim(text)
   end if
   !
