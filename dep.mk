@@ -214,6 +214,8 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/entropy.f90 \
        $(FUNDIR)/pressure.f90 \
+       $(FUNDIR)/viscosity.f90 \
+       $(FUNDIR)/temperature.f90 \
        $(FUNDIR)/mach_number.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/grad_cv_to_grad_pv.f90 \

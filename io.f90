@@ -4634,10 +4634,11 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
-  use ovar,    only : aref,rhoref,time_ref
+  use ovar,    only : aref,rhoref,time_ref,tref
   use ovar,    only : cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : correct_output
+  use ovar,    only : governing_equations
   use flowvar, only : usp,dusp
   !
   use flux_mod, only : correct_solution_for_output
@@ -4659,12 +4660,21 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_solution_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_sname(1:6) = ["Density     ", &
-                                                    "Momentum    ", &
-                                                    "Energy      ", &
-                                                    "GradDensity ", &
-                                                    "GradMomentum", &
-                                                    "GradEnergy  "]
+  character(len=*), parameter :: char_sname(1:9) = ["Density    ", &
+                                                    "Velocity   ", &
+                                                    "Energy     ", &
+                                                    "Pressure   ", &
+                                                    "Vorticity  ", &
+                                                    "Mach       ", &
+                                                    "Entropy    ", &
+                                                    "Viscosity  ", &
+                                                    "Temperature"]
+ !character(len=*), parameter :: char_sname(1:6) = ["Density     ", &
+ !                                                  "Momentum    ", &
+ !                                                  "Energy      ", &
+ !                                                  "GradDensity ", &
+ !                                                  "GradMomentum", &
+ !                                                  "GradEnergy  "]
  !character(len=*), parameter :: char_sname(1:4) = ["Density  ", &
  !                                                  "Velocity ", &
  !                                                  "Pressure ", &
@@ -4854,7 +4864,7 @@ continue
       if (trim(char_sname(l)) == "Velocity") then
         n = n + nr
       else if (trim(char_sname(l)) == "Vorticity") then
-        n = n + nr
+        n = n + merge(nr,1,nr==3)
       else if (trim(char_sname(l)) == "Momentum") then
         n = n + nr
       else if (trim(char_sname(l)) == "GradDensity") then
@@ -4863,6 +4873,10 @@ continue
         n = n + nr*nr
       else if (trim(char_sname(l)) == "GradEnergy") then
         n = n + nr
+      else if (trim(char_sname(l)) == "Viscosity") then
+        if (governing_equations == NavierStokes_Eqns) then
+          n = n + 1
+        end if
       else
         n = n + 1
       end if
@@ -4887,11 +4901,12 @@ continue
       else if (trim(char_sname(l)) == "Vorticity") then
         do m = 1,nr
           n = n + 1
-          varname = "Vorticity"//char_xyz(m)
+          varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  cgns_kind_real,trim(varname),isvar_s(n),ierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
+          if (nr < 3) exit
         end do
       else if (trim(char_sname(l)) == "Momentum") then
         do m = 1,nr
@@ -4931,6 +4946,15 @@ continue
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                           "Write node: Solution variable",n)
         end do
+      else if (trim(char_sname(l)) == "Viscosity") then
+        if (governing_equations == NavierStokes_Eqns) then
+          n = n + 1
+          varname = trim(char_sname(l))
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 cgns_kind_real,trim(varname),isvar_s(n),ierr)
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+                          "Write node: Solution variable",n)
+        end if
       else
         n = n + 1
         if (trim(char_sname(l)) == "Energy") then
@@ -4938,8 +4962,8 @@ continue
         else
           varname = trim(char_sname(l))
         end if
-        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
-                               trim(char_sname(l)),isvar_s(n),ierr)
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               cgns_kind_real,trim(varname),isvar_s(n),ierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
                         "Write node: Solution variable",n)
       end if
@@ -5023,14 +5047,27 @@ continue
           n = n + 1
           vartmp = entropy_cv( interp_usp )
           call cgns_write_field_parallel
+        case ("Temperature") ! Temperature
+          n = n + 1
+          vartmp = temperature_cv( interp_usp )
+          vartmp = vartmp * tref
+          call cgns_write_field_parallel
+        case ("Viscosity") ! Viscosity
+          if (governing_equations == NavierStokes_Eqns) then
+            n = n + 1
+            vartmp = viscosity_cv( interp_usp )
+            call cgns_write_field_parallel
+          end if
         case ("Vorticity") ! Vorticity
          !vartmp = entropy_cv( interp_usp )
          !vartmp = vorticity_cv( interp_usp )
           do m = 1,nr
             n = n + 1
-            vartmp = vorticity_dusp( interp_usp , interp_dusp , m )
+            k = merge(m,3,nr==3)
+            vartmp = vorticity_dusp( interp_usp , interp_dusp , k )
             vartmp = vartmp / time_ref
             call cgns_write_field_parallel
+            if (nr < 3) exit
           end do
         case default
           n = n + 1
@@ -6558,6 +6595,8 @@ include "Functions/last.f90"
 include "Functions/bc_priority.f90"
 include "Functions/entropy.f90"
 include "Functions/pressure.f90"
+include "Functions/viscosity.f90"
+include "Functions/temperature.f90"
 include "Functions/mach_number.f90"
 include "Functions/cell_vol.f90"
 include "Functions/bc_string_to_integer.f90"
