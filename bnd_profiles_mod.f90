@@ -76,9 +76,11 @@ contains
 subroutine compute_bnd_profiles
   !
   !.. Use Statements ..
-  use order_mod,         only : maxSP
-  use geovar,            only : nr,bface,face,cell
-  use ovar,              only : machref,rhoref,aref,muref
+  use order_mod,         only : maxSP,maxFP
+  use quadrature_mod,    only : std_elem
+  use geovar,            only : nr,bface,face,cell,xyz_nodes
+  use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
+  use ovar,              only : machref,rhoref,aref,muref,tref
   use ovar,              only : cpref_nd,Pr
   use ovar,              only : output_bnd_profiles
   use metrics_mod,       only : geofa
@@ -97,7 +99,10 @@ subroutine compute_bnd_profiles
   real(wp) :: uinf,eta_coef,vy_non_coef
   real(wp) :: xloc,yloc,vx,vy,nuref
   real(wp) :: eta,vx_non,vy_non
+  real(wp) :: cfdrag,cfdrag_total,plate_length
+  real(wp) :: cfdrag_ideal,jacfp,rexmax
   logical  :: use_coefs
+  integer  :: nn1,host_side
   !
   character(len=20) :: zonetype
   !
@@ -112,9 +117,6 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdvsp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: dvsp
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_bnd_profiles"
@@ -127,6 +129,9 @@ continue
   !
   dynamic_pres = half * machref * machref
   !
+  cfdrag_total = zero
+  rexmax = -huge(zero)
+  !
   ! #########
   ! #########
   ! ##  1  ##
@@ -135,9 +140,13 @@ continue
   !
   ! Compute the various profile quantities
   !
+  write (iout,1)
+  1 format(//,10x,"INTEGRATED SKIN FRICTION DRAG",/,80("-"))
   do n = 1,size(bnd_prof)
     !
     ndata = 0 ! initialize the index within qty_data for this boundary group
+    !
+    cfdrag = zero ! initialize the integrated skin friction drag
     !
     do i = 1,size(bnd_prof(n)%faces)
       !
@@ -151,11 +160,22 @@ continue
       host_geom = cell(host_cell)%geom   ! host cell geometry type
       host_order = cell(host_cell)%order ! host cell solution order
       !
+      host_side = bface(4,nf)
+      !
       n1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in host cell
       n2 = cell(host_cell)%end_sp ! ending    index for sol-pts in host cell
       np = n2-n1+1                ! number of sol-pts in host cell
       !
       ! Create transposes of the usp and dusp arrays to reduce cache misses
+      !
+      nn1 = nodes_of_cell_ptr(host_cell)+1
+      !
+      jacfp = rnorm2( half * (xyz_nodes(:,nodes_of_cell(nn1+ &
+                                        side_nodes(1,host_side,host_geom))) - &
+                              xyz_nodes(:,nodes_of_cell(nn1+ &
+                                        side_nodes(2,host_side,host_geom))) &
+                              ) &
+                    )
       !
      !dvsp(1:nr,1:nq,1:np) = grad_cv_to_grad_pv( usp(1:nq,n1:n2) , &
      !                                           dusp(1,1:nq,n1:n2), &
@@ -181,7 +201,6 @@ continue
         ! Interpolate the conservative variables from the interior sol-pts
         ! to the current flux point on face nf
         !
-#ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           cvfp(m) = interp(host_geom,host_order)% &
                               toFace(face_order)% &
@@ -196,20 +215,6 @@ continue
           end do
         end do
         !
-#else
-        lmat(1:np) = interp(host_geom,host_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,kl)
-        !
-        do m = 1,nq
-          cvfp(m) = dot( lmat(1:np) , tusp(1:np,m) )
-          do l = 1,nr
-            dcvdx(l,m) = dot( lmat(1:np) , tdusp(1:np,l,m) )
-           !dpvdx(l,m) = dot( lmat(1:np) , tdvsp(1:np,l,m) )
-          end do
-        end do
-#endif
-        !
         ! Compute the primitive variables and their
         ! gradients at the current flux point
         !
@@ -217,15 +222,19 @@ continue
         dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp( cvfp(1:nq) , &
                                                   dcvdx(1:nr,1:nq) )
         !
+        temp = temperature_pv_sp(pvfp)
+        visc = viscosity_pv_sp(pvfp)
+        !
+        pvfp(nec) = pvfp(nec) * rhoref
+        pvfp(nmb:nme) = pvfp(nmb:nme) * aref
+        pvfp(nee) = pvfp(nee) * rhoref * aref * aref
+        !
         do m = 1,nq
           bnd_prof(n)%qty(nr+m)%qty_data(kf) = pvfp(m)
         end do
         !
-        temp = temperature_pv_sp(pvfp)
-        visc = viscosity_pv_sp(pvfp)
-        !
-        bnd_prof(n)%qty(nr+nq+1)%qty_data(kf) = temp
-        bnd_prof(n)%qty(nr+nq+2)%qty_data(kf) = visc
+        bnd_prof(n)%qty(nr+nq+1)%qty_data(kf) = temp * tref
+        bnd_prof(n)%qty(nr+nq+2)%qty_data(kf) = visc / muref
         !
         ! Compute the other flow variables for the profile
         !
@@ -257,6 +266,14 @@ continue
          !bnd_prof(n)%qty(nr+nq+8)%qty_data(kf) = qdot
           bnd_prof(n)%qty(nr+nq+8)%qty_data(kf) = blasius_cf
           !
+          if (rex > rexmax) then
+            rexmax = rex
+            plate_length = xyz_fp(1)
+          end if
+          if (xyz_fp(1) > 1.0e-4_wp) then
+            cfdrag = cfdrag + cfmag * jacfp * std_elem(face_geom,face_order)%wts(k)
+          end if
+          !
         else
           !
           bnd_prof(n)%qty(nr+nq+3)%qty_data(kf) = zero
@@ -276,7 +293,21 @@ continue
       !
     end do
     !
+    if (cfdrag /= zero) then
+      cfdrag = cfdrag!/ plate_length
+      cfdrag_total = cfdrag_total + cfdrag
+      write (iout,2) bnd_prof(n)%group_num, &
+                     trim(adjustl(bnd_prof(n)%prof_name)), &
+                     cfdrag
+     !write (iout,'(a,es23.15)') "  plate_length = ",plate_length
+    end if
+    2 format ("Boundary group #",i0," - (",a," B.C.) => cfdrag = ",es23.15)
+    !
   end do
+  write (iout,3) cfdrag_total
+  3 format (80("-"),/,20x,"Total cfdrag = ",es23.15)
+  write (iout,4) 1.328_wp / sqrt(rexmax)
+  4 format (20x,"Ideal cfdrag = ",es23.15,/,80("-"))
   !
   ! Compute the subsonic outflow profile
   !
@@ -346,15 +377,9 @@ continue
         n2 = ndata + size(face(nf)%left%flxpts)
         !
         do m = 1,size(bnd_prof(n)%qty)
-#ifdef USE_MATRIX_PROCEDURES
           bnd_prof(n)%qty(m)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
                                                                      output% &
                                  mv_mult( bnd_prof(n)%qty(m)%qty_data(n1:n2) )
-#else
-          bnd_prof(n)%qty(m)%qty_data(n1:n2) = &
-                matmul( outerp(face_geom,face_order)%output%mat , &
-                        bnd_prof(n)%qty(m)%qty_data(n1:n2) )
-#endif
         end do
         !
       end if
@@ -448,9 +473,6 @@ subroutine init_bnd_profile_structures
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nr) :: txyz
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: msk
@@ -650,7 +672,7 @@ continue
     ! Loop over the number of flow quantities and
     ! allocate the data locations for each quantity.
     !
-    do i = 1,nqty
+    do i = 1,size(bnd_prof(n)%qty)
       !
       ! Store the name of the flow quantity
       !
@@ -695,7 +717,6 @@ continue
       !
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
-      face_geom = face(nf)%geom   ! geometry of boundary face
       face_order = face(nf)%order ! geometry of boundary face
       !
       host_cell = face(nf)%left%cell ! host cell on current boundary face
@@ -721,22 +742,11 @@ continue
         ! Interpolate the coordinates of the interior sol-pts to the
         ! current flux point on face nf
         !
-#ifdef USE_MATRIX_PROCEDURES
         do l = 1,nr
           bnd_prof(n)%qty(l)%qty_data(kf) = interp(host_geom,host_order)% &
                                                       toFace(face_order)% &
                                             dot( kl , txyz(1:np,l) )
         end do
-        !
-#else
-        lmat(1:np) = interp(host_geom,host_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,kl)
-        !
-        do l = 1,nr
-          bnd_prof(n)%qty(l)%qty_data(kf) = dot( lmat(1:np) , txyz(1:np,l) )
-        end do
-#endif
         !
       end do
       !
@@ -861,15 +871,9 @@ continue
           n2 = ndata + size(face(nf)%left%flxpts)
           !
           do l = 1,nr
-#ifdef USE_MATRIX_PROCEDURES
             bnd_prof(n)%qty(l)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
                                                                        output% &
                                  mv_mult( bnd_prof(n)%qty(l)%qty_data(n1:n2) )
-#else
-            bnd_prof(n)%qty(l)%qty_data(n1:n2) = &
-                  matmul( outerp(face_geom,face_order)%output%mat , &
-                          bnd_prof(n)%qty(l)%qty_data(n1:n2) )
-#endif
           end do
           !
         end if
