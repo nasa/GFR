@@ -553,7 +553,11 @@ continue
     !
   else
     !
-    if (Timestep_Type == Constant_Timestep) then
+    if (convert_restart_to_cgns) then
+      !
+      num_ts = 0
+      !
+    else if (Timestep_Type == Constant_Timestep) then
       !
       cfl_beg = CFL
       cfl_end = CFL
