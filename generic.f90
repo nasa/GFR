@@ -166,6 +166,8 @@ end subroutine compute_final_error
 subroutine rgeterr()
   !
   !.. Use Statements ..
+  use, intrinsic :: ieee_exceptions, only : ieee_usual,ieee_get_flag
+  !
   use order_mod,  only : maxSP
   use geovar,  only : nr,ncell,cell
   use geovar,  only : global_pinc_ptr
@@ -189,6 +191,10 @@ subroutine rgeterr()
   real(wp) :: next_time_est
   real(wp) :: wall_time_last
   !
+  character(len=300) :: overflow_error
+  character(len=300) :: divide_by_zero_error
+  character(len=300) :: invalid_error
+  !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP) :: jac
   real(wp), dimension(1:maxSP) :: weights
@@ -199,7 +205,12 @@ subroutine rgeterr()
   real(wp), dimension(1:2,1:7) :: error
   real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
   !
+  integer, dimension(1:size(ieee_usual)) :: bad_number_found
+  logical, dimension(1:size(ieee_usual)) :: signaling_exceptions
+  !
   !.. Local Parameters ..
+  character(len=*), parameter :: pname = "rgeterr"
+  !
   real(wp), parameter :: max_sec = real( 1000*3600-1 , kind=wp )
   !
   ! error(:,1) = L1 norm of total error for all solution points
@@ -213,6 +224,10 @@ subroutine rgeterr()
   ! error(2,:) = error values for entropy
   !
 continue
+  !
+  overflow_error = ""
+  divide_by_zero_error = ""
+  invalid_error = ""
   !
   error(:,:) = zero  ! intialize everything to zero
   error(:,3) = -eps6 ! make this slightly negative in case all error is zero
@@ -399,6 +414,26 @@ continue
     convergence_reached = true
   end if
   !
+  ! Check to make sure that no floating-point exceptions are signaling
+  !
+  call ieee_get_flag(ieee_usual,signaling_exceptions)
+  !
+  bad_number_found = merge(1,0,signaling_exceptions)
+  !
+  call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
+                     size(bad_number_found,kind=int_mpi), &
+                     mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+  !
+  if (sum(bad_number_found) > 0) then
+    if (bad_number_found(1) > 0) write (overflow_error,8)
+    if (bad_number_found(2) > 0) write (divide_by_zero_error,9)
+    if (bad_number_found(3) > 0) write (invalid_error,10)
+    write (error_message,7) trim(overflow_error), &
+                            trim(divide_by_zero_error), &
+                            trim(invalid_error)
+    call stop_recon(stop_mpi,pname,error_message)
+  end if
+  !
   ! Format Statements
   !
   1 format (i9,4(1x,es11.4),2i8,2es9.1,1x,i3,2(":",i2.2))
@@ -423,6 +458,13 @@ continue
               " RUN ANOTHER 25 PERIODS PAST THE POINT OF COLLAPSE!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
               "******************************************************",/)
+  7 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
+            "DETECTED WHILE COMPUTING THE RESIDUAL NORM!!!", &
+            3(2x,a,:))
+  !
+  8  format ("OVERFLOW EXCEPTION DETECTED!!!")
+  9  format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
+  10 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
   !
 end subroutine rgeterr
 !
