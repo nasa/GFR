@@ -232,15 +232,22 @@ subroutine get_cell_timestep(dtmin)
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,eigni,eignv,dttemp,pp1sq
+  real(wp) :: ds,eigni,eignv,pp1sq
   real(wp) :: dsl,vell,al,jacl,dtl,mul,hl
   real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
+  real(wp) :: psql,psqr
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nq)    :: vl,vr
 #ifndef USE_MATRIX_PROCEDURES
   real(wp), dimension(1:maxSP) :: lmat
 #endif
+  !
+  integer, parameter :: make_p_plus_one = 0
+ !integer, parameter :: make_p_plus_one = 1
+  !
+  logical, parameter :: use_sqrt = true
+ !logical, parameter :: use_sqrt = fals
   !
 continue
   !
@@ -335,7 +342,7 @@ continue
   mur = zero
   !
  !pp1sq = real( (n_order+1)**2 , kind=wp )
-  pp1sq = real( (n_order+1)**nr , kind=wp )
+ !pp1sq = real( (n_order+1)**nr , kind=wp )
   !
   dtmin = huge(zero)
   dtsp(:) = dtmin
@@ -352,6 +359,8 @@ continue
     npl = l2-l1+1               ! number of solution points in left cell
     !
     face_order = face(nf)%order ! face solution order
+    !
+    psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
     do k = 1,size( face(nf)%left%flxpts )
       !
@@ -370,10 +379,12 @@ continue
       !
      !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
+      if (use_sqrt) vell = sqrt(vell)
       !
       ! Speed of sound at this face
       !
       al = max( gam*vl(nee)/vl(nec) , rndoff )
+      if (use_sqrt) al = sqrt(al)
       !
       ! Interpolate the jacobian to the flux point
       !
@@ -392,11 +403,13 @@ continue
       hl = half * dsl / jacl
       !
       eigni = abs(vell) + al
-      eignv = pp1sq * hl * mul
+     !eignv = pp1sq * hl * mul
+      eignv = psql * hl * mul
       !
       ! Compute the timestep for this flux point
       !
-      dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv)) )
+     !dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv)) )
+      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv)) )
       !
       ! Store the minimum timestep for this cell in the location
       ! of the first solution point for this cell
@@ -430,6 +443,9 @@ continue
     !
     face_order = face(nf)%order ! face solution order
     !
+    psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
+    psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
+    !
     do k = 1,size( face(nf)%left%flxpts )
       !
       kl = face(nf)%left%flxpts(k)
@@ -452,12 +468,16 @@ continue
      !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
      !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
+      if (use_sqrt) vell = sqrt(vell)
       velr = selfdot( vr(nmb:nme) )
+      if (use_sqrt) velr = sqrt(velr)
       !
       ! Speed of sound at this face
       !
       al = max( gam*vl(nee)/vl(nec) , rndoff )
+      if (use_sqrt) al = sqrt(al)
       ar = max( gam*vr(nee)/vr(nec) , rndoff )
+      if (use_sqrt) ar = sqrt(ar)
       !
       ! Interpolate the jacobian to the flux point for the left cell
       !
@@ -491,12 +511,15 @@ continue
       hr = half * dsr / jacr
       !
       eigni = max( abs(vell) + al , abs(velr) + ar )
-      eignv = pp1sq * max( hl * mul , hr * mur )
+     !eignv = pp1sq * max( hl * mul , hr * mur )
+      eignv = max( psql * hl * mul , psqr * hr * mur )
       !
       ! Compute the timestep for this flux point
       !
-      dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv) ) )
-      dtr = min( dtsp(r1) , CFL / (pp1sq * hr * (eigni + eignv) ) )
+     !dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv) ) )
+      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv) ) )
+     !dtr = min( dtsp(r1) , CFL / (pp1sq * hr * (eigni + eignv) ) )
+      dtr = min( dtsp(r1) , CFL / (psqr * hr * (eigni + eignv) ) )
       !
       ! Store the minimum timestep for all solution points in both cells
       !
@@ -512,9 +535,8 @@ continue
   ! Get the minimum timestep across all processors
   !
   if (ncpu > 1) then
-    dttemp = dtmin
-    call mpi_allreduce(dttemp,dtmin,1,mpi_flttyp, &
-                       mpi_min,mpi_comm_world,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Limit the local timesteps if using a global timestepping
@@ -543,6 +565,114 @@ end subroutine get_cell_timestep
 subroutine get_point_timestep(dtmin)
   !
   !.. Use Statements ..
+  use geovar,  only : nr,ncell,cell
+  use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
+  use ovar,    only : this_is_final_timestep
+  use ovar,    only : governing_equations
+  use metrics_mod,  only : jacobian,metrics
+  use flowvar, only : usp,dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n,nc,k,n1,n2,np
+  integer  :: this_geom,this_order
+  real(wp) :: dtpt,dtc,eigni,eignv
+  real(wp) :: vmag,aspd,psq,visc
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: vel
+  real(wp), dimension(1:nq) :: pv
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_point_timestep"
+  !
+  integer, parameter :: make_p_plus_one = 0
+ !integer, parameter :: make_p_plus_one = 1
+  !
+continue
+  !
+  dtmin = huge(zero)
+  !
+  visc = zero
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    psq = real( (this_order+make_p_plus_one)**2 , kind=wp )
+    !
+    dtc = CFL * two / psq
+    !
+    do k = 1,np
+      !
+      n = k + n1-1
+      !
+      pv(1:nq) = usp2v_sp( usp(1:nq,n) )
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        visc = viscosity_cv_sp( usp(1:nq,n) )
+      end if
+      !
+      vel(1:nr) = matmul( metrics(1:nr,1:nr,n,2) , pv(nmb:nme) ) / jacobian(n)
+      !
+      vmag = rnorm2(vel)
+      !
+      aspd = sqrt( max( gam*pv(nee)/pv(nec) , rndoff ) )
+      !
+      eigni = vmag + aspd
+      !
+      eignv = psq * visc
+      !
+      dtpt = dtc / (eigni + eignv)
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  end do
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Limit the local timesteps if using a global timestepping
+  !
+  if (Timestep_Type == Global_Point_Timestep) then
+    !
+    ! Set all time step sizes to the minimum timestep
+    !
+    dtsp(:) = dtmin
+    !
+    ! Make sure the timestep size doesnt make the final time exceed Final_Time
+    !
+    if (Final_Time > zero) then
+      if (time + dtmin > Final_Time + eps9) then
+        dtsp(:) = Final_Time - time
+        this_is_final_timestep = true
+      end if
+    end if
+    !
+  end if
+  !
+end subroutine get_point_timestep
+!
+!###############################################################################
+!
+subroutine old_get_point_timestep(dtmin)
+  !
+  !.. Use Statements ..
   use order_mod,  only : n_order
   use geovar,  only : nr,n_solpts
   use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
@@ -558,7 +688,7 @@ subroutine get_point_timestep(dtmin)
   real(wp) :: dtpt,gm1,dtc,eign
   real(wp) :: dxdr,dydr,dxds,dyds
   real(wp) :: rho,vx,vy,pres,aspd
-  real(wp) :: alfa,beta,gama,dttemp
+  real(wp) :: alfa,beta,gama
   !
   real(wp), dimension(1:nr) :: vel
   !
@@ -601,9 +731,8 @@ continue
   ! Get the minimum timestep across all processors
   !
   if (ncpu > 1) then
-    dttemp = dtmin
-    call mpi_allreduce(dttemp,dtmin,1,mpi_flttyp, &
-                       mpi_min,mpi_comm_world,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
   end if
   !
   ! Limit the local timesteps if using a global timestepping
@@ -625,7 +754,7 @@ continue
     !
   end if
   !
-end subroutine get_point_timestep
+end subroutine old_get_point_timestep
 !
 !###############################################################################
 !
