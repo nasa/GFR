@@ -161,7 +161,9 @@ module ovar
   !
   logical, public, save :: use_advanced_face_metrics = true
   logical, public, save :: use_bc_conflicts = true
+  !
   logical, public, save :: dump_memory_usage = fals
+  logical, public, save :: dump_fluxes       = fals
   !
   logical, public, save :: profile_io_all     = fals
   logical, public, save :: profile_io_cgns    = fals
@@ -526,7 +528,7 @@ module input_namelist_mod
   use ovar,      only : cgns_use_queue, interpolate_before_output_variable
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
-  use ovar,      only : dump_memory_usage,use_bc_conflicts
+  use ovar,      only : dump_memory_usage,use_bc_conflicts,dump_fluxes
   use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
@@ -631,6 +633,8 @@ module input_namelist_mod
   namelist / input / output_bnd_profiles
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
   namelist / input / use_unrolled_dot_products
+  ! DUMP FLUX INFORMATION FOR DEBUGGING
+  namelist / input / dump_fluxes
   !
 end module input_namelist_mod
 !
