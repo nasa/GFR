@@ -216,9 +216,9 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   !
-  integer,  public, save :: itrst
-  real(wp), public, save :: tmrst
-  real(wp), public, save :: dtrst
+  integer,  public, save :: itrst = 0
+  real(wp), public, save :: tmrst = zero
+  real(wp), public, save :: dtrst = zero
   !
   real(wp), public, save, allocatable, dimension(:) :: cv_in
   real(wp), public, save, allocatable, dimension(:) :: pv_in
