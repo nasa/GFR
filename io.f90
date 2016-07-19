@@ -51,6 +51,8 @@ module io_mod
   character(len=170),         save :: cgns_dir = ""
   character(len=170),         save :: cgns_grid_file
   !
+  character(len=170),         save :: cgnsfile_fmt
+  !
   !.. CGNS Path Variables ..
   integer, save :: ifile_n
   integer, save :: ibase_n
@@ -304,6 +306,10 @@ continue
   !
   close (inpt,iostat=ierr,iomsg=error_message)
   call io_error(pname,input_fname,2,ierr,error_message)
+  !
+  ! Check the lustre striping parameters
+  !
+  call check_lustre_striping
   !
   ! Check the output directory
   !
@@ -685,6 +691,130 @@ end subroutine read_nml_input_file
 !
 !###############################################################################
 !
+subroutine check_lustre_striping
+  !
+  !.. Use Statements ..
+  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  !
+  !.. Local Scalars ..
+  integer :: i,j,ip,im,ierr,stripe_num
+  character(len=1) :: stripe_unit
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_lustre_striping"
+  character(len=*), parameter :: units = "KMG"
+  character(len=*), parameter :: numbers(1:10) = ["0","1","2","3","4", &
+                                                  "5","6","7","8","9"]
+  !
+  integer, parameter :: max_lustre_count = 312
+  !
+continue
+  !
+  ! Check the Lustre stripe count
+  !
+  if (mod(ncpu,lustre_stripe_count) /= 0) then
+    !
+    count_loop: do i = 1,lustre_stripe_count
+      ip = min( lustre_stripe_count + i , max_lustre_count )
+      im = max( lustre_stripe_count - i , 0 )
+      if (mod(ncpu,ip) == 0) then
+        lustre_stripe_count = ip
+        exit count_loop
+      else if (mod(ncpu,im) == 0) then
+        lustre_stripe_count = im
+        exit count_loop
+      end if
+    end do count_loop
+    !
+  end if
+  !
+  ! Check the Lustre stripe size
+  !
+  stripe_num = 0
+  !
+  lustre_stripe_size = trim(adjustl(lustre_stripe_size))
+  !
+  size_loop: do i = 1,len_trim(lustre_stripe_size)
+    !
+    if (all(lustre_stripe_size(i:i) /= numbers)) then
+      !
+      read (lustre_stripe_size(1:i-1),*,iostat=ierr) stripe_num
+      !
+      if (ierr /= 0) then
+        stripe_num = 0
+        exit size_loop
+      end if
+      !
+      j = i-1 + scan( uppercase(lustre_stripe_size(i:)) , units )
+      !
+      if (j /= 0) then
+        !
+        select case (uppercase(lustre_stripe_size(j:j)))
+          case ("K")
+            stripe_num = stripe_num * 1024
+          case ("M")
+            stripe_num = stripe_num * 1024 * 1024
+          case ("G")
+            stripe_num = stripe_num * 1024 * 1024 * 1024
+        end select
+        !
+      end if
+      !
+      exit size_loop
+      !
+    end if
+    !
+  end do size_loop
+  !
+  stripe_num = max(0,stripe_num)
+  ! Make sure the stripe size is a multiple of 64 KB (65536 Bytes)
+  stripe_num = nint( real(stripe_num,kind=wp) / 65536.0_wp ) * 65536
+  ! Convert the stripe size to kilobytes
+  stripe_num  = stripe_num / 1024
+  stripe_unit = "k"
+  !
+  if (stripe_num == 0) then
+    !
+    if (mypnum == 0) write (iout,1)
+    lustre_stripe_size = "0"
+    !
+  else
+    !
+    if (stripe_num >= 1024) then
+      stripe_num = stripe_num / 1024
+      stripe_unit = "m"
+    end if
+    !
+    if (stripe_num >= 1024) then
+      stripe_num = stripe_num / 1024
+      stripe_unit = "g"
+    end if
+    !
+    write (lustre_stripe_size,2) stripe_num,stripe_unit
+    !
+  end if
+  !
+!!!#ifdef PBS_ENV
+  if (mypnum == 0) then
+    write (iout,3) lustre_stripe_count, &
+                   trim(adjustl(lustre_stripe_size))
+  end if
+!!!#endif
+  !
+  ! Format Statements
+  !
+  1 format (/,20("!"),5x,"WARNING",5x,20("!"),/, &
+              "!!!! THE LUSTRE STRIPE SIZE WAS NOT VALID AND  !!!!",/, &
+              "!!!! SO IT HAS BEEN RESET TO THE DEFAULT VALUE !!!!",/, &
+              20("!"),5x,"WARNING",5x,20("!"),/)
+  2 format (i0,a1)
+  3 format (/,"The Lustre striping command to be used is:",/, &
+              "lfs setstripe -c ",i0," -s ",a,1x,"[file/directory]",/)
+  !
+end subroutine check_lustre_striping
+!
+!###############################################################################
+!
 subroutine check_output_dir
   !
   integer :: clen,ierr,iodir,ii
@@ -838,6 +968,10 @@ end subroutine check_output_dir
 !
 subroutine check_cgns_dir
   !
+  !.. Use Statements ..
+  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  !
+  !.. Local Scalars ..
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
   logical :: using_cgns_dir
@@ -912,7 +1046,10 @@ continue
     !
     if (using_cgns_dir) then
       !
-      command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+     !command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+      write (command,3) max(0,lustre_stripe_count), &
+                        trim(adjustl(lustre_stripe_size)), &
+                        trim(adjustl(cgns_dir))
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
@@ -932,6 +1069,10 @@ continue
   clen = len_trim(cgns_dir)
   call mpi_bcast(clen,1,mpi_inttyp,0,mpi_comm_world,mpierr)
   call mpi_bcast(cgns_dir(1:clen),clen,MPI_CHARACTER,0,mpi_comm_world,mpierr)
+  !
+  ! Format Statements
+  !
+  1 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
   !
 end subroutine check_cgns_dir
 !
@@ -4339,6 +4480,7 @@ subroutine write_parallel_cgns(iflag)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts,xyz
+  use ovar,    only : itcur,itrst,num_ts
   use ovar,    only : time,aref,uref,rhoref,time_ref
   use ovar,    only : itestcase,cgns_use_queue
   use ovar,    only : interpolate_before_output_variable
@@ -4354,9 +4496,11 @@ subroutine write_parallel_cgns(iflag)
   integer :: my_cells_beg,my_cells_end
   integer :: n_total_output_pts
   integer :: n_total_output_cells
+  integer :: final_iter_digits
   !
   character(len=32) :: tname
   character(len=32) :: varname
+  character(len=100) :: char_num
   character(len=170) :: sol_file
   character(len=300) :: link_path
   !
@@ -4385,6 +4529,13 @@ continue
   end if
   !
   if (iflag == 1) then
+    !
+    ! Create the format string for creating the CGNS file names
+    !
+    write (char_num,4) itrst + num_ts
+    final_iter_digits = max(4,len_trim(adjustl(char_num)))
+    !
+    write (cgnsfile_fmt,3) trim(adjustl(cgns_dir)),final_iter_digits
     !
     cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
     !
@@ -4542,7 +4693,8 @@ continue
   ! Get the name for the current solution node
   !
   write (tname,'("FlowSolution",i0)') cgns_zone_counter
-  write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
+ !write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
+  write (sol_file,cgnsfile_fmt) itcur
   !
   ! Reallocate the soltime and solname arrays so we
   ! can concatenate this solution onto those arrays
@@ -4625,6 +4777,8 @@ continue
   1 format ("#############################################",/, &
             "    FOR PROCESSOR #",i0)
   2 format (a," = ",i0)
+  3 format ("('",a,"solution.',i0.",i0,",'.cgns')")
+  4 format (i0)
   !
 end subroutine write_parallel_cgns
 !
@@ -4692,7 +4846,8 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
-  cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
+ !cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
+  cgns_sol_file = trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is 1
   !

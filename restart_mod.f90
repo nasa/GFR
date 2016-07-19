@@ -39,6 +39,9 @@ module restart_mod
   integer(int_mpi), save :: ordered_geom_type = MPI_DATATYPE_NULL
   integer(int_mpi), save :: solution_type = MPI_DATATYPE_NULL
   !
+  character(len=170), save :: restart_dir = ""
+  character(len=170), save :: rstfile_fmt
+  !
   !###################################
   !###  Module Allocatable Arrays  ###
   !###################################
@@ -594,12 +597,6 @@ subroutine write_restart_file(itnum)
   !
 continue
   !
-  if (itnum > 0) then
-    write (fname,'("out.",i0.8,".rst")') itcur
-  else
-    write (fname,'("out.",i0.8,".done.rst")') itcur
-  end if
-  !
   if (use_old_restart_format) then
     !
     if (mypnum == 0) then
@@ -615,6 +612,12 @@ continue
     ! Only use the root partition to output the restart file
     !
     if (mypnum == 0) then
+      !
+      if (itnum > 0) then
+        write (fname,'("out.",i0.8,".rst")') itcur
+      else
+        write (fname,'("out.",i0.8,".done.rst")') itcur
+      end if
       !
       open (newunit=iorst,file=trim(adjustl(fname)),status="replace", &
                           action="write",form='unformatted',iostat=ierr)
@@ -640,6 +643,10 @@ continue
     !
     if (restart_needs_initialization) then
       !
+      ! Check for the restart directory and create it if it does not exist
+      !
+      call check_restart_dir
+      !
       ! For now, write the nodal solution to the restart file. At some point we
       ! should switch so it writes the modal solution since that would give more
       ! flexibility regarding changes in the solution order between runs.
@@ -658,6 +665,14 @@ continue
       !
       restart_needs_initialization = fals
       !
+    end if
+    !
+    ! Get the name for the current restart file
+    !
+    if (itnum > 0) then
+      write (fname,rstfile_fmt) itcur,""
+    else
+      write (fname,rstfile_fmt) itcur,".done"
     end if
     !
     ! Create the cell information to write to the restart file
@@ -894,6 +909,132 @@ continue
   end if
   !
 end subroutine write_restart_file
+!
+!###############################################################################
+!
+subroutine check_restart_dir
+  !
+  !.. Use Statements ..
+  use ovar, only : output_dir,itrst,num_ts
+  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  !
+  !.. Local Scalars ..
+  integer :: clen,ierr,iodir
+  integer :: exitstat,cmndstat
+  integer :: final_iter_digits
+  logical :: using_restart_dir
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
+  character(len=200) :: test_file
+  character(len=200) :: test_dir
+  character(len=100) :: char_num
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_restart_dir"
+  !
+  logical, parameter :: wait_for_completion = true
+  !
+continue
+  !
+  ! Initialize exitstat and cmndmsg
+  !
+  exitstat = 0
+  cmndmsg = ""
+  !
+  ! Try to open a file in the directory named Restart_files
+  !
+  test_dir = trim(output_dir) // "Restart_files/"
+  test_file = trim(test_dir) // "Restart_dir.test_file.dat"
+  !
+  ! Only perform the following tests using the root processor
+  ! to minimize contention and prevent each MPI process from
+  ! executing the same command.
+  !
+  if (mypnum == 0) then
+    !
+    open (newunit=iodir,file=trim(test_file),status="replace", &
+                        action="write",iostat=ierr)
+    !
+    if (ierr == 0) then
+      !
+      ! The open was successful, so close and delete the test file
+      !
+      close (iodir,status="delete",iostat=ierr)
+      !
+      ! Set the logical saying that we are using a separate restart directory
+      !
+      using_restart_dir = true
+      restart_dir = trim(test_dir)
+      !
+    else
+      !
+      ! The open failed, so more than likely the directory Restart_files
+      ! doesnt exist. Try to use the intrinsic execute_command_line
+      ! to create the directory.
+      !
+      command = "mkdir -p "//trim(test_dir)
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      if (exitstat /= 0 .or. cmndstat /= 0) then
+        using_restart_dir = fals
+        restart_dir = trim(output_dir)
+      else
+        using_restart_dir = true
+        restart_dir = trim(test_dir)
+      end if
+      !
+    end if
+    !
+#ifdef PBS_ENV
+    !
+    ! If we are using a separate restart directory and we are running
+    ! this through PBS on NAS, try to modify the lfs striping for
+    ! the restart directory for better I/O performance.
+    !
+    if (using_restart_dir) then
+      !
+     !command = "lfs setstripe -c 64 -s 4m "//trim(restart_dir)
+      write (command,3) max(0,lustre_stripe_count), &
+                        trim(adjustl(lustre_stripe_size)), &
+                        trim(adjustl(restart_dir))
+      !
+      call execute_command_line( trim(command) , wait_for_completion , &
+                                 exitstat , cmndstat , cmndmsg )
+      !
+      ! We arent going to test the status of executing this command because
+      ! it worked or it didnt. Either way, we will continue on and output
+      ! the restart solution to the restart directory.
+      !
+    end if
+    !
+#endif
+    !
+  end if
+  !
+  ! Broadcast the value of restart_dir to all the non-root MPI processes
+  !
+  clen = len_trim(restart_dir)
+  call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi, &
+                 MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(restart_dir(1:clen),clen,MPI_CHARACTER,0_int_mpi, &
+                 MPI_COMM_WORLD,mpierr)
+  !
+  ! Create the format string for creating the restart file names
+  !
+  write (char_num,1) itrst + num_ts
+  final_iter_digits = max(4,len_trim(adjustl(char_num)))
+  !
+  write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
+  !
+  ! Format Statements
+  !
+  1 format (i0)
+  2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
+  3 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
+  !
+end subroutine check_restart_dir
 !
 !###############################################################################
 !

@@ -128,6 +128,8 @@ module postprocessor_mod
   character(len=170),         save :: cgns_dir = ""
   character(len=170),         save :: cgns_grid_file
   !
+  character(len=170),         save :: cgnsfile_fmt
+  !
   !.. CGNS Path Variables ..
   integer, save :: ifile_n
   integer, save :: ibase_n
@@ -277,7 +279,7 @@ subroutine new_write_parallel_cgns()
   !
   !.. Use Statements ..
   use geovar, only : nr
-  use ovar,   only : time,time_ref
+  use ovar,   only : itcur,time,time_ref
   use ovar,   only : completely_disable_cgns
   use ovar,   only : write_TaylorGreen_full_solution
   use ovar,   only : cgns_use_queue
@@ -340,7 +342,8 @@ continue
   ! Get the name for the current solution node
   !
   write (tname,'("FlowSolution",i0)') cgns_zone_counter
-  write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
+ !write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
+  write (sol_file,cgnsfile_fmt) itcur
   !
   ! Reallocate the soltime and solname arrays so we
   ! can concatenate this solution onto those arrays
@@ -642,7 +645,8 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
-  cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
+ !cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
+  cgns_sol_file = trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is equal to open_CGNS
   !
@@ -3909,16 +3913,19 @@ end function vorticity_dusp
 subroutine check_cgns_dir
   !
   !.. Use Statements ..
-  use ovar, only : output_dir
+  use ovar, only : output_dir,itrst,num_ts
+  use ovar, only : lustre_stripe_count,lustre_stripe_size
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
+  integer :: final_iter_digits
   logical :: using_cgns_dir
   character(len=300) :: command
   character(len=300) :: cmndmsg
   character(len=200) :: test_file
   character(len=200) :: test_dir
+  character(len=100) :: char_num
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cgns_dir"
@@ -3986,7 +3993,10 @@ continue
     !
     if (using_cgns_dir) then
       !
-      command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+     !command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+      write (command,1) max(0,lustre_stripe_count), &
+                        trim(adjustl(lustre_stripe_size)), &
+                        trim(adjustl(cgns_dir))
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
@@ -4010,6 +4020,19 @@ continue
   !
   call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi), &
                  MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  !
+  ! Create the format string for creating the CGNS file names
+  !
+  write (char_num,1) itrst + num_ts
+  final_iter_digits = max(4,len_trim(adjustl(char_num)))
+  !
+  write (cgnsfile_fmt,2) trim(adjustl(cgns_dir)),final_iter_digits
+  !
+  ! Format Statements
+  !
+  1 format (i0)
+  2 format ("('",a,"solution.',i0.",i0,",'.cgns)'")
+  3 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
   !
 end subroutine check_cgns_dir
 !
