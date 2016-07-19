@@ -200,7 +200,7 @@ subroutine allocate_flowvar_arrays()
   use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
   use ovar,      only : iRKtype,num_stages,mms_opt
-  use ovar,      only : itestcase,num_ts
+  use ovar,      only : itestcase
   use ovar,      only : convert_restart_to_cgns
   use ovar,      only : continuous_output
   !
