@@ -177,6 +177,9 @@ module ovar
   !
   logical, public, save :: use_old_restart_format = fals
   !
+  integer,           public, save :: lustre_stripe_count = 64
+  character(len=10), public, save :: lustre_stripe_size  = "4m"
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -534,6 +537,7 @@ module input_namelist_mod
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
+  use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
   !
   implicit none
@@ -635,6 +639,8 @@ module input_namelist_mod
   namelist / input / use_unrolled_dot_products
   ! DUMP FLUX INFORMATION FOR DEBUGGING
   namelist / input / dump_fluxes
+  ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
+  namelist / input / lustre_stripe_count, lustre_stripe_size
   !
 end module input_namelist_mod
 !
