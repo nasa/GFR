@@ -794,12 +794,12 @@ continue
     !
   end if
   !
-!!!#ifdef PBS_ENV
+#ifdef PBS_ENV
   if (mypnum == 0) then
     write (iout,3) lustre_stripe_count, &
                    trim(adjustl(lustre_stripe_size))
   end if
-!!!#endif
+#endif
   !
   ! Format Statements
   !
