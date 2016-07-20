@@ -4535,7 +4535,7 @@ continue
     write (char_num,4) itrst + num_ts
     final_iter_digits = max(4,len_trim(adjustl(char_num)))
     !
-    write (cgnsfile_fmt,3) trim(adjustl(cgns_dir)),final_iter_digits
+    write (cgnsfile_fmt,3) final_iter_digits
     !
     cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
     !
@@ -4777,7 +4777,7 @@ continue
   1 format ("#############################################",/, &
             "    FOR PROCESSOR #",i0)
   2 format (a," = ",i0)
-  3 format ("('",a,"solution.',i0.",i0,",'.cgns')")
+  3 format ("('solution.',i0.",i0,",'.cgns')")
   4 format (i0)
   !
 end subroutine write_parallel_cgns
@@ -4846,8 +4846,7 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
- !cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
-  cgns_sol_file = trim(adjustl(sol_file))
+  cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is 1
   !

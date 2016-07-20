@@ -645,8 +645,7 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
- !cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
-  cgns_sol_file = trim(adjustl(sol_file))
+  cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is equal to open_CGNS
   !
@@ -4026,12 +4025,12 @@ continue
   write (char_num,1) itrst + num_ts
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
-  write (cgnsfile_fmt,2) trim(adjustl(cgns_dir)),final_iter_digits
+  write (cgnsfile_fmt,2) final_iter_digits
   !
   ! Format Statements
   !
   1 format (i0)
-  2 format ("('",a,"solution.',i0.",i0,",'.cgns)'")
+  2 format ("('solution.',i0.",i0,",'.cgns)'")
   3 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
   !
 end subroutine check_cgns_dir
