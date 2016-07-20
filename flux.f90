@@ -223,7 +223,7 @@ end subroutine interp_dusp_to_flxpts
 !###############################################################################
 !###############################################################################
 !
-subroutine flux_gradient_at_solpts_visc
+subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   !
   !... this subroutine get derivative of fluxes (no interaction)
   !... for each cell, get f, g, ftd, gtd at the solution points
@@ -237,11 +237,19 @@ subroutine flux_gradient_at_solpts_visc
   use metrics_mod,  only : metrics,geofa,jacobian
   use flowvar, only : usp,dusp,residual,faceflx,faceusp
   use ovar,    only : governing_equations
+  use ovar,    only : output_dir,dump_fluxes
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: time_step
+  integer, intent(in) :: rk_step
   !
   !.. Local Scalars ..
   integer :: k,l,m,n,nc,n1,n2,np
   integer :: nf,sf,kf,lf
   integer :: this_geom,this_order,face_order
+  integer :: ierr,iosp
+  !
+  character(len=300) :: spf_fname
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr)      :: unrm
@@ -254,6 +262,15 @@ subroutine flux_gradient_at_solpts_visc
   character(len=*), parameter :: pname = "flux_gradient_at_solpts_visc"
   !
 continue
+  !
+  if (dump_fluxes) then
+    write (spf_fname,1) trim(output_dir),time_step,rk_step
+    spf_fname = trim(adjustl(spf_fname))
+    open (newunit=iosp,file=trim(spf_fname),status="replace",action="write", &
+                       position="rewind",form="formatted", &
+                       iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(spf_fname),1,ierr,error_message)
+  end if
   !
   ! Initialize faceflx to zero before we start
   !
@@ -311,6 +328,16 @@ continue
       end do
       !
     end do
+    !
+    if (dump_fluxes) then
+      write (iosp,2) nc
+      do k = 1,np
+        write (iosp,3) k,k+n1-1
+        do m = 1,nq
+          write (iosp,4) (xyflx(k,m,l),l=1,nr), (rsflx(k,m,l),l=1,nr)
+        end do
+      end do
+    end if
     !
     ! #########
     ! #########
@@ -405,29 +432,49 @@ continue
     !
   end do
   !
+  if (dump_fluxes) then
+    close (iosp,iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(spf_fname),2,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (a,"flux_files/sp_",i0,".",i0,"_fluxes.dat")
+  2 format (100("#"),/,15x,"CELL ",i0,/,100("#"))
+  3 format (100("-"),/,5x,"SP ",i0," (",i0,")",/,100("-"))
+  4 format (<nr>es15.6,5x,<nr>es15.6)
+  !
 end subroutine flux_gradient_at_solpts_visc
 !
 !###############################################################################
 !
-subroutine correct_interface_flux_visc()
+subroutine correct_interface_flux_visc(time_step,rk_step)
   !
   use generic_types_mod, only : matrix
   use order_mod,  only : maxFP,geom_solpts
   use geovar,  only : nr,nfbnd,nface
   use geovar,  only : bface,face,cell
   use ovar,    only : invs_flux_method,governing_equations
+  use ovar,    only : output_dir,dump_fluxes
   use metrics_mod,  only : geofa,volj
   use correction_mod, only : correct
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
+  !.. Formal Arguments ..
+  integer, intent(in) :: time_step
+  integer, intent(in) :: rk_step
+  !
   !.. Local Scalars ..
   integer  :: i,k,l,m,n,nf,r1,r2,l1,l2
   integer  :: kl,kr,iu,nfp
+  integer  :: ierr,iofp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
   real(wp) :: ds,dsl,dsr,cmat_val
+  !
+  character(len=300) :: fpf_fname
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: unrm
@@ -442,6 +489,15 @@ subroutine correct_interface_flux_visc()
   character(len=*), parameter :: pname = "correct_interface_flux_visc"
   !
 continue
+  !
+  if (dump_fluxes) then
+    write (fpf_fname,2) trim(output_dir),time_step,rk_step
+    fpf_fname = trim(adjustl(fpf_fname))
+    open (newunit=iofp,file=trim(fpf_fname),status="replace",action="write", &
+                       position="rewind",form="formatted", &
+                       iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(fpf_fname),1,ierr,error_message)
+  end if
   !
   vflx = zero
   !
@@ -537,6 +593,16 @@ continue
       fncq(:,k) = iflx(:) - vflx(:)
       !
     end do
+    !
+    if (dump_fluxes) then
+      write (iofp,3) nf,host_cell
+      do k = 1,nfp
+        write (iofp,4) k,face(nf)%left%flxpts(k)
+        do m = 1,nq
+          write (iofp,7) fncq(m,k), lflx(m,k)
+        end do
+      end do
+    end if
     !
     ! Compute the flux jump at the interface
     !
@@ -652,6 +718,16 @@ continue
       !
     end do
     !
+    if (dump_fluxes) then
+      write (iofp,5) nf,left_cell,right_cell
+      do k = 1,nfp
+        write (iofp,6) k,face(nf)%left%flxpts(k),face(nf)%right%flxpts(k)
+        do m = 1,nq
+          write (iofp,7) fncq(m,k), lflx(m,k), rflx(m,k)
+        end do
+      end do
+    end if
+    !
     ! Compute the flux jump at the interface
     !
     fjl(1:nq,1:nfp) = fncq(1:nq,1:nfp) - lflx(1:nq,1:nfp)
@@ -702,7 +778,20 @@ continue
     !
   end do interior_fluxes
   !
+  if (dump_fluxes) then
+    close (iofp,iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(fpf_fname),2,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
   1 format (a,i0)
+  2 format (a,"flux_files/fp_",i0,".",i0,"_fluxes.dat")
+  3 format (100("#"),/,15x,"BOUNDARY FACE ",i0," :   HC=",i0,/,100("#"))
+  4 format (100("-"),/,5x,"FP ",i0," :   HP=",i0,/,100("-"))
+  5 format (100("#"),/,15x,"INTERIOR FACE ",i0," :   LC=",i0,", RC=",i0,/,100("#"))
+  6 format (100("-"),/,5x,"FP ",i0," :   LP=",i0,", RP=",i0,/,100("-"))
+  7 format (es16.6,5x,es15.6,:,es15.6)
   !
 end subroutine correct_interface_flux_visc
 !

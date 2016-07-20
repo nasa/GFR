@@ -301,6 +301,10 @@ continue
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
   !
+  ! Uncomment the call to check_flux_point_orderings if you
+  ! suspect that there is an error between the orderings of
+  ! the flux points from the two cells on an interface
+  !
  !call check_flux_point_orderings
   !
   ! Initialize any necessary information for use in the module generic_mod
@@ -424,6 +428,9 @@ continue
     ! Loop over the Runge-Kutta stages
     !
     rk_loop: do nst = 1,num_stages
+     !if (mypnum == 0) then 
+     !  write (iout,'(3x,i3,1x,i1)') iter,nst
+     !end if
       !
       call interp_cv_to_flxpts
       call get_faceusp_bc
@@ -465,8 +472,8 @@ continue
         end if
         call get_facedusp_bc
       end if
-        call flux_gradient_at_solpts_visc
-        call correct_interface_flux_visc
+        call flux_gradient_at_solpts_visc(iter,nst)
+        call correct_interface_flux_visc(iter,nst)
         !
      !end if
       !

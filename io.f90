@@ -817,15 +817,24 @@ end subroutine check_lustre_striping
 !
 subroutine check_output_dir
   !
+  !.. Use Statements ..
+  use ovar, only : dump_fluxes
+  !
+  !.. Local Scalars ..
   integer :: clen,ierr,iodir,ii
+  integer :: exitstat,cmndstat
   character(len=200) :: test_file
   character(len=200) :: test_dir
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_output_dir"
   !
   character(len=*), parameter :: nobackup = "/nobackup/sspiegel"
   character(len=*), parameter :: homedir = "/u/sspiegel"
+  !
+  logical, parameter :: wait_for_completion = true
   !
 continue
   !
@@ -949,9 +958,32 @@ continue
   ! output directory that was given in the input file so exit
   !
   if (output_dir(1:7) == "BAD_DIR") then
+    !
     output_dir = output_dir(8:clen)
     if (mypnum == 0) write (iout,1) trim(output_dir)
     call stop_recon(stop_mpi,pname)
+    !
+  else
+    !
+    ! Create the flux directory if the dump_flux flag was given
+    ! in the input file
+    !
+    if (dump_fluxes) then
+      if (mypnum == 0) then
+        !
+        command = "mkdir -p "//trim(output_dir)//"flux_files"
+        !
+        call execute_command_line( trim(command) , wait_for_completion , &
+                                   exitstat , cmndstat , cmndmsg )
+        !
+        if (exitstat /= 0 .or. cmndstat /= 0) then
+          write (error_message,2) trim(output_dir)//"flux_files"
+          call stop_recon(abort,pname,error_message)
+        end if
+        !
+      end if
+    end if
+    !
   end if
   !
   1 format (/,"******************** ERROR! *********************",/, &
@@ -961,6 +993,7 @@ continue
               "     PLEASE CHECK THE INPUT FILE TO CORRECT",/, &
               "        ANY MISTAKES BEFORE CONTINUING!",/, &
               "******************** ERROR! *********************",/)
+  2 format ("ERROR CREATING THE DIRECTORY: ",a)
   !
 end subroutine check_output_dir
 !
@@ -4750,6 +4783,10 @@ continue
     call io_error(pname,cgns_grid_file,2,ierr)
     !
  !end if
+  !
+  ! Write the solution file
+  !
+ !call write_solution_parallel_cgns(sol_file,tname)
   !
   ! Update the zone counter
   !
