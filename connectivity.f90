@@ -648,6 +648,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
   integer :: i,ic,ifa,ip1,ip2,ip3,jc
+  integer :: ibeg,iend,iint
   integer :: face_counter,nfp,l1,r1,l2,r2
   integer :: left_cell,left_geom
   integer :: host_cell,ghost_cell,host_geom
@@ -1183,7 +1184,19 @@ continue
       ! points for the right cell is just the reverse ordering of the flux
       ! points for the left cell.
       !
-      face(nf)%right%flxpts = face_pts + intseq(nfp-1,0,-1)
+      ibeg = nfp-1
+      iend = 0
+      iint = -1
+      !
+      if (nf > lfbnd) then
+        if (all(left_nodes(1:nfnods) == right_nodes(1:nfnods))) then
+          ibeg = 0
+          iend = nfp-1
+          iint = 1
+        end if
+      end if
+      !
+      face(nf)%right%flxpts = face_pts + intseq(ibeg,iend,iint)
       !
     else if (face_geom == Geom_Quad) then
       !
