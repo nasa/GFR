@@ -63,9 +63,6 @@ subroutine interp_cv_to_flxpts()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nq) :: tusp
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
 continue
   !
@@ -112,21 +109,11 @@ continue
         !######################################################################
         !######################################################################
         !
-#ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           faceusp(nf)%v(m,kf,sf) = interp(this_geom,this_order)% &
                                              toFace(face_order)% &
                                    dot( lf , tusp(1:np,m) )
         end do
-#else
-        lmat(1:np) = interp(this_geom,this_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,lf)
-        !
-        do m = 1,nq
-          faceusp(nf)%v(m,kf,sf) = dot( lmat(1:np) , tusp(1:np,m) )
-        end do
-#endif
         !
       end do
       !
@@ -158,9 +145,6 @@ subroutine interp_dusp_to_flxpts()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
 continue
   !
@@ -209,7 +193,6 @@ continue
         !######################################################################
         !######################################################################
         !
-#ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           do l = 1,nr
             facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
@@ -217,17 +200,6 @@ continue
                                         dot( lf , tdusp(1:np,l,m) )
           end do
         end do
-#else
-        lmat(1:np) = interp(this_geom,this_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,lf)
-        !
-        do m = 1,nq
-          do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = dot( lmat(1:np) , tdusp(1:np,l,m) )
-          end do
-        end do
-#endif
         !
       end do
       !
@@ -277,10 +249,9 @@ subroutine flux_gradient_at_solpts_visc
   real(wp), dimension(1:nq,1:maxSP) :: lcl_res
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: rsflx
   real(wp), dimension(1:maxSP,1:nq,1:nr) :: xyflx
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP)   :: lmat
-  real(wp), dimension(1:maxSP,1:maxSP)   :: dmat
-#endif
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "flux_gradient_at_solpts_visc"
   !
 continue
   !
@@ -356,7 +327,6 @@ continue
     ! Loop through each coordinate direction and add the divergence of
     ! the flux to the local residual array for the current cell
     !
-#ifdef USE_MATRIX_PROCEDURES
     do k = 1,np
       do l = 1,nr
         do m = 1,nq
@@ -367,19 +337,6 @@ continue
       end do
       lcl_res(1:nq,k) = sum( vflx , dim=2 )
     end do
-#else
-    do l = 1,nr
-      !
-      dmat(1:np,1:np) = deriv(this_geom,this_order)%d(l)%mat(1:np,1:np)
-      !
-      do k = 1,np
-        do m = 1,nq
-          lcl_res(m,k) = lcl_res(m,k) + dot( dmat(1:np,k) , rsflx(1:np,m,l) )
-        end do
-      end do
-      !
-    end do
-#endif
     !
     ! Copy the local residual for the current cell into the residual array
     !
@@ -430,8 +387,6 @@ continue
         !######################################################################
         !######################################################################
         !
-#ifdef USE_MATRIX_PROCEDURES
-        !
         do l = 1,nr
           do m = 1,nq
             vflx(m,l) = interp(this_geom,this_order)% &
@@ -443,24 +398,6 @@ continue
         do m = 1,nq
           faceflx(nf)%v(m,kf,sf) = dot( vflx(m,1:nr) , unrm(1:nr) )
         end do
-    !   do l = 1,nr
-    !     do m = 1,nq
-    !       faceflx(nf)%v(m,kf,sf) = faceflx(nf)%v(m,kf,sf) + unrm(l) * &
-    !interp(this_geom,this_order)%toFace(face_order)%dot( lf , xyflx(1:np,m,l) )
-    !     end do
-    !   end do
-#else
-        lmat(1:np) = interp(this_geom,this_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,lf)
-        !
-        do l = 1,nr
-          do m = 1,nq
-            faceflx(nf)%v(m,kf,sf) = faceflx(nf)%v(m,kf,sf) + &
-                            dot( lmat(1:np) , xyflx(1:np,m,l) ) * unrm(l)
-          end do
-        end do
-#endif
         !
       end do
       !
@@ -500,6 +437,9 @@ subroutine correct_interface_flux_visc()
   real(wp), dimension(1:nq,1:maxFP) :: lflx,rflx
   real(wp), dimension(1:nq,1:maxFP) :: luqp,ruqp,fncq
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: lduqp,rduqp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "correct_interface_flux_visc"
   !
 continue
   !
@@ -622,7 +562,6 @@ continue
       ! Add the flux correction to the residuals of the sol-pts in cell
       ! host_cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(host_geom,host_order)%row_ptr(kl)+1, &
              correct(host_geom,host_order)%row_ptr(kl+1)
         n = l1 - 1 + correct(host_geom,host_order)%row_idx(i)
@@ -631,16 +570,6 @@ continue
           residual(m,n) = residual(m,n) + fjl(m,k) * cmat_val
         end do
       end do
-#else
-      do n = l1,l2
-        cmat_val = correct(host_geom,host_order)%mat(n-l1+1,kl)
-        if (cmat_val /= zero) then
-          do m = 1,nq
-            residual(m,n) = residual(m,n) + dsl * fjl(m,k) * cmat_val
-          end do
-        end if
-      end do
-#endif
       !
     end do
     !
@@ -747,7 +676,6 @@ continue
       ! Add the flux correction to the residuals of the sol-pts in cell
       ! left_cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(left_geom,left_order)%row_ptr(kl)+1, &
              correct(left_geom,left_order)%row_ptr(kl+1)
         n = l1 - 1 + correct(left_geom,left_order)%row_idx(i)
@@ -756,22 +684,11 @@ continue
           residual(m,n) = residual(m,n) + fjl(m,k) * cmat_val
         end do
       end do
-#else
-      do n = l1,l2
-        cmat_val = correct(left_geom,left_order)%mat(n-l1+1,kl)
-        if (cmat_val /= zero) then
-          do m = 1,nq
-            residual(m,n) = residual(m,n) + dsl * fjl(m,k) * cmat_val
-          end do
-        end if
-      end do
-#endif
       !
       ! Add the flux correction to the residuals of the sol-pts in cell
       ! right_cell
       ! NOTE: only do this for interior cells, i.e. skip this for ghost cells
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(right_geom,right_order)%row_ptr(kr)+1, &
              correct(right_geom,right_order)%row_ptr(kr+1)
         n = r1 - 1 + correct(right_geom,right_order)%row_idx(i)
@@ -780,16 +697,6 @@ continue
           residual(m,n) = residual(m,n) - fjr(m,k) * cmat_val
         end do
       end do
-#else
-      do n = r1,r2
-        cmat_val = correct(right_geom,right_order)%mat(n-r1+1,kr)
-        if (cmat_val /= zero) then
-          do m = 1,nq
-            residual(m,n) = residual(m,n) - dsr * fjr(m,k) * cmat_val
-          end do
-        endif
-      end do
-#endif
       !
     end do
     !
@@ -1225,15 +1132,9 @@ continue
         ! Compute the derivatives in r-s space
         !
         do l = 1,nr
-#ifdef USE_MATRIX_PROCEDURES
           dudr(l) = deriv(this_geom,this_order)% &
                                            d(l)% &
                     dot( k , tusp(1:np,m) )
-#else
-          dudr(l) = dot( deriv(this_geom,this_order)% &
-                                                d(l)% &
-                         mat(1:np,k) , tusp(1:np,m) )
-#endif
         end do
         !
         ! Transform the derivatives back to x-y space
@@ -1386,7 +1287,6 @@ continue
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the left cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(host_geom,host_order)%row_ptr(kl)+1, &
              correct(host_geom,host_order)%row_ptr(kl+1)
         n = l1 - 1 + correct(host_geom,host_order)%row_idx(i)
@@ -1399,20 +1299,6 @@ continue
           end do
         end do
       end do
-#else
-      do n = l1,l2
-        cmat_val = correct(host_geom,host_order)%mat(n-l1+1,kl)
-        if (cmat_val /= zero) then
-          correct_n = dsl * cmat_val / jacobian(n)
-          do m = 1,nq
-            correct_m = correct_n * ljfp(m)
-            do l = 1,nr
-              dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
-            end do
-          end do
-        end if
-      end do
-#endif
       !
     end do
     !
@@ -1512,7 +1398,6 @@ continue
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the left cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(left_geom,left_order)%row_ptr(kl)+1, &
              correct(left_geom,left_order)%row_ptr(kl+1)
         n = l1 - 1 + correct(left_geom,left_order)%row_idx(i)
@@ -1525,25 +1410,10 @@ continue
           end do
         end do
       end do
-#else
-      do n = l1,l2
-        cmat_val = correct(left_geom,left_order)%mat(n-l1+1,kl)
-        if (cmat_val /= zero) then
-          correct_n = dsl * cmat_val / jacobian(n)
-          do m = 1,nq
-            correct_m = correct_n * ljfp(m)
-            do l = 1,nr
-              dusp(l,m,n) = dusp(l,m,n) + correct_m * unrm(l)
-            end do
-          end do
-        end if
-      end do
-#endif
       !
       ! Now use the correction function with the interface jump to correct
       ! the gradients of the conservative variables in the right cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do i = correct(right_geom,right_order)%row_ptr(kr)+1, &
              correct(right_geom,right_order)%row_ptr(kr+1)
         n = r1 - 1 + correct(right_geom,right_order)%row_idx(i)
@@ -1556,20 +1426,6 @@ continue
           end do
         end do
       end do
-#else
-      do n = r1,r2
-        cmat_val = correct(right_geom,right_order)%mat(n-r1+1,kr)
-        if (cmat_val /= zero) then
-          correct_n = dsr * cmat_val / jacobian(n)
-          do m = 1,nq
-            correct_m = correct_n * rjfp(m)
-            do l = 1,nr
-              dusp(l,m,n) = dusp(l,m,n) - correct_m * unrm(l)
-            end do
-          end do
-        end if
-      end do
-#endif
       !
     end do
     !
@@ -1607,14 +1463,8 @@ subroutine correct_gradients_br2()
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: face_dusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: dusp_copy
   !
-#ifdef USE_MATRIX_PROCEDURES
   integer :: i,i1,i2
   type(matrix) :: cmat
-#else
-  integer :: nfp
-  real(wp), dimension(1:maxSP) :: lmat
-  real(wp), dimension(1:maxSP,1:maxFP) :: cmat_jac
-#endif
   !
 continue
   !
@@ -1634,7 +1484,6 @@ continue
     ! the jacobian for each solution point. This will help reduce cache
     ! misses and prevent repetitive instances of division by the jacobian.
     !
-#ifdef USE_MATRIX_PROCEDURES
     cmat = correct(this_geom,this_order)
     !
    !do i = 1,size(cmat%mat,dim=2)
@@ -1644,14 +1493,6 @@ continue
       cmat%row_val(i1:i2) = cmat%row_val(i1:i2) / &
                             jacobian(n1 + cmat%row_idx(i1:i2) - 1)
     end do
-#else
-    nfp = size(correct(this_geom,this_order)%mat,dim=2)
-    cmat_jac(1:np,1:nfp) = correct(this_geom,this_order)%mat
-    !
-    do kf = 1,nfp
-      cmat_jac(1:np,kf) = cmat_jac(1:np,kf) / jacobian(n1:n2)
-    end do
-#endif
     !
     ! Create a local copy of dusp for this cell to which all the
     ! corrections will be applied. This will help reduce cache misses.
@@ -1740,7 +1581,6 @@ continue
         !
         ! Apply the jump correction to the interior discontinuous gradients
         !
-#ifdef USE_MATRIX_PROCEDURES
        !i1 = cmat%row_ptr(lf)+1
        !i2 = cmat%row_ptr(lf+1)
        !do i = i1,i2
@@ -1755,22 +1595,6 @@ continue
             end do
           end do
         end do
-#else
-        do n = 1,np
-         !correct_n = dsl * correct(this_geom,this_order)%mat(n,lf) / &
-         !                  jacobian(n+n1-1)
-          if (cmat_jac(n,lf) /= zero) then
-            correct_n = dsl * cmat_jac(n,lf)
-            do m = 1,nq
-              correct_m = correct_n * ujump(m)
-              do l = 1,nr
-                face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * unrm(l)
-                cell_dusp(l,m,n) = cell_dusp(l,m,n) + correct_m * unrm(l)
-              end do
-            end do
-          end if
-        end do
-#endif
         !
       end do face_points
       !
@@ -1783,7 +1607,6 @@ continue
         !kf: index of flx-pt local to this face
         lf = cell(nc)%face(ncf)%cell_idx(kf) ! index of flx-pt within interp%mat
         !
-#ifdef USE_MATRIX_PROCEDURES
         do m = 1,nq
           do l = 1,nr
             facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
@@ -1791,17 +1614,6 @@ continue
                                         dot( lf ,face_dusp(1:np,l,m) )
           end do
         end do
-#else
-        lmat(1:np) = interp(this_geom,this_order)% &
-                               toFace(face_order)% &
-                     mat(1:np,lf)
-        !
-        do m = 1,nq
-          do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = dot( lmat(1:np) , face_dusp(1:np,l,m) )
-          end do
-        end do
-#endif
         !
       end do interpolate_face
       !
@@ -2416,7 +2228,7 @@ subroutine correct_interface_flux_with_qdtr()
   use geovar,  only : nfbnd,nface,nr
   use geovar,  only : bface,face,cell,xyz
   use geovar,  only : using_quadrature
-  use ovar,    only : flux_divergence,dflux_opt,itcur,nst
+  use ovar,    only : flux_divergence,dflux_opt,itcur
   use ovar,    only : invs_flux_method
   use flowvar, only : usp,residual,faceflx,faceusp
   use metrics_mod,  only : geofa,volj
