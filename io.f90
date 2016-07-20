@@ -4241,9 +4241,6 @@ subroutine check_flux_point_orderings()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: xyz_fp
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_flux_point_orderings"
@@ -4285,37 +4282,23 @@ continue
       kl = face(nf)%left%flxpts(k)
       kr = face(nf)%right%flxpts(k)
       !
-#ifdef USE_MATRIX_PROCEDURES
+      ! Interpolate the coordinates for this flux point for the left cell
+      !
       do l = 1,nr
         xyz_fp(l) = interp(left_geom,left_order)% &
                               toFace(face_order)% &
                     dot( kl , xyz(l,l1:l2) )
       end do
-#else
-      lmat(1:npl) = interp(left_geom,left_order)% &
-                              toFace(face_order)% &
-                    mat(1:npl,kl)
-      do l = 1,nr
-        xyz_fp(l) = dot( lmat(1:npl) , xyz(l,l1:l2) )
-      end do
-#endif
       !
       write (151,1) kl,xyz_fp(1:nr)
       !
-#ifdef USE_MATRIX_PROCEDURES
+      ! Interpolate the coordinates for this flux point for the right cell
+      !
       do l = 1,nr
         xyz_fp(l) = interp(right_geom,right_order)% &
                                 toFace(face_order)% &
                     dot( kr , xyz(l,r1:r2) )
       end do
-#else
-      lmat(1:npr) = interp(right_geom,right_order)% &
-                                toFace(face_order)% &
-                    mat(1:npr,kr)
-      do l = 1,nr
-        xyz_fp(l) = dot( lmat(1:npr) , xyz(l,r1:r2) )
-      end do
-#endif
       !
       write (152,1) kr,xyz_fp(1:nr)
       !
@@ -6041,9 +6024,6 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   real(wp), dimension(1:maxFP) :: face_y
   real(wp), dimension(1:maxFP) :: face_z
   real(wp), dimension(1:maxSP,1:2) :: txyz
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_vort_face_coordinates"
@@ -6086,19 +6066,12 @@ continue
       !
       ! First interpolate to the face flux points
       !
-#ifdef USE_MATRIX_PROCEDURES
       face_y(k) = interp(host_geom,host_order)% &
                             toFace(face_order)% &
                   dot( kl , txyz(1:np,1) )
       face_z(k) = interp(host_geom,host_order)% &
                             toFace(face_order)% &
                   dot( kl , txyz(1:np,2) )
-#else
-      lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
-      !
-      face_y(k) = dot( lmat(1:np) , txyz(1:np,1) )
-      face_z(k) = dot( lmat(1:np) , txyz(1:np,2) )
-#endif
       !
     end do
     !
@@ -6107,15 +6080,8 @@ continue
     !
     if (associated(outerp(face_geom,face_order)%output)) then
       !
-#ifdef USE_MATRIX_PROCEDURES
       face_y(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:fp) )
       face_z(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:fp) )
-#else
-      face_y(1:fp) = matmul( outerp(face_geom,face_order)%output%mat, &
-                             face_y(1:fp) )
-      face_z(1:fp) = matmul( outerp(face_geom,face_order)%output%mat, &
-                             face_z(1:fp) )
-#endif
       !
     end if
     !
@@ -6157,9 +6123,6 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: dcvdx
   real(wp), dimension(1:maxFP,1:nr,1:nq) :: dcvdx_tmp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp), dimension(1:maxSP) :: lmat
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_vort_face_solution"
@@ -6205,7 +6168,6 @@ continue
       !
       ! First interpolate to the face flux points
       !
-#ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
         cv_tmp(k,m) = interp(host_geom,host_order)% &
                                 toFace(face_order)% &
@@ -6216,16 +6178,6 @@ continue
                              dot( kl , tdusp(1:np,l,m) )
         end do
       end do
-#else
-      lmat(1:np) = interp(host_geom,host_order)%toFace(face_order)%mat(1:np,kl)
-      !
-      do m = 1,nq
-        cv_tmp(k,m) = dot( lmat(1:np) , tusp(1:np,m) )
-        do l = 1,nr
-          dcvdx_tmp(k,l,m) =  dot( lmat(1:np) , tdusp(1:np,l,m) )
-        end do
-      end do
-#endif
       !
     end do
     !
@@ -6234,7 +6186,6 @@ continue
     !
     if (associated(outerp(face_geom,face_order)%output)) then
       !
-#ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
         cvfp(m,1:fp) = outerp(face_geom,face_order)% &
                                              output% &
@@ -6245,16 +6196,6 @@ continue
                             mv_mult( dcvdx_tmp(1:fp,l,m) )
         end do
       end do
-#else
-      do m = 1,nq
-        cvfp(m,1:fp) = matmul( outerp(face_geom,face_order)%output%mat , &
-                               cv_tmp(1:fp,m) )
-        do l = 1,nr
-          dcvdx(l,m,1:fp) = matmul( outerp(face_geom,face_order)%output%mat , &
-                                    dcvdx_tmp(1:fp,l,m) )
-        end do
-      end do
-#endif
       !
     else
       !
@@ -6409,14 +6350,9 @@ continue
       np = n2-n1+1
       !
       if (associated(outerp(this_geom,this_order)%output)) then
-#ifdef USE_MATRIX_PROCEDURES
         return_value(n1:n2) = outerp(this_geom,this_order)% &
                                                     output% &
                               mv_mult( array(n1:n2) )
-#else
-        return_value(n1:n2) = &
-          matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
-#endif
       else
         return_value(n1:n2) = array(n1:n2)
       end if
@@ -6435,14 +6371,9 @@ continue
       np = n2-n1+1
       !
       if (associated(outerp(this_geom,this_order)%output)) then
-#ifdef USE_MATRIX_PROCEDURES
         return_value(n1:n2) = outerp(this_geom,this_order)% &
                                                     output% &
                               mv_mult( array(n1:n2) )
-#else
-        return_value(n1:n2) = &
-          matmul( outerp(this_geom,this_order)%output%mat , array(n1:n2) )
-#endif
       else
         return_value(n1:n2) = array(n1:n2)
       end if
@@ -6505,14 +6436,9 @@ continue
       !
       if (associated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
-#ifdef USE_MATRIX_PROCEDURES
           return_value(m,n1:n2) = outerp(this_geom,this_order)% &
                                                         output% &
                                   mv_mult( array(m,n1:n2) )
-#else
-          return_value(m,n1:n2) = &
-            matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
-#endif
         end do
       else
         do n = n1,n2
@@ -6537,14 +6463,9 @@ continue
       !
       if (associated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
-#ifdef USE_MATRIX_PROCEDURES
           return_value(m,n1:n2) = outerp(this_geom,this_order)% &
                                                         output% &
                                   mv_mult( array(m,n1:n2) )
-#else
-          return_value(m,n1:n2) = &
-            matmul( outerp(this_geom,this_order)%output%mat , array(m,n1:n2) )
-#endif
         end do
       else
         do n = n1,n2
@@ -6610,17 +6531,10 @@ continue
     !
     do k = n1,n2
       !
-#ifdef USE_MATRIX_PROCEDURES
       dudr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(1,1:np) )
       duds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(1,1:np) )
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(2,1:np) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(2,1:np) )
-#else
-      dudr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vel(1,1:np))
-      duds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vel(1,1:np))
-      dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vel(2,1:np))
-      dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vel(2,1:np))
-#endif
       !
       drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
       dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
@@ -6675,17 +6589,10 @@ continue
     !
     do k = n1,n2
       !
-#ifdef USE_MATRIX_PROCEDURES
       dudr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(2,n1:n2) )
       duds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(2,n1:n2) )
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(3,n1:n2) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(3,n1:n2) )
-#else
-      dudr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vv(2,n1:n2))
-      duds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vv(2,n1:n2))
-      dvdr = dot(deriv(this_geom,this_order)%d(1)%mat(1:np,k-n1+1),vv(3,n1:n2))
-      dvds = dot(deriv(this_geom,this_order)%d(2)%mat(1:np,k-n1+1),vv(3,n1:n2))
-#endif
       !
       drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
       dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
