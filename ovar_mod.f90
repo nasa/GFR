@@ -149,7 +149,6 @@ module ovar
   integer, public, save :: plot3d_j_stride    = -1
   integer, public, save :: plot3d_k_stride    = -1
   !
-  logical, public, save :: cgns_use_queue = fals
   logical, public, save :: interpolate_before_output_variable = true
   logical, public, save :: completely_disable_cgns = fals
   !
@@ -528,7 +527,7 @@ module input_namelist_mod
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
-  use ovar,      only : cgns_use_queue, interpolate_before_output_variable
+  use ovar,      only : interpolate_before_output_variable
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
   use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
   use ovar,      only : dump_memory_usage,use_bc_conflicts,dump_fluxes
@@ -539,6 +538,7 @@ module input_namelist_mod
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use order_mod, only : p_order,n_order,o_order,all_orders,q_order
+  use cgns_module, only : cgns_use_queue
   !
   implicit none
   !

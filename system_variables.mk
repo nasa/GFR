@@ -1,17 +1,17 @@
 # Lab
 
 # Fortran MPI compiler
-FC := mpiifort
+FC := mpif90
 
 # Compilation flags for this specific architecture
-TARGETCPU     := -xSSE4.2
+TARGETCPU     := -xCORE-AVX2
 AUTOTARGETCPU :=
 ALIGN         := -align array32byte
 
 # Library flags, NOTE: HDF5LIB is defined in slv.mk
 SZIPLIB  := -lsz -lz
 CGNSLIB  := -lcgns
-METISLIB := -lmetis5
+METISLIB := -lmetis
 PBSLIB   :=
 #MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
 
@@ -25,6 +25,7 @@ PBSDIR   :=
 # Fortran Preprocessor Definitions
 METISFPP := -DMETIS_5
 PBSFPP   :=
+CGNSFPP  := -DCGNS_3_3
 
 # Other system specific additions
 OTHERLIB    :=# -ladvisor -ldl

@@ -11,10 +11,36 @@ end module rename_intrinsics
 !
 !###############################################################################
 !
+module base_kind_types
+  !
+  implicit none
+  !
+  public
+  !
+  ! KIND definitions for 32-bit or 64-bit integer variables (IEEE 754)
+  !
+  integer, parameter :: I4 = selected_int_kind(9)
+  integer, parameter :: I8 = selected_int_kind(18)
+  !
+  ! KIND definitions for single or double precision real variables (IEEE 754)
+  !
+  integer, parameter :: R4 = selected_real_kind(6,37)
+  integer, parameter :: R8 = selected_real_kind(15,307)
+  integer, parameter :: R16 = max( R8 , selected_real_kind(33, 4931) )
+  !
+end module base_kind_types
+!
+!###############################################################################
+!
 module module_kind_types
   !
   !.. Use Statements ..
+  use base_kind_types
+#ifdef USE_MPI_F08
+  use mpi_f08
+#else
   use mpi
+#endif
 #ifdef USE_INTEL_MKL
   use blas95, only : dot
 #else
@@ -31,14 +57,6 @@ module module_kind_types
   ! ####################################
   ! ####################################
   !
-  ! KIND definitions for single or double precision real variables (IEEE 754)
-  !
-  integer, parameter :: i4 = selected_int_kind(9)
-  integer, parameter :: i8 = selected_int_kind(18)
-  integer, parameter :: r4 = selected_real_kind(6,37)
-  integer, parameter :: r8 = selected_real_kind(15,307)
-  integer, parameter :: r16 = max( r8 , selected_real_kind(33, 4931) )
-  !
   ! Aliases for kind type parameters
   !
   integer, parameter :: SP = r4
@@ -48,7 +66,6 @@ module module_kind_types
   !
   integer, parameter :: WIP = i4
   integer, parameter :: INT_MPI = kind(MPI_INTEGER_KIND)
-  integer, parameter :: INT_CGNS = i4
   integer, parameter :: INT_METIS = i4
   !
   ! ###########################################
@@ -403,7 +420,7 @@ module module_kind_types
   !
   character(len=1000), save :: error_message
   !
-  ! MPI Scalars 
+  ! MPI Public Scalars 
   !
   integer(int_mpi), protected, save :: mypnum = 0_int_mpi
   integer(int_mpi), protected, save :: ncpu = 1_int_mpi
@@ -1151,65 +1168,6 @@ continue
              " ***************************************************** ",//)
   !
 end subroutine io_error
-!
-!###############################################################################
-!
-subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
-                      optmessag,optinteger)
-  !
-  !.. Include Statements ..
-  include "cgnslib_f95.h"
-  !
-  !.. Formal Arguments ..
-  character(len=*), intent(in) :: procedure_name
-  character(len=*), intent(in) :: file_name
-  character(len=*), intent(in) :: cgns_routine
-  integer,          intent(in) :: iemessag
-  !
-  !.. Optional Arguments ..
-  character(len=*), optional, intent(in) :: optmessag
-  integer,          optional, intent(in) :: optinteger
-  !
-  !.. Local Scalars ..
-  integer :: ierror
-  !
-continue
-  !
-  if (iemessag == CG_OK) then
-    ierror = 0
-  else
-    ierror = 1
-  end if
-  call mpi_allreduce(MPI_IN_PLACE,ierror,1,mpi_inttyp, &
-                     MPI_MAX,mpi_comm_world,mpierr)
-  if (ierror == 0) return
-  !
-  write (iout,10)
-  !
-  if (present(optmessag) .and. present(optinteger)) then
-    write (iout,1) trim(adjustl(optmessag)),optinteger
-  else if (present(optmessag)) then
-    write (iout,2) trim(adjustl(optmessag))
-  else if (present(optinteger)) then
-    write (iout,3) optinteger
-  end if
-  !
-  write (iout,11) trim(adjustl(procedure_name)),iemessag, &
-                  trim(adjustl(cgns_routine))
-  call cgp_error_exit_f
-  !
-  ! Format Statements
-  !
-  1  format (" ",a," = ",i0)
-  2  format (" ",a)
-  3  format (" ",i0)
-  10 format (/," ***************************************************** ")
-  11 format (" INSIDE PROCEDURE: ",a,/, &
-             " ERROR INDICATOR = ",i0,/, &
-             " ERROR RETURNED FROM CGNS PROCEDURE: ",a,/, &
-             " ***************************************************** ",//)
-  !
-end subroutine cgns_error
 !
 !###############################################################################
 !

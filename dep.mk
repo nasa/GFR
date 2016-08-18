@@ -57,6 +57,8 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(FUNDIR)/viscosity.f90 \
                      $(FUNDIR)/usp2v.f90
 
+$(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
+             $(OBJDIR)/kind_types.o
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -197,6 +199,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
 
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
+       $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/order_mod.o \
        $(OBJDIR)/geovar_mod.o \
@@ -290,6 +293,7 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types.o \
+             $(OBJDIR)/cgns_mod.o \
              $(OBJDIR)/order_mod.o
 
 $(OBJDIR)/parallel.o : parallel.f90 \
@@ -316,6 +320,7 @@ $(OBJDIR)/poly.o : poly.f90 \
 
 $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/kind_types.o \
+                 $(OBJDIR)/cgns_mod.o \
                  $(OBJDIR)/eqn_idx_mod.o \
                  $(OBJDIR)/geovar_mod.o \
                  $(OBJDIR)/flowvar_mod.o \

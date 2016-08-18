@@ -35,7 +35,7 @@ ifneq "$(MKLLIB)" ""
   MKLINC = -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
 endif
 
-FPP = -fpp $(METISFPP) $(PBSFPP) -DUSE_MATRIX_PROCEDURES $(MKLFPP) $(OTHERFPP)
+FPP = -fpp $(METISFPP) $(PBSFPP) $(CGNSFPP) -DUSE_MATRIX_PROCEDURES $(MKLFPP) $(OTHERFPP)
 
 INCDIR = $(sort $(CGNSDIR) $(METISDIR))
 LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
@@ -59,6 +59,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/ovar_mod.o \
         $(OBJDIR)/gmsh_mod.o \
         $(OBJDIR)/plot3d_mod.o \
+        $(OBJDIR)/cgns_mod.o \
         $(OBJDIR)/io.o \
         $(OBJDIR)/metrics.o \
         $(OBJDIR)/poly.o \

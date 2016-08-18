@@ -2,13 +2,12 @@ module postprocessor_mod
   !
   !.. Global Use Statements ..
   use module_kind_types
+  use cgns_module
   use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk
   !
   implicit none
   !
   private
-  !
-  include "cgnslib_f95.h"
   !
   ! ##################################
   ! ###  Module Public Procedures  ###
@@ -108,14 +107,6 @@ module postprocessor_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-#ifdef CGNS_ADF
-  integer, parameter :: file_type = CG_FILE_ADF
-#elif CGNS_ADF2
-  integer, parameter :: file_type = CG_FILE_ADF2
-#else
-  integer, parameter :: file_type = CG_FILE_HDF5
-#endif
-  !
   logical, parameter :: check_gradients = fals
  !logical, parameter :: check_gradients = true
   !
@@ -131,23 +122,13 @@ module postprocessor_mod
   character(len=170),         save :: cgnsfile_fmt
   !
   !.. CGNS Path Variables ..
-  integer, save :: ifile_n
-  integer, save :: ibase_n
-  integer, save :: izone_n
-  integer, save :: isect_n
-  integer, save :: icoord_n
-  integer, save :: isol_n
-  integer, save :: ifld_n
+  integer(CBT),      save :: ifile_n
+  integer(CBT),      save :: ibase_n
+  integer(CBT),      save :: izone_n
+  integer(CBT),      save :: isect_n
+  integer(CBT), parameter :: iiter_n = 1_CBT
   !
-  integer, save :: ifile_m
-  integer, save :: ibase_m
-  integer, save :: izone_m
-  integer, save :: isect_m
-  integer, save :: icoord_m
-  integer, save :: isol_m
-  integer, save :: ifld_m
-  !
-  integer, save, allocatable, dimension(:) :: isvar_s
+  integer(CBT), save, allocatable, dimension(:) :: isvar_s
   !
   !.. CGNS Time Dependent Variables ..
   integer, save :: cgns_zone_counter
@@ -158,15 +139,12 @@ module postprocessor_mod
   character(len=*), parameter :: base_name = "recon_base"
   character(len=*), parameter :: zone_name = "Solution"
   !
-  !.. CGNS Kind Types ..
-  integer, save :: cgns_kind_real = RealSingle
-  !
   !.. CGNS Parallel Point Indices ..
   integer, save :: n_my_output_pts
   integer, save :: my_pts_beg
   integer, save :: my_pts_end
   !
-  integer, dimension(1:3) :: zone_size
+  integer(CST), dimension(1:3) :: zone_size
   !
   ! DISABLE_CGNS_OUTPUT: Private module variable to disable CGNS output. It
   !                      is currently only relevant to the Taylor-Green Vortex
@@ -174,14 +152,6 @@ module postprocessor_mod
   !                      output logic/code becomes more robust.
   !
   logical, save :: disable_cgns_output = fals
-  !
-  !.. CGNS Data Array ..
-  !
-  ! NOTE: This is to ensure coordinate and solution variables
-  !       are the same real type
-  !
-  integer, parameter :: cgns_flt = r4
-  !
   !
 !!" FINISHED SUBROUTINE MAP_TO_OUTPUT_POINTS AND THE RELATED FUNCTIONS FOR"
 !!" HEXAHEDRA CELLS. NOW NEED TO GO BACK AND FIGURE OUT HOW TO APPLY THIS"
@@ -282,7 +252,8 @@ subroutine new_write_parallel_cgns()
   use ovar,   only : itcur,time,time_ref
   use ovar,   only : completely_disable_cgns
   use ovar,   only : write_TaylorGreen_full_solution
-  use ovar,   only : cgns_use_queue
+  !
+  use, intrinsic :: iso_c_binding, only : C_NULL_CHAR
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -333,8 +304,8 @@ continue
     ! The CGNS grid file has already been created so we need to reopen
     ! it in modification mode.
     !
-    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_open_f",ierr, &
+    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_open_f",cgierr, &
                     "Mode = CG_MODE_MODIFY")
     !
   end if
@@ -355,13 +326,13 @@ continue
   !
   ! Create a link to the solution node in the current solution file
   !
-  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n,"end")
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n,C_NULL_CHAR)
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/"//trim(tname)
   !
-  call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_link_write_f",ierr)
+  call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_link_write_f",cgierr)
   !
   ! Write the solution file
   !
@@ -371,45 +342,44 @@ continue
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
   !
-  if (cgns_use_queue) then
-    call cgp_queue_set_f(0,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
-  end if
+  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_grid_file)
   !
   ! Update the solution times within the base iterative node
   !
-  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues',size(soltime),ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",ierr)
+  call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues', &
+                        size(soltime,kind=CBT),cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr)
   !
-  call cg_goto_f(ifile_n,ibase_n,ierr,"BaseIterativeData_t",1,"end")
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  call cg_goto_f(ifile_n,ibase_n,cgierr,"BaseIterativeData_t",iiter_n,C_NULL_CHAR)
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
-  call cg_array_write_f("TimeValues",cgns_kind_real,1, &
-                        size(soltime),soltime,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",ierr)
+  call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
+                        size(soltime,kind=CST),soltime,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr)
   !
   ! Update the names of the zone iterative nodes
   !
-  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",ierr)
+  call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr)
   !
-  call cg_goto_f(ifile_n,ibase_n,ierr,"Zone_t",izone_n, &
-                                      "ZoneIterativeData_t",1,"end")
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f",ierr)
+  call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n, &
+                                        "ZoneIterativeData_t",iiter_n,C_NULL_CHAR)
+  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
-  idata(:) = [32,size(solname)]
-  call cg_array_write_f("FlowSolutionPointers",Character,2,idata,solname,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",ierr)
+  idata(:) = int( [32,size(solname)] , kind=CST )
+  call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
+                        idata,solname,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr)
   !
   ! Identify the flow solution within the CGNS file as time dependent
   !
-  call cg_simulation_type_write_f(ifile_n,ibase_n,TimeAccurate,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",ierr)
+  call cg_simulation_type_write_f(ifile_n,ibase_n,TIMEACCURATE,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",cgierr)
   !
   ! Close the CGNS FILE
   !
-  call cgp_close_f(ifile_n,ierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_close_f",ierr)
+  call cgp_close_f(ifile_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr)
   !
   ! Update the zone counter
   !
@@ -434,23 +404,23 @@ subroutine write_grid_parallel_cgns()
   !
   !.. Use Statements ..
   use geovar, only : nr
-  use ovar,   only : cgns_use_queue
   !
   !.. Local Scalars ..
   integer :: n,ierr
-  integer :: my_cells_beg,my_cells_end
-  integer :: n_total_output_pts
-  integer :: n_total_output_cells
+  !
+  integer(CST) :: my_cells_beg,my_cells_end
+  integer(CST) :: n_total_output_pts
+  integer(CST) :: n_total_output_cells
   !
   character(len=32) :: varname
   !
   !.. Local Arrays ..
-  integer, dimension(1:nr) :: ixyz_n
+  integer(CBT), dimension(1:nr) :: ixyz_n
   !
   !.. Local Allocatable Arrays ..
-  integer,        allocatable :: ipelem(:,:)
-  real(wp),       allocatable :: vartmp(:,:)
-  real(cgns_flt), allocatable :: var(:)
+  integer(CST), allocatable :: ipelem(:,:)
+  real(wp),     allocatable :: vartmp(:,:)
+  real(CRT),    allocatable :: var(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_grid_parallel_cgns"
@@ -458,8 +428,6 @@ subroutine write_grid_parallel_cgns()
 continue
   !
   cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
-  !
-  cgns_kind_real = merge(RealDouble,RealSingle,kind(var)==wp)
   !
   ! Initialize the variables and data arrays needed for CGNS output
   ! NOTE: This call to routine create_cell_subconnectivity will initialize
@@ -478,7 +446,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vartmp",1,ierr,error_message)
   !
-  allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , &
+  allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"var",1,ierr,error_message)
   !
@@ -486,37 +454,37 @@ continue
   !
   cgns_zone_counter = 0
   !
-  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,ierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_open_f",ierr, &
+  call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_open_f",cgierr, &
                   "Mode = CG_MODE_WRITE")
   !
   ! Set the CGNS base (who knows what this is for)
   !
-  call cg_base_write_f(ifile_n,base_name,nr,nr,ibase_n,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_base_write_f",ierr)
+  call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
+                       int(nr,kind=CBT),ibase_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_base_write_f",cgierr)
   !
   ! Write the title for this solution
   !
   call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
-                       Unstructured,izone_n,ierr)
-  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f",ierr)
+                       UNSTRUCTURED,izone_n,ierr)
+  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f",cgierr)
   !
   ! Create data nodes for the coordinates
   !
   do n = 1,nr
     varname = "Coordinate"//char_xyz(n)
-    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,cgns_kind_real, &
+    call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
                            trim(varname),ixyz_n(n),ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f",ierr, &
+    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f",cgierr, &
                     "Write node: Coordinate",n)
   end do
   !
   ! Now create and write the coordinate data in parallel
   !
-  if (.not. cgns_use_queue) then
-    call cgp_queue_set_f(0,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
-  end if
+  ! Stop/Disable the CGNS queue if it is not to be used
+  !
+  call disable_cgns_queue(pname,cgns_grid_file)
   !
   ! Collect the coordinates for all the output points that this processor
   ! is responsible for writing to the CGNS files
@@ -538,25 +506,19 @@ continue
     !
     ! Reset the queue.
     !
-    if (cgns_use_queue) then
-      call cgp_queue_set_f(1,ierr)
-      call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
-    end if
+    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
     !
     ! Add the data for current coordinate variable to the output queue.
     !
     call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
                                 my_pts_beg,my_pts_end,var,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f",ierr, &
+    call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f",cgierr, &
                     "Write data: Coordinate",n)
     !
     ! Finally, flush the queue containing the
     ! current coordinate variable to the CGNS file.
     !
-    if (cgns_use_queue) then
-      call cgp_queue_flush_f(ierr)
-      call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f",ierr)
-    end if
+    call flush_cgns_queue(pname,cgns_grid_file)
     !
   end do
   !
@@ -564,13 +526,15 @@ continue
   !
   if (nr == 2) then
     call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
-                             QUAD_4,1,n_total_output_cells,0,isect_n,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",ierr, &
+                             QUAD_4,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",cgierr, &
                     "Element Type = QUAD_4")
   else if (nr == 3) then
     call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Hexahedrals", &
-                             HEXA_8,1,n_total_output_cells,0,isect_n,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",ierr, &
+                             HEXA_8,1_CST,n_total_output_cells, &
+                             0_CBT,isect_n,ierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",cgierr, &
                     "Element Type = HEXA_8")
   end if
   !
@@ -578,24 +542,18 @@ continue
   !
   ! Reset the queue.
   !
-  if (cgns_use_queue) then
-    call cgp_queue_set_f(1,ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",ierr)
-  end if
+  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_grid_file)
   !
   ! Add the element connectivity data to the output queue.
   !
   call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
                                  my_cells_beg,my_cells_end,ipelem,ierr)
-  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f",ierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f",cgierr)
   !
   ! Finally, flush the queue containing the
   ! element connectivity to the CGNS file.
   !
-  if (cgns_use_queue) then
-    call cgp_queue_flush_f(ierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f",ierr)
-  end if
+  call flush_cgns_queue(pname,cgns_grid_file)
   !
   ! Deallocate the arrays var, vartmp, and ipelem
   !
@@ -620,7 +578,8 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
   !.. Use Statements ..
   use geovar,  only : nr
-  use ovar,    only : cgns_use_queue
+  !
+  use, intrinsic :: iso_c_binding, only : C_NULL_CHAR
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
@@ -634,11 +593,11 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   character(len=300) :: link_path
   !
   !.. Local Arrays ..
-  integer :: ifile_s,ibase_s,izone_s,isol_s
+  integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   !.. Local Allocatable Arrays ..
   real(wp),       allocatable :: vartmp(:,:)
-  real(cgns_flt), allocatable :: var(:)
+  real(CRT), allocatable :: var(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_solution_parallel_cgns"
@@ -651,30 +610,31 @@ continue
   !
   ! Initialize the zone counter
   !
-  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,ierr)
+  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,1,ierr)
   !
   ! Set the CGNS base (who knows what this is for)
   !
-  call cg_base_write_f(ifile_s,base_name,nr,nr,ibase_s,ierr)
-  call cgns_error(pname,cgns_sol_file,"cg_base_write_f",ierr)
+  call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
+                       int(nr,kind=CBT),ibase_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_base_write_f",cgierr)
   !
   ! Write the title for this solution
   !
   call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
-                       Unstructured,izone_s,ierr)
-  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f",ierr)
+                       UNSTRUCTURED,izone_s,ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f",cgierr)
   !
   ! Create a link to the grid coordinates in the grid file
   !
-  call cg_goto_f(ifile_s,ibase_s,ierr,"Zone_t",izone_s,"end")
-  call cgns_error(pname,cgns_sol_file,"cg_goto_f",ierr)
+  call cg_goto_f(ifile_s,ibase_s,cgierr,"Zone_t",izone_s,C_NULL_CHAR)
+  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
   call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
                        trim(link_path),ierr)
-  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)",ierr)
+  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)",cgierr)
   !
   ! Create a link to the element connectivity in the grid file
   !
@@ -696,7 +656,7 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vartmp",1,ierr,error_message)
   !
-  allocate ( var(1:n_my_output_pts) , source=real(0,cgns_flt) , &
+  allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"var",1,ierr,error_message)
   !
@@ -706,8 +666,8 @@ continue
   !
   ! Write the flow variables
   !
-  call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,Vertex,isol_s,ierr)
-  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",ierr)
+  call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr)
   !
   ! ################################################
   ! #####   WRITING SOLUTION FIELD VARIABLES   #####
@@ -716,9 +676,9 @@ continue
   ! Create data nodes for the solution variables
   !
   do n = 1,size(plot_var)
-    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,cgns_kind_real, &
+    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                            trim(plot_var(n)%varname),isvar_s(n),ierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",ierr, &
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
                     "Write node: Solution variable",n)
   end do
   !
@@ -732,25 +692,19 @@ continue
     !
     ! Reset the queue.
     !
-    if (cgns_use_queue) then
-      call cgp_queue_set_f(1,ierr)
-      call cgns_error(pname,cgns_sol_file,"cgp_queue_set_f",ierr)
-    end if
+    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_sol_file)
     !
     ! Add the data for current variable to the output queue.
     !
     call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
                                 my_pts_beg,my_pts_end,var,ierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f",ierr, &
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f",cgierr, &
                     "Write data: Solution variable",n)
     !
     ! Finally, flush the queue containing
     ! the current variable to the CGNS file.
     !
-    if (cgns_use_queue) then
-      call cgp_queue_flush_f(ierr)
-      call cgns_error(pname,cgns_sol_file,"cgp_queue_flush_f",ierr)
-    end if
+    call flush_cgns_queue(pname,cgns_sol_file)
     !
   end do
   !
@@ -758,14 +712,11 @@ continue
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
   ! ################################################
   !
-  if (cgns_use_queue) then
-    call cgp_queue_set_f(0,ierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_queue_set_f",ierr)
-  end if
+  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_sol_file)
   !
   ! Close the CGNS FILE
   !
-  call cgp_close_f(ifile_s,ierr)
+  call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_grid_file,2,ierr)
   !
   ! Deallocate the arrays var and vartmp
@@ -1225,9 +1176,9 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   use parallel_mod, only : exch_connectivity
   !
   !.. Formal Arguments ..
-  integer,                              intent(inout) :: my_cells_beg
-  integer,                              intent(inout) :: my_cells_end
-  integer, allocatable, dimension(:,:), intent(inout) :: ipelem
+  integer(CST),                              intent(inout) :: my_cells_beg
+  integer(CST),                              intent(inout) :: my_cells_end
+  integer(CST), allocatable, dimension(:,:), intent(inout) :: ipelem
   !
   !.. Local Scalars ..
   integer :: nop,nsp,nfp,nep,nnp
@@ -2369,7 +2320,7 @@ continue
     call alloc_error(pname,"ipelem",2,ierr,error_message)
   end if
   !
-  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0 , &
+  allocate ( ipelem(1:np,1:n_my_output_cells) , source=0_CST , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ipelem",1,ierr,error_message)
   !
@@ -2871,6 +2822,9 @@ subroutine map_to_output_points(this_geom,this_order,map)
   integer :: ne,nf,nep,nfp,nnp,nsp,ierr
   integer :: i,j,k,l,m,n,np1d,np2d,nt1d,nt2d
   !
+  character(len=100) :: map_fmt
+  !
+  !.. Local Arrays ..
   integer, dimension(1:2,1:this_order+1,1:12) :: edge_values
   integer, dimension(1:2,1:(this_order+1)**2,1:6) :: face_values
   !
@@ -3026,14 +2980,15 @@ continue
     end do
   end do
   !
+  write (map_fmt,43) np1d,np1d,np1d
   write (iout,41)
   l = 0
   do k = 2,np1d+1
     write (iout,42) k-1
     do j = 2,np1d+1
-      write (iout,43) j-1, (l+i, i=1,np1d), &
-                         ((k-1)*nt2d+(j-1)*nt1d+i, i=2,np1d+1), &
-                         (map%sp(l+i)+1, i=1,np1d)
+      write (iout,map_fmt) j-1, (l+i, i=1,np1d), &
+                           ((k-1)*nt2d+(j-1)*nt1d+i, i=2,np1d+1), &
+                           (map%sp(l+i)+1, i=1,np1d)
       l = l + np1d
     end do
   end do
@@ -3051,7 +3006,7 @@ continue
   36 format (3(4x,"ep",i4," =>",i4,:,4x))
   41 format (//,"  Solution Points")
   42 format (" SP  k = ",i0)
-  43 format (7x,"j = ",i0,3x,<np1d>i3,3x,<np1d>i4,3x,<np1d>i4)
+  43 format ("(7x,'j = ',i0,3x,",i0,"i3,3x,",i0,"i4,3x,",i0,"i4)")
   !
 end subroutine map_to_output_points
 !
@@ -4040,8 +3995,8 @@ end subroutine check_cgns_dir
 subroutine write_tecplot_file(xyz_pts,ipelem)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: xyz_pts
-  integer,  dimension(:,:), intent(in) :: ipelem
+  real(wp),     dimension(:,:), intent(in) :: xyz_pts
+  integer(CST), dimension(:,:), intent(in) :: ipelem
   !
   !.. Local Scalars ..
   integer :: l,n,nc,iotec,ierr
@@ -4114,28 +4069,43 @@ subroutine write_cell_points(iunit,nep,cell_points_ptr,cell_points)
   !.. Local Scalars ..
   integer :: i,n,n1,n2
   !
+  character(len=300) :: map_fmt
+  !
 continue
+  !
+  write (map_fmt,1) (nep,i=1,6)
   !
   do n = 1,size(cell_points_ptr)-1
     n1 = cell_points_ptr(n)+1
     n2 = cell_points_ptr(n+1)
-    write (iunit,1) n,(cell_points(i),i=n1,n2)
+   !write (iunit,1) n,(cell_points(i),i=n1,n2)
+    write (iunit,map_fmt) n,(cell_points(i),i=n1,n2)
   end do
   !
   iunit = iunit + 1
   !
   ! Format Statements
   !
-  1 format ("  CELL ",i0,/,60("-"),/, &
-            "Solution Points",/, &
-            <nep>(<nep>(<nep>i5,/),/),/, &
-            "Face Points",/, &
-                6(<nep>(<nep>i5,/),/),/, &
-            "Edge Points",/, &
-                     12(<nep>i5,/),/, &
-            "Node Points",/, &
-                            8i5,/, &
-            60("-"),/)
+  1 format ("('  CELL ',i0,/,60('-'),/,", &
+            "'Solution Points',/,", &
+            i0,"(",i0,"(",i0,"i5,/),/),/,", &
+            "'Face Points',/,", &
+              "6(",i0,"(",i0,"i5,/),/),/,", &
+            "'Edge Points',/,", &
+                    "12(",i0,"i5,/),/,", &
+            "'Node Points',/,", &
+                           "8i5,/,", &
+            "60('-'),/)")
+ !2 format ("  CELL ",i0,/,60("-"),/, &
+ !          "Solution Points",/, &
+ !          <nep>(<nep>(<nep>i5,/),/),/, &
+ !          "Face Points",/, &
+ !              6(<nep>(<nep>i5,/),/),/, &
+ !          "Edge Points",/, &
+ !                   12(<nep>i5,/),/, &
+ !          "Node Points",/, &
+ !                          8i5,/, &
+ !          60("-"),/)
   !
 end subroutine write_cell_points
 !
