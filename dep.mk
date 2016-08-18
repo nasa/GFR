@@ -24,6 +24,7 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/mms_mod.o \
               $(OBJDIR)/channel_mod.o \
               $(OBJDIR)/limiters.o \
+              $(OBJDIR)/postproc_mod.o \
               $(OBJDIR)/restart_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
@@ -55,6 +56,7 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(FUNDIR)/temperature.f90 \
                      $(FUNDIR)/viscosity.f90 \
                      $(FUNDIR)/usp2v.f90
+
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types.o \
