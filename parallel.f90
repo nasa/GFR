@@ -5,11 +5,15 @@ module parallel_mod
   use eqn_idx, only : nq
   use geovar,  only : face_t
   !
+#ifdef METIS_5
+  use metis5
+#endif
+  !
   implicit none
   !
   private
 #ifdef METIS_5
-  include "metis.fh"
+!!include "metis.fh"
 #endif
   !
   !.. Public Module Procedures ..
