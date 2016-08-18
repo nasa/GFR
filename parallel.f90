@@ -449,7 +449,7 @@ continue
   ! Distribute partitions across all processors
   !
   call mpi_bcast(epart,int(lcell,kind=kind(int_mpi)), &
-                 mpi_inttyp,0,mpi_comm_world,mpierr)
+                 mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
   !
   ! Output the partition grid to a tecplot file
   !
@@ -757,7 +757,7 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1,mpi_logical,0,mpi_comm_world,mpierr)
+      call mpi_bcast(passes_inspection,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -1003,7 +1003,7 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1,mpi_logical,0,mpi_comm_world,mpierr)
+      call mpi_bcast(passes_inspection,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -3061,7 +3061,7 @@ continue
  !end if
  !!
  !flush (mypnum+130)
- !call mpi_barrier(mpi_comm_world,mpierr)
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
  !write (mypnum+120,'(a,i0)') "lcell = ",lcell
  !do loc_cell = 1,size(nodes_of_cell_ptr)-1
  !  write (mypnum+120,*)
@@ -3732,7 +3732,7 @@ continue
  !write (iout,*) mypnum,tag_ub
  !write (iout,*)
  !flush (iout)
- !call mpi_barrier(mpi_comm_world,mpierr)
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
  !!
  !! Divide the tag upper bound by two because it will be the starting
  !! value of tag for the gradient communications. This way the solution
@@ -3743,7 +3743,7 @@ continue
  !!
  !write (iout,*) mypnum,tag_ub
  !flush (iout)
- !call mpi_barrier(mpi_comm_world,mpierr)
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   do i = 1,ncomm
     !
@@ -4681,7 +4681,7 @@ continue
     recv_dtype = exch_fusp(n)%recv_datatype
     !
     call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
-                   mpi_comm_world,fusp_rqst(n),mpierr)
+                   MPI_COMM_WORLD,fusp_rqst(n),mpierr)
     !
   end do
   !
@@ -4697,7 +4697,7 @@ continue
     send_dtype = exch_fusp(n)%send_datatype
     !
     call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
-                   mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
+                   MPI_COMM_WORLD,fusp_rqst(n+ncomm),mpierr)
     !
   end do
   !
@@ -4796,7 +4796,7 @@ continue
     recv_dtype = exch_fdusp(n)%recv_datatype
     !
     call mpi_irecv(fdusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
-                   mpi_comm_world,fdusp_rqst(n),mpierr)
+                   MPI_COMM_WORLD,fdusp_rqst(n),mpierr)
     !
   end do
   !
@@ -4812,7 +4812,7 @@ continue
     send_dtype = exch_fdusp(n)%send_datatype
     !
     call mpi_isend(fdusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
-                   mpi_comm_world,fdusp_rqst(n+ncomm),mpierr)
+                   MPI_COMM_WORLD,fdusp_rqst(n+ncomm),mpierr)
     !
   end do
   !
@@ -5019,7 +5019,7 @@ continue
       !
       call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
                         recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
-                        mpi_comm_world,istat,mpierr)
+                        MPI_COMM_WORLD,istat,mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
@@ -5094,7 +5094,7 @@ continue
     ! there are no hangups and shouldnt be too much of a slowdown since
     ! this is only done for writing the solution files.
     !
-    call mpi_barrier(mpi_comm_world,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
   end do exchange_loop
   !
@@ -5276,7 +5276,7 @@ continue
       !
       call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
                         recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
-                        mpi_comm_world,istat,mpierr)
+                        MPI_COMM_WORLD,istat,mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
@@ -5370,7 +5370,7 @@ continue
     ! there are no hangups and shouldnt be too much of a slowdown since
     ! this is only done for writing the solution files.
     !
-    call mpi_barrier(mpi_comm_world,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
   end do exchange_loop
   !
@@ -5442,7 +5442,7 @@ continue
     recv_dtype = exch_fusp(n)%recv_datatype
     !
     call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
-                   mpi_comm_world,fusp_rqst(n),mpierr)
+                   MPI_COMM_WORLD,fusp_rqst(n),mpierr)
     !
   end do
   !
@@ -5459,7 +5459,7 @@ continue
     send_dtype = exch_fusp(n)%send_datatype
     !
     call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
-                   mpi_comm_world,fusp_rqst(n+ncomm),mpierr)
+                   MPI_COMM_WORLD,fusp_rqst(n+ncomm),mpierr)
     !
   end do
   !
@@ -5532,7 +5532,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    s = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
+!    call mpi_irecv(umodes,1,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
 !  end do
 !  !
 !  ! Send out the adjacent cells
@@ -5541,7 +5541,7 @@ end subroutine exch_connectivity
 !    r = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = send_fdusp(n)
 !    call mpi_isend(exch_send,1,dtype,r,mypnum, &
-!                   mpi_comm_world,rqst(n+ncomm),mpierr)
+!                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
 !  end do
 !  !
 !  ! Wait for all sends and receives to complete
@@ -5576,7 +5576,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    s = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1,dtype,s,s,mpi_comm_world,rqst(n),mpierr)
+!    call mpi_irecv(umodes,1,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
 !  end do
 !  !
 !  ! Send out the adjacent cells
@@ -5585,7 +5585,7 @@ end subroutine exch_connectivity
 !    r = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = send_fdusp(n)
 !    call mpi_isend(exch_send,1,dtype,r,mypnum, &
-!                   mpi_comm_world,rqst(n+ncomm),mpierr)
+!                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
 !  end do
 !  !
 !  ! Wait for all sends and receives to complete
@@ -5637,27 +5637,27 @@ continue
     if (mypnum /= 0) then
       !
       call mpi_send(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0, &
-                    mypnum,mpi_comm_world,mpierr)
+                    mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
       !
       call mpi_sendrecv(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
                         global_xyz_r8,1,recv_xyz(1),0,n, &
-                        mpi_comm_world,istat,mpierr)
+                        MPI_COMM_WORLD,istat,mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
         call mpi_recv(global_xyz_r8,1,recv_xyz(i),icpu,icpu, &
-                      mpi_comm_world,istat,mpierr)
+                      MPI_COMM_WORLD,istat,mpierr)
         !
       end do
       !
     end if
     !
     call mpi_bcast(global_xyz_r8,size(global_xyz_r8),mpi_flttyp, &
-                   0,mpi_comm_world,mpierr)
+                   0,MPI_COMM_WORLD,mpierr)
     !
     global_xyz(:,:) = real( global_xyz_r8(:,:) , kind=wp )
     !
@@ -5716,7 +5716,7 @@ continue
       ! local solutions to the root processor.
       !
       call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0, &
-                    mypnum,mpi_comm_world,mpierr)
+                    mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
       !
@@ -5737,7 +5737,7 @@ continue
       !
       call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
                         global_r8,1,recv_sol(1),0,n, &
-                        mpi_comm_world,istat,mpierr)
+                        MPI_COMM_WORLD,istat,mpierr)
       !
       ! Now have the root processor receive the local
       ! solutions from all the other processors.
@@ -5747,7 +5747,7 @@ continue
         icpu = i-1
         !
         call mpi_recv(global_r8,1,recv_sol(i),icpu,icpu, &
-                      mpi_comm_world,istat,mpierr)
+                      MPI_COMM_WORLD,istat,mpierr)
         !
       end do
       !
@@ -5821,26 +5821,26 @@ continue
     if (mypnum /= 0) then
       !
       call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0, &
-                    mypnum,mpi_comm_world,mpierr)
+                    mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
       !
       call mpi_sendrecv(sp_r8(1:n_solpts),npts,mpi_flttyp,0,npts, &
                         global_r8,1,recv_var(1),0,npts, &
-                        mpi_comm_world,istat,mpierr)
+                        MPI_COMM_WORLD,istat,mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
         call mpi_recv(global_r8,1,recv_var(i),icpu,icpu, &
-                      mpi_comm_world,istat,mpierr)
+                      MPI_COMM_WORLD,istat,mpierr)
         !
       end do
       !
     end if
     !
-    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,mpi_comm_world,mpierr)
+    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,MPI_COMM_WORLD,mpierr)
     !
     global_var(:) = real( global_r8(:) , kind=wp )
     !

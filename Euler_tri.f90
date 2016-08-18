@@ -182,7 +182,7 @@ continue
   !
   ! Broadcast the maximum wall time to all processors
   !
-  call mpi_bcast(max_wall_time,1,mpi_flttyp,0,mpi_comm_world,mpierr)
+  call mpi_bcast(max_wall_time,1,mpi_flttyp,0,MPI_COMM_WORLD,mpierr)
   !
   ! Initialize all the random constants that must be initialized at run time
   !
@@ -261,9 +261,9 @@ continue
     if (mypnum == i) then
       write (iout,10) mypnum, ncell, nnode, nfbnd, nface, n_solpts, local_volume
     end if
-    call mpi_barrier(mpi_comm_world,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end do
-  call mpi_barrier(mpi_comm_world,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Output information about the global grid
   !
@@ -272,7 +272,7 @@ continue
                     n_global_solpts, total_volume, &
                     (solpts_edge(k), k=1,size(solpts_edge))
   end if
-  call mpi_barrier(mpi_comm_world,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Initialize the MMS module if it is being used. 
   !
@@ -626,13 +626,13 @@ continue
         ! the other processors so all processors can exit the
         ! main loop together if the STOP_RECON file was found
         !
-        call mpi_bcast(request_stop,1,mpi_logical,0,mpi_comm_world,mpierr)
+        call mpi_bcast(request_stop,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
         if (request_stop) exit main_loop
         !
         ! Have the root processor broadcast request_solution to
         ! the other processors
         !
-        call mpi_bcast(request_solution,1,mpi_logical,0,mpi_comm_world,mpierr)
+        call mpi_bcast(request_solution,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
         !
         ! If a solution dump was requested, dump the solution and then let
         ! the CGNS subroutine know that the file needs to be reopened.
@@ -766,7 +766,7 @@ continue
   end if
   !
   flush (iout)
-  call mpi_barrier(mpi_comm_world,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   if (mypnum == 0) write (iout,50)
   !

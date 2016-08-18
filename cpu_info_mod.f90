@@ -57,7 +57,7 @@ continue
   host_int(3) = transfer(host_name(9:12),host_int(3))
   !
   call mpi_allgather(host_int,    3,mpi_inttyp, &
-                     all_host_int,3,mpi_inttyp,mpi_comm_world,mpierr)
+                     all_host_int,3,mpi_inttyp,MPI_COMM_WORLD,mpierr)
   !
   do n = 1,ncpu
     all_host_name(n)(1:4)  = transfer(all_host_int(1,n),host_name(1:4))
@@ -93,7 +93,7 @@ continue
   cpu_num = findmycpu()
   !
   call mpi_allgather(cpu_num,    1,mpi_inttyp, &
-                     all_cpu_num,1,mpi_inttyp,mpi_comm_world,mpierr)
+                     all_cpu_num,1,mpi_inttyp,MPI_COMM_WORLD,mpierr)
   !
 end subroutine get_cpu_locality
 !

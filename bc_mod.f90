@@ -1926,7 +1926,7 @@ continue
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
             call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
-                          itag,mpi_comm_world,mpierr)
+                          itag,MPI_COMM_WORLD,mpierr)
             !
           end if
           !
@@ -1942,7 +1942,7 @@ continue
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
             call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
-                          itag,mpi_comm_world,istat,mpierr)
+                          itag,MPI_COMM_WORLD,istat,mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
@@ -2078,7 +2078,7 @@ continue
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
             call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
-                          itag,mpi_comm_world,mpierr)
+                          itag,MPI_COMM_WORLD,mpierr)
             !
           end if
           !
@@ -2094,7 +2094,7 @@ continue
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
             call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
-                          itag,mpi_comm_world,istat,mpierr)
+                          itag,MPI_COMM_WORLD,istat,mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face

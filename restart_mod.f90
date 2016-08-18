@@ -230,7 +230,7 @@ continue
       !
       ! Open the restart file for MPI I/O
       !
-      call mpi_file_open(mpi_comm_world, trim(adjustl(fname)), &
+      call mpi_file_open(MPI_COMM_WORLD, trim(adjustl(fname)), &
                          MPI_MODE_RDONLY,file_info,file_handle,mpierr)
       !
       ! Have all processors read the header section of the restart file
@@ -634,7 +634,7 @@ continue
       !
     end if
     !
-    call mpi_barrier(mpi_comm_world,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
   else
     !
@@ -730,7 +730,7 @@ continue
     !
     ! Open the restart file for MPI I/O
     !
-    call mpi_file_open(mpi_comm_world,trim(adjustl(fname)), &
+    call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
                        mpi_mode_wronly + mpi_mode_create, &
                        file_info,file_handle,mpierr)
     !
@@ -802,7 +802,7 @@ continue
     !
     ! Broadcast the current file displacement to all processors
     !
-    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,mpi_comm_world,mpierr)
+    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
     !
     ! Convert the file displacement to MPI_OFFSET_KIND
     !
@@ -854,7 +854,7 @@ continue
     !
     ! Broadcast the current file displacement to all processors
     !
-    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,mpi_comm_world,mpierr)
+    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
     !
     ! Convert the file displacement to MPI_OFFSET_KIND
     !

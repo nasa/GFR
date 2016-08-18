@@ -133,7 +133,7 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allgather(error,    size(error),mpi_flttyp, &
-                       all_error,size(error),mpi_flttyp,mpi_comm_world,mpierr)
+                       all_error,size(error),mpi_flttyp,MPI_COMM_WORLD,mpierr)
   else
     all_error(:,:,:,1) = error(:,:,:)
   end if
@@ -288,7 +288,7 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allgather(error,    size(error),mpi_flttyp, &
-                       all_error,size(error),mpi_flttyp,mpi_comm_world,mpierr)
+                       all_error,size(error),mpi_flttyp,MPI_COMM_WORLD,mpierr)
   else
     all_error(:,:,1) = error(:,:)
   end if
@@ -403,7 +403,7 @@ continue
   !
   ! Broadcast walltime_expiring to all processors
   !
-  call mpi_bcast(walltime_expiring,1,mpi_logical,0,mpi_comm_world,mpierr)
+  call mpi_bcast(walltime_expiring,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
   !
   ! If a vortex collapse has been detected and final_countdown has reached 0,
   ! activate convergence_reached so that the main_loop can be exited when
@@ -719,7 +719,7 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allgather(error,    size(error),mpi_flttyp, &
-                       all_error,size(error),mpi_flttyp,mpi_comm_world,mpierr)
+                       all_error,size(error),mpi_flttyp,MPI_COMM_WORLD,mpierr)
   else
     all_error(:,1) = error(:)
   end if
@@ -1259,7 +1259,7 @@ continue
     if (ncpu > 1) then
       !
       call mpi_allreduce(MPI_IN_PLACE,sum_kedr,size(sum_kedr),mpi_flttyp, &
-                         mpi_sum,mpi_comm_world,mpierr)
+                         mpi_sum,MPI_COMM_WORLD,mpierr)
       !
     end if
     !

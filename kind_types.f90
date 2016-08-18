@@ -1066,8 +1066,8 @@ continue
   end if
   !
   if (ncpu > 1) then
-    call mpi_bcast(stop_value,1,mpi_inttyp,0,mpi_comm_world,mpierr)
-    call mpi_barrier(mpi_comm_world,mpierr)
+    call mpi_bcast(stop_value,1,mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
   if (stop_value == 1) then
@@ -1181,8 +1181,8 @@ continue
   ! Initialize the overall MPI session
   !
   call mpi_init(mpierr)
-  call mpi_comm_size(mpi_comm_world,ncpu,mpierr)
-  call mpi_comm_rank(mpi_comm_world,mypnum,mpierr)
+  call mpi_comm_size(MPI_COMM_WORLD,ncpu,mpierr)
+  call mpi_comm_rank(MPI_COMM_WORLD,mypnum,mpierr)
   !
   ! MPI datatype for working integer precision
   !
@@ -1331,7 +1331,7 @@ continue
         write (iout,5) trim(adjustl(output_message))
       write (iout,6)
       !
-      call mpi_abort(mpi_comm_world,iflag,mpierr)
+      call mpi_abort(MPI_COMM_WORLD,iflag,mpierr)
       !
     end if
     !

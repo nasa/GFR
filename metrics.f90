@@ -1322,13 +1322,13 @@ continue
   !
   if (ncpu > 1) then
     call mpi_allreduce(loc_vol,tot_vol,1,mpi_flttyp, &
-                       mpi_sum,mpi_comm_world,mpierr)
+                       mpi_sum,MPI_COMM_WORLD,mpierr)
   end if
   !
   total_volume = real(tot_vol,kind=wp)
   local_volume = real(loc_vol,kind=wp)
   !
-  call mpi_barrier(mpi_comm_world,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   if (allocated(geofa2)) then
     deallocate ( geofa2 , stat=ierr , errmsg=error_message )
