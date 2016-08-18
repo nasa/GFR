@@ -249,6 +249,7 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   integer :: this_geom,this_order,face_order
   integer :: ierr,iosp
   !
+  character(len=100) :: flux_fmt
   character(len=300) :: spf_fname
   !
   !.. Local Arrays ..
@@ -264,6 +265,7 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
 continue
   !
   if (dump_fluxes) then
+    write (flux_fmt,4) nr,nr
     write (spf_fname,1) trim(output_dir),time_step,rk_step
     spf_fname = trim(adjustl(spf_fname))
     open (newunit=iosp,file=trim(spf_fname),status="replace",action="write", &
@@ -334,7 +336,7 @@ continue
       do k = 1,np
         write (iosp,3) k,k+n1-1
         do m = 1,nq
-          write (iosp,4) (xyflx(k,m,l),l=1,nr), (rsflx(k,m,l),l=1,nr)
+          write (iosp,flux_fmt) (xyflx(k,m,l),l=1,nr), (rsflx(k,m,l),l=1,nr)
         end do
       end do
     end if
@@ -442,7 +444,7 @@ continue
   1 format (a,"flux_files/sp_",i0,".",i0,"_fluxes.dat")
   2 format (100("#"),/,15x,"CELL ",i0,/,100("#"))
   3 format (100("-"),/,5x,"SP ",i0," (",i0,")",/,100("-"))
-  4 format (<nr>es15.6,5x,<nr>es15.6)
+  4 format ("(",i0,"es15.6,5x,",i0,"es15.6)")
   !
 end subroutine flux_gradient_at_solpts_visc
 !
