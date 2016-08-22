@@ -731,7 +731,7 @@ continue
     ! Open the restart file for MPI I/O
     !
     call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
-                       mpi_mode_wronly + mpi_mode_create, &
+                       MPI_MODE_WRONLY + MPI_MODE_CREATE, &
                        file_info,file_handle,mpierr)
     !
     ! Have the root processor write the header for the restart file

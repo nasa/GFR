@@ -1828,7 +1828,7 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   integer :: itag,send_cpu,recv_cpu
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer, dimension(1:MPI_STATUS_SIZE) :: istat
   real(r8), dimension(1:nq) :: exch_send,exch_recv
   !
 continue
@@ -1925,7 +1925,7 @@ continue
           else
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp,recv_cpu, &
                           itag,MPI_COMM_WORLD,mpierr)
             !
           end if
@@ -1941,7 +1941,7 @@ continue
           if (mypnum == recv_cpu) then
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp,send_cpu, &
                           itag,MPI_COMM_WORLD,istat,mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point
@@ -1980,7 +1980,7 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   integer :: itag,send_cpu,recv_cpu
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer, dimension(1:MPI_STATUS_SIZE) :: istat
   real(r8), dimension(1:nr,1:nq) :: exch_send,exch_recv
   !
 continue
@@ -2077,7 +2077,7 @@ continue
           else
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_send(exch_send,size(exch_send),mpi_flttyp,recv_cpu, &
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp,recv_cpu, &
                           itag,MPI_COMM_WORLD,mpierr)
             !
           end if
@@ -2093,7 +2093,7 @@ continue
           if (mypnum == recv_cpu) then
             !
             itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_recv(exch_recv,size(exch_recv),mpi_flttyp,send_cpu, &
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp,send_cpu, &
                           itag,MPI_COMM_WORLD,istat,mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point

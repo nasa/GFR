@@ -448,8 +448,8 @@ continue
   !
   ! Distribute partitions across all processors
   !
-  call mpi_bcast(epart,int(lcell,kind=kind(int_mpi)), &
-                 mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(epart,int(lcell,kind=int_mpi), &
+                 mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! Output the partition grid to a tecplot file
   !
@@ -757,7 +757,7 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
+      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -1003,7 +1003,7 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1,mpi_logical,0,MPI_COMM_WORLD,mpierr)
+      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -3130,15 +3130,15 @@ continue
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"recv_blklen_int_mpi",1,ierr,error_message)
   !
-  allocate ( recv_xyz(1:ncpu) , source=mpi_datatype_null , &
+  allocate ( recv_xyz(1:ncpu) , source=MPI_DATATYPE_NULL , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"recv_xyz",1,ierr,error_message)
   !
-  allocate ( recv_sol(1:ncpu) , source=mpi_datatype_null , &
+  allocate ( recv_sol(1:ncpu) , source=MPI_DATATYPE_NULL , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"recv_sol",1,ierr,error_message)
   !
-  allocate ( recv_var(1:ncpu) , source=mpi_datatype_null , &
+  allocate ( recv_var(1:ncpu) , source=MPI_DATATYPE_NULL , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"recv_var",1,ierr,error_message)
   !
@@ -3677,11 +3677,11 @@ continue
   !
   ! Create the test MPI datatypes
   !
-  allocate ( testf_send(1:ncomm) , source=mpi_datatype_null , &
+  allocate ( testf_send(1:ncomm) , source=MPI_DATATYPE_NULL , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"testf_send",1,ierr,error_message)
   !
-  allocate ( testf_recv(1:ncomm) , source=mpi_datatype_null , &
+  allocate ( testf_recv(1:ncomm) , source=MPI_DATATYPE_NULL , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"testf_recv",1,ierr,error_message)
   !
@@ -3788,7 +3788,7 @@ continue
   !
   ! MPI status objects returned after communicating solution variables
   !
-  allocate ( fusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , &
+  allocate ( fusp_istat(1:MPI_STATUS_SIZE,1:2*ncomm) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fusp_istat",1,ierr,error_message)
   !
@@ -3814,7 +3814,7 @@ continue
   !
   ! MPI status objects returned after communicating gradients
   !
-  allocate ( fdusp_istat(1:mpi_status_size,1:2*ncomm) , source=0_int_mpi , &
+  allocate ( fdusp_istat(1:MPI_STATUS_SIZE,1:2*ncomm) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fdusp_istat",1,ierr,error_message)
   !
@@ -4680,7 +4680,7 @@ continue
     ! MPI user-defined datatype for receive
     recv_dtype = exch_fusp(n)%recv_datatype
     !
-    call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
+    call mpi_irecv(fusp_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fusp_rqst(n),mpierr)
     !
   end do
@@ -4696,7 +4696,7 @@ continue
     ! MPI user-defined datatype for send
     send_dtype = exch_fusp(n)%send_datatype
     !
-    call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
+    call mpi_isend(fusp_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fusp_rqst(n+ncomm),mpierr)
     !
   end do
@@ -4795,7 +4795,7 @@ continue
     ! MPI user-defined datatype for receive
     recv_dtype = exch_fdusp(n)%recv_datatype
     !
-    call mpi_irecv(fdusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
+    call mpi_irecv(fdusp_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fdusp_rqst(n),mpierr)
     !
   end do
@@ -4811,7 +4811,7 @@ continue
     ! MPI user-defined datatype for send
     send_dtype = exch_fdusp(n)%send_datatype
     !
-    call mpi_isend(fdusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
+    call mpi_isend(fdusp_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fdusp_rqst(n+ncomm),mpierr)
     !
   end do
@@ -4886,7 +4886,7 @@ subroutine exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
   integer(int_mpi) :: adj_cpu
   integer(int_mpi) :: send_tag,send_dtype
   integer(int_mpi) :: recv_tag,recv_dtype
-  integer(int_mpi) :: istat(1:mpi_status_size)
+  integer(int_mpi) :: istat(1:MPI_STATUS_SIZE)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: send_buffer
@@ -5017,8 +5017,8 @@ continue
       ! the same as processor 1 calling MPI_SEND then MPI_RECV while
       ! processor 2 calls MPI_RECV then MPI_SEND.
       !
-      call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
-                        recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
+      call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
+                        recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
                         MPI_COMM_WORLD,istat,mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
@@ -5133,7 +5133,7 @@ subroutine exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
   integer(int_mpi) :: adj_cpu,mesg_tag
   integer(int_mpi) :: send_cpu,send_tag,send_dtype
   integer(int_mpi) :: recv_cpu,recv_tag,recv_dtype
-  integer(int_mpi) :: istat(1:mpi_status_size)
+  integer(int_mpi) :: istat(1:MPI_STATUS_SIZE)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: send_buffer
@@ -5274,8 +5274,8 @@ continue
       ! the same as processor 1 calling MPI_SEND then MPI_RECV while
       ! processor 2 calls MPI_RECV then MPI_SEND.
       !
-      call mpi_sendrecv(send_buffer,1,send_dtype,adj_cpu,send_tag, &
-                        recv_buffer,1,recv_dtype,adj_cpu,recv_tag, &
+      call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
+                        recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
                         MPI_COMM_WORLD,istat,mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
@@ -5441,7 +5441,7 @@ continue
     ! MPI user-defined datatype for receive
     recv_dtype = exch_fusp(n)%recv_datatype
     !
-    call mpi_irecv(fusp_recv_buffer,1,recv_dtype,send_cpu,mesg_tag, &
+    call mpi_irecv(fusp_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fusp_rqst(n),mpierr)
     !
   end do
@@ -5458,7 +5458,7 @@ continue
     ! MPI user-defined datatype for send
     send_dtype = exch_fusp(n)%send_datatype
     !
-    call mpi_isend(fusp_send_buffer,1,send_dtype,recv_cpu,mesg_tag, &
+    call mpi_isend(fusp_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
                    MPI_COMM_WORLD,fusp_rqst(n+ncomm),mpierr)
     !
   end do
@@ -5520,7 +5520,7 @@ end subroutine exch_connectivity
 !  !.. Local Arrays ..
 !  real(r4), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
 !  integer(int_mpi), dimension(1:2*ncomm) :: rqst
-!  integer(int_mpi), dimension(1:mpi_status_size,1:2*ncomm) :: istat
+!  integer(int_mpi), dimension(1:MPI_STATUS_SIZE,1:2*ncomm) :: istat
 !  !
 !continue
 !  !
@@ -5532,7 +5532,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    s = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
+!    call mpi_irecv(umodes,1_int_mpi,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
 !  end do
 !  !
 !  ! Send out the adjacent cells
@@ -5540,7 +5540,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    r = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = send_fdusp(n)
-!    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+!    call mpi_isend(exch_send,1_int_mpi,dtype,r,mypnum, &
 !                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
 !  end do
 !  !
@@ -5564,7 +5564,7 @@ end subroutine exch_connectivity
 !  !.. Local Arrays ..
 !  real(r8), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
 !  integer(int_mpi), dimension(1:2*ncomm) :: rqst
-!  integer(int_mpi), dimension(1:mpi_status_size,1:2*ncomm) :: istat
+!  integer(int_mpi), dimension(1:MPI_STATUS_SIZE,1:2*ncomm) :: istat
 !  !
 !continue
 !  !
@@ -5576,7 +5576,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    s = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
+!    call mpi_irecv(umodes,1_int_mpi,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
 !  end do
 !  !
 !  ! Send out the adjacent cells
@@ -5584,7 +5584,7 @@ end subroutine exch_connectivity
 !  do n = 1,ncomm
 !    r = int( exch_cpu(n) , kind=int_mpi )
 !    dtype = send_fdusp(n)
-!    call mpi_isend(exch_send,1,dtype,r,mypnum, &
+!    call mpi_isend(exch_send,1_int_mpi,dtype,r,mypnum, &
 !                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
 !  end do
 !  !
@@ -5605,7 +5605,7 @@ subroutine collect_global_solpts
   integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer, dimension(1:MPI_STATUS_SIZE) :: istat
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: xyz_r8
@@ -5636,28 +5636,28 @@ continue
     !
     if (mypnum /= 0) then
       !
-      call mpi_send(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0, &
+      call mpi_send(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi, &
                     mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
       !
-      call mpi_sendrecv(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
-                        global_xyz_r8,1,recv_xyz(1),0,n, &
+      call mpi_sendrecv(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi,n, &
+                        global_xyz_r8,1_int_mpi,recv_xyz(1),0_int_mpi,n, &
                         MPI_COMM_WORLD,istat,mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
-        call mpi_recv(global_xyz_r8,1,recv_xyz(i),icpu,icpu, &
+        call mpi_recv(global_xyz_r8,1_int_mpi,recv_xyz(i),icpu,icpu, &
                       MPI_COMM_WORLD,istat,mpierr)
         !
       end do
       !
     end if
     !
-    call mpi_bcast(global_xyz_r8,size(global_xyz_r8),mpi_flttyp, &
-                   0,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(global_xyz_r8,size(global_xyz_r8,kind=int_mpi),mpi_flttyp, &
+                   0_int_mpi,MPI_COMM_WORLD,mpierr)
     !
     global_xyz(:,:) = real( global_xyz_r8(:,:) , kind=wp )
     !
@@ -5686,7 +5686,7 @@ subroutine collect_global_solution
   integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer, dimension(1:MPI_STATUS_SIZE) :: istat
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: sp_r8
@@ -5715,7 +5715,7 @@ continue
       ! Have all the non-root processors send their
       ! local solutions to the root processor.
       !
-      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0, &
+      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi, &
                     mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
@@ -5735,8 +5735,8 @@ continue
       ! Have the root processor send its own solution to itself so
       ! it gets put in the right location within the global array.
       !
-      call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0,n, &
-                        global_r8,1,recv_sol(1),0,n, &
+      call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi,n, &
+                        global_r8,1_int_mpi,recv_sol(1),0_int_mpi,n, &
                         MPI_COMM_WORLD,istat,mpierr)
       !
       ! Now have the root processor receive the local
@@ -5746,7 +5746,7 @@ continue
         !
         icpu = i-1
         !
-        call mpi_recv(global_r8,1,recv_sol(i),icpu,icpu, &
+        call mpi_recv(global_r8,1_int_mpi,recv_sol(i),icpu,icpu, &
                       MPI_COMM_WORLD,istat,mpierr)
         !
       end do
@@ -5788,7 +5788,7 @@ subroutine collect_global_variable(var)
   integer :: i,icpu,npts,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:mpi_status_size) :: istat
+  integer, dimension(1:MPI_STATUS_SIZE) :: istat
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: sp_r8
@@ -5820,27 +5820,27 @@ continue
     !
     if (mypnum /= 0) then
       !
-      call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0, &
+      call mpi_send(sp_r8(1:npts),npts,mpi_flttyp,0_int_mpi, &
                     mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
       !
-      call mpi_sendrecv(sp_r8(1:n_solpts),npts,mpi_flttyp,0,npts, &
-                        global_r8,1,recv_var(1),0,npts, &
+      call mpi_sendrecv(sp_r8(1:n_solpts),npts,mpi_flttyp,0_int_mpi,npts, &
+                        global_r8,1_int_mpi,recv_var(1),0_int_mpi,npts, &
                         MPI_COMM_WORLD,istat,mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
-        call mpi_recv(global_r8,1,recv_var(i),icpu,icpu, &
+        call mpi_recv(global_r8,1_int_mpi,recv_var(i),icpu,icpu, &
                       MPI_COMM_WORLD,istat,mpierr)
         !
       end do
       !
     end if
     !
-    call mpi_bcast(global_r8,size(global_r8),mpi_flttyp,0,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(global_r8,size(global_r8,kind=int_mpi),mpi_flttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
     !
     global_var(:) = real( global_r8(:) , kind=wp )
     !

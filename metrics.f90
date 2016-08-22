@@ -1321,8 +1321,8 @@ continue
   loc_vol = real(local_volume,kind=r8)
   !
   if (ncpu > 1) then
-    call mpi_allreduce(loc_vol,tot_vol,1,mpi_flttyp, &
-                       mpi_sum,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(loc_vol,tot_vol,1_int_mpi,mpi_flttyp, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
   end if
   !
   total_volume = real(tot_vol,kind=wp)

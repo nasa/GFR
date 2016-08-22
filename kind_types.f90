@@ -1066,7 +1066,7 @@ continue
   end if
   !
   if (ncpu > 1) then
-    call mpi_bcast(stop_value,1,mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(stop_value,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
@@ -1192,7 +1192,7 @@ continue
  !write (*,*) selected_int_kind(r)
  !call mpi_type_create_f90_integer(r,mpi_inttyp,mpierr)
  !write (*,*) mpi_inttyp
-  mpi_inttyp = merge(mpi_integer8,mpi_integer,wip==i8)
+  mpi_inttyp = merge(MPI_INTEGER8,MPI_INTEGER,WIP==I8)
   !
   ! MPI datatype for half working real precision
   !
@@ -1203,8 +1203,8 @@ continue
  !write (*,*) sp
  !call mpi_type_create_f90_real(p,r,mpi_hlftyp,mpierr)
  !write (*,*) mpi_hlftyp
-  mpi_hlftyp = merge(mpi_real,mpi_double_precision,sp<r8)
-  mpi_flttyp = merge(mpi_real,mpi_double_precision,wp<r8)
+  mpi_hlftyp = merge(MPI_REAL,MPI_DOUBLE_PRECISION,SP<R8)
+  mpi_flttyp = merge(MPI_REAL,MPI_DOUBLE_PRECISION,WP<R8)
   !
   ! MPI datatype for working real precision
   !
@@ -1215,7 +1215,7 @@ continue
  !write (*,*) wp
  !call mpi_type_create_f90_real(p,r,mpi_flttyp,mpierr)
  !write (*,*) mpi_flttyp
- !mpi_flttyp = mpi_double_precision
+ !mpi_flttyp = MPI_DOUBLE_PRECISION
   !
   ! MPI datatype for double working real precision
   ! NOTE: mpi_type_create_f90_real doesnt seem to support quad precision

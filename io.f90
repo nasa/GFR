@@ -927,8 +927,8 @@ continue
   ! Broadcast the value of output_dir to all the non-root MPI processes
   !
   clen = len_trim(output_dir)
-  call mpi_bcast(clen,1,mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
-  call mpi_bcast(output_dir(1:clen),clen,MPI_CHARACTER,0,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(output_dir(1:clen),clen,MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! If output_dir starts with "BAD_DIR", we cant seem to find the
   ! output directory that was given in the input file so exit
@@ -1076,8 +1076,8 @@ continue
   ! Broadcast the value of cgns_dir to all the non-root MPI processes
   !
   clen = len_trim(cgns_dir)
-  call mpi_bcast(clen,1,mpi_inttyp,0,MPI_COMM_WORLD,mpierr)
-  call mpi_bcast(cgns_dir(1:clen),clen,MPI_CHARACTER,0,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(cgns_dir(1:clen),clen,MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! Format Statements
   !
@@ -5896,13 +5896,13 @@ continue
   !
   if (ncpu > 1) then
     !
-    mpi_vorttyp = merge(mpi_integer8,mpi_integer,CST==i8)
+    mpi_vorttyp = merge(MPI_INTEGER8,MPI_INTEGER,CST==I8)
    !call mpi_sizeof(cpu_vort_data,int_size,mpierr)
    !!
    !call mpi_type_match_size(MPI_TYPECLASS_INTEGER,int_size,mpi_vorttyp,mpierr)
     !
-    call mpi_allgather(MPI_IN_PLACE, size(cpu_vort_data,dim=1),mpi_vorttyp, &
-                       cpu_vort_data,size(cpu_vort_data,dim=1),mpi_vorttyp, &
+    call mpi_allgather(MPI_IN_PLACE, size(cpu_vort_data,dim=1,kind=int_mpi),mpi_vorttyp, &
+                       cpu_vort_data,size(cpu_vort_data,dim=1,kind=int_mpi),mpi_vorttyp, &
                        MPI_COMM_WORLD,mpierr)
     !
   end if
