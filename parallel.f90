@@ -4634,9 +4634,7 @@ end subroutine create_node_and_edge_datatypes
 subroutine exchange_faceusp(faceusp)
   !
   !.. Use Statements ..
-#ifndef USE_TYPEBOUND_FACE_PACK
   use geovar,  only : bface
-#endif
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
@@ -4652,9 +4650,6 @@ subroutine exchange_faceusp(faceusp)
   !
 continue
   !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call faceusp%pack(fusp_send_buffer)
-#else
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
@@ -4664,7 +4659,6 @@ continue
     fusp_send_buffer(ibeg:iend) = &
                  reshape( real(faceusp(nf)%v(:,:,1),kind=r8) , [nsz] )
   end do
-#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -4706,9 +4700,7 @@ end subroutine exchange_faceusp
 subroutine wait_faceusp(faceusp)
   !
   !.. Use Statements ..
-#ifndef USE_TYPEBOUND_FACE_PACK
   use geovar,  only : bface
-#endif
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
@@ -4729,9 +4721,6 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call faceusp%unpack(fusp_recv_buffer)
-#else
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
@@ -4742,7 +4731,6 @@ continue
     faceusp(nf)%v(:,:,2) = &
                  reshape( real(fusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
   end do
-#endif
   !
 end subroutine wait_faceusp
 !
@@ -4751,9 +4739,7 @@ end subroutine wait_faceusp
 subroutine exchange_facedusp(facedusp)
   !
   !.. Use Statements ..
-#ifndef USE_TYPEBOUND_FACE_PACK
   use geovar,  only : bface
-#endif
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
@@ -4769,9 +4755,6 @@ subroutine exchange_facedusp(facedusp)
   !
 continue
   !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call facedusp%pack(fdusp_send_buffer)
-#else
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
@@ -4781,7 +4764,6 @@ continue
     fdusp_send_buffer(ibeg:iend) = &
                  reshape( real(facedusp(nf)%v(:,:,:,1),kind=r8) , [nsz] )
   end do
-#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -4823,9 +4805,7 @@ end subroutine exchange_facedusp
 subroutine wait_facedusp(facedusp)
   !
   !.. Use Statements ..
-#ifndef USE_TYPEBOUND_FACE_PACK
   use geovar,  only : bface
-#endif
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
@@ -4846,9 +4826,6 @@ continue
   !
   ! Update the right states for only the communication boundary faces
   !
-#ifdef USE_TYPEBOUND_FACE_PACK
-  call facedusp%unpack(fdusp_recv_buffer)
-#else
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
@@ -4860,7 +4837,6 @@ continue
     facedusp(nf)%v(:,:,:,2) = &
                  reshape( real(fdusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
   end do
-#endif
   !
 end subroutine wait_facedusp
 !

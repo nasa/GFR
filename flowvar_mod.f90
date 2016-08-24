@@ -68,13 +68,6 @@ module flowvar
     real(wp), allocatable :: v(:,:,:)
   contains
     procedure :: zero => zero_face_var
-#ifdef USE_TYPEBOUND_FACE_PACK
-    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
-    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
-    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
-    procedure :: pack => pack_face_var_data
-    procedure :: unpack => unpack_face_var_data
-#endif
   end type face_var
   !
   !
@@ -88,13 +81,6 @@ module flowvar
     real(wp), allocatable :: v(:,:,:,:)
   contains
     procedure :: zero => zero_face_vec
-#ifdef USE_TYPEBOUND_FACE_PACK
-    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
-    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
-    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
-    procedure :: pack => pack_face_vec_data
-    procedure :: unpack => unpack_face_vec_data
-#endif
   end type face_vec
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
@@ -120,13 +106,6 @@ module flowvar
     real(wp), allocatable :: v(:)
   contains
     procedure :: zero => zero_ne1d_t
-#ifdef USE_TYPEBOUND_FACE_PACK
-    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
-    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
-    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
-    procedure :: pack => pack_ne1d_t_data
-    procedure :: unpack => unpack_ne1d_t_data
-#endif
   end type ne1d_t
   !
   ! NE2D_T : Derived type containing a 2D array for storing edge/node
@@ -136,13 +115,6 @@ module flowvar
     real(wp), allocatable :: v(:,:)
   contains
     procedure :: zero => zero_ne2d_t
-#ifdef USE_TYPEBOUND_FACE_PACK
-    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
-    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
-    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
-    procedure :: pack => pack_ne2d_t_data
-    procedure :: unpack => unpack_ne2d_t_data
-#endif
   end type ne2d_t
   !
   ! NE3D_T : Derived type containing a 3D array for storing edge/node
@@ -152,13 +124,6 @@ module flowvar
     real(wp), allocatable :: v(:,:,:)
   contains
     procedure :: zero => zero_ne3d_t
-#ifdef USE_TYPEBOUND_FACE_PACK
-    ! THESE PACK AND UNPACK PROCEDURES WORK WITH INTEL 2015.3.187 BUT
-    ! ARE NOT ALLOWED BY THE FORTRAN STANDARD. THEY WILL PRODUCE A
-    ! COMPILE-TIME ERROR IF USED WITH 2016.0.109
-    procedure :: pack => pack_ne3d_t_data
-    procedure :: unpack => unpack_ne3d_t_data
-#endif
   end type ne3d_t
   !
   ! NODEUSP  : conservative variables at the nodes
@@ -433,15 +398,9 @@ end subroutine allocate_flowvar_arrays
 !
 !###############################################################################
 !###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !
 !   FACE RELATED PROCEDURES FOR THE FACE_VAR DERIVED TYPE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -451,61 +410,10 @@ elemental subroutine zero_face_var(this)
 end subroutine zero_face_var
 !
 !###############################################################################
-!
-subroutine pack_face_var_data(this,package)
-  !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  !.. Formal Arguments ..
-  class(face_var), dimension(:),    intent(in) :: this
-  real(r8),        dimension(:), intent(inout) :: package
-  !.. Local Scalars ..
-  integer :: nf,ibeg,iend,nsz
-continue
-  iend = 0
-  do nf = 1,nfbnd
-    if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz = size(this(nf)%v(:,:,1))
-    ibeg = iend + 1
-    iend = iend + nsz
-    package(ibeg:iend) = reshape( real(this(nf)%v(:,:,1),kind=r8) , [nsz] )
-  end do
-end subroutine pack_face_var_data
-!
-!###############################################################################
-!
-subroutine unpack_face_var_data(this,package)
-  !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  !.. Formal Arguments ..
-  class(face_var), dimension(:), intent(inout) :: this
-  real(r8),        dimension(:),    intent(in) :: package
-  !.. Local Scalars ..
-  integer :: nf,ibeg,iend
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
-continue
-  iend = 0
-  do nf = 1,nfbnd
-    if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz(1) = size(this(nf)%v,dim=1)
-    nsz(2) = size(this(nf)%v,dim=2)
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    this(nf)%v(:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
-  end do
-end subroutine unpack_face_var_data
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !
 !   FACE RELATED PROCEDURES FOR THE FACE_VEC DERIVED TYPE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -515,62 +423,10 @@ elemental subroutine zero_face_vec(this)
 end subroutine zero_face_vec
 !
 !###############################################################################
-!
-subroutine pack_face_vec_data(this,package)
-  !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  !.. Formal Arguments ..
-  class(face_vec), dimension(:),    intent(in) :: this
-  real(r8),        dimension(:), intent(inout) :: package
-  !.. Local Scalars ..
-  integer :: nf,ibeg,iend,nsz
-continue
-  iend = 0
-  do nf = 1,nfbnd
-    if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz = size(this(nf)%v(:,:,:,1))
-    ibeg = iend + 1
-    iend = iend + nsz
-    package(ibeg:iend) = reshape( real(this(nf)%v(:,:,:,1),kind=r8) , [nsz] )
-  end do
-end subroutine pack_face_vec_data
-!
-!###############################################################################
-!
-subroutine unpack_face_vec_data(this,package)
-  !.. Use Statements ..
-  use geovar, only : nfbnd,bface
-  !.. Formal Arguments ..
-  class(face_vec), dimension(:), intent(inout) :: this
-  real(r8),        dimension(:),    intent(in) :: package
-  !.. Local Scalars ..
-  integer :: nf,ibeg,iend
-  !.. Local Arrays ..
-  integer, dimension(1:3) :: nsz
-continue
-  iend = 0
-  do nf = 1,nfbnd
-    if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz(1) = size(this(nf)%v,dim=1)
-    nsz(2) = size(this(nf)%v,dim=2)
-    nsz(3) = size(this(nf)%v,dim=3)
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    this(nf)%v(:,:,:,2) = reshape( real(package(ibeg:iend),kind=wp) , nsz )
-  end do
-end subroutine unpack_face_vec_data
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !
 !   EDGE/NODE RELATED PROCEDURES FOR THE NE1D_T DERIVED TYPE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -580,59 +436,10 @@ elemental subroutine zero_ne1d_t(this)
 end subroutine zero_ne1d_t
 !
 !###############################################################################
-!
-subroutine pack_ne1d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne1d_t), dimension(:),    intent(in) :: this
-  real(r8),      dimension(:), intent(inout) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg,nsz
-continue
-  do n = 1,size(this)
-    nsz = size(this(n)%v(:))
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + nsz
-    ibeg = iend + 1
-    iend = iend + nsz
-    package(ibeg:iend) = reshape( real(this(n)%v(:),kind=r8) , [nsz] )
-  end do
-end subroutine pack_ne1d_t_data
-!
-!###############################################################################
-!
-subroutine unpack_ne1d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne1d_t), dimension(:), intent(inout) :: this
-  real(r8),      dimension(:),    intent(in) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg
-  !.. Local Arrays ..
-  integer, dimension(1:1) :: nsz
-continue
-  do n = 1,size(this)
-    nsz(1) = size(this(n)%v,dim=1)
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + product(nsz)
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    this(n)%v(:) = this(n)%v(:) + &
-                   reshape( real(package(ibeg:iend),kind=wp) , nsz )
-  end do
-end subroutine unpack_ne1d_t_data
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !
 !   EDGE/NODE RELATED PROCEDURES FOR THE NE2D_T DERIVED TYPE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -642,60 +449,10 @@ elemental subroutine zero_ne2d_t(this)
 end subroutine zero_ne2d_t
 !
 !###############################################################################
-!
-subroutine pack_ne2d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne2d_t), dimension(:),    intent(in) :: this
-  real(r8),      dimension(:), intent(inout) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg,nsz
-continue
-  do n = 1,size(this)
-    nsz = size(this(n)%v(:,:))
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + nsz
-    ibeg = iend + 1
-    iend = iend + nsz
-    package(ibeg:iend) = reshape( real(this(n)%v(:,:),kind=r8) , [nsz] )
-  end do
-end subroutine pack_ne2d_t_data
-!
-!###############################################################################
-!
-subroutine unpack_ne2d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne2d_t), dimension(:), intent(inout) :: this
-  real(r8),      dimension(:),    intent(in) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg
-  !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
-continue
-  do n = 1,size(this)
-    nsz(1) = size(this(n)%v,dim=1)
-    nsz(2) = size(this(n)%v,dim=2)
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + product(nsz)
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    this(n)%v(:,:) = this(n)%v(:,:) + &
-                     reshape( real(package(ibeg:iend),kind=wp) , nsz )
-  end do
-end subroutine unpack_ne2d_t_data
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !
 !   EDGE/NODE RELATED PROCEDURES FOR THE NE3D_T DERIVED TYPE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -705,61 +462,10 @@ elemental subroutine zero_ne3d_t(this)
 end subroutine zero_ne3d_t
 !
 !###############################################################################
-!
-subroutine pack_ne3d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne3d_t), dimension(:),    intent(in) :: this
-  real(r8),      dimension(:), intent(inout) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg,nsz
-continue
-  do n = 1,size(this)
-    nsz = size(this(n)%v(:,:,:))
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + nsz
-    ibeg = iend + 1
-    iend = iend + nsz
-    package(ibeg:iend) = reshape( real(this(n)%v(:,:,:),kind=r8) , [nsz] )
-  end do
-end subroutine pack_ne3d_t_data
-!
-!###############################################################################
-!
-subroutine unpack_ne3d_t_data(this,package,iend)
-  !.. Formal Arguments ..
-  class(ne3d_t), dimension(:), intent(inout) :: this
-  real(r8),      dimension(:),    intent(in) :: package
-  integer,                     intent(inout) :: iend
-  !.. Local Scalars ..
-  integer :: n,ibeg
-  !.. Local Arrays ..
-  integer, dimension(1:3) :: nsz
-continue
-  do n = 1,size(this)
-    nsz(1) = size(this(n)%v,dim=1)
-    nsz(2) = size(this(n)%v,dim=2)
-    nsz(3) = size(this(n)%v,dim=3)
-   !ibeg = this(n)%beg_pt
-   !iend = ibeg-1 + product(nsz)
-    ibeg = iend + 1
-    iend = iend + product(nsz)
-    this(n)%v(:,:,:) = this(n)%v(:,:,:) + &
-                       reshape( real(package(ibeg:iend),kind=wp) , nsz )
-  end do
-end subroutine unpack_ne3d_t_data
-!
-!###############################################################################
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !
 !   MEMORY USAGE
 !
-!###############################################################################
-!###############################################################################
-!###############################################################################
 !###############################################################################
 !###############################################################################
 !
