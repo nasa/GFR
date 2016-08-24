@@ -518,9 +518,6 @@ subroutine get_face_and_edge_point_coordinates
   !
   !.. Local Arrays ..
   real(wp) :: txyz(1:maxSP,1:nr)
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp) :: lmat(1:maxSP)
-#endif
   !
   !.. Local Allocatable Arrays ..
   logical, allocatable, dimension(:) :: msk
@@ -563,20 +560,11 @@ continue
         !
         lf = face(nf)%left%flxpts(kf)
         !
-#ifdef USE_MATRIX_PROCEDURES
         do l = 1,nr
           facexyz(nf)%v(l,kf) = interp(this_geom,this_order)% &
                                           toFace(face_order)% &
                                 dot( lf , txyz(1:np,l) )
         end do
-#else
-        lmat(1:np) = interp(this_geom,this_order)% &
-                               toFace(face_order)%mat(1:np,lf)
-        !
-        do l = 1,nr
-          facexyz(nf)%v(l,kf) = dot( lmat(1:np) , txyz(1:np,l) )
-        end do
-#endif
         !
       end do
       !

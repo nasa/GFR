@@ -1379,10 +1379,6 @@ subroutine compute_face_normals
   real(wp) :: dvec(1:3,1:3)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: xyz_face(1:maxFP,1:nr)
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp) :: lmat(1:maxSP)
-  real(wp) :: dmat(1:maxSP)
-#endif
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: ipface(:,:)
@@ -1476,17 +1472,9 @@ continue
           !
           lf = cell(nc)%face(ncf)%cell_idx(kf)
           !
-#ifdef USE_MATRIX_PROCEDURES
           xyz_face(kf,l) = interp(left_geom,left_order)% &
                                      toFace(face_order)% &
                            dot( lf , txyz(1:np,l) )
-#else
-          lmat(1:np) = interp(left_geom,left_order)% &
-                                 toFace(face_order)% &
-                       mat(1:np,lf)
-          !
-          xyz_face(kf,l) = dot( lmat(1:np) , txyz(1:np,l) )
-#endif
           !
         end do
         !
@@ -1524,20 +1512,11 @@ continue
             end if
           end if
           !
-#ifdef USE_MATRIX_PROCEDURES
-          !
           do l = 1,nr
             dvec(l,kf) = deriv(face_geom,face_order)% &
                                                 d(n)% &
                          dot( k , xyz_face(1:nfp,l) )
           end do
-#else
-          dmat(1:nfp) = deriv(face_geom,face_order)%d(n)%mat(1:nfp,k)
-          !
-          do l = 1,nr
-            dvec(l,kf) = dot( dmat(1:nfp) , xyz_face(1:nfp,l) )
-          end do
-#endif
           !
         end do
         !

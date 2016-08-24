@@ -143,16 +143,7 @@ subroutine moment_limiter
   integer :: nc,n1,n2,np,m
   integer :: this_geom,this_order
   !
-#ifndef USE_MATRIX_PROCEDURES
-  !.. Local Pointers ..
-  real(wp), pointer, contiguous :: nodal2modal(:,:)
-#endif
-  !
 continue
-  !
-#ifndef USE_MATRIX_PROCEDURES
-  nodal2modal => null()
-#endif
   !
   if (init_all_as_marked) needs_limiting = true
   !
@@ -167,20 +158,10 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-#ifdef USE_MATRIX_PROCEDURES
     do m = 1,nq
       umodes(n1:n2,m) = &
         vand(this_geom,this_order)%nodal2modal%mv_mult( usp(m,n1:n2) )
     end do
-#else
-    nodal2modal => vand(this_geom,this_order)%nodal2modal%mat
-    !
-    do m = 1,nq
-      umodes(n1:n2,m) = matmul( nodal2modal , usp(m,n1:n2) )
-    end do
-    !
-    if (associated(nodal2modal)) nodal2modal => null()
-#endif
     !
   end do
   !
@@ -209,22 +190,11 @@ subroutine limit_by_projecting
   !.. Local Arrays ..
   real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
-#ifndef USE_MATRIX_PROCEDURES
-  !.. Local Pointers ..
-  real(wp), pointer, contiguous :: plim(:,:)
-#endif
-  !
 continue
   !
   ! Loop from the highest order to the lowest order and project
   ! any marked cells to one degree lower order until there are
   ! no more marked cells or we reach the lowest order.
-  !
-  ! Initialize the local pointers to disassociated
-  !
-#ifndef USE_MATRIX_PROCEDURES
-  plim => null()
-#endif
   !
   ! Initialize the array troubled_cell to identify all troubled cells before
   ! attempting to use the projection limiter.
@@ -273,27 +243,11 @@ continue
       ! Apply the limiter by multplying the projection matrix with
       ! the solution in the current cell
       !
-#ifdef USE_MATRIX_PROCEDURES
       do m = 1,nq
         usp(m,n1:n2) = projct(this_geom,this_order)% &
                                  toCell(proj_order)% &
                        mv_mult( tusp(1:nsp,m) )
       end do
-#else
-      !
-      ! Assign local pointer to projection matrix
-      ! as an alias to simplify the code
-      ! 
-      plim => projct(this_geom,this_order)%toCell(proj_order)%mat
-      !
-      do m = 1,nq
-        usp(m,n1:n2) = matmul( plim , tusp(1:nsp,m) )
-      end do
-      !
-      ! Disassociate plim before continuing to the next cell
-      !
-      if (associated(plim)) plim => null()
-#endif
       !
     end do cell_loop
     !

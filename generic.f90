@@ -658,7 +658,6 @@ continue
     ! Interpolate the new and old solution to the error points
     !
     if (associated(outerp(this_geom,this_order)%error)) then
-#ifdef USE_MATRIX_PROCEDURES
       do l = 1,nr
         xyz_err(l,1:np) = outerp(this_geom,this_order)% &
                                                  error% &
@@ -672,18 +671,6 @@ continue
       jac(1:np) = outerp(this_geom,this_order)% &
                                          error% &
                   mv_mult( jacobian(n1:n2) )
-#else
-      do l = 1,nr
-        xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                                  xyz(l,n1:n2) )
-      end do
-      do m = 1,nq
-        unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                               usp(m,n1:n2) )
-      end do
-      jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                          jacobian(n1:n2) )
-#endif
       weights(1:np) = outerp(this_geom,this_order)%err_wts
     else
       xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
@@ -785,14 +772,9 @@ continue
   if (associated(outerp(this_geom,this_order)%error)) then
     !
     do m = 1,nq
-#ifdef USE_MATRIX_PROCEDURES
       unew(m,1:np) = outerp(this_geom,this_order)% &
                                             error% &
                      mv_mult( usp(m,n1:n2) )
-#else
-      unew(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                             usp(m,n1:n2) )
-#endif
     end do
     !
   else
@@ -809,14 +791,9 @@ continue
   !
   if (associated(outerp(this_geom,this_order)%error)) then
     !
-#ifdef USE_MATRIX_PROCEDURES
     jac(1:np) = outerp(this_geom,this_order)% &
                                        error% &
                 mv_mult( jacobian(n1:n2) )
-#else
-    jac(1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                        jacobian(n1:n2) )
-#endif
     !
   else
     !
@@ -849,14 +826,9 @@ continue
   if (associated(outerp(this_geom,this_order)%error)) then
     !
     do l = 1,nr
-#ifdef USE_MATRIX_PROCEDURES
       xyz_err(l,1:np) = outerp(this_geom,this_order)% &
                                                error% &
                         mv_mult( xyz(l,n1:n2) )
-#else
-      xyz_err(l,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                                xyz(l,n1:n2) )
-#endif
     end do
     !
   else
@@ -899,14 +871,9 @@ continue
       ! Get the solution from the previous time step at the error points
       !
       do m = 1,nq
-#ifdef USE_MATRIX_PROCEDURES
         uold(m,1:np) = outerp(this_geom,this_order)% &
                                               error% &
                        mv_mult( uoldsp(m,n1:n2) )
-#else
-        uold(m,1:np) = matmul( outerp(this_geom,this_order)%error%mat , &
-                               uoldsp(m,n1:n2) )
-#endif
       end do
       !
     else
@@ -964,9 +931,6 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp) :: vsp(1:nq,1:maxpts)
   real(wp) :: dcvdx(1:nr,1:nq,1:maxpts)
   real(wp) :: dpvdx(1:nr,1:nq,1:maxpts)
-#ifndef USE_MATRIX_PROCEDURES
-  real(wp) :: lmat(1:maxpts,1:maxpts)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_TaylorGreen_KEDR"
@@ -1119,7 +1083,6 @@ continue
       ! we must interpolate these values from the solution points to the
       ! error quadrature points
       !
-#ifdef USE_MATRIX_PROCEDURES
       ! NOTE: The vsp array will temporarily hold the conservative variables
       do m = 1,nq
         vsp(m,1:np) = outerp(this_geom,this_order)% &
@@ -1138,23 +1101,6 @@ continue
       wtdjac(1:np) = outerp(this_geom,this_order)% &
                                             error% &
                      mv_mult( jacobian(n1:n2) )
-#else
-      lmat(1:np,1:np) = outerp(this_geom,this_order)%error%mat
-      !
-      ! NOTE: The vsp array will temporarily hold the conservative variables
-      !
-      do m = 1,nq
-        vsp(m,1:np) = matmul( lmat(1:np,1:np) , usp(m,n1:n2) )
-      end do
-      !
-      do m = 1,nq
-        do l = 1,nr
-          dcvdx(l,m,1:np) = matmul( lmat(1:np,1:np) , dusp(l,m,n1:n2) )
-        end do
-      end do
-      !
-      wtdjac(1:np) = matmul( lmat(1:np,1:np) , jacobian(n1:n2) )
-#endif
       !
       wtdjac(1:np) = wtdjac(1:np) * outerp(this_geom,this_order)%err_wts
       !

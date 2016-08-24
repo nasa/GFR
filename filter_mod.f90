@@ -179,11 +179,7 @@ continue
     this_order = cell(n)%order
     !
     do m = 1,size(usp,dim=1)
-#ifdef USE_MATRIX_PROCEDURES
       usp(m,n1:n2) = filter(this_geom,this_order)%mv_mult( usp(m,n1:n2) )
-#else
-      usp(m,n1:n2) = matmul( filter(this_geom,this_order)%mat , usp(m,n1:n2) )
-#endif
     end do
     !
   end do
