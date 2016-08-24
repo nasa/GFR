@@ -16,16 +16,17 @@ PBSLIB   :=
 #MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
 
 # Paths to directories
-HDF5DIR  := $(HOME)
-SZIPDIR  := $(HOME)
-CGNSDIR  := $(HOME)
-METISDIR := $(HOME)
+HDF5DIR  :=#$(HDF5_ROOT)
+SZIPDIR  :=#$(SZIP_ROOT)
+CGNSDIR  :=#$(CGNS_ROOT)
+METISDIR :=#$(METIS_ROOT)
 PBSDIR   :=
 
 # Fortran Preprocessor Definitions
 METISFPP := -DMETIS_5
 PBSFPP   :=
 CGNSFPP  := -DCGNS_3_3
+MPIFPP   := -DUSE_MPI_F08
 
 # Other system specific additions
 OTHERLIB    :=# -ladvisor -ldl

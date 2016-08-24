@@ -1,6 +1,7 @@
 module geovar
   !
-  use module_kind_types, only : wp,Geom_Min,Geom_Max,iout,Geom_Name
+  use module_kind_types, only : wp,iout,int_mpi
+  use module_kind_types, only : Geom_Min,Geom_Max,Geom_Name
   !
   implicit none
   !
@@ -167,9 +168,9 @@ module geovar
   !                  flxpts(1:size(faces),1:n_sp1de) ???
   !
   type, public :: point
-    integer :: flux_point
-    integer :: face
-    integer :: cpu
+    integer          :: flux_point
+    integer          :: face
+    integer(int_mpi) :: cpu
   end type point
   !
   type, public :: conflict

@@ -1,5 +1,7 @@
 module module_bc
   !
+#include <mpi_defs.h>
+  !
   ! Module to contain the procedures and variables related
   ! to the evaluating the boundary conditions for the flow.
   !
@@ -714,7 +716,9 @@ continue
       ! The normal velocity at this flux point seems to
       ! indicate this should be an outflow boundary.
       !
-      write (iout,1) mach_int,aspd_int,hvfp(nq),hvfp(1),hufp(2,k),hufp(3,k),hufp(4,k),rnrm(1),rnrm(2)
+      write (iout,1) mach_int,aspd_int,hvfp(nee),hvfp(nec), &
+                     hufp(nmx,k),hufp(nmy,k),hufp(nee,k), &
+                     rnrm(1),rnrm(2)
       1 format ("Error with bc_generic_inflow boundary condition!",/, &
                 "   mach_int = ",es14.6,/, &
                 "   aspd_int = ",es14.6,/, &
@@ -1825,10 +1829,10 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
-  integer :: itag,send_cpu,recv_cpu
+  integer(int_mpi) :: itag,send_cpu,recv_cpu
   !
   !.. Local Arrays ..
-  integer, dimension(1:MPI_STATUS_SIZE) :: istat
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   real(r8), dimension(1:nq) :: exch_send,exch_recv
   !
 continue
@@ -1924,9 +1928,9 @@ continue
             !
           else
             !
-            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp,recv_cpu, &
-                          itag,MPI_COMM_WORLD,mpierr)
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
+                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
             !
           end if
           !
@@ -1940,9 +1944,9 @@ continue
           !
           if (mypnum == recv_cpu) then
             !
-            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp,send_cpu, &
-                          itag,MPI_COMM_WORLD,istat,mpierr)
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
+                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
@@ -1977,10 +1981,10 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
-  integer :: itag,send_cpu,recv_cpu
+  integer(int_mpi) :: itag,send_cpu,recv_cpu
   !
   !.. Local Arrays ..
-  integer, dimension(1:MPI_STATUS_SIZE) :: istat
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   real(r8), dimension(1:nr,1:nq) :: exch_send,exch_recv
   !
 continue
@@ -2076,9 +2080,9 @@ continue
             !
           else
             !
-            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp,recv_cpu, &
-                          itag,MPI_COMM_WORLD,mpierr)
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
+                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
             !
           end if
           !
@@ -2092,9 +2096,9 @@ continue
           !
           if (mypnum == recv_cpu) then
             !
-            itag = (send_cpu + n + 1)*i + (recv_cpu + i + 1)*n
-            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp,send_cpu, &
-                          itag,MPI_COMM_WORLD,istat,mpierr)
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
+                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
             !
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face

@@ -1,5 +1,7 @@
 module io_mod
   !
+#include <mpi_defs.h>
+  !
   !.. Use Statements ..
   use module_kind_types
   use cgns_module
@@ -928,7 +930,8 @@ continue
   !
   clen = len_trim(output_dir)
   call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-  call mpi_bcast(output_dir(1:clen),clen,MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(output_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
+                 0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! If output_dir starts with "BAD_DIR", we cant seem to find the
   ! output directory that was given in the input file so exit
@@ -1077,7 +1080,8 @@ continue
   !
   clen = len_trim(cgns_dir)
   call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-  call mpi_bcast(cgns_dir(1:clen),clen,MPI_CHARACTER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
+                 0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! Format Statements
   !
@@ -2912,7 +2916,7 @@ subroutine tecplot_cell_rotations(nodes_of_cell_ptr,nodes_of_cell, &
   !
   !.. Local Arrays ..
   integer, dimension(8) :: ip
-  integer, dimension(8) :: old_ip
+  integer, dimension(8) :: op
   integer, dimension(8) :: rev_rot
   !
   !.. Local Parameters ..
@@ -2947,7 +2951,7 @@ continue
     n2 = nodes_of_cell_ptr(nc+1)
     !
     ip = nodes_of_cell(n1:n2)
-    old_ip = old_noc(n1:n2)
+    op = old_noc(n1:n2)
     !
     write (iotec,2) nc,rotation(nc)
     !
@@ -2955,8 +2959,8 @@ continue
     !
     do n = 1,8
       !
-     !write (iotec,4) (nint(xyz_nodes(l,old_ip(n))), l=1,size(xyz_nodes,dim=1)), &
-     !                ip(n),old_ip(n),node_order(n,rotation(nc))+1
+     !write (iotec,4) (nint(xyz_nodes(l,op(n))), l=1,size(xyz_nodes,dim=1)), &
+     !                ip(n),op(n),node_order(n,rotation(nc))+1
       write (iotec,4) (nint(xyz_nodes(l,ip(n))), l=1,size(xyz_nodes,dim=1)), &
                       n, ip(n), rev_rot(n)
       !               
@@ -4688,7 +4692,9 @@ continue
   !
   ! Create a link to the solution node in the current solution file
   !
-  call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n,C_NULL_CHAR)
+  call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                 "Zone_t",izone_n, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/"//trim(tname)
@@ -4716,7 +4722,9 @@ continue
                           size(soltime,kind=CBT),cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr)
     !
-    call cg_goto_f(ifile_n,ibase_n,cgierr,"BaseIterativeData_t",iiter_n,C_NULL_CHAR)
+    call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                   "BaseIterativeData_t",iiter_n, &
+                   C_NULL_CHAR)
     call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
     !
     call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
@@ -4728,8 +4736,10 @@ continue
     call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr)
     !
-    call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n, &
-                                          "ZoneIterativeData_t",iiter_n,C_NULL_CHAR)
+    call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                   "Zone_t",izone_n, &
+                   "ZoneIterativeData_t",iiter_n, &
+                   C_NULL_CHAR)
     call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
     !
     idata(:) = int( [32,size(solname)] , kind=kind(idata) )
@@ -4853,7 +4863,9 @@ continue
   !
   ! Create a link to the grid coordinates in the grid file
   !
-  call cg_goto_f(ifile_s,ibase_s,cgierr,"Zone_t",izone_s,C_NULL_CHAR)
+  call cg_goto_f(ifile_s,ibase_s,cgierr, &
+                 "Zone_t",izone_s, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
@@ -5072,7 +5084,8 @@ continue
             n = n + 1
             varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(k)
             call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
-                                   CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+                                   CGNS_KIND_REAL,trim(varname), &
+                                   isvar_s(n),cgierr)
             call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
                             "Write node: Solution variable",n)
           end do
@@ -5758,7 +5771,8 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
   integer :: this_face,face_geom,face_order
   integer :: face_subcells
   !
-  integer(INT_MPI) :: int_size,mpi_vorttyp
+  integer(INT_MPI) :: int_size,cvd_size
+  _MPI_DATA_TYPE_ :: mpi_vorttyp
   !
   integer(CST) :: p1,face_npts
   integer(CST) :: n_my_vort_pts,n_my_vort_cells
@@ -5896,13 +5910,20 @@ continue
   !
   if (ncpu > 1) then
     !
-    mpi_vorttyp = merge(MPI_INTEGER8,MPI_INTEGER,CST==I8)
-   !call mpi_sizeof(cpu_vort_data,int_size,mpierr)
-   !!
-   !call mpi_type_match_size(MPI_TYPECLASS_INTEGER,int_size,mpi_vorttyp,mpierr)
+#ifdef USE_MPI_F08
+    call mpi_sizeof(cpu_vort_data,int_size,mpierr)
+    call mpi_type_match_size(MPI_TYPECLASS_INTEGER,int_size,mpi_vorttyp,mpierr)
+#else
+    if (CST == I8) then
+      mpi_vorttyp = MPI_INTEGER8
+    else
+      mpi_vorttyp = MPI_INTEGER
+    end if
+#endif
     !
-    call mpi_allgather(MPI_IN_PLACE, size(cpu_vort_data,dim=1,kind=int_mpi),mpi_vorttyp, &
-                       cpu_vort_data,size(cpu_vort_data,dim=1,kind=int_mpi),mpi_vorttyp, &
+    cvd_size = size(cpu_vort_data,dim=1,kind=int_mpi)
+    call mpi_allgather(MPI_IN_PLACE, cvd_size,mpi_vorttyp, &
+                       cpu_vort_data,cvd_size,mpi_vorttyp, &
                        MPI_COMM_WORLD,mpierr)
     !
   end if

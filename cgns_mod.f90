@@ -131,7 +131,7 @@ subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
   use mpi_f08,           only : MPI_IN_PLACE
   use mpi_f08,           only : MPI_MAX
   use mpi_f08,           only : MPI_COMM_WORLD
- !use mpi_f08,           only : mpi_allreduce
+  use mpi_f08,           only : mpi_allreduce
 #else
   use mpi,               only : MPI_IN_PLACE
   use mpi,               only : MPI_MAX

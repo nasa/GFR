@@ -34,6 +34,8 @@ end module base_kind_types
 !
 module module_kind_types
   !
+#include <mpi_defs.h>
+  !
   !.. Use Statements ..
   use base_kind_types
 #ifdef USE_MPI_F08
@@ -432,13 +434,13 @@ module module_kind_types
   ! MPI datatypes to match Fortran intrinsic datatypes
   !
   ! working real precision
-  integer(int_mpi), protected, save :: mpi_flttyp
+  _MPI_DATA_TYPE_, protected, save :: mpi_flttyp
   ! half working real precision
-  integer(int_mpi), protected, save :: mpi_hlftyp
+  _MPI_DATA_TYPE_, protected, save :: mpi_hlftyp
   ! double working real precision
-  integer(int_mpi), protected, save :: mpi_dbltyp
+  _MPI_DATA_TYPE_, protected, save :: mpi_dbltyp
   ! working integer precision
-  integer(int_mpi), protected, save :: mpi_inttyp
+  _MPI_DATA_TYPE_, protected, save :: mpi_inttyp
   !
   logical, private, save :: random_is_initialized = fals
   !
@@ -1066,7 +1068,8 @@ continue
   end if
   !
   if (ncpu > 1) then
-    call mpi_bcast(stop_value,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(stop_value,1_int_mpi,mpi_inttyp, &
+                   0_int_mpi,MPI_COMM_WORLD,mpierr)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
@@ -1174,7 +1177,7 @@ end subroutine io_error
 subroutine initialize_mpi_environment
   !
   !.. Local Scalars ..
-  integer :: r,p
+  integer(INT_MPI) :: r,p
   !
 continue
   !
@@ -1192,7 +1195,11 @@ continue
  !write (*,*) selected_int_kind(r)
  !call mpi_type_create_f90_integer(r,mpi_inttyp,mpierr)
  !write (*,*) mpi_inttyp
-  mpi_inttyp = merge(MPI_INTEGER8,MPI_INTEGER,WIP==I8)
+  if (WIP == I8) then
+    mpi_inttyp = MPI_INTEGER8
+  else
+    mpi_inttyp = MPI_INTEGER
+  end if
   !
   ! MPI datatype for half working real precision
   !
@@ -1203,8 +1210,16 @@ continue
  !write (*,*) sp
  !call mpi_type_create_f90_real(p,r,mpi_hlftyp,mpierr)
  !write (*,*) mpi_hlftyp
-  mpi_hlftyp = merge(MPI_REAL,MPI_DOUBLE_PRECISION,SP<R8)
-  mpi_flttyp = merge(MPI_REAL,MPI_DOUBLE_PRECISION,WP<R8)
+  if (SP < R8) then
+    mpi_hlftyp = MPI_REAL
+  else
+    mpi_hlftyp = MPI_DOUBLE_PRECISION
+  end if
+  if (WP < R8) then
+    mpi_flttyp = MPI_REAL
+  else
+    mpi_flttyp = MPI_DOUBLE_PRECISION
+  end if
   !
   ! MPI datatype for working real precision
   !

@@ -271,7 +271,7 @@ continue
             plate_length = xyz_fp(1)
           end if
           if (xyz_fp(1) > 1.0e-4_wp) then
-            cfdrag = cfdrag + cfmag * jacfp * std_elem(face_geom,face_order)%wts(k)
+            cfdrag = cfdrag + cfmag*jacfp*std_elem(face_geom,face_order)%wts(k)
           end if
           !
         else

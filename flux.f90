@@ -789,10 +789,18 @@ continue
   !
   1 format (a,i0)
   2 format (a,"flux_files/fp_",i0,".",i0,"_fluxes.dat")
-  3 format (100("#"),/,15x,"BOUNDARY FACE ",i0," :   HC=",i0,/,100("#"))
-  4 format (100("-"),/,5x,"FP ",i0," :   HP=",i0,/,100("-"))
-  5 format (100("#"),/,15x,"INTERIOR FACE ",i0," :   LC=",i0,", RC=",i0,/,100("#"))
-  6 format (100("-"),/,5x,"FP ",i0," :   LP=",i0,", RP=",i0,/,100("-"))
+  3 format (100("#"),/, &
+            15x,"BOUNDARY FACE ",i0," :   HC=",i0,/, &
+            100("#"))
+  4 format (100("-"),/, &
+            5x,"FP ",i0," :   HP=",i0,/, &
+            100("-"))
+  5 format (100("#"),/, &
+            15x,"INTERIOR FACE ",i0," :   LC=",i0,", RC=",i0,/, &
+            100("#"))
+  6 format (100("-"),/, &
+            5x,"FP ",i0," :   LP=",i0,", RP=",i0,/, &
+            100("-"))
   7 format (es16.6,5x,es15.6,:,es15.6)
   !
 end subroutine correct_interface_flux_visc

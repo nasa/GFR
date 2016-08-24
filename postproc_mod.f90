@@ -326,7 +326,9 @@ continue
   !
   ! Create a link to the solution node in the current solution file
   !
-  call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n,C_NULL_CHAR)
+  call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                 "Zone_t",izone_n, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/"//trim(tname)
@@ -350,7 +352,9 @@ continue
                         size(soltime,kind=CBT),cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr)
   !
-  call cg_goto_f(ifile_n,ibase_n,cgierr,"BaseIterativeData_t",iiter_n,C_NULL_CHAR)
+  call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                 "BaseIterativeData_t",iiter_n, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
@@ -362,8 +366,10 @@ continue
   call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr)
   !
-  call cg_goto_f(ifile_n,ibase_n,cgierr,"Zone_t",izone_n, &
-                                        "ZoneIterativeData_t",iiter_n,C_NULL_CHAR)
+  call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                 "Zone_t",izone_n, &
+                 "ZoneIterativeData_t",iiter_n, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   idata(:) = int( [32,size(solname)] , kind=CST )
@@ -627,7 +633,9 @@ continue
   !
   ! Create a link to the grid coordinates in the grid file
   !
-  call cg_goto_f(ifile_s,ibase_s,cgierr,"Zone_t",izone_s,C_NULL_CHAR)
+  call cg_goto_f(ifile_s,ibase_s,cgierr, &
+                 "Zone_t",izone_s, &
+                 C_NULL_CHAR)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
@@ -1191,12 +1199,14 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   integer :: ifc,iec,inc,ierr,nop1,nop2
   integer :: n_total_output_cells
   integer :: n_total_output_pts
-  integer :: running_offset,this_cpu
+  integer :: running_offset
   integer :: ibeg,iend,i,j
   integer :: loc_n_my_output_pts
   integer :: loc_my_pts_beg
   integer :: loc_my_pts_end
   integer :: debug_unit
+  !
+  integer(int_mpi) :: this_cpu
   !
   character(len=100) :: array_name
   !

@@ -182,7 +182,8 @@ continue
   !
   ! Broadcast the maximum wall time to all processors
   !
-  call mpi_bcast(max_wall_time,1_int_mpi,mpi_flttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(max_wall_time,1_int_mpi,mpi_flttyp, &
+                 0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! Initialize all the random constants that must be initialized at run time
   !
@@ -626,13 +627,15 @@ continue
         ! the other processors so all processors can exit the
         ! main loop together if the STOP_RECON file was found
         !
-        call mpi_bcast(request_stop,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+        call mpi_bcast(request_stop,1_int_mpi,MPI_LOGICAL, &
+                       0_int_mpi,MPI_COMM_WORLD,mpierr)
         if (request_stop) exit main_loop
         !
         ! Have the root processor broadcast request_solution to
         ! the other processors
         !
-        call mpi_bcast(request_solution,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+        call mpi_bcast(request_solution,1_int_mpi,MPI_LOGICAL, &
+                       0_int_mpi,MPI_COMM_WORLD,mpierr)
         !
         ! If a solution dump was requested, dump the solution and then let
         ! the CGNS subroutine know that the file needs to be reopened.

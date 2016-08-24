@@ -20,18 +20,20 @@ subroutine get_cpu_locality
   !
   !.. Local Scalars ..
   integer :: n,i,ierr
-  integer :: name_len,num_hosts
-  character(len=12) :: host_name
+  integer :: num_hosts
+  integer(INT_MPI) :: name_len
+  character(len=MPI_MAX_PROCESSOR_NAME) :: host_name
   integer(c_int) :: cpu_num
   !
   !.. Automatic Arrays ..
   integer, dimension(1:3) :: host_int
   integer, dimension(1:3,1:ncpu) :: all_host_int
-  character(len=12), dimension(1:ncpu) :: all_host_name
   logical, dimension(1:ncpu) :: host_mask
   !
+  character(len=MPI_MAX_PROCESSOR_NAME) :: all_host_name(1:ncpu)
+  !
   !.. Allocatable Arrays ..
-  character(len=12), allocatable, dimension(:) :: unique_hosts
+  character(len=MPI_MAX_PROCESSOR_NAME), allocatable :: unique_hosts(:)
   !
   interface
     function findmycpu() bind(c,name="findmycpu_")

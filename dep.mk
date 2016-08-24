@@ -39,7 +39,8 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/mms_mod.o \
            $(FUNDIR)/pressure.f90 \
            $(FUNDIR)/usp2v.f90 \
-           $(FUNDIR)/vsp2u.f90
+           $(FUNDIR)/vsp2u.f90 \
+                     mpi_defs.h
 
 $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/kind_types.o \
@@ -224,7 +225,8 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/mach_number.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-       $(FUNDIR)/bc_string_to_integer.f90
+       $(FUNDIR)/bc_string_to_integer.f90 \
+                 mpi_defs.h
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/all_are_equal.f90 \
@@ -250,7 +252,8 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/reverse_metrics.f90 \
                $(FUNDIR)/rotate.f90 \
                $(FUNDIR)/rotate_2d.f90 \
-               $(FUNDIR)/uppercase.f90
+               $(FUNDIR)/uppercase.f90 \
+                         mpi_defs.h
 
 $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/kind_types.o \
@@ -305,7 +308,8 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/interpolation_mod.o \
              $(OBJDIR)/connectivity.o \
              $(FUNDIR)/cell_solpts.f90 \
-             $(FUNDIR)/last.f90
+             $(FUNDIR)/last.f90 \
+                       mpi_defs.h
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
@@ -367,7 +371,8 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/parallel.o \
-                $(FUNDIR)/cell_solpts.f90
+                $(FUNDIR)/cell_solpts.f90 \
+                          mpi_defs.h
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/kind_types.o \

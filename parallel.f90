@@ -1,5 +1,7 @@
 module parallel_mod
   !
+#include <mpi_defs.h>
+  !
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nq
@@ -51,22 +53,13 @@ module parallel_mod
   !
   integer, save :: ncomm
   !
-  ! Exchange partners
-  !
-  integer, save, allocatable, dimension(:) :: exch_cpu
-  !
-  ! Test MPI datatypes for exchanging information
-  !
-  integer(int_mpi), save, allocatable, dimension(:) :: testf_send
-  integer(int_mpi), save, allocatable, dimension(:) :: testf_recv
-  !
   ! Request and status arrays for non-blocking exchanges
   !
-  integer(int_mpi), save, allocatable, dimension(:)   :: fusp_rqst
-  integer(int_mpi), save, allocatable, dimension(:,:) :: fusp_istat
+  _MPI_REQUEST_TYPE_, save, allocatable :: fusp_rqst(:)
+  _MPI_REQUEST_TYPE_, save, allocatable :: fdusp_rqst(:)
   !
-  integer(int_mpi), save, allocatable, dimension(:)   :: fdusp_rqst
-  integer(int_mpi), save, allocatable, dimension(:,:) :: fdusp_istat
+  _MPI_STATUS_TYPE_, save, allocatable :: fusp_istat(:,:)
+  _MPI_STATUS_TYPE_, save, allocatable :: fdusp_istat(:,:)
   !
   ! Exchange buffer
   !
@@ -80,15 +73,15 @@ module parallel_mod
   ! MPI datatype for collecting the global
   ! solution point coordinates on all processors
   !
-  integer(int_mpi), save, allocatable, dimension(:) :: recv_xyz
+  _MPI_DATA_TYPE_, save, allocatable, dimension(:) :: recv_xyz
   !
   ! MPI datatype for collecting the global solution on all processors
   !
-  integer(int_mpi), save, allocatable, dimension(:) :: recv_sol
+  _MPI_DATA_TYPE_, save, allocatable, dimension(:) :: recv_sol
   !
   ! MPI datatype for collecting a global variable on all processors
   !
-  integer(int_mpi), save, allocatable, dimension(:) :: recv_var
+  _MPI_DATA_TYPE_, save, allocatable, dimension(:) :: recv_var
   !
   !
   !
@@ -258,9 +251,9 @@ module parallel_mod
     ! recv_tag : message tag for matching the MPI communication
     integer(int_mpi) :: recv_tag = -1_int_mpi
     ! send_datatype : handle for the MPI user-defined datatype to send data
-    integer(int_mpi) :: send_datatype = MPI_DATATYPE_NULL
+    _MPI_DATA_TYPE_ :: send_datatype = MPI_DATATYPE_NULL
     ! recv_datatype : handle for the MPI user-defined datatype to receive data
-    integer(int_mpi) :: recv_datatype = MPI_DATATYPE_NULL
+    _MPI_DATA_TYPE_ :: recv_datatype = MPI_DATATYPE_NULL
   end type exch_data_t
   !
   ! EXCH_FUSP : Array containing all the information needed to communicate the
@@ -757,7 +750,8 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL, &
+                     0_int_mpi,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -1003,7 +997,8 @@ continue
       ! Broadcast the logical passes_inspection to all processors so
       ! that they all will know whether to exit part_loop.
       !
-      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+      call mpi_bcast(passes_inspection,1_int_mpi,MPI_LOGICAL, &
+                     0_int_mpi,MPI_COMM_WORLD,mpierr)
       !
       ! If the partitioning passes inspection, have the root processor
       ! output the results of the partitioning and exit from part_loop.
@@ -3305,9 +3300,10 @@ subroutine create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   integer :: n,nfp,lfbnd,i,ierr
   integer :: rmin,rmax,scnt,rcnt,p1,p2
   integer :: loc_face,glb_face,my_part
-  integer :: adj_face,adj_part,adj_cpu
+  integer :: adj_face,adj_cpu
   integer(int_mpi) :: block_size,np
-  integer(int_mpi) :: this_flxpt,tag_ub
+  integer(int_mpi) :: this_flxpt
+ !integer(int_mpi) :: tag_ub
   character(len=200) :: array_name
   !
   !.. Local Derived Data Types
@@ -3324,6 +3320,9 @@ subroutine create_face_nonblocking_datatypes(bface,fpart,face,face_map)
   integer,          allocatable :: recv_map(:)
   integer(int_mpi), allocatable :: flxpt_offset(:)
   type(comm_pts_t), allocatable :: comm_pts(:)
+  !
+  _MPI_DATA_TYPE_, allocatable :: testf_send(:)
+  _MPI_DATA_TYPE_, allocatable :: testf_recv(:)
   !
  !real(r8), dimension(1:nr,1:n_global_totpts,1:ncpu) :: gxyz
   !
@@ -3451,7 +3450,6 @@ continue
   do i = 1,ncomm
     !
     adj_cpu = int( exch_fusp(i)%adj_cpu , kind=kind(adj_cpu) )
-    adj_part = adj_cpu + 1
     !
     ! Loop to find the communication boundary faces between the
     ! current processor and the current exchange partner, adj_cpu.
@@ -3504,12 +3502,12 @@ continue
     ! Allocate the send and recv components of comm_pts now that we know
     ! the total number of flux points that will need to be communicated.
     !
-    allocate ( comm_pts(i)%send(1:scnt) , source=0 , &
+    allocate ( comm_pts(i)%send(1:scnt) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     write (array_name,100) i,"send"
     call alloc_error(pname,array_name,1,ierr,error_message)
     !
-    allocate ( comm_pts(i)%recv(1:scnt) , source=0 , &
+    allocate ( comm_pts(i)%recv(1:scnt) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     write (array_name,100) i,"recv"
     call alloc_error(pname,array_name,1,ierr,error_message)
@@ -3782,13 +3780,12 @@ continue
   !
   ! MPI request objects for communicating solution variables
   !
-  allocate ( fusp_rqst(1:2*ncomm) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
+  allocate ( fusp_rqst(1:2*ncomm) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fusp_rqst",1,ierr,error_message)
   !
   ! MPI status objects returned after communicating solution variables
   !
-  allocate ( fusp_istat(1:MPI_STATUS_SIZE,1:2*ncomm) , source=0_int_mpi , &
+  allocate ( fusp_istat(1:_MPI_STATUS_SIZE_,1:2*ncomm) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fusp_istat",1,ierr,error_message)
   !
@@ -3808,13 +3805,12 @@ continue
   !
   ! MPI request objects for communicating gradients
   !
-  allocate ( fdusp_rqst(1:2*ncomm) , source=0_int_mpi , &
-             stat=ierr , errmsg=error_message )
+  allocate ( fdusp_rqst(1:2*ncomm) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fdusp_rqst",1,ierr,error_message)
   !
   ! MPI status objects returned after communicating gradients
   !
-  allocate ( fdusp_istat(1:MPI_STATUS_SIZE,1:2*ncomm) , source=0_int_mpi , &
+  allocate ( fdusp_istat(1:_MPI_STATUS_SIZE_,1:2*ncomm) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"fdusp_istat",1,ierr,error_message)
   !
@@ -3844,9 +3840,10 @@ subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   !
   !.. Local Scalars ..
   integer :: i,ierr,n,n1,n2,nep,nvar,scnt,rcnt,rmin,rmax
-  integer :: my_part,adj_part,adj_cpu,npair,this_pair
+  integer :: my_part,adj_part,npair,this_pair
   integer :: lnode,loc_node,glb_node,adj_node,node_part
   integer :: ledge,loc_edge,glb_edge,adj_edge,edge_part
+  integer(int_mpi) :: adj_cpu
   integer(int_mpi) :: this_edgpt,tag12,np
   integer(int_mpi) :: block_size,tag21
   integer(int_mpi) :: max_nodpt_offset
@@ -4268,11 +4265,11 @@ continue
   !
   pair_loop: do this_pair = 1,size(exch_neusp)
     !
-    if (exch_neusp(this_pair)%adj_cpu < 0_int_mpi) cycle pair_loop
-    !
     adj_cpu = exch_neusp(this_pair)%adj_cpu
     !
-    adj_part = adj_cpu + 1
+    if (adj_cpu < 0_int_mpi) cycle pair_loop
+    !
+    adj_part = int(adj_cpu,kind=kind(adj_part)) + 1
     !
     ! Reset the mask arrays for this communication pair
     !
@@ -4648,9 +4645,10 @@ subroutine exchange_faceusp(faceusp)
   !.. Local Scalars..
   integer :: n,nf,nsz,ibeg,iend
   !
-  integer(int_mpi) :: send_cpu,send_dtype
-  integer(int_mpi) :: recv_cpu,recv_dtype
+  integer(int_mpi) :: send_cpu
+  integer(int_mpi) :: recv_cpu
   integer(int_mpi) :: mesg_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
   !
 continue
   !
@@ -4726,7 +4724,8 @@ continue
   !
   ! Wait for all faceusp sends and receives to complete
   !
-  call mpi_waitall(int(2*ncomm,kind=int_mpi),fusp_rqst,fusp_istat,mpierr)
+  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
+                   reshape(fusp_istat,[size(fusp_istat)]),mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -4763,9 +4762,10 @@ subroutine exchange_facedusp(facedusp)
   !.. Local Scalars..
   integer :: n,nf,nsz,ibeg,iend
   !
-  integer(int_mpi) :: send_cpu,send_dtype
-  integer(int_mpi) :: recv_cpu,recv_dtype
+  integer(int_mpi) :: send_cpu
+  integer(int_mpi) :: recv_cpu
   integer(int_mpi) :: mesg_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
   !
 continue
   !
@@ -4841,7 +4841,8 @@ continue
   !
   ! Wait for all facedusp sends and receives to complete
   !
-  call mpi_waitall(int(2*ncomm,kind=int_mpi),fdusp_rqst,fdusp_istat,mpierr)
+  call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst, &
+                   reshape(fdusp_istat,[size(fdusp_istat)]),mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -4884,9 +4885,10 @@ subroutine exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
   !
   !.. MPI integers ..
   integer(int_mpi) :: adj_cpu
-  integer(int_mpi) :: send_tag,send_dtype
-  integer(int_mpi) :: recv_tag,recv_dtype
-  integer(int_mpi) :: istat(1:MPI_STATUS_SIZE)
+  integer(int_mpi) :: send_tag
+  integer(int_mpi) :: recv_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: send_buffer
@@ -5002,7 +5004,7 @@ continue
     ! If exch_neusp(this_pair)%adj_cpu is not the default value, this processor
     ! is one of the two processors making up this communication pair.
     !
-    if (exch_neusp(this_pair)%adj_cpu >= 0) then
+    if (exch_neusp(this_pair)%adj_cpu >= 0_int_mpi) then
       !
       adj_cpu = exch_neusp(this_pair)%adj_cpu
       !
@@ -5019,7 +5021,7 @@ continue
       !
       call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
                         recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
-                        MPI_COMM_WORLD,istat,mpierr)
+                        MPI_COMM_WORLD,istat(1),mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
@@ -5131,9 +5133,10 @@ subroutine exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
   !
   !.. MPI integers ..
   integer(int_mpi) :: adj_cpu,mesg_tag
-  integer(int_mpi) :: send_cpu,send_tag,send_dtype
-  integer(int_mpi) :: recv_cpu,recv_tag,recv_dtype
-  integer(int_mpi) :: istat(1:MPI_STATUS_SIZE)
+  integer(int_mpi) :: send_cpu,send_tag
+  integer(int_mpi) :: recv_cpu,recv_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: send_buffer
@@ -5276,7 +5279,7 @@ continue
       !
       call mpi_sendrecv(send_buffer,1_int_mpi,send_dtype,adj_cpu,send_tag, &
                         recv_buffer,1_int_mpi,recv_dtype,adj_cpu,recv_tag, &
-                        MPI_COMM_WORLD,istat,mpierr)
+                        MPI_COMM_WORLD,istat(1),mpierr)
       !
       ! Add the received data to the solutions at the nodes and edges
       ! NOTE: This will unfortunately add a bunch of zeros because of
@@ -5465,7 +5468,8 @@ continue
   !
   ! 2.4) Wait for all faceusp sends and receives to complete
   !
-  call mpi_waitall(int(2*ncomm,kind=int_mpi),fusp_rqst,fusp_istat,mpierr)
+  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
+                   reshape(fusp_istat,[size(fusp_istat)]),mpierr)
   !
   ! 2.5) Update the right states for only the communication boundary faces
   !
@@ -5515,12 +5519,16 @@ end subroutine exch_connectivity
 !  !
 !  !.. Local Scalars..
 !  integer :: n
-!  integer(int_mpi) :: s,r,dtype
+!  integer(int_mpi) :: send_cpu
+!  integer(int_mpi) :: recv_cpu
+!  integer(int_mpi) :: mesg_tag
+!  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
 !  !
 !  !.. Local Arrays ..
 !  real(r4), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
-!  integer(int_mpi), dimension(1:2*ncomm) :: rqst
-!  integer(int_mpi), dimension(1:MPI_STATUS_SIZE,1:2*ncomm) :: istat
+!  !
+!  _MPI_REQUEST_TYPE_ :: rqst(1:2*ncomm)
+!  _MPI_STATUS_TYPE_  :: istat(1:_MPI_STATUS_SIZE_,1:2*ncomm)
 !  !
 !continue
 !  !
@@ -5530,23 +5538,38 @@ end subroutine exch_connectivity
 !  ! is ready once the send is posted
 !  !
 !  do n = 1,ncomm
-!    s = int( exch_cpu(n) , kind=int_mpi )
-!    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1_int_mpi,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
+!    !
+!    ! Process sending this message
+!    send_cpu   = exch_fusp(n)%adj_cpu
+!    ! Message tag
+!    mesg_tag   = exch_fusp(n)%recv_tag
+!    ! MPI user-defined datatype for receive
+!    recv_dtype = exch_fusp(n)%recv_datatype
+!    !
+!    call mpi_irecv(umodes,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
+!                   MPI_COMM_WORLD,rqst(n),mpierr)
+!    !
 !  end do
 !  !
 !  ! Send out the adjacent cells
 !  !
 !  do n = 1,ncomm
-!    r = int( exch_cpu(n) , kind=int_mpi )
-!    dtype = send_fdusp(n)
-!    call mpi_isend(exch_send,1_int_mpi,dtype,r,mypnum, &
+!    !
+!    ! Process receiving this message
+!    recv_cpu   = exch_fusp(n)%adj_cpu
+!    ! Message tag
+!    mesg_tag   = exch_fusp(n)%send_tag
+!    ! MPI user-defined datatype for receive
+!    send_dtype = exch_fusp(n)%send_datatype
+!    !
+!    call mpi_isend(exch_send,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
 !                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
+!    !
 !  end do
 !  !
 !  ! Wait for all sends and receives to complete
 !  !
-!  call mpi_waitall(int(2*ncomm,kind=int_mpi),rqst,istat,mpierr)
+!  call mpi_waitall(size(rqst,kind=int_mpi),rqst,istat,mpierr)
 !  !
 !end subroutine exchange_modes_r4
 !
@@ -5559,12 +5582,16 @@ end subroutine exch_connectivity
 !  !
 !  !.. Local Scalars..
 !  integer :: n
-!  integer(int_mpi) :: s,r,dtype
+!  integer(int_mpi) :: send_cpu
+!  integer(int_mpi) :: recv_cpu
+!  integer(int_mpi) :: mesg_tag
+!  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
 !  !
 !  !.. Local Arrays ..
 !  real(r8), dimension(1:size(umodes,1),1:size(umodes,2)) :: exch_send
-!  integer(int_mpi), dimension(1:2*ncomm) :: rqst
-!  integer(int_mpi), dimension(1:MPI_STATUS_SIZE,1:2*ncomm) :: istat
+!  !
+!  _MPI_REQUEST_TYPE_ :: rqst(1:2*ncomm)
+!  _MPI_STATUS_TYPE_  :: istat(1:_MPI_STATUS_SIZE_,1:2*ncomm)
 !  !
 !continue
 !  !
@@ -5574,23 +5601,38 @@ end subroutine exch_connectivity
 !  ! is ready once the send is posted
 !  !
 !  do n = 1,ncomm
-!    s = int( exch_cpu(n) , kind=int_mpi )
-!    dtype = recv_fdusp(n)
-!    call mpi_irecv(umodes,1_int_mpi,dtype,s,s,MPI_COMM_WORLD,rqst(n),mpierr)
+!    !
+!    ! Process sending this message
+!    send_cpu   = exch_fusp(n)%adj_cpu
+!    ! Message tag
+!    mesg_tag   = exch_fusp(n)%recv_tag
+!    ! MPI user-defined datatype for receive
+!    recv_dtype = exch_fusp(n)%recv_datatype
+!    !
+!    call mpi_irecv(umodes,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
+!                   MPI_COMM_WORLD,rqst(n),mpierr)
+!    !
 !  end do
 !  !
 !  ! Send out the adjacent cells
 !  !
 !  do n = 1,ncomm
-!    r = int( exch_cpu(n) , kind=int_mpi )
-!    dtype = send_fdusp(n)
-!    call mpi_isend(exch_send,1_int_mpi,dtype,r,mypnum, &
+!    !
+!    ! Process receiving this message
+!    recv_cpu   = exch_fusp(n)%adj_cpu
+!    ! Message tag
+!    mesg_tag   = exch_fusp(n)%send_tag
+!    ! MPI user-defined datatype for receive
+!    send_dtype = exch_fusp(n)%send_datatype
+!    !
+!    call mpi_isend(exch_send,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
 !                   MPI_COMM_WORLD,rqst(n+ncomm),mpierr)
+!    !
 !  end do
 !  !
 !  ! Wait for all sends and receives to complete
 !  !
-!  call mpi_waitall(int(2*ncomm,kind=int_mpi),rqst,istat,mpierr)
+!  call mpi_waitall(size(rqst,kind=int_mpi),rqst,istat,mpierr)
 !  !
 !end subroutine exchange_modes_r8
 !
@@ -5605,7 +5647,7 @@ subroutine collect_global_solpts
   integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:MPI_STATUS_SIZE) :: istat
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: xyz_r8
@@ -5643,14 +5685,14 @@ continue
       !
       call mpi_sendrecv(xyz_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi,n, &
                         global_xyz_r8,1_int_mpi,recv_xyz(1),0_int_mpi,n, &
-                        MPI_COMM_WORLD,istat,mpierr)
+                        MPI_COMM_WORLD,istat(1),mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
         call mpi_recv(global_xyz_r8,1_int_mpi,recv_xyz(i),icpu,icpu, &
-                      MPI_COMM_WORLD,istat,mpierr)
+                      MPI_COMM_WORLD,istat(1),mpierr)
         !
       end do
       !
@@ -5686,7 +5728,7 @@ subroutine collect_global_solution
   integer :: i,icpu,n,n1,n2,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:MPI_STATUS_SIZE) :: istat
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:,:) :: sp_r8
@@ -5737,7 +5779,7 @@ continue
       !
       call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi,n, &
                         global_r8,1_int_mpi,recv_sol(1),0_int_mpi,n, &
-                        MPI_COMM_WORLD,istat,mpierr)
+                        MPI_COMM_WORLD,istat(1),mpierr)
       !
       ! Now have the root processor receive the local
       ! solutions from all the other processors.
@@ -5747,7 +5789,7 @@ continue
         icpu = i-1
         !
         call mpi_recv(global_r8,1_int_mpi,recv_sol(i),icpu,icpu, &
-                      MPI_COMM_WORLD,istat,mpierr)
+                      MPI_COMM_WORLD,istat(1),mpierr)
         !
       end do
       !
@@ -5788,7 +5830,7 @@ subroutine collect_global_variable(var)
   integer :: i,icpu,npts,ierr
   !
   !.. Local Arrays ..
-  integer, dimension(1:MPI_STATUS_SIZE) :: istat
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: sp_r8
@@ -5827,20 +5869,21 @@ continue
       !
       call mpi_sendrecv(sp_r8(1:n_solpts),npts,mpi_flttyp,0_int_mpi,npts, &
                         global_r8,1_int_mpi,recv_var(1),0_int_mpi,npts, &
-                        MPI_COMM_WORLD,istat,mpierr)
+                        MPI_COMM_WORLD,istat(1),mpierr)
       !
       do i = 2,ncpu
         !
         icpu = i-1
         !
         call mpi_recv(global_r8,1_int_mpi,recv_var(i),icpu,icpu, &
-                      MPI_COMM_WORLD,istat,mpierr)
+                      MPI_COMM_WORLD,istat(1),mpierr)
         !
       end do
       !
     end if
     !
-    call mpi_bcast(global_r8,size(global_r8,kind=int_mpi),mpi_flttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(global_r8,size(global_r8,kind=int_mpi),mpi_flttyp, &
+                   0_int_mpi,MPI_COMM_WORLD,mpierr)
     !
     global_var(:) = real( global_r8(:) , kind=wp )
     !
@@ -6090,135 +6133,6 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-!!if (allocated(node_map)) then
-!!  !
-!!  call dt%set( storage_size(node_map,kind=inttype) , &
-!!                       size(node_map,kind=inttype) )
-!! !write (iout,*)
-!! !write (iout,*) "node_map(:)"
-!! !write (iout,*) "size = ",size(node_map)
-!! !write (iout,*) "storage_size = ",storage_size(node_map)
-!! !!
-!! !loc_siz = 0
-!! !glb_siz = 0
-!!  !
-!!  do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
-!!    !
-!!    if (allocated(node_map(i)%loc_to_glb)) then
-!!      call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
-!!                           size(node_map(i)%loc_to_glb,kind=inttype) )
-!! !    loc_siz = loc_siz + size(node_map(i)%loc_to_glb)
-!!    end if
-!!    !
-!!  end do
-!!  !
-!! !i = lbound(node_map,dim=1)
-!! !if (allocated(node_map(i)%loc_to_glb)) then
-!! !  write (iout,*)
-!! !  write (iout,*) "node_map(:)%loc_to_glb"
-!! !  write (iout,*) "size = ",loc_siz
-!! !  write (iout,*) "storage_size = ",storage_size(node_map(i)%loc_to_glb)
-!! !end if
-!!  !
-!!  call total%add(dt)
-!!  write (array_name,5) "node_map"
-!!  write (iou,2) array_name,dt%get_units()
-!!  !
-!!else
-!!  !
-!!  write (iou,7) "node_map"
-!!  !
-!!end if
-!!!
-!!!-----------------------------------------------------------------------------
-!!!
-!!if (allocated(face_map)) then
-!!  !
-!!  call dt%set( storage_size(face_map,kind=inttype) , &
-!!                       size(face_map,kind=inttype) )
-!! !write (iout,*)
-!! !write (iout,*) "face_map(:)"
-!! !write (iout,*) "size = ",size(face_map)
-!! !write (iout,*) "storage_size = ",storage_size(face_map)
-!! !!
-!! !loc_siz = 0
-!! !glb_siz = 0
-!!  !
-!!  do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
-!!    !
-!!    if (allocated(face_map(i)%loc_to_glb)) then
-!!      call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
-!!                           size(face_map(i)%loc_to_glb,kind=inttype) )
-!! !    loc_siz = loc_siz + size(face_map(i)%loc_to_glb)
-!!    end if
-!!    !
-!!  end do
-!!  !
-!! !i = lbound(face_map,dim=1)
-!! !if (allocated(face_map(i)%loc_to_glb)) then
-!! !  write (iout,*)
-!! !  write (iout,*) "face_map(:)%loc_to_glb"
-!! !  write (iout,*) "size = ",loc_siz
-!! !  write (iout,*) "storage_size = ",storage_size(face_map(i)%loc_to_glb)
-!! !end if
-!!  !
-!!  call total%add(dt)
-!!  write (array_name,5) "face_map"
-!!  write (iou,2) array_name,dt%get_units()
-!!  !
-!!else
-!!  !
-!!  write (iou,7) "face_map"
-!!  !
-!!end if
-!!!
-!!!-----------------------------------------------------------------------------
-!!!
-!!if (allocated(face)) then
-!!  !
-!!  call dt%set( storage_size(face,kind=inttype) , &
-!!                       size(face,kind=inttype) )
-!!  !
-!!  do i = lbound(face,dim=1),ubound(face,dim=1)
-!!    !
-!!    call dt%add( storage_size(face(i)%geom,kind=inttype) )
-!!    call dt%add( storage_size(face(i)%order,kind=inttype) )
-!!    !
-!!    call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
-!!                         size(face(i)%nodes,kind=inttype) )
-!!    !
-!!    call dt%add( storage_size(face(i)%left,kind=inttype) )
-!!    call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
-!!    call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
-!!    !
-!!    if (allocated(face(i)%left%flxpts)) then
-!!      call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
-!!                           size(face(i)%left%flxpts,kind=inttype) )
-!!    end if
-!!    !
-!!    call dt%add( storage_size(face(i)%right,kind=inttype) )
-!!    call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
-!!    call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
-!!    !
-!!    if (allocated(face(i)%right%flxpts)) then
-!!      call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
-!!                           size(face(i)%right%flxpts,kind=inttype) )
-!!    end if
-!!    !
-!!  end do
-!!  !
-!!  call total%add(dt)
-!!  write (array_name,5) "face"
-!!  write (iou,2) array_name,dt%get_units()
-!!  !
-!!else
-!!  !
-!!  write (iou,7) "face"
-!!  !
-!!end if
-  !
-  !-----------------------------------------------------------------------------
-  !
   if (allocated(exch_fusp)) then
     !
     call dt%set( storage_size(exch_fusp,kind=inttype) , &
@@ -6274,33 +6188,6 @@ continue
   !
   ! Check the memory of the arrays within this module
   !
-  if (allocated(exch_cpu)) then
-    call array%set( storage_size(exch_cpu,kind=inttype) , &
-                            size(exch_cpu,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "exch_cpu"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "exch_cpu"
-  end if
-  if (allocated(testf_send)) then
-    call array%set( storage_size(testf_send,kind=inttype) , &
-                            size(testf_send,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "testf_send"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "testf_send"
-  end if
-  if (allocated(testf_recv)) then
-    call array%set( storage_size(testf_recv,kind=inttype) , &
-                            size(testf_recv,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "testf_recv"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "testf_recv"
-  end if
   if (allocated(fusp_rqst)) then
     call array%set( storage_size(fusp_rqst,kind=inttype) , &
                             size(fusp_rqst,kind=inttype) )
