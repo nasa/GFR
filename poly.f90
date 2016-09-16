@@ -40,6 +40,7 @@ module polynomial_mod
   public :: eval_LagrangePoly
   public :: eval_LagrangePoly1D
   public :: eval_LagrangePoly2D
+  public :: eval_LagrangePoly3D
   public :: eval_D2LagrangeDx2
   public :: eval_DLagrangeDx
   !
@@ -205,8 +206,17 @@ module polynomial_mod
   !
   interface eval_LagrangePoly2D
     module procedure eval_LagrangePoly2D_DP, &
-                     eval_LagrangePoly2D_QP
+                     eval_LagrangePoly2D_QP, &
+                     eval_LagrangePoly2D_arrays_DP, &
+                     eval_LagrangePoly2D_arrays_QP
   end interface eval_LagrangePoly2D
+  !
+  interface eval_LagrangePoly3D
+    module procedure eval_LagrangePoly3D_DP, &
+                     eval_LagrangePoly3D_QP, &
+                     eval_LagrangePoly3D_arrays_DP, &
+                     eval_LagrangePoly3D_arrays_QP
+  end interface eval_LagrangePoly3D
   !
   interface eval_D2LagrangeDx2
     module procedure eval_D2LagrangeDx2_DP, &
@@ -3927,6 +3937,84 @@ end function eval_LagrangePoly1D_QP
 !
 !###############################################################################
 !
+pure function eval_LagrangePoly2D_arrays_DP(ij,xy,xi,eta) result(return_value)
+  !
+  ! Get value of the 2D Lagrange polynomial at point x,y
+  !
+  ! K   : The value of the Lagrange polynomial in coordinate XI  is 1 at xi(k)
+  ! L   : The value of the Lagrange polynomial in coordinate ETA is 1 at eta(l)
+  ! X   : Location at which to evaluate the k-th Lagrange polynomial
+  !       in coordinate XI
+  ! Y   : Location at which to evaluate the l-th Lagrange polynomial in
+  !       coordinate ETA
+  ! XI  : Array of all the interpolation points in XI  coordinate
+  ! ETA : Array of all the interpolation points in ETA coordinate
+  !
+  ! This evaluates the 2D Lagrange polynomial at the location x,y.
+  ! The 2D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(i),eta(j)] for [i=1,ifp;j=1,jfp]
+  ! except at [xi(k),eta(l)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ij
+  real(lp), dimension(:), intent(in) :: xy
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(ij(1),xy(1),xi) * &
+                 eval_LagrangePoly1D(ij(2),xy(2),eta)
+  !
+end function eval_LagrangePoly2D_arrays_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly2D_arrays_QP(ij,xy,xi,eta) result(return_value)
+  !
+  ! Get value of the 2D Lagrange polynomial at point x,y
+  !
+  ! K   : The value of the Lagrange polynomial in coordinate XI  is 1 at xi(k)
+  ! L   : The value of the Lagrange polynomial in coordinate ETA is 1 at eta(l)
+  ! X   : Location at which to evaluate the k-th Lagrange polynomial
+  !       in coordinate XI
+  ! Y   : Location at which to evaluate the l-th Lagrange polynomial in
+  !       coordinate ETA
+  ! XI  : Array of all the interpolation points in XI  coordinate
+  ! ETA : Array of all the interpolation points in ETA coordinate
+  !
+  ! This evaluates the 2D Lagrange polynomial at the location x,y.
+  ! The 2D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(i),eta(j)] for [i=1,ifp;j=1,jfp]
+  ! except at [xi(k),eta(l)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ij
+  real(lp), dimension(:), intent(in) :: xy
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(ij(1),xy(1),xi) * &
+                 eval_LagrangePoly1D(ij(2),xy(2),eta)
+  !
+end function eval_LagrangePoly2D_arrays_QP
+!
+!###############################################################################
+!
 pure function eval_LagrangePoly2D_DP(k,l,x,y,xi,eta) result(return_value)
   !
   ! Get value of the 2D Lagrange polynomial at point x,y
@@ -4004,6 +4092,194 @@ continue
   return_value = eval_LagrangePoly1D(k,x,xi) * eval_LagrangePoly1D(l,y,eta)
   !
 end function eval_LagrangePoly2D_QP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly3D_arrays_DP(ijk,xyz,xi,eta,zeta) &
+                                     result(return_value)
+  !
+  ! Get value of the 3D Lagrange polynomial at point x,y,z
+  !
+  ! I    : The value of the Lagrange polynomial in coord XI   is 1 at xi(i)
+  ! J    : The value of the Lagrange polynomial in coord ETA  is 1 at eta(j)
+  ! K    : The value of the Lagrange polynomial in coord ZETA is 1 at zeta(k)
+  ! X    : Location at which to evaluate the i-th Lagrange polynomial
+  !        in coordinate XI
+  ! Y    : Location at which to evaluate the j-th Lagrange polynomial in
+  !        coordinate ETA
+  ! Z    : Location at which to evaluate the k-th Lagrange polynomial in
+  !        coordinate ZETA
+  ! XI   : Array of all the interpolation points in XI   coordinate
+  ! ETA  : Array of all the interpolation points in ETA  coordinate
+  ! ZETA : Array of all the interpolation points in ZETA coordinate
+  !
+  ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
+  ! The 3D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ijk
+  real(lp), dimension(:), intent(in) :: xyz
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  real(lp), dimension(:), intent(in) :: zeta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(ijk(1),xyz(1),xi) * &
+                 eval_LagrangePoly1D(ijk(2),xyz(2),eta) * &
+                 eval_LagrangePoly1D(ijk(3),xyz(3),zeta)
+  !
+end function eval_LagrangePoly3D_arrays_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly3D_arrays_QP(ijk,xyz,xi,eta,zeta) &
+                                     result(return_value)
+  !
+  ! Get value of the 3D Lagrange polynomial at point x,y,z
+  !
+  ! I    : The value of the Lagrange polynomial in coord XI   is 1 at xi(i)
+  ! J    : The value of the Lagrange polynomial in coord ETA  is 1 at eta(j)
+  ! K    : The value of the Lagrange polynomial in coord ZETA is 1 at zeta(k)
+  ! X    : Location at which to evaluate the i-th Lagrange polynomial
+  !        in coordinate XI
+  ! Y    : Location at which to evaluate the j-th Lagrange polynomial in
+  !        coordinate ETA
+  ! Z    : Location at which to evaluate the k-th Lagrange polynomial in
+  !        coordinate ZETA
+  ! XI   : Array of all the interpolation points in XI   coordinate
+  ! ETA  : Array of all the interpolation points in ETA  coordinate
+  ! ZETA : Array of all the interpolation points in ZETA coordinate
+  !
+  ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
+  ! The 3D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,  dimension(:), intent(in) :: ijk
+  real(lp), dimension(:), intent(in) :: xyz
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  real(lp), dimension(:), intent(in) :: zeta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(ijk(1),xyz(1),xi) * &
+                 eval_LagrangePoly1D(ijk(2),xyz(2),eta) * &
+                 eval_LagrangePoly1D(ijk(3),xyz(3),zeta)
+  !
+end function eval_LagrangePoly3D_arrays_QP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly3D_DP(i,j,k,x,y,z,xi,eta,zeta) &
+                              result(return_value)
+  !
+  ! Get value of the 3D Lagrange polynomial at point x,y,z
+  !
+  ! I    : The value of the Lagrange polynomial in coord XI   is 1 at xi(i)
+  ! J    : The value of the Lagrange polynomial in coord ETA  is 1 at eta(j)
+  ! K    : The value of the Lagrange polynomial in coord ZETA is 1 at zeta(k)
+  ! X    : Location at which to evaluate the i-th Lagrange polynomial
+  !        in coordinate XI
+  ! Y    : Location at which to evaluate the j-th Lagrange polynomial in
+  !        coordinate ETA
+  ! Z    : Location at which to evaluate the k-th Lagrange polynomial in
+  !        coordinate ZETA
+  ! XI   : Array of all the interpolation points in XI   coordinate
+  ! ETA  : Array of all the interpolation points in ETA  coordinate
+  ! ZETA : Array of all the interpolation points in ZETA coordinate
+  !
+  ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
+  ! The 3D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: i,j,k
+  real(lp),               intent(in) :: x,y,z
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  real(lp), dimension(:), intent(in) :: zeta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(i,x,xi) * &
+                 eval_LagrangePoly1D(j,y,eta) * &
+                 eval_LagrangePoly1D(k,z,zeta)
+  !
+end function eval_LagrangePoly3D_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly3D_QP(i,j,k,x,y,z,xi,eta,zeta) &
+                              result(return_value)
+  !
+  ! Get value of the 3D Lagrange polynomial at point x,y,z
+  !
+  ! I    : The value of the Lagrange polynomial in coord XI   is 1 at xi(i)
+  ! J    : The value of the Lagrange polynomial in coord ETA  is 1 at eta(j)
+  ! K    : The value of the Lagrange polynomial in coord ZETA is 1 at zeta(k)
+  ! X    : Location at which to evaluate the i-th Lagrange polynomial
+  !        in coordinate XI
+  ! Y    : Location at which to evaluate the j-th Lagrange polynomial in
+  !        coordinate ETA
+  ! Z    : Location at which to evaluate the k-th Lagrange polynomial in
+  !        coordinate ZETA
+  ! XI   : Array of all the interpolation points in XI   coordinate
+  ! ETA  : Array of all the interpolation points in ETA  coordinate
+  ! ZETA : Array of all the interpolation points in ZETA coordinate
+  !
+  ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
+  ! The 3D Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  integer,                intent(in) :: i,j,k
+  real(lp),               intent(in) :: x,y,z
+  real(lp), dimension(:), intent(in) :: xi
+  real(lp), dimension(:), intent(in) :: eta
+  real(lp), dimension(:), intent(in) :: zeta
+  !
+  !.. Function Result ..
+  real(lp) :: return_value
+  !
+continue
+  !
+  return_value = eval_LagrangePoly1D(i,x,xi) * &
+                 eval_LagrangePoly1D(j,y,eta) * &
+                 eval_LagrangePoly1D(k,z,zeta)
+  !
+end function eval_LagrangePoly3D_QP
 !
 !###############################################################################
 !
