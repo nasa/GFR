@@ -27,6 +27,7 @@ module generic_types_mod
     procedure(dot_function), pointer :: dot
     procedure(mat_vec_mult), pointer :: mv_mult
     procedure(vec_mat_mult), pointer :: vm_mult
+    procedure(mat_mat_mult), pointer :: mm_mult
     !
   contains
     !
@@ -62,6 +63,14 @@ module generic_types_mod
       real(wp), dimension(1:size(this%mat,dim=2)) :: return_value
     end function vec_mat_mult
     !
+    function mat_mat_mult(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(     mat,dim=1), &
+                          1:size(this%mat,dim=2)) :: return_value
+    end function mat_mat_mult
+    !
   end interface
   !
 contains
@@ -90,6 +99,7 @@ continue
   this%dot => dot_intrinsic
   this%mv_mult => mat_vec_mult_intrinsic
   this%vm_mult => vec_mat_mult_intrinsic
+  this%mm_mult => mat_mat_mult_intrinsic
   !
   if (allocated(this%mat)) then
     !
@@ -233,6 +243,7 @@ continue
       !
       this%mv_mult => mat_vec_mult_sparse
       this%vm_mult => vec_mat_mult_sparse
+      this%mm_mult => mat_mat_mult_intrinsic
       !
     end if
     !
@@ -843,9 +854,47 @@ end function vec_mat_mult_intrinsic
 !###############################################################################
 !###############################################################################
 !
-! Might need to add mat_mat_mul functions. Probably need to create two versions:
+! Might need to add additional mat_mat_mul functions.
+! Probably need to create two versions:
 ! 1) mat x this%mat
 ! 2) this%mat x mat
+!
+!###############################################################################
+!
+pure function mat_mat_mult_intrinsic(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(     mat,dim=1), &
+                      1:size(this%mat,dim=2)) :: return_value
+  !
+continue
+  !
+  return_value = matmul( mat , this%mat )
+  !
+end function mat_mat_mult_intrinsic
+!
+!###############################################################################
+!
+pure function mat_mat_rev_mult_intrinsic(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(this%mat,dim=1), &
+                      1:size(     mat,dim=2)) :: return_value
+  !
+continue
+  !
+  return_value = matmul( this%mat , mat )
+  !
+end function mat_mat_rev_mult_intrinsic
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
 !
 !###############################################################################
 !###############################################################################
