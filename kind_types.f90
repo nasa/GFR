@@ -222,6 +222,7 @@ module module_kind_types
                                                     Advec_Problems ]
   !
   ! Location of 1D solution points
+  integer, parameter :: Equi_Distant_Points     = 0
   integer, parameter :: Legendre_Gauss          = 1
   integer, parameter :: Legendre_Gauss_Lobatto  = 2
   integer, parameter :: Legendre_Nodes(1:2) = [Legendre_Gauss, &
