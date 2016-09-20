@@ -61,6 +61,8 @@ module interpolation_mod
     type(matrix), allocatable :: gauss
     ! lobatto : Interpolate to lobatto quadrature points
     type(matrix), allocatable :: lobatto
+    ! equidist : Interpolate to equidistant points
+    type(matrix), allocatable :: equidist
     ! output : Pointer to quadrature points used to
     !          output the solution for post-processing
     type(matrix), pointer :: output => null()
@@ -467,6 +469,7 @@ subroutine init_outerpolation_matrices()
   integer :: npts
   logical :: gauss_matrix_is_needed
   logical :: lobatto_matrix_is_needed
+  logical :: equidist_matrix_is_needed
   logical :: error_weights_are_needed
   character(len=200) :: array_name
   !
@@ -474,6 +477,7 @@ subroutine init_outerpolation_matrices()
   type(outerpolation_matrix), pointer :: this_outerp
   real(wp), pointer, contiguous :: gmat(:,:)
   real(wp), pointer, contiguous :: lmat(:,:)
+  real(wp), pointer, contiguous :: emat(:,:)
   real(wp), pointer, contiguous :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..
@@ -481,6 +485,7 @@ subroutine init_outerpolation_matrices()
   real(wp), allocatable :: gauss_wts(:)
   real(wp), allocatable :: lobatto_pts(:)
   real(wp), allocatable :: lobatto_wts(:)
+  real(wp), allocatable :: equidist_pts(:)
   real(wp), allocatable :: error_wts(:)
   !
   !.. Local Parameters ..
@@ -493,6 +498,7 @@ continue
   this_outerp => null()
   gmat        => null()
   lmat        => null()
+  emat        => null()
   solpts      => null()
   !
   gmin = n_min_geom
@@ -534,6 +540,9 @@ continue
     end if
     if (loc_output_pts == Legendre_Gauss_Lobatto) then
       lobatto_matrix_is_needed = true
+    end if
+    if (loc_output_pts == Equi_Distant_Points) then
+      equidist_matrix_is_needed = true
     end if
   end if
   !
@@ -629,6 +638,39 @@ continue
         !
       end if
       !
+      ! Allocate the outerp%equidist component of outerp if needed
+      !
+      if (equidist_matrix_is_needed) then
+        !
+        allocate ( this_outerp%equidist , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"equidist"
+        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        !
+        allocate ( this_outerp%equidist%mat(1:npts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"equidist%mat"
+        call alloc_error(pname,array_name,1,ierr,error_message)
+        !
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
+        !
+        emat => this_outerp%equidist%mat
+        !
+        ! Pre-compute the 1D equidistant points for this order
+        ! NOTE: Equidistant points should only be used as output points
+        !       where the quadrature weights arent needed, so we dont
+        !       need to compute the weights for the equidistant points.
+        !       
+        allocate ( equidist_pts(1:this_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"equidist_pts",1,ierr,error_message, &
+                         skip_alloc_pause)
+        !
+        equidist_pts(:) = real(intseq(-this_order,this_order,2),kind=wp) / &
+                          real(max(this_order,1),kind=wp)
+        !
+      end if
+      !
       ! Allocate the err_wts component of outerp along with the weights
       ! of the 1D error points if the error weights are needed
       !
@@ -667,6 +709,10 @@ continue
             lmat = InterpToCell_Edge( solpts(1,:) , lobatto_pts )
           end if
           !
+          if (equidist_matrix_is_needed) then
+            emat = InterpToCell_Edge( solpts(1,:) , equidist_pts )
+          end if
+          !
           if (error_weights_are_needed) then
             this_outerp%err_wts = error_wts
           end if
@@ -677,6 +723,7 @@ continue
           !
           if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
           if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          if (equidist_matrix_is_needed) emat = identity_matrix( emat )
           !
         case (Geom_Quad)
           !
@@ -690,6 +737,10 @@ continue
             lmat = InterpToCell_Quad( solpts(1,:) , lobatto_pts )
           end if
           !
+          if (equidist_matrix_is_needed) then
+            emat = InterpToCell_Quad( solpts(1,:) , equidist_pts )
+          end if
+          !
           if (error_weights_are_needed) then
             this_outerp%err_wts = InterpWeights_Quad( error_wts )
           end if
@@ -700,6 +751,7 @@ continue
           !
           if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
           if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          if (equidist_matrix_is_needed) emat = identity_matrix( emat )
           !
         case (Geom_Pyra)
           !
@@ -707,6 +759,7 @@ continue
           !
           if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
           if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          if (equidist_matrix_is_needed) emat = identity_matrix( emat )
           !
         case (Geom_Pris)
           !
@@ -714,6 +767,7 @@ continue
           !
           if (gauss_matrix_is_needed) gmat = identity_matrix( gmat )
           if (lobatto_matrix_is_needed) lmat = identity_matrix( lmat )
+          if (equidist_matrix_is_needed) emat = identity_matrix( emat )
           !
         case (Geom_Hexa)
           !
@@ -725,6 +779,10 @@ continue
           !
           if (lobatto_matrix_is_needed) then
             lmat = InterpToCell_Hexa( solpts(1,:) , lobatto_pts )
+          end if
+          !
+          if (equidist_matrix_is_needed) then
+            emat = InterpToCell_Hexa( solpts(1,:) , equidist_pts )
           end if
           !
           if (error_weights_are_needed) then
@@ -773,9 +831,12 @@ continue
         if (loc_output_pts == Legendre_Gauss_Lobatto) then
           this_outerp%output => this_outerp%lobatto
         end if
+        if (loc_output_pts == Equi_Distant_Points) then
+          this_outerp%output => this_outerp%equidist
+        end if
       end if
       !
-      ! Deallocate any of the Gauss or Lobatto arrays that were allocated
+      ! Deallocate any of the local arrays that were allocated
       !
       if (allocated(gauss_pts)) then
         deallocate ( gauss_pts , stat=ierr , errmsg=error_message )
@@ -797,6 +858,11 @@ continue
         call alloc_error(pname,"lobatto_wts",2,ierr,error_message, &
                          skip_alloc_pause)
       end if
+      if (allocated(equidist_pts)) then
+        deallocate ( equidist_pts , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"equidist_pts",2,ierr,error_message, &
+                         skip_alloc_pause)
+      end if
       if (allocated(error_wts)) then
         deallocate ( error_wts , stat=ierr , errmsg=error_message )
         call alloc_error(pname,"error_wts",2,ierr,error_message, &
@@ -808,6 +874,7 @@ continue
       if (associated(this_outerp)) this_outerp => null()
       if (associated(gmat       )) gmat        => null()
       if (associated(lmat       )) lmat        => null()
+      if (associated(emat       )) emat        => null()
       if (associated(solpts     )) solpts      => null()
       !
     end do order_loop
@@ -821,6 +888,9 @@ continue
       end if
       if (allocated(outerp(this_geom,this_order)%lobatto)) then
         call outerp(this_geom,this_order)%lobatto%check_for_sparsity
+      end if
+      if (allocated(outerp(this_geom,this_order)%equidist)) then
+        call outerp(this_geom,this_order)%equidist%check_for_sparsity
       end if
     end do
   end do
@@ -2986,6 +3056,24 @@ continue
           array = outerp(i,j)%lobatto%memory_usage()
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"lobatto%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+        end if
+        !
+        if (allocated(outerp(i,j)%equidist)) then
+          !
+          call array%set( storage_size(outerp(i,j)%equidist,kind=inttype) )
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"equidist"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+          array = outerp(i,j)%equidist%memory_usage()
+          !
+          write (array_name,4) "outerp",Geom_Name(i),j,"equidist%mat"
           write (iou,2) array_name,array%get_units()
           !
           call dt%add(array)
