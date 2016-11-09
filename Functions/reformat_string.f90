@@ -19,7 +19,7 @@ continue
   !
   return_value = ""
   !
-  llen = 50
+  llen = 62
   nblanks = 17
   strng = trim(adjustl(input_strng))
   !
