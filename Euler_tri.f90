@@ -135,11 +135,11 @@ program Euler_tri
   !
   integer :: CGNS_action
   !
-  logical :: request_stop
-  logical :: request_solution
+  logical(ldk) :: request_stop
+  logical(ldk) :: request_solution
   !
- !logical, parameter :: ignore_errors = true
-  logical, parameter :: ignore_errors = fals
+ !logical(lk), parameter :: ignore_errors = true
+  logical(lk), parameter :: ignore_errors = fals
   !
  !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
@@ -402,7 +402,8 @@ continue
     close (i,iostat=ierr)
     call io_error(pname,memfile,2,ierr)
     !
-    call stop_recon(stop_mpi,pname,"After dumping memory usage")
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+                    "After dumping memory usage")
     !
   end if
   !

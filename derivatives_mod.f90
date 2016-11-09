@@ -94,7 +94,7 @@ continue
   ! Allocate the vand array
   !
   allocate ( deriv(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"deriv",1,ierr,error_message)
+  call alloc_error(pname,"deriv",1,__LINE__,__FILE__,ierr,error_message)
   !
   geom_loop: do this_geom = gmin,gmax
     !
@@ -116,7 +116,8 @@ continue
       !
       allocate ( this_dmat%d(1:ndim) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
       ! Compute the derivative matrices depending on geometry type
       !
@@ -164,7 +165,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !
@@ -239,7 +240,7 @@ continue
  !5 format (*(1x,a1))
  !6 format ("After output of derivative matrices for hexa geometries")
  !write (error_message,6)
- !call stop_recon(stop_mpi,pname,error_message)
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   1 format ("deriv(",a,",",i0,")%d")
   2 format (" A grid cell of an unknown geometry type was found!")

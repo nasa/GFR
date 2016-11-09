@@ -68,7 +68,7 @@ continue
   omax = n_max_order
   !
   allocate ( filter(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"filter",1,ierr,error_message)
+  call alloc_error(pname,"filter",1,__LINE__,__FILE__,ierr,error_message)
   !
   geom_loop: do this_geom = gmin,gmax
     !
@@ -87,7 +87,7 @@ continue
       allocate ( filter(this_geom,this_order)%mat(1:npts,1:npts) , &
                  source=zero , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Assign local pointers as aliases to simplify the code
       !
@@ -129,7 +129,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !

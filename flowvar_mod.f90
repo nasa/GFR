@@ -1,6 +1,6 @@
 module flowvar
   !
-  use module_kind_types, only : r8,wp
+  use module_kind_types, only : r8,wp,lk
   use module_kind_types, only : zero,iout
   use module_kind_types, only : Classic_RK
   use module_kind_types, only : CK4_RK
@@ -49,7 +49,7 @@ module flowvar
   !
   ! TROUBLED_CELL : Mask/Marker array identifying troubled cells
   !
-  logical, public, save, allocatable, dimension(:) :: troubled_cell
+  logical(lk), public, save, allocatable, dimension(:) :: troubled_cell
   !
   !
   !
@@ -165,7 +165,6 @@ subroutine allocate_flowvar_arrays()
   use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
   use ovar,      only : iRKtype,num_stages,mms_opt
-  use ovar,      only : itestcase
   use ovar,      only : convert_restart_to_cgns
   use ovar,      only : continuous_output
   !
@@ -181,27 +180,27 @@ continue
   !
   allocate ( usp(1:nq,1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"usp",1,ierr,error_message)
+  call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
   !
   !
   allocate ( dusp(1:nr,1:nq,1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"dusp",1,ierr,error_message)
+  call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
   !
   !
   allocate ( residual(1:nq,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"residual",1,ierr,error_message)
+  call alloc_error(pname,"residual",1,__LINE__,__FILE__,ierr,error_message)
   !
   !
   allocate ( dtsp(1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"dtsp",1,ierr,error_message)
+  call alloc_error(pname,"dtsp",1,__LINE__,__FILE__,ierr,error_message)
   !
   !
   allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"uoldsp",1,ierr,error_message)
+  call alloc_error(pname,"uoldsp",1,__LINE__,__FILE__,ierr,error_message)
   !
   !
   ! Allocate the outer part of the face solution/flux arrays
@@ -209,13 +208,13 @@ continue
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
     allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",1,ierr,error_message)
+    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp",1,ierr,error_message)
+    call alloc_error(pname,"facedusp",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceflx",1,ierr,error_message)
+    call alloc_error(pname,"faceflx",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! If using the continuous output option or MMS, allocate the facexyz array
     !
@@ -225,7 +224,7 @@ continue
       ! for both interior and boundary faces
       !
       allocate ( facexyz(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz",1,ierr,error_message)
+      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__,ierr,error_message)
       !
     else if (mms_opt /= 0) then
       !
@@ -233,7 +232,7 @@ continue
       ! to be defined for the boundary faces
       !
       allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz",1,ierr,error_message)
+      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
     !
@@ -249,17 +248,20 @@ continue
       allocate ( faceusp(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) "faceusp",nf
-      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
       allocate ( facedusp(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) "facedusp",nf
-      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
       allocate ( faceflx(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) "faceflx",nf
-      call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
       ! If facexyz is allocated, allocate the v component of facexyz
       ! if the current face is within the size of facexyz
@@ -269,8 +271,8 @@ continue
           allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
                      stat=ierr , errmsg=error_message )
           write (array_name,1) "facexyz",nf
-          call alloc_error(pname,array_name,1,ierr,error_message, &
-                           skip_alloc_pause)
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                           error_message,skip_alloc_pause)
         end if
       end if
       !
@@ -292,32 +294,34 @@ continue
       ! Allocate the nodeusp array and its data components
       !
       allocate ( nodeusp(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodeusp",1,ierr,error_message)
+      call alloc_error(pname,"nodeusp",1,__LINE__,__FILE__,ierr,error_message)
       !
       do nn = 1,nnode
         allocate ( nodeusp(nn)%v(1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "nodeusp",nn
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message,skip_alloc_pause)
       end do
       !
       !
       ! Allocate the nodedusp array and its data components
       !
       allocate ( nodedusp(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodedusp",1,ierr,error_message)
+      call alloc_error(pname,"nodedusp",1,__LINE__,__FILE__,ierr,error_message)
       !
       do nn = 1,nnode
         allocate ( nodedusp(nn)%v(1:nr,1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "nodedusp",nn
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message,skip_alloc_pause)
       end do
       !
       ! Allocate the edgeusp array and its data components
       !
       allocate ( edgeusp(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgeusp",1,ierr,error_message)
+      call alloc_error(pname,"edgeusp",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
@@ -326,14 +330,15 @@ continue
         allocate ( edgeusp(ne)%v(1:nq,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "edgeusp",ne
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message,skip_alloc_pause)
         !
       end do
       !
       ! Allocate the edgedusp array and its data components
       !
       allocate ( edgedusp(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgedusp",1,ierr,error_message)
+      call alloc_error(pname,"edgedusp",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
@@ -342,14 +347,15 @@ continue
         allocate ( edgedusp(ne)%v(1:nr,1:nq,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "edgedusp",ne
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message,skip_alloc_pause)
         !
       end do
       !
       ! Allocate the edgexyz array and its data components
       !
       allocate ( edgexyz(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgexyz",1,ierr,error_message)
+      call alloc_error(pname,"edgexyz",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
@@ -358,7 +364,8 @@ continue
         allocate ( edgexyz(ne)%v(1:nr,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "edgexyz",ne
-        call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message,skip_alloc_pause)
         !
       end do
       !
@@ -377,7 +384,7 @@ continue
       !
       allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"usp_sum",1,ierr,error_message)
+      call alloc_error(pname,"usp_sum",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
   end if
@@ -386,7 +393,7 @@ continue
     !
     allocate ( rssprk(1:nq,1:n_solpts,1:n) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rssprk",1,ierr,error_message)
+    call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !

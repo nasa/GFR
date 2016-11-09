@@ -112,7 +112,7 @@ continue
   ! Allocate the vand array
   !
   allocate ( vand(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vand",1,ierr,error_message)
+  call alloc_error(pname,"vand",1,__LINE__,__FILE__,ierr,error_message)
   !
   geom_loop: do this_geom = gmin,gmax
     !
@@ -135,14 +135,14 @@ continue
       allocate ( this_vand%modal2nodal%mat(1:npts,1:npts) , &
                  source=zero , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"modal2nodal%mat"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the nodal2modal / vandermonde inverse matrix
       !
       allocate ( this_vand%nodal2modal%mat(1:npts,1:npts) , &
                  source=zero , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"nodal2modal%mat"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Assign local pointers to these matrices as aliases to simplify the code
       !
@@ -197,7 +197,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !

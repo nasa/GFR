@@ -344,8 +344,8 @@ pure function mms_solution_at_xyz(xyz,return_nondim,return_cv) &
   real(wp), dimension(:), intent(in) :: xyz
   !
   !.. Optional Arguments ..
-  logical, optional,      intent(in) :: return_nondim
-  logical, optional,      intent(in) :: return_cv
+  logical(lk), optional,      intent(in) :: return_nondim
+  logical(lk), optional,      intent(in) :: return_cv
   !
   !.. Function Result ..
   real(wp), dimension(1:nq) :: return_value
@@ -1663,7 +1663,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "**************** ERROR ***************** "
     write (iout,*)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (var_min(nq+1) < tmin) then
@@ -1673,7 +1673,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "****************** ERROR ******************* "
     write (iout,*)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (var_max(nq+1) > tmax) then
@@ -1683,7 +1683,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "****************** ERROR ******************* "
     write (iout,*)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Finished applying source terms for the method of manufactured solutions

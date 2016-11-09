@@ -19,9 +19,9 @@ module module_limiters
   !
   !.. Module Local Scalars ..
   !
-  logical, save :: using_markers = fals
-  logical, save :: using_moment_limiter = fals
-  logical, save :: init_all_as_marked = true
+  logical(lk), save :: using_markers = fals
+  logical(lk), save :: using_moment_limiter = fals
+  logical(lk), save :: init_all_as_marked = true
   !
   !
   !.. Module Local Allocatable Arrays ..
@@ -29,8 +29,8 @@ module module_limiters
   real(wp), save, allocatable, dimension(:,:) :: cell_ave_sol
   real(wp), save, allocatable, dimension(:,:) :: umodes
   !
-  logical, save, allocatable, dimension(:) :: troubled_cell
-  logical, save, allocatable, dimension(:) :: needs_limiting
+  logical(lk), save, allocatable, dimension(:) :: troubled_cell
+  logical(lk), save, allocatable, dimension(:) :: needs_limiting
   !
   !
   !.. Module Parameters ..
@@ -58,14 +58,18 @@ continue
     !
     ! Create the array for storing the cell averaged solutions
     !
-    allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , stat=ierr )
-    call alloc_error(pname,"cell_ave_sol",1,ierr)
+    allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_ave_sol",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
     !
     ! Create the array for identifying troubled cells
     !
-    allocate ( troubled_cell(1:ncell) , source=fals , stat=ierr )
-    call alloc_error(pname,"troubled_cell",1,ierr)
+    allocate ( troubled_cell(1:ncell) , source=fals , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"troubled_cell",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
   end if
   !
@@ -73,11 +77,14 @@ continue
   !
   if (using_moment_limiter) then
     !
-    allocate ( umodes(1:n_totpts,1:nq) , source=zero , stat=ierr )
-    call alloc_error(pname,"umodes",1,ierr)
+    allocate ( umodes(1:n_totpts,1:nq) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"umodes",1,__LINE__,__FILE__,ierr,error_message)
     !
-    allocate ( needs_limiting(1:ncell) , stat=ierr )
-    call alloc_error(pname,"needs_limiting",1,ierr)
+    allocate ( needs_limiting(1:ncell) , source=fals , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"needs_limiting",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
   end if
   !
@@ -123,7 +130,7 @@ continue
     !
   end do
   !
-  call stop_recon(stop_mpi,pname)
+  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
 end subroutine compute_cell_ave
 !
@@ -185,7 +192,7 @@ subroutine limit_by_projecting
   integer :: k,m,n1,n2,nc,nsp
   integer :: this_geom,this_order
   integer :: dropped_orders,proj_order
-  logical :: there_are_no_troubles
+  logical(lk) :: there_are_no_troubles
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxpts,1:nq) :: tusp
@@ -274,7 +281,7 @@ subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: dropped_orders
-  logical, intent(out) :: there_are_no_troubles
+  logical(lk), intent(out) :: there_are_no_troubles
   !
   !.. Local Scalars ..
   integer :: nc,n1,n2,proj_order

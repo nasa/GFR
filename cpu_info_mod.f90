@@ -28,13 +28,17 @@ subroutine get_cpu_locality
   !.. Automatic Arrays ..
   integer, dimension(1:3) :: host_int
   integer, dimension(1:3,1:ncpu) :: all_host_int
-  logical, dimension(1:ncpu) :: host_mask
+  logical(lk), dimension(1:ncpu) :: host_mask
   !
   character(len=MPI_MAX_PROCESSOR_NAME) :: all_host_name(1:ncpu)
   !
   !.. Allocatable Arrays ..
   character(len=MPI_MAX_PROCESSOR_NAME), allocatable :: unique_hosts(:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_cpu_locality"
+  !
+  !.. C Function Interfaces ..
   interface
     function findmycpu() bind(c,name="findmycpu_")
       use, intrinsic :: iso_c_binding, only : c_int
@@ -44,11 +48,12 @@ subroutine get_cpu_locality
   !
 continue
   !
-  allocate ( all_host_num(1:ncpu) , source=0 , stat=ierr )
-  call alloc_error("get_cpu_locality","all_host_num",1,ierr)
+  allocate ( all_host_num(1:ncpu) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"all_host_num",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( all_cpu_num(1:ncpu) , source=0 , stat=ierr )
-  call alloc_error("get_cpu_locality","all_cpu_num",1,ierr)
+  allocate ( all_cpu_num(1:ncpu) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"all_cpu_num",1,__LINE__,__FILE__,ierr,error_message)
   !
   call mpi_get_processor_name(host_name,name_len,mpierr)
   !
@@ -83,8 +88,8 @@ continue
   !
   num_hosts = count(host_mask)
   !
-  allocate ( unique_hosts(1:num_hosts) , stat=ierr )
-  call alloc_error("get_cpu_locality","unique_hosts",1,ierr)
+  allocate ( unique_hosts(1:num_hosts) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"unique_hosts",1,__LINE__,__FILE__,ierr,error_message)
   !
   unique_hosts = pack(all_host_name,host_mask)
   !

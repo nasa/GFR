@@ -119,7 +119,8 @@ continue
   !
   if (num_dim == 1) then
     !
-    call stop_recon(stop_mpi,pname,"1D is currently not supported")
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+                    "1D is currently not supported")
     !
   end if
   !

@@ -943,7 +943,7 @@ continue
   !
   allocate ( xy(1:np1,1:np2,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xy",1,ierr,error_message)
+  call alloc_error(pname,"xy",1,__LINE__,__FILE__,ierr,error_message)
   !
   do j = 1,np2
     do i = 1,np1
@@ -970,7 +970,7 @@ continue
   call io_error(pname,fname,2,ierr,error_message)
   !
   deallocate ( xy , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xy",2,ierr,error_message)
+  call alloc_error(pname,"xy",2,__LINE__,__FILE__,ierr,error_message)
   !
   1 format ('VARIABLES = "Vector" "Node" "Value"',/, &
             'Zone T="Matrix Sparsity", I=',i0,', J=',i0, &

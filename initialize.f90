@@ -85,11 +85,11 @@ continue
   !
   allocate ( uspstart(1:nq,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"uspstart",1,ierr,error_message)
+  call alloc_error(pname,"uspstart",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_init",1,ierr,error_message)
+  call alloc_error(pname,"xyz_init",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the local array that stores the inverse of the matrix used for
   ! interpolating from the solution points to the initialization points.
@@ -105,7 +105,7 @@ continue
   !
   allocate ( outerp_inv(gmin:gmax,omin:omax) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"outerp_inv",1,ierr,error_message)
+  call alloc_error(pname,"outerp_inv",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Initialize the solution in each cell
   !
@@ -122,7 +122,7 @@ continue
     ! an interpolation matrix to determine where we need to compute
     ! the initial conditions.
     !
-    if (.not. associated(outerp(this_geom,this_order)%init)) then
+    if (.not. allocated(outerp(this_geom,this_order)%init)) then
       !
       ! The init component of outerp is not associated so just compute
       ! the initial conditions at the solution points
@@ -151,7 +151,8 @@ continue
         allocate ( outerp_inv(this_geom,this_order)%mat(1:l1,1:l2) , &
                    source=zero , stat=ierr , errmsg = error_message )
         write (array_name,10) Geom_Name(this_geom),this_order
-        call alloc_error(pname,array_name,1,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message)
         !
         outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
         !
@@ -254,17 +255,17 @@ continue
   !
   if (allocated(uspstart)) then
     deallocate ( uspstart , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"uspstart",2,ierr,error_message)
+    call alloc_error(pname,"uspstart",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(outerp_inv)) then
     deallocate ( outerp_inv , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"outerp_inv",2,ierr,error_message)
+    call alloc_error(pname,"outerp_inv",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(xyz_init)) then
     deallocate ( xyz_init , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_init",2,ierr,error_message)
+    call alloc_error(pname,"xyz_init",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (associated(numer2init)) numer2init => null()
@@ -422,8 +423,8 @@ subroutine initialize_dusp()
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
   !
- !logical, parameter :: use_conservative_form = true
-  logical, parameter :: use_conservative_form = fals
+ !logical(lk), parameter :: use_conservative_form = true
+  logical(lk), parameter :: use_conservative_form = fals
   !
 continue
   !
@@ -520,7 +521,7 @@ subroutine get_face_and_edge_point_coordinates
   real(wp) :: txyz(1:maxSP,1:nr)
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:) :: msk
+  logical(lk), allocatable, dimension(:) :: msk
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_face_and_edge_point_coordinates"
@@ -585,7 +586,7 @@ continue
     !
     allocate ( msk(1:size(edgexyz)) , source=fals , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",1,ierr,error_message)
+    call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Loop through the cells and compute the coordinates
     ! of the edge points on each grid edge by interpolating
@@ -647,7 +648,7 @@ continue
     ! Deallocate the msk array before leaving
     !
     deallocate ( msk , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",2,ierr,error_message)
+    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !
@@ -740,7 +741,7 @@ continue
     !
     if (Lref <= zero) then
       write (error_message,101)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Set up the base reference conditions for the Taylor-Green Vortex problem
@@ -784,7 +785,7 @@ continue
       if (abs(pres_check-pref) > eps6) then
        !write (iout,102) pref,pres_check
         write (error_message,102) pref,pres_check
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     end if
     !
@@ -811,9 +812,11 @@ continue
   ! Allocate the free stream inflow arrays
   !
   allocate ( cv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cv_in",1,ierr,error_message,skip_alloc_pause)
+  call alloc_error(pname,"cv_in",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   allocate ( pv_in(1:nq) , source=zero , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"pv_in",1,ierr,error_message,skip_alloc_pause)
+  call alloc_error(pname,"pv_in",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
   ! Initialize the inflow boundary conditions to the reference conditions
   ! NOTE: This is hard-wired for 2D and needs to be generalized for 3D

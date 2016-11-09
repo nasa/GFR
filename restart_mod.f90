@@ -34,7 +34,7 @@ module restart_mod
   !###  Module Scalar Variables  ###
   !#################################
   !
-  logical, save :: restart_needs_initialization = true
+  logical(lk), save :: restart_needs_initialization = true
   !
   integer, save :: restart_solution_form
   !
@@ -145,7 +145,7 @@ continue
     !
     allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_usp",1,ierr,error_message)
+    call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr,error_message)
     !
     open(newunit=iorst,file=fname,status="old",action="read", &
                        form="unformatted",iostat=ierr)
@@ -189,7 +189,7 @@ continue
     end if
     !
     deallocate ( global_usp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"global_usp",2,ierr,error_message)
+    call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr,error_message)
     !
   else
     !
@@ -250,7 +250,8 @@ continue
       !
       allocate ( int_header(1:n_header_int) , source=0_wip , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"int_header",1,ierr,error_message)
+      call alloc_error(pname,"int_header",1,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       if (restart_ip == wip) then
         call read_rstrt_file_wip(file_handle,int_header)
@@ -262,7 +263,7 @@ continue
           case (int16) ; call read_rstrt_file_i2(file_handle,int_header)
           case default
             write (error_message,20)
-            call stop_recon(stop_mpi,pname,error_message)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end select
       end if
       !
@@ -272,14 +273,14 @@ continue
       !
       if (restart_nq /= nq) then
         write (error_message,10) restart_nq,nq
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       restart_ncells = int( int_header(2) , kind=kind(restart_ncells) )
       !
       if (restart_ncells /= n_global_cell) then
         write (error_message,11) restart_ncells,n_global_cell
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       restart_solution_form = int( int_header(3) , &
@@ -308,14 +309,15 @@ continue
         !
         write (error_message,12) trim(adjustl(restart_form)), &
                                  trim(adjustl(inp_solpts))
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
         !
       end if
       !
       itrst = int( int_header(4) , kind=kind(itrst) )
       !
       deallocate ( int_header , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"int_header",2,ierr,error_message)
+      call alloc_error(pname,"int_header",2,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       ! Read the real type for the time data
       !
@@ -329,7 +331,8 @@ continue
       !
       allocate ( real_header(1:n_header_real) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"real_header",1,ierr,error_message)
+      call alloc_error(pname,"real_header",1,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       if (restart_rp == wp) then
           call read_rstrt_file_wp(file_handle,real_header)
@@ -340,7 +343,7 @@ continue
           case (real128) ; call read_rstrt_file_r16(file_handle,real_header)
           case default
             write (error_message,21)
-            call stop_recon(stop_mpi,pname,error_message)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end select
       end if
       !
@@ -350,7 +353,8 @@ continue
       dtrst  = real( real_header(2) , kind=kind(dtrst) )
       !
       deallocate ( real_header , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"real_header",2,ierr,error_message)
+      call alloc_error(pname,"real_header",2,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       ! Read the integer type for the ordered_geom array
       !
@@ -359,7 +363,8 @@ continue
       !
       allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ordered_geom",1,ierr,error_message)
+      call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       ! All processors have to read the ordered_geom data so that each 
       ! processor can compute the data offsets for each of the cells
@@ -375,7 +380,7 @@ continue
           case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom)
           case default
             write (error_message,22)
-            call stop_recon(stop_mpi,pname,error_message)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end select
       end if
       !
@@ -412,7 +417,7 @@ continue
       !
       if (solution_errors /= 0) then
         write (error_message,14)
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Set the file view to write the ordered_geom array to the restart file
@@ -425,7 +430,7 @@ continue
       !
       allocate ( solution(1:nq,1:n_solpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"solution",1,ierr,error_message)
+      call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Read in the solution restart data
       !
@@ -438,7 +443,7 @@ continue
           case (real128) ; call read_rstrt_file_r16(file_handle,solution)
           case default
             write (error_message,23)
-            call stop_recon(stop_mpi,pname,error_message)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end select
       end if
       !
@@ -486,24 +491,27 @@ continue
       !
       if (solution_errors > 0) then
         write (error_message,31) solution_errors
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Deallocate any local arrays that are still allocated
       !
       if (allocated(cell_input_data)) then
         deallocate ( cell_input_data , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"cell_input_data",2,ierr,error_message)
+        call alloc_error(pname,"cell_input_data",2,__LINE__,__FILE__,ierr, &
+                         error_message)
       end if
       !
       if (allocated(ordered_geom)) then
         deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"ordered_geom",2,ierr,error_message)
+        call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                         error_message)
       end if
       !
       if (allocated(solution)) then
         deallocate ( solution , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"solution",2,ierr,error_message)
+        call alloc_error(pname,"solution",2,__LINE__,__FILE__,ierr, &
+                         error_message)
       end if
       !
       !
@@ -606,7 +614,8 @@ continue
     if (mypnum == 0) then
       allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"global_usp",1,ierr,error_message)
+      call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr, &
+                       error_message)
     end if
     !
     ! Collect the global solution
@@ -634,7 +643,8 @@ continue
       call io_error(pname,trim(adjustl(fname)),2,ierr)
       !
       deallocate ( global_usp , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"global_usp",2,ierr,error_message)
+      call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
     end if
     !
@@ -683,7 +693,8 @@ continue
     !
     allocate ( ordered_geom(1:ncell) , source=0_i4 , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",1,ierr,error_message)
+    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
     do n = 1,ncell
       !
@@ -875,7 +886,7 @@ continue
     ! in the same order that is expected by the MPI derived datatype.
     !
     allocate ( solution(1:nq,1:n_solpts) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"solution",1,ierr,error_message)
+    call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
     ! 
     l2 = 0
     do n = 1,ncell
@@ -905,10 +916,11 @@ continue
     ! Deallocate ordered_geom and solution since they are no longer needed
     !
     deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",2,ierr,error_message)
+    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
     deallocate ( solution , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"solution",2,ierr,error_message)
+    call alloc_error(pname,"solution",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !
@@ -926,7 +938,7 @@ subroutine check_restart_dir
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
   integer :: final_iter_digits
-  logical :: using_restart_dir
+  logical(lk) :: using_restart_dir
   character(len=300) :: command
   character(len=300) :: cmndmsg
   character(len=200) :: test_file
@@ -936,7 +948,7 @@ subroutine check_restart_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_restart_dir"
   !
-  logical, parameter :: wait_for_completion = true
+  logical(lk), parameter :: wait_for_completion = true
   !
 continue
   !
@@ -1055,7 +1067,7 @@ subroutine get_output_mpi_datatypes()
   integer :: global_cell
   !
   !.. Local Allocatable Arrays ..
-  logical,          allocatable :: msk(:)
+  logical(lk),          allocatable :: msk(:)
   integer(int_mpi), allocatable :: og_offset(:)
   integer(int_mpi), allocatable :: sol_offset(:)
   integer(int_mpi), allocatable :: sol_blklen(:)
@@ -1070,15 +1082,15 @@ continue
   !
   allocate ( og_offset(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"og_offset",1,ierr,error_message)
+  call alloc_error(pname,"og_offset",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( sol_offset(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_offset",1,ierr,error_message)
+  call alloc_error(pname,"sol_offset",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( sol_blklen(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_blklen",1,ierr,error_message)
+  call alloc_error(pname,"sol_blklen",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the cell offsets as well as the block lengths
   ! and offsets for the solution data
@@ -1120,10 +1132,11 @@ continue
   !
   allocate ( cell_output_order(1:ncell) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_output_order",1,ierr,error_message)
+  call alloc_error(pname,"cell_output_order",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   allocate ( msk(1:ncell) , source=true , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Sort the og_offset array to find the output order for the cells so that
   ! the offsets for the MPI datatypes are monotonically increasing.
@@ -1140,14 +1153,14 @@ continue
   ! Deallocate the msk array
   !
   deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,ierr,error_message)
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the temporary array for applying the sorting to the offset
   ! and block length arrays.
   !
   allocate ( tmp_copy(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tmp_copy",1,ierr,error_message)
+  call alloc_error(pname,"tmp_copy",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Apply the sort to the og_offset array
   !
@@ -1167,7 +1180,7 @@ continue
   ! Deallocate the temporary array
   !
   deallocate ( tmp_copy , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tmp_copy",2,ierr,error_message)
+  call alloc_error(pname,"tmp_copy",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the MPI derived datatype for writing the
   ! ordered_geom array to the restart file
@@ -1188,13 +1201,13 @@ continue
   ! Deallocate the local arrays before leaving
   !
   deallocate ( og_offset , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"og_offset",2,ierr,error_message)
+  call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
   !
   deallocate ( sol_offset , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_offset",2,ierr,error_message)
+  call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
   !
   deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_blklen",2,ierr,error_message)
+  call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
   !
 end subroutine get_output_mpi_datatypes
 !
@@ -1223,7 +1236,7 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
   integer :: inp_cell,inp_geom,inp_order
   !
   !.. Local Allocatable Arrays ..
-  logical,          allocatable :: msk(:)
+  logical(lk),          allocatable :: msk(:)
   integer(int_mpi), allocatable :: sol_offset(:)
   integer(int_mpi), allocatable :: sol_blklen(:)
   integer(int_mpi), allocatable :: tmp_copy(:)
@@ -1253,15 +1266,15 @@ continue
   !
   allocate ( pinc_ptr(1:size(ordered_geom)+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"pinc_ptr",1,ierr,error_message)
+  call alloc_error(pname,"pinc_ptr",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( sol_offset(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_offset",1,ierr,error_message)
+  call alloc_error(pname,"sol_offset",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( sol_blklen(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_blklen",1,ierr,error_message)
+  call alloc_error(pname,"sol_blklen",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create a pointer array for the solution points of each cell
   ! corresponding to how the cells are stored in the restart file.
@@ -1300,20 +1313,22 @@ continue
   ! Deallocate the pinc_ptr since it is no longer needed
   !
   deallocate ( pinc_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"pinc_ptr",2,ierr,error_message)
+  call alloc_error(pname,"pinc_ptr",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the cell_input_data array and
   ! the mask array for sorting the cell offsets
   !
   if (allocated(cell_input_data)) then
     deallocate ( cell_input_data , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_input_data",2,ierr,error_message)
+    call alloc_error(pname,"cell_input_data",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   allocate ( cell_input_data(1:ncell) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_input_data",1,ierr,error_message)
+  call alloc_error(pname,"cell_input_data",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   allocate ( msk(1:ncell) , source=true , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Sort the sol_offset array to find the output order for the cells so that
   ! the offsets for the MPI datatypes are monotonically increasing.
@@ -1330,14 +1345,14 @@ continue
   ! Deallocate the msk array
   !
   deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,ierr,error_message)
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the temporary array for applying the sorting to the offset
   ! and block length arrays.
   !
   allocate ( tmp_copy(1:ncell) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tmp_copy",1,ierr,error_message)
+  call alloc_error(pname,"tmp_copy",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Apply the sort to the sol_offset array
   !
@@ -1352,7 +1367,7 @@ continue
   ! Deallocate the temporary array
   !
   deallocate ( tmp_copy , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"tmp_copy",2,ierr,error_message)
+  call alloc_error(pname,"tmp_copy",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the remaining information within cell_input_data and convert
   ! the ordered_geom values that are currently stored in the block length
@@ -1418,10 +1433,10 @@ continue
   ! Deallocate the local arrays before leaving
   !
   deallocate ( sol_offset , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_offset",2,ierr,error_message)
+  call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
   !
   deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"sol_blklen",2,ierr,error_message)
+  call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
   !
   !
 end subroutine get_input_mpi_datatypes

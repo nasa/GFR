@@ -243,8 +243,8 @@ subroutine get_cell_timestep(dtmin)
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
   !
-  logical, parameter :: use_sqrt = true
- !logical, parameter :: use_sqrt = fals
+  logical(lk), parameter :: use_sqrt = true
+ !logical(lk), parameter :: use_sqrt = fals
   !
 continue
   !

@@ -106,7 +106,7 @@ continue
   ! Allocate the correct array
   !
   allocate ( correct(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"correct",1,ierr,error_message)
+  call alloc_error(pname,"correct",1,__LINE__,__FILE__,ierr,error_message)
   !
   geom_loop: do this_geom = gmin,gmax
     !
@@ -133,7 +133,7 @@ continue
       allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
                  source=zero , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Assign local pointers to these matrices as aliases to simplify the code
       !
@@ -188,7 +188,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !
@@ -214,7 +214,7 @@ continue
     !
     allocate ( correct_sol(gmin:gmax,omin:omax) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"correct_sol",1,ierr,error_message)
+    call alloc_error(pname,"correct_sol",1,__LINE__,__FILE__,ierr,error_message)
     !
     output_geom_loop: do this_geom = gmin,gmax
       !
@@ -241,7 +241,8 @@ continue
         allocate ( this_correct%mat(1:nsolpts,1:nflxpts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order
-        call alloc_error(pname,array_name,1,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message)
         !
         ! Assign local pointers to these matrices
         ! as aliases to simplify the code
@@ -297,7 +298,7 @@ continue
           case default
             !
             write (error_message,2)
-            call stop_recon(stop_mpi,pname,error_message)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -345,7 +346,7 @@ continue
  !5 format (*(1x,a1))
  !6 format ("After output of correction matrices for hexa geometries")
  !write (error_message,6)
- !call stop_recon(stop_mpi,pname,error_message)
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
@@ -363,14 +364,14 @@ pure function CorrectionMatrix_Edge(xi,eval_deriv) result(return_value)
   real(wp), dimension(:), intent(in) :: xi
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), dimension(1:size(xi)) :: return_value
   !
   !.. Local Scalars ..
   integer  :: n,k,j,npts,ndeg
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   real(qp) :: cn,cnm1,cnm2
   !
   !.. Local Arrays ..
@@ -543,14 +544,14 @@ pure function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
   real(wp), dimension(:), intent(in) :: wts1d
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,k,nf,np,nsp,nfp,ierr
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: cmat_qp(:,:)
@@ -639,7 +640,7 @@ pure function CorrectionMatrix_Quad(xi,eval_deriv) result(return_value)
   real(wp), dimension(:), intent(in) :: xi
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -741,7 +742,7 @@ pure function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: rs
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -749,7 +750,7 @@ pure function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -869,7 +870,7 @@ pure function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: rs
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -877,7 +878,7 @@ pure function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -997,7 +998,7 @@ pure function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: rs
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -1005,7 +1006,7 @@ pure function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -1125,7 +1126,7 @@ pure function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: rs
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -1133,7 +1134,7 @@ pure function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
   !.. Local Scalars ..
   integer :: i,j,n1,n2,np,nsp,nfp
   integer :: this_order,ierr
-  logical :: compute_derivative
+  logical(lk) :: compute_derivative
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: Fmask(:,:)
@@ -1247,7 +1248,7 @@ pure function CorrectionMatrix_Hexa(xi,eval_deriv) result(return_value)
   real(wp), dimension(:), intent(in) :: xi
   !
   !.. Optional Arguments ..
-  logical, optional, intent(in) :: eval_deriv
+  logical(lk), optional, intent(in) :: eval_deriv
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)

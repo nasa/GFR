@@ -403,11 +403,11 @@ subroutine get_metrics()
                                              "uniform.fwd.dat", &
                                              "uniform.rev.dat"]
   !
- !logical, parameter :: output_metrics = true
-  logical, parameter :: output_metrics = fals
+ !logical(lk), parameter :: output_metrics = true
+  logical(lk), parameter :: output_metrics = fals
   !
-  logical, parameter :: use_derivative_matrices = true
- !logical, parameter :: use_derivative_matrices = fals
+  logical(lk), parameter :: use_derivative_matrices = true
+ !logical(lk), parameter :: use_derivative_matrices = fals
   !
   character(len=*), parameter :: cxyz(3,2) = reshape( ["X","Y","Z", &
                                                        "R","S","T"], &
@@ -447,22 +447,22 @@ continue
   !
   allocate ( metrics(1:nr,1:nr,1:n_totpts,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"metrics",1,ierr,error_message)
+  call alloc_error(pname,"metrics",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( jacobian(1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"jacobian",1,ierr,error_message)
+  call alloc_error(pname,"jacobian",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( volj(1:n_totcel) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"volj",1,ierr,error_message)
+  call alloc_error(pname,"volj",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the outer part of the geofa array
   !
-  allocate ( geofa(1:nface) , stat=ierr )
-  call alloc_error(pname,"geofa",1,ierr,error_message)
- !allocate ( geofa2(1:nface) , stat=ierr )
- !call alloc_error(pname,"geofa2",1,ierr,error_message)
+  allocate ( geofa(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"geofa",1,__LINE__,__FILE__,ierr,error_message)
+ !allocate ( geofa2(1:nface) , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"geofa2",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the data components of the geofa array
   !
@@ -476,12 +476,13 @@ continue
     allocate ( geofa(nf)%v(1:nr,1:nfpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) "geofa",nf
-    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
     !
    !allocate ( geofa2(nf)%v(1:nr,1:nfpts) , source=zero , &
    !           stat=ierr , errmsg=error_message )
    !write (array_name,1) "geofa2",nf
-   !call alloc_error(pname,array_name,1,ierr,error_message)
+   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
   end do
   !
@@ -491,16 +492,16 @@ continue
     !
     allocate ( metrics2(1:nr,1:nr,1:nr,1:n_totpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"metrics2",1,ierr,error_message)
+    call alloc_error(pname,"metrics2",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( dJ(1:nr,1:n_totpts) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dJ",1,ierr,error_message)
+    call alloc_error(pname,"dJ",1,__LINE__,__FILE__,ierr,error_message)
     !
     if (use_3rd_derivative_metrics) then
       !
       allocate ( metrics3(1:nr,1:nr,1:nr,1:nr,1:n_totpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"metrics3",1,ierr,error_message)
+      call alloc_error(pname,"metrics3",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
     !
@@ -751,7 +752,7 @@ continue
       ! ##########################################
       !
       write (error_message,2)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     else if (this_geom == Geom_Pyra) then
       !
@@ -760,7 +761,7 @@ continue
       ! ######################################
       !
       write (error_message,3)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
       ! ########################################################################
       ! ########################################################################
@@ -905,7 +906,7 @@ continue
       !
       !
       write (error_message,4)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     else if (this_geom == Geom_Hexa) then
       !
@@ -1128,7 +1129,7 @@ continue
       ! Unknown or unsupported geometry
       !
       write (error_message,6)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     end if
     !
@@ -1169,7 +1170,7 @@ continue
  !  end do
  !  write (error_message,*) "After outputting the metrics because ", &
  !                          "the output_metrics parameter is active!"
- !  call stop_recon(stop_mpi,pname,error_message)
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !  194 format (a,a)
  !  199 format (/," Error attempting to use command line!",/, &
  !                " exit status    = ",i0,/, &
@@ -1303,7 +1304,7 @@ continue
  !23 format ('ZONE T="K',i0,' Faces", N=',i0,', E=',i0,', DATAPACKING=BLOCK', &
  !           ', ZONETYPE=FEQUADRILATERAL',/,'VARSHARELIST=([1-3]=1)')
  !close (nfpts,iostat=ierr)
- !call stop_recon(stop_mpi,pname)
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! ##########################################################################
   ! ##########################################################################
@@ -1332,7 +1333,7 @@ continue
   !
   if (allocated(geofa2)) then
     deallocate ( geofa2 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"geofa2",2,ierr,error_message)
+    call alloc_error(pname,"geofa2",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -1373,7 +1374,7 @@ subroutine compute_face_normals
   integer :: face_geom,face_order
   integer :: inrm,ierr,npcount,nfpts
   real(wp) :: nrm_coef
-  logical :: dmat_has_been_output
+  logical(lk) :: dmat_has_been_output
   !
   !.. Local Arrays ..
   real(wp) :: dvec(1:3,1:3)
@@ -1386,8 +1387,8 @@ subroutine compute_face_normals
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_face_normals"
   character(len=*), parameter :: fname = "face_normals.tec.dat"
- !logical, parameter :: output_face_normals = true
-  logical, parameter :: output_face_normals = fals
+ !logical(lk), parameter :: output_face_normals = true
+  logical(lk), parameter :: output_face_normals = fals
   !
 continue
   !
@@ -1409,15 +1410,17 @@ continue
       !
       write (inrm,20) nfpts,nface
       !
-      allocate ( ipface(1:2,1:nface) , source=0 , stat=ierr )
-      call alloc_error(pname,"ipface",1,ierr)
+      allocate ( ipface(1:2,1:nface) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",1,__LINE__,__FILE__,ierr,error_message)
       !
     else if (nr == 3) then
       !
       write (inrm,21) nfpts,nface
       !
-      allocate ( ipface(1:4,1:nface) , source=0 , stat=ierr )
-      call alloc_error(pname,"ipface",1,ierr)
+      allocate ( ipface(1:4,1:nface) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
     !
@@ -1587,8 +1590,8 @@ continue
     call io_error(pname,"face_normals.tec.dat",2,ierr)
     !
     if (allocated(ipface)) then
-      deallocate ( ipface , stat=ierr )
-      call alloc_error(pname,"ipface",2,ierr)
+      deallocate ( ipface , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
   end if

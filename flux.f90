@@ -398,7 +398,7 @@ continue
      !                           toFace(face_order)% &
      !                 mat(k,l), k=1,np), l=1,nf)
      !15 format (25(5es16.8,/),/)
-     !call stop_recon(stop_mpi,"flux_gradient_at_solpts_visc")
+     !call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
       !
       do kf = 1,size(cell(nc)%face(n)%cell_idx) ! index of the flx-pt
         !                                         local to this face
@@ -1775,8 +1775,8 @@ subroutine correct_solution_for_output(interp_usp,interp_dusp)
   real(wp), parameter :: addsub_cor =  one
  !real(wp), parameter :: addsub_cor = -one
   !
- !logical, parameter :: use_jacobian = true
-  logical, parameter :: use_jacobian = fals
+ !logical(lk), parameter :: use_jacobian = true
+  logical(lk), parameter :: use_jacobian = fals
   !
   real(wp), parameter :: dscoef = one
  !real(wp), parameter :: dscoef = half
@@ -2325,7 +2325,7 @@ subroutine correct_interface_flux_with_qdtr()
   !
   use order_mod,  only : maxFP,maxGP,q_order,geom_solpts
   use geovar,  only : nfbnd,nface,nr
-  use geovar,  only : bface,face,cell,xyz
+  use geovar,  only : bface,face,cell
   use geovar,  only : using_quadrature
   use ovar,    only : flux_divergence,dflux_opt,itcur
   use ovar,    only : invs_flux_method

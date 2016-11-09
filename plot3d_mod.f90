@@ -29,17 +29,17 @@ module module_plot3d
   ! ###  Module Local Variables  ###
   ! ################################
   !
-  logical, save :: is_multiblock
-  logical, save :: is_formatted
-  logical, save :: is_dbl_precision
-  logical, save :: blk_header_is_dbl_precision
-  logical, save :: is_big_endian
+  logical(lk), save :: is_multiblock
+  logical(lk), save :: is_formatted
+  logical(lk), save :: is_dbl_precision
+  logical(lk), save :: blk_header_is_dbl_precision
+  logical(lk), save :: is_big_endian
   !
   integer, save :: nblk
   integer, save :: nbc
   integer, save :: ncut
   !
-  logical, save :: plot3d_has_periodic_faces = fals
+  logical(lk), save :: plot3d_has_periodic_faces = fals
   !
   character(len=150), save :: grid_folder
   !
@@ -227,28 +227,28 @@ continue
   ! since we wont be needing them anymore.
   !
   if (allocated(bcs_info)) then
-    deallocate ( bcs_info , stat=ierr )
-    call alloc_error(pname,"bcs_info",2,ierr)
+    deallocate ( bcs_info , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bcs_info",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(cut_info)) then
-    deallocate ( cut_info , stat=ierr )
-    call alloc_error(pname,"cut_info",2,ierr)
+    deallocate ( cut_info , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cut_info",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(ijkpts)) then
-    deallocate ( ijkpts , stat=ierr )
-    call alloc_error(pname,"ijkpts",2,ierr)
+    deallocate ( ijkpts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ijkpts",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(offset)) then
-    deallocate ( offset , stat=ierr )
-    call alloc_error(pname,"offset",2,ierr)
+    deallocate ( offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(lpnew)) then
-    deallocate ( lpnew , stat=ierr )
-    call alloc_error(pname,"lpnew",2,ierr)
+    deallocate ( lpnew , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"lpnew",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
 end subroutine read_plot3d_gridfile
@@ -265,6 +265,7 @@ subroutine readplot3d(gridfile)
   !
   !.. Use Statements ..
   use geovar, only : nr,xyz_nodes
+  use geovar, only : grid
   use geovar, only : ncell,nnode
   use ovar,   only : plot3d_all_strides
   use ovar,   only : plot3d_i_stride
@@ -336,12 +337,13 @@ continue
       end if
     end do
   end do
-  if (l == 1) call stop_recon(stop_mpi,pname)
+  if (l == 1) call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Allocate the node and cell offset array
   !
-  allocate ( offset(1:2,1:nblk) , source=0 , stat=ierr )
-  call alloc_error(pname,"offset",1,ierr)
+  allocate ( offset(1:2,1:nblk) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"offset",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the offset arrays for each block
   !
@@ -362,8 +364,9 @@ continue
   !
   ! Allocate the node coordinate array
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error(pname,"xyz_nodes",1,ierr)
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Read in the node coordinates
   !
@@ -401,8 +404,9 @@ continue
       !
       ! Allocate the single precision coordinate array
       !
-      allocate ( r4_nodes(1:nr,1:nnode) , source=0.0_r4 , stat=ierr )
-      call alloc_error(pname,"r4_nodes",1,ierr)
+      allocate ( r4_nodes(1:nr,1:nnode) , source=0.0_r4 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"r4_nodes",1,__LINE__,__FILE__,ierr,error_message)
       !
       backspace (iogrd)
      !do iblk = 1,nblk
@@ -427,8 +431,8 @@ continue
       !
       ! Finish by deallocate the single precision array
       !
-      deallocate ( r4_nodes , stat=ierr )
-      call alloc_error(pname,"r4_nodes",2,ierr)
+      deallocate ( r4_nodes , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"r4_nodes",2,__LINE__,__FILE__,ierr,error_message)
       !
     else
       !
@@ -501,7 +505,7 @@ continue
     !
     allocate ( temp_xyz(1:nr,1:nnode_new) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"temp_xyz",1,ierr,error_message)
+    call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
     !
     n = 0
     !
@@ -547,7 +551,7 @@ continue
       write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
       write (iout,*) " npts      = ",npts
       write (iout,*) " nnode_new = ",nnode_new
-      call stop_recon(stop_mpi,pname)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     end if
     !
     offset(1,1) = 1 ! node offset
@@ -586,7 +590,8 @@ continue
     !
   end if
   !
- !call stop_recon(stop_mpi,pname,"multiblock testing in readplot3d")
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !                "multiblock testing in readplot3d")
   !
   ! Format Statements
   !
@@ -649,8 +654,9 @@ continue
     !
     ! Allocate ijkpts, and initialize to 1 node in each direction
     !
-    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-    call alloc_error(pname,"ijkpts (SB)",1,ierr)
+    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ijkpts (SB)",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Make sure that num_val is equal to either 2 or 3
     !
@@ -681,8 +687,9 @@ continue
     !
     ! Allocate ijkpts, and initialize to 1 node in each direction
     !
-    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-    call alloc_error(pname,"ijkpts (MB)",1,ierr)
+    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ijkpts (MB)",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! We need to get the dimensions of each block but we dont know
     ! if this is a 3D or 2D grid. Therefore, we must continue reading
@@ -766,8 +773,8 @@ continue
   ! Deallocate clist before we leave if it is allocated
   !
   if (allocated(clist)) then
-    deallocate ( clist , stat=ierr )
-    call alloc_error(pname,"clist",2,ierr)
+    deallocate ( clist , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Return statement to ignore the remaining error crap
@@ -782,7 +789,7 @@ continue
   103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
   104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,pname)
+  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -894,8 +901,9 @@ continue
   !
   ! Allocate ijkpts, and initialize to 1 node in each direction
   !
-  allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr)
-  call alloc_error(pname,"ijkpts",1,ierr)
+  allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ijkpts",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Read the grid dimensions, assuming it is a 3D grid
   !
@@ -943,7 +951,7 @@ continue
   102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
   103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,pname)
+  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -1068,7 +1076,7 @@ end subroutine read_p3d_unformatted_header
 !    !
 !    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
 !               stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
+!    call alloc_error(pname,"ijkpts",1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    ! Get the current file position before continuing
 !    !
@@ -1105,7 +1113,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      if (all(nr /= [2,3])) then
 !        write (error_message,20)
-!        call stop_recon(stop_mpi,pname,error_message)
+!        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
 !      end if
 !      !
 !    end if
@@ -1121,7 +1129,7 @@ end subroutine read_p3d_unformatted_header
 !    !
 !    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
 !               stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"ijkpts",1,ierr,error_message)
+!    call alloc_error(pname,"ijkpts",1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    if (blk_header_is_dbl_precision) then
 !      !
@@ -1129,7 +1137,8 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      allocate ( ijkpts_i8(1:3,1:nblk) , source=1_i8 , &
 !                 stat=ierr , errmsg=error_message )
-!      call alloc_error(pname,"ijkpts_i8",1,ierr,error_message)
+!      call alloc_error(pname,"ijkpts_i8",1,__LINE__,__FILE__,ierr, &
+!                       error_message)
 !      !
 !      ! Read the opening record marker for the block dimensions
 !      !
@@ -1160,7 +1169,8 @@ end subroutine read_p3d_unformatted_header
 !      ! Deallocate ijkpts_i8
 !      !
 !      deallocate ( ijkpts_i8 , stat=ierr , errmsg=error_message )
-!      call alloc_error(pname,"ijkpts_i8",2,ierr,error_message)
+!      call alloc_error(pname,"ijkpts_i8",2,__LINE__,__FILE__,ierr, &
+!                       error_message)
 !      !
 !    else
 !      !
@@ -1168,7 +1178,8 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      allocate ( ijkpts_i4(1:3,1:nblk) , source=1_i4 , &
 !                 stat=ierr , errmsg=error_message )
-!      call alloc_error(pname,"ijkpts_i4",1,ierr,error_message)
+!      call alloc_error(pname,"ijkpts_i4",1,__LINE__,__FILE__,ierr, &
+!                       error_message)
 !      !
 !      ! Read the opening record marker for the block dimensions
 !      !
@@ -1199,7 +1210,8 @@ end subroutine read_p3d_unformatted_header
 !      ! Deallocate ijkpts_i4
 !      !
 !      deallocate ( ijkpts_i4 , stat=ierr , errmsg=error_message )
-!      call alloc_error(pname,"ijkpts_i4",2,ierr,error_message)
+!      call alloc_error(pname,"ijkpts_i4",2,__LINE__,__FILE__,ierr, &
+!                       error_message)
 !      !
 !    end if
 !    !
@@ -1288,12 +1300,13 @@ end subroutine read_p3d_unformatted_header
 !    ! Allocate ijkpts, and initialize to 1 node in each direction
 !    !
 !    if (allocated(ijkpts)) then
-!      deallocate ( ijkpts , stat=ierr )
-!      call alloc_error(pname,"ijkpts",2,ierr)
+!      deallocate ( ijkpts , stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts",2,__LINE__,__FILE__,ierr,error_message)
 !    end if
 !    !
-!    allocate ( ijkpts(1:3,1:nblk) , source=1 , stat=ierr )
-!    call alloc_error(pname,"ijkpts",1,ierr)
+!    allocate ( ijkpts(1:3,1:nblk) , source=1 , &
+!               stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"ijkpts",1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    ! Read the grid dimensions, assuming it is a 3D grid
 !    !
@@ -1344,13 +1357,14 @@ end subroutine read_p3d_unformatted_header
 !    ! Make an i8 copy of ijkpts
 !    !
 !    if (allocated(ijkpts_i8)) then
-!      deallocate ( ijkpts_i8 , stat=ierr )
-!      call alloc_error(pname,"ijkpts_i8",2,ierr)
+!      deallocate ( ijkpts_i8 , stat=ierr , errmsg=error_message )
+!      call alloc_error(pname,"ijkpts_i8",2,__LINE__,__FILE__,ierr, &
+!      error_message)
 !    end if
 !    !
 !    allocate ( ijkpts_i8(1:3,1:nblk) , source=int(ijkpts,kind=i8) , &
 !               stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"ijkpts_i8",1,ierr,error_message)
+!    call alloc_error(pname,"ijkpts_i8",1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    ! Get the total number of points in i4 and i8 integer types
 !    !
@@ -1385,8 +1399,8 @@ end subroutine read_p3d_unformatted_header
 !  end do endian_check_loop
 !  !
 !  if (allocated(ijkpts_i8)) then
-!    deallocate ( ijkpts_i8 , stat=ierr )
-!    call alloc_error(pname,"ijkpts_i8",2,ierr)
+!    deallocate ( ijkpts_i8 , stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"ijkpts_i8",2,__LINE__,__FILE__,ierr,error_message)
 !  end if
 !  !
 !  ! Return statement to ignore the remaining error crap
@@ -1401,7 +1415,7 @@ end subroutine read_p3d_unformatted_header
 !  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
 !  104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
 !  !
-!  999 call stop_recon(stop_mpi,pname)
+!  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
 !  !
 !  ! Format Statements
 !  !
@@ -1434,7 +1448,7 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  !.. Local Scalars ..
 !!  integer :: iogrd,n,ierr
-!!  logical :: first_record_successfully_read
+!!  logical(lk) :: first_record_successfully_read
 !!  integer(i4) :: rec_header_i4,int_i4,ncount_i4
 !!  integer(i8) :: rec_header_i8,int_i8,ncount_i8
 !!  character(len=200) :: error_message
@@ -1618,7 +1632,7 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  if (.not. first_record_successfully_read) then
 !!    write (error_message,1)
-!!    call stop_recon(stop_mpi,pname,error_message)
+!!    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
 !!  end if
 !!  !
 !!  ! Determine the endianess of the file
@@ -1670,7 +1684,7 @@ end subroutine read_p3d_unformatted_header
 !!            " COULD NOT BE DETERMINED!")
 !!  4 format (a,i0)
 !!  !
-!!  call stop_recon(stop_mpi,pname)
+!!  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
 !!  !
 !!end subroutine determine_unformatted_structure
 !
@@ -1733,8 +1747,8 @@ continue
   !
   ! Allocate the boundary condition array
   !
-  allocate ( bcs_info(1:nbc) , stat=ierr )
-  call alloc_error(pname,"bcs_info",1,ierr)
+  allocate ( bcs_info(1:nbc) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bcs_info",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Rewind back to the beginning of the BC file and
   ! skip/read the header line.
@@ -1810,7 +1824,7 @@ continue
       !
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
         if (mypnum == 0) write (iout,3) nb,dir,dir1
-        call stop_recon(stop_mpi,pname)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
       end if
       !
       beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -1872,8 +1886,8 @@ continue
   ! Deallocate clist if it is still allocated
   !
   if (allocated(clist)) then
-    deallocate ( clist , stat=ierr )
-    call alloc_error(pname,"clist",2,ierr)
+    deallocate ( clist , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -1944,8 +1958,8 @@ continue
   !
   ! Allocate the cut condition array
   !
-  allocate ( cut_info(1:ncut) , stat=ierr )
-  call alloc_error(pname,"cut_info",1,ierr)
+  allocate ( cut_info(1:ncut) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cut_info",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Rewind back to the beginning of the cut file and
   ! skip/read the header line.
@@ -2023,7 +2037,7 @@ continue
         !
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
           if (mypnum == 0) write (iout,3) n,m,dir,dir1
-          call stop_recon(stop_mpi,pname)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
         end if
         !
         beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -2074,7 +2088,7 @@ continue
     if (cut_points(1) /= cut_points(2)) then
       if (mypnum == 0) write (iout,2) trim(cut_info(n)%cut_name(1)), &
                                            cut_points(1),cut_points(2)
-      call stop_recon(stop_mpi,pname)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     else
       cut_info(n)%points = cut_points(1)
     end if
@@ -2087,8 +2101,8 @@ continue
   ! Deallocate clist if it is still allocated
   !
   if (allocated(clist)) then
-    deallocate ( clist , stat=ierr )
-    call alloc_error(pname,"clist",2,ierr)
+    deallocate ( clist , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -2144,8 +2158,10 @@ continue
     !
     ! Allocate the cut_info(n)%nodes array
     !
-    allocate ( cut_info(n)%nodes(1:2,1:np) , source=0 , stat=ierr )
-    call alloc_error(pname,"cut_info(n)%nodes",1,ierr)
+    allocate ( cut_info(n)%nodes(1:2,1:np) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cut_info(n)%nodes",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
     ! Loop over the two blocks
     !
@@ -2255,7 +2271,7 @@ subroutine remove_duplicate_nodes()
   integer :: ip,ipcut,ip1,ip2,ip3,n,ib1,ib2,ipn1,ipn2,ierr
   integer :: new_node,old_node,duplicate_node,l
   integer :: nnode_new,nnode_old
-  logical :: first_line_not_output
+  logical(lk) :: first_line_not_output
  !real(wp) :: diff
   !
   !.. Local Arrays ..
@@ -2278,8 +2294,9 @@ continue
   !
   nnode_old = nnode
   !
-  allocate ( lpoin(1:nnode_old) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpoin",1,ierr)
+  allocate ( lpoin(1:nnode_old) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
   !
   do ip = 1,nnode_old
     lpoin(ip) = ip
@@ -2354,10 +2371,12 @@ continue
   !
   nnode_new = count( lpoin(:) > 0 )
   !
-  allocate ( lpold(1:nnode_new) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpold",1,ierr)
-  allocate ( lpnew(1:nnode_old) , source=0 , stat=ierr )
-  call alloc_error(pname,"lpnew",1,ierr)
+  allocate ( lpold(1:nnode_new) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpold",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( lpnew(1:nnode_old) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpnew",1,__LINE__,__FILE__,ierr,error_message)
   !
   new_node = 0
   do old_node = 1,nnode_old
@@ -2433,15 +2452,16 @@ continue
   !
   ! Deallocate lpoin since we are done with it
   !
-  deallocate ( lpoin , stat=ierr )
-  call alloc_error(pname,"lpoin",2,ierr)
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Adjust xyz_nodes to reflect the nodal set without any duplicates
   !
   ! Allocate the temporary nodal array
   !
-  allocate( temp_xyz(1:nr,1:nnode_new) , source=zero , stat=ierr )
-  call alloc_error(pname,"temp_xyz",1,ierr)
+  allocate( temp_xyz(1:nr,1:nnode_new) , source=zero , &
+            stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Copy over the non-duplicate nodes from xyz_nodes into temp_xyz
   !
@@ -2466,8 +2486,8 @@ continue
   !
   ! Before we leave, deallocate lpold
   !
-  deallocate ( lpold , stat=ierr )
-  call alloc_error(pname,"lpold",2,ierr)
+  deallocate ( lpold , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpold",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Format Statements
   !
@@ -2506,14 +2526,18 @@ continue
   !
   ! Allocate the nodes_of_cell pointer array
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
-  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
-  call alloc_error(pname,"cell_geom",1,ierr)
+  allocate ( cell_geom(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
-  call alloc_error(pname,"cell_order",1,ierr)
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Set the cell geometry type for all the cells
   !
@@ -2532,8 +2556,9 @@ continue
   !
   ! Allocate the nodes_of_cell array based on the last pointer value
   !
-  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell",1,ierr)
+  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Initialize the cell counter
   !
@@ -2580,8 +2605,8 @@ continue
   !
   ! Deallocate lpnew since it is no longer needed
   !
-  deallocate ( lpnew , stat=ierr )
-  call alloc_error(pname,"lpnew",2,ierr)
+  deallocate ( lpnew , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpnew",2,__LINE__,__FILE__,ierr,error_message)
   !
 end subroutine create_nodes_of_cells
 !
@@ -2617,8 +2642,9 @@ continue
   !
   ! Allocate the bface array
   !
-  allocate ( bface(1:nbfai,1:nfbnd), source=0 , stat=ierr )
-  call alloc_error(pname,"bface",1,ierr)
+  allocate ( bface(1:nbfai,1:nfbnd), source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Initialize the face counter
   !
@@ -2714,7 +2740,7 @@ continue
   !
   if (nfbnd /= nf) then
     if (mypnum == 0) write (iout,2) nfbnd,nf
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
  !do nf = 1,nfbnd
@@ -2756,8 +2782,8 @@ subroutine match_plot3d_periodic_boundaries()
   integer, dimension(1:2,1:3) :: idx
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable :: face_msk(:,:)
-  logical, allocatable :: matched(:)
+  logical(lk), allocatable :: face_msk(:,:)
+  logical(lk), allocatable :: matched(:)
   integer, allocatable :: minfac(:)
   integer, allocatable :: maxfac(:)
   real(wp), allocatable :: ds(:)
@@ -2781,7 +2807,7 @@ continue
   !
   allocate ( face_msk(1:nfbnd,1:6) , source=fals , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_msk",1,ierr,error_message)
+  call alloc_error(pname,"face_msk",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Count the number of periodic faces for each direction
   !
@@ -2803,7 +2829,7 @@ continue
     if (pfaces(5) /= pfaces(6)) then
       write (iout,1) "Z",pfaces(5),pfaces(6)
     end if
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   !
@@ -2817,25 +2843,25 @@ continue
     !
     allocate ( minfac(1:npf) , source=pack(intseq(1,nfbnd),face_msk(:,nmin)) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"minfac",1,ierr,error_message)
+    call alloc_error(pname,"minfac",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( maxfac(1:npf) , source=pack(intseq(1,nfbnd),face_msk(:,nmax)) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"maxfac",1,ierr,error_message)
+    call alloc_error(pname,"maxfac",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( xyz_min(1:nr,1:npf) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_min",1,ierr,error_message)
+    call alloc_error(pname,"xyz_min",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( xyz_max(1:nr,1:npf) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_max",1,ierr,error_message)
+    call alloc_error(pname,"xyz_max",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( matched(1:npf) , source=fals , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"matched",1,ierr,error_message)
+    call alloc_error(pname,"matched",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( ds(1:npf) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ds",1,ierr,error_message)
+    call alloc_error(pname,"ds",1,__LINE__,__FILE__,ierr,error_message)
     !
     !
     !
@@ -2920,27 +2946,27 @@ continue
     !
     !
     deallocate ( minfac , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"minfac",2,ierr,error_message)
+    call alloc_error(pname,"minfac",2,__LINE__,__FILE__,ierr,error_message)
     !
     deallocate ( maxfac , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"maxfac",2,ierr,error_message)
+    call alloc_error(pname,"maxfac",2,__LINE__,__FILE__,ierr,error_message)
     !
     deallocate ( xyz_min , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_min",2,ierr,error_message)
+    call alloc_error(pname,"xyz_min",2,__LINE__,__FILE__,ierr,error_message)
     !
     deallocate ( xyz_max , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_max",2,ierr,error_message)
+    call alloc_error(pname,"xyz_max",2,__LINE__,__FILE__,ierr,error_message)
     !
     deallocate ( matched , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"matched",2,ierr,error_message)
+    call alloc_error(pname,"matched",2,__LINE__,__FILE__,ierr,error_message)
     !
     deallocate ( ds , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ds",2,ierr,error_message)
+    call alloc_error(pname,"ds",2,__LINE__,__FILE__,ierr,error_message)
     !
   end do
   !
   deallocate ( face_msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_msk",2,ierr,error_message)
+  call alloc_error(pname,"face_msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   1 format (/," The number of periodic faces in the ",a, &
               " direction is not consistent!",/, &
@@ -3025,7 +3051,7 @@ subroutine check_supplementary_file(filename,file_default)
   !
   !.. Local Scalars ..
   character(len=len(grid_folder)+len(filename)) :: test_file
-  logical :: found
+  logical(lk) :: found
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_supplementary_file"
@@ -3115,7 +3141,7 @@ subroutine parse_list(strng,clist,list_min_size)
   !.. Local Scalars ..
   integer :: ibeg,is,m,n,num_str,ierr
   integer :: num_rpt,new_size,old_size
-  logical :: repeats_exist
+  logical(lk) :: repeats_exist
   character(len=len(clist)) :: substr_before,substr_after
   !
   !.. Local Allocatable Arrays ..
@@ -3196,8 +3222,9 @@ continue
     ! in each clist element and the array giving the number
     ! of repeat counts for those elements
     !
-    allocate ( ast_loc(1:num_str) , source=0 , stat=ierr )
-    call alloc_error(pname,"ast_loc",1,ierr)
+    allocate ( ast_loc(1:num_str) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ast_loc",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Loop through the elements of clist and find the location of any asterisks
     !
@@ -3265,8 +3292,8 @@ continue
     !
     ! Deallocate ast_loc since we are done expanding the repeat counts
     !
-    deallocate ( ast_loc , stat=ierr )
-    call alloc_error(pname,"ast_loc",2,ierr)
+    deallocate ( ast_loc , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ast_loc",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !
@@ -3299,7 +3326,7 @@ pure function string_is_integer(strng) result(return_value)
   character(len=*), intent(in) :: strng
   !
   !.. Function Result ..
-  logical :: return_value
+  logical(lk) :: return_value
   !
   !.. Local Scalars ..
   integer :: n,lenstr,ierr,ival
@@ -3307,7 +3334,7 @@ pure function string_is_integer(strng) result(return_value)
   character(len=20) :: read_format
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:) :: is_a_number
+  logical(lk), allocatable, dimension(:) :: is_a_number
   !
   !.. Local Parameters ..
   character(len=*), parameter :: nums_and_signs = "0123456789+-"
@@ -3353,7 +3380,8 @@ continue
  !!
  !! Allocate the is_a_number logical array
  !!
- !allocate ( is_a_number(1:lenstr) , source=fals , stat=ierr )
+ !allocate ( is_a_number(1:lenstr) , source=fals , &
+ !           stat=ierr , errmsg=error_message )
  !if (ierr /= 0) then
  !  return_value = fals
  !  return
@@ -3375,7 +3403,7 @@ continue
  !!
  !! Deallocate is_a_number before leaving the function
  !!
- !deallocate ( is_a_number , stat=ierr )
+ !deallocate ( is_a_number , stat=ierr , errmsg=error_message )
   !
   ! Ignore if there is an error deallocating is_a_number since
   ! the function result should have been correctly computed

@@ -101,7 +101,7 @@ subroutine compute_bnd_profiles
   real(wp) :: eta,vx_non,vy_non
   real(wp) :: cfdrag,cfdrag_total,plate_length
   real(wp) :: cfdrag_ideal,jacfp,rexmax
-  logical  :: use_coefs
+  logical(lk)  :: use_coefs
   integer  :: nn1,host_side
   !
   character(len=20) :: zonetype
@@ -371,7 +371,7 @@ continue
       face_geom = face(nf)%geom   ! geometry of boundary face
       face_order = face(nf)%order ! geometry of boundary face
       !
-      if (associated(outerp(face_geom,face_order)%output)) then
+      if (allocated(outerp(face_geom,face_order)%output)) then
         !
         n1 = ndata + 1
         n2 = ndata + size(face(nf)%left%flxpts)
@@ -475,7 +475,7 @@ subroutine init_bnd_profile_structures
   real(wp), dimension(1:maxSP,1:nr) :: txyz
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:) :: msk
+  logical(lk), allocatable, dimension(:) :: msk
   integer, allocatable, dimension(:) :: grp_ids
   integer, allocatable, dimension(:) :: bface_map
   integer, allocatable, dimension(:,:) :: bface_nc
@@ -484,8 +484,8 @@ subroutine init_bnd_profile_structures
   !.. Local Parameters ..
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   character(len=*), parameter :: pname = "init_bnd_profile_structures"
- !logical, parameter :: test_profile_structures = true
-  logical, parameter :: test_profile_structures = fals
+ !logical(lk), parameter :: test_profile_structures = true
+  logical(lk), parameter :: test_profile_structures = fals
   !
 continue
   !
@@ -512,7 +512,7 @@ continue
   wall_qtys = flow_qtys + 6
   !
   allocate ( flow_var(1:wall_qtys) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"flow_var",1,ierr,error_message)
+  call alloc_error(pname,"flow_var",1,__LINE__,__FILE__,ierr,error_message)
   !
   do n = 1,nr
     flow_var(n) = "Coordinate"//char_xyz(n)
@@ -541,7 +541,7 @@ continue
   ! Create the non-communication boundary face msk array
   !
   allocate ( msk(1:nfbnd) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
   msk(:) = (bface(1,:)/=bc_periodic .and. bface(1,:)/=bc_cpu_bnd)
   !
@@ -556,20 +556,20 @@ continue
   !
   allocate ( bface_map(1:nfbnd_nc) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_map",1,ierr,error_message)
+  call alloc_error(pname,"bface_map",1,__LINE__,__FILE__,ierr,error_message)
   !
   bface_map = pack( intseq(1,nfbnd) , mask = msk )
   !
   ! Deallocate msk because it is no longer needed
   !
   deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,ierr,error_message)
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the bface array for only non-communication type boundaries
   !
   allocate ( bface_nc(1:nbfai,1:nfbnd_nc) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_nc",1,ierr,error_message)
+  call alloc_error(pname,"bface_nc",1,__LINE__,__FILE__,ierr,error_message)
   !
   bface_nc = bface(:,bface_map)
   !
@@ -607,7 +607,7 @@ continue
   ! know how many BC groups are on this processor
   !
   allocate ( bnd_prof(1:nbcgrps) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bnd_prof",1,ierr,error_message)
+  call alloc_error(pname,"bnd_prof",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Loop back through the boundary groups and get the indices
   ! of the boundary faces belonging to each group ID.
@@ -628,7 +628,7 @@ continue
     allocate ( bnd_prof(n)%faces(1:num_group_faces) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) n,"faces"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Store the indices for the boundary faces that have this group ID
     ! NOTE: We need to use bface_map as the packing array to map the face
@@ -649,7 +649,8 @@ continue
     !
     allocate ( bnd_prof(n)%qty(1:nqty) , stat=ierr , errmsg=error_message )
     write (array_name,1) n,"qty"
-    call alloc_error(pname,array_name,1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
     !
     ! Get the total number of data points for this boundary group by summing
     ! the number of face points for each face that belongs to this group.
@@ -683,7 +684,7 @@ continue
       allocate ( bnd_prof(n)%qty(i)%qty_data(1:ndata) , source=zero , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) n,"qty",i
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
     end do
     !
@@ -693,13 +694,14 @@ continue
   ! bface_map because they no longer needed
   !
   deallocate ( grp_ids , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grp_ids",2,ierr,error_message,skip_alloc_pause)
+  call alloc_error(pname,"grp_ids",2,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   deallocate ( bface_nc , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_nc",2,ierr,error_message)
+  call alloc_error(pname,"bface_nc",2,__LINE__,__FILE__,ierr,error_message)
   deallocate ( bface_map , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_map",2,ierr,error_message)
+  call alloc_error(pname,"bface_map",2,__LINE__,__FILE__,ierr,error_message)
   deallocate ( flow_var , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"flow_var",2,ierr,error_message)
+  call alloc_error(pname,"flow_var",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! #########
   ! #########
@@ -800,7 +802,7 @@ continue
     allocate ( bnd_prof(n)%connectivity(1:i,1:n_subcells) , source=0 , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) n,"connectivity"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Now create the subcell connectivities for each face of this boundary group
     !
@@ -865,7 +867,7 @@ continue
         face_geom = face(nf)%geom   ! geometry of boundary face
         face_order = face(nf)%order ! geometry of boundary face
         !
-        if (associated(outerp(face_geom,face_order)%output)) then
+        if (allocated(outerp(face_geom,face_order)%output)) then
           !
           n1 = ndata + 1
           n2 = ndata + size(face(nf)%left%flxpts)
@@ -919,7 +921,7 @@ continue
     call io_error(pname,fname,2,ierr)
     !
     write (error_message,104)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !
