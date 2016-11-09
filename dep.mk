@@ -38,6 +38,7 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/parallel.o \
            $(OBJDIR)/mms_mod.o \
            $(FUNDIR)/pressure.f90 \
+           $(FUNDIR)/temperature.f90 \
            $(FUNDIR)/usp2v.f90 \
            $(FUNDIR)/vsp2u.f90 \
                      mpi_defs.h
@@ -59,7 +60,16 @@ $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(FUNDIR)/usp2v.f90
 
 $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
-             $(OBJDIR)/kind_types.o
+             $(OBJDIR)/kind_types.o \
+             $(OBJDIR)/cgnstypes_mod.o \
+             $(OBJDIR)/geovar_mod.o \
+             $(OBJDIR)/ovar_mod.o \
+             $(OBJDIR)/order_mod.o \
+             $(FUNDIR)/bc_string_to_integer.f90 \
+             $(FUNDIR)/last.f90
+
+$(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
+                  $(OBJDIR)/kind_types.o
 
 $(OBJDIR)/channel_mod.o : channel_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -200,7 +210,7 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
 
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
-       $(OBJDIR)/cgns_mod.o \
+       $(OBJDIR)/cgnstypes_mod.o \
        $(OBJDIR)/eqn_idx_mod.o \
        $(OBJDIR)/order_mod.o \
        $(OBJDIR)/geovar_mod.o \
@@ -209,6 +219,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/flowvar_mod.o \
        $(OBJDIR)/gmsh_mod.o \
        $(OBJDIR)/plot3d_mod.o \
+       $(OBJDIR)/cgns_mod.o \
        $(OBJDIR)/parallel.o \
        $(OBJDIR)/quadrature_mod.o \
        $(OBJDIR)/interpolation_mod.o \
@@ -270,7 +281,9 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/quadrature_mod.o \
-             $(FUNDIR)/last.f90
+             $(OBJDIR)/parallel.o \
+             $(OBJDIR)/typesgen_mod.o \
+             $(OBJDIR)/poly.o
 
 $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/kind_types.o \
@@ -296,7 +309,7 @@ $(OBJDIR)/order_mod.o : order_mod.f90 \
 
 $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
              $(OBJDIR)/kind_types.o \
-             $(OBJDIR)/cgns_mod.o \
+             $(OBJDIR)/cgnstypes_mod.o \
              $(OBJDIR)/order_mod.o
 
 $(OBJDIR)/parallel.o : parallel.f90 \
@@ -324,7 +337,7 @@ $(OBJDIR)/poly.o : poly.f90 \
 
 $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/kind_types.o \
-                 $(OBJDIR)/cgns_mod.o \
+                 $(OBJDIR)/cgnstypes_mod.o \
                  $(OBJDIR)/eqn_idx_mod.o \
                  $(OBJDIR)/geovar_mod.o \
                  $(OBJDIR)/flowvar_mod.o \
