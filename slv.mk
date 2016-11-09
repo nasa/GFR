@@ -59,6 +59,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/ovar_mod.o \
         $(OBJDIR)/gmsh_mod.o \
         $(OBJDIR)/plot3d_mod.o \
+        $(OBJDIR)/cgnstypes_mod.o \
         $(OBJDIR)/cgns_mod.o \
         $(OBJDIR)/io.o \
         $(OBJDIR)/metrics.o \
