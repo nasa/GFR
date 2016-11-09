@@ -8,7 +8,8 @@ continue
   ! Allocate the temporary array to store the old contents of array
   allocate ( temp_array(1:new_size) , source=0_i4 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   ! If array is allocated, copy the old contents of array into the temporary
   ! array. If decreasing the size of array, make sure to limit the amount of
   ! information copied over from array to the size of temp_array.
@@ -35,7 +36,8 @@ subroutine reallocate1_i8(array,new_size)
 continue
   allocate ( temp_array(1:new_size) , source=0_i8 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -54,7 +56,8 @@ subroutine reallocate1_r4(array,new_size)
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r4 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -73,7 +76,8 @@ subroutine reallocate1_r8(array,new_size)
 continue
   allocate ( temp_array(1:new_size) , source=0.0_r8 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -92,7 +96,8 @@ subroutine reallocate1_c(array,new_size)
 continue
  !write (iout,1) size(array),new_size
   allocate ( temp_array(1:new_size) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   if (allocated(array)) then
     num_copy = min( size(temp_array) , size(array) )
     temp_array(1:num_copy) = array(1:num_copy)
@@ -137,7 +142,8 @@ continue
   !
   allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i4 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -193,7 +199,8 @@ continue
   !
   allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0_i8 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -249,7 +256,8 @@ continue
   !
   allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r4 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
   ! Copy the old contents of array into the temporary array
   !
@@ -305,7 +313,8 @@ continue
   !
   allocate ( temp_array(1:temp_size1,1:temp_size2) , source=0.0_r8 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_array",1,ierr,error_message,fals)
+  call alloc_error(pname,"temp_array",1,__LINE__,__FILE__,ierr, &
+                   error_message,skip_alloc_pause)
   !
   ! Copy the old contents of array into the temporary array
   !
