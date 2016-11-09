@@ -1,7 +1,7 @@
 #
 #
 
- MAKE = make -j 4
+ MAKE = make -j 16
 #MAKE = make
 #MAKE = make --debug
 
