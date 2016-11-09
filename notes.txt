@@ -10,6 +10,33 @@
 ################################################################################
 ################################################################################
 
+* Really need to work on improving the memory footprint of the code through
+  partitioning.  The cell_geom and cell_order arrays could be converted into
+  a very compact array since both of these arrays generally hold the same value
+  for all the interior cell in the grid. A possible compact version:
+    cell_geom(1) = geometry of the majority of the cells
+    cell_geom(2) = number of cells that have a geometry other than cell_geom(1)
+    cell_geom(...) = some list of the geometries for the non-majority cells
+  After the code returns from partitioning, the memory should be distributed
+  pretty evenly across processors, EXCEPT FOR THE grid DERIVED TYPE THAT
+  CONTAINS THE HIGH-ORDER CURVED BOUNDARY NODE COORDINATES AND ELEMENT
+  CONNECTIVITIES.
+
+* In order to get unstructured elements (tria, tetr, pyra, pris) working sooner
+  than later, copy the quadrature look-up tables from PyFR and use these look-up
+  tables for now.  This will limit the maximum order of these element types but
+  we can deal with that at another time.
+
+* Create utility to import an arbitrary Plot3D grid (including its BCS and CUT
+  files) and convert it to a single block unstructured CGNS or Gmsh grid file,
+  based on a "constraints" file which contains:
+    - coarsening strides for each direction of each block
+    - "keeper" parameters which are certain planes of a block that should not
+      be skipped by the coarsening strides (think of a 2D wedge where we dont
+      want to skip the index that is the leading edge of the wedge)
+    - any other possible operations to convert the Plot3D grid into one that
+      is more friendly for high-order methods
+
 * Update to the latest version of CGNS.
 
 * For using Plot3D restart files (channel flow), figure out how to project
@@ -113,6 +140,15 @@
      cheaply store the 8 rotations as use these rotation arrays when we are
      using the indices. HOWEVER, we will need to store the 8 different
      rotations for each of the face orders that exist in the simulation.
+
+* In subroutine compute_bnd_profiles, I am pretty sure the value jacfp is not
+  computed correctly.  It appears that jacfp is supposed to be the value of
+  the metrics Jacobian at the flux point on the boundary face, as it is used
+  to integrate the the drag coefficient for each boundary face. Currently, jacfp
+  is computed as norm2( 0.5*(facenode_coord1-facenode_coord2) ) so the value of
+  jacfp is the same for all flux points on the boundary face. This needs to be
+  computed using the actual metrics or by interpolating the Jacobian function
+  from the interior solution points to the flux points on the face.
 
 ################################################################################
 ################################################################################
