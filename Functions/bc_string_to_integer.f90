@@ -50,6 +50,13 @@ continue
     ne = len_trim(text)
   end if
   !
+  ! Remove the substring "BC" from the beginning of the string
+  !
+  if (text(1:2) == "BC") then
+    text = text(3:len_trim(text))
+    ne = len_trim(text)
+  end if
+  !
   ! Change the substring "SUPERSONIC" TO "SUP" if it exists
   !
   n = index(text(nb:ne),csuper)
@@ -71,54 +78,74 @@ continue
   !
   select case (trim(adjustl(text)))
     !
-    case ("MESHINTERIOR")
+    case ("MESHINTERIOR","INTERIOR")
       return_value = not_a_bc
       !
     case ("INFLOW","INLET")
       return_value = bc_generic_inflow
-    case ("SUBINFLOW")
+    case ("SUBINFLOW","INFLOWSUB")
       return_value = bc_sub_inflow
-    case ("SUPINFLOW")
+    case ("SUPINFLOW","INFLOWSUP")
       return_value = bc_sup_inflow
       !
     case ("OUTFLOW","EXIT")
       return_value = bc_generic_outflow
-    case ("SUBOUTFLOW")
+    case ("SUBOUTFLOW","OUTFLOWSUB")
       return_value = bc_sub_outflow
-    case ("SUPOUTFLOW","EXTRAP")
+    case ("SUPOUTFLOW","OUTFLOWSUP","EXTRAP","EXTRAPOLATE")
       return_value = bc_sup_outflow
       !
-    case ("FREEFLOW")
+    case ("FREEFLOW","FARFIELD")
       return_value = bc_generic_freeflow
     case ("CHARACTERISTIC","CHAR","CHARACTER")
       return_value = bc_characteristic
-    case ("FREESTREAM","FARFIELD","REFERENCE")
+    case ("FREESTREAM","REFERENCE")
       return_value = bc_freestream
     case ("FIXED")
       return_value = bc_fixed
       !
-    case ("WALL")
+    case ("WALL","WALLVISCOUS")
       return_value = bc_default_wall
-    case ("SWALL","SLIP","SLIPWALL")
+    case ("SWALL","SLIP","SLIPWALL","WALLINVISCID")
       return_value = bc_slip_wall
     case ("EWALL","EULER","EULERWALL")
       return_value = bc_euler_wall
-    case ("AWALL","ADIABATIC")
+    case ("AWALL","ADIABATIC","WALLVISCOUSHEATFLUX")
       return_value = bc_adiabatic_wall
-    case ("IWALL","ISOTHERMAL")
+    case ("IWALL","ISOTHERMAL","WALLVISCOUSISOTHERMAL")
       return_value = bc_isothermal_wall
       !
-    case ("SYMM","SYMMETRY")
+    case ("SYMM","SYMMETRY","SYMMETRYPLANE")
       return_value = bc_symmetry
     case ("PERIODIC")
       return_value = bc_periodic
     case ("MMS_DIRICHLET","MMSDIRICHLET")
       return_value = bc_mms_dirichlet
       !
+    case("NULL")
+      return_value = bc_unsupported
+    case("USERDEFINED")
+      return_value = bc_unsupported
+    case("GENERAL")
+      return_value = bc_unsupported
+    case("DIRICHLET")
+      return_value = bc_unsupported
+    case("NEUMANN")
+      return_value = bc_unsupported
+    case("TUNNELINFLOW","TUNNELOUTFLOW")
+      return_value = bc_unsupported
+    case("DEGENERATELINE","DEGENERATEPOINT")
+      return_value = bc_unsupported
+    case("SYMMETRYPOLAR","AXISYMMETRICWEDGE")
+      return_value = bc_unsupported
+    case ("FAMILYSPECIFIED")
+      return_value = bc_unsupported
+      !
     case default
       return_value = bc_unknown
       !
   end select
+
   !
 end function bc_string_to_integer
 !
