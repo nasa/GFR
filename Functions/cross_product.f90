@@ -2,9 +2,9 @@ pure function cross_product_SP(a,b,is_2D) result(return_value)
 integer, parameter :: lp = SP
 real(lp), parameter :: zero = 0.0_lp
 real(lp), dimension(3), intent(in) :: a,b
-logical,  optional,     intent(in) :: is_2D
+logical(lk),  optional,     intent(in) :: is_2D
 real(lp), dimension(3) :: return_value
-logical :: use_3D
+logical(lk) :: use_3D
 use_3D = .true.
 if (present(is_2D)) then
   use_3D = .not. is_2D
@@ -24,9 +24,9 @@ pure function cross_product_DP(a,b,is_2D) result(return_value)
 integer, parameter :: lp = DP
 real(lp), parameter :: zero = 0.0_lp
 real(lp), dimension(3), intent(in) :: a,b
-logical,  optional,     intent(in) :: is_2D
+logical(lk),  optional,     intent(in) :: is_2D
 real(lp), dimension(3) :: return_value
-logical :: use_3D
+logical(lk) :: use_3D
 use_3D = .true.
 if (present(is_2D)) then
   use_3D = .not. is_2D
@@ -46,9 +46,9 @@ pure function cross_product_QP(a,b,is_2D) result(return_value)
 integer, parameter :: lp = QP
 real(lp), parameter :: zero = 0.0_lp
 real(lp), dimension(3), intent(in) :: a,b
-logical,  optional,     intent(in) :: is_2D
+logical(lk),  optional,     intent(in) :: is_2D
 real(lp), dimension(3) :: return_value
-logical :: use_3D
+logical(lk) :: use_3D
 use_3D = .true.
 if (present(is_2D)) then
   use_3D = .not. is_2D
