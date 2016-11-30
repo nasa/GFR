@@ -44,7 +44,7 @@ FINC = $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-FCBASE = -traceback -g
+FCBASE = -traceback -g -assume realloc_lhs
 
 ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
 
