@@ -1,12 +1,11 @@
 module flowvar
   !
-  use module_kind_types, only : r8,wp,lk
+  use module_kind_types, only : wp,lk
   use module_kind_types, only : zero,iout
   use module_kind_types, only : Classic_RK
   use module_kind_types, only : CK4_RK
   use module_kind_types, only : TVD4_RK
   use module_kind_types, only : alloc_error
-  use module_kind_types, only : bc_cpu_bnd
   use module_kind_types, only : skip_alloc_pause
   use module_kind_types, only : error_message
   use module_kind_types, only : Geom_Edge
@@ -46,10 +45,6 @@ module flowvar
   ! DTSP : Time step for each solution point
   !
   real(wp), public, save, allocatable, dimension(:) :: dtsp
-  !
-  ! TROUBLED_CELL : Mask/Marker array identifying troubled cells
-  !
-  logical(lk), public, save, allocatable, dimension(:) :: troubled_cell
   !
   !
   !
@@ -503,9 +498,13 @@ continue
   !
   if (allocated(faceusp)) then
     !
-    write (iou,8) "faceusp",storage_size(faceusp),storage_size(faceusp)/8
-    call dt%set( storage_size(faceusp,kind=inttype) , &
-                         size(faceusp,kind=inttype) )
+    call array%set( storage_size(faceusp,kind=inttype) , &
+                            size(faceusp,kind=inttype) )
+    !
+    write (array_name,5) "faceusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -533,9 +532,13 @@ continue
   !
   if (allocated(facedusp)) then
     !
-    write (iou,8) "facedusp",storage_size(facedusp),storage_size(facedusp)/8
-    call dt%set( storage_size(facedusp,kind=inttype) , &
-                         size(facedusp,kind=inttype) )
+    call array%set( storage_size(facedusp,kind=inttype) , &
+                            size(facedusp,kind=inttype) )
+    !
+    write (array_name,5) "facedusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -563,9 +566,13 @@ continue
   !
   if (allocated(faceflx)) then
     !
-    write (iou,8) "faceflx",storage_size(faceflx),storage_size(faceflx)/8
-    call dt%set( storage_size(faceflx,kind=inttype) , &
-                         size(faceflx,kind=inttype) )
+    call array%set( storage_size(faceflx,kind=inttype) , &
+                            size(faceflx,kind=inttype) )
+    !
+    write (array_name,5) "faceflx(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -593,9 +600,13 @@ continue
   !
   if (allocated(facexyz)) then
     !
-    write (iou,8) "facexyz",storage_size(facexyz),storage_size(facexyz)/8
-    call dt%set( storage_size(facexyz,kind=inttype) , &
-                         size(facexyz,kind=inttype) )
+    call array%set( storage_size(facexyz,kind=inttype) , &
+                            size(facexyz,kind=inttype) )
+    !
+    write (array_name,5) "facexyz(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -623,9 +634,13 @@ continue
   !
   if (allocated(edgeusp)) then
     !
-    write (iou,8) "edgeusp",storage_size(edgeusp),storage_size(edgeusp)/8
-    call dt%set( storage_size(edgeusp,kind=inttype) , &
-                         size(edgeusp,kind=inttype) )
+    call array%set( storage_size(edgeusp,kind=inttype) , &
+                            size(edgeusp,kind=inttype) )
+    !
+    write (array_name,5) "edgeusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -653,9 +668,13 @@ continue
   !
   if (allocated(edgedusp)) then
     !
-    write (iou,8) "edgedusp",storage_size(edgedusp),storage_size(edgedusp)/8
-    call dt%set( storage_size(edgedusp,kind=inttype) , &
-                         size(edgedusp,kind=inttype) )
+    call array%set( storage_size(edgedusp,kind=inttype) , &
+                            size(edgedusp,kind=inttype) )
+    !
+    write (array_name,5) "edgedusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -681,11 +700,49 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
+  if (allocated(edgexyz)) then
+    !
+    call array%set( storage_size(edgexyz,kind=inttype) , &
+                            size(edgexyz,kind=inttype) )
+    !
+    write (array_name,5) "edgexyz(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    call array%reset
+    !
+    do i = lbound(edgexyz,dim=1),ubound(edgexyz,dim=1)
+      !
+      call array%add( storage_size(edgexyz(i)%v,kind=inttype) , &
+                              size(edgexyz(i)%v,kind=inttype) )
+      !
+    end do
+    !
+    write (array_name,5) "edgexyz(:)%v"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%add(array)
+    !
+    call total%add(dt)
+    write (array_name,5) "edgexyz"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    write (iou,7) "edgexyz"
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
   if (allocated(nodeusp)) then
     !
-    write (iou,8) "nodeusp",storage_size(nodeusp),storage_size(nodeusp)/8
-    call dt%set( storage_size(nodeusp,kind=inttype) , &
-                         size(nodeusp,kind=inttype) )
+    call array%set( storage_size(nodeusp,kind=inttype) , &
+                            size(nodeusp,kind=inttype) )
+    !
+    write (array_name,5) "nodeusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -713,9 +770,13 @@ continue
   !
   if (allocated(nodedusp)) then
     !
-    write (iou,8) "nodedusp",storage_size(nodedusp),storage_size(nodedusp)/8
-    call dt%set( storage_size(nodedusp,kind=inttype) , &
-                         size(nodedusp,kind=inttype) )
+    call array%set( storage_size(nodedusp,kind=inttype) , &
+                            size(nodedusp,kind=inttype) )
+    !
+    write (array_name,5) "nodedusp(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
     !
     call array%reset
     !
@@ -821,15 +882,6 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "dtsp"
-  end if
-  if (allocated(troubled_cell)) then
-    call array%set( storage_size(troubled_cell,kind=inttype) , &
-                            size(troubled_cell,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "troubled_cell"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "troubled_cell"
   end if
   !
   total = total%get_units()
