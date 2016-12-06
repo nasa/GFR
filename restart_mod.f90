@@ -139,6 +139,8 @@ subroutine read_restart_file
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   solution_errors = 0
   !
   if (use_old_restart_format) then
@@ -523,6 +525,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   10 format("The number of equations in the restart file does not match the ", &
@@ -608,6 +612,8 @@ subroutine write_restart_file(itnum)
   character(len=*), parameter :: pname = "write_restart_file"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (use_old_restart_format) then
     !
@@ -924,6 +930,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine write_restart_file
 !
 !###############################################################################
@@ -951,6 +959,8 @@ subroutine check_restart_dir
   logical(lk), parameter :: wait_for_completion = true
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize exitstat and cmndmsg
   !
@@ -1044,6 +1054,8 @@ continue
   !
   write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (i0)
@@ -1077,6 +1089,8 @@ subroutine get_output_mpi_datatypes()
   character(len=*), parameter :: pname = "get_output_mpi_datatypes"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Allocate the local arrays
   !
@@ -1209,6 +1223,8 @@ continue
   deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_output_mpi_datatypes
 !
 !###############################################################################
@@ -1246,6 +1262,8 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
   character(len=*), parameter :: pname = "get_input_mpi_datatypes"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   read_type = MPI_DATATYPE_NULL
   !
@@ -1438,6 +1456,8 @@ continue
   deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   !
 end subroutine get_input_mpi_datatypes
 !
@@ -1456,13 +1476,20 @@ subroutine read_rstrt_file_i1(file_handle,int_data)
   !.. Local Arrays ..
   integer(int8), dimension(1:size(int_data)) :: read_int
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_i1"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_int, &
                          size(read_int,kind=int_mpi), &
                          MPI_INTEGER1,MPI_STATUS_IGNORE,mpierr)
   !
   int_data = int( read_int , kind=wip )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_i1
 !
@@ -1481,13 +1508,20 @@ subroutine read_rstrt_file_i2(file_handle,int_data)
   !.. Local Arrays ..
   integer(int16), dimension(1:size(int_data)) :: read_int
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_i2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_int, &
                          size(read_int,kind=int_mpi), &
                          MPI_INTEGER2,MPI_STATUS_IGNORE,mpierr)
   !
   int_data = int( read_int , kind=wip )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_i2
 !
@@ -1506,13 +1540,20 @@ subroutine read_rstrt_file_i4(file_handle,int_data)
   !.. Local Arrays ..
   integer(int32), dimension(1:size(int_data)) :: read_int
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_i4"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_int, &
                          size(read_int,kind=int_mpi), &
                          MPI_INTEGER4,MPI_STATUS_IGNORE,mpierr)
   !
   int_data = int( read_int , kind=wip )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_i4
 !
@@ -1531,13 +1572,20 @@ subroutine read_rstrt_file_i8(file_handle,int_data)
   !.. Local Arrays ..
   integer(int64), dimension(1:size(int_data)) :: read_int
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_i8"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_int, &
                          size(read_int,kind=int_mpi), &
                          MPI_INTEGER8,MPI_STATUS_IGNORE,mpierr)
   !
   int_data = int( read_int , kind=wip )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_i8
 !
@@ -1553,11 +1601,18 @@ subroutine read_rstrt_file_wip(file_handle,int_data)
   _MPI_FILE_TYPE_,              intent(in) :: file_handle
   integer(wip), dimension(:), intent(inout) :: int_data
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_wip"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,int_data, &
                          size(int_data,kind=int_mpi), &
                          mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_wip
 !
@@ -1576,13 +1631,20 @@ subroutine read_rstrt_file_r4_rank1(file_handle,real_data)
   !.. Local Arrays ..
   real(real32), dimension(1:size(real_data)) :: read_real
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r4_rank1"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r4_rank1
 !-------------------------------------------------------------------------------
@@ -1595,13 +1657,20 @@ subroutine read_rstrt_file_r4_rank2(file_handle,real_data)
   !.. Local Arrays ..
   real(real32) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r4_rank2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r4_rank2
 !
@@ -1620,13 +1689,20 @@ subroutine read_rstrt_file_r8_rank1(file_handle,real_data)
   !.. Local Arrays ..
   real(real64), dimension(1:size(real_data)) :: read_real
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r8_rank1"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r8_rank1
 !-------------------------------------------------------------------------------
@@ -1639,13 +1715,20 @@ subroutine read_rstrt_file_r8_rank2(file_handle,real_data)
   !.. Local Arrays ..
   real(real64) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r8_rank2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r8_rank2
 !
@@ -1664,13 +1747,20 @@ subroutine read_rstrt_file_r16_rank1(file_handle,real_data)
   !.. Local Arrays ..
   real(real128), dimension(1:size(real_data)) :: read_real
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r16_rank1"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r16_rank1
 !-------------------------------------------------------------------------------
@@ -1683,13 +1773,20 @@ subroutine read_rstrt_file_r16_rank2(file_handle,real_data)
   !.. Local Arrays ..
   real(real128) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_r16_rank2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
                          size(read_real,kind=int_mpi), &
                          MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_r16_rank2
 !
@@ -1705,11 +1802,18 @@ subroutine read_rstrt_file_wp_rank1(file_handle,real_data)
   _MPI_FILE_TYPE_,          intent(in) :: file_handle
   real(wp), dimension(:), intent(inout) :: real_data
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_wp_rank1"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,real_data, &
                          size(real_data,kind=int_mpi), &
                          mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_wp_rank1
 !-------------------------------------------------------------------------------
@@ -1719,11 +1823,18 @@ subroutine read_rstrt_file_wp_rank2(file_handle,real_data)
   _MPI_FILE_TYPE_,            intent(in) :: file_handle
   real(wp), dimension(:,:), intent(inout) :: real_data
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_wp_rank2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,real_data, &
                          size(real_data,kind=int_mpi), &
                          mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_wp_rank2
 !
