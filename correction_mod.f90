@@ -1485,6 +1485,8 @@ continue
   !
   ! Check the memory of the arrays within this module
   !
+  ! Memory usage for the correct array of type matrix
+  !
   if (allocated(correct)) then
     !
     call dt%set( storage_size(correct,kind=inttype) , &
@@ -1495,7 +1497,7 @@ continue
         !
         array = correct(i,j)%memory_usage()
         !
-        write (array_name,4) Geom_Name(i),j
+        write (array_name,4) "correct",Geom_Name(i),j
         write (iou,2) array_name,array%get_units()
         !
         call dt%add(array)
@@ -1513,6 +1515,36 @@ continue
     !
   end if
   !
+  ! Memory usage for the correct_sol array of type matrix
+  !
+  if (allocated(correct_sol)) then
+    !
+    call dt%set( storage_size(correct_sol,kind=inttype) , &
+                         size(correct_sol,kind=inttype) )
+    !
+    do j = lbound(correct_sol,dim=2),ubound(correct_sol,dim=2)
+      do i = lbound(correct_sol,dim=1),ubound(correct_sol,dim=1)
+        !
+        array = correct_sol(i,j)%memory_usage()
+        !
+        write (array_name,4) "correct_sol",Geom_Name(i),j
+        write (iou,2) array_name,array%get_units()
+        !
+        call dt%add(array)
+        !
+      end do
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "correct_sol"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "correct_sol"
+    !
+  end if
+  !
   total = total%get_units()
   write (iou,3) total%rmem,trim(adjustl(total%units))
   !
@@ -1521,7 +1553,7 @@ continue
   1 format (/,"Status of arrays in module correction_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
-  4 format ("correct(",a,",",i0,")%mat")
+  4 format (a,"(",a,",",i0,")%mat")
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
