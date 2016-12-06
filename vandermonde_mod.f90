@@ -772,6 +772,8 @@ continue
   !
   ! Check the memory of the arrays within this module
   !
+  ! Memory usage of the vand array of type vandermonde_matrix
+  !
   if (allocated(vand)) then
     !
     call dt%set( storage_size(vand,kind=inttype) , &
@@ -784,14 +786,14 @@ continue
           !
           call array%set( storage_size(vand(i,j)%nodal2modal,kind=inttype) )
           !
-          write (array_name,4) Geom_Name(i),j,"nodal2modal"
+          write (array_name,4) "vand",Geom_Name(i),j,"nodal2modal"
           write (iou,2) array_name,array%get_units()
           !
           call dt%add(array)
           !
           array = vand(i,j)%nodal2modal%memory_usage()
           !
-          write (array_name,4) Geom_Name(i),j,"nodal2modal%mat"
+          write (array_name,4) "vand",Geom_Name(i),j,"nodal2modal%mat"
           write (iou,2) array_name,array%get_units()
           !
           call dt%add(array)
@@ -802,14 +804,14 @@ continue
           !
           call array%set( storage_size(vand(i,j)%modal2nodal,kind=inttype) )
           !
-          write (array_name,4) Geom_Name(i),j,"modal2nodal"
+          write (array_name,4) "vand",Geom_Name(i),j,"modal2nodal"
           write (iou,2) array_name,array%get_units()
           !
           call dt%add(array)
           !
           array = vand(i,j)%modal2nodal%memory_usage()
           !
-          write (array_name,4) Geom_Name(i),j,"modal2nodal%mat"
+          write (array_name,4) "vand",Geom_Name(i),j,"modal2nodal%mat"
           write (iou,2) array_name,array%get_units()
           !
           call dt%add(array)
@@ -829,6 +831,65 @@ continue
     !
   end if
   !
+  ! Memory usage of the monomials array of type vandermonde_matrix
+  !
+  if (allocated(monomials)) then
+    !
+    call dt%set( storage_size(monomials,kind=inttype) , &
+                         size(monomials,kind=inttype) )
+    !
+    do j = lbound(monomials,dim=2),ubound(monomials,dim=2)
+      do i = lbound(monomials,dim=1),ubound(monomials,dim=1)
+        !
+        if (allocated(monomials(i,j)%nodal2modal%mat)) then
+          !
+          call array%set(storage_size(monomials(i,j)%nodal2modal,kind=inttype))
+          !
+          write (array_name,4) "monomials",Geom_Name(i),j,"nodal2modal"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+          array = monomials(i,j)%nodal2modal%memory_usage()
+          !
+          write (array_name,4) "monomials",Geom_Name(i),j,"nodal2modal%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%mat)) then
+          !
+          call array%set(storage_size(monomials(i,j)%modal2nodal,kind=inttype))
+          !
+          write (array_name,4) "monomials",Geom_Name(i),j,"modal2nodal"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+          array = monomials(i,j)%modal2nodal%memory_usage()
+          !
+          write (array_name,4) "monomials",Geom_Name(i),j,"modal2nodal%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+        end if
+        !
+      end do
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "monomials"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "monomials"
+    !
+  end if
+  !
   total = total%get_units()
   write (iou,3) total%rmem,trim(adjustl(total%units))
   !
@@ -837,7 +898,7 @@ continue
   1 format (/,"Status of arrays in module vandermonde_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
-  4 format ("vand(",a,",",i0,")%",a)
+  4 format (a,"(",a,",",i0,")%",a)
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
