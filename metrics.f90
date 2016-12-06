@@ -1902,12 +1902,18 @@ continue
         !
         do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
           !
-          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
-                               size(pdt_metrics(i)%d ,kind=inttype) )
-          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
-                               size(pdt_metrics(i)%d2,kind=inttype) )
-          call dt%add( storage_size(pdt_metrics(i)%d3,kind=inttype) , &
-                               size(pdt_metrics(i)%d3,kind=inttype) )
+          if (allocated(pdt_metrics(i)%d)) then
+            call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                                 size(pdt_metrics(i)%d ,kind=inttype) )
+          end if
+          if (allocated(pdt_metrics(i)%d2)) then
+            call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                                 size(pdt_metrics(i)%d2,kind=inttype) )
+          end if
+          if (allocated(pdt_metrics(i)%d3)) then
+            call dt%add( storage_size(pdt_metrics(i)%d3,kind=inttype) , &
+                                 size(pdt_metrics(i)%d3,kind=inttype) )
+          end if
           !
         end do
         !
@@ -1915,10 +1921,14 @@ continue
         !
         do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
           !
-          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
-                               size(pdt_metrics(i)%d ,kind=inttype) )
-          call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
-                               size(pdt_metrics(i)%d2,kind=inttype) )
+          if (allocated(pdt_metrics(i)%d)) then
+            call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                                 size(pdt_metrics(i)%d ,kind=inttype) )
+          end if
+          if (allocated(pdt_metrics(i)%d2)) then
+            call dt%add( storage_size(pdt_metrics(i)%d2,kind=inttype) , &
+                                 size(pdt_metrics(i)%d2,kind=inttype) )
+          end if
           !
         end do
         !
@@ -1926,8 +1936,10 @@ continue
         !
         do i = lbound(pdt_metrics,dim=1),ubound(pdt_metrics,dim=1)
           !
-          call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
-                               size(pdt_metrics(i)%d ,kind=inttype) )
+          if (allocated(pdt_metrics(i)%d)) then
+            call dt%add( storage_size(pdt_metrics(i)%d ,kind=inttype) , &
+                                 size(pdt_metrics(i)%d ,kind=inttype) )
+          end if
           !
         end do
         !
@@ -2012,12 +2024,18 @@ continue
         !
         do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
           !
-          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d ,kind=inttype) )
-          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d2,kind=inttype) )
-          call dt%add( storage_size(pdt_met_dJ(i)%d3,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d3,kind=inttype) )
+          if (allocated(pdt_met_dJ(i)%d)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d ,kind=inttype) )
+          end if
+          if (allocated(pdt_met_dJ(i)%d2)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d2,kind=inttype) )
+          end if
+          if (allocated(pdt_met_dJ(i)%d3)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d3,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d3,kind=inttype) )
+          end if
           !
         end do
         !
@@ -2025,10 +2043,14 @@ continue
         !
         do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
           !
-          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d ,kind=inttype) )
-          call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d2,kind=inttype) )
+          if (allocated(pdt_met_dJ(i)%d)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d ,kind=inttype) )
+          end if
+          if (allocated(pdt_met_dJ(i)%d2)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d2,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d2,kind=inttype) )
+          end if
           !
         end do
         !
@@ -2036,8 +2058,10 @@ continue
         !
         do i = lbound(pdt_met_dJ,dim=1),ubound(pdt_met_dJ,dim=1)
           !
-          call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
-                               size(pdt_met_dJ(i)%d ,kind=inttype) )
+          if (allocated(pdt_met_dJ(i)%d)) then
+            call dt%add( storage_size(pdt_met_dJ(i)%d ,kind=inttype) , &
+                                 size(pdt_met_dJ(i)%d ,kind=inttype) )
+          end if
           !
         end do
         !
