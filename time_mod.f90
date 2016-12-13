@@ -207,7 +207,7 @@ end subroutine get_constant_timestep
 subroutine get_cell_timestep(dtmin)
   !
   !.. Use Statements ..
-  use order_mod, only : n_order,maxSP
+  use order_mod, only : n_order,maxSP,geom_solpts
   !
   use geovar, only : nr,nfbnd,nface
   use geovar, only : face,cell
@@ -228,7 +228,8 @@ subroutine get_cell_timestep(dtmin)
   !.. Local Scalars ..
   integer  :: nf,k
   integer  :: l1,l2,npl,kl
-  integer  :: r1,r2,npr,kr,face_order
+  integer  :: r1,r2,npr,kr
+  integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
@@ -238,7 +239,15 @@ subroutine get_cell_timestep(dtmin)
   real(wp) :: psql,psqr
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nq)    :: vl,vr
+  real(wp), dimension(1:nq) :: vl,vr
+  !
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: left_fp_idx(:)
+  integer, allocatable :: right_fp_idx(:)
+#endif
+#endif
   !
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
@@ -355,13 +364,29 @@ continue
     l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
     npl = l2-l1+1               ! number of solution points in left cell
     !
-    face_order = face(nf)%order ! face solution order
+    face_geom = face(nf)%geom   ! geometry of the current face
+    face_order = face(nf)%order ! order    of the current face
     !
     psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
-    do k = 1,size( face(nf)%left%flxpts )
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+    ! Using F2003 auto-reallocation
+    left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
+#endif
+#endif
+    !
+    do k = 1,geom_solpts(face_geom,face_order)
       !
+#ifdef USE_FACE_FLXPTS
       kl = face(nf)%left%flxpts(k)
+#else
+#ifdef USE_FACE_FP_ARRAYS
+      kl = left_fp_idx(k)
+#else
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+#endif
+#endif
       !
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
       !
@@ -430,15 +455,34 @@ continue
     r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
     npr = r2-r1+1                ! number of solution points in right cell
     !
-    face_order = face(nf)%order ! face solution order
+    face_geom = face(nf)%geom   ! geometry of the current face
+    face_order = face(nf)%order ! order    of the current face
     !
     psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
     psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
     !
-    do k = 1,size( face(nf)%left%flxpts )
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+    ! Using F2003 auto-reallocation
+    left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
+    right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
+#endif
+#endif
+    !
+    do k = 1,geom_solpts(face_geom,face_order)
       !
+#ifdef USE_FACE_FLXPTS
       kl = face(nf)%left%flxpts(k)
       kr = face(nf)%right%flxpts(k)
+#else
+#ifdef USE_FACE_FP_ARRAYS
+      kl = left_fp_idx(k)
+      kr = right_fp_idx(k)
+#else
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
+#endif
+#endif
       !
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
       vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,2) )
@@ -593,7 +637,11 @@ continue
         visc = viscosity_cv_sp( usp(1:nq,n) )
       end if
       !
+#ifdef USE_OLD_METRICS
       vel(1:nr) = matmul( metrics(1:nr,1:nr,n,2) , pv(nmb:nme) ) / jacobian(n)
+#else
+      vel(1:nr) = matmul( metrics(1:nr,1:nr,n) , pv(nmb:nme) )
+#endif
       !
       vmag = rnorm2(vel)
       !
@@ -663,7 +711,10 @@ subroutine old_get_point_timestep(dtmin)
   real(wp) :: rho,vx,vy,pres,aspd
   real(wp) :: alfa,beta,gama
   !
-  real(wp), dimension(1:nr) :: vel
+  real(wp) :: vel(1:nr)
+#ifndef USE_OLD_METRICS
+  real(wp) :: met(1:nr,1:nr)
+#endif
   !
 continue
   !
@@ -675,10 +726,18 @@ continue
   !
   do n = 1,n_solpts
     !
+#ifdef USE_OLD_METRICS
     dxdr = metrics(1,1,n,1)
     dydr = metrics(2,1,n,1)
     dxds = metrics(1,2,n,1)
     dyds = metrics(2,2,n,1)
+#else
+    met(1:nr,1:nr) = invert_matrix(metrics(1:nr,1:nr,n))
+    dxdr = met(1,1)
+    dydr = met(2,1)
+    dxds = met(1,2)
+    dyds = met(2,1)
+#endif
     !
     rho  = usp(nec,n)
     vel  = usp(nmb:nme,n)/rho
