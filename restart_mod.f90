@@ -150,14 +150,14 @@ continue
     call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr,error_message)
     !
     open(newunit=iorst,file=fname,status="old",action="read", &
-                       form="unformatted",iostat=ierr)
-    call io_error(pname,fname,1,ierr)
+                       form="unformatted",iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
     read (iorst) itrst, tmrst, dtrst
     read (iorst) global_usp
     !
-    close (iorst,iostat=ierr)
-    call io_error(pname,fname,2,ierr)
+    close (iorst,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
     !
     ! If using multiple processors, copy the solution data from 
     ! only those cells that are local to this processor into usp
@@ -639,14 +639,17 @@ continue
       end if
       !
       open (newunit=iorst,file=trim(adjustl(fname)),status="replace", &
-                          action="write",form='unformatted',iostat=ierr)
-      call io_error(pname,trim(adjustl(fname)),1,ierr)
+                          action="write",form='unformatted',iostat=ierr, &
+                          iomsg=error_message)
+      call io_error(pname,trim(adjustl(fname)),1,__LINE__,__FILE__, &
+                    ierr,error_message)
       !
       write (iorst) itcur, time, d_t
       write (iorst) global_usp
       !
-      close (iorst,iostat=ierr)
-      call io_error(pname,trim(adjustl(fname)),2,ierr)
+      close (iorst,iostat=ierr,iomsg=error_message)
+      call io_error(pname,trim(adjustl(fname)),2,__LINE__,__FILE__, &
+                    ierr,error_message)
       !
       deallocate ( global_usp , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"global_usp",2,__LINE__,__FILE__,ierr, &

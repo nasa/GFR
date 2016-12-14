@@ -17,7 +17,7 @@ module generic_mod
   character(len=100), save :: iter_out_fmt
   !
   real(wp), save :: Density_Maximum_Residual = -huge(zero)
-  logical,  save :: vortex_has_collapsed = fals
+  logical(lk),  save :: vortex_has_collapsed = fals
   integer,  save :: final_countdown = 0
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that
@@ -49,22 +49,24 @@ subroutine compute_final_error()
   ! vltwo(nq+1)   = magnitude of velocity
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
+  use order_mod, only : maxEP
   use geovar,  only : nr,ncell,cell
   use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume
-  use ovar,    only : ulinf,ulone,ultwo,unloc,ukloc
+  use ovar,    only : ulinf,ulone,ultwo,unloc,ukloc,itestcase
   use parallel_mod, only : cell_map
+  use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
   integer  :: this_cell,n1,n2,np,k,m
+  integer  :: this_geom,this_order
   real(wp) :: sn,se
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxSP) :: jac
-  real(wp), dimension(1:maxSP) :: weights
-  real(wp), dimension(1:nq,1:maxSP) :: uold
-  real(wp), dimension(1:nq,1:maxSP) :: unew
-  real(wp), dimension(1:nr,1:maxSP) :: xyz_err
+  real(wp), dimension(1:maxEP) :: jac
+  real(wp), dimension(1:maxEP) :: weights
+  real(wp), dimension(1:nq,1:maxEP) :: uold
+  real(wp), dimension(1:nq,1:maxEP) :: unew
+  real(wp), dimension(1:nr,1:maxEP) :: xyz_err
   real(wp), dimension(1:nq+1,1:2) :: ett
   real(wp), dimension(1:nq+1,1:2,1:5) :: error
   real(wp), dimension(1:nq+1,1:2,1:5,1:ncpu) :: all_error
@@ -78,7 +80,12 @@ subroutine compute_final_error()
   ! error(:,:,4) = ID of grid cell containing maximum value of error
   ! error(:,:,5) = ID of solution point with maximum value of error
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_final_error"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
@@ -88,6 +95,15 @@ continue
     n1 = cell(this_cell)%beg_sp
     n2 = cell(this_cell)%end_sp
     np = n2-n1+1
+    !
+    this_geom = cell(this_cell)%geom
+    this_order = cell(this_cell)%order
+    !
+    if (allocated(outerp(this_geom,this_order)%error)) then
+      if (allocated(outerp(this_geom,this_order)%error%mat)) then
+        np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+      end if
+    end if
     !
     call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
                               jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
@@ -99,8 +115,13 @@ continue
       !
       ! Error for conserved variables at the current solution point
       !
-      sn = entropy_cv_sp( unew(:,k) )
-      se = entropy_cv_sp( uold(:,k) )
+      if (itestcase == Inviscid_Gaussian_Bump) then
+        sn = entropy_cv_sp( unew(:,k) , log_opt=fals , use_pref_nd=true )
+        se = one
+      else
+        sn = entropy_cv_sp( unew(:,k) )
+        se = entropy_cv_sp( uold(:,k) )
+      end if
       !
       ett(1:nq,1) = abs( unew(:,k) - uold(:,k) )
       ett(nq+1,1) = sn - se
@@ -160,6 +181,8 @@ continue
     vkloc(m) = nint( all_error(m,2,5,maxloc(all_error(m,2,3,:),dim=1)) )
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine compute_final_error
 !
 !###############################################################################
@@ -169,7 +192,7 @@ subroutine rgeterr()
   !.. Use Statements ..
   use, intrinsic :: ieee_exceptions, only : ieee_usual,ieee_get_flag
   !
-  use order_mod,  only : maxSP
+  use order_mod,  only : maxEP
   use geovar,  only : nr,ncell,cell
   use geovar,  only : global_pinc_ptr
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in
@@ -183,6 +206,7 @@ subroutine rgeterr()
   use ovar,    only : iter_out_interval
   use ovar,    only : Period_Timesteps
   use parallel_mod, only : cell_map
+  use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
   integer  :: this_cell,n1,n2,np,m,l,k
@@ -197,17 +221,17 @@ subroutine rgeterr()
   character(len=300) :: invalid_error
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxSP) :: jac
-  real(wp), dimension(1:maxSP) :: weights
-  real(wp), dimension(1:nr,1:maxSP) :: xyz_err
-  real(wp), dimension(1:nq,1:maxSP) :: uold
-  real(wp), dimension(1:nq,1:maxSP) :: unew
+  real(wp), dimension(1:maxEP) :: jac
+  real(wp), dimension(1:maxEP) :: weights
+  real(wp), dimension(1:nr,1:maxEP) :: xyz_err
+  real(wp), dimension(1:nq,1:maxEP) :: uold
+  real(wp), dimension(1:nq,1:maxEP) :: unew
   real(wp), dimension(1:2) :: ett
   real(wp), dimension(1:2,1:7) :: error
   real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
   !
-  integer, dimension(1:size(ieee_usual)) :: bad_number_found
-  logical, dimension(1:size(ieee_usual)) :: signaling_exceptions
+  integer,      dimension(1:size(ieee_usual)) :: bad_number_found
+  logical(ldk), dimension(1:size(ieee_usual)) :: signaling_exceptions
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "rgeterr"
@@ -226,6 +250,8 @@ subroutine rgeterr()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   overflow_error = ""
   divide_by_zero_error = ""
   invalid_error = ""
@@ -238,6 +264,15 @@ continue
     n1 = cell(this_cell)%beg_sp
     n2 = cell(this_cell)%end_sp
     np = n2-n1+1
+    !
+    this_geom = cell(this_cell)%geom
+    this_order = cell(this_cell)%order
+    !
+    if (allocated(outerp(this_geom,this_order)%error)) then
+      if (allocated(outerp(this_geom,this_order)%error%mat)) then
+        np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+      end if
+    end if
     !
     call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
                               jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
@@ -263,8 +298,13 @@ continue
       if (any([rho,pres] <= zero)) write (iout,111) this_cell,k,rho,pres
       111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
       !
-      sn = entropy_cv_sp( unew(:,k) )
-      se = entropy_cv_sp( cv_in(:) )
+      if (itestcase == Inviscid_Gaussian_Bump) then
+        sn = entropy_cv_sp( unew(:,k) , log_opt=fals , use_pref_nd=true )
+        se = one
+      else
+        sn = entropy_cv_sp( unew(:,k) )
+        se = entropy_cv_sp( cv_in(:) )
+      end if
       !
       ett(2) = sn - se
       !
@@ -340,11 +380,12 @@ continue
   else
     !
     entL2 = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
+
     !
     ! Check for convergence
     !
     if (itcur > minimum_timesteps) then
-      convergence_reached = (entL2 <= convergence_order_max_res) .or. &
+      convergence_reached = (-entL2 <= convergence_order_max_res) .or. &
                             (log10(rltwo) <= convergence_order_abs_res)
       if (itestcase == Taylor_Green_Vortex) then
         convergence_reached = fals
@@ -434,8 +475,10 @@ continue
     write (error_message,7) trim(overflow_error), &
                             trim(divide_by_zero_error), &
                             trim(invalid_error)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -494,47 +537,59 @@ subroutine init_generic_mod
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Allocate the error arrays
   !
   if (.not. allocated(unloc)) then
     allocate ( unloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"unloc",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"unloc",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(ukloc)) then
     allocate ( ukloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ukloc",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"ukloc",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(ulinf)) then
     allocate ( ulinf(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ulinf",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"ulinf",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(ulone)) then
     allocate ( ulone(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ulone",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"ulone",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(ultwo)) then
     allocate ( ultwo(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ultwo",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"ultwo",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(vnloc)) then
     allocate ( vnloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vnloc",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"vnloc",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(vkloc)) then
     allocate ( vkloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vkloc",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"vkloc",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(vlinf)) then
     allocate ( vlinf(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vlinf",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"vlinf",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(vlone)) then
     allocate ( vlone(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vlone",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"vlone",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   if (.not. allocated(vltwo)) then
     allocate ( vltwo(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vltwo",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"vltwo",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
   end if
   !
   rl2mx = -huge(zero)
@@ -593,6 +648,8 @@ continue
   !
   if (mypnum == 0) write (iout,iter_header)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (i0)
@@ -618,74 +675,96 @@ subroutine getmaxent
   !... get max entropy
   !
   !.. Use Statements ..
-  use order_mod, only : maxpts
-  use geovar,  only : nr,ncell,cell,xyz
-  use ovar,    only : nentmax,kentmax,entmax,gam,cv_in
-  use ovar,    only : xentmax,yentmax,entL2,total_volume
-  use metrics_mod,  only : jacobian
-  use flowvar, only : usp
-  use parallel_mod, only : cell_map
-  use quadrature_mod, only : std_elem
+  use order_mod,         only : maxEP,e_order
+  use geovar,            only : nr,ncell,cell,xyz
+  use ovar,              only : nentmax,kentmax,entmax,gam,cv_in
+  use ovar,              only : xentmax,yentmax,entL2,total_volume
+  use ovar,              only : itestcase
+  use metrics_mod,       only : jacobian
+  use flowvar,           only : usp
+  use parallel_mod,      only : cell_map
+  use quadrature_mod,    only : std_elem
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer  :: n,n1,n2,np,m,l,k
+  integer  :: this_cell,n1,n2,np,m,l,k
   integer  :: this_geom,this_order
   real(wp) :: ett,sn,se
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxpts) :: jac
-  real(wp), dimension(1:maxpts) :: weights
-  real(wp), dimension(1:nr,1:maxpts) :: xyz_err
-  real(wp), dimension(1:nq,1:maxpts) :: unew
+  real(wp), dimension(1:maxEP) :: jac
+  real(wp), dimension(1:maxEP) :: weights
+  real(wp), dimension(1:nr,1:maxEP) :: xyz_err
+  real(wp), dimension(1:nq,1:maxEP) :: unew
+  real(wp), dimension(1:nq,1:maxEP) :: uold
   real(wp), dimension(1:6) :: error
   real(wp), dimension(1:6,1:ncpu) :: all_error
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "getmaxent"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   error(:) = zero  ! intialize everything to zero
   error(2) = -eps6 ! make this slightly negative in case all error is zero
   !
-  do n = 1,ncell
+  do this_cell = 1,ncell
     !
-    n1 = cell(n)%beg_sp
-    n2 = cell(n)%end_sp
+    n1 = cell(this_cell)%beg_sp
+    n2 = cell(this_cell)%end_sp
     np = n2-n1+1
     !
-    this_geom = cell(n)%geom
-    this_order = cell(n)%order
+    this_geom = cell(this_cell)%geom
+    this_order = cell(this_cell)%order
+    !
+    if (allocated(outerp(this_geom,this_order)%error)) then
+      if (allocated(outerp(this_geom,this_order)%error%mat)) then
+        np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+      end if
+    end if
     !
     ! Interpolate the new and old solution to the error points
     !
-    if (associated(outerp(this_geom,this_order)%error)) then
-      do l = 1,nr
-        xyz_err(l,1:np) = outerp(this_geom,this_order)% &
-                                                 error% &
-                          mv_mult( xyz(l,n1:n2) )
-      end do
-      do m = 1,nq
-        unew(m,1:np) = outerp(this_geom,this_order)% &
-                                              error% &
-                       mv_mult( usp(m,n1:n2) )
-      end do
-      jac(1:np) = outerp(this_geom,this_order)% &
-                                         error% &
-                  mv_mult( jacobian(n1:n2) )
-      weights(1:np) = outerp(this_geom,this_order)%err_wts
-    else
-      xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
-      unew(1:nq,1:np) = usp(1:nq,n1:n2)
-      jac(1:np) = jacobian(n1:n2)
-      weights(1:np) = std_elem(this_geom,this_order)%wts
-    end if
+    call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
+                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
+    !
+   !if (allocated(outerp(this_geom,this_order)%error)) then
+   !  np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+   !  do l = 1,nr
+   !    xyz_err(l,1:np) = outerp(this_geom,this_order)% &
+   !                                             error% &
+   !                      mv_mult( xyz(l,n1:n2) )
+   !  end do
+   !  do m = 1,nq
+   !    unew(m,1:np) = outerp(this_geom,this_order)% &
+   !                                          error% &
+   !                   mv_mult( usp(m,n1:n2) )
+   !  end do
+   !  jac(1:np) = outerp(this_geom,this_order)% &
+   !                                     error% &
+   !              mv_mult( jacobian(n1:n2) )
+   !  weights(1:np) = outerp(this_geom,this_order)%err_wts
+   !else
+   !  xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
+   !  unew(1:nq,1:np) = usp(1:nq,n1:n2)
+   !  jac(1:np) = jacobian(n1:n2)
+   !  weights(1:np) = std_elem(this_geom,this_order)%wts
+   !end if
     !     
     ! Now loop through the solution points of this cell to compute the
     ! error between the solutions of the current and previous time steps
     !
     do k = 1,np
       !
-      sn = entropy_cv_sp( unew(:,k) )
-      se = entropy_cv_sp( cv_in(:) )
+      if (itestcase == Inviscid_Gaussian_Bump) then
+        sn = entropy_cv_sp( unew(:,k) , log_opt=fals , use_pref_nd=true )
+        se = one
+      else
+        sn = entropy_cv_sp( unew(:,k) )
+        se = entropy_cv_sp( cv_in(:) )
+      end if
       !
       ett = sn - se
       !
@@ -695,7 +774,7 @@ continue
       !
       if (abs(ett) > error(2)) then
         error(2) = abs(ett)
-        error(3) = real(cell_map(mypnum+1)%loc_to_glb(n),kind=wp)
+        error(3) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
         error(4) = real(k,kind=wp)
         error(5) = xyz_err(1,k)
         error(6) = xyz_err(2,k)
@@ -723,6 +802,8 @@ continue
   !
   entL2 = sqrt( sum(all_error(1,:)) / total_volume )
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine getmaxent
 !
 !###############################################################################
@@ -730,14 +811,14 @@ end subroutine getmaxent
 subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP
-  use geovar, only : nr,cell,xyz
-  use ovar, only : mms_opt,itestcase
-  use flowvar, only : usp,uoldsp
+  use order_mod,         only : maxSP
+  use geovar,            only : nr,cell,xyz
+  use ovar,              only : mms_opt,itestcase
+  use flowvar,           only : usp,uoldsp
   use interpolation_mod, only : outerp
-  use quadrature_mod, only : std_elem
-  use metrics_mod, only : jacobian
-  use mms_mod, only : mms_solution_at_xyz
+  use quadrature_mod,    only : std_elem
+  use metrics_mod,       only : jacobian
+  use mms_mod,           only : mms_solution_at_xyz
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: this_cell
@@ -748,20 +829,43 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   real(wp), dimension(:),   intent(inout) :: weights
   !
   !.. Local Scalars ..
-  integer  :: m,l,k,n1,n2,np
-  integer  :: this_geom,this_order
+  integer :: m,l,k,n1,n2,np
+  integer :: this_geom,this_order
+  logical(lk) :: use_error_matrix
   !
   !.. Local Arrays ..
   real(wp) :: xyz_offset(1:nr,1:maxSP)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "collect_error_arrays"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   this_geom = cell(this_cell)%geom
   this_order = cell(this_cell)%order
   !
   n1 = cell(this_cell)%beg_sp
   n2 = cell(this_cell)%end_sp
-  np = n2-n1+1
+  !
+  ! Determine if we will be using the error matrix or not
+  !
+  use_error_matrix = fals
+  !
+  if (allocated(outerp(this_geom,this_order)%error)) then
+    if (allocated(outerp(this_geom,this_order)%error%mat)) then
+      use_error_matrix = true
+    end if
+  end if
+  !
+  ! Get the number of error points
+  !
+  if (use_error_matrix) then
+    np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+  else
+    np = n2-n1+1
+  end if
   !
   ! #######
   ! ## 1 ##
@@ -769,7 +873,7 @@ continue
   !
   ! Get the current solution at the error points
   !
-  if (associated(outerp(this_geom,this_order)%error)) then
+  if (use_error_matrix) then
     !
     do m = 1,nq
       unew(m,1:np) = outerp(this_geom,this_order)% &
@@ -789,7 +893,7 @@ continue
   !
   ! Get the local jacobians at the error points
   !
-  if (associated(outerp(this_geom,this_order)%error)) then
+  if (use_error_matrix) then
     !
     jac(1:np) = outerp(this_geom,this_order)% &
                                        error% &
@@ -807,7 +911,7 @@ continue
   !
   ! Get the quadrature weights for the error points
   !
-  if (associated(outerp(this_geom,this_order)%error)) then
+  if (use_error_matrix) then
     !
     weights(1:np) = outerp(this_geom,this_order)%err_wts
     !
@@ -823,7 +927,7 @@ continue
   !
   ! Get the coordinates of the error points
   !
-  if (associated(outerp(this_geom,this_order)%error)) then
+  if (use_error_matrix) then
     !
     do l = 1,nr
       xyz_err(l,1:np) = outerp(this_geom,this_order)% &
@@ -866,7 +970,7 @@ continue
     !
   else
     !
-    if (associated(outerp(this_geom,this_order)%error)) then
+    if (use_error_matrix) then
       !
       ! Get the solution from the previous time step at the error points
       !
@@ -885,6 +989,8 @@ continue
     end if
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_error_arrays
 !
@@ -913,16 +1019,16 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   integer :: ierr,nke,ndt,nmin,nmax,nbeg,nend
   integer :: this_cell,this_geom,this_order
   !
-  logical :: first_output,final_output
-  logical :: this_is_output_iter
+  logical(lk) :: first_output,final_output
+  logical(lk) :: this_is_output_iter
   !
   real(wp) :: kem,kec,kep,dtm,dtp
   real(wp) :: solution_time
   real(wp) :: div_vel,muref_star
   !
   !.. Local Saved Scalars ..
-  logical, save :: completed_first_output = fals
-  logical, save :: needs_initialization = true
+  logical(lk), save :: completed_first_output = fals
+  logical(lk), save :: needs_initialization = true
   !
   !.. Local Arrays ..
   real(wp) :: vort(1:nr)
@@ -937,6 +1043,8 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   character(len=*), parameter :: fname = "TaylorGreen_KEDR.dat"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   nke = 5
   ndt = 7
@@ -995,11 +1103,13 @@ continue
     !
     allocate ( tgv_kedr(1:7,-1:nmax) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"tgv_kedr",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"tgv_kedr",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
     !
     allocate ( sum_kedr(1:4,0:nmax) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sum_kedr",1,ierr,error_message,skip_alloc_pause)
+    call alloc_error(pname,"sum_kedr",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
     !
     ! Initialize the array to adjust the nondimensionalization of the
     ! integrated results
@@ -1035,7 +1145,7 @@ continue
       !
       open (newunit=iotg,file=fname,status="replace",action="write", &
             iostat=ierr,iomsg=error_message)
-      call io_error(pname,fname,1,ierr,error_message)
+      call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
       !
       write (iotg,1) n_order,nc*(n_order+1),n_order, &
                      VortexGrid_DOF,nc*(n_order+1)
@@ -1077,7 +1187,7 @@ continue
     ! Collect the primitive variables, velocity gradients, jacobian, and
     ! quadrature weights at the error quadrature points for the current cell
     !
-    if (associated(outerp(this_geom,this_order)%error)) then
+    if (allocated(outerp(this_geom,this_order)%error)) then
       !
       ! The error quadrature points are different from the solution points so
       ! we must interpolate these values from the solution points to the
@@ -1320,7 +1430,7 @@ continue
         ! Close the Taylor-Green KEDR solution file
         !
         close (iotg,iostat=ierr,iomsg=error_message)
-        call io_error(pname,fname,2,ierr,error_message)
+        call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
         !
       end if
       !
@@ -1337,10 +1447,12 @@ continue
       ! Deallocate tgv_kedr since it is no longer needed
       !
       deallocate ( tgv_kedr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"tgv_kedr",2,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,"tgv_kedr",2,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
       deallocate ( sum_kedr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"sum_kedr",2,ierr,error_message,skip_alloc_pause)
+      call alloc_error(pname,"sum_kedr",2,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
       !
     else
       !
@@ -1367,6 +1479,8 @@ continue
     !
   end if
   !
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !

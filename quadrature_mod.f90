@@ -64,7 +64,7 @@ module quadrature_mod
   type(element_type), public, save, target, allocatable :: face_elem(:,:)
   !
   !
-  logical, public, protected, save :: geom_is_used(Geom_Min:Geom_Max)
+  logical(lk), public, protected, save :: geom_is_used(Geom_Min:Geom_Max)
   !
   interface get_triangle_weights_at_solpts
     module procedure get_triangle_weights_at_solpts_DP, &
@@ -82,9 +82,11 @@ subroutine find_valid_geometries()
   use order_mod, only : n_min_geom,n_max_geom,q_order
   use order_mod, only : geom_solpts,geom_flxpts
   use order_mod, only : maxpts,maxSP,maxFP,maxQP,maxGP
+  use order_mod, only : o_order,maxOP
+  use order_mod, only : e_order,maxEP
   !
   !.. Local Scalars ..
-  integer :: nc,this_geom
+  integer :: nc,ne,no,this_geom
   !
 continue
   !
@@ -131,6 +133,8 @@ continue
   maxFP = 1
   maxQP = 1
   maxGP = 1
+  maxOP = 1
+  maxEP = 1
   !
   do nc = 1,size(cell_geom)
     !
@@ -142,7 +146,25 @@ continue
     !
   end do
   !
-  maxpts = max( maxSP , maxQP , maxFP , maxGP )
+  if (o_order > 0) then
+    do nc = 1,size(cell_geom)
+      no = max(cell_order(nc),o_order)
+      maxOP = max( maxOP , geom_solpts(cell_geom(nc),no) )
+    end do
+  else
+    maxOP = maxSP
+  end if
+  !
+  if (e_order > 0) then
+    do nc = 1,size(cell_geom)
+      ne = max(cell_order(nc),e_order)
+      maxEP = max( maxEP , geom_solpts(cell_geom(nc),ne) )
+    end do
+  else
+    maxEP = maxSP
+  end if
+  !
+  maxpts = max( maxSP , maxQP , maxFP , maxGP , maxOP , maxEP )
   !
 end subroutine find_valid_geometries
 !
@@ -184,7 +206,7 @@ continue
   !
   allocate ( std_elem(Geom_Min:Geom_Max,n_min_order:n_max_order) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"std_elem",1,ierr,error_message)
+  call alloc_error(pname,"std_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Loop through all the possible orders and get the quadrature rules
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
@@ -218,14 +240,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for an edge with the current order
@@ -293,7 +315,7 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! We dont want to allocate the pts component for this geometry since
       ! it will never be used and will just be a waste of memory.
@@ -301,7 +323,7 @@ continue
      !allocate ( this_elem%pts(1:ndim,1:npts) , &
      !           stat=ierr , errmsg=error_message )
      !write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-     !call alloc_error(pname,array_name,1,ierr,error_message)
+     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
@@ -318,19 +340,19 @@ continue
         case (Geom_Tetr)
           !
           write (error_message,3) "Geom_Tetr"
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_tetr_quadrature(this_order)
           !
         case (Geom_Pyra)
           !
           write (error_message,3) "Geom_Pyra"
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_pyra_quadrature(this_order)
           !
         case (Geom_Pris)
           !
           write (error_message,3) "Geom_Pris"
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_pris_quadrature(this_order)
           !
         case (Geom_Hexa)
@@ -340,7 +362,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,error_message)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !
@@ -387,8 +409,8 @@ subroutine init_face_quadrature_rules()
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
   integer :: gmin,gmax,this_order
-  logical :: there_are_quad_faces
-  logical :: there_are_tria_faces
+  logical(lk) :: there_are_quad_faces
+  logical(lk) :: there_are_tria_faces
   character(len=100) :: array_name
   !
   !.. Local Pointers ..
@@ -424,7 +446,7 @@ continue
   !
   allocate ( face_elem(gmin:gmax,n_min_order:n_max_order) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_elem",1,ierr,error_message)
+  call alloc_error(pname,"face_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Loop through all the possible orders and get the edge quadrature rules.
   !
@@ -448,13 +470,13 @@ continue
     !
     allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
     write (array_name,1) Geom_Name(Geom_Edge),this_order,"wts"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Allocate the pts component of the current geometry/order combination
     !
     allocate ( this_elem%pts(1:ndim,1:npts) , stat=ierr , errmsg=error_message )
     write (array_name,1) Geom_Name(Geom_Edge),this_order,"pts"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Fill in the solution points and quadrature weights
     ! for an edge with the current order
@@ -492,14 +514,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Tria),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Tria),this_order,"pts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for a triangle face with the current order
@@ -544,14 +566,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Quad),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
      !!
      !! Allocate the pts component of the current geometry/order combination
      !!
      !allocate ( this_elem%pts(1:ndim,1:npts) , &
      !           stat=ierr , errmsg=error_message )
      !write (array_name,1) Geom_Name(Geom_Quad),this_order,"pts"
-     !call alloc_error(pname,array_name,1,ierr,error_message)
+     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for a quad face with the current order
@@ -1335,7 +1357,7 @@ continue
   !
   open (newunit=io,file=filename,status="replace",action="write", &
         position="rewind",form="formatted",iostat=ierr,iomsg=error_message)
-  call io_error(pname,filename,1,ierr,error_message)
+  call io_error(pname,filename,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (io,10)
   !
@@ -1345,15 +1367,15 @@ continue
   !
   allocate ( edge_elem(min_order:max_order,1:3) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge_elem",1,ierr,error_message)
+  call alloc_error(pname,"edge_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( quad_elem(min_order:max_order,1:3) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"quad_elem",1,ierr,error_message)
+  call alloc_error(pname,"quad_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( hexa_elem(min_order:max_order,1:3) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"hexa_elem",1,ierr,error_message)
+  call alloc_error(pname,"hexa_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Loop through all the possible orders and get the quadrature rules
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
@@ -1389,14 +1411,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the solution points and quadrature weights
       ! for an edge with the current order
@@ -1447,14 +1469,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
@@ -1511,14 +1533,14 @@ continue
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Allocate the pts component of the current geometry/order combination
       !
       allocate ( this_elem%pts(1:ndim,1:npts) , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Fill in the quadrature weights for the
       ! current geometry/order combination
@@ -1554,9 +1576,9 @@ continue
   end do
   !
   close (io,iostat=ierr,iomsg=error_message)
-  call io_error(pname,filename,2,ierr,error_message)
+  call io_error(pname,filename,2,__LINE__,__FILE__,ierr,error_message)
   !
-  call stop_recon(stop_mpi,pname,"dumping solution points")
+  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"dumping solution points")
   !
   ! Format Statements
   !
@@ -1796,7 +1818,7 @@ continue
       np1d = nint( sqrt( real(np,kind=wp) ) )
       if (np1d*np1d /= np) then
         write (error_message,100) "Quad",np,np1d
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       nc1d = np1d-1
       nc = nc1d*nc1d
@@ -1810,7 +1832,7 @@ continue
       np1d = nint( (real(np,kind=wp)**one3) )
       if (np1d*np1d*np1d /= np) then
         write (error_message,100) "Hexa",np,np1d
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       nc1d = np1d-1
       nc = nc1d*nc1d*nc1d
@@ -1822,7 +1844,7 @@ continue
     else
       !
       write (error_message,101)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     end if
     !
@@ -1833,15 +1855,15 @@ continue
     !
     allocate ( ipelem(1:nnpc,1:nc,1:ncells) , source=0 , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",1,ierr,error_message)
+    call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( xyz(1:3,1:np,1:ncells) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz",1,ierr,error_message)
+    call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
     !
     allocate ( xyz_offset(1:3,1:ncells) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"xyz_offset",1,ierr,error_message)
+    call alloc_error(pname,"xyz_offset",1,__LINE__,__FILE__,ierr,error_message)
     !
     m = 0
     do n = 1,ncells
@@ -1906,17 +1928,18 @@ continue
     !
     if (allocated(ipelem)) then
       deallocate ( ipelem , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ipelem",2,ierr,error_message)
+      call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
     if (allocated(xyz)) then
       deallocate ( xyz , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"xyz",2,ierr,error_message)
+      call alloc_error(pname,"xyz",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
     if (allocated(xyz_offset)) then
       deallocate ( xyz_offset , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"xyz_offset",2,ierr,error_message)
+      call alloc_error(pname,"xyz_offset",2,__LINE__,__FILE__,ierr, &
+                       error_message)
     end if
     !
     ! Format Statements

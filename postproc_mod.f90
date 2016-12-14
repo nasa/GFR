@@ -2,7 +2,7 @@ module postprocessor_mod
   !
   !.. Global Use Statements ..
   use module_kind_types
-  use cgns_module
+  use module_cgns_types
   use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk
   !
   implicit none
@@ -52,7 +52,7 @@ module postprocessor_mod
   !
   type :: plot_func_t
     integer :: func
-    character(len=32) :: varname = ""
+    character(len=CGLEN) :: varname = ""
   contains
     procedure :: get_function_name
   end type plot_func_t
@@ -99,7 +99,7 @@ module postprocessor_mod
   !                        initializations required for CGNS have been completed
   !                        or not.
   !
-  logical, save :: initialization_needed = true
+  logical(lk), save :: initialization_needed = true
   !
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
   !
@@ -107,8 +107,8 @@ module postprocessor_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  logical, parameter :: check_gradients = fals
- !logical, parameter :: check_gradients = true
+  logical(lk), parameter :: check_gradients = fals
+ !logical(lk), parameter :: check_gradients = true
   !
   ! ################################
   ! ###  Module Local Variables  ###
@@ -133,8 +133,8 @@ module postprocessor_mod
   !.. CGNS Time Dependent Variables ..
   integer, save :: cgns_zone_counter
   !
-  real(sp),          save, allocatable, dimension(:) :: soltime
-  character(len=32), save, allocatable, dimension(:) :: solname
+  real(sp),             save, allocatable, dimension(:) :: soltime
+  character(len=CGLEN), save, allocatable, dimension(:) :: solname
   !
   character(len=*), parameter :: base_name = "recon_base"
   character(len=*), parameter :: zone_name = "Solution"
@@ -151,7 +151,7 @@ module postprocessor_mod
   !                      problem and is more of a temporary addition until the
   !                      output logic/code becomes more robust.
   !
-  logical, save :: disable_cgns_output = fals
+  logical(lk), save :: disable_cgns_output = fals
   !
 !!" FINISHED SUBROUTINE MAP_TO_OUTPUT_POINTS AND THE RELATED FUNCTIONS FOR"
 !!" HEXAHEDRA CELLS. NOW NEED TO GO BACK AND FIGURE OUT HOW TO APPLY THIS"
@@ -258,9 +258,9 @@ subroutine new_write_parallel_cgns()
   !.. Local Scalars ..
   integer :: n,ierr
   !
-  character(len=32) :: tname
-  character(len=170) :: sol_file
-  character(len=300) :: link_path
+  character(len=CGLEN) :: tname
+  character(len=170)   :: sol_file
+  character(len=300)   :: link_path
   !
   !.. Local Arrays ..
   integer, dimension(1:2) :: idata
@@ -279,6 +279,8 @@ continue
       end if
     end if
   end if
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (initialization_needed) then
     !
@@ -328,7 +330,7 @@ continue
   !
   call cg_goto_f(ifile_n,ibase_n,cgierr, &
                  "Zone_t",izone_n, &
-                 C_NULL_CHAR)
+                 CGNS_GOTO_END)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/"//trim(tname)
@@ -354,7 +356,7 @@ continue
   !
   call cg_goto_f(ifile_n,ibase_n,cgierr, &
                  "BaseIterativeData_t",iiter_n, &
-                 C_NULL_CHAR)
+                 CGNS_GOTO_END)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
@@ -369,7 +371,7 @@ continue
   call cg_goto_f(ifile_n,ibase_n,cgierr, &
                  "Zone_t",izone_n, &
                  "ZoneIterativeData_t",iiter_n, &
-                 C_NULL_CHAR)
+                 CGNS_GOTO_END)
   call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
   !
   idata(:) = int( [32,size(solname)] , kind=CST )
@@ -394,7 +396,9 @@ continue
   write (error_message,100)
   100 format ("Temporary stop after writing initial CGNS files using the ", &
               "new continuous output from the post-processor module.")
-  call stop_recon(stop_mpi,pname,error_message)
+  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -418,7 +422,7 @@ subroutine write_grid_parallel_cgns()
   integer(CST) :: n_total_output_pts
   integer(CST) :: n_total_output_cells
   !
-  character(len=32) :: varname
+  character(len=CGLEN) :: varname
   !
   !.. Local Arrays ..
   integer(CBT), dimension(1:nr) :: ixyz_n
@@ -432,6 +436,8 @@ subroutine write_grid_parallel_cgns()
   character(len=*), parameter :: pname = "write_grid_parallel_cgns"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_base_fname
   !
@@ -450,11 +456,11 @@ continue
   !
   allocate ( vartmp(1:nr,1:n_my_output_pts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vartmp",1,ierr,error_message)
+  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"var",1,ierr,error_message)
+  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Initialize the zone counter
   !
@@ -565,16 +571,18 @@ continue
   !
   if (allocated(var)) then
     deallocate ( var , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",2,ierr,error_message)
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(vartmp)) then
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",2,ierr,error_message)
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,ierr,error_message)
+    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine write_grid_parallel_cgns
 !
@@ -594,9 +602,9 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !.. Local Scalars ..
   integer :: n,ierr
   !
-  character(len=32)  :: sect_name
-  character(len=170) :: cgns_sol_file
-  character(len=300) :: link_path
+  character(len=CGLEN) :: sect_name
+  character(len=170)   :: cgns_sol_file
+  character(len=300)   :: link_path
   !
   !.. Local Arrays ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
@@ -610,6 +618,8 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is equal to open_CGNS
@@ -617,7 +627,7 @@ continue
   ! Initialize the zone counter
   !
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
-  call io_error(pname,cgns_sol_file,1,ierr)
+  call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
   !
   ! Set the CGNS base (who knows what this is for)
   !
@@ -635,7 +645,7 @@ continue
   !
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
-                 C_NULL_CHAR)
+                 CGNS_GOTO_END)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
@@ -662,11 +672,11 @@ continue
   !
   allocate ( vartmp(1:npvar,1:n_my_output_pts) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vartmp",1,ierr,error_message)
+  call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"var",1,ierr,error_message)
+  call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Collect the solution into vartmp
   !
@@ -725,18 +735,20 @@ continue
   ! Close the CGNS FILE
   !
   call cgp_close_f(ifile_s,cgierr)
-  call io_error(pname,cgns_grid_file,2,ierr)
+  call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
   !
   ! Deallocate the arrays var and vartmp
   !
   if (allocated(var)) then
     deallocate ( var , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",2,ierr,error_message)
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(vartmp)) then
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",2,ierr,error_message)
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -771,6 +783,8 @@ subroutine collect_coordinates_for_output(var)
   character(len=*), parameter :: pname = "collect_coordinates_for_output"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   cell_loop: do nc = 1,ncell
     !
@@ -850,7 +864,7 @@ continue
   ! Deallocate edgexyz since it is no longer needed
   !
   deallocate ( edgexyz , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edgexyz",2,ierr,error_message)
+  call alloc_error(pname,"edgexyz",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Deallocate or shrink facexyz depending on if MMS is enabled
   !
@@ -861,7 +875,8 @@ continue
     !
     allocate ( temp_facexyz(1:nfbnd) , source=facexyz(1:nfbnd) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"temp_facexyz",1,ierr,error_message)
+    call alloc_error(pname,"temp_facexyz",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     call move_alloc( from=temp_facexyz , to=facexyz )
     !
   else
@@ -870,9 +885,11 @@ continue
     ! entirely since it is no longer needed
     !
     deallocate ( facexyz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",2,ierr,error_message)
+    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_coordinates_for_output
 !
@@ -898,6 +915,8 @@ subroutine collect_solution_for_output(var)
   character(len=*), parameter :: pname = "collect_solution_for_output"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call get_face_solutions
   !
@@ -966,6 +985,8 @@ continue
     !
   end do node_loop
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine collect_solution_for_output
 !
 !###############################################################################
@@ -988,6 +1009,8 @@ subroutine get_face_solutions
   character(len=*), parameter :: pname = "get_face_solutions"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call faceusp%zero
   call facedusp%zero
@@ -1018,6 +1041,8 @@ continue
     facedusp(nf)%v(:,:,:,1) = half * (facedusp(nf)%v(:,:,:,1) + &
                                       facedusp(nf)%v(:,:,:,2))
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_face_solutions
 !
@@ -1050,6 +1075,8 @@ subroutine get_edge_and_node_solutions
   character(len=*), parameter :: pname = "get_edge_and_node_solutions"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Zero out the nodeusp, nodedusp, edgeusp, and edgedusp arrays
   !
@@ -1098,9 +1125,15 @@ continue
       ave = cell(nc)%edge(n)%ave_coef
       edge_order = cell(nc)%edge(n)%order
       !
+#ifdef USE_EDGE_CELL_IDX
       edge_pts: do kf = 1,size(cell(nc)%edge(n)%cell_idx)
         !
         lf = cell(nc)%edge(n)%cell_idx(kf)
+#else
+      edge_pts: do kf = 1,edge_order+1
+        !
+        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+#endif
         !
         do m = 1,nq
           do l = 1,nr
@@ -1163,6 +1196,8 @@ continue
     call exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_edge_and_node_solutions
 !
 !###############################################################################
@@ -1174,6 +1209,7 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   use order_mod, only : gmax => n_max_geom
   use order_mod, only : omin => n_min_order
   use order_mod, only : omax => n_max_order
+  use order_mod, only : geom_solpts
   use geovar,    only : n_solpts,ncell,cell
   use geovar,    only : pst_geom,nr
   use flowvar,   only : faceusp
@@ -1193,6 +1229,7 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   integer :: mop,msp,mfp,mep,mnp
   integer :: n,m,nc,ne,nf,nn,n1,n2,np
   integer :: this_geom,this_order
+  integer :: face_geom,face_order
   integer :: mxpt,my_pts_offset
   integer :: this_subcells,n_my_output_cells
   integer :: bad_indices,sf,kf,lf
@@ -1227,17 +1264,19 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   integer, allocatable :: node_pt(:)
   integer, allocatable :: remaining_pts(:)
   !
-  logical, allocatable :: my_faces(:)
-  logical, allocatable :: my_edges(:)
-  logical, allocatable :: my_nodes(:)
-  logical, allocatable :: node_already_done(:)
-  logical, allocatable :: edge_already_done(:)
-  logical, allocatable :: msk(:)
+  logical(lk), allocatable :: my_faces(:)
+  logical(lk), allocatable :: my_edges(:)
+  logical(lk), allocatable :: my_nodes(:)
+  logical(lk), allocatable :: node_already_done(:)
+  logical(lk), allocatable :: edge_already_done(:)
+  logical(lk), allocatable :: msk(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_cell_subconnectivity"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   debug_unit = 160
   !
@@ -1246,7 +1285,7 @@ continue
   cpu_mxpts = 0
   !
   allocate ( map(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map",1,ierr,error_message)
+  call alloc_error(pname,"map",1,__LINE__,__FILE__,ierr,error_message)
   !
   !##########################################################################
   !##########################################################################
@@ -1259,7 +1298,8 @@ continue
   !
   allocate ( cell_points_ptr(1:ncell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_points_ptr",1,ierr,error_message)
+  call alloc_error(pname,"cell_points_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ! Loop through each cell and count the number of output points
   ! for each cell on this partition
@@ -1350,34 +1390,36 @@ continue
   !
   allocate ( cell_points(1:last(cell_points_ptr)) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_points",1,ierr,error_message)
+  call alloc_error(pname,"cell_points",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Allocate the arrays to mark nodes and edges that have already been completed
   !
   nn = size(nodeusp)
   allocate ( node_already_done(1:nn) , source=fals , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"node_already_done",1,ierr,error_message)
+  call alloc_error(pname,"node_already_done",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ne = size(edgeusp)
   allocate ( edge_already_done(1:ne) , source=fals , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge_already_done",1,ierr,error_message)
+  call alloc_error(pname,"edge_already_done",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ! Allocate the cell_pts array to temporarily store the point indices of
   ! the current cell thats being operated on
   !
   allocate ( cell_pts(1:mop) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_pts",1,ierr,error_message)
+  call alloc_error(pname,"cell_pts",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( face_pt(1:mfp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_pt",1,ierr,error_message)
+  call alloc_error(pname,"face_pt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( edge_pt(1:mep) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edge_pt",1,ierr,error_message)
+  call alloc_error(pname,"edge_pt",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( node_pt(1:mnp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"node_pt",1,ierr,error_message)
+  call alloc_error(pname,"node_pt",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Zero the nodeusp, nodedusp, edgeusp, edgedusp, and faceusp array
   ! before we start storing point indices in these arrays
@@ -1469,9 +1511,18 @@ continue
       nf = cell(nc)%face(n)%idx
       sf = cell(nc)%face(n)%side
       !
+#ifdef USE_FACE_CELL_IDX
       do kf = 1,size(cell(nc)%face(n)%cell_idx)
         !
         lf = cell(nc)%face(n)%cell_idx(kf)
+#else
+      face_geom = cell(nc)%face(n)%geom
+      face_order = cell(nc)%face(n)%order
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
+        !
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
+#endif
         !
         faceusp(nf)%v(1,kf,sf) = real( cell_pts( face_pt(lf) ) , kind=wp )
         !
@@ -1487,9 +1538,15 @@ continue
       !
       if (edge_already_done(ne)) cycle pack_cell_edge_pts
       !
+#ifdef USE_EDGE_CELL_IDX
       do kf = 1,size(cell(nc)%edge(n)%cell_idx)
         !
         lf = cell(nc)%edge(n)%cell_idx(kf)
+#else
+      do kf = 1,cell(nc)%edge(n)%order+1
+        !
+        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+#endif
         !
         edgeusp(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
         !
@@ -1524,12 +1581,14 @@ continue
   !
   if (allocated(node_already_done)) then
     deallocate ( node_already_done , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"node_already_done",2,ierr,error_message)
+    call alloc_error(pname,"node_already_done",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   if (allocated(edge_already_done)) then
     deallocate ( edge_already_done , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edge_already_done",2,ierr,error_message)
+    call alloc_error(pname,"edge_already_done",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   if (ncpu == 1) then
@@ -1610,9 +1669,18 @@ continue
       !
       nf = cell(nc)%face(n)%idx
       !
+#ifdef USE_FACE_CELL_IDX
       do kf = 1,size(cell(nc)%face(n)%cell_idx)
         !
         lf = cell(nc)%face(n)%cell_idx(kf)
+#else
+      face_geom = cell(nc)%face(n)%geom
+      face_order = cell(nc)%face(n)%order
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
+        !
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
+#endif
         !
         cell_pts( face_pt(lf) ) = nint( faceusp(nf)%v(1,kf,1) , &
                                         kind=kind(cell_pts) )
@@ -1627,9 +1695,15 @@ continue
       !
       ne = cell(nc)%edge(n)%idx
       !
+#ifdef USE_EDGE_CELL_IDX
       do kf = 1,size(cell(nc)%edge(n)%cell_idx)
         !
         lf = cell(nc)%edge(n)%cell_idx(kf)
+#else
+      do kf = 1,cell(nc)%edge(n)%order+1
+        !
+        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+#endif
         !
         cell_pts( edge_pt(lf) ) = nint( edgeusp(ne)%v(1,kf) , &
                                         kind=kind(cell_pts) )
@@ -1672,15 +1746,15 @@ continue
   !
   nf = size(faceusp)
   allocate ( my_faces(1:nf) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_faces",1,ierr,error_message)
+  call alloc_error(pname,"my_faces",1,__LINE__,__FILE__,ierr,error_message)
   !
   ne = size(edgeusp)
   allocate ( my_edges(1:ne) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_edges",1,ierr,error_message)
+  call alloc_error(pname,"my_edges",1,__LINE__,__FILE__,ierr,error_message)
   !
   nn = size(nodeusp)
   allocate ( my_nodes(1:nn) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_nodes",1,ierr,error_message)
+  call alloc_error(pname,"my_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   bad_indices = 0
   !
@@ -1749,7 +1823,7 @@ continue
   !
   if (bad_indices /= 0) then
     write (error_message,13)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   !############################################################################
@@ -1780,7 +1854,7 @@ continue
   !
   allocate ( remaining_pts(1:mxpt) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"remaining_pts",1,ierr,error_message)
+  call alloc_error(pname,"remaining_pts",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Mark all the remaining points on this processor
   ! NOTE: We need to use the absolute value of cell_points because some
@@ -1833,7 +1907,7 @@ continue
   !
   allocate ( msk(1:n_total_output_pts) , source=fals , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
  !where (cell_points > 0) msk(cell_points) = true
   do n = 1,size(cell_points)
@@ -1853,7 +1927,8 @@ continue
     !
     allocate ( tmp_cell_points , source=cell_points , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"tmp_cell_points",1,ierr,error_message)
+    call alloc_error(pname,"tmp_cell_points",1,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
     running_offset = 0
     !
@@ -1938,12 +2013,13 @@ continue
   !
   if (allocated(msk)) then
     deallocate ( msk , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",2,ierr,error_message)
+    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(remaining_pts)) then
     deallocate ( remaining_pts , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"remaining_pts",2,ierr,error_message)
+    call alloc_error(pname,"remaining_pts",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   ! TEMPORARY DEBUG STUFF
@@ -1963,7 +2039,7 @@ continue
   n1 = minval( cell_points , mask=(cell_points>0) )
   n2 = maxval( cell_points , mask=(cell_points>0) )
   allocate ( msk(n1:n2) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,ierr,error_message)
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   do n = 1,size(cell_points)
     if (cell_points(n) > 0) then
       msk(cell_points(n)) = true
@@ -1971,7 +2047,7 @@ continue
   end do
   loc_n_my_output_pts = count(msk)
   deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,ierr,error_message)
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
   write (iout,41) loc_n_my_output_pts
   ! TEMPORARY DEBUG STUFF
   ! TEMPORARY DEBUG STUFF
@@ -1991,19 +2067,23 @@ continue
   !
   allocate ( output_sol_pts(1:n_solpts) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_sol_pts",1,ierr,error_message)
+  call alloc_error(pname,"output_sol_pts",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   nf = count( my_faces )
   allocate ( output_face_pts(1:nf) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_face_pts",1,ierr,error_message)
+  call alloc_error(pname,"output_face_pts",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ne = count( my_edges )
   allocate ( output_edge_pts(1:ne) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_edge_pts",1,ierr,error_message)
+  call alloc_error(pname,"output_edge_pts",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   nn = count( my_nodes )
   allocate ( output_node_pts(1:nn) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"output_node_pts",1,ierr,error_message)
+  call alloc_error(pname,"output_node_pts",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   cpu_subcells(:) = 0
   !
@@ -2099,18 +2179,29 @@ continue
       !
       ! Get the number of face points for this face
       !
+#ifdef USE_FACE_CELL_IDX
       nfp = size(cell(nc)%face(n)%cell_idx)
+#else
+      face_geom = cell(nc)%face(n)%geom
+      face_order = cell(nc)%face(n)%order
+      !
+      nfp = geom_solpts(face_geom,face_order)
+#endif
       !
       ! Allocate the out_idx component of output_face_pts for this face
       !
       allocate ( output_face_pts(ifc)%out_idx(1:nfp) , source=0 , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) "face",ifc
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       do kf = 1,nfp
         !
+#ifdef USE_FACE_CELL_IDX
         lf = cell(nc)%face(n)%cell_idx(kf)
+#else
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
+#endif
         !
         output_face_pts(ifc)%out_idx(kf) = cell_pts( face_pt(lf) )
         !
@@ -2148,18 +2239,26 @@ continue
       !
       ! Get the number of edge points for this edge
       !
+#ifdef USE_EDGE_CELL_IDX
       nep = size(cell(nc)%edge(n)%cell_idx)
+#else
+      nep = cell(nc)%edge(n)%order+1
+#endif
       !
       ! Allocate the out_idx component of output_edge_pts for this edge
       !
       allocate ( output_edge_pts(iec)%out_idx(1:nep) , source=0 , &
                  stat=ierr , errmsg=error_message )
       write (array_name,1) "edge",iec
-      call alloc_error(pname,array_name,1,ierr,error_message)
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       do kf = 1,nep
         !
+#ifdef USE_EDGE_CELL_IDX
         lf = cell(nc)%edge(n)%cell_idx(kf)
+#else
+        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+#endif
         !
         output_edge_pts(iec)%out_idx(kf) = cell_pts( edge_pt(lf) )
         !
@@ -2245,7 +2344,7 @@ continue
     ! Abort execution if bad_indices was non-zero on any processor
     !
     write (error_message,23)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !
@@ -2327,29 +2426,30 @@ continue
   !
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,ierr,error_message)
+    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   allocate ( ipelem(1:np,1:n_my_output_cells) , source=0_CST , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",1,ierr,error_message)
+  call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
   !
   if (postproc_debug_grid .and. ncpu == 1) then
     if (mod(n_my_output_cells,ncell) == 0) then
       n = n_my_output_cells / ncell
       allocate ( ipelem_of_cells(1:np,1:n,1:ncell) , source=0 , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ipelem_of_cells",1,ierr,error_message)
+      call alloc_error(pname,"ipelem_of_cells",1,__LINE__,__FILE__,ierr, &
+                       error_message)
     else
       write (error_message,'(a)') &
             "n_my_output_cells should be a multiple of ncell!"
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
   allocate ( rev_pts(1:size(cell_pts)) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"rev_pts",1,ierr,error_message)
+  call alloc_error(pname,"rev_pts",1,__LINE__,__FILE__,ierr,error_message)
   !
   inc = 0
   !
@@ -2429,58 +2529,61 @@ continue
   !
   if (allocated(cell_points)) then
     deallocate ( cell_points , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_points",2,ierr,error_message)
+    call alloc_error(pname,"cell_points",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(cell_points_ptr)) then
     deallocate ( cell_points_ptr , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_points_ptr",2,ierr,error_message)
+    call alloc_error(pname,"cell_points_ptr",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   if (allocated(my_faces)) then
     deallocate ( my_faces , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"my_faces",2,ierr,error_message)
+    call alloc_error(pname,"my_faces",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(my_edges)) then
     deallocate ( my_edges , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"my_edges",2,ierr,error_message)
+    call alloc_error(pname,"my_edges",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(my_nodes)) then
     deallocate ( my_nodes , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"my_nodes",2,ierr,error_message)
+    call alloc_error(pname,"my_nodes",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(map)) then
     deallocate ( map , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"map",2,ierr,error_message)
+    call alloc_error(pname,"map",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(cell_pts)) then
     deallocate ( cell_pts , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_pts",2,ierr,error_message)
+    call alloc_error(pname,"cell_pts",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(face_pt)) then
     deallocate ( face_pt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"face_pt",2,ierr,error_message)
+    call alloc_error(pname,"face_pt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(edge_pt)) then
     deallocate ( edge_pt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edge_pt",2,ierr,error_message)
+    call alloc_error(pname,"edge_pt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(node_pt)) then
     deallocate ( node_pt , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"node_pt",2,ierr,error_message)
+    call alloc_error(pname,"node_pt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(rev_pts)) then
     deallocate ( rev_pts , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"rev_pts",2,ierr,error_message)
+    call alloc_error(pname,"rev_pts",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -2533,7 +2636,7 @@ elemental function plot_func_type_equals(a,b) result(return_value)
   type(plot_func_t), intent(in) :: a
   type(plot_func_t), intent(in) :: b
   !
-  logical :: return_value
+  logical(ldk) :: return_value
   !
 continue
   !
@@ -2792,10 +2895,12 @@ subroutine get_plot_functions
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   npvar = 20
   !
   allocate ( plot_var(1:npvar) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"plot_var",1,ierr,error_message)
+  call alloc_error(pname,"plot_var",1,__LINE__,__FILE__,ierr,error_message)
   !
   plot_var = [ plot_static_density, &
                plot_momentum_x, &
@@ -2815,7 +2920,9 @@ continue
   ! Allocate the index array for the CGNS field solutions
   !
   allocate ( isvar_s(1:npvar) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"isvar_s",1,ierr,error_message)
+  call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_plot_functions
 !
@@ -2842,6 +2949,8 @@ subroutine map_to_output_points(this_geom,this_order,map)
   character(len=*), parameter :: pname = "map_to_output_points"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   !
   !###################################
@@ -2878,16 +2987,16 @@ continue
   ! Allocate the different components of the map derived type
   !
   allocate ( map%sp(1:nsp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,ierr,error_message)
+  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( map%fp(1:nfp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,ierr,error_message)
+  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( map%ep(1:nep) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,ierr,error_message)
+  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( map%np(1:nnp) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"map%sp",1,ierr,error_message)
+  call alloc_error(pname,"map%sp",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Compute the maps from the local indices to the output indices
   !
@@ -2936,7 +3045,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(abort,pname,error_message)
+      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -3002,6 +3111,8 @@ continue
       l = l + np1d
     end do
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3681,7 +3792,12 @@ subroutine get_output_connectivity(bface,cell_geom, &
   !.. Local Scalars ..
   integer :: lnode,lfbnd,lcell
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_output_connectivity"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Set the module size parameters
   !
@@ -3725,6 +3841,8 @@ continue
   !
   call get_unit_cell_subconnectivity
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_output_connectivity
 !
 !###############################################################################
@@ -3752,6 +3870,8 @@ subroutine find_cells_on_each_face(bface,cells_surr_cell,cells_surr_cell_ptr, &
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   lfbnd = size(bface,dim=2)
   lcell = size(cells_surr_cell_ptr)-1
   !
@@ -3777,7 +3897,7 @@ continue
   !
   allocate ( cells_on_face(1:2,1:lface) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_on_face",1,ierr,error_message)
+  call alloc_error(pname,"cells_on_face",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! ###########
   ! ###########
@@ -3832,10 +3952,14 @@ continue
   ! and cells_surr_cell_ptr so deallocate
   !
   deallocate ( cells_surr_cell , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell",2,ierr,error_message)
+  call alloc_error(pname,"cells_surr_cell",2,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   deallocate ( cells_surr_cell_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cells_surr_cell_ptr",2,ierr,error_message)
+  call alloc_error(pname,"cells_surr_cell_ptr",2,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine find_cells_on_each_face
 !
@@ -3884,7 +4008,7 @@ subroutine check_cgns_dir
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
   integer :: final_iter_digits
-  logical :: using_cgns_dir
+  logical(lk) :: using_cgns_dir
   character(len=300) :: command
   character(len=300) :: cmndmsg
   character(len=200) :: test_file
@@ -3894,9 +4018,11 @@ subroutine check_cgns_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cgns_dir"
   !
-  logical, parameter :: wait_for_completion = true
+  logical(lk), parameter :: wait_for_completion = true
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize exitstat and cmndmsg
   !
@@ -3992,6 +4118,8 @@ continue
   !
   write (cgnsfile_fmt,2) final_iter_digits
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (i0)
@@ -4018,9 +4146,12 @@ subroutine write_tecplot_file(xyz_pts,ipelem)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   open (newunit=iotec,file=fname,form="formatted",status="replace", &
-                      action="write",position="rewind",iostat=ierr)
-  call io_error(pname,fname,1,ierr)
+                      action="write",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (iotec,1) size(xyz_pts,dim=2),size(ipelem,dim=2)
   !
@@ -4046,12 +4177,15 @@ continue
     end do
     !
     deallocate ( ipelem_of_cells , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem_of_cells",2,ierr,error_message)
+    call alloc_error(pname,"ipelem_of_cells",2,__LINE__,__FILE__,ierr, &
+                     error_message)
     !
   end if
   !
-  close (iotec,iostat=ierr)
-  call io_error(pname,fname,2,ierr)
+  close (iotec,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -4081,7 +4215,12 @@ subroutine write_cell_points(iunit,nep,cell_points_ptr,cell_points)
   !
   character(len=300) :: map_fmt
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_cell_points"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   write (map_fmt,1) (nep,i=1,6)
   !
@@ -4093,6 +4232,8 @@ continue
   end do
   !
   iunit = iunit + 1
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !

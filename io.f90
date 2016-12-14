@@ -4,7 +4,7 @@ module io_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use cgns_module
+  use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,ntk,ntl,nq
   use ovar,    only : grid_format
   use ovar,    only : gridfile
@@ -32,8 +32,8 @@ module io_mod
   ! ###  Module Parameters  ###
   ! ###########################
   !
-  logical, parameter :: check_gradients = fals
- !logical, parameter :: check_gradients = true
+  logical(lk), parameter :: check_gradients = fals
+ !logical(lk), parameter :: check_gradients = true
   !
   ! ################################
   ! ###  Module Local Variables  ###
@@ -56,8 +56,8 @@ module io_mod
   !.. CGNS Time Dependent Variables ..
   integer, save :: cgns_zone_counter
   !
-  real(sp),          save, allocatable, dimension(:) :: soltime
-  character(len=32), save, allocatable, dimension(:) :: solname
+  real(sp),             save, allocatable, dimension(:) :: soltime
+  character(len=CGLEN), save, allocatable, dimension(:) :: solname
   !
   character(len=*), parameter :: base_name = "recon_base"
   character(len=*), parameter :: zone_name = "Solution"
@@ -74,7 +74,7 @@ module io_mod
   !                      problem and is more of a temporary addition until the
   !                      output logic/code becomes more robust.
   !
-  logical, save :: disable_cgns_output = fals
+  logical(lk), save :: disable_cgns_output = fals
   !
   !.. CGNS Data Array ..
   !
@@ -105,6 +105,8 @@ subroutine read_input_file
   character(len=*), parameter :: default_fname = "recon3.in"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Check for additional command line arguments
   !
@@ -146,12 +148,14 @@ continue
     !
     if (input_status /= 0) then
       write (error_message,11)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
   end do one_pass_loop
   !
   call read_nml_input_file(input_fname)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format statements
   !
@@ -169,13 +173,15 @@ subroutine check_input_file(input_fname,input_status)
   !
   !.. Local Scalars ..
   integer :: ierr,inpt
-  logical :: file_exists
+  logical(lk) :: file_exists
   character(len=80) :: text
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_input_file"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   input_status = -1
   !
@@ -189,14 +195,14 @@ continue
     !
     open (newunit=inpt,file=input_fname,status="old",action="read", &
                        form="formatted",iostat=ierr,iomsg=error_message)
-    call io_error(pname,input_fname,1,ierr,error_message)
+    call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Read the first line of the input file
     !
     read (inpt,*,iostat=ierr,err=100,end=100) text
     !
     close (inpt,iostat=ierr,iomsg=error_message)
-    call io_error(pname,input_fname,2,ierr,error_message)
+    call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
     !
     ! Check the first line for neccessary string
     !
@@ -210,13 +216,15 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   return
   !
   ! Read error continuation statements
   !
   100 continue
   write (error_message,10) trim(adjustl(input_fname)), ierr
-  call stop_recon(stop_mpi,pname,error_message)
+  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   ! Format statements
   !
@@ -257,7 +265,7 @@ subroutine read_nml_input_file(input_fname)
   !.. Local Scalars ..
   integer  :: it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
-  logical  :: use_qdtr_face_pts,mms_error
+  logical(lk)  :: use_qdtr_face_pts,mms_error
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
@@ -270,11 +278,13 @@ subroutine read_nml_input_file(input_fname)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Open the input file
   !
   open (newunit=inpt,file=input_fname,status="old",action="read", &
                      form="formatted",iostat=ierr,iomsg=error_message)
-  call io_error(pname,input_fname,1,ierr,error_message)
+  call io_error(pname,input_fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Read in the input file using the input namelist
   !
@@ -283,7 +293,7 @@ continue
   ! Close the input file now that we are finished reading it
   !
   close (inpt,iostat=ierr,iomsg=error_message)
-  call io_error(pname,input_fname,2,ierr,error_message)
+  call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Check the lustre striping parameters
   !
@@ -329,13 +339,13 @@ continue
   !
   if (iop_solpts /= iop_flxpts) then
     if (mypnum == 0) write (iout,101)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (iop_solpts == Legendre_Gauss_Lobatto) then
     if (continuous_output) then
       write (error_message,106)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -392,6 +402,11 @@ continue
   !
   if (o_order > 0) o_order = max(o_order,n_order+0)
   !
+  ! Make sure the error order is greater than or
+  ! equal to the solution order if it is positive
+  !
+  if (e_order > 0) e_order = max(e_order,n_order+0)
+  !
   ! Check that the Method of Manufactured Solutions (MMS) option is valid
   !
   if (mms_opt /= 0) then
@@ -410,7 +425,9 @@ continue
       write (error_message,24)
       mms_error = true
     end if
-    if (mms_error) call stop_recon(stop_mpi,pname,error_message)
+    if (mms_error) then
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
     !
     ! If mms_output_solution is true, set the MMS initialization factor
     ! to one and set the number of time steps and final time to zero 
@@ -636,6 +653,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   101 format (/, &
@@ -687,6 +706,8 @@ subroutine check_lustre_striping
   integer, parameter :: max_lustre_count = 312
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Check the Lustre stripe count
   !
@@ -779,6 +800,8 @@ continue
   end if
 #endif
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/,20("!"),5x,"WARNING",5x,20("!"),/, &
@@ -812,9 +835,11 @@ subroutine check_output_dir
   character(len=*), parameter :: nobackup = "/nobackup/sspiegel"
   character(len=*), parameter :: homedir = "/u/sspiegel"
   !
-  logical, parameter :: wait_for_completion = true
+  logical(lk), parameter :: wait_for_completion = true
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize test_file and test_dir
   !
@@ -940,7 +965,7 @@ continue
     !
     output_dir = output_dir(8:clen)
     if (mypnum == 0) write (iout,1) trim(output_dir)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     !
   else
     !
@@ -957,13 +982,15 @@ continue
         !
         if (exitstat /= 0 .or. cmndstat /= 0) then
           write (error_message,2) trim(output_dir)//"flux_files"
-          call stop_recon(abort,pname,error_message)
+          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
         end if
         !
       end if
     end if
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   1 format (/,"******************** ERROR! *********************",/, &
               "     CANT SEEM TO FIND THE OUTPUT DIRECTORY",/, &
@@ -986,7 +1013,7 @@ subroutine check_cgns_dir
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
-  logical :: using_cgns_dir
+  logical(lk) :: using_cgns_dir
   character(len=300) :: command
   character(len=300) :: cmndmsg
   character(len=200) :: test_file
@@ -995,9 +1022,11 @@ subroutine check_cgns_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cgns_dir"
   !
-  logical, parameter :: wait_for_completion = true
+  logical(lk), parameter :: wait_for_completion = true
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize exitstat and cmndmsg
   !
@@ -1083,6 +1112,8 @@ continue
   call mpi_bcast(cgns_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
                  0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
@@ -1094,17 +1125,23 @@ end subroutine check_cgns_dir
 subroutine read_grid_file()
   !
   !.. Use Statements ..
+  use module_cgns,    only : read_cgns_gridfile
   use module_gmsh,    only : read_gmsh_gridfile
   use module_plot3d,  only : read_plot3d_gridfile
   use quadrature_mod, only : find_valid_geometries
   use ovar,           only : use_bc_conflicts
   use ovar,           only : itestcase,VortexGrid_DOF
   use ovar,           only : postproc_debug_grid
+  !        
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_grid_file"
   !
   ! Routine that uses the variable grid_format to choose
   ! which routine to use in order to read the grid file.
-  !        
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   call memory_pause("reading input file","reading grid file")
   if (postproc_debug_grid) then
@@ -1118,6 +1155,8 @@ continue
     call read_gambit_neutral_gridfile
   else if (grid_format == Gmsh_Format) then
     call read_gmsh_gridfile( gridfile )
+  else if (grid_format == CGNS_Format) then
+    call read_cgns_gridfile( gridfile )
   else if (grid_format == Plot3D_Format) then
     call read_plot3d_gridfile( gridfile , plot3d_cutfile , plot3d_bcsfile )
   end if
@@ -1154,6 +1193,8 @@ continue
   call memory_pause("finding valid geometries", &
                     "finish processing the remainder of the input file")
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine read_grid_file
 !
 !###############################################################################
@@ -1177,7 +1218,7 @@ subroutine read_gambit_neutral_gridfile()
   character(len=80) :: text
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:) :: bc_done
+  logical(lk), allocatable, dimension(:) :: bc_done
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_gambit_neutral_gridfile"
@@ -1188,11 +1229,14 @@ subroutine read_gambit_neutral_gridfile()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Open the grid file
   !
   open (newunit=iogrd,file=gridfile,status="old",action="read", &
-                      position="rewind",iostat=ierr)
-  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
+                      position="rewind",iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Skip the file header
   !
@@ -1204,14 +1248,18 @@ continue
   !
   read (iogrd,*) nnode,ncell,ngrps,nbsets,nr,ndfvl
   !
-  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr)
+  allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
-  allocate ( cell_geom(1:ncell) , source=0 , stat=ierr )
-  call alloc_error(pname,"cell_geom",1,ierr)
+  allocate ( cell_geom(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( cell_order(1:ncell) , source=n_order , stat=ierr )
-  call alloc_error(pname,"cell_order",1,ierr)
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Skip some lines
   !
@@ -1297,14 +1345,18 @@ continue
   !
   ! Allocate the arrays needed to store this data
   !
-  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , stat=ierr )
-  call alloc_error(pname,"xyz_nodes",1,ierr)
-  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , stat=ierr )
-  call alloc_error(pname,"nodes_of_cell",1,ierr)
-  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , stat=ierr )
-  call alloc_error(pname,"bface",1,ierr)
-  allocate ( bc_done(1:nfbnd) , source=true , stat=ierr )
-  call alloc_error(pname,"bc_done",1,ierr)
+  allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( bc_done(1:nfbnd) , source=true , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_done",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Skip the header and other data that is already known
   !
@@ -1372,8 +1424,9 @@ continue
     !
   end do
   !
-  close (iogrd,iostat=ierr)
-  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
+  close (iogrd,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Convert the cell geometry values from the Gambit neutral grid file
   !
@@ -1429,24 +1482,26 @@ continue
     !
   end do
   !
-  deallocate ( bc_done , stat=ierr )
-  call alloc_error(pname,"bc_done",2,ierr)
+  deallocate ( bc_done , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_done",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.
   !
   if (any(cell_geom == Geom_Tria)) then
     write (*,3)
-    call stop_recon(stop_mpi,pname)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
       iop_flxpts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (*,2)
-      call stop_recon(stop_mpi,pname)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     end if
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format statements
   !
@@ -1484,10 +1539,12 @@ subroutine create_IsentropicVortex_grid()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_IsentropicVortex_grid"
- !logical, parameter :: test_random_bc = true
-  logical, parameter :: test_random_bc = fals
+ !logical(lk), parameter :: test_random_bc = true
+  logical(lk), parameter :: test_random_bc = fals
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! If we are generating the grid on the fly, make the reference length 1
   !
@@ -1511,31 +1568,32 @@ continue
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   allocate ( nodes_of_cell(1:geom_nodes(Geom_Quad)*ncell) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,ierr)
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_geom(1:ncell) , source=Geom_Quad , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,ierr,error_message)
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_order(1:ncell) , source=n_order , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,ierr,error_message)
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",1,ierr,error_message)
+  call alloc_error(pname,"perturb",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! #######
   ! #######
@@ -1628,7 +1686,7 @@ continue
   ! Deallocate perturb since it is no longer needed
   !
   deallocate ( perturb , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",2,ierr,error_message)
+  call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Scale the grid node coordinates to the square (-1,-1) to (1,1)
   !
@@ -1772,6 +1830,8 @@ continue
                    mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   contains
   !
   pure function map2dto1d(i,j,n) result(return_value)
@@ -1809,6 +1869,8 @@ subroutine create_TaylorGreenVortex_grid()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! If we are generating the grid on the fly, make the reference length 1
   !
   Lref = one
@@ -1831,31 +1893,32 @@ continue
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,ierr,error_message)
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,ierr,error_message)
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_order(1:ncell) , source=n_order , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,ierr,error_message)
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",1,ierr,error_message)
+  call alloc_error(pname,"perturb",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! #######
   ! #######
@@ -2004,7 +2067,7 @@ continue
   ! Deallocate perturb since it is no longer needed
   !
   deallocate ( perturb , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"perturb",2,ierr,error_message)
+  call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Scale the grid node coordinates to the cube (-1,-1,-1) to (1,1,1)
   !
@@ -2121,6 +2184,8 @@ continue
     end do
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   contains
   !
   pure function map3dto1d(i,j,k,n) result(return_value)
@@ -2149,7 +2214,7 @@ subroutine create_postproc_debug_grid
   integer :: n1,n2,nf_min,nf_max
   integer :: nc_min,nc_max
   integer :: no_min,no_max
-  logical :: bnd_face_error
+  logical(ldk) :: bnd_face_error
   real(r4) :: x,y,z,dl
   real(r4) :: rbas,radj,rval
   !
@@ -2174,6 +2239,8 @@ subroutine create_postproc_debug_grid
   integer, parameter :: flip(4) = [1,4,3,2]
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   bnd_face_error = fals
   !
@@ -2220,27 +2287,28 @@ continue
   !
   allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_nodes",1,ierr,error_message)
+  call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell_ptr",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   allocate ( nodes_of_cell(1:geom_nodes(Geom_Hexa)*ncell) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"nodes_of_cell",1,ierr,error_message)
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface",1,ierr,error_message)
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_geom(1:ncell) , source=Geom_Hexa , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_geom",1,ierr,error_message)
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( cell_order(1:ncell) , source=n_order , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_order",1,ierr,error_message)
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! ONLY HAVE THE ROOT PROCESSOR CREATE THE GRID SINCE THERE IS A LOT OF
   ! RANDOMIZATION INVOLVED. WE WILL BROADCAST THE RESULTS TO ALL THE OTHER
@@ -2290,7 +2358,8 @@ continue
       !
       allocate ( original_noc(1:size(nodes_of_cell)) , source=nodes_of_cell , &
                  stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"original_noc",1,ierr,error_message)
+      call alloc_error(pname,"original_noc",1,__LINE__,__FILE__,ierr, &
+                       error_message)
       !
       do k = 1,nc
         do j = 1,nc
@@ -2318,7 +2387,7 @@ continue
     !
     allocate ( perturb(1:nr,1:nnode) , source=real(0,kind=r4) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"perturb",1,ierr,error_message)
+    call alloc_error(pname,"perturb",1,__LINE__,__FILE__,ierr,error_message)
     !
     if (VortexGrid_random_perturb) then
       !
@@ -2373,7 +2442,7 @@ continue
     ! Deallocate perturb since it is no longer needed
     !
     deallocate ( perturb , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"perturb",2,ierr,error_message)
+    call alloc_error(pname,"perturb",2,__LINE__,__FILE__,ierr,error_message)
     !
     ! #######
     ! #######
@@ -2382,7 +2451,7 @@ continue
     ! #######
     !
     allocate ( lpoin(1:nnode) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"lpoin",1,ierr,error_message)
+    call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Create the bface array
     !
@@ -2748,12 +2817,13 @@ continue
     !
     if (allocated(lpoin)) then
       deallocate ( lpoin , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"lpoin",2,ierr,error_message)
+      call alloc_error(pname,"lpoin",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
     if (allocated(original_noc))  then
       deallocate ( original_noc , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"original_noc",2,ierr,error_message)
+      call alloc_error(pname,"original_noc",2,__LINE__,__FILE__,ierr, &
+                       error_message)
     end if
     !
   end if only_root_creates_grid
@@ -2768,7 +2838,7 @@ continue
   !
   if (bnd_face_error) then
     write (error_message,2)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Have the root processor broadcast all the grid
@@ -2810,6 +2880,8 @@ continue
   !
  !xyz_nodes = PI * xyz_nodes
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (" Error finding new side of host cell on ",a," boundary face!")
@@ -2850,10 +2922,12 @@ subroutine tecplot_rotations(node_order)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   open (newunit=iotec,file=fname,status="replace",action="write", &
                       form="formatted",position="rewind", &
                       iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,1,ierr,error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (iotec,1)
   !
@@ -2884,7 +2958,9 @@ continue
   end do
   !
   close (iotec,iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,2,ierr,error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -2925,10 +3001,12 @@ subroutine tecplot_cell_rotations(nodes_of_cell_ptr,nodes_of_cell, &
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   open (newunit=iotec,file=fname,status="replace",action="write", &
                       form="formatted",position="rewind", &
                       iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,1,ierr,error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (iotec,1)
   !
@@ -2986,7 +3064,9 @@ continue
   !
   !
   close (iotec,iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,2,ierr,error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3023,6 +3103,8 @@ subroutine check_node_ordering()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Lets do a quick test on the nodes defining each cell to
   ! make sure they are all in counter-clockwise order. If they
   ! arent, switch the ordering of the nodes so that they are.
@@ -3057,7 +3139,7 @@ continue
         cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
       case default
         write (iout,1)
-        call stop_recon(stop_mpi,pname)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     end select
     !
     ! If the cell volume is negative, this means the cell is in clockwise
@@ -3098,7 +3180,7 @@ continue
       else
         !
         write (iout,2)
-        call stop_recon(stop_mpi,pname)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
         !
       end if
       !
@@ -3134,7 +3216,7 @@ continue
         cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
       case default
         write (iout,1)
-        call stop_recon(stop_mpi,pname)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
     end select
     !
     ! If the cell volume is negative, this means the cell is in clockwise
@@ -3154,12 +3236,14 @@ continue
       else
         !
         write (iout,2)
-        call stop_recon(stop_mpi,pname)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
         !
       end if
     end if
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -3202,6 +3286,8 @@ subroutine adjust_for_ghost_cells()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Before we start adding ghost cells, lets get the extents of the grid domain
   ! NOTE: ASSUME GRID BOUNDARIES OF CONSTANT X AND Y
   !
@@ -3239,7 +3325,7 @@ continue
     !
     if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
       write (error_message,100)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     nodes_of_cell_ptr(ncell+nf+1) = num_face_nodes(host_side,host_geom)
@@ -3300,7 +3386,7 @@ continue
     !
     if (g2-g1+1 /= nfnods) then
       write (error_message,102)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Node offsets for this face of the host cell
@@ -3356,6 +3442,8 @@ continue
   !
   call save_global_grid
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   1 format ("HOSTCELL = ",i0,"  PCELL = ",i0,"   (delta x,delta y) = ",2es24.11)
   2 format (/," ********************* WARNING!!! *********************",/, &
               "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
@@ -3394,6 +3482,8 @@ subroutine save_global_grid
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   n_global_node = nnode
   n_global_cell = ncell
   n_global_fbnd = nfbnd
@@ -3402,24 +3492,33 @@ continue
   !
   n1 = size(xyz_nodes,dim=1)
   n2 = size(xyz_nodes,dim=2)
-  allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , stat=ierr )
-  call alloc_error(pname,"global_xyz_nodes",1,ierr)
+  allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_xyz_nodes",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   n1 = size(nodes_of_cell_ptr)
-  allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , stat=ierr )
-  call alloc_error(pname,"global_nofc_ptr",1,ierr)
+  allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_nofc_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   n1 = size(nodes_of_cell)
-  allocate ( global_nofc(1:n1) , source=nodes_of_cell , stat=ierr )
-  call alloc_error(pname,"global_nofc",1,ierr)
+  allocate ( global_nofc(1:n1) , source=nodes_of_cell , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_nofc",1,__LINE__,__FILE__,ierr,error_message)
   !
   n1 = size(cell_geom)
-  allocate ( global_cell_geom(1:n1) , source=cell_geom , stat=ierr )
-  call alloc_error(pname,"global_cell_geom",1,ierr)
+  allocate ( global_cell_geom(1:n1) , source=cell_geom , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_cell_geom",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   n1 = size(cell_order)
-  allocate ( global_cell_order(1:n1) , source=cell_order , stat=ierr )
-  call alloc_error(pname,"global_cell_order",1,ierr)
+  allocate ( global_cell_order(1:n1) , source=cell_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_cell_order",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ! Create the global integer pointer for the beginning and ending
   ! indices for the solution points in each cell. This will be done
@@ -3427,8 +3526,10 @@ continue
   ! is partitioned and each processor creates its own separate
   ! local grid.
   !
-  allocate ( global_pinc_ptr(1:n_global_totcel+1) , source=0 , stat=ierr )
-  call alloc_error(pname,"global_pinc_ptr",1,ierr)
+  allocate ( global_pinc_ptr(1:n_global_totcel+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"global_pinc_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   do n = 1,n_global_totcel
     !
@@ -3442,6 +3543,8 @@ continue
   !
   n_global_solpts = global_pinc_ptr(ncell+1)
   n_global_totpts = last(global_pinc_ptr)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine save_global_grid
 !
@@ -3485,6 +3588,8 @@ subroutine adjust_for_same_dimension_ghost_cells()
   integer, parameter :: rotation = 0
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Before we start adding ghost cells, lets get the extents of the grid domain
   ! NOTE: ASSUME GRID BOUNDARIES OF CONSTANT X AND Y
@@ -3622,7 +3727,7 @@ continue
     !
     if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
       write (error_message,100)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Create new nodes for the remaining ghost cell nodes
@@ -3805,7 +3910,7 @@ continue
       !
       if (num_face_nodes(periodic_side,periodic_geom) /= nfnods) then
         write (error_message,101)
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Get the number of nodes defining the periodic cell
@@ -3911,6 +4016,8 @@ continue
   !
   call save_global_grid
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   1 format ("HOSTCELL = ",i0,"  PCELL = ",i0,"   (delta x,delta y) = ",2es24.11)
   2 format (/," ********************* WARNING!!! *********************",/, &
               "  IT APPEARS THE FINAL TIME DOES NOT CORRESPOND TO THE",/, &
@@ -3945,7 +4052,7 @@ subroutine find_bc_conflicts
   integer, dimension(Geom_Min:Geom_Max) :: error_count
   !
   !.. Local Allocatable Arrays ..
-  logical, allocatable, dimension(:) :: mskp
+  logical(lk), allocatable, dimension(:) :: mskp
   integer, allocatable, dimension(:) :: faces_with_node_ptr
   integer, allocatable, dimension(:) :: faces_with_node
   integer, allocatable, dimension(:,:) :: bface_nodes
@@ -3955,11 +4062,13 @@ subroutine find_bc_conflicts
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   error_count = 0
   !
   allocate ( bface_nodes(1:4,1:nfbnd) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_nodes",1,ierr,error_message)
+  call alloc_error(pname,"bface_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Find the nodes that define each boundary face
   !
@@ -4009,7 +4118,7 @@ continue
     end do
     write (error_message,6) trim(error_message)//new_line('a'),sum(error_count)
     !
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !
@@ -4018,7 +4127,8 @@ continue
   !
   allocate ( faces_with_node_ptr(1:nnode+1) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_with_node_ptr",1,ierr,error_message)
+  call alloc_error(pname,"faces_with_node_ptr",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   do nf = 1,nfbnd
     if (any(bface(1,nf) == bc_comm)) cycle ! skip all communication boundaries
@@ -4036,7 +4146,8 @@ continue
   !
   allocate ( faces_with_node(1:last(faces_with_node_ptr)) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_with_node",1,ierr,error_message)
+  call alloc_error(pname,"faces_with_node",1,__LINE__,__FILE__,ierr, &
+                   error_message)
   !
   ! Now store the faces surrounding each node in faces_with_node
   ! NOTE: Skip all communication type boundary faces
@@ -4063,7 +4174,7 @@ continue
   ! Mark any nodes that are found.
   !
   allocate ( mskp(1:nnode) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"mskp",1,ierr,error_message)
+  call alloc_error(pname,"mskp",1,__LINE__,__FILE__,ierr,error_message)
   !
   do n = 1,size(faces_with_node_ptr)-1
     nf1 = faces_with_node_ptr(n)+1
@@ -4075,7 +4186,7 @@ continue
   end do
   !
   allocate ( bc_conflict(1:count(mskp)) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bc_conflict",1,ierr,error_message)
+  call alloc_error(pname,"bc_conflict",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Use the mask and faces_with_node arrays to extract the nodes
   ! and corresponding boundary faces that have non-matching
@@ -4103,7 +4214,7 @@ continue
     allocate ( bc_conflict(i)%slave(1:nf2-nf1) , &
                stat=ierr , errmsg=error_message )
     write (array_name,1) "bc_conflict(",i,")%slave"
-    call alloc_error(pname,array_name,1,ierr,error_message)
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Save the master boundary face information and set the
     ! partition number to the root partition number (zero).
@@ -4154,7 +4265,7 @@ continue
     !
     if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
       write (error_message,7)
-      call stop_recon(stop_mpi,pname,error_message)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! ##########################################################################
@@ -4189,7 +4300,7 @@ continue
       !
       if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
         write (error_message,7)
-        call stop_recon(stop_mpi,pname,error_message)
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! ########################################################################
@@ -4213,13 +4324,17 @@ continue
   ! Deallocate the local arrays before leaving
   !
   deallocate ( bface_nodes , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bface_nodes",2,ierr,error_message)
+  call alloc_error(pname,"bface_nodes",2,__LINE__,__FILE__,ierr,error_message)
   deallocate ( faces_with_node_ptr , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_with_node_ptr",2,ierr,error_message)
+  call alloc_error(pname,"faces_with_node_ptr",2,__LINE__,__FILE__,ierr, &
+                   error_message)
   deallocate ( faces_with_node , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"faces_with_node",2,ierr,error_message)
+  call alloc_error(pname,"faces_with_node",2,__LINE__,__FILE__,ierr, &
+                   error_message)
   deallocate ( mskp , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"mskp",2,ierr,error_message)
+  call alloc_error(pname,"mskp",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -4260,6 +4375,8 @@ subroutine check_flux_point_orderings()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   write (151,*)
   write (152,*)
   !
@@ -4292,8 +4409,13 @@ continue
     !
     do k = 1,nfp
       !
+#ifdef USE_FACE_FLXPTS
       kl = face(nf)%left%flxpts(k)
       kr = face(nf)%right%flxpts(k)
+#else
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
+#endif
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
@@ -4319,7 +4441,9 @@ continue
     !
   end do
   !
- !call stop_recon(stop_mpi,pname)
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -4347,6 +4471,8 @@ subroutine write_final_error
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   write (iout,31) itestcase,flux_divergence, &
                   n_order,n_global_cell,n_global_solpts, &
                   vnloc(1),global_pinc_ptr(vnloc(1))+vkloc(1)
@@ -4359,6 +4485,8 @@ continue
   write (iout,35) vlone(nmz),  vlinf(nmz),  vltwo(nmz)
   write (iout,36) ulone(nq+1), ulinf(nq+1), ultwo(nq+1)
   write (iout,37) vlone(nq+1), vlinf(nq+1), vltwo(nq+1)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   31 format (/,'itestcase =',i2,/, &
                'flux_divergence  =',i2,//, &
@@ -4407,12 +4535,15 @@ subroutine write_results_file(iflag,icount)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Open the results file only if iflag is +1
   !
   if (iflag == 1) then
     !
-    open (newunit=iores,file=fname,status="replace",action="write",iostat=ierr)
-    call io_error(pname,fname,1,ierr)
+    open (newunit=iores,file=fname,status="replace",action="write", &
+                        iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
     if (nr == 1) then
       write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
@@ -4421,6 +4552,8 @@ continue
     else if (nr == 3) then
       write (iores,3) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     end if
+    !
+    call debug_timer(leaving_procedure,pname)
     !
     return
     !
@@ -4445,9 +4578,11 @@ continue
   ! Close the results file only if iflag is -1
   !
   if (iflag == -1) then
-    close (iores,iostat=ierr)
-    call io_error(pname,fname,2,ierr)
+    close (iores,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -4478,7 +4613,6 @@ subroutine write_parallel_cgns(iflag)
   use geovar,  only : nr,n_solpts,xyz
   use ovar,    only : itcur,itrst,num_ts
   use ovar,    only : time,aref,uref,rhoref,time_ref
-  use ovar,    only : itestcase
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : write_TaylorGreen_full_solution
   use ovar,    only : completely_disable_cgns
@@ -4496,11 +4630,11 @@ subroutine write_parallel_cgns(iflag)
   integer(CST) :: n_total_output_pts
   integer(CST) :: n_total_output_cells
   !
-  character(len=32) :: tname
-  character(len=32) :: varname
-  character(len=100) :: char_num
-  character(len=170) :: sol_file
-  character(len=300) :: link_path
+  character(len=CGLEN) :: tname
+  character(len=CGLEN) :: varname
+  character(len=100)   :: char_num
+  character(len=170)   :: sol_file
+  character(len=300)   :: link_path
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns"
@@ -4526,6 +4660,8 @@ continue
     end if
   end if
   !
+  call debug_timer(entering_procedure,pname)
+  !
   if (iflag == 1) then
     !
     ! Create the format string for creating the CGNS file names
@@ -4550,10 +4686,12 @@ continue
     !
     ! Allocate the temporary variable arrays
     !
-    allocate ( vartmp(1:n_solpts) , source=zero , stat=ierr )
-    call alloc_error(pname,"vartmp",1,ierr)
-    allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , stat=ierr )
-    call alloc_error(pname,"var",1,ierr)
+    allocate ( vartmp(1:n_solpts) , source=zero , &
+       stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+    allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
+       stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Open the cgns output file if iflag is 1
     !
@@ -4562,7 +4700,7 @@ continue
     cgns_zone_counter = 0
     !
     call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
-    call io_error(pname,cgns_grid_file,1,cgierr)
+    call io_error(pname,cgns_grid_file,1,__LINE__,__FILE__,cgierr)
     !
     ! Set the CGNS base (who knows what this is for)
     !
@@ -4654,26 +4792,35 @@ continue
     ! Deallocate the arrays var, vartmp, and ipelem
     !
     if (allocated(var)) then
-      deallocate ( var , stat=ierr )
-      call alloc_error(pname,"var",2,ierr)
+      deallocate ( var , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
     end if
     if (allocated(vartmp)) then
-      deallocate ( vartmp , stat=ierr )
-      call alloc_error(pname,"vartmp",2,ierr)
+      deallocate ( vartmp , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
     end if
     if (allocated(ipelem)) then
-      deallocate ( ipelem , stat=ierr )
-      call alloc_error(pname,"ipelem",2,ierr)
+      deallocate ( ipelem , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
-  else!if (iflag == 2) then
+    call cgp_close_f(ifile_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr)
     !
-    ! The CGNS file was dumped last time this subroutine was called
-    ! so the CGNS file needs to be reopened in modification mode.
-    !
-    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
-    call io_error(pname,cgns_grid_file,3,cgierr)
-    !
+  end if
+  !
+  ! Reopen the CGNS grid file to update the zone iterative data
+  ! NOTE: We only need to update the zone iterative data which can be done by
+  !       the root processor alone, so have the root processor open the grid
+  !       file by itself in serial mode to prevent any I/O contention issues
+  !       created by using all processors to update the zone iterative data at
+  !       the same time.
+  !
+  if (mypnum == 0) then
+   !call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
+    call cg_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_open_f",cgierr, &
+                    "Mode = CG_MODE_MODIFY",not_parallel=true)
   end if
   !
   ! Get the name for the current solution node
@@ -4691,16 +4838,22 @@ continue
   solname(size(solname)) = tname
   !
   ! Create a link to the solution node in the current solution file
+  ! NOTE: Only the root processor should do this
   !
-  call cg_goto_f(ifile_n,ibase_n,cgierr, &
-                 "Zone_t",izone_n, &
-                 C_NULL_CHAR)
-  call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
-  !
-  link_path = base_name//"/"//zone_name//"/"//trim(tname)
-  !
-  call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
-  call cgns_error(pname,cgns_grid_file,"cg_link_write_f",cgierr)
+  if (mypnum == 0) then
+    !
+    call cg_goto_f(ifile_n,ibase_n,cgierr, &
+                   "Zone_t",izone_n, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
+    !
+    link_path = base_name//"/"//zone_name//"/"//trim(tname)
+    !
+    call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_link_write_f",cgierr, &
+                    not_parallel=true)
+    !
+  end if
   !
   ! Write the solution file
   !
@@ -4714,50 +4867,55 @@ continue
   !
   ! If last iteration or a solution dump was requested, close CGNS file
   !
- !if (any(iflag == [-1,-2])) then
-    !
-    ! Update the base iterative node
+  ! Update the base iterative node
+  !
+  if (mypnum == 0) then
     !
     call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues', &
                           size(soltime,kind=CBT),cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr, &
+                    not_parallel=true)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "BaseIterativeData_t",iiter_n, &
-                   C_NULL_CHAR)
-    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
     !
     call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
                           size(soltime,kind=CST),soltime,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr, &
+                    not_parallel=true)
     !
     ! Update the zone iterative node
     !
     call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr, &
+                    not_parallel=true)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "Zone_t",izone_n, &
                    "ZoneIterativeData_t",iiter_n, &
-                   C_NULL_CHAR)
-    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr)
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
     !
     idata(:) = int( [32,size(solname)] , kind=kind(idata) )
     call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
                           idata,solname,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr, &
+                    not_parallel=true)
     !
     ! Identify the flow solution within the CGNS file as time dependent
     !
     call cg_simulation_type_write_f(ifile_n,ibase_n,TIMEACCURATE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",cgierr, &
+                    not_parallel=true)
     !
     ! Close the CGNS FILE
     !
-    call cgp_close_f(ifile_n,cgierr)
-    call io_error(pname,cgns_grid_file,2,cgierr)
+    call cg_close_f(ifile_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_close_f",cgierr,not_parallel=true)
     !
- !end if
+  end if
   !
   ! Write the solution file
   !
@@ -4766,6 +4924,8 @@ continue
   ! Update the zone counter
   !
   cgns_zone_counter = cgns_zone_counter + 1
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -4800,10 +4960,10 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !.. Local Scalars ..
   integer :: k,l,m,n,ierr
   !
-  character(len=32) :: varname
-  character(len=32) :: sect_name
-  character(len=170) :: cgns_sol_file
-  character(len=300) :: link_path
+  character(len=CGLEN) :: varname
+  character(len=CGLEN) :: sect_name
+  character(len=170)   :: cgns_sol_file
+  character(len=300)   :: link_path
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_solution_parallel_cgns"
@@ -4840,6 +5000,8 @@ subroutine write_solution_parallel_cgns(sol_file,tname)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
   ! Open the cgns output file if iflag is 1
@@ -4847,7 +5009,7 @@ continue
   ! Initialize the zone counter
   !
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
-  call io_error(pname,cgns_sol_file,1,cgierr)
+  call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
   !
   ! Set the CGNS base (who knows what this is for)
   !
@@ -4865,7 +5027,7 @@ continue
   !
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
-                 C_NULL_CHAR)
+                 CGNS_GOTO_END)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
@@ -4893,22 +5055,22 @@ continue
   if (.not. allocated(vartmp)) then
     allocate ( vartmp(1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",1,ierr,error_message)
+    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
   end if
   if (.not. allocated(var)) then
     allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",1,ierr,error_message)
+    call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
   end if
   if (.not. allocated(interp_usp)) then
     allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_usp",1,ierr,error_message)
+    call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
   end if
   if (.not. allocated(interp_dusp)) then
     allocate ( interp_dusp(1:nr,1:nq,1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_dusp",1,ierr,error_message)
+    call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Write the flow variables
@@ -4931,7 +5093,7 @@ continue
     !
     n = nr * (nme - nec)
     allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"isvar_s",1,ierr,error_message)
+    call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Create data nodes for the solution variables
     !
@@ -5035,7 +5197,7 @@ continue
     end do
     !
     allocate ( isvar_s(1:n) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"isvar_s",1,ierr,error_message)
+    call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Create data nodes for the solution variables
     !
@@ -5241,30 +5403,32 @@ continue
   ! Close the CGNS FILE
   !
   call cgp_close_f(ifile_s,cgierr)
-  call io_error(pname,cgns_grid_file,2,cgierr)
+  call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
   !
   ! Deallocate the arrays var and vartmp
   !
   if (allocated(var)) then
     deallocate ( var , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"var",2,ierr,error_message)
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(vartmp)) then
     deallocate ( vartmp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",2,ierr,error_message)
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(interp_usp)) then
     deallocate ( interp_usp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_usp",2,ierr,error_message)
+    call alloc_error(pname,"interp_usp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(interp_dusp)) then
     deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_dusp",2,ierr,error_message)
+    call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(isvar_s)) then
     deallocate ( isvar_s , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"isvar_s",2,ierr,error_message)
+    call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -5343,6 +5507,8 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   character(len=*), parameter :: pname = "get_initial_data_for_cgns"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize n_total_output_cells and n_total_output_pts which give:
   !
@@ -5426,10 +5592,10 @@ continue
   !
   if (any(Geom_Unknown == [gmin,gmax])) then
     write (error_message,1)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   else if (geom_dimen(gmin) /= geom_dimen(gmax)) then
     write (error_message,2)
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Get the number of nodes needed to define grid cells of this dimension
@@ -5447,12 +5613,12 @@ continue
   !
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,ierr,error_message)
+    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   allocate ( ipelem(1:np,1:n_my_output_cells) , source=0_CST , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",1,ierr,error_message)
+  call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
   !
   nc = 0
   p1 = my_pts_beg
@@ -5496,6 +5662,8 @@ continue
     p1 = p1 + this_npts
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -5546,6 +5714,8 @@ subroutine TaylorGreen_8s_vorticity_solution()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   cgns_vort_file = trim(adjustl(cgns_dir)) // fname
   !
   ! Get/collect all the data necessary to output the 8s vorticity solution
@@ -5556,7 +5726,7 @@ continue
   ! Open the CGNS file
   !
   call cgp_open_f(cgns_vort_file,CG_MODE_WRITE,ifile_v,cgierr)
-  call io_error(pname,cgns_vort_file,1,cgierr)
+  call io_error(pname,cgns_vort_file,1,__LINE__,__FILE__,cgierr)
   !
   ! Set the CGNS base (who knows what this is for)
   ! NOTE: We are creating this base 2-dimensional with surface (2D) cells
@@ -5598,11 +5768,11 @@ continue
   my_end = my_vort_pts(3)
   !
   allocate ( vary(1:my_pts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vary",1,ierr,error_message)
+  call alloc_error(pname,"vary",1,__LINE__,__FILE__,ierr,error_message)
   vary = real( zero , kind=kind(vary) )
   !
   allocate ( varz(1:my_pts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"varz",1,ierr,error_message)
+  call alloc_error(pname,"varz",1,__LINE__,__FILE__,ierr,error_message)
   varz = real( zero , kind=kind(varz) )
   !
   ! Interpolate the coordinates to the output points
@@ -5678,11 +5848,11 @@ continue
   !
   if (allocated(varz)) then
     deallocate ( varz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"varz",2,ierr,error_message)
+    call alloc_error(pname,"varz",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,ierr,error_message)
+    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Evaluate and write the vorticity solution
@@ -5733,15 +5903,17 @@ continue
   !
   if (allocated(vary)) then
     deallocate ( vary , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vary",2,ierr,error_message)
+    call alloc_error(pname,"vary",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Close the CGNS file
   !
   call cgp_close_f(ifile_v,cgierr)
-  call io_error(pname,cgns_vort_file,2,cgierr)
+  call io_error(pname,cgns_vort_file,2,__LINE__,__FILE__,cgierr)
   !
   write_TaylorGreen_8s_solution = fals
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine TaylorGreen_8s_vorticity_solution
 !
@@ -5783,13 +5955,15 @@ subroutine get_data_for_8s_vorticity_solution(my_vort_pts, &
   real(wp) :: LPI,half_LPI,dx_eps,cell_dx,x,y,z
   !
   !.. Local Allocatable Arrays ..
-  logical,      allocatable, dimension(:)   :: maskf
+  logical(lk),      allocatable, dimension(:)   :: maskf
   integer(CST), allocatable, dimension(:,:) :: cpu_vort_data
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_data_for_8s_vorticity"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Compute a few initial constants relating to the grid length
   !
@@ -5815,7 +5989,7 @@ continue
   n_my_vort_cells = 0_CST
   !
   allocate ( maskf(1:nfbnd) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"maskf",1,ierr,error_message)
+  call alloc_error(pname,"maskf",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Find the boundary faces that lie on the plane x = -PI*Lref within the region
   ! y = [0,0.5*PI*Lref] and z = [0.5*PI*Lref,PI*Lref]
@@ -5885,25 +6059,26 @@ continue
   !
   if (allocated(my_vort_faces)) then
     deallocate ( my_vort_faces , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"my_vort_faces",2,ierr,error_message)
+    call alloc_error(pname,"my_vort_faces",2,__LINE__,__FILE__,ierr, &
+                     error_message)
   end if
   !
   allocate ( my_vort_faces(1:count(maskf)) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_vort_faces",1,ierr,error_message)
+  call alloc_error(pname,"my_vort_faces",1,__LINE__,__FILE__,ierr,error_message)
   !
   my_vort_faces = pack( intseq(1,nfbnd) , mask=maskf )
   !
   ! Deallocate the maskf array since it is no longer needed
   !
   deallocate ( maskf , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"maskf",2,ierr,error_message)
+  call alloc_error(pname,"maskf",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! We need to collect this information for all processors
   !
   allocate ( cpu_vort_data(1:2,1:ncpu) , source=0_CST , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cpu_vort_data",1,ierr,error_message)
+  call alloc_error(pname,"cpu_vort_data",1,__LINE__,__FILE__,ierr,error_message)
   !
   cpu_vort_data(1,mypnum+1) = n_my_vort_pts
   cpu_vort_data(2,mypnum+1) = n_my_vort_cells
@@ -5961,7 +6136,7 @@ continue
   ! Deallocate the cpu_vort_data array since it is no longer needed
   !
   deallocate ( cpu_vort_data , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cpu_vort_data",2,ierr,error_message)
+  call alloc_error(pname,"cpu_vort_data",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the connectivity array
   ! NOTE: The Taylor-Green vortex case is 3D so we know the boundary faces
@@ -5970,12 +6145,12 @@ continue
   !
   if (allocated(ipelem)) then
     deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,ierr,error_message)
+    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   allocate ( ipelem(1:4,1:n_my_vort_cells) , source=0_CST , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ipelem",1,ierr,error_message)
+  call alloc_error(pname,"ipelem",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Initialize the counters nc and p1 for this processor
   !
@@ -6022,6 +6197,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_data_for_8s_vorticity_solution
 !
 !###############################################################################
@@ -6029,9 +6206,9 @@ end subroutine get_data_for_8s_vorticity_solution
 subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP,maxFP
-  use order_mod, only : geom_solpts
-  use geovar, only : face,cell,xyz
+  use order_mod,         only : maxSP,maxFP
+  use order_mod,         only : geom_solpts
+  use geovar,            only : face,cell,xyz
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp
   !
@@ -6054,6 +6231,8 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   character(len=*), parameter :: pname = "get_vort_face_coordinates"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   f2 = 0
   !
@@ -6083,11 +6262,15 @@ continue
     !
     ! Compute the profile quantities at each data point for this face
     !
-    do k = 1,size(face(this_face)%left%flxpts)
+    do k = 1,fp
       !
       ! Index of flx-pt local to the current host cell
       !
+#ifdef USE_FACE_FLXPTS
       kl = face(this_face)%left%flxpts(k)
+#else
+      kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
+#endif
       !
       ! First interpolate to the face flux points
       !
@@ -6103,7 +6286,7 @@ continue
     ! Finally, interpolate the face flux points
     ! to the output face solution points
     !
-    if (associated(outerp(face_geom,face_order)%output)) then
+    if (allocated(outerp(face_geom,face_order)%output)) then
       !
       face_y(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:fp) )
       face_z(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:fp) )
@@ -6114,6 +6297,8 @@ continue
     z(f1:f2) = real( face_z(1:fp) , kind=kind(z) )
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_vort_face_coordinates
 !
@@ -6154,6 +6339,8 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   f2 = 0
   !
   do nf = 1,size(my_vort_faces)
@@ -6185,11 +6372,15 @@ continue
     !
     ! Compute the profile quantities at each data point for this face
     !
-    do k = 1,size(face(this_face)%left%flxpts)
+    do k = 1,fp
       !
       ! Index of flx-pt local to the current host cell
       !
+#ifdef USE_FACE_FLXPTS
       kl = face(this_face)%left%flxpts(k)
+#else
+      kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
+#endif
       !
       ! First interpolate to the face flux points
       !
@@ -6209,7 +6400,7 @@ continue
     ! Now, interpolate the vorticity at the face flux points
     ! to the output face solution points
     !
-    if (associated(outerp(face_geom,face_order)%output)) then
+    if (allocated(outerp(face_geom,face_order)%output)) then
       !
       do m = 1,nq
         cvfp(m,1:fp) = outerp(face_geom,face_order)% &
@@ -6261,6 +6452,8 @@ continue
     end do
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_vort_face_solution
 !
@@ -6374,7 +6567,7 @@ continue
       n2 = cell(nc)%end_sp
       np = n2-n1+1
       !
-      if (associated(outerp(this_geom,this_order)%output)) then
+      if (allocated(outerp(this_geom,this_order)%output)) then
         return_value(n1:n2) = outerp(this_geom,this_order)% &
                                                     output% &
                               mv_mult( array(n1:n2) )
@@ -6395,7 +6588,7 @@ continue
       n2 = global_pinc_ptr(nc+1)
       np = n2-n1+1
       !
-      if (associated(outerp(this_geom,this_order)%output)) then
+      if (allocated(outerp(this_geom,this_order)%output)) then
         return_value(n1:n2) = outerp(this_geom,this_order)% &
                                                     output% &
                               mv_mult( array(n1:n2) )
@@ -6459,7 +6652,7 @@ continue
       n2 = cell(nc)%end_sp
       np = n2-n1+1
       !
-      if (associated(outerp(this_geom,this_order)%output)) then
+      if (allocated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
           return_value(m,n1:n2) = outerp(this_geom,this_order)% &
                                                         output% &
@@ -6486,7 +6679,7 @@ continue
       n2 = global_pinc_ptr(nc+1)
       np = n2-n1+1
       !
-      if (associated(outerp(this_geom,this_order)%output)) then
+      if (allocated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
           return_value(m,n1:n2) = outerp(this_geom,this_order)% &
                                                         output% &
@@ -6561,10 +6754,17 @@ continue
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(2,1:np) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(2,1:np) )
       !
+#ifdef USE_OLD_METRICS
       drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
       dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
       drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
       dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
+#else
+      drdx = metrics(1,1,k) ! =  dyds/J
+      dsdx = metrics(2,1,k) ! = -dydr/J
+      drdy = metrics(1,2,k) ! = -dxds/J
+      dsdy = metrics(2,2,k) ! =  dxdr/J
+#endif
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !
@@ -6619,10 +6819,17 @@ continue
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(3,n1:n2) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(3,n1:n2) )
       !
+#ifdef USE_OLD_METRICS
       drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
       dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
       drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
       dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
+#else
+      drdx = metrics(1,1,k) ! =  dyds/J
+      dsdx = metrics(2,1,k) ! = -dydr/J
+      drdy = metrics(1,2,k) ! = -dxds/J
+      dsdy = metrics(2,2,k) ! =  dxdr/J
+#endif
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !

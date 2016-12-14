@@ -70,7 +70,14 @@ subroutine init_projection_matrices()
   !.. Local Scalars ..
   integer :: ierr
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "init_projection_matrices"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine init_projection_matrices
 !

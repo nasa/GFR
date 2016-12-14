@@ -1,7 +1,8 @@
 module geovar
   !
-  use module_kind_types, only : wp,iout,int_mpi
+  use module_kind_types, only : wp,lk,iout,int_mpi
   use module_kind_types, only : Geom_Min,Geom_Max,Geom_Name
+  use module_kind_types, only : geom_family_t,Complete
   !
   implicit none
   !
@@ -29,12 +30,12 @@ module geovar
   !
   ! over-integration parameters
   !
-  logical, public, save :: using_quadrature
+  logical(lk), public, save :: using_quadrature
   !
   ! nbfai : number of storage locations needed for
   !         each boundary face in array bface
   !
-  integer, public :: nbfai = 10
+  integer, parameter, public :: nbfai = 10
   !
   ! nr    : number of dimensions for computation
   ! nnode : total number of grid nodes
@@ -175,9 +176,9 @@ module geovar
   !
   type, public :: conflict
     ! is_local : true if conflict not on a partition boundary
-    logical :: is_local
+    logical(lk) :: is_local
     ! not_my_conflict :  true if processor has no involvement with conflict
-    logical :: not_my_conflict
+    logical(lk) :: not_my_conflict
     ! master : 
     type(point) :: master
     ! slave : 
@@ -206,8 +207,19 @@ module geovar
   !
   type(geom_conn), public, save, allocatable, dimension(:,:) :: pst_geom
   !
+  type, public :: fp_rot_pts_t
+    integer, allocatable :: pts(:)
+  end type fp_rot_pts_t
   !
+  type, public :: fp_rot_t
+    type(fp_rot_pts_t), allocatable :: rot(:)
+  end type fp_rot_t
   !
+  type, public :: fp_t
+    type(fp_rot_t), allocatable :: geord(:,:)
+  end type fp_t
+  !
+  type(fp_t), public, save, allocatable :: fp
   !
   ! CELL_ON_FACE_T : derived type to store the information about
   !                  a cell on one side of a given face
@@ -220,8 +232,22 @@ module geovar
     !               Examples: for a triangle, in the range 1:3, quad 1:4,
     !                         tetr 1:4, pyra 1:5, pris 1:5, hexa 1:6
     integer :: cell_face
+#ifdef USE_FACE_FLXPTS
     ! flxpts : indices for the flux points of this cell on the current face
     integer, allocatable :: flxpts(:)
+#else
+    ! fp_offset : offset to add to the flux point indices
+    !             given by the rotation index
+    integer :: fp_offset = 0
+    ! rotation : index giving the rotation of the flux points
+    !            for the current element on this face
+    integer :: rotation
+  contains
+    private
+    procedure :: get_fp_index => get_face_fp_index
+    procedure :: get_fp_indices => get_face_fp_indices
+    generic, public :: get_fp_idx => get_fp_index, get_fp_indices
+#endif
   end type cell_on_face_t
   !
   ! FACE_T : derived type to store information for each grid face
@@ -283,8 +309,22 @@ module geovar
     integer :: geom
     ! order : polynomial order of the current face
     integer :: order
+#ifdef USE_FACE_CELL_IDX
     ! cell_idx : index of flx-pt relative to all flx-pts of the current cell
     integer, allocatable :: cell_idx(:)
+#else
+    ! fp_offset : offset to add to the flux point indices
+    !             given by the rotation index
+    integer :: fp_offset
+    ! rotation : index giving the rotation of the flux points
+    !            for the current face of this element
+    integer :: rotation
+  contains
+    private
+    procedure :: get_fp_index => get_cell_fp_index
+    procedure :: get_fp_indices => get_cell_fp_indices
+    generic, public :: get_fp_idx => get_fp_index, get_fp_indices
+#endif
   end type face_of_cell_t
   !
   !
@@ -299,8 +339,25 @@ module geovar
     ! ave_coef : gives the coefficient needed to compute an average
     !            i.e., ave_coef = 1/(number of cells that contain this edge)
     real(wp) :: ave_coef
+#ifdef USE_EDGE_CELL_IDX
     ! cell_idx : index of edge-pt relative to all edge-pts of the current cell
     integer, allocatable :: cell_idx(:)
+#else
+    ! ep_offset : offset to add to the edge point indices
+    integer :: ep_offset
+    ! rev_dir : logical to indicate if the direction/rotation of the
+    !           edge point indices needs to be reversed
+    !  = fals : edge point indices are in increasing order and are given by
+    !              intseq(order+1,rev_dir) = 1,...,order+1
+    !  = true : edge point indices are in decreasing order and are given by
+    !              intseq(order+1,rev_dir) = order+1,...,1
+    logical(lk) :: rev_dir
+  contains
+    private
+    procedure :: get_ep_index
+    procedure :: get_ep_indices
+    generic, public :: get_ep_idx => get_ep_index, get_ep_indices
+#endif
   end type edge_of_cell_t
   !
   !
@@ -358,8 +415,155 @@ module geovar
   !
   type(edge_t), public, save, allocatable :: edge(:)
   !
+  ! CGNS_PATH_t
+  !
+ !type, public :: cgns_idx_t
+ !  integer :: base
+ !  integer :: zone
+ !  integer :: section
+ !  integer :: boco = 0
+ !end type cgns_idx_t
+  !
+  ! PROP_T
+  !
+  type, public :: prop_t
+    integer :: npts
+    integer :: order
+    integer :: geom
+    integer :: elem_type
+    type(geom_family_t) :: family = Complete
+    logical(lk) :: warning = .false.
+  end type prop_t
+  !
+  ! ELEM_T
+  !
+  type, public :: elem_t
+    integer :: host_cell = 0
+    type(prop_t) :: prop
+    integer, allocatable :: pts(:)
+    integer, allocatable :: tags(:)
+    integer, allocatable :: nodes(:)
+   !type(cgns_idx_t), allocatable :: idx
+  end type elem_t
+  !
+  ! GRID_T
+  !
+  type, public :: grid_t
+    type(elem_t), allocatable :: elem(:)
+    real(wp),     allocatable :: xyz(:,:)
+  end type grid_t
+  !
+  type(grid_t), public, save, allocatable :: grid
+  !
 contains
 !
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+#ifndef USE_EDGE_CELL_IDX
+!
+pure function get_ep_indices(this) result(return_value)
+  !.. Use Statements ..
+  use module_kind_types, only : intseq
+  !.. Passed Argument from Invoking Object ..
+  class(edge_of_cell_t), intent(in) :: this
+  !.. Function Result ..
+  integer :: return_value(1:this%order+1)
+continue
+  return_value = this%ep_offset + intseq(this%order+1,this%rev_dir)
+end function get_ep_indices
+!
+pure function get_ep_index(this,k) result(return_value)
+  !.. Use Statements ..
+  use module_kind_types, only : intseq
+  !.. Passed Argument from Invoking Object ..
+  class(edge_of_cell_t), intent(in) :: this
+  !.. Formal Arguments ..
+  integer, intent(in) :: k
+  !.. Function Result ..
+  integer :: return_value
+continue
+  return_value = this%ep_offset + merge(this%order+2-k,k,this%rev_dir)
+end function get_ep_index
+!
+#endif
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+#ifndef USE_FACE_CELL_IDX
+!
+pure function get_cell_fp_indices(this) result(return_value)
+  !.. Passed Argument from Invoking Object ..
+  class(face_of_cell_t), intent(in) :: this
+  !.. Function Result ..
+  integer, allocatable :: return_value(:)
+continue
+  ! Using F2003 auto-reallocation
+  return_value = this%fp_offset + fp%geord(this%geom,this%order)% &
+                                              rot(this%rotation)% &
+                                  pts(:)
+end function get_cell_fp_indices
+!
+pure function get_cell_fp_index(this,k) result(return_value)
+  !.. Passed Argument from Invoking Object ..
+  class(face_of_cell_t), intent(in) :: this
+  !.. Formal Arguments ..
+  integer, intent(in) :: k
+  !.. Function Result ..
+  integer :: return_value
+continue
+  return_value = this%fp_offset + fp%geord(this%geom,this%order)% &
+                                              rot(this%rotation)% &
+                                  pts(k)
+end function get_cell_fp_index
+!
+#endif
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+#ifndef USE_FACE_FLXPTS
+!
+pure function get_face_fp_indices(this,face_geom,face_order) &
+                           result(return_value)
+  !.. Passed Argument from Invoking Object ..
+  class(cell_on_face_t), intent(in) :: this
+  !.. Formal Arguments ..
+  integer, intent(in) :: face_geom
+  integer, intent(in) :: face_order
+  !.. Function Result ..
+  integer, allocatable :: return_value(:)
+continue
+  ! Using F2003 auto-reallocation
+  return_value = this%fp_offset + fp%geord(face_geom,face_order)% &
+                                              rot(this%rotation)% &
+                                  pts(:)
+end function get_face_fp_indices
+!
+pure function get_face_fp_index(this,face_geom,face_order,k) &
+                         result(return_value)
+  !.. Passed Argument from Invoking Object ..
+  class(cell_on_face_t), intent(in) :: this
+  !.. Formal Arguments ..
+  integer, intent(in) :: face_geom
+  integer, intent(in) :: face_order
+  integer, intent(in) :: k
+  !.. Function Result ..
+  integer :: return_value
+continue
+  return_value = this%fp_offset + fp%geord(face_geom,face_order)% &
+                                              rot(this%rotation)% &
+                                  pts(k)
+end function get_face_fp_index
+!
+#endif
+!
+!###############################################################################
+!###############################################################################
 !###############################################################################
 !
 subroutine geovar_memory_usage(iunit)
@@ -376,6 +580,9 @@ subroutine geovar_memory_usage(iunit)
   type(memory) :: array,dt
   type(memory) :: face_idx
   type(memory) :: edge_idx
+  type(memory) :: flxpts
+  type(memory) :: left_fp
+  type(memory) :: right_fp
   type(memory) :: total
   !
 continue
@@ -386,6 +593,9 @@ continue
   call total%reset
   call face_idx%reset
   call edge_idx%reset
+  call flxpts%reset
+  call left_fp%reset
+  call right_fp%reset
   !
   write (iou,1)
   !
@@ -431,17 +641,61 @@ continue
       call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
       call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
       !
+#ifdef USE_FACE_FLXPTS
       if (allocated(face(i)%left%flxpts)) then
-        call dt%add( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                             size(face(i)%left%flxpts,kind=inttype) )
+        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                                size(face(i)%left%flxpts,kind=inttype) )
+        call left_fp%add(array)
+        call flxpts%add(array)
+        call dt%add(array)
       end if
       !
       if (allocated(face(i)%right%flxpts)) then
-        call dt%add( storage_size(face(i)%right%flxpts,kind=inttype) , &
-                             size(face(i)%right%flxpts,kind=inttype) )
+        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                                size(face(i)%left%flxpts,kind=inttype) )
+        call right_fp%add(array)
+        call flxpts%add(array)
+        call dt%add(array)
       end if
+#else
+      call array%set( storage_size(face(i)%left%fp_offset,kind=inttype) )
+      call array%add( storage_size(face(i)%left%rotation,kind=inttype) )
+      call left_fp%add(array)
+      call flxpts%add(array)
+      call dt%add(array)
+      !
+      call array%set( storage_size(face(i)%right%fp_offset,kind=inttype) )
+      call array%add( storage_size(face(i)%right%rotation,kind=inttype) )
+      call right_fp%add(array)
+      call flxpts%add(array)
+      call dt%add(array)
+#endif
       !
     end do
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%left%flxpts"
+    write (iou,6) array_name,left_fp%get_units()
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%right%flxpts"
+    write (iou,6) array_name,right_fp%get_units()
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%[left,right]%flxpts"
+    write (iou,6) array_name,flxpts%get_units()
     !
     call total%add(dt)
     write (array_name,5) "face"
@@ -514,6 +768,7 @@ continue
           call dt%add( storage_size(cell(i)%face(j)%geom,kind=inttype) )
           call dt%add( storage_size(cell(i)%face(j)%order,kind=inttype) )
           !
+#ifdef USE_FACE_CELL_IDX
           if (allocated(cell(i)%face(j)%cell_idx)) then
             call array%set( &
                        storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
@@ -521,6 +776,12 @@ continue
             call face_idx%add(array)
             call dt%add(array)
           end if
+#else
+          call array%set( storage_size(cell(i)%face(j)%fp_offset,kind=inttype) )
+          call array%add( storage_size(cell(i)%face(j)%rotation,kind=inttype) )
+          call face_idx%add(array)
+          call dt%add(array)
+#endif
           !
         end do
         !
@@ -538,6 +799,7 @@ continue
           call dt%add( storage_size(cell(i)%edge(j)%order,kind=inttype) )
           call dt%add( storage_size(cell(i)%edge(j)%ave_coef,kind=inttype) )
           !
+#ifdef USE_EDGE_CELL_IDX
           if (allocated(cell(i)%edge(j)%cell_idx)) then
             call array%set( &
                        storage_size(cell(i)%edge(j)%cell_idx,kind=inttype) , &
@@ -545,6 +807,12 @@ continue
             call edge_idx%add(array)
             call dt%add(array)
           end if
+#else
+          call array%set( storage_size(cell(i)%edge(j)%ep_offset,kind=inttype) )
+          call array%add( storage_size(cell(i)%edge(j)%rev_dir,kind=inttype) )
+          call edge_idx%add(array)
+          call dt%add(array)
+#endif
           !
         end do
         !
@@ -568,9 +836,19 @@ continue
       !
     end do
     !
+#ifdef USE_FACE_CELL_IDX
+    write (iou,10) "FACE"
+#else
+    write (iou,11) "FACE"
+#endif
     write (array_name,5) "cell%face%cell_idx"
     write (iou,6) array_name,face_idx%get_units()
     !
+#ifdef USE_EDGE_CELL_IDX
+    write (iou,10) "EDGE"
+#else
+    write (iou,11) "EDGE"
+#endif
     write (array_name,5) "cell%edge%cell_idx"
     write (iou,6) array_name,edge_idx%get_units()
     !
@@ -583,6 +861,159 @@ continue
     write (iou,7) "cell"
     !
   end if
+  !
+  ! Memory usage for the fp array of type fp_t
+  !
+  if (allocated(fp)) then
+    !
+    !##########################################################
+   !type, public :: fp_rot_pts_t
+   !  integer, allocatable :: pts
+   !end type fp_rot_pts_t
+   !type, public :: fp_rot_t
+   !  type(fp_rot_pts_t), allocatable :: rot(:)
+   !end type fp_rot_t
+   !type, public :: fp_t
+   !  type(fp_rot_t), allocatable :: geord(:,:)
+   !end type fp_t
+   !type(fp_t), public, save, allocatable :: fp
+    !##########################################################
+    !
+    call dt%set( storage_size(fp,kind=inttype) , 1_inttype )
+    !
+    if (allocated(fp%geord)) then
+      !
+      call array%set( storage_size(fp%geord,kind=inttype), &
+                              size(fp%geord,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+      do j = lbound(fp%geord,dim=2),ubound(fp%geord,dim=2)
+        do i = lbound(fp%geord,dim=2),ubound(fp%geord,dim=2)
+          if (allocated(fp%geord(i,j)%rot)) then
+            !
+            call array%set( storage_size(fp%geord(i,j)%rot,kind=inttype) , &
+                                    size(fp%geord(i,j)%rot,kind=inttype) )
+            call dt%add(array)
+            !
+            do k = lbound(fp%geord(i,j)%rot,dim=1), &
+                   ubound(fp%geord(i,j)%rot,dim=1)
+              if (allocated(fp%geord(i,j)%rot(k)%pts)) then
+                !
+                call array%set( &
+                       storage_size(fp%geord(i,j)%rot(k)%pts,kind=inttype) , &
+                               size(fp%geord(i,j)%rot(k)%pts) )
+                !
+                call dt%add(array)
+                !
+              end if
+            end do
+            !
+          end if
+        end do
+      end do
+      !
+    end if
+    !
+    call total%add(dt)
+    write (array_name,5) "fp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "fp"
+    !
+  end if
+  !
+  ! Memory usage for the edge array of type edge_t
+  !
+  if (allocated(edge)) then
+    !
+    call array%set( storage_size(edge,kind=inttype) , &
+                            size(edge,kind=inttype) )
+    write (array_name,5) "edge(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    do i = lbound(edge,dim=1),ubound(edge,dim=1)
+      !
+      call dt%add( storage_size(edge(i)%order,kind=inttype) )
+      !
+      call array%set( storage_size(edge(i)%nodes,kind=inttype) , &
+                              size(edge(i)%nodes,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "edge"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "edge"
+    !
+  end if
+  !
+  ! Memory usage for the grid variable of type grid_t
+  !
+  if (allocated(grid)) then
+    !
+    call dt%set( storage_size(grid,kind=inttype) , 1_inttype )
+    !
+    if (allocated(grid%elem)) then
+      !
+      call array%set( storage_size(grid%elem,kind=inttype) , &
+                              size(grid%elem,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+      do i = lbound(grid%elem,dim=1),ubound(grid%elem,dim=1)
+        !
+        call dt%add( storage_size(grid%elem(i)%host_cell,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%npts,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%order,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%geom,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%elem_type,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%family,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%family%v,kind=inttype) )
+        call dt%add( storage_size(grid%elem(i)%prop%warning,kind=inttype) )
+        !
+        if (allocated(grid%elem(i)%pts)) then
+          call dt%add( storage_size(grid%elem(i)%pts,kind=inttype) , &
+                               size(grid%elem(i)%pts,kind=inttype) )
+        end if
+        if (allocated(grid%elem(i)%tags)) then
+          call dt%add( storage_size(grid%elem(i)%tags,kind=inttype) , &
+                               size(grid%elem(i)%tags,kind=inttype) )
+        end if
+        if (allocated(grid%elem(i)%nodes)) then
+          call dt%add( storage_size(grid%elem(i)%nodes,kind=inttype) , &
+                               size(grid%elem(i)%nodes,kind=inttype) )
+        end if
+        !
+      end do
+      !
+    end if
+    !
+    if (allocated(grid%xyz)) then
+      call dt%add( storage_size(grid%xyz,kind=inttype) , &
+                           size(grid%xyz,kind=inttype) )
+    end if
+    !
+    call total%add(dt)
+    write (array_name,5) "grid"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "grid"
+    !
+  end if
+                   
   !
   ! Memory usage for the pst_geom array of type geom_conn
   !
@@ -665,105 +1096,8 @@ continue
   !
   ! Memory usage for all the remaining arrays of intrinsic datatypes
   !
-  if (allocated(xyz_nodes)) then
-    call array%set( storage_size(xyz_nodes,kind=inttype) , &
-                            size(xyz_nodes,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "xyz_nodes"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "xyz_nodes"
-  end if
-  if (allocated(xyz)) then
-    call array%set( storage_size(xyz,kind=inttype) , &
-                            size(xyz,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "xyz"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "xyz"
-  end if
-  if (allocated(global_xyz_nodes)) then
-    call array%set( storage_size(global_xyz_nodes,kind=inttype) , &
-                            size(global_xyz_nodes,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_xyz_nodes"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_xyz_nodes"
-  end if
-  if (allocated(global_xyz)) then
-    call array%set( storage_size(global_xyz,kind=inttype) , &
-                            size(global_xyz,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_xyz"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_xyz"
-  end if
-  if (allocated(global_nofc_ptr)) then
-    call array%set( storage_size(global_nofc_ptr,kind=inttype) , &
-                            size(global_nofc_ptr,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_nofc_ptr"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_nofc_ptr"
-  end if
-  if (allocated(global_nofc)) then
-    call array%set( storage_size(global_nofc,kind=inttype) , &
-                            size(global_nofc,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_nofc"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_nofc"
-  end if
-  if (allocated(global_pinc_ptr)) then
-    call array%set( storage_size(global_pinc_ptr,kind=inttype) , &
-                            size(global_pinc_ptr,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_pinc_ptr"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_pinc_ptr"
-  end if
-  if (allocated(global_cell_order)) then
-    call array%set( storage_size(global_cell_order,kind=inttype) , &
-                            size(global_cell_order,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_cell_order"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_cell_order"
-  end if
-  if (allocated(global_cell_geom)) then
-    call array%set( storage_size(global_cell_geom,kind=inttype) , &
-                            size(global_cell_geom,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "global_cell_geom"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "global_cell_geom"
-  end if
-  if (allocated(bface)) then
-    call array%set( storage_size(bface,kind=inttype) , &
-                            size(bface,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "bface"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "bface"
-  end if
-  if (allocated(cell_order)) then
-    call array%set( storage_size(cell_order,kind=inttype) , &
-                            size(cell_order,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "cell_order"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "cell_order"
-  end if
+  !
+  !
   if (allocated(cell_geom)) then
     call array%set( storage_size(cell_geom,kind=inttype) , &
                             size(cell_geom,kind=inttype) )
@@ -773,6 +1107,141 @@ continue
   else
     write (iou,7) "cell_geom"
   end if
+  !
+  !
+  !
+  if (allocated(cell_order)) then
+    call array%set( storage_size(cell_order,kind=inttype) , &
+                            size(cell_order,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cell_order"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cell_order"
+  end if
+  !
+  !
+  !
+  if (allocated(xyz_nodes)) then
+    call array%set( storage_size(xyz_nodes,kind=inttype) , &
+                            size(xyz_nodes,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "xyz_nodes"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "xyz_nodes"
+  end if
+  !
+  !
+  !
+  if (allocated(xyz)) then
+    call array%set( storage_size(xyz,kind=inttype) , &
+                            size(xyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "xyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "xyz"
+  end if
+  !
+  !
+  !
+  if (allocated(global_xyz_nodes)) then
+    call array%set( storage_size(global_xyz_nodes,kind=inttype) , &
+                            size(global_xyz_nodes,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_xyz_nodes"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_xyz_nodes"
+  end if
+  !
+  !
+  !
+  if (allocated(global_xyz)) then
+    call array%set( storage_size(global_xyz,kind=inttype) , &
+                            size(global_xyz,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_xyz"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_xyz"
+  end if
+  !
+  !
+  !
+  if (allocated(global_nofc_ptr)) then
+    call array%set( storage_size(global_nofc_ptr,kind=inttype) , &
+                            size(global_nofc_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_nofc_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_nofc_ptr"
+  end if
+  !
+  !
+  !
+  if (allocated(global_nofc)) then
+    call array%set( storage_size(global_nofc,kind=inttype) , &
+                            size(global_nofc,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_nofc"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_nofc"
+  end if
+  !
+  !
+  !
+  if (allocated(global_pinc_ptr)) then
+    call array%set( storage_size(global_pinc_ptr,kind=inttype) , &
+                            size(global_pinc_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_pinc_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_pinc_ptr"
+  end if
+  !
+  !
+  !
+  if (allocated(global_cell_geom)) then
+    call array%set( storage_size(global_cell_geom,kind=inttype) , &
+                            size(global_cell_geom,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_cell_geom"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_cell_geom"
+  end if
+  !
+  !
+  !
+  if (allocated(global_cell_order)) then
+    call array%set( storage_size(global_cell_order,kind=inttype) , &
+                            size(global_cell_order,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "global_cell_order"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "global_cell_order"
+  end if
+  !
+  !
+  !
+  if (allocated(bface)) then
+    call array%set( storage_size(bface,kind=inttype) , &
+                            size(bface,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "bface"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "bface"
+  end if
+  !
+  !
+  !
   if (allocated(nodes_of_cell_ptr)) then
     call array%set( storage_size(nodes_of_cell_ptr,kind=inttype) , &
                             size(nodes_of_cell_ptr,kind=inttype) )
@@ -782,6 +1251,9 @@ continue
   else
     write (iou,7) "nodes_of_cell_ptr"
   end if
+  !
+  !
+  !
   if (allocated(nodes_of_cell)) then
     call array%set( storage_size(nodes_of_cell,kind=inttype) , &
                             size(nodes_of_cell,kind=inttype) )
@@ -805,6 +1277,12 @@ continue
   6 format (" Array Component: ",a,dt)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   8 format ("pst_geom(",a,",",i0,")%connectivity")
+  !
+  10 format (3x,"NOTE: The USE_",a,"_CELL_IDX preprocessor flag is ENABLED!")
+  11 format (3x,"NOTE: The USE_",a,"_CELL_IDX preprocessor flag is DISABLED!")
+  !
+  20 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is ENABLED!")
+  21 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is DISABLED!")
   !
 end subroutine geovar_memory_usage
 !

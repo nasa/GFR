@@ -954,7 +954,7 @@ continue
   !
   open (newunit=ifu,file=trim(adjustl(fname)),status="replace",action="write", &
         position="rewind",form="formatted",iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,1,ierr,error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (ifu,1) np1,np2
   !
@@ -967,7 +967,7 @@ continue
                                                               j=1,n2)
   !
   close (ifu,iostat=ierr,iomsg=error_message)
-  call io_error(pname,fname,2,ierr,error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
   !
   deallocate ( xy , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xy",2,__LINE__,__FILE__,ierr,error_message)

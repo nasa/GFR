@@ -54,20 +54,23 @@ subroutine get_faceusp_bc
   ! to compute the boundary states based on the face boundary condition.
   !
   !.. Use Statements ..
-  use geovar,  only : bface,nfbnd
-  use ovar,    only : output_bface_array
+  use geovar,       only : bface,nfbnd
+  use ovar,         only : output_bface_array
   use metrics_mod,  only : geofa
-  use flowvar, only : faceusp,facexyz
+  use flowvar,      only : faceusp,facexyz
   !
   use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
-  integer  :: nf,pf
+  integer :: nf,pf
+  integer :: newton_failures
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_faceusp_bc"
   !
 continue
+  !
+  newton_failures = 0
   !
   if (output_bface_array) call output_bface
   !
@@ -123,15 +126,22 @@ continue
         !
         ! Subsonic inflow boundary condition
         !
-        call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
-                                        faceusp(nf)%v(:,:,2))
+        call get_bc_sub_inflow_newton(faceusp(nf)%v(:,:,1), &
+                                      faceusp(nf)%v(:,:,2), &
+                                      geofa(nf)%v(:,:), &
+                                      newton_failures, &
+                                      nf)
+        !
+       !call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
+       !                                faceusp(nf)%v(:,:,2))
         !
       case (bc_sub_outflow)
         !
         ! Subsonic outflow boundary condition
         !
         call get_bc_sub_outflow_solution(faceusp(nf)%v(:,:,1), &
-                                         faceusp(nf)%v(:,:,2))
+                                         faceusp(nf)%v(:,:,2), &
+                                         geofa(nf)%v(:,:))
         !
       case (bc_sup_inflow)
         !
@@ -195,11 +205,21 @@ continue
         ! This shouldn't be here and is an unknown boundary condition
         !
         write (iout,1) bface(1,nf)
-        call stop_recon(abort,pname)
+        call stop_recon(abort,pname,__LINE__,__FILE__)
         !
     end select
     !
   end do
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
+                       mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  if (newton_failures > 0) then
+    write (error_message,2) newton_failures
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
   !
   ! Now that we have finished getting the boundary conditions local to
   ! this cell, make sure that the communication of faceusp between
@@ -215,6 +235,9 @@ continue
               "  UNKNOWN BOUNDARY CONDITION IN SUB GET_FACEUSP_BC!",/, &
               "  BOUNDARY CONDITION VALUE IS: ",i0,/, &
               " ********************* ERROR! **********************",/)
+  2 format (" FAILURES WERE DETECTED USING NEWTON'S METHOD", &
+            " TO COMPUTE THE SUBSONIC INFLOW TEMPERATURE!", &
+            "       newton_failures = ",i0)
   !
 end subroutine get_faceusp_bc
 !
@@ -230,8 +253,9 @@ subroutine get_facedusp_bc
   ! face boundary condition.
   !
   !.. Use Statements ..
-  use geovar,  only : bface,nfbnd
-  use flowvar, only : faceusp,facedusp
+  use geovar,       only : bface,nfbnd
+  use flowvar,      only : faceusp,facedusp
+  use metrics_mod,  only : geofa
   !
   use parallel_mod, only : wait_facedusp
   !
@@ -276,6 +300,14 @@ continue
         !
       end if
       !
+    else if (any(bface(1,nf) == [bc_slip_wall,bc_symmetry])) then
+      !
+      ! Slip wall / symmetry boundary condition
+      !
+      call get_bc_slip_wall_gradient(facedusp(nf)%v(:,:,:,1), &
+                                     facedusp(nf)%v(:,:,:,2), &
+                                     geofa(nf)%v(:,:))
+      !
     else if (bface(1,nf) == bc_periodic) then
       !
       ! Periodic boundary condition
@@ -301,7 +333,7 @@ continue
    !  ! This shouldn't be here and is an unknown boundary condition
    !  !
    !  write (iout,1) bface(1,nf)
-   !  call stop_recon(abort,pname)
+   !  call stop_recon(abort,pname,__LINE__,__FILE__)
    !  !
     end if
     !
@@ -545,7 +577,7 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   !
   !.. Local Scalars ..
   integer :: k
-  real(wp) :: rp,rm,utc,unc,ac,sc,rho,pres
+  real(wp) :: rp,rm,unc,ac,sc,rho,pres,vel
   real(wp) :: mach_int,mach_ext,gm1,gm1_inv
   real(wp) :: aspd_int,vt_int,vn_int
   real(wp) :: aspd_ext,vt_ext,vn_ext
@@ -554,6 +586,10 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
   real(wp), dimension(1:size(fnrm,dim=1)) :: rtan
   real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: veln_is_int = true
+  logical(lk), parameter :: veln_is_int = fals
   !
 continue
   !
@@ -590,39 +626,63 @@ continue
     mach_int = vn_int/aspd_int ! interior normal Mach number
     mach_ext = vn_ext/aspd_ext ! exterior normal Mach number
     !
-    if (abs(vn_ext) >= aspd_ext .and. vn_int >= zero) then
-      rp = vn_int - two*aspd_int*gm1_inv
-    else
-      rp = vn_ext - two*aspd_ext*gm1_inv
+    rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
+    rm = vn_ext - two*aspd_ext*gm1_inv ! Incoming Reimann invariant
+    !
+    ! Supersonic inflow boundary
+    !    Set R+ so that 0.5*(R+ + R-) = vn_ext
+    !
+   !if (abs(vn_ext)/aspd_ext >= one .and. vn_int >= zero) then
+   !if (vn_int <= 
+    if (vn_ext/aspd_ext <= -one) then
+   !if (vn_int/aspd_int <= -one) then
+      rp = vn_ext + two*aspd_ext*gm1_inv
     end if
     !
-    if (abs(vn_ext) >= aspd_ext .and. vn_int < zero) then
-      rm = vn_ext + two*aspd_ext*gm1_inv
-    else
-      rm = vn_int + two*aspd_int*gm1_inv
+    ! Supersonic outflow boundary
+    !    Set R- so that 0.5*(R+ + R-) = vn_int
+    !
+   !if (abs(vn_int)/aspd_int >= one .and. vn_int < zero) then
+    if (vn_int/aspd_int >= one) then
+      rm = vn_int - two*aspd_int*gm1_inv
     end if
     !
     unc = half*(rp+rm)
-    ac  = one4*gm1*(rm-rp)
-    sc  = pv_in(nee) / (pv_in(nec)**gam)
+    ac  = one4*gm1*(rp-rm)
+   !sc  = pv_in(nee) / (pv_in(nec)**gam)
     !
-    if (vn_int < zero) then
-      rho = ( ac * ac / (gam*sc) )**gm1_inv
-    else
-      rho = hvfp(nec) * (hvfp(nec)*ac*ac/(gam*hvfp(nee)))**gm1_inv
+    !
+    if (vn_int > zero) then ! outflow boundary
+      sc = aspd_int**2 / (gam * (hvfp(nec)**gm1))
+    else                 ! inflow boundary
+      sc = aspd_ext**2 / (gam * (pv_in(nec)**gm1))
     end if
+    !
+    rho = ( ac * ac / (gam*sc) )**gm1_inv
+   !if (vn_int < zero) then ! inflow boundary
+   !  rho = ( ac * ac / (gam*sc) )**gm1_inv
+   !else                    ! outflow boundary
+   !  rho = hvfp(nec) * (hvfp(nec)*ac*ac/(gam*hvfp(nee)))**gm1_inv
+   !end if
     !
     pres = rho * ac * ac / gam
     !
-    ! Compute the conservative variables at the boundary flux points
+    ! Compute the primitive variables at the boundary flux points
     !
     gufp(nec,k) = rho
-    if (vn_int >= zero) then
-      gufp(nmb:nme,k) = rho * (hvfp(nmb:nme) + (unc - vn_int)*rnrm(:))
-    else
-      gufp(nmb:nme,k) = rho * (pv_in(nmb:nme) + (unc - vn_ext)*rnrm(:))
+    !
+    vel = merge( vn_int , unc , veln_is_int )
+    if (vel > zero) then ! outflow boundary
+      gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
+    else                 ! inflow boundary
+      gufp(nmb:nme,k) = pv_in(nmb:nme) + (unc - vn_ext)*rnrm(:)
     end if
-    gufp(nee,k) = pres*gm1_inv + half * selfdot( gufp(nmb:nme,k) ) / rho
+    !
+    gufp(nee,k) = pres
+    !
+    ! Convert the primitive variables to conservative variables
+    !
+    gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
     !
   end do
   !
@@ -951,6 +1011,161 @@ end subroutine get_bc_generic_freeflow_solution
 !
 !###############################################################################
 !
+subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,ierr,nf)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FNRM : Face outward normal vector at the flux points
+  ! HUFP : Conservative variables at the host  cell flux points
+  ! GUFP : Conservative variables at the ghost cell flux points
+  ! IERR : count the number of failed convergences from Newton iterations
+  !
+  !.. Use Statements ..
+  use ovar, only : pv_in,gam
+  use ovar, only : ptotref_nd,ttotref_nd
+  use ovar, only : rgasref_nd,alpha_aoaref
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:),    intent(in) :: fnrm
+  real(wp), dimension(:,:),    intent(in) :: hufp
+  real(wp), dimension(:,:), intent(inout) :: gufp
+  integer,                  intent(inout) :: ierr
+  integer,                     intent(in) :: nf
+  !
+  !.. Local Scalars ..
+  integer  :: k,n
+  logical(lk)  :: convergence_reached
+  real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
+  real(wp) :: temp_int,aspd_int,veln_int
+  real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
+  real(wp) :: rminus,rafac,vel,func,dfunc,dtemp
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
+  real(wp), dimension(1:size(fnrm,dim=1)) :: dir_cos
+  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  !
+  !.. Local Parameters ..
+  integer, parameter :: newton_iter = 100
+  !
+continue
+  !
+  dterr = eps3*ttotref_nd
+  !
+  ! Precompute the free stream specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gam_over_1mg = -gam / gm1
+  !
+  ! Precompute the direction cosines
+  !
+  tan_aoa = tan( alpha_aoaref * degrees2radians )
+  !
+  dir_cos(:) = zero
+  dir_cos(1) = one / sqrt(one + tan_aoa**2)
+  dir_cos(2) = tan_aoa * dir_cos(1)
+  !
+  do k = 1,size(gufp,dim=2)
+    !
+    convergence_reached = fals
+    !
+    ! Unit normal at this flux point
+    !
+    rnrm(:) = -unit_vector( fnrm(:,k) )
+    !
+    ! Get the host cell primitive variables at this flux point
+    !
+    hvfp(:) = usp2v_sp( hufp(:,k) )
+    !
+    ! Normal velocity of the interior/host cell at this flux point
+    !
+    veln_int = dot( hvfp(nmb:nme) , rnrm(:) ) 
+    !
+    temp_int = temperature_pv_sp( hvfp(:) )
+    !
+    ! Compute the speed of sound at this flux point
+    !
+    aspd_int = sqrt( max( gam*rgasref_nd*temp_int , rndoff ) )
+    !
+    rminus = veln_int - (two*aspd_int/gm1)
+    !
+    temp_ext = temperature_pv_sp( pv_in(:) )
+    !
+    aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+    !
+    rafac = one / dot( dir_cos(:) , rnrm(:) )
+    !
+    vel = rafac * (rminus + two*aspd_ext/gm1)
+    !
+    func = ttotref_nd - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
+    dfunc = -(one + vel*rafac/aspd_ext)
+    !
+    newton_iteration: do n = 1,newton_iter
+      !
+      dtemp = func/dfunc
+      !
+      if (abs(dtemp) < dterr) then
+        convergence_reached = true
+        exit newton_iteration
+      end if
+      !
+      temp_ext = temp_ext - dtemp
+      aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+      vel = rafac * (rminus + two*aspd_ext/gm1)
+      !
+      func = ttotref_nd - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
+      dfunc = -(one + vel*rafac/aspd_ext)
+      !
+    end do newton_iteration
+    !
+    ! Check to make sure the temperature converged
+    !
+    if (.not. convergence_reached) then
+      dtemp = func/dfunc
+      write (iout,1) "mypnum   = ",mypnum
+      write (iout,1) "nf       = ",nf
+      write (iout,1) "k        = ",k
+      write (iout,2) "dterr    = ",dterr
+      write (iout,2) "temp_int = ",temp_int
+      write (iout,2) "temp_ext = ",temp_ext
+      write (iout,2) "pres_ext = ",pres_ext
+      write (iout,2) "pres_int = ",hvfp(nee)
+      write (iout,2) "func     = ",func
+      write (iout,2) "dfunc    = ",dfunc
+      write (iout,2) "dtemp    = ",dtemp
+      write (iout,2) "aspd_int = ",aspd_int
+      write (iout,2) "aspd_ext = ",aspd_ext
+      write (iout,2) "vel      = ",vel
+      write (iout,2) "veln_int = ",veln_int
+      1 format (a,i0)
+      2 format (a,es14.6)
+      ierr = ierr + 1
+    end if
+    !
+    mach_ext = vel / aspd_ext
+    !
+    pres_ext = ptotref_nd*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+    !
+    gufp(nec,k) = pres_ext / (rgasref_nd * temp_ext)
+    gufp(nmb:nme,k) = vel*dir_cos(:)
+    gufp(nee,k) = pres_ext
+    !
+    gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_newton
+!
+!###############################################################################
+!
 subroutine get_bc_sub_inflow_solution(hufp,gufp)
   !
   ! #####################################################
@@ -978,6 +1193,13 @@ subroutine get_bc_sub_inflow_solution(hufp,gufp)
   integer  :: k
   real(wp) :: pres_int,ske_inf,gm1_inv
   real(wp) :: gm1,rt,rhot,a,b,c,velx2
+  real(wp) :: rm,rmsq,aa,asq
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: use_old_sub_inflow = fals
+ !logical(lk), parameter :: use_old_sub_inflow = true
+ !logical(lk), parameter :: use_jims_method = fals
+  logical(lk), parameter :: use_jims_method = true
   !
 continue
   !
@@ -986,53 +1208,96 @@ continue
   !
   gm1 = gam - one
   gm1_inv = one / gm1
-  rt = rgasref_nd*ttotref_nd
   !
-  rhot = ptotref_nd/rt
-  a = rt*gm1_inv
-  b = two*gam*a
-  c = half*gm1/gam
-  !
- !do k = 1,size(gufp,dim=2)
- !  !
- !  velx2 = hufp(nmx,k)**2
- !  !
- !  gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**-gm1_inv )
- !  gufp(nmb:nme,k) = zero
- !  gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
- !  gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
- !  !
- !end do
-  !
-  ! Precompute the free stream specific kinetic energy
-  ! and the inverse of gamma-1
-  !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
-  !
-  gm1_inv = one / (gam - one)
-  !
-  do k = 1,size(gufp,dim=2)
+  if (use_old_sub_inflow) then
     !
-    ! Set all variables but pressure to free stream
+    ! Precompute the free stream specific kinetic energy
+    ! and the inverse of gamma-1
     !
-    gufp(1:nq-1,k) = cv_in(1:nq-1)
+    ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
     !
-    ! Get the interior pressure
+    gm1_inv = one / (gam - one)
     !
-    pres_int = pressure_cv_sp( hufp(:,k) )
+    do k = 1,size(gufp,dim=2)
+      !
+      ! Set all variables but pressure to free stream
+      !
+      gufp(1:nq-1,k) = cv_in(1:nq-1)
+      !
+      ! Get the interior pressure
+      !
+      pres_int = pressure_cv_sp( hufp(:,k) )
+      !
+      ! Compute the total energy using interior pressure
+      ! and free stream specific kinetic energy
+      !
+      gufp(nq,k) = pres_int * gm1_inv + ske_inf
+      !
+    end do
     !
-    ! Compute the total energy using interior pressure
-    ! and free stream specific kinetic energy
+  else
     !
-    gufp(nq,k) = pres_int * gm1_inv + ske_inf
+    if (use_jims_method) then
+      !
+      rt = rgasref_nd*ttotref_nd
+      !
+      rhot = ptotref_nd/rt
+      a = rt*gm1_inv
+      b = two*gam*a
+      c = half*gm1/gam
+      !
+      do k = 1,size(gufp,dim=2)
+        !
+        velx2 = hufp(nmx,k)**2
+        !
+        gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**-gm1_inv )
+        gufp(nmb:nme,k) = zero
+        gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
+        gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
+        !
+      end do
+      !
+    else
+      !
+      !
+      ! Precompute the free stream specific kinetic energy
+      ! and the inverse of gamma-1
+      !
+      gm1_inv = one / (gam - one)
+      !
+      do k = 1,size(gufp,dim=2)
+        !
+        ! Get the interior pressure
+        !
+        pres_int = pressure_cv_sp( hufp(:,k) )
+        !
+        rmsq = ( (ptotref_nd/pres_int)**(gm1/gam) - one ) * two/gm1
+        rm   = sqrt(rmsq)
+        !
+        asq = one / (one+half*gm1*rmsq)
+        aa = sqrt(asq)
+        !
+        ! Compute the total energy using interior pressure
+        ! and free stream specific kinetic energy
+        !
+        gufp(nec,k) = gam*pres_int/asq
+        gufp(nmb:nme,k) = zero
+        gufp(nmx,k) = aa*rm
+        gufp(nee,k) = pres_int
+        !
+        gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
+        !
+      end do
+      !
+    end if
     !
-  end do
+  end if
   !
 end subroutine get_bc_sub_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_outflow_solution(hufp,gufp)
+subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm)
   !
   ! #####################################################
   ! #####################################################
@@ -1043,19 +1308,29 @@ subroutine get_bc_sub_outflow_solution(hufp,gufp)
   ! #####################################################
   ! #####################################################
   ! 
+  ! FNRM : Face outward normal vector at the flux points
   ! HUFP : Conservative variables at the host  cell flux points
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Use Statements ..
-  use ovar, only : pv_in,gam
+  use ovar, only : pv_in,gam,ptotref_nd
   !
   !.. Formal Arguments ..
+  real(wp), dimension(:,:),    intent(in) :: fnrm
   real(wp), dimension(:,:),    intent(in) :: hufp
   real(wp), dimension(:,:), intent(inout) :: gufp
   !
   !.. Local Scalars ..
   integer :: k
-  real(wp) :: gm1_inv,ske_int
+  real(wp) :: gm1_inv,ske_int,vn_int,aspd_int
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
+  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: use_old_sub_outflow = fals
+ !logical(lk), parameter :: use_old_sub_outflow = true
   !
 continue
   !
@@ -1063,22 +1338,70 @@ continue
   !
   gm1_inv = one / (gam - one)
   !
-  do k = 1,size(gufp,dim=2)
+  if (use_old_sub_outflow) then
     !
-    ! Extrapolate interior density and velocities to boundary
+    do k = 1,size(gufp,dim=2)
+      !
+      ! Extrapolate interior density and velocities to boundary
+      !
+      gufp(1:nq-1,k) = hufp(1:nq-1,k)
+      !
+      ! Compute the interior specific kinetic energy
+      !
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
+      !
+      ! Compute the total energy using free stream pressure
+      ! and interior specific kinetic energy
+      !
+      gufp(nq,k) = pv_in(nq) * gm1_inv + ske_int
+      !
+    end do
     !
-    gufp(1:nq-1,k) = hufp(1:nq-1,k)
+  else
     !
-    ! Compute the interior specific kinetic energy
+    do k = 1,size(gufp,dim=2)
+      !
+      ! Unit normal and tangent at this flux point
+      !
+      rnrm(:) = unit_vector( fnrm(:,k) )
+      !
+      ! Now convert the current host cell flux point
+      ! conservative variables to primitive variables
+      !
+      hvfp(:) = usp2v_sp( hufp(:,k) )
+      !
+      vn_int = dot( rnrm(:) , hvfp(nmb:nme) )
+      aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
+      !
+      ! Extrapolate interior primitive variables to boundary
+      !
+      gufp(1:nq,k) = hvfp(1:nq)
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      !
+      if (vn_int < zero) then
+        gufp(nmb:nme,k) = rnorm2( hvfp(nmb:nme) ) * rnrm(:)
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      if (abs(vn_int)/aspd_int >= one) then
+        gufp(nee,k) = ptotref_nd
+      else
+        gufp(nee,k) = pv_in(nee)
+      end if
+      !
+      ! Convert the primitive variables to conservative variables
+      !
+      gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
+      !
+    end do
     !
-    ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
-    !
-    ! Compute the total energy using free stream pressure
-    ! and interior specific kinetic energy
-    !
-    gufp(nq,k) = pv_in(nq) * gm1_inv + ske_int
-    !
-  end do
+  end if
   !
 end subroutine get_bc_sub_outflow_solution
 !
@@ -1713,6 +2036,62 @@ end subroutine get_bc_wall_gradient
 !
 !###############################################################################
 !
+subroutine get_bc_slip_wall_gradient(hdufp,gdufp,fnrm)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
+  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hdufp(:,:,:)
+  real(wp), intent(inout) :: gdufp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr,k,m,l
+  real(wp) :: wall_solution_location,reflect_const
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
+  !
+continue
+  !
+  wall_solution_location = merge(zero,one,walls_are_exact)
+  reflect_const = wall_solution_location + one
+  !
+  nr = size(gdufp,dim=1)
+  !
+  do k = 1,size(gdufp,dim=3)
+    !
+    ! Unit normal at this flux point
+    !
+    rnrm(:) = unit_vector( fnrm(:,k) )
+    !
+    ! Set the boundary gradient vector to the reflection of the
+    ! interior gradient vector about the boundary face unit normal
+    !
+    do m = 1,nq
+      do l = 1,nr
+        gdufp(l,m,k) = hdufp(l,m,k) - &
+                       reflect_const*rnrm(l)*dot( hdufp(1:nr,m,k) , rnrm(1:nr) )
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine get_bc_slip_wall_gradient
+!
+!###############################################################################
+!
 subroutine output_bface
   !
   !.. Use Statements ..
@@ -1787,8 +2166,9 @@ continue
   ! Open the output file
   !
   open (myio,file=trim(my_file),status="replace",action="write", &
-             form="formatted",position="rewind",iostat=ierr)
-  call io_error(pname,trim(my_file),1,ierr)
+             form="formatted",position="rewind", &
+             iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(my_file),1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Output the bface array
   !
@@ -1800,8 +2180,8 @@ continue
   !
   ! Close the output file
   !
-  close (myio,iostat=ierr)
-  call io_error(pname,trim(my_file),2,ierr)
+  close (myio,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(my_file),2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Format Statements
   !
@@ -1825,7 +2205,7 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Formal Arguments ..
   type(face_var), dimension(:), intent(inout) :: faceusp
-  logical,        optional,        intent(in) :: override
+  logical(lk),    optional,        intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -1977,7 +2357,7 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Formal Arguments ..
   type(face_vec), dimension(:), intent(inout) :: facedusp
-  logical,        optional,        intent(in) :: override
+  logical(lk),    optional,        intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -2119,6 +2499,7 @@ end subroutine exchange_bc_conflicts_dusp
 !
 !###############################################################################
 !
+include "Functions/temperature.f90"
 include "Functions/pressure.f90"
 include "Functions/usp2v.f90"
 include "Functions/vsp2u.f90"

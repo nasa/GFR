@@ -1,6 +1,6 @@
 module ovar
   !
-  use module_kind_types, only : wp,fals,true
+  use module_kind_types, only : wp,lk,ldk,fals,true
   use module_kind_types, only : Euler_Eqns
   use module_kind_types, only : Gambit_Neutral
   use module_kind_types, only : Legendre_Gauss,Legendre_Gauss_Lobatto
@@ -47,7 +47,7 @@ module ovar
   integer,  public, save :: num_stages  = 3
   integer,  public, save :: invs_flux_method = invs_flux_ROE
   integer,  public, save :: visc_flux_method = visc_flux_BR2
-  logical,  public, save :: walls_are_exact = true
+  logical(lk),  public, save :: walls_are_exact = true
   integer,  public, save :: visc_variables_to_ave = visc_interface_fluxes
   !
   integer,  public, save :: num_ts     = 25000
@@ -67,7 +67,7 @@ module ovar
   !
   integer,  public, save :: mms_opt = 0
   real(wp), public, save :: mms_init = 0.1_wp
-  logical,  public, save :: mms_output_solution = fals
+  logical(lk),  public, save :: mms_output_solution = fals
   !
   integer,  public, save :: itestcase = 5
   !
@@ -79,9 +79,9 @@ module ovar
   !
   character(len=150), public, save :: output_dir = "."
   integer,            public, save :: output_interval = -5
-  logical,            public, save :: correct_output  = fals
-  logical,            public, save :: continuous_output  = fals
-  logical,            public, save :: postproc_debug_grid = fals
+  logical(lk),            public, save :: correct_output  = fals
+  logical(lk),            public, save :: continuous_output  = fals
+  logical(lk),            public, save :: postproc_debug_grid = fals
   !
   real(wp), public, save :: rhoref  =     -1.00_wp
   ! rhoref default evaluates to 1.160833478437518_wp
@@ -128,15 +128,15 @@ module ovar
   real(wp), public, save :: vortex_bigGam = 5.0_wp
   !
   integer,  public, save :: VortexGrid_DOF = 64
-  logical,  public, save :: VortexGrid_random_perturb = fals
+  logical(lk),  public, save :: VortexGrid_random_perturb = fals
   integer,  public, save :: VortexGrid_perturb_percent = 30
   real(wp), public, save :: VortexGrid_Lref = 10.0_wp
   !
   real(wp),           public, save :: channel_body_force = 0.0_wp
   character(len=150), public, save :: channel_init_file = ""
   !
-  logical, public, save :: output_plot3d_to_tecplot = fals
-  logical, public, save :: output_bface_array = fals
+  logical(lk), public, save :: output_plot3d_to_tecplot = fals
+  logical(lk), public, save :: output_bface_array = fals
   !
   integer,            public, save :: grid_format = Gambit_Neutral
   character(len=150), public, save :: gridfile = &
@@ -149,32 +149,28 @@ module ovar
   integer, public, save :: plot3d_j_stride    = -1
   integer, public, save :: plot3d_k_stride    = -1
   !
-  logical, public, save :: interpolate_before_output_variable = true
-  logical, public, save :: completely_disable_cgns = fals
+  logical(lk), public, save :: interpolate_before_output_variable = true
+  logical(lk), public, save :: completely_disable_cgns = fals
   !
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
   real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
   !
-  logical, public, save :: using_curved_boundaries = fals
-  logical, public, save :: use_3rd_derivative_metrics = fals
+  logical(lk), public, save :: use_bc_conflicts = true
   !
-  logical, public, save :: use_advanced_face_metrics = true
-  logical, public, save :: use_bc_conflicts = true
+  logical(lk), public, save :: dump_memory_usage = fals
+  logical(lk), public, save :: dump_fluxes       = fals
   !
-  logical, public, save :: dump_memory_usage = fals
-  logical, public, save :: dump_fluxes       = fals
+  logical(lk), public, save :: profile_io_all     = fals
+  logical(lk), public, save :: profile_io_cgns    = fals
+  logical(lk), public, save :: profile_io_restart = fals
   !
-  logical, public, save :: profile_io_all     = fals
-  logical, public, save :: profile_io_cgns    = fals
-  logical, public, save :: profile_io_restart = fals
+  logical(lk), public, save :: output_bnd_profiles = fals
   !
-  logical, public, save :: output_bnd_profiles = fals
+  logical(lk), public, save :: use_unrolled_dot_products = true
   !
-  logical, public, save :: use_unrolled_dot_products = true
+  logical(lk), public, save :: convert_restart_to_cgns = fals
   !
-  logical, public, save :: convert_restart_to_cgns = fals
-  !
-  logical, public, save :: use_old_restart_format = fals
+  logical(lk), public, save :: use_old_restart_format = fals
   !
   integer,           public, save :: lustre_stripe_count = 64
   character(len=10), public, save :: lustre_stripe_size  = "4m"
@@ -208,8 +204,8 @@ module ovar
   real(wp), public, save :: tkeref_nd
   real(wp), public, save :: tlsref_nd
   !
-  logical,  public, save :: turb_is_on = .false.
-  logical,  public, save :: include_tke_in_energy = .false.
+  logical(lk),  public, save :: turb_is_on = .false.
+  logical(lk),  public, save :: include_tke_in_energy = .false.
   !
   real(wp), public, save :: dt_global
   !
@@ -272,12 +268,12 @@ module ovar
   !
   integer,  public, save :: Total_Periods
   !
-  logical,  public, save :: write_TaylorGreen_8s_solution = fals
-  logical,  public, save :: write_TaylorGreen_full_solution = fals
+  logical(lk),  public, save :: write_TaylorGreen_8s_solution = fals
+  logical(lk),  public, save :: write_TaylorGreen_full_solution = fals
   !
-  logical,  public, save :: convergence_reached = fals
-  logical,  public, save :: this_is_final_timestep = fals
-  logical,  public, save :: walltime_expiring
+  logical(lk),  public, save :: convergence_reached = fals
+  logical(lk),  public, save :: this_is_final_timestep = fals
+  logical(ldk),  public, save :: walltime_expiring
   real(wp), public, save :: max_wall_time
   real(wp), public, save :: wall_time_left
   real(wp), public, save :: beg_wall_time
@@ -529,16 +525,16 @@ module input_namelist_mod
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
   use ovar,      only : interpolate_before_output_variable
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
-  use ovar,      only : using_curved_boundaries,use_3rd_derivative_metrics
   use ovar,      only : dump_memory_usage,use_bc_conflicts,dump_fluxes
-  use ovar,      only : use_advanced_face_metrics,use_unrolled_dot_products
+  use ovar,      only : use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
-  use order_mod, only : p_order,n_order,o_order,all_orders,q_order
-  use cgns_module, only : cgns_use_queue
+  use order_mod, only : p_order,n_order,q_order
+  use order_mod, only : o_order,e_order,all_orders
+  use module_cgns_types, only : cgns_use_queue
   !
   implicit none
   !
@@ -560,7 +556,7 @@ module input_namelist_mod
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
   namelist / input / iop_solpts, iop_flxpts, iop_tripts
   ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
-  namelist / input / loc_output_pts, loc_init_pts, loc_error_pts
+  namelist / input / loc_output_pts, loc_init_pts
   ! SOLVER OPTIONS
   namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS
@@ -571,6 +567,8 @@ module input_namelist_mod
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
   namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+  ! ERROR-INTEGRATION OPTIONS
+  namelist / input / e_order, loc_error_pts
   ! FORCE GLOBAL ORDER AND SOLUTION POINTS
   namelist / input / all_orders, all_points
   ! PARALLEL OPTIONS
@@ -625,14 +623,12 @@ module input_namelist_mod
                      convert_restart_to_cgns, completely_disable_cgns
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
-  ! ADVANCED METRICS TERMS
-  namelist / input / using_curved_boundaries, use_3rd_derivative_metrics
   ! MEMORY USAGE
   namelist / input / dump_memory_usage
   ! PROFILE PARALLEL IO
   namelist / input / profile_io_all, profile_io_cgns, profile_io_restart
   ! TEMPORARY DEBUGGING LOGICALS
-  namelist / input / use_bc_conflicts, use_advanced_face_metrics
+  namelist / input / use_bc_conflicts
   ! PROFILE OUTPUT OPTIONS
   namelist / input / output_bnd_profiles
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE

@@ -13,20 +13,43 @@ end module rename_intrinsics
 !
 module base_kind_types
   !
+  !.. Use Statements ..
+  use iso_fortran_env, only : int32
+  use iso_fortran_env, only : int64
+  use iso_fortran_env, only : real32
+  use iso_fortran_env, only : real64
+  use iso_fortran_env, only : real128
+  use iso_fortran_env, only : output_unit
+  use iso_fortran_env, only : logical_kinds
+  !
   implicit none
   !
-  public
+  private
   !
   ! KIND definitions for 32-bit or 64-bit integer variables (IEEE 754)
   !
-  integer, parameter :: I4 = selected_int_kind(9)
-  integer, parameter :: I8 = selected_int_kind(18)
+ !integer, public, parameter :: I4 = selected_int_kind(9)
+ !integer, public, parameter :: I8 = selected_int_kind(18)
+  integer, public, parameter :: I4 = int32
+  integer, public, parameter :: I8 = max( int32 , int64 )
   !
   ! KIND definitions for single or double precision real variables (IEEE 754)
   !
-  integer, parameter :: R4 = selected_real_kind(6,37)
-  integer, parameter :: R8 = selected_real_kind(15,307)
-  integer, parameter :: R16 = max( R8 , selected_real_kind(33, 4931) )
+ !integer, public, parameter :: R4 = selected_real_kind(6,37)
+ !integer, public, parameter :: R8 = selected_real_kind(15,307)
+ !integer, public, parameter :: R16 = max( R8 , selected_real_kind(33, 4931) )
+  integer, public, parameter :: R4 = real32
+  integer, public, parameter :: R8 = real64
+  integer, public, parameter :: R16 = max( real64 , real128 )
+  !
+  ! KIND definitions for logical variables
+  !
+  integer, public, parameter :: l1k = minval(logical_kinds)
+  integer, public, parameter :: ldk = kind(.true.)
+  !
+  ! Unit for I/O to standard output
+  !
+  integer, public, parameter :: iout = output_unit
   !
 end module base_kind_types
 !
@@ -38,11 +61,7 @@ module module_kind_types
   !
   !.. Use Statements ..
   use base_kind_types
-#ifdef USE_MPI_F08
-  use mpi_f08
-#else
-  use mpi
-#endif
+  use _MPI_MODULE_
 #ifdef USE_INTEL_MKL
   use blas95, only : dot
 #else
@@ -61,6 +80,7 @@ module module_kind_types
   !
   ! Aliases for kind type parameters
   !
+  integer, parameter :: LK = l1k
   integer, parameter :: SP = r4
   integer, parameter :: DP = r8
   integer, parameter :: QP = r16
@@ -130,8 +150,8 @@ module module_kind_types
   real(wp), parameter :: rndoff  = epsilon(one)
   real(wp), parameter :: tny     = tiny(one)
   !
-  logical, parameter :: true = .true.
-  logical, parameter :: fals = .false.
+  logical(lk), parameter :: true = .true.
+  logical(lk), parameter :: fals = .false.
   !
   ! #########################################
   ! #########################################
@@ -141,7 +161,6 @@ module module_kind_types
   !
   ! I/O constants
   !
-  integer, parameter :: iout = 6
   integer, parameter :: iorst = 10
   !
   ! Boundary condition constants
@@ -174,6 +193,7 @@ module module_kind_types
   integer, parameter :: bc_symmetry = 80
   integer, parameter :: bc_periodic = 81
   integer, parameter :: bc_cpu_bnd = 99
+  integer, parameter :: bc_unsupported = -9998
   integer, parameter :: bc_unknown = -9999
   ! BC Groups
   integer, parameter :: bc_comm(1:2) = [bc_periodic,bc_cpu_bnd]
@@ -204,15 +224,15 @@ module module_kind_types
   !
   ! Parameters defining workshop test cases
   !
-  integer, parameter :: Generic_MeanFlow = 1
-  integer, parameter :: Channel_Flow     = 2
-  integer, parameter :: NACA0012_Airfoil = 3
-  integer, parameter :: Laminar_BndLyr   = 4
-  integer, parameter :: Shu_Vortex       = 5
-  integer, parameter :: Vortex_Transport = 6
-  integer, parameter :: Density_Transport = 7
-  integer, parameter :: Entropy_Transport = 8
-  integer, parameter :: Taylor_Green_Vortex = 9
+  integer, parameter :: Generic_MeanFlow       = 1
+  integer, parameter :: Channel_Flow           = 2
+  integer, parameter :: Inviscid_Gaussian_Bump = 3
+  integer, parameter :: Laminar_BndLyr         = 4
+  integer, parameter :: Shu_Vortex             = 5
+  integer, parameter :: Vortex_Transport       = 6
+  integer, parameter :: Density_Transport      = 7
+  integer, parameter :: Entropy_Transport      = 8
+  integer, parameter :: Taylor_Green_Vortex    = 9
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
@@ -311,6 +331,7 @@ module module_kind_types
   integer, parameter :: Gambit_Neutral = 1
   integer, parameter :: Gmsh_Format = 2
   integer, parameter :: Plot3D_Format = 3
+  integer, parameter :: CGNS_Format = 4
   !
   ! CGNS constants
   integer, parameter :: reopen_CGNS = 2
@@ -318,6 +339,24 @@ module module_kind_types
   integer, parameter :: add_to_CGNS =  0
   integer, parameter :: close_CGNS  = -1
   integer, parameter :: dump_CGNS   = -2
+  !
+  ! Cell Geometry Family Types
+  !
+  type :: geom_family_t
+    integer :: v = 1
+  end type geom_family_t
+  !
+  type(geom_family_t), parameter :: Complete     = geom_family_t( v=1 )
+  type(geom_family_t), parameter :: Edge_Defined = geom_family_t( v=2 )
+  type(geom_family_t), parameter :: Face_Defined = geom_family_t( v=3 )
+  !
+  interface operator(==)
+    module procedure geom_family_type_equals
+  end interface
+  !
+  interface operator(/=)
+    module procedure geom_family_type_not_equal
+  end interface
   !
   ! Cell Geometry Types
   integer, parameter :: Geom_Node = 0
@@ -360,6 +399,8 @@ module module_kind_types
   integer, protected, save :: side_nodes(1:4,1:6,Geom_Min:Geom_Max)
   integer, protected, save :: node_edges(1:4,1:8,Geom_Min:Geom_Max)
   integer, protected, save :: node_nodes(1:4,1:8,Geom_Min:Geom_Max)
+  !
+  integer, protected, save :: nodes_to_geom(0:3,0:8)
   !
   character(len=100), protected, save :: Geom_String(Geom_Min:Geom_Max)
   character(len=9),   protected, save :: Geom_Name(Geom_Min:Geom_Max)
@@ -409,7 +450,7 @@ module module_kind_types
   !         = true  -> defined by the three nodes (-1,-1) - ( 1,-1) - (-1, 1)
   !         = false -> defined by the three nodes ( 0, 0) - ( 1, 0) - ( 0, 1)
   !
-  logical, parameter :: tria_is_biunit = fals
+  logical(lk), parameter :: tria_is_biunit = fals
   !
   ! CL : coefficient that gives (2.0 / length of the 1D solution points).
   !      This is needed because of the difference between how the reference
@@ -429,6 +470,9 @@ module module_kind_types
   integer(int_mpi), protected, save :: ncpu = 1_int_mpi
   integer(int_mpi),            save :: mpierr
   !
+  integer(int_mpi), protected, save :: mpi_comm_world_val
+  integer(int_mpi), protected, save :: mpi_comm_self_val
+  !
   integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )
   integer(int_mpi), parameter :: stop_mpi = int( 9 , kind=kind(stop_mpi) )
   !
@@ -443,7 +487,7 @@ module module_kind_types
   ! working integer precision
   _MPI_DATA_TYPE_, protected, save :: mpi_inttyp
   !
-  logical, private, save :: random_is_initialized = fals
+  logical(lk), private, save :: random_is_initialized = fals
   !
   ! Definition of 1 Work Unit using TauBench Benchmark Test
   ! Using Intel 2013 compilers
@@ -459,7 +503,18 @@ module module_kind_types
   !
   ! Global parameter to help clarify calls to alloc_error
   !
-  logical, parameter :: skip_alloc_pause = fals
+  logical(lk), parameter :: skip_alloc_pause = fals
+  !
+  ! Parameters for procedure debug_timer
+  !
+  integer, parameter :: start_timer = 0
+  integer, parameter :: stop_timer = 1
+  integer, parameter :: entering_procedure = 2
+  integer, parameter :: leaving_procedure = 3
+  integer, parameter :: start_accumulation = 4
+  integer, parameter :: stop_accumulation = 5
+  integer, parameter :: reset_accumulated_time = 6
+  integer, parameter :: report_accumulated_time = 7
   !
   ! ############################################################################
   ! ############################################################################
@@ -496,11 +551,19 @@ module module_kind_types
   !
   !
   !
-  private :: deltafun_DP!,deltafun_QP
+  private :: deltafun_DP_LDK,deltafun_DP_LK
   !
   interface deltafun
-    module procedure deltafun_DP!, deltafun_QP
+    module procedure deltafun_DP_LDK, deltafun_DP_LK
   end interface deltafun
+  !
+  !
+  !
+  private :: deltafun_QP_LDK,deltafun_QP_LK
+  !
+  interface deltafun_QP
+    module procedure deltafun_QP_LDK, deltafun_QP_LK
+  end interface deltafun_QP
   !
   !
   !
@@ -660,12 +723,17 @@ module module_kind_types
   !
   !
   !
-  private :: findloc_i4,findloc_i8,findloc_r4,findloc_r8
-  private :: recursive_findloc_i4,recursive_findloc_i8
+  private :: findloc_i4,recursive_findloc_i4
+  private :: findloc_i8,recursive_findloc_i8
+  private :: findloc_r4,recursive_findloc_r4
+  private :: findloc_r8,recursive_findloc_r8
   !
   interface findloc
-    module procedure findloc_i4,findloc_i8,findloc_r4,findloc_r8, &
-                     recursive_findloc_i4,recursive_findloc_i8
+    module procedure findloc_i4,recursive_findloc_i4, &
+                     findloc_i8,recursive_findloc_i8, &
+                     findloc_r4,recursive_findloc_r4, &
+                     findloc_r8,recursive_findloc_r8
+                     
   end interface findloc
   !
   !
@@ -683,10 +751,17 @@ module module_kind_types
   !
   !
   !
-  private :: intseq_no_interval,intseq_with_interval
+  private :: intseq_no_interval_i1,intseq_with_interval_i1
+  private :: intseq_no_interval_i2,intseq_with_interval_i2
+  private :: intseq_no_interval_i4,intseq_with_interval_i4
+  private :: intseq_no_interval_i8,intseq_with_interval_i8
   !
   interface intseq
-    module procedure intseq_no_interval,intseq_with_interval
+    module procedure &
+      intseq_no_interval_i1,intseq_with_interval_i1,intseq_rev_dir_i1, &
+      intseq_no_interval_i2,intseq_with_interval_i2,intseq_rev_dir_i2, &
+      intseq_no_interval_i4,intseq_with_interval_i4,intseq_rev_dir_i4, &
+      intseq_no_interval_i8,intseq_with_interval_i8,intseq_rev_dir_i8
   end interface intseq
   !
   !
@@ -762,6 +837,8 @@ continue
   node_edges = 0
   node_nodes = 0
   !
+  nodes_to_geom = 0
+  !
   cl = one
   !
   geom_dimen(Geom_0D) = 0
@@ -793,6 +870,14 @@ continue
   geom_faces(Geom_Pyra) = 5
   geom_faces(Geom_Pris) = 5
   geom_faces(Geom_Hexa) = 6
+  !
+  ! Define the array to get the geometry type knowing
+  ! the number of nodes and the dimension of the element
+  !
+  do this_geom = Geom_Min,Geom_Max
+    nodes_to_geom( geom_dimen(this_geom) , &
+                   geom_nodes(this_geom) ) = this_geom
+  end do
   !
   ! Define the geometry type of each cell face
   !
@@ -948,14 +1033,14 @@ continue
   !
   if (.not. tria_is_biunit) cl(Geom_Tria) = two
   !
- !call stop_recon(stop_mpi,pname,error_message)
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
 end subroutine initialize_runtime_parameters
 !
 !###############################################################################
 !
-subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag, &
-                       iemessag,override_memory_pause)
+subroutine alloc_error(procedure_name,variable_name,ioptype,line_number, &
+                       file_name,error_flag,iemessag,override_memory_pause)
   !
   ! Subroutine to generate an error message when
   ! an allocate or deallocate returns an error code
@@ -964,13 +1049,15 @@ subroutine alloc_error(procedure_name,variable_name,ioptype,error_flag, &
   character(len=*),           intent(in) :: procedure_name
   character(len=*),           intent(in) :: variable_name
   integer,                    intent(in) :: ioptype
+  integer,                    intent(in) :: line_number
+  character(len=*),           intent(in) :: file_name
   integer,                    intent(in) :: error_flag
   character(len=*), optional, intent(in) :: iemessag
-  logical,          optional, intent(in) :: override_memory_pause
+  logical(lk),      optional, intent(in) :: override_memory_pause
   !
 #ifdef TRACK_MEMORY_ALLOCATIONS
   !.. Local Scalars ..
-  logical :: alloc_memory_pause
+  logical(lk) :: alloc_memory_pause
   character(len=50+len(procedure_name)+len(variable_name)) :: pause_message
 #endif
   !
@@ -988,11 +1075,12 @@ continue
       write (iout,3) trim(adjustl(variable_name))
     end if
     !
-    write (iout,4) trim(adjustl(procedure_name)),error_flag
+    write (iout,4) trim(adjustl(procedure_name)),line_number, &
+                   trim(adjustl(file_name)),error_flag
     if (present(iemessag)) write (iout,5) trim(adjustl(iemessag))
     write (iout,6)
     !
-    call stop_recon(abort,pname)
+    call stop_recon(abort,pname,__LINE__,__FILE__)
     !
 #ifdef TRACK_MEMORY_ALLOCATIONS
 #define MEMORY_TEST_PAUSE
@@ -1019,6 +1107,8 @@ continue
   2 format (" UNABLE TO ALLOCATE MEMORY FOR VARIABLE ",a)
   3 format (" UNABLE TO DEALLOCATE MEMORY FOR VARIABLE ",a)
   4 format (" INSIDE PROCEDURE: ",a,/, &
+            "         ON LINE # ",i0,/, &
+            "      OF THE FILE: ",a,/, &
             " ERROR INDICATOR = ",i0)
   5 format (" ERROR MESSAGE: ",a)
   6 format (" ***************************************************** ",//)
@@ -1077,7 +1167,7 @@ continue
   if (stop_value == 1) then
     error_message = "Abort issused during memory test at: " // &
                     trim(adjustl(after_message))
-    call stop_recon(stop_mpi,pname,error_message)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   1 format ('(/," Memory test pause",/,a,/,a,/,', &
@@ -1095,16 +1185,19 @@ end subroutine memory_pause
 !
 !###############################################################################
 !
-subroutine io_error(procedure_name,file_name,ioptype,iemessag,optmessag)
+subroutine io_error(procedure_name,io_file_name,ioptype,line_number, &
+                    src_file_name,error_flag,optmessag)
   !
   ! Subroutine to generate an error message when
   ! an open or close returns an error code
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: procedure_name
-  character(len=*), intent(in) :: file_name
+  character(len=*), intent(in) :: io_file_name
   integer,          intent(in) :: ioptype
-  integer,          intent(in) :: iemessag
+  integer,          intent(in) :: line_number
+  character(len=*), intent(in) :: src_file_name
+  integer,          intent(in) :: error_flag
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optmessag
@@ -1114,44 +1207,46 @@ subroutine io_error(procedure_name,file_name,ioptype,iemessag,optmessag)
   !
 continue
   !
-  if (iemessag /= 0) then
+  if (error_flag /= 0) then
     !
     write (iout,10)
     !
     ! Open/Close errors
     !
     if (ioptype == 1) then
-      write (iout,1) trim(adjustl(file_name))
+      write (iout,1) trim(adjustl(io_file_name))
     else if (ioptype == 2) then
-      write (iout,2) trim(adjustl(file_name))
+      write (iout,2) trim(adjustl(io_file_name))
     else if (ioptype == 3) then
-      write (iout,3) trim(adjustl(file_name))
+      write (iout,3) trim(adjustl(io_file_name))
     else if (ioptype == 4) then
-      write (iout,4) trim(adjustl(file_name))
+      write (iout,4) trim(adjustl(io_file_name))
+    else if (ioptype == 5) then
+      write (iout,5) trim(adjustl(io_file_name))
       !
       ! Read/Write errors 
-      ! Use the value of iemessag to determine the type of error
+      ! Use the value of error_flag to determine the type of error
       !
     else if (ioptype == -1) then
       !
-      if (iemessag > 0) then
-        write (iout,5) trim(adjustl(file_name))
-      else if (iemessag < 0) then
-        write (iout,6) trim(adjustl(file_name))
+      if (error_flag > 0) then
+        write (iout,6) trim(adjustl(io_file_name))
+      else if (error_flag < 0) then
+        write (iout,7) trim(adjustl(io_file_name))
       end if
       !
       ! Generic unknown error
       !
     else
-      write (iout,99) trim(adjustl(file_name))
+      write (iout,99) trim(adjustl(io_file_name))
     end if
     !
     if (present(optmessag)) then
-      write (iout,7) trim(adjustl(optmessag))
+      write (iout,8) trim(adjustl(optmessag))
     end if
     !
-    write (iout,11) trim(adjustl(procedure_name)),iemessag
-    call stop_recon(abort,pname)
+    write (iout,11) trim(adjustl(procedure_name)),error_flag
+    call stop_recon(abort,pname,line_number,src_file_name)
     !
   end if
   !
@@ -1161,10 +1256,11 @@ continue
   2  format (" ERROR CLOSING FILE '",a,"'")
   3  format (" ERROR REOPENING CGNS FILE '",a,"'")
   4  format (" UNABLE TO DETERMINE FORMAT OF PLOT3D FILE '",a,"'")
-  5  format (" UNEXPECTED INPUT/OUTPUT ERROR WITH FILE '",a,"'")
-  6  format (" UNEXPECTED END OF FILE/RECORD ERROR WITH FILE '",a,"'")
- !7  format (" ERROR OCCURED TRYING TO READ IN '",a,"'")
-  7  format (" ERROR MESSAGE: '",a,"'")
+  5  format (" CGNS ERROR ENCOUNTERED WITH FILE '",a,"'")
+  6  format (" UNEXPECTED INPUT/OUTPUT ERROR WITH FILE '",a,"'")
+  7  format (" UNEXPECTED END OF FILE/RECORD ERROR WITH FILE '",a,"'")
+ !8  format (" ERROR OCCURED TRYING TO READ IN '",a,"'")
+  8  format (" ERROR MESSAGE: '",a,"'")
   99 format (" UNKNOWN ERROR WITH FILE '",a,"'")
   10 format (/," ***************************************************** ")
   11 format (" INSIDE PROCEDURE: ",a,/, &
@@ -1180,6 +1276,8 @@ subroutine initialize_mpi_environment
   !.. Local Scalars ..
   integer(INT_MPI) :: r,p
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_mpi_environment"
 continue
   !
   ! Initialize the overall MPI session
@@ -1187,6 +1285,9 @@ continue
   call mpi_init(mpierr)
   call mpi_comm_size(MPI_COMM_WORLD,ncpu,mpierr)
   call mpi_comm_rank(MPI_COMM_WORLD,mypnum,mpierr)
+  !
+  mpi_comm_world_val = _MPI_COMM_WORLD_VAL_
+  mpi_comm_self_val = _MPI_COMM_SELF_VAL_
   !
   ! MPI datatype for working integer precision
   !
@@ -1248,7 +1349,7 @@ continue
  !!
  !if (is_in_place(mpi_in_place) /= 1) then
  !  write (*,*) "MPI_IN_PLACE does not seem to be compatible with Fortran!"
- !  call stop_recon(9,"initialize_mpi_environment")
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
  !end if
   !
 end subroutine initialize_mpi_environment
@@ -1273,11 +1374,16 @@ end subroutine finalize_mpi_environment
 !
 !###############################################################################
 !
-subroutine stop_recon(iend,procedure_name,optional_message)
+subroutine stop_recon(iend,procedure_name,line_number,file_name, &
+                      optional_message)
   !
   !.. Formal Arguments ..
-  integer, optional, intent(in) :: iend
-  character(len=*), optional, intent(in) :: procedure_name
+  integer,          intent(in) :: iend
+  character(len=*), intent(in) :: procedure_name
+  integer,          intent(in) :: line_number
+  character(len=*), intent(in) :: file_name
+  !
+  !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optional_message
   !
   !.. Local Scalars ..
@@ -1287,8 +1393,7 @@ subroutine stop_recon(iend,procedure_name,optional_message)
   !
 continue
   !
-  iflag = abort
-  if (present(iend)) iflag = int( iend , kind=kind(iflag) )
+  iflag = int( iend , kind=kind(iflag) )
   !
   ! Reformat optional_message
   !
@@ -1325,8 +1430,8 @@ continue
       !
       if (mypnum == 0) then
         write (iout,2)
-        if (present(procedure_name)) &
-          write (iout,4) trim(adjustl(procedure_name))
+        write (iout,4) trim(adjustl(procedure_name)),line_number, &
+                       trim(adjustl(file_name))
         if (present(optional_message)) &
           write (iout,5) trim(adjustl(output_message))
         write (iout,6)
@@ -1341,8 +1446,8 @@ continue
       ! Abort all MPI processes
       !
       write (iout,3) mypnum
-      if (present(procedure_name)) &
-        write (iout,4) trim(adjustl(procedure_name))
+      write (iout,4) trim(adjustl(procedure_name)),line_number, &
+                     trim(adjustl(file_name))
       if (present(optional_message)) &
         write (iout,5) trim(adjustl(output_message))
       write (iout,6)
@@ -1360,9 +1465,11 @@ continue
   ! Format Statements
   !
   1 format (//,66("#"))
-  2 format ("    CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
-  3 format ("           MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
-  4 format (" STOP ISSUED FROM PROCEDURE '",a,"'")
+  2 format ("  CALLING PREMATURE MPI_FINALIZE ON ALL PROCESSORS! ")
+  3 format ("  MPI ABORT ISSUED FROM PROCESSOR ",i0,"!")
+  4 format ("         STOP ISSUED IN PROCEDURE '",a,"'",/, &
+            "                        ON LINE #  ",i0,/, &
+            "                      OF THE FILE '",a,"'")
   5 format (" ERROR MESSAGE: '",a,"'")
   6 format (66("#"),//)
   !
@@ -1370,9 +1477,192 @@ end subroutine stop_recon
 !
 !###############################################################################
 !
+subroutine debug_timer(time_flag,message,processor,part_num,acc)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: processor
+  integer, optional, intent(in) :: part_num
+  integer, optional, intent(in) :: acc
+  !
+#ifdef PROFILE_ON
+  !.. Local Scalars ..
+  real(wp), save :: beg_wall_time
+  real(wp)       :: end_wall_time
+  real(wp)       :: wall_time
+  !
+  integer, save :: procedure_counter = 0
+  integer       :: i,hours,minutes,seconds,total_sec
+  integer       :: output_cpu
+  !
+  character(len=300) :: out_message
+  !
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(10)
+  real(wp), save :: accumulated_time(10)
+  real(wp), save :: accumulation_beg_time(10)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: leading_space = "                    "
+  !
+continue
+  !
+  output_cpu = 0
+  if (present(processor)) output_cpu = processor
+  !
+  if (time_flag == start_timer) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+    if (mypnum == output_cpu) then
+      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == stop_timer) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_wall_time
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
+    end if
+    !
+    ! Reset beg_wall_time in case this procedure is called twice
+    ! in a row with time_flag set to stop_timer
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+  else if (time_flag == reset_accumulated_time) then
+    !
+    if (present(acc)) then
+      accumulated_time(acc) = zero
+    end if
+    !
+  else if (time_flag == report_accumulated_time) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),accumulated_time(acc), &
+                     trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == start_accumulation) then
+    !
+    if (present(acc)) then
+      accumulation_beg_time(acc) = mpi_wtime()
+    end if
+    !
+  else if (time_flag == stop_accumulation) then
+    !
+    if (present(acc)) then
+      wall_time = mpi_wtime() - accumulation_beg_time(acc)
+      accumulated_time(acc) = accumulated_time(acc) + wall_time
+    end if
+    !
+  else if (time_flag == entering_procedure) then
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,3) leading_space(1:i),trim(adjustl(message))
+    end if
+    !
+    procedure_counter = procedure_counter + 1
+    !
+    beg_procedure_time(procedure_counter) = mpi_wtime()
+   !beg_procedure_time(procedure_counter) = dclock()
+   !call cpu_time( beg_procedure_time(procedure_counter) )
+    !
+  else if (time_flag == leaving_procedure) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
+    !
+    procedure_counter = max( 0 , procedure_counter-1 )
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (a,"## Starting timer for: ",a)
+  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
+  3 format (a,"=> Entering procedure : ",a)
+  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
+  5 format (a)
+  6 format (a," for partition # ",i0)
+  !
+#endif
+  !
+end subroutine debug_timer
+!
+!##############################################################################
+!
+elemental function geom_family_type_equals(a,b) result(return_value)
+  type(geom_family_t), intent(in) :: a,b
+  logical(lk) :: return_value
+  return_value = (a%v == b%v)
+end function geom_family_type_equals
+!
+!###############################################################################
+!
+elemental function geom_family_type_not_equal(a,b) result(return_value)
+  type(geom_family_t), intent(in) :: a,b
+  logical(lk) :: return_value
+  return_value = (a%v /= b%v)
+end function geom_family_type_not_equal
+!
+!###############################################################################
+!
 ! Include statements for functions that have a generic interface
 !
-include "Functions/reallocate.f90"
+#include "Functions/reallocate.f90"
 include "Functions/cross_product.f90"
 include "Functions/deltafun.f90"
 include "Functions/norms.f90"

@@ -67,6 +67,8 @@ subroutine initialize_flow()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize all local pointers to disassociated
   !
   numer2init => null()
@@ -79,7 +81,6 @@ continue
   ! Allocate the arrays within the module flowvar
   !
   call allocate_flowvar_arrays
-  !
   !
   ! Check for a restart job, otherwise initialize usp
   !
@@ -261,6 +262,8 @@ continue
   !
   call get_face_and_edge_point_coordinates
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/," Dimensional Free-stream conditions",/, &
@@ -391,7 +394,9 @@ subroutine initialize_dusp()
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,  only : nr,ncell,cell
+#ifdef USE_OLD_METRICS
   use metrics_mod,  only : jacobian
+#endif
   use metrics_mod,  only : metrics
   use derivatives_mod, only : deriv
   use flowvar, only : usp,dusp
@@ -412,6 +417,8 @@ subroutine initialize_dusp()
   logical(lk), parameter :: use_conservative_form = fals
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point
@@ -450,6 +457,7 @@ continue
           !
           do l = 1,nr
             !
+#ifdef USE_OLD_METRICS
             dudr(1) = deriv(this_geom,this_order)%d(1)% &
               dot( k , tusp(1:np,m)*metrics(1,l,n1:n2,2)/jacobian(n1:n2) )
             !
@@ -458,6 +466,16 @@ continue
             !
             dudr(3) = deriv(this_geom,this_order)%d(3)% &
               dot( k , tusp(1:np,m)*metrics(3,l,n1:n2,2)/jacobian(n1:n2) )
+#else
+            dudr(1) = deriv(this_geom,this_order)%d(1)% &
+                      dot( k , tusp(1:np,m)*metrics(1,l,n1:n2) )
+            !
+            dudr(2) = deriv(this_geom,this_order)%d(2)% &
+                      dot( k , tusp(1:np,m)*metrics(2,l,n1:n2) )
+            !
+            dudr(3) = deriv(this_geom,this_order)%d(3)% &
+                      dot( k , tusp(1:np,m)*metrics(3,l,n1:n2) )
+#endif
             !
             dusp(l,m,n) = sum(dudr)!* jacobian(n)
             !
@@ -474,7 +492,11 @@ continue
           ! Transform the derivatives back to x-y space
           !
           do l = 1,nr
+#ifdef USE_OLD_METRICS
             dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
+#else
+            dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n) )
+#endif
           end do
           !
         end if
@@ -485,13 +507,15 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine initialize_dusp
 !
 !###############################################################################
 !
 subroutine get_face_and_edge_point_coordinates
   !
-  use order_mod,         only : maxSP
+  use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,cell,face,xyz
   use flowvar,           only : edgexyz,facexyz
   use interpolation_mod, only : interp
@@ -499,19 +523,22 @@ subroutine get_face_and_edge_point_coordinates
   !.. Local Scalars ..
   integer :: n,nc,ne,nf,np,n1,n2
   integer :: k,kf,l,lf,ierr
-  integer :: face_order,edge_order
-  integer :: this_order,this_geom
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: edge_order
   !
   !.. Local Arrays ..
   real(wp) :: txyz(1:maxSP,1:nr)
   !
   !.. Local Allocatable Arrays ..
-  logical(lk), allocatable, dimension(:) :: msk
+  logical(lk), allocatable :: msk(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_face_and_edge_point_coordinates"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Only do this if facexyz is allocated which means that either
   ! the continuous output option or MMS is being used
@@ -520,6 +547,7 @@ continue
     !
     do nf = 1,size(facexyz)
       !
+      face_geom = face(nf)%geom
       face_order = face(nf)%order
       !
       nc = face(nf)%left%cell
@@ -542,9 +570,13 @@ continue
       ! Interpolate the solution point coordinates to each flux point
       ! on the current face
       !
-      do kf = 1,size(face(nf)%left%flxpts)
+      do kf = 1,geom_solpts(face_geom,face_order)
         !
+#ifdef USE_FACE_FLXPTS
         lf = face(nf)%left%flxpts(kf)
+#else
+        lf = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+#endif
         !
         do l = 1,nr
           facexyz(nf)%v(l,kf) = interp(this_geom,this_order)% &
@@ -610,9 +642,13 @@ continue
         ! Loop over the edge points on this edge and interpolate the
         ! coordinates of the cell solution points to each edge point
         !
-        do kf = 1,size(cell(nc)%edge(n)%cell_idx)
+        do kf = 1,edge_order+1
           !
+#ifdef USE_EDGE_CELL_IDX
           lf = cell(nc)%edge(n)%cell_idx(kf)
+#else
+          lf = cell(nc)%edge(n)%get_ep_idx(kf)
+#endif
           !
           do l = 1,nr
             edgexyz(ne)%v(l,kf) = interp(this_geom,this_order)% &
@@ -636,6 +672,8 @@ continue
     call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_face_and_edge_point_coordinates
 !
@@ -669,6 +707,8 @@ subroutine initialize_reference
   character(len=*), parameter :: pname = "initialize_reference"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Set up the base reference conditions
   !
@@ -870,6 +910,8 @@ continue
   !
   call initialize_turbulence
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   101 format ( &
@@ -899,7 +941,12 @@ subroutine initialize_viscosity
   !.. Local Scalars ..
   real(wp) :: muref_scale,tref_scale
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_viscosity"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   muref_scale = (one + suth_Sref/suth_Tref) / sqrt(suth_Tref)
   !
@@ -926,6 +973,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine initialize_viscosity
 !
 !###############################################################################
@@ -947,6 +996,8 @@ subroutine initialize_turbulence()
   character(len=*), parameter :: pname = "initialize_turbulence"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Turbulence equations
   !
@@ -986,6 +1037,8 @@ continue
     pv_in(1:nq) =  usp2v_sp( cv_in(1:nq) )
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine initialize_turbulence
 !

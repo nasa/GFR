@@ -97,6 +97,8 @@ subroutine init_vandermonde_matrices()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize the local pointers to disassociated
   !
   this_vand => null()
@@ -224,6 +226,10 @@ continue
  !    call vand(this_geom,this_order)%nodal2modal%check_for_sparsity
  !  end do
  !end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
   !
   1 format ("vand(",a,",",i0,")%",a)
   2 format (" A grid cell of an unknown geometry type was found!")

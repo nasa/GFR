@@ -139,16 +139,19 @@ continue
   ! opened and read as a formatted file.
   !
   open (newunit=iotst,file=gridfile,form="formatted",status="old", &
-                      action="read",position="rewind",iostat=ierr)
-  call io_error(pname,trim(adjustl(gridfile)),1,ierr,"opening formatted")
+                      action="read",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   read (iotst,*,iostat=ierr) itest
   if (ierr == 0) then
     is_formatted = true
   end if
   !
-  close (iotst,iostat=ierr)
-  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
+  close (iotst,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! If the Plot3D grid file could not be read as a formatted file,
   ! check to see if it can be opened and read as an unformatted file.
@@ -156,18 +159,22 @@ continue
   if (.not.is_formatted) then
     !
     open (newunit=iotst,file=gridfile,form="unformatted",status="old", &
-                        action="read",position="rewind",iostat=ierr)
-    call io_error(pname,trim(adjustl(gridfile)),1,ierr,"opening unformatted")
+                        action="read",position="rewind",iostat=ierr, &
+                        iomsg=error_message)
+    call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                  ierr,error_message)
     !
-    read (iotst,iostat=ierr) itest
+    read (iotst,iostat=ierr,iomsg=error_message) itest
     if (ierr == 0) then
       is_formatted = fals
     else
-      call io_error(pname,trim(adjustl(gridfile)),4,ierr)
+      call io_error(pname,trim(adjustl(gridfile)),4,__LINE__,__FILE__, &
+                    ierr,error_message)
     end if
     !
-    close (iotst,iostat=ierr)
-    call io_error(pname,trim(adjustl(gridfile)),2,ierr)
+    close (iotst,iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                  ierr,error_message)
     !
   end if
   !
@@ -310,12 +317,15 @@ continue
   !
   if (is_formatted) then
     open (newunit=iogrd,file=gridfile,form="formatted",status="old", &
-                        action="read",position="rewind",iostat=ierr)
+                        action="read",position="rewind",iostat=ierr, &
+                        iomsg=error_message)
   else
     open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
-                        action="read",position="rewind",iostat=ierr)
+                        action="read",position="rewind",iostat=ierr, &
+                        iomsg=error_message)
   end if
-  call io_error(pname,trim(adjustl(gridfile)),1,ierr)
+  call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! If this is a multiblock file, read in the number of blocks
   !
@@ -415,11 +425,12 @@ continue
       do iblk = 1,nblk
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
-        read (iogrd,iostat=ierr) ((r4_nodes(l,i+noff), i=1,npts), l=1,nr)
+        read (iogrd,iostat=ierr,iomsg=error_message) &
+                                      ((r4_nodes(l,i+noff), i=1,npts), l=1,nr)
        !do i = 1,npts
        !  write (110,'(*(es20.10))') (r4_nodes(l,i+noff),l=1,nr)
        !end do
-        call io_error(pname,gridfile,-1,ierr,"r4_nodes")
+        call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
       end do
       !
       is_dbl_precision = fals
@@ -442,8 +453,9 @@ continue
       do iblk = 2,nblk
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
-        read (iogrd,iostat=ierr) ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
-        call io_error(pname,gridfile,-1,ierr,"xyz_nodes")
+        read (iogrd,iostat=ierr,iomsg=error_message) &
+                                      ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
+        call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
       end do
       !
       is_dbl_precision = true
@@ -454,8 +466,9 @@ continue
   !
   ! Close the Plot3D grid file since we are finished reading it
   !
-  close (iogrd,iostat=ierr)
-  call io_error(pname,trim(adjustl(gridfile)),2,ierr)
+  close (iogrd,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   if (mypnum == 0) then
     !
@@ -630,8 +643,8 @@ continue
   !
   ! Read the first line as text to see how many values it contains
   !
-  read (iogrd,1,iostat=ierr) text
-  call io_error(pname,gridfile,-1,ierr,"text (1)")
+  read (iogrd,1,iostat=ierr,iomsg=error_message) text
+  call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Parse text to see how many values are contained on the first line
   !
@@ -665,8 +678,8 @@ continue
     ! Read the values in clist if num_val is equal to either 2 or 3
     !
     do l = 1,num_val
-      read (clist(l),*,iostat=ierr) ijkpts(l,1)
-      call io_error(pname,"clist(l)",-1,ierr,"ijkpts")
+      read (clist(l),*,iostat=ierr,iomsg=error_message) ijkpts(l,1)
+      call io_error(pname,"clist(l)",-1,__LINE__,__FILE__,ierr,error_message)
     end do
     !
     ! If we have reached this point, it probably safe
@@ -678,8 +691,8 @@ continue
     !
     ! This is probably a multi block grid
     !
-    read (clist(1),*,iostat=ierr) nblk
-    call io_error(pname,"clist(1)",-1,ierr,"nblk")
+    read (clist(1),*,iostat=ierr,iomsg=error_message) nblk
+    call io_error(pname,"clist(1)",-1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Make sure that nblk is a valid number of blocks
     !
@@ -708,8 +721,8 @@ continue
     !
     l = 0
     blk_dims: do
-      read (iogrd,1,iostat=ierr) text
-      call io_error(pname,gridfile,-1,ierr,"text (2)")
+      read (iogrd,1,iostat=ierr,iomsg=error_message) text
+      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
       call parse_list(text,clist)
       num_val = size(clist)
       do n = 1,num_val
@@ -735,13 +748,14 @@ continue
     !
     ! Skip the first line containing the number of blocks
     !
-    read (iogrd,1,iostat=ierr) text
-    call io_error(pname,gridfile,-1,ierr,"text (3)")
+    read (iogrd,1,iostat=ierr,iomsg=error_message) text
+    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Now read in the block dimensions
     !
-    read (iogrd,*,iostat=ierr) ((ijkpts(l,n), l=1,nr), n=1,nblk)
-    call io_error(pname,gridfile,-1,ierr,"ijkpts")
+    read (iogrd,*,iostat=ierr,iomsg=error_message) &
+                                  ((ijkpts(l,n), l=1,nr), n=1,nblk)
+    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
     !
     ! If we have reached this point, it probably safe
     ! to say this is a single block grid file
@@ -840,8 +854,8 @@ continue
   ! Whatever the Plot3D format, the first record
   ! should contain at least one integer
   !
-  read (iogrd,iostat=ierr) int_rec1
-  call io_error(pname,gridfile,-1,ierr,"int_rec1")
+  read (iogrd,iostat=ierr,iomsg=error_message) int_rec1
+  call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
   !
   ! #######
   ! ## 1 ##
@@ -886,8 +900,8 @@ continue
   !
   if (is_multiblock) then
     !
-    read (iogrd,iostat=ierr) nblk
-    call io_error(pname,gridfile,-1,ierr,"nblk")
+    read (iogrd,iostat=ierr,iomsg=error_message) nblk
+    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Make sure that nblk is a valid number of blocks
     !
@@ -1012,7 +1026,7 @@ end subroutine read_p3d_unformatted_header
 !  open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
 !                      action="read",access="stream", &
 !                      iostat=ierr,iomsg=error_message)
-!  call io_error(pname,gridfile,1,ierr,error_message)
+!  call io_error(pname,gridfile,1,__LINE__,__FILE__,ierr,error_message)
 !  !
 !  ! Initialize the file position
 !  !
@@ -1028,13 +1042,13 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Read the number of blocks
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
 !      !
@@ -1044,7 +1058,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !    else
 !      !
@@ -1052,13 +1066,13 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
 !      error_message = "int_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Read the number of blocks
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !      error_message = "int_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
 !      !
@@ -1068,7 +1082,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !      error_message = "int_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !    end if
 !    !
@@ -1087,7 +1101,7 @@ end subroutine read_p3d_unformatted_header
 !    !
 !    read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i4
 !    error_message = "int_i4 "//trim(adjustl(error_message))
-!    call io_error(pname,gridfile,-1,ierr,error_message)
+!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    if (is_big_endian) int_i4 = big_to_little_endian(int_i4)
 !    !
@@ -1105,7 +1119,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,pos=file_pos,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      if (is_big_endian) int_i8 = big_to_little_endian(int_i8)
 !      !
@@ -1144,13 +1158,13 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Read the block dimensions
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i8(l,1),l=1,nr)
 !      error_message = "ijkpts_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      if (is_big_endian) then
 !        ijkpts_i8(1:nr,:) = big_to_little_endian(ijkpts_i8(1:nr,:))
@@ -1160,7 +1174,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !      error_message = "int_i8 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Copy ijkpts_i8 into ijkpts
 !      !
@@ -1185,13 +1199,13 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,pos=1,iostat=ierr,iomsg=error_message) int_i4
 !      error_message = "int_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Read the block dimensions
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) (ijkpts_i4(l,1),l=1,nr)
 !      error_message = "ijkpts_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      if (is_big_endian) then
 !        ijkpts_i4(1:nr,:) = big_to_little_endian(ijkpts_i4(1:nr,:))
@@ -1201,7 +1215,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !      error_message = "int_i4 "//trim(adjustl(error_message))
-!      call io_error(pname,gridfile,-1,ierr,error_message)
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !      !
 !      ! Copy ijkpts_i4 into ijkpts
 !      !
@@ -1234,7 +1248,7 @@ end subroutine read_p3d_unformatted_header
 !    ! should contain at least one integer
 !    !
 !    read (iogrd,iostat=ierr) int_rec1
-!    call io_error(pname,gridfile,-1,ierr,"int_rec1")
+!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,"int_rec1")
 !    !
 !    if (npass == 2) int_rec1 = big_to_little_endian( int_rec1 )
 !    !
@@ -1283,7 +1297,7 @@ end subroutine read_p3d_unformatted_header
 !    if (is_multiblock) then
 !      !
 !      read (iogrd,iostat=ierr) nblk
-!      call io_error(pname,gridfile,-1,ierr,"nblk")
+!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,"nblk")
 !      !
 !      if (npass == 2) nblk = big_to_little_endian( nblk )
 !      !
@@ -1463,13 +1477,13 @@ end subroutine read_p3d_unformatted_header
 !!  open (newunit=iogrd,file=gridfile,form="unformatted",status="old", &
 !!                      action="read",access="stream", &
 !!                      iostat=ierr,iomsg=error_message)
-!!  call io_error(pname,gridfile,1,ierr,error_message)
+!!  call io_error(pname,gridfile,1,__LINE__,__FILE__,ierr,error_message)
 !!  !
 !!  ! Attempt to read record header using 4-byte integer
 !!  !
 !!  read (iogrd,pos=1,iostat=ierr,iomsg=error_message) rec_header_i4
 !!  error_message = "rec_header_i4 "//trim(adjustl(error_message))
-!!  call io_error(pname,gridfile,-1,ierr,error_message)
+!!  call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!  !
 !! !write (iout,4) "rec_header_i4 = ",rec_header_i4
 !!  !
@@ -1477,7 +1491,7 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !!  error_message = "int_i4, skip, "//trim(adjustl(error_message))
-!!  call io_error(pname,gridfile,-1,ierr,error_message)
+!!  call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!  !
 !! !write (iout,4) "Skip,   int_i4 = ",int_i4
 !!  !
@@ -1494,7 +1508,7 @@ end subroutine read_p3d_unformatted_header
 !!    !
 !!    read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !!    error_message = "int_i4, MB 3D, "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
+!!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!    !
 !!   !write (iout,4) "MB, 3D, int_i4 = ",int_i4
 !!    !
@@ -1512,7 +1526,7 @@ end subroutine read_p3d_unformatted_header
 !!    !
 !!    read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !!    error_message = "int_i4, SB 2D, "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
+!!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!    !
 !!   !write (iout,4) "SB, 2D, int_i4 = ",int_i4
 !!    !
@@ -1531,7 +1545,7 @@ end subroutine read_p3d_unformatted_header
 !!    !
 !!    read (iogrd,iostat=ierr,iomsg=error_message) int_i4
 !!    error_message = "int_i4, SB 3D, "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
+!!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!    !
 !!   !write (iout,4) "SB, 3D, int_i4 = ",int_i4
 !!    !
@@ -1554,7 +1568,7 @@ end subroutine read_p3d_unformatted_header
 !!    !
 !!    read (iogrd,pos=1,iostat=ierr,iomsg=error_message) rec_header_i8
 !!    error_message = "rec_header_i8 "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
+!!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!    !
 !!   !write (iout,4) "rec_header_i8 = ",rec_header_i8
 !!    !
@@ -1562,7 +1576,7 @@ end subroutine read_p3d_unformatted_header
 !!    !
 !!    read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !!    error_message = "int_i8, skip, "//trim(adjustl(error_message))
-!!    call io_error(pname,gridfile,-1,ierr,error_message)
+!!    call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!    !
 !!   !write (iout,4) "Skip,   int_i8 = ",int_i8
 !!    !
@@ -1574,7 +1588,7 @@ end subroutine read_p3d_unformatted_header
 !!      !
 !!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !!      error_message = "int_i8, MB 3D, "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
+!!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!      !
 !!     !write (iout,4) "MB, 3D, int_i8 = ",int_i8
 !!      !
@@ -1592,7 +1606,7 @@ end subroutine read_p3d_unformatted_header
 !!      !
 !!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !!      error_message = "int_i8, SB 2D, "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
+!!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!      !
 !!     !write (iout,4) "SB, 2D, int_i8 = ",int_i8
 !!      !
@@ -1611,7 +1625,7 @@ end subroutine read_p3d_unformatted_header
 !!      !
 !!      read (iogrd,iostat=ierr,iomsg=error_message) int_i8
 !!      error_message = "int_i8, SB 3D, "//trim(adjustl(error_message))
-!!      call io_error(pname,gridfile,-1,ierr,error_message)
+!!      call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
 !!      !
 !!     !write (iout,4) "SB, 3D, int_i8 = ",int_i8
 !!      !
@@ -1670,7 +1684,7 @@ end subroutine read_p3d_unformatted_header
 !!  ! so close the file and return
 !!  !
 !!  close (iogrd,iostat=ierr,iomsg=error_message)
-!!  call io_error(pname,gridfile,2,ierr,error_message)
+!!  call io_error(pname,gridfile,2,__LINE__,__FILE__,ierr,error_message)
 !!  !
 !!  ! Format Statements
 !!  !
@@ -1725,8 +1739,10 @@ continue
   ! Open the input file for bcs information
   !
   open (newunit=iobcs,file=bcsfile,form="formatted",status="old", &
-                      action="read",position="rewind",iostat=ierr)
-  call io_error(pname,trim(adjustl(bcsfile)),1,ierr)
+                      action="read",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,trim(adjustl(bcsfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Read through the file and see how many lines of
   ! boundary conditions there are.
@@ -1735,11 +1751,12 @@ continue
   !
   nbc = -1
   find_nbc: do
-    read (iobcs,1,iostat=ierr) text
+    read (iobcs,1,iostat=ierr,iomsg=error_message) text
     if (ierr < 0) then
       exit find_nbc
     else if (ierr > 0) then
-      call io_error(pname,trim(adjustl(bcsfile)),-1,ierr)
+      call io_error(pname,trim(adjustl(bcsfile)),-1,__LINE__,__FILE__, &
+                    ierr,error_message)
     else
       nbc = nbc + 1
     end if
@@ -1755,7 +1772,7 @@ continue
   !
   rewind (iobcs)
   !
-  read (iobcs,1,iostat=ierr) text
+  read (iobcs,1,iostat=ierr,iomsg=error_message) text
   !
   ! Now actually read the boundary condition information
   ! contained in the BC file
@@ -1772,8 +1789,9 @@ continue
     !
     ! Read the block this BC belongs to
     !
-    read (clist(2),*,iostat=ierr) iblk
-    call io_error(pname,"bcs_info(nb)%block",-1,ierr)
+    read (clist(2),*,iostat=ierr,iomsg=error_message) iblk
+    call io_error(pname,"bcs_info(nb)%block",-1,__LINE__,__FILE__, &
+                  ierr,error_message)
     !
     bcs_info(nb)%bc%block = iblk
     !
@@ -1793,8 +1811,9 @@ continue
       bcs_info(nb)%bc%begpt(dir) = ijkpts(dir,iblk)
       bcs_info(nb)%bc%endpt(dir) = ijkpts(dir,iblk)
     else
-      read (clist(4),*,iostat=ierr) loc
-      call io_error(pname,"bcs_info(nb)%bc%begpt(dir)",-1,ierr)
+      read (clist(4),*,iostat=ierr,iomsg=error_message) loc
+      call io_error(pname,"bcs_info(nb)%bc%begpt(dir)",-1,__LINE__,__FILE__, &
+                    ierr,error_message)
       if (loc == 1) then
         bcs_info(nb)%bc%begpt(dir) = 1
         bcs_info(nb)%bc%endpt(dir) = 1
@@ -1880,8 +1899,9 @@ continue
     !
   end do
   !
-  close (iobcs,iostat=ierr)
-  call io_error(pname,trim(adjustl(bcsfile)),2,ierr)
+  close (iobcs,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(bcsfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Deallocate clist if it is still allocated
   !
@@ -1936,8 +1956,10 @@ continue
   ! Open the input file for cut information
   !
   open (newunit=iocut,file=cutfile,form="formatted",status="old", &
-                      action="read",position="rewind",iostat=ierr)
-  call io_error(pname,trim(adjustl(cutfile)),1,ierr)
+                      action="read",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,trim(adjustl(cutfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Read through the file and see how many lines of
   ! cut conditions there are.
@@ -1946,11 +1968,12 @@ continue
   !
   ncut = -1
   find_ncut: do
-    read (iocut,1,iostat=ierr) text
+    read (iocut,1,iostat=ierr,iomsg=error_message) text
     if (ierr < 0) then
       exit find_ncut
     else if (ierr > 0) then
-      call io_error(pname,trim(adjustl(cutfile)),-1,ierr)
+      call io_error(pname,trim(adjustl(cutfile)),-1,__LINE__,__FILE__, &
+                    ierr,error_message)
     else
       ncut = ncut + 1
     end if
@@ -1966,7 +1989,7 @@ continue
   !
   rewind (iocut)
   !
-  read (iocut,1,iostat=ierr) text
+  read (iocut,1,iostat=ierr,iomsg=error_message) text
   !
   ! Now actually read the cut condition information
   ! contained in the cut file
@@ -1985,8 +2008,9 @@ continue
       !
       ! Read the block this cut belongs to
       !
-      read (clist(2),*,iostat=ierr) iblk
-      call io_error(pname,"cut_info(n)%side(m)%block",-1,ierr)
+      read (clist(2),*,iostat=ierr,iomsg=error_message) iblk
+      call io_error(pname,"cut_info(n)%side(m)%block",-1,__LINE__,__FILE__, &
+                    ierr,error_message)
       !
       cut_info(n)%side(m)%block = iblk
       !
@@ -2006,8 +2030,9 @@ continue
         cut_info(n)%side(m)%begpt(dir) = ijkpts(dir,iblk)
         cut_info(n)%side(m)%endpt(dir) = ijkpts(dir,iblk)
       else
-        read (clist(4),*,iostat=ierr) loc
-        call io_error(pname,"cut_info(n)%side(m)%begpt(dir)",-1,ierr)
+        read (clist(4),*,iostat=ierr,iomsg=error_message) loc
+        call io_error(pname,"cut_info(n)%side(m)%begpt(dir)",-1, &
+                      __LINE__,__FILE__,ierr,error_message)
         if (loc == 1) then
           cut_info(n)%side(m)%begpt(dir) = 1
           cut_info(n)%side(m)%endpt(dir) = 1
@@ -2095,8 +2120,9 @@ continue
     !
   end do cut_loop
   !
-  close (iocut,iostat=ierr)
-  call io_error(pname,trim(adjustl(cutfile)),2,ierr)
+  close (iocut,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(cutfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
   !
   ! Deallocate clist if it is still allocated
   !
@@ -2996,8 +3022,9 @@ continue
   ! Open a file for an unstructured grid in tecplot format
   !
   open (newunit=iotec,file=fname,form="formatted",status="replace", &
-                      action="write",position="rewind",iostat=ierr)
-  call io_error(pname,fname,1,ierr)
+                      action="write",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Write the Tecplot file header
   !
@@ -3023,8 +3050,8 @@ continue
   !
   ! Close the Tecplot file
   !
-  close (iotec,iostat=ierr)
-  call io_error(pname,fname,2,ierr)
+  close (iotec,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Format Statements
   !
@@ -3431,8 +3458,8 @@ continue
   dir = index( "IJK" , trim(uppercase(strng)) )
   !
   if (dir == 0) then
-    read (strng,*,iostat=ierr) dir
-    call io_error(pname,"strng",-1,ierr)
+    read (strng,*,iostat=ierr,iomsg=error_message) dir
+    call io_error(pname,"strng",-1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   return_value = dir
@@ -3463,8 +3490,8 @@ continue
   else if (uppercase(strng) == "MAX") then
     return_value = mxpts
   else
-    read (strng,*,iostat=ierr) ipt
-    call io_error(pname,"strng",-1,ierr)
+    read (strng,*,iostat=ierr,iomsg=error_message) ipt
+    call io_error(pname,"strng",-1,__LINE__,__FILE__,ierr,error_message)
     if (ipt == 0) then
       return_value = mxpts
     else

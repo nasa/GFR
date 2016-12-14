@@ -47,7 +47,12 @@ subroutine initialize_mms()
   use ovar, only : gam,rgasref,muref
   use ovar, only : governing_equations,mms_opt
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_mms"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   R = rgasref
   !
@@ -328,6 +333,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine initialize_mms
 !
 !###############################################################################
@@ -448,6 +455,8 @@ subroutine mms_src()
  !integer, parameter :: jac_exp = 2
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   var_min(:) = +huge(zero)
   var_max(:) = -huge(zero)
@@ -1685,6 +1694,8 @@ continue
     write (iout,*)
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Finished applying source terms for the method of manufactured solutions
   !

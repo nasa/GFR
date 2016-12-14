@@ -3,7 +3,7 @@ module order_mod
   !.. Use Statements ..
   use module_kind_types, only : Geom_Node,Geom_Edge,Geom_Tria,Geom_Quad
   use module_kind_types, only : Geom_Tetr,Geom_Pyra,Geom_Pris,Geom_Hexa
-  use module_kind_types, only : Geom_Min,Geom_Max,Order_Min,Order_Max
+  use module_kind_types, only : Geom_Min,Geom_Max,Order_Min,Order_Max,lk
   !
   implicit none
   !
@@ -91,7 +91,7 @@ contains
 subroutine initialize_geom_solpts(use_qdtr_face_pts)
   !
   !.. Formal Arguments ..
-  logical, intent(in) :: use_qdtr_face_pts
+  logical(lk), intent(in) :: use_qdtr_face_pts
   !
   !.. Local Scalars ..
   integer :: i,j
@@ -127,10 +127,15 @@ continue
   n_min_order = min( n_order , p_order , q_order )
   n_max_order = max( n_order , p_order , q_order )
   !
-  if (o_order > 0) then
-    n_min_order = min( n_min_order , o_order )
-    n_max_order = max( n_max_order , o_order )
-  end if
+ !if (o_order > 0) then
+ !  n_min_order = min( n_min_order , o_order )
+ !  n_max_order = max( n_max_order , o_order )
+ !end if
+ !!
+ !if (e_order > 0) then
+ !  n_min_order = min( n_min_order , e_order )
+ !  n_max_order = max( n_max_order , e_order )
+ !end if
   !
 end subroutine initialize_geom_solpts
 !

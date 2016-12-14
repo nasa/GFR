@@ -25,7 +25,10 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/channel_mod.o \
               $(OBJDIR)/limiters.o \
               $(OBJDIR)/postproc_mod.o \
-              $(OBJDIR)/restart_mod.o
+              $(OBJDIR)/restart_mod.o \
+	      $(OBJDIR)/plot3d_mod.o \
+	      $(OBJDIR)/gmsh_mod.o \
+	      $(OBJDIR)/cgns_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
@@ -148,6 +151,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/projection_mod.o \
          $(FUNDIR)/upwind_fluxes.f90 \
          $(FUNDIR)/inviscid_fluxes.f90 \
+         $(FUNDIR)/viscous_fluxes.f90 \
          $(FUNDIR)/grad_cv_to_grad_pv.f90 \
          $(FUNDIR)/viscosity.f90
 

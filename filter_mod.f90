@@ -54,6 +54,8 @@ subroutine init_filter_matrices()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize the local pointers to disassociated
   !
   fmat => null()
@@ -147,6 +149,8 @@ continue
   !
   call filter%check_for_sparsity
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format ("filter(",a,",",i0,")%mat")
@@ -166,7 +170,12 @@ subroutine filter_usp
   integer :: n,n1,n2,m
   integer :: this_geom,this_order
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "filter_usp"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Apply the filter to each cell
   !
@@ -183,6 +192,8 @@ continue
     end do
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine filter_usp
 !

@@ -24,6 +24,88 @@ end function normal_invs_flx_cv
 !
 !###############################################################################
 !
+pure function invs_face_flx_cv(uu,rnrm,cell_geom,cell_order,face) &
+                        result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face_of_cell_t
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,              intent(in) :: cell_geom
+  integer,              intent(in) :: cell_order
+  real(wp),             intent(in) :: uu(:,:)
+  real(wp),             intent(in) :: rnrm(:,:)
+  type(face_of_cell_t), intent(in) :: face
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(uu,dim=1),1:size(rnrm,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: k,kf,l,lf,m,face_order
+  !
+  !.. Local Arrays ..
+  real(wp) :: flxsp(1:size(uu,dim=2), &
+                    1:size(uu,dim=1), &
+                    1:size(rnrm,dim=1))
+  real(wp) :: vflx(1:size(rnrm,dim=1))
+  real(wp) :: unrm(1:size(rnrm,dim=1))
+  !
+continue
+  !
+  face_order = face%order
+  !
+  do k = 1,size(uu,dim=2)
+    flxsp(k,:,:) = invs_flx_vec_cv( uu(:,k) )
+  end do
+  !
+  do kf = 1,size(rnrm,dim=2)
+    !
+#ifdef USE_FACE_CELL_IDX
+    lf = face%cell_idx(kf)
+#else
+    lf = face%get_fp_idx(kf)
+#endif
+    !
+    unrm(:) = unit_vector( rnrm(:,kf) )
+    !
+    do m = 1,size(uu,dim=1)
+      do l = 1,size(rnrm,dim=1)
+        vflx(l) = interp(cell_geom,cell_order)%toFace(face_order)% &
+                  dot( lf , flxsp(:,m,l) )
+      end do
+      !
+      return_value(m,kf) = dot( vflx(:) , unrm(:) )
+      !
+    end do
+    !
+  end do
+  !
+end function invs_face_flx_cv
+!
+!###############################################################################
+!
+pure function invs_flx_vec_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  real(wp), intent(in) :: uu(:)
+  !
+  real(wp) :: return_value(1:size(uu),1:nr)
+  !
+  integer :: l
+  !
+continue
+  !
+  do l = 1,nr
+    return_value(:,l) = invs_flx_cv( uu(:) , l )
+  end do
+  !
+end function invs_flx_vec_cv
+!
+!###############################################################################
+!
 pure function invs_flx_cv(uu,dir) result(return_value) 
   !
   use ovar, only : gam

@@ -92,6 +92,8 @@ subroutine init_correction_matrices()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Initialize the local pointers to disassociated
   !
   this_correct => null()
@@ -347,6 +349,10 @@ continue
  !6 format ("After output of correction matrices for hexa geometries")
  !write (error_message,6)
  !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
   !
   1 format ("correct(",a,",",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")

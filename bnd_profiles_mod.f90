@@ -76,7 +76,7 @@ contains
 subroutine compute_bnd_profiles
   !
   !.. Use Statements ..
-  use order_mod,         only : maxSP,maxFP
+  use order_mod,         only : maxSP,maxFP,geom_solpts
   use quadrature_mod,    only : std_elem
   use geovar,            only : nr,bface,face,cell,xyz_nodes
   use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
@@ -91,7 +91,7 @@ subroutine compute_bnd_profiles
   !.. Local Scalars ..
   integer :: i,k,l,m,n,nf,np,n1,n2,kf,kl
   integer :: host_cell,host_geom,host_order
-  integer :: ndata,face_geom,face_order
+  integer :: ndata,face_geom,face_order,nfp
   integer :: ioprf,ierr
   real(wp) :: temp,visc,tauwall
   real(wp) :: cfmag,rex,utau,yplus,qdot
@@ -118,6 +118,13 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdvsp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: dvsp
   !
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: left_fp_idx(:)
+#endif
+#endif
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_bnd_profiles"
   !
@@ -126,6 +133,8 @@ continue
   ! If output_bnd_profiles is not set then return without doing anything
   !
   if (.not. output_bnd_profiles) return
+  !
+  call debug_timer(entering_procedure,pname)
   !
   dynamic_pres = half * machref * machref
   !
@@ -153,7 +162,9 @@ continue
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
       face_geom = face(nf)%geom   ! geometry of boundary face
-      face_order = face(nf)%order ! geometry of boundary face
+      face_order = face(nf)%order ! order    of boundary face
+      !
+      nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
       !
       host_cell = face(nf)%left%cell ! host cell on current boundary face
       !
@@ -189,10 +200,24 @@ continue
       !
       ! Compute the profile quantities at each data point for this face
       !
-      do k = 1,size(face(nf)%left%flxpts)
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+      ! Using F2003 auto-reallocation
+      left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
+#endif
+#endif
+      do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
+#ifdef USE_FACE_FLXPTS
         kl = face(nf)%left%flxpts(k)
+#else
+#ifdef USE_FACE_FP_ARRAYS
+        kl = left_fp_idx(k)
+#else
+        kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+#endif
+#endif
         ! Index within qty_data for current flx-pt
         kf = ndata + k
         !
@@ -289,7 +314,7 @@ continue
       !
       ! Update ndata for the next face in this boundary group
       !
-      ndata = ndata + size(face(nf)%left%flxpts)
+      ndata = ndata + nfp
       !
     end do
     !
@@ -369,12 +394,14 @@ continue
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
       face_geom = face(nf)%geom   ! geometry of boundary face
-      face_order = face(nf)%order ! geometry of boundary face
+      face_order = face(nf)%order ! order    of boundary face
+      !
+      nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
       !
       if (allocated(outerp(face_geom,face_order)%output)) then
         !
         n1 = ndata + 1
-        n2 = ndata + size(face(nf)%left%flxpts)
+        n2 = ndata + nfp
         !
         do m = 1,size(bnd_prof(n)%qty)
           bnd_prof(n)%qty(m)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
@@ -386,7 +413,7 @@ continue
       !
       ! Update ndata for the next face in this boundary group
       !
-      ndata = ndata + size(face(nf)%left%flxpts)
+      ndata = ndata + nfp
       !
     end do
     !
@@ -401,8 +428,9 @@ continue
   ! Output the profiles in Tecplot format
   !
   open (newunit=ioprf,file=fname,status="replace",action="write", &
-                      form="formatted",position="rewind",iostat=ierr)
-  call io_error(pname,fname,1,ierr)
+                      form="formatted",position="rewind", &
+                      iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
   !
   write (ioprf,100) (trim(bnd_prof(1)%qty(m)%qty_name), &
                           m=1,size(bnd_prof(1)%qty) )
@@ -434,8 +462,10 @@ continue
     !
   end do
   !
-  close (ioprf,iostat=ierr)
-  call io_error(pname,fname,2,ierr)
+  close (ioprf,iostat=ierr,iomsg=error_message)
+  call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -465,9 +495,9 @@ subroutine init_bnd_profile_structures
   integer :: nqty,ndata,nfbnd_nc,ierr
   integer :: min_grp,max_grp,nbcgrps
   integer :: group_id,num_group_faces
-  integer :: face_geom,face_order,n_subcells
+  integer :: face_geom,face_order,nfp
   integer :: host_cell,host_geom,host_order
-  integer :: flow_qtys,wall_qtys
+  integer :: flow_qtys,wall_qtys,n_subcells
   integer :: iogrd
   character(len=200) :: array_name
   !
@@ -480,6 +510,11 @@ subroutine init_bnd_profile_structures
   integer, allocatable, dimension(:) :: bface_map
   integer, allocatable, dimension(:,:) :: bface_nc
   character(len=100), allocatable, dimension(:) :: flow_var
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+  integer, allocatable :: left_fp_idx(:)
+#endif
+#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
@@ -499,6 +534,8 @@ continue
     output_bnd_profiles = fals
     return
   end if
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! #########
   ! #########
@@ -663,10 +700,12 @@ continue
       face_geom = face(nf)%geom   ! geometry of the current boundary face
       face_order = face(nf)%order ! order    of the current boundary face
       !
+      nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
+      !
       ! Add the number of face points for this face to the total
       ! number of data points for this boundary group.
       !
-      ndata = ndata + geom_solpts(face_geom,face_order)
+      ndata = ndata + nfp
       !
     end do
     !
@@ -719,7 +758,10 @@ continue
       !
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
-      face_order = face(nf)%order ! geometry of boundary face
+      face_geom = face(nf)%geom   ! geometry of boundary face
+      face_order = face(nf)%order ! order    of boundary face
+      !
+      nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
       !
       host_cell = face(nf)%left%cell ! host cell on current boundary face
       !
@@ -734,10 +776,24 @@ continue
       !
       txyz(1:np,1:nr) = transpose( xyz(1:nr,n1:n2) )
       !
-      do k = 1,size(face(nf)%left%flxpts)
+#ifndef USE_FACE_FLXPTS
+#ifdef USE_FACE_FP_ARRAYS
+      ! Using F2003 auto-reallocation
+      left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
+#endif
+#endif
+      do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
+#ifdef USE_FACE_FLXPTS
         kl = face(nf)%left%flxpts(k)
+#else
+#ifdef USE_FACE_FP_ARRAYS
+        kl = left_fp_idx(k)
+#else
+        kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+#endif
+#endif
         ! Index within qty_data for current flx-pt
         kf = ndata + k
         !
@@ -754,7 +810,7 @@ continue
       !
       ! Update ndata for the next face in this boundary group
       !
-      ndata = ndata + size(face(nf)%left%flxpts)
+      ndata = ndata + nfp
       !
     end do
     !
@@ -779,7 +835,7 @@ continue
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
       face_geom = face(nf)%geom   ! geometry of boundary face
-      face_order = face(nf)%order ! geometry of boundary face
+      face_order = face(nf)%order ! order    of boundary face
       !
       ! Get the number of subcells for this face geometry at this order and
       ! add it to the total number of subcells for this boundary group.
@@ -814,11 +870,9 @@ continue
       nf = bnd_prof(n)%faces(i) ! boundary face of current profile
       !
       face_geom = face(nf)%geom   ! geometry of boundary face
-      face_order = face(nf)%order ! geometry of boundary face
+      face_order = face(nf)%order ! order    of boundary face
       !
-      ! Number of data points for the current face
-      !
-      ndata = geom_solpts(face_geom,face_order)
+      nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
       !
       ! Number of subcells for the current face
       !
@@ -837,7 +891,7 @@ continue
         !
       end do
       !
-      np = np + ndata
+      np = np + nfp
       !
     end do
     !
@@ -865,12 +919,14 @@ continue
         nf = bnd_prof(n)%faces(i) ! boundary face of current profile
         !
         face_geom = face(nf)%geom   ! geometry of boundary face
-        face_order = face(nf)%order ! geometry of boundary face
+        face_order = face(nf)%order ! order    of boundary face
+        !
+        nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
         !
         if (allocated(outerp(face_geom,face_order)%output)) then
           !
           n1 = ndata + 1
-          n2 = ndata + size(face(nf)%left%flxpts)
+          n2 = ndata + nfp
           !
           do l = 1,nr
             bnd_prof(n)%qty(l)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
@@ -882,7 +938,7 @@ continue
         !
         ! Update ndata for the next face in this boundary group
         !
-        ndata = ndata + size(face(nf)%left%flxpts)
+        ndata = ndata + nfp
         !
       end do
       !
@@ -891,8 +947,9 @@ continue
     ! Now write the profile coordinates to the Tecplot file
     !
     open (newunit=iogrd,file=fname,status="replace",action="write", &
-                        form="formatted",position="rewind",iostat=ierr)
-    call io_error(pname,fname,1,ierr)
+                        form="formatted",position="rewind", &
+                        iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
     write (iogrd,100) (trim(bnd_prof(1)%qty(l)%qty_name), l=1,nr)
     do n = 1,size(bnd_prof)
@@ -917,13 +974,15 @@ continue
       !
     end do
     !
-    close (iogrd,iostat=ierr)
-    call io_error(pname,fname,2,ierr)
+    close (iogrd,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
     !
     write (error_message,104)
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !

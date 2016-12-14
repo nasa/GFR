@@ -8,7 +8,7 @@ module module_cgns_types
   !
   !.. Use Statements
   use, intrinsic :: iso_c_binding, only : C_CHAR,C_NULL_CHAR
-  use module_kind_types, only : i4,i8,r4,r8
+  use module_kind_types, only : i4,i8,r4,r8,lk,fals,true
 #ifdef CGNS_3_3
   use cgns
 #endif
@@ -17,7 +17,7 @@ module module_cgns_types
   !
   public
   !
-  private :: i4,i8,r4,r8
+  private :: i4,i8,r4,r8,lk,fals,true
   !
 #ifndef CGNS_3_3
   include "cgnslib_f95.h"
@@ -46,6 +46,8 @@ module module_cgns_types
   !
   integer, parameter :: CRT = r4       ! CGNS data real type
   !
+  integer, parameter :: CGLEN = 32     ! maximum length for a CGNS string
+  !
   integer(kind(REALSINGLE)), parameter :: &
       cgns_kind_real = merge(REALDOUBLE,REALSINGLE,CRT == r8)
   !
@@ -65,7 +67,7 @@ module module_cgns_types
   !
   ! Logical to activate/deactivate using CGNS queue functions
   !
-  logical, save :: cgns_use_queue = .false.
+  logical(lk), save :: cgns_use_queue = .false.
   !
 contains
 !
@@ -130,13 +132,16 @@ end subroutine flush_cgns_queue
 !###############################################################################
 !
 subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
-                      optmessag,optinteger)
+                      optmessag,optinteger,not_parallel)
   !
   !.. Use Statements ..
   use module_kind_types, only : iout
   use module_kind_types, only : int_mpi
   use module_kind_types, only : mpi_inttyp
   use module_kind_types, only : mpierr
+  use module_kind_types, only : mypnum
+  use module_kind_types, only : error_message
+  use module_kind_types, only : io_error
 #ifdef USE_MPI_F08
   use mpi_f08,           only : MPI_IN_PLACE
   use mpi_f08,           only : MPI_MAX
@@ -158,34 +163,56 @@ subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optmessag
   integer,          optional, intent(in) :: optinteger
+  logical(lk),      optional, intent(in) :: not_parallel
   !
   !.. Local Scalars ..
   integer :: ierror
+  logical(lk) :: file_operation_is_serial
   !
 continue
+  !
+  file_operation_is_serial = fals
+  if (present(not_parallel)) then
+    file_operation_is_serial = not_parallel
+  end if
   !
   if (iemessag == CG_OK) then
     ierror = 0
   else
     ierror = 1
   end if
-  call mpi_allreduce(MPI_IN_PLACE,ierror,1_int_mpi,mpi_inttyp, &
-                     MPI_MAX,MPI_COMM_WORLD,mpierr)
+  if (.not. file_operation_is_serial) then
+    call mpi_allreduce(MPI_IN_PLACE,ierror,1_int_mpi,mpi_inttyp, &
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
+  end if
   if (ierror == 0) return
   !
-  write (iout,10)
-  !
-  if (present(optmessag) .and. present(optinteger)) then
-    write (iout,1) trim(adjustl(optmessag)),optinteger
-  else if (present(optmessag)) then
-    write (iout,2) trim(adjustl(optmessag))
-  else if (present(optinteger)) then
-    write (iout,3) optinteger
+  if (mypnum == 0) then
+    !
+    write (iout,10)
+    !
+    if (present(optmessag) .and. present(optinteger)) then
+      write (iout,1) trim(adjustl(optmessag)),optinteger
+    else if (present(optmessag)) then
+      write (iout,2) trim(adjustl(optmessag))
+    else if (present(optinteger)) then
+      write (iout,3) optinteger
+    end if
+    !
+    write (iout,11) trim(adjustl(procedure_name)),iemessag, &
+                    trim(adjustl(cgns_routine))
+    !
   end if
   !
-  write (iout,11) trim(adjustl(procedure_name)),iemessag, &
-                  trim(adjustl(cgns_routine))
-  call cgp_error_exit_f
+  if (file_operation_is_serial) then
+    call cg_get_error_f(error_message)
+    call io_error(procedure_name,file_name,5,__LINE__,__FILE__, &
+                  iemessag,error_message)
+  else
+    call cg_error_print_f
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call cgp_error_exit_f
+  end if
   !
   ! Format Statements
   !
