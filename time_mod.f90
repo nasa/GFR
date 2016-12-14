@@ -218,7 +218,7 @@ subroutine get_cell_timestep(dtmin)
   !
   use metrics_mod, only : geofa,jacobian
   !
-  use flowvar, only : dtsp,faceusp
+  use flowvar, only : dtsp,usp
   !
   use interpolation_mod, only : interp
   !
@@ -226,7 +226,7 @@ subroutine get_cell_timestep(dtmin)
   real(wp), intent(out) :: dtmin
   !
   !.. Local Scalars ..
-  integer  :: nf,k
+  integer  :: nf,k,m
   integer  :: l1,l2,npl,kl
   integer  :: r1,r2,npr,kr
   integer  :: face_geom,face_order
@@ -239,7 +239,8 @@ subroutine get_cell_timestep(dtmin)
   real(wp) :: psql,psqr
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nq) :: vl,vr
+  real(wp) :: vl(1:nq),tlusp(1:maxSP,1:nq)
+  real(wp) :: vr(1:nq),trusp(1:maxSP,1:nq)
   !
 #ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
@@ -369,6 +370,8 @@ continue
     !
     psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
+    tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
+    !
 #ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
@@ -387,11 +390,16 @@ continue
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
 #endif
 #endif
-      !
-      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
+      ! Interpolate the conservative variables to this flux point
+      do m = 1,nq
+        vl(m) = interp(host_geom,host_order)%toFace(face_order)% &
+                dot( kl , tlusp(1:npl,m) )
+      end do
+      ! Convert to primitive variables
+      vl(1:nq) = usp2v_sp( vl(1:nq) )
       !
       if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
+        mul = viscosity_pv_sp( vl(1:nq) )
       end if
       !
       ds = rnorm2( geofa(nf)%v(1:nr,k) )
@@ -461,6 +469,9 @@ continue
     psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
     psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
     !
+    tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
+    trusp(1:npr,1:nq) = transpose( usp(1:nq,r1:r2) )
+    !
 #ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
@@ -483,13 +494,20 @@ continue
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
 #endif
 #endif
-      !
-      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,1) )
-      vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,k,2) )
+      ! Interpolate the conservative variables to this flux point
+      do m = 1,nq
+        vl(m) = interp(left_geom,left_order)%toFace(face_order)% &
+                dot( kl , tlusp(1:npl,m) )
+        vr(m) = interp(right_geom,right_order)%toFace(face_order)% &
+                dot( kr , trusp(1:npr,m) )
+      end do
+      ! Convert to primitive variables
+      vl(1:nq) = usp2v_sp( vl(1:nq) )
+      vr(1:nq) = usp2v_sp( vr(1:nq) )
       !
       if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,1) )
-        mur = viscosity_cv_sp( faceusp(nf)%v(1:nq,k,2) )
+        mul = viscosity_pv_sp( vl(1:nq) )
+        mur = viscosity_pv_sp( vr(1:nq) )
       end if
       !
       ds = rnorm2( geofa(nf)%v(1:nr,k) )
