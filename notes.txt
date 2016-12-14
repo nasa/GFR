@@ -10,6 +10,20 @@
 ################################################################################
 ################################################################################
 
+* Restructure the flux procedures to combine matrix operations in the same way
+  that PyFR and the Stanford group does it. Primarily, the discontinuous part
+  of the correction should be separated from the common part so that it can be
+  included with the other local-to-cell based operations.  For example, the
+  discontinuous part of the flux correction can be combined with the operator
+  for computing the gradient of the discontinuous flux. Using their notation:
+      M0 => the matrix that interpolates a value from the solution points to the
+            flux points
+      M4 => the derivative matrices
+      M6 => the correction matrix
+    the discontinuous part of the correction (M6*M0) can be combined with
+    gradient operator as
+      M4 - M6*M0
+
 * Really need to work on improving the memory footprint of the code through
   partitioning.  The cell_geom and cell_order arrays could be converted into
   a very compact array since both of these arrays generally hold the same value
