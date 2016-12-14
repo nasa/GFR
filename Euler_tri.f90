@@ -9,7 +9,6 @@ program Euler_tri
   use geovar, only : bface,xyz_nodes,nface
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : geovar_memory_usage
   !
   use ovar, only : max_wall_time,wall_time_left
   use ovar, only : walltime_expiring
@@ -21,16 +20,13 @@ program Euler_tri
   use ovar, only : restart_interval,output_interval
   use ovar, only : dump_memory_usage,mms_opt
   use ovar, only : recon_cpu_time,this_is_final_timestep
-  use ovar, only : ovar_memory_usage
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : continuous_output
   !
   use flowvar, only : usp,uoldsp
-  use flowvar, only : flowvar_memory_usage
   !
   use quadrature_mod, only : solpts_edge
-  use quadrature_mod, only : quadrature_memory_usage
   !
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error
@@ -46,26 +42,19 @@ program Euler_tri
   use connectivity_mod, only : get_grid_connectivity
   !
   use metrics_mod, only : get_metrics
-  use metrics_mod, only : metrics_memory_usage
   !
   use vandermonde_mod, only : init_vandermonde_matrices
-  use vandermonde_mod, only : vandermonde_memory_usage
   !
   use derivatives_mod, only : init_derivative_matrices
-  use derivatives_mod, only : derivatives_memory_usage
   !
   use correction_mod, only : init_correction_matrices
-  use correction_mod, only : correction_memory_usage
   !
   use interpolation_mod, only : init_interpolation_matrices
   use interpolation_mod, only : init_outerpolation_matrices
-  use interpolation_mod, only : interpolation_memory_usage
   !
   use projection_mod, only : init_projection_matrices
-  use projection_mod, only : projection_memory_usage
   !
   use filter_mod, only : init_filter_matrices
-  use filter_mod, only : filter_memory_usage
   !
   use initialization_mod, only : initialize_flow
   !
@@ -78,7 +67,6 @@ program Euler_tri
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_final_error
   use generic_mod, only : compute_TaylorGreen_KEDR
-  use generic_mod, only : generic_memory_usage
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
@@ -100,11 +88,9 @@ program Euler_tri
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
-  use parallel_mod, only : parallel_memory_usage
   !
   use module_limiters, only : initialize_limiters
   use module_limiters, only : compute_cell_ave
-  use module_limiters, only : limiters_memory_usage
   !
   use mms_mod, only : mms_src
   use mms_mod, only : initialize_mms
@@ -113,11 +99,6 @@ program Euler_tri
   !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles
-  use bnd_profiles_mod, only : bnd_profiles_memory_usage
-  !
-  use module_plot3d, only : plot3d_memory_usage
-  !
-  use module_gmsh, only : gmsh_memory_usage
   !
   use postprocessor_mod, only : new_write_parallel_cgns
   !
@@ -275,6 +256,13 @@ continue
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
+  ! If requested, dump the memory usage of the advanced data types from some of
+  ! the modules
+  !
+  if (dump_memory_usage) then
+    call report_memory_usage(n=1,request_stop=fals)
+  end if
+  !
   ! Initialize the MMS module if it is being used. 
   !
   if (mms_opt /= 0) call initialize_mms
@@ -284,6 +272,13 @@ continue
   !
   call initialize_flow
   call memory_pause("initializing solution","writing initial CGNS file")
+  !
+  ! If requested, dump the memory usage of the advanced data types from some of
+  ! the modules
+  !
+  if (dump_memory_usage) then
+    call report_memory_usage(n=2,request_stop=true)
+  end if
   !
   ! Output the initialized solution
   !
@@ -371,40 +366,7 @@ continue
   ! the modules
   !
   if (dump_memory_usage) then
-    !
-    if (ncpu > 1) then
-      write (memfile,'("memory_usage.",i0,".dat")') mypnum
-    else
-      memfile = "memory_usage.dat"
-    end if
-    open (newunit=i,file=trim(adjustl(memfile)),status="replace", &
-          action="write",form="formatted",position="rewind",iostat=ierr)
-    call io_error(pname,memfile,1,ierr)
-    !
-    call geovar_memory_usage(i)
-    call vandermonde_memory_usage(i)
-    call derivatives_memory_usage(i)
-    call correction_memory_usage(i)
-    call interpolation_memory_usage(i)
-    call quadrature_memory_usage(i)
-    call projection_memory_usage(i)
-    call filter_memory_usage(i)
-    call ovar_memory_usage(i)
-    call limiters_memory_usage(i)
-    call generic_memory_usage(i)
-    call plot3d_memory_usage(i)
-    call bnd_profiles_memory_usage(i)
-    call gmsh_memory_usage(i)
-    call metrics_memory_usage(i)
-    call flowvar_memory_usage(i)
-    call parallel_memory_usage(i)
-    !
-    close (i,iostat=ierr)
-    call io_error(pname,memfile,2,ierr)
-    !
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
-                    "After dumping memory usage")
-    !
+    call report_memory_usage(n=3,request_stop=true)
   end if
   !
   main_loop: do iter = 1, num_ts
@@ -816,6 +778,115 @@ continue
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
   !
+contains
+!
+!###############################################################################
+!
+subroutine report_memory_usage(n,request_stop)
+  !
+  !.. Use Statements ..
+  use geovar,            only : geovar_memory_usage
+  use ovar,              only : ovar_memory_usage
+  use flowvar,           only : flowvar_memory_usage
+  use quadrature_mod,    only : quadrature_memory_usage
+  use metrics_mod,       only : metrics_memory_usage
+  use vandermonde_mod,   only : vandermonde_memory_usage
+  use derivatives_mod,   only : derivatives_memory_usage
+  use correction_mod,    only : correction_memory_usage
+  use interpolation_mod, only : interpolation_memory_usage
+  use projection_mod,    only : projection_memory_usage
+  use filter_mod,        only : filter_memory_usage
+  use generic_mod,       only : generic_memory_usage
+  use parallel_mod,      only : parallel_memory_usage
+  use module_limiters,   only : limiters_memory_usage
+  use bnd_profiles_mod,  only : bnd_profiles_memory_usage
+  use module_plot3d,     only : plot3d_memory_usage
+  use module_gmsh,       only : gmsh_memory_usage
+  use module_cgns,       only : cgns_memory_usage
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: n
+  logical(lk), optional, intent(in) :: request_stop
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,ncpu_digits
+  !
+  character(len=100) :: memfile
+  character(len=100) :: frmt
+  character(len=100) :: char_num
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "report_memory_usage"
+  logical(lk),      parameter :: skip_output = true
+  !
+continue
+  !
+  frmt = "('memory_usage'"
+  !
+  if (ncpu > 1) then
+    !
+    write (char_num,1) ncpu
+    ncpu_digits = max(1,len_trim(adjustl(char_num)))
+    !
+    write (frmt,10) trim(adjustl(frmt)),ncpu_digits,ncpu_digits
+    !
+  end if
+  !
+  if (present(n)) then
+    write (frmt,11) trim(adjustl(frmt)),n
+  end if
+  !
+  frmt = trim(adjustl(frmt)) // ",'.dat')"
+  !
+  if (ncpu > 1) then
+    write (memfile,frmt) mypnum
+  else
+    write (memfile,frmt)
+  end if
+  !
+  open (newunit=i,file=trim(adjustl(memfile)),status="replace", &
+        action="write",form="formatted",position="rewind", &
+        iostat=ierr,iomsg=error_message)
+  call io_error(pname,memfile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  call geovar_memory_usage(i)
+  call vandermonde_memory_usage(i)
+  call derivatives_memory_usage(i)
+  call correction_memory_usage(i)
+  call interpolation_memory_usage(i)
+  call quadrature_memory_usage(i)
+  call projection_memory_usage(i)
+  call filter_memory_usage(i)
+  call ovar_memory_usage(i)
+  call limiters_memory_usage(i)
+  call generic_memory_usage(i)
+  call plot3d_memory_usage(i)
+  call bnd_profiles_memory_usage(i)
+  call gmsh_memory_usage(i)
+  call metrics_memory_usage(i)
+  call flowvar_memory_usage(i)
+  call parallel_memory_usage(i)
+  call cgns_memory_usage(i)
+  !
+  close (i,iostat=ierr,iomsg=error_message)
+  call io_error(pname,memfile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  if (present(request_stop)) then
+    if (request_stop) then
+      write (error_message,20)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
+  ! Format Statements
+  !
+  1  format (i0)
+  10 format (a,",'.CPU-',i",i0,".",i0)
+  11 format (a,",'.CP-",i0,"'")
+  20 format ("After dumping memory usage")
+  !
+end subroutine report_memory_usage
+!
 end program Euler_tri
 !
 !###############################################################################
