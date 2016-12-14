@@ -56,7 +56,6 @@ subroutine initialize_flow()
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: xyz_init(:,:)
-  real(wp), allocatable :: uspstart(:,:)
   type(matrix), allocatable, target :: outerp_inv(:,:)
   !
   !.. Local Pointers ..
@@ -81,114 +80,8 @@ continue
   !
   call allocate_flowvar_arrays
   !
-  ! Allocate the local arrays
   !
-  allocate ( uspstart(1:nq,1:n_solpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"uspstart",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"xyz_init",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Allocate the local array that stores the inverse of the matrix used for
-  ! interpolating from the solution points to the initialization points.
-  ! NOTE: This is array is used so that we only invert the matrix once for a
-  !       given cell geometry/order combination.  We dont want to keep inverting
-  !       the same matrix over and over for cells with the same geometry/order
-  !       combination.
-  !
-  gmin = lbound(outerp,dim=1)
-  gmax = ubound(outerp,dim=1)
-  omin = lbound(outerp,dim=2)
-  omax = ubound(outerp,dim=2)
-  !
-  allocate ( outerp_inv(gmin:gmax,omin:omax) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"outerp_inv",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Initialize the solution in each cell
-  !
-  do n = 1,ncell
-    !
-    this_geom = cell(n)%geom
-    this_order = cell(n)%order
-    !
-    n1 = cell(n)%beg_sp
-    n2 = cell(n)%end_sp
-    np = n2-n1+1
-    !
-    ! Check whether the init component of outerp is associated with
-    ! an interpolation matrix to determine where we need to compute
-    ! the initial conditions.
-    !
-    if (.not. allocated(outerp(this_geom,this_order)%init)) then
-      !
-      ! The init component of outerp is not associated so just compute
-      ! the initial conditions at the solution points
-      !
-      uspstart(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) )
-      !
-    else
-      !
-      ! The init component of outerp is associated so we need to compute
-      ! the initial conditions at the initialization points before
-      ! interpolating it back to the solution points.
-      !
-      ! Assign local pointer to this matrix as an alias to simplify the code
-      !
-      numer2init => outerp(this_geom,this_order)%init%mat
-      !
-      ! Check if we have already created an inverse of this interpolation
-      ! matrix. If we havent, allocate its location in outerp_inv and
-      ! compute this inverse matrix.
-      !
-      if (.not. allocated(outerp_inv(this_geom,this_order)%mat)) then
-        !
-        l1 = size(numer2init,dim=1)
-        l2 = size(numer2init,dim=2)
-        !
-        allocate ( outerp_inv(this_geom,this_order)%mat(1:l1,1:l2) , &
-                   source=zero , stat=ierr , errmsg = error_message )
-        write (array_name,10) Geom_Name(this_geom),this_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
-        !
-      end if
-      !
-      ! Assign local pointer to this matrix as an alias to simplify the code
-      !
-      init2numer => outerp_inv(this_geom,this_order)%mat
-      !
-      ! Interpolate the cell solution points to the initialization points
-      !
-      do l = 1,nr
-        xyz_init(l,1:np) = matmul( numer2init , xyz(l,n1:n2) )
-      end do
-      !
-      ! Evaluate the initial conditions at the initialization points
-      !
-      uspstart(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) )
-      !
-      ! Interpolate the initial conditions from the initialization points
-      ! to the solution points
-      !
-      do m = 1,nq
-        uspstart(m,n1:n2) = matmul( init2numer , uspstart(m,n1:n2) )
-      end do
-      !
-      ! Disassociate all local pointers before continuing
-      !
-      if (associated(numer2init)) numer2init => null()
-      if (associated(init2numer)) init2numer => null()
-      !
-    end if
-    !
-  end do
-  !
-  ! Check for a restart job, otherwise initialize usp to uspstart
+  ! Check for a restart job, otherwise initialize usp
   !
   if (irestart == 1) then
     !
@@ -206,14 +99,111 @@ continue
     !
   else
     !
+    allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_init",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Allocate the local array that stores the inverse of the matrix used for
+    ! interpolating from the solution points to the initialization points.
+    ! NOTE: This is array is used so that we only invert the matrix once for a
+    !       given cell geometry/order combination.  We dont want to keep
+    !       inverting the same matrix over and over for cells with the same
+    !       geometry/order combination.
+    !
+    gmin = lbound(outerp,dim=1)
+    gmax = ubound(outerp,dim=1)
+    omin = lbound(outerp,dim=2)
+    omax = ubound(outerp,dim=2)
+    !
+    allocate ( outerp_inv(gmin:gmax,omin:omax) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"outerp_inv",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Initialize the solution in each cell
+    !
+    do n = 1,ncell
+      !
+      this_geom = cell(n)%geom
+      this_order = cell(n)%order
+      !
+      n1 = cell(n)%beg_sp
+      n2 = cell(n)%end_sp
+      np = n2-n1+1
+      !
+      ! Check whether the init component of outerp is associated with
+      ! an interpolation matrix to determine where we need to compute
+      ! the initial conditions.
+      !
+      if (.not. allocated(outerp(this_geom,this_order)%init)) then
+        !
+        ! The init component of outerp is not associated so just compute
+        ! the initial conditions at the solution points
+        !
+        usp(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) )
+        !
+      else
+        !
+        ! The init component of outerp is associated so we need to compute
+        ! the initial conditions at the initialization points before
+        ! interpolating it back to the solution points.
+        !
+        ! Assign local pointer to this matrix as an alias to simplify the code
+        !
+        numer2init => outerp(this_geom,this_order)%init%mat
+        !
+        ! Check if we have already created an inverse of this interpolation
+        ! matrix. If we havent, allocate its location in outerp_inv and
+        ! compute this inverse matrix.
+        !
+        if (.not. allocated(outerp_inv(this_geom,this_order)%mat)) then
+          !
+          l1 = size(numer2init,dim=1)
+          l2 = size(numer2init,dim=2)
+          !
+          allocate ( outerp_inv(this_geom,this_order)%mat(1:l1,1:l2) , &
+                     source=zero , stat=ierr , errmsg = error_message )
+          write (array_name,10) Geom_Name(this_geom),this_order
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                           error_message)
+          !
+          outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
+          !
+        end if
+        !
+        ! Assign local pointer to this matrix as an alias to simplify the code
+        !
+        init2numer => outerp_inv(this_geom,this_order)%mat
+        !
+        ! Interpolate the cell solution points to the initialization points
+        !
+        do l = 1,nr
+          xyz_init(l,1:np) = matmul( numer2init , xyz(l,n1:n2) )
+        end do
+        !
+        ! Evaluate the initial conditions at the initialization points
+        !
+        usp(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) )
+        !
+        ! Interpolate the initial conditions from the initialization points
+        ! to the solution points
+        !
+        do m = 1,nq
+          usp(m,n1:n2) = matmul( init2numer , usp(m,n1:n2) )
+        end do
+        !
+        ! Disassociate all local pointers before continuing
+        !
+        if (associated(numer2init)) numer2init => null()
+        if (associated(init2numer)) init2numer => null()
+        !
+      end if
+      !
+    end do
+    !
     ! Project the initial solution from the
     ! initialization points to the solution points
     !
-   !call project_to_porder(cell,uspstart)
-    !
-    ! Initialize usp to uspstart
-    !
-    usp(:,1:n_solpts) = uspstart(:,1:n_solpts)
+   !call project_to_porder(cell,usp)
     !
     ! Initialize the iteration counter, time step, and elapsed time
     !
@@ -252,11 +242,6 @@ continue
   end if
   !
   ! Deallocate local arrays and disassociate local pointers before leaving
-  !
-  if (allocated(uspstart)) then
-    deallocate ( uspstart , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"uspstart",2,__LINE__,__FILE__,ierr,error_message)
-  end if
   !
   if (allocated(outerp_inv)) then
     deallocate ( outerp_inv , stat=ierr , errmsg=error_message )
