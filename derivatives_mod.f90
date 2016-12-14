@@ -22,6 +22,8 @@ module derivatives_mod
   !
   type, public :: derivative_matrices
     type(matrix), allocatable :: d(:)
+  contains
+    procedure :: div => divergence_derivative_matrices
   end type derivative_matrices
   !
   ! deriv : derivative matrix for all combinations of cell geometry and 
@@ -51,6 +53,40 @@ module derivatives_mod
   type(derivative_matrices), public, save, target, allocatable :: dqmat(:,:)
   !
 contains
+!
+!###############################################################################
+!
+pure function divergence_derivative_matrices(this,f) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(derivative_matrices), intent(in) :: this
+  real(wp),                   intent(in) :: f(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(f,dim=1))
+  !
+  !.. Local Scalars ..
+  integer :: n,l
+  !
+continue
+  !
+  return_value = zero
+  !
+  do l = 1,size(this%d)
+    do n = 1,size(f,dim=1)
+      ! Inner loop over n means:
+      !    we reuse f(:,l) and d(l) as much as possible
+      !    once they are loaded into cache
+      ! instead of:
+      !    for n, loading f(:,l) and d(l) into cache and using it, loading
+      !    f(:,l+1) and d(l+1) into cache and using it, and repeating again
+      !    if size(this%d) == 3; start over for n+1 and continue until
+      !    n == size(f,dim=1).
+      return_value(n) = return_value(n) + this%d(l)%dot( n , f(:,l) )
+    end do
+  end do
+  !
+end function divergence_derivative_matrices
 !
 !###############################################################################
 !
