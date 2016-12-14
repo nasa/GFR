@@ -247,8 +247,10 @@ contains
 pure subroutine legendre_gauss_quadrature(xi,weights)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(inout) :: xi
-  real(wp), dimension(:), intent(inout) :: weights
+  real(wp), intent(inout) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: weights(:)
   !
   !.. Local Scalars ..
   integer :: npts
@@ -266,7 +268,10 @@ continue
   call weights_legendre_gauss(npts,pts_qp,val_qp,wts_qp)
   !
   xi = chop( pts_qp )
-  weights = chop( wts_qp )
+  !
+  if (present(weights)) then
+    weights = chop( wts_qp )
+  end if
   !
 end subroutine legendre_gauss_quadrature
 !
@@ -275,8 +280,10 @@ end subroutine legendre_gauss_quadrature
 pure subroutine legendre_gauss_lobatto_quadrature(xi,weights)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(inout) :: xi
-  real(wp), dimension(:), intent(inout) :: weights
+  real(wp), intent(inout) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: weights(:)
   !
   !.. Local Scalars ..
   integer :: npts
@@ -294,7 +301,10 @@ continue
   call weights_legendre_gauss_lobatto(npts-1,val_qp,wts_qp)
   !
   xi = chop( pts_qp )
-  weights = chop( wts_qp )
+  !
+  if (present(weights)) then
+    weights = chop( wts_qp )
+  end if
   !
 end subroutine legendre_gauss_lobatto_quadrature
 !
@@ -4318,7 +4328,7 @@ pure function eval_D2LagrangeDx2_DP(m,x,xi) result(return_value)
   !
   !.. Local Arrays ..
   integer, dimension(1:size(xi)) :: imask
-  logical, dimension(1:size(xi)) :: lmask
+  logical(lk), dimension(1:size(xi)) :: lmask
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -4386,7 +4396,7 @@ pure function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
   !
   !.. Local Arrays ..
   integer, dimension(1:size(xi)) :: imask
-  logical, dimension(1:size(xi)) :: lmask
+  logical(lk), dimension(1:size(xi)) :: lmask
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -4453,7 +4463,7 @@ pure function eval_DLagrangeDx_DP(m,x,xi) result(return_value)
   !
   !.. Local Arrays ..
   integer, dimension(1:size(xi)) :: imask
-  logical, dimension(1:size(xi)) :: lmask
+  logical(lk), dimension(1:size(xi)) :: lmask
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -4516,7 +4526,7 @@ pure function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
   !
   !.. Local Arrays ..
   integer, dimension(1:size(xi)) :: imask
-  logical, dimension(1:size(xi)) :: lmask
+  logical(lk), dimension(1:size(xi)) :: lmask
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
