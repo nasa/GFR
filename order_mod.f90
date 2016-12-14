@@ -28,6 +28,7 @@ module order_mod
   integer, public, save :: p_order = 3
   integer, public, save :: q_order = 3
   integer, public, save :: o_order = -3
+  integer, public, save :: e_order = -3
   integer, public, save :: all_orders = -3
   !
   integer, public, save :: n_min_geom
@@ -40,6 +41,8 @@ module order_mod
   integer, public, save :: maxQP
   integer, public, save :: maxFP
   integer, public, save :: maxGP
+  integer, public, save :: maxOP
+  integer, public, save :: maxEP
   !
   ! Number of solution points for each cell geometry type
   !
