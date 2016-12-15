@@ -99,6 +99,10 @@ O2-ip-opt: optimize
 O3-ipo-opt: OPTIM = $(O3OPT) $(TARGET) $(ADDOPT)
 O3-ipo-opt: optimize
 
+.PHONY: broadwell
+broadwell: OPTIM = $(O3OPT) -xCORE-AVX2 $(ADDOPT)
+broadwell: optimize
+
 .PHONY: haswell
 haswell: OPTIM = $(O3OPT) -xCORE-AVX2 $(ADDOPT)
 haswell: optimize
@@ -110,10 +114,6 @@ ivybridge: optimize
 .PHONY: sandybridge
 sandybridge: OPTIM = $(O3OPT) -xAVX $(ADDOPT)
 sandybridge: optimize
-
-.PHONY: westmere
-westmere: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
-westmere: optimize
 
 .PHONY: optimize
 optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)
