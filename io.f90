@@ -6086,7 +6086,8 @@ continue
   if (ncpu > 1) then
     !
 #ifdef USE_MPI_F08
-    call mpi_sizeof(cpu_vort_data,int_size,mpierr)
+    call mpi_sizeof(reshape(cpu_vort_data,[size(cpu_vort_data)]), &
+                    int_size,mpierr)
     call mpi_type_match_size(MPI_TYPECLASS_INTEGER,int_size,mpi_vorttyp,mpierr)
 #else
     if (CST == I8) then
