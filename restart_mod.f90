@@ -1609,6 +1609,9 @@ subroutine read_rstrt_file_wip(file_handle,int_data)
   _MPI_FILE_TYPE_,              intent(in) :: file_handle
   integer(wip), dimension(:), intent(inout) :: int_data
   !
+  !.. Local Arrays ..
+  integer(wip), dimension(1:size(int_data)) :: read_int
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wip"
   !
@@ -1616,9 +1619,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,int_data, &
+  call mpi_file_read_all(file_handle,read_int, &
                          size(int_data,kind=int_mpi), &
                          mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  int_data = read_int
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1810,6 +1815,9 @@ subroutine read_rstrt_file_wp_rank1(file_handle,real_data)
   _MPI_FILE_TYPE_,          intent(in) :: file_handle
   real(wp), dimension(:), intent(inout) :: real_data
   !
+  !.. Local Arrays ..
+  real(wp), dimension(1:size(real_data)) :: read_real
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wp_rank1"
   !
@@ -1817,9 +1825,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,real_data, &
+  call mpi_file_read_all(file_handle,read_real, &
                          size(real_data,kind=int_mpi), &
                          mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  real_data = read_real
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1831,6 +1841,9 @@ subroutine read_rstrt_file_wp_rank2(file_handle,real_data)
   _MPI_FILE_TYPE_,            intent(in) :: file_handle
   real(wp), dimension(:,:), intent(inout) :: real_data
   !
+  !.. Local Arrays ..
+  real(wp) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wp_rank2"
   !
@@ -1838,9 +1851,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  call mpi_file_read_all(file_handle,real_data, &
+  call mpi_file_read_all(file_handle,read_real, &
                          size(real_data,kind=int_mpi), &
                          mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+  !
+  real_data = read_real
   !
   call debug_timer(leaving_procedure,pname)
   !
