@@ -38,8 +38,13 @@ module restart_mod
   !
   integer, save :: restart_solution_form
   !
+#ifdef PBS_ENV
+  _MPI_DATA_TYPE_, save :: ordered_geom_type
+  _MPI_DATA_TYPE_, save :: solution_type
+#else
   _MPI_DATA_TYPE_, save :: ordered_geom_type = MPI_DATATYPE_NULL
-  _MPI_DATA_TYPE_, save :: solution_type = MPI_DATATYPE_NULL
+  _MPI_DATA_TYPE_, save :: solution_type     = MPI_DATATYPE_NULL
+#endif
   !
   character(len=170), save :: restart_dir = ""
   character(len=170), save :: rstfile_fmt

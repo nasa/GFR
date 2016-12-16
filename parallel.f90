@@ -234,9 +234,17 @@ module parallel_mod
     ! recv_tag : message tag for matching the MPI communication
     integer(int_mpi) :: recv_tag = -1_int_mpi
     ! send_datatype : handle for the MPI user-defined datatype to send data
+#ifdef PBS_ENV
+    _MPI_DATA_TYPE_ :: send_datatype
+#else
     _MPI_DATA_TYPE_ :: send_datatype = MPI_DATATYPE_NULL
+#endif
     ! recv_datatype : handle for the MPI user-defined datatype to receive data
+#ifdef PBS_ENV
+    _MPI_DATA_TYPE_ :: recv_datatype
+#else
     _MPI_DATA_TYPE_ :: recv_datatype = MPI_DATATYPE_NULL
+#endif
   end type exch_data_t
   !
   ! EXCH_FUSP : Array containing all the information needed to communicate the
