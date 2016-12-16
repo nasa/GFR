@@ -4025,17 +4025,17 @@ pure function reorder_cgns_tria_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: tria3(*) = [1,2,3]
+  integer, parameter :: tria3(3) = [1,2,3]
   !
-  integer, parameter :: tria6(*) = [1,4,2,6,5,3]
+  integer, parameter :: tria6(6) = [1,4,2,6,5,3]
   !
-  integer, parameter :: tria9(*) = [1,4,5,2,9,6,8,7,3]
+  integer, parameter :: tria9(9) = [1,4,5,2,9,6,8,7,3]
   !
-  integer, parameter :: tria10(*) = [1,4,5,2,9,10,6,8,7,3]
+  integer, parameter :: tria10(10) = [1,4,5,2,9,10,6,8,7,3]
   !
-  integer, parameter :: tria12(*) = [1,4,5,6,2,12,7,11,8,10,9,3]
+  integer, parameter :: tria12(12) = [1,4,5,6,2,12,7,11,8,10,9,3]
   !
-  integer, parameter :: tria15(*) = [1,4,5,6,2,12,13,14,7,11,15,8,10,9,3]
+  integer, parameter :: tria15(15) = [1,4,5,6,2,12,13,14,7,11,15,8,10,9,3]
   !
 continue
   !
@@ -4070,25 +4070,25 @@ pure function reorder_cgns_quad_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: quad4(*) = [1,2,4,3]
+  integer, parameter :: quad4(4) = [1,2,4,3]
   !
-  integer, parameter :: quad8(*) = [1,5,2,8,6,4,7,3]
+  integer, parameter :: quad8(8) = [1,5,2,8,6,4,7,3]
   !
-  integer, parameter :: quad9(*) = [1,5,2,8,9,6,4,7,3]
+  integer, parameter :: quad9(9) = [1,5,2,8,9,6,4,7,3]
   !
-  integer, parameter :: quad12(*) = [1,5,6,2,12,7,11,8,4,10,9,3]
+  integer, parameter :: quad12(12) = [1,5,6,2,12,7,11,8,4,10,9,3]
   !
-  integer, parameter :: quad3_16(*) = [ 1, 5, 6, 2, &
+  integer, parameter :: quad3_16(16) = [ 1, 5, 6, 2, &
                                        12,13,14, 7, &
                                        11,16,15, 8, &
                                         4,10, 9, 3]
   !
-  integer, parameter :: quad4_16(*) = [ 1, 5, 6, 7, &
+  integer, parameter :: quad4_16(16) = [ 1, 5, 6, 7, &
                                         2,16, 8,15, &
                                         9,14,10, 4, &
                                        13,12,11, 3]
   !
-  integer, parameter :: quad25(*) = [ 1, 5, 6, 7, 2, &
+  integer, parameter :: quad25(25) = [ 1, 5, 6, 7, 2, &
                                      16,17,18,19, 8, &
                                      15,24,25,20, 9, &
                                      14,23,22,21,10, &
@@ -4129,26 +4129,26 @@ pure function reorder_cgns_tetr_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: tetr4(*) = [1,4,2,3]
+  integer, parameter :: tetr4(4) = [1,4,2,3]
   !
-  integer, parameter :: tetr10(*) = [1,8,4,5,9,2,7,10,6,3]
+  integer, parameter :: tetr10(10) = [1,8,4,5,9,2,7,10,6,3]
   !
-  integer, parameter :: tetr16(*) = [ 1,11,12, 4, 5,14, 6,13, &
+  integer, parameter :: tetr16(16) = [ 1,11,12, 4, 5,14, 6,13, &
                                       2,10,16, 7, 9,15, 8, 3]
   !
-  integer, parameter :: tetr20(*) = [ 1,11,12, 4, 5,18,14, 6,13, 2, &
+  integer, parameter :: tetr20(20) = [ 1,11,12, 4, 5,18,14, 6,13, 2, &
                                      10,20,16,17,19, 7, 9,15, 8, 3]
   !
-  integer, parameter :: tetr22(*) = [ 1,14,15,16, 4, 5,19, 6,18, 7,17, &
+  integer, parameter :: tetr22(22) = [ 1,14,15,16, 4, 5,19, 6,18, 7,17, &
                                       2,13,22, 8,12,21, 9,11,20,10, 3]
   !
-  integer, parameter :: tetr34(*) = [ 1,14,15,16, 4, 5,26, &
+  integer, parameter :: tetr34(34) = [ 1,14,15,16, 4, 5,26, &
                                      28,19, 6,27,18, 7,17, &
                                       2,13,33,34,22,23,    &
                                      31,24,29, 8,12,32,21, &
                                      25,30, 9,11,20,10, 3]
   !
-  integer, parameter :: tetr35(*) = [ 1,14,15,16, 4, 5,26, &
+  integer, parameter :: tetr35(35) = [ 1,14,15,16, 4, 5,26, &
                                      28,19, 6,27,18, 7,17, &
                                       2,13,33,34,22,23,35, &
                                      31,24,29, 8,12,32,21, &
@@ -4189,35 +4189,35 @@ pure function reorder_cgns_pyra_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: pyra5(*) = [1,2,4,3,5]
+  integer, parameter :: pyra5(5) = [1,2,4,3,5]
   !
-  integer, parameter :: pyra13(*) = [1,6,2,9,7,4,8,3,8,10,13,12,5]
+  integer, parameter :: pyra13(13) = [1,6,2,9,7,4,8,3,8,10,13,12,5]
   !
-  integer, parameter :: pyra14(*) = [1,6,2,9,14,7,4,8,3,10,11,13,12,5]
+  integer, parameter :: pyra14(14) = [1,6,2,9,14,7,4,8,3,10,11,13,12,5]
   !
-  integer, parameter :: pyra21(*) = [ 1, 6, 7, 2,13, 8,12, &
+  integer, parameter :: pyra21(21) = [ 1, 6, 7, 2,13, 8,12, &
                                       9, 4,11,10, 3,14,16, &
                                      20,18,15,17,21,19, 5]
   !
-  integer, parameter :: pyra3_29(*) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
+  integer, parameter :: pyra3_29(29) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
                                        24, 9, 4,11,10, 3,14,26,16,29, &
                                        27,20,28,18,15,17,21,19, 5]
   !
-  integer, parameter :: pyra4_29(*) = [ 1, 6, 7, 8, 2,17, 9,16,10,15, &
+  integer, parameter :: pyra4_29(29) = [ 1, 6, 7, 8, 2,17, 9,16,10,15, &
                                        11, 4,14,13,12, 3,18,21,27,24, &
                                        19,22,28,25,20,23,29,26, 5]
   !
-  integer, parameter :: pyra30(*) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
+  integer, parameter :: pyra30(30) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
                                      24, 9, 4,11,10, 3,14,26,16,29, &
                                      30,27,20,28,18,15,17,21,19, 5]
   !
-  integer, parameter :: pyra50(*) = [ 1, 6, 7, 8, 2,17,30,31,32, 9, &
+  integer, parameter :: pyra50(50) = [ 1, 6, 7, 8, 2,17,30,31,32, 9, &
                                      16,37,38,33,10,15,36,35,34,11, &
                                       4,14,13,12, 3,18,39,40,21,49, &
                                      42,48,43,27,46,45,24,19,41,22, &
                                      50,44,28,47,25,20,23,29,26, 5]
   !
-  integer, parameter :: pyra55(*) = [ 1, 6, 7, 8, 2,17,30,31,32, 9,16, &
+  integer, parameter :: pyra55(55) = [ 1, 6, 7, 8, 2,17,30,31,32, 9,16, &
                                      37,38,33,10,15,36,35,34,11, 4,14, &
                                      13,12, 3,18,39,40,21,49,51,52,42, &
                                      48,54,53,43,27,46,45,24,19,41,22, &
@@ -4262,46 +4262,46 @@ pure function reorder_cgns_pris_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: pris6(*) = [1,2,3,4,5,6]
+  integer, parameter :: pris6(6) = [1,2,3,4,5,6]
   !
-  integer, parameter :: pris15(*) = [ 1, 7, 2, 9, 8, 3, &
+  integer, parameter :: pris15(15) = [ 1, 7, 2, 9, 8, 3, &
                                      10,   11,      12, &
                                       4,13, 5,15,14, 6]
   !
-  integer, parameter :: pris18(*) = [ 1, 7, 2, 9, 8, 3, &
+  integer, parameter :: pris18(18) = [ 1, 7, 2, 9, 8, 3, &
                                      10,16,11,18,17,12, &
                                       4,13, 5,15,14, 6]
   !
-  integer, parameter :: pris24(*) = [ 1, 7, 8, 2,12, 9,11,10, 3, &
+  integer, parameter :: pris24(24) = [ 1, 7, 8, 2,12, 9,11,10, 3, &
                                      13,      15,            17, &
                                      14,      16,            18, &
                                       4,19,20, 5,24,21,23,22, 6]
   !
-  integer, parameter :: pris38(*) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
+  integer, parameter :: pris38(38) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
                                      13,26,27,15,35,   30,34,31,17, &
                                      14,29,28,16,36,   33,37,32,18, &
                                       4,19,20, 5,24,38,21,23,22, 6]
   !
-  integer, parameter :: pris40(*) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
+  integer, parameter :: pris40(40) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
                                      13,26,27,15,35,39,30,34,31,17, &
                                      14,29,28,16,36,40,33,37,32,18, &
                                       4,19,20, 5,24,38,21,23,22, 6]
   !
-  integer, parameter :: pris33(*) = &
+  integer, parameter :: pris33(33) = &
     [ 1, 7, 8, 9, 2,15,10,14,11,13,12, 3, &
      16,         19,                  22, &
      17,         20,                  23, &
      18,         21,                  24, &
       4,25,26,27, 5,33,28,32,29,31,30, 6]
   !
-  integer, parameter :: pris66(*) = &
+  integer, parameter :: pris66(66) = &
     [ 1, 7, 8, 9, 2,15,34,35,10,14,36,11,13,12, 3, &
      16,37,38,39,19,57,      46,56,   47,55,48,22, &
      17,44,45,40,20,58,      53,63,   54,62,49,23, &
      18,43,42,41,21,59,      52,60,   51,61,50,24, &
       4,25,26,27, 5,33,64,65,28,32,66,29,31,30, 6]
   !
-  integer, parameter :: pris75(*) = &
+  integer, parameter :: pris75(75) = &
     [ 1, 7, 8, 9, 2,15,34,35,10,14,36,11,13,12, 3, &
      16,37,38,39,19,57,67,68,46,56,69,47,55,48,22, &
      17,44,45,40,20,58,70,71,53,63,72,54,62,49,23, &
@@ -4347,42 +4347,42 @@ pure function reorder_cgns_hexa_pts(pts,elem_type) result(return_value)
   integer :: return_value(1:size(pts))
   !
   !.. Local Parameters ..
-  integer, parameter :: hexa8(*) = [1,2,4,3,5,6,8,7]
+  integer, parameter :: hexa8(8) = [1,2,4,3,5,6,8,7]
   !
-  integer, parameter :: hexa20(*) = [ 1, 9, 2,12,   10, 4,11, 3, &
+  integer, parameter :: hexa20(20) = [ 1, 9, 2,12,   10, 4,11, 3, &
                                      13,   14,         16,   15, &
                                       5,17, 6,20,   18, 8,19, 7]
   !
-  integer, parameter :: hexa27(*) = [ 1, 9, 2,12,21,10, 4,11, 3, &
+  integer, parameter :: hexa27(27) = [ 1, 9, 2,12,21,10, 4,11, 3, &
                                      13,22,14,25,27,23,16,24,15, &
                                       5,17, 6,20,26,18, 8,19, 7]
   !
-  integer, parameter :: hexa32(*) = &
+  integer, parameter :: hexa32(32) = &
     [ 1, 9,10, 2,16,      11,15,      12, 4,14,13, 3, &
      17,      19,                        23,      21, &
      18,      20,                        24,      22, &
       5,25,26, 6,32,      27,31,      28, 8,30,29, 7]
   !
-  integer, parameter :: hexa56(*) = &
+  integer, parameter :: hexa56(56) = &
     [ 1, 9,10, 2,16,33,34,11,15,36,35,12, 4,14,13, 3, &
      17,37,38,19,50,      41,49,      42,23,46,45,21, &
      18,40,39,20,51,      44,52,      43,24,47,48,22, &
       5,25,26, 6,32,53,54,27,31,56,55,28, 8,30,29, 7]
   !
-  integer, parameter :: hexa64(*) = &
+  integer, parameter :: hexa64(64) = &
     [ 1, 9,10, 2,16,33,34,11,15,36,35,12, 4,14,13, 3, &
      17,37,38,19,50,57,58,41,49,60,59,42,23,46,45,21, &
      18,40,39,20,51,61,62,44,52,64,63,43,24,47,48,22, &
       5,25,26, 6,32,53,54,27,31,56,55,28, 8,30,29, 7]
   !
-  integer, parameter :: hexa44(*) = &
+  integer, parameter :: hexa44(44) = &
   [ 1, 9,10,11, 2,20,         12,19,         13,18,         14, 4,17,16,15, 3, &
    21,            24,                                          30,         27, &
    22,            25,                                          31,         28, &
    23,            26,                                          32,         29, &
     5,33,34,35, 6,44,         36,43,         37,42,         38, 8,41,40,39, 7]
   !
-  integer, parameter :: hexa98(*) = &
+  integer, parameter :: hexa98(98) = &
   [ 1, 9,10,11, 2,20,45,46,47,12,19,52,53,48,13,18,51,50,49,14, 4,17,16,15, 3, &
    21,54,55,56,24,83,         63,82,         64,81,         65,30,74,73,72,27, &
    22,61,62,57,25,84,         70,89,         71,88,         66,31,75,80,79,28, &
@@ -4390,7 +4390,7 @@ pure function reorder_cgns_hexa_pts(pts,elem_type) result(return_value)
     5,33,34,35, 6,44,90,91,92,36,43,97,98,93,37,42,96,95,94,38, 8,41,40,39, 7]
   !
   ! SAME ORDER AS ABOVE hexa44 AND hexa98 BUT COMPLETELY FILLED IN
-  integer, parameter :: hexa125(*) = &
+  integer, parameter :: hexa125(125) = &
     [  1,  9, 10, 11,  2, 20, 45, 46, 47, 12, 19, 52, 53, 48, 13, 18, 51, 50, &
       49, 14,  4, 17, 16, 15,  3, 21, 54, 55, 56, 24, 83, 99,100,101, 63, 82, &
      106,107,102, 64, 81,105,104,103, 65, 30, 74, 73, 72, 27, 22, 61, 62, 57, &
