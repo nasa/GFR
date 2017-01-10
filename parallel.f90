@@ -267,8 +267,8 @@ module parallel_mod
   ! #####   MODULE GENERIC INTERFACES   #####
   ! #########################################
   !
- !logical(lk), parameter :: use_mpi_pack = fals
-  logical(lk), parameter :: use_mpi_pack = true
+  logical(lk), parameter :: use_mpi_pack = fals
+ !logical(lk), parameter :: use_mpi_pack = true
   !
   logical(lk), parameter :: send_using_large_buffer = fals
  !logical(lk), parameter :: send_using_large_buffer = true
@@ -2711,11 +2711,7 @@ subroutine create_cell_map(npart,epart,cell_map)
   type(map_t), allocatable, intent(inout) :: cell_map(:)
   !
   !.. Local Scalars ..
-  integer :: ierr,this_part,gcell,lcell
-  character(len=200) :: array_name 
-  !
-  !.. Local Allocatable Arrays ..
-  logical(lk), allocatable :: msk(:)
+  integer :: ierr,this_part
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_cell_map"
@@ -2723,17 +2719,6 @@ subroutine create_cell_map(npart,epart,cell_map)
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  gcell = size(epart)
-  !
-  ! #######
-  ! ## 1 ##
-  ! #######
-  !
-  ! Allocate the msk array
-  !
-  allocate ( msk(1:gcell) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Create the cell mappings
   !
@@ -2745,37 +2730,15 @@ continue
   !
   do this_part = 1,size(cell_map)
     !
-    ! Mark the cells on this partition
-    !
-    msk(1:gcell) = ( epart(1:gcell) == this_part )
-    !
-    ! Count the cells on this partition
-    !
-    lcell = count( msk(1:gcell) )
-    !
-    ! Allocate the loc_to_glb component of cell_map for this partition
-    !
-    allocate ( cell_map(this_part)%loc_to_glb(1:lcell) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "cell_map",this_part
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
     ! Add the cells of the current partition to cell_map
     !
-    cell_map(this_part)%loc_to_glb = pack( intseq(1,gcell) , msk(1:gcell) )
+    ! Using F2003 auto-reallocation
+    cell_map(this_part)%loc_to_glb = pack( intseq(1,size(epart)) , &
+                                           epart == this_part )
     !
   end do
   !
-  ! Deallocate msk before we leave
-  !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
-  !
   call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (a,"(",i0,")%loc_to_glb")
   !
 end subroutine create_cell_map
 !
@@ -2832,7 +2795,7 @@ continue
     !
     ! Initialize/Reset msk
     !
-    msk(:) = fals
+    msk = fals
     !
     ! Mark the nodes that are within this partition
     !
@@ -2843,20 +2806,10 @@ continue
       msk(nodes_of_cell(n1:n2)) = true
     end do
     !
-    ! Count the nodes on this partition
-    !
-    lnode = count( msk(1:gnode) )
-    !
-    ! Allocate the loc_to_glb component of node_map for this partition
-    !
-    allocate ( node_map(this_part)%loc_to_glb(1:lnode) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "node_map",this_part
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
     ! Add the nodes of the current partition to node_map
     !
-    node_map(this_part)%loc_to_glb = pack( intseq(1,gnode) , msk(1:gnode) )
+    ! Using F2003 auto-reallocation
+    node_map(this_part)%loc_to_glb = pack( intseq(1,size(msk)) , msk )
     !
     ! Save the local node index for each node of this partition that
     ! also exists on a different partition
@@ -2889,10 +2842,6 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-  ! Format Statements
-  !
-  1 format (a,"(",i0,")%loc_to_glb")
-  !
 end subroutine create_node_map
 !
 !###############################################################################
@@ -2906,11 +2855,10 @@ subroutine create_face_map(npart,epart,face,face_map)
   type(map_t), allocatable, intent(inout) :: face_map(:)
   !
   !.. Local Scalars ..
-  integer :: ierr,this_part,gface,lface
-  character(len=200) :: array_name 
+  integer :: ierr,this_part
   !
   !.. Local Allocatable Arrays ..
-  logical(lk), allocatable :: msk(:)
+  integer, allocatable :: left_cell(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_face_map"
@@ -2919,58 +2867,41 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gface = size(face)
-  !
-  ! #######
-  ! ## 1 ##
-  ! #######
-  !
-  ! Allocate the msk array
-  !
-  allocate ( msk(1:gface) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
-  !
   ! Create the face mappings
   !
   allocate ( face_map(1:npart) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create a temporary array that contains the left cell of all faces.
+  ! This speeds up the following loop significantly by packing this data into
+  ! a single array, instead of having to jump down two component levels of the
+  ! face derived-type array which results in a large number of cache misses.
+  !
+  ! Using F2003 auto-reallocation
+  left_cell = face%left%cell
   !
   ! Loop through the partitions to find the
   ! local number of faces for each partition
   !
   do this_part = 1,size(face_map)
     !
-    ! Mark the faces that are within this partition
-    !
-    msk(1:gface) = ( epart(face(1:gface)%left%cell) == this_part )
-    !
-    ! Count the faces that are within this partition
-    !
-    lface = count( msk(1:gface) )
-    !
-    ! Allocate the loc_to_glb component of face_map for this partition
-    !
-    allocate ( face_map(this_part)%loc_to_glb(1:lface) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "face_map",this_part
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
     ! Add the faces of the current partition to face_map
     !
-    face_map(this_part)%loc_to_glb = pack( intseq(1,gface) , msk(1:gface) )
+   !face_map(this_part)%loc_to_glb = pack( intseq(1,size(face)) , &
+   !                                       epart(face%left%cell) == this_part )
+    face_map(this_part)%loc_to_glb = pack( intseq(1,size(left_cell)) , &
+                                           epart(left_cell) == this_part )
     !
   end do
   !
-  ! Deallocate msk before we leave
+  ! Deallocate left_cell before we leave
   !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(left_cell)) then
+    deallocate ( left_cell , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"left_cell",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (a,"(",i0,")%loc_to_glb")
   !
 end subroutine create_face_map
 !
@@ -3023,11 +2954,15 @@ continue
   ! Loop through the partitions to find the
   ! local number of edges for each partition
   !
+  call debug_timer(reset_accumulated_time,"resetting edge msk",acc=1)
   do this_part = 1,size(edge_map)
     !
     ! Initialize/Reset msk
     !
-    msk(:) = fals
+    call debug_timer(start_accumulation,"resetting edge msk",acc=1)
+    msk = fals
+   !where (msk) msk = fals
+    call debug_timer(stop_accumulation,"resetting edge msk",acc=1)
     !
     ! Mark the edges that are within this partition
     !
@@ -3043,20 +2978,23 @@ continue
         end if
       end do mark_edges
     end do 
-    !
-    ! Count the edges on this partition
-    !
-    ledge = count( msk(1:gedge) )
-    !
-    ! Allocate the loc_to_glb component of edge_map for this partition
-    !
-    allocate ( edge_map(this_part)%loc_to_glb(1:ledge) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    write (array_name,1) "edge_map",this_part
-    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+   !!
+   !! Count the edges on this partition
+   !!
+   !ledge = count( msk(1:gedge) )
+   !!
+   !! Allocate the loc_to_glb component of edge_map for this partition
+   !!
+   !allocate ( edge_map(this_part)%loc_to_glb(1:ledge) , source=0 , &
+   !           stat=ierr , errmsg=error_message )
+   !write (array_name,1) "edge_map",this_part
+   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Add the edges of the current partition to edge_map
     !
+   !edge_map(this_part)%loc_to_glb(1:ledge) = pack( intseq(1,gedge) , &
+   !                                                msk(1:gedge) )
+    ! Using F2003 auto-reallocation
     edge_map(this_part)%loc_to_glb = pack( intseq(1,gedge) , msk(1:gedge) )
     !
     ! Save the local edge index for each edge of this partition that
@@ -3080,6 +3018,7 @@ continue
     end do local_edges
     !
   end do
+  call debug_timer(report_accumulated_time,"resetting edge msk",acc=1)
   !
   ! Deallocate msk before we leave
   !
@@ -5129,6 +5068,7 @@ continue
     array_sizes(10) = size(grid_xyz,dim=1)
     array_sizes(11) = size(grid_xyz,dim=2)
     !
+#ifdef DEBUG_ON
     write (iout,13) "cell_geom",         size(cell_geom)
     write (iout,13) "cell_order",        size(cell_order)
     write (iout,13) "nodes_of_cell",     size(nodes_of_cell)
@@ -5143,6 +5083,7 @@ continue
     write (iout,14) "grid_xyz",1,        size(grid_xyz,dim=1)
     write (iout,14) "grid_xyz",2,        size(grid_xyz,dim=2)
     write (iout,13) "grid_xyz",          size(grid_xyz)
+#endif
     13 format (5x,"size(",a,")",t29," = ",i11)
     14 format (5x,"size(",a,",dim=",i0,")",t29," = ",i11)
     !
@@ -5151,10 +5092,14 @@ continue
       np = np + size(array_sizes) + array_sizes(5)
     end if
     !
+#ifdef DEBUG_ON
     write (iout,11) "np","integers",np
+#endif
     call mpi_pack_size(int(np,kind=int_mpi),mpi_inttyp, &
                        MPI_COMM_WORLD,isz,mpierr)
+#ifdef DEBUG_ON
     write (iout,11) "pack_size","integers",isz
+#endif
     tsz = isz
     !
     np = product(array_sizes(8:9))
@@ -5162,10 +5107,14 @@ continue
       np = np + product(array_sizes(10:11))
     end if
     !
+#ifdef DEBUG_ON
     write (iout,11) "np","reals",np
+#endif
     call mpi_pack_size(int(np,kind=int_mpi),mpi_flttyp, &
                        MPI_COMM_WORLD,isz,mpierr)
+#ifdef DEBUG_ON
     write (iout,11) "pack_size","reals",isz
+#endif
     tsz = tsz + isz
     11 format (5x,a,"(",a,") = ",i0)
     !
@@ -5199,7 +5148,9 @@ continue
    !tsz = tsz + isz
     !
     if (pack_grid_arrays) then
+#ifdef DEBUG_ON
       write (iout,15) "tsz",tsz
+#endif
       call mpi_send(tsz,1_int_mpi,MPI_INTEGER,recv_cpu,itag1, &
                     MPI_COMM_WORLD,mpierr)
     else
@@ -5245,68 +5196,90 @@ continue
     ! Pack array_sizes into the buffer
     !
     if (pack_grid_arrays) then
+#ifdef DEBUG_ON
       write (iout,12) "array_sizes"
+#endif
       call mpi_pack(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
                     buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     end if
     !
     ! Pack cell_geom into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "cell_geom"
+#endif
     call mpi_pack(cell_geom,size(cell_geom,kind=int_mpi),mpi_inttyp, &
                   buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack cell_order into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "cell_order"
+#endif
     call mpi_pack(cell_order,size(cell_order,kind=int_mpi),mpi_inttyp, &
                   buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack nodes_of_cell into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "nodes_of_cell"
+#endif
     call mpi_pack(nodes_of_cell,size(nodes_of_cell,kind=int_mpi),mpi_inttyp, &
                   buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack nodes_of_cell_ptr into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "nodes_of_cell_ptr"
+#endif
     call mpi_pack(nodes_of_cell_ptr,size(nodes_of_cell_ptr,kind=int_mpi), &
                   mpi_inttyp,buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack grid_elem into the buffer
     !
     if (pack_grid_arrays) then
+#ifdef DEBUG_ON
       write (iout,12) "grid_elem"
+#endif
       call mpi_pack(grid_elem,size(grid_elem,kind=int_mpi),mpi_inttyp, &
                     buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     end if
     !
     ! Pack bface into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "bface"
+#endif
     call mpi_pack(bface,size(bface,kind=int_mpi),mpi_inttyp, &
                   buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack xyz_nodes into the buffer
     !
+#ifdef DEBUG_ON
     write (iout,12) "xyz_nodes"
+#endif
     call mpi_pack(xyz_nodes,size(xyz_nodes,kind=int_mpi),mpi_flttyp, &
                   buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     !
     ! Pack grid_xyz into the buffer
     !
     if (pack_grid_arrays) then
+#ifdef DEBUG_ON
       write (iout,12) "grid_xyz"
+#endif
       call mpi_pack(grid_xyz,size(grid_xyz,kind=int_mpi),mpi_flttyp, &
                     buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     end if
     !
+#ifdef DEBUG_ON
     write (iout,15) "pos",pos
+#endif
     call mpi_send(pos,1_int_mpi,MPI_INTEGER,recv_cpu,itag2, &
                   MPI_COMM_WORLD,mpierr)
     !
+#ifdef DEBUG_ON
     write (iout,15) "buffer"
+#endif
     call mpi_send(buffer,tsz,MPI_PACKED,recv_cpu,itag3, &
                   MPI_COMM_WORLD,mpierr)
     !
@@ -5315,14 +5288,18 @@ continue
       ! Send grid_elem separately because it could cause the
       ! size of the buffer to overload the 32-bit integer limit of MPI
       !
+#ifdef DEBUG_ON
       write (iout,15) "grid_elem"
+#endif
       call mpi_send(grid_elem,size(grid_elem,kind=int_mpi),mpi_inttyp, &
                     recv_cpu,itag4,MPI_COMM_WORLD,mpierr)
       !
       ! Send grid_xyz separately because it will generally cause the
       ! size of the buffer to overload the 32-bit integer limit of MPI
       !
+#ifdef DEBUG_ON
       write (iout,15) "grid_xyz"
+#endif
       call mpi_send(grid_xyz,size(grid_xyz,kind=int_mpi),mpi_flttyp, &
                     recv_cpu,itag5,MPI_COMM_WORLD,mpierr)
       !
@@ -5542,6 +5519,7 @@ continue
     array_sizes(12) = size(grid_xyz,dim=1)
     array_sizes(13) = size(grid_xyz,dim=2)
     !
+#ifdef DEBUG_ON
     write (iout,11) "cell_geom",         size(cell_geom)
     write (iout,11) "cell_order",        size(cell_order)
     write (iout,11) "nodes_of_cell",     size(nodes_of_cell)
@@ -5556,6 +5534,7 @@ continue
     write (iout,12) "grid_xyz",1,        size(grid_xyz,dim=1)
     write (iout,12) "grid_xyz",2,        size(grid_xyz,dim=2)
     write (iout,11) "grid_xyz",          size(grid_xyz)
+#endif
     !
     call mpi_send(array_sizes,size(array_sizes,kind=int_mpi), &
                   mpi_inttyp,recv_cpu,itag1,MPI_COMM_WORLD,mpierr)
@@ -5588,7 +5567,9 @@ continue
     !
     ! Add cell_geom to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "cell_geom"
+#endif
     n1 = 1
     n2 = array_sizes(2)
     i1 = i2 + n1
@@ -5597,7 +5578,9 @@ continue
     !
     ! Add cell_order to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "cell_order"
+#endif
     n1 = 1
     n2 = array_sizes(4)
     i1 = i2 + n1
@@ -5606,28 +5589,36 @@ continue
     !
     ! Add nodes_of_cell to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "nodes_of_cell"
+#endif
     i1 = i2 + 1
     i2 = i2 + array_sizes(5)
     ibuffer(i1:i2) = nodes_of_cell(:)
     !
     ! Add nodes_of_cell_ptr to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "nodes_of_cell_ptr"
+#endif
     i1 = i2 + 1
     i2 = i2 + array_sizes(6)
     ibuffer(i1:i2) = nodes_of_cell_ptr(:)
     !
     ! Add grid_elem to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "grid_elem"
+#endif
     i1 = i2 + 1
     i2 = i2 + array_sizes(7)
     ibuffer(i1:i2) = grid_elem(:)
     !
     ! Add bface to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "bface"
+#endif
     np = array_sizes(8)*array_sizes(9)
     i1 = i2 + 1
     i2 = i2 + np
@@ -5635,7 +5626,9 @@ continue
     !
     ! Send the integer buffer to the receiving processor
     !
+#ifdef DEBUG_ON
     write (iout,14) "ibuffer"
+#endif
     call mpi_send(ibuffer,size(ibuffer,kind=int_mpi),mpi_inttyp, &
                   recv_cpu,itag2,MPI_COMM_WORLD,mpierr)
   else
@@ -5724,7 +5717,9 @@ continue
     !
     ! Add xyz_nodes to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "xyz_nodes"
+#endif
     np = array_sizes(10)*array_sizes(11)
     r1 = r2 + 1
     r2 = r2 + np
@@ -5732,7 +5727,9 @@ continue
     !
     ! Add grid_xyz to the buffer
     !
+#ifdef DEBUG_ON
     write (iout,13) "grid_xyz"
+#endif
     np = array_sizes(12)*array_sizes(13)
     r1 = r2 + 1
     r2 = r2 + np
@@ -5740,7 +5737,9 @@ continue
     !
     ! Send the real buffer to the receiving processor
     !
+#ifdef DEBUG_ON
     write (iout,14) "rbuffer"
+#endif
     call mpi_send(rbuffer,size(rbuffer,kind=int_mpi),mpi_flttyp, &
                   recv_cpu,itag3,MPI_COMM_WORLD,mpierr)
     !
@@ -5855,6 +5854,7 @@ continue
     array_sizes(12) = size(grid_xyz,dim=1)
     array_sizes(13) = size(grid_xyz,dim=2)
     !
+#ifdef DEBUG_ON
     write (iout,11) "cell_geom",         size(cell_geom)
     write (iout,11) "cell_order",        size(cell_order)
     write (iout,11) "nodes_of_cell",     size(nodes_of_cell)
@@ -5869,6 +5869,7 @@ continue
     write (iout,12) "grid_xyz",1,        size(grid_xyz,dim=1)
     write (iout,12) "grid_xyz",2,        size(grid_xyz,dim=2)
     write (iout,11) "grid_xyz",          size(grid_xyz)
+#endif
     !
     call mpi_send(array_sizes,size(array_sizes,kind=int_mpi), &
                   mpi_inttyp,recv_cpu,itag1,MPI_COMM_WORLD,mpierr)
@@ -5892,6 +5893,10 @@ continue
     !
     call mpi_send(cell_geom(1:nsz),nsz,mpi_inttyp, &
                   recv_cpu,itag2,MPI_COMM_WORLD,mpierr)
+#ifdef DEBUG_ON
+    write (iout,11) "cell_geom",size(cell_geom), &
+                    minval(cell_geom,dim=1),maxval(cell_geom),"send"
+#endif
     !
   else if (mypnum == recv_cpu) then
     !
@@ -5903,6 +5908,11 @@ continue
                   send_cpu,itag2,MPI_COMM_WORLD,istat(1),mpierr)
     !
     if (nsz == 1) cell_geom(2:) = cell_geom(1)
+#ifdef DEBUG_ON
+    write (iout,11) "cell_geom",size(cell_geom), &
+                    minval(cell_geom,dim=1),maxval(cell_geom),"recv"
+#endif
+                            
     !
   end if
   !
@@ -5918,6 +5928,10 @@ continue
     !
     call mpi_send(cell_order(1:nsz),nsz,mpi_inttyp, &
                   recv_cpu,itag3,MPI_COMM_WORLD,mpierr)
+#ifdef DEBUG_ON
+    write (iout,11) "cell_order",size(cell_order), &
+                    minval(cell_order,dim=1),maxval(cell_order),"send"
+#endif
     !
   else if (mypnum == recv_cpu) then
     !
@@ -5929,6 +5943,10 @@ continue
                   send_cpu,itag3,MPI_COMM_WORLD,istat(1),mpierr)
     !
     if (nsz == 1) cell_order(2:) = cell_order(1)
+#ifdef DEBUG_ON
+    write (iout,11) "cell_order",size(cell_order), &
+                    minval(cell_order,dim=1),maxval(cell_order),"recv"
+#endif
     !
   end if
   !
@@ -6077,7 +6095,7 @@ continue
   !
   ! Format Statements
   !
-  11 format (5x,"size(",a,")",t29," = ",i11)
+  11 format (5x,"size(",a,")",t29," = ",i11,:," = [",i0,",",i0,"]  - ",a)
   12 format (5x,"size(",a,",dim=",i0,")",t29," = ",i11)
   13 format (5x,"Adding ",a," to the buffer")
   14 format (5x,"Sending ",a,:," = ",i0)
@@ -6118,7 +6136,9 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = count( face_map(this_part)%loc_to_glb <= gfbnd )
   !
+#ifdef DEBUG_ON
   write (iout,10) pname,gfbnd,lcell,lfbnd
+#endif
   10 format (3x,"In ",a," :",/,10x,"gfbnd = ",i0,/, &
                                10x,"lcell = ",i0,/, &
                                10x,"lfbnd = ",i0)
@@ -6236,12 +6256,22 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = count( face_map(this_part)%loc_to_glb <= gfbnd )
   !
-  write (iout,10) pname,size(global_geom),size(global_order), &
+#ifdef DEBUG_ON
+  write (iout,10) pname, &
+                  size(global_geom), &
+                  minval(global_geom,dim=1),maxval(global_geom,dim=1), &
+                  size(global_order), &
+                  minval(global_order,dim=1),maxval(global_order,dim=1), &
                   gcell,gfbnd,lcell,lfbnd
+#endif
   10 format (3x,"In ",a," :",/, &
-             10x,"size(global_geom) = ",i0,/,10x,"size(global_order) = ",i0,/, &
+             10x,"size(global_geom) = ",i0," = [",i0,",",i0,"]",/, &
+             10x,"size(global_order) = ",i0," = [",i0,",",i0,"]",/, &
              10x,"gcell = ",i0,/,10x,"gfbnd = ",i0,/, &
              10x,"lcell = ",i0,/,10x,"lfbnd = ",i0)
+  11 format (3x,"In ",a," :",/, &
+             10x,"size(cell_geom) = ",i0," = [",i0,",",i0,"]",/, &
+             10x,"size(cell_order) = ",i0," = [",i0,",",i0,"]")
   !
   ! Localize the cell_geom and cell_order arrays
   !
@@ -6279,6 +6309,13 @@ continue
     cell_geom(loc_cell) = face(glb_face)%geom
     cell_order(loc_cell) = face(glb_face)%order
   end do
+#ifdef DEBUG_ON
+  write (iout,11) pname, &
+                  size(cell_geom), &
+                  minval(cell_geom,dim=1),maxval(cell_geom,dim=1), &
+                  size(cell_order), &
+                  minval(cell_order,dim=1),maxval(cell_order,dim=1)
+#endif
   !
   call debug_timer(leaving_procedure,pname,processor=0,part_num=this_part)
   !
@@ -6326,7 +6363,9 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = size( bface , dim=2 )
   !
+#ifdef DEBUG_ON
   write (iout,10) pname,lcell,lfbnd
+#endif
   10 format (3x,"In ",a," :",/,10x,"lcell = ",i0,/,10x,"lfbnd = ",i0)
   !
   ! #######
@@ -8043,6 +8082,7 @@ subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   integer(int_mpi), allocatable :: recv_disp(:)
   integer(int_mpi), allocatable :: edgpt_offset(:)
   integer(int_mpi), allocatable :: nodpt_offset(:)
+  integer(int_mpi), allocatable :: nodpt_offset_save(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_node_and_edge_datatypes"
@@ -8062,9 +8102,37 @@ continue
   n = 0
   do loc_node = 1,lnode
     glb_node = node_map(my_part)%loc_to_glb(loc_node)
+    !
+    ! Check to make sure node%cpu is allocated for this node
+    !
     if (allocated(node(glb_node)%cpu)) then
+      !
+      ! Check to see if this node is on multiple partitions which
+      ! identifies that this node is on a communication boundary 
+      !
       if (size(node(glb_node)%cpu) > 1) then
-        n = n + 1
+        !
+        ! Check to make sure that the current partition is one of the
+        ! partitions that needs to communicate data for this node.
+        !
+        ! NOTE: This check prevents the situation where
+        !       1. This partition contains this node but it is only found in
+        !          the definition of an interior cell
+        !       and
+        !       2. This node is found in the definition of boundary faces on
+        !          two or more additional partitions
+        !
+        !                          \|
+        ! For example:     BOUNDARY\| Partition B
+        !               ///////////\|
+        !               ------------*---------------
+        !                           |
+        !               Partition A | This partition
+        !                           |
+        !                    
+        if (any(node(glb_node)%cpu%partition == my_part)) then
+          n = n + 1
+        end if
       end if
     end if
   end do
@@ -8084,21 +8152,22 @@ continue
     if (allocated(node(glb_node)%cpu)) then
       if (size(node(glb_node)%cpu) > 1) then
         !
-        n = n + 1
-        !
-        bnd_nodes(n)%idx = loc_node
-        !
-        if (my_part == node(glb_node)%controlling_partition) then
-          bnd_nodes(n)%my_responsibility = true
-        end if
-        !
-        rd = real( sum( node(glb_node)%cpu(:)%num_cells ) , kind=wp )
-        !
         do i = 1,size(node(glb_node)%cpu)
           if (my_part == node(glb_node)%cpu(i)%partition) then
-            rn = real( node(glb_node)%cpu(i)%num_cells , kind=wp ) 
+            !
+            n = n + 1
+            !
+            bnd_nodes(n)%idx = loc_node
+            !
+            rd = real( sum( node(glb_node)%cpu(:)%num_cells ) , kind=wp )
+            rn = real( node(glb_node)%cpu(i)%num_cells , kind=wp )
+            !
             bnd_nodes(n)%ave_correction = rn / rd
+            bnd_nodes(n)%my_responsibility = node(glb_node)% &
+                                             controlling_partition
+            !
             cycle fill_bnd_nodes
+            !
           end if
         end do
         !
@@ -8114,7 +8183,9 @@ continue
     glb_edge = edge_map(my_part)%loc_to_glb(loc_edge)
     if (allocated(edge(glb_edge)%cpu)) then
       if (size(edge(glb_edge)%cpu) > 1) then
-        n = n + 1
+        if (any(edge(glb_edge)%cpu%partition == my_part)) then
+          n = n + 1
+        end if
       end if
     end if
   end do
@@ -8134,21 +8205,22 @@ continue
     if (allocated(edge(glb_edge)%cpu)) then
       if (size(edge(glb_edge)%cpu) > 1) then
         !
-        n = n + 1
-        !
-        bnd_edges(n)%idx = loc_edge
-        !
-        if (my_part == edge(glb_edge)%controlling_partition) then
-          bnd_edges(n)%my_responsibility = true
-        end if
-        !
-        rd = real( sum( edge(glb_edge)%cpu(:)%num_cells ) , kind=wp )
-        !
         do i = 1,size(edge(glb_edge)%cpu)
           if (my_part == edge(glb_edge)%cpu(i)%partition) then
+            !
+            n = n + 1
+            !
+            bnd_edges(n)%idx = loc_edge
+            !
+            rd = real( sum( edge(glb_edge)%cpu(:)%num_cells ) , kind=wp )
             rn = real( edge(glb_edge)%cpu(i)%num_cells , kind=wp ) 
+            !
             bnd_edges(n)%ave_correction = rn / rd
+            bnd_edges(n)%my_responsibility = edge(glb_edge)% &
+                                             controlling_partition
+            !
             cycle fill_bnd_edges
+            !
           end if
         end do
         !
@@ -8262,22 +8334,30 @@ continue
     !
   end do
   !
+ !call output_nodpt_offsets(nodpt_offset,0,size(bnd_nodes))
+ !call output_bnd_nodes(bnd_nodes,node,node_map)
+ !nodpt_offset_save = nodpt_offset
+  !
   ! Reshuffle nodpt_offset by summing the total number of nodes for
   ! all the communication nodes before the current one
- !!
- !! SLOWEST METHOD
- !!
+  !
+  ! SLOWEST METHOD
+  !
  !do n = size(bnd_nodes),1,-1
  !  loc_node = bnd_nodes(n)%idx
  !  nodpt_offset(loc_node) = sum( nodpt_offset(1:loc_node-1) )
  !end do
- !!
- !! MUCH FASTER
- !!
+ !call output_nodpt_offsets(nodpt_offset,1,size(bnd_nodes))
+ !nodpt_offset = nodpt_offset_save
+  !
+  ! MUCH FASTER
+  !
  !do n = size(bnd_nodes),1,-1
  !  loc_node = bnd_nodes(n)%idx
  !  nodpt_offset(loc_node) = sum( nodpt_offset(bnd_nodes(1:n-1)%idx) )
  !end do
+ !call output_nodpt_offsets(nodpt_offset,2,size(bnd_nodes))
+ !nodpt_offset = nodpt_offset_save
   !
   ! FASTEST METHOD
   !
@@ -8289,10 +8369,11 @@ continue
     last_offset = nodpt_offset(loc_node)
     nodpt_offset(loc_node) = n1
   end do
+ !call output_nodpt_offsets(nodpt_offset,3,size(bnd_nodes))
   !
   if (maxval(nodpt_offset,dim=1)+1 /= size(bnd_nodes)) then
     write (error_message,1) "Something is wrong here with the node offset"
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   call debug_timer(stop_timer,"section 3")
   call debug_timer(start_timer,"section 4")
@@ -8372,7 +8453,9 @@ continue
     edgpt_offset(loc_edge) = n1
   end do
   call debug_timer(stop_timer,"section 4")
-  call debug_timer(start_timer,"section 5")
+  call debug_timer(start_timer,"section 5a")
+ !write (iout,823) mypnum,"a"
+  823 format (4x,"CPU-",i4.4," is here (",a,") !!",:,i10)
   !
   ! Finally, add the total node point offset into
   ! the offset for each of the edge points
@@ -8382,13 +8465,15 @@ continue
   ! Count the number of communication pairs of the current processor
   ! with all other processors that have a higher rank
   !
-  cpu_nums = 0_int_mpi
+  cpu_nums(:) = 0_int_mpi
   cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) , kind=int_mpi )
   !
   ! Collect the number of communication pairs for all processors
   !
   call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
                      cpu_nums,1_int_mpi,MPI_INTEGER,MPI_COMM_WORLD,mpierr)
+  call debug_timer(stop_timer,"section 5a")
+  call debug_timer(start_timer,"section 5b")
   !
   ! Count the total number of communication pairs for nodes and edges
   !
@@ -8425,12 +8510,16 @@ continue
   do n = 2,ncpu
     cpu_disp(n) = cpu_disp(n-1) + cpu_nums(n-1)
   end do
+  call debug_timer(stop_timer,"section 5b")
+  call debug_timer(start_timer,"section 5c")
   !
   ! Collect the individual comm_pair arrays for all processors
   !
   call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
                       comm_pair,cpu_nums,cpu_disp,mpi_inttyp, &
                       MPI_COMM_WORLD,mpierr)
+  call debug_timer(stop_timer,"section 5c")
+  call debug_timer(start_timer,"section 5d")
   !
   ! Allocate the array containing the communication information
   !
@@ -8468,7 +8557,7 @@ continue
   !
   deallocate ( comm_pair , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"comm_pair",2,__LINE__,__FILE__,ierr,error_message)
-  call debug_timer(stop_timer,"section 5")
+  call debug_timer(stop_timer,"section 5d")
   call debug_timer(start_timer,"section 6: pair_loop")
   !
   ! Allocate all the arrays needed for creating
@@ -8856,6 +8945,78 @@ continue
   !
   1 format (a)
   !
+contains
+subroutine output_nodpt_offsets(nodpt_offset,method,size_bnd_nodes)
+  !
+  integer, intent(in) :: nodpt_offset(:)
+  integer, intent(in) :: method
+  integer, intent(in) :: size_bnd_nodes
+  !
+  integer :: n,io,ierr
+  character(len=100) :: fname
+  !
+continue
+  !
+  write (fname,1) mypnum,method
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  !
+  do n = 1,size(nodpt_offset)
+    write (io,2) n,nodpt_offset(n)
+  end do
+  !
+  write (io,3) maxval(nodpt_offset,dim=1)+1,size_bnd_nodes
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  !
+  ! Format Statements
+  !
+  1 format ("nodpt_offsets/",i4.4,".",i1,".dat")
+  2 format ("nodpt_offset(",i4,") = ",i0)
+  3 format ("maxval(nodpt_offset)+1 = ",i0,/, &
+            "       size(bnd_nodes) = ",i0)
+  !
+end subroutine output_nodpt_offsets
+subroutine output_bnd_nodes(bnd_nodes,node,node_map)
+  !
+  type(bnd_data_t), intent(in) :: bnd_nodes(:)
+  type(node_t),     intent(in) :: node(:)
+  type(map_t),      intent(in) :: node_map(:)
+  !
+  integer :: i,n,io,ierr
+  integer :: loc_node,glb_node
+  character(len=100) :: fname
+  !
+continue
+  !
+  write (fname,1) mypnum
+  !
+  open (newunit=io,file=fname,status="replace",action="write", &
+                   iostat=ierr,iomsg=error_message)
+  !
+  do n = 1,size(bnd_nodes)
+    loc_node = bnd_nodes(n)%idx
+    glb_node = node_map(mypnum+1)%loc_to_glb(loc_node)
+    if (allocated(node(glb_node)%cpu)) then
+      write (io,2) n,loc_node,glb_node, &
+            (node(glb_node)%cpu(i)%partition,i=1,size(node(glb_node)%cpu))
+    else
+      write (io,3) n,loc_node,glb_node
+    end if
+  end do
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  !
+  ! Format Statements
+  !
+  1 format ("nodpt_offsets/",i4.4,".4.dat")
+  2 format ("bnd_nodes(",i4,")%idx = ",i0,"  ; node(gn=",i0, &
+            ")%cpu(:)%partition = [",*(i0,:,","))
+  3 format ("bnd_nodes(",i4,")%idx = ",i0,"  ; node(gn=",i0, &
+            ")%cpu IS NOT ALLOCATED")
+  !
+end subroutine output_bnd_nodes
 end subroutine create_node_and_edge_datatypes
 !
 !###############################################################################
