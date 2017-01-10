@@ -280,13 +280,14 @@ continue
   gridfile = trim(adjustl(input_gridfile))
   !
   call cgp_mpi_comm_f(mpi_comm_self_val,cgierr)
- !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr)
+ !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
   !
   ! Open the grid file
   !
   call cgp_open_f(trim(adjustl(gridfile)),CG_MODE_READ,if_g,cgierr)
   if (debug_cgns) write (*,1) mypnum,"opened CGNS grid file"
-  call cgns_error(pname,gridfile,"cgp_open_f",cgierr,"Mode = CG_MODE_READ")
+  call cgns_error(pname,gridfile,"cgp_open_f",cgierr, &
+                  __LINE__,__FILE__,"Mode = CG_MODE_READ")
   !
   ! Have only the root processor read in the data from the CGNS grid file
   !
@@ -295,7 +296,8 @@ continue
     ! Get the precision of the grid file
     !
     call cg_precision_f(if_g,grid_precision,cgierr)
-    call cgns_error(pname,gridfile,"cg_precision_f",cgierr,not_parallel=true)
+    call cgns_error(pname,gridfile,"cg_precision_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
     if (debug_cgns) then
       write (iout,1) mypnum, &
                      "The CGNS grid file was written using a precision of ", &
@@ -305,7 +307,8 @@ continue
     ! Read the number of bases
     !
     call cg_nbases_f(if_g,nbases,cgierr)
-    call cgns_error(pname,gridfile,"cg_nbases_f",cgierr,not_parallel=true)
+    call cgns_error(pname,gridfile,"cg_nbases_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
     !
     ! Allocate the base array
     !
@@ -323,7 +326,7 @@ continue
   !
   call cgp_close_f(if_g,cgierr)
   if (debug_cgns) write (*,1) mypnum,"closed CGNS grid file"
-  call cgns_error(pname,gridfile,"cgp_close_f",cgierr)
+  call cgns_error(pname,gridfile,"cgp_close_f",cgierr,__LINE__,__FILE__)
   !
   !
   !
@@ -359,7 +362,7 @@ continue
   ! Reset the MPI communicator for CGNS back to MPI_COMM_WORLD
   !
   call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
- !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr)
+ !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the grid arrays to all processors
@@ -837,12 +840,14 @@ continue
   ! Read the information for the current base
   !
   call cg_base_read_f(if_g,ib_g,b%name,b%cell_dim,b%phys_dim,cgierr)
-  call cgns_error(pname,gridfile,"cg_base_read_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_base_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Read the number of zones in the current base
   !
   call cg_nzones_f(if_g,ib_g,nzones,cgierr)
-  call cgns_error(pname,gridfile,"cg_nzones_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_nzones_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the zones component for the current base
   !
@@ -889,17 +894,20 @@ continue
   ! Read the information for the current zone
   !
   call cg_zone_read_f(if_g,ib_g,iz_g,z%name,zone_size,cgierr)
-  call cgns_error(pname,gridfile,"cg_zone_read_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_zone_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   z%nvertex = zone_size(1)
   z%ncell = zone_size(2)
   z%nboundvertex = zone_size(3)
   !
   call cg_zone_type_f(if_g,ib_g,iz_g,z%type,cgierr)
-  call cgns_error(pname,gridfile,"cg_zone_type_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_zone_type_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   call cg_index_dim_f(if_g,ib_g,iz_g,z%index_dim,cgierr)
-  call cgns_error(pname,gridfile,"cg_index_dim_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_index_dim_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   if (z%type /= UNSTRUCTURED .or. base(ib_g)%zone(iz_g)%index_dim /= 1) then
     write (error_message,1) ib_g,iz_g
@@ -909,7 +917,8 @@ continue
   ! Read the number of grids that are in the current zone
   !
   call cg_ngrids_f(if_g,ib_g,iz_g,ngrids,cgierr)
-  call cgns_error(pname,gridfile,"cg_ngrids_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_ngrids_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the grid component for the current zone
   !
@@ -920,7 +929,8 @@ continue
   ! Read the number of element sections that are in the current zone
   !
   call cg_nsections_f(if_g,ib_g,iz_g,nsections,cgierr)
-  call cgns_error(pname,gridfile,"cg_nsections_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_nsections_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the section component for the current zone
   !
@@ -931,7 +941,8 @@ continue
   ! Read the number of boundary conditions that are in the current zone
   !
   call cg_nbocos_f(if_g,ib_g,iz_g,nbocos,cgierr)
-  call cgns_error(pname,gridfile,"cg_nbocos_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_nbocos_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the bc component for the current zone
   !
@@ -996,7 +1007,8 @@ continue
   ! Get the name of the current grid
   !
   call cg_grid_read_f(if_g,ib_g,iz_g,ig_g,g%name,cgierr)
-  call cgns_error(pname,gridfile,"cg_grid_read_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_grid_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   if (ig_g == 1) then
     !
@@ -1005,7 +1017,8 @@ continue
     ! Get the number of coordinates
     !
     call cg_ncoords_f(if_g,ib_g,iz_g,ncoords,cgierr)
-    call cgns_error(pname,gridfile,"cg_ncoords_f",cgierr,not_parallel=true)
+    call cgns_error(pname,gridfile,"cg_ncoords_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
     !
     ! Allocate the coord component of the current grid
     !
@@ -1032,12 +1045,14 @@ continue
                    "Zone_t",iz_g, &
                    "GridCoordinates_t",ig_g, &
                    CGNS_GOTO_END)
-    call cgns_error(pname,gridfile,"cg_goto_f",cgierr,not_parallel=true)
+    call cgns_error(pname,gridfile,"cg_goto_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
     !
     ! Get the number of coordinate arrays for the current grid
     !
     call cg_narrays_f(narrays,cgierr)
-    call cgns_error(pname,gridfile,"cg_narrays_f",cgierr,not_parallel=true)
+    call cgns_error(pname,gridfile,"cg_narrays_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
     !
     ! Allocate the coord component of the current grid
     !
@@ -1088,7 +1103,8 @@ continue
   ! Read the coordinate info
   !
   call cg_coord_info_f(if_g,ib_g,iz_g,ic_g,stored_datatype,c%name,cgierr)
-  call cgns_error(pname,gridfile,"cg_coord_info_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_coord_info_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the data array to the total number of nodes in the grid
   !
@@ -1105,7 +1121,8 @@ continue
   !
   call cg_coord_read_f(if_g,ib_g,iz_g,trim(adjustl(c%name)),read_datatype, &
                        ibeg,iend,c%x,cgierr)
-  call cgns_error(pname,gridfile,"cg_coord_read_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_coord_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1143,7 +1160,8 @@ continue
   !
   call cg_array_info_f(ia_g,c%name,stored_datatype,data_dimension, &
                        dimension_vector,cgierr)
-  call cgns_error(pname,gridfile,"cg_array_info_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_array_info_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Allocate the data array to the total number of nodes in the grid
   !
@@ -1156,7 +1174,8 @@ continue
   ! Read in the coordinate data
   !
   call cg_array_read_as_f(ia_g,read_datatype,c%x,cgierr)
-  call cgns_error(pname,gridfile,"cg_array_read_as_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_array_read_as_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1190,13 +1209,14 @@ continue
   !
   call cg_section_read_f(if_g,ib_g,iz_g,is_g,s%name,s%type,s%start,s%end, &
                          s%nbndry,s%parent_flag,cgierr)
-  call cgns_error(pname,gridfile,"cg_section_read_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_section_read_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Get the size of the element data
   !
   call cg_elementdatasize_f(if_g,ib_g,iz_g,is_g,element_data_size,cgierr)
   call cgns_error(pname,gridfile,"cg_elementdatasize_f",cgierr, &
-                  not_parallel=true)
+                  __LINE__,__FILE__,not_parallel=true)
   !
   np = element_data_size
   !
@@ -1215,13 +1235,13 @@ continue
     !
     call cg_elements_read_f(if_g,ib_g,iz_g,is_g,s%elements,s%parentdata,cgierr)
     call cgns_error(pname,gridfile,"cg_elements_read_f",cgierr, &
-                    not_parallel=true)
+                    __LINE__,__FILE__,not_parallel=true)
     !
   else
     !
     call cg_elements_read_f(if_g,ib_g,iz_g,is_g,s%elements,c_null_ptr,cgierr)
     call cgns_error(pname,gridfile,"cg_elements_read_f",cgierr, &
-                    not_parallel=true)
+                    __LINE__,__FILE__,not_parallel=true)
     !
   end if
   !
@@ -1257,13 +1277,14 @@ continue
                       bc%name,bc%boco_type,bc%ptset_type,bc%npnts, &
                       bc%normal_index,bc%normal_list_size,bc%normal_datatype, &
                       bc%ndataset,cgierr)
-  call cgns_error(pname,gridfile,"cg_boco_info_f",cgierr,not_parallel=true)
+  call cgns_error(pname,gridfile,"cg_boco_info_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
   !
   ! Read the location of this boundary condition
   !
   call cg_boco_gridlocation_read_f(if_g,ib_g,iz_g,ibc_g,bc%location,cgierr)
   call cgns_error(pname,gridfile,"cg_boco_gridlocation_read_f",cgierr, &
-                  not_parallel=true)
+                  __LINE__,__FILE__,not_parallel=true)
  !write (*,*)
  !write (*,'(a,i0)') "base(ib_g)%zone(iz_g)%index_dim = ", &
  !                    base(ib_g)%zone(iz_g)%index_dim
@@ -1338,7 +1359,7 @@ continue
       !
       call cg_boco_read_f(if_g,ib_g,iz_g,ibc_g,bc%pnts,normal_list_sp,cgierr)
       call cgns_error(pname,gridfile,"cg_boco_read_f(SP)",cgierr, &
-                      not_parallel=true)
+                      __LINE__,__FILE__,not_parallel=true)
       !
       bc%normal_list(:) = real( normal_list_sp(:) , kind=wp )
       !
@@ -1355,7 +1376,7 @@ continue
       !
       call cg_boco_read_f(if_g,ib_g,iz_g,ibc_g,bc%pnts,normal_list_dp,cgierr)
       call cgns_error(pname,gridfile,"cg_boco_read_f(DP)",cgierr, &
-                      not_parallel=true)
+                      __LINE__,__FILE__,not_parallel=true)
       !
       bc%normal_list(:) = real( normal_list_dp(:) , kind=wp )
       !
@@ -1369,7 +1390,7 @@ continue
     !
     call cg_boco_read_f(if_g,ib_g,iz_g,ibc_g,bc%pnts,c_null_ptr,cgierr)
     call cgns_error(pname,gridfile,"cg_boco_read_f(null)",cgierr, &
-                    not_parallel=true)
+                    __LINE__,__FILE__,not_parallel=true)
     !
   end if
   !

@@ -84,7 +84,8 @@ continue
 #ifndef CGNS_3_3
   if (.not. cgns_use_queue) then
     call cgp_queue_set_f(STOP_CGNS_QUEUE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f", &
+                    cgierr,__LINE__,__FILE__)
   end if
 #endif
   !
@@ -104,7 +105,8 @@ continue
 #ifndef CGNS_3_3
   if (cgns_use_queue) then
     call cgp_queue_set_f(BEGIN_CGNS_QUEUE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_set_f", &
+                    cgierr,__LINE__,__FILE__)
   end if
 #endif
   !
@@ -123,7 +125,8 @@ continue
 #ifndef CGNS_3_3
   if (cgns_use_queue) then
     call cgp_queue_flush_f(cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f", &
+                    cgierr,__LINE__,__FILE__)
   end if 
 #endif
   !
@@ -132,7 +135,8 @@ end subroutine flush_cgns_queue
 !###############################################################################
 !
 subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
-                      optmessag,optinteger,not_parallel)
+                      line_number,src_file_name,optmessag,optinteger, &
+                      not_parallel)
   !
   !.. Use Statements ..
   use module_kind_types, only : iout
@@ -155,10 +159,12 @@ subroutine cgns_error(procedure_name,file_name,cgns_routine,iemessag, &
 #endif
   !
   !.. Formal Arguments ..
-  character(len=*),   intent(in) :: procedure_name
-  character(len=*),   intent(in) :: file_name
-  character(len=*),   intent(in) :: cgns_routine
-  integer(CBT),       intent(in) :: iemessag
+  character(len=*), intent(in) :: procedure_name
+  character(len=*), intent(in) :: file_name
+  character(len=*), intent(in) :: cgns_routine
+  integer(CBT),     intent(in) :: iemessag
+  integer,          intent(in) :: line_number
+  character(len=*), intent(in) :: src_file_name
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: optmessag
@@ -206,7 +212,7 @@ continue
   !
   if (file_operation_is_serial) then
     call cg_get_error_f(error_message)
-    call io_error(procedure_name,file_name,5,__LINE__,__FILE__, &
+    call io_error(procedure_name,file_name,5,line_number,src_file_name, &
                   iemessag,error_message)
   else
     call cg_error_print_f

@@ -4706,13 +4706,15 @@ continue
     !
     call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
                          int(nr,kind=CBT),ibase_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_base_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_base_write_f", &
+                    cgierr,__LINE__,__FILE__)
     !
     ! Write the title for this solution
     !
     call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
                          UNSTRUCTURED,izone_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_zone_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_zone_write_f", &
+                    cgierr,__LINE__,__FILE__)
     !
     ! Create data nodes for the coordinates
     !
@@ -4720,8 +4722,8 @@ continue
       varname = "Coordinate"//char_xyz(n)
       call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
                              trim(varname),ixyz_n(n),cgierr)
-      call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f",cgierr, &
-                      "Write node: Coordinate",n)
+      call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
+                      cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
     end do
     !
     ! Now create and write the coordinate data in parallel
@@ -4749,8 +4751,8 @@ continue
       !
       call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
                                   my_pts_beg,my_pts_end,var,cgierr)
-      call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f",cgierr, &
-                      "Write data: Coordinate",n)
+      call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f", &
+                      cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
       !
       ! Finally, flush the queue containing the
       ! current coordinate variable to the CGNS file.
@@ -4770,7 +4772,8 @@ continue
                                HEXA_8,1_CST,n_total_output_cells, &
                                0_CBT,isect_n,cgierr)
     end if
-    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
+                    cgierr,__LINE__,__FILE__)
     !
     ! Write the element connectivity in parallel
     !
@@ -4782,7 +4785,8 @@ continue
     !
     call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
                                    my_cells_beg,my_cells_end,ipelem,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
+                    cgierr,__LINE__,__FILE__)
     !
     ! Finally, flush the queue containing the
     ! element connectivity to the CGNS file.
@@ -4805,7 +4809,7 @@ continue
     end if
     !
     call cgp_close_f(ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr,__LINE__,__FILE__)
     !
   end if
   !
@@ -4819,7 +4823,8 @@ continue
   if (mypnum == 0) then
    !call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
     call cg_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_open_f",cgierr, &
+    call cgns_error(pname,cgns_grid_file,"cg_open_f", &
+                    cgierr,__LINE__,__FILE__, &
                     "Mode = CG_MODE_MODIFY",not_parallel=true)
   end if
   !
@@ -4845,13 +4850,14 @@ continue
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "Zone_t",izone_n, &
                    CGNS_GOTO_END)
-    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     link_path = base_name//"/"//zone_name//"/"//trim(tname)
     !
     call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_link_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_link_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
   end if
   !
@@ -4873,47 +4879,50 @@ continue
     !
     call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues', &
                           size(soltime,kind=CBT),cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_biter_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_biter_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "BaseIterativeData_t",iiter_n, &
                    CGNS_GOTO_END)
-    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
                           size(soltime,kind=CST),soltime,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     ! Update the zone iterative node
     !
     call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "Zone_t",izone_n, &
                    "ZoneIterativeData_t",iiter_n, &
                    CGNS_GOTO_END)
-    call cgns_error(pname,cgns_grid_file,"cg_goto_f",cgierr,not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     idata(:) = int( [32,size(solname)] , kind=kind(idata) )
     call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
                           idata,solname,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_array_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     ! Identify the flow solution within the CGNS file as time dependent
     !
     call cg_simulation_type_write_f(ifile_n,ibase_n,TIMEACCURATE,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f",cgierr, &
-                    not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
     ! Close the CGNS FILE
     !
     call cg_close_f(ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_close_f",cgierr,not_parallel=true)
+    call cgns_error(pname,cgns_grid_file,"cg_close_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
     !
   end if
   !
@@ -5015,26 +5024,29 @@ continue
   !
   call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
                        int(nr,kind=CBT),ibase_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_base_write_f",cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Write the title for this solution
   !
   call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
                        UNSTRUCTURED,izone_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f",cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Create a link to the grid coordinates in the grid file
   !
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
                  CGNS_GOTO_END)
-  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
   call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
                        trim(link_path),cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)",cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Create a link to the element connectivity in the grid file
   !
@@ -5048,7 +5060,8 @@ continue
   call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
                        trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file, &
-                  "cg_link_write_f("//trim(sect_name)//")",cgierr)
+                  "cg_link_write_f("//trim(sect_name)//")", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Allocate var and vartmp if they arent already allocated
   !
@@ -5076,7 +5089,7 @@ continue
   ! Write the flow variables
   !
   call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
-  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
   !
   ! #######################################
   ! #####   WRITING FIELD VARIABLES   #####
@@ -5103,7 +5116,8 @@ continue
       varname = "Density_d"//char_xyz(l)
       call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                              trim(varname),isvar_s(l),cgierr)
-      call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+      call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                      cgierr,__LINE__,__FILE__, &
                       "Write node: Gradient variable",l)
     end do
     !
@@ -5115,7 +5129,8 @@ continue
         varname = "Velocity"//char_xyz(m)//"_d"//char_xyz(l)
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                                trim(varname),isvar_s(n),cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
                         "Write node: Gradient variable",n)
       end do
     end do
@@ -5141,7 +5156,8 @@ continue
         !
         call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
                                     my_pts_beg,my_pts_end,var,cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f",cgierr, &
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
+                        cgierr,__LINE__,__FILE__, &
                         "Write data: Gradient variable",n)
         !
         ! Finally, flush the queue containing
@@ -5209,7 +5225,8 @@ continue
           varname = "Velocity"//char_xyz(m)
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end do
       else if (trim(char_sname(l)) == "Vorticity") then
@@ -5218,7 +5235,8 @@ continue
           varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
           if (nr < 3) exit
         end do
@@ -5228,7 +5246,8 @@ continue
           varname = "Momentum"//char_xyz(m)
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end do
       else if (trim(char_sname(l)) == "GradDensity") then
@@ -5237,7 +5256,8 @@ continue
           varname = "DensityGradient"//char_xyz(m)
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end do
       else if (trim(char_sname(l)) == "GradMomentum") then
@@ -5248,7 +5268,8 @@ continue
             call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                    CGNS_KIND_REAL,trim(varname), &
                                    isvar_s(n),cgierr)
-            call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+            call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                            cgierr,__LINE__,__FILE__, &
                             "Write node: Solution variable",n)
           end do
         end do
@@ -5258,7 +5279,8 @@ continue
           varname = "EnergyGradient"//char_xyz(m)
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end do
       else if (trim(char_sname(l)) == "Viscosity") then
@@ -5267,7 +5289,8 @@ continue
           varname = trim(char_sname(l))
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end if
       else
@@ -5279,7 +5302,8 @@ continue
         end if
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
-        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f",cgierr, &
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
       end if
     end do
@@ -5462,8 +5486,8 @@ continue
     !
     call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
                                 my_pts_beg,my_pts_end,var,cgierr)
-    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f",cgierr, &
-                    "Write data: Solution variable",n)
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Solution variable",n)
     !
     ! Finally, flush the queue containing
     ! the current variable to the CGNS file.
@@ -5733,25 +5757,27 @@ continue
   !       since this file will contain a 2D solution along a boundary face
   !
   call cg_base_write_f(ifile_v,bname,2_CBT,2_CBT,ibase_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_base_write_f",cgierr)
+  call cgns_error(pname,cgns_vort_file,"cg_base_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Write the title for this solution
   !
   call cg_zone_write_f(ifile_v,ibase_v,zname,vort_zone_size, &
                        UNSTRUCTURED,izone_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_zone_write_f",cgierr)
+  call cgns_error(pname,cgns_vort_file,"cg_zone_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Create data nodes for the coordinates
   !
   call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
                          "CoordinateY",ixyz_v(1),cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f",cgierr, &
-                  "Write node: Coordinate = 1 (Y)")
+  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
+                  cgierr,__LINE__,__FILE__,"Write node: Coordinate = 1 (Y)")
   !
   call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
                          "CoordinateZ",ixyz_v(2),cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f",cgierr, &
-                  "Write node: Coordinate = 2 (Z)")
+  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
+                  cgierr,__LINE__,__FILE__,"Write node: Coordinate = 2 (Z)")
   !
   ! Now create and write the coordinate data in parallel
   !
@@ -5789,8 +5815,8 @@ continue
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(1), &
                                 my_beg,my_end,vary,cgierr)
   end if
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f",cgierr, &
-                  "Write data: Coordinate = 1 (Y)")
+  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
+                  cgierr,__LINE__,__FILE__,"Write data: Coordinate = 1 (Y)")
   !
   ! Add the data for the z-coordinate to the output queue
   ! NOTE: It is an error for a processor to try an write data if it doesnt
@@ -5802,8 +5828,8 @@ continue
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(2), &
                                 my_beg,my_end,varz,cgierr)
   end if
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f",cgierr, &
-                  "Write data: Coordinate = 2 (Z)")
+  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
+                  cgierr,__LINE__,__FILE__,"Write data: Coordinate = 2 (Z)")
   !
   ! Finally, flush the queue containing the
   ! coordinate variables to the CGNS file
@@ -5815,7 +5841,8 @@ continue
   call cgp_section_write_f(ifile_v,ibase_v,izone_v,"Quadrilaterals", &
                            QUAD_4,1_CST,vort_zone_size(2), &
                            0_CBT,isect_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_section_write_f",cgierr)
+  call cgns_error(pname,cgns_vort_file,"cgp_section_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Write the element connectivity in parallel
   !
@@ -5836,7 +5863,8 @@ continue
     call cgp_elements_write_data_f(ifile_v,ibase_v,izone_v,isect_v, &
                                    my_beg,my_end,ipelem,cgierr)
   end if
-  call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f",cgierr)
+  call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Finally, flush the queue containing the
   ! element connectivity to the CGNS file.
@@ -5864,13 +5892,15 @@ continue
   !
   call cg_sol_write_f(ifile_v,ibase_v,izone_v,"VorticitySolution", &
                       VERTEX,isol_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_sol_write_f",cgierr)
+  call cgns_error(pname,cgns_vort_file,"cg_sol_write_f", &
+                  cgierr,__LINE__,__FILE__)
   !
   ! Create a data node for the vorticity solution
   !
   call cgp_field_write_f(ifile_v,ibase_v,izone_v,isol_v,CGNS_KIND_REAL, &
                          "VorticityMagnitude",isvar_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_field_write_f",cgierr, &
+  call cgns_error(pname,cgns_vort_file,"cgp_field_write_f", &
+                  cgierr,__LINE__,__FILE__, &
                   "Write node: Solution variable = 1 (VorticityMagnitude)")
   !
   ! Compute the vorticity magnitude at each face point
@@ -5891,7 +5921,8 @@ continue
     call cgp_field_write_data_f(ifile_v,ibase_v,izone_v,isol_v,isvar_v, &
                                 my_beg,my_end,vary,cgierr)
   end if
-  call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f",cgierr, &
+  call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f", &
+                  cgierr,__LINE__,__FILE__, &
                   "Write data: Solution variable = 1 (VorticityMagnitude)")
   !
   ! Finally, flush the queue containing
