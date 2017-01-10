@@ -10,12 +10,13 @@
 OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
+#FCADD += -DPROFILE_ON
 
 
 .PHONY: all
 all: debug_recon recon
 .PHONY: all-nodes
-all-nodes: recon_broadwell recon_haswell recon_ivybridge recon_sandybridge
+all-nodes: recon_sandybridge recon_ivybridge recon_broadwell
 
 .PHONY: rebuild
 rebuild: rebuild-debug rebuild-optimize
@@ -33,23 +34,15 @@ recon_haswell: haswell
 recon_ivybridge: ivybridge
 recon_sandybridge: sandybridge
 
-#recon_broadwell: $(call build-function, optimize_broadwell, recon_broadwell, $(FCADD), broadwell)
-#rebuild-test: $(call rebuild-function, optimize_broadwell, recon_broadwell, $(FCADD), broadwell)
-
-# BROADWELL
+# BROADWELL (Essentially the same as Haswell)
 
 .PHONY: broadwell
-broadwell: BDIR := optimize_broadwell
-broadwell: EXEF := recon_broadwell
-broadwell: TRGT := broadwell
-broadwell: build
+broadwell: haswell
+broadwell: link-to-haswell
 
 .PHONY: rebuild-broadwell
-rebuild-broadwell: BDIR := optimize_broadwell
-rebuild-broadwell: EXEF := recon_broadwell
-rebuild-broadwell: TRGT := broadwell
-rebuild-broadwell: clean
-rebuild-broadwell: build
+rebuild-broadwell: rebuild-haswell
+rebuild-broadwell: link-to-haswell
 
 # HASWELL
 
@@ -138,6 +131,9 @@ warn-std90: std90
 
 #FCADD += -DTRACK_MEMORY_ALLOCATIONS
 #FCADD += -DMEMORY_TEST_PAUSE
+
+#recon_haswell: $(call build-function, optimize_haswell, recon_haswell, $(FCADD), haswell)
+#rebuild-test: $(call rebuild-function, optimize_haswell, recon_haswell, $(FCADD), haswell)
 define build-function
   $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=$(1)" \
                                "BUILDDIR=$(2)" \
@@ -218,6 +214,11 @@ time-optimize:
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" time
 
+.PHOHY: link-to-haswell
+link-to-haswell:
+	/bin/ln -sf recon_haswell recon_broadwell
+	/bin/ln -sf $(HOME)/bin/recon_haswell $(HOME)/bin/recon_broadwell
+
 .PHONY: deplist
 deplist:
 	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
@@ -247,4 +248,3 @@ clean:
 	make -f slv.mk "EXECUTABLE=recon_sandybridge" "BUILDDIR=optimize_sandybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_ivybridge" "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_haswell" "BUILDDIR=optimize_haswell" clean
-	make -f slv.mk "EXECUTABLE=recon_broadwell" "BUILDDIR=optimize_broadwell" clean
