@@ -810,7 +810,7 @@ continue
               20("!"),5x,"WARNING",5x,20("!"),/)
   2 format (i0,a1)
   3 format (/,"The Lustre striping command to be used is:",/, &
-              "lfs setstripe -c ",i0," -s ",a,1x,"[file/directory]",/)
+              "lfs setstripe -c ",i0," -S ",a,1x,"[file/directory]",/)
   !
 end subroutine check_lustre_striping
 !
@@ -1116,7 +1116,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
+  1 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   !
 end subroutine check_cgns_dir
 !
