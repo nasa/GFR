@@ -176,28 +176,28 @@ subroutine allocate_flowvar_arrays()
   character(len=*), parameter :: pname = "allocate_flowvar_arrays"
   !
  !logical(lk), parameter :: allocate_base_arrays = true
-  logical(lk), parameter :: allocate_base_arrays = fals
+ !logical(lk), parameter :: allocate_base_arrays = fals
   !
-  logical(lk), parameter :: allocate_face_arrays = true
+ !logical(lk), parameter :: allocate_face_arrays = true
  !logical(lk), parameter :: allocate_face_arrays = fals
   !
  !logical(lk), parameter :: allocate_face_components = true
-  logical(lk), parameter :: allocate_face_components = fals
+ !logical(lk), parameter :: allocate_face_components = fals
   !
-  logical(lk), parameter :: allocate_continuous_arrays = true
+ !logical(lk), parameter :: allocate_continuous_arrays = true
  !logical(lk), parameter :: allocate_continuous_arrays = fals
   !
-  logical(lk), parameter :: allocate_continuous_components = true
+ !logical(lk), parameter :: allocate_continuous_components = true
  !logical(lk), parameter :: allocate_continuous_components = fals
   !
-  logical(lk), parameter :: allocate_rk_arrays = true
+ !logical(lk), parameter :: allocate_rk_arrays = true
  !logical(lk), parameter :: allocate_rk_arrays = fals
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (allocate_base_arrays) then
+ !if (allocate_base_arrays) then
     allocate ( usp(1:nq,1:n_totpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
@@ -221,14 +221,14 @@ continue
     allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uoldsp",1,__LINE__,__FILE__,ierr,error_message)
-  end if
+ !end if
   !
   !
   ! Allocate the outer part of the face solution/flux arrays
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
-    if (allocate_face_arrays) then
+   !if (allocate_face_arrays) then
       allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
       !
@@ -240,9 +240,6 @@ continue
       !
       ! If using the continuous output option or MMS, allocate the facexyz array
       !
-        !
-        allocate ( facexyz(1:nface) , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"facexyz",1,__LINE__,__FILE__,ierr,error_message)
       if (continuous_output) then
         !
         ! If using continuous output, facexyz needs to be defined
@@ -263,7 +260,7 @@ continue
       !
       ! Allocate the data component of these arrays based on the face geometry
       !
-      if (allocate_face_components) then
+     !if (allocate_face_components) then
         do nf = 1,nface
           !
           face_geom = face(nf)%geom
@@ -309,8 +306,8 @@ continue
           end if
           !
         end do
-      end if
-    end if
+     !end if
+   !end if
     !
     ! If using continuous output, allocate the nodeusp, nodedusp, edgeusp,
     ! and edgedusp arrays
@@ -323,15 +320,15 @@ continue
     !##########################################################################
     !##########################################################################
     !
-   !if (continuous_output) then
-    if (allocate_continuous_arrays) then
+    if (continuous_output) then
+   !if (allocate_continuous_arrays) then
       !
       ! Allocate the nodeusp array and its data components
       !
       allocate ( nodeusp(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodeusp",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (allocate_continuous_components) then
+     !if (allocate_continuous_components) then
       do nn = 1,nnode
         allocate ( nodeusp(nn)%v(1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
@@ -339,7 +336,7 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
       end do
-      end if
+     !end if
       !
       !
       ! Allocate the nodedusp array and its data components
@@ -347,7 +344,7 @@ continue
       allocate ( nodedusp(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodedusp",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (allocate_continuous_components) then
+     !if (allocate_continuous_components) then
       do nn = 1,nnode
         allocate ( nodedusp(nn)%v(1:nr,1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
@@ -355,14 +352,14 @@ continue
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
       end do
-      end if
+     !end if
       !
       ! Allocate the edgeusp array and its data components
       !
       allocate ( edgeusp(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgeusp",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (allocate_continuous_components) then
+     !if (allocate_continuous_components) then
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
@@ -374,14 +371,14 @@ continue
                          error_message,skip_alloc_pause)
         !
       end do
-      end if
+     !end if
       !
       ! Allocate the edgedusp array and its data components
       !
       allocate ( edgedusp(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgedusp",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (allocate_continuous_components) then
+     !if (allocate_continuous_components) then
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
@@ -393,14 +390,14 @@ continue
                          error_message,skip_alloc_pause)
         !
       end do
-      end if
+     !end if
       !
       ! Allocate the edgexyz array and its data components
       !
       allocate ( edgexyz(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgexyz",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (allocate_continuous_components) then
+     !if (allocate_continuous_components) then
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
@@ -412,16 +409,16 @@ continue
                          error_message,skip_alloc_pause)
         !
       end do
-      end if
+     !end if
       !
-    end if
    !end if
+    end if
     !
   end if
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
-  if (allocate_rk_arrays) then
+ !if (allocate_rk_arrays) then
     n = 0
     if (iRKtype == Classic_RK) then
       n = num_stages
@@ -443,7 +440,7 @@ continue
       call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
-  end if
+ !end if
   !
   call debug_timer(leaving_procedure,pname)
   !
