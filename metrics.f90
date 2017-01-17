@@ -166,6 +166,8 @@ subroutine get_metrics()
   integer  :: n,nc,n1,n2,np
   integer  :: this_geom,this_order
   integer  :: ref_dir,phys_dir
+  integer  :: min_jsp,min_jsp_cpu,min_jtp,min_jtp_cpu
+  integer  :: max_jsp,max_jsp_cpu,max_jtp,max_jtp_cpu
   real(r8) :: loc_vol,tot_vol
   !
  !integer :: exitstat,cmndstat
@@ -175,6 +177,8 @@ subroutine get_metrics()
   integer  :: iom(1:4)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: outmet(1:nr,1:nr)
+  real(wp) :: jac_info(1:8)
+  real(wp) :: all_jac_info(1:8,1:ncpu)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
@@ -193,6 +197,9 @@ subroutine get_metrics()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  jac_info(:) = zero
+  all_jac_info(:,:) = zero
   !
   if (VortexGrid_random_perturb) then
     ibeg = 1
@@ -349,6 +356,55 @@ continue
     end if
     !
   end do metrics_loop
+  !
+  np = cell(ncell)%end_sp
+  !
+  min_jsp = minloc(jacobian(1:np),dim=1)
+  max_jsp = maxloc(jacobian(1:np),dim=1)
+  min_jtp = minloc(jacobian,mask=jacobian/=zero,dim=1)
+  max_jtp = maxloc(jacobian,mask=jacobian/=zero,dim=1)
+  !
+  jac_info(1) = real(min_jsp,kind=wp)
+  jac_info(2) = real(max_jtp,kind=wp)
+  jac_info(3) = real(min_jsp,kind=wp)
+  jac_info(4) = real(max_jtp,kind=wp)
+  jac_info(5) = jacobian(min_jsp)
+  jac_info(6) = jacobian(max_jtp)
+  jac_info(7) = jacobian(min_jsp)
+  jac_info(8) = jacobian(max_jtp)
+  !
+  call mpi_allgather(    jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                     all_jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                     MPI_COMM_WORLD,mpierr)
+  !
+  min_jsp_cpu = minloc( all_jac_info(5,:) , dim=1 )
+  max_jsp_cpu = minloc( all_jac_info(6,:) , dim=1 )
+  min_jtp_cpu = minloc( all_jac_info(7,:) , dim=1 )
+  max_jtp_cpu = minloc( all_jac_info(8,:) , dim=1 )
+  !
+  min_jsp = nint( all_jac_info(1,min_jsp_cpu) )
+  max_jsp = nint( all_jac_info(2,max_jsp_cpu) )
+  min_jtp = nint( all_jac_info(3,min_jtp_cpu) )
+  max_jtp = nint( all_jac_info(4,max_jtp_cpu) )
+  !
+  if (mypnum == 0) then
+    write (iout,1) all_jac_info(5,min_jsp_cpu),min_jsp,min_jsp_cpu-1, &
+                   all_jac_info(6,max_jsp_cpu),max_jsp,max_jsp_cpu-1, &
+                   all_jac_info(7,min_jtp_cpu),min_jtp,min_jtp_cpu-1, &
+                   all_jac_info(8,max_jtp_cpu),max_jtp,max_jtp_cpu-1
+  end if
+  !
+  1 format (/, &
+          " Min Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
+          " Max Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
+          " Min Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
+          " Max Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/)
+  !
+ !write (iout,2) mypnum,"n_solpts",minval(jacobian(1:np)),maxval(jacobian(1:np))
+ !write (iout,2) mypnum,"n_totpts",minval(jacobian,mask=jacobian/=zero),&
+ !                                 maxval(jacobian,mask=jacobian/=zero)
+ !2 format ("  For CPU #",i4.4," : min,max-val of Jacobian(1:",a,") = [", &
+ !                                               es22.15,",",es22.15,"]")
  !write (*,*) mypnum,local_volume,sum(volj(1:ncell))
   !
  !if (output_metrics) then
