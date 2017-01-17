@@ -4639,6 +4639,9 @@ subroutine write_parallel_cgns(iflag)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  logical, parameter :: update_zone_iter_in_parallel = true
+ !logical, parameter :: update_zone_iter_in_parallel = fals
+  logical, parameter :: ziter_not_parallel = .not.update_zone_iter_in_parallel
   !
   !.. Local Arrays ..
   integer(CST), dimension(1:2)  :: idata
@@ -4808,24 +4811,27 @@ continue
       call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
     end if
     !
-    call cgp_close_f(ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cgp_close_f",cgierr,__LINE__,__FILE__)
+  else
     !
-  end if
-  !
-  ! Reopen the CGNS grid file to update the zone iterative data
-  ! NOTE: We only need to update the zone iterative data which can be done by
-  !       the root processor alone, so have the root processor open the grid
-  !       file by itself in serial mode to prevent any I/O contention issues
-  !       created by using all processors to update the zone iterative data at
-  !       the same time.
-  !
-  if (mypnum == 0) then
-   !call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
-    call cg_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_open_f", &
+    if (ziter_not_parallel) then
+      !
+      ! We only need to update the zone iterative data which can be done by
+      ! the root processor alone, so have the root processor open the grid
+      ! file by itself in serial mode to prevent any I/O contention issues
+      ! created by using all processors to update the zone iterative data at
+      ! the same time.
+      !
+      call cgp_mpi_comm_f(mpi_comm_self_val,cgierr)
+      !
+    end if
+    !
+    ! Reopen the CGNS grid file to update the zone iterative data
+    !
+    call cgp_open_f(cgns_grid_file,CG_MODE_MODIFY,ifile_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
                     cgierr,__LINE__,__FILE__, &
-                    "Mode = CG_MODE_MODIFY",not_parallel=true)
+                    "Mode = CG_MODE_MODIFY")
+    !
   end if
   !
   ! Get the name for the current solution node
@@ -4842,22 +4848,21 @@ continue
   soltime(size(soltime)) = real(time*time_ref,kind(soltime))
   solname(size(solname)) = tname
   !
-  ! Create a link to the solution node in the current solution file
-  ! NOTE: Only the root processor should do this
-  !
-  if (mypnum == 0) then
+  if (update_zone_iter_in_parallel .or. mypnum == 0) then
+    !
+    ! Create a link to the solution node in the current solution file
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "Zone_t",izone_n, &
                    CGNS_GOTO_END)
     call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     link_path = base_name//"/"//zone_name//"/"//trim(tname)
     !
     call cg_link_write_f(trim(tname),trim(sol_file),trim(link_path),cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_link_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
   end if
   !
@@ -4871,59 +4876,59 @@ continue
   !
   call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_grid_file)
   !
-  ! If last iteration or a solution dump was requested, close CGNS file
-  !
-  ! Update the base iterative node
-  !
-  if (mypnum == 0) then
+  if (update_zone_iter_in_parallel .or. mypnum == 0) then
     !
     call cg_biter_write_f(ifile_n,ibase_n,'TimeIterValues', &
                           size(soltime,kind=CBT),cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_biter_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "BaseIterativeData_t",iiter_n, &
                    CGNS_GOTO_END)
     call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
                           size(soltime,kind=CST),soltime,cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     ! Update the zone iterative node
     !
     call cg_ziter_write_f(ifile_n,ibase_n,izone_n,"ZoneIterativeData",cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_ziter_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     call cg_goto_f(ifile_n,ibase_n,cgierr, &
                    "Zone_t",izone_n, &
                    "ZoneIterativeData_t",iiter_n, &
                    CGNS_GOTO_END)
     call cgns_error(pname,cgns_grid_file,"cg_goto_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     idata(:) = int( [32,size(solname)] , kind=kind(idata) )
     call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
                           idata,solname,cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_array_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
     ! Identify the flow solution within the CGNS file as time dependent
     !
     call cg_simulation_type_write_f(ifile_n,ibase_n,TIMEACCURATE,cgierr)
     call cgns_error(pname,cgns_grid_file,"cg_simulation_type_write_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
+                    cgierr,__LINE__,__FILE__,not_parallel=ziter_not_parallel)
     !
-    ! Close the CGNS FILE
-    !
-    call cg_close_f(ifile_n,cgierr)
-    call cgns_error(pname,cgns_grid_file,"cg_close_f", &
-                    cgierr,__LINE__,__FILE__,not_parallel=true)
-    !
+  end if
+  !
+  ! Close the CGNS FILE
+  !
+  call cgp_close_f(ifile_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cgp_close_f", &
+                  cgierr,__LINE__,__FILE__)
+  !
+  if (ziter_not_parallel) then
+    call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
   end if
   !
   ! Write the solution file
