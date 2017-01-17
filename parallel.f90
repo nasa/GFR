@@ -4711,7 +4711,9 @@ continue
     !
     if (mypnum == 0) then
       !
+#ifdef DEBUG_ON
       write (iout,10) this_part
+#endif
       !
       ! Localize the bface array
       !
@@ -4777,7 +4779,9 @@ continue
     !
     this_part = 1
     !
+#ifdef DEBUG_ON
     write (iout,10) this_part
+#endif
     !
     ! Localize the bface array
     !
