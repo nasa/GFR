@@ -1492,6 +1492,7 @@ subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Local Allocatable Arrays ..
   integer, allocatable :: mske(:)
+  character(len=32), allocatable :: unsupported_bc(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "transfer_cgns_data_to_grid_dt"
@@ -1828,6 +1829,33 @@ continue
         n = n + 1
         !
         bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
+        if (uppercase(bc_string) == 'NULL') then
+          bc_string = trim(adjustl(base(ib)%zone(iz)%bc(ibc)%name))
+        end if
+        !
+        !#################################################################
+        !#################################################################
+        !#################################################################
+        !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
+        !
+        if (uppercase(bc_string) == 'FARFIELD') then
+          bc_string = 'CHARACTERISTIC'
+        else if (uppercase(bc_string) == 'INFLOW') then
+          bc_string = 'REFERENCE'
+        else if (uppercase(bc_string) == 'INFLOWSUBSONIC') then
+          bc_string = 'SUBINFLOW'
+        else if (uppercase(bc_string) == 'NOZZLEBASE') then
+          bc_string = 'ADIABATIC'
+        else if (uppercase(bc_string) == 'NOZZLEEXTERIOR') then
+          bc_string = 'ADIABATIC'
+        else if (uppercase(bc_string) == 'NOZZLEINTERIOR') then
+          bc_string = 'ADIABATIC'
+        else if (uppercase(bc_string) == 'OUTFLOW') then
+          bc_string = 'CHARACTERISTIC'
+        end if
+        !#################################################################
+        !#################################################################
+        !#################################################################
         !
         cell_grps(n)%name = base(ib)%zone(iz)%bc(ibc)%name
         if (base(ib)%zone(iz)%bc(ibc)%location == FACECENTER) then
@@ -1837,10 +1865,23 @@ continue
         end if
         cell_grps(n)%grp_id = n-1
         cell_grps(n)%ibc = bc_string_to_integer( bc_string )
-        !
+        if (cell_grps(n)%ibc == bc_unsupported) then
+          if (allocated(unsupported_bc)) then
+            unsupported_bc = [unsupported_bc,trim(adjustl(bc_string))]
+          else
+            unsupported_bc = [bc_string]
+          end if
+        end if
       end do
     end do
   end do
+  !
+  if (allocated(unsupported_bc)) then
+    do ibc = 1,size(unsupported_bc)
+      write (iout,201) trim(adjustl(unsupported_bc(ibc)))
+    end do
+  end if
+  201 format (" UNSUPPORTED BC = '",a,"'")
   !
   ! Save the total number of interior grid cells, grid vertices, and
   ! boundary faces that the CGNS grid file says that there should be,
