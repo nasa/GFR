@@ -195,7 +195,7 @@ continue
   !
   if (mypnum == 0) then
     !
-    write (iout,10)
+    write (iout,10) trim(adjustl(file_name))
     !
     if (present(optmessag) .and. present(optinteger)) then
       write (iout,1) trim(adjustl(optmessag)),optinteger
@@ -207,6 +207,12 @@ continue
     !
     write (iout,11) trim(adjustl(procedure_name)),iemessag, &
                     trim(adjustl(cgns_routine))
+    !
+    if (.not. file_operation_is_serial) then
+      write (iout,12) line_number, trim(adjustl(src_file_name))
+    end if
+    !
+    write (iout,13)
     !
   end if
   !
@@ -225,11 +231,14 @@ continue
   1  format (" ",a," = ",i0)
   2  format (" ",a)
   3  format (" ",i0)
-  10 format (/," ***************************************************** ")
+  10 format (/," ***************************************************** ",/, &
+               " ERROR RETURNED ACCESSING CGNS FILE '",a,"'")
   11 format (" INSIDE PROCEDURE: ",a,/, &
              " ERROR INDICATOR = ",i0,/, &
-             " ERROR RETURNED FROM CGNS PROCEDURE: ",a,/, &
-             " ***************************************************** ",//)
+             " ERROR RETURNED FROM CGNS PROCEDURE: ",a)
+  12 format ("                       ON LINE #  ",i0,/, &
+             "                     OF THE FILE '",a,"'")
+  13 format (" ***************************************************** ",//)
   !
 end subroutine cgns_error
 !
