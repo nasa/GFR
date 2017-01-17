@@ -4098,7 +4098,7 @@ continue
     !
     if (using_cgns_dir) then
       !
-     !command = "lfs setstripe -c 64 -s 4m "//trim(cgns_dir)
+     !command = "lfs setstripe -c 64 -S 4m "//trim(cgns_dir)
       write (command,1) max(0,lustre_stripe_count), &
                         trim(adjustl(lustre_stripe_size)), &
                         trim(adjustl(cgns_dir))
@@ -4139,7 +4139,7 @@ continue
   !
   1 format (i0)
   2 format ("('solution.',i0.",i0,",'.cgns)'")
-  3 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
+  3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   !
 end subroutine check_cgns_dir
 !

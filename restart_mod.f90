@@ -1029,7 +1029,7 @@ continue
     !
     if (using_restart_dir) then
       !
-     !command = "lfs setstripe -c 64 -s 4m "//trim(restart_dir)
+     !command = "lfs setstripe -c 64 -S 4m "//trim(restart_dir)
       write (command,3) max(0,lustre_stripe_count), &
                         trim(adjustl(lustre_stripe_size)), &
                         trim(adjustl(restart_dir))
@@ -1068,7 +1068,7 @@ continue
   !
   1 format (i0)
   2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
-  3 format ("lfs setstripe -c ",i0," -s ",a,1x,a)
+  3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   !
 end subroutine check_restart_dir
 !
