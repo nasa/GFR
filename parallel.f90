@@ -9100,14 +9100,19 @@ subroutine wait_faceusp(faceusp)
   integer :: ibeg,iend,nf
   !
   !.. Local Arrays ..
-  integer, dimension(1:2) :: nsz
+  integer :: nsz(1:2)
+  !
+  !.. Local Allocatable Arrays ..
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
 continue
   !
   ! Wait for all faceusp sends and receives to complete
   !
-  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
-                   reshape(fusp_istat,[size(fusp_istat)]),mpierr)
+  fstat = reshape(fusp_istat,[size(fusp_istat)])
+  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst,fstat,mpierr)
+ !call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
+ !                 reshape(fusp_istat,[size(fusp_istat)]),mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -9203,16 +9208,21 @@ subroutine wait_facedusp(facedusp)
   !
   !.. Local Scalars ..
   integer :: ibeg,iend,nf
-  !.. Local Arrays ..
   !
-  integer, dimension(1:3) :: nsz
+  !.. Local Arrays
+  integer :: nsz(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
 continue
   !
   ! Wait for all facedusp sends and receives to complete
   !
-  call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst, &
-                   reshape(fdusp_istat,[size(fdusp_istat)]),mpierr)
+  fstat = reshape(fdusp_istat,[size(fdusp_istat)])
+  call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst,fstat,mpierr)
+ !call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst, &
+ !                 reshape(fdusp_istat,[size(fdusp_istat)]),mpierr)
   !
   ! Update the right states for only the communication boundary faces
   !
