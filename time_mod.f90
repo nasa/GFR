@@ -79,17 +79,19 @@ subroutine get_dtsp(dtmin)
   !
 continue
   !
- !call get_current_cfl
-  !
   if (Timestep_Type == Constant_Timestep) then
     !
     call get_constant_timestep(dtmin)
     !
   else if (abs(Timestep_Type) == Cell_Timestep) then
     !
+    call get_current_cfl
+    !
     call get_cell_timestep(dtmin)
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
+    !
+    call get_current_cfl
     !
     call get_point_timestep(dtmin)
     !
