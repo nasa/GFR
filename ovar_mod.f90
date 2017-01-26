@@ -177,6 +177,8 @@ module ovar
   integer,           public, save :: lustre_stripe_count = 64
   character(len=10), public, save :: lustre_stripe_size  = "4m"
   !
+  integer, public, save :: sub_inflow_method = 1
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -197,8 +199,8 @@ module ovar
   real(wp), public, save :: cpref_nd
   real(wp), public, save, dimension(3) :: velref_nd
   !
-  real(wp), public, save :: tmin
-  real(wp), public, save :: tmax
+  real(wp), public, save :: tmin = 10.0_wp
+  real(wp), public, save :: tmax = 15000.0_wp
   !
   real(wp), public, save :: tkeref
   real(wp), public, save :: tlsref
@@ -224,12 +226,6 @@ module ovar
   real(wp), public, save, allocatable, dimension(:) :: pv_in
   !
   real(wp), public, save :: iso_wall_temp = 300.0_wp
-  !
-  real(wp), public, save, dimension(4) :: bc_in
-  real(wp), public, save, dimension(4) :: bc_top
-  real(wp), public, save, dimension(4) :: bc_left
-  real(wp), public, save, dimension(4) :: bc_right
-  real(wp), public, save, dimension(3) :: bc_invar
   !
   real(wp), public, save :: p_exit
   real(wp), public, save :: local_volume
@@ -293,6 +289,37 @@ module ovar
   !
   real(wp), public, save :: LDG_beta(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
   real(wp), public, save :: LDG_tau = 0.0_wp
+  !
+  type, public :: bc_input_t
+    !
+    character(len=32) :: name = ""
+    !
+    real(wp) :: t_static   = -huge(0.0_wp)
+    real(wp) :: p_static   = -huge(0.0_wp)
+    real(wp) :: rho_static = -huge(0.0_wp)
+    real(wp) :: mach       = -huge(0.0_wp)
+    real(wp) :: vx         = 0.0_wp
+    real(wp) :: vy         = 0.0_wp
+    real(wp) :: vz         = 0.0_wp
+    real(wp) :: t_total    = -huge(0.0_wp)
+    real(wp) :: p_total    = -huge(0.0_wp)
+    real(wp) :: rho_total  = -huge(0.0_wp)
+    real(wp) :: alpha_aoa  = 0.0_wp
+    real(wp) :: beta_aoa   = 0.0_wp
+    real(wp) :: wall_temp  = -huge(0.0_wp)
+  end type bc_input_t
+  !
+  type(bc_input_t), public, save :: bc_input(1:100)
+  !
+  type, public :: bc_in_t
+    real(wp), allocatable :: cv(:)
+    real(wp), allocatable :: pv(:)
+    real(wp) :: wall_temperature
+  end type bc_in_t
+  !
+  type(bc_in_t), public, save, allocatable :: bc_in(:)
+  !
+  character(len=32), public, save, allocatable :: bc_names(:)
   !
 contains
 !
@@ -512,7 +539,7 @@ module input_namelist_mod
   use ovar,      only : output_dir, output_interval
   use ovar,      only : correct_output, continuous_output
   use ovar,      only : postproc_debug_grid
-  use ovar,      only : output_bnd_profiles
+  use ovar,      only : output_bnd_profiles,sub_inflow_method
   use ovar,      only : machref, reyref, gam, Pr, Prt
   use ovar,      only : ptotref, ttotref, ptot2p_ratio
   use ovar,      only : rhoref, tref, pref, rgasref
@@ -534,6 +561,7 @@ module input_namelist_mod
   use ovar,      only : channel_body_force,channel_init_file
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
+  use ovar,      only : bc_input!,bc_input_t
   use order_mod, only : p_order,n_order,q_order
   use order_mod, only : o_order,e_order,all_orders
   use module_cgns_types, only : cgns_use_queue
@@ -631,7 +659,7 @@ module input_namelist_mod
   ! PROFILE PARALLEL IO
   namelist / input / profile_io_all, profile_io_cgns, profile_io_restart
   ! TEMPORARY DEBUGGING LOGICALS
-  namelist / input / use_bc_conflicts
+  namelist / input / use_bc_conflicts,sub_inflow_method
   ! PROFILE OUTPUT OPTIONS
   namelist / input / output_bnd_profiles
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
@@ -640,6 +668,8 @@ module input_namelist_mod
   namelist / input / dump_fluxes
   ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
   namelist / input / lustre_stripe_count, lustre_stripe_size
+  ! INPUT BOUNDARY CONDITIONS
+  namelist / input / bc_input
   !
 end module input_namelist_mod
 !

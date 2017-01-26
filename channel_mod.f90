@@ -39,7 +39,7 @@ end subroutine read_channel_init_file
 pure function channel_initialization( xyz ) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : cv_in
+  use ovar, only : bc_in
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: xyz
@@ -60,7 +60,7 @@ continue
   else
     !
     do k = 1,np
-      return_value(:,k) = cv_in(:)
+      return_value(:,k) = bc_in(0)%cv(:)
     end do
     !
   end if

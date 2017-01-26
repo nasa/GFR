@@ -195,7 +195,7 @@ subroutine rgeterr()
   use order_mod,  only : maxEP
   use geovar,  only : nr,ncell,cell
   use geovar,  only : global_pinc_ptr
-  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,cv_in
+  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
   use ovar,    only : max_wall_time,wall_time_left
@@ -303,7 +303,7 @@ continue
         se = one
       else
         sn = entropy_cv_sp( unew(:,k) )
-        se = entropy_cv_sp( cv_in(:) )
+        se = entropy_cv_sp( bc_in(0)%cv(:) )
       end if
       !
       ett(2) = sn - se
@@ -677,7 +677,7 @@ subroutine getmaxent
   !.. Use Statements ..
   use order_mod,         only : maxEP,e_order
   use geovar,            only : nr,ncell,cell,xyz
-  use ovar,              only : nentmax,kentmax,entmax,gam,cv_in
+  use ovar,              only : nentmax,kentmax,entmax,gam,bc_in
   use ovar,              only : xentmax,yentmax,entL2,total_volume
   use ovar,              only : itestcase
   use metrics_mod,       only : jacobian
@@ -763,7 +763,7 @@ continue
         se = one
       else
         sn = entropy_cv_sp( unew(:,k) )
-        se = entropy_cv_sp( cv_in(:) )
+        se = entropy_cv_sp( bc_in(0)%cv(:) )
       end if
       !
       ett = sn - se

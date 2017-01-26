@@ -346,10 +346,10 @@ continue
   ! Deallocate the grid derived type now that we are done with mapping
   ! the mesh coordinates to the solution points for each cell
   !
-  if (allocated(grid)) then
-    deallocate ( grid , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+ !if (allocated(grid)) then
+ !  deallocate ( grid , stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+ !end if
   !
   call debug_timer(leaving_procedure,pname)
   !

@@ -346,6 +346,15 @@ continue
     !
     call create_solver_geom_arrays_cgns
     !
+    !#################################################################
+    !#################################################################
+    !#################################################################
+    !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
+    call find_nozzle_core
+    !#################################################################
+    !#################################################################
+    !#################################################################
+    !
   end if
   !
   ! It should now be safe to deallocate the base derived-type array.
@@ -1476,6 +1485,7 @@ subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Use Statements ..
   use ovar, only : grid_scaling_factor
+  use ovar, only : governing_equations
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
@@ -1486,6 +1496,7 @@ subroutine transfer_cgns_data_to_grid_dt
   integer :: ngrids,nsections,nbocos
   integer(CET) :: sect_type,elem_type
   !
+  character(len=9)     :: wall_type
   character(len=CGLEN) :: cname
   character(len=CGLEN) :: bc_string
   !
@@ -1503,6 +1514,11 @@ subroutine transfer_cgns_data_to_grid_dt
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  wall_type = 'SLIPWALL'
+  if (governing_equations == NavierStokes_Eqns) then
+    wall_type = 'ADIABATIC'
+  end if
   !
   ! First, start by allocating the variable grid 
   !
@@ -1721,7 +1737,7 @@ continue
            !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
            !                 error_message)
             !
-            grid%elem(n)%tags = [0] ! using F2003 automatic reallocation
+            grid%elem(n)%tags = [0,0] ! using F2003 automatic reallocation
            !allocate ( grid%elem(n)%tags(1:1) , source=0 , &
            !           stat=ierr , errmsg=error_message )
            !write (array_name,1) n,"tags"
@@ -1752,7 +1768,7 @@ continue
            !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
            !                 error_message)
             !
-            grid%elem(n)%tags = [0] ! using F2003 automatic reallocation
+            grid%elem(n)%tags = [0,0] ! using F2003 automatic reallocation
            !allocate ( grid%elem(n)%tags(1:1) , source=0 , &
            !           stat=ierr , errmsg=error_message )
            !write (array_name,1) n,"tags"
@@ -1852,15 +1868,17 @@ continue
         if (uppercase(bc_string) == 'FARFIELD') then
           bc_string = 'CHARACTERISTIC'
         else if (uppercase(bc_string) == 'INFLOW') then
-          bc_string = 'REFERENCE'
+         !bc_string = 'REFERENCE'
+          bc_string = 'CHARACTERISTIC'
         else if (uppercase(bc_string) == 'INFLOWSUBSONIC') then
-          bc_string = 'SUBINFLOW'
+         !bc_string = 'SUBINFLOW'
+          bc_string = 'CHARACTERISTIC'
         else if (uppercase(bc_string) == 'NOZZLEBASE') then
-          bc_string = 'ADIABATIC'
+          bc_string = trim(adjustl(wall_type))
         else if (uppercase(bc_string) == 'NOZZLEEXTERIOR') then
-          bc_string = 'ADIABATIC'
+          bc_string = trim(adjustl(wall_type))
         else if (uppercase(bc_string) == 'NOZZLEINTERIOR') then
-          bc_string = 'ADIABATIC'
+          bc_string = trim(adjustl(wall_type))
         else if (uppercase(bc_string) == 'OUTFLOW') then
           bc_string = 'CHARACTERISTIC'
         end if
@@ -1961,6 +1979,7 @@ subroutine create_solver_geom_arrays_cgns
   use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : xyz_nodes
+  use ovar,      only : bc_names
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ifa,nf,h1,h2,i,j,ie
@@ -2572,6 +2591,9 @@ continue
   write (iout,110) pname
 #endif
   !
+  allocate ( bc_names(1:size(bnd_grps)) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
+  !
   ! Create and fill out bface with data from the
   ! ZoneBC_t node of the CGNS grid file
   !
@@ -2589,6 +2611,8 @@ continue
     !
     np = bnd_grps(i)
     !
+    bc_names(i) = trim(adjustl(cell_grps(np)%name))
+    !
     current_cell_grp: do j = 1,size(cell_grps(np)%cells)
       !
       bnd_cell = cell_grps(np)%cells(j)
@@ -2599,6 +2623,7 @@ continue
       bface( 2,nf) = host_cell                      ! host cell of boundary face
       bface( 3,nf) = grid%elem(host_cell)%prop%geom ! host cell geometry
       bface( 5,nf) = i                       ! group for boundary face
+      bface( 6,nf) = 0                       ! index for bc_in array
       bface(10,nf) = ncell + nf              ! ghost cell of boundary face
       !
       host_cell = bface(2,nf) ! host cell of boundary face
@@ -2822,6 +2847,28 @@ end subroutine create_solver_geom_arrays_cgns
 !
 !###############################################################################
 !
+subroutine find_nozzle_core
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,bface,nodes_of_cell,nodes_of_cell_ptr
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: cwn(:)
+  integer, allocatable :: cwn_ptr(:)
+  integer, allocatable :: csc(:)
+  integer, allocatable :: csc_ptr(:)
+  integer, allocatable :: cell_geom(:)
+  real(wp), allocatable :: cell_centers(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_nozzle_core"
+  !
+continue
+  !
+end subroutine find_nozzle_core
+!
+!###############################################################################
+!
 subroutine broadcast_solver_geom_arrays
   !
   !.. Use Statements ..
@@ -2829,14 +2876,14 @@ subroutine broadcast_solver_geom_arrays
   use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order,xyz_nodes
-  use ovar,      only : iop_solpts,iop_flxpts
+  use ovar,      only : iop_solpts,iop_flxpts,bc_names
   !
   !.. Local Scalars ..
-  integer :: n,nocsz,ierr
+  integer :: n,nocsz,ierr,nbcnm
   integer(INT_MPI) :: isz
   !
   !.. Local Arrays ..
-  integer :: grid_size(1:5)
+  integer :: grid_size(1:6)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "broadcast_solver_geom_arrays"
@@ -2849,7 +2896,8 @@ continue
   ! Broadcast the grid dimensions
   !
   if (mypnum == 0) then
-    grid_size(:) = [ nr , nnode , ncell , nfbnd , size(nodes_of_cell) ]
+    grid_size(:) = [ nr , nnode , ncell , nfbnd , &
+                     size(nodes_of_cell) , size(bc_names) ]
   end if
   !
   call mpi_bcast(grid_size,size(grid_size,kind=int_mpi),mpi_inttyp, &
@@ -2861,6 +2909,7 @@ continue
   ncell = grid_size(3)
   nfbnd = grid_size(4)
   nocsz = grid_size(5)
+  nbcnm = grid_size(6)
   !
   ! Have all the non-root processors allocate the arrays
   !
@@ -2883,6 +2932,9 @@ continue
     allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( bc_names(1:nbcnm) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !
@@ -2920,6 +2972,11 @@ continue
   allocate ( cell_order(1:ncell) , source=n_order , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,nbcnm
+    isz = len(bc_names(n),kind=int_mpi)
+    call mpi_bcast(bc_names(n),isz,MPI_CHARACTER,root,MPI_COMM_WORLD,mpierr)
+  end do
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
   ! elements since Gauss nodes is not currently set up for triangles.

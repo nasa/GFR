@@ -7,7 +7,9 @@ module module_bc
   !
   !.. Use Statements ..
   use module_kind_types
+  !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use ovar,    only : gam
   !
   implicit none
   !
@@ -56,13 +58,14 @@ subroutine get_faceusp_bc
   !.. Use Statements ..
   use geovar,       only : bface,nfbnd
   use ovar,         only : output_bface_array
+  use ovar,         only : bc_in,sub_inflow_method
   use metrics_mod,  only : geofa
   use flowvar,      only : faceusp,facexyz
   !
   use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,pf
+  integer :: nf,pf,bc_idx
   integer :: newton_failures
   !
   !.. Local Parameters ..
@@ -79,6 +82,8 @@ continue
   !
   do nf = 1,nfbnd
     !
+    bc_idx = bface(6,nf)
+    !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
@@ -88,15 +93,23 @@ continue
         !
         ! Free stream boundary condition
         !
-        call get_bc_freestream_solution(faceusp(nf)%v(:,:,2))
+        call get_bc_freestream_solution(faceusp(nf)%v(:,:,2), &
+                                        bc_in(bc_idx)%cv)
         !
       case (bc_characteristic)
         !
         ! Characteristic boundary condition
         !
+       !call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
+       !                                    faceusp(nf)%v(:,:,2), &
+       !                                    geofa(nf)%v(:,:), &
+       !                                    bc_in(bc_idx)%cv, &
+       !                                    bc_in(bc_idx)%pv)
         call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
                                             faceusp(nf)%v(:,:,2), &
-                                            geofa(nf)%v(:,:))
+                                            geofa(nf)%v(:,:), &
+                                            bc_in(bc_idx)%cv, &
+                                            bc_in(bc_idx)%pv)
         !
       case (bc_generic_inflow)
         !
@@ -104,7 +117,9 @@ continue
         !
         call get_bc_generic_inflow_solution(faceusp(nf)%v(:,:,1), &
                                             faceusp(nf)%v(:,:,2), &
-                                            geofa(nf)%v(:,:))
+                                            geofa(nf)%v(:,:), &
+                                            bc_in(bc_idx)%cv, &
+                                            bc_in(bc_idx)%pv)
         !
       case (bc_generic_outflow)
         !
@@ -112,7 +127,8 @@ continue
         !
         call get_bc_generic_outflow_solution(faceusp(nf)%v(:,:,1), &
                                              faceusp(nf)%v(:,:,2), &
-                                             geofa(nf)%v(:,:))
+                                             geofa(nf)%v(:,:), &
+                                             bc_in(bc_idx)%pv)
         !
       case (bc_generic_freeflow)
         !
@@ -120,20 +136,27 @@ continue
         !
         call get_bc_generic_freeflow_solution(faceusp(nf)%v(:,:,1), &
                                               faceusp(nf)%v(:,:,2), &
-                                              geofa(nf)%v(:,:))
+                                              geofa(nf)%v(:,:), &
+                                              bc_in(bc_idx)%cv, &
+                                              bc_in(bc_idx)%pv)
         !
       case (bc_sub_inflow)
         !
         ! Subsonic inflow boundary condition
         !
-        call get_bc_sub_inflow_newton(faceusp(nf)%v(:,:,1), &
-                                      faceusp(nf)%v(:,:,2), &
-                                      geofa(nf)%v(:,:), &
-                                      newton_failures, &
-                                      nf)
-        !
-       !call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
-       !                                faceusp(nf)%v(:,:,2))
+        if (any(sub_inflow_method == [2,3,4])) then
+          call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
+                                          faceusp(nf)%v(:,:,2), &
+                                          bc_in(bc_idx)%cv, &
+                                          bc_in(bc_idx)%pv)
+        else
+          call get_bc_sub_inflow_newton(faceusp(nf)%v(:,:,1), &
+                                        faceusp(nf)%v(:,:,2), &
+                                        geofa(nf)%v(:,:), &
+                                        bc_in(bc_idx)%pv, &
+                                        newton_failures, &
+                                        nf)
+        end if
         !
       case (bc_sub_outflow)
         !
@@ -141,13 +164,15 @@ continue
         !
         call get_bc_sub_outflow_solution(faceusp(nf)%v(:,:,1), &
                                          faceusp(nf)%v(:,:,2), &
-                                         geofa(nf)%v(:,:))
+                                         geofa(nf)%v(:,:), &
+                                         bc_in(bc_idx)%pv)
         !
       case (bc_sup_inflow)
         !
         ! Supersonic inflow boundary condition
         !
-        call get_bc_sup_inflow_solution(faceusp(nf)%v(:,:,2))
+        call get_bc_sup_inflow_solution(faceusp(nf)%v(:,:,2), &
+                                        bc_in(bc_idx)%cv)
         !
       case (bc_sup_outflow)
         !
@@ -176,7 +201,8 @@ continue
         ! No-slip isothermal wall
         !
         call get_bc_isothermal_wall_solution(faceusp(nf)%v(:,:,1), &
-                                             faceusp(nf)%v(:,:,2))
+                                             faceusp(nf)%v(:,:,2), &
+                                             bc_in(bc_idx)%wall_temperature)
         !
       case (bc_periodic)
         !
@@ -260,7 +286,7 @@ subroutine get_facedusp_bc
   use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
-  integer  :: nf,pf
+  integer :: nf,pf
   !
   !.. Local Parameters ..
   integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
@@ -371,7 +397,7 @@ end subroutine get_facedusp_bc
 !###############################################################################
 !###############################################################################
 !
-subroutine get_bc_freestream_solution(gufp)
+subroutine get_bc_freestream_solution(gufp,cv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -379,13 +405,12 @@ subroutine get_bc_freestream_solution(gufp)
   ! #####################################################
   ! #####################################################
   ! 
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar, only : cv_in
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer :: k
@@ -404,7 +429,7 @@ end subroutine get_bc_freestream_solution
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm)
+subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm,cv_in,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -412,29 +437,30 @@ subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar,        only : pv_in,cv_in,gam
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
+  ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer  :: k
   real(wp) :: rp,rm,utc,unc,ac,sc,rho,pres
   real(wp) :: mach_int,gm1,gm1_inv
   real(wp) :: aspd_int,vt_int,vn_int
   real(wp) :: aspd_ext,vt_ext,vn_ext
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rtan
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: rtan(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -455,7 +481,7 @@ continue
     !
     ! Compute the speed of sound in the host cell
     !
-    aspd_int = sqrt( max( gam*hvfp(nq)/hvfp(1) , rndoff ) )
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     !
     ! Compute the interior normal velocity at this flux point
     !
@@ -488,7 +514,7 @@ continue
       !
       ! Compute the exterior speed of sound
       !
-      aspd_ext = sqrt( max( gam*pv_in(nq)/pv_in(1) , rndoff ) )
+      aspd_ext = sqrt( max( gam*pv_in(nee)/pv_in(nec) , rndoff ) )
       !
       ! Compute the exterior normal velocity at this flux point
       !
@@ -501,7 +527,7 @@ continue
      !  unc = half*(rp+rm)
      !  utc = dot( rtan , pv_in(nmb:nme) )
      !  ac = one4*gm1*(rp-rm)
-     !  sc = pv_in(nq)/(pv_in(1)**gam)
+     !  sc = pv_in(nee)/(pv_in(nec)**gam)
      !  !
      !else ! this is an outflow boundary
      !  !
@@ -510,7 +536,7 @@ continue
      !  unc = half*(rp+rm)
      !  utc = dot( rtan , hvfp(nmb:nme) )
      !  ac = one4*gm1*(rp-rm)
-     !  sc = hvfp(nq)/(hvfp(1)**gam)
+     !  sc = hvfp(nee)/(hvfp(nec)**gam)
      !  !
      !end if
       !
@@ -519,13 +545,13 @@ continue
       if (mach_int > zero) then
         rp   = vn_ext
         utc  = dot( rtan , pv_in(nmb:nme) )
-        rho  = pv_in(1)
-        pres = pv_in(nq)
+        rho  = pv_in(nec)
+        pres = pv_in(nee)
       else
         rp   = -abs(vn_ext)
         utc  = dot( rtan , hvfp(nmb:nme) )
-        rho  = hvfp(1)
-        pres = hvfp(nq)
+        rho  = hvfp(nec)
+        pres = hvfp(nee)
       end if
       !
       ! Compute the Riemann invariants
@@ -543,9 +569,9 @@ continue
       !
       ! Compute the conservative variables at the boundary flux points
       !
-      gufp(1,k) = rho
+      gufp(nec,k) = rho
       gufp(nmb:nme,k) = rho * (unc*rnrm(:) + utc*rtan(:))
-      gufp(nq,k) = pres*gm1_inv + half * selfdot( gufp(nmb:nme,k) ) / rho
+      gufp(nee,k) = pres*gm1_inv + half * selfdot( gufp(nmb:nme,k) ) / rho
       !
     end if
     !
@@ -555,7 +581,7 @@ end subroutine get_bc_characteristic_solution_old
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
+subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,cv_in,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -563,29 +589,30 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar,        only : pv_in,cv_in,gam
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
+  ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer  :: k
   real(wp) :: rp,rm,unc,ac,sc,rho,pres,vel
   real(wp) :: mach_int,mach_ext,gm1,gm1_inv
   real(wp) :: aspd_int,vt_int,vn_int
   real(wp) :: aspd_ext,vt_ext,vn_ext
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rtan
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: rtan(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
   !.. Local Parameters ..
  !logical(lk), parameter :: veln_is_int = true
@@ -690,7 +717,7 @@ end subroutine get_bc_characteristic_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm)
+subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -701,25 +728,26 @@ subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar,        only : pv_in,cv_in,gam
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
+  ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k
+  integer  :: nr,k
   real(wp) :: gm1_inv,ske_inf,mach_int,aspd_int
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -728,7 +756,7 @@ continue
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
+  ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
   !
   gm1_inv = one / (gam - one)
   !
@@ -744,7 +772,7 @@ continue
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*hvfp(nq)/hvfp(1) , rndoff ) )
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
@@ -754,14 +782,14 @@ continue
       !
       ! Subsonic inflow
       !
-      ! Set all variables but pressure to free stream
+      ! Set all variables to free stream
       !
-      gufp(1:nq-1,k) = cv_in(1:nq-1)
+      gufp(:,k) = cv_in(:)
       !
       ! Compute the total energy using interior pressure
       ! and free stream specific kinetic energy
       !
-      gufp(nq,k) = hvfp(nq) * gm1_inv + ske_inf
+      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
       !
     else if (mach_int <= -one) then
       !
@@ -798,7 +826,7 @@ end subroutine get_bc_generic_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm)
+subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -809,25 +837,24 @@ subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar,        only : pv_in,gam
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! PV_IN : Boundary condition flow variables in primitive form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k
+  integer  :: nr,k
   real(wp) :: gm1_inv,ske_int,mach_int,aspd_int
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -850,7 +877,7 @@ continue
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*hvfp(nq)/hvfp(1) , rndoff ) )
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
@@ -862,16 +889,16 @@ continue
       !
       ! Extrapolate interior density and velocities to boundary
       !
-      gufp(1:nq-1,k) = hufp(1:nq-1,k)
+      gufp(:,k) = hufp(:,k)
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
       !
-      gufp(nq,k) = pv_in(nq) * gm1_inv + ske_int
+      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
       !
     else if (mach_int >= one) then
       !
@@ -896,7 +923,7 @@ end subroutine get_bc_generic_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm)
+subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -908,25 +935,26 @@ subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar,        only : pv_in,cv_in,gam
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
+  ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k
+  integer  :: nr,k
   real(wp) :: gm1_inv,ske_inf,ske_int,mach_int,aspd_int
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -935,7 +963,7 @@ continue
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
+  ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
   !
   gm1_inv = one / (gam - one)
   !
@@ -951,7 +979,7 @@ continue
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*hvfp(nq)/hvfp(1) , rndoff ) )
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
@@ -979,12 +1007,12 @@ continue
       !
       ! Set all variables but pressure to free stream
       !
-      gufp(1:nq-1,k) = cv_in(1:nq-1)
+      gufp(:,k) = cv_in(:)
       !
       ! Compute the total energy using interior pressure
       ! and free stream specific kinetic energy
       !
-      gufp(nq,k) = hvfp(nq) * gm1_inv + ske_inf
+      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
       !
     else if (mach_int < one .and. mach_int > zero) then
       !
@@ -992,16 +1020,16 @@ continue
       !
       ! Extrapolate interior density and velocities to boundary
       !
-      gufp(1:nq-1,k) = hufp(1:nq-1,k)
+      gufp(:,k) = hufp(:,k)
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
       !
-      gufp(nq,k) = pv_in(nq) * gm1_inv + ske_int
+      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
       !
     end if
     !
@@ -1011,7 +1039,7 @@ end subroutine get_bc_generic_freeflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,ierr,nf)
+subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
   !
   ! #####################################################
   ! #####################################################
@@ -1022,52 +1050,68 @@ subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,ierr,nf)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  ! IERR : count the number of failed convergences from Newton iterations
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! IERR  : count the number of failed convergences from Newton iterations
+  ! PV_IN : Boundary condition flow variables in primitive form
   !
   !.. Use Statements ..
-  use ovar, only : pv_in,gam
-  use ovar, only : ptotref_nd,ttotref_nd
-  use ovar, only : rgasref_nd,alpha_aoaref
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
-  integer,                  intent(inout) :: ierr
-  integer,                     intent(in) :: nf
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
+  integer,  intent(inout) :: ierr
+  integer,     intent(in) :: nf
   !
   !.. Local Scalars ..
   integer  :: k,n
-  logical(lk)  :: convergence_reached
   real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
   real(wp) :: temp_int,aspd_int,veln_int
   real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
   real(wp) :: rminus,rafac,vel,func,dfunc,dtemp
+  real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
+  real(wp) :: temp_ref,ttot_ref,ptot_ref,aoa
+  !
+  logical(lk) :: convergence_reached
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(fnrm,dim=1)) :: dir_cos
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: dir_cos(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
   !
 continue
   !
-  dterr = eps3*ttotref_nd
-  !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
   !
   gm1 = gam - one
-  gam_over_1mg = -gam / gm1
+  gam_over_gm1 = gam / gm1
+  gam_over_1mg = -gam_over_gm1
+  !
+  ! Compute the inflow conditions
+  !
+  aspd_ref = sqrt(gam*pv_in(nee)/pv_in(nec))
+  mach_ref = norm2(pv_in(nmb:nme))/aspd_ref
+  !
+  total_cond = one + half*gm1*mach_ref*mach_ref
+  !
+  temp_ref = temperature_pv_sp( pv_in(:) )
+  ttot_ref = temp_ref * total_cond
+  ptot_ref = pv_in(nee) * total_cond**gam_over_gm1
+  !
+  dterr = eps3*ttot_ref
   !
   ! Precompute the direction cosines
   !
-  tan_aoa = tan( alpha_aoaref * degrees2radians )
+  aoa = atan2(pv_in(nmy),pv_in(nmx))
+  tan_aoa = tan( aoa * degrees2radians )
   !
   dir_cos(:) = zero
   dir_cos(1) = one / sqrt(one + tan_aoa**2)
@@ -1097,15 +1141,15 @@ continue
     !
     rminus = veln_int - (two*aspd_int/gm1)
     !
-    temp_ext = temperature_pv_sp( pv_in(:) )
+    temp_ext = temp_ref
     !
-    aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+    aspd_ext = aspd_ref
     !
     rafac = one / dot( dir_cos(:) , rnrm(:) )
     !
     vel = rafac * (rminus + two*aspd_ext/gm1)
     !
-    func = ttotref_nd - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
+    func = ttot_ref - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
     dfunc = -(one + vel*rafac/aspd_ext)
     !
     newton_iteration: do n = 1,newton_iter
@@ -1121,7 +1165,7 @@ continue
       aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
       vel = rafac * (rminus + two*aspd_ext/gm1)
       !
-      func = ttotref_nd - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
+      func = ttot_ref - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
       dfunc = -(one + vel*rafac/aspd_ext)
       !
     end do newton_iteration
@@ -1152,7 +1196,7 @@ continue
     !
     mach_ext = vel / aspd_ext
     !
-    pres_ext = ptotref_nd*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+    pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
     !
     gufp(nec,k) = pres_ext / (rgasref_nd * temp_ext)
     gufp(nmb:nme,k) = vel*dir_cos(:)
@@ -1166,7 +1210,7 @@ end subroutine get_bc_sub_inflow_newton
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_solution(hufp,gufp)
+subroutine get_bc_sub_inflow_solution(hufp,gufp,cv_in,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -1177,29 +1221,29 @@ subroutine get_bc_sub_inflow_solution(hufp,gufp)
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
+  ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Use Statements ..
-  use ovar, only : pv_in,cv_in,gam
-  use ovar, only : ptotref_nd,ttotref_nd
+ !use ovar, only : ptotref_nd,ttotref_nd
   use ovar, only : rgasref_nd
+  use ovar, only : sub_inflow_method
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer  :: k
   real(wp) :: pres_int,ske_inf,gm1_inv
   real(wp) :: gm1,rt,rhot,a,b,c,velx2
-  real(wp) :: rm,rmsq,aa,asq
-  !
-  !.. Local Parameters ..
-  logical(lk), parameter :: use_old_sub_inflow = fals
- !logical(lk), parameter :: use_old_sub_inflow = true
- !logical(lk), parameter :: use_jims_method = fals
-  logical(lk), parameter :: use_jims_method = true
+  real(wp) :: rm,rmsq,aa,asq,gam_over_gm1
+  real(wp) :: p0_ext,t_ext,t0_ext
+  real(wp) :: aspd,mach,total_cond
   !
 continue
   !
@@ -1208,21 +1252,29 @@ continue
   !
   gm1 = gam - one
   gm1_inv = one / gm1
+  gam_over_gm1 = gam*gm1_inv
   !
-  if (use_old_sub_inflow) then
+  t_ext = temperature_pv_sp(pv_in)
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  mach = norm2(pv_in(nmb:nme))/aspd
+  !
+  total_cond = one + half*gm1*mach*mach
+  !
+  t0_ext = t_ext*total_cond
+  p0_ext = pv_in(nee) * total_cond**gam_over_gm1
+  !
+  if (sub_inflow_method == 2) then
     !
     ! Precompute the free stream specific kinetic energy
     ! and the inverse of gamma-1
     !
-    ske_inf = half * pv_in(1) * selfdot( pv_in(nmb:nme) )
-    !
-    gm1_inv = one / (gam - one)
+    ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
     !
     do k = 1,size(gufp,dim=2)
       !
       ! Set all variables but pressure to free stream
       !
-      gufp(1:nq-1,k) = cv_in(1:nq-1)
+      gufp(:,k) = cv_in(:)
       !
       ! Get the interior pressure
       !
@@ -1231,65 +1283,58 @@ continue
       ! Compute the total energy using interior pressure
       ! and free stream specific kinetic energy
       !
-      gufp(nq,k) = pres_int * gm1_inv + ske_inf
+      gufp(nee,k) = pres_int * gm1_inv + ske_inf
       !
     end do
     !
-  else
+  else if (sub_inflow_method == 3) then
     !
-    if (use_jims_method) then
+   !rt = rgasref_nd*ttotref_nd
+    rt = rgasref_nd*t0_ext
+    !
+   !rhot = ptotref_nd/rt
+    rhot = p0_ext/rt
+    a = rt*gm1_inv
+    b = two*gam*a
+    c = half*gm1/gam
+    !
+    do k = 1,size(gufp,dim=2)
       !
-      rt = rgasref_nd*ttotref_nd
+      velx2 = hufp(nmx,k)**2
       !
-      rhot = ptotref_nd/rt
-      a = rt*gm1_inv
-      b = two*gam*a
-      c = half*gm1/gam
+      gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**-gm1_inv )
+      gufp(nmb:nme,k) = zero
+      gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
+      gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
       !
-      do k = 1,size(gufp,dim=2)
-        !
-        velx2 = hufp(nmx,k)**2
-        !
-        gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**-gm1_inv )
-        gufp(nmb:nme,k) = zero
-        gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
-        gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
-        !
-      end do
+    end do
+    !
+  else if (sub_inflow_method == 4) then
+    !
+    do k = 1,size(gufp,dim=2)
       !
-    else
+      ! Get the interior pressure
       !
+      pres_int = pressure_cv_sp( hufp(:,k) )
       !
-      ! Precompute the free stream specific kinetic energy
-      ! and the inverse of gamma-1
+     !rmsq = ( (ptotref_nd/pres_int)**(gm1/gam) - one ) * two/gm1
+      rmsq = ( (p0_ext/pres_int)**(gm1/gam) - one ) * two/gm1
+      rm   = sqrt(rmsq)
       !
-      gm1_inv = one / (gam - one)
+      asq = one / (one+half*gm1*rmsq)
+      aa = sqrt(asq)
       !
-      do k = 1,size(gufp,dim=2)
-        !
-        ! Get the interior pressure
-        !
-        pres_int = pressure_cv_sp( hufp(:,k) )
-        !
-        rmsq = ( (ptotref_nd/pres_int)**(gm1/gam) - one ) * two/gm1
-        rm   = sqrt(rmsq)
-        !
-        asq = one / (one+half*gm1*rmsq)
-        aa = sqrt(asq)
-        !
-        ! Compute the total energy using interior pressure
-        ! and free stream specific kinetic energy
-        !
-        gufp(nec,k) = gam*pres_int/asq
-        gufp(nmb:nme,k) = zero
-        gufp(nmx,k) = aa*rm
-        gufp(nee,k) = pres_int
-        !
-        gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
-        !
-      end do
+      ! Compute the total energy using interior pressure
+      ! and free stream specific kinetic energy
       !
-    end if
+      gufp(nec,k) = gam*pres_int/asq
+      gufp(nmb:nme,k) = zero
+      gufp(nmx,k) = aa*rm
+      gufp(nee,k) = pres_int
+      !
+      gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
+      !
+    end do
     !
   end if
   !
@@ -1297,7 +1342,7 @@ end subroutine get_bc_sub_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm)
+subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -1308,25 +1353,27 @@ subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
+  ! FNRM  : Face outward normal vector at the flux points
+  ! HUFP  : Conservative variables at the host  cell flux points
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! PV_IN : Boundary condition flow variables in primitive form
   !
   !.. Use Statements ..
-  use ovar, only : pv_in,gam,ptotref_nd
+  use ovar, only : ptotref_nd
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer  :: k
   real(wp) :: gm1_inv,ske_int,vn_int,aspd_int
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
   !.. Local Parameters ..
   logical(lk), parameter :: use_old_sub_outflow = fals
@@ -1344,16 +1391,16 @@ continue
       !
       ! Extrapolate interior density and velocities to boundary
       !
-      gufp(1:nq-1,k) = hufp(1:nq-1,k)
+      gufp(:,k) = hufp(:,k)
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
       !
-      gufp(nq,k) = pv_in(nq) * gm1_inv + ske_int
+      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
       !
     end do
     !
@@ -1407,7 +1454,7 @@ end subroutine get_bc_sub_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sup_inflow_solution(gufp)
+subroutine get_bc_sup_inflow_solution(gufp,cv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -1416,13 +1463,12 @@ subroutine get_bc_sup_inflow_solution(gufp)
   ! #####################################################
   ! #####################################################
   ! 
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar, only : cv_in
+  ! GUFP  : Conservative variables at the ghost cell flux points
+  ! CV_IN : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer :: k
@@ -1454,8 +1500,8 @@ subroutine get_bc_sup_outflow_solution(hufp,gufp)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer :: k
@@ -1487,20 +1533,20 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Use Statements ..
-  use ovar,        only : walls_are_exact
+  use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer  :: k
   real(wp) :: vn,wall_solution_location
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -1552,18 +1598,18 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Use Statements ..
-  use ovar,        only : walls_are_exact
+  use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer  :: k
   real(wp) :: wall_solution_location
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
   !
@@ -1593,7 +1639,7 @@ end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_isothermal_wall_solution(hufp,gufp)
+subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature)
   !
   ! #####################################################
   ! #####################################################
@@ -1603,25 +1649,25 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp)
   !
   ! HUFP : Conservative variables at the host  cell flux points
   ! GUFP : Conservative variables at the ghost cell flux points
+  ! WALL_TEMPERATURE :: isothermal wall temperature
   !
   !.. Use Statements ..
-  use ovar,        only : iso_wall_temp,tref,rgasref_nd
-  use ovar,        only : walls_are_exact
+  use ovar, only : tref,rgasref_nd
+  use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: wall_temperature
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
-  real(wp) :: iso_wall_temp_nd,wall_solution_location
+  integer  :: k
+  real(wp) :: wall_solution_location
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
+  real(wp) :: hvfp(1:size(gufp,dim=1))
   !
 continue
-  !
-  iso_wall_temp_nd = iso_wall_temp / tref
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
   !
@@ -1638,7 +1684,7 @@ continue
     ! Keeping the wall pressure constant, compute the wall
     ! density using the isothermal wall temperature.
     !
-    hvfp(1) = hvfp(nq) / rgasref_nd / iso_wall_temp_nd
+    hvfp(nec) = hvfp(nee) / rgasref_nd / wall_temperature
     !
     ! Convert the primitive variables to conservative.
     ! This ensures that the total energy at the boundary is
@@ -1666,8 +1712,8 @@ subroutine get_bc_periodic_solution(pufp,gufp)
   ! GUFP : Conservative variables at the ghost    cell flux points
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(inout) :: pufp
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp), intent(inout) :: pufp(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer :: k
@@ -1709,23 +1755,22 @@ subroutine get_bc_mms_dirichlet_solution(hufp,gufp,fxyz,fnrm)
   ! FNRM : Face outward normal vector at the flux points
   !
   !.. Use Statements ..
-  use ovar, only : gam
   use mms_mod, only : mms_solution_at_xyz
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),    intent(in) :: hufp
-  real(wp), dimension(:,:),    intent(in) :: fxyz
-  real(wp), dimension(:,:),    intent(in) :: fnrm
-  real(wp), dimension(:,:), intent(inout) :: gufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: fxyz(:,:)
+  real(wp),    intent(in) :: fnrm(:,:)
+  real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k
+  integer  :: nr,k
   real(wp) :: gm1_inv,ske_inf,ske_int,mach_int,aspd_int
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
-  real(wp), dimension(1:size(gufp,dim=1)) :: hvfp
-  real(wp), dimension(1:size(gufp,dim=1)) :: mms_sol
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  real(wp) :: hvfp(1:size(gufp,dim=1))
+  real(wp) :: mms_sol(1:size(gufp,dim=1))
   !
 continue
   !
@@ -1751,7 +1796,7 @@ continue
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*hvfp(nq)/hvfp(1) , rndoff ) )
+    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
@@ -1779,14 +1824,14 @@ continue
       !
       ! Set all variables but pressure to free stream
       !
-      gufp(1:nq-1,k) = mms_sol(1:nq-1)
+      gufp(:,k) = mms_sol(:)
       !
       ! Compute the total energy using interior pressure
       ! and free stream specific kinetic energy
       !
       ske_inf = half * selfdot( mms_sol(nmb:nme) ) / mms_sol(nec)
       !
-      gufp(nq,k) = hvfp(nq) * gm1_inv + ske_inf
+      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
       !
     else if (mach_int < one .and. mach_int > zero) then
       !
@@ -1794,16 +1839,16 @@ continue
       !
       ! Extrapolate interior density and velocities to boundary
       !
-      gufp(1:nq-1,k) = hufp(1:nq-1,k)
+      gufp(:,k) = hufp(:,k)
       !
       ! Compute the interior specific kinetic energy
       !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(1,k)
+      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
       !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
       !
-      gufp(nq,k) = pressure_cv_sp( mms_sol(1:nq) ) * gm1_inv + ske_int
+      gufp(nee,k) = pressure_cv_sp( mms_sol(1:nq) ) * gm1_inv + ske_int
       !
     end if
     !
@@ -1838,8 +1883,8 @@ subroutine get_bc_flowthrough_gradient(hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:,:),    intent(in) :: hdufp
-  real(wp), dimension(:,:,:), intent(inout) :: gdufp
+  real(wp),    intent(in) :: hdufp(:,:,:)
+  real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,k
@@ -1873,12 +1918,12 @@ subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),      intent(in) :: hufp
-  real(wp), dimension(:,:,:),    intent(in) :: hdufp
-  real(wp), dimension(:,:,:), intent(inout) :: gdufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: hdufp(:,:,:)
+  real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k,m,l
+  integer  :: nr,k,m,l
   real(wp) :: rho_inv,vel
  !real(wp) :: rho_inv2,vel_over_rho
   !
@@ -1890,16 +1935,16 @@ continue
     !
     ! Copy over the density gradients
     !
-    gdufp(1:nr,1,k) = hdufp(1:nr,1,k)
+    gdufp(1:nr,nec,k) = hdufp(1:nr,nec,k)
     !
     ! Convert the momentum gradients to velocity gradients
     !
-    rho_inv = one/hufp(1,k)
+    rho_inv = one/hufp(nec,k)
     !
-    do m = 2,nq-1
+    do m = nmb,nme
       vel = rho_inv * hufp(m,k)
       do l = 1,nr
-        gdufp(l,m,k) = hdufp(l,m,k) - vel*hdufp(l,1,k)
+        gdufp(l,m,k) = hdufp(l,m,k) - vel*hdufp(l,nec,k)
         gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
       end do
     end do
@@ -1908,13 +1953,13 @@ continue
     ! performing the above subtraction step first before multiplying
     ! through by rho_inv could cause any precision errors.
     !
-   !rho_inv = one/hufp(1,k)
+   !rho_inv = one/hufp(nec,k)
    !rho_inv2 = rho_inv*rho_inv
    !!
-   !do m = 2,nq-1
+   !do m = nmb,nme
    !  vel_over_rho = rho_inv2 * hufp(m,k)
    !  do l = 1,nr
-   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - vel_over_rho*hdufp(l,1,k)
+   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - vel_over_rho*hdufp(l,nec,k)
    !  end do
    !end do
     !
@@ -1942,15 +1987,15 @@ subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Use Statements ..
-  use ovar, only : gam,rgasref_nd
+  use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:),      intent(in) :: hufp
-  real(wp), dimension(:,:,:),    intent(in) :: hdufp
-  real(wp), dimension(:,:,:), intent(inout) :: gdufp
+  real(wp),    intent(in) :: hufp(:,:)
+  real(wp),    intent(in) :: hdufp(:,:,:)
+  real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: np,nr,k,m,l
+  integer  :: np,nr,k,m,l
   real(wp) :: rho_inv,vel,pvar,cv_inv
  !real(wp) :: rho_inv2,pvar_over_rho
   !
@@ -1967,7 +2012,7 @@ continue
   !
   do k = 1,np
     do l = 1,nr
-      gdufp(l,1,k) = hdufp(l,1,k)
+      gdufp(l,nec,k) = hdufp(l,nec,k)
     end do
   end do
   !
@@ -1983,7 +2028,7 @@ continue
     !
     ! Compute the inverse of density
     !
-    rho_inv = one/hufp(1,k)
+    rho_inv = one/hufp(nec,k)
     !
     ! Using the chain rule:
     !
@@ -1991,10 +2036,10 @@ continue
     ! 2. Compute the total energy gradient and store in the
     !    location for the temperature gradient (m = nq)
     !
-    do m = 2,nq
+    do m = nmb,nq
       pvar = rho_inv * hufp(m,k)
       do l = 1,nr
-        gdufp(l,m,k) = hdufp(l,m,k) - pvar*hdufp(l,1,k)
+        gdufp(l,m,k) = hdufp(l,m,k) - pvar*hdufp(l,nec,k)
         gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
       end do
     end do
@@ -2003,13 +2048,13 @@ continue
    !! performing the above subtraction step first before multiplying
    !! through by rho_inv could cause any precision errors.
    !!
-   !rho_inv = one/hufp(1,k)
+   !rho_inv = one/hufp(nec,k)
    !rho_inv2 = rho_inv*rho_inv
    !!
-   !do m = 2,nq
+   !do m = nmb,nq
    !  pvar_over_rho = rho_inv2 * hufp(m,k)
    !  do l = 1,nr
-   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - pvar_over_rho*hdufp(l,1,k)
+   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - pvar_over_rho*hdufp(l,nec,k)
    !  end do
    !end do
     !
@@ -2018,7 +2063,7 @@ continue
     ! Now use the velocity gradients to subtract the gradient of
     ! kinetic-energy-per-unit-mass from the total energy gradient.
     ! 
-    do m = 2,nq-1
+    do m = nmb,nme
       vel = rho_inv * hufp(m,k)
       do l = 1,nr
         gdufp(l,nq,k) = gdufp(l,nq,k) - vel * gdufp(l,m,k)
@@ -2057,11 +2102,11 @@ subroutine get_bc_slip_wall_gradient(hdufp,gdufp,fnrm)
   real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: nr,k,m,l
+  integer  :: nr,k,m,l
   real(wp) :: wall_solution_location,reflect_const
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(fnrm,dim=1)) :: rnrm
+  real(wp) :: rnrm(1:size(fnrm,dim=1))
   !
 continue
   !
@@ -2104,7 +2149,7 @@ subroutine output_bface
   character(len=100) :: my_file
   !
   !.. Local Arrays ..
-  integer, dimension(1:size(bface,dim=1)+1) :: intlen
+  integer :: intlen(1:size(bface,dim=1)+1)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_bface"
@@ -2198,14 +2243,16 @@ end subroutine output_bface
 subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Use Statements ..
-  use geovar, only : bc_conflict
-  use ovar,   only : iop_flxpts
-  use ovar,   only : use_bc_conflicts
+  use geovar,  only : bc_conflict
+  use ovar,    only : iop_flxpts
+  use ovar,    only : use_bc_conflicts
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  type(face_var), dimension(:), intent(inout) :: faceusp
-  logical(lk),    optional,        intent(in) :: override
+  type(face_var), intent(inout) :: faceusp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -2213,7 +2260,8 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Local Arrays ..
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
-  real(r8), dimension(1:nq) :: exch_send,exch_recv
+  real(r8) :: exch_send(1:nq)
+  real(r8) :: exch_recv(1:nq)
   !
 continue
   !
@@ -2350,14 +2398,16 @@ end subroutine exchange_bc_conflicts_usp
 subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Use Statements ..
-  use geovar, only : nr,bc_conflict
-  use ovar,   only : iop_flxpts
-  use ovar,   only : use_bc_conflicts
+  use geovar,  only : nr,bc_conflict
+  use ovar,    only : iop_flxpts
+  use ovar,    only : use_bc_conflicts
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  type(face_vec), dimension(:), intent(inout) :: facedusp
-  logical(lk),    optional,        intent(in) :: override
+  type(face_vec), intent(inout) :: facedusp(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: override
   !
   !.. Local Scalars ..
   integer :: i,n,nf,km,ks,nfm,nfs
@@ -2365,7 +2415,8 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Local Arrays ..
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
-  real(r8), dimension(1:nr,1:nq) :: exch_send,exch_recv
+  real(r8) :: exch_send(1:nr,1:nq)
+  real(r8) :: exch_recv(1:nr,1:nq)
   !
 continue
   !

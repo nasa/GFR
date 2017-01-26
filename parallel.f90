@@ -273,8 +273,8 @@ module parallel_mod
   logical(lk), parameter :: send_using_large_buffer = fals
  !logical(lk), parameter :: send_using_large_buffer = true
   !
-  logical(lk), parameter :: send_grid_elem_tags = fals
- !logical(lk), parameter :: send_grid_elem_tags = true
+ !logical(lk), parameter :: send_grid_elem_tags = fals
+  logical(lk), parameter :: send_grid_elem_tags = true
   !
   logical(lk), parameter :: send_grid_elem_host_cell = fals
  !logical(lk), parameter :: send_grid_elem_host_cell = true

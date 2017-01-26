@@ -24,7 +24,7 @@ subroutine initialize_flow()
   !.. Use Statements ..
   use generic_types_mod, only : matrix
   !
-  use geovar, only : nr,n_solpts,ncell,cell,xyz
+  use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
   use ovar, only : rhoref,aref,itestcase
   use ovar, only : cv_in,iop_solpts
@@ -51,6 +51,7 @@ subroutine initialize_flow()
   integer :: n,n1,n2,np,l,l1,l2,m
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_geom,this_order
+  integer :: init_cond
   real(wp) :: rhoa2
   character(len=200) :: array_name
   !
@@ -68,6 +69,10 @@ subroutine initialize_flow()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Initialize the bc_in array
+  !
+  call create_bc_in
   !
   ! Initialize all local pointers to disassociated
   !
@@ -131,6 +136,13 @@ continue
       n2 = cell(n)%end_sp
       np = n2-n1+1
       !
+      init_cond = 0
+      if (allocated(grid%elem(n)%tags)) then
+        if (size(grid%elem(n)%tags) >= 2) then
+          init_cond = grid%elem(n)%tags(2)
+        end if
+      end if
+      !
       ! Check whether the init component of outerp is associated with
       ! an interpolation matrix to determine where we need to compute
       ! the initial conditions.
@@ -140,7 +152,7 @@ continue
         ! The init component of outerp is not associated so just compute
         ! the initial conditions at the solution points
         !
-        usp(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) )
+        usp(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) , init_cond )
         !
       else
         !
@@ -183,7 +195,7 @@ continue
         !
         ! Evaluate the initial conditions at the initialization points
         !
-        usp(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) )
+        usp(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) , init_cond )
         !
         ! Interpolate the initial conditions from the initialization points
         ! to the solution points
@@ -212,6 +224,13 @@ continue
     itcur = 0
     time  = zero
     !
+  end if
+  !
+  ! Deallocate the grid derived type
+  !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Initialize the solution at previous timestep array
@@ -316,11 +335,11 @@ end subroutine initialize_flow
 !###############################################################################
 !
 pure &
-function initial_conditions(xyz) result(return_value)
+function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : ncell
-  use ovar, only : cv_in
+  use ovar, only : bc_in
   use ovar, only : itestcase
   use ovar, only : mms_opt,mms_init
   use ovar, only : postproc_debug_grid
@@ -328,7 +347,8 @@ function initial_conditions(xyz) result(return_value)
   use channel_mod, only : channel_initialization
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: xyz
+  real(wp), intent(in) :: xyz(:,:)
+  integer,  intent(in) :: init_cond
   !
   !.. Function Result ..
   real(wp), dimension(1:nq,1:size(xyz,dim=2)) :: return_value
@@ -378,7 +398,7 @@ continue
   else
     !
     do k = 1,np
-      return_value(:,k) = cv_in(:)
+      return_value(:,k) = bc_in(init_cond)%cv(:)
     end do
     !
   end if
@@ -1044,10 +1064,880 @@ end subroutine initialize_turbulence
 !
 !###############################################################################
 !
+subroutine create_bc_in
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,bface
+  use ovar,   only : bc_input,bc_in,bc_names
+  use ovar,   only : tmin,tmax,tref,pref,rgasref
+  use ovar,   only : velref,rhoref,aref,gam
+  !
+  !.. Local Scalars ..
+  integer     :: i,ii,n,nf,nbc,ierr
+  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd
+  real(wp)    :: alpha,beta,rhoa2,total_cond
+  real(wp)    :: gm1,gam_over_gm1,one_over_gm1
+  logical(lk) :: static_is_set
+  logical(lk) :: total_is_set
+  logical(lk) :: mach_is_set
+  logical(lk) :: vel_is_set
+  !
+  character(len=32) :: bcnam,bcinp
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  real(wp) :: pv(1:nq)
+  real(wp) :: cv(1:nq)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: bc_list(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_bc_in"
+  !
+continue
+  !
+  rhoa2 = rhoref * aref * aref
+  gm1 = gam - one
+  one_over_gm1 = one / gm1
+  gam_over_gm1 = gam*one_over_gm1
+  !
+  nbc = 1
+  !
+  do n = 1,size(bc_input)
+    !
+    bc_input(n)%name = adjustl(bc_input(n)%name)
+    !
+    if (len_trim(bc_input(n)%name) > 0) then
+      if (.not. allocated(bc_list)) then
+        allocate ( bc_list(1:1) , source=n , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"bc_list",1,__LINE__,__FILE__,ierr,error_message)
+      else
+        bc_list = [ bc_list , n ] ! Using F2003 auto-reallocation
+      end if
+    end if
+    !
+  end do
+  !
+  nbc = 0
+  if (allocated(bc_list)) nbc = size(bc_list)
+  !
+  allocate ( bc_in(0:nbc) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_in",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Set the reference boundary conditions
+  !
+  pv(nec) = rhoref / rhoref
+  pv(nmb:nme) = velref(:) / aref
+  pv(nee) = pref / rhoa2
+  !
+  cv(:) = vsp2u_sp(pv)
+  !
+  bc_in(0)%pv = pv(:) ! Using F2003 auto-reallocation
+  bc_in(0)%cv = cv(:) ! Using F2003 auto-reallocation
+  !
+  ! Set the other boundary conditions
+  !
+  do i = 1,size(bc_list)
+    !
+    static_is_set = fals
+    total_is_set = fals
+    mach_is_set = fals
+    vel_is_set = fals
+    !
+    n = bc_list(i)
+    !
+    if (mypnum == 0) then
+      write (iout,2) i,trim(adjustl(bc_input(n)%name))
+    end if
+    !
+    if ( (bc_input(n)%wall_temp >= tmin) .and. &
+         (bc_input(n)%wall_temp <= tmax) ) then
+      !
+      bc_in(i)%wall_temperature = bc_input(n)%wall_temp
+      !
+    else
+      !
+      r = bc_input(n)%rho_static
+      p = bc_input(n)%p_static
+      t = bc_input(n)%t_static
+      !
+      r0 = bc_input(n)%rho_total
+      p0 = bc_input(n)%p_total
+      t0 = bc_input(n)%t_total
+      !
+      mach  = bc_input(n)%mach
+      alpha = bc_input(n)%alpha_aoa
+      beta  = bc_input(n)%beta_aoa
+      !
+      if (size(vel) == 1) then
+        vel(:) = [ bc_input(n)%vx ]
+      else if (size(vel) == 2) then
+        vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
+      else if (size(vel) == 3) then
+        vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
+      end if
+      !
+      iterate_bc_conditions: do ii = 1,5
+        !
+        mach_is_set = ( abs(mach) < five*five )
+        vel_is_set  = ( norm2(vel) > zero )
+        !
+        call igl(r,p,t,static_is_set,n)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"igl(r,p,t)")
+        call igl(r0,p0,t0,total_is_set,n)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"igl(r0,p0,t0)")
+        !
+        call mach_total_pres(p,p0,mach,mach_is_set,n)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"mach_total_pres")
+        call mach_total_temp(t,t0,mach,mach_is_set,n)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"mach_total_temp")
+        call mach_total_dens(r,r0,mach,mach_is_set,n)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"mach_total_dens")
+        !
+        call vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
+        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                                static_is_set,total_is_set, &
+                                vel_is_set,mach_is_set,"vel_from_static")
+        !
+        if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
+        !
+        if (ii == 5) then
+          write (error_message,1) n
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        end if
+        !
+      end do iterate_bc_conditions
+      !
+      pv(nec) = r
+      pv(nmb:nme) = vel
+      pv(nee) = p
+      !
+      call check_bc_input(bc_input(n),pv,n)
+      !
+      pv(nec) = pv(nec) / rhoref
+      pv(nmb:nme) = pv(nmb:nme) / aref
+      pv(nee) = pv(nee) / rhoa2
+      !
+      cv(:) = vsp2u_sp(pv)
+      !
+      bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
+      !
+      if (mypnum == 0) then
+        !
+        r = bc_in(i)%pv(nec)*rhoref
+        p = bc_in(i)%pv(nee)*rhoa2
+        t = temperature_pv_sp(bc_in(i)%pv)*tref
+        !
+        aspd = sqrt(gam*rgasref*t)
+        mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
+        !
+        total_cond = one + half*gm1*mach*mach
+        !
+        r0 = r * total_cond**one_over_gm1
+        p0 = p * total_cond**gam_over_gm1
+        t0 = t * total_cond
+        !
+        alpha = zero
+        beta = zero
+        if (nr >= 2) then
+          alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
+          if (nr == 3) then
+            beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+          end if
+        end if
+        alpha = alpha * radians2degrees
+        beta = beta * radians2degrees
+        !
+        write (iout,3) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
+        write (iout,4) p,t,mach,aspd,r0,p0,t0,alpha,beta
+        !
+      end if
+      !
+    end if
+    !
+    ii = 0
+    bface_loop: do nf = 1,size(bface,dim=2)
+      !
+      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+      !
+      bcnam = trim(adjustl( uppercase( bc_names(bface(5,nf)) ) ))
+      bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
+      !
+      if (bcnam == bcinp) then
+        ii = ii + 1
+        bface(6,nf) = i
+      end if
+      !
+    end do bface_loop
+    !
+    call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+    !
+    if (mypnum == 0) then
+      write (iout,5) ii
+    end if
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    if (mypnum == 0) flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("Error iterating on BC # ",i0," !!!")
+  2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
+  3 format (4x,"Static Density        = ",es14.6,/, &
+            4x,"X-velocity            = ",es14.6,:,/, &
+            4x,"Y-velocity            = ",es14.6,:,/, &
+            4x,"Z-velocity            = ",es14.6)
+  4 format (4x,"Static Pressure       = ",es14.6,/, &
+            4x,"Static Temperature    = ",es14.6,/, &
+            4x,"Mach Number           = ",es14.6,/, &
+            4x,"Speed of Sound        = ",es14.6,/, &
+            4x,"Total Density         = ",es14.6,/, &
+            4x,"Total Pressure        = ",es14.6,/, &
+            4x,"Total Temperature     = ",es14.6,/, &
+            4x,"Alpha Angle of Attack = ",es14.6,/, &
+            4x,"Beta  Angle of Attack = ",es14.6,/)
+  5 format (4x,"Number of boundary faces for this BC = ",i0)
+  !
+end subroutine create_bc_in
+!
+!###############################################################################
+!
+subroutine dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+                              static_is_set,total_is_set, &
+                              vel_is_set,mach_is_set,string)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: ii
+  real(wp),         intent(in) :: r,r0,p,p0,t,t0
+  real(wp),         intent(in) :: mach,alpha,beta
+  real(wp),         intent(in) :: vel(:)
+  logical(lk),      intent(in) :: static_is_set,total_is_set
+  logical(lk),      intent(in) :: vel_is_set,mach_is_set
+  character(len=*), intent(in) :: string
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+continue
+  !
+  if (mypnum /= 0) return
+  !
+  write (iout,1) trim(adjustl(string)),ii, &
+                 r,p,t,static_is_set, &
+                 r0,p0,t0,total_is_set, &
+                 sqrt(merge(gam*p/r,zero,gam*p/r>zero)), &
+                 mach,mach_is_set
+  write (iout,2) (vel(i),i=1,size(vel))
+  write (iout,3) alpha,beta,vel_is_set
+  flush (iout)
+  !
+  ! Format Statements
+  !
+  1 format (/, &
+            3x,"Dumping variables at location '",a, &
+               "' for BC iteration # ",i0,/, &
+            5x,"Static Density        = ",es14.6,/, &
+            5x,"Static Pressure       = ",es14.6,/, &
+            5x,"Static Temperature    = ",es14.6,/, &
+            5x,"static_is_set         = ",l1,/, &
+            5x,"Total Density         = ",es14.6,/, &
+            5x,"Total Pressure        = ",es14.6,/, &
+            5x,"Total Temperature     = ",es14.6,/, &
+            5x,"total_is_set          = ",l1,/, &
+            5x,"Speed of Sound        = ",es14.6,/, &
+            5x,"Mach Number           = ",es14.6,/, &
+            5x,"mach_is_set           = ",l1)
+  2 format (5x,"X-velocity            = ",es14.6,:,/, &
+            5x,"Y-velocity            = ",es14.6,:,/, &
+            5x,"Z-velocity            = ",es14.6)
+  3 format (5x,"Alpha Angle of Attack = ",es14.6,/, &
+            5x,"Beta  Angle of Attack = ",es14.6,/, &
+            5x,"vel_is_set            = ",l1,/)
+  !
+end subroutine dump_bc_conditions
+!
+!###############################################################################
+!
+subroutine check_bc_input(bc,pv,n)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : rgasref,gam
+  use ovar,   only : bc_input_t
+  !
+  !.. Formal Arguments ..
+  type(bc_input_t), intent(in) :: bc
+  real(wp),         intent(in) :: pv(:)
+  integer,          intent(in) :: n
+  !
+  !.. Local Scalars ..
+  real(wp)    :: r,p,t,r0,p0,t0,vmag,bc_vel,mach,a,alpha,beta
+  real(wp)    :: gm1,one_over_gm1,gam_over_gm1,err_tol
+  real(wp)    :: total_cond
+  logical(lk) :: errors_found
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_bc_input"
+  !
+continue
+  !
+  errors_found = fals
+  err_tol = eps6
+  !
+  gm1 = gam - one
+  one_over_gm1 = one / gm1
+  gam_over_gm1 = gam / gm1  
+  !
+  r = pv(nec)
+  vel(:) = pv(nmb:nme)
+  vmag = norm2(vel)
+  p = pv(nee)
+  t = p / (rgasref*r)
+  a = sqrt(gam*rgasref*t)
+  mach = vmag/a
+  !
+  total_cond = one + half*gm1*mach*mach
+  r0 = r * (total_cond**one_over_gm1)
+  p0 = p * (total_cond**gam_over_gm1)
+  t0 = t *  total_cond
+  !
+  alpha = zero
+  beta = zero
+  if (size(vel) == 3) beta = asin(vel(3)/vmag) * radians2degrees
+  if (size(vel) >= 2) alpha = atan2(vel(2),vel(1)) * radians2degrees
+  !
+  ! Check static temperature
+  !
+  if (bc%t_static > zero) then
+    if (abs(bc%t_static - t) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,1) bc%t_static,t
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check static pressure
+  !
+  if (bc%p_static > zero) then
+    if (abs(bc%p_static - p) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,2) bc%p_static,p
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check static density
+  !
+  if (bc%rho_static > zero) then
+    if (abs(bc%rho_static - r) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,3) bc%rho_static,r
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check total temperature
+  !
+  if (bc%t_total > zero) then
+    if (abs(bc%t_total - t0) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,4) bc%t_total,t0
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check total pressure
+  !
+  if (bc%p_total > zero) then
+    if (abs(bc%p_total - p0) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,5) bc%p_total,p0
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check total density
+  !
+  if (bc%rho_total > zero) then
+    if (abs(bc%rho_total - r0) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,6) bc%rho_total,r0
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check mach number
+  !
+  if (bc%mach > zero) then
+    if (abs(bc%mach - mach) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,7) bc%mach,mach
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check alpha angle of attack
+  !
+  if (bc%alpha_aoa /= zero) then
+    if (abs(bc%alpha_aoa - alpha) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,8) bc%alpha_aoa,alpha
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check beta angle of attack
+  !
+  if (bc%beta_aoa /= zero) then
+    if (abs(bc%beta_aoa - beta) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,9) bc%beta_aoa,beta
+      end if
+      errors_found = true
+    end if
+  end if
+  !
+  ! Check velocity
+  !
+  bc_vel = norm2( [ bc%vx , bc%vy , bc%vz ] )
+  !
+  if (bc_vel > zero) then
+    if (abs(bc_vel - vmag) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,10) bc_vel,vmag
+      end if
+      errors_found = true
+    end if
+    if (abs(bc%vx - vel(1)) > err_tol) then
+      if (mypnum == 0) then
+        if (.not.errors_found) write (iout,100) n
+        write (iout,11) bc%vx,vel(1)
+      end if
+      errors_found = true
+    end if
+    if (size(vel) >= 2) then
+      if (abs(bc%vy - vel(2)) > err_tol) then
+        if (mypnum == 0) then
+          if (.not.errors_found) write (iout,100) n
+          write (iout,12) bc%vy,vel(2)
+        end if
+        errors_found = true
+      end if
+    end if
+    if (size(vel) == 3) then
+      if (abs(bc%vz - vel(3)) > err_tol) then
+        if (mypnum == 0) then
+          if (.not.errors_found) write (iout,100) n
+          write (iout,13) bc%vz,vel(3)
+        end if
+        errors_found = true
+      end if
+    end if
+  end if
+  !
+  if (errors_found) then
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  end if
+  !
+  ! Format Statements
+  !
+  1   format (5x,"Input       static temperature = ",es14.6,/, &
+              5x,"Computed    static temperature = ",es14.6)
+  2   format (5x,"Input          static pressure = ",es14.6,/, & 
+              5x,"Computed       static pressure = ",es14.6)
+  3   format (5x,"Input           static density = ",es14.6,/, & 
+              5x,"Computed        static density = ",es14.6)
+  4   format (5x,"Input        total temperature = ",es14.6,/, & 
+              5x,"Computed     total temperature = ",es14.6)
+  5   format (5x,"Input           total pressure = ",es14.6,/, & 
+              5x,"Computed        total pressure = ",es14.6)
+  6   format (5x,"Input            total density = ",es14.6,/, & 
+              5x,"Computed         total density = ",es14.6)
+  7   format (5x,"Input              Mach number = ",es14.6,/, & 
+              5x,"Computed           Mach number = ",es14.6)
+  8   format (5x,"Input    alpha angle of attack = ",es14.6,/, & 
+              5x,"Computed alpha angle of attack = ",es14.6)
+  9   format (5x,"Input    beta  angle of attack = ",es14.6,/, & 
+              5x,"Computed beta  angle of attack = ",es14.6)
+  10  format (5x,"Input       velocity magnitude = ",es14.6,/, & 
+              5x,"Computed    velocity magnitude = ",es14.6)
+  11  format (5x,"Input               x-velocity = ",es14.6,/, & 
+              5x,"Computed            x-velocity = ",es14.6)
+  12  format (5x,"Input               y-velocity = ",es14.6,/, & 
+              5x,"Computed            y-velocity = ",es14.6)
+  13  format (5x,"Input               z-velocity = ",es14.6,/, & 
+              5x,"Computed            z-velocity = ",es14.6)
+  100 format (/,3x,"An error was found checking the final ", &
+                   "flow conditions for BC # ",i0," !!!",/)
+  !
+end subroutine check_bc_input
+!
+!###############################################################################
+!
+subroutine vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref,gam
+  !
+  !.. Formal Arguments ..
+  real(wp),       intent(in) :: r,p,t
+  real(wp),    intent(inout) :: vel(:)
+  real(wp),    intent(inout) :: mach
+  real(wp),    intent(inout) :: alpha
+  real(wp),    intent(inout) :: beta
+  logical(lk), intent(inout) :: vel_is_set
+  logical(lk), intent(inout) :: mach_is_set
+  !
+  !.. Local Scalars ..
+  real(wp) :: aspd
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "vel_from_static"
+  !
+continue
+  !
+  aspd = -huge(zero)
+  if (t > zero) then
+    aspd = sqrt(gam*rgasref*t)
+  else if (r > zero .and. p > zero) then
+    aspd = sqrt(gam*p/r)
+  else if (vel_is_set .and. mach_is_set) then
+    aspd = norm2(vel) / mach
+  end if
+  !
+  if (vel_is_set) then
+    if (size(vel) == 3) beta = asin(vel(3)/norm2(vel)) * radians2degrees
+    if (size(vel) >= 2) alpha = atan2(vel(2),vel(1)) * radians2degrees
+    if (aspd > zero .and. .not. mach_is_set) then
+      mach = norm2(vel)/aspd
+      mach_is_set = true
+    end if
+  else
+    if (aspd > zero .and. mach_is_set) then
+      vel(:) = mach*aspd
+      if (size(vel) >= 2) then
+        vel(1) = vel(1)*cos(alpha*degrees2radians)
+        vel(2) = vel(2)*sin(alpha*degrees2radians)
+      end if
+      if (size(vel) == 3) then
+        vel(1) = vel(1)*cos(beta *degrees2radians)
+        vel(2) = vel(2)*cos(beta *degrees2radians)
+        vel(3) = vel(3)*sin(beta *degrees2radians)
+      end if
+      vel_is_set = true
+    end if
+  end if
+  !
+end subroutine vel_from_static
+!
+!###############################################################################
+!
+subroutine mach_total_temp(t,t0,mach,mach_is_set,n)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(inout) :: t,t0
+  real(wp),    intent(inout) :: mach
+  logical(lk), intent(inout) :: mach_is_set
+  integer,        intent(in) :: n
+  !
+  !.. Local Scalars ..
+  real(wp) :: tmach,total_cond
+  real(wp) :: gm1,two_over_gm1
+  real(wp) :: tratio
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "mach_total_temp"
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  if (t > zero .and. t0 > zero) then
+    !
+    two_over_gm1 = two / gm1
+    !
+    tratio = t0/t
+    !
+    tmach = sqrt( two_over_gm1 * (tratio - one) )
+    !
+    if (mach_is_set) then
+      if (abs(mach-tmach) > eps6) then
+        write (error_message,1) n,mach,tmach
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+    else
+      mach = tmach
+      mach_is_set = true
+    end if
+    !
+  else
+    !
+    if (mach_is_set) then
+      total_cond = one + half*gm1*mach*mach
+      if (t > zero) then
+        t0 = t * total_cond
+      else if (t0 > zero) then
+        t = t0 / total_cond
+      end if
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ( &
+     " Error with BC # ",i0," !",/, &
+     " Mach number specified for boundary condition = ",es14.6,/, &
+     " Mach number computed from the stagnation temperature = ",es14.6,/, &
+     " Please correct the input values for this BC!")
+  !
+end subroutine mach_total_temp
+!
+!###############################################################################
+!
+subroutine mach_total_pres(p,p0,mach,mach_is_set,n)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(inout) :: p,p0
+  real(wp),    intent(inout) :: mach
+  logical(lk), intent(inout) :: mach_is_set
+  integer,        intent(in) :: n
+  !
+  !.. Local Scalars ..
+  real(wp) :: pmach,total_cond
+  real(wp) :: two_over_gm1,gm1
+  real(wp) :: gam_over_gm1,pratio
+  real(wp) :: gm1_over_gam
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "mach_total_pres"
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  if (p > zero .and. p0 > zero) then
+    !
+    gm1_over_gam = gm1 / gam
+    two_over_gm1 = two / gm1
+    !
+    pratio = (p0/p)**gm1_over_gam
+    !
+    pmach = sqrt( two_over_gm1 * (pratio - one) )
+    !
+    if (mach_is_set) then
+      if (abs(mach-pmach) > eps6) then
+        write (error_message,1) n,mach,pmach
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+    else
+      mach = pmach
+      mach_is_set = true
+    end if
+    !
+  else
+    !
+    if (mach_is_set) then
+      gam_over_gm1 = gam / gm1
+      total_cond = (one + half*gm1*mach*mach)**gam_over_gm1
+      if (p > zero) then
+        p0 = p * total_cond
+      else if (p0 > zero) then
+        p = p0 / total_cond
+      end if
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ( &
+     " Error with BC # ",i0," !",/, &
+     " Mach number specified for boundary condition = ",es14.6,/, &
+     " Mach number computed from the stagnation pressure = ",es14.6,/, &
+     " Please correct the input values for this BC!")
+  !
+end subroutine mach_total_pres
+!
+!###############################################################################
+!
+subroutine mach_total_dens(r,r0,mach,mach_is_set,n)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(inout) :: r,r0
+  real(wp),    intent(inout) :: mach
+  logical(lk), intent(inout) :: mach_is_set
+  integer,        intent(in) :: n
+  !
+  !.. Local Scalars ..
+  real(wp) :: rmach,total_cond
+  real(wp) :: two_over_gm1,gm1
+  real(wp) :: one_over_gm1,rratio
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "mach_total_dens"
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  if (r > zero .and. r0 > zero) then
+    !
+    two_over_gm1 = two / gm1
+    rratio = (r0/r)**gm1
+    !
+    rmach = sqrt( two_over_gm1 * (rratio - one) )
+    !
+    if (mach_is_set) then
+      if (abs(mach-rmach) > eps6) then
+        write (error_message,1) n,mach,rmach
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+    else
+      mach = rmach
+      mach_is_set = true
+    end if
+    !
+  else
+    !
+    if (mach_is_set) then
+      one_over_gm1 = one / gm1
+      total_cond = (one + half*gm1*mach*mach)**one_over_gm1
+      if (r > zero) then
+        r0 = r * total_cond
+      else if (r0 > zero) then
+        r = r0 / total_cond
+      end if
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ( &
+     " Error with BC # ",i0," !",/, &
+     " Mach number specified for boundary condition = ",es14.6,/, &
+     " Mach number computed from the stagnation density = ",es14.6,/, &
+     " Please correct the input values for this BC!")
+  !
+end subroutine mach_total_dens
+!
+!###############################################################################
+!
+subroutine igl(rho,pres,temp,success,n)
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(inout) :: rho
+  real(wp),    intent(inout) :: pres
+  real(wp),    intent(inout) :: temp
+  logical(lk), intent(inout) :: success
+  integer,        intent(in) :: n
+  !
+  !.. Local Scalars ..
+  real(wp) :: pres_check
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "igl"
+  !
+continue
+  !
+  success = fals
+  !
+  if (count([rho,pres,temp] > zero) >= 2) then
+    !
+    if ( rho > zero .and. pres > zero .and. temp > zero ) then
+      !
+      pres_check = rho * rgasref * temp
+      !
+      if (abs(pres_check-pres) > eps6) then
+        write (error_message,1) n,pres,pres_check
+        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+    else if ( rho < zero .and. pres > zero .and. temp > zero ) then
+      rho = pres / (rgasref * temp)
+    else if ( pres < zero .and. rho > zero .and. temp > zero ) then
+      pres = rho * rgasref * temp
+    else if ( temp < zero .and. rho > zero .and. pres > zero ) then
+      temp = pres / (rgasref * rho)
+    end if
+    !
+    success = true
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (" Error with BC # ",i0," !",/, &
+            " Pressure specified for boundary condition = ",es14.6,/, &
+            " Pressure computed from other specified conditions = ",es14.6,/, &
+            " Please correct the flow conditions for this BC in the input",/, &
+            " file or set one of density, pressure, and temperature to a",/, &
+            " negative value so it is explicitly computed.")
+  !
+end subroutine igl
+!
+!###############################################################################
+!
 include "Functions/vortex.f90"
 include "Functions/taylor_green.f90"
 include "Functions/usp2v.f90"
+include "Functions/vsp2u.f90"
 include "Functions/viscosity.f90"
+include "Functions/temperature.f90"
 !
 !###############################################################################
 !
