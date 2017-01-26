@@ -151,6 +151,7 @@ subroutine get_metrics()
   !.. Use Statements ..
   use geovar, only : nr,n_totpts,n_totcel
   use geovar, only : ncell,cell,xyz
+  use geovar, only : nnode,nfbnd,nface,n_solpts
   !
   use derivatives_mod, only : deriv
   !
@@ -166,19 +167,28 @@ subroutine get_metrics()
   integer  :: n,nc,n1,n2,np
   integer  :: this_geom,this_order
   integer  :: ref_dir,phys_dir
-  integer  :: min_jsp,min_jsp_cpu,min_jtp,min_jtp_cpu
-  integer  :: max_jsp,max_jsp_cpu,max_jtp,max_jtp_cpu
+  integer  :: min_jsp,min_jsp_cpu,min_jtp,min_jtp_cpu,min_vol_cpu
+  integer  :: max_jsp,max_jsp_cpu,max_jtp,max_jtp_cpu,max_vol_cpu
+  integer  :: min_ncell_cpu,max_ncell_cpu
+  integer  :: min_nnode_cpu,max_nnode_cpu
+  integer  :: min_nfbnd_cpu,max_nfbnd_cpu
+  integer  :: min_nface_cpu,max_nface_cpu
+  integer  :: min_nspts_cpu,max_nspts_cpu
   real(r8) :: loc_vol,tot_vol
+  real(wp) :: ave_ncell,ave_nnode,ave_vol
+  real(wp) :: ave_nfbnd,ave_nface,ave_nspts
   !
  !integer :: exitstat,cmndstat
  !character(len=1000) :: cmndmsg,command
   !
   !.. Local Arrays ..
   integer  :: iom(1:4)
+  integer  :: part_info(1:5)
+  integer  :: all_part_info(1:5,1:ncpu)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: outmet(1:nr,1:nr)
-  real(wp) :: jac_info(1:8)
-  real(wp) :: all_jac_info(1:8,1:ncpu)
+  real(wp) :: jac_info(1:9)
+  real(wp) :: all_jac_info(1:9,1:ncpu)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
@@ -372,33 +382,120 @@ continue
   jac_info(6) = jacobian(max_jtp)
   jac_info(7) = jacobian(min_jsp)
   jac_info(8) = jacobian(max_jtp)
+  jac_info(9) = local_volume
   !
-  call mpi_allgather(    jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
-                     all_jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
-                     MPI_COMM_WORLD,mpierr)
+  part_info(1) = ncell
+  part_info(2) = nnode
+  part_info(3) = nfbnd
+  part_info(4) = nface
+  part_info(5) = n_solpts
+  !
+  if (ncpu > 1) then
+    !
+    call mpi_allgather(    jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                       all_jac_info,size(jac_info,kind=int_mpi),mpi_flttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    !
+    call mpi_allgather(    part_info,size(part_info,kind=int_mpi),mpi_inttyp, &
+                       all_part_info,size(part_info,kind=int_mpi),mpi_inttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    !
+  else
+    !
+    all_jac_info(:,1) = jac_info(:)
+    all_part_info(:,1) = part_info(:)
+    !
+  end if
   !
   min_jsp_cpu = minloc( all_jac_info(5,:) , dim=1 )
   max_jsp_cpu = minloc( all_jac_info(6,:) , dim=1 )
   min_jtp_cpu = minloc( all_jac_info(7,:) , dim=1 )
   max_jtp_cpu = minloc( all_jac_info(8,:) , dim=1 )
+  min_vol_cpu = minloc( all_jac_info(9,:) , dim=1 )
+  max_vol_cpu = maxloc( all_jac_info(9,:) , dim=1 )
   !
   min_jsp = nint( all_jac_info(1,min_jsp_cpu) )
   max_jsp = nint( all_jac_info(2,max_jsp_cpu) )
   min_jtp = nint( all_jac_info(3,min_jtp_cpu) )
   max_jtp = nint( all_jac_info(4,max_jtp_cpu) )
   !
+  min_ncell_cpu = minloc( all_part_info(1,:) , dim=1 )
+  max_ncell_cpu = maxloc( all_part_info(1,:) , dim=1 )
+  min_nnode_cpu = minloc( all_part_info(2,:) , dim=1 )
+  max_nnode_cpu = maxloc( all_part_info(2,:) , dim=1 )
+  min_nfbnd_cpu = minloc( all_part_info(3,:) , dim=1 )
+  max_nfbnd_cpu = maxloc( all_part_info(3,:) , dim=1 )
+  min_nface_cpu = minloc( all_part_info(4,:) , dim=1 )
+  max_nface_cpu = maxloc( all_part_info(4,:) , dim=1 )
+  min_nspts_cpu = minloc( all_part_info(5,:) , dim=1 )
+  max_nspts_cpu = maxloc( all_part_info(5,:) , dim=1 )
+  !
+  ave_ncell = real( sum( all_part_info(1,:) ) , kind=kind(ave_ncell) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_ncell) )
+  ave_nnode = real( sum( all_part_info(2,:) ) , kind=kind(ave_nnode) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nnode) )
+  ave_nfbnd = real( sum( all_part_info(3,:) ) , kind=kind(ave_nfbnd) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nfbnd) )
+  ave_nface = real( sum( all_part_info(4,:) ) , kind=kind(ave_nface) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nface) )
+  ave_nspts = real( sum( all_part_info(5,:) ) , kind=kind(ave_nspts) ) / &
+              real( size(all_part_info,dim=2) , kind=kind(ave_nspts) )
+  ave_vol   = sum( all_jac_info(9,:) ) / &
+              real( size(all_jac_info(9,:)) , kind=kind(ave_vol) )
+  !
   if (mypnum == 0) then
+    !
     write (iout,1) all_jac_info(5,min_jsp_cpu),min_jsp,min_jsp_cpu-1, &
                    all_jac_info(6,max_jsp_cpu),max_jsp,max_jsp_cpu-1, &
                    all_jac_info(7,min_jtp_cpu),min_jtp,min_jtp_cpu-1, &
                    all_jac_info(8,max_jtp_cpu),max_jtp,max_jtp_cpu-1
+    !
+    write (iout,2) all_part_info(1,min_ncell_cpu),min_ncell_cpu, &
+                   all_part_info(1,max_ncell_cpu),max_ncell_cpu, &
+                   nint(ave_ncell), &
+                   all_part_info(2,min_nnode_cpu),min_nnode_cpu, &
+                   all_part_info(2,max_nnode_cpu),max_nnode_cpu, &
+                   nint(ave_nnode), &
+                   all_part_info(3,min_nfbnd_cpu),min_nfbnd_cpu, &
+                   all_part_info(3,max_nfbnd_cpu),max_nfbnd_cpu, &
+                   nint(ave_nfbnd), &
+                   all_part_info(4,min_nface_cpu),min_nface_cpu, &
+                   all_part_info(4,max_nface_cpu),max_nface_cpu, &
+                   nint(ave_nface), &
+                   all_part_info(5,min_nspts_cpu),min_nspts_cpu, &
+                   all_part_info(5,max_nspts_cpu),max_nspts_cpu, &
+                   nint(ave_nspts), &
+                   all_jac_info(9,min_vol_cpu),min_vol_cpu, &
+                   all_jac_info(9,max_vol_cpu),max_vol_cpu, &
+                   ave_vol
+    !
   end if
   !
   1 format (/, &
-          " Min Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
-          " Max Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
-          " Min Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/, &
-          " Max Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU #",i0,/)
+         " Min Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Max Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Min Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Max Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0)
+  !
+  2 format (/, &
+          " Min ncell = ",i0,t25,"on CPU # ",i0,/, &
+          " Max ncell = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave ncell = ",i0,//, &
+          " Min nnode = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nnode = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nnode = ",i0,//, &
+          " Min nfbnd = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nfbnd = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nfbnd = ",i0,//, &
+          " Min nface = ",i0,t25,"on CPU # ",i0,/, &
+          " Max nface = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave nface = ",i0,//, &
+          " Min n_solpts = ",i0,t25,"on CPU # ",i0,/, &
+          " Max n_solpts = ",i0,t25,"on CPU # ",i0,/, &
+          " Ave n_solpts = ",i0,//, &
+          " Min partition volume = ",es16.8,t25,"on CPU # ",i0,/, &
+          " Max partition volume = ",es16.8,t25,"on CPU # ",i0,/, &
+          " Ave partition volume = ",es16.8,/)
   !
  !write (iout,2) mypnum,"n_solpts",minval(jacobian(1:np)),maxval(jacobian(1:np))
  !write (iout,2) mypnum,"n_totpts",minval(jacobian,mask=jacobian/=zero),&
