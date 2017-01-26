@@ -27,7 +27,7 @@ module projection_mod
     type(matrix), allocatable :: toCell(:) ! project to a cell point
   end type projection_matrix
   !
-  ! projct : projection matrix for all combinations of cell geometry and 
+  ! projct : projection matrix for all combinations of cell geometry and
   !          and cell order that are possible in the current simulation
   !
   !     For cell 'n' :
@@ -76,8 +76,238 @@ subroutine init_projection_matrices()
 continue
   !
   call debug_timer(entering_procedure,pname)
+ !!
+ !! Initialize the local pointers to disassociated
+ !!
+ !this_projct => null()
+ !this_face   => null()
+ !this_cell   => null()
+ !solpts      => null()
+ !flxpts      => null()
+ !!
+ !gmin = n_min_geom
+ !gmax = n_max_geom
+ !omin = n_min_order
+ !omax = n_max_order
+ !!
+ !! Allocate the projct array
+ !!
+ !allocate ( projct(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"projct",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !geom_loop: do this_geom = gmin,gmax
+ !  !
+ !  if (.not. geom_is_used(this_geom)) cycle geom_loop
+ !  if (all(this_geom /= Geom_Valid)) cycle geom_loop
+ !  if (this_geom == Geom_Node) cycle geom_loop
+ !  !
+ !  order_loop: do this_order = omin,omax
+ !    !
+ !    ! Assign local pointer as alias to simplify the code
+ !    !
+ !    this_projct => projct(this_geom,this_order)
+ !    !
+ !    ! Get the number of solution points for this cell
+ !    !
+ !    nsolpts = geom_solpts(this_geom,this_order)
+ !    !
+ !    ! Get the minimum and maximum projection order for
+ !    ! this combination of cell geometry and cell order
+ !    !
+ !    this_omin = this_order
+ !    this_omax = geom_mio(this_geom,this_order)
+ !    !
+ !    ! this_omax should not be smaller than this_omin. If for some reason
+ !    ! it is, cycle to the next order for this geometry. The array geom_mio
+ !    ! was initialized to -1 so this should also account for geometries that
+ !    ! were never found while creating the array.
+ !    !
+ !    if (this_omax < this_omin) cycle order_loop
+ !    !
+ !    ! Allocate the projct%toFace component of projct
+ !    !
+ !    allocate ( this_projct%toFace(this_omin:this_omax) , &
+ !               stat=ierr , errmsg=error_message )
+ !    write (array_name,1) Geom_Name(this_geom),this_order,"toFace"
+ !    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+ !    !
+ !    ! Loop through all the projection orders for this combo
+ !    ! and compute the corresponding projection matrices
+ !    !
+ !    face_order_loop: do face_order = this_omin,this_omax
+ !      !
+ !      ! Assign local pointers to these matrices
+ !      ! as aliases to simplify the code
+ !      !
+ !      this_face => this_projct%toFace(face_order)
+ !      !
+ !      ! Get the number of face/flux points for this face order
+ !      !
+ !      nflxpts = geom_flxpts(this_geom,face_order)
+ !      !
+ !      ! Allocate the projection matrix for this face order
+ !      !
+ !      allocate ( this_face%mat(1:nsolpts,1:nflxpts) , &
+ !                 source=zero , stat=ierr , errmsg=error_message )
+ !      write (array_name,1) Geom_Name(this_geom),this_order,"toFace",face_order
+ !      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                       error_message)
+ !      !
+ !      ! Compute the projection matrices depending on geometry type
+ !      !
+ !      select case (this_geom)
+ !        case (Geom_Edge)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Edge( solpts(1,:) )
+ !          !
+ !        case (Geom_Tria)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Tria( solpts )
+ !          !
+ !        case (Geom_Quad)
+ !          !
+ !          solpts => std_elem(Geom_Edge,this_order)%pts
+ !          flxpts => face_elem(Geom_Edge,face_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Quad( solpts(1,:) , flxpts(1,:) )
+ !          !
+ !        case (Geom_Tetr)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Tetr( solpts )
+ !          !
+ !        case (Geom_Pyra)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Pyra( solpts )
+ !          !
+ !        case (Geom_Pris)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Pris( solpts )
+ !          !
+ !        case (Geom_Hexa)
+ !          !
+ !          solpts => std_elem(Geom_Edge,this_order)%pts
+ !          flxpts => face_elem(Geom_Edge,face_order)%pts
+ !          !
+ !          this_face%mat = ProjectToFace_Hexa( solpts(1,:) , flxpts(1,:) )
+ !          !
+ !        case default
+ !          !
+ !          write (error_message,2)
+ !          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !          !
+ !      end select
+ !      !
+ !      ! Remove all associations of the local pointers before continuing
+ !      !
+ !      if (associated(this_face)) this_face => null()
+ !      if (associated(solpts   )) solpts    => null()
+ !      if (associated(flxpts   )) flxpts    => null()
+ !      !
+ !    end do face_order_loop
+ !    !
+ !    ! Allocate the projct%toCell component of projct
+ !    !
+ !    allocate ( this_projct%toCell(this_omin:this_omax) , &
+ !               stat=ierr , errmsg=error_message )
+ !    write (array_name,1) Geom_Name(this_geom),this_order,"toCell"
+ !    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+ !    !
+ !    ! Loop through all the projection orders for this combo
+ !    ! and compute the corresponding projection matrices
+ !    !
+ !    cell_order_loop: do cell_order = this_omin,this_omax
+ !      !
+ !      ! Assign local pointers to these matrices
+ !      ! as aliases to simplify the code
+ !      !
+ !      this_cell => this_projct%toCell(cell_order)
+ !      !
+ !      ! Allocate the projection matrix for this cell order
+ !      !
+ !      allocate ( this_cell%mat(1:nsolpts,1:nedgpts) , &
+ !                 source=zero , stat=ierr , errmsg=error_message )
+ !      write (array_name,1) Geom_Name(this_geom),this_order,"toCell",cell_order
+ !      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                       error_message)
+ !      !
+ !      ! Compute the projection matrices depending on geometry type
+ !      !
+ !      select case (this_geom)
+ !        case (Geom_Tetr)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_cell%mat = ProjectToCell_Tetr( solpts )
+ !          !
+ !        case (Geom_Pyra)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_cell%mat = ProjectToCell_Pyra( solpts )
+ !          !
+ !        case (Geom_Pris)
+ !          !
+ !          solpts => std_elem(this_geom,this_order)%pts
+ !          !
+ !          this_cell%mat = ProjectToCell_Pris( solpts )
+ !          !
+ !        case (Geom_Hexa)
+ !          !
+ !          solpts => std_elem(Geom_Edge,this_order)%pts
+ !          flxpts => face_elem(Geom_Edge,cell_order)%pts
+ !          !
+ !          this_cell%mat = ProjectToCell_Hexa( solpts(1,:) , flxpts(1,:) )
+ !          !
+ !        case default
+ !          !
+ !          write (error_message,2)
+ !          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !          !
+ !      end select
+ !      !
+ !      ! Remove all associations of the local pointers before continuing
+ !      !
+ !      if (associated(this_cell)) this_cell => null()
+ !      if (associated(solpts   )) solpts    => null()
+ !      if (associated(flxpts   )) flxpts    => null()
+ !      !
+ !    end do cell_order_loop
+ !    !
+ !    ! Remove all associations of the local pointers before continuing
+ !    !
+ !    if (associated(this_projct)) this_projct => null()
+ !    !
+ !  end do order_loop
+ !  !
+ !end do geom_loop
+ !!
+ !do this_geom = gmin,gmax
+ !  do this_order = omin,omax
+ !    if (allocated(projct(this_geom,this_order)%toFace)) then
+ !      call projct(this_geom,this_order)%toFace%check_for_sparsity
+ !    end if
+ !    if (allocated(projct(this_geom,this_order)%toCell)) then
+ !      call projct(this_geom,this_order)%toCell%check_for_sparsity
+ !    end if
+ !  end do
+ !end do
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("projct(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  2 format (" A grid cell of an unknown geometry type was found!")
   !
 end subroutine init_projection_matrices
 !
