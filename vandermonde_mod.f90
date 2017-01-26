@@ -15,6 +15,7 @@ module vandermonde_mod
   public :: Vandermonde_Edge
   public :: Vandermonde_Tria
   public :: vandermonde_memory_usage
+  public :: Compute_Basis_Matrix
   !
   !
   !
@@ -88,7 +89,7 @@ subroutine init_vandermonde_matrices()
   !
   !.. Local Pointers ..
   type(vandermonde_matrix), pointer :: this_vand
-  real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: solpts(:,:)
   real(wp), pointer, contiguous :: vmat(:,:)
   real(wp), pointer, contiguous :: vmat_inv(:,:)
   !
@@ -102,7 +103,7 @@ continue
   ! Initialize the local pointers to disassociated
   !
   this_vand => null()
-  solpts => null()
+ !solpts => null()
   vmat => null()
   vmat_inv => null()
   !
@@ -151,66 +152,17 @@ continue
       vmat => this_vand%modal2nodal%mat
       vmat_inv => this_vand%nodal2modal%mat
       !
-      ! Compute the Vandermonde matrices depending on geometry type
+      ! Compute the Vandermonde matrix
       !
-      select case (this_geom)
-        case (Geom_Edge)
-          !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          vmat = Vandermonde_Edge( solpts(1,:) )
-          !
-        case (Geom_Tria)
-          !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          vmat = Vandermonde_Tria( solpts )
-          !
-        case (Geom_Quad)
-          !
-          solpts => std_elem(Geom_Edge,this_order)%pts
-          !
-          vmat = Vandermonde_Quad( solpts(1,:) )
-          !
-        case (Geom_Tetr)
-          !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          vmat = Vandermonde_Tetr( solpts )
-          !
-        case (Geom_Pyra)
-          !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          vmat = Vandermonde_Pyra( solpts )
-          !
-        case (Geom_Pris)
-          !
-          solpts => std_elem(this_geom,this_order)%pts
-          !
-          vmat = Vandermonde_Pris( solpts )
-          !
-        case (Geom_Hexa)
-          !
-          solpts => std_elem(Geom_Edge,this_order)%pts
-          !
-          vmat = Vandermonde_Hexa( solpts(1,:) )
-          !
-        case default
-          !
-          write (error_message,2)
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-          !
-      end select
+      vmat(:,:) = Compute_Basis_Matrix(this_geom,this_order)
       !
       ! Compute the inverse of the Vandermonde matrix that was just computed
       !
-      vmat_inv = Vandermonde_Inverse( vmat )
+      vmat_inv(:,:) = Vandermonde_Inverse( vmat )
       !
       ! Remove all associations of the local pointers before continuing
       !
       if (associated(this_vand)) this_vand => null()
-      if (associated(solpts   )) solpts    => null()
       if (associated(vmat     )) vmat      => null()
       if (associated(vmat_inv )) vmat_inv  => null()
       !
@@ -238,10 +190,114 @@ end subroutine init_vandermonde_matrices
 !
 !###############################################################################
 !
+function Compute_Basis_Matrix(elem_geom,elem_order,basis_order) &
+                       result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : geom_solpts
+  use quadrature_mod, only : std_elem
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: elem_geom
+  integer, intent(in) :: elem_order
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: basis_order
+  !
+  !.. Function Result ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: npts,nmodes,ierr
+  !
+  !.. Local Pointers ..
+  real(wp), pointer, contiguous :: solpts(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "Compute_Basis_Matrix"
+  !
+continue
+  !
+  solpts => null()
+  !
+  npts = geom_solpts(elem_geom,elem_order)
+  if (present(basis_order)) then
+    nmodes = geom_solpts(elem_geom,basis_order)
+  else
+    nmodes = npts
+  end if
+  !
+  allocate ( return_value(1:npts,1:nmodes) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"return_value",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Compute the basis matrix depending on the geometry type
+  !
+  select case (elem_geom)
+    case (Geom_Edge)
+      !
+      solpts => std_elem(elem_geom,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Edge( solpts(1,:) , basis_order )
+      !
+    case (Geom_Tria)
+      !
+      solpts => std_elem(elem_geom,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Tria( solpts , basis_order )
+      !
+    case (Geom_Quad)
+      !
+      solpts => std_elem(Geom_Edge,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Quad( solpts(1,:) , basis_order )
+      !
+    case (Geom_Tetr)
+      !
+      solpts => std_elem(elem_geom,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Tetr( solpts , basis_order )
+      !
+    case (Geom_Pyra)
+      !
+      solpts => std_elem(elem_geom,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Pyra( solpts , basis_order )
+      !
+    case (Geom_Pris)
+      !
+      solpts => std_elem(elem_geom,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Pris( solpts , basis_order )
+      !
+    case (Geom_Hexa)
+      !
+      solpts => std_elem(Geom_Edge,elem_order)%pts
+      !
+      return_value(:,:) = Vandermonde_Hexa( solpts(1,:) , basis_order )
+      !
+    case default
+      !
+      write (error_message,1)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      !
+  end select
+  !
+  if (associated(solpts)) solpts => null()
+  !
+  ! Format Statements
+  !
+  1 format (" An error occured by attempting to create a Basis", &
+            " Matrix for a grid cell of unknown geometry type!")
+  !
+end function Compute_Basis_Matrix
+!
+!###############################################################################
+!
 pure function Vandermonde_Inverse(vand_mat) result(return_value)
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: vand_mat
+  real(wp), intent(in) :: vand_mat(:,:)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -290,8 +346,10 @@ pure function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi
-  integer,  optional,     intent(in) :: number_of_modes
+  real(wp), intent(in) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -347,8 +405,10 @@ pure function Vandermonde_Quad(xi,number_of_modes) result(return_value)
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi
-  integer,  optional,     intent(in) :: number_of_modes
+  real(wp), intent(in) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -422,13 +482,16 @@ end function Vandermonde_Quad
 !
 !###############################################################################
 !
-pure function Vandermonde_Tria(rs) result(return_value)
+pure function Vandermonde_Tria(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -501,13 +564,16 @@ end function Vandermonde_Tria
 !
 !###############################################################################
 !
-pure function Vandermonde_Tetr(rs) result(return_value)
+pure function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -602,13 +668,16 @@ end function Vandermonde_Tetr
 !
 !###############################################################################
 !
-pure function Vandermonde_Pyra(rs) result(return_value)
+pure function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -634,13 +703,16 @@ end function Vandermonde_Pyra
 !
 !###############################################################################
 !
-pure function Vandermonde_Pris(rs) result(return_value)
+pure function Vandermonde_Pris(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:,:), intent(in) :: rs
+  real(wp), intent(in) :: rs(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -672,8 +744,10 @@ pure function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
   use polynomial_mod, only : normalized_jacobi_poly
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: xi
-  integer,  optional,     intent(in) :: number_of_modes
+  real(wp), intent(in) :: xi(:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: number_of_modes
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
