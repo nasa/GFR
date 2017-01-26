@@ -120,14 +120,18 @@ module geovar
   !                         face j_face that links to i_face. To find host cell
   !                         j_cell for periodic face j_face, use
   !                         bface(2,bface(5,i_face)).
-  !        bface( 6,:) = For a periodic or partition boundary face i_face
-  !                      with host cell i_cell, this gives the host cell
-  !                      j_cell (i.e., bface(2,bface(5,i_face)) if they are
-  !                      located on the same partition). This is needed if
-  !                      they arent on the same partition because the local
-  !                      process wont have access to the host cell information
-  !                      in bface(2,j_face) for the adjacent partition
-  !                      which is actually stored on another processor.
+  !        bface( 6,:) = A) For a non-communication (i.e., physical boundary)
+  !                         boundary face i_face, this gives the index of
+  !                         the array bc_in(:) that provides the flow
+  !                         conditions for this boundary condition.
+  !                      B) For a periodic or partition boundary face i_face
+  !                         with host cell i_cell, this gives the host cell
+  !                         j_cell (i.e., bface(2,bface(5,i_face)) if they are
+  !                         located on the same partition). This is needed if
+  !                         they arent on the same partition because the local
+  !                         process wont have access to the host cell information
+  !                         in bface(2,j_face) for the adjacent partition
+  !                         which is actually stored on another processor.
   !        bface( 7,:) = For a periodic or partition boundary face i_face
   !                      with host cell i_cell, this gives the partition that
   !                      j_cell belongs to (i.e., bface(2,bface(5,i_face))
