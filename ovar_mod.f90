@@ -83,6 +83,8 @@ module ovar
   logical(lk),            public, save :: continuous_output  = fals
   logical(lk),            public, save :: postproc_debug_grid = fals
   !
+  real(wp), public, save :: grid_scaling_factor = 1.00_wp
+  !
   real(wp), public, save :: rhoref  =     -1.00_wp
   ! rhoref default evaluates to 1.160833478437518_wp
   real(wp), public, save :: tref    =    300.00_wp
@@ -493,7 +495,7 @@ module input_namelist_mod
   !.. Use Statements ..
   use ovar,      only : grid_format, gridfile, plot3d_all_strides
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
-  use ovar,      only : plot3d_cutfile, plot3d_bcsfile
+  use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
   use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
   use ovar,      only : flux_divergence, correction_function, dflux_opt
   use ovar,      only : iRKtype, num_stages
@@ -547,7 +549,8 @@ module input_namelist_mod
   ! ########################
   !
   ! GRID INFORMATION
-  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile
+  namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
+                     grid_scaling_factor
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides

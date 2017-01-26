@@ -874,6 +874,7 @@ subroutine read_gmsh_section_nodes
   !
   !.. Use Statements ..
   use geovar, only : nr
+  use ovar,   only : grid_scaling_factor
   !
   !.. Local Scalars ..
   integer :: i,j,n,npts,ierr
@@ -931,6 +932,14 @@ continue
   allocate ( grid%xyz(1:nr,1:npts) , source=temp_nodes(1:nr,1:npts) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid%xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
+  do n = 1,size(grid%xyz,dim=2)
+    do i = 1,size(grid%xyz,dim=1)
+      grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
+    end do
+  end do
   !
   ! Deallocate temp_nodes now that we no longer need it
   !

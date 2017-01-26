@@ -278,6 +278,7 @@ subroutine readplot3d(gridfile)
   use ovar,   only : plot3d_i_stride
   use ovar,   only : plot3d_j_stride
   use ovar,   only : plot3d_k_stride
+  use ovar,   only : grid_scaling_factor
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: gridfile
@@ -502,6 +503,14 @@ continue
     end if
     !
   end if
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
+  do n = 1,size(xyz_nodes,dim=2)
+    do i = 1,size(xyz_nodes,dim=1)
+      xyz_nodes(i,n) = grid_scaling_factor*xyz_nodes(i,n)
+    end do
+  end do
   !
   !
   !

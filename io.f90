@@ -1207,6 +1207,7 @@ subroutine read_gambit_neutral_gridfile()
   use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order
   use ovar,   only : iop_solpts,iop_flxpts
+  use ovar,   only : grid_scaling_factor
   use order_mod, only : n_order
   !
   !.. Local Scalars ..
@@ -1368,6 +1369,14 @@ continue
   !
   do i = 1,nnode
     read (iogrd,*) n,(xyz_nodes(k,n),k=1,nr)
+  end do
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
+  do n = 1,size(xyz_nodes,dim=2)
+    do i = 1,size(xyz_nodes,dim=1)
+      xyz_nodes(i,n) = grid_scaling_factor*xyz_nodes(i,n)
+    end do
   end do
   !
   ! Skip a couple lines

@@ -1474,6 +1474,9 @@ end function get_array_name
 !
 subroutine transfer_cgns_data_to_grid_dt
   !
+  !.. Use Statements ..
+  use ovar, only : grid_scaling_factor
+  !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
   integer :: i,j,j0,j1,j2
@@ -1577,6 +1580,14 @@ continue
           !
         end if
       end do
+    end do
+  end do
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
+  do n = 1,size(grid%xyz,dim=2)
+    do i = 1,size(grid%xyz,dim=1)
+      grid%xyz(i,n) = grid_scaling_factor*grid%xyz(i,n)
     end do
   end do
   !
