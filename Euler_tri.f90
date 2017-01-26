@@ -58,9 +58,8 @@ program Euler_tri
   !
   use initialization_mod, only : initialize_flow
   !
-  use module_bc,   only : get_faceusp_bc
-  use module_bc,   only : get_facedusp_bc
-!!  use module_bc,   only : compute_bc_profiles
+  use module_bc, only : get_faceusp_bc
+  use module_bc, only : get_facedusp_bc
   !
   use generic_mod, only : init_generic_mod
   use generic_mod, only : rgeterr
@@ -239,13 +238,13 @@ continue
   !
   ! Output information about each partition
   !
-  do i = 0,ncpu-1
-    if (mypnum == i) then
-      write (iout,10) mypnum, ncell, nnode, nfbnd, nface, n_solpts, local_volume
-    end if
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !do i = 0,ncpu-1
+ !  if (mypnum == i) then
+ !    write (iout,10) mypnum, ncell, nnode, nfbnd, nface, n_solpts, local_volume
+ !  end if
+ !  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !end do
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Output information about the global grid
   !
