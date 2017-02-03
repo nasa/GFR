@@ -233,6 +233,9 @@ continue
       this_geom = cell(nc)%geom
       this_order = cell(nc)%order
       !
+      ! Logic in subroutine identify_troubled_cells
+      ! prevents this from becoming less than 0
+      !
       proj_order = this_order - dropped_orders
       !
       ! Store a copy of usp for this cell because the individual
@@ -252,7 +255,7 @@ continue
       !
       do m = 1,nq
         usp(m,n1:n2) = projct(this_geom,this_order)% &
-                                 toCell(proj_order)% &
+                                 limiter(proj_order)% &
                        mv_mult( tusp(1:nsp,m) )
       end do
       !

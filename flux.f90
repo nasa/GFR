@@ -1979,7 +1979,8 @@ continue
       if (using_quadrature) then
         !
         pmat(1:nqp,1:nsp) = projct(this_geom,q_order)% &
-                                   toCell(this_order)%mat(1:nqp,1:nsp)
+                                   CellOI(this_order)% &
+                            mat(1:nqp,1:nsp)
         !
         do l = 1,nr
           do m = 1,nq
@@ -2322,7 +2323,7 @@ continue
     if (using_quadrature) then
       !
       pmat(1:ngp,1:nfp) = projct(face_geom,q_order)% &
-                                 toCell(face_order)% &
+                                 FaceOI(face_order)% &
                           mat(1:ngp,1:nfp)
       !
       if (dflux_opt == project_derivatives) then
