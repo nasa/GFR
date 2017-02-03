@@ -190,7 +190,7 @@ end subroutine init_vandermonde_matrices
 !
 !###############################################################################
 !
-function Compute_Basis_Matrix(elem_geom,elem_order,basis_order) &
+function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
                        result(return_value)
   !
   !.. Use Statements ..
@@ -202,7 +202,8 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order) &
   integer, intent(in) :: elem_order
   !
   !.. Optional Arguments ..
-  integer, optional, intent(in) :: basis_order
+  integer,  optional,         intent(in) :: basis_order
+  real(wp), optional, target, intent(in) :: nodal_points(:,:)
   !
   !.. Function Result ..
   real(wp), allocatable :: return_value(:,:)
@@ -236,43 +237,71 @@ continue
   select case (elem_geom)
     case (Geom_Edge)
       !
-      solpts => std_elem(elem_geom,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(elem_geom,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Edge( solpts(1,:) , basis_order )
       !
     case (Geom_Tria)
       !
-      solpts => std_elem(elem_geom,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(elem_geom,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Tria( solpts , basis_order )
       !
     case (Geom_Quad)
       !
-      solpts => std_elem(Geom_Edge,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(Geom_Edge,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Quad( solpts(1,:) , basis_order )
       !
     case (Geom_Tetr)
       !
-      solpts => std_elem(elem_geom,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(elem_geom,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Tetr( solpts , basis_order )
       !
     case (Geom_Pyra)
       !
-      solpts => std_elem(elem_geom,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(elem_geom,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Pyra( solpts , basis_order )
       !
     case (Geom_Pris)
       !
-      solpts => std_elem(elem_geom,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(elem_geom,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Pris( solpts , basis_order )
       !
     case (Geom_Hexa)
       !
-      solpts => std_elem(Geom_Edge,elem_order)%pts
+      if (present(nodal_points)) then
+        solpts => nodal_points
+      else
+        solpts => std_elem(Geom_Edge,elem_order)%pts
+      end if
       !
       return_value(:,:) = Vandermonde_Hexa( solpts(1,:) , basis_order )
       !
