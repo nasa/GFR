@@ -1,5 +1,6 @@
 $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/kind_types.o \
+              $(OBJDIR)/pbs_mod.o \
               $(OBJDIR)/geovar_mod.o \
               $(OBJDIR)/ovar_mod.o \
               $(OBJDIR)/flowvar_mod.o \
@@ -157,6 +158,7 @@ $(OBJDIR)/flux.o : flux.f90 \
 
 $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/pbs_mod.o \
             $(OBJDIR)/eqn_idx_mod.o \
             $(OBJDIR)/geovar_mod.o \
             $(OBJDIR)/ovar_mod.o \
@@ -327,6 +329,9 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(FUNDIR)/cell_solpts.f90 \
              $(FUNDIR)/last.f90 \
                        mpi_defs.h
+
+$(OBJDIR)/pbs_mod.o : pbs_mod.f90 \
+            $(OBJDIR)/kind_types.o
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \

@@ -86,7 +86,8 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/mms_mod.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o \
-        $(OBJDIR)/postproc_mod.o
+        $(OBJDIR)/postproc_mod.o \
+        $(OBJDIR)/pbs_mod.o
 
 
 HighlightName := | /bin/grep -Phi --color '[^ ]+\.f[0-9]*'
