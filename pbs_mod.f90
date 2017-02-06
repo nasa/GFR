@@ -85,8 +85,8 @@ continue
       !
     else
       !
-      ! Use integers returned from pbs_time_left to compute the time elapsed
-      ! between the current time and the previous time this subroutine was called
+      ! Use integers returned from pbs_time_left to compute the time
+      ! elapsed since the previous time this subroutine was called
       !
       ! NOTE : current_wtl should be less than previous_wtl since pbs_time_left
       !        counts down the remaining time for the job as time progresses

@@ -129,7 +129,7 @@ module geovar
   !                         j_cell (i.e., bface(2,bface(5,i_face)) if they are
   !                         located on the same partition). This is needed if
   !                         they arent on the same partition because the local
-  !                         process wont have access to the host cell information
+  !                         process wont have access to host cell information
   !                         in bface(2,j_face) for the adjacent partition
   !                         which is actually stored on another processor.
   !        bface( 7,:) = For a periodic or partition boundary face i_face
