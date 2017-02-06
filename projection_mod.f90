@@ -134,305 +134,305 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  pmat        => null()
-  this_projct => null()
-  !
-  gmin = n_min_geom
-  gmax = n_max_geom
-  omin = n_min_order
-  omax = n_max_order
-  !
-  ! Allocate the projct array
-  !
-  allocate ( projct(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"projct",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  geom_loop: do this_geom = gmin,gmax
-    !
-    if (.not. geom_is_used(this_geom)) cycle geom_loop
-    if (all(this_geom /= Geom_Valid)) cycle geom_loop
-    if (this_geom == Geom_Node) cycle geom_loop
-    !
-    elem_order_loop: do elem_order = omin,omax
-      !
-      ! Assign local pointer as alias to simplify the code
-      !
-      this_projct => projct(this_geom,elem_order)
-      !
-      ! Get the number of solution points for this cell
-      !
-      nsp = geom_solpts(this_geom,elem_order)
-      !
-      !###################################################
-      !###################################################
-      !#####  OVER-INTEGRATION PROJECTION OPERATORS  #####
-      !###################################################
-      !###################################################
-      !
-      !===========================================================
-      !  OVER-INTEGRATION (cellOI) PROJECTION OPERATOR FOR CELLS
-      !===========================================================
-      !
-      ! Get the minimum and maximum over-integration projection
-      ! order for this combination of cell geometry and cell order
-      !
-      qdtr_omin = elem_order+1
-      qdtr_omax = omax
-      !
-      ! Allocate the projct%CellOI component of projct
-      !
-      allocate ( this_projct%CellOI(qdtr_omin:qdtr_omax) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Loop through all the projection orders for this combo
-      ! and compute the corresponding projection matrices
-      !
-      cell_qdtr_order_loop: do cq_order = qdtr_omin,qdtr_omax
-        !
-        ! Get the number of quadrature points for this quadrature order
-        !
-        ncqp = geom_solpts(this_geom,cq_order)
-        !
-        ! Compute the basis matrix for the quadrature points in the
-        ! solution polynomial space
-        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-        !        of the array and the function result are the same
-        !
-        allocate ( bmat(1:ncqp,1:nsp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
-        !
-        bmat(:,:) = Compute_Basis_Matrix(this_geom,cq_order, &
-                                         basis_order=elem_order)
-        !
-        ! Assign local pointer as alias to simplify the code
-        !
-        pmat => this_projct%CellOI(cq_order)%mat
-        !
-        ! Allocate the projection matrix for this quadrature order
-        ! NOTE : pmat is actually the transpose of the projection matrix
-        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-        !        of the array and the function result are the same
-        !
-        allocate ( pmat(1:ncqp,1:nsp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI",cq_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Compute the projection matrix
-        !
-        pmat(:,:) = Compute_Projection_Matrix( &
-                        basis=bmat, &
-                        weights=std_elem(this_geom,cq_order)%wts, &
-                        vand=vand(this_geom,elem_order)%modal2nodal%mat)
-        !
-        if (associated(pmat)) pmat => null()
-        !
-        ! Deallocate bmat for the next cell quadrature order
-        !
-        if (allocated(bmat)) then
-          deallocate ( bmat , stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr,error_message)
-        end if
-        !
-      end do cell_qdtr_order_loop
-      !
-      !===========================================================
-      !  OVER-INTEGRATION (faceOI) PROJECTION OPERATOR FOR FACES
-      !===========================================================
-      !
-      if (geom_dimen(this_geom) < nr) then
-        !
-        ! This is also a face geometry in this simulation, so we need to
-        ! create face over-integration projection matrices since the locations
-        ! of the flux points and the solution points might not be the same
-        !
-        ! Copy nsp over to nfp, just to prevent confusion here since we are
-        ! dealing with a face element
-        !
-        nfp = nsp
-        !
-        ! Allocate the projct%FaceOI component of projct
-        !
-        allocate ( this_projct%FaceOI(qdtr_omin:qdtr_omax) , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Loop through all the projection orders for this combo
-        ! and compute the corresponding projection matrices
-        !
-        face_qdtr_order_loop: do fq_order = qdtr_omin,qdtr_omax
-          !
-          ! Get the number of quadrature points for this quadrature order
-          !
-          nfqp = geom_solpts(this_geom,fq_order)
-          !
-          ! Compute the Vandermonde matrix for the flux points
-          ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-          !        of the array and the function result are the same
-          !
-          allocate ( vmat(1:nfp,1:nfp) , source=zero , &
-                     stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"vmat",1,__LINE__,__FILE__,ierr,error_message)
-          !
-          vmat(:,:) = Compute_Basis_Matrix( &
-                          this_geom,elem_order, &
-                          nodal_points=face_elem(this_geom,elem_order)%pts)
-          !
-          ! Compute the basis matrix for the quadrature points in the
-          ! solution polynomial space
-          ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-          !        of the array and the function result are the same
-          !
-          allocate ( bmat(1:nfqp,1:nfp) , source=zero , &
-                     stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
-          !
-          bmat(:,:) = Compute_Basis_Matrix( &
-                          this_geom,fq_order,basis_order=elem_order, &
-                          nodal_points=face_elem(this_geom,fq_order)%pts)
-          !
-          ! Assign local pointer as alias to simplify the code
-          !
-          pmat => this_projct%FaceOI(fq_order)%mat
-          !
-          ! Allocate the projection matrix for this quadrature order
-          ! NOTE : pmat is actually the transpose of the projection matrix
-          ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-          !        of the array and the function result are the same
-          !
-          allocate ( pmat(1:nfqp,1:nfp) , source=zero , &
-                     stat=ierr , errmsg=error_message )
-          write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI",fq_order
-          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                           error_message)
-          !
-          ! Compute the projection matrix
-          !
-          pmat(:,:) = Compute_Projection_Matrix( &
-                          basis=bmat, &
-                          weights=face_elem(this_geom,fq_order)%wts, &
-                          vand=vmat)
-          !
-          if (associated(pmat)) pmat => null()
-          !
-          ! Deallocate bmat and vmat for the next face quadrature order
-          !
-          if (allocated(bmat)) then
-            deallocate ( bmat , stat=ierr , errmsg=error_message )
-            call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr, &
-                             error_message)
-          end if
-          !
-          if (allocated(vmat)) then
-            deallocate ( vmat , stat=ierr , errmsg=error_message )
-            call alloc_error(pname,"vmat",2,__LINE__,__FILE__,ierr, &
-                             error_message)
-          end if
-          !
-        end do face_qdtr_order_loop
-        !
-      end if
-      !
-      !#####################################################
-      !#####################################################
-      !#####  LIMITING (limiter) PROJECTION OPERATORS  #####
-      !#####################################################
-      !#####################################################
-      !
-      ! Get the minimum and maximum over-integration projection
-      ! order for this combination of cell geometry and cell order
-      !
-      lmtr_omin = 0
-      lmtr_omax = elem_order-1
-      !
-      ! Allocate the projct%limiter component of projct
-      !
-      allocate ( this_projct%limiter(lmtr_omin:lmtr_omax) , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),elem_order,"limiter"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-      !
-      ! Loop through all the projection orders for this combo
-      ! and compute the corresponding projection matrices
-      !
-      cell_order_loop: do lmtr_order = lmtr_omin,lmtr_omax
-        !
-        ! Get the number of modes for the reduce limiter order
-        !
-        nlp = geom_solpts(this_geom,lmtr_order)
-        !
-        ! Compute the basis matrix for the solution points in the
-        ! reduced order polynomial space
-        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-        !        of the array and the function result are the same
-        !
-        allocate ( bmat(1:nsp,1:nlp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
-        !
-        bmat(:,:) = Compute_Basis_Matrix(this_geom,elem_order, &
-                                         basis_order=lmtr_order)
-        !
-        ! Assign local pointer as alias to simplify the code
-        !
-        pmat => this_projct%limiter(lmtr_order)%mat
-        !
-        ! Allocate the projection matrix for this cell order
-        ! NOTE : pmat is actually the transpose of the projection matrix
-        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
-        !        of the array and the function result are the same
-        !
-        allocate ( pmat(1:nsp,1:nsp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) Geom_Name(this_geom),elem_order, &
-                             "limiter",lmtr_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
-        !
-        ! Compute the projection matrices depending on geometry type
-        !
-        pmat(:,:) = Compute_Projection_Matrix( &
-                        basis=bmat, &
-                        weights=std_elem(this_geom,elem_order)%wts)
-        !
-        if (associated(pmat)) pmat => null()
-        !
-        ! Deallocate bmat for the next limiter order
-        !
-        if (allocated(bmat)) then
-          deallocate ( bmat , stat=ierr , errmsg=error_message )
-          call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr, &
-                           error_message)
-        end if
-        !
-      end do cell_order_loop
-      !
-      if (associated(this_projct)) this_projct => null()
-      if (associated(pmat       )) pmat        => null()
-      !
-    end do elem_order_loop
-    !
-  end do geom_loop
-  !
-  do this_geom = gmin,gmax
-    do elem_order = omin,omax
-      if (allocated(projct(this_geom,elem_order)%CellOI)) then
-        call projct(this_geom,elem_order)%CellOI%check_for_sparsity
-      end if
-      if (allocated(projct(this_geom,elem_order)%FaceOI)) then
-        call projct(this_geom,elem_order)%FaceOI%check_for_sparsity
-      end if
-      if (allocated(projct(this_geom,elem_order)%limiter)) then
-        call projct(this_geom,elem_order)%limiter%check_for_sparsity
-      end if
-    end do
-  end do
+ !pmat        => null()
+ !this_projct => null()
+ !!
+ !gmin = n_min_geom
+ !gmax = n_max_geom
+ !omin = n_min_order
+ !omax = n_max_order
+ !!
+ !! Allocate the projct array
+ !!
+ !allocate ( projct(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"projct",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !geom_loop: do this_geom = gmin,gmax
+ !  !
+ !  if (.not. geom_is_used(this_geom)) cycle geom_loop
+ !  if (all(this_geom /= Geom_Valid)) cycle geom_loop
+ !  if (this_geom == Geom_Node) cycle geom_loop
+ !  !
+ !  elem_order_loop: do elem_order = omin,omax
+ !    !
+ !    ! Assign local pointer as alias to simplify the code
+ !    !
+ !    this_projct => projct(this_geom,elem_order)
+ !    !
+ !    ! Get the number of solution points for this cell
+ !    !
+ !    nsp = geom_solpts(this_geom,elem_order)
+ !    !
+ !    !###################################################
+ !    !###################################################
+ !    !#####  OVER-INTEGRATION PROJECTION OPERATORS  #####
+ !    !###################################################
+ !    !###################################################
+ !    !
+ !    !===========================================================
+ !    !  OVER-INTEGRATION (cellOI) PROJECTION OPERATOR FOR CELLS
+ !    !===========================================================
+ !    !
+ !    ! Get the minimum and maximum over-integration projection
+ !    ! order for this combination of cell geometry and cell order
+ !    !
+ !    qdtr_omin = elem_order+1
+ !    qdtr_omax = omax
+ !    !
+ !    ! Allocate the projct%CellOI component of projct
+ !    !
+ !    allocate ( this_projct%CellOI(qdtr_omin:qdtr_omax) , &
+ !               stat=ierr , errmsg=error_message )
+ !    write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI"
+ !    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+ !    !
+ !    ! Loop through all the projection orders for this combo
+ !    ! and compute the corresponding projection matrices
+ !    !
+ !    cell_qdtr_order_loop: do cq_order = qdtr_omin,qdtr_omax
+ !      !
+ !      ! Get the number of quadrature points for this quadrature order
+ !      !
+ !      ncqp = geom_solpts(this_geom,cq_order)
+ !      !
+ !      ! Compute the basis matrix for the quadrature points in the
+ !      ! solution polynomial space
+ !      ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !      !        of the array and the function result are the same
+ !      !
+ !      allocate ( bmat(1:ncqp,1:nsp) , source=zero , &
+ !                 stat=ierr , errmsg=error_message )
+ !      call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
+ !      !
+ !      bmat(:,:) = Compute_Basis_Matrix(this_geom,cq_order, &
+ !                                       basis_order=elem_order)
+ !      !
+ !      ! Assign local pointer as alias to simplify the code
+ !      !
+ !      pmat => this_projct%CellOI(cq_order)%mat
+ !      !
+ !      ! Allocate the projection matrix for this quadrature order
+ !      ! NOTE : pmat is actually the transpose of the projection matrix
+ !      ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !      !        of the array and the function result are the same
+ !      !
+ !      allocate ( pmat(1:ncqp,1:nsp) , source=zero , &
+ !                 stat=ierr , errmsg=error_message )
+ !      write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI",cq_order
+ !      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                       error_message)
+ !      !
+ !      ! Compute the projection matrix
+ !      !
+ !      pmat(:,:) = Compute_Projection_Matrix( &
+ !                      basis=bmat, &
+ !                      weights=std_elem(this_geom,cq_order)%wts, &
+ !                      vand=vand(this_geom,elem_order)%modal2nodal%mat)
+ !      !
+ !      if (associated(pmat)) pmat => null()
+ !      !
+ !      ! Deallocate bmat for the next cell quadrature order
+ !      !
+ !      if (allocated(bmat)) then
+ !        deallocate ( bmat , stat=ierr , errmsg=error_message )
+ !        call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr,error_message)
+ !      end if
+ !      !
+ !    end do cell_qdtr_order_loop
+ !    !
+ !    !===========================================================
+ !    !  OVER-INTEGRATION (faceOI) PROJECTION OPERATOR FOR FACES
+ !    !===========================================================
+ !    !
+ !    if (geom_dimen(this_geom) < nr) then
+ !      !
+ !      ! This is also a face geometry in this simulation, so we need to
+ !      ! create face over-integration projection matrices since the locations
+ !      ! of the flux points and the solution points might not be the same
+ !      !
+ !      ! Copy nsp over to nfp, just to prevent confusion here since we are
+ !      ! dealing with a face element
+ !      !
+ !      nfp = nsp
+ !      !
+ !      ! Allocate the projct%FaceOI component of projct
+ !      !
+ !      allocate ( this_projct%FaceOI(qdtr_omin:qdtr_omax) , &
+ !                 stat=ierr , errmsg=error_message )
+ !      write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI"
+ !      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                       error_message)
+ !      !
+ !      ! Loop through all the projection orders for this combo
+ !      ! and compute the corresponding projection matrices
+ !      !
+ !      face_qdtr_order_loop: do fq_order = qdtr_omin,qdtr_omax
+ !        !
+ !        ! Get the number of quadrature points for this quadrature order
+ !        !
+ !        nfqp = geom_solpts(this_geom,fq_order)
+ !        !
+ !        ! Compute the Vandermonde matrix for the flux points
+ !        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !        !        of the array and the function result are the same
+ !        !
+ !        allocate ( vmat(1:nfp,1:nfp) , source=zero , &
+ !                   stat=ierr , errmsg=error_message )
+ !        call alloc_error(pname,"vmat",1,__LINE__,__FILE__,ierr,error_message)
+ !        !
+ !        vmat(:,:) = Compute_Basis_Matrix( &
+ !                        this_geom,elem_order, &
+ !                        nodal_points=face_elem(this_geom,elem_order)%pts)
+ !        !
+ !        ! Compute the basis matrix for the quadrature points in the
+ !        ! solution polynomial space
+ !        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !        !        of the array and the function result are the same
+ !        !
+ !        allocate ( bmat(1:nfqp,1:nfp) , source=zero , &
+ !                   stat=ierr , errmsg=error_message )
+ !        call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
+ !        !
+ !        bmat(:,:) = Compute_Basis_Matrix( &
+ !                        this_geom,fq_order,basis_order=elem_order, &
+ !                        nodal_points=face_elem(this_geom,fq_order)%pts)
+ !        !
+ !        ! Assign local pointer as alias to simplify the code
+ !        !
+ !        pmat => this_projct%FaceOI(fq_order)%mat
+ !        !
+ !        ! Allocate the projection matrix for this quadrature order
+ !        ! NOTE : pmat is actually the transpose of the projection matrix
+ !        ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !        !        of the array and the function result are the same
+ !        !
+ !        allocate ( pmat(1:nfqp,1:nfp) , source=zero , &
+ !                   stat=ierr , errmsg=error_message )
+ !        write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI",fq_order
+ !        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                         error_message)
+ !        !
+ !        ! Compute the projection matrix
+ !        !
+ !        pmat(:,:) = Compute_Projection_Matrix( &
+ !                        basis=bmat, &
+ !                        weights=face_elem(this_geom,fq_order)%wts, &
+ !                        vand=vmat)
+ !        !
+ !        if (associated(pmat)) pmat => null()
+ !        !
+ !        ! Deallocate bmat and vmat for the next face quadrature order
+ !        !
+ !        if (allocated(bmat)) then
+ !          deallocate ( bmat , stat=ierr , errmsg=error_message )
+ !          call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr, &
+ !                           error_message)
+ !        end if
+ !        !
+ !        if (allocated(vmat)) then
+ !          deallocate ( vmat , stat=ierr , errmsg=error_message )
+ !          call alloc_error(pname,"vmat",2,__LINE__,__FILE__,ierr, &
+ !                           error_message)
+ !        end if
+ !        !
+ !      end do face_qdtr_order_loop
+ !      !
+ !    end if
+ !    !
+ !    !#####################################################
+ !    !#####################################################
+ !    !#####  LIMITING (limiter) PROJECTION OPERATORS  #####
+ !    !#####################################################
+ !    !#####################################################
+ !    !
+ !    ! Get the minimum and maximum over-integration projection
+ !    ! order for this combination of cell geometry and cell order
+ !    !
+ !    lmtr_omin = 0
+ !    lmtr_omax = elem_order-1
+ !    !
+ !    ! Allocate the projct%limiter component of projct
+ !    !
+ !    allocate ( this_projct%limiter(lmtr_omin:lmtr_omax) , &
+ !               stat=ierr , errmsg=error_message )
+ !    write (array_name,1) Geom_Name(this_geom),elem_order,"limiter"
+ !    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+ !    !
+ !    ! Loop through all the projection orders for this combo
+ !    ! and compute the corresponding projection matrices
+ !    !
+ !    cell_order_loop: do lmtr_order = lmtr_omin,lmtr_omax
+ !      !
+ !      ! Get the number of modes for the reduce limiter order
+ !      !
+ !      nlp = geom_solpts(this_geom,lmtr_order)
+ !      !
+ !      ! Compute the basis matrix for the solution points in the
+ !      ! reduced order polynomial space
+ !      ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !      !        of the array and the function result are the same
+ !      !
+ !      allocate ( bmat(1:nsp,1:nlp) , source=zero , &
+ !                 stat=ierr , errmsg=error_message )
+ !      call alloc_error(pname,"bmat",1,__LINE__,__FILE__,ierr,error_message)
+ !      !
+ !      bmat(:,:) = Compute_Basis_Matrix(this_geom,elem_order, &
+ !                                       basis_order=lmtr_order)
+ !      !
+ !      ! Assign local pointer as alias to simplify the code
+ !      !
+ !      pmat => this_projct%limiter(lmtr_order)%mat
+ !      !
+ !      ! Allocate the projection matrix for this cell order
+ !      ! NOTE : pmat is actually the transpose of the projection matrix
+ !      ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
+ !      !        of the array and the function result are the same
+ !      !
+ !      allocate ( pmat(1:nsp,1:nsp) , source=zero , &
+ !                 stat=ierr , errmsg=error_message )
+ !      write (array_name,1) Geom_Name(this_geom),elem_order, &
+ !                           "limiter",lmtr_order
+ !      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+ !                       error_message)
+ !      !
+ !      ! Compute the projection matrices depending on geometry type
+ !      !
+ !      pmat(:,:) = Compute_Projection_Matrix( &
+ !                      basis=bmat, &
+ !                      weights=std_elem(this_geom,elem_order)%wts)
+ !      !
+ !      if (associated(pmat)) pmat => null()
+ !      !
+ !      ! Deallocate bmat for the next limiter order
+ !      !
+ !      if (allocated(bmat)) then
+ !        deallocate ( bmat , stat=ierr , errmsg=error_message )
+ !        call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr, &
+ !                         error_message)
+ !      end if
+ !      !
+ !    end do cell_order_loop
+ !    !
+ !    if (associated(this_projct)) this_projct => null()
+ !    if (associated(pmat       )) pmat        => null()
+ !    !
+ !  end do elem_order_loop
+ !  !
+ !end do geom_loop
+ !!
+ !do this_geom = gmin,gmax
+ !  do elem_order = omin,omax
+ !    if (allocated(projct(this_geom,elem_order)%CellOI)) then
+ !      call projct(this_geom,elem_order)%CellOI%check_for_sparsity
+ !    end if
+ !    if (allocated(projct(this_geom,elem_order)%FaceOI)) then
+ !      call projct(this_geom,elem_order)%FaceOI%check_for_sparsity
+ !    end if
+ !    if (allocated(projct(this_geom,elem_order)%limiter)) then
+ !      call projct(this_geom,elem_order)%limiter%check_for_sparsity
+ !    end if
+ !  end do
+ !end do
   !
   call debug_timer(leaving_procedure,pname)
   !
