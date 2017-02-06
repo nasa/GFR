@@ -1184,31 +1184,31 @@ continue
         vel_is_set  = ( norm2(vel) > zero )
         !
         call igl(r,p,t,static_is_set,n)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"igl(r,p,t)")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"igl(r,p,t)")
         call igl(r0,p0,t0,total_is_set,n)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"igl(r0,p0,t0)")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"igl(r0,p0,t0)")
         !
         call mach_total_pres(p,p0,mach,mach_is_set,n)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"mach_total_pres")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"mach_total_pres")
         call mach_total_temp(t,t0,mach,mach_is_set,n)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"mach_total_temp")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"mach_total_temp")
         call mach_total_dens(r,r0,mach,mach_is_set,n)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"mach_total_dens")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"mach_total_dens")
         !
         call vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
-        call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-                                static_is_set,total_is_set, &
-                                vel_is_set,mach_is_set,"vel_from_static")
+       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+       !                        static_is_set,total_is_set, &
+       !                        vel_is_set,mach_is_set,"vel_from_static")
         !
         if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
         !
