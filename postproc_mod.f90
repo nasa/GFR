@@ -4033,7 +4033,7 @@ subroutine check_cgns_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cgns_dir"
   !
-  logical(lk), parameter :: wait_for_completion = true
+  logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
   !
@@ -4079,6 +4079,7 @@ continue
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       if (exitstat /= 0 .or. cmndstat /= 0) then
         using_cgns_dir = fals
@@ -4105,6 +4106,7 @@ continue
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       ! We arent going to test the status of executing this command because
       ! it worked or it didnt. Either way, we will continue on and output
