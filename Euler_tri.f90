@@ -10,8 +10,6 @@ program Euler_tri
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   !
-  use ovar, only : max_wall_time,wall_time_left
-  use ovar, only : walltime_expiring
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : nst,num_stages,iRKtype,time,itcur,num_ts
@@ -23,6 +21,7 @@ program Euler_tri
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : continuous_output
+  use ovar, only : check_flux_point_coordinates
   !
   use flowvar, only : usp,uoldsp
   !
@@ -101,6 +100,8 @@ program Euler_tri
   !
   use postprocessor_mod, only : new_write_parallel_cgns
   !
+  use pbs_mod, only : pbs_remaining_walltime
+  !
   use iso_c_binding, only : c_long
   !
   implicit none
@@ -115,6 +116,7 @@ program Euler_tri
   !
   integer :: CGNS_action
   !
+  logical(lk)  :: walltime_expiring
   logical(ldk) :: request_stop
   logical(ldk) :: request_solution
   !
@@ -123,17 +125,17 @@ program Euler_tri
   !
  !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
-  integer(c_long) :: current_wtl
+! integer(c_long) :: current_wtl
   !
   ! Interface for pbs_time_left procedure
   !
 #ifdef PBS_ENV
-  interface
-    subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
-      use, intrinsic :: iso_c_binding, only : c_long
-      integer(c_long) :: seconds_left
-    end subroutine pbs_time_left
-  end interface
+! interface
+!   subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
+!     use, intrinsic :: iso_c_binding, only : c_long
+!     integer(c_long) :: seconds_left
+!   end subroutine pbs_time_left
+! end interface
 #endif
   !
 continue
@@ -148,22 +150,7 @@ continue
   !
   ! Get the number of seconds allowed for this simulation
   !
-  walltime_expiring = fals
-  if (mypnum == 0) then
-#ifdef PBS_ENV
-    call pbs_time_left(current_wtl)
-#else
-    current_wtl = huge(int(0,kind=c_long))
-#endif
-    write (iout,16) current_wtl,ncpu
-    max_wall_time = real(current_wtl,kind=wp)
-    wall_time_left = max_wall_time
-  end if
-  !
-  ! Broadcast the maximum wall time to all processors
-  !
-  call mpi_bcast(max_wall_time,1_int_mpi,mpi_flttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call pbs_remaining_walltime(walltime_expiring)
   !
   ! Initialize all the random constants that must be initialized at run time
   !
@@ -236,6 +223,14 @@ continue
   call get_metrics
   call memory_pause("initializing metrics","initializing solution")
   !
+  ! Uncomment the call to check_flux_point_orderings if you
+  ! suspect that there is an error between the orderings of
+  ! the flux points from the two cells on an interface
+  !
+  if (check_flux_point_coordinates) then
+    call check_flux_point_orderings
+  end if
+  !
   ! Output information about each partition
   !
  !do i = 0,ncpu-1
@@ -295,12 +290,6 @@ continue
   if (mypnum == 0) then
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
-  !
-  ! Uncomment the call to check_flux_point_orderings if you
-  ! suspect that there is an error between the orderings of
-  ! the flux points from the two cells on an interface
-  !
- !call check_flux_point_orderings
   !
   ! Initialize any necessary information for use in the module generic_mod
   !
@@ -494,7 +483,7 @@ continue
     !
     if (this_is_final_timestep .and. iter/=num_ts) then
       !
-      call rgeterr
+      call rgeterr(walltime_expiring)
       !
       ! Exit the main loop since we have reached
       ! the requested final simulation time
@@ -507,7 +496,7 @@ continue
     !
     if (mod(iter,iter_out_interval) == 0) then
       !
-      call rgeterr
+      call rgeterr(walltime_expiring)
       !
       ! Exit the main loop if the convergence criteria were met
       !
@@ -750,7 +739,6 @@ continue
                '  nfbnd = ',i0,'  nDOF = ',i0,/, &
                '  Total Grid Volume = ',f13.6,/, &
                '  1D Solution Points = ',6f9.5,:,*(/,23x,6f9.5))
-  16 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
                ' Highest Cell Order = ',i4,/)

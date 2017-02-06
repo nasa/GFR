@@ -187,7 +187,7 @@ end subroutine compute_final_error
 !
 !###############################################################################
 !
-subroutine rgeterr()
+subroutine rgeterr(walltime_expiring)
   !
   !.. Use Statements ..
   use, intrinsic :: ieee_exceptions, only : ieee_usual,ieee_get_flag
@@ -198,9 +198,7 @@ subroutine rgeterr()
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
-  use ovar,    only : max_wall_time,wall_time_left
-  use ovar,    only : beg_wall_time,wall_time
-  use ovar,    only : walltime_expiring,convergence_reached
+  use ovar,    only : convergence_reached
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : this_is_final_timestep
   use ovar,    only : iter_out_interval
@@ -208,13 +206,17 @@ subroutine rgeterr()
   use parallel_mod, only : cell_map
   use interpolation_mod, only : outerp
   !
+  use pbs_mod, only : pbs_remaining_walltime
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(inout) :: walltime_expiring
+  !
   !.. Local Scalars ..
   integer  :: this_cell,n1,n2,np,m,l,k
   integer  :: hrs_left,min_left,sec_left
   integer  :: this_geom,this_order
   real(wp) :: rho,pres,sn,se,delx,dely
-  real(wp) :: next_time_est
-  real(wp) :: wall_time_last
+  real(wp) :: wall_time_left
   !
   character(len=300) :: overflow_error
   character(len=300) :: divide_by_zero_error
@@ -396,16 +398,11 @@ continue
   !
   ! Output the results for the current time step
   !
+  call pbs_remaining_walltime(walltime_expiring,wall_time_left)
+  !
   if (mypnum == 0) then
     !
 #ifdef PBS_ENV
-    !
-    wall_time_last = wall_time_left
-    wall_time = mpi_wtime() - beg_wall_time
-    wall_time_left = min( max_wall_time - wall_time , max_sec )
-    !
-    next_time_est = (wall_time_last - wall_time_left) * (two+eps1)
-    walltime_expiring = (wall_time_left-next_time_est <= zero)
     !
     sec_left = abs(nint(wall_time_left))
     !
@@ -422,8 +419,6 @@ continue
                               hrs_left,min_left,sec_left
     !
 #else
-    !
-    walltime_expiring = fals
     !
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
                               rltwo,entL2,rl2mx,nloc, &
@@ -443,11 +438,6 @@ continue
     if (this_is_final_timestep) write (iout,5)
     !
   end if
-  !
-  ! Broadcast walltime_expiring to all processors
-  !
-  call mpi_bcast(walltime_expiring,1_int_mpi,MPI_LOGICAL, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! If a vortex collapse has been detected and final_countdown has reached 0,
   ! activate convergence_reached so that the main_loop can be exited when

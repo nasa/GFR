@@ -162,6 +162,8 @@ module ovar
   logical(lk), public, save :: dump_memory_usage = fals
   logical(lk), public, save :: dump_fluxes       = fals
   !
+  logical(lk), public, save :: check_flux_point_coordinates = fals
+  !
   logical(lk), public, save :: profile_io_all     = fals
   logical(lk), public, save :: profile_io_cgns    = fals
   logical(lk), public, save :: profile_io_restart = fals
@@ -182,6 +184,9 @@ module ovar
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
+  !
+  character(len=15), public, save :: lustre_stripe_factor = "64"
+  character(len=15), public, save :: lustre_stripe_unit   = "4194304"
   !
   real(wp), public, save :: Lref = -1.0_wp
   real(wp), public, save :: aref
@@ -271,12 +276,11 @@ module ovar
   !
   logical(lk),  public, save :: convergence_reached = fals
   logical(lk),  public, save :: this_is_final_timestep = fals
-  logical(ldk),  public, save :: walltime_expiring
-  real(wp), public, save :: max_wall_time
-  real(wp), public, save :: wall_time_left
-  real(wp), public, save :: beg_wall_time
-  real(wp), public, save :: end_wall_time
-  real(wp), public, save :: wall_time
+  !
+  real(wp),         save :: max_wall_time
+  real(wp),         save :: beg_wall_time
+  real(wp),         save :: end_wall_time
+  real(wp),         save :: wall_time
   real(wp), public, save :: work_units
   !
   real(wp), public, save :: Period_Time
@@ -309,7 +313,7 @@ module ovar
     real(wp) :: wall_temp  = -huge(0.0_wp)
   end type bc_input_t
   !
-  type(bc_input_t), public, save :: bc_input(1:100)
+  type(bc_input_t), public, save :: bc_input(1:20)
   !
   type, public :: bc_in_t
     real(wp), allocatable :: cv(:)
@@ -554,7 +558,8 @@ module input_namelist_mod
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
   use ovar,      only : interpolate_before_output_variable
   use ovar,      only : convergence_order_abs_res, convergence_order_max_res
-  use ovar,      only : dump_memory_usage,use_bc_conflicts,dump_fluxes
+  use ovar,      only : dump_memory_usage,use_bc_conflicts
+  use ovar,      only : dump_fluxes,check_flux_point_coordinates
   use ovar,      only : use_unrolled_dot_products
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
@@ -665,7 +670,7 @@ module input_namelist_mod
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
   namelist / input / use_unrolled_dot_products
   ! DUMP FLUX INFORMATION FOR DEBUGGING
-  namelist / input / dump_fluxes
+  namelist / input / dump_fluxes, check_flux_point_coordinates
   ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
   namelist / input / lustre_stripe_count, lustre_stripe_size
   ! INPUT BOUNDARY CONDITIONS
