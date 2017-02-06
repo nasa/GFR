@@ -695,7 +695,10 @@ end subroutine read_nml_input_file
 subroutine check_lustre_striping
   !
   !.. Use Statements ..
-  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  use ovar, only : lustre_stripe_count
+  use ovar, only : lustre_stripe_size
+  use ovar, only : lustre_stripe_unit
+  use ovar, only : lustre_stripe_factor
   !
   !.. Local Scalars ..
   integer :: i,j,ip,im,ierr,stripe_num
@@ -730,6 +733,10 @@ continue
     end do count_loop
     !
   end if
+  !
+  ! Save the stripe count for MPI
+  !
+  write (lustre_stripe_factor,4) lustre_stripe_count
   !
   ! Check the Lustre stripe size
   !
@@ -772,6 +779,8 @@ continue
   stripe_num = max(0,stripe_num)
   ! Make sure the stripe size is a multiple of 64 KB (65536 Bytes)
   stripe_num = nint( real(stripe_num,kind=wp) / 65536.0_wp ) * 65536
+  ! Save the stripe number in bytes for MPI
+  write (lustre_stripe_unit,4) stripe_num
   ! Convert the stripe size to kilobytes
   stripe_num  = stripe_num / 1024
   stripe_unit = "k"
@@ -815,6 +824,7 @@ continue
   2 format (i0,a1)
   3 format (/,"The Lustre striping command to be used is:",/, &
               "lfs setstripe -c ",i0," -S ",a,1x,"[file/directory]",/)
+  4 format (i0)
   !
 end subroutine check_lustre_striping
 !
@@ -839,7 +849,7 @@ subroutine check_output_dir
   character(len=*), parameter :: nobackup = "/nobackup/sspiegel"
   character(len=*), parameter :: homedir = "/u/sspiegel"
   !
-  logical(lk), parameter :: wait_for_completion = true
+  logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
   !
@@ -983,6 +993,7 @@ continue
         !
         call execute_command_line( trim(command) , wait_for_completion , &
                                    exitstat , cmndstat , cmndmsg )
+        call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
         !
         if (exitstat /= 0 .or. cmndstat /= 0) then
           write (error_message,2) trim(output_dir)//"flux_files"
@@ -1026,7 +1037,7 @@ subroutine check_cgns_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cgns_dir"
   !
-  logical(lk), parameter :: wait_for_completion = true
+  logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
   !
@@ -1072,6 +1083,7 @@ continue
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       if (exitstat /= 0 .or. cmndstat /= 0) then
         using_cgns_dir = fals
@@ -1095,9 +1107,11 @@ continue
       write (command,1) max(0,lustre_stripe_count), &
                         trim(adjustl(lustre_stripe_size)), &
                         trim(adjustl(cgns_dir))
+      write (iout,2) trim(adjustl(command))
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       ! We arent going to test the status of executing this command because
       ! it worked or it didnt. Either way, we will continue on and output
@@ -1121,6 +1135,7 @@ continue
   ! Format Statements
   !
   1 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  2 format ("Lustre striping command = '",a,"'")
   !
 end subroutine check_cgns_dir
 !
@@ -4367,7 +4382,7 @@ end subroutine find_bc_conflicts
 subroutine check_flux_point_orderings()
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP,geom_solpts
+  use order_mod, only : maxSP,maxFP,geom_solpts
   use geovar, only : ncell,cell
   use geovar, only : nfbnd,nface,face
   use geovar, only : nr,xyz
@@ -4379,24 +4394,34 @@ subroutine check_flux_point_orderings()
   integer :: face_geom,face_order
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
+  logical(lk) :: write_difference_file
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: xyz_fp
+  real(wp) :: xyz_fp(1:nr,1:maxFP,1:2)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_flux_point_orderings"
+  integer, parameter :: lfile = 161
+  integer, parameter :: rfile = 162
+  integer, parameter :: dfile = 163
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  write (151,*)
-  write (152,*)
+  write (lfile,*)
+  write (rfile,*)
+  write (dfile,*)
   !
   do nf = nfbnd+1,nface
     !
-    write (151,2) nf-nfbnd
-    write (152,2) nf-nfbnd
+    write_difference_file = fals
+    xyz_fp(:,:,:) = zero
+    !
+   !write (lfile,2) nf-nfbnd
+   !write (rfile,2) nf-nfbnd
+   !write (lfile,12) nf-nfbnd
+   !write (rfile,12) nf-nfbnd
     !
     face_geom = face(nf)%geom
     face_order = face(nf)%order
@@ -4433,30 +4458,48 @@ continue
       ! Interpolate the coordinates for this flux point for the left cell
       !
       do l = 1,nr
-        xyz_fp(l) = interp(left_geom,left_order)% &
-                              toFace(face_order)% &
-                    dot( kl , xyz(l,l1:l2) )
+        xyz_fp(l,k,1) = interp(left_geom,left_order)% &
+                                  toFace(face_order)% &
+                        dot( kl , xyz(l,l1:l2) )
       end do
-      !
-      write (151,1) kl,xyz_fp(1:nr)
       !
       ! Interpolate the coordinates for this flux point for the right cell
       !
       do l = 1,nr
-        xyz_fp(l) = interp(right_geom,right_order)% &
-                                toFace(face_order)% &
-                    dot( kr , xyz(l,r1:r2) )
+        xyz_fp(l,k,2) = interp(right_geom,right_order)% &
+                                    toFace(face_order)% &
+                        dot( kr , xyz(l,r1:r2) )
+        if (abs(xyz_fp(l,k,2)-xyz_fp(l,k,1)) > eps6) then
+          write_difference_file = true
+        end if
       end do
-      !
-      write (152,1) kr,xyz_fp(1:nr)
       !
     end do
     !
+    if (write_difference_file) then
+      write (lfile,12) nf-nfbnd
+      write (rfile,12) nf-nfbnd
+      write (dfile,12) nf-nfbnd
+      do k = 1,nfp
+        !
+       !write (lfile,1) kl,(xyz_fp(l,k,1),l=1,nr)
+        write (lfile,11) (xyz_fp(l,k,1),l=1,nr)
+        !
+       !write (rfile,1) kr,(xyz_fp(l,k,2),l=1,nr)
+        write (rfile,11) (xyz_fp(l,k,2),l=1,nr)
+        !
+        write (dfile,11) (abs(xyz_fp(l,k,2)-xyz_fp(l,k,1)),l=1,nr), &
+                         norm2(xyz_fp(:,k,2)-xyz_fp(:,k,1))
+        !
+      end do
+    end if
+    !
   end do
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
-  !
   call debug_timer(leaving_procedure,pname)
+  !
+  call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+                  "After dumping flux point coordinates")
   !
   ! Format Statements
   !
@@ -4465,6 +4508,8 @@ continue
   2 format (/,"#######################################################",/, &
               "#################  FACE ",i0,"  ###########################",/, &
               "#######################################################",/)
+ 11 format (1x,*(es12.4))
+ 12 format ("FACE ",i0)
   !
 end subroutine check_flux_point_orderings
 !

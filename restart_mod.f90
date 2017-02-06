@@ -582,6 +582,8 @@ subroutine write_restart_file(itnum)
   use geovar,  only : n_global_cell
   use ovar,    only : itcur,time,d_t
   use ovar,    only : iop_solpts
+  use ovar,    only : lustre_stripe_factor
+  use ovar,    only : lustre_stripe_unit
   use flowvar, only : usp
   !.. Use Statements for old restart files ..
   use geovar,  only : n_global_totpts
@@ -619,6 +621,12 @@ subroutine write_restart_file(itnum)
 continue
   !
   call debug_timer(entering_procedure,pname)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,*) "Entering write_restart_file"
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   if (use_old_restart_format) then
     !
@@ -674,6 +682,12 @@ continue
       ! Check for the restart directory and create it if it does not exist
       !
       call check_restart_dir
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == 0) then
+        write (iout,*) "After check_restart_dir"
+        flush(iout)
+      end if
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
       !
       ! For now, write the nodal solution to the restart file. At some point we
       ! should switch so it writes the modal solution since that would give more
@@ -688,6 +702,12 @@ continue
       ! Get the MPI derived types required to read/write the restart file
       !
       call get_output_mpi_datatypes
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == 0) then
+        write (iout,*) "After get_output_mpi_datatypes"
+        flush(iout)
+      end if
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
       !
       ! Unset the restart initialization flag since this has now been done
       !
@@ -737,17 +757,23 @@ continue
     !
    !call mpi_info_set(file_info,"num_io_nodes","1",mpierr)
     !
+    ! Enable collective buffering for writes
+    !
+    call mpi_info_set(file_info,"romio_cb_write","enable",mpierr)
+    !
     ! Specify the number of I/O devices that the
     ! restart file should be striped across
     !
-   !call mpi_info_set(file_info,"striping_factor","1",mpierr)
+    call mpi_info_set(file_info,"striping_factor", &
+                      trim(adjustl(lustre_stripe_factor)),mpierr)
     !
     ! Specifiy the suggested striping unit to be used for this file. The
     ! striping unit is the amount of consecutive data assigned to one I/O
     ! device before progressing to the next device, when striping across
     ! a number of devices. It is expressed in bytes.
     !
-   !call mpi_info_set(file_info,"striping_unit","1",mpierr)
+    call mpi_info_set(file_info,"striping_unit", &
+                      trim(adjustl(lustre_stripe_unit)),mpierr)
     !
 #else
     !
@@ -756,12 +782,24 @@ continue
     file_info = MPI_INFO_NULL
     !
 #endif
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == 0) then
+      write (iout,*) "Before mpi_file_open"
+      flush(iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
     ! Open the restart file for MPI I/O
     !
     call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
                        MPI_MODE_WRONLY + MPI_MODE_CREATE, &
                        file_info,file_handle,mpierr)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == 0) then
+      write (iout,*) "After mpi_file_open"
+      flush(iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
     ! Have the root processor write the header for the restart file
     !
@@ -940,6 +978,10 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  ! Format Statements
+  !
+  1 format (i0)
+  !
 end subroutine write_restart_file
 !
 !###############################################################################
@@ -964,7 +1006,7 @@ subroutine check_restart_dir
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_restart_dir"
   !
-  logical(lk), parameter :: wait_for_completion = true
+  logical(ldk), parameter :: wait_for_completion = .true.
   !
 continue
   !
@@ -1010,6 +1052,7 @@ continue
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       if (exitstat /= 0 .or. cmndstat /= 0) then
         using_restart_dir = fals
@@ -1033,9 +1076,12 @@ continue
       write (command,3) max(0,lustre_stripe_count), &
                         trim(adjustl(lustre_stripe_size)), &
                         trim(adjustl(restart_dir))
+      write (iout,4) trim(adjustl(command))
+      flush(iout)
       !
       call execute_command_line( trim(command) , wait_for_completion , &
                                  exitstat , cmndstat , cmndmsg )
+      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       ! We arent going to test the status of executing this command because
       ! it worked or it didnt. Either way, we will continue on and output
@@ -1050,8 +1096,7 @@ continue
   ! Broadcast the value of restart_dir to all the non-root MPI processes
   !
   clen = len_trim(restart_dir)
-  call mpi_bcast(clen,1_int_mpi,mpi_inttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
   call mpi_bcast(restart_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
                  0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
@@ -1069,6 +1114,7 @@ continue
   1 format (i0)
   2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
   3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  4 format ("Lustre striping command = '",a,"'")
   !
 end subroutine check_restart_dir
 !
