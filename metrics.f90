@@ -472,10 +472,10 @@ continue
   end if
   !
   1 format (/, &
-         " Min Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Max Interior  Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Min Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Max Int+Ghost Jacobian = ",es16.8," @ SP ",i0,t58,"on CPU # ",i0)
+         " Min Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Max Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Min Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+         " Max Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0)
   !
   2 format (/, &
           " Min ncell = ",i0,t25,"on CPU # ",i0,/, &
@@ -490,12 +490,12 @@ continue
           " Min nface = ",i0,t25,"on CPU # ",i0,/, &
           " Max nface = ",i0,t25,"on CPU # ",i0,/, &
           " Ave nface = ",i0,//, &
-          " Min n_solpts = ",i0,t25,"on CPU # ",i0,/, &
-          " Max n_solpts = ",i0,t25,"on CPU # ",i0,/, &
+          " Min n_solpts = ",i0,t28,"on CPU # ",i0,/, &
+          " Max n_solpts = ",i0,t28,"on CPU # ",i0,/, &
           " Ave n_solpts = ",i0,//, &
-          " Min partition volume = ",es16.8,t25,"on CPU # ",i0,/, &
-          " Max partition volume = ",es16.8,t25,"on CPU # ",i0,/, &
-          " Ave partition volume = ",es16.8,/)
+          " Min partition volume =",es16.8," on CPU # ",i0,/, &
+          " Max partition volume =",es16.8," on CPU # ",i0,/, &
+          " Ave partition volume =",es16.8,/)
   !
  !write (iout,2) mypnum,"n_solpts",minval(jacobian(1:np)),maxval(jacobian(1:np))
  !write (iout,2) mypnum,"n_totpts",minval(jacobian,mask=jacobian/=zero),&
@@ -515,7 +515,7 @@ continue
  !    write (iout,194) "Executing: ",trim(adjustl(command))
  !    !
  !    exitstat = system( trim(command) )
- !   !call execute_command_line(trim(command),true,exitstat,cmndstat,cmndmsg)
+ !   !call execute_command_line(trim(command),.true.,exitstat,cmndstat,cmndmsg)
  !    !
  !    if (exitstat /= 0 .or. cmndstat /= 0) then
  !      write (iout,199) exitstat,cmndstat,trim(adjustl(cmndmsg))
