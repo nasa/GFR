@@ -1271,6 +1271,60 @@ end subroutine io_error
 !
 !###############################################################################
 !
+subroutine write_command_results(procedure_name,command,exit_status, &
+                                 command_status,command_message)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: procedure_name
+  character(len=*), intent(in) :: command
+  integer,          intent(in) :: exit_status
+  integer,          intent(in) :: command_status
+  character(len=*), intent(in) :: command_message
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_command_results"
+  !
+continue
+  !
+  if (mypnum == 0) then
+    !
+    write (iout,1) trim(adjustl(command)), &
+                   trim(adjustl(procedure_name)), &
+                   exit_status
+    !
+    if (command_status == -1) then
+      write (iout,2)
+    else if (command_status == -2) then
+      write (iout,3)
+    else if (command_status /= 0) then
+      write (iout,4)
+    end if
+    !
+    write (iout,5) command_status,trim(adjustl(command_message))
+    !
+    flush (iout)
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,"Calling execute_command_line with the command",/, &
+              5x,"'",a,"'",/, &
+              2x,"from procedure '",a,"'",/, &
+              5x,"status returned from command line = ",i0)
+  2 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR ", &
+                 "DOES NOT SUPPORT COMMAND LINE EXECUTION!!!",/)
+  3 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR DOES ", &
+                 "NOT SUPPORT ASYNCHRONOUS COMMAND EXECUTION!!!",/)
+  4 format (/,2x,"AN ERROR OCCURRED CALLING 'execute_command_line'!!!",/)
+  5 format (5x,"status  returned from execute_command_line = ",i0,/, &
+            5x,"message returned from execute_command_line = '",a,"'",/)
+
+  !
+end subroutine write_command_results
+!
+!###############################################################################
+!
 subroutine initialize_mpi_environment
   !
   !.. Local Scalars ..
