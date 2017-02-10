@@ -4,6 +4,7 @@ module module_cgns
   use module_kind_types
   use module_cgns_types
   use geovar, only : grid
+  use geovar, only : grid_t
   use geovar, only : elem_t
   use geovar, only : prop_t
  !use geovar, only : cgns_idx_t
@@ -114,7 +115,7 @@ module module_cgns
   ! HEXA_98  :  98-node 4th order FACE-DEFINED hexahedron
   ! HEXA_125 : 125-node 4th order     COMPLETE hexahedron
   !
-  ! MIXED : Arbitrary mixture of all possible element types 
+  ! MIXED : Arbitrary mixture of all possible element types
   !         except NGON_n or NFACE_n
   !
   ! ################################################################
@@ -133,31 +134,29 @@ module module_cgns
   logical(lk), parameter :: debug_cgns = fals
  !logical(lk), parameter :: debug_cgns = true
   !
+ !logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = fals
+  logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = true
+  !
   ! ###################################
   ! ###  Module Derived Data Types  ###
   ! ###################################
-  !
-  type :: cell_grps_t
-    integer :: cell_dim
-    integer :: grp_id
-    integer :: ibc
-    character(len=CGLEN) :: name
-    integer, allocatable :: cells(:)
-  end type cell_grps_t
   !
   type :: cg_t
     character(len=CGLEN) :: name
   end type cg_t
   !
   type, extends(cg_t) :: cg_sz_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     integer(CST) :: nsize
   end type cg_sz_t
   !
   type, extends(cg_t) :: cg_dataarray_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     real(wp), allocatable :: data(:)
   end type cg_dataarray_t
   !
   type, extends(cg_t) :: cg_bc_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     integer(CET) :: boco_type, ptset_type, normal_datatype, location
     integer(CST) :: npnts, normal_list_size
     integer(CBT) :: normal_index(3), ndataset
@@ -166,14 +165,17 @@ module module_cgns
   end type cg_bc_t
   !
   type, extends(cg_t) :: cg_coord_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     real(wp), allocatable :: x(:)
   end type cg_coord_t
   !
   type, extends(cg_t) :: cg_grid_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     type(cg_coord_t), allocatable :: coord(:)
   end type cg_grid_t
   !
   type, extends(cg_t) :: cg_section_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
     integer(CET) :: type
     integer(CST) :: start, end
     integer(CBT) :: nbndry, parent_flag
@@ -182,6 +184,8 @@ module module_cgns
   end type cg_section_t
   !
   type, extends(cg_sz_t) :: cg_zone_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
+   !integer(CST) :: nsize         ! INHERITED FROM CG_SZ_T
     integer(CST) :: nvertex, ncell, nboundvertex
     integer(CET) :: type
     integer(CBT) :: index_dim
@@ -191,6 +195,8 @@ module module_cgns
   end type cg_zone_t
   !
   type, extends(cg_sz_t) :: cg_base_t
+   !character(len=CGLEN) :: name  ! INHERITED FROM CG_T
+   !integer(CST) :: nsize         ! INHERITED FROM CG_SZ_T
     integer(CBT) :: cell_dim, phys_dim
     type(cg_zone_t), allocatable :: zone(:)
   end type cg_base_t
@@ -244,6 +250,14 @@ module module_cgns
   real(wp),     save, allocatable :: grid_data(:,:)
   integer(wip), save, allocatable :: section_data(:)
   integer(wip), save, allocatable :: boco_data(:)
+  !
+  type :: cell_grps_t
+    integer :: cell_dim
+    integer :: grp_id
+    integer :: ibc
+    character(len=CGLEN) :: name
+    integer, allocatable :: cells(:)
+  end type cell_grps_t
   !
   type(cell_grps_t), save, allocatable :: cell_grps(:)
   !
@@ -340,6 +354,10 @@ continue
     ! the grid derived type and cell_grps arrays
     !
     call transfer_cgns_data_to_grid_dt
+    !
+    if (create_nozzle_interior_cgns_gridfile) then
+      call extract_nozzle_grid
+    end if
     !
     ! Create the arrays needed by the solver that define the grid
     ! geometry: bface, nodes_of_cell_ptr, nodes_of_cell, etc.
@@ -571,7 +589,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Create the initial array that will contain the sizes of 
+  ! Create the initial array that will contain the sizes of
   ! all the subsequent arrays that will be broadcast
   !
   data_sizes(1) = int( base(1)%cell_dim , kind=kind(data_sizes) )
@@ -612,7 +630,7 @@ continue
     do iz = 1,size(base(ib)%zone)
       do ig = 1,size(base(ib)%zone(iz)%grid)
         if (allocated(base(ib)%zone(iz)%grid(ig)%coord)) then
-          ! 
+          !
           n1 = size(base(ib)%zone(iz)%grid(ig)%coord)
           n2 = size(base(ib)%zone(iz)%grid(ig)%coord(1)%x)
           !
@@ -1489,7 +1507,7 @@ subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
-  integer :: i,j,j0,j1,j2
+  integer :: i,j,j0,j1,j2,id_mult
   integer :: ib,iz,ig,ic,ix,is,ibc
   integer :: elem_beg,elem_end
   integer :: mine,maxe,sume,ierr
@@ -1515,12 +1533,14 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  id_mult = 1
+  !
   wall_type = 'SLIPWALL'
   if (governing_equations == NavierStokes_Eqns) then
     wall_type = 'ADIABATIC'
   end if
   !
-  ! First, start by allocating the variable grid 
+  ! First, start by allocating the variable grid
   !
   allocate ( grid , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
@@ -1865,6 +1885,7 @@ continue
         !#################################################################
         !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
         !
+        id_mult = 1
         if (uppercase(bc_string) == 'FARFIELD') then
           bc_string = 'CHARACTERISTIC'
         else if (uppercase(bc_string) == 'INFLOW') then
@@ -1873,12 +1894,14 @@ continue
         else if (uppercase(bc_string) == 'INFLOWSUBSONIC') then
          !bc_string = 'SUBINFLOW'
           bc_string = 'CHARACTERISTIC'
+         !id_mult = -1
         else if (uppercase(bc_string) == 'NOZZLEBASE') then
           bc_string = trim(adjustl(wall_type))
         else if (uppercase(bc_string) == 'NOZZLEEXTERIOR') then
           bc_string = trim(adjustl(wall_type))
         else if (uppercase(bc_string) == 'NOZZLEINTERIOR') then
           bc_string = trim(adjustl(wall_type))
+         !id_mult = -1
         else if (uppercase(bc_string) == 'OUTFLOW') then
           bc_string = 'CHARACTERISTIC'
         end if
@@ -1892,7 +1915,7 @@ continue
         else if (base(ib)%zone(iz)%bc(ibc)%location == EDGECENTER) then
           cell_grps(n)%cell_dim = 1
         end if
-        cell_grps(n)%grp_id = n-1
+        cell_grps(n)%grp_id = id_mult*(n-1)
         cell_grps(n)%ibc = bc_string_to_integer( bc_string )
         if (cell_grps(n)%ibc == bc_unsupported) then
           if (allocated(unsupported_bc)) then
@@ -2538,7 +2561,7 @@ continue
   do i = 1,size(bnd_grps)
     !
 #ifdef DEBUG_ON
-   !write (iout,1091) i 
+   !write (iout,1091) i
 #endif
     !
     np = bnd_grps(i)
@@ -2847,6 +2870,723 @@ end subroutine create_solver_geom_arrays_cgns
 !
 !###############################################################################
 !
+subroutine extract_nozzle_grid
+  !
+  !.. Use Statements ..
+  use ovar, only : grid_scaling_factor
+  !
+  !.. Local Scalars ..
+  integer :: l,l1,l2,m,n,ierr
+  integer :: ngrps,mintag,maxtag,nsubin
+  integer :: nnodes,ngpts,npts,nelem,ncells
+  integer :: interior_grp,subin_grp
+  !
+  character(len=CGLEN) :: grp_name
+  character(len=150)   :: nozzle_grid_file
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_ave(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: pts(:)
+  integer, allocatable :: nodes(:)
+  integer, allocatable :: pts_map(:)
+  integer, allocatable :: pts_rmap(:)
+  integer, allocatable :: elem_map(:)
+  integer, allocatable :: grp_cells_remaining(:)
+  !
+  logical(lk), allocatable :: grp_still_remains(:)
+  logical(lk), allocatable :: nodes_mask(:)
+  logical(lk), allocatable :: pts_mask(:)
+  logical(lk), allocatable :: elem_mask(:)
+  !
+  type(grid_t), allocatable :: nozzle
+  type(grid_t), allocatable :: temp_nozzle
+  !
+  type(cell_grps_t), allocatable :: nozzle_grps(:)
+  !
+  type(cg_base_t), allocatable :: b
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "extract_nozzle_grid"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  write (nozzle_grid_file,10) grid%elem(1)%prop%order
+  10 format ("P",i0,".nozzle_only.cgns")
+  write (iout,1) trim(adjustl(nozzle_grid_file))
+  1 format (//," Extracting the interior of the nozzle to the", &
+               " new grid file '",a,"' !!",//)
+  !
+  ngpts = size(grid%xyz,dim=2)
+  !
+  subin_grp = -huge(0)
+  interior_grp = -huge(0)
+  find_subin_grp: do n = 1,size(cell_grps)
+    !
+    grp_name = trim(adjustl(uppercase(cell_grps(n)%name)))
+    if (grp_name == "INTERIOR") then
+      interior_grp = cell_grps(n)%grp_id
+    else if (grp_name == "INFLOWSUBSONIC") then
+      subin_grp = cell_grps(n)%grp_id
+    end if
+    !
+    if (all([subin_grp,interior_grp] /= -huge(0))) exit find_subin_grp
+    !
+  end do find_subin_grp
+  !
+  !
+  allocate ( elem_mask(1:size(grid%elem)) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"elem_mask",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( nodes_mask(1:ngpts) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_mask",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( pts_mask(1:ngpts) , source=fals , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pts_mask",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Mark all the interior and boundary elements that are within
+  ! the interior of the nozzle
+  !
+  nsubin = 0
+  ncells = 0
+  !
+  do n = 1,size(grid%elem)
+    !
+    if (allocated(grid%elem(n)%tags)) then
+      if (grid%elem(n)%tags(1) == subin_grp) then
+        nsubin = nsubin + 1
+      end if
+    end if
+    !
+    pts = grid%elem(n)%pts(:)     ! USING F2003 AUTO-REALLOCATION
+    nodes = grid%elem(n)%nodes(:) ! USING F2003 AUTO-REALLOCATION
+    !
+    do l = 1,size(grid%xyz,dim=1)
+      xyz_ave(l) = sum(grid%xyz(l,pts(:))) / real(size(pts),kind=kind(xyz_ave))
+    end do
+    !
+    elem_mask(n) = point_is_in_nozzle_interior(xyz_ave)
+    !
+    if (elem_mask(n)) then
+      if (allocated(grid%elem(n)%tags)) then
+        if (grid%elem(n)%tags(1) == interior_grp) then
+          ncells = ncells + 1
+        end if
+      end if
+      !
+      pts_mask(pts(:)) = true ! Mark all nodes and points
+      pts_mask(nodes(:)) = fals ! Unmark all nodes
+      !
+      nodes_mask(nodes(:)) = true ! Mark nodes only
+      !
+    end if
+    !
+  end do
+  !
+  if (allocated(nodes)) then
+    deallocate ( nodes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pts)) then
+    deallocate ( pts , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Get the size parameters for the nozzle part of the grid
+  !
+  nnodes = count(nodes_mask)
+  npts = nnodes + count(pts_mask)
+  nelem = count(elem_mask)
+  !
+  ! THE RESULTS SHOULD BE : 
+  ! ncells = 83,200
+  ! nelem = 88,064
+  ! nelem-ncells = 4,864
+  ! nsubin = 1,664
+  ! nelem+nsubin = 89,728
+  write (iout,2) "               Number of interior cells = ",ncells
+  write (iout,2) "            Number of linear grid nodes = ",nnodes
+  write (iout,2) "            Total number of grid points = ",npts
+  write (iout,2) "          Number of found grid elements = ",nelem
+  write (iout,2) "Number of subsonic inflow face elements = ",nsubin
+  write (iout,*)
+  2 format (4x,a,i0)
+  !
+  ! Create the nozzle object containing the subset of the grid object
+  ! for all elements and points inside the nozzle interior
+  !
+  allocate ( nozzle , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nozzle",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Create the mapping array for the grid elements
+  !
+  ! USING F2003 AUTO_REALLOCATION
+  elem_map = pack(intseq(1,size(elem_mask)),mask=elem_mask)
+  !
+  if (allocated(elem_mask)) then
+    deallocate ( elem_mask , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_mask",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Create the elem component of the nozzle object
+  ! NOTE: We need to add nsubin to the number of marked elements in elem_mask
+  !       to account for the yet to be defined face elements that define the
+  !       outflow boundary condition for the nozzle interior.
+  !
+  allocate ( nozzle%elem(1:nelem+nsubin) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nozzle%elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  nozzle%elem(1:nelem) = grid%elem( elem_map(:) )
+  !
+  if (allocated(elem_map)) then
+    deallocate ( elem_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Create the forward mapping array for all the grid points
+  !
+  allocate ( pts_map(1:npts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pts_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the beginning of the mapping array for linear grid nodes
+  !
+  pts_map(1:nnodes) = pack(intseq(1,size(nodes_mask)),mask=nodes_mask)
+  !
+  if (allocated(nodes_mask)) then
+    deallocate ( nodes_mask , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_mask",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Create the remaining of the mapping array for the high-order interior points
+  !
+  pts_map(nnodes+1:npts) = pack(intseq(1,size(pts_mask)),mask=pts_mask)
+  !
+  if (allocated(pts_mask)) then
+    deallocate ( pts_mask , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts_mask",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Create the xyz component of the nozzle object
+  !
+  allocate ( nozzle%xyz(1:size(grid%xyz,dim=1),1:npts) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nozzle%xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,size(pts_map)
+    nozzle%xyz(:,n) = grid%xyz(:,pts_map(n))
+  end do
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  ! Create the reverse mapping array for all points
+  ! before deallocating the forward mapping array
+  !
+  allocate ( pts_rmap(1:ngpts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pts_rmap",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,size(pts_map)
+    pts_rmap(pts_map(n)) = n
+  end do
+  !
+  if (allocated(pts_map)) then
+    deallocate ( pts_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Create an array to mark the remaining group ids
+  !
+  mintag = minval(grid%elem(:)%tags(1))
+  maxtag = maxval(grid%elem(:)%tags(1))
+  !
+  ! CHANGE grp_still_remains TO grp_cells_remaining IF WE NEED TO CHANGE IT TO
+  ! AN INTEGER ARRAY THAT COUNTS THE NUMBER OF CELLS REMAINING FOR EACH GROUP
+ !allocate ( grp_cells_remaining(mintag:maxtag) , source=0 , &
+  allocate ( grp_still_remains(mintag:maxtag) , source=fals , &
+             stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"grp_cells_remaining",1,__LINE__,__FILE__, &
+  call alloc_error(pname,"grp_still_remains",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Localize the point indices within the elem array and count
+  ! how many of each of the remaining group ids there are
+  !
+  do n = 1,nelem
+    !
+    nozzle%elem(n)%pts(:) = pts_rmap( nozzle%elem(n)%pts(:) )
+    nozzle%elem(n)%nodes(:) = pts_rmap( nozzle%elem(n)%nodes(:) )
+    !
+   !grp_cells_remaining(nozzle%elem(n)%tags(1)) = &
+   !          grp_cells_remaining(nozzle%elem(n)%tags(1)) + 1
+    grp_still_remains(nozzle%elem(n)%tags(1)) = true
+    !
+  end do
+  !
+  if (allocated(pts_rmap)) then
+    deallocate ( pts_rmap , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts_rmap",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Count the remaining number of element groups
+  ! NOTE: Add 1 to the number of remaining element groups to include
+  !       the outflow boundary condition that will need to be added.
+  !
+ !ngrps = count(grp_cells_remaining(:) > 0) + 1
+  ngrps = count(grp_still_remains(:)) + 1
+  !
+  ! Create a new nozzle_grps object that should be a subset of the
+  ! cell_grps object for just the nozzle portion of the grid.
+  !
+  allocate ( nozzle_grps(1:ngrps) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nozzle_grps",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy the respective group information from cell_grps
+  ! into the remaining element groups in nozzle_grps.
+  !
+  l = 0
+  do n = 1,size(cell_grps)
+   !if (grp_cells_remaining(cell_grps(n)%grp_id) /= 0) then
+    if (grp_still_remains(cell_grps(n)%grp_id)) then
+      l = l + 1
+      nozzle_grps(l) = cell_grps(n)
+    end if
+  end do
+  !
+  if (allocated(grp_still_remains)) then
+    deallocate ( grp_still_remains , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grp_still_remains",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  if (allocated(grp_cells_remaining)) then
+    deallocate ( grp_cells_remaining , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grp_cells_remaining",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  ! Add the final group, the outflow boundary condition for the nozzle
+  ! interior which was previously just a group of interior faces
+  !
+  nozzle_grps(ngrps)%cell_dim = 2
+  nozzle_grps(ngrps)%grp_id = -100 ! make this large negative value for now
+  nozzle_grps(ngrps)%ibc = bc_characteristic
+  nozzle_grps(ngrps)%name = "NozzleOutflow"
+  !
+  ! #######
+  ! ## 5 ##
+  ! #######
+  !
+  ! Create tags for the still undefined face elements at the outflow
+  ! boundary so these future elements will be found and sorted correctly
+  ! in the following loop that creates the temporary nozzle object.
+  !
+  do n = nelem+1,size(nozzle%elem)
+    ! USING F2003 AUTO-REALLOCATION
+    nozzle%elem(n)%tags = [nozzle_grps(ngrps)%grp_id,0]
+  end do
+  !
+  ! Create a new temporary nozzle object to copy over the elements in
+  ! the current nozzle object so they are ordered by their group id.
+  !
+  allocate ( temp_nozzle , source=nozzle , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_nozzle",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  l2 = 0
+  do m = 1,size(nozzle_grps)
+    !
+    l1 = l2 + 1
+    !
+    do n = 1,size(nozzle%elem)
+      if (nozzle%elem(n)%tags(1) == nozzle_grps(m)%grp_id) then
+        l2 = l2 + 1
+        temp_nozzle%elem(l2) = nozzle%elem(n)
+      end if
+    end do
+    !
+    ! Reset the id for the current nozzle group
+    nozzle_grps(m)%grp_id = 1-m
+    ! Make sure the id for these elements matches the new group id
+    temp_nozzle%elem(l1:l2)%tags(1) = 1-m
+    !
+    nozzle_grps(m)%cells = intseq(l1,l2) ! USING F2003 AUTO-REALLOCATION
+    !
+  end do
+  !
+  ! Move the new sorted temporary nozzle object over to replace the old
+  ! unsorted nozzle object, which will leave temp_nozzle deallocated.
+  !
+  call move_alloc( from=temp_nozzle , to=nozzle )
+  !
+  ! #######
+  ! ## 6 ##
+  ! #######
+  !
+  call create_nozzle_outflow_faces(ncells,nsubin,nozzle)
+  !
+  ! Reorder all the element points back into CGNS ordering
+  !
+  do n = 1,size(nozzle%elem)
+    nozzle%elem(n) = reorder_cgns_pts(nozzle%elem(n),reverse=true)
+  end do
+  !
+  ! Remove the grid scaling factor from the grid coordinates
+  !
+  do n = 1,size(nozzle%xyz,dim=2)
+    do l = 1,size(nozzle%xyz,dim=1)
+      nozzle%xyz(l,n) = nozzle%xyz(l,n) / grid_scaling_factor
+    end do
+  end do
+  !
+  ! Create the new CGNS base object for the nozzle subset of the grid
+  !
+  call create_cgns_base_for_nozzle(nozzle,nozzle_grps,b)
+  !
+  if (allocated(nozzle)) then
+    deallocate ( nozzle , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nozzle",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(nozzle_grps)) then
+    deallocate ( nozzle_grps , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nozzle_grps",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Write out the nozzle subset of the grid
+  !
+  call write_cgns_gridfile(nozzle_grid_file,b)
+  !
+  if (allocated(b)) then
+    deallocate ( b , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"b",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  write (error_message,100)
+  call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format ("After writing out a new CGNS grid file containing only ", &
+              "the region of the grid within the interior of the nozzle.")
+  !
+end subroutine extract_nozzle_grid
+!
+!###############################################################################
+!
+subroutine create_nozzle_outflow_faces(lcells,lfaces,nozzle)
+  !
+  !.. Use Statements ..
+  use geovar,           only : nbfai
+  use connectivity_mod, only : find_cells_surrounding_each_node
+  use connectivity_mod, only : find_cells_surrounding_each_cell
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: lcells
+  integer,         intent(in) :: lfaces
+  type(grid_t), intent(inout) :: nozzle
+  !
+  !.. Local Scalars ..
+  integer :: c0,c1,c2,i,n,n1,n2,ierr
+  integer :: host_cell,host_geom,host_side
+  integer :: new_elem,lelem,lbfac,nfnods
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:4)
+  integer :: face_nodes(1:4)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: bface(:,:)
+  integer, allocatable :: noc(:)
+  integer, allocatable :: noc_ptr(:)
+  integer, allocatable :: cwn(:)
+  integer, allocatable :: cwn_ptr(:)
+  integer, allocatable :: csc(:)
+  integer, allocatable :: csc_ptr(:)
+  integer, allocatable :: cell_geom(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_nozzle_outflow_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  lelem = size(nozzle%elem) - lfaces ! Total number of defined elements
+  lbfac = lelem - lcells             ! Total number of defined boundary faces
+  !
+  ! Create a temporary bface array
+  !
+  allocate ( bface(1:nbfai,1:lbfac) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! For this specific case, we only need bface(10,:) to be defined
+  ! and it just needs to be an integer sequence from lcells+1 to lelem
+  !
+  bface(10,:) = intseq(lcells+1,lelem)
+  !
+  ! Create temporary nodes_of_cell and nodes_of_cell_ptr arrays
+  !
+  allocate ( noc_ptr(1:lelem+1) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"noc_ptr",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,lelem
+    noc_ptr(n+1) = noc_ptr(n) + size(nozzle%elem(n)%nodes)
+  end do
+  !
+  allocate ( noc(1:last(noc_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"noc",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,lelem
+    n1 = noc_ptr(n)+1
+    n2 = noc_ptr(n+1)
+    noc(n1:n2) = nozzle%elem(n)%nodes(:)
+  end do
+  !
+  ! Create a temporary cell_geom array
+  ! USING F2003 AUTO-REALLOCATION
+  cell_geom = nozzle%elem(1:lelem)%prop%geom
+  !
+  ! Find the cells surrounding each node
+  !
+  call find_cells_surrounding_each_node(bface,noc,noc_ptr,cwn,cwn_ptr)
+  !
+  ! Find the cells surrounding each cell
+  !
+  call find_cells_surrounding_each_cell(bface,cell_geom,noc,noc_ptr, &
+                                        cwn,cwn_ptr,csc,csc_ptr)
+  !
+  ! Deallocate the local arrays which are no longer needed
+  !
+  if (allocated(cwn)) then
+    deallocate ( cwn , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cwn",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(cwn_ptr)) then
+    deallocate ( cwn_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cwn_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(bface)) then
+    deallocate ( bface , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bface",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(cell_geom)) then
+    deallocate ( cell_geom , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_geom",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Make sure the number of missing surrounding
+  ! cells matches the value of lfaces as expected
+  !
+  if (count(csc(:) == 0) /= lfaces) then
+    write (error_message,100) count(csc(:) == 0),lfaces
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Find all the cells that are missing surrounding cells
+  ! and add the missing cell as a new face element
+  !
+  new_elem = lelem
+  !
+  csc_cell_loop: do host_cell = 1,lcells
+    !
+    c0 = csc_ptr(host_cell)
+    c1 = csc_ptr(host_cell)+1
+    c2 = csc_ptr(host_cell+1)
+    !
+    if (all(csc(c1:c2) /= 0)) cycle csc_cell_loop
+    !
+    n1 = noc_ptr(host_cell)+1
+    n2 = noc_ptr(host_cell+1)
+    !
+    host_geom = nozzle%elem(host_cell)%prop%geom
+    !
+    csc_side_loop: do host_side = 1,geom_faces(host_geom)
+      !
+      if (csc(c0+host_side) /= 0) cycle csc_side_loop
+      !
+      ! Create a new elem
+      !
+      new_elem = new_elem + 1
+      !
+      ! Create the new face element from the host element
+      !
+      nozzle%elem(new_elem) = get_face_elem(nozzle%elem(host_cell), &
+                                            host_side,host_cell)
+      !
+      ! THE REMAINDER OF THIS LOOP IS JUST TO CHECK THAT THE get_face_elem
+      ! FUNCTION SEEMS TO BE CREATING THE CORRECT FACE ELEMENT
+      !
+      ! Find the number of nodes that need to be matched for this face
+      !
+      nfnods = num_face_nodes(host_side,host_geom)
+      !
+      ! Node offsets for this face of the current cell
+      !
+      ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+      !
+      ! Get the nodes of the current face for the current cell
+      !
+      face_nodes(1:nfnods) = noc( n1 + ip(1:nfnods) )
+      !
+      if (allocated(nozzle%elem(new_elem)%nodes)) then
+        if (size(nozzle%elem(new_elem)%nodes) == nfnods) then
+          if (any(nozzle%elem(new_elem)%nodes /= face_nodes(1:nfnods))) then
+            write (iout,203) new_elem
+            write (iout,204) (face_nodes(i),i=1,nfnods)
+            write (iout,205) (nozzle%elem(new_elem)%nodes(i),i=1,nfnods)
+          end if
+        else
+          write (iout,202) size(nozzle%elem(new_elem)%nodes),new_elem,nfnods
+        end if
+      else
+        write (iout,201) new_elem
+      end if
+      !
+    end do csc_side_loop
+    !
+  end do csc_cell_loop
+  !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(noc)) then
+    deallocate ( noc , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"noc",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(noc_ptr)) then
+    deallocate ( noc_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"noc_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(csc)) then
+    deallocate ( csc , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"csc",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(csc_ptr)) then
+    deallocate ( csc_ptr , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"csc_ptr",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format ("The number of missing surrounding cells (",i0, &
+              ") does not match the expected number of boundary faces (", &
+              i0,") that need to be created!!")
+  !
+  201 format (" The nodes array for new face element ",i0, &
+              " is not allocated!!!")
+  202 format (" The size of the nodes array (",i0, &
+              ") for new face element ",i0, &
+              " does not match the expected size (",i0,") !!!")
+  203 format (" The face nodes for the new face element ",i0, &
+              " do not match the expected face nodes!!!")
+  204 format ("   The extracted face nodes = [ ",*(i0,:,", "))
+  205 format ("   The expected  face nodes = [ ",*(i0,:,", "))
+  !
+end subroutine create_nozzle_outflow_faces
+!
+!###############################################################################
+!
+pure function point_is_in_nozzle_interior(xyz) result(return_value)
+  !
+  ! NOTE: This function assumes the incoming xyz is in meters
+  !       since all the parameter coordinates are in meters.
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: x,r,radius
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: pa(2) = [-0.250825_wp,          0.0762_wp]
+  real(wp), parameter :: pb(2) = [-0.1957832_wp,         0.0762_wp]
+  real(wp), parameter :: pg(2) = [-0.199486039157406_wp, 0.0510713513659322_wp]
+  real(wp), parameter :: pc(2) = [-0.187954680464026_wp, 0.07370291708031857_wp]
+  real(wp), parameter :: pd(2) = [-0.138839103315909_wp, 0.04867728055674608_wp]
+  real(wp), parameter :: ph(2) = [-0.069650951155604_wp, 0.1844666748430524_wp]
+  real(wp), parameter :: pe(2) = [-0.0830072_wp,         0.03265306999550994_wp]
+  real(wp), parameter :: pf(2) = [ 0.0_wp,               0.0254_wp ]
+  !
+  real(wp), parameter :: lg2 = dot(pg-pb,pg-pb)
+  real(wp), parameter :: lh2 = dot(ph-pd,ph-pd)
+  !
+  real(wp), parameter :: mcd = (pc(2)-pd(2)) / (pc(1)-pd(1))
+  real(wp), parameter :: bcd = (pc(1)*pd(2)-pc(2)*pd(1)) / (pc(1)-pd(1))
+  !
+  real(wp), parameter :: mef = (pe(2)-pf(2)) / (pe(1)-pf(1))
+  real(wp), parameter :: bef = (pe(1)*pf(2)-pe(2)*pf(1)) / (pe(1)-pf(1))
+  !
+ !real(wp), parameter :: eps = half*eps3
+ !real(wp), parameter :: eps = eps6
+  real(wp), parameter :: eps = zero
+  !
+continue
+  !
+  return_value = fals
+  !
+  x = xyz(1)
+  !
+  if (x >= pa(1) .and. x <= pf(1)) then
+    !
+    r = norm2(xyz(2:))
+    !
+    if (r <= pb(2)+eps) then
+      !
+      if (x <= pb(1)) then
+        radius = pb(2)
+      else if (x > pb(1) .and. x < pc(1)) then
+        radius = pg(2) + sqrt( lg2 - (x-pg(1))**2 )
+      else if (x >= pc(1) .and. x <= pd(1)) then
+        radius = mcd*x + bcd
+      else if (x > pd(1) .and. x < pe(1)) then
+        radius = ph(2) + sqrt( lh2 - (x-ph(1))**2 )
+      else if (x >= pe(1)) then
+        radius = mef*x + bef
+      end if
+      !
+      return_value = ( r <= radius+eps )
+      !
+    end if
+    !
+  end if
+  !
+end function point_is_in_nozzle_interior
+!
+!###############################################################################
+!
 subroutine find_nozzle_core
   !
   !.. Use Statements ..
@@ -2866,6 +3606,311 @@ subroutine find_nozzle_core
 continue
   !
 end subroutine find_nozzle_core
+!
+!###############################################################################
+!
+subroutine create_cgns_base_for_nozzle(nozzle,nozzle_grps,b)
+  !
+  !.. Formal Arguments ..
+  type(grid_t),                    intent(in) :: nozzle
+  type(cell_grps_t),               intent(in) :: nozzle_grps(:)
+  type(cg_base_t), allocatable, intent(inout) :: b
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,l,l1,l2,ierr
+  integer :: ncells,npts,ncon
+  integer :: this_cell,this_type
+  integer :: mintype,maxtype
+  !
+  character(len=CGLEN) :: grp_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_cgns_base_for_nozzle"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Create the CGNS base
+  !
+  allocate ( b , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  b%cell_dim = 3
+  b%phys_dim = 3
+  !
+  ! Create the CGNS zone
+  !
+  allocate ( b%zone(1:1) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b%zone",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  b%zone(1)%name = "SMC Nozzle Interior"
+  b%zone(1)%nvertex = size(nozzle%xyz,dim=2)
+  b%zone(1)%ncell = size(nozzle_grps(1)%cells)
+  b%zone(1)%nboundvertex = 0
+  b%zone(1)%type = UNSTRUCTURED
+  !
+  ! Create the GridCoordinates_t node for the zone
+  !
+  allocate ( b%zone(1)%grid(1:1) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b%zone(1)%grid",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( b%zone(1)%grid(1)%coord(1:size(nozzle%xyz,dim=2)) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b%zone(1)%grid(1)%coord",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  b%zone(1)%grid(1)%coord(1)%name = "CoordinateX"
+  b%zone(1)%grid(1)%coord(2)%name = "CoordinateY"
+  b%zone(1)%grid(1)%coord(3)%name = "CoordinateZ"
+  !
+  b%zone(1)%grid(1)%coord(1)%x = nozzle%xyz(1,:) ! USING F2003 AUTO-REALLOCATION
+  b%zone(1)%grid(1)%coord(2)%x = nozzle%xyz(2,:) ! USING F2003 AUTO-REALLOCATION
+  b%zone(1)%grid(1)%coord(3)%x = nozzle%xyz(3,:) ! USING F2003 AUTO-REALLOCATION
+  !
+  ! Create an Elements_t node for each of the nozzle groups
+  !
+  allocate ( b%zone(1)%section(1:size(nozzle_grps)) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b%zone(1)%section",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Also create BC_t nodes for each of the boundary condition groups
+  !
+  allocate ( b%zone(1)%bc(1:size(nozzle_grps)-1) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"b%zone(1)%bc",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n2 = 0
+  do n = 1,size(nozzle_grps)
+    !
+    grp_name = trim(adjustl(nozzle_grps(n)%name))
+    !
+    ncells = size(nozzle_grps(n)%cells)
+    !
+    n1 = n2 + 1
+    n2 = n2 + ncells
+    !
+    if (uppercase(grp_name) == "INTERIOR") then
+      b%zone(1)%section(n)%name = "Hex_Elements"
+    else
+      b%zone(1)%section(n)%name = "quad_" // grp_name
+    end if
+    b%zone(1)%section(n)%start = n1
+    b%zone(1)%section(n)%end = n2
+    b%zone(1)%section(n)%nbndry = 0
+    !
+    mintype = minval(nozzle%elem( nozzle_grps(n)%cells(:) )%prop%elem_type)
+    maxtype = maxval(nozzle%elem( nozzle_grps(n)%cells(:) )%prop%elem_type)
+    !
+    if (mintype == maxtype) then
+      !
+      b%zone(1)%section(n)%type = mintype
+      !
+      npts = size(nozzle%elem(nozzle_grps(n)%cells(1))%pts)
+      ncon = npts*ncells
+      !
+      allocate ( b%zone(1)%section(n)%elements(1:ncon) , source=0_CST , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) n
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      l2 = 0
+      do l = 1,ncells
+        !
+        this_cell = nozzle_grps(n)%cells(l)
+        !
+        l1 = l2 + 1
+        l2 = l2 + npts
+        !
+        b%zone(1)%section(n)%elements(l1:l2) = nozzle%elem(this_cell)%pts(:)
+        !
+      end do
+      !
+    else
+      !
+      b%zone(1)%section(n)%type = MIXED
+      !
+      ncon = 0
+      do l = 1,ncells
+        ncon = ncon + 1 + size(nozzle%elem( nozzle_grps(n)%cells(l) )%pts)
+      end do
+      !
+      allocate ( b%zone(1)%section(n)%elements(1:ncon) , source=0_CST , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) n
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      l2 = 0
+      do l = 1,ncells
+        !
+        this_cell = nozzle_grps(n)%cells(l)
+        this_type = nozzle%elem(this_cell)%prop%elem_type
+        !
+        l1 = l2 + 1
+        l2 = l2 + 1 + size(nozzle%elem(this_cell)%pts)
+        !
+        b%zone(1)%section(n)%elements(l1:l2) = [this_type, &
+                                                nozzle%elem(this_cell)%pts(:)]
+        !
+      end do
+      !
+    end if
+    !
+    if (n > 1) then
+      !
+      grp_name = trim(adjustl(nozzle_grps(n)%name))
+      !
+      b%zone(1)%bc(n-1)%name = grp_name
+      b%zone(1)%bc(n-1)%ptset_type = PointRange
+      b%zone(1)%bc(n-1)%npnts = 2
+      b%zone(1)%bc(n-1)%pnts = [n1,n2] ! USING F2003 AUTO-REALLOCATION
+      b%zone(1)%bc(n-1)%location = FaceCenter
+      !
+      if (uppercase(grp_name) == "NOZZLEINTERIOR") then
+        b%zone(1)%bc(n-1)%boco_type = BCWall
+      else if (uppercase(grp_name) == "NOZZLEOUTFLOW") then
+        b%zone(1)%bc(n-1)%boco_type = BCOutflowSubsonic
+      else if (uppercase(grp_name) == "INFLOWSUBSONIC") then
+        b%zone(1)%bc(n-1)%boco_type = BCInflowSubsonic
+      else
+        b%zone(1)%bc(n-1)%boco_type = BCTypeNull
+      end if
+      !
+    end if
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("b%zone(1)%section(",i0,")%elements")
+  !
+end subroutine create_cgns_base_for_nozzle
+!
+!###############################################################################
+!
+subroutine write_cgns_gridfile(cgns_grid_file,b)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: cgns_grid_file
+  type(cg_base_t),  intent(in) :: b ! CGNS base to write
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  !
+  integer(CBT) :: if_n,ib_n,iz_n,is_n,ibc_n
+  !
+  !.. Local Arrays ..
+  integer(CST) :: zone_size(1:3)
+  integer(CBT) :: ixyz_n(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+ !real(CRT), allocatable :: var(:)
+  real(r8), allocatable :: var(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_cgns_gridfile"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ibc_n = 0
+  !
+  ! Open the CGNS grid file
+  !
+  call cg_open_f(cgns_grid_file,CG_MODE_WRITE,if_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_open_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Set the CGNS base (who knows what this is for)
+  !
+  call cg_base_write_f(if_n,trim(adjustl(b%name)), &
+                       b%cell_dim,b%phys_dim,ib_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_base_write_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Write the title for this solution
+  !
+  zone_size(1) = b%zone(1)%nvertex
+  zone_size(2) = b%zone(1)%ncell
+  zone_size(3) = b%zone(1)%nboundvertex
+  !
+  call cg_zone_write_f(if_n,ib_n,trim(adjustl(b%zone(1)%name)), &
+                       zone_size,b%zone(1)%type,iz_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_zone_write_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  ! Create data nodes for the coordinates
+  !
+  do n = 1,size(b%zone(1)%grid(1)%coord)
+    ! USING F2003 AUTO-REALLOCATION
+    var = real( b%zone(1)%grid(1)%coord(n)%x(:) , kind(var) )
+   !call cg_coord_write_f(if_n,ib_n,iz_n,CGNS_KIND_REAL, &
+    call cg_coord_write_f(if_n,ib_n,iz_n,RealDouble, &
+                          trim(adjustl(b%zone(1)%grid(1)%coord(n)%name)), &
+                          var,ixyz_n(n),cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_coord_write_f",cgierr, &
+                    __LINE__,__FILE__,"Write node: Coordinate",n, &
+                    not_parallel=true)
+  end do
+  !
+  ! Deallocate the arrays var
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr )
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr)
+  end if
+  !
+  ! Write the grid connectivity for the interior cells
+  !
+  do n = 1,size(b%zone(1)%section)
+    call cg_section_write_f(if_n,ib_n,iz_n, &
+               trim(adjustl(b%zone(1)%section(n)%name)), &
+                            b%zone(1)%section(n)%type, &
+                            b%zone(1)%section(n)%start, &
+                            b%zone(1)%section(n)%end, &
+                            b%zone(1)%section(n)%nbndry, &
+                            b%zone(1)%section(n)%elements, &
+                            is_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_section_write_f",cgierr, &
+                    __LINE__,__FILE__,"Writing section # ",n, &
+                    not_parallel=true)
+  end do
+  !
+  do n = 1,size(b%zone(1)%bc)
+    !
+    call cg_boco_write_f(if_n,ib_n,iz_n, &
+            trim(adjustl(b%zone(1)%bc(n)%name)), &
+                         b%zone(1)%bc(n)%boco_type, &
+                         b%zone(1)%bc(n)%ptset_type, &
+                         b%zone(1)%bc(n)%npnts, &
+                         b%zone(1)%bc(n)%pnts, &
+                         ibc_n,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_boco_write_f",cgierr, &
+                    __LINE__,__FILE__,"Writing boundary condition #",n, &
+                    not_parallel=true)
+    !
+    call cg_boco_gridlocation_write_f(if_n,ib_n,iz_n,ibc_n, &
+                                      b%zone(1)%bc(n)%location,cgierr)
+    call cgns_error(pname,cgns_grid_file,"cg_boco_gridlocation_write_f", &
+                    cgierr,__LINE__,__FILE__,"Writing grid location for bc #", &
+                    n,not_parallel=true)
+    !
+  end do
+  !
+  ! Close the CGNS FILE
+  !
+  call cg_close_f(if_n,cgierr)
+  call cgns_error(pname,cgns_grid_file,"cg_close_f",cgierr, &
+                  __LINE__,__FILE__,not_parallel=true)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine write_cgns_gridfile
 !
 !###############################################################################
 !
@@ -3266,7 +4311,7 @@ continue
 !!deallocate ( boco_data , stat=ierr , errmsg=error_message )
 !!call alloc_error(pname,"boco_data",2,__LINE__,__FILE__,ierr,error_message)
 !!!
-!!! 
+!!!
 !!!
 !!do nf = 1,size(bface,dim=2)
 !!  !
@@ -3380,7 +4425,7 @@ continue
 
 !!!
 !!! - Take VERTEX located ZoneBC data and create FACECENTERED BC Data
-!!! 
+!!!
 !!call debug_timer(leaving_procedure,pname)
 !!!
 end subroutine create_arrays_from_cgns_data
@@ -3528,12 +4573,12 @@ end subroutine create_arrays_from_cgns_data
 !!!    end if
 !!!    !
 !!!  end do
-!!!       
 !!!
 !!!
 !!!
 !!!
-!!!  
+!!!
+!!!
 !!!  if (any(bc%ptset_type == [ElementRange,ElementList])) then
 !!!    if (
 !!!  if (any(bc%ptset_type == [PointRange,ElementRange])) then
@@ -3771,6 +4816,212 @@ continue
   return_value = prop%geom
   !
 end function geom_for_element_type
+!
+!###############################################################################
+!
+pure function get_element_type(elem_geom,elem_order,elem_family) &
+                        result(return_value)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: elem_geom
+  integer, intent(in) :: elem_order
+  !
+  !.. Optional Arguments ..
+  type(geom_family_t), optional, intent(in) :: elem_family
+  !
+  !.. Function Result ..
+  integer(CET) :: return_value
+  !
+  !.. Local Scalars ..
+  type(geom_family_t) :: family
+  !
+continue
+  !
+  return_value = ElementTypeNull
+  !
+  family = Complete
+  if (present(elem_family)) then
+    family = elem_family
+  end if
+  !
+  select case (elem_geom)
+    !
+    case (Geom_Node)
+      !
+      return_value = NODE
+      !
+    case (Geom_Edge)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = BAR_2
+        case (2)
+            return_value = BAR_3
+        case (3)
+            return_value = BAR_4
+        case (4)
+            return_value = BAR_5
+      end select
+      !
+    case (Geom_Tria)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = TRI_3
+        case (2)
+            return_value = TRI_6
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = TRI_9
+            else
+              return_value = TRI_10
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = TRI_12
+            else
+              return_value = TRI_15
+            end if
+      end select
+      !
+    case (Geom_Quad)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = QUAD_4
+        case (2)
+            if (family == Edge_Defined) then
+              return_value = QUAD_8
+            else
+              return_value = QUAD_9
+            end if
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = QUAD_12
+            else
+              return_value = QUAD_16
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = QUAD_P4_16
+            else
+              return_value = QUAD_25
+            end if
+      end select
+      !
+    case (Geom_Tetr)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = TETRA_4
+        case (2)
+            return_value = TETRA_10
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = TETRA_16
+            else
+              return_value = TETRA_20
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = TETRA_22
+            else if (family == Face_Defined) then
+              return_value = TETRA_34
+            else
+              return_value = TETRA_35
+            end if
+      end select
+      !
+    case (Geom_Pyra)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = PYRA_5
+        case (2)
+            if (family == Edge_Defined) then
+              return_value = PYRA_13
+            else
+              return_value = PYRA_14
+            end if
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = PYRA_21
+            else if (family == Face_Defined) then
+              return_value = PYRA_29
+            else
+              return_value = PYRA_30
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = PYRA_P4_29
+            else if (family == Face_Defined) then
+              return_value = PYRA_50
+            else
+              return_value = PYRA_55
+            end if
+      end select
+      !
+    case (Geom_Pris)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = PENTA_6
+        case (2)
+            if (family == Edge_Defined) then
+              return_value = PENTA_15
+            else
+              return_value = PENTA_18
+            end if
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = PENTA_24
+            else if (family == Face_Defined) then
+              return_value = PENTA_38
+            else
+              return_value = PENTA_40
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = PENTA_33
+            else if (family == Face_Defined) then
+              return_value = PENTA_66
+            else
+              return_value = PENTA_75
+            end if
+      end select
+      !
+    case (Geom_Hexa)
+      !
+      select case (elem_order)
+        case (1)
+            return_value = HEXA_8
+        case (2)
+            if (family == Edge_Defined) then
+              return_value = HEXA_20
+            else
+              return_value = HEXA_27
+            end if
+        case (3)
+            if (family == Edge_Defined) then
+              return_value = HEXA_32
+            else if (family == Face_Defined) then
+              return_value = HEXA_56
+            else
+              return_value = HEXA_64
+            end if
+        case (4)
+            if (family == Edge_Defined) then
+              return_value = HEXA_44
+            else if (family == Face_Defined) then
+              return_value = HEXA_98
+            else
+              return_value = HEXA_125
+            end if
+      end select
+      !
+  end select
+  !
+end function get_element_type
 !
 !###############################################################################
 !
@@ -4084,10 +5335,13 @@ end function element_properties
 !
 !###############################################################################
 !
-elemental function reorder_cgns_pts(elem) result(return_value)
+elemental function reorder_cgns_pts(elem,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   type(elem_t), intent(in) :: elem
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
   !
   !.. Function Result ..
   type(elem_t) :: return_value
@@ -4095,64 +5349,98 @@ elemental function reorder_cgns_pts(elem) result(return_value)
 continue
   !
   return_value = elem
-    !
-    ! This is a complete element with internal node points
-    !
+  !
   select case (elem%prop%geom)
     case (Geom_Edge)
-      return_value%pts = reorder_cgns_edge_pts(elem%pts)
+      return_value%pts = reorder_cgns_edge_pts(elem%pts,reverse)
     case (Geom_Tria)
-      return_value%pts = reorder_cgns_tria_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_tria_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
     case (Geom_Quad)
-      return_value%pts = reorder_cgns_quad_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_quad_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
     case (Geom_Tetr)
-      return_value%pts = reorder_cgns_tetr_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_tetr_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
     case (Geom_Pyra)
-      return_value%pts = reorder_cgns_pyra_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_pyra_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
     case (Geom_Pris)
-      return_value%pts = reorder_cgns_pris_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_pris_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
     case (Geom_Hexa)
-      return_value%pts = reorder_cgns_hexa_pts(elem%pts,elem%prop%elem_type)
+      return_value%pts = reorder_cgns_hexa_pts(elem%pts,elem%prop%elem_type, &
+                                               reverse)
   end select
   !
 end function reorder_cgns_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_edge_pts(pts) result(return_value)
+pure function reorder_cgns_edge_pts(pts,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
   !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
   !
   !.. Local Scalars ..
-  integer :: n,i
+  integer     :: n,i
+  logical(lk) :: reorder_to_cgns
   !
 continue
   !
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
   n = size(pts)
   !
-  return_value(1) = pts(1)
-  return_value(n) = pts(2)
-  !
-  do i = 2,n-1
-    return_value(i) = pts(i+1)
-  end do
+  if (reorder_to_cgns) then
+   !return_value([1,n,(i+1,i=2,n-1)]) = pts(:)
+    !
+    return_value(1) = pts(1)
+    return_value(2) = pts(n)
+    !
+    do i = 2,n-1
+      return_value(i+1) = pts(i)
+    end do
+    !
+  else
+   !return_value(:) = pts([1,(i+1,i=2,n-1),2])
+    !
+    return_value(1) = pts(1)
+    return_value(n) = pts(2)
+    !
+    do i = 2,n-1
+      return_value(i) = pts(i+1)
+    end do
+    !
+  end if
   !
 end function reorder_cgns_edge_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_tria_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_tria_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: tria3(3) = [1,2,3]
@@ -4169,35 +5457,69 @@ pure function reorder_cgns_tria_pts(pts,elem_type) result(return_value)
   !
 continue
   !
-  select case (elem_type)
-    case (TRI_3)
-      return_value = pts( tria3(:) )
-    case (TRI_6)
-      return_value = pts( tria6(:) )
-    case (TRI_9)
-      return_value = pts( tria9(:) )
-    case (TRI_10)
-      return_value = pts( tria10(:) )
-    case (TRI_12)
-      return_value = pts( tria12(:) )
-    case (TRI_15)
-      return_value = pts( tria15(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (TRI_3)
+        return_value( tria3(:) ) = pts(:)
+      case (TRI_6)
+        return_value( tria6(:) ) = pts(:)
+      case (TRI_9)
+        return_value( tria9(:) ) = pts(:)
+      case (TRI_10)
+        return_value( tria10(:) ) = pts(:)
+      case (TRI_12)
+        return_value( tria12(:) ) = pts(:)
+      case (TRI_15)
+        return_value( tria15(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (TRI_3)
+        return_value = pts( tria3(:) )
+      case (TRI_6)
+        return_value = pts( tria6(:) )
+      case (TRI_9)
+        return_value = pts( tria9(:) )
+      case (TRI_10)
+        return_value = pts( tria10(:) )
+      case (TRI_12)
+        return_value = pts( tria12(:) )
+      case (TRI_15)
+        return_value = pts( tria15(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_tria_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_quad_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_quad_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: quad4(4) = [1,2,4,3]
@@ -4209,54 +5531,90 @@ pure function reorder_cgns_quad_pts(pts,elem_type) result(return_value)
   integer, parameter :: quad12(12) = [1,5,6,2,12,7,11,8,4,10,9,3]
   !
   integer, parameter :: quad3_16(16) = [ 1, 5, 6, 2, &
-                                       12,13,14, 7, &
-                                       11,16,15, 8, &
-                                        4,10, 9, 3]
+                                        12,13,14, 7, &
+                                        11,16,15, 8, &
+                                         4,10, 9, 3]
   !
   integer, parameter :: quad4_16(16) = [ 1, 5, 6, 7, &
-                                        2,16, 8,15, &
-                                        9,14,10, 4, &
-                                       13,12,11, 3]
+                                         2,16, 8,15, &
+                                         9,14,10, 4, &
+                                        13,12,11, 3]
   !
   integer, parameter :: quad25(25) = [ 1, 5, 6, 7, 2, &
-                                     16,17,18,19, 8, &
-                                     15,24,25,20, 9, &
-                                     14,23,22,21,10, &
-                                      4,13,12,11, 3]
+                                      16,17,18,19, 8, &
+                                      15,24,25,20, 9, &
+                                      14,23,22,21,10, &
+                                       4,13,12,11, 3]
   !
 continue
   !
-  select case (elem_type)
-    case (QUAD_4)
-      return_value = pts( quad4(:) )
-    case (QUAD_8)
-      return_value = pts( quad8(:) )
-    case (QUAD_9)
-      return_value = pts( quad9(:) )
-    case (QUAD_12)
-      return_value = pts( quad12(:) )
-    case (QUAD_16)
-      return_value = pts( quad3_16(:) )
-    case (QUAD_P4_16)
-      return_value = pts( quad4_16(:) )
-    case (QUAD_25)
-      return_value = pts( quad25(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (QUAD_4)
+        return_value( quad4(:) ) = pts(:)
+      case (QUAD_8)
+        return_value( quad8(:) ) = pts(:)
+      case (QUAD_9)
+        return_value( quad9(:) ) = pts(:)
+      case (QUAD_12)
+        return_value( quad12(:) ) = pts(:)
+      case (QUAD_16)
+        return_value( quad3_16(:) ) = pts(:)
+      case (QUAD_P4_16)
+        return_value( quad4_16(:) ) = pts(:)
+      case (QUAD_25)
+        return_value( quad25(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (QUAD_4)
+        return_value = pts( quad4(:) )
+      case (QUAD_8)
+        return_value = pts( quad8(:) )
+      case (QUAD_9)
+        return_value = pts( quad9(:) )
+      case (QUAD_12)
+        return_value = pts( quad12(:) )
+      case (QUAD_16)
+        return_value = pts( quad3_16(:) )
+      case (QUAD_P4_16)
+        return_value = pts( quad4_16(:) )
+      case (QUAD_25)
+        return_value = pts( quad25(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_quad_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_tetr_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_tetr_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: tetr4(4) = [1,4,2,3]
@@ -4264,59 +5622,95 @@ pure function reorder_cgns_tetr_pts(pts,elem_type) result(return_value)
   integer, parameter :: tetr10(10) = [1,8,4,5,9,2,7,10,6,3]
   !
   integer, parameter :: tetr16(16) = [ 1,11,12, 4, 5,14, 6,13, &
-                                      2,10,16, 7, 9,15, 8, 3]
+                                       2,10,16, 7, 9,15, 8, 3]
   !
   integer, parameter :: tetr20(20) = [ 1,11,12, 4, 5,18,14, 6,13, 2, &
-                                     10,20,16,17,19, 7, 9,15, 8, 3]
+                                      10,20,16,17,19, 7, 9,15, 8, 3]
   !
   integer, parameter :: tetr22(22) = [ 1,14,15,16, 4, 5,19, 6,18, 7,17, &
-                                      2,13,22, 8,12,21, 9,11,20,10, 3]
+                                       2,13,22, 8,12,21, 9,11,20,10, 3]
   !
   integer, parameter :: tetr34(34) = [ 1,14,15,16, 4, 5,26, &
-                                     28,19, 6,27,18, 7,17, &
-                                      2,13,33,34,22,23,    &
-                                     31,24,29, 8,12,32,21, &
-                                     25,30, 9,11,20,10, 3]
+                                      28,19, 6,27,18, 7,17, &
+                                       2,13,33,34,22,23,    &
+                                      31,24,29, 8,12,32,21, &
+                                      25,30, 9,11,20,10, 3]
   !
   integer, parameter :: tetr35(35) = [ 1,14,15,16, 4, 5,26, &
-                                     28,19, 6,27,18, 7,17, &
-                                      2,13,33,34,22,23,35, &
-                                     31,24,29, 8,12,32,21, &
-                                     25,30, 9,11,20,10, 3]
+                                      28,19, 6,27,18, 7,17, &
+                                       2,13,33,34,22,23,35, &
+                                      31,24,29, 8,12,32,21, &
+                                      25,30, 9,11,20,10, 3]
   !
 continue
   !
-  select case (elem_type)
-    case (TETRA_4)
-      return_value = pts( tetr4(:) )
-    case (TETRA_10)
-      return_value = pts( tetr10(:) )
-    case (TETRA_16)
-      return_value = pts( tetr16(:) )
-    case (TETRA_20)
-      return_value = pts( tetr20(:) )
-    case (TETRA_22)
-      return_value = pts( tetr22(:) )
-    case (TETRA_34)
-      return_value = pts( tetr34(:) )
-    case (TETRA_35)
-      return_value = pts( tetr35(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (TETRA_4)
+        return_value( tetr4(:) ) = pts(:)
+      case (TETRA_10)
+        return_value( tetr10(:) ) = pts(:)
+      case (TETRA_16)
+        return_value( tetr16(:) ) = pts(:)
+      case (TETRA_20)
+        return_value( tetr20(:) ) = pts(:)
+      case (TETRA_22)
+        return_value( tetr22(:) ) = pts(:)
+      case (TETRA_34)
+        return_value( tetr34(:) ) = pts(:)
+      case (TETRA_35)
+        return_value( tetr35(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (TETRA_4)
+        return_value = pts( tetr4(:) )
+      case (TETRA_10)
+        return_value = pts( tetr10(:) )
+      case (TETRA_16)
+        return_value = pts( tetr16(:) )
+      case (TETRA_20)
+        return_value = pts( tetr20(:) )
+      case (TETRA_22)
+        return_value = pts( tetr22(:) )
+      case (TETRA_34)
+        return_value = pts( tetr34(:) )
+      case (TETRA_35)
+        return_value = pts( tetr35(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_tetr_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_pyra_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_pyra_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: pyra5(5) = [1,2,4,3,5]
@@ -4326,96 +5720,136 @@ pure function reorder_cgns_pyra_pts(pts,elem_type) result(return_value)
   integer, parameter :: pyra14(14) = [1,6,2,9,14,7,4,8,3,10,11,13,12,5]
   !
   integer, parameter :: pyra21(21) = [ 1, 6, 7, 2,13, 8,12, &
-                                      9, 4,11,10, 3,14,16, &
-                                     20,18,15,17,21,19, 5]
+                                       9, 4,11,10, 3,14,16, &
+                                      20,18,15,17,21,19, 5]
   !
   integer, parameter :: pyra3_29(29) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
-                                       24, 9, 4,11,10, 3,14,26,16,29, &
-                                       27,20,28,18,15,17,21,19, 5]
+                                        24, 9, 4,11,10, 3,14,26,16,29, &
+                                        27,20,28,18,15,17,21,19, 5]
   !
   integer, parameter :: pyra4_29(29) = [ 1, 6, 7, 8, 2,17, 9,16,10,15, &
-                                       11, 4,14,13,12, 3,18,21,27,24, &
-                                       19,22,28,25,20,23,29,26, 5]
+                                        11, 4,14,13,12, 3,18,21,27,24, &
+                                        19,22,28,25,20,23,29,26, 5]
   !
   integer, parameter :: pyra30(30) = [ 1, 6, 7, 2,13,22,23, 8,12,25, &
-                                     24, 9, 4,11,10, 3,14,26,16,29, &
-                                     30,27,20,28,18,15,17,21,19, 5]
+                                      24, 9, 4,11,10, 3,14,26,16,29, &
+                                      30,27,20,28,18,15,17,21,19, 5]
   !
   integer, parameter :: pyra50(50) = [ 1, 6, 7, 8, 2,17,30,31,32, 9, &
-                                     16,37,38,33,10,15,36,35,34,11, &
-                                      4,14,13,12, 3,18,39,40,21,49, &
-                                     42,48,43,27,46,45,24,19,41,22, &
-                                     50,44,28,47,25,20,23,29,26, 5]
+                                      16,37,38,33,10,15,36,35,34,11, &
+                                       4,14,13,12, 3,18,39,40,21,49, &
+                                      42,48,43,27,46,45,24,19,41,22, &
+                                      50,44,28,47,25,20,23,29,26, 5]
   !
   integer, parameter :: pyra55(55) = [ 1, 6, 7, 8, 2,17,30,31,32, 9,16, &
-                                     37,38,33,10,15,36,35,34,11, 4,14, &
-                                     13,12, 3,18,39,40,21,49,51,52,42, &
-                                     48,54,53,43,27,46,45,24,19,41,22, &
-                                     50,55,44,28,47,25,20,23,29,26, 5]
+                                      37,38,33,10,15,36,35,34,11, 4,14, &
+                                      13,12, 3,18,39,40,21,49,51,52,42, &
+                                      48,54,53,43,27,46,45,24,19,41,22, &
+                                      50,55,44,28,47,25,20,23,29,26, 5]
   !
 continue
   !
-  select case (elem_type)
-    case (PYRA_5)
-      return_value = pts( pyra5(:) )
-    case (PYRA_13)
-      return_value = pts( pyra13(:) )
-    case (PYRA_14)
-      return_value = pts( pyra14(:) )
-    case (PYRA_21)
-      return_value = pts( pyra21(:) )
-    case (PYRA_29)
-      return_value = pts( pyra3_29(:) )
-    case (PYRA_P4_29)
-      return_value = pts( pyra4_29(:) )
-    case (PYRA_30)
-      return_value = pts( pyra30(:) )
-    case (PYRA_50)
-      return_value = pts( pyra50(:) )
-    case (PYRA_55)
-      return_value = pts( pyra55(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (PYRA_5)
+        return_value( pyra5(:) ) = pts(:)
+      case (PYRA_13)
+        return_value( pyra13(:) ) = pts(:)
+      case (PYRA_14)
+        return_value( pyra14(:) ) = pts(:)
+      case (PYRA_21)
+        return_value( pyra21(:) ) = pts(:)
+      case (PYRA_29)
+        return_value( pyra3_29(:) ) = pts(:)
+      case (PYRA_P4_29)
+        return_value( pyra4_29(:) ) = pts(:)
+      case (PYRA_30)
+        return_value( pyra30(:) ) = pts(:)
+      case (PYRA_50)
+        return_value( pyra50(:) ) = pts(:)
+      case (PYRA_55)
+        return_value( pyra55(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (PYRA_5)
+        return_value = pts( pyra5(:) )
+      case (PYRA_13)
+        return_value = pts( pyra13(:) )
+      case (PYRA_14)
+        return_value = pts( pyra14(:) )
+      case (PYRA_21)
+        return_value = pts( pyra21(:) )
+      case (PYRA_29)
+        return_value = pts( pyra3_29(:) )
+      case (PYRA_P4_29)
+        return_value = pts( pyra4_29(:) )
+      case (PYRA_30)
+        return_value = pts( pyra30(:) )
+      case (PYRA_50)
+        return_value = pts( pyra50(:) )
+      case (PYRA_55)
+        return_value = pts( pyra55(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_pyra_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_pris_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_pris_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: pris6(6) = [1,2,3,4,5,6]
   !
   integer, parameter :: pris15(15) = [ 1, 7, 2, 9, 8, 3, &
-                                     10,   11,      12, &
-                                      4,13, 5,15,14, 6]
+                                      10,   11,      12, &
+                                       4,13, 5,15,14, 6]
   !
   integer, parameter :: pris18(18) = [ 1, 7, 2, 9, 8, 3, &
-                                     10,16,11,18,17,12, &
-                                      4,13, 5,15,14, 6]
+                                      10,16,11,18,17,12, &
+                                       4,13, 5,15,14, 6]
   !
   integer, parameter :: pris24(24) = [ 1, 7, 8, 2,12, 9,11,10, 3, &
-                                     13,      15,            17, &
-                                     14,      16,            18, &
-                                      4,19,20, 5,24,21,23,22, 6]
+                                      13,      15,            17, &
+                                      14,      16,            18, &
+                                       4,19,20, 5,24,21,23,22, 6]
   !
   integer, parameter :: pris38(38) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
-                                     13,26,27,15,35,   30,34,31,17, &
-                                     14,29,28,16,36,   33,37,32,18, &
-                                      4,19,20, 5,24,38,21,23,22, 6]
+                                      13,26,27,15,35,   30,34,31,17, &
+                                      14,29,28,16,36,   33,37,32,18, &
+                                       4,19,20, 5,24,38,21,23,22, 6]
   !
   integer, parameter :: pris40(40) = [ 1, 7, 8, 2,12,25, 9,11,10, 3, &
-                                     13,26,27,15,35,39,30,34,31,17, &
-                                     14,29,28,16,36,40,33,37,32,18, &
-                                      4,19,20, 5,24,38,21,23,22, 6]
+                                      13,26,27,15,35,39,30,34,31,17, &
+                                      14,29,28,16,36,40,33,37,32,18, &
+                                       4,19,20, 5,24,38,21,23,22, 6]
   !
   integer, parameter :: pris33(33) = &
     [ 1, 7, 8, 9, 2,15,10,14,11,13,12, 3, &
@@ -4440,52 +5874,92 @@ pure function reorder_cgns_pris_pts(pts,elem_type) result(return_value)
   !
 continue
   !
-  select case (elem_type)
-    case (PENTA_6)
-      return_value = pts( pris6(:) )
-    case (PENTA_15)
-      return_value = pts( pris15(:) )
-    case (PENTA_18)
-      return_value = pts( pris18(:) )
-    case (PENTA_24)
-      return_value = pts( pris24(:) )
-    case (PENTA_33)
-      return_value = pts( pris33(:) )
-    case (PENTA_38)
-      return_value = pts( pris38(:) )
-    case (PENTA_40)
-      return_value = pts( pris40(:) )
-    case (PENTA_66)
-      return_value = pts( pris66(:) )
-    case (PENTA_75)
-      return_value = pts( pris75(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (PENTA_6)
+        return_value( pris6(:) ) = pts(:)
+      case (PENTA_15)
+        return_value( pris15(:) ) = pts(:)
+      case (PENTA_18)
+        return_value( pris18(:) ) = pts(:)
+      case (PENTA_24)
+        return_value( pris24(:) ) = pts(:)
+      case (PENTA_33)
+        return_value( pris33(:) ) = pts(:)
+      case (PENTA_38)
+        return_value( pris38(:) ) = pts(:)
+      case (PENTA_40)
+        return_value( pris40(:) ) = pts(:)
+      case (PENTA_66)
+        return_value( pris66(:) ) = pts(:)
+      case (PENTA_75)
+        return_value( pris75(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (PENTA_6)
+        return_value = pts( pris6(:) )
+      case (PENTA_15)
+        return_value = pts( pris15(:) )
+      case (PENTA_18)
+        return_value = pts( pris18(:) )
+      case (PENTA_24)
+        return_value = pts( pris24(:) )
+      case (PENTA_33)
+        return_value = pts( pris33(:) )
+      case (PENTA_38)
+        return_value = pts( pris38(:) )
+      case (PENTA_40)
+        return_value = pts( pris40(:) )
+      case (PENTA_66)
+        return_value = pts( pris66(:) )
+      case (PENTA_75)
+        return_value = pts( pris75(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_pris_pts
 !
 !###############################################################################
 !
-pure function reorder_cgns_hexa_pts(pts,elem_type) result(return_value)
+pure function reorder_cgns_hexa_pts(pts,elem_type,reverse) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: pts(:)
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
   !.. Function Result ..
   integer :: return_value(1:size(pts))
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reorder_to_cgns
   !
   !.. Local Parameters ..
   integer, parameter :: hexa8(8) = [1,2,4,3,5,6,8,7]
   !
   integer, parameter :: hexa20(20) = [ 1, 9, 2,12,   10, 4,11, 3, &
-                                     13,   14,         16,   15, &
-                                      5,17, 6,20,   18, 8,19, 7]
+                                      13,   14,         16,   15, &
+                                       5,17, 6,20,   18, 8,19, 7]
   !
   integer, parameter :: hexa27(27) = [ 1, 9, 2,12,21,10, 4,11, 3, &
-                                     13,22,14,25,27,23,16,24,15, &
-                                      5,17, 6,20,26,18, 8,19, 7]
+                                      13,22,14,25,27,23,16,24,15, &
+                                       5,17, 6,20,26,18, 8,19, 7]
   !
   integer, parameter :: hexa32(32) = &
     [ 1, 9,10, 2,16,      11,15,      12, 4,14,13, 3, &
@@ -4531,30 +6005,803 @@ pure function reorder_cgns_hexa_pts(pts,elem_type) result(return_value)
   !
 continue
   !
-  select case (elem_type)
-    case (HEXA_8)
-      return_value = pts( hexa8(:) )
-    case (HEXA_20)
-      return_value = pts( hexa20(:) )
-    case (HEXA_27)
-      return_value = pts( hexa27(:) )
-    case (HEXA_32)
-      return_value = pts( hexa32(:) )
-    case (HEXA_44)
-      return_value = pts( hexa44(:) )
-    case (HEXA_56)
-      return_value = pts( hexa56(:) )
-    case (HEXA_64)
-      return_value = pts( hexa64(:) )
-    case (HEXA_98)
-      return_value = pts( hexa98(:) )
-    case (HEXA_125)
-      return_value = pts( hexa125(:) )
-    case default
-      return_value = pts(:)
-  end select
+  reorder_to_cgns = fals
+  if (present(reverse)) then
+    reorder_to_cgns = reverse
+  end if
+  !
+  if (reorder_to_cgns) then
+    !
+    select case (elem_type)
+      case (HEXA_8)
+        return_value( hexa8(:) ) = pts(:)
+      case (HEXA_20)
+        return_value( hexa20(:) ) = pts(:)
+      case (HEXA_27)
+        return_value( hexa27(:) ) = pts(:)
+      case (HEXA_32)
+        return_value( hexa32(:) ) = pts(:)
+      case (HEXA_44)
+        return_value( hexa44(:) ) = pts(:)
+      case (HEXA_56)
+        return_value( hexa56(:) ) = pts(:)
+      case (HEXA_64)
+        return_value( hexa64(:) ) = pts(:)
+      case (HEXA_98)
+        return_value( hexa98(:) ) = pts(:)
+      case (HEXA_125)
+        return_value( hexa125(:) ) = pts(:)
+      case default
+        return_value = pts(:)
+    end select
+    !
+  else
+    !
+    select case (elem_type)
+      case (HEXA_8)
+        return_value = pts( hexa8(:) )
+      case (HEXA_20)
+        return_value = pts( hexa20(:) )
+      case (HEXA_27)
+        return_value = pts( hexa27(:) )
+      case (HEXA_32)
+        return_value = pts( hexa32(:) )
+      case (HEXA_44)
+        return_value = pts( hexa44(:) )
+      case (HEXA_56)
+        return_value = pts( hexa56(:) )
+      case (HEXA_64)
+        return_value = pts( hexa64(:) )
+      case (HEXA_98)
+        return_value = pts( hexa98(:) )
+      case (HEXA_125)
+        return_value = pts( hexa125(:) )
+      case default
+        return_value = pts(:)
+    end select
+    !
+  end if
   !
 end function reorder_cgns_hexa_pts
+!
+!###############################################################################
+!
+elemental function get_face_elem(elem,side,host_cell) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  integer,      intent(in) :: host_cell
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: nn,ierr
+  !
+  !.. Local Allocatable Scalars ..
+  type(elem_t), allocatable :: tmp_elem
+  !
+continue
+  !
+  nn = size(elem%nodes)
+  !
+  ! Make sure the element points are in CGNS ordering
+  ! before trying to extract the face points
+  !
+  if (all(elem%nodes == elem%pts(1:nn))) then
+    tmp_elem = elem
+  else
+    tmp_elem = reorder_cgns_pts(elem,reverse=true)
+  end if
+  !
+  ! Create a new face element from the requested side of the host element
+  !
+  select case (tmp_elem%prop%geom)
+    case (Geom_Edge)
+      return_value = get_edge_face_elem(tmp_elem,side)
+    case (Geom_Tria)
+      return_value = get_tria_face_elem(tmp_elem,side)
+    case (Geom_Quad)
+      return_value = get_quad_face_elem(tmp_elem,side)
+    case (Geom_Tetr)
+      return_value = get_tetr_face_elem(tmp_elem,side)
+    case (Geom_Pyra)
+      return_value = get_pyra_face_elem(tmp_elem,side)
+    case (Geom_Pris)
+      return_value = get_pris_face_elem(tmp_elem,side)
+    case (Geom_Hexa)
+      return_value = get_hexa_face_elem(tmp_elem,side)
+  end select
+  !
+  ! Convert the new face points from CGNS ordering
+  ! to the ordering needed by the solver
+  !
+  return_value = reorder_cgns_pts(return_value)
+  !
+  ! Save the host cell index to the new face element
+  !
+  return_value%host_cell = host_cell
+  !
+  ! Explicitly deallocate tmp_elem to make sure
+  ! all of its components are deallocated
+  !
+  if (allocated(tmp_elem)) deallocate ( tmp_elem , stat=ierr )
+  !
+end function get_face_elem
+!
+!###############################################################################
+!
+pure function get_edge_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+continue
+  !
+  return_value%prop = element_properties(NODE)
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  if (side == 1) then
+    return_value%pts   = elem%pts(1:1)    ! USING F2003 AUTO-REALLOCATION
+  else
+    return_value%pts   = elem%pts(2:2)    ! USING F2003 AUTO-REALLOCATION
+  end if
+  !
+  return_value%nodes = return_value%pts ! USING F2003 AUTO-REALLOCATION
+  !
+end function get_edge_face_elem
+!
+!###############################################################################
+!
+pure function get_tria_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Parameters ..
+  integer, parameter :: tria_p1(2,3) = reshape( [1,2, &
+                                                 2,3, &
+                                                 3,1], &
+                                                shape(tria_p1) )
+  !
+  integer, parameter :: tria_p2(3,3) = reshape( [1,2,4, &
+                                                 2,3,5, &
+                                                 3,1,6], &
+                                                shape(tria_p2) )
+  !
+  integer, parameter :: tria_p3(4,3) = reshape( [1,2,4,5, &
+                                                 2,3,6,7, &
+                                                 3,1,8,9], &
+                                                shape(tria_p3) )
+  !
+  integer, parameter :: tria_p4(5,3) = reshape( [1,2, 4, 5, 6, &
+                                                 2,3, 7, 8, 9, &
+                                                 3,1,10,11,12], &
+                                                shape(tria_p4) )
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    case (TRI_6)
+      !
+      return_value%prop = element_properties(BAR_3)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tria_p2(:,side) )
+      !
+    case (TRI_9,TRI_10)
+      !
+      return_value%prop = element_properties(BAR_4)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tria_p3(:,side) )
+      !
+    case (TRI_12,TRI_15)
+      !
+      return_value%prop = element_properties(BAR_5)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tria_p4(:,side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(BAR_2)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tria_p1(:,side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Tria))
+  !
+end function get_tria_face_elem
+!
+!###############################################################################
+!
+pure function get_quad_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Parameters ..
+  integer, parameter :: quad_p1(2,4) = reshape( [1,2, &
+                                                 2,3, &
+                                                 3,4, &
+                                                 4,1], &
+                                                shape(quad_p1) )
+  !
+  integer, parameter :: quad_p2(3,4) = reshape( [1,2,5, &
+                                                 2,3,6, &
+                                                 3,4,7, &
+                                                 4,1,8], &
+                                                shape(quad_p2) )
+  !
+  integer, parameter :: quad_p3(4,4) = reshape( [1,2, 5, 6, &
+                                                 2,3, 7, 8, &
+                                                 3,4, 9,10, &
+                                                 4,1,11,12], &
+                                                shape(quad_p3) )
+  !
+  integer, parameter :: quad_p4(5,4) = reshape( [1,2, 5, 6, 7, &
+                                                 2,3, 8, 9,10, &
+                                                 3,4,11,12,13, &
+                                                 4,1,14,15,16], &
+                                                shape(quad_p4) )
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    case (QUAD_8,QUAD_9)
+      !
+      return_value%prop = element_properties(BAR_3)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( quad_p2(:,side) )
+      !
+    case (QUAD_12,QUAD_16)
+      !
+      return_value%prop = element_properties(BAR_4)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( quad_p3(:,side) )
+      !
+    case (QUAD_P4_16,QUAD_25)
+      !
+      return_value%prop = element_properties(BAR_5)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( quad_p4(:,side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(BAR_2)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( quad_p1(:,side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Quad))
+  !
+end function get_quad_face_elem
+!
+!###############################################################################
+!
+pure function get_tetr_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Parameters ..
+  integer, parameter :: tetr_p1(3,4) = reshape( [2,3,4, &
+                                                 3,1,4, &
+                                                 1,2,4, &
+                                                 1,3,2], &
+                                                shape(tetr_p1) )
+  !
+  integer, parameter :: tetr_p2(6,4) = reshape( [2,3,4,6,10, 9, &
+                                                 3,1,4,7, 8,10, &
+                                                 1,2,4,5, 9, 8, &
+                                                 1,3,2,7, 6, 5], &
+                                                shape(tetr_p2) )
+  !
+  integer, parameter :: tetr_e3(9,4) = reshape( [2,3,4, 7, 8,15,16,14,13, &
+                                                 3,1,4, 9,10,11,12,16,15, &
+                                                 1,2,4, 5, 6,13,14,12,11, &
+                                                 1,3,2,10, 9, 8, 7, 6, 5], &
+                                                shape(tetr_e3) )
+  !
+  integer, parameter :: tetr_p3(10,4) = reshape( [2,3,4, 7, 8,15,16,14,13,19, &
+                                                  3,1,4, 9,10,11,12,16,15,20, &
+                                                  1,2,4, 5, 6,13,14,12,11,18, &
+                                                  1,3,2,10, 9, 8, 7, 6, 5,17], &
+                                                shape(tetr_p3) )
+  !
+  integer, parameter :: tetr_e4(12,4) = reshape( &
+    [2,3,4, 8, 9,10,20,21,22,19,18,17, &
+     3,1,4,11,12,13,14,15,16,22,21,20, &
+     1,2,4, 5, 6, 7,17,18,19,16,15,14, &
+     1,3,2,13,12,11,10, 9, 8, 7, 6, 5], &
+                                                shape(tetr_e4) )
+  !
+  integer, parameter :: tetr_p4(15,4) = reshape( &
+    [2,3,4, 8, 9,10,20,21,22,19,18,17,29,30,31, &
+     3,1,4,11,12,13,14,15,16,22,21,20,32,33,34, &
+     1,2,4, 5, 6, 7,17,18,19,16,15,14,26,27,28, &
+     1,3,2,13,12,11,10, 9, 8, 7, 6, 5,23,25,24], &
+                                                shape(tetr_p4) )
+
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    !
+    case (TETRA_10)
+      !
+      return_value%prop = element_properties(TRI_6)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_p2(:,side) )
+      !
+    case (TETRA_16)
+      !
+      return_value%prop = element_properties(TRI_9)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_e3(:,side) )
+      !
+    case (TETRA_20)
+      !
+      return_value%prop = element_properties(TRI_10)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_p3(:,side) )
+      !
+    case (TETRA_22)
+      !
+      return_value%prop = element_properties(TRI_12)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_e4(:,side) )
+      !
+    case (TETRA_34,TETRA_35)
+      !
+      return_value%prop = element_properties(TRI_15)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_p4(:,side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(TRI_3)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( tetr_p1(:,side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Tetr))
+  !
+end function get_tetr_face_elem
+!
+!###############################################################################
+!
+pure function get_pyra_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+  !.. Local Parameters ..
+  integer, parameter :: p1_pts(5) = [ 3, 3, 3, 3, 4]
+  integer, parameter :: e2_pts(5) = [ 6, 6, 6, 6, 8]
+  integer, parameter :: p2_pts(5) = [ 6, 6, 6, 6, 9]
+  integer, parameter :: e3_pts(5) = [ 9, 9, 9, 9,12]
+  integer, parameter :: p3_pts(5) = [10,10,10,10,16]
+  integer, parameter :: e4_pts(5) = [12,12,12,12,16]
+  integer, parameter :: p4_pts(5) = [15,15,15,15,25]
+  !
+  integer, parameter :: p1_face_type(5) = [(TRI_3 ,i=1,4),QUAD_4]
+  integer, parameter :: e2_face_type(5) = [(TRI_6 ,i=1,4),QUAD_8]
+  integer, parameter :: p2_face_type(5) = [(TRI_6 ,i=1,4),QUAD_9]
+  integer, parameter :: e3_face_type(5) = [(TRI_9 ,i=1,4),QUAD_12]
+  integer, parameter :: p3_face_type(5) = [(TRI_10,i=1,4),QUAD_16]
+  integer, parameter :: e4_face_type(5) = [(TRI_12,i=1,4),QUAD_P4_16]
+  integer, parameter :: p4_face_type(5) = [(TRI_15,i=1,4),QUAD_25]
+  !
+  integer, parameter :: pyra_p1(4,5) = reshape( [2,3,5,0, &
+                                                 3,4,5,0, &
+                                                 4,1,5,0, &
+                                                 1,2,5,0, &
+                                                 1,4,3,2], &
+                                                shape(pyra_p1) )
+  !
+  integer, parameter :: pyra_e2(8,5) = reshape( [2,3,5,7,12,11,0,0, &
+                                                 3,4,5,8,13,12,0,0, &
+                                                 4,1,5,9,10,13,0,0, &
+                                                 1,2,5,6,11,10,0,0, &
+                                                 1,4,3,2, 9, 8,7,6], &
+                                                shape(pyra_e2) )
+  !
+  integer, parameter :: pyra_p2(9,5) = reshape( [2,3,5,7,12,11,0,0, 0, &
+                                                 3,4,5,8,13,12,0,0, 0, &
+                                                 4,1,5,9,10,13,0,0, 0, &
+                                                 1,2,5,6,11,10,0,0, 0, &
+                                                 1,4,3,2, 9, 8,7,6,14], &
+                                                shape(pyra_p2) )
+  !
+  integer, parameter :: pyra_e3(12,5) = reshape( &
+    [2,3,5, 8, 9,18,19,17,16,0,0,0, &
+     3,4,5,10,11,20,21,19,18,0,0,0, &
+     4,1,5,12,13,14,15,21,20,0,0,0, &
+     1,2,5, 6, 7,16,17,15,14,0,0,0, &
+     1,4,3, 2,13,12,11,10, 9,8,7,6], &
+                                                shape(pyra_e3) )
+  !
+  integer, parameter :: pyra_p3(16,5) = reshape( &
+    [2,3,5, 8, 9,18,19,17,16,27,0,0, 0, 0, 0, 0, &
+     3,4,5,10,11,20,21,19,18,28,0,0, 0, 0, 0, 0, &
+     4,1,5,12,13,14,15,21,20,29,0,0, 0, 0, 0, 0, &
+     1,2,5, 6, 7,16,17,15,14,26,0,0, 0, 0, 0, 0, &
+     1,4,3, 2,13,12,11,10, 9, 8,7,6,22,25,24,23], &
+                                                shape(pyra_p3) )
+  !
+  integer, parameter :: pyra_e4(16,5) = reshape( &
+    [2,3,5, 9,10,11,24,25,26,23,22,21,0,0,0,0, &
+     3,4,5,12,13,14,27,28,29,26,25,24,0,0,0,0, &
+     4,1,5,15,16,17,18,19,20,29,28,27,0,0,0,0, &
+     1,2,5, 6, 7, 8,21,22,23,20,19,18,0,0,0,0, &
+     1,4,3, 2,17,16,15,14,13,12,11,10,9,8,7,6], &
+                                                shape(pyra_e4) )
+  !
+  integer, parameter :: pyra_p4(25,5) = reshape( &
+    [2,3,5, 9,10,11,24,25,26,23,22,21,42,43,44,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     3,4,5,12,13,14,27,28,29,26,25,24,45,46,47,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     4,1,5,15,16,17,18,19,20,29,28,27,48,49,50,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     1,2,5, 6, 7, 8,21,22,23,20,19,18,39,40,41,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     1,4,3, 2,17,16,15,14,13,12,11,10, 9, 8, 7,6,30,37,36,35,34,33,32,31,38], &
+                                                shape(pyra_p4) )
+
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    !
+    case (PYRA_13)
+      !
+      return_value%prop = element_properties(e2_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_e2(1:e2_pts(side),side) )
+      !
+    case (PYRA_14)
+      !
+      return_value%prop = element_properties(p2_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_p2(1:p2_pts(side),side) )
+      !
+    case (PYRA_21)
+      !
+      return_value%prop = element_properties(e3_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_e3(1:e3_pts(side),side) )
+      !
+    case (PYRA_29,PYRA_30)
+      !
+      return_value%prop = element_properties(p3_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_p3(1:p3_pts(side),side) )
+      !
+    case (PYRA_P4_29)
+      !
+      return_value%prop = element_properties(e4_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_e4(1:e4_pts(side),side) )
+      !
+    case (PYRA_50,PYRA_55)
+      !
+      return_value%prop = element_properties(p4_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_p4(1:p4_pts(side),side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(p1_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pyra_p1(1:p1_pts(side),side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Pyra))
+  !
+end function get_pyra_face_elem
+!
+!###############################################################################
+!
+pure function get_pris_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+  !.. Local Parameters ..
+  integer, parameter :: p1_pts(5) = [ 3, 3, 4, 4, 4]
+  integer, parameter :: e2_pts(5) = [ 6, 6, 8, 8, 8]
+  integer, parameter :: p2_pts(5) = [ 6, 6, 9, 9, 9]
+  integer, parameter :: e3_pts(5) = [ 9, 9,12,12,12]
+  integer, parameter :: p3_pts(5) = [10,10,16,16,16]
+  integer, parameter :: e4_pts(5) = [12,12,16,16,16]
+  integer, parameter :: p4_pts(5) = [15,15,25,25,25]
+  !
+  integer, parameter :: p1_face_type(5) = [(TRI_3 ,i=1,2),(QUAD_4    ,i=1,3)]
+  integer, parameter :: e2_face_type(5) = [(TRI_6 ,i=1,2),(QUAD_8    ,i=1,3)]
+  integer, parameter :: p2_face_type(5) = [(TRI_6 ,i=1,2),(QUAD_9    ,i=1,3)]
+  integer, parameter :: e3_face_type(5) = [(TRI_9 ,i=1,2),(QUAD_12   ,i=1,3)]
+  integer, parameter :: p3_face_type(5) = [(TRI_10,i=1,2),(QUAD_16   ,i=1,3)]
+  integer, parameter :: e4_face_type(5) = [(TRI_12,i=1,2),(QUAD_P4_16,i=1,3)]
+  integer, parameter :: p4_face_type(5) = [(TRI_15,i=1,2),(QUAD_25   ,i=1,3)]
+  !
+  integer, parameter :: pris_p1(4,5) = reshape( [1,3,2,0, &
+                                                 4,5,6,0, &
+                                                 1,2,5,4, &
+                                                 2,3,6,5, &
+                                                 3,1,4,6], &
+                                                shape(pris_p1) )
+  !
+  integer, parameter :: pris_e2(8,5) = reshape( [1,3,2, 9, 8, 7, 0, 0, &
+                                                 4,5,6,13,14,15, 0, 0, &
+                                                 1,2,5, 4, 7,11,13,10, &
+                                                 2,3,6, 5, 8,12,14,11, &
+                                                 3,1,4, 6, 9,10,15,12], &
+                                                shape(pris_e2) )
+  !
+  integer, parameter :: pris_p2(9,5) = reshape( [1,3,2, 9, 8, 7, 0, 0, 0, &
+                                                 4,5,6,13,14,15, 0, 0, 0, &
+                                                 1,2,5, 4, 7,11,13,10,16, &
+                                                 2,3,6, 5, 8,12,14,11,17, &
+                                                 3,1,4, 6, 9,10,15,12,18], &
+                                                shape(pris_p2) )
+  !
+  integer, parameter :: pris_e3(12,5) = reshape( &
+    [1,3,2,12,11,10, 9, 8, 7, 0, 0, 0, &
+     4,5,6,19,20,21,22,23,24, 0, 0, 0, &
+     1,2,5, 4, 7, 8,15,16,20,19,14,13, &
+     2,3,6, 5, 9,10,17,18,22,21,16,15, &
+     3,1,4, 6,11,12,13,14,24,23,18,17], &
+                                                shape(pris_e3) )
+  !
+  integer, parameter :: pris_p3(16,5) = reshape( &
+    [1,3,2,12,11,10, 9, 8, 7,25, 0, 0, 0, 0, 0, 0, &
+     4,5,6,19,20,21,22,23,24,38, 0, 0, 0, 0, 0, 0, &
+     1,2,5, 4, 7, 8,15,16,20,19,14,13,26,27,28,29, &
+     2,3,6, 5, 9,10,17,18,22,21,16,15,30,31,32,33, &
+     3,1,4, 6,11,12,13,14,24,23,18,17,34,35,36,37], &
+                                                shape(pris_p3) )
+  !
+  integer, parameter :: pris_e4(16,5) = reshape( &
+    [1,3,2,15,14,13,12,11,10, 9, 8, 7, 0, 0, 0, 0, &
+     4,5,6,25,26,27,28,29,30,31,32,33, 0, 0, 0, 0, &
+     1,2,5, 4, 7, 8, 9,19,20,21,27,26,25,18,17,16, &
+     2,3,6, 5,10,11,12,22,23,24,30,29,28,21,20,19, &
+     3,1,4, 6,13,14,15,16,17,18,33,32,31,24,23,22], &
+                                                shape(pris_e4) )
+  !
+  integer, parameter :: pris_p4(25,5) = reshape( &
+    [1,3,2,15,14,13,12,11,10, 9, 8, 7,34,36,35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     4,5,6,25,26,27,28,29,30,31,32,33,64,65,66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, &
+     1,2,5, 4, 7, 8, 9,19,20,21,27,26,25,18,17,16,37,38,39,40,41,42,43,44,45, &
+     2,3,6, 5,10,11,12,22,23,24,30,29,28,21,20,19,46,47,48,49,50,51,52,53,54, &
+     3,1,4, 6,13,14,15,16,17,18,33,32,31,24,23,22,55,56,57,58,59,60,61,62,63], &
+                                                shape(pris_p4) )
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    !
+    case (PENTA_15)
+      !
+      return_value%prop = element_properties(e2_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_e2(1:e2_pts(side),side) )
+      !
+    case (PENTA_18)
+      !
+      return_value%prop = element_properties(p2_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_p2(1:p2_pts(side),side) )
+      !
+    case (PENTA_24)
+      !
+      return_value%prop = element_properties(e3_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_e3(1:e3_pts(side),side) )
+      !
+    case (PENTA_38,PENTA_40)
+      !
+      return_value%prop = element_properties(p3_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_p3(1:p3_pts(side),side) )
+      !
+    case (PENTA_33)
+      !
+      return_value%prop = element_properties(e4_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_e4(1:e4_pts(side),side) )
+      !
+    case (PENTA_66,PENTA_75)
+      !
+      return_value%prop = element_properties(p4_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_p4(1:p4_pts(side),side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(p1_face_type(side))
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( pris_p1(1:p1_pts(side),side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Pris))
+  !
+end function get_pris_face_elem
+!
+!###############################################################################
+!
+pure function get_hexa_face_elem(elem,side) result(return_value)
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  integer,      intent(in) :: side
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Parameters ..
+  integer, parameter :: hexa_p1(4,6) = reshape( [1,4,3,2, &
+                                                 5,6,7,8, &
+                                                 2,3,7,6, &
+                                                 1,5,8,4, &
+                                                 1,2,6,5, &
+                                                 3,4,8,7], &
+                                                shape(hexa_p1) )
+  !
+  integer, parameter :: hexa_e2(8,6) = reshape( [1,4,3,2,12,11,10, 9, &
+                                                 5,6,7,8,17,18,19,20, &
+                                                 2,3,7,6,10,15,18,14, &
+                                                 1,5,8,4,13,20,16,12, &
+                                                 1,2,6,5, 9,14,17,13, &
+                                                 3,4,8,7,11,16,19,15], &
+                                                shape(hexa_e2) )
+  !
+  integer, parameter :: hexa_p2(9,6) = reshape( [1,4,3,2,12,11,10, 9,21, &
+                                                 5,6,7,8,17,18,19,20,26, &
+                                                 2,3,7,6,10,15,18,14,23, &
+                                                 1,5,8,4,13,20,16,12,25, &
+                                                 1,2,6,5, 9,14,17,13,22, &
+                                                 3,4,8,7,11,16,19,15,24], &
+                                                shape(hexa_p2) )
+  !
+  integer, parameter :: hexa_e3(12,6) = reshape( &
+    [1,4,3,2,16,15,14,13,12,11,10, 9, &
+     5,6,7,8,25,26,27,28,29,30,31,32, &
+     2,3,7,6,11,12,21,22,28,27,20,19, &
+     1,5,8,4,17,18,32,31,24,23,15,16, &
+     1,2,6,5, 9,10,19,20,26,25,18,17, &
+     3,4,8,7,13,14,23,24,30,29,22,21], &
+                                                shape(hexa_e3) )
+  !
+  integer, parameter :: hexa_p3(16,6) = reshape( &
+    [1,4,3,2,16,15,14,13,12,11,10, 9,33,36,35,34, &
+     5,6,7,8,25,26,27,28,29,30,31,32,53,54,55,56, &
+     2,3,7,6,11,12,21,22,28,27,20,19,41,42,43,44, &
+     1,5,8,4,17,18,32,31,24,23,15,16,50,51,52,49, &
+     1,2,6,5, 9,10,19,20,26,25,18,17,37,38,39,40, &
+     3,4,8,7,13,14,23,24,30,29,22,21,45,46,47,48], &
+                                                shape(hexa_p3) )
+  !
+  integer, parameter :: hexa_e4(16,6) = reshape( &
+    [1,4,3,2,20,19,18,17,16,15,14,13,12,11,10, 9, &
+     5,6,7,8,33,34,35,36,37,38,39,40,41,42,43,44, &
+     2,3,7,6,12,13,14,27,28,29,38,37,36,26,25,24, &
+     1,5,8,4,21,22,23,44,43,42,32,31,30,18,19,20, &
+     1,2,6,5, 9,10,11,24,25,26,35,34,33,23,22,21, &
+     3,4,8,7,15,16,17,30,31,32,41,40,39,29,28,27], &
+                                                shape(hexa_e4) )
+  !
+  integer, parameter :: hexa_p4(25,6) = reshape( &
+    [1,4,3,2,20,19,18,17,16,15,14,13,12,11,10, 9,45,52,51,50,49,48,47,46,53, &
+     5,6,7,8,33,34,35,36,37,38,39,40,41,42,43,44,90,91,92,93,94,95,96,97,98, &
+     2,3,7,6,12,13,14,27,28,29,38,37,36,26,25,24,63,64,65,66,67,68,69,70,71, &
+     1,5,8,4,21,22,23,44,43,42,32,31,30,18,19,20,83,84,85,86,87,88,81,82,89, &
+     1,2,6,5, 9,10,11,24,25,26,35,34,33,23,22,21,54,55,56,57,58,59,60,61,62, &
+     3,4,8,7,15,16,17,30,31,32,41,40,39,29,28,27,72,73,74,75,76,77,78,79,80], &
+                                                shape(hexa_p4) )
+
+  !
+continue
+  !
+  return_value%tags = elem%tags ! USING F2003 AUTO-REALLOCATION
+  !
+  select case (elem%prop%elem_type)
+    !
+    case (HEXA_20)
+      !
+      return_value%prop = element_properties(QUAD_8)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_e2(:,side) )
+      !
+    case (HEXA_27)
+      !
+      return_value%prop = element_properties(QUAD_9)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_p2(:,side) )
+      !
+    case (HEXA_32)
+      !
+      return_value%prop = element_properties(QUAD_12)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_e3(:,side) )
+      !
+    case (HEXA_56,HEXA_64)
+      !
+      return_value%prop = element_properties(QUAD_16)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_p3(:,side) )
+      !
+    case (HEXA_44)
+      !
+      return_value%prop = element_properties(QUAD_P4_16)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_e4(:,side) )
+      !
+    case (HEXA_98,HEXA_125)
+      !
+      return_value%prop = element_properties(QUAD_25)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_p4(:,side) )
+      !
+    case default
+      !
+      return_value%prop = element_properties(QUAD_4)
+      ! USING F2003 AUTO-REALLOCATION
+      return_value%pts = elem%pts( hexa_p1(:,side) )
+      !
+  end select
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  return_value%nodes = return_value%pts(1:num_face_nodes(side,Geom_Hexa))
+  !
+end function get_hexa_face_elem
 !
 !###############################################################################
 !
@@ -4696,7 +6943,7 @@ continue
   write (iou,1)
   !
   !-----------------------------------------------------------------------------
-  ! 
+  !
   if (allocated(base)) then
     !
     call bdt%set( storage_size(base,kind=inttype) , &
