@@ -5618,6 +5618,11 @@ continue
   !
   subroutine cgns_write_field_parallel()
     !
+    !.. Use Statements ..
+    use, intrinsic :: ieee_arithmetic, only : ieee_is_nan
+    use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
+    use, intrinsic :: ieee_arithmetic, only : ieee_is_negative
+    !
     ! This routine is placed here simply to prevent from having to place this
     ! whole chunk of code after each variable that needs to be written to the
     ! CGNS file. Everything used here is inherited from the parent routine.
@@ -5629,6 +5634,19 @@ continue
     else
       var(:) = real( interpolate_for_output(vartmp) , kind(var) )
     end if
+    !
+    ! Perform some quick modifications to make sure all values in var
+    ! are valid before writing to the CGNS file
+    !
+    where (ieee_is_nan(var)) var = zero
+    where (.not. ieee_is_finite(var))
+      var = merge(-1.0e+10_CRT,1.0e+10_CRT,ieee_is_negative(var))
+     !where (ieee_is_negative(var)) 
+     !  var = -1.0e+10_CRT
+     !else where
+     !  var =  1.0e+10_CRT
+     !end where
+    end where
     !
     ! Reset the queue.
     !
