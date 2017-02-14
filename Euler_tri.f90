@@ -102,6 +102,10 @@ program Euler_tri
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
+  use, intrinsic :: iso_c_binding,   only : c_long
+  use, intrinsic :: ieee_exceptions, only : ieee_usual
+  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
+  !
   use iso_c_binding, only : c_long
   !
   implicit none
@@ -122,6 +126,13 @@ program Euler_tri
   !
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
+  !
+  character(len=300) :: overflow_error = ""
+  character(len=300) :: divide_by_zero_error = ""
+  character(len=300) :: invalid_error = ""
+  !
+  integer      :: bad_number_found(1:size(ieee_usual))
+  logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
   !
  !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
@@ -478,6 +489,48 @@ continue
     !
     completed_timesteps = iter
     !
+    ! First check to make sure that no floating-point exceptions are signaling
+    !
+    call ieee_get_flag(ieee_usual,signaling_exceptions)
+    !
+    bad_number_found = merge(1,0,signaling_exceptions)
+    !
+    call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
+                       size(bad_number_found,kind=int_mpi), &
+                       mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    !
+    if (sum(bad_number_found) > 0) then
+      !
+      ! A floating-point exception was detected. Dump solution and restart
+      ! files for the solution at the previous time step and abort the
+      ! simulation
+      !
+      ! Copy the solution from the previous time step back into
+      ! usp so we can dump the solution and restart files before
+      ! aborting the simulation
+      !
+      usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
+      !
+      if (continuous_output) then
+        call new_write_parallel_cgns
+      else
+        call write_parallel_cgns(-3)
+      end if
+      !
+      call write_restart_file(-2)
+      !
+      if (bad_number_found(1) > 0) write (overflow_error,101)
+      if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
+      if (bad_number_found(3) > 0) write (invalid_error,103)
+      write (error_message,100) itcur, &
+                                trim(overflow_error), &
+                                trim(divide_by_zero_error), &
+                                trim(invalid_error)
+      !
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      !
+    end if
+    !
     ! Exit the main loop if we have reached the requested final simulation
     ! time when running a time accurate simulation with a global time step.
     !
@@ -764,6 +817,16 @@ continue
                " FOUND FILE REQUESTING TO STOP THE EXECUTION OF RECON! ",/, &
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
+   !
+  100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
+              "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
+              "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
+              "RESTART FILES FOR THE PREVIOUS TIME STEP!!!", &
+              3(2x,a,:))
+  !
+  101 format ("OVERFLOW EXCEPTION DETECTED!!!")
+  102 format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
+  103 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
   !
 contains
 !

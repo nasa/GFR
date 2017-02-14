@@ -648,6 +648,8 @@ continue
       !
       if (itnum > 0) then
         write (fname,'("out.",i0.8,".rst")') itcur
+      else if (itnum == -2) then
+        write (fname,'("out.",i0.8,".NaN.rst")') itcur-1
       else
         write (fname,'("out.",i0.8,".done.rst")') itcur
       end if
@@ -720,6 +722,8 @@ continue
     !
     if (itnum > 0) then
       write (fname,rstfile_fmt) itcur,""
+    else if (itnum == -2) then
+      write (fname,rstfile_fmt) itcur-1,".NaN"
     else
       write (fname,rstfile_fmt) itcur,".done"
     end if

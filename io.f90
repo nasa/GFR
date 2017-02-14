@@ -4728,7 +4728,11 @@ continue
   !
   write (tname,'("FlowSolution",i0)') cgns_zone_counter
  !write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
-  write (sol_file,cgnsfile_fmt) itcur
+  if (iflag == -3) then
+    write (sol_file,cgnsfile_fmt) itcur-1,".NaN"
+  else
+    write (sol_file,cgnsfile_fmt) itcur,""
+  end if
   !
   ! Reallocate the soltime and solname arrays so we
   ! can concatenate this solution onto those arrays
@@ -4752,7 +4756,7 @@ continue
   !
   ! Write the time iterative solution file
   !
-  if (iflag == close_CGNS) then
+  if (any(iflag == [close_CGNS,-3])) then
     call write_parallel_cgns_time_file
   end if
   !
@@ -4767,7 +4771,7 @@ continue
   1 format ("#############################################",/, &
             "    FOR PROCESSOR #",i0)
   2 format (a," = ",i0)
-  3 format ("('solution.',i0.",i0,",'.cgns')")
+  3 format ("('solution.',i0.",i0,",a,'.cgns')")
   4 format (i0)
   !
 end subroutine write_parallel_cgns
