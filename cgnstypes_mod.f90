@@ -23,6 +23,27 @@ module module_cgns_types
   include "cgnslib_f95.h"
   !
   enum, bind(c)
+    enumerator :: ElementTypeNull = CG_NULL
+    enumerator :: BAR_5 = HEXA_64
+    enumerator :: TRI_12
+    enumerator :: TRI_15
+    enumerator :: QUAD_P4_16
+    enumerator :: QUAD_25
+    enumerator :: TETRA_22
+    enumerator :: TETRA_34
+    enumerator :: TETRA_35
+    enumerator :: PYRA_P4_29
+    enumerator :: PYRA_50
+    enumerator :: PYRA_55
+    enumerator :: PENTA_33
+    enumerator :: PENTA_66
+    enumerator :: PENTA_75
+    enumerator :: HEXA_44
+    enumerator :: HEXA_98
+    enumerator :: HEXA_125
+  end enum
+  !
+  enum, bind(c)
     enumerator :: test_enumerator = 0
   end enum
   private :: test_enumerator
