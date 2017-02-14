@@ -263,6 +263,8 @@ subroutine read_nml_input_file(input_fname)
   !
   use channel_mod, only : read_channel_init_file
   !
+  use restart_mod, only : check_restart_dir
+  !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
   !
@@ -316,6 +318,10 @@ continue
   if (.not. continuous_output) then
     call check_cgns_dir
   end if
+  !
+  ! Check the restart output directory
+  !
+  call check_restart_dir
   !
   ! Adjust the name of the grid file
   !

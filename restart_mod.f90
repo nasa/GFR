@@ -18,6 +18,7 @@ module restart_mod
   !
   public :: read_restart_file
   public :: write_restart_file
+  public :: check_restart_dir
   !
   !###########################
   !###  Module Parameters  ###
@@ -681,13 +682,13 @@ continue
       !
       ! Check for the restart directory and create it if it does not exist
       !
-      call check_restart_dir
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == 0) then
-        write (iout,*) "After check_restart_dir"
-        flush(iout)
-      end if
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+     !call check_restart_dir
+     !call mpi_barrier(MPI_COMM_WORLD,mpierr)
+     !if (mypnum == 0) then
+     !  write (iout,*) "After check_restart_dir"
+     !  flush(iout)
+     !end if
+     !call mpi_barrier(MPI_COMM_WORLD,mpierr)
       !
       ! For now, write the nodal solution to the restart file. At some point we
       ! should switch so it writes the modal solution since that would give more
