@@ -69,6 +69,7 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/ovar_mod.o \
              $(OBJDIR)/order_mod.o \
+             $(OBJDIR)/connectivity.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
              $(FUNDIR)/last.f90
 

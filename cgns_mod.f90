@@ -342,6 +342,12 @@ continue
   if (debug_cgns) write (*,1) mypnum,"closed CGNS grid file"
   call cgns_error(pname,gridfile,"cgp_close_f",cgierr,__LINE__,__FILE__)
   !
+  ! Reset the MPI communicator for CGNS back to MPI_COMM_WORLD
+  !
+  call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
+ !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
   !
   !
   if (mypnum == 0) then
@@ -384,12 +390,6 @@ continue
     deallocate ( base , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"base",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  !
-  ! Reset the MPI communicator for CGNS back to MPI_COMM_WORLD
-  !
-  call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
- !call cgns_error(pname,gridfile,"cgp_mpi_comm_f",cgierr,__LINE__,__FILE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the grid arrays to all processors
@@ -2879,7 +2879,7 @@ subroutine extract_nozzle_grid
   integer :: l,l1,l2,m,n,ierr
   integer :: ngrps,mintag,maxtag,nsubin
   integer :: nnodes,ngpts,npts,nelem,ncells
-  integer :: interior_grp,subin_grp
+  integer :: interior_grp,subin_grp,nsize
   !
   character(len=CGLEN) :: grp_name
   character(len=150)   :: nozzle_grid_file
@@ -2893,7 +2893,6 @@ subroutine extract_nozzle_grid
   integer, allocatable :: pts_map(:)
   integer, allocatable :: pts_rmap(:)
   integer, allocatable :: elem_map(:)
-  integer, allocatable :: grp_cells_remaining(:)
   !
   logical(lk), allocatable :: grp_still_remains(:)
   logical(lk), allocatable :: nodes_mask(:)
@@ -3044,7 +3043,9 @@ continue
   !       to account for the yet to be defined face elements that define the
   !       outflow boundary condition for the nozzle interior.
   !
-  allocate ( nozzle%elem(1:nelem+nsubin) , stat=ierr , errmsg=error_message )
+ !nsize = nelem+nsubin
+  nsize = nelem
+  allocate ( nozzle%elem(1:nsize) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nozzle%elem",1,__LINE__,__FILE__,ierr,error_message)
   !
   nozzle%elem(1:nelem) = grid%elem( elem_map(:) )
@@ -3115,12 +3116,8 @@ continue
   mintag = minval(grid%elem(:)%tags(1))
   maxtag = maxval(grid%elem(:)%tags(1))
   !
-  ! CHANGE grp_still_remains TO grp_cells_remaining IF WE NEED TO CHANGE IT TO
-  ! AN INTEGER ARRAY THAT COUNTS THE NUMBER OF CELLS REMAINING FOR EACH GROUP
- !allocate ( grp_cells_remaining(mintag:maxtag) , source=0 , &
   allocate ( grp_still_remains(mintag:maxtag) , source=fals , &
              stat=ierr , errmsg=error_message )
- !call alloc_error(pname,"grp_cells_remaining",1,__LINE__,__FILE__, &
   call alloc_error(pname,"grp_still_remains",1,__LINE__,__FILE__, &
                    ierr,error_message)
   !
@@ -3132,8 +3129,6 @@ continue
     nozzle%elem(n)%pts(:) = pts_rmap( nozzle%elem(n)%pts(:) )
     nozzle%elem(n)%nodes(:) = pts_rmap( nozzle%elem(n)%nodes(:) )
     !
-   !grp_cells_remaining(nozzle%elem(n)%tags(1)) = &
-   !          grp_cells_remaining(nozzle%elem(n)%tags(1)) + 1
     grp_still_remains(nozzle%elem(n)%tags(1)) = true
     !
   end do
@@ -3151,8 +3146,8 @@ continue
   ! NOTE: Add 1 to the number of remaining element groups to include
   !       the outflow boundary condition that will need to be added.
   !
- !ngrps = count(grp_cells_remaining(:) > 0) + 1
   ngrps = count(grp_still_remains(:)) + 1
+ !ngrps = count(grp_still_remains(:))
   !
   ! Create a new nozzle_grps object that should be a subset of the
   ! cell_grps object for just the nozzle portion of the grid.
@@ -3165,7 +3160,6 @@ continue
   !
   l = 0
   do n = 1,size(cell_grps)
-   !if (grp_cells_remaining(cell_grps(n)%grp_id) /= 0) then
     if (grp_still_remains(cell_grps(n)%grp_id)) then
       l = l + 1
       nozzle_grps(l) = cell_grps(n)
@@ -3178,17 +3172,11 @@ continue
                      ierr,error_message)
   end if
   !
-  if (allocated(grp_cells_remaining)) then
-    deallocate ( grp_cells_remaining , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grp_cells_remaining",2,__LINE__,__FILE__, &
-                     ierr,error_message)
-  end if
-  !
   ! Add the final group, the outflow boundary condition for the nozzle
   ! interior which was previously just a group of interior faces
   !
   nozzle_grps(ngrps)%cell_dim = 2
-  nozzle_grps(ngrps)%grp_id = -100 ! make this large negative value for now
+  nozzle_grps(ngrps)%grp_id = ngrps-1
   nozzle_grps(ngrps)%ibc = bc_characteristic
   nozzle_grps(ngrps)%name = "NozzleOutflow"
   !
@@ -3200,10 +3188,10 @@ continue
   ! boundary so these future elements will be found and sorted correctly
   ! in the following loop that creates the temporary nozzle object.
   !
-  do n = nelem+1,size(nozzle%elem)
-    ! USING F2003 AUTO-REALLOCATION
-    nozzle%elem(n)%tags = [nozzle_grps(ngrps)%grp_id,0]
-  end do
+ !do n = nelem+1,size(nozzle%elem)
+ !  ! USING F2003 AUTO-REALLOCATION
+ !  nozzle%elem(n)%tags = [nozzle_grps(ngrps)%grp_id,0]
+ !end do
   !
   ! Create a new temporary nozzle object to copy over the elements in
   ! the current nozzle object so they are ordered by their group id.
@@ -3212,7 +3200,7 @@ continue
   call alloc_error(pname,"temp_nozzle",1,__LINE__,__FILE__,ierr,error_message)
   !
   l2 = 0
-  do m = 1,size(nozzle_grps)
+  do m = 1,size(nozzle_grps)-1
     !
     l1 = l2 + 1
     !
@@ -3237,11 +3225,19 @@ continue
   !
   call move_alloc( from=temp_nozzle , to=nozzle )
   !
+  call create_nozzle_outflow_faces(ncells,nsubin,nozzle)
+  !
+  nozzle_grps(ngrps)%cells = intseq(nelem+1,size(nozzle%elem))
+  !
+  do n = nelem+1,size(nozzle%elem)
+    nozzle%elem(n)%tags = [nozzle_grps(ngrps)%grp_id,0]
+  end do
+  !
   ! #######
   ! ## 6 ##
   ! #######
   !
-  call create_nozzle_outflow_faces(ncells,nsubin,nozzle)
+ !call create_nozzle_outflow_faces(ncells,nsubin,nozzle)
   !
   ! Reorder all the element points back into CGNS ordering
   !
@@ -3302,14 +3298,15 @@ subroutine create_nozzle_outflow_faces(lcells,lfaces,nozzle)
   use connectivity_mod, only : find_cells_surrounding_each_cell
   !
   !.. Formal Arguments ..
-  integer,         intent(in) :: lcells
-  integer,         intent(in) :: lfaces
-  type(grid_t), intent(inout) :: nozzle
+  integer,                      intent(in) :: lcells
+  integer,                      intent(in) :: lfaces
+  type(grid_t), allocatable, intent(inout) :: nozzle
   !
   !.. Local Scalars ..
-  integer :: c0,c1,c2,i,n,n1,n2,ierr
+  integer :: c0,c1,c2,i,j,n,n1,n2,ierr
   integer :: host_cell,host_geom,host_side
   integer :: new_elem,lelem,lbfac,nfnods
+  integer :: missing_elem
   !
   !.. Local Arrays ..
   integer :: ip(1:4)
@@ -3324,6 +3321,9 @@ subroutine create_nozzle_outflow_faces(lcells,lfaces,nozzle)
   integer, allocatable :: csc(:)
   integer, allocatable :: csc_ptr(:)
   integer, allocatable :: cell_geom(:)
+  integer, allocatable :: nodes(:)
+  !
+  type(grid_t), allocatable :: temp_nozzle
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_nozzle_outflow_faces"
@@ -3332,7 +3332,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  lelem = size(nozzle%elem) - lfaces ! Total number of defined elements
+  lelem = size(nozzle%elem)!- lfaces ! Total number of defined elements
   lbfac = lelem - lcells             ! Total number of defined boundary faces
   !
   ! Create a temporary bface array
@@ -3403,10 +3403,22 @@ continue
   ! Make sure the number of missing surrounding
   ! cells matches the value of lfaces as expected
   !
-  if (count(csc(:) == 0) /= lfaces) then
-    write (error_message,100) count(csc(:) == 0),lfaces
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
-  end if
+ !if (count(csc(:) == 0) /= lfaces) then
+ !  write (error_message,100) count(csc(:) == 0),lfaces
+ !  call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+ !end if
+  missing_elem = count(csc(:) == 0)
+  !
+  allocate ( temp_nozzle , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_nozzle",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  temp_nozzle%xyz = nozzle%xyz ! USING F2003 AUTO-REALLOCATION
+  !
+  allocate ( temp_nozzle%elem(1:lelem+missing_elem) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_nozzle",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  temp_nozzle%elem(1:lelem) = nozzle%elem(1:lelem)
   !
   ! Find all the cells that are missing surrounding cells
   ! and add the missing cell as a new face element
@@ -3424,7 +3436,7 @@ continue
     n1 = noc_ptr(host_cell)+1
     n2 = noc_ptr(host_cell+1)
     !
-    host_geom = nozzle%elem(host_cell)%prop%geom
+    host_geom = temp_nozzle%elem(host_cell)%prop%geom
     !
     csc_side_loop: do host_side = 1,geom_faces(host_geom)
       !
@@ -3436,7 +3448,7 @@ continue
       !
       ! Create the new face element from the host element
       !
-      nozzle%elem(new_elem) = get_face_elem(nozzle%elem(host_cell), &
+      temp_nozzle%elem(new_elem) = get_face_elem(temp_nozzle%elem(host_cell), &
                                             host_side,host_cell)
       !
       ! THE REMAINDER OF THIS LOOP IS JUST TO CHECK THAT THE get_face_elem
@@ -3454,15 +3466,21 @@ continue
       !
       face_nodes(1:nfnods) = noc( n1 + ip(1:nfnods) )
       !
-      if (allocated(nozzle%elem(new_elem)%nodes)) then
-        if (size(nozzle%elem(new_elem)%nodes) == nfnods) then
-          if (any(nozzle%elem(new_elem)%nodes /= face_nodes(1:nfnods))) then
+      if (allocated(temp_nozzle%elem(new_elem)%nodes)) then
+        if (size(temp_nozzle%elem(new_elem)%nodes) == nfnods) then
+          one_pass_loop: do j = 1,1
+            do i = 0,nfnods-1
+              nodes = cshift(temp_nozzle%elem(new_elem)%nodes,shift=i)
+              if (all(nodes == face_nodes(1:nfnods))) then
+                exit one_pass_loop
+              end if
+            end do
             write (iout,203) new_elem
             write (iout,204) (face_nodes(i),i=1,nfnods)
-            write (iout,205) (nozzle%elem(new_elem)%nodes(i),i=1,nfnods)
-          end if
+            write (iout,205) (temp_nozzle%elem(new_elem)%nodes(i),i=1,nfnods)
+          end do one_pass_loop
         else
-          write (iout,202) size(nozzle%elem(new_elem)%nodes),new_elem,nfnods
+          write (iout,202) size(temp_nozzle%elem(new_elem)%nodes),new_elem,nfnods
         end if
       else
         write (iout,201) new_elem
@@ -3471,6 +3489,8 @@ continue
     end do csc_side_loop
     !
   end do csc_cell_loop
+  !
+  call move_alloc( from=temp_nozzle , to=nozzle )
   !
   ! Deallocate the local arrays before leaving
   !
@@ -3550,8 +3570,8 @@ pure function point_is_in_nozzle_interior(xyz) result(return_value)
   real(wp), parameter :: bef = (pe(1)*pf(2)-pe(2)*pf(1)) / (pe(1)-pf(1))
   !
  !real(wp), parameter :: eps = half*eps3
- !real(wp), parameter :: eps = eps6
-  real(wp), parameter :: eps = zero
+  real(wp), parameter :: eps = eps6
+ !real(wp), parameter :: eps = zero
   !
 continue
   !
@@ -3559,7 +3579,8 @@ continue
   !
   x = xyz(1)
   !
-  if (x >= pa(1) .and. x <= pf(1)) then
+  if (x >= pa(1)-eps .and. x < pf(1)-eps) then
+ !if (x >= pa(1) .and. x <= pf(1)) then
     !
     r = norm2(xyz(2:))
     !
@@ -3569,15 +3590,21 @@ continue
         radius = pb(2)
       else if (x > pb(1) .and. x < pc(1)) then
         radius = pg(2) + sqrt( lg2 - (x-pg(1))**2 )
+        radius = radius + eps
       else if (x >= pc(1) .and. x <= pd(1)) then
         radius = mcd*x + bcd
+        radius = radius + eps
       else if (x > pd(1) .and. x < pe(1)) then
-        radius = ph(2) + sqrt( lh2 - (x-ph(1))**2 )
+        radius = ph(2) - sqrt( lh2 - (x-ph(1))**2 )
+        radius = radius + eps3
+     !else if (x >= pe(1) .and. x < pf(1)) then
       else if (x >= pe(1)) then
         radius = mef*x + bef
+     !else if (x == pf(1)) then
+     !  radius = pf(2)
       end if
       !
-      return_value = ( r <= radius+eps )
+      return_value = ( r <= radius )
       !
     end if
     !
@@ -3636,6 +3663,7 @@ continue
   allocate ( b , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"b",1,__LINE__,__FILE__,ierr,error_message)
   !
+  b%name = "Base"
   b%cell_dim = 3
   b%phys_dim = 3
   !
@@ -3656,7 +3684,7 @@ continue
   call alloc_error(pname,"b%zone(1)%grid",1,__LINE__,__FILE__, &
                    ierr,error_message)
   !
-  allocate ( b%zone(1)%grid(1)%coord(1:size(nozzle%xyz,dim=2)) , &
+  allocate ( b%zone(1)%grid(1)%coord(1:size(nozzle%xyz,dim=1)) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"b%zone(1)%grid(1)%coord",1,__LINE__,__FILE__, &
                    ierr,error_message)
@@ -3688,6 +3716,9 @@ continue
     grp_name = trim(adjustl(nozzle_grps(n)%name))
     !
     ncells = size(nozzle_grps(n)%cells)
+    !
+    write (iout,101) trim(adjustl(grp_name)),ncells
+    101 format (5x,"Number of elements in group '",a,"' = ",i0)
     !
     n1 = n2 + 1
     n2 = n2 + ncells
@@ -3822,7 +3853,9 @@ continue
   !
   ! Open the CGNS grid file
   !
-  call cg_open_f(cgns_grid_file,CG_MODE_WRITE,if_n,cgierr)
+ !write (iout,128) cgns_grid_file
+ !128 format ("cgns_grid_file = '",a,"'")
+  call cgp_open_f(trim(adjustl(cgns_grid_file)),CG_MODE_WRITE,if_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_open_f",cgierr, &
                   __LINE__,__FILE__,not_parallel=true)
   !
@@ -3904,7 +3937,7 @@ continue
   !
   ! Close the CGNS FILE
   !
-  call cg_close_f(if_n,cgierr)
+  call cgp_close_f(if_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_close_f",cgierr, &
                   __LINE__,__FILE__,not_parallel=true)
   !
@@ -5227,7 +5260,6 @@ continue
                             order=3, &
                             geom=Geom_Hexa, &
                             elem_type=int(elem_type))
-#ifdef CGNS_3_3
     case (BAR_5)
       return_value = prop_t(npts=5, &
                             order=4, &
@@ -5323,7 +5355,6 @@ continue
                             order=4, &
                             geom=Geom_Hexa, &
                             elem_type=int(elem_type))
-#endif
     case default
       return_value = prop_t(npts=-1, &
                             order=-1, &
