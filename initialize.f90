@@ -1242,6 +1242,12 @@ continue
       write (iout,2) i,trim(adjustl(bc_input(n)%name))
     end if
     !
+    ! Copy over the relaxation information
+    !
+    bc_in(i)%relax%value = min(one,max(bc_input(n)%relax%value,zero))
+    bc_in(i)%relax%time = max(bc_input(n)%relax%time,zero)
+    bc_in(i)%relax%iter = max(bc_input(n)%relax%iter,0)
+    !
     if ( (bc_input(n)%wall_temp >= tmin) .and. &
          (bc_input(n)%wall_temp <= tmax) ) then
       !

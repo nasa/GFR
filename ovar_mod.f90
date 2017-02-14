@@ -294,6 +294,12 @@ module ovar
   real(wp), public, save :: LDG_beta(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
   real(wp), public, save :: LDG_tau = 0.0_wp
   !
+  type, public :: relaxation_t
+    real(wp) :: value = 1.0_wp
+    real(wp) :: time  = 0.0_wp
+    integer  :: iter  = 0
+  end type relaxation_t
+  !
   type, public :: bc_input_t
     !
     character(len=32) :: name = ""
@@ -311,6 +317,9 @@ module ovar
     real(wp) :: alpha_aoa  = 0.0_wp
     real(wp) :: beta_aoa   = 0.0_wp
     real(wp) :: wall_temp  = -huge(0.0_wp)
+    !
+    type(relaxation_t) :: relax
+    !
   end type bc_input_t
   !
   type(bc_input_t), public, save :: bc_input(1:20)
@@ -319,6 +328,7 @@ module ovar
     real(wp), allocatable :: cv(:)
     real(wp), allocatable :: pv(:)
     real(wp) :: wall_temperature
+    type(relaxation_t) :: relax
   end type bc_in_t
   !
   type(bc_in_t), public, save, allocatable :: bc_in(:)

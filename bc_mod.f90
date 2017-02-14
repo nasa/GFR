@@ -108,8 +108,8 @@ continue
         call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
                                             faceusp(nf)%v(:,:,2), &
                                             geofa(nf)%v(:,:), &
-                                            bc_in(bc_idx)%cv, &
-                                            bc_in(bc_idx)%pv)
+                                            bc_in(bc_idx)%pv, &
+                                            bc_in(bc_idx)%relax)
         !
       case (bc_generic_inflow)
         !
@@ -581,7 +581,7 @@ end subroutine get_bc_characteristic_solution_old
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,cv_in,pv_in)
+subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,pv_in,relax)
   !
   ! #####################################################
   ! #####################################################
@@ -589,18 +589,22 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,cv_in,pv_in)
   ! #####################################################
   ! #####################################################
   !
+  !.. Use Statements ..
+  use ovar, only : relaxation_t
+  use ovar, only : itcur,time
+  !
   ! FNRM  : Face outward normal vector at the flux points
   ! HUFP  : Conservative variables at the host  cell flux points
   ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
   ! PV_IN : Boundary condition flow variables in primitive    form
+  ! RELAX : Relaxation conditions for this boundary condition
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: cv_in(:)
-  real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp),           intent(in) :: fnrm(:,:)
+  real(wp),           intent(in) :: hufp(:,:)
+  real(wp),           intent(in) :: pv_in(:)
+  type(relaxation_t), intent(in) :: relax
+  real(wp),        intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer  :: k
@@ -608,11 +612,13 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,cv_in,pv_in)
   real(wp) :: mach_int,mach_ext,gm1,gm1_inv
   real(wp) :: aspd_int,vt_int,vn_int
   real(wp) :: aspd_ext,vt_ext,vn_ext
+  real(wp) :: rlx,rlx_iter,rlx_time
   !
   !.. Local Arrays ..
   real(wp) :: rnrm(1:size(fnrm,dim=1))
   real(wp) :: rtan(1:size(fnrm,dim=1))
   real(wp) :: hvfp(1:size(gufp,dim=1))
+  real(wp) :: pv_in_rlx(1:size(pv_in))
   !
   !.. Local Parameters ..
  !logical(lk), parameter :: veln_is_int = true
@@ -625,6 +631,21 @@ continue
   gm1 = gam - one
   gm1_inv = one / gm1
   !
+  ! Determine the relaxation coefficient
+  !
+  rlx = one
+  rlx_iter = one
+  rlx_time = one
+  if (relax%iter > 0) then
+    rlx_iter = max( one , real(itcur,kind=wp)/real(relax%iter,kind=wp) )
+  end if
+  if (relax%time > zero) then
+    rlx_time = max( one , time/relax%time )
+  end if
+  rlx = max( zero , min(relax%value,rlx_iter,rlx_time,one) )
+  !
+  ! Compute the boundary solution at each flux point
+  !
   do k = 1,size(gufp,dim=2)
     !
     ! Inward pointing unit normal at this flux point
@@ -634,6 +655,10 @@ continue
     ! Get the host cell primitive variables at this flux point
     !
     hvfp(:) = usp2v_sp( hufp(:,k) )
+    !
+    ! Compute the relaxed inflow condition
+    !
+    pv_in_rlx(:) = (one-rlx)*hvfp(:) + rlx*pv_in(:)
     !
     ! Compute the speed of sound in the host cell
     !
