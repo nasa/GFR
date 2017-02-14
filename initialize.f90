@@ -355,7 +355,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: k,np,ierr
-  real(wp) :: dl
+  real(wp) :: div,dl,r,r0,xave
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: adj_xyz(:,:)
@@ -395,6 +395,35 @@ continue
                                                           return_cv=true )
     end do
     !
+  else if (itestcase == Nozzle_Jet) then
+    !
+    if (init_cond /= 0) then
+      !
+      xave = sum(xyz(1,:)) / real(np,kind=wp)
+      !
+      if (xave <= zero) then
+        r0 = 0.0254_wp
+      else
+        r0 = 0.0254_wp
+      end if
+      div = eps1*r0
+      !
+      do k = 1,np
+        !
+        r = norm2(xyz(:,k))
+        return_value(:,k) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
+                                        bc_in(init_cond)%pv(:))
+        !
+      end do
+      !
+    else
+      !
+      do k = 1,np
+        return_value(:,k) = bc_in(init_cond)%cv(:)
+      end do
+      !
+    end if
+    !
   else
     !
     do k = 1,np
@@ -404,6 +433,68 @@ continue
   end if
   !
 end function initial_conditions
+!
+!###############################################################################
+!
+pure function jet_profile(r,r0,div,fs_pv,bc_pv) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: r
+  real(wp), intent(in) :: r0
+  real(wp), intent(in) :: div
+  real(wp), intent(in) :: fs_pv(:)
+  real(wp), intent(in) :: bc_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  real(wp) :: func
+  !
+continue
+ !!
+ !! Initial profile for a jet
+ !!
+ !!  r0     = radius of jet profile
+ !!  div    = thickness parameter for shear layer
+ !!  ujet   = jet velocity
+ !!  rhojet = jet density
+ !!
+ !r0   = 1._wp/12._wp
+ !div  = 0.1*r0
+ !ujet = 558.31_wp       ! (feet / second)
+ !rhojet = 2.5019e-03_wp ! (slugs / cubic-feet)
+ !!
+ !do k = 1,mk(nb)
+ !  do j = 1,mj(nb)
+ !    do i = 1,mi(nb)
+ !      if (nb < 2) then
+ !        r0 = sqrt(x(i,mj(nb),k,2)**2+x(i,mj(nb),k,3)**2)
+ !      end if
+ !      r = sqrt(x(i,j,k,2)**2+x(i,j,k,3)**2)
+ !      func  = half*(one-erf((r-r0)/(div)))
+ !      uinit   = ujet*func   + (one-func)*fsvel
+ !      rhoinit = rhojet*func + (one-func)*fsrho
+ !      q(i,j,k,1) = rhoinit
+ !      q(i,j,k,2) = rhoinit*uinit
+ !      q(i,j,k,3) = zero
+ !      q(i,j,k,4) = zero
+ !      q(i,j,k,5) = rhoinit*(pinf/(rhoinit*(gam-one)) + half*uinit**2)
+ !    end do
+ !  end do
+ !end do
+  !
+  func = half * (one - erf((r-r0)/div))
+  !
+  return_value(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
+  return_value(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
+  return_value(nmy) = zero
+  return_value(nmz) = zero
+  return_value(nee) = fs_pv(nee)
+  !
+  return_value(:) = vsp2u_sp( return_value(:) )
+  !
+end function jet_profile
 !
 !###############################################################################
 !
