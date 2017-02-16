@@ -665,12 +665,12 @@ continue
     ! interior speed of sound 
     aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
     ! exterior speed of sound 
-    aspd_ext = sqrt( max( gam*pv_in(nee)/pv_in(nec) , rndoff ) )
+    aspd_ext = sqrt( max( gam*pv_in_rlx(nee)/pv_in_rlx(nec) , rndoff ) )
     !
     ! Compute the interior normal velocity at this flux point
     !
     vn_int = dot( rnrm , hvfp(nmb:nme) )  ! interior normal velocity
-    vn_ext = dot( rnrm , pv_in(nmb:nme) ) ! exterior normal velocity
+    vn_ext = dot( rnrm , pv_in_rlx(nmb:nme) ) ! exterior normal velocity
     !
     ! Apply boundary conditions based on the
     ! normal Mach number to the boundary face
@@ -701,13 +701,13 @@ continue
     !
     unc = half*(rp+rm)
     ac  = one4*gm1*(rp-rm)
-   !sc  = pv_in(nee) / (pv_in(nec)**gam)
+   !sc  = pv_in_rlx(nee) / (pv_in_rlx(nec)**gam)
     !
     !
     if (vn_int > zero) then ! outflow boundary
       sc = aspd_int**2 / (gam * (hvfp(nec)**gm1))
     else                 ! inflow boundary
-      sc = aspd_ext**2 / (gam * (pv_in(nec)**gm1))
+      sc = aspd_ext**2 / (gam * (pv_in_rlx(nec)**gm1))
     end if
     !
     rho = ( ac * ac / (gam*sc) )**gm1_inv
@@ -727,7 +727,7 @@ continue
     if (vel > zero) then ! outflow boundary
       gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
     else                 ! inflow boundary
-      gufp(nmb:nme,k) = pv_in(nmb:nme) + (unc - vn_ext)*rnrm(:)
+      gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_ext)*rnrm(:)
     end if
     !
     gufp(nee,k) = pres
