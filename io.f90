@@ -5140,15 +5140,20 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_sname(1:9) = ["Density    ", &
+  character(len=*), parameter :: char_sname(1:5) = ["Density    ", &
                                                     "Velocity   ", &
-                                                    "Energy     ", &
                                                     "Pressure   ", &
-                                                    "Vorticity  ", &
                                                     "Mach       ", &
-                                                    "Entropy    ", &
-                                                    "Viscosity  ", &
                                                     "Temperature"]
+ !character(len=*), parameter :: char_sname(1:9) = ["Density    ", &
+ !                                                  "Velocity   ", &
+ !                                                  "Energy     ", &
+ !                                                  "Pressure   ", &
+ !                                                  "Vorticity  ", &
+ !                                                  "Mach       ", &
+ !                                                  "Entropy    ", &
+ !                                                  "Viscosity  ", &
+ !                                                  "Temperature"]
  !character(len=*), parameter :: char_sname(1:6) = ["Density     ", &
  !                                                  "Momentum    ", &
  !                                                  "Energy      ", &
