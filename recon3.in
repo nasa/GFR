@@ -1,138 +1,72 @@
 &input
-TaylorGreen_DOF = 64
-all_orders = 3
-all_points = 1
-grid_format = 3
-gridfile = "grid_files/wind_flat_plate/plate_2d.grd"
-plot3d_bcsfile = "grid_files/wind_flat_plate/plate_2d.bcs.grd"
-plot3d_cutfile = "grid_files/wind_flat_plate/plate_2d.cut.grd"
+!!!dump_memory_usage = T
+!!!check_flux_point_coordinates = T
+grid_format = 4 !Take CGNS grid.
+gridfile = "P2.cgns"
+grid_scaling_factor = 0.0254
+
+continuous_output = F
+postproc_debug_grid = F
+
+all_orders = 2
+all_points = 1 ! 1-Gauss, 2-Lobatto
+e_order = 2
+
+! CORRECTION FUNCTION
+!correction_function = 1 ! gDG (DEFAULT)
+ correction_function = 2 ! g2
+!correction_function = 3 ! gGauss
+
+! UPWIND FLUX
+ invs_flux_method = 1 ! Roe flux with Entropy fix (DEFAULT)
+!invs_flux_method = 2 ! HLLC
+!invs_flux_method = 3 ! LDFSS
+
+! VISCOUS FLUX METHOD
+!visc_flux_method = 1 ! BR1
+ visc_flux_method = 2 ! BR2 (DEFAULT)
+!visc_flux_method = 3 ! LDG
+
+! FILTER OPTIONS
+!Filter_Option = 0 ! Filter based on tensor product of 1D filter
+ Filter_Option = 1 ! Filter based on polynomial degree of nr*P
+ Filter_Order = 16
+ Filter_Alpha = 18.0
+ Filter_etac = 0.75
+!Filter_eps = 0.0
+
 governing_equations = 2
-Timestep_Type = 0
-CFL = 1.0
-num_ts = 0
-Final_Time = 20.0
-dt_in = 3.385e-2
-restart_interval = 10000
-irestart = 0
-output_interval = 20
-results_interval = 1
-iter_out_interval = 1
-itestcase = 9
-visc_flux_method = 2
-visc_variables_to_ave = 1 ! average fluxes
-!visc_variables_to_ave = 1 ! average solution and gradients
-use_bc_conflicts = F
-!walls_are_exact = F
-!output_bface_array = T
-!use_advanced_face_metrics = F
-/
+num_ts = 2000000
+Timestep_Type = 1 !CFL condition
+!cfl_beg = 0.1
+!cfl_end = 0.75
+!cfl_cycles = 10000
+CFL = 0.75
 
-#####################################
-#######        DEFAULTS       #######
-#####################################
-grid_format = 2
-gridfile = "grid_files/meilin/quad.40x40.2X.neu"
-n_order = 3
-iop_solpts = 1
-iop_flxpts = 1
-iop_tripts = 2
-flux_divergence = 0
-iop_correction = 3
-iRKtype = 3
-num_stages = 3
-Flux_Method = 1
-visc_flux_method = 1
-num_ts = 25000
-Final_Time = -1.0
-CFL = 1.0
-dt_in = 0.0008
-p_order = 3
-q_order = 3
-iop_qdtpts = 1
-dflux_opt = 2
-all_orders = -3
-all_points = -1
-metis_option = 2
-itestcase = 5
-irestart = 0
-restart_interval = 0
-output_dir = "."
-iter_out_interval = 1
-output_solution = 1
-output_interval = 0 
-results_interval = 0
-o_order = -3
-rhoref = -1.0
-tref = 300.0
-pref = 100000.0
-machref = 0.4
-reyref = -1.0 ! if positive, suth_muref is computed using reyref
-aoaref = 45.0
+!Flow reference conditions:
+machref = 0.05
 gam = 1.4
-rgasref = 287.15
-Pr = 0.72
-Prt = 0.72
-suth_muref = 1.716e-5
-suth_Tref = 273.0
-suth_Sref = 110.4
-Filter_Option = 0
-Filter_etac = 0.0
-Filter_Order = 16
-Filter_Alpha = 36.0
-Bound_Error = .false.
-Error_Bound_Limit = 2.0
-init_loc = 0
-error_loc = 0
-vortex_bigR = 1.0
-vortex_bigGam = 5.0
-output_bface_array = F
-#####################################
-#######    END OF DEFAULTS    #######
-#####################################
+tref = 293.15
+pref = 101325.0
 
-!
-! grid_format = 1 -> Patran Neutral (not working)
-! grid_format = 2 -> Gambit Neutral
-! grid_format = 3 -> GMSH (not working)
-!
-! flux_divergence = 0 -> Over-integration, LP, exchange only values at flux pts
-! flux_divergence = 1 -> Lagrange Polynomial
-! flux_divergence = 2 -> Chain rule using conserved variables
-! flux_divergence = 3 -> Chain rule using jacobian
-! flux_divergence = 4 -> DG method using weak formulation
-! flux_divergence = 5 -> DG method using strong formulation
-!
-! iop_correction  = 1 -> interp primitive variables to interface to correct fluxes
-! iop_correction  = 2 -> interp conservative variables to interface to correct fluxes
-! iop_correction  = 3 -> interp fluxes at solution points to interface to correct fluxes
-!
-! For iop_solpts or iop_fluxpts or iop_qdtpts:
-!     = 1 -> Gauss points
-!     = 2 -> Gauss-Lobatto points
-!     = 3 -> Chebyshev points (not working)
-!     = 4 -> Chebyshev-Lobatto points (not working)
-!
-! iRKtype = 1 -> Classic 'num_stage'-stage RK
-! iRKtype = 2 -> 2-stage/2nd-order SSP RK
-! iRKtype = 3 -> 3-stage/3rd-order SSP RK
-! iRKtype = 4 -> 5-stage/4th-order SSP RK
-! iRKtype = 5 -> 5-stage/4th-order low-storage Carpenter-Kennedy RK
-!
-! iop_tripts = 1 -> Alpha optimized Lobatto nodes
-! iop_tripts = 2 -> HT 1D Lobatto nodes projected to triangle coordinates
-!
-! Flux_Method = 1 -> Roe Flux with entropy fix
-! Flux_Method = 2 -> HLLC
-! Flux_Method = 3 -> LDFSS
-!
-! visc_flux_method = 1 -> BR1 and possibly LDG using LDG_beta and LDG_tau parameters
-! visc_flux_method = 2 -> BR2
-!
-! init_loc =  0 -> init. sol. computed on solution points (SP)
-! init_loc =  1 -> init. sol. computed on Gauss   pts (GP) then projected to SP
-! init_loc =  2 -> init. sol. computed on Lobatto pts (LP) then projected to SP
-! init_loc = -1 -> init. sol. computed on Radau   pts (RP) then projected to SP
-!
-! error_loc =  0 -> exact sol. on SP with weights on SP
-! error_loc =  1 -> exact sol. on GP, proj. numerical to GP, weights on GP
-! error_loc = -1 -> exact sol. on RP, proj. numerical to RP, weights on RP
+!Timing information:
+restart_interval = 5000
+irestart = 1
+output_interval = 25000
+results_interval = 10000
+iter_out_interval = 100
+
+convergence_order_max_res = -12.0
+
+itestcase = 1
+
+use_bc_conflicts = F
+sub_inflow_method = 1
+
+bc_input(1)%name = "INFLOWSUBSONIC"
+bc_input(1)%p_static = 101325.0
+bc_input(1)%p_total = 121286.025
+bc_input(1)%t_total = 293.15
+bc_input(1)%relax%time = 0.05
+
+/
