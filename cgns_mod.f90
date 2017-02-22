@@ -276,6 +276,7 @@ contains
 subroutine read_cgns_gridfile( input_gridfile )
   !
   !.. Use Statements ..
+  use ovar, only : itestcase
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_gridfile
@@ -361,8 +362,12 @@ continue
     !
     call transfer_cgns_data_to_grid_dt
     !
-    if (create_nozzle_interior_cgns_gridfile) then
-      call extract_nozzle_grid
+    if (itestcase == Nozzle_Jet) then
+      if (create_nozzle_interior_cgns_gridfile) then
+        call extract_nozzle_grid
+      else
+        call find_elem_for_initial_jet_profile
+      end if
     end if
     !
     ! Create the arrays needed by the solver that define the grid
@@ -374,7 +379,6 @@ continue
     !#################################################################
     !#################################################################
     !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
-    call find_nozzle_core
     !#################################################################
     !#################################################################
     !#################################################################
@@ -3551,27 +3555,12 @@ pure function point_is_in_nozzle_interior(xyz) result(return_value)
   real(wp) :: x,r,radius
   !
   !.. Local Parameters ..
-  real(wp), parameter :: pa(2) = [-0.250825_wp,          0.0762_wp]
-  real(wp), parameter :: pb(2) = [-0.1957832_wp,         0.0762_wp]
-  real(wp), parameter :: pg(2) = [-0.199486039157406_wp, 0.0510713513659322_wp]
-  real(wp), parameter :: pc(2) = [-0.187954680464026_wp, 0.07370291708031857_wp]
-  real(wp), parameter :: pd(2) = [-0.138839103315909_wp, 0.04867728055674608_wp]
-  real(wp), parameter :: ph(2) = [-0.069650951155604_wp, 0.1844666748430524_wp]
-  real(wp), parameter :: pe(2) = [-0.0830072_wp,         0.03265306999550994_wp]
-  real(wp), parameter :: pf(2) = [ 0.0_wp,               0.0254_wp ]
+  real(wp), parameter :: x_in   = -0.250825_wp
+  real(wp), parameter :: y_in   =  0.0762_wp
+  real(wp), parameter :: x_exit =  0.0_wp
   !
-  real(wp), parameter :: lg2 = dot(pg-pb,pg-pb)
-  real(wp), parameter :: lh2 = dot(ph-pd,ph-pd)
-  !
-  real(wp), parameter :: mcd = (pc(2)-pd(2)) / (pc(1)-pd(1))
-  real(wp), parameter :: bcd = (pc(1)*pd(2)-pc(2)*pd(1)) / (pc(1)-pd(1))
-  !
-  real(wp), parameter :: mef = (pe(2)-pf(2)) / (pe(1)-pf(1))
-  real(wp), parameter :: bef = (pe(1)*pf(2)-pe(2)*pf(1)) / (pe(1)-pf(1))
-  !
- !real(wp), parameter :: eps = half*eps3
-  real(wp), parameter :: eps = eps6
- !real(wp), parameter :: eps = zero
+  real(wp), parameter :: eps_1 = eps6
+  real(wp), parameter :: eps_2 = eps3
   !
 continue
   !
@@ -3579,33 +3568,13 @@ continue
   !
   x = xyz(1)
   !
-  if (x >= pa(1)-eps .and. x < pf(1)-eps) then
- !if (x >= pa(1) .and. x <= pf(1)) then
+  if (x >= x_in-eps_1 .and. x < x_exit-eps_1) then
     !
     r = norm2(xyz(2:))
     !
-    if (r <= pb(2)+eps) then
-      !
-      if (x <= pb(1)) then
-        radius = pb(2)
-      else if (x > pb(1) .and. x < pc(1)) then
-        radius = pg(2) + sqrt( lg2 - (x-pg(1))**2 )
-        radius = radius + eps
-      else if (x >= pc(1) .and. x <= pd(1)) then
-        radius = mcd*x + bcd
-        radius = radius + eps
-      else if (x > pd(1) .and. x < pe(1)) then
-        radius = ph(2) - sqrt( lh2 - (x-ph(1))**2 )
-        radius = radius + eps3
-     !else if (x >= pe(1) .and. x < pf(1)) then
-      else if (x >= pe(1)) then
-        radius = mef*x + bef
-     !else if (x == pf(1)) then
-     !  radius = pf(2)
-      end if
-      !
+    if (r <= y_in+eps_1) then
+      radius = smc000_interior_wall_radius(x,eps_1,eps_2)
       return_value = ( r <= radius )
-      !
     end if
     !
   end if
@@ -3614,25 +3583,54 @@ end function point_is_in_nozzle_interior
 !
 !###############################################################################
 !
-subroutine find_nozzle_core
+subroutine find_elem_for_initial_jet_profile
   !
   !.. Use Statements ..
   use geovar, only : nr,bface,nodes_of_cell,nodes_of_cell_ptr
   !
+  !.. Local Scalars ..
+  integer :: l,n,init
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_ave(1:3)
+  !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: cwn(:)
-  integer, allocatable :: cwn_ptr(:)
-  integer, allocatable :: csc(:)
-  integer, allocatable :: csc_ptr(:)
-  integer, allocatable :: cell_geom(:)
-  real(wp), allocatable :: cell_centers(:,:)
+  integer, allocatable :: pts(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "find_nozzle_core"
+  character(len=*), parameter :: pname = "find_elem_for_initial_jet_profile"
   !
 continue
   !
-end subroutine find_nozzle_core
+  xyz_ave(:) = zero
+  !
+  do n = 1,size(grid%elem)
+    !
+    if (grid%elem(n)%tags(1) == 0) then
+      !
+      pts = grid%elem(n)%pts(:) ! USING F2003 AUTO-REALLOCATION
+      !
+      do l = 1,size(grid%xyz,dim=1)
+        xyz_ave(l) = sum(grid%xyz(l,pts(:))) / real(size(pts),kind=wp)
+      end do
+      !
+      if (xyz_ave(1) > zero) then
+        init = 1
+      else
+        init = merge(1,0,point_is_in_nozzle_interior(xyz_ave))
+      end if
+      !
+      if (size(grid%elem(n)%tags) < 2) then
+        grid%elem(n)%tags = [grid%elem(n)%tags(1),init] ! F2003 AUTO-REALLOC
+      else
+        grid%elem(n)%tags(2) = init
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine find_elem_for_initial_jet_profile
 !
 !###############################################################################
 !
@@ -7266,6 +7264,7 @@ end subroutine cgns_memory_usage
 !
 include "Functions/bc_string_to_integer.f90"
 include "Functions/last.f90"
+include "Functions/smc000_interior_wall_radius.f90"
 !
 !###############################################################################
 !
