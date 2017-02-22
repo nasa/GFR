@@ -625,8 +625,8 @@ subroutine get_point_timestep(dtmin)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_point_timestep"
   !
-  integer, parameter :: make_p_plus_one = 0
- !integer, parameter :: make_p_plus_one = 1
+ !integer, parameter :: make_p_plus_one = 0
+  integer, parameter :: make_p_plus_one = 1
   !
 continue
   !
