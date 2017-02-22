@@ -3,7 +3,7 @@ module parallel_mod
 #include <mpi_defs.h>
   !
   !.. Use Statements ..
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nq
   use geovar,  only : face_t
   use geovar,  only : fp_t
@@ -4613,6 +4613,8 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   !.. Local Scalars ..
   integer :: my_part,this_part,lcell,lnode,gnode,ierr
   !
+  character(len=100) :: part_message
+  !
   !.. Local Allocatable Arrays ..
   integer,      allocatable :: global_geom(:)
   integer,      allocatable :: global_order(:)
@@ -4628,6 +4630,8 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   character(len=*), parameter :: pname = "root_localizes_grid"
   !
 continue
+  !
+  part_message = ""
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -4709,6 +4713,9 @@ continue
   !
   do this_part = 2,size(cell_map)
     !
+    write (part_message,11) this_part
+    call debug_timer(start_timer,part_message)
+    !
     if (mypnum == 0) then
       !
 #ifdef DEBUG_ON
@@ -4771,6 +4778,8 @@ continue
                                     grid_elem,grid_xyz,grid)
     end if
     !
+    call debug_timer(stop_timer,part_message)
+    !
   end do
   !
   ! Now have the root processor localize its own partition
@@ -4778,6 +4787,9 @@ continue
   if (mypnum == 0) then
     !
     this_part = 1
+    !
+    write (part_message,11) this_part
+    call debug_timer(start_timer,part_message)
     !
 #ifdef DEBUG_ON
     write (iout,10) this_part
@@ -4814,6 +4826,8 @@ continue
     !
     call unpack_localized_grid_dt(size(cell_map(this_part)%loc_to_glb), &
                                   grid_elem,grid_xyz,grid)
+    !
+    call debug_timer(stop_timer,part_message)
     !
   end if
   !
@@ -4873,6 +4887,7 @@ continue
   ! Format Statements
   !
   10 format (/,"For partition # ",i0)
+  11 format ("Root localizing partition # ",i0)
   !
 end subroutine root_localizes_grid
 !
@@ -6600,7 +6615,7 @@ subroutine root_localizes_grid_dt(this_part,cell_map,global_grid, &
   real(wp), allocatable, intent(inout) :: grid_xyz(:,:)
   !
   !.. Local Scalars ..
-  integer :: i,j,n,ngp,nge,ierr
+  integer :: i,j,n,ngp,nge,nlp,ierr
   integer :: loc_cell,glb_cell
   integer :: n1,n2,loc_pnt,glb_pnt
   !
@@ -6648,6 +6663,7 @@ continue
   !       POINTS SHOULD JUST BE THE SAME AS THE POINTS ON THE FACE OF
   !       THE HOST CELL THAT CORRESPONDS TO THE BOUNDARY FACE.
   !
+  call debug_timer(start_timer,"marking the grid points for this partition")
   nge = 0
   do loc_cell = 1,size(cell_map(this_part)%loc_to_glb)
     !
@@ -6695,6 +6711,8 @@ continue
     nge = nge + i
     !
   end do
+  call debug_timer(stop_timer,"marking the grid points for this partition")
+  call debug_timer(start_timer,"creating grid_xyz and reverse point mapping array")
   !
   ! #######
   ! ## 2 ##
@@ -6702,28 +6720,68 @@ continue
   !
   ! Create grid_xyz
   !
-  grid_xyz = global_grid%xyz(:, pack(intseq(1,ngp),msk) ) ! F2003 auto-realloc
- !!
- !! Create the points map to map the grid points local to this partition
- !! to their global point indices
- !!
+  ! SLOWER TO INCLUDE THE PACK WITHIN THE AUTOMATIC REALLOCATION
+ !grid_xyz = global_grid%xyz(:, pack(intseq(1,ngp),msk) ) ! F2003 auto-realloc
+  !
+  ! Create the points map to map the grid points local to this partition
+  ! to their global point indices
+  !
  !l2g_map = pack(intseq(1,ngp),msk) ! using F2003 automatic reallocation
- !!
- !! Allocate the grid_xyz array and copy data into it from global_grid%xyz
- !!
- !n1 = size(global_grid%xyz,dim=1)
- !n2 = size(l2g_map)
- !allocate ( grid_xyz(1:n1,1:n2), source=zero , &
- !           stat=ierr , errmsg=error_message )
- !call alloc_error(pname,"grid_xyz",1,__LINE__,__FILE__,ierr,error_message)
- !!
- !do loc_pnt = 1,size(l2g_map)
- !  !
- !  glb_pnt = l2g_map(loc_pnt)
- !  !
- !  grid_xyz(:,loc_pnt) = global_grid%xyz(:,glb_pnt)
- !  !
- !end do
+  !
+  nlp = count(msk)
+  allocate ( l2g_map(1:nlp) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"l2g_map",1,__LINE__,__FILE__,ierr,error_message)
+  n = 0
+  do glb_pnt = 1,size(msk)
+    if (msk(glb_pnt)) then
+      n = n + 1
+      l2g_map(n) = glb_pnt
+    end if
+  end do
+  !
+  ! Deallocate the msk array since it is no longer needed
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate the grid_xyz array and copy data into it from global_grid%xyz
+  !
+ !grid_xyz = global_grid%xyz(:,l2g_map) ! F2003 auto-realloc
+  !
+  n1 = size(global_grid%xyz,dim=1)
+  !
+  allocate ( grid_xyz(1:n1,1:nlp), source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do loc_pnt = 1,nlp
+    grid_xyz(:,loc_pnt) = global_grid%xyz(:,l2g_map(loc_pnt))
+  end do
+  !
+  ! Create the global point index to local point index reverse mapping array
+  ! NOTE: I TRIED TO COMBINE THE PREVIOUS LOOP WITH THE FOLLOWING LOOP INTO A
+  !       SINGLE LOOP, AS IN:
+  !          do loc_pnt = 1,nlp
+  !            glb_pnt = l2g_map(loc_pnt)
+  !            grid_xyz(:,loc_pnt) = global_grid%xyz(:,glb_pnt)
+  !            g2l_map(glb_pnt) = loc_pnt
+  !          end do
+  !       BUT THIS WAS ACTUALLY SLOWER THAN HAVING TWO SEPARATE LOOPS. IT MUST
+  !       HAVE SOMETHING TO DO WITH ACCESSING ELEMENTS OF global_grid%xyz,
+  !       grid_xyz, l2g_map, AND g2l_map FOR EACH LOOP ITERATION PREVENTS
+  !       THE OPTIMIZER FROM TAKING ADVANTAGE OF DATA LOCALITY TO PROPERLY
+  !       VECTORIZE THESE TASKS.
+  !
+  ! SLOWER TO USE UNPACK AND AUTOMATIC REALLOCATION
+ !g2l_map = unpack(intseq(1,count(msk)),mask=msk,field=0) ! F2003 auto-realloc
+  !
+  allocate ( g2l_map(1:ngp) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"g2l_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do loc_pnt = 1,nlp
+    g2l_map(l2g_map(loc_pnt)) = loc_pnt
+  end do
+  !
   !
   ! Deallocate l2g_map since it is no longer needed
   !
@@ -6738,17 +6796,10 @@ continue
   !
   ! Create grid_elem
   !
-  ! Create the global point index to local point index reverse mapping array
-  !
-  g2l_map = unpack(intseq(1,count(msk)),mask=msk,field=0) ! F2003 auto-realloc
-  !
-  ! Deallocate the msk array since it is no longer needed
-  !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
-  !
   ! Allocate the grid_elem array
   !
+  call debug_timer(stop_timer,"creating grid_xyz and reverse point mapping array")
+  call debug_timer(start_timer,"creating grid_elem")
   allocate ( grid_elem(1:nge) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -6887,6 +6938,7 @@ continue
     n = n + i
     !
   end do
+  call debug_timer(stop_timer,"creating grid_elem")
   !
   ! Check to make sure the final counter matches the size of the grid_elem array
   !
@@ -11466,6 +11518,173 @@ continue
 end function sum_map_sizes
 !
 !###############################################################################
+!
+subroutine debug_timer(time_flag,message,processor,part_num,acc)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: processor
+  integer, optional, intent(in) :: part_num
+  integer, optional, intent(in) :: acc
+  !
+#ifdef PROFILE_ON
+  !.. Local Scalars ..
+  real(wp), save :: beg_wall_time
+  real(wp)       :: end_wall_time
+  real(wp)       :: wall_time
+  !
+  integer, save :: procedure_counter = 0
+  integer       :: i,hours,minutes,seconds,total_sec
+  integer       :: output_cpu
+  !
+  character(len=300) :: out_message
+  !
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(10)
+  real(wp), save :: accumulated_time(10)
+  real(wp), save :: accumulation_beg_time(10)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: leading_space = "                    "
+  !
+continue
+  !
+  output_cpu = 0
+  if (present(processor)) output_cpu = processor
+  !
+  if (time_flag == start_timer) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+    if (mypnum == output_cpu) then
+      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == stop_timer) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_wall_time
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
+    end if
+    !
+    ! Reset beg_wall_time in case this procedure is called twice
+    ! in a row with time_flag set to stop_timer
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+  else if (time_flag == reset_accumulated_time) then
+    !
+    if (present(acc)) then
+      accumulated_time(acc) = zero
+    end if
+    !
+  else if (time_flag == report_accumulated_time) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),accumulated_time(acc), &
+                     trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == start_accumulation) then
+    !
+    if (present(acc)) then
+      accumulation_beg_time(acc) = mpi_wtime()
+    end if
+    !
+  else if (time_flag == stop_accumulation) then
+    !
+    if (present(acc)) then
+      wall_time = mpi_wtime() - accumulation_beg_time(acc)
+      accumulated_time(acc) = accumulated_time(acc) + wall_time
+    end if
+    !
+  else if (time_flag == entering_procedure) then
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,3) leading_space(1:i),trim(adjustl(message))
+    end if
+    !
+    procedure_counter = procedure_counter + 1
+    !
+    beg_procedure_time(procedure_counter) = mpi_wtime()
+   !beg_procedure_time(procedure_counter) = dclock()
+   !call cpu_time( beg_procedure_time(procedure_counter) )
+    !
+  else if (time_flag == leaving_procedure) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
+    !
+    procedure_counter = max( 0 , procedure_counter-1 )
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
+    end if
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (a,"## Starting timer for: ",a)
+  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
+  3 format (a,"=> Entering procedure : ",a)
+  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
+  5 format (a)
+  6 format (a," for partition # ",i0)
+  !
+#endif
+  !
+end subroutine debug_timer
+!
+!##############################################################################
 !
 include "Functions/last.f90"
 include "Functions/cell_solpts.f90"
