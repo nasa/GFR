@@ -688,6 +688,14 @@ module input_namelist_mod
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
   !
+  ! CFL ADJUSTMENT NAMELIST
+  !
+  namelist / cfl_adjustment / cfl, cfl_beg, cfl_end, cfl_cycles
+  !
+  ! RESTART INTERUPTION NAMELIST
+  !
+  namelist / restart_interupt / restart_file
+  !
 end module input_namelist_mod
 !
 !###############################################################################
