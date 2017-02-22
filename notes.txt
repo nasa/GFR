@@ -10,6 +10,49 @@
 ################################################################################
 ################################################################################
 
+* Improve the speed of the current partitioning algorithm. In order to prevent
+  using up all memory on all nodes, the root processor does all the partitioning
+  tasks by itself and sends each localized partition to the respective MPI
+  process. This takes the root process 0.15-0.25 seconds per
+  partition, but this small amount becomes significant when using large numbers
+  of processes (> 5000). For example, using 300 Broadwell nodes means 8400
+  processes, resulting in the partitioning portion of the pre-processor taking
+  20-30 minutes alone. The previous method was very quick (< 1 minute), but
+  required all processes to perform the same global partitioning tasks as all
+  other processes only diverging once it came to localizing their own partition.
+    - Look into a hybrid method between the current and previous methods. Have
+      the root processes local to each node do the same global partitioning
+      tasks, localize the partitions which are local to their respective
+      node, and finally send these localized partitions to the respective
+      processes on the same node. This way, only one process per node consumes
+      up the memory necessary for partitioning, preventing any nodes from
+      hanging caused by running out of memory.
+        a) We will probably need to create a new identifier, maybe GLOBAL_ROOT,
+           that corresponds to the global root process. We can then create a set
+           of processes under LOCAL_ROOT for all the root processes on each
+           node.
+        b) We will probably need to create new MPI groups/communicators to
+           collect/group all processes on each individual node.
+        c) An MPI communicator will probably need to be created for all
+           processes under LOCAL_ROOT, and this communicator will need to be
+           used with the CGNS module so all of these processes read in their own
+           copy of the CGNS grid file.
+    - Look into possibly using ParMETIS. I am not sure if using ParMETIS can
+      prevent all processes from having to consume large amounts of memory for
+      the global grid before they can create their own localized partitions.
+
+* Add a way to modify a simulation that is already running.
+    - Change the CFL number, including ramping for an input number of time
+      steps.
+    - If a simulation starts without or from a newer restart file, add a way to
+      "plant" a better restart file that is read in to replace the current
+      simulation data.
+   
+* Finish work on the restart module to include option of storing the monomial
+  modal coefficients in the restart file instead of the flow variables at the
+  solution points. This way the simulation could be restarted with different
+  solution points, solution orders, etc.
+
 * Restructure the flux procedures to combine matrix operations in the same way
   that PyFR and the Stanford group does it. Primarily, the discontinuous part
   of the correction should be separated from the common part so that it can be
@@ -216,16 +259,9 @@
      and the flux jumps.
 
 * A few tasks remain to complete the rework of the restart module.
-   - Need to add a subroutine similar to check_cgns_dir that will create a
-     directory for restart files and use lfs to optimize this directory
-     for the lustre file system.
-   - Need to tweak the MPI_FILE_INFO used for the restart subroutines so that
-     it provides the correct hints so that it can optimize the MPI I/O for
-     the lustre file system.
-   - Look at possibly storing the monomial modal coefficients in the restart
-     file instead of the flow variables at the solution points. This way the
-     simulation could be restarted with different solution points, solution
-     orders, etc.
+   - Need to work with NAS personnel (or a least sporadically check NAS
+     documentation) to find the best MPI_FILE_INFO hints for the restart
+     subroutines optimize the MPI I/O for the Lustre file system.
 
 * Possibly add geom and order components to the cell_on_face_t derived type.
   This is another duplicate of information that could be found elsewhere but
