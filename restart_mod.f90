@@ -99,6 +99,7 @@ subroutine read_restart_file
   use geovar,       only : n_global_cell
   use ovar,         only : itrst,tmrst,dtrst
   use ovar,         only : iop_solpts
+  use ovar,         only : restart_file
   use flowvar,      only : usp
   !.. Use Statements for old restart files ..
   use geovar,       only : n_global_totpts
@@ -129,8 +130,9 @@ subroutine read_restart_file
   integer :: inp_cell,inp_geom,inp_order
   integer :: this_cell,this_geom,this_order
   !
-  character(len=10) :: inp_solpts
-  character(len=50) :: restart_form
+  character(len=10)  :: inp_solpts
+  character(len=50)  :: restart_form
+  character(len=150) :: fname
   !
   !.. Local Allocatable Arrays ..
   integer(wip),       allocatable :: ordered_geom(:)
@@ -141,13 +143,14 @@ subroutine read_restart_file
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_restart_file"
-  character(len=*), parameter :: fname = "out.rst"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
   solution_errors = 0
+  !
+  fname = trim(adjustl(restart_file))
   !
   if (use_old_restart_format) then
     !
