@@ -26,6 +26,7 @@ program Euler_tri
   use ovar, only : adjust_cfl_cycles
   !
   use input_namelist_mod, only : cfl_adjustment
+  use input_namelist_mod, only : restart_interupt
   !
   use flowvar, only : usp,uoldsp
   !
@@ -128,6 +129,7 @@ program Euler_tri
   logical(ldk) :: request_stop
   logical(ldk) :: request_solution
   logical(ldk) :: request_cfl_adjustment
+  logical(ldk) :: request_restart_interupt
   !
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
@@ -649,6 +651,23 @@ continue
             cfl_tmp = [cfl,cfl_beg,cfl_end,real(cfl_cycles,kind=wp)]
             !
           end if
+         !!
+         !! Check for a file requesting an interuption of the current
+         !! simulation to restart it with a new restart file
+         !!
+         !inquire (file="RESTART_INTERUPT",exist=request_restart_interupt)
+         !!
+         !! If restart interuption was requested, delete the RESTART_INTERUPT file
+         !!
+         !if (request_restart_interupt) then
+         !  !
+         !  write (iout,96)
+         !  !
+         !  open (newunit=i,file="RESTART_INTERUPT",iostat=ierr)
+         !  close (i,status="delete",iostat=ierr)
+         !  !
+         !end if
+          !
         end if
         !
         ! Have the root processor broadcast request_stop to
@@ -693,6 +712,9 @@ continue
           call adjust_cfl_cycles
           !
         end if
+        !
+       !call mpi_bcast(request_restart_interupt,1_int_mpi,MPI_LOGICAL, &
+       !               0_int_mpi,MPI_COMM_WORLD,mpierr)
         !
       end if
       !
