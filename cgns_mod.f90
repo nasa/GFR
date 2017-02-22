@@ -134,8 +134,8 @@ module module_cgns
   logical(lk), parameter :: debug_cgns = fals
  !logical(lk), parameter :: debug_cgns = true
   !
- !logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = fals
-  logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = true
+  logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = fals
+ !logical(lk), parameter :: create_nozzle_interior_cgns_gridfile = true
   !
   ! ###################################
   ! ###  Module Derived Data Types  ###
