@@ -198,7 +198,7 @@ subroutine rgeterr(walltime_expiring)
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in
   use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
-  use ovar,    only : convergence_reached
+  use ovar,    only : convergence_reached,cfl
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : this_is_final_timestep
   use ovar,    only : iter_out_interval
@@ -382,7 +382,6 @@ continue
   else
     !
     entL2 = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
-
     !
     ! Check for convergence
     !
@@ -413,7 +412,8 @@ continue
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-                              rltwo,entL2,rl2mx,nloc, &
+                             !rltwo,entL2,rl2mx,nloc, &
+                              cfl,rltwo,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax, &
                               hrs_left,min_left,sec_left
@@ -421,7 +421,8 @@ continue
 #else
     !
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-                              rltwo,entL2,rl2mx,nloc, &
+                             !rltwo,entL2,rl2mx,nloc, &
+                              cfl,rltwo,rl2mx,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax
     !
@@ -649,9 +650,12 @@ continue
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
-  202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
-              "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
+  202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
+              "'L2-Density',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
+ !202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
+ !            "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
+ !            "x,'Solpt',5x,'x',8x,'y'")
   203 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
