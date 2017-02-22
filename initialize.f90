@@ -358,7 +358,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: k,np,ierr
-  real(wp) :: div,dl,r,r0,xave
+  real(wp) :: div,dl,r,r0
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: adj_xyz(:,:)
@@ -402,18 +402,18 @@ continue
     !
     if (init_cond /= 0) then
       !
-      xave = sum(xyz(1,:)) / real(np,kind=wp)
+      ! div = thickness parameter for shear layer
+      !     = (radius of nozzle at the lip) * 0.1
+      ! NOTE: The nozzle lip should be located at x=0.0 so sending any value
+      !       greater than 0.0 into the function smc000_interior_wall_radius
+      !       should return the radius of the nozzle at the lip.
       !
-      if (xave <= zero) then
-        r0 = 0.0254_wp
-      else
-        r0 = 0.0254_wp
-      end if
-      div = eps1*r0
+      div = eps1*smc000_interior_wall_radius(one)
       !
       do k = 1,np
         !
-        r = norm2(xyz(:,k))
+        r0 = smc000_interior_wall_radius(xyz(1,k))
+        r = norm2(xyz(2:,k))
         return_value(:,k) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
                                         bc_in(init_cond)%pv(:))
         !
@@ -2038,6 +2038,7 @@ include "Functions/usp2v.f90"
 include "Functions/vsp2u.f90"
 include "Functions/viscosity.f90"
 include "Functions/temperature.f90"
+include "Functions/smc000_interior_wall_radius.f90"
 !
 !###############################################################################
 !
