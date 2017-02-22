@@ -20,6 +20,7 @@ module ovar
   !
   public :: recon_cpu_time
   public :: ovar_memory_usage
+  public :: adjust_cfl_cycles
   !
   !
   !
@@ -54,7 +55,7 @@ module ovar
   real(wp), public, save :: Final_Time = -1.0_wp
   real(wp), public, save :: cfl_beg    = 0.1_wp
   real(wp), public, save :: cfl_end    = 1.0_wp
-  integer,  public, save :: cfl_cycles = 100
+  integer,  public, save :: cfl_cycles = 0
   real(wp), public, save :: cfl        = 1.0_wp
   real(wp), public, save :: dt_in      = 0.0008_wp
   integer,  public, save :: Timestep_Type = 0
@@ -224,6 +225,9 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   !
+  real(wp), public, save :: cfl_cycle_start
+  real(wp), public, save :: cfl_cycle_end
+  !
   integer,  public, save :: itrst = 0
   real(wp), public, save :: tmrst = zero
   real(wp), public, save :: dtrst = zero
@@ -337,6 +341,17 @@ module ovar
   character(len=32), public, save, allocatable :: bc_names(:)
   !
 contains
+!
+!###############################################################################
+!
+subroutine adjust_cfl_cycles
+  !
+continue
+  !
+  cfl_cycle_start = itcur
+  cfl_cycle_end = itcur + cfl_cycles
+  !
+end subroutine adjust_cfl_cycles
 !
 !###############################################################################
 !

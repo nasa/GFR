@@ -35,6 +35,7 @@ subroutine initialize_flow()
   use ovar, only : alpha_aoaref,beta_aoaref
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
+  use ovar, only : adjust_cfl_cycles
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
@@ -225,6 +226,8 @@ continue
     time  = zero
     !
   end if
+  !
+  call adjust_cfl_cycles
   !
   ! Deallocate the grid derived type
   !

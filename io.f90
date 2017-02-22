@@ -580,9 +580,14 @@ continue
       !
     else
       !
-      cfl_end = max(cfl_end,eps6)    ! cfl_end must be >= 1.0e-6
-      cfl_cycles = max(cfl_cycles,1) ! cfl_cycles must be at least 1
-      cfl_beg = min(cfl_beg,cfl_end) ! cfl_beg must be <= cfl_end
+      if (cfl_cycles < 2) then
+        cfl_beg = CFL
+        cfl_end = CFL
+        cfl_cycles = 0
+      else
+        cfl_end = max(cfl_end,eps6)    ! cfl_end must be >= 1.0e-6
+        cfl_beg = min(cfl_beg,cfl_end) ! cfl_beg must be <= cfl_end
+      end if
       !
     end if
     !

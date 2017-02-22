@@ -165,12 +165,24 @@ subroutine get_current_cfl
   !
   !.. Use Statements ..
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles,itcur
+  use ovar, only : cfl_cycle_start,cfl_cycle_end
+  !
+  !.. Local Scalars ..
+  real(wp) :: cycle_ratio
   !
 continue
   !
-  if (itcur < cfl_cycles) then
-    cfl = cfl_beg + (cfl_end - cfl_beg) * real(itcur-1,kind=wp) / &
-                                          real(cfl_cycles-1,kind=wp)
+  if (itcur < cfl_cycle_end) then
+   !cfl = cfl_beg + (cfl_end - cfl_beg) * real(itcur-1,kind=wp) / &
+   !                                      real(cfl_cycles-1,kind=wp)
+    if (cfl_cycles < 2) then
+      cycle_ratio = one
+    else
+      cycle_ratio = real(itcur-cfl_cycle_start-1,kind=wp) / &
+                    real(cfl_cycles-1,kind=wp)
+    end if
+    !
+    cfl = cfl_beg + (cfl_end - cfl_beg) * cycle_ratio
   else
     cfl = cfl_end
   end if
