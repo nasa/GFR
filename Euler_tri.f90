@@ -22,6 +22,10 @@ program Euler_tri
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : continuous_output
   use ovar, only : check_flux_point_coordinates
+  use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
+  use ovar, only : adjust_cfl_cycles
+  !
+  use input_namelist_mod, only : cfl_adjustment
   !
   use flowvar, only : usp,uoldsp
   !
@@ -123,6 +127,7 @@ program Euler_tri
   logical(lk)  :: walltime_expiring
   logical(ldk) :: request_stop
   logical(ldk) :: request_solution
+  logical(ldk) :: request_cfl_adjustment
   !
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
@@ -133,6 +138,8 @@ program Euler_tri
   !
   integer      :: bad_number_found(1:size(ieee_usual))
   logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
+  !
+  real(wp) :: cfl_tmp(1:4)
   !
  !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
   !
@@ -625,6 +632,23 @@ continue
             !
           end if
           !
+          ! Check for a CFL adjustment file
+          !
+          inquire (file="ADJUST_CFL",exist=request_cfl_adjustment)
+          !
+          ! If a CFL adjustment was requested, delete the ADJUST_CFL file
+          !
+          if (request_cfl_adjustment) then
+            !
+            write (iout,95)
+            !
+            open (newunit=i,file="ADJUST_CFL",iostat=ierr)
+            read (i,nml=cfl_adjustment)
+            close (i,status="delete",iostat=ierr)
+            !
+            cfl_tmp = [cfl,cfl_beg,cfl_end,real(cfl_cycles,kind=wp)]
+            !
+          end if
         end if
         !
         ! Have the root processor broadcast request_stop to
@@ -651,6 +675,23 @@ continue
             call write_parallel_cgns(dump_CGNS)
           end if
           CGNS_action = reopen_CGNS
+        end if
+        !
+        call mpi_bcast(request_cfl_adjustment,1_int_mpi,MPI_LOGICAL, &
+                       0_int_mpi,MPI_COMM_WORLD,mpierr)
+        !
+        if (request_cfl_adjustment) then
+          !
+          call mpi_bcast(cfl_tmp,size(cfl_tmp,kind=int_mpi),mpi_flttyp, &
+                         0_int_mpi,MPI_COMM_WORLD,mpierr)
+          !
+          cfl = cfl_tmp(1)
+          cfl_beg = cfl_tmp(2)
+          cfl_end = cfl_tmp(3)
+          cfl_cycles = nint(cfl_tmp(4))
+          !
+          call adjust_cfl_cycles
+          !
         end if
         !
       end if
@@ -803,6 +844,9 @@ continue
   !
   50 format (/'Done'/)
   !
+  95 format (/,"*******************************************************",/, &
+               "    FOUND FILE REQUESTING AN ADJUSTMENT TO THE CFL! ",/, &
+               "*******************************************************",/)
   97 format (/,"*******************************************************",/, &
                "  FOUND FILE REQUESTING A DUMP OF THE SOLUTION FILE! ",/, &
                "*******************************************************",/)
