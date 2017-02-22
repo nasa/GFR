@@ -71,6 +71,7 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/connectivity.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
+             $(FUNDIR)/smc000_interior_wall_radius.f90 \
              $(FUNDIR)/last.f90
 
 $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
@@ -204,6 +205,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/derivatives_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
+	       $(FUNDIR)/smc000_interior_wall_radius.f90 \
                $(FUNDIR)/usp2v.f90 \
                $(FUNDIR)/viscosity.f90
 
