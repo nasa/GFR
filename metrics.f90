@@ -174,8 +174,9 @@ subroutine get_metrics()
   integer  :: min_nfbnd_cpu,max_nfbnd_cpu
   integer  :: min_nface_cpu,max_nface_cpu
   integer  :: min_nspts_cpu,max_nspts_cpu
+  integer  :: min_ncv,max_ncv,min_ncv_cpu,max_ncv_cpu
   real(r8) :: loc_vol,tot_vol
-  real(wp) :: ave_ncell,ave_nnode,ave_vol
+  real(wp) :: ave_ncell,ave_nnode,ave_vol,ave_cell_vol
   real(wp) :: ave_nfbnd,ave_nface,ave_nspts
   !
  !integer :: exitstat,cmndstat
@@ -187,8 +188,8 @@ subroutine get_metrics()
   integer  :: all_part_info(1:5,1:ncpu)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: outmet(1:nr,1:nr)
-  real(wp) :: jac_info(1:9)
-  real(wp) :: all_jac_info(1:9,1:ncpu)
+  real(wp) :: jac_info(1:13)
+  real(wp) :: all_jac_info(1:13,1:ncpu)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
@@ -374,6 +375,9 @@ continue
   min_jtp = minloc(jacobian,mask=jacobian/=zero,dim=1)
   max_jtp = maxloc(jacobian,mask=jacobian/=zero,dim=1)
   !
+  min_ncv = minloc(volj(1:ncell),dim=1)
+  max_ncv = maxloc(volj(1:ncell),dim=1)
+  !
   jac_info(1) = real(min_jsp,kind=wp)
   jac_info(2) = real(max_jtp,kind=wp)
   jac_info(3) = real(min_jsp,kind=wp)
@@ -383,6 +387,10 @@ continue
   jac_info(7) = jacobian(min_jsp)
   jac_info(8) = jacobian(max_jtp)
   jac_info(9) = local_volume
+  jac_info(10) = real(min_ncv,kind=wp)
+  jac_info(11) = real(max_ncv,kind=wp)
+  jac_info(12) = volj(min_ncv)
+  jac_info(13) = volj(max_ncv)
   !
   part_info(1) = ncell
   part_info(2) = nnode
@@ -413,11 +421,16 @@ continue
   max_jtp_cpu = minloc( all_jac_info(8,:) , dim=1 )
   min_vol_cpu = minloc( all_jac_info(9,:) , dim=1 )
   max_vol_cpu = maxloc( all_jac_info(9,:) , dim=1 )
+  min_ncv_cpu = minloc( all_jac_info(12,:) , dim=1 )
+  max_ncv_cpu = maxloc( all_jac_info(13,:) , dim=1 )
   !
   min_jsp = nint( all_jac_info(1,min_jsp_cpu) )
   max_jsp = nint( all_jac_info(2,max_jsp_cpu) )
   min_jtp = nint( all_jac_info(3,min_jtp_cpu) )
   max_jtp = nint( all_jac_info(4,max_jtp_cpu) )
+  !
+  min_ncv = nint( all_jac_info(10,min_ncv_cpu) )
+  max_ncv = nint( all_jac_info(11,max_ncv_cpu) )
   !
   min_ncell_cpu = minloc( all_part_info(1,:) , dim=1 )
   max_ncell_cpu = maxloc( all_part_info(1,:) , dim=1 )
@@ -443,12 +456,18 @@ continue
   ave_vol   = sum( all_jac_info(9,:) ) / &
               real( size(all_jac_info(9,:)) , kind=kind(ave_vol) )
   !
+  ave_cell_vol = sum( all_jac_info(9,:) ) / &
+                 real( sum( all_part_info(1,:) ) , kind=kind(ave_cell_vol) )
+  !
   if (mypnum == 0) then
     !
-    write (iout,1) all_jac_info(5,min_jsp_cpu),min_jsp,min_jsp_cpu-1, &
-                   all_jac_info(6,max_jsp_cpu),max_jsp,max_jsp_cpu-1, &
-                   all_jac_info(7,min_jtp_cpu),min_jtp,min_jtp_cpu-1, &
-                   all_jac_info(8,max_jtp_cpu),max_jtp,max_jtp_cpu-1
+    write (iout,1) all_jac_info( 5,min_jsp_cpu),min_jsp,min_jsp_cpu-1, &
+                   all_jac_info( 6,max_jsp_cpu),max_jsp,max_jsp_cpu-1, &
+                   all_jac_info( 7,min_jtp_cpu),min_jtp,min_jtp_cpu-1, &
+                   all_jac_info( 8,max_jtp_cpu),max_jtp,max_jtp_cpu-1, &
+                   all_jac_info(12,min_ncv_cpu),min_ncv,min_ncv_cpu-1, &
+                   all_jac_info(13,max_ncv_cpu),max_ncv,max_ncv_cpu-1, &
+                   ave_cell_vol
     !
     write (iout,2) all_part_info(1,min_ncell_cpu),min_ncell_cpu, &
                    all_part_info(1,max_ncell_cpu),max_ncell_cpu, &
@@ -472,10 +491,13 @@ continue
   end if
   !
   1 format (/, &
-         " Min Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Max Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Min Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-         " Max Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0)
+     " Min Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+     " Max Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+     " Min Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
+     " Max Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,//, &
+     " Min Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
+     " Max Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
+     " Ave Interior Cell Volume =",es16.8)
   !
   2 format (/, &
           " Min ncell = ",i0,t25,"on CPU # ",i0,/, &
@@ -521,9 +543,9 @@ continue
  !      write (iout,199) exitstat,cmndstat,trim(adjustl(cmndmsg))
  !    end if
  !  end do
- !  write (error_message,*) "After outputting the metrics because ", &
- !                          "the output_metrics parameter is active!"
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    write (error_message,*) "After outputting the metrics because ", &
+                            "the output_metrics parameter is active!"
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !  194 format (a,a)
  !  199 format (/," Error attempting to use command line!",/, &
  !                " exit status    = ",i0,/, &
