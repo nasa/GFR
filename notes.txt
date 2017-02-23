@@ -47,7 +47,11 @@
     - If a simulation starts without or from a newer restart file, add a way to
       "plant" a better restart file that is read in to replace the current
       simulation data.
-   
+
+* Add PDE-based artificial viscosity based on thesis of Barter (MIT). This will
+  require adding another equation to the system to solve for the artificial
+  viscosity state variable.
+
 * Finish work on the restart module to include option of storing the monomial
   modal coefficients in the restart file instead of the flow variables at the
   solution points. This way the simulation could be restarted with different
