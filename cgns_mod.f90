@@ -1511,7 +1511,7 @@ subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
-  integer :: i,j,j0,j1,j2,id_mult
+  integer :: i,j,j0,j1,j2
   integer :: ib,iz,ig,ic,ix,is,ibc
   integer :: elem_beg,elem_end
   integer :: mine,maxe,sume,ierr
@@ -1536,8 +1536,6 @@ subroutine transfer_cgns_data_to_grid_dt
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  id_mult = 1
   !
   wall_type = 'SLIPWALL'
   if (governing_equations == NavierStokes_Eqns) then
@@ -1879,34 +1877,38 @@ continue
         !
         n = n + 1
         !
+        j1 = 3
         bc_string = BCTYPENAME( base(ib)%zone(iz)%bc(ibc)%boco_type )
         if (uppercase(bc_string) == 'NULL') then
+          j1 = 1
           bc_string = trim(adjustl(base(ib)%zone(iz)%bc(ibc)%name))
         end if
+        j2 = len_trim(bc_string)
         !
         !#################################################################
         !#################################################################
         !#################################################################
         !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
         !
-        id_mult = 1
-        if (uppercase(bc_string) == 'FARFIELD') then
+        if (uppercase(bc_string(j1:j2)) == 'FARFIELD') then
           bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string) == 'INFLOW') then
+        else if (uppercase(bc_string(j1:j2)) == 'INFLOW') then
          !bc_string = 'REFERENCE'
           bc_string = 'CHARACTERISTIC'
-        else if (uppercase(bc_string) == 'INFLOWSUBSONIC') then
+        else if (uppercase(bc_string(j1:j2)) == 'INFLOWSUBSONIC') then
          !bc_string = 'SUBINFLOW'
           bc_string = 'CHARACTERISTIC'
-         !id_mult = -1
-        else if (uppercase(bc_string) == 'NOZZLEBASE') then
+        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEBASE') then
           bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string) == 'NOZZLEEXTERIOR') then
+        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEEXTERIOR') then
           bc_string = trim(adjustl(wall_type))
-        else if (uppercase(bc_string) == 'NOZZLEINTERIOR') then
+        else if (uppercase(bc_string(j1:j2)) == 'NOZZLEINTERIOR') then
           bc_string = trim(adjustl(wall_type))
-         !id_mult = -1
-        else if (uppercase(bc_string) == 'OUTFLOW') then
+        else if (uppercase(bc_string(j1:j2)) == 'WALL') then
+          bc_string = trim(adjustl(wall_type))
+        else if (uppercase(bc_string(j1:j2)) == 'OUTFLOW') then
+          bc_string = 'CHARACTERISTIC'
+        else if (uppercase(bc_string(j1:j2)) == 'OUTFLOWSUBSONIC') then
           bc_string = 'CHARACTERISTIC'
         end if
         !#################################################################
@@ -1919,7 +1921,7 @@ continue
         else if (base(ib)%zone(iz)%bc(ibc)%location == EDGECENTER) then
           cell_grps(n)%cell_dim = 1
         end if
-        cell_grps(n)%grp_id = id_mult*(n-1)
+        cell_grps(n)%grp_id = n-1
         cell_grps(n)%ibc = bc_string_to_integer( bc_string )
         if (cell_grps(n)%ibc == bc_unsupported) then
           if (allocated(unsupported_bc)) then
