@@ -384,7 +384,7 @@ pure function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars
-  integer  :: i,j,n1,n2,ierr
+  integer  :: i,j,nqp,nqo,nsp,nso,ierr
   real(qp) :: x
   !
   !.. Local Allocatable Arrays ..
@@ -392,25 +392,27 @@ pure function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   !
 continue
   !
-  n1 = size(xi)
+  nqp = size(xi)
+  nqo = nqp-1
   !
   if (present(number_of_modes)) then
-    n2 = number_of_modes
+    nso = number_of_modes
   else
-    n2 = n1
+    nso = nqo
   end if
+  nsp = nso+1
   !
   ! Allocate the return array containing the
   ! working precision Vandermonde matrix
   !
-  allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
+  allocate ( return_value(1:nqp,1:nsp) , source=zero , stat=ierr )
   !
   ! Create the Vandermonde matrix using quad precision
   !
-  allocate ( vmat_qp(1:n1,1:n2) , source=qzero , stat=ierr )
+  allocate ( vmat_qp(1:nqp,1:nsp) , source=qzero , stat=ierr )
   !
-  do j = 1,n2
-    do i = 1,n1
+  do j = 1,nsp
+    do i = 1,nqp
       !
       x = real( xi(i) , kind=qp )
       !
