@@ -543,9 +543,9 @@ continue
  !      write (iout,199) exitstat,cmndstat,trim(adjustl(cmndmsg))
  !    end if
  !  end do
-    write (error_message,*) "After outputting the metrics because ", &
-                            "the output_metrics parameter is active!"
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !  write (error_message,*) "After outputting the metrics because ", &
+ !                          "the output_metrics parameter is active!"
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !  194 format (a,a)
  !  199 format (/," Error attempting to use command line!",/, &
  !                " exit status    = ",i0,/, &
