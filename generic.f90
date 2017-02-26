@@ -515,11 +515,16 @@ subroutine init_generic_mod
   use ovar,   only : ulinf,ulone,ultwo,unloc,ukloc
   use ovar,   only : vlinf,vlone,vltwo,vnloc,vkloc
   !
+  use pbs_mod, only : pbs_remaining_walltime
+  !
   !.. Local Scalars ..
-  integer :: ierr
-  integer :: final_iter_digits
-  integer :: max_cell_digits
-  integer :: max_solpt_digits
+  integer     :: ierr
+  integer     :: final_iter_digits
+  integer     :: max_cell_digits
+  integer     :: max_solpt_digits
+  integer     :: hrs_left,min_left,sec_left
+  logical(lk) :: walltime_expiring
+  real(wp)    :: wall_time_left
   character(len=100) :: char_num
   character(len=1000) :: iter_header
   !
@@ -629,6 +634,21 @@ continue
   !
 #ifdef PBS_ENV
   iter_header = iter_header(1:len_trim(iter_header)) // ",4x,'Time Left'"
+  !
+  ! Get the remaining wall time before the solver begins
+  !
+  call pbs_remaining_walltime(walltime_expiring,wall_time_left)
+  !
+  sec_left = abs(nint(wall_time_left))
+  !
+  hrs_left = sec_left/3600
+  min_left = (sec_left - hrs_left*3600)/60
+  sec_left = sec_left - hrs_left*3600 - min_left*60
+  ! Make hrs_left negative if wall_time_left happens to be negative
+  hrs_left = sign(hrs_left,int(wall_time_left))
+  !
+  if (mypnum == 0) write (iout,2) hrs_left,min_left,sec_left
+  !
 #endif
   !
   ! Put the last ')' onto iter_header
@@ -644,6 +664,8 @@ continue
   ! Format Statements
   !
   1 format (i0)
+  2 format (/,"  After Pre-Processor and Initializations =>", &
+              "  Wall Time Remaining = ",i3,2(":",i2.2))
   100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
