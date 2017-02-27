@@ -13,6 +13,7 @@ module ovar
   use module_kind_types, only : iout,zero
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
+  use module_kind_types, only : bc_unknown
   !
   implicit none
   !
@@ -308,6 +309,8 @@ module ovar
   type, public :: bc_input_t
     !
     character(len=32) :: name = ""
+    !
+    integer :: set_bc_value = bc_unknown
     !
     real(wp) :: t_static   = -huge(0.0_wp)
     real(wp) :: p_static   = -huge(0.0_wp)

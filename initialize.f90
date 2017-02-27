@@ -1376,8 +1376,21 @@ continue
       bcinp = trim(adjustl( uppercase( bc_input(n)%name      ) ))
       !
       if (bcnam == bcinp) then
+        !
         ii = ii + 1
+        !
+        ! Save the index for this boundary condition
+        ! within the bc_in array to bface(6,:)
+        !
         bface(6,nf) = i
+        !
+        ! Force the boundary condition to that specified in the input file
+        ! if the value of set_bc_value is not equal to bc_unknown
+        !
+        if (bc_input(n)%set_bc_value /= bc_unknown) then
+          bface(1,nf) = bc_input(n)%set_bc_value
+        end if
+        !
       end if
       !
     end do bface_loop
