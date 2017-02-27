@@ -621,8 +621,8 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,pv_in,relax)
   real(wp) :: pv_in_rlx(1:size(pv_in))
   !
   !.. Local Parameters ..
- !logical(lk), parameter :: veln_is_int = true
-  logical(lk), parameter :: veln_is_int = fals
+  logical(lk), parameter :: veln_is_int = true
+ !logical(lk), parameter :: veln_is_int = fals
   !
 continue
   !
@@ -675,49 +675,37 @@ continue
     ! Apply boundary conditions based on the
     ! normal Mach number to the boundary face
     !
-    mach_int = vn_int/aspd_int ! interior normal Mach number
-    mach_ext = vn_ext/aspd_ext ! exterior normal Mach number
-    !
     rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
     rm = vn_ext - two*aspd_ext*gm1_inv ! Incoming Reimann invariant
     !
     ! Supersonic inflow boundary
     !    Set R+ so that 0.5*(R+ + R-) = vn_ext
     !
-   !if (abs(vn_ext)/aspd_ext >= one .and. vn_int >= zero) then
-   !if (vn_int <= 
-    if (vn_ext/aspd_ext <= -one) then
-   !if (vn_int/aspd_int <= -one) then
+   !if (vn_ext/aspd_ext <= -one) then
+    if (vn_ext <= -aspd_ext) then
       rp = vn_ext + two*aspd_ext*gm1_inv
     end if
     !
     ! Supersonic outflow boundary
     !    Set R- so that 0.5*(R+ + R-) = vn_int
     !
-   !if (abs(vn_int)/aspd_int >= one .and. vn_int < zero) then
-    if (vn_int/aspd_int >= one) then
+   !if (vn_int/aspd_int >= one) then
+    if (vn_int >= aspd_int) then
       rm = vn_int - two*aspd_int*gm1_inv
     end if
     !
     unc = half*(rp+rm)
     ac  = one4*gm1*(rp-rm)
-   !sc  = pv_in_rlx(nee) / (pv_in_rlx(nec)**gam)
-    !
     !
     if (vn_int > zero) then ! outflow boundary
-      sc = aspd_int**2 / (gam * (hvfp(nec)**gm1))
+     !sc = aspd_int**2 / (gam * (hvfp(nec)**gm1))
+      sc = hvfp(nee) / (hvfp(nec)**gam)
     else                 ! inflow boundary
-      sc = aspd_ext**2 / (gam * (pv_in_rlx(nec)**gm1))
+     !sc = aspd_ext**2 / (gam * (pv_in_rlx(nec)**gm1))
+      sc = pv_in_rlx(nee) / (pv_in_rlx(nec)*gam)
     end if
     !
     rho = ( ac * ac / (gam*sc) )**gm1_inv
-   !if (vn_int < zero) then ! inflow boundary
-   !  rho = ( ac * ac / (gam*sc) )**gm1_inv
-   !else                    ! outflow boundary
-   !  rho = hvfp(nec) * (hvfp(nec)*ac*ac/(gam*hvfp(nee)))**gm1_inv
-   !end if
-    !
-    pres = rho * ac * ac / gam
     !
     ! Compute the primitive variables at the boundary flux points
     !
@@ -730,7 +718,8 @@ continue
       gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_ext)*rnrm(:)
     end if
     !
-    gufp(nee,k) = pres
+   !gufp(nee,k) = rho * ac * ac / gam
+    gufp(nee,k) = sc * (rho**gam)
     !
     ! Convert the primitive variables to conservative variables
     !
