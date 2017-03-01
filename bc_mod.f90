@@ -702,7 +702,7 @@ continue
       sc = hvfp(nee) / (hvfp(nec)**gam)
     else                 ! inflow boundary
      !sc = aspd_ext**2 / (gam * (pv_in_rlx(nec)**gm1))
-      sc = pv_in_rlx(nee) / (pv_in_rlx(nec)*gam)
+      sc = pv_in_rlx(nee) / (pv_in_rlx(nec)**gam)
     end if
     !
     rho = ( ac * ac / (gam*sc) )**gm1_inv
