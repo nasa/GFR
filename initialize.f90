@@ -1234,134 +1234,145 @@ continue
   !
   do i = 1,size(bc_list)
     !
-    static_is_set = fals
-    total_is_set = fals
-    mach_is_set = fals
-    vel_is_set = fals
-    !
     n = bc_list(i)
     !
-    if (mypnum == 0) then
-      write (iout,2) i,trim(adjustl(bc_input(n)%name))
-    end if
-    !
-    ! Copy over the relaxation information
-    !
-    bc_in(i)%relax%value = min(one,max(bc_input(n)%relax%value,zero))
-    bc_in(i)%relax%time = max(bc_input(n)%relax%time,zero)
-    bc_in(i)%relax%iter = max(bc_input(n)%relax%iter,0)
-    !
-    if ( (bc_input(n)%wall_temp >= tmin) .and. &
-         (bc_input(n)%wall_temp <= tmax) ) then
+    if ( bc_input(n)%has_default_flow_conditions() ) then
       !
-      bc_in(i)%wall_temperature = bc_input(n)%wall_temp
+      if (mypnum == 0) then
+        write (iout,2) i,trim(adjustl(bc_input(n)%name)), &
+          trim(adjustl(bc_integer_to_string(bc_input(n)%set_bc_value)))
+      end if
       !
     else
       !
-      r = bc_input(n)%rho_static
-      p = bc_input(n)%p_static
-      t = bc_input(n)%t_static
-      !
-      r0 = bc_input(n)%rho_total
-      p0 = bc_input(n)%p_total
-      t0 = bc_input(n)%t_total
-      !
-      mach  = bc_input(n)%mach
-      alpha = bc_input(n)%alpha_aoa
-      beta  = bc_input(n)%beta_aoa
-      !
-      if (size(vel) == 1) then
-        vel(:) = [ bc_input(n)%vx ]
-      else if (size(vel) == 2) then
-        vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
-      else if (size(vel) == 3) then
-        vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
-      end if
-      !
-      iterate_bc_conditions: do ii = 1,5
-        !
-        mach_is_set = ( abs(mach) < five*five )
-        vel_is_set  = ( norm2(vel) > zero )
-        !
-        call igl(r,p,t,static_is_set,n)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"igl(r,p,t)")
-        call igl(r0,p0,t0,total_is_set,n)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"igl(r0,p0,t0)")
-        !
-        call mach_total_pres(p,p0,mach,mach_is_set,n)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"mach_total_pres")
-        call mach_total_temp(t,t0,mach,mach_is_set,n)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"mach_total_temp")
-        call mach_total_dens(r,r0,mach,mach_is_set,n)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"mach_total_dens")
-        !
-        call vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
-       !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
-       !                        static_is_set,total_is_set, &
-       !                        vel_is_set,mach_is_set,"vel_from_static")
-        !
-        if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
-        !
-        if (ii == 5) then
-          write (error_message,1) n
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-        end if
-        !
-      end do iterate_bc_conditions
-      !
-      pv(nec) = r
-      pv(nmb:nme) = vel
-      pv(nee) = p
-      !
-      call check_bc_input(bc_input(n),pv,n)
-      !
-      pv(nec) = pv(nec) / rhoref
-      pv(nmb:nme) = pv(nmb:nme) / aref
-      pv(nee) = pv(nee) / rhoa2
-      !
-      cv(:) = vsp2u_sp(pv)
-      !
-      bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
-      bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
+      static_is_set = fals
+      total_is_set = fals
+      mach_is_set = fals
+      vel_is_set = fals
       !
       if (mypnum == 0) then
+        write (iout,3) i,trim(adjustl(bc_input(n)%name))
+      end if
+      !
+      ! Copy over the relaxation information
+      !
+      bc_in(i)%relax%value = min(one,max(bc_input(n)%relax%value,zero))
+      bc_in(i)%relax%time = max(bc_input(n)%relax%time,zero)
+      bc_in(i)%relax%iter = max(bc_input(n)%relax%iter,0)
+      !
+      if ( (bc_input(n)%wall_temp >= tmin) .and. &
+           (bc_input(n)%wall_temp <= tmax) ) then
         !
-        r = bc_in(i)%pv(nec)*rhoref
-        p = bc_in(i)%pv(nee)*rhoa2
-        t = temperature_pv_sp(bc_in(i)%pv)*tref
+        bc_in(i)%wall_temperature = bc_input(n)%wall_temp
         !
-        aspd = sqrt(gam*rgasref*t)
-        mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
+      else
         !
-        total_cond = one + half*gm1*mach*mach
+        r = bc_input(n)%rho_static
+        p = bc_input(n)%p_static
+        t = bc_input(n)%t_static
         !
-        r0 = r * total_cond**one_over_gm1
-        p0 = p * total_cond**gam_over_gm1
-        t0 = t * total_cond
+        r0 = bc_input(n)%rho_total
+        p0 = bc_input(n)%p_total
+        t0 = bc_input(n)%t_total
         !
-        alpha = zero
-        beta = zero
-        if (nr >= 2) then
-          alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
-          if (nr == 3) then
-            beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
-          end if
+        mach  = bc_input(n)%mach
+        alpha = bc_input(n)%alpha_aoa
+        beta  = bc_input(n)%beta_aoa
+        !
+        if (size(vel) == 1) then
+          vel(:) = [ bc_input(n)%vx ]
+        else if (size(vel) == 2) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
+        else if (size(vel) == 3) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
         end if
-        alpha = alpha * radians2degrees
-        beta = beta * radians2degrees
         !
-        write (iout,3) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
-        write (iout,4) p,t,mach,aspd,r0,p0,t0,alpha,beta
+        iterate_bc_conditions: do ii = 1,5
+          !
+          mach_is_set = ( abs(mach) < five*five )
+          vel_is_set  = ( norm2(vel) > zero )
+          !
+          call igl(r,p,t,static_is_set,n)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"igl(r,p,t)")
+          call igl(r0,p0,t0,total_is_set,n)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"igl(r0,p0,t0)")
+          !
+          call mach_total_pres(p,p0,mach,mach_is_set,n)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"mach_total_pres")
+          call mach_total_temp(t,t0,mach,mach_is_set,n)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"mach_total_temp")
+          call mach_total_dens(r,r0,mach,mach_is_set,n)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"mach_total_dens")
+          !
+          call vel_from_static(r,p,t,vel,mach,alpha,beta,vel_is_set,mach_is_set)
+         !call dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
+         !                        static_is_set,total_is_set, &
+         !                        vel_is_set,mach_is_set,"vel_from_static")
+          !
+          if (static_is_set .and. vel_is_set) exit iterate_bc_conditions
+          !
+          if (ii == 5) then
+            write (error_message,1) n
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          end if
+          !
+        end do iterate_bc_conditions
+        !
+        pv(nec) = r
+        pv(nmb:nme) = vel
+        pv(nee) = p
+        !
+        call check_bc_input(bc_input(n),pv,n)
+        !
+        pv(nec) = pv(nec) / rhoref
+        pv(nmb:nme) = pv(nmb:nme) / aref
+        pv(nee) = pv(nee) / rhoa2
+        !
+        cv(:) = vsp2u_sp(pv)
+        !
+        bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
+        bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
+        !
+        if (mypnum == 0) then
+          !
+          r = bc_in(i)%pv(nec)*rhoref
+          p = bc_in(i)%pv(nee)*rhoa2
+          t = temperature_pv_sp(bc_in(i)%pv)*tref
+          !
+          aspd = sqrt(gam*rgasref*t)
+          mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
+          !
+          total_cond = one + half*gm1*mach*mach
+          !
+          r0 = r * total_cond**one_over_gm1
+          p0 = p * total_cond**gam_over_gm1
+          t0 = t * total_cond
+          !
+          alpha = zero
+          beta = zero
+          if (nr >= 2) then
+            alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
+            if (nr == 3) then
+              beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+            end if
+          end if
+          alpha = alpha * radians2degrees
+          beta = beta * radians2degrees
+          !
+          write (iout,4) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
+          write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta
+          !
+        end if
         !
       end if
       !
@@ -1399,7 +1410,7 @@ continue
                        MPI_SUM,MPI_COMM_WORLD,mpierr)
     !
     if (mypnum == 0) then
-      write (iout,5) ii
+      write (iout,6) ii
     end if
     !
   end do
@@ -1412,12 +1423,14 @@ continue
   ! Format Statements
   !
   1 format ("Error iterating on BC # ",i0," !!!")
-  2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
-  3 format (4x,"Static Density        = ",es14.6,/, &
+  2 format (/," Setting boundary condition for BC # ",i0," - '",a,"'",/, &
+              "    to ",a)
+  3 format (/," Flow conditions for BC # ",i0," - '",a,"'")
+  4 format (4x,"Static Density        = ",es14.6,/, &
             4x,"X-velocity            = ",es14.6,:,/, &
             4x,"Y-velocity            = ",es14.6,:,/, &
             4x,"Z-velocity            = ",es14.6)
-  4 format (4x,"Static Pressure       = ",es14.6,/, &
+  5 format (4x,"Static Pressure       = ",es14.6,/, &
             4x,"Static Temperature    = ",es14.6,/, &
             4x,"Mach Number           = ",es14.6,/, &
             4x,"Speed of Sound        = ",es14.6,/, &
@@ -1426,7 +1439,7 @@ continue
             4x,"Total Temperature     = ",es14.6,/, &
             4x,"Alpha Angle of Attack = ",es14.6,/, &
             4x,"Beta  Angle of Attack = ",es14.6,/)
-  5 format (4x,"Number of boundary faces for this BC = ",i0)
+  6 format (4x,"Number of boundary faces for this BC = ",i0)
   !
 end subroutine create_bc_in
 !
