@@ -284,7 +284,8 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
-             $(OBJDIR)/parallel.o
+             $(OBJDIR)/parallel.o \
+	     $(FUNDIR)/pressure.f90
 
 $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/kind_types.o \
