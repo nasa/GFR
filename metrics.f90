@@ -59,6 +59,13 @@ module metrics_mod
 #ifdef USE_OLD_METRICS
   real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics
 #else
+  !
+  ! this is essentially metrics(:,:,n) = metrics(:,:,n,2) / jacobian(n)
+  !
+  !                            d(xi_l)
+  ! or simply metrics(l,i,n) = -------
+  !                            d(x_i)
+  !
   real(wp), public, save, allocatable, dimension(:,:,:) :: metrics
 #endif
   !
