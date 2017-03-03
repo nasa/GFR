@@ -2,7 +2,7 @@ module module_limiters
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
   !
   implicit none
   !
@@ -26,11 +26,12 @@ module module_limiters
   !
   !.. Module Local Allocatable Arrays ..
   !
-  real(wp), save, allocatable, dimension(:,:) :: cell_ave_sol
-  real(wp), save, allocatable, dimension(:,:) :: umodes
+  real(wp), save, allocatable :: cell_ave_sol(:,:)
+  real(wp), save, allocatable :: umodes(:,:)
+  real(wp), save, allocatable :: marker(:)
   !
-  logical(lk), save, allocatable, dimension(:) :: troubled_cell
-  logical(lk), save, allocatable, dimension(:) :: needs_limiting
+  logical(lk), save, allocatable :: troubled_cell(:)
+  logical(lk), save, allocatable :: needs_limiting(:)
   !
   !
   !.. Module Parameters ..
@@ -276,6 +277,193 @@ end subroutine limit_by_projecting
 !
 !###############################################################################
 !
+subroutine resolution_indicator()
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell
+  use order_mod, only : maxSP
+  use quadrature_mod, only : std_elem
+  use flowvar, only : usp
+  use metrics_mod, only : jacobian
+  use filter_mod, only : filter
+  !
+  !.. Local Scalars ..
+  integer  :: nc,n1,n2,np
+  integer  :: this_geom,this_order
+  real(wp) :: l2_p,l2_pm1,psi0,fk
+  !
+  !.. Local Arrays ..
+  real(wp) :: rho_p(1:maxSP)
+  real(wp) :: rho_pm1(1:maxSP)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "jump_indicator"
+  real(wp),         parameter :: dpsi = half
+  !
+continue
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Copy the degree-P polynomial solution of density at the solution points
+    !
+    rho_p(1:np) = usp(nec,n1:n2)
+    !
+    ! Compute the degree-(P-1) polynomial solution
+    ! of density at the solution points
+    !
+    rho_pm1(1:np) = filter(this_geom,this_order)% &
+                              cutoff(this_order)% &
+                    mv_mult( rho_p(1:np) )
+    !
+    ! Compute the L2 inner product of the two polynomials
+    !
+    l2_pm1 = sum( rho_pm1(1:np) * jacobian(n1:n2) * &
+                  std_elem(this_geom,this_order)%wts(1:np) )
+    !
+    l2_p = sum( rho_p(1:np) * jacobian(n1:n2) * &
+                std_elem(this_geom,this_order)%wts(1:np) )
+    !
+    fk = log10( l2_pm1 / l2_p )
+    !
+    psi0 = -one*(four + 4.25_wp*log10(real(this_order,kind=wp)))
+    !
+    if (fk <= psi0-dpsi) then
+      marker(nc) = zero
+    else if (marker(nc) >= psi0+dpsi) then
+      marker(nc) = one
+    else
+      marker(nc) = half*(one + sin(half*pi*(fk-psi0)/dpsi))
+    end if
+    !
+  end do
+  !
+end subroutine resolution_indicator
+!
+!###############################################################################
+!
+subroutine jump_indicator()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,ncell,cell,nface,face
+  use order_mod, only : maxFP,geom_solpts
+  use flowvar, only : faceusp
+  use metrics_mod, only : geofa
+  !
+  !.. Local Scalars ..
+  integer :: nc,nf,k,kl,kr,nfp,ierr
+  integer :: left_geom,right_geom,face_geom
+  integer :: left_cell,right_cell,face_order
+  real(wp) :: ds,dsl,dsr,p_ave,p_diff,p_jump,psi0
+  !
+  !.. Local Arrays ..
+  real(wp) :: unrm(1:nr)
+  real(wp) :: pl_fp(1:maxFP)
+  real(wp) :: pr_fp(1:maxFP)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: area_sum(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "jump_indicator"
+  real(wp), parameter :: dpsi = half
+  !
+continue
+  !
+  allocate ( area_sum(1:ncell) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"area_sum",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  marker(:) = zero
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom  ! geometry of face
+    face_order = face(nf)%order ! order of face
+    !
+    nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
+    !
+    left_cell = face(nf)%left%cell ! left  cell on face
+    right_cell = face(nf)%right%cell ! right cell on face
+    !
+    left_geom = cell(left_cell)%geom
+    right_geom = cell(right_cell)%geom
+    !
+    ! For all the flux points on the current face, extract the conservative
+    ! conservative variables for the left and right cells from faceusp
+    !
+    pl_fp(1:nfp) = pressure_cv( faceusp(nf)%v(1:nq,1:nfp,1) )
+    pr_fp(1:nfp) = pressure_cv( faceusp(nf)%v(1:nq,1:nfp,2) )
+    !
+    ! Correct the gradients of the conservative variables using the
+    ! solution jumps at the interface and the correction function
+    !
+    ! Use the LDG flux formulation for computing the common interface solutions
+    !   u_com = half*(u_left + u_right) - &
+    !                (u_left - u_right)*dot(LDG_beta,unit_normal)
+    !
+    do k = 1,nfp
+      !
+      ! Get the index for the correction function 
+      ! corresponding to the current interface flux point
+      !
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
+      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
+      !
+      ! Get the unit normal at this flux point
+      !
+      unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
+      !
+      ! Get the face length for the current face
+      !
+      ds = rnorm2( geofa(nf)%v(1:nr,k) )
+      dsl = cl(left_geom)*ds
+      dsr = cl(right_geom)*ds
+      !
+      p_ave = half * (pl_fp(kl) + pr_fp(kr))
+      p_diff = dot( unrm(:)*(pl_fp(kl) - pr_fp(kr)) , unrm(:) )
+      !
+      p_jump = p_diff / p_ave
+      !
+      marker(left_cell) = marker(left_cell) + dsl*p_jump
+      marker(right_cell) = marker(right_cell) + dsr*p_jump
+      !
+      area_sum(left_cell) = area_sum(left_cell) + dsl
+      area_sum(right_cell) = area_sum(right_cell) + dsr
+      !
+    end do
+    !
+  end do
+  !
+  do nc = 1,ncell
+    !
+    psi0 = -one*(2.25_wp + three*log10(real(cell(nc)%order,kind=wp)))
+    !
+    marker(nc) = marker(nc) / area_sum(nc)
+    !
+    if (marker(nc) <= psi0-dpsi) then
+      marker(nc) = zero
+    else if (marker(nc) >= psi0+dpsi) then
+      marker(nc) = one
+    else
+      marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
+    end if
+    !
+  end do
+  !
+  deallocate ( area_sum , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"area_sum",2,__LINE__,__FILE__,ierr,error_message)
+  !
+end subroutine jump_indicator
+!
+!###############################################################################
+!
 subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !
   !.. Use Statements ..
@@ -425,6 +613,10 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine limiters_memory_usage
+!
+!###############################################################################
+!
+include "Functions/pressure.f90"
 !
 !###############################################################################
 !
