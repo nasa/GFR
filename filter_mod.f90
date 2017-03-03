@@ -22,9 +22,31 @@ module filter_mod
   !
   ! Module public arrays
   !
-  ! filter : 
+  ! filter_t : derived type that contains various types of filtering matrices
   !
-  type(matrix), public, save, target, allocatable :: filter(:,:)
+  type, public :: filter_t
+    ! exponential : matrix to filter a polynomial by multiplying the polynomial
+    !               modes by an exponentially decreasing function
+    type(matrix), allocatable :: exponential
+    ! cutoff : matrix to filter a polynomial by
+    !          cutting-off (zeroing) higher modes
+    type(matrix), allocatable :: cutoff(:)
+  end type filter_t
+  !
+  ! filter : filter matrices for all combinations of cell geometry and
+  !          cell order that are possible in the current simulation
+  !
+  type(filter_t), public, save, target, allocatable :: filter(:,:)
+  !
+  ! Cutoff_Filter_Option : method used to compute the cutoff filter matrices
+  !          = 1 : use a tensor product of the 1D filter with the filter cutoff
+  !                based on the order of the 1D polynomial
+  !          = 2 : the filter cutoff is based on total polynomial order,
+  !                i.e., for the polynomial (x^a * y^b * z*c), 
+  !                      the total polynomial order = a+b+c
+  !
+ !integer, parameter :: Cutoff_Filter_Option = 1
+  integer, parameter :: Cutoff_Filter_Option = 2
   !
 contains
 !
@@ -42,9 +64,11 @@ subroutine init_filter_matrices()
   !.. Local Scalars ..
   integer :: ierr,gmin,gmax,omin,omax
   integer :: this_geom,this_order,npts
+  integer :: cutoff_order
   character(len=200) :: array_name
   !
   !.. Local Pointers ..
+  type(matrix), pointer :: filt
   real(wp), pointer, contiguous :: fmat(:,:)
   real(wp), pointer, contiguous :: vmat(:,:)
   real(wp), pointer, contiguous :: vmat_inv(:,:)
@@ -58,6 +82,7 @@ continue
   !
   ! Initialize the local pointers to disassociated
   !
+  filt => null()
   fmat => null()
   vmat => null()
   vmat_inv => null()
@@ -84,20 +109,38 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      ! Allocate the correction matrix
+      ! Assign local pointers as aliases to simplify the code
       !
-      allocate ( filter(this_geom,this_order)%mat(1:npts,1:npts) , &
-                 source=zero , stat=ierr , errmsg=error_message )
-      write (array_name,1) Geom_Name(this_geom),this_order
+      vmat => vand(this_geom,this_order)%modal2nodal%mat
+      vmat_inv => vand(this_geom,this_order)%nodal2modal%mat
+      !
+      ! ###################################
+      ! #####  1. Exponential Filter  #####
+      ! ###################################
+      !
+      ! Allocate the exponential filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%exponential , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"exponential"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
       ! Assign local pointers as aliases to simplify the code
       !
-      fmat => filter(this_geom,this_order)%mat
-      vmat => vand(this_geom,this_order)%modal2nodal%mat
-      vmat_inv => vand(this_geom,this_order)%nodal2modal%mat
+      filt => filter(this_geom,this_order)%exponential
       !
-      ! Compute the correction matrices depending on geometry type
+      ! Allocate the exponential filter matrix
+      !
+      allocate ( filt%mat(1:npts,1:npts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"exponential%mat"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Assign local pointers as aliases to simplify the code
+      !
+      fmat => filt%mat
+      !
+      ! Compute the filter matrices depending on geometry type
       !
       select case (this_geom)
         case (Geom_Edge)
@@ -130,13 +173,93 @@ continue
           !
         case default
           !
-          write (error_message,2)
+          write (error_message,100)
           call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !
       ! Remove all associations of the local pointers before continuing
       !
+      if (associated(filt)) filt => null()
+      if (associated(fmat)) fmat => null()
+      !
+      ! ################################
+      ! #####  2. Cut-Off Filters  #####
+      ! ################################
+      !
+      ! Allocate the exponential filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%cutoff(1:this_order) , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"cutoff"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      cutoff_loop: do cutoff_order = 1,this_order
+        !
+        ! Assign local pointers as aliases to simplify the code
+        !
+        filt => filter(this_geom,this_order)%cutoff(cutoff_order)
+        !
+        ! Allocate the exponential filter matrix
+        !
+        allocate ( filt%mat(1:npts,1:npts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order, &
+                             "cutoff",cutoff_order
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        !
+        ! Assign local pointers as aliases to simplify the code
+        !
+        fmat => filt%mat
+        !
+        ! Compute the filter matrices depending on geometry type
+        !
+        select case (this_geom)
+          case (Geom_Edge)
+            !
+            fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Tria)
+            !
+            fmat = FilterMatrix_Tria( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Quad)
+            !
+            fmat = FilterMatrix_Quad( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Tetr)
+            !
+            fmat = FilterMatrix_Tetr( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Pyra)
+            !
+            fmat = FilterMatrix_Pyra( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Pris)
+            !
+            fmat = FilterMatrix_Pris( vmat , vmat_inv , cutoff_order )
+            !
+          case (Geom_Hexa)
+            !
+            fmat = FilterMatrix_Hexa( vmat , vmat_inv , cutoff_order )
+            !
+          case default
+            !
+            write (error_message,100)
+            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            !
+        end select
+        !
+        ! Remove all associations of the local pointers before continuing
+        !
+        if (associated(filt)) filt => null()
+        if (associated(fmat)) fmat => null()
+        !
+      end do cutoff_loop
+      !
+      ! Remove all associations of the local pointers before continuing
+      !
+      if (associated(filt)) filt => null()
       if (associated(fmat)) fmat => null()
       if (associated(vmat)) vmat => null()
       if (associated(vmat_inv)) vmat_inv => null()
@@ -147,14 +270,19 @@ continue
   !
   ! Check for sparsity
   !
-  call filter%check_for_sparsity
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      call filter(this_geom,this_order)%exponential%check_for_sparsity
+      call filter(this_geom,this_order)%cutoff%check_for_sparsity
+    end do
+  end do
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format ("filter(",a,",",i0,")%mat")
-  2 format (" A grid cell of an unknown geometry type was found!")
+  1 format ("filter(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  100 format (" A grid cell of an unknown geometry type was found!")
   !
 end subroutine init_filter_matrices
 !
@@ -188,7 +316,9 @@ continue
     this_order = cell(n)%order
     !
     do m = 1,size(usp,dim=1)
-      usp(m,n1:n2) = filter(this_geom,this_order)%mv_mult( usp(m,n1:n2) )
+      usp(m,n1:n2) = filter(this_geom,this_order)% &
+                                      exponential% &
+                     mv_mult( usp(m,n1:n2) )
     end do
     !
   end do
@@ -199,7 +329,7 @@ end subroutine filter_usp
 !
 !###############################################################################
 !
-pure function FilterMatrix_Edge(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Edge(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -207,14 +337,19 @@ pure function FilterMatrix_Edge(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: filter_1D_qp(:)
@@ -227,14 +362,20 @@ continue
   nsp = size(vand,dim=1)
   order = nsp-1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    Filter_Cutoff = cutoff_order
+    local_Filter_Option = Cutoff_Filter_Option
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -253,16 +394,20 @@ continue
   !
   ! Fill the diagonal of the filter matrix with the filter function
   !
-  do i = 0,order
-    if (i >= Filter_Cutoff) then
-      !
-      rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-      rd_qp = qone - fetac_qp
-      !
-      fmat_qp(i+1,i+1) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
-      !
-    end if
-  end do
+  if (local_Filter_Option /= 0) then
+    !
+    do i = 0,order
+      if (i >= Filter_Cutoff) then
+        !
+        rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+        rd_qp = qone - fetac_qp
+        !
+        fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        !
+      end if
+    end do
+    !
+  end if
   !
   ! Compute the final filter matrix for quadrilaterals
   !
@@ -278,7 +423,7 @@ end function FilterMatrix_Edge
 !
 !###############################################################################
 !
-pure function FilterMatrix_Quad(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Quad(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -286,12 +431,16 @@ pure function FilterMatrix_Quad(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -310,15 +459,20 @@ continue
  !np = nint( sqrt(real(nsp,kind=wp)) )
  !order = np-1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
-  feps_qp   = real( one - Filter_eps , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order*merge(2,1,local_Filter_Option==2)
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -337,7 +491,7 @@ continue
   !
   ! Compute the filter diagonal for quadrilaterals
   !
-  if (Filter_Option == 1) then
+  if (local_Filter_Option == 1) then
     !
     ! Option 1 - Tensor product of the 1D filter
     !           (Equivalent to using a 1D filter in each direction)
@@ -372,7 +526,7 @@ continue
       end do
     end do
     !
-  else if (Filter_Option == 2) then
+  else if (local_Filter_Option == 2) then
     !
     ! Option 2 - The quad basis functions actually contains cross polynomial
     !            terms up to order 2*p (as opposed to just 1*p for triangles).
@@ -412,7 +566,7 @@ end function FilterMatrix_Quad
 !
 !###############################################################################
 !
-pure function FilterMatrix_Tria(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Tria(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -420,14 +574,19 @@ pure function FilterMatrix_Tria(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: fmat_qp(:,:)
@@ -440,14 +599,20 @@ continue
   order = solpts2order_tria(nsp)
   np = order+1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    Filter_Cutoff = cutoff_order
+    local_Filter_Option = Cutoff_Filter_Option
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -460,14 +625,13 @@ continue
   !
   ! Initialize the local filter matrices to identity matrices
   !
-  fmat_qp(:,:) = qzero
   do i = 1,nsp
     fmat_qp(i,i) = qone
   end do
   !
   ! Compute the filter diagonal for triangles
   !
-  if (Filter_Option /= 0) then
+  if (local_Filter_Option /= 0) then
     !
     k = 1
     do i = 0,order
@@ -478,7 +642,7 @@ continue
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
           rd_qp = qone - fetac_qp
           !
-          fmat_qp(k,k) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
           !
         end if
         !
@@ -503,7 +667,7 @@ end function FilterMatrix_Tria
 !
 !###############################################################################
 !
-pure function FilterMatrix_Tetr(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Tetr(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -511,14 +675,19 @@ pure function FilterMatrix_Tetr(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: fmat_qp(:,:)
@@ -531,14 +700,20 @@ continue
   order = solpts2order_tetr(nsp)
   np = order+1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    Filter_Cutoff = cutoff_order
+    local_Filter_Option = Cutoff_Filter_Option
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -551,14 +726,13 @@ continue
   !
   ! Initialize the local filter matrices to identity matrices
   !
-  fmat_qp(:,:) = qzero
   do i = 1,nsp
     fmat_qp(i,i) = qone
   end do
   !
   ! Compute the filter diagonal for triangles
   !
-  if (Filter_Option /= 0) then
+  if (local_Filter_Option /= 0) then
     !
     k = 1
     do i = 0,order
@@ -569,7 +743,7 @@ continue
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
           rd_qp = qone - fetac_qp
           !
-          fmat_qp(k,k) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
           !
         end if
         !
@@ -594,7 +768,7 @@ end function FilterMatrix_Tetr
 !
 !###############################################################################
 !
-pure function FilterMatrix_Pyra(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Pyra(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -602,14 +776,19 @@ pure function FilterMatrix_Pyra(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: fmat_qp(:,:)
@@ -622,14 +801,20 @@ continue
   order = solpts2order_pyra(nsp)
   np = order+1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    Filter_Cutoff = cutoff_order
+    local_Filter_Option = Cutoff_Filter_Option
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -642,14 +827,13 @@ continue
   !
   ! Initialize the local filter matrices to identity matrices
   !
-  fmat_qp(:,:) = qzero
   do i = 1,nsp
     fmat_qp(i,i) = qone
   end do
   !
   ! Compute the filter diagonal for triangles
   !
-  if (Filter_Option /= 0) then
+  if (local_Filter_Option /= 0) then
     !
     k = 1
     do i = 0,order
@@ -660,7 +844,7 @@ continue
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
           rd_qp = qone - fetac_qp
           !
-          fmat_qp(k,k) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
           !
         end if
         !
@@ -685,7 +869,7 @@ end function FilterMatrix_Pyra
 !
 !###############################################################################
 !
-pure function FilterMatrix_Pris(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Pris(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -693,14 +877,19 @@ pure function FilterMatrix_Pris(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: fmat_qp(:,:)
@@ -713,14 +902,20 @@ continue
   order = solpts2order_pris(nsp)
   np = order+1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    Filter_Cutoff = cutoff_order
+    local_Filter_Option = Cutoff_Filter_Option
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -740,7 +935,7 @@ continue
   !
   ! Compute the filter diagonal for triangles
   !
-  if (Filter_Option /= 0) then
+  if (local_Filter_Option /= 0) then
     !
     k = 1
     do i = 0,order
@@ -751,7 +946,7 @@ continue
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
           rd_qp = qone - fetac_qp
           !
-          fmat_qp(k,k) = exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
           !
         end if
         !
@@ -776,7 +971,7 @@ end function FilterMatrix_Pris
 !
 !###############################################################################
 !
-pure function FilterMatrix_Hexa(vand,vand_inv) result(return_value)
+pure function FilterMatrix_Hexa(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -784,12 +979,16 @@ pure function FilterMatrix_Hexa(vand,vand_inv) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: cutoff_order
+  !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: i,j,k,l,np,nsp,order
   integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -808,15 +1007,20 @@ continue
  !np = nint( real(nsp,kind=wp)**one3 )
  !order = np-1
   !
-  ! Compute the filter cutoff level
-  !
-  Filter_Cutoff = nint( max(zero, min(one,Filter_etac) ) * real(order,kind=wp) )
-  !
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   fetac_qp  = real( Filter_etac , kind=qp )
-  feps_qp  = real( one - Filter_eps , kind=qp )
+  !
+  if (present(cutoff_order)) then
+    local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order*merge(3,1,local_Filter_Option==2)
+    feps_qp = qzero
+  else
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
   !
   ! Allocate the return array containing the working
   ! precision filter matrix
@@ -835,7 +1039,7 @@ continue
   !
   ! Compute the filter diagonal for hexahedrals
   !
-  if (Filter_Option == 1) then
+  if (local_Filter_Option == 1) then
     !
     ! Option 1 - Tensor product of the 1D filter
     !           (Equivalent to using a 1D filter in each direction)
@@ -872,7 +1076,7 @@ continue
       end do
     end do
     !
-  else if (Filter_Option == 2) then
+  else if (local_Filter_Option == 2) then
     !
     ! Option 2 - The hex basis functions actually contains cross polynomial
     !            terms up to order 3*p (as opposed to just 1*p for simplexes).
@@ -923,7 +1127,7 @@ subroutine filter_memory_usage(iunit)
   integer, optional, intent(in) :: iunit
   !
   !.. Local Scalars ..
-  integer :: iou,i,j
+  integer :: iou,i,j,k
   character(len=36) :: array_name
   type(memory) :: array,dt
   type(memory) :: total
@@ -947,12 +1151,47 @@ continue
     do j = lbound(filter,dim=2),ubound(filter,dim=2)
       do i = lbound(filter,dim=1),ubound(filter,dim=1)
         !
-        array = filter(i,j)%memory_usage()
+        if (allocated(filter(i,j)%exponential)) then
+          !
+          call array%set( storage_size(filter(i,j)%exponential,kind=inttype) )
+          !
+          write (array_name,4) Geom_Name(i),j,"exponential"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+          array = filter(i,j)%exponential%memory_usage()
+          !
+          write (array_name,4) Geom_Name(i),j,"exponential%mat"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+        end if
         !
-        write (array_name,4) Geom_Name(i),j
-        write (iou,2) array_name,array%get_units()
-        !
-        call dt%add(array)
+        if (allocated(filter(i,j)%cutoff)) then
+          !
+          call array%set( storage_size(filter(i,j)%cutoff,kind=inttype) , &
+                                  size(filter(i,j)%cutoff,kind=inttype) )
+          !
+          write (array_name,4) Geom_Name(i),j,"cutoff"
+          write (iou,2) array_name,array%get_units()
+          !
+          call dt%add(array)
+          !
+          do k = lbound(filter(i,j)%cutoff,dim=1), &
+                 ubound(filter(i,j)%cutoff,dim=1)
+            !
+            array = filter(i,j)%cutoff(k)%memory_usage()
+            !
+            write (array_name,4) Geom_Name(i),j,"cutoff",k
+            write (iou,2) array_name,array%get_units()
+            !
+            call dt%add(array)
+            !
+          end do
+          !
+        end if
         !
       end do
     end do
@@ -975,7 +1214,7 @@ continue
   1 format (/,"Status of arrays in module filter_mod")
   2 format (" Array: ",a,dt)
   3 format (" Total memory = ",f8.2,1x,a)
-  4 format ("filter(",a,",",i0,")%mat")
+  4 format ("filter(",a,",",i0,")",a,:,"(",i0,")%mat")
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
