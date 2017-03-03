@@ -10,7 +10,7 @@ module ovar
   use module_kind_types, only : visc_interface_fluxes
   use module_kind_types, only : laminar_flow
   use module_kind_types, only : one_work_unit
-  use module_kind_types, only : iout,zero
+  use module_kind_types, only : iout,zero,one,eps6
   use module_kind_types, only : mpi_wtime
   use module_kind_types, only : Correction_gDG
   use module_kind_types, only : bc_unknown
@@ -328,6 +328,10 @@ module ovar
     !
     type(relaxation_t) :: relax
     !
+  contains
+    !
+    procedure :: has_default_flow_conditions
+    !
   end type bc_input_t
   !
   type(bc_input_t), public, save :: bc_input(1:20)
@@ -344,6 +348,42 @@ module ovar
   character(len=32), public, save, allocatable :: bc_names(:)
   !
 contains
+!
+!###############################################################################
+!
+pure function has_default_flow_conditions(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(bc_input_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = fals
+  !
+  if (abs(this%t_static  +huge(zero)) <= eps6) return
+  if (abs(this%p_static  +huge(zero)) <= eps6) return
+  if (abs(this%rho_static+huge(zero)) <= eps6) return
+  if (abs(this%mach      +huge(zero)) <= eps6) return
+  if (abs(this%vx                   ) <= eps6) return
+  if (abs(this%vy                   ) <= eps6) return
+  if (abs(this%vz                   ) <= eps6) return
+  if (abs(this%t_total   +huge(zero)) <= eps6) return
+  if (abs(this%p_total   +huge(zero)) <= eps6) return
+  if (abs(this%rho_total +huge(zero)) <= eps6) return
+  if (abs(this%alpha_aoa            ) <= eps6) return
+  if (abs(this%beta_aoa             ) <= eps6) return
+  if (abs(this%wall_temp +huge(zero)) <= eps6) return
+  !
+  if (abs(this%relax%value- one) <= eps6) return
+  if (abs(this%relax%time -zero) <= eps6) return
+  if (    this%relax%iter        ==    0) return
+  !
+  return_value = true
+  !
+end function has_default_flow_conditions
 !
 !###############################################################################
 !
