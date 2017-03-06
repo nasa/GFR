@@ -206,7 +206,8 @@ continue
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order, &
                              "cutoff",cutoff_order
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
         !
         ! Assign local pointers as aliases to simplify the code
         !
@@ -272,8 +273,12 @@ continue
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
-      call filter(this_geom,this_order)%exponential%check_for_sparsity
-      call filter(this_geom,this_order)%cutoff%check_for_sparsity
+      if (allocated(filter(this_geom,this_order)%exponential)) then
+        call filter(this_geom,this_order)%exponential%check_for_sparsity
+      end if
+      if (allocated(filter(this_geom,this_order)%cutoff)) then
+        call filter(this_geom,this_order)%cutoff%check_for_sparsity
+      end if
     end do
   end do
   !
@@ -365,13 +370,14 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
-    Filter_Cutoff = cutoff_order
     local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order
+    fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -400,9 +406,13 @@ continue
       if (i >= Filter_Cutoff) then
         !
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-        rd_qp = qone - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
         !
-        fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        if (rd_qp == qzero) then
+          fmat_qp(i+1,i+1) = feps_qp
+        else
+          fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**Filter_Order)
+        end if
         !
       end if
     end do
@@ -423,7 +433,8 @@ end function FilterMatrix_Edge
 !
 !###############################################################################
 !
-pure function FilterMatrix_Quad(vand,vand_inv,cutoff_order) result(return_value)
+ pure &
+function FilterMatrix_Quad(vand,vand_inv,cutoff_order) result(return_value)
   !
   ! Routine to compute the spectral filter matrices
   !
@@ -462,13 +473,15 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
     local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order*merge(2,1,local_Filter_Option==2)
+    i = merge(2,1,local_Filter_Option==2)
+    Filter_Cutoff = i*cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -506,10 +519,14 @@ continue
       if (i >= Filter_Cutoff) then
         !
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-        rd_qp = qone - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
         !
-        filter_1D_qp(i+1) = feps_qp * &
-                            exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        if (rd_qp == qzero) then
+          filter_1D_qp(i+1) = feps_qp
+        else
+          filter_1D_qp(i+1) = feps_qp * &
+                              exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        end if
         !
       end if
     end do
@@ -541,9 +558,13 @@ continue
           k = np*j + i + 1
           !
           rn_qp = real(i+j-Filter_Cutoff,kind=qp)
-          rd_qp = real(2*order-Filter_Cutoff,kind=qp)
+          rd_qp = max( qzero , real(2*order-Filter_Cutoff,kind=qp) )
           !
-          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          end if
           !
         end if
         !
@@ -602,13 +623,14 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
-    Filter_Cutoff = cutoff_order
     local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -640,9 +662,13 @@ continue
         if (i+j >= Filter_Cutoff) then
           !
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = qone - fetac_qp
+          rd_qp = max( qzero , qone - fetac_qp )
           !
-          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          end if
           !
         end if
         !
@@ -703,13 +729,14 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
-    Filter_Cutoff = cutoff_order
     local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -741,9 +768,13 @@ continue
         if (i+j >= Filter_Cutoff) then
           !
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = qone - fetac_qp
+          rd_qp = max( qzero , qone - fetac_qp )
           !
-          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          end if
           !
         end if
         !
@@ -804,13 +835,14 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
-    Filter_Cutoff = cutoff_order
     local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -842,9 +874,13 @@ continue
         if (i+j >= Filter_Cutoff) then
           !
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = qone - fetac_qp
+          rd_qp = max( qzero , qone - fetac_qp )
           !
-          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          end if
           !
         end if
         !
@@ -905,13 +941,14 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
-    Filter_Cutoff = cutoff_order
     local_Filter_Option = Cutoff_Filter_Option
+    Filter_Cutoff = cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -928,7 +965,6 @@ continue
   !
   ! Initialize the local filter matrices to identity matrices
   !
-  fmat_qp(:,:) = qzero
   do i = 1,nsp
     fmat_qp(i,i) = qone
   end do
@@ -944,9 +980,13 @@ continue
         if (i+j >= Filter_Cutoff) then
           !
           rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-          rd_qp = qone - fetac_qp
+          rd_qp = max( qzero , qone - fetac_qp )
           !
-          fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          if (rd_qp == qzero) then
+            fmat_qp(k,k) = feps_qp
+          else
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+          end if
           !
         end if
         !
@@ -1010,13 +1050,15 @@ continue
   ! Covert Filter_Alpha and Filter_etac to quad precision
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
-  fetac_qp  = real( Filter_etac , kind=qp )
   !
   if (present(cutoff_order)) then
     local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order*merge(3,1,local_Filter_Option==2)
+    i = merge(3,1,local_Filter_Option==2)
+    Filter_Cutoff = i*cutoff_order
+    fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
     feps_qp = qzero
   else
+    fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
     local_Filter_Option = Filter_Option
     feps_qp = real( one - Filter_eps , kind=qp )
@@ -1054,10 +1096,14 @@ continue
       if (i >= Filter_Cutoff) then
         !
         rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
-        rd_qp = qone - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
         !
-        filter_1D_qp(i+1) = feps_qp * &
-                            exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        if (rd_qp == qzero) then
+          filter_1D_qp(i+1) = feps_qp
+        else
+          filter_1D_qp(i+1) = feps_qp * &
+                              exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+        end if
         !
       end if
     end do
@@ -1092,9 +1138,13 @@ continue
             l = np*np*k + np*j + i + 1
             !
             rn_qp = real(i+j+k-Filter_Cutoff,kind=qp)
-            rd_qp = real(3*order-Filter_Cutoff,kind=qp)
+            rd_qp = max( qzero , real(3*order-Filter_Cutoff,kind=qp) )
             !
-            fmat_qp(l,l) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            if (rd_qp == qzero) then
+              fmat_qp(l,l) = feps_qp
+            else
+              fmat_qp(l,l) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**Filter_Order)
+            end if
             !
           end if
           !
