@@ -1243,6 +1243,11 @@ continue
           trim(adjustl(bc_integer_to_string(bc_input(n)%set_bc_value)))
       end if
       !
+      ! Set the boundary conditions for this BC to the reference conditions
+      !
+      bc_in(i)%pv = bc_in(0)%pv(:) ! Using F2003 auto-reallocation
+      bc_in(i)%cv = bc_in(0)%cv(:) ! Using F2003 auto-reallocation
+      !
     else
       !
       static_is_set = fals
