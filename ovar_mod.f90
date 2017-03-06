@@ -363,23 +363,23 @@ continue
   !
   return_value = fals
   !
-  if (abs(this%t_static  +huge(zero)) <= eps6) return
-  if (abs(this%p_static  +huge(zero)) <= eps6) return
-  if (abs(this%rho_static+huge(zero)) <= eps6) return
-  if (abs(this%mach      +huge(zero)) <= eps6) return
-  if (abs(this%vx                   ) <= eps6) return
-  if (abs(this%vy                   ) <= eps6) return
-  if (abs(this%vz                   ) <= eps6) return
-  if (abs(this%t_total   +huge(zero)) <= eps6) return
-  if (abs(this%p_total   +huge(zero)) <= eps6) return
-  if (abs(this%rho_total +huge(zero)) <= eps6) return
-  if (abs(this%alpha_aoa            ) <= eps6) return
-  if (abs(this%beta_aoa             ) <= eps6) return
-  if (abs(this%wall_temp +huge(zero)) <= eps6) return
+  if (abs(this%t_static  +huge(zero)) > eps6) return
+  if (abs(this%p_static  +huge(zero)) > eps6) return
+  if (abs(this%rho_static+huge(zero)) > eps6) return
+  if (abs(this%mach      +huge(zero)) > eps6) return
+  if (abs(this%vx                   ) > eps6) return
+  if (abs(this%vy                   ) > eps6) return
+  if (abs(this%vz                   ) > eps6) return
+  if (abs(this%t_total   +huge(zero)) > eps6) return
+  if (abs(this%p_total   +huge(zero)) > eps6) return
+  if (abs(this%rho_total +huge(zero)) > eps6) return
+  if (abs(this%alpha_aoa            ) > eps6) return
+  if (abs(this%beta_aoa             ) > eps6) return
+  if (abs(this%wall_temp +huge(zero)) > eps6) return
   !
-  if (abs(this%relax%value- one) <= eps6) return
-  if (abs(this%relax%time -zero) <= eps6) return
-  if (    this%relax%iter        ==    0) return
+  if (abs(this%relax%value- one) > eps6) return
+  if (abs(this%relax%time -zero) > eps6) return
+  if (    this%relax%iter        /=    0) return
   !
   return_value = true
   !
