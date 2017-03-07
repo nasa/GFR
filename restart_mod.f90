@@ -608,6 +608,7 @@ subroutine write_restart_file(itnum)
   _MPI_INFO_TYPE_ :: file_info
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
+  integer(wip) :: isize
   !
   character(len=40) :: fname
   !
@@ -815,12 +816,13 @@ continue
       !
       ! Write the integer type for the size information for the simulation
       !
-      call mpi_file_write(file_handle,wip,1_int_mpi, &
-                          MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+      call mpi_file_write(file_handle,wip, &
+                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
       !
       ! Write the number of size data items
       !
-      call mpi_file_write(file_handle,size(int_header,kind=int_mpi), &
+      isize = size(int_header,kind=wip)
+      call mpi_file_write(file_handle,isize, &
                           1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
       !
       ! Store the size information for the simulation into the temporary array
@@ -839,12 +841,13 @@ continue
       !
       ! Write the real type for the time data
       !
-      call mpi_file_write(file_handle,wp,1_int_mpi, &
-                          MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+      call mpi_file_write(file_handle,wp, &
+                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
       !
       ! Write the number of time data items
       !
-      call mpi_file_write(file_handle,size(real_header,kind=int_mpi), &
+      isize = size(real_header,kind=wip)
+      call mpi_file_write(file_handle,isize, &
                           1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
       !
       ! Store the time data into the temporary array real_header so
@@ -860,8 +863,8 @@ continue
       !
       ! Write the integer type for the ordered_geom array
       !
-      call mpi_file_write(file_handle,i4,1_int_mpi, &
-                          MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+      call mpi_file_write(file_handle,i4, &
+                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
       !
       ! Get the updated file displacement for the root processor
       !
