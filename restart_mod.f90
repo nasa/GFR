@@ -602,13 +602,12 @@ subroutine write_restart_file(itnum)
   integer :: ierr,iorst
   integer :: n,nc,n1,n2,l1,l2
   integer :: this_geom,this_order
-  integer(wip) :: disp
+  integer(wip) :: disp,isize
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
-  integer(wip) :: isize
   !
   character(len=40) :: fname
   !
