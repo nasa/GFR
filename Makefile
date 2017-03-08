@@ -56,7 +56,7 @@ haswell: build
 rebuild-haswell: BDIR := optimize_haswell
 rebuild-haswell: EXEF := recon_haswell
 rebuild-haswell: TRGT := haswell
-rebuild-haswell: clean
+rebuild-haswell: clean-build
 rebuild-haswell: build
 
 # IVY BRIDGE
@@ -76,7 +76,7 @@ ivybridge: build
 rebuild-ivybridge: BDIR := optimize_ivybridge
 rebuild-ivybridge: EXEF := recon_ivybridge
 rebuild-ivybridge: TRGT := ivybridge
-rebuild-ivybridge: clean
+rebuild-ivybridge: clean-build
 rebuild-ivybridge: build
 
 # SANDY BRIDGE
@@ -96,7 +96,7 @@ sandybridge: build
 rebuild-sandybridge: BDIR := optimize_sandybridge
 rebuild-sandybridge: EXEF := recon_sandybridge
 rebuild-sandybridge: TRGT := sandybridge
-rebuild-sandybridge: clean
+rebuild-sandybridge: clean-build
 rebuild-sandybridge: build
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
@@ -240,6 +240,10 @@ clean-debug:
 .PHONY: clean-optimize
 clean-optimize:
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+
+.PHONY: clean-build
+clean-build:
+	make -f slv.mk "EXECUTABLE=$(EXEF)" "BUILDDIR=$(BDIR)" clean
 
 .PHONY: clean
 clean:
