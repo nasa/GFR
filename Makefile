@@ -48,6 +48,11 @@ broadwell: link-to-haswell
 rebuild-broadwell: rebuild-haswell
 rebuild-broadwell: link-to-haswell
 
+.PHONY: bro
+bro: broadwell
+.PHONY: rebuild-bro
+rebuild-bro: rebuild-broadwell
+
 # HASWELL
 
 .PHONY: haswell
@@ -62,6 +67,11 @@ rebuild-haswell: EXEF := recon_haswell
 rebuild-haswell: TRGT := haswell
 rebuild-haswell: clean-build
 rebuild-haswell: build
+
+.PHONY: has
+has: haswell
+.PHONY: rebuild-has
+rebuild-has: rebuild-haswell
 
 # IVY BRIDGE
 
@@ -83,6 +93,11 @@ rebuild-ivybridge: TRGT := ivybridge
 rebuild-ivybridge: clean-build
 rebuild-ivybridge: build
 
+.PHONY: ivy
+ivy: ivybridge
+.PHONY: rebuild-ivy
+rebuild-ivy: rebuild-ivybridge
+
 # SANDY BRIDGE
 
 .PHONY: sandy_bridge
@@ -102,6 +117,12 @@ rebuild-sandybridge: EXEF := recon_sandybridge
 rebuild-sandybridge: TRGT := sandybridge
 rebuild-sandybridge: clean-build
 rebuild-sandybridge: build
+
+.PHONY: san
+san: sandybridge
+.PHONY: rebuild-san
+rebuild-san: rebuild-sandybridge
+
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
 
