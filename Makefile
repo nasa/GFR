@@ -17,6 +17,7 @@ ARCH = $(shell uname -m)
 all: debug_recon
 all: recon
 .PHONY: all-nodes
+all-nodes: recon_westmere
 all-nodes: recon_sandybridge
 all-nodes: recon_ivybridge
 all-nodes: recon_broadwell
@@ -37,6 +38,7 @@ recon_broadwell: broadwell
 recon_haswell: haswell
 recon_ivybridge: ivybridge
 recon_sandybridge: sandybridge
+recon_westmere: westmere
 
 # BROADWELL (Essentially the same as Haswell)
 
@@ -122,6 +124,26 @@ rebuild-sandybridge: build
 san: sandybridge
 .PHONY: rebuild-san
 rebuild-san: rebuild-sandybridge
+
+# WESTMERE
+
+.PHONY: westmere
+westmere: BDIR := optimize_westmere
+westmere: EXEF := recon_westmere
+westmere: TRGT := westmere
+westmere: build
+
+.PHONY: rebuild-westmere
+rebuild-westmere: BDIR := optimize_westmere
+rebuild-westmere: EXEF := recon_westmere
+rebuild-westmere: TRGT := westmere
+rebuild-westmere: clean-build
+rebuild-westmere: build
+
+.PHONY: wes
+wes: westmere
+.PHONY: rebuild-wes
+rebuild-wes: rebuild-westmere
 
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
@@ -274,6 +296,7 @@ clean-build:
 clean:
 	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=recon_westmere" "BUILDDIR=optimize_westmere" clean
 	make -f slv.mk "EXECUTABLE=recon_sandybridge" "BUILDDIR=optimize_sandybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_ivybridge" "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_haswell" "BUILDDIR=optimize_haswell" clean
