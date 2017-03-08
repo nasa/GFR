@@ -217,7 +217,7 @@ time-optimize:
 .PHOHY: link-to-haswell
 link-to-haswell:
 	/bin/ln -sf recon_haswell recon_broadwell
-	/bin/ln -sf $(HOME)/bin/recon_haswell $(HOME)/bin/recon_broadwell
+	/bin/ln -sf recon_haswell $(HOME)/bin/recon_broadwell
 
 .PHONY: deplist
 deplist:
