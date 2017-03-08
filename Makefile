@@ -14,12 +14,16 @@ ARCH = $(shell uname -m)
 
 
 .PHONY: all
-all: debug_recon recon
+all: debug_recon
+all: recon
 .PHONY: all-nodes
-all-nodes: recon_sandybridge recon_ivybridge recon_broadwell
+all-nodes: recon_sandybridge
+all-nodes: recon_ivybridge
+all-nodes: recon_broadwell
 
 .PHONY: rebuild
-rebuild: rebuild-debug rebuild-optimize
+rebuild: rebuild-debug
+rebuild: rebuild-optimize
 
 .PHONY: optimize
 optimize: O3-ipo-opt
