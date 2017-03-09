@@ -1284,6 +1284,9 @@ end subroutine read_cgns_section
 !
 subroutine read_cgns_bc(bc)
   !
+  !.. Use Statements ..
+  use iso_c_binding, only : c_null_ptr
+  !
   !.. Formal Arguments ..
   type(cg_bc_t), intent(inout) :: bc
   !
