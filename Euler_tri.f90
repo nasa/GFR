@@ -285,7 +285,7 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
-  call memory_pause("initializing solution","writing initial CGNS file")
+  call memory_pause("initializing solution","initializing results file")
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
@@ -293,16 +293,6 @@ continue
   if (dump_memory_usage) then
     call report_memory_usage(n=2,request_stop=true)
   end if
-  !
-  ! Output the initialized solution
-  !
-  if (continuous_output) then
-    call new_write_parallel_cgns
-  else
-    call write_parallel_cgns(open_CGNS)
-  end if
-  CGNS_action = add_to_CGNS
-  call memory_pause("writing initial CGNS file","initializing results file")
   !
   if (mypnum == 0) call write_results_file(1,itcur)
   call memory_pause("initializing results file","initializing generic module")
@@ -355,7 +345,7 @@ continue
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
       else
-        call memory_pause("initial TGV KEDR evaluation","main iteration loop")
+        call memory_pause("initial TGV KEDR evaluation","writing initial CGNS file")
       end if
     end if
     !
@@ -376,6 +366,16 @@ continue
   if (dump_memory_usage) then
     call report_memory_usage(n=3,request_stop=true)
   end if
+  !
+  ! Output the initialized solution
+  !
+  if (continuous_output) then
+    call new_write_parallel_cgns
+  else
+    call write_parallel_cgns(open_CGNS)
+  end if
+  CGNS_action = add_to_CGNS
+  call memory_pause("writing initial CGNS file","main iteration loop")
   !
   main_loop: do iter = 1, num_ts
     !
