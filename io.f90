@@ -5121,12 +5121,16 @@ end subroutine write_parallel_cgns_grid_file
 subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Use Statements ..
-  use geovar,  only : nr,n_solpts
+  use geovar,  only : nr,n_solpts,ncell,cell
   use ovar,    only : aref,rhoref,time_ref,tref
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : correct_output
   use ovar,    only : governing_equations
   use flowvar, only : usp,dusp
+  !
+  use module_limiters, only : marker
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : jump_indicator
   !
   use flux_mod, only : correct_solution_for_output
   !
@@ -5135,7 +5139,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: k,l,m,n,ierr
+  integer :: k,l,m,n,nc,ierr
   !
   character(len=CGLEN) :: varname
   character(len=CGLEN) :: sect_name
@@ -5145,11 +5149,18 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
-  character(len=*), parameter :: char_sname(1:5) = ["Density    ", &
-                                                    "Velocity   ", &
-                                                    "Pressure   ", &
-                                                    "Mach       ", &
-                                                    "Temperature"]
+  character(len=*), parameter :: char_sname(1:7) = ["Density         ", &
+                                                    "Velocity        ", &
+                                                    "Pressure        ", &
+                                                    "Mach            ", &
+                                                    "Temperature     ", &
+                                                    "ResolutionMarker", &
+                                                    "JumpMarker      "]
+ !character(len=*), parameter :: char_sname(1:5) = ["Density    ", &
+ !                                                  "Velocity   ", &
+ !                                                  "Pressure   ", &
+ !                                                  "Mach       ", &
+ !                                                  "Temperature"]
  !character(len=*), parameter :: char_sname(1:9) = ["Density    ", &
  !                                                  "Velocity   ", &
  !                                                  "Energy     ", &
@@ -5580,6 +5591,20 @@ continue
             call cgns_write_field_parallel
             if (nr < 3) exit
           end do
+        case ("ResolutionMarker")
+          n = n + 1
+          call resolution_indicator
+          do nc = 1,ncell
+            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
+          end do
+          call cgns_write_field_parallel
+        case ("JumpMarker")
+          n = n + 1
+          call jump_indicator
+          do nc = 1,ncell
+            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
+          end do
+          call cgns_write_field_parallel
         case default
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
