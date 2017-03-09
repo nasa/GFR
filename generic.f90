@@ -196,9 +196,8 @@ subroutine rgeterr(walltime_expiring)
   use geovar,  only : nr,ncell,cell
   use geovar,  only : global_pinc_ptr
   use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in
-  use ovar,    only : nentmax,kentmax,xentmax,yentmax,entmax,entL2,itestcase
   use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
-  use ovar,    only : convergence_reached,cfl
+  use ovar,    only : convergence_reached,cfl,itestcase
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : this_is_final_timestep
   use ovar,    only : iter_out_interval
@@ -215,8 +214,12 @@ subroutine rgeterr(walltime_expiring)
   integer  :: this_cell,n1,n2,np,m,l,k
   integer  :: hrs_left,min_left,sec_left
   integer  :: this_geom,this_order
+  integer  :: nentmax,kentmax
+  real(wp) :: xentmax,yentmax
+  real(wp) :: entmax,entL2
   real(wp) :: rho,pres,sn,se,delx,dely
   real(wp) :: wall_time_left
+  real(wp) :: orders_converged,output_L2val
   !
   character(len=300) :: overflow_error
   character(len=300) :: divide_by_zero_error
@@ -349,12 +352,13 @@ continue
   !
   rlone =       sum(all_error(1,1,:)) / total_volume
   rltwo = sqrt( sum(all_error(1,2,:)) / total_volume )
+  entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
   !
   rl2mx = max( rltwo , rl2mx )
   !
   if (any(itestcase == Transport_Problems)) then
     !
-    entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
+    output_L2val = entL2
     convergence_reached = fals
     !
     ! Check for a collapse of the vortex, or update the final
@@ -381,13 +385,14 @@ continue
     !
   else
     !
-    entL2 = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
+    orders_converged = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
+    output_L2val = orders_converged 
     !
     ! Check for convergence
     !
     if (itcur > minimum_timesteps) then
-      convergence_reached = (-entL2 <= convergence_order_max_res) .or. &
-                            (log10(rltwo) <= convergence_order_abs_res)
+      convergence_reached = (-orders_converged <= convergence_order_max_res) &
+                            .or. (log10(rltwo) <= convergence_order_abs_res)
       if (itestcase == Taylor_Green_Vortex) then
         convergence_reached = fals
       end if
@@ -412,8 +417,7 @@ continue
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-                             !rltwo,entL2,rl2mx,nloc, &
-                              cfl,rltwo,rl2mx,nloc, &
+                              cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax, &
                               hrs_left,min_left,sec_left
@@ -421,8 +425,7 @@ continue
 #else
     !
     write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-                             !rltwo,entL2,rl2mx,nloc, &
-                              cfl,rltwo,rl2mx,nloc, &
+                              cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax
     !
@@ -430,7 +433,7 @@ continue
 #endif
     !
     if (convergence_reached) then
-      if (entL2 <= convergence_order_max_res) write (iout,3)
+      if (-orders_converged <= convergence_order_max_res) write (iout,3)
       if (log10(rltwo) <= convergence_order_abs_res) write (iout,4)
     end if
     !
@@ -693,9 +696,7 @@ subroutine getmaxent
   !.. Use Statements ..
   use order_mod,         only : maxEP,e_order
   use geovar,            only : nr,ncell,cell,xyz
-  use ovar,              only : nentmax,kentmax,entmax,gam,bc_in
-  use ovar,              only : xentmax,yentmax,entL2,total_volume
-  use ovar,              only : itestcase
+  use ovar,              only : gam,bc_in,total_volume,itestcase
   use metrics_mod,       only : jacobian
   use flowvar,           only : usp
   use parallel_mod,      only : cell_map
@@ -705,6 +706,9 @@ subroutine getmaxent
   !.. Local Scalars ..
   integer  :: this_cell,n1,n2,np,m,l,k
   integer  :: this_geom,this_order
+  integer  :: nentmax,kentmax
+  real(wp) :: xentmax,yentmax
+  real(wp) :: entmax,entL2
   real(wp) :: ett,sn,se
   !
   !.. Local Arrays ..

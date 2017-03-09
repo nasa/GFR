@@ -266,13 +266,6 @@ module ovar
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
   real(wp), public, save, dimension(1:5,1:2,1:5) :: vortex_error
   !
-  integer,  public, save :: nentmax
-  integer,  public, save :: kentmax
-  real(wp), public, save :: xentmax
-  real(wp), public, save :: yentmax
-  real(wp), public, save :: entmax
-  real(wp), public, save :: entL2
-  !
   integer,  public, save :: nst
   !
   integer,  public, save :: Total_Periods
