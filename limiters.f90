@@ -15,6 +15,8 @@ module module_limiters
   public :: compute_cell_ave
   public :: limit_by_projecting
   public :: limiters_memory_usage
+  public :: resolution_indicator
+  public :: jump_indicator
   !
   !
   !.. Module Local Scalars ..
@@ -28,10 +30,15 @@ module module_limiters
   !
   real(wp), save, allocatable :: cell_ave_sol(:,:)
   real(wp), save, allocatable :: umodes(:,:)
-  real(wp), save, allocatable :: marker(:)
   !
   logical(lk), save, allocatable :: troubled_cell(:)
   logical(lk), save, allocatable :: needs_limiting(:)
+  !
+  !
+  !.. Module Public Protected Allocatable Arrays ..
+  !
+  real(wp), save, public, protected, allocatable :: marker(:)
+  real(wp), save, public, protected, allocatable :: scaled_marker(:)
   !
   !
   !.. Module Parameters ..
@@ -288,7 +295,7 @@ subroutine resolution_indicator()
   use filter_mod, only : filter
   !
   !.. Local Scalars ..
-  integer  :: nc,n1,n2,np
+  integer  :: nc,n1,n2,np,ierr
   integer  :: this_geom,this_order
   real(wp) :: l2_p,l2_pm1,psi0,fk
   !
@@ -301,6 +308,19 @@ subroutine resolution_indicator()
   real(wp),         parameter :: dpsi = half
   !
 continue
+  !
+  if (.not. allocated(marker)) then
+    allocate ( marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(scaled_marker)) then
+    allocate ( scaled_marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
   do nc = 1,ncell
     !
@@ -324,22 +344,22 @@ continue
     !
     ! Compute the L2 inner product of the two polynomials
     !
-    l2_pm1 = sum( rho_pm1(1:np) * jacobian(n1:n2) * &
+    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * jacobian(n1:n2) * &
                   std_elem(this_geom,this_order)%wts(1:np) )
     !
-    l2_p = sum( rho_p(1:np) * jacobian(n1:n2) * &
+    l2_p = sum( rho_p(1:np) * rho_p(1:np) * jacobian(n1:n2) * &
                 std_elem(this_geom,this_order)%wts(1:np) )
     !
-    fk = log10( l2_pm1 / l2_p )
+    marker(nc) = log10( l2_pm1 / l2_p )
     !
     psi0 = -one*(four + 4.25_wp*log10(real(this_order,kind=wp)))
     !
-    if (fk <= psi0-dpsi) then
-      marker(nc) = zero
+    if (marker(nc) <= psi0-dpsi) then
+      scaled_marker(nc) = zero
     else if (marker(nc) >= psi0+dpsi) then
-      marker(nc) = one
+      scaled_marker(nc) = one
     else
-      marker(nc) = half*(one + sin(half*pi*(fk-psi0)/dpsi))
+      scaled_marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
     end if
     !
   end do
@@ -357,7 +377,7 @@ subroutine jump_indicator()
   use metrics_mod, only : geofa
   !
   !.. Local Scalars ..
-  integer :: nc,nf,k,kl,kr,nfp,ierr
+  integer :: nc,nf,k,nfp,ierr
   integer :: left_geom,right_geom,face_geom
   integer :: left_cell,right_cell,face_order
   real(wp) :: ds,dsl,dsr,p_ave,p_diff,p_jump,psi0
@@ -376,6 +396,19 @@ subroutine jump_indicator()
   !
 continue
   !
+  if (.not. allocated(marker)) then
+    allocate ( marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"marker",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(scaled_marker)) then
+    allocate ( scaled_marker(1:ncell) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"scaled_marker",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
   allocate ( area_sum(1:ncell) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"area_sum",1,__LINE__,__FILE__,ierr,error_message)
@@ -393,7 +426,11 @@ continue
     right_cell = face(nf)%right%cell ! right cell on face
     !
     left_geom = cell(left_cell)%geom
-    right_geom = cell(right_cell)%geom
+    if (right_cell <= ncell) then
+      right_geom = cell(right_cell)%geom
+    else
+      right_geom = face_geom
+    end if
     !
     ! For all the flux points on the current face, extract the conservative
     ! conservative variables for the left and right cells from faceusp
@@ -410,12 +447,6 @@ continue
     !
     do k = 1,nfp
       !
-      ! Get the index for the correction function 
-      ! corresponding to the current interface flux point
-      !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-      !
       ! Get the unit normal at this flux point
       !
       unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
@@ -426,16 +457,18 @@ continue
       dsl = cl(left_geom)*ds
       dsr = cl(right_geom)*ds
       !
-      p_ave = half * (pl_fp(kl) + pr_fp(kr))
-      p_diff = dot( unrm(:)*(pl_fp(kl) - pr_fp(kr)) , unrm(:) )
+      p_ave = half * (pl_fp(k) + pr_fp(k))
+      p_diff = dot( unrm(:)*(pl_fp(k) - pr_fp(k)) , unrm(:) )
       !
       p_jump = p_diff / p_ave
       !
       marker(left_cell) = marker(left_cell) + dsl*p_jump
-      marker(right_cell) = marker(right_cell) + dsr*p_jump
-      !
       area_sum(left_cell) = area_sum(left_cell) + dsl
-      area_sum(right_cell) = area_sum(right_cell) + dsr
+      !
+      if (right_cell <= ncell) then
+        marker(right_cell) = marker(right_cell) + dsr*p_jump
+        area_sum(right_cell) = area_sum(right_cell) + dsr
+      end if
       !
     end do
     !
@@ -448,11 +481,11 @@ continue
     marker(nc) = marker(nc) / area_sum(nc)
     !
     if (marker(nc) <= psi0-dpsi) then
-      marker(nc) = zero
+      scaled_marker(nc) = zero
     else if (marker(nc) >= psi0+dpsi) then
-      marker(nc) = one
+      scaled_marker(nc) = one
     else
-      marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
+      scaled_marker(nc) = half*(one + sin(half*pi*(marker(nc)-psi0)/dpsi))
     end if
     !
   end do
