@@ -237,6 +237,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/flux.o \
        $(OBJDIR)/channel_mod.o \
        $(OBJDIR)/restart_mod.o \
+       $(OBJDIR)/limiters.o \
        $(FUNDIR)/last.f90 \
        $(FUNDIR)/bc_priority.f90 \
        $(FUNDIR)/entropy.f90 \
