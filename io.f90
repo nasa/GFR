@@ -5128,7 +5128,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : governing_equations
   use flowvar, only : usp,dusp
   !
-  use module_limiters, only : marker
+  use module_limiters, only : marker,scaled_marker
   use module_limiters, only : resolution_indicator
   use module_limiters, only : jump_indicator
   !
@@ -5389,6 +5389,10 @@ continue
         if (governing_equations == NavierStokes_Eqns) then
           n = n + 1
         end if
+      else if (trim(char_sname(l)) == "ResolutionMarker") then
+        n = n + 2
+      else if (trim(char_sname(l)) == "JumpMarker") then
+        n = n + 2
       else
         n = n + 1
       end if
@@ -5475,6 +5479,36 @@ continue
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
         end if
+      else if (trim(char_sname(l)) == "ResolutionMarker") then
+        n = n + 1
+        varname = trim(char_sname(l))
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
+        n = n + 1
+        varname = "Scaled"//trim(char_sname(l))
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
+      else if (trim(char_sname(l)) == "JumpMarker") then
+        n = n + 1
+        varname = trim(char_sname(l))
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
+        n = n + 1
+        varname = "Scaled"//trim(char_sname(l))
+        call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                               CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
+        call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                        cgierr,__LINE__,__FILE__, &
+                        "Write node: Solution variable",n)
       else
         n = n + 1
         if (trim(char_sname(l)) == "Energy") then
@@ -5592,17 +5626,27 @@ continue
             if (nr < 3) exit
           end do
         case ("ResolutionMarker")
-          n = n + 1
           call resolution_indicator
+          n = n + 1
           do nc = 1,ncell
             vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
           end do
           call cgns_write_field_parallel
-        case ("JumpMarker")
           n = n + 1
+          do nc = 1,ncell
+            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
+          end do
+          call cgns_write_field_parallel
+        case ("JumpMarker")
           call jump_indicator
+          n = n + 1
           do nc = 1,ncell
             vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
+          end do
+          call cgns_write_field_parallel
+          n = n + 1
+          do nc = 1,ncell
+            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
           end do
           call cgns_write_field_parallel
         case default
