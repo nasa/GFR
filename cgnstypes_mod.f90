@@ -24,7 +24,7 @@ module module_cgns_types
   !
   enum, bind(c)
     enumerator :: ElementTypeNull = CG_NULL
-    enumerator :: BAR_5 = HEXA_64
+    enumerator :: BAR_5 = HEXA_64+1
     enumerator :: TRI_12
     enumerator :: TRI_15
     enumerator :: QUAD_P4_16
@@ -41,6 +41,10 @@ module module_cgns_types
     enumerator :: HEXA_44
     enumerator :: HEXA_98
     enumerator :: HEXA_125
+  end enum
+  !
+  enum, bind(c)
+    enumerator :: BCTypeNull = CG_NULL
   end enum
   !
   enum, bind(c)
@@ -66,6 +70,7 @@ module module_cgns_types
   integer, parameter :: CET = cgenum_t ! CGNS enumerator integer type
   !
   integer, parameter :: CRT = r4       ! CGNS data real type
+ !integer, parameter :: CRT = r8       ! CGNS data real type
   !
   integer, parameter :: CGLEN = 32     ! maximum length for a CGNS string
   !
