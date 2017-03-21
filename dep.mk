@@ -27,8 +27,8 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/limiters.o \
               $(OBJDIR)/postproc_mod.o \
               $(OBJDIR)/restart_mod.o \
-	      $(OBJDIR)/plot3d_mod.o \
-	      $(OBJDIR)/gmsh_mod.o \
+              $(OBJDIR)/plot3d_mod.o \
+              $(OBJDIR)/gmsh_mod.o \
               $(OBJDIR)/cgns_mod.o \
               $(OBJDIR)/cpu_info_mod.o
 
@@ -211,7 +211,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/derivatives_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
-	       $(FUNDIR)/smc000_interior_wall_radius.f90 \
+               $(FUNDIR)/smc000_interior_wall_radius.f90 \
                $(FUNDIR)/usp2v.f90 \
                $(FUNDIR)/viscosity.f90
 
@@ -292,7 +292,7 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/parallel.o \
-	     $(FUNDIR)/pressure.f90
+             $(FUNDIR)/pressure.f90
 
 $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/kind_types.o \
@@ -340,8 +340,8 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/interpolation_mod.o \
              $(OBJDIR)/connectivity.o \
-	     $(OBJDIR)/gmsh_mod.o \
-	     $(OBJDIR)/cgns_mod.o \
+             $(OBJDIR)/gmsh_mod.o \
+             $(OBJDIR)/cgns_mod.o \
              $(FUNDIR)/cell_solpts.f90 \
              $(FUNDIR)/last.f90 \
                        mpi_defs.h
@@ -421,7 +421,7 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/metrics.o \
              $(OBJDIR)/filter_mod.o \
-	     $(OBJDIR)/limiters.o \
+             $(OBJDIR)/limiters.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/interpolation_mod.o \
              $(FUNDIR)/usp2v.f90 \
