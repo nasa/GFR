@@ -116,6 +116,8 @@ module ovar
   real(wp), public, save :: tinref = 0.0_wp
   real(wp), public, save :: tvrref = 1.0e-6_wp
   !
+  integer,  public, save :: Limiter_Option = 0
+  !
   integer,  public, save :: Filter_Option = 0
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
@@ -615,6 +617,7 @@ module input_namelist_mod
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
   use ovar,      only : Filter_Option, Filter_etac, Filter_Order
   use ovar,      only : Filter_Alpha, Filter_eps
+  use ovar,      only : Limiter_Option
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
@@ -704,6 +707,8 @@ module input_namelist_mod
   ! FILTER OPTIONS
   namelist / input / Filter_Option, Filter_etac, Filter_Order, &
                      Filter_Alpha, Filter_eps
+  ! LIMITER OPTIONS
+  namelist / input / Limiter_Option
   ! VORTEX CONSTANTS
   namelist / input / vortex_bigR, vortex_bigGam
   ! TAYLOR-GREEN VORTEX CONSTANTS
