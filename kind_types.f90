@@ -1273,6 +1273,45 @@ end subroutine io_error
 !
 !###############################################################################
 !
+subroutine execute_command(command,wait_for_completion,exit_status, &
+                           command_status,command_message,procedure_name)
+  !
+  !.. Use Statements ..
+  use ifport, only : system
+  !
+  !.. Formal Arguments ..
+  character(len=*),  intent(in) :: command
+  logical(ldk),      intent(in) :: wait_for_completion
+  integer,          intent(out) :: exit_status
+  integer,          intent(out) :: command_status
+  character(len=*), intent(out) :: command_message
+  character(len=*),  intent(in) :: procedure_name
+  !
+continue
+  !
+  exit_status = 0
+  command_status = 0
+  command_message = ""
+  !
+  if (mypnum == 0) then
+    !
+    exit_status = system( trim(adjustl(command)) )
+    !
+    call write_command_results(procedure_name,command,exit_status)
+    !
+   !call execute_command_line( trim(adjustl(command)) , wait_for_completion , &
+   !                           exit_status , command_status , &
+   !                           command_message )
+   !!
+   !call write_command_results(procedure_name,command,exit_status, &
+   !                           command_status,command_message)
+    !
+  end if
+  !
+end subroutine execute_command
+!
+!###############################################################################
+!
 subroutine write_command_results(procedure_name,command,exit_status, &
                                  command_status,command_message)
   !
@@ -1280,8 +1319,10 @@ subroutine write_command_results(procedure_name,command,exit_status, &
   character(len=*), intent(in) :: procedure_name
   character(len=*), intent(in) :: command
   integer,          intent(in) :: exit_status
-  integer,          intent(in) :: command_status
-  character(len=*), intent(in) :: command_message
+  !
+  !.. Optional Arguments ..
+  integer,          optional, intent(in) :: command_status
+  character(len=*), optional, intent(in) :: command_message
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_command_results"
@@ -1294,15 +1335,23 @@ continue
                    trim(adjustl(procedure_name)), &
                    exit_status
     !
-    if (command_status == -1) then
-      write (iout,2)
-    else if (command_status == -2) then
-      write (iout,3)
-    else if (command_status /= 0) then
-      write (iout,4)
+    if (present(command_message)) then
+      write (iout,6) trim(adjustl(command_message))
     end if
     !
-    write (iout,5) command_status,trim(adjustl(command_message))
+    if (present(command_status)) then
+      !
+      write (iout,5) command_status
+      !
+      if (command_status == -1) then
+        write (iout,2)
+      else if (command_status == -2) then
+        write (iout,3)
+      else if (command_status /= 0) then
+        write (iout,4)
+      end if
+      !
+    end if
     !
     flush (iout)
     !
@@ -1313,14 +1362,14 @@ continue
   1 format (/,2x,"Calling execute_command_line with the command",/, &
               5x,"'",a,"'",/, &
               2x,"from procedure '",a,"'",/, &
-              5x,"status returned from command line = ",i0)
+              5x,"status returned from command line = ",i0,/)
   2 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR ", &
                  "DOES NOT SUPPORT COMMAND LINE EXECUTION!!!",/)
   3 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR DOES ", &
                  "NOT SUPPORT ASYNCHRONOUS COMMAND EXECUTION!!!",/)
   4 format (/,2x,"AN ERROR OCCURRED CALLING 'execute_command_line'!!!",/)
-  5 format (5x,"status  returned from execute_command_line = ",i0,/, &
-            5x,"message returned from execute_command_line = '",a,"'",/)
+  5 format (5x,"status  returned from execute_command_line = ",i0)
+  6 format (5x,"message returned from execute_command_line = '",a,"'")
 
   !
 end subroutine write_command_results
