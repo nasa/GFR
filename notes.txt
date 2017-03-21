@@ -10,6 +10,17 @@
 ################################################################################
 ################################################################################
 
+* For time averaging file, there only needs to be a single file that is updated
+  with the most up-to-date time averaged values.  However, since this will
+  probably need to be output in parallel, alternate between two different output
+  files, (e.g., "time_ave.a.dat" and "time_ave.b.dat" so that all of the
+  previous results aren't lost if there is an error writing the newest values.
+
+* Create a way to monitor the convergence of the time averaged quantities.
+  Possibly replace the variables sent to standard output with the global
+  integrated L2-norm of the difference between the newest and previous
+  time-averaged values.
+
 * Improve the speed of the current partitioning algorithm. In order to prevent
   using up all memory on all nodes, the root processor does all the partitioning
   tasks by itself and sends each localized partition to the respective MPI
