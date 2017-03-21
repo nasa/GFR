@@ -1,6 +1,7 @@
 module restart_mod
   !
 #include <mpi_defs.h>
+!!!#define VERBOSE_RESTART
   !
   use module_kind_types
   use eqn_idx, only : nq
@@ -49,6 +50,8 @@ module restart_mod
   !
   character(len=170), save :: restart_dir = ""
   character(len=170), save :: rstfile_fmt
+  character(len=170), save :: lnkcmnd_fmt
+  character(len=170), save :: statfile_fmt
   !
   !###################################
   !###  Module Allocatable Arrays  ###
@@ -206,7 +209,12 @@ continue
     !
    !if (ncpu > 1) then
       !
+      ! Initialize file_info to MPI_INFO_NULL
+      !
+      file_info = MPI_INFO_NULL
+      !
 #ifdef PBS_ENV
+#ifndef IGNORE_MPI_INFO
       !
       ! Create the MPI info object for this restart file
       !
@@ -234,12 +242,7 @@ continue
       !
      !call mpi_info_set(file_info,"striping_unit","1",mpierr)
       !
-#else
-      !
-      ! Set file_info to MPI_INFO_NULL
-      !
-      file_info = MPI_INFO_NULL
-      !
+#endif
 #endif
       !
       ! Open the restart file for MPI I/O
@@ -599,21 +602,27 @@ subroutine write_restart_file(itnum)
   integer, intent(in) :: itnum
   !
   !.. Local Scalars ..
-  integer :: ierr,iorst
+  integer :: ierr,iorst,ios
   integer :: n,nc,n1,n2,l1,l2
   integer :: this_geom,this_order
+  integer :: exitstat,cmndstat
   integer(wip) :: disp,isize
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
+  integer(kind(MPI_MODE_WRONLY)) :: file_mode
   !
-  character(len=40) :: fname
+  character(len=100) :: fname
+  character(len=100) :: statfile
+  character(len=300) :: command
+  character(len=300) :: cmndmsg
   !
   !.. Local Arrays ..
   integer(wip) :: int_header(1:4)
   real(wp)     :: real_header(1:2)
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Allocatable Arrays ..
   integer(i4), allocatable :: ordered_geom(:)
@@ -622,7 +631,14 @@ subroutine write_restart_file(itnum)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_restart_file"
   !
+  logical(ldk), parameter :: wait_for_completion = .true.
+  !
 continue
+  !
+  ! Initialize exitstat and cmndmsg
+  !
+  exitstat = 0
+  cmndmsg = ""
   !
   call debug_timer(entering_procedure,pname)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -725,10 +741,16 @@ continue
     !
     if (itnum > 0) then
       write (fname,rstfile_fmt) itcur,""
+      write (command,lnkcmnd_fmt) itcur,""
+      write (statfile,statfile_fmt) itcur,""
     else if (itnum == -2) then
       write (fname,rstfile_fmt) itcur-1,".NaN"
+      write (command,lnkcmnd_fmt) itcur,".NaN"
+      write (statfile,statfile_fmt) itcur,".NaN"
     else
       write (fname,rstfile_fmt) itcur,".done"
+      write (command,lnkcmnd_fmt) itcur,".done"
+      write (statfile,statfile_fmt) itcur,".done"
     end if
     !
     ! Create the cell information to write to the restart file
@@ -749,7 +771,15 @@ continue
       !
     end do
     !
+    call write_restart_status(ios,statfile,open_file=true, &
+                              stat_strng="init stat, before mpi_info")
+    !
+    ! Initialize file_info to MPI_INFO_NULL
+    !
+    file_info = MPI_INFO_NULL
+    !
 #ifdef PBS_ENV
+#ifndef IGNORE_MPI_INFO
     !
     ! Create the MPI info object for this restart file
     !
@@ -764,6 +794,8 @@ continue
     ! Specify the nubmer of I/O devices in the system
     !
    !call mpi_info_set(file_info,"num_io_nodes","1",mpierr)
+    !
+    call mpi_info_set(file_info,"access_style","write_once",mpierr)
     !
     ! Enable collective buffering for writes
     !
@@ -783,12 +815,7 @@ continue
     call mpi_info_set(file_info,"striping_unit", &
                       trim(adjustl(lustre_stripe_unit)),mpierr)
     !
-#else
-    !
-    ! Set file_info to MPI_INFO_NULL
-    !
-    file_info = MPI_INFO_NULL
-    !
+#endif
 #endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     if (mypnum == 0) then
@@ -797,17 +824,23 @@ continue
     end if
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after mpi_info, before mpi_file_open")
+    !
     ! Open the restart file for MPI I/O
     !
+    file_mode = MPI_MODE_WRONLY + MPI_MODE_CREATE
     call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
-                       MPI_MODE_WRONLY + MPI_MODE_CREATE, &
-                       file_info,file_handle,mpierr)
+                       file_mode,file_info,file_handle,mpierr)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
     if (mypnum == 0) then
       write (iout,*) "After mpi_file_open"
       flush(iout)
     end if
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after mpi_file_open")
     !
     ! Have the root processor write the header for the restart file
     !
@@ -816,13 +849,13 @@ continue
       ! Write the integer type for the size information for the simulation
       !
       call mpi_file_write(file_handle,wip, &
-                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
       !
       ! Write the number of size data items
       !
       isize = size(int_header,kind=wip)
       call mpi_file_write(file_handle,isize, &
-                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
       !
       ! Store the size information for the simulation into the temporary array
       ! int_header so that we dont have to call mpi_file_write multiple times.
@@ -836,18 +869,18 @@ continue
       !
       call mpi_file_write(file_handle,int_header, &
                           size(int_header,kind=int_mpi), &
-                          mpi_inttyp,MPI_STATUS_IGNORE,mpierr)
+                          mpi_inttyp,istat(1),mpierr)
       !
       ! Write the real type for the time data
       !
       call mpi_file_write(file_handle,wp, &
-                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
       !
       ! Write the number of time data items
       !
       isize = size(real_header,kind=wip)
       call mpi_file_write(file_handle,isize, &
-                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
       !
       ! Store the time data into the temporary array real_header so
       ! that we dont have to call mpi_file_write multiple times.
@@ -858,12 +891,12 @@ continue
       !
       call mpi_file_write(file_handle,real_header, &
                           size(real_header,kind=int_mpi), &
-                          mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+                          mpi_flttyp,istat(1),mpierr)
       !
       ! Write the integer type for the ordered_geom array
       !
       call mpi_file_write(file_handle,i4, &
-                          1_int_mpi,MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
       !
       ! Get the updated file displacement for the root processor
       !
@@ -877,6 +910,9 @@ continue
       !
     end if
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after root writes restart header")
+    !
     ! Broadcast the current file displacement to all processors
     !
     call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
@@ -885,17 +921,26 @@ continue
     !
     file_disp = int( disp , kind=MPI_OFFSET_KIND )
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after bcast disp from restart header")
+    !
     ! Set the file view to write the ordered_geom array to the restart file
     !
     call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
                            ordered_geom_type, trim(adjustl(file_datarep)), &
                            file_info, mpierr)
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after setting view for ordered_geom")
+    !
     ! Write the ordered_geom array to the restart file
     !
     call mpi_file_write_all(file_handle,ordered_geom, &
                             size(ordered_geom,kind=int_mpi), &
-                            MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                            MPI_INTEGER,istat(1),mpierr)
+    !
+    call write_restart_status(ios,statfile,mpistat=istat, &
+                              stat_strng="after writing ordered_geom")
     !
     ! Update the file displacement since we know the total number of cells
     ! and that the elements of the array ordered_geom are 4-byte integers.
@@ -908,6 +953,9 @@ continue
                            MPI_INTEGER, trim(adjustl(file_datarep)), &
                            file_info, mpierr)
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after setting view for wp")
+    !
     ! Have the root processor write the byte size for the solution data
     !
     if (mypnum == 0) then
@@ -915,7 +963,7 @@ continue
       ! Write the kind value for real working-precision
       !
       call mpi_file_write(file_handle,wp,1_int_mpi, &
-                          MPI_INTEGER,MPI_STATUS_IGNORE,mpierr)
+                          MPI_INTEGER,istat(1),mpierr)
       !
       ! Get the updated file displacement for the root processor
       !
@@ -929,6 +977,9 @@ continue
       !
     end if
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after root writes wp")
+    !
     ! Broadcast the current file displacement to all processors
     !
     call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
@@ -937,11 +988,17 @@ continue
     !
     file_disp = int( disp , kind=MPI_OFFSET_KIND )
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after bcast disp from wp")
+    !
     ! Set the file fiew to write the solution data to the restart file
     !
     call mpi_file_set_view(file_handle,file_disp,mpi_flttyp, &
                            solution_type, trim(adjustl(file_datarep)), &
                            file_info, mpierr)
+    !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after setting view for solution")
     !
     ! Allocate a temporary array to copy over only the interior solution
     ! data for each processor. We also have to copy over the solution data
@@ -969,23 +1026,58 @@ continue
     !
     call mpi_file_write_all(file_handle,solution, &
                             size(solution,kind=int_mpi), &
-                            mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+                            mpi_flttyp,istat(1),mpierr)
+    !
+    call write_restart_status(ios,statfile,mpistat=istat, &
+                              stat_strng="after writing solution")
     !
     ! Finally close the restart file
     !
     call mpi_file_close(file_handle,mpierr)
     !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after mpi_file_close")
+    !
     ! Deallocate ordered_geom and solution since they are no longer needed
     !
-    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
-                     error_message)
+    if (allocated(ordered_geom)) then
+      deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                       error_message)
+    end if
     !
-    deallocate ( solution , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"solution",2,__LINE__,__FILE__,ierr,error_message)
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after deallocating ordered_geom")
+    !
+    if (allocated(solution)) then
+      deallocate ( solution , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"solution",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    call write_restart_status(ios,statfile, &
+                              stat_strng="after deallocating solution")
+    !
+    ! Create a link to the most recent restart file for piggy-backing jobs
+    !
+    call execute_command(command,wait_for_completion,exitstat, &
+                         cmndstat,cmndmsg,pname)
+   !if (mypnum == 0) then
+   !  call execute_command_line( trim(command) , wait_for_completion , &
+   !                             exitstat , cmndstat , cmndmsg )
+   !  call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+   !end if
+    !
+    call write_restart_status(ios,statfile,close_file=true, &
+                          stat_strng="after creating link file out.current.rst")
     !
   end if
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,*) "Leaving write_restart_file"
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -993,6 +1085,98 @@ continue
   1 format (i0)
   !
 end subroutine write_restart_file
+!
+!###############################################################################
+!
+subroutine write_restart_status(ios,fname,stat_strng, &
+                                close_file,open_file,mpistat)
+  !
+  !.. Formal Arguments ..
+  integer,       intent(inout) :: ios
+  character(len=*), intent(in) :: fname
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: stat_strng
+  logical(lk),      optional, intent(in) :: open_file
+  logical(lk),      optional, intent(in) :: close_file
+  _MPI_STATUS_TYPE_, optional, intent(in) :: mpistat(:)
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_restart_status"
+  !
+continue
+  !
+#ifdef VERBOSE_RESTART
+  !
+  if (present(open_file)) then
+    if (open_file) then
+      if (mypnum == 0) then
+        open (newunit=ios,file=trim(adjustl(fname)),status="replace", &
+                          action="write",form="formatted",iostat=ierr, &
+                          iomsg=error_message)
+        call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+      end if
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == 0) flush (ios)
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    end if
+  end if
+  !
+  if (present(stat_strng).or.present(mpistat)) then
+    !
+    if (mypnum == 0) then
+      write (ios,2)
+      flush (ios)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == 0) then
+      if (present(stat_strng)) write (ios,1) mypnum,trim(adjustl(stat_strng))
+      if (present(mpistat)) then
+#ifdef USE_MPI_F08
+        write (ios,3) mypnum,mpistat(1)%mpi_source, &
+                             mpistat(1)%mpi_tag, &
+                             mpistat(1)%mpi_error
+#else
+        write (ios,3) mypnum,mpistat(1),mpistat(2),mpistat(3)
+#endif
+      end if
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == 0) flush (ios)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == 0) then
+      write (ios,2)
+      flush (ios)
+    end if
+    !
+  end if
+  !
+  if (present(close_file)) then
+    if (close_file) then
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == 0) flush (ios)
+      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      if (mypnum == 0) then
+        close (ios,iostat=ierr,iomsg=error_message)
+        call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+      end if
+    end if
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("CPU # ",i5.5," : ",a)
+  2 format (80("-"))
+  3 format ("CPU # ",i5.5," : MPI_SOURCE = ",i0,/, &
+                         14x,"   MPI_TAG = ",i0,/, &
+                         14x," MPI_ERROR = ",i0)
+  !
+#endif
+  !
+end subroutine write_restart_status
 !
 !###############################################################################
 !
@@ -1116,6 +1300,8 @@ continue
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
+  write (lnkcmnd_fmt,5) final_iter_digits,trim(adjustl(restart_dir))
+  write (statfile_fmt,6) trim(adjustl(restart_dir)),final_iter_digits
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1125,6 +1311,8 @@ continue
   2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
   3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   4 format ("Lustre striping command = '",a,"'")
+  5 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  6 format ("('",a,"out.',i0.",i0,",a,'.stat')")
   !
 end subroutine check_restart_dir
 !
