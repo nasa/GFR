@@ -62,14 +62,14 @@ subroutine initialize_limiters
   !
 continue
   !
-  if (using_markers) then
+ !if (using_markers) then
     !
     ! Create the array for storing the cell averaged solutions
     !
-    allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_ave_sol",1,__LINE__,__FILE__,ierr, &
-                     error_message)
+ !  allocate ( cell_ave_sol(1:nq,1:ncell) , source=zero , &
+ !             stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"cell_ave_sol",1,__LINE__,__FILE__,ierr, &
+ !                   error_message)
     !
     !
     ! Create the array for identifying troubled cells
@@ -79,22 +79,22 @@ continue
     call alloc_error(pname,"troubled_cell",1,__LINE__,__FILE__,ierr, &
                      error_message)
     !
-  end if
+ !end if
   !
   ! Create the array for storing the moments of each cell
   !
-  if (using_moment_limiter) then
-    !
-    allocate ( umodes(1:n_totpts,1:nq) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"umodes",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( needs_limiting(1:ncell) , source=fals , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"needs_limiting",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-  end if
+ !if (using_moment_limiter) then
+ !  !
+ !  allocate ( umodes(1:n_totpts,1:nq) , source=zero , &
+ !             stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"umodes",1,__LINE__,__FILE__,ierr,error_message)
+ !  !
+ !  allocate ( needs_limiting(1:ncell) , source=fals , &
+ !             stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"needs_limiting",1,__LINE__,__FILE__,ierr, &
+ !                   error_message)
+ !  !
+ !end if
   !
 end subroutine initialize_limiters
 !
@@ -195,9 +195,11 @@ subroutine limit_by_projecting
   use geovar,     only : ncell,cell
   use flowvar,    only : usp
   use projection_mod, only : projct
+  use filter_mod, only : filter
+  use ovar, only : Filter_Option
   !
   !.. Local Scalars ..
-  integer :: k,m,n1,n2,nc,nsp
+  integer :: k,m,n1,n2,nc,np,ntc
   integer :: this_geom,this_order
   integer :: dropped_orders,proj_order
   logical(lk) :: there_are_no_troubles
@@ -228,6 +230,17 @@ continue
     ! Loop through the cells applying the projection limiter to
     ! any troubled cells.
     !
+#ifdef DEBUG_ON
+    ntc = count(troubled_cell)
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,ntc,1_int_mpi,mpi_inttyp, &
+                         MPI_SUM,MPI_COMM_WORLD,mpierr)
+    end if
+    if (mypnum == 0) then
+      write (iout,100) n_max_order-dropped_orders+1,ntc
+    end if
+    100 format (4x,"For a P",i0," solution, there are ",i8," troubled cells.")
+#endif
     cell_loop: do nc = 1,ncell
       !
       ! If the current cell is not troubled, skip to the next one
@@ -236,7 +249,7 @@ continue
       !
       n1 = cell(nc)%beg_sp
       n2 = cell(nc)%end_sp
-      nsp = n2-n1+1
+      np = n2-n1+1
       !
       this_geom = cell(nc)%geom
       this_order = cell(nc)%order
@@ -252,7 +265,7 @@ continue
       ! doing this, store the copy as its transpose to reduce
       ! cache misses.
       !
-      do k = 1,nsp
+      do k = 1,np
         do m = 1,nq
           tusp(k,m) = usp(m,n1-1+k)
         end do
@@ -261,11 +274,24 @@ continue
       ! Apply the limiter by multplying the projection matrix with
       ! the solution in the current cell
       !
-      do m = 1,nq
-        usp(m,n1:n2) = projct(this_geom,this_order)% &
-                                 limiter(proj_order)% &
-                       mv_mult( tusp(1:nsp,m) )
-      end do
+      if (Filter_Option /= 0) then
+        do m = 1,nq
+          usp(m,n1:n2) = filter(this_geom,this_order)% &
+                                          exponential% &
+                         mv_mult( tusp(1:np,m) )
+        end do
+        troubled_cell(nc) = fals ! only filter once
+      else
+        do m = 1,nq
+          usp(m,n1:n2) = projct(this_geom,this_order)% &
+                                  limiter(proj_order)% &
+                         vm_mult( tusp(1:np,m) )
+        end do
+      end if
+      !
+      ! Unmark this cell as troubled if proj_order is 0
+      !
+      if (proj_order == 0) troubled_cell(nc) = fals
       !
     end do cell_loop
     !
@@ -284,27 +310,40 @@ end subroutine limit_by_projecting
 !
 !###############################################################################
 !
-subroutine resolution_indicator()
+subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
   !
   !.. Use Statements ..
   use geovar, only : ncell,cell
-  use order_mod, only : maxSP
+  use order_mod, only : maxSP,p_order,n_order
   use quadrature_mod, only : std_elem
   use flowvar, only : usp
   use metrics_mod, only : jacobian
   use filter_mod, only : filter
+  use projection_mod, only : projct
+  use ifport, only : dclock
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional,    intent(in) :: apply_projection
+  logical(lk), optional, intent(inout) :: troubled_cell(:)
+  integer,     optional,    intent(in) :: orders_to_cutoff
   !
   !.. Local Scalars ..
-  integer  :: nc,n1,n2,np,ierr
+  integer  :: k,m,n,nc,n1,n2,np,ierr
   integer  :: this_geom,this_order
+  integer  :: ord_mlt,ord_add
+  integer  :: cutoff_order,lmtr_order
   real(wp) :: l2_p,l2_pm1,psi0,fk
   !
   !.. Local Arrays ..
   real(wp) :: rho_p(1:maxSP)
   real(wp) :: rho_pm1(1:maxSP)
+  real(wp) :: tusp(1:maxSP,1:nq)
+  real(wp) :: usp_check(1:nq,1:maxSP)
+  real(wp) :: usp_copy(1:nq,1:maxSP)
+  integer  :: nlim(0:n_order)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "jump_indicator"
+  character(len=*), parameter :: pname = "resolution_indicator"
   real(wp),         parameter :: dpsi = half
   !
 continue
@@ -322,7 +361,23 @@ continue
                      ierr,error_message)
   end if
   !
+  if (p_order < n_order) then
+    ord_mlt = 0
+    ord_add = p_order
+  else
+    ord_mlt = 1
+    ord_add = 0
+  end if
+  !
   do nc = 1,ncell
+    !
+    if (present(troubled_cell)) then
+      if (.not. troubled_cell(nc)) then
+        marker(nc) = -two*ten 
+        scaled_marker(nc) = zero
+        cycle
+      end if
+    end if
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
     n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
@@ -331,28 +386,42 @@ continue
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
     !
-    ! Copy the degree-P polynomial solution of density at the solution points
+    cutoff_order = ord_mlt*this_order + ord_add
+    if (present(orders_to_cutoff)) then
+      cutoff_order = cutoff_order-orders_to_cutoff+1
+   !  write (iout,'(*(2x,i0))') this_order,cutoff_order,orders_to_cutoff
+   !else
+   !  write (iout,'(*(2x,i0))') this_order,cutoff_order
+    end if
+    !
+    ! Copy u, the degree-P polynomial solution of density at the solution points
     !
     rho_p(1:np) = usp(nec,n1:n2)
-    !
-    ! Compute the degree-(P-1) polynomial solution
+    !         
+    ! Compute u_hat, the degree-(P-1) polynomial solution
     ! of density at the solution points
     !
     rho_pm1(1:np) = filter(this_geom,this_order)% &
-                              cutoff(this_order)% &
+                            cutoff(cutoff_order)% &
                     mv_mult( rho_p(1:np) )
+    !
+    ! Compute u - u_hat
+    !
+    rho_pm1(1:np) = rho_p(1:np) - rho_pm1(1:np)
     !
     ! Compute the L2 inner product of the two polynomials
     !
     l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * jacobian(n1:n2) * &
                   std_elem(this_geom,this_order)%wts(1:np) )
+    l2_pm1 = max(l2_pm1,rndoff)
     !
     l2_p = sum( rho_p(1:np) * rho_p(1:np) * jacobian(n1:n2) * &
                 std_elem(this_geom,this_order)%wts(1:np) )
     !
     marker(nc) = log10( l2_pm1 / l2_p )
     !
-    psi0 = -one*(four + 4.25_wp*log10(real(this_order,kind=wp)))
+    psi0 = -one*(four + 4.25_wp*log10(real(cutoff_order,kind=wp)))
+   !psi0 = -one*(2.25_wp + three*log10(real(cutoff_order,kind=wp)))
     !
     if (marker(nc) <= psi0-dpsi) then
       scaled_marker(nc) = zero
@@ -364,17 +433,88 @@ continue
     !
   end do
   !
+  if (present(troubled_cell)) then
+    troubled_cell(:) = (scaled_marker(:) >= 1.0e-8_wp)
+  end if
+  !
+  if (present(apply_projection)) then
+    if (apply_projection) then
+      !
+      nlim(:) = 0
+      !
+      do nc = 1,ncell
+        !
+        if (present(troubled_cell)) then
+          if (.not. troubled_cell(nc)) cycle
+        end if
+        !
+        n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+        n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+        np = n2-n1+1         ! number of sol-pts in this cell
+        !
+        this_geom = cell(nc)%geom   ! geometry type of this cell
+        this_order = cell(nc)%order ! solution order of this cell
+        !
+        lmtr_order = int( real(this_order,kind=wp)*(one-scaled_marker(nc)) )
+        lmtr_order = max(1,min(this_order,lmtr_order))
+        !
+        if (lmtr_order < this_order) then
+          !
+          nlim(lmtr_order) = nlim(lmtr_order) + 1
+          !
+          ! Store the transpose of usp for this cell to reduce cache misses
+          !
+          do k = 1,np
+            do m = 1,nq
+              tusp(k,m) = usp(m,n1-1+k)
+            end do
+          end do
+          !
+          ! Project the solution down to proj_order
+          ! at each solution point of this cell
+          !
+          do m = 1,nq
+            usp(m,n1:n2) = projct(this_geom,this_order)% &
+                                    limiter(lmtr_order)% &
+                           vm_mult( tusp(1:np,m) )
+          end do
+          !
+        end if
+        !
+      end do
+      !
+#ifdef DEBUG_ON
+      if (ncpu > 1) then
+        call mpi_allreduce(MPI_IN_PLACE,nlim,size(nlim,kind=int_mpi), &
+                           mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+      end if
+      if (mypnum == 0) then
+        do n = lbound(nlim,dim=1),ubound(nlim,dim=1)
+          if (nlim(n) > 0) write (iout,1) nlim(n),n
+        end do
+      end if
+#endif
+      !
+    end if
+  end if
+  !
+  1 format (8x,i8," Cells limited to P",i0)
+  !
 end subroutine resolution_indicator
 !
 !###############################################################################
 !
-subroutine jump_indicator()
+subroutine jump_indicator(troubled_cell)
   !
   !.. Use Statements ..
   use geovar, only : nr,ncell,cell,nface,face
   use order_mod, only : maxFP,geom_solpts
+  use quadrature_mod, only : std_elem
   use flowvar, only : faceusp
   use metrics_mod, only : geofa
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(inout) :: troubled_cell(:)
   !
   !.. Local Scalars ..
   integer :: nc,nf,k,nfp,ierr
@@ -409,9 +549,9 @@ continue
                      ierr,error_message)
   end if
   !
-  allocate ( area_sum(1:ncell) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"area_sum",1,__LINE__,__FILE__,ierr,error_message)
+ !allocate ( area_sum(1:ncell) , source=zero , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"area_sum",1,__LINE__,__FILE__,ierr,error_message)
   !
   marker(:) = zero
   !
@@ -446,39 +586,54 @@ continue
     !                (u_left - u_right)*dot(LDG_beta,unit_normal)
     !
     do k = 1,nfp
-      !
-      ! Get the unit normal at this flux point
-      !
-      unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
+     !!
+     !! Get the unit normal at this flux point
+     !!
+     !unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
       !
       ! Get the face length for the current face
       !
-      ds = rnorm2( geofa(nf)%v(1:nr,k) )
+      ds = norm2( geofa(nf)%v(1:nr,k) )
       dsl = cl(left_geom)*ds
       dsr = cl(right_geom)*ds
       !
-      p_ave = half * (pl_fp(k) + pr_fp(k))
-      p_diff = dot( unrm(:)*(pl_fp(k) - pr_fp(k)) , unrm(:) )
+      ! Compute the jump value at this flux point
       !
-      p_jump = p_diff / p_ave
+     !p_ave = half * (pl_fp(k) + pr_fp(k))
+     !p_diff = abs(pl_fp(k) - pr_fp(k))
+     !!
+     !p_jump = p_diff / p_ave
+      p_jump = two * abs(pl_fp(k) - pr_fp(k)) / (pl_fp(k) + pr_fp(k))
+      !
+      ! Multiply the jump value by the quadrature weight for this flux point
+      !
+      p_jump = p_jump * std_elem(face_geom,face_order)%wts(k)
+      !
+      ! Add the jump*weight to the integrated jump indicator for both cells
       !
       marker(left_cell) = marker(left_cell) + dsl*p_jump
-      area_sum(left_cell) = area_sum(left_cell) + dsl
+     !area_sum(left_cell) = area_sum(left_cell) + dsl
       !
       if (right_cell <= ncell) then
         marker(right_cell) = marker(right_cell) + dsr*p_jump
-        area_sum(right_cell) = area_sum(right_cell) + dsr
+       !area_sum(right_cell) = area_sum(right_cell) + dsr
       end if
       !
     end do
     !
   end do
   !
+  where (marker(:) > zero)
+    marker(:) = log10( marker(:) )
+  else where
+    marker(:) = log10( rndoff )
+  end where
+  !
   do nc = 1,ncell
     !
     psi0 = -one*(2.25_wp + three*log10(real(cell(nc)%order,kind=wp)))
     !
-    marker(nc) = marker(nc) / area_sum(nc)
+   !marker(nc) = marker(nc) / area_sum(nc)
     !
     if (marker(nc) <= psi0-dpsi) then
       scaled_marker(nc) = zero
@@ -490,8 +645,17 @@ continue
     !
   end do
   !
-  deallocate ( area_sum , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"area_sum",2,__LINE__,__FILE__,ierr,error_message)
+  if (present(troubled_cell)) then
+    troubled_cell(:) = (scaled_marker(:) >= 1.0e-8_wp)
+  end if
+  !
+  if (allocated(area_sum)) then
+    deallocate ( area_sum , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"area_sum",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !                "temporary stop at end of jump_indicator")
   !
 end subroutine jump_indicator
 !
@@ -502,6 +666,8 @@ subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !.. Use Statements ..
   use geovar,  only : ncell,cell
   use flowvar, only : usp
+  use ovar,    only : Limiter_Option
+  use order_mod, only : p_order,n_order
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: dropped_orders
@@ -510,6 +676,8 @@ subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !.. Local Scalars ..
   integer :: nc,n1,n2,proj_order
   integer :: this_geom,this_order
+  integer :: orders_to_cutoff
+  integer :: ord_mlt,ord_add,actual_order
   !
 continue
   !
@@ -531,6 +699,23 @@ continue
     proj_order = 0
   end if
   !
+  ! Compute the troubled marker
+  !
+  if (Limiter_Option == 1) then
+    orders_to_cutoff = proj_order+1
+    call resolution_indicator(troubled_cell=troubled_cell, &
+                              orders_to_cutoff=orders_to_cutoff)
+  else
+    call jump_indicator(troubled_cell=troubled_cell)
+  end if
+  !
+  ord_mlt = 1
+  ord_add = 0
+  if (p_order < n_order) then
+    ord_mlt = 0
+    ord_add = p_order
+  end if
+  !
   ! Now loop through the 
   !
   do nc = 1,ncell
@@ -545,10 +730,12 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
+    actual_order = ord_mlt*this_order + ord_add
+    !
     ! If the projection has reduced the solution to first order, mark
     ! this cell as no longer troubled and skip to the next cell
     !
-    if (this_order-proj_order <= 0) then
+    if (actual_order-proj_order <= 1) then
       troubled_cell(nc) = fals
       cycle
     end if
