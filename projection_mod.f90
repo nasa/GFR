@@ -129,8 +129,9 @@ subroutine init_projection_matrices()
   real(wp), allocatable :: vmat(:,:)
   !
   !.. Local Pointers ..
-  real(wp), pointer, contiguous :: pmat(:,:)
+  type(matrix),            pointer :: proj
   type(projection_matrix), pointer :: this_projct
+  real(wp), contiguous,    pointer :: pmat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_projection_matrices"
@@ -140,6 +141,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   pmat        => null()
+  proj        => null()
   this_projct => null()
   !
   gmin = n_min_geom
@@ -220,18 +222,22 @@ continue
         !
         ! Assign local pointer as alias to simplify the code
         !
-        pmat => this_projct%CellOI(cq_order)%mat
+        proj => this_projct%CellOI(cq_order)
         !
         ! Allocate the projection matrix for this quadrature order
-        ! NOTE : pmat is actually the transpose of the projection matrix
+        ! NOTE : proj is actually the transpose of the projection matrix
         ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
         !        of the array and the function result are the same
         !
-        allocate ( pmat(1:ncqp,1:nsp) , source=zero , &
+        allocate ( proj%mat(1:ncqp,1:nsp) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),elem_order,"CellOI",cq_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
+        !
+        ! Assign local pointer as alias to simplify the code
+        !
+        pmat => proj%mat
         !
         ! Compute the projection matrix
         !
@@ -241,6 +247,7 @@ continue
                         vand=vand(this_geom,elem_order)%modal2nodal%mat)
         !
         if (associated(pmat)) pmat => null()
+        if (associated(proj)) proj => null()
         !
         ! Deallocate bmat for the next cell quadrature order
         !
@@ -312,18 +319,22 @@ continue
           !
           ! Assign local pointer as alias to simplify the code
           !
-          pmat => this_projct%FaceOI(fq_order)%mat
+          proj => this_projct%FaceOI(fq_order)
           !
           ! Allocate the projection matrix for this quadrature order
-          ! NOTE : pmat is actually the transpose of the projection matrix
+          ! NOTE : proj is actually the transpose of the projection matrix
           ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
           !        of the array and the function result are the same
           !
-          allocate ( pmat(1:nfqp,1:nfp) , source=zero , &
+          allocate ( proj%mat(1:nfqp,1:nfp) , source=zero , &
                      stat=ierr , errmsg=error_message )
           write (array_name,1) Geom_Name(this_geom),elem_order,"FaceOI",fq_order
           call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                            error_message)
+          !
+          ! Assign local pointer as alias to simplify the code
+          !
+          pmat => proj%mat
           !
           ! Compute the projection matrix
           !
@@ -333,6 +344,7 @@ continue
                           vand=vmat)
           !
           if (associated(pmat)) pmat => null()
+          if (associated(proj)) proj => null()
           !
           ! Deallocate bmat and vmat for the next face quadrature order
           !
@@ -396,19 +408,23 @@ continue
         !
         ! Assign local pointer as alias to simplify the code
         !
-        pmat => this_projct%limiter(lmtr_order)%mat
+        proj => this_projct%limiter(lmtr_order)
         !
         ! Allocate the projection matrix for this cell order
-        ! NOTE : pmat is actually the transpose of the projection matrix
+        ! NOTE : proj is actually the transpose of the projection matrix
         ! NOTE : Dont use F2003 auto-reallocation. This makes sure the shapes
         !        of the array and the function result are the same
         !
-        allocate ( pmat(1:nsp,1:nsp) , source=zero , &
+        allocate ( proj%mat(1:nsp,1:nsp) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),elem_order, &
                              "limiter",lmtr_order
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message)
+        !
+        ! Assign local pointer as alias to simplify the code
+        !
+        pmat => proj%mat
         !
         ! Compute the projection matrices depending on geometry type
         !
@@ -417,6 +433,7 @@ continue
                         weights=std_elem(this_geom,elem_order)%wts)
         !
         if (associated(pmat)) pmat => null()
+        if (associated(proj)) proj => null()
         !
         ! Deallocate bmat for the next limiter order
         !
@@ -428,8 +445,9 @@ continue
         !
       end do cell_order_loop
       !
-      if (associated(this_projct)) this_projct => null()
       if (associated(pmat       )) pmat        => null()
+      if (associated(proj       )) proj        => null()
+      if (associated(this_projct)) this_projct => null()
       !
     end do elem_order_loop
     !
@@ -473,7 +491,7 @@ subroutine project_to_porder(cell,array,order)
   integer,          optional,    intent(in) :: order
   !
   !.. Local Scalars ..
-  integer :: k,n,l,n1,n2,nsp,nvar
+  integer :: k,m,n,nc,n1,n2,np,nvar
   integer :: this_geom,this_order,proj_order
   !
   !.. Local Arrays ..
@@ -487,31 +505,38 @@ continue
   !
   nvar = size(array,dim=1)
   !
-  do n = 1,size(cell)
+  do nc = 1,size(cell)
     !
-    n1 = cell(n)%beg_sp
-    n2 = cell(n)%end_sp
-    nsp = n2-n1+1
+    n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
+    n2 = cell(nc)%end_sp ! ending    index for solpts in cell nc
+    np = n2-n1+1 ! number of solution points in this cell
     !
-    this_geom = cell(n)%geom
-    this_order = cell(n)%order
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     if (proj_order < this_order) then
       !
-      do k = 1,nsp
-        do l = 1,nvar
-          tmp(k,l) = array(l,n1-1+k)
+      ! Store the transpose of usp for this cell to reduce cache misses
+      !
+      do k = 1,np
+        do m = 1,nvar
+          tmp(k,m) = array(m,n1-1+k)
         end do
       end do
       !
-      pmat(1:nsp,1:nsp) = projct(this_geom,this_order)% &
-                                   limiter(proj_order)% &
-                          mat(1:nsp,1:nsp)
+      ! Project the solution down to proj_order
+      ! at each solution point of this cell
       !
-      do k = 1,nsp
-        do l = 1,nvar
-          array(l,n1-1+k) = dot( pmat(1:nsp,k) , tmp(1:nsp,l) )
+      do k = 1,np
+        !
+        n = k+n1-1 ! total index of solution point within array
+        !
+        do m = 1,nvar
+          array(m,n) = projct(this_geom,this_order)% &
+                                limiter(proj_order)% &
+                       dot( k , tmp(1:np,m) )
         end do
+        !
       end do
       !
     end if
