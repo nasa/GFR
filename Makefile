@@ -11,6 +11,7 @@ OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
 #FCADD += -DPROFILE_ON
+#FCADD += -DIGNORE_MPI_INFO
 
 
 .PHONY: all
@@ -179,8 +180,10 @@ warn-std90: std90
 #FCADD += -DTRACK_MEMORY_ALLOCATIONS
 #FCADD += -DMEMORY_TEST_PAUSE
 
-#recon_haswell: $(call build-function, optimize_haswell, recon_haswell, $(FCADD), haswell)
-#rebuild-test: $(call rebuild-function, optimize_haswell, recon_haswell, $(FCADD), haswell)
+#recon_haswell: $(call build-function, optimize_haswell, \
+                       recon_haswell, $(FCADD), haswell)
+#rebuild-test: $(call rebuild-function, optimize_haswell, \
+                      recon_haswell, $(FCADD), haswell)
 define build-function
   $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=$(1)" \
                                "BUILDDIR=$(2)" \
@@ -294,9 +297,15 @@ clean-build:
 
 .PHONY: clean
 clean:
-	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
-	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
-	make -f slv.mk "EXECUTABLE=recon_westmere" "BUILDDIR=optimize_westmere" clean
-	make -f slv.mk "EXECUTABLE=recon_sandybridge" "BUILDDIR=optimize_sandybridge" clean
-	make -f slv.mk "EXECUTABLE=recon_ivybridge" "BUILDDIR=optimize_ivybridge" clean
-	make -f slv.mk "EXECUTABLE=recon_haswell" "BUILDDIR=optimize_haswell" clean
+	make -f slv.mk "EXECUTABLE=debug_recon" \
+	               "BUILDDIR=debug" clean
+	make -f slv.mk "EXECUTABLE=recon" \
+	               "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=recon_westmere" \
+	               "BUILDDIR=optimize_westmere" clean
+	make -f slv.mk "EXECUTABLE=recon_sandybridge" \
+	               "BUILDDIR=optimize_sandybridge" clean
+	make -f slv.mk "EXECUTABLE=recon_ivybridge" \
+	               "BUILDDIR=optimize_ivybridge" clean
+	make -f slv.mk "EXECUTABLE=recon_haswell" \
+	               "BUILDDIR=optimize_haswell" clean
