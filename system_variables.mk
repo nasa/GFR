@@ -1,7 +1,8 @@
 # Lab
 
 # Fortran MPI compiler
-FC := mpif90
+FC := mpiifort
+CC := mpiicc
 
 # Compilation flags for this specific architecture
 TARGETCPU     := -xCORE-AVX2
