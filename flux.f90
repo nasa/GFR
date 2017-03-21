@@ -65,6 +65,9 @@ subroutine interp_cv_to_flxpts()
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nq) :: tusp
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_flxpts"
+  !
 continue
   !
   ! Loop through each interior cell and interpolate the conserved
