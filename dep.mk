@@ -29,7 +29,8 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/restart_mod.o \
 	      $(OBJDIR)/plot3d_mod.o \
 	      $(OBJDIR)/gmsh_mod.o \
-	      $(OBJDIR)/cgns_mod.o
+              $(OBJDIR)/cgns_mod.o \
+              $(OBJDIR)/cpu_info_mod.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
@@ -101,6 +102,11 @@ $(OBJDIR)/correction_mod.o : correction_mod.f90 \
                    $(OBJDIR)/vandermonde_mod.o \
                    $(OBJDIR)/poly.o \
                    $(FUNDIR)/np2n.f90
+
+$(OBJDIR)/cpu_info_mod.o : cpu_info_mod.f90 \
+                 $(OBJDIR)/kind_types.o \
+                 $(OBJDIR)/ovar_mod.o \
+                 $(OBJDIR)/mycpu.o
 
 $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/kind_types.o \
@@ -314,6 +320,8 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
             $(FUNDIR)/vsp2u.f90
+
+$(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
