@@ -1376,7 +1376,8 @@ continue
   ! Collect the total number of output points from all processors
   !
   if (ncpu > 1) then
-    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+   !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_mxpts,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
   end if
@@ -2389,10 +2390,12 @@ continue
   ! and subcells from all processors
   !
   if (ncpu > 1) then
-    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+   !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_mxpts,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
-    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+   !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+    call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                        cpu_subcells,1_int_mpi,mpi_inttyp, &
                        MPI_COMM_WORLD,mpierr)
   end if

@@ -8526,7 +8526,8 @@ continue
   !
   ! Collect the number of communication pairs for all processors
   !
-  call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+ !call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+  call mpi_allgather(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                      cpu_nums,1_int_mpi,MPI_INTEGER,MPI_COMM_WORLD,mpierr)
   call debug_timer(stop_timer,"section 5a")
   call debug_timer(start_timer,"section 5b")
@@ -8571,7 +8572,8 @@ continue
   !
   ! Collect the individual comm_pair arrays for all processors
   !
-  call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+ !call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_DATATYPE_NULL, &
+  call mpi_allgatherv(MPI_IN_PLACE,0_int_mpi,MPI_INTEGER, &
                       comm_pair,cpu_nums,cpu_disp,mpi_inttyp, &
                       MPI_COMM_WORLD,mpierr)
   call debug_timer(stop_timer,"section 5c")
