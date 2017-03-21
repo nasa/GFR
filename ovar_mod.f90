@@ -268,6 +268,9 @@ module ovar
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
   real(wp), public, save, dimension(1:5,1:2,1:5) :: vortex_error
   !
+  integer, public, save, allocatable :: all_host_num(:)
+  integer, public, save, allocatable :: all_cpu_num(:)
+  !
   integer,  public, save :: nst
   !
   integer,  public, save :: Total_Periods
