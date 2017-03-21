@@ -596,15 +596,15 @@ continue
     !
     dtsp(:) = dtmin
     !
-    ! Make sure the timestep size doesnt make the final time exceed Final_Time
-    !
-    if (Final_Time > zero) then
-      if (time + dtmin > Final_Time + eps9) then
-        dtsp(:) = Final_Time - time
-        this_is_final_timestep = true
-      end if
+  end if
+  !
+  ! Make sure the timestep size doesnt make the final time exceed Final_Time
+  !
+  if (Final_Time > zero) then
+    if (time + dtmin > Final_Time + eps9) then
+      dtsp(:) = Final_Time - time
+      this_is_final_timestep = true
     end if
-    !
   end if
   !
 end subroutine get_cell_timestep
@@ -870,9 +870,13 @@ subroutine rupdate_Classic_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,num_stages,Filter_Option
+  use ovar,    only : nst,num_stages
+  use ovar,    only : Limiter_Option
+  use ovar,    only : Filter_Option
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : limit_by_projecting
   !
   !.. Local Scalars ..
   integer   :: n,m,nt
@@ -898,7 +902,13 @@ continue
   !
   ! Apply the filter
   !
-  if (Filter_Option > 0) call filter_usp
+  if (Limiter_Option == -1) then
+    call resolution_indicator(apply_projection=true)
+  else if (Limiter_Option >= 1) then
+    call limit_by_projecting
+  else if (Filter_Option > 0) then
+    call filter_usp
+  end if
   !
 end subroutine rupdate_Classic_RK
 !
@@ -908,9 +918,11 @@ subroutine rupdate_CK4_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Filter_Option
+  use ovar,    only : nst,Limiter_Option,Filter_Option
   use flowvar, only : rssprk,residual,usp,dtsp
   use filter_mod, only : filter_usp
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : limit_by_projecting
   !
   !.. Local Scalars ..
   integer :: n
@@ -943,7 +955,13 @@ continue
   !
   ! Apply the filter
   !
-  if (Filter_Option > 0) call filter_usp
+  if (Limiter_Option == -1) then
+    call resolution_indicator(apply_projection=true)
+  else if (Limiter_Option >= 1) then
+    call limit_by_projecting
+  else if (Filter_Option > 0) then
+    call filter_usp
+  end if
   !
 end subroutine rupdate_CK4_RK
 !
@@ -953,9 +971,11 @@ subroutine rupdate_TVD2_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Filter_Option
+  use ovar,    only : nst,Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : limit_by_projecting
   !
   !.. Local Scalars ..
   integer   :: n
@@ -977,7 +997,13 @@ continue
   !
   ! Apply the filter
   !
-  if (Filter_Option > 0) call filter_usp
+  if (Limiter_Option == -1) then
+    call resolution_indicator(apply_projection=true)
+  else if (Limiter_Option >= 1) then
+    call limit_by_projecting
+  else if (Filter_Option > 0) then
+    call filter_usp
+  end if
   !
 end subroutine rupdate_TVD2_RK
 !
@@ -987,9 +1013,11 @@ subroutine rupdate_TVD3_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Filter_Option
+  use ovar,    only : nst,Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : limit_by_projecting
   !
   !.. Local Scalars ..
   integer :: n
@@ -1011,7 +1039,13 @@ continue
   !
   ! Apply the filter
   !
-  if (Filter_Option > 0) call filter_usp
+  if (Limiter_Option == -1) then
+    call resolution_indicator(apply_projection=true)
+  else if (Limiter_Option >= 1) then
+    call limit_by_projecting
+  else if (Filter_Option > 0) then
+    call filter_usp
+  end if
   !
 end subroutine rupdate_TVD3_RK
 !
@@ -1021,9 +1055,11 @@ subroutine rupdate_TVD4_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Filter_Option
+  use ovar,    only : nst,Limiter_Option,Filter_Option
   use flowvar, only : rssprk,residual,usp,uoldsp,usp_sum,dtsp
   use filter_mod, only : filter_usp
+  use module_limiters, only : resolution_indicator
+  use module_limiters, only : limit_by_projecting
   !
   !.. Local Scalars ..
   integer :: n
@@ -1070,7 +1106,13 @@ continue
   !
   ! Apply the filter
   !
-  if (Filter_Option > 0) call filter_usp
+  if (Limiter_Option == -1) then
+    call resolution_indicator(apply_projection=true)
+  else if (Limiter_Option >= 1) then
+    call limit_by_projecting
+  else if (Filter_Option > 0) then
+    call filter_usp
+  end if
   !
 end subroutine rupdate_TVD4_RK
 !

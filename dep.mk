@@ -413,6 +413,7 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/metrics.o \
              $(OBJDIR)/filter_mod.o \
+	     $(OBJDIR)/limiters.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/interpolation_mod.o \
              $(FUNDIR)/usp2v.f90 \
