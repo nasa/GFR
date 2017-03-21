@@ -180,8 +180,8 @@ continue
       !
       ! Remove all associations of the local pointers before continuing
       !
-      if (associated(filt)) filt => null()
       if (associated(fmat)) fmat => null()
+      if (associated(filt)) filt => null()
       !
       ! ################################
       ! #####  2. Cut-Off Filters  #####
@@ -253,15 +253,15 @@ continue
         !
         ! Remove all associations of the local pointers before continuing
         !
-        if (associated(filt)) filt => null()
         if (associated(fmat)) fmat => null()
+        if (associated(filt)) filt => null()
         !
       end do cutoff_loop
       !
       ! Remove all associations of the local pointers before continuing
       !
-      if (associated(filt)) filt => null()
       if (associated(fmat)) fmat => null()
+      if (associated(filt)) filt => null()
       if (associated(vmat)) vmat => null()
       if (associated(vmat_inv)) vmat_inv => null()
       !
