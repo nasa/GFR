@@ -24,16 +24,31 @@ module generic_types_mod
     real(wp), allocatable :: col_val(:)
     !
     !
-    procedure(dot_function), pointer :: dot
+   !procedure(dot_vec_function), pointer, private :: dot_vec
+   !procedure(dot_mat_function), pointer, private :: dot_mat
+    procedure(dot_vec_function), pointer :: dot
+    procedure(dot_mat_function), pointer :: dot_mat
     procedure(mat_vec_mult), pointer :: mv_mult
     procedure(vec_mat_mult), pointer :: vm_mult
-    procedure(mat_mat_mult), pointer :: mm_mult
+   !procedure(mat_mat_mult),        pointer :: mm_mult
+   !procedure(mat_mat_rev_mult),    pointer :: mm_rev_mult
+   !procedure(mat_mat_mult_rt),     pointer :: mmrt_mult
+   !procedure(mat_mat_rev_mult_rt), pointer :: mmrt_rev_mult
+   !procedure(mat_mat_mult_ut),     pointer :: mmut_mult
+   !procedure(mat_mat_rev_mult_ut), pointer :: mmut_rev_mult
     !
   contains
     !
     procedure :: check_for_sparsity
     procedure :: output_sparsity
     procedure :: memory_usage
+    procedure :: mm_mult       => mat_mat_mult_intrinsic
+    procedure :: mm_rev_mult   => mat_mat_rev_mult_intrinsic
+    procedure :: mmrt_mult     => mm_mult_intsc_rtrn_transpose
+    procedure :: mmrt_rev_mult => mm_rev_mult_intsc_rtrn_transpose
+    procedure :: mmut_mult     => mm_mult_intsc_use_transpose
+    procedure :: mmut_rev_mult => mm_rev_mult_intsc_use_transpose
+   !generic :: dot => dot_vec,dot_mat
     !
   end type matrix
   !
@@ -41,13 +56,21 @@ module generic_types_mod
   !
   abstract interface
     !
-    function dot_function(this,idx,vector) result(return_value)
+    function dot_vec_function(this,idx,vector) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       integer, intent(in) :: idx
       real(wp), dimension(:), intent(in) :: vector
       real(wp) :: return_value
-    end function dot_function
+    end function dot_vec_function
+    !
+    function dot_mat_function(this,idx,array) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      integer, intent(in) :: idx
+      real(wp), dimension(:,:), intent(in) :: array
+      real(wp) :: return_value(1:size(array,dim=2))
+    end function dot_mat_function
     !
     function mat_vec_mult(this,vector) result(return_value)
       import :: wp, matrix
@@ -63,6 +86,11 @@ module generic_types_mod
       real(wp), dimension(1:size(this%mat,dim=2)) :: return_value
     end function vec_mat_mult
     !
+    !
+    !
+    !
+    !
+    !
     function mat_mat_mult(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
@@ -70,6 +98,46 @@ module generic_types_mod
       real(wp), dimension(1:size(     mat,dim=1), &
                           1:size(this%mat,dim=2)) :: return_value
     end function mat_mat_mult
+    !
+    function mat_mat_rev_mult(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(this%mat,dim=1), &
+                          1:size(     mat,dim=2)) :: return_value
+    end function mat_mat_rev_mult
+    !
+    function mat_mat_mult_rt(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(this%mat,dim=2), &
+                          1:size(     mat,dim=1)) :: return_value
+    end function mat_mat_mult_rt
+    !
+    function mat_mat_rev_mult_rt(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(     mat,dim=2), &
+                          1:size(this%mat,dim=1)) :: return_value
+    end function mat_mat_rev_mult_rt
+    !
+    function mat_mat_mult_ut(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(this%mat,dim=2), &
+                          1:size(     mat,dim=2)) :: return_value
+    end function mat_mat_mult_ut
+    !
+    function mat_mat_rev_mult_ut(this,mat) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      real(wp), dimension(:,:), intent(in) :: mat
+      real(wp), dimension(1:size(     mat,dim=1), &
+                          1:size(this%mat,dim=1)) :: return_value
+    end function mat_mat_rev_mult_ut
     !
   end interface
   !
@@ -96,10 +164,17 @@ continue
   !
   ! Default assignments of procedure pointer
   !
-  this%dot => dot_intrinsic
+  this%dot     => dot_intrinsic
+  this%dot_mat => dot_mat_intrinsic
   this%mv_mult => mat_vec_mult_intrinsic
   this%vm_mult => vec_mat_mult_intrinsic
-  this%mm_mult => mat_mat_mult_intrinsic
+  !
+ !this%mm_mult       => mat_mat_mult_intrinsic
+ !this%mm_rev_mult   => mat_mat_rev_mult_intrinsic
+ !this%mmrt_mult     => mm_mult_intsc_rtrn_transpose
+ !this%mmrt_rev_mult => mm_rev_mult_intsc_rtrn_transpose
+ !this%mmut_mult     => mm_mult_intsc_use_transpose
+ !this%mmut_rev_mult => mm_rev_mult_intsc_use_transpose
   !
   if (allocated(this%mat)) then
     !
@@ -243,7 +318,12 @@ continue
       !
       this%mv_mult => mat_vec_mult_sparse
       this%vm_mult => vec_mat_mult_sparse
-      this%mm_mult => mat_mat_mult_intrinsic
+     !this%mm_mult       => mat_mat_mult_intrinsic
+     !this%mm_rev_mult   => mat_mat_rev_mult_intrinsic
+     !this%mmrt_mult     => mm_mult_intsc_rtrn_transpose
+     !this%mmrt_rev_mult => mm_rev_mult_intsc_rtrn_transpose
+     !this%mmut_mult     => mm_mult_intsc_use_transpose
+     !this%mmut_rev_mult => mm_rev_mult_intsc_use_transpose
       !
     end if
     !
@@ -759,6 +839,25 @@ continue
 end function dot_intrinsic
 !
 !###############################################################################
+!
+pure function dot_mat_intrinsic(this,idx,array) result(return_value)
+  !
+  class(matrix), intent(in) :: this
+  integer,       intent(in) :: idx
+  real(wp),      intent(in) :: array(:,:)
+  !
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+continue
+  !
+  return_value(:) = matmul( this%mat(:,idx) , array )
+ !do n = 1,size(array,dim=2)
+ !  return_value(n) = dot( this%mat(:,idx) , array(:,n) )
+ !end do
+  !
+end function dot_mat_intrinsic
+!
+!###############################################################################
 !###############################################################################
 !###############################################################################
 !
@@ -890,6 +989,70 @@ continue
   return_value = matmul( this%mat , mat )
   !
 end function mat_mat_rev_mult_intrinsic
+!
+!###############################################################################
+!
+pure function mm_mult_intsc_rtrn_transpose(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(this%mat,dim=2), &
+                      1:size(     mat,dim=1)) :: return_value
+  !
+continue
+  !
+  return_value = transpose( matmul( mat , this%mat ) )
+  !
+end function mm_mult_intsc_rtrn_transpose
+!
+!###############################################################################
+!
+pure function mm_rev_mult_intsc_rtrn_transpose(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(     mat,dim=2), &
+                      1:size(this%mat,dim=1)) :: return_value
+  !
+continue
+  !
+  return_value = transpose( matmul( this%mat , mat ) )
+  !
+end function mm_rev_mult_intsc_rtrn_transpose
+!
+!###############################################################################
+!
+pure function mm_mult_intsc_use_transpose(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(this%mat,dim=2), &
+                      1:size(     mat,dim=2)) :: return_value
+  !
+continue
+  !
+  return_value = transpose( matmul( transpose(mat) , this%mat ) )
+  !
+end function mm_mult_intsc_use_transpose
+!
+!###############################################################################
+!
+pure function mm_rev_mult_intsc_use_transpose(this,mat) result(return_value)
+  !
+  class(matrix),            intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: mat
+  !
+  real(wp), dimension(1:size(     mat,dim=1), &
+                      1:size(this%mat,dim=1)) :: return_value
+  !
+continue
+  !
+  return_value = transpose( matmul( this%mat , transpose(mat) ) )
+  !
+end function mm_rev_mult_intsc_use_transpose
 !
 !###############################################################################
 !###############################################################################
