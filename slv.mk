@@ -16,6 +16,9 @@ vpath %.mod $(MODDIR)
 MOD = -module $(MODDIR)
 FSFXFLG = .f90
 
+CSFXFLG = .c
+CFLAG = -O3 -g
+
 HDF5LIB = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl
 
 O2OPT = -O2 -ip
@@ -49,6 +52,8 @@ FCBASE = -traceback -g -assume realloc_lhs
 ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
 
 DEBUGFLAGS = -ftrapuv -check all -debug -fp-stack-check
+
+COBJS := $(OBJDIR)/mycpu.o
 
 OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/Euler_tri.o \
@@ -87,10 +92,11 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/channel_mod.o \
         $(OBJDIR)/restart_mod.o \
         $(OBJDIR)/postproc_mod.o \
-        $(OBJDIR)/pbs_mod.o
+        $(OBJDIR)/pbs_mod.o \
+        $(OBJDIR)/cpu_info_mod.o
 
 
-HighlightName := | /bin/grep -Phi --color '[^ ]+\.f[0-9]*'
+HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
 
 .PHONY: O2-ip-opt
 O2-ip-opt: OPTIM = $(O2OPT) $(TARGET) $(ADDOPT)
@@ -145,15 +151,23 @@ time: $(OBJS)
 .PHONY: all
 all: Command-Beg := echo
 all: Command-End  = $(HighlightName); $(FC) $(FPP) $(FCFLAG) -c -o $@ $<
+all: Command-Cend  = $(HighlightName); $(CC) $(CFLAG) -c -o $@ $<
 all: $(EXECUTABLE)
 
-$(EXECUTABLE): $(OBJS)
-	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
+$(EXECUTABLE): $(OBJS) $(COBJS)
+	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 
 %.o:%$(FSFXFLG)
 	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
 	$(FC) $(FPP) $(FCFLAG) -c -o $@ $<
+
+%.o:%$(CSFXFLG)
+	$(QUIET) echo $(CC) $(CFLAG) -c -o $@ $< $(HighlightName);\
+	$(CC) $(CFLAG) -c -o $@ $<
+
+$(COBJS):
+	$(QUIET) $(Command-Beg) $(CC) $(CFLAG) -c -o $@ $< $(Command-Cend)
 
 $(OBJS):
 	$(QUIET) $(Command-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Command-End)
