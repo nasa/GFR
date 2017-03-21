@@ -5194,6 +5194,14 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
 continue
   !
   call debug_timer(entering_procedure,pname)
+#ifdef PBS_ENV
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,*) "Entering write_parallel_cgns_solution_file"
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
@@ -5693,6 +5701,14 @@ continue
     call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+#ifdef PBS_ENV
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,*) "Leaving write_parallel_cgns_solution_file"
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
   call debug_timer(leaving_procedure,pname)
   !
   !-----------------------------------------------------------------------------
