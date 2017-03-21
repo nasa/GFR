@@ -454,23 +454,23 @@ continue
   !
   ! Check to make sure that no floating-point exceptions are signaling
   !
-  call ieee_get_flag(ieee_usual,signaling_exceptions)
-  !
-  bad_number_found = merge(1,0,signaling_exceptions)
-  !
-  call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
-                     size(bad_number_found,kind=int_mpi), &
-                     mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
-  !
-  if (sum(bad_number_found) > 0) then
-    if (bad_number_found(1) > 0) write (overflow_error,8)
-    if (bad_number_found(2) > 0) write (divide_by_zero_error,9)
-    if (bad_number_found(3) > 0) write (invalid_error,10)
-    write (error_message,7) trim(overflow_error), &
-                            trim(divide_by_zero_error), &
-                            trim(invalid_error)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  end if
+ !call ieee_get_flag(ieee_usual,signaling_exceptions)
+ !!
+ !bad_number_found = merge(1,0,signaling_exceptions)
+ !!
+ !call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
+ !                   size(bad_number_found,kind=int_mpi), &
+ !                   mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+ !!
+ !if (sum(bad_number_found) > 0) then
+ !  if (bad_number_found(1) > 0) write (overflow_error,8)
+ !  if (bad_number_found(2) > 0) write (divide_by_zero_error,9)
+ !  if (bad_number_found(3) > 0) write (invalid_error,10)
+ !  write (error_message,7) trim(overflow_error), &
+ !                          trim(divide_by_zero_error), &
+ !                          trim(invalid_error)
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !end if
   !
   call debug_timer(leaving_procedure,pname)
   !
