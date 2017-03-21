@@ -1,12 +1,12 @@
 module cpu_info_mod
   !
+  use module_kind_types
+  !
   implicit none
   !
   private
   !
   public :: get_cpu_locality
-  !
-
   !
 contains
 !
