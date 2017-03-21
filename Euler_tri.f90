@@ -327,7 +327,7 @@ continue
   !
   call recon_cpu_time(0)
   !
- !call initialize_limiters
+  call initialize_limiters
  !call compute_cell_ave
   !
   !
@@ -498,47 +498,7 @@ continue
     !
     completed_timesteps = iter
     !
-    ! First check to make sure that no floating-point exceptions are signaling
-    !
-    call ieee_get_flag(ieee_usual,signaling_exceptions)
-    !
-    bad_number_found = merge(1,0,signaling_exceptions)
-    !
-    call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
-                       size(bad_number_found,kind=int_mpi), &
-                       mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
-    !
-    if (sum(bad_number_found) > 0) then
-      !
-      ! A floating-point exception was detected. Dump solution and restart
-      ! files for the solution at the previous time step and abort the
-      ! simulation
-      !
-      ! Copy the solution from the previous time step back into
-      ! usp so we can dump the solution and restart files before
-      ! aborting the simulation
-      !
-      usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
-      !
-      if (continuous_output) then
-        call new_write_parallel_cgns
-      else
-        call write_parallel_cgns(-3)
-      end if
-      !
-      call write_restart_file(-2)
-      !
-      if (bad_number_found(1) > 0) write (overflow_error,101)
-      if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
-      if (bad_number_found(3) > 0) write (invalid_error,103)
-      write (error_message,100) itcur, &
-                                trim(overflow_error), &
-                                trim(divide_by_zero_error), &
-                                trim(invalid_error)
-      !
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      !
-    end if
+    call check_for_bad_number(__LINE__)
     !
     ! Exit the main loop if we have reached the requested final simulation
     ! time when running a time accurate simulation with a global time step.
@@ -569,6 +529,8 @@ continue
       end if
       !
     end if
+    !
+    call check_for_bad_number(__LINE__)
     !
     ! Output the error at the specified interval
     !
@@ -883,7 +845,62 @@ continue
                " FOUND FILE REQUESTING TO STOP THE EXECUTION OF RECON! ",/, &
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
-   !
+  !
+contains
+!
+!###############################################################################
+!
+subroutine check_for_bad_number(line_num)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: line_num
+  !
+  character(len=*), parameter :: pname = "check_for_bad_number"
+  !
+continue
+  !
+  ! First check to make sure that no floating-point exceptions are signaling
+  !
+  call ieee_get_flag(ieee_usual,signaling_exceptions)
+  !
+  bad_number_found = merge(1,0,signaling_exceptions)
+  !
+  call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
+                     size(bad_number_found,kind=int_mpi), &
+                     mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+  !
+  if (sum(bad_number_found) > 0) then
+    !
+    ! A floating-point exception was detected. Dump solution and restart
+    ! files for the solution at the previous time step and abort the
+    ! simulation
+    !
+    ! Copy the solution from the previous time step back into
+    ! usp so we can dump the solution and restart files before
+    ! aborting the simulation
+    !
+    usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
+    !
+    if (continuous_output) then
+      call new_write_parallel_cgns
+    else
+      call write_parallel_cgns(-3)
+    end if
+    !
+    call write_restart_file(-2)
+    !
+    if (bad_number_found(1) > 0) write (overflow_error,101)
+    if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
+    if (bad_number_found(3) > 0) write (invalid_error,103)
+    write (error_message,100) itcur, &
+                              trim(overflow_error), &
+                              trim(divide_by_zero_error), &
+                              trim(invalid_error)
+    !
+    call stop_recon(stop_mpi,pname,line_num,__FILE__,error_message)
+    !
+  end if
+  !
   100 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
               "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
@@ -894,7 +911,7 @@ continue
   102 format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
   103 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
   !
-contains
+end subroutine check_for_bad_number
 !
 !###############################################################################
 !
