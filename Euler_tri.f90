@@ -289,7 +289,7 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
-  call memory_pause("initializing solution","initializing results file")
+  call memory_pause("initializing solution","initializing generic module")
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
@@ -297,9 +297,6 @@ continue
   if (dump_memory_usage) then
     call report_memory_usage(n=2,request_stop=true)
   end if
-  !
-  if (mypnum == 0) call write_results_file(1,itcur)
-  call memory_pause("initializing results file","initializing generic module")
   !
   if (mypnum == 0) then
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
