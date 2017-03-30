@@ -65,11 +65,24 @@ module restart_mod
     integer :: input_order
   end type rstrt_cell_t
   !
+  type :: sp_idx_t
+    integer :: beg_sp
+    integer :: end_sp
+  end type sp_idx_t
+  !
   !###################################
   !###  Module Allocatable Arrays  ###
   !###################################
   !
   integer, save, allocatable :: cell_output_order(:)
+  !
+  integer(INT_MPI), save, allocatable :: og_counts(:)
+  integer(INT_MPI), save, allocatable :: og_displs(:)
+  !
+  integer(INT_MPI), save, allocatable :: sol_counts(:)
+  integer(INT_MPI), save, allocatable :: sol_displs(:)
+  !
+  type(sp_idx_t), save, allocatable :: host_output_order(:)
   !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
@@ -1103,6 +1116,208 @@ end subroutine write_restart_file
 !
 !###############################################################################
 !
+subroutine get_restart_arrays(ordered_geom,solution)
+  !
+  !.. Use Statements ..
+  use geovar,  only : ncell,cell,n_solpts
+  use flowvar, only : usp
+  !
+  !.. Formal Arguments ..
+  integer(i4), allocatable, intent(inout) :: ordered_geom(:)
+  real(wp),    allocatable, intent(inout) :: solution(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n1,n2,l1,l2,ierr
+  integer :: this_geom,this_order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_restart_arrays"
+  !
+continue
+  !
+  allocate ( ordered_geom(1:ncell) , source=0_i4 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  do n = 1,ncell
+    !
+    nc = cell_output_order(n)
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ordered_geom(n) = int( 100*this_order + this_geom , kind=i4 )
+    !
+  end do
+  !
+  ! Allocate a temporary array to copy over only the interior solution
+  ! data for each processor. We also have to copy over the solution data
+  ! in the same order that is expected by the MPI derived datatype.
+  !
+  allocate ( solution(1:nq,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
+  ! 
+  l2 = 0
+  do n = 1,ncell
+    !
+    nc = cell_output_order(n)
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !
+    l1 = l2 + 1
+    l2 = l2 + n2-n1+1
+    !
+    solution(1:nq,l1:l2) = usp(1:nq,n1:n2)
+    !
+  end do
+  !
+end subroutine get_restart_arrays
+!
+!###############################################################################
+!
+subroutine collect_restart_arrays(ordered_geom,solution)
+  !
+  !.. Use Statements ..
+  use geovar,  only : ncell,cell,n_solpts
+  use flowvar, only : usp
+  !
+  !.. Formal Arguments ..
+  integer(i4), allocatable, intent(inout) :: ordered_geom(:)
+  real(wp),    allocatable, intent(inout) :: solution(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nc,ierr,lcell,lpts
+  !
+  !.. LOcal Allocatable Arrays ..
+  integer(i4), allocatable :: local_og(:)
+  real(wp),    allocatable :: local_sol(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "collect_restart_arrays"
+  !
+continue
+  !
+  if (i_am_host_root) then
+    !
+    lcell = sum(og_counts)
+    !
+    allocate ( ordered_geom(1:lcell) , source=0_i4 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+    !
+    lpts = sum(sol_counts) / nq
+    allocate ( solution(1:nq,1:lpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
+    !
+  else
+    !
+    allocate ( ordered_geom(1:1) , source=0_i4 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+    !
+    allocate ( solution(1:1,1:1) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+ !allocate ( local_og(1:ncell) , source=0_i4 , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"local_og",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !do nc = 1,ncell
+ !  local_og(nc) = int( 100*cell(nc)%order + cell(nc)%geom , kind=i4 )
+ !end do
+  !
+  ! F2003 AUTO-REALLOCATION
+  local_og = int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=i4 )
+  !
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !do nc = 0,ncpu-1
+ !  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !  if (mypnum == nc) then
+ !    write (iout,1) mypnum,my_host_num, &
+ !                   size(local_og),og_counts(my_host_rank+1), &
+ !                   og_displs(my_host_rank+1), &
+ !                   nq*n_solpts,sol_counts(my_host_rank+1), &
+ !                   sol_displs(my_host_rank+1)
+ !    flush (iout)
+ !  end if
+ !  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !end do
+ !call mpi_barrier(MPI_COMM_WORLD,mpierr)
+ !1 format (i4,1x,i3,2x,*(1x,i8,:))
+  call mpi_gatherv(local_og,int(ncell,kind=int_mpi),MPI_INTEGER, &
+                   ordered_geom,og_counts,og_displs,MPI_INTEGER, &
+                   host_root,my_host_comm,mpierr)
+  !
+  deallocate ( local_og , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"local_og",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate a temporary array to copy over only the interior solution
+  ! data for each processor. We also have to copy over the solution data
+  ! in the same order that is expected by the MPI derived datatype.
+  !
+  local_sol = usp(1:nq,1:n_solpts) ! F2003 AUTO-REALLOCATION
+  !
+  call mpi_gatherv(local_sol,size(local_sol,kind=int_mpi),mpi_flttyp, &
+                   solution,sol_counts,sol_displs,mpi_flttyp, &
+                   host_root,my_host_comm,mpierr)
+  !
+  deallocate ( local_sol , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"local_sol",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Reorder the ordered_geom and solution arrays to
+  ! match their respective MPI derived datatypes
+  !
+  if (i_am_host_root) then
+    local_og = ordered_geom ! F2003 AUTO-REALLOCATION
+    ordered_geom(:) = local_og(cell_output_order)
+    local_sol = solution ! F2003 AUTO-REALLOCATION
+    solution(:,:) = reorder_host_solution( local_sol(:,:) )
+  end if
+  !
+end subroutine collect_restart_arrays
+!
+!###############################################################################
+!
+pure function reorder_host_solution(solution) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: solution(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(solution,dim=1), &
+                           1:size(solution,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: nc,n1,n2,l1,l2
+  !
+continue
+  !
+  l2 = 0
+  do nc = 1,size(host_output_order)
+    !
+    n1 = host_output_order(nc)%beg_sp
+    n2 = host_output_order(nc)%end_sp
+    !
+    l1 = l2 + 1
+    l2 = l2 + n2-n1+1
+    !
+    return_value(:,l1:l2) = solution(:,n1:n2)
+    !
+  end do
+  !
+end function reorder_host_solution
+!
+!###############################################################################
+!
 subroutine write_restart_status(ios,fname,stat_strng, &
                                 close_file,open_file,mpistat)
   !
@@ -1357,6 +1572,365 @@ continue
             "explicitly given in the input file.")
   !
 end subroutine check_restart_dir
+!
+!###############################################################################
+!
+subroutine get_host_output_mpi_datatypes()
+  !
+  !.. Use Statement ..
+  use geovar,  only : ncell,cell,n_solpts
+  use geovar,  only : global_pinc_ptr
+  use parallel_mod, only : cell_map
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,n1,n2,l1,l2,ierr
+  integer :: local_cell,lcell
+  integer :: global_cell,this_part
+  integer :: np,np_sum,np_offset
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk),      allocatable :: msk(:)
+  integer(int_mpi), allocatable :: og_offset(:)
+  integer(int_mpi), allocatable :: sol_offset(:)
+  integer(int_mpi), allocatable :: sol_blklen(:)
+  integer(int_mpi), allocatable :: tmp_copy(:)
+  integer(int_mpi), allocatable :: recvcounts(:)
+  integer(int_mpi), allocatable :: recvdispls(:)
+  integer,          allocatable :: sp_idx(:)
+  integer,          allocatable :: host_sp_idx(:)
+  integer,          allocatable :: host_cells(:)
+  integer,          allocatable :: host_pts(:)
+ !type(sp_idx_t),   allocatable :: host_sol_idx(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_host_output_mpi_datatypes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the number of cells for each of the
+  ! processes that is in the current host group
+  !
+  allocate ( host_cells(1:size(my_host_grp)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_cells",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,size(my_host_grp)
+    this_part = my_host_grp(n)+1
+    host_cells(n) = size(cell_map(this_part)%loc_to_glb)
+  end do
+  !
+  lcell = sum(host_cells)
+  !
+  ! Get the number of solution points for each of
+  ! the processes that is in the current host group
+  !
+  allocate ( host_pts(1:size(my_host_grp)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_pts",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  call mpi_allgather(n_solpts,1_int_mpi,mpi_inttyp, &
+                     host_pts,1_int_mpi,mpi_inttyp, &
+                     my_host_comm,mpierr)
+  !
+  ! Allocate the arrays for the host root
+  ! NOTE : Dont allocate these on every process to limit
+  !        the amount of memory consumed on each host.
+  !
+  if (i_am_host_root) then
+    !
+    allocate ( og_offset(1:lcell) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"og_offset",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( sol_offset(1:lcell) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_offset",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( sol_blklen(1:lcell) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_blklen",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( host_sp_idx(1:2*lcell) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"host_sp_idx",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( host_output_order(1:lcell) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"host_output_order",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+  else
+    !
+    ! Have all other processes allocate host_sp_idx so MPI doesnt complain
+    ! that host_sp_idx isnt allocated when using mpi_gatherv
+    !
+    allocate ( host_sp_idx(1:1) , source=0 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"host_sp_idx",1,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  ! Create an array of the beginning and ending solution
+  ! point indices for each cell on the local process
+  !
+  allocate ( sp_idx(1:2*ncell) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sp_idx",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n2 = 0
+  do local_cell = 1,ncell
+    n1 = n2 + 1
+    n2 = n1 + 1
+    sp_idx(n1) = cell(local_cell)%beg_sp
+    sp_idx(n2) = cell(local_cell)%end_sp
+  end do
+  !
+  ! Get the counts and displacements for collecting the ordered_geom
+  ! array from each process in the current host group
+  ! NOTE: We can create these arrays for all processes on this host since
+  !       these are very small arrays and consume little to no memory.
+  !
+  ! F2003 AUTO-REALLOCATION
+  og_counts = int(host_cells,kind=int_mpi)
+  !
+  ! F2003 AUTO-REALLOCATION
+  og_displs = eoshift( og_counts , shift=TO_END , boundary=0_int_mpi )
+  !
+  do n = 2,size(og_displs)
+    og_displs(n) = og_displs(n) + og_displs(n-1)
+  end do
+  ! 
+  recvcounts = 2_int_mpi*og_counts ! F2003 AUTO-REALLOCATION
+  recvdispls = 2_int_mpi*og_displs ! F2003 AUTO-REALLOCATION
+  ! 
+  ! F2003 AUTO-REALLOCATION
+  sol_counts = int(nq*host_pts,kind=int_mpi)
+  !
+  ! F2003 AUTO-REALLOCATION
+  sol_displs = eoshift( sol_counts , shift=TO_END , boundary=0_int_mpi )
+  !
+  do n = 2,size(sol_displs)
+    sol_displs(n) = sol_displs(n) + sol_displs(n-1)
+  end do
+  !
+  ! Gather the solution point indices on the host root
+  !
+  call mpi_gatherv(sp_idx,size(sp_idx,kind=int_mpi),mpi_inttyp, &
+                   host_sp_idx,recvcounts,recvdispls,mpi_inttyp, &
+                   host_root,my_host_comm,mpierr)
+  !
+  deallocate ( sp_idx , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sp_idx",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( recvcounts , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"recvcounts",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( recvdispls , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"recvdispls",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( host_cells , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_cells",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( host_pts , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"host_pts",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the cell offsets as well as the block lengths
+  ! and offsets for the solution data
+  !
+  if (i_am_host_root) then
+    !
+    nc = 0
+    l2 = 0
+    np_offset = 0
+    !
+    partition_loop: do n = 1,size(my_host_grp)
+      !
+      this_part = my_host_grp(n)+1
+      !
+      np_sum = 0 ! reset the running sum for the number of sol-pts on this_part
+      !
+      cell_loop: do local_cell = 1,size(cell_map(this_part)%loc_to_glb)
+        !
+        nc = nc + 1 ! cell counter for all partitions on this host
+        !
+        l1 = l2 + 1 ! location of beginning solpt idx within host_sp_idx
+        l2 = l1 + 1 ! location of ending    solpt idx within host_sp_idx
+        !
+        ! Indices of the data for this cell in the usp array
+        !
+        n1 = host_sp_idx(l1) ! beginning solpt idx of local_cell on this_part
+        n2 = host_sp_idx(l2) ! ending    solpt idx of local_cell on this_part
+        np = n2-n1+1    ! total number of sol-pts for local_cell on this_part
+        !
+        ! Update the running sum of the total number of sol-pts on this_part
+        !
+        np_sum = np_sum + np
+       !!
+       !! Save these indices for later, relative to
+       !! their location within the solution array
+       !!
+       !host_sol_idx(nc)%beg_sp = np_offset + n1
+       !host_sol_idx(nc)%end_sp = np_offset + n2
+        !
+        ! Update these indices to their relative
+        ! location within the solution array
+        !
+        host_sp_idx(l1) = np_offset + n1
+        host_sp_idx(l2) = np_offset + n2
+        !
+        ! Store the block length for this local cell
+        !
+        sol_blklen(nc) = int( np , kind=int_mpi )
+        !
+        ! Get the global cell index for this local cell
+        !
+        global_cell = cell_map(this_part)%loc_to_glb(local_cell)
+        !
+        ! Store the global cell index for the ordered_geom offset
+        !
+        og_offset(nc) = int( global_cell-1 , kind=int_mpi )
+        !
+        ! Starting point of the solution data for this global cell
+        ! NOTE: The value global_pinc_ptr(global_cell)+1 is actually the
+        !       starting solution point for this cell. The offsets for MPI
+        !       start at 0 so dropping the +1 is the actual offset we want.
+        !
+        sol_offset(nc) = int( global_pinc_ptr(global_cell) , kind=int_mpi )
+        !
+      end do cell_loop
+      !
+      ! Update the solution point offset for the next partition
+      !
+      np_offset = np_offset + np_sum
+      !
+    end do partition_loop
+    !
+    ! Dont forget to account for the number of equations in the offsets
+    ! and block lengths for the solution data
+    !
+    sol_offset(:) = sol_offset * int( nq , kind=int_mpi )
+    sol_blklen(:) = sol_blklen * int( nq , kind=int_mpi )
+    !
+    ! Allocate the cell_output_order array and
+    ! the mask array for sorting the cell offsets
+    !
+    allocate ( cell_output_order(1:lcell) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_output_order",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+    !
+    allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Sort the og_offset array to find the output order for the cells so that
+    ! the offsets for the MPI datatypes are monotonically increasing.
+    ! NOTE: This array is assumed to be small enough so that it doesnt require
+    !       some fancy sorting algorithm and this simple minloc method will
+    !       more than likely be relatively inexpensive.
+    !
+    do nc = 1,lcell
+      !
+      n = minloc( og_offset , dim=1 , mask=msk )
+      !
+      msk(n) = fals ! mark this cell as found
+      !
+      cell_output_order(nc) = n
+      !
+      ! Get the solution point indices for this cell relative to their location
+      ! within the solution array, and save them to their new reordered location
+      !
+      host_output_order(nc)%beg_sp = host_sp_idx(2*n-1)
+      host_output_order(nc)%end_sp = host_sp_idx(2*n  )
+      !
+    end do
+    !
+    ! Deallocate the msk array
+    !
+    deallocate ( msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Allocate the temporary array for applying the sorting to the offset
+    ! and block length arrays.
+    !
+   !write (mypnum+1000,1) (cell_output_order(n),n=1,size(cell_output_order))
+   !flush (mypnum+1000)
+   !write (mypnum+1001,1) (og_offset(n),n=1,size(og_offset))
+   !flush (mypnum+1001)
+   !write (mypnum+1002,1) (sol_offset(n),n=1,size(sol_offset))
+   !flush (mypnum+1002)
+   !write (mypnum+1003,2) (host_sp_idx(2*n-1), &
+   !                       host_sp_idx(2*n  ), &
+   !                       n=1,lcell)
+   !flush (mypnum+1003)
+    !
+    deallocate ( host_sp_idx , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"host_sp_idx",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( tmp_copy(1:lcell) , source=0_int_mpi , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tmp_copy",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Apply the sort to the og_offset array
+    !
+    tmp_copy(:) = og_offset
+    og_offset(:) = tmp_copy(cell_output_order)
+    !
+    ! Apply the sort to the sol_offset array
+    !
+    tmp_copy(:) = sol_offset
+    sol_offset(:) = tmp_copy(cell_output_order)
+    !
+    ! Apply the sort to the sol_blklen array
+    !
+    tmp_copy(:) = sol_blklen
+    sol_blklen(:) = tmp_copy(cell_output_order)
+   !write (mypnum+1004,1) (og_offset(n),n=1,size(og_offset))
+   !flush (mypnum+1004)
+   !write (mypnum+1005,1) (sol_offset(n),n=1,size(sol_offset))
+   !flush (mypnum+1005)
+   !write (mypnum+1006,2) (host_output_order(n)%beg_sp, &
+   !                       host_output_order(n)%end_sp, &
+   !                       n=1,size(host_output_order))
+   !flush (mypnum+1006)
+   !1 format (i0)
+   !2 format (i9,1x,i9)
+    !
+    ! Deallocate the temporary array
+    !
+    deallocate ( tmp_copy , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tmp_copy",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Create the MPI derived datatype for writing the
+    ! ordered_geom array to the restart file
+    !
+    call mpi_type_create_indexed_block(size(og_offset,kind=int_mpi), &
+                                       1_int_mpi,og_offset, &
+                                       MPI_INTEGER,ordered_geom_type,mpierr)
+    call mpi_type_commit(ordered_geom_type,mpierr)
+    !
+    ! Create the MPI derived datatype for writing the
+    ! solution data to the restart file
+    !
+    call mpi_type_indexed(size(sol_offset,kind=int_mpi), &
+                          sol_blklen,sol_offset, &
+                          mpi_flttyp,solution_type,mpierr)
+    call mpi_type_commit(solution_type,mpierr)
+    !
+    ! Deallocate the local arrays before leaving
+    !
+    deallocate ( og_offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    deallocate ( sol_offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_host_output_mpi_datatypes
 !
 !###############################################################################
 !
