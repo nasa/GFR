@@ -107,6 +107,8 @@ program Euler_tri
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
+  use cpu_info_mod, only : get_cpu_locality
+  !
   use, intrinsic :: iso_c_binding,   only : c_long
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
@@ -163,6 +165,8 @@ continue
   ! Initialize the overall MPI session
   !
   call initialize_mpi_environment
+  !
+  call get_cpu_locality
   !
   ! Initialize the wall time
   !
