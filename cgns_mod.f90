@@ -4,7 +4,6 @@ module module_cgns
   !.. Use Statements
   use module_kind_types, global_debug_timer => debug_timer
   use module_cgns_types
-  use geovar, only : grid
   use geovar, only : grid_t
   use geovar, only : elem_t
   use geovar, only : prop_t
@@ -1509,8 +1508,9 @@ end function get_array_name
 subroutine transfer_cgns_data_to_grid_dt
   !
   !.. Use Statements ..
-  use ovar, only : grid_scaling_factor
-  use ovar, only : governing_equations
+  use geovar, only : grid
+  use ovar,   only : grid_scaling_factor
+  use ovar,   only : governing_equations
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,n3,np,nc,nf
@@ -2011,6 +2011,7 @@ subroutine create_solver_geom_arrays_cgns
   use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : xyz_nodes
+  use geovar,    only : grid
   use ovar,      only : bc_names
   !
   !.. Local Scalars ..
@@ -2882,7 +2883,8 @@ end subroutine create_solver_geom_arrays_cgns
 subroutine extract_nozzle_grid
   !
   !.. Use Statements ..
-  use ovar, only : grid_scaling_factor
+  use geovar, only : grid
+  use ovar,   only : grid_scaling_factor
   !
   !.. Local Scalars ..
   integer :: l,l1,l2,m,n,ierr
@@ -3591,6 +3593,7 @@ end function point_is_in_nozzle_interior
 subroutine find_elem_for_initial_jet_profile
   !
   !.. Use Statements ..
+  use geovar, only : grid
   use geovar, only : nr,bface,nodes_of_cell,nodes_of_cell_ptr
   !
   !.. Local Scalars ..
