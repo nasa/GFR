@@ -3087,7 +3087,7 @@ subroutine check_supplementary_file(filename,file_default)
   !
   !.. Local Scalars ..
   character(len=len(grid_folder)+len(filename)) :: test_file
-  logical(lk) :: found
+  logical(ldk) :: found
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_supplementary_file"
