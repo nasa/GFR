@@ -416,7 +416,8 @@ continue
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
-    write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+   !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,time*time_ref, &
                               cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax, &
@@ -424,7 +425,8 @@ continue
     !
 #else
     !
-    write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+   !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,time*time_ref, &
                               cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax
@@ -675,7 +677,8 @@ continue
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
-  202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
+ !202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',10x,'CFL',5x,", &
+  202 format ("(/,",i0,"x,'iter',3x,'d_t* (ND)',3x,'Time (s)',7x,'CFL',5x,", &
               "'L2-Density',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
  !202 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &

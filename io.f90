@@ -564,6 +564,11 @@ continue
     !
   else
     !
+    ! Set time_ref to Lref/aref for nondimensionalizing time
+    ! NOTE: Lref is always just one
+    !
+    time_ref = one / aref
+    !
     if (convert_restart_to_cgns) then
       !
       num_ts = 0
