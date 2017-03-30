@@ -307,7 +307,7 @@ continue
   !
   ! Have only the root processor read in the data from the CGNS grid file
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     ! Get the precision of the grid file
     !
@@ -352,7 +352,7 @@ continue
   !
   !
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     ! Check to see if there are any unsupported features in the CGNS grid file
     !
@@ -406,7 +406,7 @@ continue
     call create_serial_geom_arrays
   end if
   if (debug_cgns) then
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (*,*)
       write (*,*) "Leaving read_cgns_gridfile! Press any key to continue"
       read (*,*)
@@ -786,7 +786,6 @@ subroutine broadcast_grid_arrays
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "broadcast_grid_arrays"
-  integer(INT_MPI), parameter :: root = 0_int_mpi
   !
 continue
   !
@@ -796,13 +795,13 @@ continue
   !
  !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
   call mpi_bcast(data_sizes,size(data_sizes,kind=int_mpi),mpi_inttyp, &
-                 root,MPI_COMM_WORLD,mpierr)
+                 glb_root,MPI_COMM_WORLD,mpierr)
  !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
   !
   ! Have all the non-root processors allocate the
   ! grid_data, section_data, and boco_data arrays
   !
-  if (mypnum /= root) then
+  if (mypnum /= glb_root) then
     !
     ! Allocate the grid_data array
     !
@@ -831,17 +830,17 @@ continue
   ! Broadcast the grid_data array
   !
   isz = int( data_sizes(7) , kind=int_mpi )
-  call mpi_bcast(grid_data,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(grid_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the section_data array
   !
   isz = int( data_sizes(9) , kind=int_mpi )
-  call mpi_bcast(section_data,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(section_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the boco_data array
   !
   isz = int( data_sizes(11) , kind=int_mpi )
-  call mpi_bcast(boco_data,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(boco_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1699,10 +1698,10 @@ continue
   !
   if (mine /= 1 .or. maxe /= 1 .or. sume /= size(mske)) then
     if (mine /= 1 .or. maxe /= 1) then
-      if (mypnum == 0) write (iout,11) mine,maxe
+      if (mypnum == glb_root) write (iout,11) mine,maxe
     end if
     if (sume /= size(mske)) then
-      if (mypnum == 0) write (iout,12) sume,size(mske)
+      if (mypnum == glb_root) write (iout,12) sume,size(mske)
     end if
     write (error_message,13)
     call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
@@ -3969,7 +3968,6 @@ subroutine broadcast_solver_geom_arrays
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "broadcast_solver_geom_arrays"
-  integer(INT_MPI), parameter :: root = 0_int_mpi
   !
 continue
   !
@@ -3977,13 +3975,13 @@ continue
   !
   ! Broadcast the grid dimensions
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     grid_size(:) = [ nr , nnode , ncell , nfbnd , &
                      size(nodes_of_cell) , size(bc_names) ]
   end if
   !
   call mpi_bcast(grid_size,size(grid_size,kind=int_mpi),mpi_inttyp, &
-                 root,MPI_COMM_WORLD,mpierr)
+                 glb_root,MPI_COMM_WORLD,mpierr)
   if (debug_cgns) write (iout,1) mypnum,(grid_size(n),n=1,size(grid_size))
   !
   nr    = grid_size(1)
@@ -3995,7 +3993,7 @@ continue
   !
   ! Have all the non-root processors allocate the arrays
   !
-  if (mypnum /= root) then
+  if (mypnum /= glb_root) then
     !
     allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
                stat=ierr , errmsg=error_message )
@@ -4023,22 +4021,22 @@ continue
   ! Broadcast the bface array
   !
   isz = int( nbfai*nfbnd , kind=int_mpi )
-  call mpi_bcast(bface,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(bface,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the nodes_of_cell_ptr array
   !
   isz = int( ncell+1 , kind=int_mpi )
-  call mpi_bcast(nodes_of_cell_ptr,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(nodes_of_cell_ptr,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the nodes_of_cell array
   !
   isz = int( nocsz , kind=int_mpi )
-  call mpi_bcast(nodes_of_cell,isz,mpi_inttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(nodes_of_cell,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the xyz_nodes array
   !
   isz = int( nr*nnode , kind=int_mpi )
-  call mpi_bcast(xyz_nodes,isz,mpi_flttyp,root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(xyz_nodes,isz,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Get the geometry for all the interior cells
   !
@@ -4057,7 +4055,7 @@ continue
   !
   do n = 1,nbcnm
     isz = len(bc_names(n),kind=int_mpi)
-    call mpi_bcast(bc_names(n),isz,MPI_CHARACTER,root,MPI_COMM_WORLD,mpierr)
+    call mpi_bcast(bc_names(n),isz,MPI_CHARACTER,glb_root,MPI_COMM_WORLD,mpierr)
   end do
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
