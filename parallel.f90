@@ -4987,6 +4987,11 @@ continue
   !
   ! First allocate the grid derived type
   !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   allocate ( grid , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
   !
