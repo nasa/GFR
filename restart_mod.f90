@@ -646,7 +646,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     if (profile_io_restart) beg_wall_time = mpi_wtime()
     write (iout,4)
     flush(iout)
@@ -655,7 +655,7 @@ continue
   !
   if (use_old_restart_format) then
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr, &
@@ -668,7 +668,7 @@ continue
     !
     ! Only use the root partition to output the restart file
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
       if (itnum > 0) then
         write (fname,'("out.",i0.8,".rst")') itcur
@@ -710,7 +710,7 @@ continue
       !
      !call check_restart_dir
      !call mpi_barrier(MPI_COMM_WORLD,mpierr)
-     !if (mypnum == 0) then
+     !if (mypnum == glb_root) then
      !  write (iout,*) "After check_restart_dir"
      !  flush(iout)
      !end if
@@ -730,7 +730,7 @@ continue
       !
       call get_output_mpi_datatypes
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         write (iout,*) "After get_output_mpi_datatypes"
         flush(iout)
       end if
@@ -823,7 +823,7 @@ continue
 #endif
 #endif
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (iout,*) "Before mpi_file_open"
       flush(iout)
     end if
@@ -838,7 +838,7 @@ continue
     call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
                        file_mode,file_info,file_handle,mpierr)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (iout,*) "After mpi_file_open"
       flush(iout)
     end if
@@ -849,7 +849,7 @@ continue
     !
     ! Have the root processor write the header for the restart file
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
       ! Write the integer type for the size information for the simulation
       !
@@ -963,7 +963,7 @@ continue
     !
     ! Have the root processor write the byte size for the solution data
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
       ! Write the kind value for real working-precision
       !
@@ -1078,7 +1078,7 @@ continue
   end if
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     if (profile_io_restart) then
       end_wall_time = mpi_wtime()
       write (iout,2) end_wall_time - beg_wall_time
@@ -1128,26 +1128,26 @@ continue
   !
   if (present(open_file)) then
     if (open_file) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         open (newunit=ios,file=trim(adjustl(fname)),status="replace", &
                           action="write",form="formatted",iostat=ierr, &
                           iomsg=error_message)
         call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
       end if
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == 0) flush (ios)
+      if (mypnum == glb_root) flush (ios)
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
     end if
   end if
   !
   if (present(stat_strng).or.present(mpistat)) then
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (ios,2)
       flush (ios)
     end if
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       if (present(stat_strng)) write (ios,1) mypnum,trim(adjustl(stat_strng))
       if (present(mpistat)) then
 #ifdef USE_MPI_F08
@@ -1160,9 +1160,9 @@ continue
       end if
     end if
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == 0) flush (ios)
+    if (mypnum == glb_root) flush (ios)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (ios,2)
       flush (ios)
     end if
@@ -1172,9 +1172,9 @@ continue
   if (present(close_file)) then
     if (close_file) then
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == 0) flush (ios)
+      if (mypnum == glb_root) flush (ios)
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         close (ios,iostat=ierr,iomsg=error_message)
         call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
       end if
@@ -1258,7 +1258,7 @@ continue
   ! to minimize contention and prevent each MPI process from
   ! executing the same command.
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     open (newunit=iodir,file=trim(test_file),status="replace", &
                         action="write",iostat=ierr)
