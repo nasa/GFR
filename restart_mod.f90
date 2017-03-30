@@ -48,6 +48,8 @@ module restart_mod
   _MPI_DATA_TYPE_, save :: solution_type     = MPI_DATATYPE_NULL
 #endif
   !
+  _MPI_COMM_TYPE_, save :: restart_comm
+  !
   character(len=170), save :: restart_dir = ""
   character(len=170), save :: rstfile_fmt
   character(len=170), save :: lnkcmnd_fmt
@@ -608,6 +610,7 @@ subroutine write_restart_file(itnum)
   !.. Use Statements for old restart files ..
   use geovar,  only : n_global_totpts
   use ovar,    only : use_old_restart_format
+  use ovar,    only : restart_output_uses_host_roots
   use ovar,    only : profile_io_restart
   use flowvar, only : global_usp
   use parallel_mod, only : collect_global_solution
@@ -621,6 +624,8 @@ subroutine write_restart_file(itnum)
   integer :: this_geom,this_order
   integer :: exitstat,cmndstat
   integer(wip) :: disp,isize
+  !
+  logical(lk) :: involved_with_output
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
@@ -741,13 +746,20 @@ continue
       !
       ! Get the MPI derived types required to read/write the restart file
       !
-      call get_output_mpi_datatypes
+      if (restart_output_uses_host_roots) then
+        call get_host_output_mpi_datatypes
+      else
+        call get_output_mpi_datatypes
+      end if
+      !
+#ifdef DEBUG_ON
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
       if (mypnum == glb_root) then
         write (iout,*) "After get_output_mpi_datatypes"
         flush(iout)
       end if
       call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
       !
       ! Unset the restart initialization flag since this has now been done
       !
@@ -773,320 +785,304 @@ continue
     !
     ! Create the cell information to write to the restart file
     !
-    allocate ( ordered_geom(1:ncell) , source=0_i4 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
-                     error_message)
+    if (restart_output_uses_host_roots) then
+      involved_with_output = i_am_host_root
+      restart_comm = host_roots_comm
+      call collect_restart_arrays(ordered_geom,solution)
+    else
+      involved_with_output = true
+      restart_comm = MPI_COMM_WORLD
+      call get_restart_arrays(ordered_geom,solution)
+    end if
     !
-    do n = 1,ncell
+    ! Now write the actual restart file using all the 
+    ! MPI processes actually involved with the I/O
+    !
+    if (involved_with_output) then
       !
-      nc = cell_output_order(n)
+      call write_restart_status(ios,statfile,open_file=true, &
+                                stat_strng="init stat, before mpi_info")
       !
-      this_geom = cell(nc)%geom
-      this_order = cell(nc)%order
+      ! Initialize file_info to MPI_INFO_NULL
       !
-      ordered_geom(n) = int( 100*this_order + this_geom , kind=i4 )
+      file_info = MPI_INFO_NULL
       !
-    end do
-    !
-    call write_restart_status(ios,statfile,open_file=true, &
-                              stat_strng="init stat, before mpi_info")
-    !
-    ! Initialize file_info to MPI_INFO_NULL
-    !
-    file_info = MPI_INFO_NULL
-    !
 #ifdef PBS_ENV
 #ifndef IGNORE_MPI_INFO
-    !
-    ! Create the MPI info object for this restart file
-    !
-    call mpi_info_create(file_info,mpierr)
-    !
-    ! Now give MPI some I/O hints through the info object
-    !
-    !-----------------------  EXAMPLE  ------------------------
-    !call mpi_info_set(file_info,"info key","key value",mpierr)
-    !-----------------------  EXAMPLE  ------------------------
-    !
-    ! Specify the nubmer of I/O devices in the system
-    !
-   !call mpi_info_set(file_info,"num_io_nodes","1",mpierr)
-    !
-    call mpi_info_set(file_info,"access_style","write_once",mpierr)
-    !
-    ! Enable collective buffering for writes
-    !
-    call mpi_info_set(file_info,"romio_cb_write","enable",mpierr)
-    !
-    ! Specify the number of I/O devices that the
-    ! restart file should be striped across
-    !
-    call mpi_info_set(file_info,"striping_factor", &
-                      trim(adjustl(lustre_stripe_factor)),mpierr)
-    !
-    ! Specifiy the suggested striping unit to be used for this file. The
-    ! striping unit is the amount of consecutive data assigned to one I/O
-    ! device before progressing to the next device, when striping across
-    ! a number of devices. It is expressed in bytes.
-    !
-    call mpi_info_set(file_info,"striping_unit", &
-                      trim(adjustl(lustre_stripe_unit)),mpierr)
-    !
+      !
+      ! Create the MPI info object for this restart file
+      !
+      call mpi_info_create(file_info,mpierr)
+      !
+      ! Now give MPI some I/O hints through the info object
+      !
+      !-----------------------  EXAMPLE  ------------------------
+      !call mpi_info_set(file_info,"info key","key value",mpierr)
+      !-----------------------  EXAMPLE  ------------------------
+      !
+      ! Specify the nubmer of I/O devices in the system
+      !
+     !call mpi_info_set(file_info,"num_io_nodes","1",mpierr)
+      !
+      call mpi_info_set(file_info,"access_style","write_once",mpierr)
+      !
+      ! Enable collective buffering for writes
+      !
+      call mpi_info_set(file_info,"romio_cb_write","enable",mpierr)
+      !
+      ! Specify the number of I/O devices that the
+      ! restart file should be striped across
+      !
+      call mpi_info_set(file_info,"striping_factor", &
+                        trim(adjustl(lustre_stripe_factor)),mpierr)
+      !
+      ! Specifiy the suggested striping unit to be used for this file. The
+      ! striping unit is the amount of consecutive data assigned to one I/O
+      ! device before progressing to the next device, when striping across
+      ! a number of devices. It is expressed in bytes.
+      !
+      call mpi_info_set(file_info,"striping_unit", &
+                        trim(adjustl(lustre_stripe_unit)),mpierr)
+      !
 #endif
 #endif
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == glb_root) then
-      write (iout,*) "Before mpi_file_open"
-      flush(iout)
-    end if
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after mpi_info, before mpi_file_open")
-    !
-    ! Open the restart file for MPI I/O
-    !
-    file_mode = MPI_MODE_WRONLY + MPI_MODE_CREATE
-    call mpi_file_open(MPI_COMM_WORLD,trim(adjustl(fname)), &
-                       file_mode,file_info,file_handle,mpierr)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    if (mypnum == glb_root) then
-      write (iout,*) "After mpi_file_open"
-      flush(iout)
-    end if
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after mpi_file_open")
-    !
-    ! Have the root processor write the header for the restart file
-    !
-    if (mypnum == glb_root) then
+#ifdef DEBUG_ON
+      call mpi_barrier(restart_comm,mpierr)
+      if (mypnum == glb_root) then
+        write (iout,*) "Before mpi_file_open"
+        flush(iout)
+      end if
+      call mpi_barrier(restart_comm,mpierr)
+#endif
       !
-      ! Write the integer type for the size information for the simulation
+      call write_restart_status(ios,statfile, &
+                         stat_strng="after mpi_info, before mpi_file_open")
       !
-      call mpi_file_write(file_handle,wip, &
-                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+      ! Open the restart file for MPI I/O
       !
-      ! Write the number of size data items
+      file_mode = MPI_MODE_WRONLY + MPI_MODE_CREATE
+      call mpi_file_open(restart_comm,trim(adjustl(fname)), &
+                         file_mode,file_info,file_handle,mpierr)
+#ifdef DEBUG_ON
+      call mpi_barrier(restart_comm,mpierr)
+      if (mypnum == glb_root) then
+        write (iout,*) "After mpi_file_open"
+        flush(iout)
+      end if
+      call mpi_barrier(restart_comm,mpierr)
+#endif
       !
-      isize = size(int_header,kind=wip)
-      call mpi_file_write(file_handle,isize, &
-                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after mpi_file_open")
       !
-      ! Store the size information for the simulation into the temporary array
-      ! int_header so that we dont have to call mpi_file_write multiple times.
+      ! Have the root processor write the header for the restart file
       !
-      int_header = [ int(nq,kind=wip) , &
-                     int(n_global_cell,kind=wip) , &
-                     int(restart_solution_form,kind=wip) , &
-                     int(itcur,kind=wip) ]
-      !
-      ! Write the size information for the simulation to the restart file
-      !
-      call mpi_file_write(file_handle,int_header, &
-                          size(int_header,kind=int_mpi), &
-                          mpi_inttyp,istat(1),mpierr)
-      !
-      ! Write the real type for the time data
-      !
-      call mpi_file_write(file_handle,wp, &
-                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
-      !
-      ! Write the number of time data items
-      !
-      isize = size(real_header,kind=wip)
-      call mpi_file_write(file_handle,isize, &
-                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
-      !
-      ! Store the time data into the temporary array real_header so
-      ! that we dont have to call mpi_file_write multiple times.
-      !
-      real_header = [ time , d_t ]
-      !
-      ! Write the time data to the restart file
-      !
-      call mpi_file_write(file_handle,real_header, &
-                          size(real_header,kind=int_mpi), &
-                          mpi_flttyp,istat(1),mpierr)
-      !
-      ! Write the integer type for the ordered_geom array
-      !
-      call mpi_file_write(file_handle,i4, &
-                          1_int_mpi,MPI_INTEGER,istat(1),mpierr)
-      !
-      ! Get the updated file displacement for the root processor
-      !
-      call mpi_file_get_position(file_handle,file_offset,mpierr)
-      call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
-      !
-      ! Convert the MPI_OFFSET_KIND file displacement to the working integer
-      ! precision so that it can be broadcast to all processors
-      !
-      disp = int( file_disp , kind=wip )
-      !
-    end if
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after root writes restart header")
-    !
-    ! Broadcast the current file displacement to all processors
-    !
-    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-    !
-    ! Convert the file displacement to MPI_OFFSET_KIND
-    !
-    file_disp = int( disp , kind=MPI_OFFSET_KIND )
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after bcast disp from restart header")
-    !
-    ! Set the file view to write the ordered_geom array to the restart file
-    !
-    call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
-                           ordered_geom_type, trim(adjustl(file_datarep)), &
-                           file_info, mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after setting view for ordered_geom")
-    !
-    ! Write the ordered_geom array to the restart file
-    !
-    call mpi_file_write_all(file_handle,ordered_geom, &
-                            size(ordered_geom,kind=int_mpi), &
-                            MPI_INTEGER,istat(1),mpierr)
-    !
-    call write_restart_status(ios,statfile,mpistat=istat, &
-                              stat_strng="after writing ordered_geom")
-    !
-    ! Update the file displacement since we know the total number of cells
-    ! and that the elements of the array ordered_geom are 4-byte integers.
-    !
-    file_disp = file_disp + int( 4*n_global_cell , kind=MPI_OFFSET_KIND )
-    !
-    ! Update the file view to after all the ordered_geom data 
-    !
-    call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
-                           MPI_INTEGER, trim(adjustl(file_datarep)), &
-                           file_info, mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after setting view for wp")
-    !
-    ! Have the root processor write the byte size for the solution data
-    !
-    if (mypnum == glb_root) then
-      !
-      ! Write the kind value for real working-precision
-      !
-      call mpi_file_write(file_handle,wp,1_int_mpi, &
-                          MPI_INTEGER,istat(1),mpierr)
-      !
-      ! Get the updated file displacement for the root processor
-      !
-      call mpi_file_get_position(file_handle,file_offset,mpierr)
-      call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
-      !
-      ! Convert the MPI_OFFSET_KIND file displacement to the working integer
-      ! precision so that it can be broadcast to all processors
-      !
-      disp = int( file_disp , kind=wip )
-      !
-    end if
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after root writes wp")
-    !
-    ! Broadcast the current file displacement to all processors
-    !
-    call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-    !
-    ! Convert the file displacement to MPI_OFFSET_KIND
-    !
-    file_disp = int( disp , kind=MPI_OFFSET_KIND )
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after bcast disp from wp")
-    !
-    ! Set the file fiew to write the solution data to the restart file
-    !
-    call mpi_file_set_view(file_handle,file_disp,mpi_flttyp, &
-                           solution_type, trim(adjustl(file_datarep)), &
-                           file_info, mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after setting view for solution")
-    !
-    ! Allocate a temporary array to copy over only the interior solution
-    ! data for each processor. We also have to copy over the solution data
-    ! in the same order that is expected by the MPI derived datatype.
-    !
-    allocate ( solution(1:nq,1:n_solpts) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
-    ! 
-    l2 = 0
-    do n = 1,ncell
-      !
-      nc = cell_output_order(n)
-      !
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%end_sp
-      !
-      l1 = l2 + 1
-      l2 = l2 + n2-n1+1
-      !
-      solution(1:nq,l1:l2) = usp(1:nq,n1:n2)
-      !
-    end do
-    !
-    ! Write the solution data to the restart file
-    !
-    call mpi_file_write_all(file_handle,solution, &
-                            size(solution,kind=int_mpi), &
+      if (mypnum == glb_root) then
+        !
+        ! Write the integer type for the size information for the simulation
+        !
+        call mpi_file_write(file_handle,wip, &
+                            1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Write the number of size data items
+        !
+        isize = size(int_header,kind=wip)
+        call mpi_file_write(file_handle,isize, &
+                            1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Store the size information for the simulation into the temporary array
+        ! int_header so that we dont have to call mpi_file_write multiple times.
+        !
+        int_header = [ int(nq,kind=wip) , &
+                       int(n_global_cell,kind=wip) , &
+                       int(restart_solution_form,kind=wip) , &
+                       int(itcur,kind=wip) ]
+        !
+        ! Write the size information for the simulation to the restart file
+        !
+        call mpi_file_write(file_handle,int_header, &
+                            size(int_header,kind=int_mpi), &
+                            mpi_inttyp,istat(1),mpierr)
+        !
+        ! Write the real type for the time data
+        !
+        call mpi_file_write(file_handle,wp, &
+                            1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Write the number of time data items
+        !
+        isize = size(real_header,kind=wip)
+        call mpi_file_write(file_handle,isize, &
+                            1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Store the time data into the temporary array real_header so
+        ! that we dont have to call mpi_file_write multiple times.
+        !
+        real_header = [ time , d_t ]
+        !
+        ! Write the time data to the restart file
+        !
+        call mpi_file_write(file_handle,real_header, &
+                            size(real_header,kind=int_mpi), &
                             mpi_flttyp,istat(1),mpierr)
-    !
-    call write_restart_status(ios,statfile,mpistat=istat, &
-                              stat_strng="after writing solution")
-    !
-    ! Finally close the restart file
-    !
-    call mpi_file_close(file_handle,mpierr)
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after mpi_file_close")
-    !
-    ! Deallocate ordered_geom and solution since they are no longer needed
-    !
-    if (allocated(ordered_geom)) then
-      deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
-                       error_message)
+        !
+        ! Write the integer type for the ordered_geom array
+        !
+        call mpi_file_write(file_handle,i4, &
+                            1_int_mpi,MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Get the updated file displacement for the root processor
+        !
+        call mpi_file_get_position(file_handle,file_offset,mpierr)
+        call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
+        !
+        ! Convert the MPI_OFFSET_KIND file displacement to the working integer
+        ! precision so that it can be broadcast to all processors
+        !
+        disp = int( file_disp , kind=wip )
+        !
+      end if
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after root writes restart header")
+      !
+      ! Broadcast the current file displacement to all processors
+      !
+      call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,restart_comm,mpierr)
+      !
+      ! Convert the file displacement to MPI_OFFSET_KIND
+      !
+      file_disp = int( disp , kind=MPI_OFFSET_KIND )
+      !
+      call write_restart_status(ios,statfile, &
+                         stat_strng="after bcast disp from restart header")
+      !
+      ! Set the file view to write the ordered_geom array to the restart file
+      !
+      call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
+                             ordered_geom_type, trim(adjustl(file_datarep)), &
+                             file_info, mpierr)
+      !
+      call write_restart_status(ios,statfile, &
+                         stat_strng="after setting view for ordered_geom")
+      !
+      ! Write the ordered_geom array to the restart file
+      !
+      call mpi_file_write_all(file_handle,ordered_geom, &
+                              size(ordered_geom,kind=int_mpi), &
+                              MPI_INTEGER,istat(1),mpierr)
+      !
+      call write_restart_status(ios,statfile,mpistat=istat, &
+                                stat_strng="after writing ordered_geom")
+      !
+      ! Update the file displacement since we know the total number of cells
+      ! and that the elements of the array ordered_geom are 4-byte integers.
+      !
+      file_disp = file_disp + int( 4*n_global_cell , kind=MPI_OFFSET_KIND )
+      !
+      ! Update the file view to after all the ordered_geom data 
+      !
+      call mpi_file_set_view(file_handle,file_disp,MPI_INTEGER, &
+                             MPI_INTEGER, trim(adjustl(file_datarep)), &
+                             file_info, mpierr)
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after setting view for wp")
+      !
+      ! Have the root processor write the byte size for the solution data
+      !
+      if (mypnum == glb_root) then
+        !
+        ! Write the kind value for real working-precision
+        !
+        call mpi_file_write(file_handle,wp,1_int_mpi, &
+                            MPI_INTEGER,istat(1),mpierr)
+        !
+        ! Get the updated file displacement for the root processor
+        !
+        call mpi_file_get_position(file_handle,file_offset,mpierr)
+        call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
+        !
+        ! Convert the MPI_OFFSET_KIND file displacement to the working integer
+        ! precision so that it can be broadcast to all processors
+        !
+        disp = int( file_disp , kind=wip )
+        !
+      end if
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after root writes wp")
+      !
+      ! Broadcast the current file displacement to all processors
+      !
+      call mpi_bcast(disp,1_int_mpi,mpi_inttyp,0_int_mpi,restart_comm,mpierr)
+      !
+      ! Convert the file displacement to MPI_OFFSET_KIND
+      !
+      file_disp = int( disp , kind=MPI_OFFSET_KIND )
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after bcast disp from wp")
+      !
+      ! Set the file fiew to write the solution data to the restart file
+      !
+      call mpi_file_set_view(file_handle,file_disp,mpi_flttyp, &
+                             solution_type, trim(adjustl(file_datarep)), &
+                             file_info, mpierr)
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after setting view for solution")
+      !
+      ! Write the solution data to the restart file
+      !
+      call mpi_file_write_all(file_handle,solution, &
+                              size(solution,kind=int_mpi), &
+                              mpi_flttyp,istat(1),mpierr)
+      !
+      call write_restart_status(ios,statfile,mpistat=istat, &
+                                stat_strng="after writing solution")
+      !
+      ! Finally close the restart file
+      !
+      call mpi_file_close(file_handle,mpierr)
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after mpi_file_close")
+      !
+      ! Deallocate ordered_geom and solution since they are no longer needed
+      !
+      if (allocated(ordered_geom)) then
+        deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__,ierr, &
+                         error_message)
+      end if
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after deallocating ordered_geom")
+      !
+      if (allocated(solution)) then
+        deallocate ( solution , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"solution",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      !
+      call write_restart_status(ios,statfile, &
+                                stat_strng="after deallocating solution")
+      !
+      ! Create a link to the most recent restart file for piggy-backing jobs
+      !
+      call execute_command(command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+     !if (mypnum == glb_root) then
+     !  call execute_command_line( trim(command) , wait_for_completion , &
+     !                             exitstat , cmndstat , cmndmsg )
+     !  call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+     !end if
+      !
+      call write_restart_status(ios,statfile,close_file=true, &
+                         stat_strng="after creating link file out.current.rst")
+      !
     end if
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after deallocating ordered_geom")
-    !
-    if (allocated(solution)) then
-      deallocate ( solution , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"solution",2,__LINE__,__FILE__,ierr,error_message)
-    end if
-    !
-    call write_restart_status(ios,statfile, &
-                              stat_strng="after deallocating solution")
-    !
-    ! Create a link to the most recent restart file for piggy-backing jobs
-    !
-    call execute_command(command,wait_for_completion,exitstat, &
-                         cmndstat,cmndmsg,pname)
-   !if (mypnum == 0) then
-   !  call execute_command_line( trim(command) , wait_for_completion , &
-   !                             exitstat , cmndstat , cmndmsg )
-   !  call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
-   !end if
-    !
-    call write_restart_status(ios,statfile,close_file=true, &
-                          stat_strng="after creating link file out.current.rst")
     !
   end if
   !
@@ -1095,7 +1091,11 @@ continue
     if (profile_io_restart) then
       end_wall_time = mpi_wtime()
       write (iout,2) end_wall_time - beg_wall_time
-      write (iout,3) "ALL MPI PROCESSES"
+      if (restart_output_uses_host_roots) then
+        write (iout,3) "ONLY HOST ROOTS"
+      else
+        write (iout,3) "ALL MPI PROCESSES"
+      end if
     else
       write (iout,2)
     end if
@@ -1349,9 +1349,9 @@ continue
                           iomsg=error_message)
         call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
       end if
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      call mpi_barrier(restart_comm,mpierr)
       if (mypnum == glb_root) flush (ios)
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      call mpi_barrier(restart_comm,mpierr)
     end if
   end if
   !
@@ -1361,7 +1361,7 @@ continue
       write (ios,2)
       flush (ios)
     end if
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call mpi_barrier(restart_comm,mpierr)
     if (mypnum == glb_root) then
       if (present(stat_strng)) write (ios,1) mypnum,trim(adjustl(stat_strng))
       if (present(mpistat)) then
@@ -1374,9 +1374,9 @@ continue
 #endif
       end if
     end if
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call mpi_barrier(restart_comm,mpierr)
     if (mypnum == glb_root) flush (ios)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    call mpi_barrier(restart_comm,mpierr)
     if (mypnum == glb_root) then
       write (ios,2)
       flush (ios)
@@ -1386,9 +1386,9 @@ continue
   !
   if (present(close_file)) then
     if (close_file) then
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      call mpi_barrier(restart_comm,mpierr)
       if (mypnum == glb_root) flush (ios)
-      call mpi_barrier(MPI_COMM_WORLD,mpierr)
+      call mpi_barrier(restart_comm,mpierr)
       if (mypnum == glb_root) then
         close (ios,iostat=ierr,iomsg=error_message)
         call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
@@ -2031,6 +2031,15 @@ continue
     msk(n) = fals
     cell_output_order(nc) = n
   end do
+ !do nc = 1,ncell
+ !  if (cell_output_order(nc) /= nc) then
+ !    write (iout,1) mypnum
+ !    write (mypnum+1000,2) (n,cell_output_order(n),n=1,ncell)
+ !    exit
+ !  end if
+ !end do
+  1 format (" CPU #-",i4.4," : cell_output_order /= [1,ncell]")
+  2 format ("cell_output_order(",i8,") = ",i0)
   !
   ! Deallocate the msk array
   !
