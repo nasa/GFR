@@ -1188,17 +1188,20 @@ subroutine check_restart_dir
   !.. Use Statements ..
   use ovar, only : output_dir,itrst,num_ts
   use ovar, only : lustre_stripe_count,lustre_stripe_size
+  use ovar, only : irestart,restart_file
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
   integer :: exitstat,cmndstat
   integer :: final_iter_digits
-  logical(lk) :: using_restart_dir
+  logical(lk)  :: using_restart_dir
+  logical(ldk) :: file_exists
   character(len=300) :: command
   character(len=300) :: cmndmsg
   character(len=200) :: test_file
   character(len=200) :: test_dir
   character(len=100) :: char_num
+  character(len=150) :: fname
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_restart_dir"
@@ -1213,6 +1216,26 @@ continue
   !
   exitstat = 0
   cmndmsg = ""
+  !
+  ! First, if a restart was requested, make
+  ! sure that the input restart file exists
+  !
+  if (mypnum == glb_root) then
+    !
+    if (irestart == 1) then
+      !
+      fname = trim(adjustl(restart_file))
+      !
+      inquire (file=fname,exist=file_exists)
+      !
+      if (.not. file_exists) then
+        write (error_message,7) trim(adjustl(fname))
+        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      end if
+      !
+    end if
+    !
+  end if
   !
   ! Try to open a file in the directory named Restart_files
   !
@@ -1316,6 +1339,10 @@ continue
   4 format ("Lustre striping command = '",a,"'")
   5 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
   6 format ("('",a,"out.',i0.",i0,",a,'.stat')")
+  7 format ("A simulation restart was requested but the restart file ", &
+            "given in the input file, '",a,"', does not exist!!! NOTE: ", &
+            "The file 'out.rst' is the default if no file name is ", &
+            "explicitly given in the input file.")
   !
 end subroutine check_restart_dir
 !
