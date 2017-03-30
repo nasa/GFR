@@ -750,8 +750,8 @@ continue
       write (statfile,statfile_fmt) itcur,""
     else if (itnum == -2) then
       write (fname,rstfile_fmt) itcur-1,".NaN"
-      write (command,lnkcmnd_fmt) itcur,".NaN"
-      write (statfile,statfile_fmt) itcur,".NaN"
+      write (command,lnkcmnd_fmt) itcur-1,".NaN"
+      write (statfile,statfile_fmt) itcur-1,".NaN"
     else
       write (fname,rstfile_fmt) itcur,".done"
       write (command,lnkcmnd_fmt) itcur,".done"
