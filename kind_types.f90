@@ -153,6 +153,11 @@ module module_kind_types
   logical(lk), parameter :: true = .true.
   logical(lk), parameter :: fals = .false.
   !
+  ! Constants for cshift and eoshift functions
+  !
+  integer, parameter :: to_end   = -1
+  integer, parameter :: to_front =  1
+  !
   ! #########################################
   ! #########################################
   ! #####   GENERAL GLOBAL PARAMETERS   #####
