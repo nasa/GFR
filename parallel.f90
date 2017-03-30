@@ -481,24 +481,11 @@ continue
                                     !nodes_on_edge, &
                                      cell_order,epart,bface,node,edge)
     !
-    ! Deallocate nodes_on_edge, cells_with_node, and cells_with_node_ptr
-    ! since they are no longer needed
+    ! Deallocate nodes_on_edge since it is no longer needed
     !
     if (allocated(nodes_on_edge)) then
       deallocate ( nodes_on_edge , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodes_on_edge",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
-    if (allocated(cells_with_node)) then
-      deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_with_node",2,__LINE__,__FILE__,ierr, &
-                       error_message)
-    end if
-    !
-    if (allocated(cells_with_node_ptr)) then
-      deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"cells_with_node_ptr",2,__LINE__,__FILE__,ierr, &
                        error_message)
     end if
     !
@@ -530,8 +517,8 @@ continue
     call create_cell_map(npart,epart,cell_map)
     !
     call memory_pause("Before: calling create_node_map")
-    call create_node_map(npart,epart,node,nodes_of_cell, &
-                         nodes_of_cell_ptr,node_map)
+    call create_node_map(npart,epart,node,cells_with_node, &
+                         cells_with_node_ptr,node_map)
     !
     call memory_pause("Before: calling create_face_map")
     call create_face_map(npart,epart,face,face_map)
@@ -539,6 +526,21 @@ continue
     call memory_pause("Before: calling create_edge_map")
     call create_edge_map(npart,epart,edge,cells_with_edge, &
                          cells_with_edge_ptr,edge_map)
+    !
+    ! Deallocate cells_with_node and cells_with_node_ptr
+    ! since they are no longer needed
+    !
+    if (allocated(cells_with_node)) then
+      deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cells_with_node",2,__LINE__,__FILE__,ierr, &
+                       error_message)
+    end if
+    !
+    if (allocated(cells_with_node_ptr)) then
+      deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cells_with_node_ptr",2,__LINE__,__FILE__,ierr, &
+                       error_message)
+    end if
     !
 #ifdef DEBUG_ON
    !call output_mapping_arrays(node_map,edge_map,face_map,cell_map)
@@ -2711,7 +2713,15 @@ subroutine create_cell_map(npart,epart,cell_map)
   type(map_t), allocatable, intent(inout) :: cell_map(:)
   !
   !.. Local Scalars ..
-  integer :: ierr,this_part
+  integer :: i,j,nc,ierr,this_part
+  integer :: gcell,cell_div,init_cell
+  character(len=100) :: array_name
+  !
+  !.. Local Arrays ..
+  integer :: cell_count(1:npart)
+  !
+  !.. Local Allocatable Arrays ..
+  type(map_t), allocatable :: tmp_map(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_cell_map"
@@ -2720,50 +2730,83 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  gcell = size(epart)
+  !
+  cell_div = gcell / npart
+  !
+  init_cell = min( gcell , cell_div*2 )
+  !
   ! Create the cell mappings
+  !
+  allocate ( tmp_map(1:npart) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do this_part = 1,size(tmp_map)
+    allocate ( tmp_map(this_part)%loc_to_glb(1:init_cell) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) this_part
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  cell_count(:) = 0
+  do nc = 1,gcell
+    this_part = epart(nc)
+    i = cell_count(this_part) + 1
+    if (i > size(tmp_map(this_part)%loc_to_glb)) then
+      tmp_map(this_part)%loc_to_glb = [tmp_map(this_part)%loc_to_glb(:), &
+                                       (0,j=1,cell_div)]
+    end if
+    tmp_map(this_part)%loc_to_glb(i) = nc
+    cell_count(this_part) = i
+  end do
+  !
+  ! Copy tmp_map over to cell_map
   !
   allocate ( cell_map(1:npart) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_map",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Loop through the partitions to find the
-  ! local number of cells for each partition
-  !
   do this_part = 1,size(cell_map)
-    !
-    ! Add the cells of the current partition to cell_map
-    !
-    ! Using F2003 auto-reallocation
-    cell_map(this_part)%loc_to_glb = pack( intseq(1,size(epart)) , &
-                                           epart == this_part )
-    !
+    nc = cell_count(this_part)
+    ! F2003 AUTO-REALLOCATION
+    cell_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:nc)
   end do
   !
+  deallocate ( tmp_map , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
+  !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("tmp_map(",i0,")%loc_to_glb")
   !
 end subroutine create_cell_map
 !
 !###############################################################################
 !
-subroutine create_node_map(npart,epart,node,nodes_of_cell, &
-                           nodes_of_cell_ptr,node_map)
+subroutine create_node_map(npart,epart,node,cells_with_node, &
+                           cells_with_node_ptr,node_map)
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: npart
   integer,                     intent(in) :: epart(:)
-  integer,                     intent(in) :: nodes_of_cell(:)
-  integer,                     intent(in) :: nodes_of_cell_ptr(:)
+  integer,                     intent(in) :: cells_with_node(:)
+  integer,                     intent(in) :: cells_with_node_ptr(:)
   type(node_t),             intent(inout) :: node(:)
   type(map_t), allocatable, intent(inout) :: node_map(:)
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,ierr
-  integer :: this_part
-  integer :: loc_node,glb_node
-  integer :: gnode,lnode
+  integer :: i,j,n,nn,n1,n2,ierr
+  integer :: this_part,loc_node,glb_node
+  integer :: gnode,node_div,init_node
   character(len=200) :: array_name 
   !
+  !.. Local Arrays ..
+  integer     :: node_count(1:npart)
+  logical(lk) :: part_mask(1:npart)
+  !
   !.. Local Allocatable Arrays ..
-  logical(lk), allocatable :: msk(:)
+  type(map_t), allocatable :: tmp_map(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_node_map"
@@ -2778,38 +2821,54 @@ continue
   ! ## 1 ##
   ! #######
   !
-  ! Allocate the msk array
+  node_div = gnode / npart
   !
-  allocate ( msk(1:gnode) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  init_node = min( gnode , node_div*4 )
+  !
+  allocate ( tmp_map(1:npart) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do this_part = 1,size(tmp_map)
+    allocate ( tmp_map(this_part)%loc_to_glb(1:init_node) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) this_part
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  node_count(:) = 0
+  do nn = 1,gnode
+    part_mask(:) = fals
+    n1 = cells_with_node_ptr(nn)+1
+    n2 = cells_with_node_ptr(nn+1)
+    do n = n1,n2
+      if (cells_with_node(n) > 0) then
+        this_part = epart(cells_with_node(n))
+        if (part_mask(this_part)) cycle
+        i = node_count(this_part) + 1
+        if (i > size(tmp_map(this_part)%loc_to_glb)) then
+          tmp_map(this_part)%loc_to_glb = [tmp_map(this_part)%loc_to_glb(:), &
+                                           (0,j=1,node_div)]
+        end if
+        tmp_map(this_part)%loc_to_glb(i) = nn
+        node_count(this_part) = i
+        part_mask(this_part) = true
+      end if
+    end do
+  end do
   !
   ! Create the node mappings
   !
   allocate ( node_map(1:npart) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"node_map",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Loop through the partitions to find the
-  ! local number of nodes for each partition
-  !
   do this_part = 1,size(node_map)
     !
-    ! Initialize/Reset msk
+    nn = node_count(this_part)
     !
-    msk = fals
+    ! Copy tmp_map over to node_map
     !
-    ! Mark the nodes that are within this partition
-    !
-    do nc = 1,size(epart)
-      if (epart(nc) /= this_part) cycle
-      n1 = nodes_of_cell_ptr(nc)+1
-      n2 = nodes_of_cell_ptr(nc+1)
-      msk(nodes_of_cell(n1:n2)) = true
-    end do
-    !
-    ! Add the nodes of the current partition to node_map
-    !
-    ! Using F2003 auto-reallocation
-    node_map(this_part)%loc_to_glb = pack( intseq(1,size(msk)) , msk )
+    ! F2003 AUTO-REALLOCATION
+    node_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:nn)
     !
     ! Save the local node index for each node of this partition that
     ! also exists on a different partition
@@ -2835,12 +2894,11 @@ continue
   !
  !call output_node_arrays(node,node_map)
   !
-  ! Deallocate msk before we leave
-  !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
-  !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("tmp_map(",i0,")%loc_to_glb")
   !
 end subroutine create_node_map
 !
@@ -2855,10 +2913,15 @@ subroutine create_face_map(npart,epart,face,face_map)
   type(map_t), allocatable, intent(inout) :: face_map(:)
   !
   !.. Local Scalars ..
-  integer :: ierr,this_part
+  integer :: i,j,nf,ierr,this_part
+  integer :: gface,face_div,init_face
+  character(len=100) :: array_name
+  !
+  !.. Local Arrays ..
+  integer :: face_count(1:npart)
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable :: left_cell(:)
+  type(map_t), allocatable :: tmp_map(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_face_map"
@@ -2869,39 +2932,53 @@ continue
   !
   ! Create the face mappings
   !
+  gface = size(face)
+  !
+  face_div = gface / npart
+  !
+  init_face = min( gface , face_div*4 )
+  !
+  allocate ( tmp_map(1:npart) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do this_part = 1,size(tmp_map)
+    allocate ( tmp_map(this_part)%loc_to_glb(1:init_face) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) this_part
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  face_count(:) = 0
+  do nf = 1,gface
+    this_part = epart( face(nf)%left%cell )
+    i = face_count(this_part) + 1
+    if (i > size(tmp_map(this_part)%loc_to_glb)) then
+      tmp_map(this_part)%loc_to_glb = [tmp_map(this_part)%loc_to_glb(:), &
+                                       (0,j=1,face_div)]
+    end if
+    tmp_map(this_part)%loc_to_glb(i) = nf
+    face_count(this_part) = i
+  end do
+  !
+  ! Copy tmp_map over to face_map
+  !
   allocate ( face_map(1:npart) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_map",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Create a temporary array that contains the left cell of all faces.
-  ! This speeds up the following loop significantly by packing this data into
-  ! a single array, instead of having to jump down two component levels of the
-  ! face derived-type array which results in a large number of cache misses.
-  !
-  ! Using F2003 auto-reallocation
-  left_cell = face%left%cell
-  !
-  ! Loop through the partitions to find the
-  ! local number of faces for each partition
-  !
   do this_part = 1,size(face_map)
-    !
-    ! Add the faces of the current partition to face_map
-    !
-   !face_map(this_part)%loc_to_glb = pack( intseq(1,size(face)) , &
-   !                                       epart(face%left%cell) == this_part )
-    face_map(this_part)%loc_to_glb = pack( intseq(1,size(left_cell)) , &
-                                           epart(left_cell) == this_part )
-    !
+    nf = face_count(this_part)
+    ! F2003 AUTO-REALLOCATION
+    face_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:nf)
   end do
   !
-  ! Deallocate left_cell before we leave
-  !
-  if (allocated(left_cell)) then
-    deallocate ( left_cell , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"left_cell",2,__LINE__,__FILE__,ierr,error_message)
-  end if
+  deallocate ( tmp_map , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("tmp_map(",i0,")%loc_to_glb")
   !
 end subroutine create_face_map
 !
@@ -2919,14 +2996,17 @@ subroutine create_edge_map(npart,epart,edge,cells_with_edge, &
   type(map_t), allocatable, intent(inout) :: edge_map(:)
   !
   !.. Local Scalars ..
-  integer :: n,ne,n1,n2,ierr
-  integer :: this_part
-  integer :: loc_edge,glb_edge
-  integer :: gedge,ledge
+  integer :: i,j,n,ne,n1,n2,ierr
+  integer :: this_part,loc_edge,glb_edge
+  integer :: gedge,edge_div,init_edge
   character(len=200) :: array_name 
   !
+  !.. Local Arrays ..
+  integer     :: edge_count(1:npart)
+  logical(lk) :: part_mask(1:npart)
+  !
   !.. Local Allocatable Arrays ..
-  logical(lk), allocatable :: msk(:)
+  type(map_t), allocatable :: tmp_map(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_edge_map"
@@ -2937,65 +3017,57 @@ continue
   !
   gedge = size(edge)
   !
-  ! #######
-  ! ## 1 ##
-  ! #######
+ !if (mypnum == glb_root) write (iout,15) gedge
+ !15 format (" size(edge) = ",i0)
   !
-  ! Allocate the msk array
+  edge_div = gedge / npart
   !
-  allocate ( msk(1:gedge) , source=fals , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  init_edge = min( gedge , edge_div*4 )
+  !
+  allocate ( tmp_map(1:npart) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do this_part = 1,size(tmp_map)
+    allocate ( tmp_map(this_part)%loc_to_glb(1:init_edge) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) this_part
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  edge_count(:) = 0
+  do ne = 1,gedge
+    part_mask(:) = fals
+    n1 = cells_with_edge_ptr(ne)+1
+    n2 = cells_with_edge_ptr(ne+1)
+    do n = n1,n2
+      if (cells_with_edge(n) > 0) then
+        this_part = epart(cells_with_edge(n))
+        if (part_mask(this_part)) cycle
+        i = edge_count(this_part) + 1
+        if (i > size(tmp_map(this_part)%loc_to_glb)) then
+          tmp_map(this_part)%loc_to_glb = [tmp_map(this_part)%loc_to_glb(:), &
+                                           (0,j=1,edge_div)]
+        end if
+        tmp_map(this_part)%loc_to_glb(i) = ne
+        edge_count(this_part) = i
+        part_mask(this_part) = true
+      end if
+    end do
+  end do
   !
   ! Create the edge mappings
   !
   allocate ( edge_map(1:npart) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edge_map",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Loop through the partitions to find the
-  ! local number of edges for each partition
-  !
-  call debug_timer(reset_accumulated_time,"resetting edge msk",acc=1)
   do this_part = 1,size(edge_map)
     !
-    ! Initialize/Reset msk
+    ne = edge_count(this_part)
     !
-    call debug_timer(start_accumulation,"resetting edge msk",acc=1)
-    msk = fals
-   !where (msk) msk = fals
-    call debug_timer(stop_accumulation,"resetting edge msk",acc=1)
+    ! Copy tmp_map over to edge_map
     !
-    ! Mark the edges that are within this partition
-    !
-    do ne = 1,gedge
-      n1 = cells_with_edge_ptr(ne)+1
-      n2 = cells_with_edge_ptr(ne+1)
-      mark_edges: do n = n1,n2
-        if (cells_with_edge(n) > 0) then
-          if (epart(cells_with_edge(n)) == this_part) then
-            msk(ne) = true
-            exit mark_edges
-          end if
-        end if
-      end do mark_edges
-    end do 
-   !!
-   !! Count the edges on this partition
-   !!
-   !ledge = count( msk(1:gedge) )
-   !!
-   !! Allocate the loc_to_glb component of edge_map for this partition
-   !!
-   !allocate ( edge_map(this_part)%loc_to_glb(1:ledge) , source=0 , &
-   !           stat=ierr , errmsg=error_message )
-   !write (array_name,1) "edge_map",this_part
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Add the edges of the current partition to edge_map
-    !
-   !edge_map(this_part)%loc_to_glb(1:ledge) = pack( intseq(1,gedge) , &
-   !                                                msk(1:gedge) )
-    ! Using F2003 auto-reallocation
-    edge_map(this_part)%loc_to_glb = pack( intseq(1,gedge) , msk(1:gedge) )
+    ! F2003 AUTO-REALLOCATION
+    edge_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:ne)
     !
     ! Save the local edge index for each edge of this partition that
     ! also exists on a different partition
@@ -3018,18 +3090,15 @@ continue
     end do local_edges
     !
   end do
-  call debug_timer(report_accumulated_time,"resetting edge msk",acc=1)
   !
-  ! Deallocate msk before we leave
-  !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( tmp_map , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format (a,"(",i0,")%loc_to_glb")
+  1 format ("tmp_map(",i0,")%loc_to_glb")
   !
 end subroutine create_edge_map
 !
