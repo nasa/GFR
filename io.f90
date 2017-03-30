@@ -4599,6 +4599,7 @@ subroutine write_results_file(iflag,icount)
   !
   !.. Local Saved Scalars ..
   integer, save :: iores
+  logical(lk), save :: file_is_opened = fals
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nq+1) :: u2,v2
@@ -4613,7 +4614,7 @@ continue
   !
   ! Open the results file only if iflag is +1
   !
-  if (iflag == 1) then
+  if (.not. file_is_opened) then
     !
     open (newunit=iores,file=fname,status="replace",action="write", &
                         iostat=ierr,iomsg=error_message)
@@ -4627,9 +4628,7 @@ continue
       write (iores,3) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     end if
     !
-    call debug_timer(leaving_procedure,pname)
-    !
-    return
+    file_is_opened = true
     !
   end if
   !
