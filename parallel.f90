@@ -1,6 +1,11 @@
 module parallel_mod
   !
 #include <mpi_defs.h>
+#define PROFILE_ON
+  !
+#ifdef DEBUG_ON
+!!!#define DEBUG_PARALLEL
+#endif
   !
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
@@ -379,7 +384,7 @@ continue
   !
   lcell = size(nodes_of_cell_ptr)-1 - size(bface,dim=2)
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! Create the global grid connectivity
     !
@@ -421,26 +426,37 @@ continue
    !end if
     !
     ! Use METIS to partition the grid
+    ! NOTE: ONLY USE THE GLOBAL ROOT PROCESS TO PARTITION THE GRID
     !
+    if (mypnum == glb_root) then
+      !
 #ifdef METIS_4
-    !
-    call memory_pause("Before: calling partition_using_metis_4")
-    call partition_using_metis_4(metis_option_requested,npart, &
-                                 cell_geom,cell_order, &
-                                 xadj,adjncy,epart)
-    !
+      !
+      call memory_pause("Before: calling partition_using_metis_4")
+      call partition_using_metis_4(metis_option_requested,npart, &
+                                   cell_geom,cell_order, &
+                                   xadj,adjncy,epart)
+      !
 #elif METIS_5
-    !
-    call memory_pause("Before: calling partition_using_metis_5")
-    call partition_using_metis_5(metis_option_requested,npart, &
-                                 xadj,adjncy,epart)
-    !
+      !
+      call memory_pause("Before: calling partition_using_metis_5")
+      call partition_using_metis_5(metis_option_requested,npart, &
+                                   xadj,adjncy,epart)
+      !
 #else
-    !
-    write (error_message,1)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
-    !
+      !
+      write (error_message,1)
+      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      !
 #endif
+      !
+    end if
+    !
+    ! Have the global root process broadcast
+    ! the partitioning to all host roots
+    !
+    call mpi_bcast(epart,int(lcell,kind=int_mpi),mpi_inttyp, &
+                   glb_root,host_roots_comm,mpierr)
     !
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -470,7 +486,7 @@ continue
  !end if
  !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"outputing partitions")
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! Create the node and edge arrays
     !
@@ -593,7 +609,7 @@ continue
   ! NOTE: The root processor will be the only processor receiving this global
   !       data so it is the only processor that needs to create these datatypes
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     call create_global_collective_datatypes(cell_map,cell_geom,cell_order)
   end if
   !
@@ -1036,7 +1052,7 @@ continue
   allocate ( ubvec(1:ncon) , source=1.01_c_float , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ubvec",1,__LINE__,__FILE__,ierr,error_message)
-  write (iout,5) mypnum,sum(tpwgts)
+  if (mypnum == glb_root) write (iout,5) mypnum,sum(tpwgts)
 #endif
   !
   ! Create the hierarchy of METIS algorithms to try
@@ -3323,12 +3339,12 @@ continue
   !
   tsz = 0
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! Pack array_sizes into the buffer
     !
    !call mpi_pack_size(size(array_sizes,kind=int_mpi),mpi_inttyp, &
-   !                   MPI_COMM_WORLD,isz,mpierr)
+   !                   my_host_comm,isz,mpierr)
    !tsz = tsz + isz
    !write (iout,101) mypnum,1
     !
@@ -3336,7 +3352,7 @@ continue
     !
    !do n = 1,size(node_map)
    !  call mpi_pack_size(size(node_map(n)%loc_to_glb,kind=int_mpi), &
-   !                     mpi_inttyp,MPI_COMM_WORLD,isz,mpierr)
+   !                     mpi_inttyp,my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !end do
    !write (iout,101) mypnum,2
@@ -3345,7 +3361,7 @@ continue
     !
    !do n = 1,size(edge_map)
    !  call mpi_pack_size(size(edge_map(n)%loc_to_glb,kind=int_mpi), &
-   !                     mpi_inttyp,MPI_COMM_WORLD,isz,mpierr)
+   !                     mpi_inttyp,my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !end do
    !write (iout,101) mypnum,3
@@ -3354,7 +3370,7 @@ continue
     !
    !do n = 1,size(face_map)
    !  call mpi_pack_size(size(face_map(n)%loc_to_glb,kind=int_mpi), &
-   !                     mpi_inttyp,MPI_COMM_WORLD,isz,mpierr)
+   !                     mpi_inttyp,my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !end do
    !write (iout,101) mypnum,4
@@ -3363,7 +3379,7 @@ continue
     !
    !do n = 1,size(cell_map)
    !  call mpi_pack_size(size(cell_map(n)%loc_to_glb,kind=int_mpi), &
-   !                     mpi_inttyp,MPI_COMM_WORLD,isz,mpierr)
+   !                     mpi_inttyp,my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !end do
    !write (iout,101) mypnum,5
@@ -3371,17 +3387,17 @@ continue
     ! Pack face_rotation into the buffer
     !
    !call mpi_pack_size(size(face_rotation,kind=int_mpi),mpi_inttyp, &
-   !                   MPI_COMM_WORLD,isz,mpierr)
+   !                   my_host_comm,isz,mpierr)
    !tsz = tsz + isz
    !write (iout,101) mypnum,6
     !
     ! Pack flx into the buffer
     !
    !do n = 1,size(flx)
-   !  call mpi_pack_size(1_int_mpi,mpi_inttyp,MPI_COMM_WORLD,isz,mpierr)
+   !  call mpi_pack_size(1_int_mpi,mpi_inttyp,my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !  call mpi_pack_size(size(flx(n)%pts,kind=int_mpi),mpi_inttyp, &
-   !                     MPI_COMM_WORLD,isz,mpierr)
+   !                     my_host_comm,isz,mpierr)
    !  tsz = tsz + isz
    !end do
    !write (iout,101) mypnum,7
@@ -3402,7 +3418,7 @@ continue
     end do
     !
     call mpi_pack_size(int(np,kind=int_mpi),mpi_inttyp, &
-                       MPI_COMM_WORLD,tsz,mpierr)
+                       my_host_comm,tsz,mpierr)
     write (iout,10) np,tsz
     10 format (/,5x,"number of integers being bcast,  np = ",i0,/, &
                  5x,"size of buffer required by MPI, tsz = ",i0,/)
@@ -3425,7 +3441,7 @@ continue
   end if
  !write (iout,101) mypnum,10
   !
-  call mpi_bcast(tsz,1_int_mpi,MPI_INTEGER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(tsz,1_int_mpi,MPI_INTEGER,host_root,my_host_comm,mpierr)
  !tsz = tsz + nint( real(tsz,kind=wp)/ten/ten , kind=int_mpi )
   !
  !write (iout,100) mypnum,tsz
@@ -3438,14 +3454,14 @@ continue
   call alloc_error(pname,"buffer",1,__LINE__,__FILE__,ierr,error_message)
  !write (iout,101) mypnum,12
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     pos = 0_int_mpi
     !
     ! Pack array_sizes into the buffer
     !
     call mpi_pack(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
-                  buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                  buffer,tsz,pos,my_host_comm,mpierr)
    !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
    !write (iout,101) mypnum,13,mpierr
    !write (iout,102) pos,tsz,size(array_sizes),storage_size(array_sizes)
@@ -3456,7 +3472,7 @@ continue
      !write (iout,101) mypnum,113,mpierr
       call mpi_pack(node_map(n)%loc_to_glb, &
                     size(node_map(n)%loc_to_glb,kind=int_mpi), &
-                    mpi_inttyp,buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,buffer,tsz,pos,my_host_comm,mpierr)
      !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
      !write (iout,101) mypnum,14,mpierr
      !write (iout,102) pos,tsz,size(node_map(n)%loc_to_glb), &
@@ -3468,7 +3484,7 @@ continue
     do n = 1,size(edge_map)
       call mpi_pack(edge_map(n)%loc_to_glb, &
                     size(edge_map(n)%loc_to_glb,kind=int_mpi), &
-                    mpi_inttyp,buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,buffer,tsz,pos,my_host_comm,mpierr)
      !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
      !write (iout,101) mypnum,15,mpierr
      !write (iout,102) pos,tsz,size(edge_map(n)%loc_to_glb), &
@@ -3480,7 +3496,7 @@ continue
     do n = 1,size(face_map)
       call mpi_pack(face_map(n)%loc_to_glb, &
                     size(face_map(n)%loc_to_glb,kind=int_mpi), &
-                    mpi_inttyp,buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,buffer,tsz,pos,my_host_comm,mpierr)
      !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
      !write (iout,101) mypnum,16,mpierr
      !write (iout,102) pos,tsz,size(face_map(n)%loc_to_glb), &
@@ -3492,7 +3508,7 @@ continue
     do n = 1,size(cell_map)
       call mpi_pack(cell_map(n)%loc_to_glb, &
                     size(cell_map(n)%loc_to_glb,kind=int_mpi), &
-                    mpi_inttyp,buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,buffer,tsz,pos,my_host_comm,mpierr)
      !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
      !write (iout,101) mypnum,17,mpierr
      !write (iout,102) pos,tsz,size(cell_map(n)%loc_to_glb), &
@@ -3502,7 +3518,7 @@ continue
     ! Pack face_rotation into the buffer
     !
     call mpi_pack(face_rotation,size(face_rotation,kind=int_mpi),mpi_inttyp, &
-                  buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                  buffer,tsz,pos,my_host_comm,mpierr)
    !write (iout,'(a,i0)') "MPI_COMM_WORLD = ",mpi_comm_world_val
    !write (iout,101) mypnum,18,mpierr
    !write (iout,102) pos,tsz,size(face_rotation),storage_size(face_rotation)
@@ -3515,13 +3531,13 @@ continue
       np = size(flx(n)%pts)
       isz = int(1,kind=int_mpi)
       call mpi_pack(np,isz,mpi_inttyp, &
-                    buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    buffer,tsz,pos,my_host_comm,mpierr)
      !call mpi_pack(size(flx(n)%pts,kind=wip),int(1,kind=int_mpi),mpi_inttyp, &
      !              buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
      !write (iout,101) mypnum,19,mpierr
      !write (iout,102) pos,tsz,isz,storage_size(np)
       call mpi_pack(flx(n)%pts,size(flx(n)%pts,kind=int_mpi),mpi_inttyp, &
-                    buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
+                    buffer,tsz,pos,my_host_comm,mpierr)
      !write (iout,101) mypnum,20,mpierr
      !write (iout,102) pos,tsz,size(flx(n)%pts),storage_size(flx(n)%pts)
     end do
@@ -3537,17 +3553,17 @@ continue
   !
   ! Broadcast pos
   !
-  call mpi_bcast(isz,1_int_mpi,MPI_INTEGER,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(isz,1_int_mpi,MPI_INTEGER,host_root,my_host_comm,mpierr)
  !write (iout,101) mypnum,23
   !
   ! Broadcast the buffer
   !
-  call mpi_bcast(buffer,tsz,MPI_PACKED,0_int_mpi,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(buffer,tsz,MPI_PACKED,host_root,my_host_comm,mpierr)
  !write (iout,101) mypnum,24
   !
   ! Have all non-root processors unpack the buffer
   !
-  if (mypnum /= 0) then
+  if (.not. i_am_host_root) then
     !
     pos = 0_int_mpi
     !
@@ -3555,7 +3571,7 @@ continue
     !
     call mpi_unpack(buffer,tsz,pos, &
                     array_sizes,size(array_sizes,kind=int_mpi), &
-                    mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,my_host_comm,mpierr)
     !
     ! Allocate all the arrays using the information in array_sizes
     !
@@ -3606,7 +3622,7 @@ continue
     do n = 1,size(node_map)
       call mpi_unpack(buffer,tsz,pos,node_map(n)%loc_to_glb, &
                       size(node_map(n)%loc_to_glb,kind=int_mpi), &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
     end do
     !
     ! Unpack edge_map from the buffer
@@ -3614,7 +3630,7 @@ continue
     do n = 1,size(edge_map)
       call mpi_unpack(buffer,tsz,pos,edge_map(n)%loc_to_glb, &
                       size(edge_map(n)%loc_to_glb,kind=int_mpi), &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
     end do
     !
     ! Unpack face_map from the buffer
@@ -3622,7 +3638,7 @@ continue
     do n = 1,size(face_map)
       call mpi_unpack(buffer,tsz,pos,face_map(n)%loc_to_glb, &
                       size(face_map(n)%loc_to_glb,kind=int_mpi), &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
     end do
     !
     ! Unpack cell_map from the buffer
@@ -3630,14 +3646,14 @@ continue
     do n = 1,size(cell_map)
       call mpi_unpack(buffer,tsz,pos,cell_map(n)%loc_to_glb, &
                       size(cell_map(n)%loc_to_glb,kind=int_mpi), &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
     end do
     !
     ! Unpack face_rotation from the buffer
     !
     call mpi_unpack(buffer,tsz,pos,face_rotation, &
                     size(face_rotation,kind=int_mpi), &
-                    mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                    mpi_inttyp,my_host_comm,mpierr)
     !
     ! Unpack flx from the buffer
     !
@@ -3646,7 +3662,7 @@ continue
       ! Unpack the size of the flx(n)%pts array from the buffer
       !
       call mpi_unpack(buffer,tsz,pos,np,1_int_mpi, &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
       !
       ! Allocate the flx(n)%pts array
       !
@@ -3658,7 +3674,7 @@ continue
       ! Unpack flx(n)%pts from the buffer
       !
       call mpi_unpack(buffer,tsz,pos,flx(n)%pts,int(np,kind=int_mpi), &
-                      mpi_inttyp,MPI_COMM_WORLD,mpierr)
+                      mpi_inttyp,my_host_comm,mpierr)
       !
     end do
     !
@@ -3714,7 +3730,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     np = 0
     do n = 1,size(flx)
@@ -3748,7 +3764,7 @@ continue
   end if
   !
   call mpi_bcast(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+                 host_root,my_host_comm,mpierr)
   !
   np = sum(array_sizes(1:4*npart)) + &
          2*array_sizes(1+4*npart)  + &
@@ -3759,7 +3775,7 @@ continue
   !
   i2 = 0
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! Add node_map to the buffer
     !
@@ -3823,11 +3839,11 @@ continue
   ! Broadcast the buffer
   !
   call mpi_bcast(buffer,size(buffer,kind=int_mpi),mpi_inttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+                 host_root,my_host_comm,mpierr)
   !
   ! Have all non-root processors unpack the buffer
   !
-  if (mypnum /= 0) then
+  if (.not. i_am_host_root) then
     !
     ! Extract node_map from the buffer
     !
@@ -3924,7 +3940,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     np = 0
     do n = 1,size(flx)
@@ -3958,12 +3974,12 @@ continue
   end if
   !
   call mpi_bcast(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+                 host_root,my_host_comm,mpierr)
   !
   ! Have all non-root processors pre-allocate the loc_to_glb components
   ! of the mapping arrays, and the face_rotation array
   !
-  if (mypnum /= 0) then
+  if (.not. i_am_host_root) then
     !
     do n = 1,size(node_map)
       np = array_sizes(n+0*npart)
@@ -4013,7 +4029,7 @@ continue
   do n = 1,size(node_map)
     call mpi_bcast(node_map(n)%loc_to_glb, &
                    size(node_map(n)%loc_to_glb,kind=int_mpi), &
-                   mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                   mpi_inttyp,host_root,my_host_comm,mpierr)
   end do
   !
   ! Broadcast each edge_map(:)%loc_to_glb array to all processors
@@ -4021,7 +4037,7 @@ continue
   do n = 1,size(edge_map)
     call mpi_bcast(edge_map(n)%loc_to_glb, &
                    size(edge_map(n)%loc_to_glb,kind=int_mpi), &
-                   mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                   mpi_inttyp,host_root,my_host_comm,mpierr)
   end do
   !
   ! Broadcast each face_map(:)%loc_to_glb array to all processors
@@ -4029,7 +4045,7 @@ continue
   do n = 1,size(face_map)
     call mpi_bcast(face_map(n)%loc_to_glb, &
                    size(face_map(n)%loc_to_glb,kind=int_mpi), &
-                   mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                   mpi_inttyp,host_root,my_host_comm,mpierr)
   end do
   !
   ! Broadcast each cell_map(:)%loc_to_glb array to all processors
@@ -4037,13 +4053,13 @@ continue
   do n = 1,size(cell_map)
     call mpi_bcast(cell_map(n)%loc_to_glb, &
                    size(cell_map(n)%loc_to_glb,kind=int_mpi), &
-                   mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                   mpi_inttyp,host_root,my_host_comm,mpierr)
   end do
   !
   ! Broadcast the face_rotation array to all processors
   !
   call mpi_bcast(face_rotation,size(face_rotation,kind=int_mpi), &
-                 mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
+                 mpi_inttyp,host_root,my_host_comm,mpierr)
   !
   ! Allocate the buffer for broadcasting the components of the flx array
   !
@@ -4051,7 +4067,7 @@ continue
   allocate ( buffer(1:np) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"buffer",1,__LINE__,__FILE__,ierr,error_message)
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! Have the root processor create the buffer for the flux array
     !
@@ -4069,11 +4085,11 @@ continue
   ! Broadcast the buffer for the flx array to all processors
   !
   call mpi_bcast(buffer,size(buffer,kind=int_mpi),mpi_inttyp, &
-                 0_int_mpi,MPI_COMM_WORLD,mpierr)
+                 host_root,my_host_comm,mpierr)
   !
   ! Have all non-root processors unpack the buffer for the flx array
   !
-  if (mypnum /= 0) then
+  if (.not. i_am_host_root) then
     !
     ! First, allocate the flux array
     !
@@ -4680,7 +4696,7 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   real(wp), allocatable, intent(inout) :: xyz_nodes(:,:)
   !
   !.. Local Scalars ..
-  integer :: my_part,this_part,lcell,lnode,gnode,ierr
+  integer :: n,my_part,this_part,lcell,lnode,gnode,ierr
   !
   character(len=100) :: part_message
   !
@@ -4704,7 +4720,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
     ! We need to make copies of the global grid arrays nodes_of_cell,
     ! nodes_of_cell_ptr, bface, cell_geom, cell_order, and xyz_nodes
@@ -4780,12 +4796,14 @@ continue
   ! Have the root processor localize each partition and
   ! then send the localized arrays to the matching processor
   !
-  do this_part = 2,size(cell_map)
+  do n = 2,size(my_host_grp)
+    !
+    this_part = my_host_grp(n)+1
     !
     write (part_message,11) this_part
     call debug_timer(start_timer,part_message)
     !
-    if (mypnum == 0) then
+    if (i_am_host_root) then
       !
 #ifdef DEBUG_PARALLEL
       write (iout,10) this_part
@@ -4820,7 +4838,7 @@ continue
       !
     end if
     !
-    if (mypnum == 0 .or. my_part == this_part) then
+    if (i_am_host_root .or. my_part == this_part) then
       !
       if (use_mpi_pack) then
         call pack_localized_partition(this_part,bface,cell_geom,cell_order, &
@@ -4853,9 +4871,9 @@ continue
   !
   ! Now have the root processor localize its own partition
   !
-  if (mypnum == 0) then
+  if (i_am_host_root) then
     !
-    this_part = 1
+    this_part = mypnum + 1
     !
     write (part_message,11) this_part
     call debug_timer(start_timer,part_message)
@@ -5139,7 +5157,7 @@ continue
   !
   call debug_timer(entering_procedure,pname,processor=0,part_num=this_part)
   !
-  send_cpu = 0_int_mpi
+  send_cpu = my_host_root
   recv_cpu = int(this_part-1,kind=int_mpi)
   itag1 = int(this_part,kind=int_mpi)
   itag2 = itag1 + ncpu
@@ -5582,7 +5600,7 @@ continue
   !
   call debug_timer(entering_procedure,pname,processor=0,part_num=this_part)
   !
-  send_cpu = 0_int_mpi
+  send_cpu = my_host_root
   recv_cpu = int(this_part-1,kind=int_mpi)
   itag1 = int(this_part,kind=int_mpi)
   itag2 = itag1 + ncpu
@@ -5911,7 +5929,7 @@ continue
   !
   call debug_timer(entering_procedure,pname,processor=0,part_num=this_part)
   !
-  send_cpu = 0_int_mpi
+  send_cpu = my_host_root
   recv_cpu = int(this_part-1,kind=int_mpi)
   itag1 = int(this_part,kind=int_mpi)
   itag2 = itag1 + ncpu
