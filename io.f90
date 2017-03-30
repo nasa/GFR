@@ -4598,7 +4598,7 @@ subroutine write_results_file(iflag,icount)
   real(wp) :: comp_cost
   !
   !.. Local Saved Scalars ..
-  integer, save :: iores
+  integer,     save :: iores
   logical(lk), save :: file_is_opened = fals
   !
   !.. Local Arrays ..
