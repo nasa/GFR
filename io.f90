@@ -177,7 +177,7 @@ subroutine check_input_file(input_fname,input_status)
   !
   !.. Local Scalars ..
   integer :: ierr,inpt
-  logical(lk) :: file_exists
+  logical(ldk) :: file_exists
   character(len=80) :: text
   !
   !.. Local Parameters ..
@@ -5197,7 +5197,7 @@ continue
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
-    write (iout,*) "Entering write_parallel_cgns_solution_file"
+    write (iout,1)
     flush(iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -5704,12 +5704,17 @@ continue
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
-    write (iout,*) "Leaving write_parallel_cgns_solution_file"
+    write (iout,2)
     flush(iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering write_parallel_cgns_solution_file")
+  2 format (" Leaving write_parallel_cgns_solution_file",/)
   !
   !-----------------------------------------------------------------------------
   !
