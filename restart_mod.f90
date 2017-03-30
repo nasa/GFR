@@ -53,12 +53,6 @@ module restart_mod
   character(len=170), save :: lnkcmnd_fmt
   character(len=170), save :: statfile_fmt
   !
-  !###################################
-  !###  Module Allocatable Arrays  ###
-  !###################################
-  !
-  integer, save, allocatable :: cell_output_order(:)
-  !
   !##################################
   !###  Module Derived Datatypes  ###
   !##################################
@@ -70,6 +64,12 @@ module restart_mod
     integer :: input_geom
     integer :: input_order
   end type rstrt_cell_t
+  !
+  !###################################
+  !###  Module Allocatable Arrays  ###
+  !###################################
+  !
+  integer, save, allocatable :: cell_output_order(:)
   !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
@@ -643,7 +643,7 @@ continue
   call debug_timer(entering_procedure,pname)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
-    write (iout,*) "Entering write_restart_file"
+    write (iout,4)
     flush(iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1074,7 +1074,7 @@ continue
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
-    write (iout,*) "Leaving write_restart_file"
+    write (iout,2)
     flush(iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1083,6 +1083,9 @@ continue
   ! Format Statements
   !
   1 format (i0)
+  2 format (" Leaving write_restart_file",/,:, &
+            5x,"Wall time taken to write restart file = ",f12.6," seconds")
+  4 format (/," Entering write_restart_file")
   !
 end subroutine write_restart_file
 !
@@ -1331,7 +1334,7 @@ subroutine get_output_mpi_datatypes()
   integer :: global_cell
   !
   !.. Local Allocatable Arrays ..
-  logical(lk),          allocatable :: msk(:)
+  logical(lk),      allocatable :: msk(:)
   integer(int_mpi), allocatable :: og_offset(:)
   integer(int_mpi), allocatable :: sol_offset(:)
   integer(int_mpi), allocatable :: sol_blklen(:)
@@ -1489,13 +1492,13 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
   use parallel_mod, only : cell_map
   !
   !.. Formal Arguments ..
-  integer(wip),                                   intent(in) :: restart_nq
-  integer(wip),                                   intent(in) :: restart_rp
-  _MPI_DATA_TYPE_,                            intent(inout) :: real_type
-  _MPI_DATA_TYPE_,                            intent(inout) :: read_type
-  integer(wip),                                intent(inout) :: num_pts
-  integer(wip),                    dimension(:),  intent(in) :: ordered_geom
-  type(rstrt_cell_t), allocatable, dimension(:), intent(out) :: cell_input_data
+  integer(wip),                     intent(in) :: restart_nq
+  integer(wip),                     intent(in) :: restart_rp
+  _MPI_DATA_TYPE_,               intent(inout) :: real_type
+  _MPI_DATA_TYPE_,               intent(inout) :: read_type
+  integer(wip),                  intent(inout) :: num_pts
+  integer(wip),                     intent(in) :: ordered_geom(:)
+  type(rstrt_cell_t), allocatable, intent(out) :: cell_input_data(:)
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,ierr
@@ -1722,11 +1725,11 @@ end subroutine get_input_mpi_datatypes
 subroutine read_rstrt_file_i1(file_handle,int_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,              intent(in) :: file_handle
-  integer(wip), dimension(:), intent(inout) :: int_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(wip), intent(inout) :: int_data(:)
   !
   !.. Local Arrays ..
-  integer(int8), dimension(1:size(int_data)) :: read_int
+  integer(int8) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_i1"
@@ -1754,11 +1757,11 @@ end subroutine read_rstrt_file_i1
 subroutine read_rstrt_file_i2(file_handle,int_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,              intent(in) :: file_handle
-  integer(wip), dimension(:), intent(inout) :: int_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(wip), intent(inout) :: int_data(:)
   !
   !.. Local Arrays ..
-  integer(int16), dimension(1:size(int_data)) :: read_int
+  integer(int16) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_i2"
@@ -1786,11 +1789,11 @@ end subroutine read_rstrt_file_i2
 subroutine read_rstrt_file_i4(file_handle,int_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,              intent(in) :: file_handle
-  integer(wip), dimension(:), intent(inout) :: int_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(wip), intent(inout) :: int_data(:)
   !
   !.. Local Arrays ..
-  integer(int32), dimension(1:size(int_data)) :: read_int
+  integer(int32) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_i4"
@@ -1818,11 +1821,11 @@ end subroutine read_rstrt_file_i4
 subroutine read_rstrt_file_i8(file_handle,int_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,              intent(in) :: file_handle
-  integer(wip), dimension(:), intent(inout) :: int_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(wip), intent(inout) :: int_data(:)
   !
   !.. Local Arrays ..
-  integer(int64), dimension(1:size(int_data)) :: read_int
+  integer(int64) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_i8"
@@ -1850,11 +1853,11 @@ end subroutine read_rstrt_file_i8
 subroutine read_rstrt_file_wip(file_handle,int_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,              intent(in) :: file_handle
-  integer(wip), dimension(:), intent(inout) :: int_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  integer(wip), intent(inout) :: int_data(:)
   !
   !.. Local Arrays ..
-  integer(wip), dimension(1:size(int_data)) :: read_int
+  integer(wip) :: read_int(1:size(int_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wip"
@@ -1882,11 +1885,11 @@ end subroutine read_rstrt_file_wip
 subroutine read_rstrt_file_r4_rank1(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,          intent(in) :: file_handle
-  real(wp), dimension(:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:)
   !
   !.. Local Arrays ..
-  real(real32), dimension(1:size(real_data)) :: read_real
+  real(real32) :: read_real(1:size(real_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r4_rank1"
@@ -1908,11 +1911,12 @@ end subroutine read_rstrt_file_r4_rank1
 subroutine read_rstrt_file_r4_rank2(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,            intent(in) :: file_handle
-  real(wp), dimension(:,:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Local Arrays ..
-  real(real32) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
+  real(real32) :: read_real(1:size(real_data,dim=1), &
+                            1:size(real_data,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r4_rank2"
@@ -1940,11 +1944,11 @@ end subroutine read_rstrt_file_r4_rank2
 subroutine read_rstrt_file_r8_rank1(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,          intent(in) :: file_handle
-  real(wp), dimension(:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:)
   !
   !.. Local Arrays ..
-  real(real64), dimension(1:size(real_data)) :: read_real
+  real(real64) :: read_real(1:size(real_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r8_rank1"
@@ -1966,11 +1970,12 @@ end subroutine read_rstrt_file_r8_rank1
 subroutine read_rstrt_file_r8_rank2(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,            intent(in) :: file_handle
-  real(wp), dimension(:,:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Local Arrays ..
-  real(real64) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
+  real(real64) :: read_real(1:size(real_data,dim=1), &
+                            1:size(real_data,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r8_rank2"
@@ -1998,11 +2003,11 @@ end subroutine read_rstrt_file_r8_rank2
 subroutine read_rstrt_file_r16_rank1(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,          intent(in) :: file_handle
-  real(wp), dimension(:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:)
   !
   !.. Local Arrays ..
-  real(real128), dimension(1:size(real_data)) :: read_real
+  real(real128) :: read_real(1:size(real_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r16_rank1"
@@ -2024,11 +2029,12 @@ end subroutine read_rstrt_file_r16_rank1
 subroutine read_rstrt_file_r16_rank2(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,            intent(in) :: file_handle
-  real(wp), dimension(:,:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Local Arrays ..
-  real(real128) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
+  real(real128) :: read_real(1:size(real_data,dim=1), &
+                             1:size(real_data,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r16_rank2"
@@ -2056,11 +2062,11 @@ end subroutine read_rstrt_file_r16_rank2
 subroutine read_rstrt_file_wp_rank1(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,          intent(in) :: file_handle
-  real(wp), dimension(:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:)
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(real_data)) :: read_real
+  real(wp) :: read_real(1:size(real_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wp_rank1"
@@ -2082,11 +2088,12 @@ end subroutine read_rstrt_file_wp_rank1
 subroutine read_rstrt_file_wp_rank2(file_handle,real_data)
   !
   !.. Formal Arguments ..
-  _MPI_FILE_TYPE_,            intent(in) :: file_handle
-  real(wp), dimension(:,:), intent(inout) :: real_data
+  _MPI_FILE_TYPE_, intent(in) :: file_handle
+  real(wp),     intent(inout) :: real_data(:,:)
   !
   !.. Local Arrays ..
-  real(wp) :: read_real(1:size(real_data,dim=1),1:size(real_data,dim=2))
+  real(wp) :: read_real(1:size(real_data,dim=1), &
+                        1:size(real_data,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_wp_rank2"
