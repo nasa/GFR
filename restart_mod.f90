@@ -595,6 +595,7 @@ subroutine write_restart_file(itnum)
   !.. Use Statements for old restart files ..
   use geovar,  only : n_global_totpts
   use ovar,    only : use_old_restart_format
+  use ovar,    only : profile_io_restart
   use flowvar, only : global_usp
   use parallel_mod, only : collect_global_solution
   !
@@ -618,6 +619,9 @@ subroutine write_restart_file(itnum)
   character(len=100) :: statfile
   character(len=300) :: command
   character(len=300) :: cmndmsg
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
   !
   !.. Local Arrays ..
   integer(wip) :: int_header(1:4)
@@ -643,6 +647,7 @@ continue
   call debug_timer(entering_procedure,pname)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
+    if (profile_io_restart) beg_wall_time = mpi_wtime()
     write (iout,4)
     flush(iout)
   end if
@@ -1074,7 +1079,13 @@ continue
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   if (mypnum == 0) then
-    write (iout,2)
+    if (profile_io_restart) then
+      end_wall_time = mpi_wtime()
+      write (iout,2) end_wall_time - beg_wall_time
+      write (iout,3) "ALL MPI PROCESSES"
+    else
+      write (iout,2)
+    end if
     flush(iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
@@ -1085,6 +1096,7 @@ continue
   1 format (i0)
   2 format (" Leaving write_restart_file",/,:, &
             5x,"Wall time taken to write restart file = ",f12.6," seconds")
+  3 format (10x,"(USING ",a," FOR MPI-I/O)",/)
   4 format (/," Entering write_restart_file")
   !
 end subroutine write_restart_file
