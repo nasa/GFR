@@ -1,6 +1,7 @@
 module module_cgns
   !
 #define PROFILE_ON
+!!!#define DEBUG_HOST_HANG
   !.. Use Statements
   use module_kind_types, global_debug_timer => debug_timer
   use module_cgns_types
@@ -375,15 +376,12 @@ continue
     !
     call create_solver_geom_arrays_cgns
     !
-    !#################################################################
-    !#################################################################
-    !#################################################################
-    !    TEMPORARY FOR POINTWISE CURVED MESH OF SMC000 NOZZLE
-    !#################################################################
-    !#################################################################
-    !#################################################################
-    !
   end if
+  !
+  ! Broadcast the grid derived type to all processors
+  ! but save it on only the root processes of each host
+  !
+  call root_broadcasts_grid_dt
   !
   ! It should now be safe to deallocate the base derived-type array.
   ! We dont need it wasting a bunch of memory since we are about to
@@ -2877,6 +2875,564 @@ continue
   1092 format ("    ERROR finding host cell for boundary face ",i10,", ",i10)
   !
 end subroutine create_solver_geom_arrays_cgns
+!
+!###############################################################################
+!
+subroutine root_broadcasts_grid_dt()
+  !
+  !.. Use Statements ..
+  use geovar, only : grid
+  !
+  !.. Local Scalars ..
+  integer          :: n1,n2,ierr
+  integer(INT_MPI) :: n
+  !
+  !.. Local Arrays ..
+  integer :: array_sizes(1:4)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: grid_elem(:)
+  real(wp), allocatable :: grid_xyz(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "root_broadcasts_grid_dt"
+ !logical(lk),      parameter :: use_all_processors = fals
+  logical(lk),      parameter :: use_all_processors = true
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Have the global root process copy the information in the grid derived type
+  ! to the grid_xyz and grid_elem arrays, and save the necessary size
+  ! information into the array_sizes array.
+  !
+#ifdef DEBUG_HOST_HANG
+  if (i_am_host_root) then
+    write (iout,100) mypnum,"b) before root_packs_grid_dt, before mpi_barrier"
+    call mpi_barrier(host_roots_comm,mpierr)
+    write (iout,100) mypnum,"c) before root_packs_grid_dt, after  mpi_barrier",mpierr
+  end if
+#endif
+  100 format (" CPU # ",i4.4," : ",a,:,"  mpierr=",i0)
+  101 format (" CPU # ",i4.4," : ",a,:,i0)
+  102 format (a," : size=",i0,",   storage_size=",i0)
+  if (mypnum == glb_root) then
+    !
+    call root_packs_grid_dt(grid_elem,grid_xyz,grid)
+    !
+    array_sizes(1) = size(grid_elem)
+    array_sizes(2) = size(grid_xyz,dim=1)
+    array_sizes(3) = size(grid_xyz,dim=2)
+    array_sizes(4) = size(grid%elem)
+    !
+  end if
+#ifdef DEBUG_HOST_HANG
+  if (i_am_host_root) then
+    if (mypnum == glb_root) then
+      write (iout,102) "grid_elem",size(grid_elem),storage_size(grid_elem)
+      write (iout,102) "grid_xyz ",size(grid_xyz),storage_size(grid_xyz)
+      flush (iout)
+    end if
+    write (iout,100) mypnum,"d) after  root_packs_grid_dt, before mpi_barrier"
+    call mpi_barrier(host_roots_comm,mpierr)
+    write (iout,100) mypnum,"e) after  mpi_barrier, before mpi_bast(array_sizes)",mpierr
+  end if
+#endif
+  !
+  ! Broadcast the array_sizes array to all host roots
+  !
+  n = size(array_sizes,kind=int_mpi)
+ !if (use_all_processors) then
+    call mpi_bcast(array_sizes,n,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+ !else
+ !  if (i_am_host_root) then
+ !    call mpi_bcast(array_sizes,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
+ !  end if
+ !end if
+#ifdef DEBUG_HOST_HANG
+  if (i_am_host_root) then
+    write (iout,100) mypnum,"f) after  mpi_bast(array_sizes), before allocation",mpierr
+  end if
+#endif
+  !
+  ! Allocate the grid_elem and grid_xyz arrays on the non-root
+  ! processes so they can be received from the root process.
+  !
+  if (.not. allocated(grid_elem)) then
+    n1 = array_sizes(1)
+    allocate ( grid_elem(1:n1) , source=0 , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (.not. allocated(grid_xyz)) then
+    n1 = array_sizes(2)
+    n2 = array_sizes(3)
+    allocate ( grid_xyz(1:n1,1:n2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+#ifdef DEBUG_HOST_HANG
+  if (i_am_host_root) then
+    write (iout,100) mypnum,"g) after  allocation, before mpi_bast(grid_elem)"
+  end if
+#endif
+  !
+  ! Broadcast the grid_elem array to all host roots
+  !
+  n = size(grid_elem,kind=int_mpi)
+ !if (mypnum == glb_root .or. mypnum == 1064 .or. mypnum == 1092) then
+ !  write (iout,101) mypnum,"array_sizes(1) = ",array_sizes(1)
+ !  write (iout,101) mypnum,"array_sizes(2) = ",array_sizes(2)
+ !  write (iout,101) mypnum,"array_sizes(3) = ",array_sizes(3)
+ !  write (iout,101) mypnum,"array_sizes(4) = ",array_sizes(4)
+ !  write (iout,101) mypnum,"size(grid_elem) = ",size(grid_elem)
+ !  write (iout,101) mypnum,"size(grid_xyz,dim=1) = ",size(grid_xyz,dim=1)
+ !  write (iout,101) mypnum,"size(grid_xyz,dim=2) = ",size(grid_xyz,dim=2)
+ !end if
+  if (use_all_processors) then
+    call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+    if (.not. i_am_host_root) then
+      deallocate ( grid_elem , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid_elem",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  else
+    if (i_am_host_root) then
+      call mpi_bcast(grid_elem,n,mpi_inttyp,glb_root,host_roots_comm,mpierr)
+    end if
+  end if
+#ifdef DEBUG_HOST_HANG
+  if (i_am_host_root) then
+    write (iout,100) mypnum,"h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
+  end if
+#endif
+  !
+  ! Broadcast the grid_xyz array to all host roots
+  !
+  n = size(grid_xyz,kind=int_mpi)
+  if (use_all_processors) then
+    call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
+    if (.not. i_am_host_root) then
+      deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+  else
+    call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,host_roots_comm,mpierr)
+#ifdef DEBUG_HOST_HANG
+    if (i_am_host_root) then
+      write (iout,100) mypnum,"i) after  mpi_bcast(grid_xyz), before unpack_grid_dt",mpierr
+    end if
+#endif
+  end if
+  !
+  ! Have all host roots unpack the grid_elem and grid_xyz arrays
+  ! into the global grid derived type.
+  ! NOTE: This also needs to be done on the global root process since move_alloc
+  !       was used to copy grid%xyz over to grid_xyz, which leaves grid%xyz
+  !       deallocated after the copy.
+  !
+  if (i_am_host_root) then
+    call unpack_grid_dt(array_sizes(4),grid_elem,grid_xyz,grid)
+#ifdef DEBUG_HOST_HANG
+    write (iout,100) mypnum,"j) after unpack_grid_dt, before mpi_barrier"
+    call mpi_barrier(host_roots_comm,mpierr)
+    write (iout,100) mypnum,"k) after unpack_grid_dt, after mpi_barrier",mpierr
+#endif
+  end if
+  !
+  ! The local allocatable arrays grid_xyz and grid_elem should
+  ! have been deallocated at the end of the previous routine.
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine root_broadcasts_grid_dt
+!
+!###############################################################################
+!
+subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid)
+  !
+  !.. Use Statements ..
+  use geovar, only : grid_t
+  !
+  !.. Formal Arguments ..
+  integer,      allocatable, intent(inout) :: grid_elem(:)
+  real(wp),     allocatable, intent(inout) :: grid_xyz(:,:)
+  type(grid_t), allocatable, intent(inout) :: grid
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nc,nge,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "root_packs_grid_dt"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Deallocate the grid_elem and grid_xyz arrays
+  !
+  if (allocated(grid_elem)) then
+    deallocate ( grid_elem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_elem",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_xyz)) then
+    deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! #######
+  ! ## 1 ##
+  ! #######
+  !
+  ! Find the size needed for grid_elem array
+  !
+  call debug_timer(start_timer,"find the size needed for grid_elem")
+  nge = 0
+  do nc = 1,size(grid%elem)
+    !
+    i = 1       ! 1 for elem_type, size(tags) combo
+    i = i + 1 ! 1 for host cell
+    !
+    ! Add the size of grid%elem(:)%pts to the counter for this element
+    !
+    if (allocated(grid%elem(nc)%pts)) then
+      ! NOTE: Make sure that the counter is increased by at least 1 if the
+      !       pts array is allocated but its size is 0.
+      i = i + max( 1 , size(grid%elem(nc)%pts) )
+    else
+      i = i + 1
+    end if
+    !
+    ! Add the size of grid%elem(:)%tags to the counter for this element
+    ! if we are sending this data to the other processors
+    !
+    if (allocated(grid%elem(nc)%tags)) then
+      i = i + size(grid%elem(nc)%tags)
+    else
+      ! We will know if tags data exists for this element from the
+      ! elem_type, size(tags) combo, so we dont need to add 1 here
+    end if
+    !
+    ! Add the size of grid%elem(:)%nodes to the counter for this element
+    !
+    if (allocated(grid%elem(nc)%nodes)) then
+      ! NOTE: Make sure that the counter is increased by at least 1 if the
+      !       nodes array is allocated but its size is 0.
+      i = i + max( 1 , size(grid%elem(nc)%nodes) )
+    else
+      i = i + 1
+    end if
+    !
+    nge = nge + i
+    !
+  end do
+  call debug_timer(stop_timer,"find the size needed for grid_elem")
+  call debug_timer(start_timer,"creating grid_xyz")
+  !
+  ! #######
+  ! ## 2 ##
+  ! #######
+  !
+  ! Create grid_xyz
+  !
+  ! Copy all of grid%xyz into grid_xyz
+  !
+  ! USE MOVE_ALLOC TO PREVENT HAVING TO MAKE A COPY OF THE grid%xyz
+  ! ARRAY JUST TO BROADCAST IT TO THE OTHER HOST ROOTS. ONCE THE BROADCAST
+  ! HAS COMPLETED, USE ANOTHER MOVE_ALLOC TO MOVE grid_xyz BACK INTO
+  ! grid%xyz.
+  !
+  call move_alloc( from=grid%xyz , to=grid_xyz )
+  !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  ! Create grid_elem
+  !
+  ! Allocate the grid_elem array
+  !
+  call debug_timer(stop_timer,"creating grid_xyz")
+  call debug_timer(start_timer,"creating grid_elem")
+  allocate ( grid_elem(1:nge) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Loop over the elements for this partition and store the data for
+  ! each element in the grid_elem array
+  !
+  n = 0
+  do nc = 1,size(grid%elem)
+    !
+    ! Since the values of grid%elem(glb_cell)%prop%elem_type and
+    ! size(grid%elem(glb_cell)%tags) should both be at most 16-bit
+    ! integers, combine them into a single default sized integer (probably
+    ! 32-bit) to reduce the size needed for the grid_elem array.
+    !
+    ! FOR ELEM_TYPE, SIZE(TAGS) COMBO:
+    ! combo = 1000*size(tags) + elem_type
+    ! elem_type = mod(combo,1000)
+    ! ntags = combo/1000
+    !
+    i = 1 ! 1 for elem_type, size(tags) combo
+    j = grid%elem(nc)%prop%elem_type
+    if (allocated(grid%elem(nc)%tags)) then
+      j = j + 1000 * size(grid%elem(nc)%tags)
+    end if
+    grid_elem(n+i) = j
+    !
+    ! Add grid%elem(:)%host_cell if needed
+    !
+    i = i + 1 ! 1 for host cell
+    grid_elem(n+i) = grid%elem(nc)%host_cell
+    !
+    ! Add grid%elem(:)%pts
+    !
+    ! Start by setting the next value of grid_elem to 0 in case the pts
+    ! component isnt allocated or its allocated with a size of 0. This will
+    ! indicate to the receiving processor that the grid%elem(:)%pts
+    ! array didnt contain any data for this element.
+    !
+    i = i + 1
+    grid_elem(n+i) = 0
+    !
+    ! Check to make sure grid%elem(nc)%pts is
+    ! allocated before trying to add it to grid_elem
+    !
+    if (allocated(grid%elem(nc)%pts)) then
+      !
+      ! The grid%elem(:)%pts array is allocated, now make sure
+      ! its size is greater than zero and contains data
+      ! NOTE: We need to perform this check so that we can decrease the
+      !       counter for this element before we start adding stuff to
+      !       grid_elem.
+      !
+      if (size(grid%elem(nc)%pts) > 0) then
+        !
+        ! Its size is greater than 0, so first decrease the counter for this
+        ! element by 1, so the previous assignment of 0 to what was the next
+        ! value of grid_elem can be overwritten
+        !
+        i = i - 1
+        !
+        ! Now add grid%elem(:)%pts to grid_elem
+        !
+        do j = 1,size(grid%elem(nc)%pts)
+          i = i + 1
+          grid_elem(n+i) = grid%elem(nc)%pts(j)
+        end do
+        !
+      end if
+      !
+    end if
+    !
+    ! Add grid%elem(:)%tags if its allocated and we
+    ! are sending this data to the other processors
+    !
+    if (allocated(grid%elem(nc)%tags)) then
+      do j = 1,size(grid%elem(nc)%tags)
+        i = i + 1
+        grid_elem(n+i) = grid%elem(nc)%tags(j)
+      end do
+    end if
+    !
+    ! Finally, add grid%elem(:)%nodes
+    !
+    ! Start by setting the next value of grid_elem to 0 in case the nodes
+    ! component isnt allocated or its allocated with a size of 0. This will
+    ! indicate to the receiving processor that the grid%elem(:)%nodes
+    ! array didnt contain any data for this element.
+    !
+    i = i + 1
+    grid_elem(n+i) = 0
+    !
+    ! Check to make sure grid%elem(nc)%nodes is
+    ! allocated before trying to add it to grid_elem
+    !
+    if (allocated(grid%elem(nc)%nodes)) then
+      !
+      ! The grid%elem(:)%nodes array is allocated, now make sure
+      ! its size is greater than zero and contains data
+      ! NOTE: We need to perform this check so that we can decrease the
+      !       counter for this element before we start adding stuff to
+      !       grid_elem.
+      !
+      if (size(grid%elem(nc)%nodes) > 0) then
+        !
+        ! Its size is greater than 0, so first decrease the counter for this
+        ! element by 1, so the previous assignment of 0 to what was the next
+        ! value of grid_elem can be overwritten
+        !
+        i = i - 1
+        !
+        ! Now add grid%elem(:)%nodes to grid_elem
+        !
+        do j = 1,size(grid%elem(nc)%nodes)
+          i = i + 1
+          grid_elem(n+i) = grid%elem(nc)%nodes(j)
+        end do
+        !
+      end if
+      !
+    end if
+    !
+    ! Add the final counter for this element to the grid_elem
+    ! counter before going to the next element
+    !
+    n = n + i
+    !
+  end do
+  call debug_timer(stop_timer,"creating grid_elem")
+  !
+  ! Check to make sure the final counter matches the size of the grid_elem array
+  !
+  if (n /= size(grid_elem)) then
+    write (error_message,1) n,size(grid_elem)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR CREATING grid_elem TO BROADCAST TO HOST ROOTS!!! ", &
+            "THE FINAL COUNTER n=",i0,", WHEN IT SHOULD BE ", &
+            "size(grid_elem)=",i0,"!!!")
+  !
+end subroutine root_packs_grid_dt
+!
+!###############################################################################
+!
+subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid)
+  !
+  !.. Use Statements ..
+  use geovar, only : grid_t
+  !
+  !.. Formal Arguments ..
+  integer,                      intent(in) :: num_cells
+  integer,      allocatable, intent(inout) :: grid_elem(:)
+  real(wp),     allocatable, intent(inout) :: grid_xyz(:,:)
+  type(grid_t), allocatable, intent(inout) :: grid
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,nn,np,n1,n2,ierr
+  integer :: i,ntags,elem_type
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "unpack_grid_dt"
+  !
+continue
+  !
+  ! First allocate the grid derived type
+  !
+  if (allocated(grid)) then
+    deallocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( grid , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the grid%xyz array
+  !
+  ! USE MOVE_ALLOC (AVOIDS COPYING DATA TO NEW MEMORY)
+  call move_alloc( from=grid_xyz , to=grid%xyz )
+  ! USE STANDARD ALLOCATION (COPIES DATA TO NEW MEMORY)
+ !allocate ( grid%xyz , source=grid_xyz , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"grid%xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the grid%elem array
+  !
+  allocate ( grid%elem(1:num_cells) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n = 0
+  do nc = 1,num_cells
+    !
+    ! Unpack the elem_type/ntags combo
+    !
+    i = 1
+    elem_type = mod( grid_elem(n+i) , 1000 )
+    ntags = grid_elem(n+i) / 1000
+    !
+    ! Get the element properties for this type of element
+    !
+    grid%elem(nc)%prop = element_properties(elem_type)
+    !
+    ! Unpack the host cell if this is being used
+    !
+    i = i + 1
+    grid%elem(nc)%host_cell = grid_elem(n+i)
+    !
+    ! Unpack the point indices from grid_elem if the next value in grid_elem
+    ! is not 0; otherwise skip this step and increase the counter for this
+    ! element by 1
+    !
+    if (grid_elem(n+i+1) /= 0) then
+      np = grid%elem(nc)%prop%npts
+      n1 = n + i + 1
+      n2 = n + i + np
+      grid%elem(nc)%pts = grid_elem(n1:n2) ! using F2003 auto-reallocation
+      i = i + np
+    else
+      i = i + 1
+    end if
+    !
+    ! Unpack the tags from grid_elem
+    !
+    n1 = n + i + 1
+    n2 = n + i + ntags
+    grid%elem(nc)%tags = grid_elem(n1:n2) ! using F2003 auto-reallocation
+    i = i + ntags
+    !
+    ! Unpack the node indices from grid_elem if the next value in grid_elem
+    ! is not 0; otherwise skip this step and increase the counter for this
+    !
+    if (grid_elem(n+i+1) /= 0) then
+      nn = geom_nodes( grid%elem(nc)%prop%geom )
+      n1 = n + i + 1
+      n2 = n + i + nn
+      grid%elem(nc)%nodes = grid_elem(n1:n2) ! using F2003 auto-reallocation
+      i = i + nn
+    else
+      i = i + 1
+    end if
+    !
+    ! Add the final counter for this element to the grid_elem
+    ! counter before going to the next element
+    !
+    n = n + i
+    !
+  end do
+  !
+  ! Check to make sure the final counter matches the size of the grid_elem array
+  !
+  if (n /= size(grid_elem)) then
+    write (error_message,1) mypnum+1,n,size(grid_elem)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Deallocate grid_elem and grid_xyz because they are no longer needed
+  !
+  if (allocated(grid_elem)) then
+    deallocate ( grid_elem , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_elem",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_xyz)) then
+    deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("ERROR CREATING GLOBAL grid%elem ON THE HOST ROOT #",i0," ", &
+            "AFTER RECEIVING THE BROADCAST FROM THE GLOBAL ROOT PROCESS!!! ", &
+            "THE FINAL COUNTER n=",i0,", WHEN IT SHOULD BE ", &
+            "size(grid_elem)=",i0,"!!!")
+  !
+end subroutine unpack_grid_dt
 !
 !###############################################################################
 !
