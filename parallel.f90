@@ -4787,7 +4787,7 @@ continue
     !
     if (mypnum == 0) then
       !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,10) this_part
 #endif
       !
@@ -4860,7 +4860,7 @@ continue
     write (part_message,11) this_part
     call debug_timer(start_timer,part_message)
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,10) this_part
 #endif
     !
@@ -5161,7 +5161,7 @@ continue
     array_sizes(10) = size(grid_xyz,dim=1)
     array_sizes(11) = size(grid_xyz,dim=2)
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "cell_geom",         size(cell_geom)
     write (iout,13) "cell_order",        size(cell_order)
     write (iout,13) "nodes_of_cell",     size(nodes_of_cell)
@@ -5185,12 +5185,12 @@ continue
       np = np + size(array_sizes) + array_sizes(5)
     end if
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "np","integers",np
 #endif
     call mpi_pack_size(int(np,kind=int_mpi),mpi_inttyp, &
                        MPI_COMM_WORLD,isz,mpierr)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "pack_size","integers",isz
 #endif
     tsz = isz
@@ -5200,12 +5200,12 @@ continue
       np = np + product(array_sizes(10:11))
     end if
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "np","reals",np
 #endif
     call mpi_pack_size(int(np,kind=int_mpi),mpi_flttyp, &
                        MPI_COMM_WORLD,isz,mpierr)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "pack_size","reals",isz
 #endif
     tsz = tsz + isz
@@ -5241,7 +5241,7 @@ continue
    !tsz = tsz + isz
     !
     if (pack_grid_arrays) then
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,15) "tsz",tsz
 #endif
       call mpi_send(tsz,1_int_mpi,MPI_INTEGER,recv_cpu,itag1, &
@@ -5289,7 +5289,7 @@ continue
     ! Pack array_sizes into the buffer
     !
     if (pack_grid_arrays) then
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,12) "array_sizes"
 #endif
       call mpi_pack(array_sizes,size(array_sizes,kind=int_mpi),mpi_inttyp, &
@@ -5298,7 +5298,7 @@ continue
     !
     ! Pack cell_geom into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "cell_geom"
 #endif
     call mpi_pack(cell_geom,size(cell_geom,kind=int_mpi),mpi_inttyp, &
@@ -5306,7 +5306,7 @@ continue
     !
     ! Pack cell_order into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "cell_order"
 #endif
     call mpi_pack(cell_order,size(cell_order,kind=int_mpi),mpi_inttyp, &
@@ -5314,7 +5314,7 @@ continue
     !
     ! Pack nodes_of_cell into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "nodes_of_cell"
 #endif
     call mpi_pack(nodes_of_cell,size(nodes_of_cell,kind=int_mpi),mpi_inttyp, &
@@ -5322,7 +5322,7 @@ continue
     !
     ! Pack nodes_of_cell_ptr into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "nodes_of_cell_ptr"
 #endif
     call mpi_pack(nodes_of_cell_ptr,size(nodes_of_cell_ptr,kind=int_mpi), &
@@ -5331,7 +5331,7 @@ continue
     ! Pack grid_elem into the buffer
     !
     if (pack_grid_arrays) then
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,12) "grid_elem"
 #endif
       call mpi_pack(grid_elem,size(grid_elem,kind=int_mpi),mpi_inttyp, &
@@ -5340,7 +5340,7 @@ continue
     !
     ! Pack bface into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "bface"
 #endif
     call mpi_pack(bface,size(bface,kind=int_mpi),mpi_inttyp, &
@@ -5348,7 +5348,7 @@ continue
     !
     ! Pack xyz_nodes into the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,12) "xyz_nodes"
 #endif
     call mpi_pack(xyz_nodes,size(xyz_nodes,kind=int_mpi),mpi_flttyp, &
@@ -5357,20 +5357,20 @@ continue
     ! Pack grid_xyz into the buffer
     !
     if (pack_grid_arrays) then
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,12) "grid_xyz"
 #endif
       call mpi_pack(grid_xyz,size(grid_xyz,kind=int_mpi),mpi_flttyp, &
                     buffer,tsz,pos,MPI_COMM_WORLD,mpierr)
     end if
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,15) "pos",pos
 #endif
     call mpi_send(pos,1_int_mpi,MPI_INTEGER,recv_cpu,itag2, &
                   MPI_COMM_WORLD,mpierr)
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,15) "buffer"
 #endif
     call mpi_send(buffer,tsz,MPI_PACKED,recv_cpu,itag3, &
@@ -5381,7 +5381,7 @@ continue
       ! Send grid_elem separately because it could cause the
       ! size of the buffer to overload the 32-bit integer limit of MPI
       !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,15) "grid_elem"
 #endif
       call mpi_send(grid_elem,size(grid_elem,kind=int_mpi),mpi_inttyp, &
@@ -5390,7 +5390,7 @@ continue
       ! Send grid_xyz separately because it will generally cause the
       ! size of the buffer to overload the 32-bit integer limit of MPI
       !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
       write (iout,15) "grid_xyz"
 #endif
       call mpi_send(grid_xyz,size(grid_xyz,kind=int_mpi),mpi_flttyp, &
@@ -5612,7 +5612,7 @@ continue
     array_sizes(12) = size(grid_xyz,dim=1)
     array_sizes(13) = size(grid_xyz,dim=2)
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_geom",         size(cell_geom)
     write (iout,11) "cell_order",        size(cell_order)
     write (iout,11) "nodes_of_cell",     size(nodes_of_cell)
@@ -5660,7 +5660,7 @@ continue
     !
     ! Add cell_geom to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "cell_geom"
 #endif
     n1 = 1
@@ -5671,7 +5671,7 @@ continue
     !
     ! Add cell_order to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "cell_order"
 #endif
     n1 = 1
@@ -5682,7 +5682,7 @@ continue
     !
     ! Add nodes_of_cell to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "nodes_of_cell"
 #endif
     i1 = i2 + 1
@@ -5691,7 +5691,7 @@ continue
     !
     ! Add nodes_of_cell_ptr to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "nodes_of_cell_ptr"
 #endif
     i1 = i2 + 1
@@ -5700,7 +5700,7 @@ continue
     !
     ! Add grid_elem to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "grid_elem"
 #endif
     i1 = i2 + 1
@@ -5709,7 +5709,7 @@ continue
     !
     ! Add bface to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "bface"
 #endif
     np = array_sizes(8)*array_sizes(9)
@@ -5719,7 +5719,7 @@ continue
     !
     ! Send the integer buffer to the receiving processor
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,14) "ibuffer"
 #endif
     call mpi_send(ibuffer,size(ibuffer,kind=int_mpi),mpi_inttyp, &
@@ -5810,7 +5810,7 @@ continue
     !
     ! Add xyz_nodes to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "xyz_nodes"
 #endif
     np = array_sizes(10)*array_sizes(11)
@@ -5820,7 +5820,7 @@ continue
     !
     ! Add grid_xyz to the buffer
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,13) "grid_xyz"
 #endif
     np = array_sizes(12)*array_sizes(13)
@@ -5830,7 +5830,7 @@ continue
     !
     ! Send the real buffer to the receiving processor
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,14) "rbuffer"
 #endif
     call mpi_send(rbuffer,size(rbuffer,kind=int_mpi),mpi_flttyp, &
@@ -5947,7 +5947,7 @@ continue
     array_sizes(12) = size(grid_xyz,dim=1)
     array_sizes(13) = size(grid_xyz,dim=2)
     !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_geom",         size(cell_geom)
     write (iout,11) "cell_order",        size(cell_order)
     write (iout,11) "nodes_of_cell",     size(nodes_of_cell)
@@ -5986,7 +5986,7 @@ continue
     !
     call mpi_send(cell_geom(1:nsz),nsz,mpi_inttyp, &
                   recv_cpu,itag2,MPI_COMM_WORLD,mpierr)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_geom",size(cell_geom), &
                     minval(cell_geom,dim=1),maxval(cell_geom),"send"
 #endif
@@ -6001,7 +6001,7 @@ continue
                   send_cpu,itag2,MPI_COMM_WORLD,istat(1),mpierr)
     !
     if (nsz == 1) cell_geom(2:) = cell_geom(1)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_geom",size(cell_geom), &
                     minval(cell_geom,dim=1),maxval(cell_geom),"recv"
 #endif
@@ -6021,7 +6021,7 @@ continue
     !
     call mpi_send(cell_order(1:nsz),nsz,mpi_inttyp, &
                   recv_cpu,itag3,MPI_COMM_WORLD,mpierr)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_order",size(cell_order), &
                     minval(cell_order,dim=1),maxval(cell_order),"send"
 #endif
@@ -6036,7 +6036,7 @@ continue
                   send_cpu,itag3,MPI_COMM_WORLD,istat(1),mpierr)
     !
     if (nsz == 1) cell_order(2:) = cell_order(1)
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
     write (iout,11) "cell_order",size(cell_order), &
                     minval(cell_order,dim=1),maxval(cell_order),"recv"
 #endif
@@ -6229,7 +6229,7 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = count( face_map(this_part)%loc_to_glb <= gfbnd )
   !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
   write (iout,10) pname,gfbnd,lcell,lfbnd
 #endif
   10 format (3x,"In ",a," :",/,10x,"gfbnd = ",i0,/, &
@@ -6349,7 +6349,7 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = count( face_map(this_part)%loc_to_glb <= gfbnd )
   !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
   write (iout,10) pname, &
                   size(global_geom), &
                   minval(global_geom,dim=1),maxval(global_geom,dim=1), &
@@ -6402,7 +6402,7 @@ continue
     cell_geom(loc_cell) = face(glb_face)%geom
     cell_order(loc_cell) = face(glb_face)%order
   end do
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
   write (iout,11) pname, &
                   size(cell_geom), &
                   minval(cell_geom,dim=1),maxval(cell_geom,dim=1), &
@@ -6456,7 +6456,7 @@ continue
   lcell = size( cell_map(this_part)%loc_to_glb )
   lfbnd = size( bface , dim=2 )
   !
-#ifdef DEBUG_ON
+#ifdef DEBUG_PARALLEL
   write (iout,10) pname,lcell,lfbnd
 #endif
   10 format (3x,"In ",a," :",/,10x,"lcell = ",i0,/,10x,"lfbnd = ",i0)
