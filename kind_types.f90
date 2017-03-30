@@ -483,6 +483,35 @@ module module_kind_types
   integer(int_mpi), parameter :: abort = int( 8 , kind=kind(abort) )
   integer(int_mpi), parameter :: stop_mpi = int( 9 , kind=kind(stop_mpi) )
   !
+  integer(int_MPI), parameter :: glb_root = 0_int_mpi
+  integer(int_MPI), parameter :: host_root = 0_int_mpi
+  integer(int_MPI), parameter :: cpu_root = 0_int_mpi
+  !
+  logical(lk), save :: i_am_cpu_root = true
+  logical(lk), save :: i_am_host_root = true
+  !
+  _MPI_COMM_TYPE_, save :: my_host_comm
+  _MPI_COMM_TYPE_, save :: my_cpu_comm
+  _MPI_COMM_TYPE_, save :: host_roots_comm
+  _MPI_COMM_TYPE_, save :: cpu_roots_comm
+  !
+  integer, save :: my_cpu_num = 0
+  integer, save :: my_host_num = 0
+  !
+  character(len=MPI_MAX_PROCESSOR_NAME) :: my_host_name
+  !
+  integer(int_mpi), save :: my_cpu_rank = 0_int_mpi
+  integer(int_mpi), save :: my_host_rank = 0_int_mpi
+  !
+  integer(int_mpi), save :: my_host_root = 0_int_mpi
+  integer(int_mpi), save :: my_cpu_root = 0_int_mpi
+  !
+  integer(int_mpi), allocatable, save :: my_cpu_grp(:)
+  integer(int_mpi), allocatable, save :: my_host_grp(:)
+  !
+  integer(int_mpi), allocatable, save :: cpu_roots_grp(:)
+  integer(int_mpi), allocatable, save :: host_roots_grp(:)
+  !
   ! MPI datatypes to match Fortran intrinsic datatypes
   !
   ! working real precision
