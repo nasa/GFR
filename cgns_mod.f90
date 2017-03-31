@@ -2911,7 +2911,8 @@ continue
   if (i_am_host_root) then
     write (iout,100) mypnum,"b) before root_packs_grid_dt, before mpi_barrier"
     call mpi_barrier(host_roots_comm,mpierr)
-    write (iout,100) mypnum,"c) before root_packs_grid_dt, after  mpi_barrier",mpierr
+    write (iout,100) mypnum, &
+            "c) before root_packs_grid_dt, after  mpi_barrier",mpierr
   end if
 #endif
   100 format (" CPU # ",i4.4," : ",a,:,"  mpierr=",i0)
@@ -2936,7 +2937,8 @@ continue
     end if
     write (iout,100) mypnum,"d) after  root_packs_grid_dt, before mpi_barrier"
     call mpi_barrier(host_roots_comm,mpierr)
-    write (iout,100) mypnum,"e) after  mpi_barrier, before mpi_bast(array_sizes)",mpierr
+    write (iout,100) mypnum, &
+            "e) after  mpi_barrier, before mpi_bast(array_sizes)",mpierr
   end if
 #endif
   !
@@ -2952,7 +2954,8 @@ continue
  !end if
 #ifdef DEBUG_HOST_HANG
   if (i_am_host_root) then
-    write (iout,100) mypnum,"f) after  mpi_bast(array_sizes), before allocation",mpierr
+    write (iout,100) mypnum, &
+            "f) after  mpi_bast(array_sizes), before allocation",mpierr
   end if
 #endif
   !
@@ -3004,7 +3007,8 @@ continue
   end if
 #ifdef DEBUG_HOST_HANG
   if (i_am_host_root) then
-    write (iout,100) mypnum,"h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
+    write (iout,100) mypnum, &
+            "h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
   end if
 #endif
   !
@@ -3021,7 +3025,8 @@ continue
     call mpi_bcast(grid_xyz,n,mpi_flttyp,glb_root,host_roots_comm,mpierr)
 #ifdef DEBUG_HOST_HANG
     if (i_am_host_root) then
-      write (iout,100) mypnum,"i) after  mpi_bcast(grid_xyz), before unpack_grid_dt",mpierr
+      write (iout,100) mypnum, &
+              "i) after  mpi_bcast(grid_xyz), before unpack_grid_dt",mpierr
     end if
 #endif
   end if
@@ -4047,7 +4052,8 @@ continue
             write (iout,205) (temp_nozzle%elem(new_elem)%nodes(i),i=1,nfnods)
           end do one_pass_loop
         else
-          write (iout,202) size(temp_nozzle%elem(new_elem)%nodes),new_elem,nfnods
+          write (iout,202) size(temp_nozzle%elem(new_elem)%nodes), &
+                           new_elem,nfnods
         end if
       else
         write (iout,201) new_elem
@@ -4585,7 +4591,8 @@ continue
   ! Broadcast the nodes_of_cell_ptr array
   !
   isz = int( ncell+1 , kind=int_mpi )
-  call mpi_bcast(nodes_of_cell_ptr,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+  call mpi_bcast(nodes_of_cell_ptr,isz,mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
   !
   ! Broadcast the nodes_of_cell array
   !

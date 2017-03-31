@@ -346,7 +346,8 @@ continue
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
       else
-        call memory_pause("initial TGV KEDR evaluation","writing initial CGNS file")
+        call memory_pause("initial TGV KEDR evaluation", &
+                          "writing initial CGNS file")
       end if
     end if
     !
@@ -620,7 +621,8 @@ continue
          !!
          !inquire (file="RESTART_INTERUPT",exist=request_restart_interupt)
          !!
-         !! If restart interuption was requested, delete the RESTART_INTERUPT file
+         !!
+         !! Delete the RESTART_INTERUPT file if restart interupt was requested
          !!
          !if (request_restart_interupt) then
          !  !

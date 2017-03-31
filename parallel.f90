@@ -6804,7 +6804,8 @@ continue
     !
   end do
   call debug_timer(stop_timer,"marking the grid points for this partition")
-  call debug_timer(start_timer,"creating grid_xyz and reverse point mapping array")
+  call debug_timer(start_timer, &
+                   "creating grid_xyz and reverse point mapping array")
   !
   ! #######
   ! ## 2 ##
@@ -6890,7 +6891,8 @@ continue
   !
   ! Allocate the grid_elem array
   !
-  call debug_timer(stop_timer,"creating grid_xyz and reverse point mapping array")
+  call debug_timer(stop_timer, &
+                   "creating grid_xyz and reverse point mapping array")
   call debug_timer(start_timer,"creating grid_elem")
   allocate ( grid_elem(1:nge) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
