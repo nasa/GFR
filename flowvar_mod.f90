@@ -50,6 +50,9 @@ module flowvar
   !
   real(wp), public, save, allocatable, dimension(:) :: dtsp
   !
+  ! UAVESP : time averaged variables at the solution points
+  !
+  real(wp), public, save, allocatable :: uavesp(:,:)
   !
   !
   ! FACE_XYZ : Derived type containing a set of variables at the flux/face
