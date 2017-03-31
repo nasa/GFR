@@ -229,6 +229,8 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   !
+  real(wp), public, save :: prev_ave_time = 0.0_wp
+  !
   real(wp), public, save :: cfl_cycle_start
   real(wp), public, save :: cfl_cycle_end
   !
