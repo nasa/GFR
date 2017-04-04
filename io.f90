@@ -3534,23 +3534,23 @@ continue
   n_global_totnod = n_totnod
   n_global_totcel = n_totcel
   !
-  n1 = size(xyz_nodes,dim=1)
-  n2 = size(xyz_nodes,dim=2)
-  allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"global_xyz_nodes",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  n1 = size(nodes_of_cell_ptr)
-  allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"global_nofc_ptr",1,__LINE__,__FILE__,ierr, &
-                   error_message)
-  !
-  n1 = size(nodes_of_cell)
-  allocate ( global_nofc(1:n1) , source=nodes_of_cell , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"global_nofc",1,__LINE__,__FILE__,ierr,error_message)
+ !n1 = size(xyz_nodes,dim=1)
+ !n2 = size(xyz_nodes,dim=2)
+ !allocate ( global_xyz_nodes(1:n1,1:n2) , source=xyz_nodes , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"global_xyz_nodes",1,__LINE__,__FILE__,ierr, &
+ !                 error_message)
+ !!
+ !n1 = size(nodes_of_cell_ptr)
+ !allocate ( global_nofc_ptr(1:n1) , source=nodes_of_cell_ptr , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"global_nofc_ptr",1,__LINE__,__FILE__,ierr, &
+ !                 error_message)
+ !!
+ !n1 = size(nodes_of_cell)
+ !allocate ( global_nofc(1:n1) , source=nodes_of_cell , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"global_nofc",1,__LINE__,__FILE__,ierr,error_message)
   !
   n1 = size(cell_geom)
   allocate ( global_cell_geom(1:n1) , source=cell_geom , &
