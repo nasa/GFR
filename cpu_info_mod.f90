@@ -58,10 +58,12 @@ continue
   !
   allocate ( all_host_num(1:ncpu) , source=0 , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"all_host_num",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"all_host_num",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
   !
   allocate ( all_cpu_num(1:ncpu) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"all_cpu_num",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"all_cpu_num",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
   !
   call mpi_get_processor_name(host_name,name_len,mpierr)
   !
@@ -114,7 +116,8 @@ continue
   ! Create a list of the unique host names
   !
   allocate ( unique_hosts(1:num_hosts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"unique_hosts",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"unique_hosts",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
   !
   unique_hosts(:) = pack(all_host_name,host_mask)
   !
@@ -175,7 +178,8 @@ continue
   !
   allocate ( my_host_grp(1:host_size) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_host_grp",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"my_host_grp",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
   !
   ! Collect the global ranks of all the MPI processes included within
   ! the my_host_comm communicator that the current process is a part of
@@ -198,7 +202,8 @@ continue
   !
   allocate ( my_cpu_grp(1:cpu_size) , source=0_int_mpi , &
              stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"my_cpu_grp",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"my_cpu_grp",1,__LINE__,__FILE__, &
+                   ierr,error_message,skip_alloc_pause)
   !
   ! Collect the global ranks of all the MPI processes included within
   ! the my_cpu_comm communicator that the current process is a part of
@@ -233,7 +238,7 @@ continue
     allocate ( host_roots_grp(1:host_roots_size) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"host_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+                     ierr,error_message,skip_alloc_pause)
     !
     call mpi_gather(mypnum,1_int_mpi,MPI_INTEGER, &
                     host_roots_grp,1_int_mpi,MPI_INTEGER, &
@@ -250,7 +255,7 @@ continue
     allocate ( host_roots_grp(1:host_roots_size) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"host_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+                     ierr,error_message,skip_alloc_pause)
   end if
   !
   call mpi_bcast(host_roots_grp,host_roots_size,MPI_INTEGER, &
@@ -282,7 +287,7 @@ continue
     allocate ( cpu_roots_grp(1:cpu_roots_size) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cpu_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+                     ierr,error_message,skip_alloc_pause)
     !
     call mpi_gather(mypnum,1_int_mpi,MPI_INTEGER, &
                     cpu_roots_grp,1_int_mpi,MPI_INTEGER, &
@@ -299,7 +304,7 @@ continue
     allocate ( cpu_roots_grp(1:cpu_roots_size) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"cpu_roots_grp",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+                     ierr,error_message,skip_alloc_pause)
   end if
   !
   call mpi_bcast(cpu_roots_grp,cpu_roots_size,MPI_INTEGER, &
