@@ -20,6 +20,7 @@ rebuild-debug: FCADD += -DPROFILE_ON
 all: debug_recon
 all: recon
 .PHONY: all-nodes
+all-nodes: recon_merope
 all-nodes: recon_westmere
 all-nodes: recon_sandybridge
 all-nodes: recon_ivybridge
@@ -42,6 +43,7 @@ recon_haswell: haswell
 recon_ivybridge: ivybridge
 recon_sandybridge: sandybridge
 recon_westmere: westmere
+recon_merope: merope
 
 # BROADWELL (Essentially the same as Haswell)
 
@@ -147,6 +149,26 @@ rebuild-westmere: build
 wes: westmere
 .PHONY: rebuild-wes
 rebuild-wes: rebuild-westmere
+
+# MEROPE
+
+.PHONY: merope
+merope: BDIR := optimize_merope
+merope: EXEF := recon_merope
+merope: TRGT := merope
+merope: build
+
+.PHONY: rebuild-merope
+rebuild-merope: BDIR := optimize_merope
+rebuild-merope: EXEF := recon_merope
+rebuild-merope: TRGT := merope
+rebuild-merope: clean-build
+rebuild-merope: build
+
+.PHONY: mer
+mer: merope
+.PHONY: rebuild-mer
+rebuild-mer: rebuild-merope
 
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
@@ -303,6 +325,8 @@ clean:
 	               "BUILDDIR=debug" clean
 	make -f slv.mk "EXECUTABLE=recon" \
 	               "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=recon_merope" \
+	               "BUILDDIR=optimize_merope" clean
 	make -f slv.mk "EXECUTABLE=recon_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
 	make -f slv.mk "EXECUTABLE=recon_sandybridge" \

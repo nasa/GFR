@@ -126,6 +126,10 @@ sandybridge: optimize
 westmere: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
 westmere: optimize
 
+.PHONY: merope
+merope: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
+merope: optimize
+
 .PHONY: optimize
 optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)
 optimize: all

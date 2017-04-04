@@ -6,6 +6,7 @@ objects/optimize_haswell/*
 objects/optimize_ivybridge/*
 objects/optimize_sandybridge/*
 objects/optimize_westmere/*
+objects/optimize_merope/*
 modules/debug/*
 modules/optimize/*
 modules/optimize_broadwell/*
@@ -13,6 +14,7 @@ modules/optimize_haswell/*
 modules/optimize_ivybridge/*
 modules/optimize_sandybridge/*
 modules/optimize_westmere/*
+modules/optimize_merope/*
 recon
 debug_recon
 recon_broadwell
@@ -20,5 +22,6 @@ recon_haswell
 recon_ivybridge
 recon_sandybridge
 recon_westmere
+recon_merope
 grid_files
 other
