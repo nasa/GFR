@@ -11767,6 +11767,8 @@ continue
     !
   end if
   !
+  flush (iout)
+  !
   ! Format Statements
   !
   1 format (a,"## Starting timer for: ",a)
