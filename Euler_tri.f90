@@ -129,6 +129,7 @@ program Euler_tri
   !
   logical(lk)  :: walltime_expiring
   logical(ldk) :: request_stop
+  logical(ldk) :: request_restart
   logical(ldk) :: request_solution
   logical(ldk) :: request_cfl_adjustment
   logical(ldk) :: request_restart_interupt
@@ -583,6 +584,21 @@ continue
             !
           end if
           !
+          ! Check for a dump of a restart file
+          !
+          inquire (file="DUMP_RESTART",exist=request_restart)
+          !
+          ! If restart dump was requested, delete the DUMP_RESTART file
+          !
+          if (request_restart) then
+            !
+            write (iout,96)
+            !
+            open (newunit=i,file="DUMP_RESTART",iostat=ierr)
+            close (i,status="delete",iostat=ierr)
+            !
+          end if
+          !
           ! Check for a dump of the solution file
           !
           inquire (file="DUMP_SOLUTION",exist=request_solution)
@@ -643,6 +659,18 @@ continue
                        0_int_mpi,MPI_COMM_WORLD,mpierr)
         if (request_stop) exit main_loop
         !
+        ! Have the root processor broadcast request_restart to
+        ! the other processors
+        !
+        call mpi_bcast(request_restart,1_int_mpi,MPI_LOGICAL, &
+                       0_int_mpi,MPI_COMM_WORLD,mpierr)
+        !
+        ! If a restart dump was requested, write a restart file
+        !
+        if (request_restart) then
+          call write_restart_file(itcur)
+        end if
+        !
         ! Have the root processor broadcast request_solution to
         ! the other processors
         !
@@ -687,16 +715,16 @@ continue
     !
     ! Output the restart file at specified step interval
     !
-    if (restart_interval > 0) then
-      if (mod(iter,restart_interval)==0 .and. iter/=num_ts) then
+    if (restart_interval > 0 .and. .not.request_restart) then
+      if (mod(itcur,restart_interval)==0 .and. iter/=num_ts) then
         call write_restart_file(itcur)
       end if
     end if
     !
     ! Output the solution at the specified interval
     !
-    if (output_interval > 0) then
-      if (mod(iter,output_interval)==0 .and. iter/=num_ts) then
+    if (output_interval > 0 .and. .not.request_solution) then
+      if (mod(itcur,output_interval)==0 .and. iter/=num_ts) then
         if (continuous_output) then
           call new_write_parallel_cgns
         else
@@ -738,6 +766,11 @@ continue
       read (*,*)
     end if
 #endif
+    !
+    ! Reset the request options
+    !
+    request_restart = .false.
+    request_solution = .false.
     !
   end do main_loop
   !
@@ -833,6 +866,9 @@ continue
   !
   95 format (/,"*******************************************************",/, &
                "    FOUND FILE REQUESTING AN ADJUSTMENT TO THE CFL! ",/, &
+               "*******************************************************",/)
+  96 format (/,"*******************************************************",/, &
+               "  FOUND FILE REQUESTING A DUMP OF A RESTART FILE! ",/, &
                "*******************************************************",/)
   97 format (/,"*******************************************************",/, &
                "  FOUND FILE REQUESTING A DUMP OF THE SOLUTION FILE! ",/, &
