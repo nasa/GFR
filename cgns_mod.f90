@@ -2690,21 +2690,13 @@ continue
   end if
 #endif
   !
-  ! Allocate the grid_elem and grid_xyz arrays on the non-root
-  ! processes so they can be received from the root process.
+  ! Allocate the grid_elem array on the non-root processes
+  ! so it can be received from the root process.
   !
   if (.not. allocated(grid_elem)) then
     n1 = array_sizes(1)
-    allocate ( grid_elem(1:n1) , source=0 , stat=ierr , errmsg=error_message )
+    allocate ( grid_elem(1:n1) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_elem",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (.not. allocated(grid_xyz)) then
-    n1 = array_sizes(2)
-    n2 = array_sizes(3)
-    allocate ( grid_xyz(1:n1,1:n2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid_xyz",1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
 #ifdef DEBUG_HOST_HANG
@@ -2742,6 +2734,16 @@ continue
             "h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
   end if
 #endif
+  !
+  ! Allocate the grid_xyz array on the non-root processes
+  ! so it can be received from the root process.
+  !
+  if (.not. allocated(grid_xyz)) then
+    n1 = array_sizes(2)
+    n2 = array_sizes(3)
+    allocate ( grid_xyz(1:n1,1:n2) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Broadcast the grid_xyz array to all host roots
   !
