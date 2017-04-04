@@ -577,278 +577,6 @@ end subroutine check_for_unsupported_cgns_file
 !
 !###############################################################################
 !
-subroutine create_broadcast_arrays
-  !
-  !.. Local Scalars ..
-  integer :: i,j,n,n1,n2,ne
-  integer :: ib,iz,ig,is,ibc,ierr
-  integer :: ngrids,nsections,nbocos
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_broadcast_arrays"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  ! Create the initial array that will contain the sizes of
-  ! all the subsequent arrays that will be broadcast
-  !
-  data_sizes(1) = int( base(1)%cell_dim , kind=kind(data_sizes) )
-  data_sizes(2) = int( base(1)%phys_dim , kind=kind(data_sizes) )
-  data_sizes(3) = int( base(1)%zone(1)%nvertex , kind=kind(data_sizes) )
-  data_sizes(4) = int( base(1)%zone(1)%ncell , kind=kind(data_sizes) )
-  data_sizes(5) = int( base(1)%zone(1)%nboundvertex , kind=kind(data_sizes) )
-  !
-  ! Get the size needed for the grid_data array
-  !
-  ngrids = 0
-  !
-  n1 = data_sizes(2)
-  n2 = 0
-  !
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do ig = 1,size(base(ib)%zone(iz)%grid)
-        if (allocated(base(ib)%zone(iz)%grid(ig)%coord)) then
-          ngrids = ngrids + 1
-          n2 = n2 + 1 ! Add one to store the dimensions for this grid
-          n2 = n2 + size(base(ib)%zone(iz)%grid(ig)%coord(1)%x)
-        end if
-      end do
-    end do
-  end do
-  !
-  ! Allocate the grid_data array
-  !
-  allocate ( grid_data(1:n1,1:n2) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grid_data",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Create the grid_data array
-  !
-  n = 0
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do ig = 1,size(base(ib)%zone(iz)%grid)
-        if (allocated(base(ib)%zone(iz)%grid(ig)%coord)) then
-          !
-          n1 = size(base(ib)%zone(iz)%grid(ig)%coord)
-          n2 = size(base(ib)%zone(iz)%grid(ig)%coord(1)%x)
-          !
-          n = n + 1
-          !
-          ! Transfer the bits of the integers n1 and n2 into (haha) a
-          ! working-precision real and store in the grid_data array.
-          ! The other processors will have to transfer these back into
-          ! integers in order to get the coordinate array dimensions.
-          ! NOTE: The constant zero is used just as a "mold" variable which
-          !       means the integers will be transfered into a variable
-          !       with the same kind and kind-type as the mold variable.
-          !
-          grid_data(1,n) = transfer( n1 , zero )
-          grid_data(2,n) = transfer( n2 , zero )
-          !
-          do j = 1,n2
-            n = n + 1
-            do i = 1,n1
-              grid_data(i,n) = base(ib)%zone(iz)%grid(ig)%coord(i)%x(j)
-            end do
-          end do
-          !
-        end if
-      end do
-    end do
-  end do
-  !
-  ! Get the size needed for the section_data array
-  !
-  nsections = 0
-  !
-  n1 = 0
-  !
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do is = 1,size(base(ib)%zone(iz)%section)
-        nsections = nsections + 1
-        n1 = n1 + 5 ! account for type, start, end, and nbndry components,
-        !         ! and size of elements component array
-        n1 = n1 + size(base(ib)%zone(iz)%section(is)%elements)
-        ! IGNORE PARENT DATA FOR NOW
-      end do
-    end do
-  end do
-  !
-  ! Allocate the section_data array
-  !
-  allocate ( section_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"section_data",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Create the section_data array
-  !
-  n = 0
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do is = 1,size(base(ib)%zone(iz)%section)
-        !
-        ne = size(base(ib)%zone(iz)%section(is)%elements)
-        !
-        section_data(n+1) = base(ib)%zone(iz)%section(is)%type
-        section_data(n+2) = int( base(ib)%zone(iz)%section(is)% &
-                                 start , kind=kind(section_data) )
-        section_data(n+3) = int( base(ib)%zone(iz)%section(is)% &
-                                 end , kind=kind(section_data) )
-        section_data(n+4) = base(ib)%zone(iz)%section(is)%nbndry
-        section_data(n+5) = ne
-        !
-        n = n + 5 ! account for type, start, end, and nbndry components,
-        !           and size of elements component array
-        n1 = n + 1
-        n2 = n + ne
-        section_data(n1:n2) = int( base(ib)%zone(iz)%section(is)% &
-                                   elements(1:ne) , kind=kind(section_data) )
-        !
-        n = n2
-        ! IGNORE PARENT DATA FOR NOW
-      end do
-    end do
-  end do
-  !
-  ! Get the size needed for the boco_data array
-  !
-  nbocos = 0
-  !
-  n1 = 0
-  !
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do ibc = 1,size(base(ib)%zone(iz)%bc)
-        nbocos = nbocos + 1
-        n1 = n1 + 3 ! account for boco_type, npnts, and location components
-        n1 = n1 + size(base(ib)%zone(iz)%bc(ibc)%pnts)
-        ! IGNORE NORMAL DATA FOR NOW
-      end do
-    end do
-  end do
-  !
-  ! Allocate the boco_data array
-  !
-  allocate ( boco_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"boco_data",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Create the boco_data array
-  !
-  n = 0
-  !
-  do ib = 1,size(base)
-    do iz = 1,size(base(ib)%zone)
-      do ibc = 1,size(base(ib)%zone(iz)%bc)
-        !
-        n1 = size( base(ib)%zone(iz)%bc(ibc)%pnts )
-        !
-        boco_data(n+1) = base(ib)%zone(iz)%bc(ibc)%boco_type
-        boco_data(n+2) = base(ib)%zone(iz)%bc(ibc)%location
-        boco_data(n+3) = n1
-        !
-        n = n + 3 ! account for boco_type, npnts, and location components
-        boco_data(n+1:n+n1) = int( base(ib)%zone(iz)%bc(ibc)%pnts(1:n1) , &
-                                   kind=kind(boco_data) )
-        !
-        n = n + n1
-        ! IGNORE NORMAL DATA FOR NOW
-      end do
-    end do
-  end do
-  !
-  ! Store the sizes of the three data arrays in data_sizes
-  !
-  data_sizes( 6) = ngrids
-  data_sizes( 7) = size( grid_data )
-  data_sizes( 8) = nsections
-  data_sizes( 9) = size( section_data )
-  data_sizes(10) = nbocos
-  data_sizes(11) = size( boco_data )
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine create_broadcast_arrays
-!
-!###############################################################################
-!
-subroutine broadcast_grid_arrays
-  !
-  !.. Local Scalars ..
-  integer :: n1,n2,ierr
-  integer(INT_MPI) :: isz
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "broadcast_grid_arrays"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  ! Broadcast the data_sizes array
-  !
- !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
-  call mpi_bcast(data_sizes,size(data_sizes,kind=int_mpi),mpi_inttyp, &
-                 glb_root,MPI_COMM_WORLD,mpierr)
- !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
-  !
-  ! Have all the non-root processors allocate the
-  ! grid_data, section_data, and boco_data arrays
-  !
-  if (mypnum /= glb_root) then
-    !
-    ! Allocate the grid_data array
-    !
-    n1 = data_sizes(2)
-    n2 = data_sizes(7) / n1
-    allocate ( grid_data(1:n1,1:n2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid_data",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    ! Allocate the section_data array
-    !
-    n1 = data_sizes(9)
-    allocate ( section_data(1:n1) , source=0 , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"section_data",1,__LINE__,__FILE__,ierr, &
-                     error_message)
-    !
-    ! Allocate the boco_data array
-    !
-    n1 = data_sizes(11)
-    allocate ( boco_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"boco_data",1,__LINE__,__FILE__,ierr,error_message)
-    !
-  end if
-  !
-  ! Broadcast the grid_data array
-  !
-  isz = int( data_sizes(7) , kind=int_mpi )
-  call mpi_bcast(grid_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
-  !
-  ! Broadcast the section_data array
-  !
-  isz = int( data_sizes(9) , kind=int_mpi )
-  call mpi_bcast(section_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
-  !
-  ! Broadcast the boco_data array
-  !
-  isz = int( data_sizes(11) , kind=int_mpi )
-  call mpi_bcast(boco_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (" CPU #",i0,": data_sizes(:) = ",6(1x,i0),/,28x,*(6(1x,i0,:),/))
-  !
-end subroutine broadcast_grid_arrays
-!
-!###############################################################################
-!
 subroutine read_cgns_base(b)
   !
   !.. Formal Arguments ..
@@ -4720,12 +4448,284 @@ end subroutine create_serial_geom_arrays
 !
 !###############################################################################
 !
-subroutine create_arrays_from_cgns_data
+!!!subroutine create_broadcast_arrays
+!!!  !
+!!!  !.. Local Scalars ..
+!!!  integer :: i,j,n,n1,n2,ne
+!!!  integer :: ib,iz,ig,is,ibc,ierr
+!!!  integer :: ngrids,nsections,nbocos
+!!!  !
+!!!  !.. Local Parameters ..
+!!!  character(len=*), parameter :: pname = "create_broadcast_arrays"
+!!!  !
+!!!continue
+!!!  !
+!!!  call debug_timer(entering_procedure,pname)
+!!!  !
+!!!  ! Create the initial array that will contain the sizes of
+!!!  ! all the subsequent arrays that will be broadcast
+!!!  !
+!!!  data_sizes(1) = int( base(1)%cell_dim , kind=kind(data_sizes) )
+!!!  data_sizes(2) = int( base(1)%phys_dim , kind=kind(data_sizes) )
+!!!  data_sizes(3) = int( base(1)%zone(1)%nvertex , kind=kind(data_sizes) )
+!!!  data_sizes(4) = int( base(1)%zone(1)%ncell , kind=kind(data_sizes) )
+!!!  data_sizes(5) = int( base(1)%zone(1)%nboundvertex , kind=kind(data_sizes) )
+!!!  !
+!!!  ! Get the size needed for the grid_data array
+!!!  !
+!!!  ngrids = 0
+!!!  !
+!!!  n1 = data_sizes(2)
+!!!  n2 = 0
+!!!  !
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do ig = 1,size(base(ib)%zone(iz)%grid)
+!!!        if (allocated(base(ib)%zone(iz)%grid(ig)%coord)) then
+!!!          ngrids = ngrids + 1
+!!!          n2 = n2 + 1 ! Add one to store the dimensions for this grid
+!!!          n2 = n2 + size(base(ib)%zone(iz)%grid(ig)%coord(1)%x)
+!!!        end if
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Allocate the grid_data array
+!!!  !
+!!!  allocate ( grid_data(1:n1,1:n2) , source=zero , &
+!!!             stat=ierr , errmsg=error_message )
+!!!  call alloc_error(pname,"grid_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!  !
+!!!  ! Create the grid_data array
+!!!  !
+!!!  n = 0
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do ig = 1,size(base(ib)%zone(iz)%grid)
+!!!        if (allocated(base(ib)%zone(iz)%grid(ig)%coord)) then
+!!!          !
+!!!          n1 = size(base(ib)%zone(iz)%grid(ig)%coord)
+!!!          n2 = size(base(ib)%zone(iz)%grid(ig)%coord(1)%x)
+!!!          !
+!!!          n = n + 1
+!!!          !
+!!!          ! Transfer the bits of the integers n1 and n2 into (haha) a
+!!!          ! working-precision real and store in the grid_data array.
+!!!          ! The other processors will have to transfer these back into
+!!!          ! integers in order to get the coordinate array dimensions.
+!!!          ! NOTE: The constant zero is used just as a "mold" variable which
+!!!          !       means the integers will be transfered into a variable
+!!!          !       with the same kind and kind-type as the mold variable.
+!!!          !
+!!!          grid_data(1,n) = transfer( n1 , zero )
+!!!          grid_data(2,n) = transfer( n2 , zero )
+!!!          !
+!!!          do j = 1,n2
+!!!            n = n + 1
+!!!            do i = 1,n1
+!!!              grid_data(i,n) = base(ib)%zone(iz)%grid(ig)%coord(i)%x(j)
+!!!            end do
+!!!          end do
+!!!          !
+!!!        end if
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Get the size needed for the section_data array
+!!!  !
+!!!  nsections = 0
+!!!  !
+!!!  n1 = 0
+!!!  !
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do is = 1,size(base(ib)%zone(iz)%section)
+!!!        nsections = nsections + 1
+!!!        n1 = n1 + 5 ! account for type, start, end, and nbndry components,
+!!!        !         ! and size of elements component array
+!!!        n1 = n1 + size(base(ib)%zone(iz)%section(is)%elements)
+!!!        ! IGNORE PARENT DATA FOR NOW
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Allocate the section_data array
+!!!  !
+!!!  allocate ( section_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
+!!!  call alloc_error(pname,"section_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!  !
+!!!  ! Create the section_data array
+!!!  !
+!!!  n = 0
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do is = 1,size(base(ib)%zone(iz)%section)
+!!!        !
+!!!        ne = size(base(ib)%zone(iz)%section(is)%elements)
+!!!        !
+!!!        section_data(n+1) = base(ib)%zone(iz)%section(is)%type
+!!!        section_data(n+2) = int( base(ib)%zone(iz)%section(is)% &
+!!!                                 start , kind=kind(section_data) )
+!!!        section_data(n+3) = int( base(ib)%zone(iz)%section(is)% &
+!!!                                 end , kind=kind(section_data) )
+!!!        section_data(n+4) = base(ib)%zone(iz)%section(is)%nbndry
+!!!        section_data(n+5) = ne
+!!!        !
+!!!        n = n + 5 ! account for type, start, end, and nbndry components,
+!!!        !           and size of elements component array
+!!!        n1 = n + 1
+!!!        n2 = n + ne
+!!!        section_data(n1:n2) = int( base(ib)%zone(iz)%section(is)% &
+!!!                                   elements(1:ne) , kind=kind(section_data) )
+!!!        !
+!!!        n = n2
+!!!        ! IGNORE PARENT DATA FOR NOW
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Get the size needed for the boco_data array
+!!!  !
+!!!  nbocos = 0
+!!!  !
+!!!  n1 = 0
+!!!  !
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do ibc = 1,size(base(ib)%zone(iz)%bc)
+!!!        nbocos = nbocos + 1
+!!!        n1 = n1 + 3 ! account for boco_type, npnts, and location components
+!!!        n1 = n1 + size(base(ib)%zone(iz)%bc(ibc)%pnts)
+!!!        ! IGNORE NORMAL DATA FOR NOW
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Allocate the boco_data array
+!!!  !
+!!!  allocate ( boco_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
+!!!  call alloc_error(pname,"boco_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!  !
+!!!  ! Create the boco_data array
+!!!  !
+!!!  n = 0
+!!!  !
+!!!  do ib = 1,size(base)
+!!!    do iz = 1,size(base(ib)%zone)
+!!!      do ibc = 1,size(base(ib)%zone(iz)%bc)
+!!!        !
+!!!        n1 = size( base(ib)%zone(iz)%bc(ibc)%pnts )
+!!!        !
+!!!        boco_data(n+1) = base(ib)%zone(iz)%bc(ibc)%boco_type
+!!!        boco_data(n+2) = base(ib)%zone(iz)%bc(ibc)%location
+!!!        boco_data(n+3) = n1
+!!!        !
+!!!        n = n + 3 ! account for boco_type, npnts, and location components
+!!!        boco_data(n+1:n+n1) = int( base(ib)%zone(iz)%bc(ibc)%pnts(1:n1) , &
+!!!                                   kind=kind(boco_data) )
+!!!        !
+!!!        n = n + n1
+!!!        ! IGNORE NORMAL DATA FOR NOW
+!!!      end do
+!!!    end do
+!!!  end do
+!!!  !
+!!!  ! Store the sizes of the three data arrays in data_sizes
+!!!  !
+!!!  data_sizes( 6) = ngrids
+!!!  data_sizes( 7) = size( grid_data )
+!!!  data_sizes( 8) = nsections
+!!!  data_sizes( 9) = size( section_data )
+!!!  data_sizes(10) = nbocos
+!!!  data_sizes(11) = size( boco_data )
+!!!  !
+!!!  call debug_timer(leaving_procedure,pname)
+!!!  !
+!!!end subroutine create_broadcast_arrays
+!!!!
+!!!!###############################################################################
+!!!!
+!!!subroutine broadcast_grid_arrays
+!!!  !
+!!!  !.. Local Scalars ..
+!!!  integer :: n1,n2,ierr
+!!!  integer(INT_MPI) :: isz
+!!!  !
+!!!  !.. Local Parameters ..
+!!!  character(len=*), parameter :: pname = "broadcast_grid_arrays"
+!!!  !
+!!!continue
+!!!  !
+!!!  call debug_timer(entering_procedure,pname)
+!!!  !
+!!!  ! Broadcast the data_sizes array
+!!!  !
+!!! !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
+!!!  call mpi_bcast(data_sizes,size(data_sizes,kind=int_mpi),mpi_inttyp, &
+!!!                 glb_root,MPI_COMM_WORLD,mpierr)
+!!! !write (iout,1) mypnum,wip,(data_sizes(n1),n1=1,size(data_sizes))
+!!!  !
+!!!  ! Have all the non-root processors allocate the
+!!!  ! grid_data, section_data, and boco_data arrays
+!!!  !
+!!!  if (mypnum /= glb_root) then
+!!!    !
+!!!    ! Allocate the grid_data array
+!!!    !
+!!!    n1 = data_sizes(2)
+!!!    n2 = data_sizes(7) / n1
+!!!    allocate ( grid_data(1:n1,1:n2) , source=zero , &
+!!!               stat=ierr , errmsg=error_message )
+!!!    call alloc_error(pname,"grid_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!    !
+!!!    ! Allocate the section_data array
+!!!    !
+!!!    n1 = data_sizes(9)
+!!!    allocate ( section_data(1:n1) , source=0 , &
+!!!               stat=ierr , errmsg=error_message )
+!!!    call alloc_error(pname,"section_data",1,__LINE__,__FILE__,ierr, &
+!!!                     error_message)
+!!!    !
+!!!    ! Allocate the boco_data array
+!!!    !
+!!!    n1 = data_sizes(11)
+!!!    allocate ( boco_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
+!!!    call alloc_error(pname,"boco_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!    !
+!!!  end if
+!!!  !
+!!!  ! Broadcast the grid_data array
+!!!  !
+!!!  isz = int( data_sizes(7) , kind=int_mpi )
+!!!  call mpi_bcast(grid_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+!!!  !
+!!!  ! Broadcast the section_data array
+!!!  !
+!!!  isz = int( data_sizes(9) , kind=int_mpi )
+!!!  call mpi_bcast(section_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+!!!  !
+!!!  ! Broadcast the boco_data array
+!!!  !
+!!!  isz = int( data_sizes(11) , kind=int_mpi )
+!!!  call mpi_bcast(boco_data,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+!!!  !
+!!!  call debug_timer(leaving_procedure,pname)
+!!!  !
+!!!  ! Format Statements
+!!!  !
+!!!  1 format (" CPU #",i0,": data_sizes(:) = ",6(1x,i0),/,28x,*(6(1x,i0,:),/))
+!!!  !
+!!!end subroutine broadcast_grid_arrays
+!
+!###############################################################################
+!
+!!!subroutine create_arrays_from_cgns_data
 !!!
 !!!.. Local Parameters ..
 !!character(len=*), parameter :: pname = "create_arrays_from_cgns_data"
 !!!
-continue
+!!!continue
 !!!
 !!call debug_timer(entering_procedure,pname)
 !!!
@@ -5029,7 +5029,7 @@ continue
 !!!
 !!call debug_timer(leaving_procedure,pname)
 !!!
-end subroutine create_arrays_from_cgns_data
+!!!end subroutine create_arrays_from_cgns_data
 !
 !###############################################################################
 !
