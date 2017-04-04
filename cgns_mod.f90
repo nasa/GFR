@@ -2488,7 +2488,10 @@ continue
     !
   end do boundary_cell_grps
   !
-  ! Deallocate bnd_grps since we dont need it anymore
+  ! Deallocate bnd_grps and cell_grps since we dont need them anymore
+  !
+  deallocate ( cell_grps , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_grps",2,__LINE__,__FILE__,ierr,error_message)
   !
   deallocate ( bnd_grps , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bnd_grps",2,__LINE__,__FILE__,ierr,error_message)
