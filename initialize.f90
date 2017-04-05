@@ -138,9 +138,13 @@ continue
       np = n2-n1+1
       !
       init_cond = 0
-      if (allocated(grid%elem(n)%tags)) then
-        if (size(grid%elem(n)%tags) >= 2) then
-          init_cond = grid%elem(n)%tags(2)
+      if (allocated(grid)) then
+        if (allocated(grid%elem)) then
+          if (allocated(grid%elem(n)%tags)) then
+            if (size(grid%elem(n)%tags) >= 2) then
+              init_cond = grid%elem(n)%tags(2)
+            end if
+          end if
         end if
       end if
       !
