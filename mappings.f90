@@ -79,6 +79,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  check_grid_for_pts = fals
+  !
   ! Initialize the local pointers
   !
   edge_pts => null()
