@@ -163,6 +163,9 @@ program Euler_tri
   !
 continue
   !
+  request_restart = .false.
+  request_solution = .false.
+  !
   ! Initialize the overall MPI session
   !
   call initialize_mpi_environment
