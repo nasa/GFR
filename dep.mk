@@ -342,6 +342,7 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/connectivity.o \
              $(OBJDIR)/gmsh_mod.o \
              $(OBJDIR)/cgns_mod.o \
+             $(OBJDIR)/plot3d_mod.o \
              $(FUNDIR)/cell_solpts.f90 \
              $(FUNDIR)/last.f90 \
                        mpi_defs.h
