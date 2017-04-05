@@ -757,6 +757,13 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
+  n1 = merge(1,0,there_are_no_troubles)
+  call mpi_allreduce(MPI_IN_PLACE,n1,1_int_mpi,mpi_inttyp, &
+                     MPI_MIN,MPI_COMM_WORLD,mpierr)
+  there_are_no_troubles = (n1 == 1)
+#endif
+  !
 end subroutine identify_troubled_cells
 !
 !###############################################################################
