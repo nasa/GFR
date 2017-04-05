@@ -490,10 +490,10 @@ module module_kind_types
   logical(lk), save :: i_am_cpu_root = true
   logical(lk), save :: i_am_host_root = true
   !
-  _MPI_COMM_TYPE_, save :: my_host_comm
-  _MPI_COMM_TYPE_, save :: my_cpu_comm
-  _MPI_COMM_TYPE_, save :: host_roots_comm
-  _MPI_COMM_TYPE_, save :: cpu_roots_comm
+  _MPI_COMM_TYPE_, save :: my_host_comm = MPI_COMM_WORLD
+  _MPI_COMM_TYPE_, save :: my_cpu_comm = MPI_COMM_WORLD
+  _MPI_COMM_TYPE_, save :: host_roots_comm = MPI_COMM_WORLD
+  _MPI_COMM_TYPE_, save :: cpu_roots_comm = MPI_COMM_WORLD
   !
   integer, save :: my_cpu_num = 0
   integer, save :: my_host_num = 0
