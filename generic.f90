@@ -864,7 +864,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+ !call debug_timer(entering_procedure,pname)
   !
   this_geom = cell(this_cell)%geom
   this_order = cell(this_cell)%order
@@ -1013,7 +1013,7 @@ continue
     !
   end if
   !
-  call debug_timer(leaving_procedure,pname)
+ !call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_error_arrays
 !
