@@ -36,6 +36,7 @@ subroutine initialize_flow()
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
+  use ovar, only : prev_ave_time
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
@@ -229,6 +230,10 @@ continue
     itcur = 0
     time  = zero
     !
+  end if
+  !
+  if (prev_ave_time == zero) then
+    prev_ave_time = time
   end if
   !
   call adjust_cfl_cycles
