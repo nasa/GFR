@@ -187,6 +187,9 @@ module ovar
   !
   integer, public, save :: sub_inflow_method = 1
   !
+  logical(lk),        public, save :: output_time_averaging = fals
+  character(len=150), public, save :: time_ave_file = "out.ave"
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -229,7 +232,8 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   !
-  real(wp), public, save :: prev_ave_time = 0.0_wp
+  real(wp),     public, save :: prev_ave_time = 0.0_wp
+  logical(ldk), public, save :: read_time_ave_restart = .false.
   !
   real(wp), public, save :: cfl_cycle_start
   real(wp), public, save :: cfl_cycle_end
@@ -639,6 +643,7 @@ module input_namelist_mod
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
+  use ovar,      only : output_time_averaging, time_ave_file
   use order_mod, only : p_order,n_order,q_order
   use order_mod, only : o_order,e_order,all_orders
   use module_cgns_types, only : cgns_use_queue
@@ -750,6 +755,8 @@ module input_namelist_mod
   namelist / input / lustre_stripe_count, lustre_stripe_size
   ! INPUT BOUNDARY CONDITIONS
   namelist / input / bc_input
+  ! TIME AVERAGING
+  namelist / input / output_time_averaging, time_ave_file
   !
   ! CFL ADJUSTMENT NAMELIST
   !
