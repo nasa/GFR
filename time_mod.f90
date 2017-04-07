@@ -14,6 +14,7 @@ module time_mod
   public :: rupdate_TVD2_RK
   public :: rupdate_TVD3_RK
   public :: rupdate_TVD4_RK
+  public :: update_time_ave
   !
   real(wp), parameter :: o = zero
   !
@@ -57,6 +58,8 @@ module time_mod
                                                           0.00000000000000_wp /)
   !
   character(len=100), save :: iter_out_fmt
+  !
+  real(wp), save, allocatable :: ave(:)
   !
 contains
 !
@@ -1118,8 +1121,219 @@ end subroutine rupdate_TVD4_RK
 !
 !###############################################################################
 !
+subroutine initialize_time_ave()
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts
+  use flowvar, only : time_ave_variables
+  use flowvar, only : uavesp
+  !
+  !.. Local Scalars ..
+  integer :: nvar,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_time_ave"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (.not. allocated(uavesp)) then
+    !
+    if (.not. allocated(time_ave_variables)) then
+      !
+      nvar = merge(16,8,nr==3)
+      allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      if (nr == 3) then
+        time_ave_variables( 1) = "x"
+        time_ave_variables( 2) = "y"
+        time_ave_variables( 3) = "z"
+        time_ave_variables( 4) = "r"
+        time_ave_variables( 5) = "f"
+        time_ave_variables( 6) = "xx"
+        time_ave_variables( 7) = "yy"
+        time_ave_variables( 8) = "zz"
+        time_ave_variables( 9) = "rr"
+        time_ave_variables(10) = "ff"
+        time_ave_variables(11) = "xy"
+        time_ave_variables(12) = "xz"
+        time_ave_variables(13) = "yz"
+        time_ave_variables(14) = "d"
+        time_ave_variables(15) = "t"
+        time_ave_variables(16) = "p"
+      else
+        time_ave_variables(1) = "x"
+        time_ave_variables(2) = "y"
+        time_ave_variables(3) = "xx"
+        time_ave_variables(4) = "yy"
+        time_ave_variables(5) = "xy"
+        time_ave_variables(6) = "d"
+        time_ave_variables(7) = "t"
+        time_ave_variables(8) = "p"
+      end if
+      !
+    else
+      !
+      nvar = size(time_ave_variables)
+      !
+    end if
+    !
+    allocate ( uavesp(1:nvar,1:n_solpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uavesp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine initialize_time_ave
+!
+!###############################################################################
+!
+subroutine update_time_ave()
+  !
+  !.. Use Statements ..
+  use geovar,  only : xyz,n_solpts
+  use flowvar, only : time_ave_variables
+  use flowvar, only : usp,uavesp
+  use ovar,    only : time,prev_ave_time
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n,ierr
+  real(wp) :: a,b,y,z,st,ct,theta
+  real(wp) :: rho,vx,vy,vz,vr,vf
+  real(wp) :: pres,temp,tke,tls
+  character(len=1) :: ta_char
+  !
+  !.. Local Saved Scalars ..
+  logical(lk), save :: needs_initialization = true
+  !
+  !.. Local Arrays ..
+  real(wp) :: vsp(0:nq)
+  real(wp) :: time_val(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_time_ave"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (needs_initialization) then
+    !
+    call initialize_time_ave
+    !
+    allocate ( ave(1:size(uavesp,dim=1)) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    needs_initialization = fals
+    !
+  end if
+  !
+  time_val(1) = prev_ave_time/time
+  time_val(2) = (time-prev_ave_time)/time
+  !
+  call mpi_bcast(time_val,size(time_val,kind=int_mpi),mpi_flttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  a = time_val(1)
+  b = time_val(2)
+  !
+  vsp(:) = zero
+  !
+  do n = 1,n_solpts
+    !
+    y = xyz(2,n)
+    z = xyz(3,n)
+    !
+   !theta = atan(z/y)
+   !if (z < zero .and. y > zero) theta = theta + two*pi
+   !if (z < zero .and. y < zero) theta = theta + pi
+   !if (z > zero .and. y < zero) theta = theta + pi
+   !st = sin(theta)
+   !ct = cos(theta)
+    if (all([y,z] == zero)) then
+      !
+      st = zero
+      ct = zero
+      !
+    else
+      !
+      theta = atan2(z,y)
+      if (theta < zero) theta = theta + two*pi
+      !
+      st = sin(theta)
+      ct = cos(theta)
+      !
+    end if
+    !
+    vsp(1:nq) = usp2v_sp( usp(1:nq,n) )
+    !
+    temp = temperature_pv_sp( vsp(1:nq) )
+    !
+    rho  = vsp(nec)
+    vx   = vsp(nmx)
+    vy   = vsp(nmy)
+    vz   = vsp(nmz)
+    pres = vsp(nee)
+    !
+   !tke = vsp(ntk)
+   !tls = vsp(ntl)
+    !
+    vr = st*vz + ct*vy ! Radial    instantaneous velocity
+    vf = ct*vz - st*vy ! Azimuthal instantaneous velocity
+    !
+    ave(:) = one
+    !
+    do m = 1,size(time_ave_variables)
+      do l = 1,len_trim(time_ave_variables(m))
+        ta_char = uppercase( time_ave_variables(m)(l:l) )
+        select case (ta_char)
+          case ("D")
+            ave(m) = ave(m) * rho
+          case ("X")
+            ave(m) = ave(m) * vx
+          case ("Y")
+            ave(m) = ave(m) * vy
+          case ("Z")
+            ave(m) = ave(m) * vz
+          case ("P")
+            ave(m) = ave(m) * pres
+          case ("T")
+            ave(m) = ave(m) * temp
+          case ("R")
+            ave(m) = ave(m) * vr
+          case ("F")
+            ave(m) = ave(m) * vf
+          case ("K")
+            ave(m) = ave(m) * tke
+          case ("E","W")
+            ave(m) = ave(m) * tls
+          case default
+            ave(m) = ave(m) * one
+        end select
+      end do
+    end do
+    !
+    do m = 1,size(uavesp,dim=1)
+      uavesp(m,n) = a*uavesp(m,n) + b*ave(m)
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_time_ave
+!
+!###############################################################################
+!
 include "Functions/usp2v.f90"
 include "Functions/viscosity.f90"
+include "Functions/temperature.f90"
 !
 !###############################################################################
 !
