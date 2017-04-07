@@ -254,6 +254,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/grad_cv_to_grad_pv.f90 \
        $(FUNDIR)/bc_string_to_integer.f90 \
+       $(FUNDIR)/cgns_write_field_parallel.f90 \
                  mpi_defs.h
 
 $(OBJDIR)/kind_types.o : kind_types.f90 \
