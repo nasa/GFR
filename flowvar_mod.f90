@@ -54,6 +54,11 @@ module flowvar
   !
   real(wp), public, save, allocatable :: uavesp(:,:)
   !
+  ! TIME_AVE_VARIABLES : character identifier for variables included
+  !                      in the time averaging
+  !
+  character(len=4), public, save, allocatable :: time_ave_variables(:)
+  !
   !
   ! FACE_XYZ : Derived type containing a set of variables at the flux/face
   !            points on each side of a face between cells
