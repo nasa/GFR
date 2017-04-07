@@ -4686,6 +4686,7 @@ subroutine write_parallel_cgns(iflag)
   use ovar, only : itcur,itrst,num_ts,time,time_ref
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : completely_disable_cgns
+  use ovar, only : output_time_averaging
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iflag
@@ -4756,6 +4757,12 @@ continue
   ! Write the solution file
   !
   call write_parallel_cgns_solution_file(sol_file,tname)
+  !
+  ! Write the solution file
+  !
+  if (output_time_averaging) then
+    call write_parallel_cgns_time_ave_file
+  end if
   !
   ! ################################################
   ! #####   FINISHED WRITING FIELD VARIABLES   #####
@@ -5724,11 +5731,248 @@ continue
   !
   contains
   !
-  include "Functions/cgns_write_field_parallel.f90"
+#include "Functions/cgns_write_field_parallel.f90"
   !
   !-----------------------------------------------------------------------------
   !
 end subroutine write_parallel_cgns_solution_file
+!
+!###############################################################################
+!
+subroutine write_parallel_cgns_time_ave_file()
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts
+  use ovar,    only : aref,rhoref,tref,tkeref,tlsref
+  use ovar,    only : interpolate_before_output_variable
+  use flowvar, only : uavesp,time_ave_variables
+  !
+  !.. Local Scalars ..
+  integer :: l,n,naq,ierr
+  !
+  character(len=1)     :: ta_char
+  character(len=CGLEN) :: varname
+  character(len=CGLEN) :: sect_name
+  character(len=170)   :: cgns_sol_file
+  character(len=300)   :: link_path
+  !
+  integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
+  !
+  !.. Local Allocatable Arrays ..
+  integer(CBT),  allocatable :: isvar_s(:)
+  !
+  real(wp), allocatable :: vartmp(:)
+  real(wp), allocatable :: var_dim(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_parallel_cgns_time_ave_file"
+  character(len=*), parameter :: tname = "TimeAveragedSolution"
+  character(len=*), parameter :: fname = "solution.time_ave.cgns"
+  !
+continue
+  !
+  naq = size(uavesp,dim=1)
+  !
+  call debug_timer(entering_procedure,pname)
+#ifdef PBS_ENV
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,1)
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  !
+  cgns_sol_file = trim(adjustl(cgns_dir)) // fname
+  !
+  ! Open the CGNS solution file if iflag is 1
+  !
+  call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
+  call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
+  !
+  ! Set the CGNS base (who knows what this is for)
+  !
+  call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
+                       int(nr,kind=CBT),ibase_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  !
+  ! Write the title for this solution
+  !
+  call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
+                       UNSTRUCTURED,izone_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
+                  cgierr,__LINE__,__FILE__)
+  !
+  ! Create a link to the grid coordinates in the grid file
+  !
+  call cg_goto_f(ifile_s,ibase_s,cgierr, &
+                 "Zone_t",izone_s, &
+                 CGNS_GOTO_END)
+  call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
+  !
+  link_path = base_name//"/"//zone_name//"/GridCoordinates"
+  !
+  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
+                  cgierr,__LINE__,__FILE__)
+  !
+  ! Create a link to the element connectivity in the grid file
+  !
+  if (nr == 2) then
+    sect_name = "Quadrilaterals"
+  else if (nr == 3) then
+    sect_name = "Hexahedrals"
+  end if
+  link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
+  !
+  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
+                       trim(link_path),cgierr)
+  call cgns_error(pname,cgns_sol_file, &
+                  "cg_link_write_f("//trim(sect_name)//")", &
+                  cgierr,__LINE__,__FILE__)
+  !
+  ! Allocate isvar_s and var_dim to the number of time averaged variables
+  !
+  allocate ( isvar_s(1:naq) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"isvar_s",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( var_dim(1:naq) , source=one , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"var_dim",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the flow variables
+  !
+  call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
+  call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
+  !
+  !
+  ! ##############################################################
+  ! #####   WRITING TIME AVERAGED SOLUTION FIELD VARIABLES   #####
+  ! ##############################################################
+  !
+  ! Create data nodes for the time-averaged solution variables
+  !
+  do n = 1,naq
+    !
+    varname = ""
+    do l = 1,len_trim(time_ave_variables(n))
+      ta_char = uppercase( time_ave_variables(n)(l:l) )
+      select case (ta_char)
+        case ("D")
+          varname = trim(adjustl(varname)) // "Rho'"
+          var_dim(n) = var_dim(n) * rhoref
+        case ("X") 
+          varname = trim(adjustl(varname)) // "Vx'"
+          var_dim(n) = var_dim(n) * aref
+        case ("Y") 
+          varname = trim(adjustl(varname)) // "Vy'"
+          var_dim(n) = var_dim(n) * aref
+        case ("Z") 
+          varname = trim(adjustl(varname)) // "Vz'"
+          var_dim(n) = var_dim(n) * aref
+        case ("P") 
+          varname = trim(adjustl(varname)) // "P'"
+          var_dim(n) = var_dim(n) * rhoref * aref * aref
+        case ("T") 
+          varname = trim(adjustl(varname)) // "T'"
+          var_dim(n) = var_dim(n) * tref
+        case ("R") 
+          varname = trim(adjustl(varname)) // "Vr'"
+          var_dim(n) = var_dim(n) * aref
+        case ("F") 
+          varname = trim(adjustl(varname)) // "Vtheta'"
+          var_dim(n) = var_dim(n) * aref
+        case ("K") 
+          varname = trim(adjustl(varname)) // "TKE'"
+          var_dim(n) = var_dim(n) * tkeref
+        case ("E","W")
+          varname = trim(adjustl(varname)) // "TLS'"
+          var_dim(n) = var_dim(n) * tlsref
+      end select
+    end do
+    !
+    call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
+                          trim(adjustl(varname)),isvar_s(n),cgierr)
+    call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                    cgierr,__LINE__,__FILE__, &
+                    "Write node: Time-averaged variable",n)
+    !
+  end do
+  !
+  ! Preallocate var for writing variables in the correct precision
+  ! to the CGNS file
+  !
+  if (.not. allocated(var)) then
+    allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Now create the output data and write it to the CGNS file in parallel
+  !
+  do n = 1,naq
+    !
+    vartmp = uavesp(n,1:n_solpts) * var_dim(n) ! F2003 AUTO-REALLOCATION
+    !
+    call cgns_write_field_parallel
+    !
+  end do
+  !
+  ! ################################################
+  ! #####   FINISHED WRITING FIELD VARIABLES   #####
+  ! ################################################
+  !
+  call set_cgns_queue(STOP_CGNS_QUEUE,pname,cgns_sol_file)
+  !
+  ! Close the CGNS FILE
+  !
+  call cgp_close_f(ifile_s,cgierr)
+  call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
+  !
+  ! Deallocate the arrays var and vartmp
+  !
+  if (allocated(var)) then
+    deallocate ( var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(isvar_s)) then
+    deallocate ( isvar_s , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(var_dim)) then
+    deallocate ( var_dim , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var_dim",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+#ifdef PBS_ENV
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (mypnum == 0) then
+    write (iout,2)
+    flush(iout)
+  end if
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering write_parallel_cgns_time_ave_file")
+  2 format (" Leaving write_parallel_cgns_time_ave_file",/)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  contains
+  !
+#include "Functions/cgns_write_field_parallel.f90"
+  !
+  !-----------------------------------------------------------------------------
+  !
+end subroutine write_parallel_cgns_time_ave_file
 !
 !###############################################################################
 !
