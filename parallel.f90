@@ -8200,9 +8200,9 @@ subroutine create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   !
   !.. Formal Arguments ..
   type(node_t), allocatable, intent(in) :: node(:)
-  type(map_t),  intent(in) :: node_map(:)
+  type(map_t),               intent(in) :: node_map(:)
   type(edge_t), allocatable, intent(in) :: edge(:)
-  type(map_t),  intent(in) :: edge_map(:)
+  type(map_t),               intent(in) :: edge_map(:)
   !
   !.. Local Scalars ..
   integer :: i,ierr,n,n1,n2,nep,nvar,scnt,rcnt,rmin,rmax
