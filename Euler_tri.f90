@@ -24,6 +24,7 @@ program Euler_tri
   use ovar, only : check_flux_point_coordinates
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
   use ovar, only : adjust_cfl_cycles
+  use ovar, only : output_time_averaging
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -78,6 +79,7 @@ program Euler_tri
   use time_mod, only : rupdate_TVD2_RK
   use time_mod, only : rupdate_TVD3_RK
   use time_mod, only : rupdate_TVD4_RK
+  use time_mod, only : update_time_ave
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
@@ -505,6 +507,12 @@ continue
     completed_timesteps = iter
     !
     call check_for_bad_number(__LINE__)
+    !
+    ! Update the time averaged variables
+    !
+    if (output_time_averaging) then
+      call update_time_ave
+    end if
     !
     ! Exit the main loop if we have reached the requested final simulation
     ! time when running a time accurate simulation with a global time step.
