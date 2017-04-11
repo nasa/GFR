@@ -9007,8 +9007,8 @@ continue
     !
     ! Adjust send_disp and recv_disp to account for the block size
     !
-    send_disp = send_disp * block_size
-    recv_disp = recv_disp * block_size
+    send_disp(:) = send_disp(:) * block_size
+    recv_disp(:) = recv_disp(:) * block_size
     !
     ! Create and commit the send MPI datatype for this communication pair
     !
