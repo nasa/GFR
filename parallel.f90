@@ -2908,6 +2908,9 @@ continue
     !
   end do
   !
+  deallocate ( tmp_map , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
+  !
  !call output_node_arrays(node,node_map)
   !
   call debug_timer(leaving_procedure,pname)
