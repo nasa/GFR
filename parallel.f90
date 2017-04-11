@@ -7741,8 +7741,8 @@ continue
     !
     ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
     !
-    comm_pts(i)%send = comm_pts(i)%send * block_size
-    comm_pts(i)%recv = comm_pts(i)%recv * block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
     !
     np = size( comm_pts(i)%send , kind=int_mpi )
     !
@@ -7761,8 +7761,8 @@ continue
     ! Remove the solution array adjustment from
     ! comm_pts(i)%send and comm_pts(i)%recv
     !
-    comm_pts(i)%send = comm_pts(i)%send / block_size
-    comm_pts(i)%recv = comm_pts(i)%recv / block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
     !
   end do
   !
@@ -7781,8 +7781,8 @@ continue
     !
     ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
     !
-    comm_pts(i)%send = comm_pts(i)%send * block_size
-    comm_pts(i)%recv = comm_pts(i)%recv * block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
     !
     np = size( comm_pts(i)%send , kind=int_mpi )
     !
@@ -7801,8 +7801,8 @@ continue
     ! Remove the solution array adjustment from
     ! comm_pts(i)%send and comm_pts(i)%recv
     !
-    comm_pts(i)%send = comm_pts(i)%send / block_size
-    comm_pts(i)%recv = comm_pts(i)%recv / block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
     !
   end do
   !
@@ -7846,8 +7846,8 @@ continue
     !
     ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
     !
-    comm_pts(i)%send = comm_pts(i)%send * block_size
-    comm_pts(i)%recv = comm_pts(i)%recv * block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
     !
     np = size( comm_pts(i)%send , kind=int_mpi )
     !
@@ -7864,8 +7864,8 @@ continue
     ! Remove the solution array adjustment from
     ! comm_pts(i)%send and comm_pts(i)%recv
     !
-    comm_pts(i)%send = comm_pts(i)%send / block_size
-    comm_pts(i)%recv = comm_pts(i)%recv / block_size
+    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
+    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
     !
   end do
   !
