@@ -9577,7 +9577,7 @@ continue
       !
       ! Reset the receiver buffer to zero for the next communication
       !
-      recv_buffer = 0.0_r8
+      recv_buffer(:) = 0.0_r8
       !
     end if
     !
@@ -9854,7 +9854,7 @@ continue
       !
       ! Reset the receiver buffer to one for the next communication
       !
-      recv_buffer = real( one , kind=kind(recv_buffer) )
+      recv_buffer(:) = real( one , kind=kind(recv_buffer) )
       !
     end if
     !
