@@ -7454,9 +7454,6 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   integer(int_mpi), allocatable :: flxpt_offset(:)
   type(comm_pts_t), allocatable :: comm_pts(:)
   !
-  _MPI_DATA_TYPE_, allocatable :: testf_send(:)
-  _MPI_DATA_TYPE_, allocatable :: testf_recv(:)
-  !
  !real(r8), dimension(1:nr,1:n_global_totpts,1:ncpu) :: gxyz
   !
   !.. Local Parameters ..
@@ -7827,47 +7824,6 @@ continue
  ! !end do
  !  !
  !end do
-  !
-  ! Create the test MPI datatypes
-  !
-  allocate ( testf_send(1:ncomm) , source=MPI_DATATYPE_NULL , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"testf_send",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( testf_recv(1:ncomm) , source=MPI_DATATYPE_NULL , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"testf_recv",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Set the block size for this MPI datatype
-  !
-  block_size = int( nr , kind=int_mpi )
-  !
-  do i = 1,ncomm
-    !
-    ! Adjust comm_pts(i)%send and comm_pts(i)%recv for the solution arrays
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) * block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) * block_size
-    !
-    np = size( comm_pts(i)%send , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%send, &
-                                       mpi_flttyp,testf_send(i),mpierr)
-    call mpi_type_commit(testf_send(i),mpierr)
-    !
-    np = size( comm_pts(i)%recv , kind=int_mpi )
-    !
-    call mpi_type_create_indexed_block(np,block_size,comm_pts(i)%recv, &
-                                       mpi_flttyp,testf_recv(i),mpierr)
-    call mpi_type_commit(testf_recv(i),mpierr)
-    !
-    ! Remove the solution array adjustment from
-    ! comm_pts(i)%send and comm_pts(i)%recv
-    !
-    comm_pts(i)%send(:) = comm_pts(i)%send(:) / block_size
-    comm_pts(i)%recv(:) = comm_pts(i)%recv(:) / block_size
-    !
-  end do
   !
   ! We no longer need comm_pts so deallocate
   !
