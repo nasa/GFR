@@ -2675,29 +2675,33 @@ end subroutine create_face_rotations
 !
 subroutine output_node_arrays(node,node_map,bnd_nodes)
   !
-  type(node_t),     optional, dimension(:), intent(in) :: node
-  type(map_t),      optional, dimension(:), intent(in) :: node_map
-  type(bnd_data_t), optional, dimension(:), intent(in) :: bnd_nodes
+  type(node_t),     allocatable, optional, intent(in) :: node(:)
+  type(map_t),      allocatable, optional, intent(in) :: node_map(:)
+  type(bnd_data_t), allocatable, optional, intent(in) :: bnd_nodes(:)
   !
   integer :: i,n,io
   !
 continue
   !
   if (present(node)) then
-    io = mypnum+140
-    do n = 1,size(node)
-      write (io,10) n
-      write (io,11) node(n)%is_on_boundary
-      write (io,12) node(n)%controlling_partition
-      if (allocated(node(n)%cpu)) then
-        do i = 1,size(node(n)%cpu)
-          write (io,13) i
-          write (io,14) node(n)%cpu(i)%partition
-          write (io,15) node(n)%cpu(i)%loc_node
-          write (io,16) node(n)%cpu(i)%num_cells
-        end do
-      end if
-    end do
+    if (allocated(node)) then
+      io = mypnum+140
+      do n = 1,size(node)
+        write (io,10) n
+        write (io,11) node(n)%is_on_boundary
+        write (io,12) node(n)%controlling_partition
+        if (allocated(node(n)%cpu)) then
+          do i = 1,size(node(n)%cpu)
+            write (io,13) i
+            write (io,14) node(n)%cpu(i)%partition
+            write (io,15) node(n)%cpu(i)%loc_node
+            write (io,16) node(n)%cpu(i)%num_cells
+          end do
+        end if
+      end do
+    else
+      write (io,17)
+    end if
   end if
   !
   10 format (" Contents of node(",i0,")")
@@ -2707,36 +2711,51 @@ continue
   14 format (10x,"%partition = ",i0)
   15 format (10x,"%loc_node  = ",i0)
   16 format (10x,"%num_cells = ",i0)
+  17 format (" THE node ARRAY IS NOT ALLOCATED!!!")
   !
   if (present(node_map)) then
-    io = mypnum+150
-    do n = 1,size(node_map)
-      write (io,20) n
-      do i = 1,size(node_map(n)%loc_to_glb)
-        write (io,21) i,node_map(n)%loc_to_glb(i)
+    if (allocated(node_map)) then
+      io = mypnum+150
+      do n = 1,size(node_map)
+        if (allocated(node_map(n)%loc_to_glb)) then
+          write (io,20) n
+          do i = 1,size(node_map(n)%loc_to_glb)
+            write (io,21) i,node_map(n)%loc_to_glb(i)
+          end do
+        else
+          write (io,20) n, "IS NOT ALLOCATED!!!"
+        end if
+        write (io,22)
       end do
-      write (io,22)
-    end do
+    else
+      write (io,23)
+    end if
   end if
   !
-  20 format (" Map for CPU ",i0)
+  20 format (" Map for CPU ",i0,:,1x,a)
   21 format ("   loc = ",i5," => glb = ",i5)
   22 format (30("#"))
+  23 format (" THE node_map ARRAY IS NOT ALLOCATED!!!")
   !
   if (present(bnd_nodes)) then
-    io = mypnum+160
-    do n = 1,size(bnd_nodes)
-      write (io,30) n
-      write (io,31) bnd_nodes(n)%idx
-      write (io,32) bnd_nodes(n)%ave_correction
-      write (io,33) bnd_nodes(n)%my_responsibility
-    end do
+    if (allocated(bnd_nodes)) then
+      io = mypnum+160
+      do n = 1,size(bnd_nodes)
+        write (io,30) n
+        write (io,31) bnd_nodes(n)%idx
+        write (io,32) bnd_nodes(n)%ave_correction
+        write (io,33) bnd_nodes(n)%my_responsibility
+      end do
+    else
+      write (io,34)
+    end if
   end if
   !
   30 format (" Contents of bnd_nodes(",i0,")")
   31 format (5x,"%idx               = ",i0)
   32 format (5x,"%ave_correction    = ",f9.6)
   33 format (5x,"%my_responsibility = ",l1)
+  34 format (" THE bnd_nodes ARRAY IS NOT ALLOCATED!!!")
   !
 end subroutine output_node_arrays
 !
