@@ -633,6 +633,13 @@ continue
                            xyz_nodes,cell_geom,cell_order, &
                            face,node_map,face_map,cell_map)
   !
+  ! Deallocate face since it is no longer needed
+  !
+  if (allocated(face)) then
+    deallocate ( face , stat=ierr ,errmsg=error_message )
+    call alloc_error(pname,"face",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   ! Create MPI datatypes for exchanging node and edge data between processes
   !
   call memory_pause("Before: calling create_node_and_edge_datatypes")
