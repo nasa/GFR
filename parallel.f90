@@ -494,7 +494,6 @@ continue
     call create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                      cells_with_node,cells_with_node_ptr, &
                                      cells_with_edge,cells_with_edge_ptr, &
-                                    !nodes_on_edge, &
                                      cell_order,epart,bface,node,edge)
     !
     ! Deallocate nodes_on_edge since it is no longer needed
@@ -1679,7 +1678,6 @@ end subroutine output_value
 subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cells_with_node,cells_with_node_ptr, &
                                        cells_with_edge,cells_with_edge_ptr, &
-                                      !nodes_on_edge, &
                                        cell_order,epart,bface,node,edge)
   !
   !.. Formal Arguments ..
@@ -1689,7 +1687,6 @@ subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
   integer,                   dimension(:),    intent(in) :: cells_with_node_ptr
   integer,                   dimension(:),    intent(in) :: cells_with_edge
   integer,                   dimension(:),    intent(in) :: cells_with_edge_ptr
- !integer,                   dimension(:,:),  intent(in) :: nodes_on_edge
   integer,                   dimension(:),    intent(in) :: epart
   integer,                   dimension(:),    intent(in) :: cell_order
   integer,                   dimension(:,:),  intent(in) :: bface
