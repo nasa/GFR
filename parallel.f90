@@ -6120,25 +6120,29 @@ continue
   if (mypnum == 0) then
     !
     nn = 0
-    do i = 1,size(node)
-      nn = nn + 3
-      if (allocated(node(i)%cpu)) then
-        nn = nn + 3*size(node(i)%cpu)
-      end if
-    end do
+    if (allocated(node)) then
+      do i = 1,size(node)
+        nn = nn + 3
+        if (allocated(node(i)%cpu)) then
+          nn = nn + 3*size(node(i)%cpu)
+        end if
+      end do
+    end if
     !
     ne = 0
-    do i = 1,size(edge)
-      ne = ne + 4
-      if (allocated(edge(i)%cpu)) then
-        do j = 1,size(edge(i)%cpu)
-          ne = ne + 4
-          if (allocated(edge(i)%cpu(j)%edgpts)) then
-            ne = ne + size(edge(i)%cpu(j)%edgpts)
-          end if
-        end do
-      end if
-    end do
+    if (allocated(edge)) then
+      do i = 1,size(edge)
+        ne = ne + 4
+        if (allocated(edge(i)%cpu)) then
+          do j = 1,size(edge(i)%cpu)
+            ne = ne + 4
+            if (allocated(edge(i)%cpu(j)%edgpts)) then
+              ne = ne + size(edge(i)%cpu(j)%edgpts)
+            end if
+          end do
+        end if
+      end do
+    end if
     !
     npd = nn + ne + 2
     !
@@ -6158,6 +6162,14 @@ continue
   !
   call mpi_bcast(npd,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
+  ! Leave this subroutine if npd == 2, which means that both the
+  ! node and edge arrays are not allocated on the root process
+  !
+  if (npd == 2) then
+    return
+    call debug_timer(leaving_procedure,pname)
+  end if
+  !
   allocate ( packed_data(1:npd) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"packed_data",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -6165,46 +6177,54 @@ continue
     !
     n = 0
     !
-    n = n+1 ; packed_data(n) = size(node)
-    do i = 1,size(node)
-      n = n+1 ; packed_data(n) = merge(1,0,node(i)%is_on_boundary)
-      n = n+1 ; packed_data(n) = node(i)%controlling_partition
-      if (allocated(node(i)%cpu)) then
-        n = n+1 ; packed_data(n) = size(node(i)%cpu)
-        do j = 1,size(node(i)%cpu)
-          n = n+1 ; packed_data(n) = node(i)%cpu(j)%partition
-          n = n+1 ; packed_data(n) = node(i)%cpu(j)%loc_node
-          n = n+1 ; packed_data(n) = node(i)%cpu(j)%num_cells
-        end do
-      else
-        n = n+1 ; packed_data(n) = -1
-      end if
-    end do
+    if (allocated(node)) then
+      n = n+1 ; packed_data(n) = size(node)
+      do i = 1,size(node)
+        n = n+1 ; packed_data(n) = merge(1,0,node(i)%is_on_boundary)
+        n = n+1 ; packed_data(n) = node(i)%controlling_partition
+        if (allocated(node(i)%cpu)) then
+          n = n+1 ; packed_data(n) = size(node(i)%cpu)
+          do j = 1,size(node(i)%cpu)
+            n = n+1 ; packed_data(n) = node(i)%cpu(j)%partition
+            n = n+1 ; packed_data(n) = node(i)%cpu(j)%loc_node
+            n = n+1 ; packed_data(n) = node(i)%cpu(j)%num_cells
+          end do
+        else
+          n = n+1 ; packed_data(n) = -1
+        end if
+      end do
+    else
+      n = n+1 ; packed_data(n) = -1
+    end if
     !
-    n = n+1 ; packed_data(n) = size(edge)
-    do i = 1,size(edge)
-      n = n+1 ; packed_data(n) = merge(1,0,edge(i)%is_on_boundary)
-      n = n+1 ; packed_data(n) = edge(i)%controlling_partition
-      n = n+1 ; packed_data(n) = edge(i)%order
-      if (allocated(edge(i)%cpu)) then
-        n = n+1 ; packed_data(n) = size(edge(i)%cpu)
-        do j = 1,size(edge(i)%cpu)
-          n = n+1 ; packed_data(n) = edge(i)%cpu(j)%partition
-          n = n+1 ; packed_data(n) = edge(i)%cpu(j)%loc_edge
-          n = n+1 ; packed_data(n) = edge(i)%cpu(j)%num_cells
-          if (allocated(edge(i)%cpu(j)%edgpts)) then
-            n = n+1 ; packed_data(n) = size(edge(i)%cpu(j)%edgpts)
-            do k = 1,size(edge(i)%cpu(j)%edgpts)
-              n = n+1 ; packed_data(n) = edge(i)%cpu(j)%edgpts(k)
-            end do
-          else
-            n = n+1 ; packed_data(n) = -1
-          end if
-        end do
-      else
-        n = n+1 ; packed_data(n) = -1
-      end if
-    end do
+    if (allocated(edge)) then
+      n = n+1 ; packed_data(n) = size(edge)
+      do i = 1,size(edge)
+        n = n+1 ; packed_data(n) = merge(1,0,edge(i)%is_on_boundary)
+        n = n+1 ; packed_data(n) = edge(i)%controlling_partition
+        n = n+1 ; packed_data(n) = edge(i)%order
+        if (allocated(edge(i)%cpu)) then
+          n = n+1 ; packed_data(n) = size(edge(i)%cpu)
+          do j = 1,size(edge(i)%cpu)
+            n = n+1 ; packed_data(n) = edge(i)%cpu(j)%partition
+            n = n+1 ; packed_data(n) = edge(i)%cpu(j)%loc_edge
+            n = n+1 ; packed_data(n) = edge(i)%cpu(j)%num_cells
+            if (allocated(edge(i)%cpu(j)%edgpts)) then
+              n = n+1 ; packed_data(n) = size(edge(i)%cpu(j)%edgpts)
+              do k = 1,size(edge(i)%cpu(j)%edgpts)
+                n = n+1 ; packed_data(n) = edge(i)%cpu(j)%edgpts(k)
+              end do
+            else
+              n = n+1 ; packed_data(n) = -1
+            end if
+          end do
+        else
+          n = n+1 ; packed_data(n) = -1
+        end if
+      end do
+    else
+      n = n+1 ; packed_data(n) = -1
+    end if
     !
   end if
   !
@@ -6217,80 +6237,92 @@ continue
     !
     n = n+1 ; nn = packed_data(n)
     !
-    allocate ( node(1:nn) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"node",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    do i = 1,size(node)
+    if (nn > 0) then
       !
-      n = n+1 ; node(i)%is_on_boundary = (packed_data(n) == 1)
-      n = n+1 ; node(i)%controlling_partition = packed_data(n)
-      n = n+1 ; num_cpus = packed_data(n)
+      allocate ( node(1:nn) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"node",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (num_cpus >= 0) then
+      do i = 1,size(node)
         !
-        allocate ( node(i)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
-        write (array_name,1) "node",i
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
+        n = n+1 ; node(i)%is_on_boundary = (packed_data(n) == 1)
+        n = n+1 ; node(i)%controlling_partition = packed_data(n)
+        n = n+1 ; num_cpus = packed_data(n)
         !
-        do j = 1,size(node(i)%cpu)
-          n = n+1 ; node(i)%cpu(j)%partition = packed_data(n)
-          n = n+1 ; node(i)%cpu(j)%loc_node = packed_data(n)
-          n = n+1 ; node(i)%cpu(j)%num_cells = packed_data(n)
-        end do
-        !
-      end if
-    end do
+        if (num_cpus >= 0) then
+          !
+          allocate ( node(i)%cpu(1:num_cpus) ,  &
+                     stat=ierr , errmsg=error_message )
+          write (array_name,1) "node",i
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                           error_message)
+          !
+          do j = 1,size(node(i)%cpu)
+            n = n+1 ; node(i)%cpu(j)%partition = packed_data(n)
+            n = n+1 ; node(i)%cpu(j)%loc_node = packed_data(n)
+            n = n+1 ; node(i)%cpu(j)%num_cells = packed_data(n)
+          end do
+          !
+        end if
+      end do
+      !
+    end if
     !
     n = n+1 ; ne = packed_data(n)
-    ! 
-    allocate ( edge(1:ne) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edge",1,__LINE__,__FILE__,ierr,error_message)
     !
-    do i = 1,size(edge)
+    if (ne > 0) then
       !
-      n = n+1 ; edge(i)%is_on_boundary = (packed_data(n) == 1)
-      n = n+1 ; edge(i)%controlling_partition = packed_data(n)
-      n = n+1 ; edge(i)%order = packed_data(n)
-      n = n+1 ; num_cpus = packed_data(n)
+      allocate ( edge(1:ne) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edge",1,__LINE__,__FILE__,ierr,error_message)
       !
-      if (num_cpus >= 0) then
+      do i = 1,size(edge)
         !
-        allocate ( edge(i)%cpu(1:num_cpus) , stat=ierr , errmsg=error_message )
-        write (array_name,1) "edge",i
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message)
+        n = n+1 ; edge(i)%is_on_boundary = (packed_data(n) == 1)
+        n = n+1 ; edge(i)%controlling_partition = packed_data(n)
+        n = n+1 ; edge(i)%order = packed_data(n)
+        n = n+1 ; num_cpus = packed_data(n)
         !
-        do j = 1,size(edge(i)%cpu)
+        if (num_cpus >= 0) then
           !
-          n = n+1 ; edge(i)%cpu(j)%partition = packed_data(n)
-          n = n+1 ; edge(i)%cpu(j)%loc_edge = packed_data(n)
-          n = n+1 ; edge(i)%cpu(j)%num_cells = packed_data(n)
-          n = n+1 ; nep = packed_data(n)
+          allocate ( edge(i)%cpu(1:num_cpus) ,  &
+                     stat=ierr , errmsg=error_message )
+          write (array_name,1) "edge",i
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                           error_message)
           !
-          if (nep >= 0) then
+          do j = 1,size(edge(i)%cpu)
             !
-            allocate ( edge(i)%cpu(j)%edgpts(1:nep) , source=0 , &
-                       stat=ierr , errmsg=error_message )
-            write (array_name,1) "edge",i,j
-            call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                             error_message)
+            n = n+1 ; edge(i)%cpu(j)%partition = packed_data(n)
+            n = n+1 ; edge(i)%cpu(j)%loc_edge = packed_data(n)
+            n = n+1 ; edge(i)%cpu(j)%num_cells = packed_data(n)
+            n = n+1 ; nep = packed_data(n)
             !
-            do k = 1,size(edge(i)%cpu(j)%edgpts)
-              n = n+1 ; edge(i)%cpu(j)%edgpts(k) = packed_data(n)
-            end do
+            if (nep >= 0) then
+              !
+              allocate ( edge(i)%cpu(j)%edgpts(1:nep) , source=0 , &
+                         stat=ierr , errmsg=error_message )
+              write (array_name,1) "edge",i,j
+              call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                               error_message)
+              !
+              do k = 1,size(edge(i)%cpu(j)%edgpts)
+                n = n+1 ; edge(i)%cpu(j)%edgpts(k) = packed_data(n)
+              end do
+              !
+            end if
             !
-          end if
+          end do
           !
-        end do
-        !
-      end if
-    end do
+        end if
+      end do
+      !
+    end if
     !
   end if
   !
-  deallocate ( packed_data , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"packed_data",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(packed_data)) then
+    deallocate ( packed_data , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"packed_data",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
