@@ -330,6 +330,9 @@ end subroutine create_serial_cell_map
 subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
                           nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
   !
+  !.. Use Statements ..
+  use ovar, only : continuous_output
+  !
   !.. Formal Arguments ..
   integer,                                  intent(in) :: npart
   integer,                                  intent(in) :: metis_option_requested
@@ -490,11 +493,13 @@ continue
     !
     ! Create the node and edge arrays
     !
-    call memory_pause("Before: calling create_node_and_edge_arrays")
-    call create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
-                                     cells_with_node,cells_with_node_ptr, &
-                                     cells_with_edge,cells_with_edge_ptr, &
-                                     cell_order,epart,bface,node,edge)
+    if (continuous_output) then
+      call memory_pause("Before: calling create_node_and_edge_arrays")
+      call create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
+                                       cells_with_node,cells_with_node_ptr, &
+                                       cells_with_edge,cells_with_edge_ptr, &
+                                       cell_order,epart,bface,node,edge)
+    end if
     !
     ! Deallocate nodes_on_edge since it is no longer needed
     !
@@ -651,7 +656,10 @@ continue
  !                                  cells_with_edge,cells_with_edge_ptr, &
  !                                  nodes_on_edge,face_rotation,flx,fp, &
  !                                  node_map,edge_map,face_map)
-  call create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+  !
+  if (continuous_output) then
+    call create_node_and_edge_datatypes(node,node_map,edge,edge_map)
+  end if
   !
   ! Deallocate the node and edge arrays and the node and edge
   ! mapping arrays since they are no longer needed
