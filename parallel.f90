@@ -538,9 +538,11 @@ continue
     call memory_pause("Before: calling create_face_map")
     call create_face_map(npart,epart,face,face_map)
     !
-    call memory_pause("Before: calling create_edge_map")
-    call create_edge_map(npart,epart,edge,cells_with_edge, &
-                         cells_with_edge_ptr,edge_map)
+    if (allocated(edge)) then
+      call memory_pause("Before: calling create_edge_map")
+      call create_edge_map(npart,epart,edge,cells_with_edge, &
+                           cells_with_edge_ptr,edge_map)
+    end if
     !
     ! Deallocate cells_with_node and cells_with_node_ptr
     ! since they are no longer needed
