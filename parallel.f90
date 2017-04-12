@@ -3403,7 +3403,12 @@ continue
     !
     do n = 1,npart
       array_sizes(n+0*npart) = size(node_map(n)%loc_to_glb)
-      array_sizes(n+1*npart) = size(edge_map(n)%loc_to_glb)
+      array_sizes(n+1*npart) = -1
+      if (allocated(edge_map)) then
+        if (allocated(edge_map(n)%loc_to_glb)) then
+          array_sizes(n+1*npart) = size(edge_map(n)%loc_to_glb)
+        end if
+      end if
       array_sizes(n+2*npart) = size(face_map(n)%loc_to_glb)
       array_sizes(n+3*npart) = size(cell_map(n)%loc_to_glb)
     end do
@@ -3443,13 +3448,26 @@ continue
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
     end do
     !
-    do n = 1,size(edge_map)
-      np = array_sizes(n+1*npart)
-      allocate ( edge_map(n)%loc_to_glb(1:np) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,1) "edge",n
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-    end do
+    if (all(array_sizes(npart+1:2*npart) == -1)) then
+      if (allocated(edge_map)) then
+        deallocate ( edge_map , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"edge_map",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+    end if
+    !
+    if (allocated(edge_map)) then
+      do n = 1,size(edge_map)
+        np = array_sizes(n+1*npart)
+        if (np > 0) then
+          allocate ( edge_map(n)%loc_to_glb(1:np) , source=0 , &
+                     stat=ierr , errmsg=error_message )
+          write (array_name,1) "edge",n
+          call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                           ierr,error_message)
+        end if
+      end do
+    end if
     !
     do n = 1,size(face_map)
       np = array_sizes(n+2*npart)
@@ -3488,11 +3506,15 @@ continue
   !
   ! Broadcast each edge_map(:)%loc_to_glb array to all processors
   !
-  do n = 1,size(edge_map)
-    call mpi_bcast(edge_map(n)%loc_to_glb, &
-                   size(edge_map(n)%loc_to_glb,kind=int_mpi), &
-                   mpi_inttyp,host_root,my_host_comm,mpierr)
-  end do
+  if (allocated(edge_map)) then
+    do n = 1,size(edge_map)
+      if (allocated(edge_map(n)%loc_to_glb)) then
+        call mpi_bcast(edge_map(n)%loc_to_glb, &
+                       size(edge_map(n)%loc_to_glb,kind=int_mpi), &
+                       mpi_inttyp,host_root,my_host_comm,mpierr)
+      end if
+    end do
+  end if
   !
   ! Broadcast each face_map(:)%loc_to_glb array to all processors
   !
