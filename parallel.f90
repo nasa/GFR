@@ -2815,12 +2815,12 @@ subroutine create_node_map(npart,epart,node,cells_with_node, &
                            cells_with_node_ptr,node_map)
   !
   !.. Formal Arguments ..
-  integer,                     intent(in) :: npart
-  integer,                     intent(in) :: epart(:)
-  integer,                     intent(in) :: cells_with_node(:)
-  integer,                     intent(in) :: cells_with_node_ptr(:)
-  type(node_t),             intent(inout) :: node(:)
-  type(map_t), allocatable, intent(inout) :: node_map(:)
+  integer,                      intent(in) :: npart
+  integer,                      intent(in) :: epart(:)
+  integer,                      intent(in) :: cells_with_node(:)
+  integer,                      intent(in) :: cells_with_node_ptr(:)
+  type(node_t), allocatable, intent(inout) :: node(:)
+  type(map_t),  allocatable, intent(inout) :: node_map(:)
   !
   !.. Local Scalars ..
   integer :: i,j,n,nn,n1,n2,ierr
@@ -2842,7 +2842,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gnode = size(node)
+  gnode = size(cells_with_node_ptr)-1
   !
   ! #######
   ! ## 1 ##
@@ -2897,30 +2897,38 @@ continue
     ! F2003 AUTO-REALLOCATION
     node_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:nn)
     !
-    ! Save the local node index for each node of this partition that
-    ! also exists on a different partition
-    ! NOTE: The cpu component of the node array should only be allocated
-    !       if the global node exists on multiple partitions
-    !
-    local_nodes: do loc_node = 1,size(node_map(this_part)%loc_to_glb)
-      !
-      glb_node = node_map(this_part)%loc_to_glb(loc_node)
-      !
-      if (.not. allocated(node(glb_node)%cpu)) cycle local_nodes
-      !
-      do n = 1,size(node(glb_node)%cpu)
-        if (this_part == node(glb_node)%cpu(n)%partition) then
-          node(glb_node)%cpu(n)%loc_node = loc_node
-          cycle local_nodes
-        end if
-      end do
-      !
-    end do local_nodes
-    !
   end do
   !
   deallocate ( tmp_map , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Save the local node index for each node of this partition that
+  ! also exists on a different partition
+  ! NOTE: The cpu component of the node array should only be allocated
+  !       if the global node exists on multiple partitions
+  !
+  if (allocated(node)) then
+    !
+    do this_part = 1,size(node_map)
+      !
+      local_nodes: do loc_node = 1,size(node_map(this_part)%loc_to_glb)
+        !
+        glb_node = node_map(this_part)%loc_to_glb(loc_node)
+        !
+        if (.not. allocated(node(glb_node)%cpu)) cycle local_nodes
+        !
+        do n = 1,size(node(glb_node)%cpu)
+          if (this_part == node(glb_node)%cpu(n)%partition) then
+            node(glb_node)%cpu(n)%loc_node = loc_node
+            cycle local_nodes
+          end if
+        end do
+        !
+      end do local_nodes
+      !
+    end do
+    !
+  end if
   !
  !call output_node_arrays(node,node_map)
   !
@@ -3018,12 +3026,12 @@ subroutine create_edge_map(npart,epart,edge,cells_with_edge, &
                            cells_with_edge_ptr,edge_map)
   !
   !.. Formal Arguments ..
-  integer,                     intent(in) :: npart
-  integer,                     intent(in) :: epart(:)
-  integer,                     intent(in) :: cells_with_edge(:)
-  integer,                     intent(in) :: cells_with_edge_ptr(:)
-  type(edge_t),             intent(inout) :: edge(:)
-  type(map_t), allocatable, intent(inout) :: edge_map(:)
+  integer,                      intent(in) :: npart
+  integer,                      intent(in) :: epart(:)
+  integer,                      intent(in) :: cells_with_edge(:)
+  integer,                      intent(in) :: cells_with_edge_ptr(:)
+  type(edge_t), allocatable, intent(inout) :: edge(:)
+  type(map_t),  allocatable, intent(inout) :: edge_map(:)
   !
   !.. Local Scalars ..
   integer :: i,j,n,ne,n1,n2,ierr
@@ -3045,7 +3053,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  gedge = size(edge)
+  gedge = size(cells_with_edge_ptr)-1
   !
  !if (mypnum == glb_root) write (iout,15) gedge
  !15 format (" size(edge) = ",i0)
@@ -3099,30 +3107,38 @@ continue
     ! F2003 AUTO-REALLOCATION
     edge_map(this_part)%loc_to_glb = tmp_map(this_part)%loc_to_glb(1:ne)
     !
-    ! Save the local edge index for each edge of this partition that
-    ! also exists on a different partition
-    ! NOTE: The cpu component of the edge array should only be allocated
-    !       if the global edge exists on multiple partitions
-    ! 
-    local_edges: do loc_edge = 1,size(edge_map(this_part)%loc_to_glb)
-      !
-      glb_edge = edge_map(this_part)%loc_to_glb(loc_edge)
-      !
-      if (.not. allocated(edge(glb_edge)%cpu)) cycle local_edges
-      ! 
-      do n = 1,size(edge(glb_edge)%cpu)
-        if (this_part == edge(glb_edge)%cpu(n)%partition) then
-          edge(glb_edge)%cpu(n)%loc_edge = loc_edge
-          cycle local_edges
-        end if
-      end do
-      !
-    end do local_edges
-    !
   end do
   !
   deallocate ( tmp_map , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tmp_map",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Save the local edge index for each edge of this partition that
+  ! also exists on a different partition
+  ! NOTE: The cpu component of the edge array should only be allocated
+  !       if the global edge exists on multiple partitions
+  ! 
+  if (allocated(edge)) then
+    !
+    do this_part = 1,size(edge_map)
+      !
+      local_edges: do loc_edge = 1,size(edge_map(this_part)%loc_to_glb)
+        !
+        glb_edge = edge_map(this_part)%loc_to_glb(loc_edge)
+        !
+        if (.not. allocated(edge(glb_edge)%cpu)) cycle local_edges
+        ! 
+        do n = 1,size(edge(glb_edge)%cpu)
+          if (this_part == edge(glb_edge)%cpu(n)%partition) then
+            edge(glb_edge)%cpu(n)%loc_edge = loc_edge
+            cycle local_edges
+          end if
+        end do
+        !
+      end do local_edges
+      !
+    end do
+    !
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
