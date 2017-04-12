@@ -644,6 +644,12 @@ continue
   !
   call memory_pause("Before: calling create_node_and_edge_datatypes")
   call bcast_node_and_edge_arrays(node,edge)
+ !call report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
+ !                                  cells_with_node,cells_with_node_ptr, &
+ !                                  cells_surr_cell,cells_surr_cell_ptr, &
+ !                                  cells_with_edge,cells_with_edge_ptr, &
+ !                                  nodes_on_edge,face_rotation,flx,fp, &
+ !                                  node_map,edge_map,face_map)
   call create_node_and_edge_datatypes(node,node_map,edge,edge_map)
   !
   ! Deallocate the node and edge arrays and the node and edge
@@ -8964,6 +8970,667 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
 end subroutine parallel_memory_usage
+!
+!###############################################################################
+!
+subroutine partition_memory_usage(iou,xadj,adjncy,epart,node,edge,face, &
+                                  cells_with_node,cells_with_node_ptr, &
+                                  cells_surr_cell,cells_surr_cell_ptr, &
+                                  cells_with_edge,cells_with_edge_ptr, &
+                                  nodes_on_edge,face_rotation,flx,fp, &
+                                  node_map,edge_map,face_map)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  integer,                       intent(in) :: iou
+  integer,          allocatable, intent(in) :: xadj(:)
+  integer,          allocatable, intent(in) :: adjncy(:)
+  integer,          allocatable, intent(in) :: epart(:)
+  integer,          allocatable, intent(in) :: cells_with_node(:)
+  integer,          allocatable, intent(in) :: cells_with_node_ptr(:)
+  integer,          allocatable, intent(in) :: cells_surr_cell(:)
+  integer,          allocatable, intent(in) :: cells_surr_cell_ptr(:)
+  integer,          allocatable, intent(in) :: cells_with_edge(:)
+  integer,          allocatable, intent(in) :: cells_with_edge_ptr(:)
+  integer,          allocatable, intent(in) :: nodes_on_edge(:,:)
+  integer,          allocatable, intent(in) :: face_rotation(:,:)
+  type(map_t),      allocatable, intent(in) :: node_map(:)
+  type(map_t),      allocatable, intent(in) :: edge_map(:)
+  type(map_t),      allocatable, intent(in) :: face_map(:)
+  type(node_t),     allocatable, intent(in) :: node(:)
+  type(edge_t),     allocatable, intent(in) :: edge(:)
+  type(face_t),     allocatable, intent(in) :: face(:)
+  type(flux_pts_t), allocatable, intent(in) :: flx(:)
+  type(fp_t),       allocatable, intent(in) :: fp
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,loc_siz,glb_siz
+  character(len=36) :: array_name
+  type(memory) :: array,dt
+  type(memory) :: total
+  type(memory) :: edge_cpu
+  type(memory) :: flxpts
+  type(memory) :: left_fp
+  type(memory) :: right_fp
+  !
+continue
+  !
+  call total%reset
+  call edge_cpu%reset
+  call flxpts%reset
+  call left_fp%reset
+  call right_fp%reset
+  !
+  write (iou,1)
+  !
+  !-----------------------------------------------------------------------------
+  !
+  ! Check the memory of the local allocatable derived type
+  ! arrays within the subroutine partition_grid
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(node_map)) then
+    !
+    call dt%set( storage_size(node_map,kind=inttype) , &
+                         size(node_map,kind=inttype) )
+    !
+    do i = lbound(node_map,dim=1),ubound(node_map,dim=1)
+      if (allocated(node_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(node_map(i)%loc_to_glb,kind=inttype) , &
+                             size(node_map(i)%loc_to_glb,kind=inttype) )
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "node_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "node_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(face_map)) then
+    !
+    call dt%set( storage_size(face_map,kind=inttype) , &
+                         size(face_map,kind=inttype) )
+    !
+    do i = lbound(face_map,dim=1),ubound(face_map,dim=1)
+      if (allocated(face_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(face_map(i)%loc_to_glb,kind=inttype) , &
+                             size(face_map(i)%loc_to_glb,kind=inttype) )
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "face_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "face_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(edge_map)) then
+    !
+    call dt%set( storage_size(edge_map,kind=inttype) , &
+                         size(edge_map,kind=inttype) )
+    !
+    do i = lbound(edge_map,dim=1),ubound(edge_map,dim=1)
+      if (allocated(edge_map(i)%loc_to_glb)) then
+        call dt%add( storage_size(edge_map(i)%loc_to_glb,kind=inttype) , &
+                             size(edge_map(i)%loc_to_glb,kind=inttype) )
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "edge_map"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "edge_map"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(fp)) then
+    !
+    call dt%set( storage_size(fp,kind=inttype) , 1_inttype )
+    !
+    if (allocated(fp%geord)) then
+      !
+      call array%set( storage_size(fp%geord,kind=inttype), &
+                              size(fp%geord,kind=inttype) )
+      !
+      call dt%add(array)
+      !
+      do j = lbound(fp%geord,dim=2),ubound(fp%geord,dim=2)
+        do i = lbound(fp%geord,dim=2),ubound(fp%geord,dim=2)
+          if (allocated(fp%geord(i,j)%rot)) then
+            !
+            call array%set( storage_size(fp%geord(i,j)%rot,kind=inttype) , &
+                                    size(fp%geord(i,j)%rot,kind=inttype) )
+            call dt%add(array)
+            !
+            do k = lbound(fp%geord(i,j)%rot,dim=1), &
+                   ubound(fp%geord(i,j)%rot,dim=1)
+              if (allocated(fp%geord(i,j)%rot(k)%pts)) then
+                !
+                call array%set( &
+                       storage_size(fp%geord(i,j)%rot(k)%pts,kind=inttype) , &
+                               size(fp%geord(i,j)%rot(k)%pts) )
+                !
+                call dt%add(array)
+                !
+              end if
+            end do
+            !
+          end if
+        end do
+      end do
+      !
+    end if
+    !
+    call total%add(dt)
+    write (array_name,5) "fp"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "fp"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(face)) then
+    !
+    call array%set( storage_size(face,kind=inttype) , &
+                            size(face,kind=inttype) )
+    !
+    write (array_name,5) "face(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    do i = lbound(face,dim=1),ubound(face,dim=1)
+      !
+      call dt%add( storage_size(face(i)%geom,kind=inttype) )
+      call dt%add( storage_size(face(i)%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
+                           size(face(i)%nodes,kind=inttype) )
+      call dt%add( storage_size(face(i)%left,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%left%cell_face,kind=inttype) )
+      call dt%add( storage_size(face(i)%right,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
+      call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
+      !
+#ifdef USE_FACE_FLXPTS
+      if (allocated(face(i)%left%flxpts)) then
+        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                                size(face(i)%left%flxpts,kind=inttype) )
+        call left_fp%add(array)
+        call flxpts%add(array)
+        call dt%add(array)
+      end if
+      !
+      if (allocated(face(i)%right%flxpts)) then
+        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
+                                size(face(i)%left%flxpts,kind=inttype) )
+        call right_fp%add(array)
+        call flxpts%add(array)
+        call dt%add(array)
+      end if
+#else
+      call array%set( storage_size(face(i)%left%fp_offset,kind=inttype) )
+      call array%add( storage_size(face(i)%left%rotation,kind=inttype) )
+      call left_fp%add(array)
+      call flxpts%add(array)
+      call dt%add(array)
+      !
+      call array%set( storage_size(face(i)%right%fp_offset,kind=inttype) )
+      call array%add( storage_size(face(i)%right%rotation,kind=inttype) )
+      call right_fp%add(array)
+      call flxpts%add(array)
+      call dt%add(array)
+#endif
+      !
+    end do
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%left%flxpts"
+    write (iou,6) array_name,left_fp%get_units()
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%right%flxpts"
+    write (iou,6) array_name,right_fp%get_units()
+    !
+#ifdef USE_FACE_FLXPTS
+    write (iou,20)
+#else
+    write (iou,21)
+#endif
+    write (array_name,5) "face%[left,right]%flxpts"
+    write (iou,6) array_name,flxpts%get_units()
+    !
+    call total%add(dt)
+    write (array_name,5) "face"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "face"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(node)) then
+    !
+    call array%set( storage_size(node,kind=inttype) , &
+                            size(node,kind=inttype) )
+    !
+    write (array_name,5) "node(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    do i = lbound(node,dim=1),ubound(node,dim=1)
+      !
+      call dt%add( storage_size(node(i)%is_on_boundary,kind=inttype) )
+      call dt%add( storage_size(node(i)%controlling_partition,kind=inttype) )
+      !
+      if (allocated(node(i)%cpu)) then
+        !
+        call array%set( storage_size(node(i)%cpu,kind=inttype) , &
+                                size(node(i)%cpu,kind=inttype) )
+        call dt%add(array)
+        !
+        do j = lbound(node(i)%cpu,dim=1),ubound(node(i)%cpu,dim=1)
+          !
+          call dt%add( storage_size(node(i)%cpu(j)%partition,kind=inttype) )
+          call dt%add( storage_size(node(i)%cpu(j)%loc_node,kind=inttype) )
+          call dt%add( storage_size(node(i)%cpu(j)%num_cells,kind=inttype) )
+          !
+        end do
+        !
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "node"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "node"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(edge)) then
+    !
+    call array%set( storage_size(edge,kind=inttype) , &
+                            size(edge,kind=inttype) )
+    !
+    write (array_name,5) "edge(:)"
+    write (iou,6) array_name,array%get_units()
+    !
+    call dt%set(array)
+    !
+    do i = lbound(edge,dim=1),ubound(edge,dim=1)
+      !
+      call dt%add( storage_size(edge(i)%is_on_boundary,kind=inttype) )
+      call dt%add( storage_size(edge(i)%controlling_partition,kind=inttype) )
+      call dt%add( storage_size(edge(i)%order,kind=inttype) )
+      !
+      if (allocated(edge(i)%cpu)) then
+        !
+        call array%set( storage_size(edge(i)%cpu,kind=inttype) , &
+                                size(edge(i)%cpu,kind=inttype) )
+        call dt%add(array)
+        !
+        do j = lbound(edge(i)%cpu,dim=1),ubound(edge(i)%cpu,dim=1)
+          !
+          call dt%add( storage_size(edge(i)%cpu(j)%partition,kind=inttype) )
+          call dt%add( storage_size(edge(i)%cpu(j)%loc_edge,kind=inttype) )
+          call dt%add( storage_size(edge(i)%cpu(j)%num_cells,kind=inttype) )
+          !
+          if (allocated(edge(i)%cpu(j)%edgpts)) then
+            call array%set( storage_size(edge(i)%cpu(j)%edgpts,kind=inttype), &
+                                    size(edge(i)%cpu(j)%edgpts,kind=inttype) )
+            call edge_cpu%add(array)
+            call dt%add(array)
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end do
+    !
+    write (array_name,5) "edge%cpu%edgpts"
+    write (iou,6) array_name,edge_cpu%get_units()
+    !
+    call total%add(dt)
+    write (array_name,5) "edge"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "edge"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(flx)) then
+    !
+    call dt%set( storage_size(flx,kind=inttype) , &
+                         size(flx,kind=inttype) )
+    !
+    do i = lbound(flx,dim=1),ubound(flx,dim=1)
+      if (allocated(flx(i)%pts)) then
+        call dt%add( storage_size(flx(i)%pts,kind=inttype) , &
+                             size(flx(i)%pts,kind=inttype) )
+      end if
+      !
+    end do
+    !
+    call total%add(dt)
+    write (array_name,5) "flx"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "flx"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  ! Check the memory of the local allocatable arrays
+  ! within the subroutine partition_grid
+  !
+  !--------------------------------------------------------------------
+  if (allocated(xadj)) then
+    call array%set( storage_size(xadj,kind=inttype) , &
+                            size(xadj,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "xadj"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "xadj"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(adjncy)) then
+    call array%set( storage_size(adjncy,kind=inttype) , &
+                            size(adjncy,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "adjncy"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "adjncy"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(epart)) then
+    call array%set( storage_size(epart,kind=inttype) , &
+                            size(epart,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "epart"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "epart"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_with_node)) then
+    call array%set( storage_size(cells_with_node,kind=inttype) , &
+                            size(cells_with_node,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_with_node"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_with_node"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_with_node_ptr)) then
+    call array%set( storage_size(cells_with_node_ptr,kind=inttype) , &
+                            size(cells_with_node_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_with_node_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_with_node_ptr"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_surr_cell)) then
+    call array%set( storage_size(cells_surr_cell,kind=inttype) , &
+                            size(cells_surr_cell,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_surr_cell"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_surr_cell"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_surr_cell_ptr)) then
+    call array%set( storage_size(cells_surr_cell_ptr,kind=inttype) , &
+                            size(cells_surr_cell_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_surr_cell_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_surr_cell_ptr"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_with_edge)) then
+    call array%set( storage_size(cells_with_edge,kind=inttype) , &
+                            size(cells_with_edge,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_with_edge"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_with_edge"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(cells_with_edge_ptr)) then
+    call array%set( storage_size(cells_with_edge_ptr,kind=inttype) , &
+                            size(cells_with_edge_ptr,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "cells_with_edge_ptr"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "cells_with_edge_ptr"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(nodes_on_edge)) then
+    call array%set( storage_size(nodes_on_edge,kind=inttype) , &
+                            size(nodes_on_edge,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "nodes_on_edge"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "nodes_on_edge"
+  end if
+  !--------------------------------------------------------------------
+  if (allocated(face_rotation)) then
+    call array%set( storage_size(face_rotation,kind=inttype) , &
+                            size(face_rotation,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "face_rotation"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "face_rotation"
+  end if
+  !--------------------------------------------------------------------
+  !
+  total = total%get_units()
+  write (iou,3) total%rmem,trim(adjustl(total%units))
+  !
+  ! Format Statements
+  !
+  1 format (/,"Status of local allocatable derived-types/arrays ", &
+              "in partition_grid subroutine")
+  2 format (" Array: ",a,dt)
+  3 format (" Total memory = ",f8.2,1x,a,:,a)
+  4 format (a,"(",a,",",i0,")%",a,:,"(",i0,")%mat")
+  5 format ("'",a,"'")
+  6 format (" Array Component: ",a,dt)
+  7 format (" Array: ",a36," -       NOT ALLOCATED")
+  !
+  20 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is ENABLED!")
+  21 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is DISABLED!")
+  !
+end subroutine partition_memory_usage
+!
+!###############################################################################
+!
+subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
+                                        cells_with_node,cells_with_node_ptr, &
+                                        cells_surr_cell,cells_surr_cell_ptr, &
+                                        cells_with_edge,cells_with_edge_ptr, &
+                                        nodes_on_edge,face_rotation,flx,fp, &
+                                        node_map,edge_map,face_map, &
+                                        n,request_stop)
+  !
+  !.. Use Statements ..
+  use geovar,        only : geovar_memory_usage
+  use ovar,          only : ovar_memory_usage
+  use flowvar,       only : flowvar_memory_usage
+  use module_plot3d, only : plot3d_memory_usage
+  use module_gmsh,   only : gmsh_memory_usage
+  use module_cgns,   only : cgns_memory_usage
+  !
+  !.. Formal Arguments ..
+  integer,          allocatable, intent(in) :: xadj(:)
+  integer,          allocatable, intent(in) :: adjncy(:)
+  integer,          allocatable, intent(in) :: epart(:)
+  integer,          allocatable, intent(in) :: cells_with_node(:)
+  integer,          allocatable, intent(in) :: cells_with_node_ptr(:)
+  integer,          allocatable, intent(in) :: cells_surr_cell(:)
+  integer,          allocatable, intent(in) :: cells_surr_cell_ptr(:)
+  integer,          allocatable, intent(in) :: cells_with_edge(:)
+  integer,          allocatable, intent(in) :: cells_with_edge_ptr(:)
+  integer,          allocatable, intent(in) :: nodes_on_edge(:,:)
+  integer,          allocatable, intent(in) :: face_rotation(:,:)
+  type(node_t),     allocatable, intent(in) :: node(:)
+  type(map_t),      allocatable, intent(in) :: node_map(:)
+  type(edge_t),     allocatable, intent(in) :: edge(:)
+  type(map_t),      allocatable, intent(in) :: edge_map(:)
+  type(face_t),     allocatable, intent(in) :: face(:)
+  type(map_t),      allocatable, intent(in) :: face_map(:)
+  type(flux_pts_t), allocatable, intent(in) :: flx(:)
+  type(fp_t),       allocatable, intent(in) :: fp
+  !
+  !.. Optional Arguments ..
+  integer,     optional, intent(in) :: n
+  logical(lk), optional, intent(in) :: request_stop
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr,ncpu_digits
+  !
+  character(len=100) :: memfile
+  character(len=100) :: frmt
+  character(len=100) :: char_num
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "report_parallel_memory_usage"
+  !
+continue
+  !
+  frmt = "('memory_usage'"
+  !
+  if (ncpu > 1) then
+    !
+    write (char_num,1) ncpu
+    ncpu_digits = max(1,len_trim(adjustl(char_num)))
+    !
+    write (frmt,10) trim(adjustl(frmt)),ncpu_digits,ncpu_digits
+    !
+  end if
+  !
+  if (present(n)) then
+    write (frmt,11) trim(adjustl(frmt)),n
+  end if
+  !
+  frmt = trim(adjustl(frmt)) // ",'.dat')"
+  !
+  if (ncpu > 1) then
+    write (memfile,frmt) mypnum
+  else
+    write (memfile,frmt)
+  end if
+  !
+  open (newunit=i,file=trim(adjustl(memfile)),status="replace", &
+        action="write",form="formatted",position="rewind", &
+        iostat=ierr,iomsg=error_message)
+  call io_error(pname,memfile,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  call geovar_memory_usage(i)
+ !call ovar_memory_usage(i)
+ !call plot3d_memory_usage(i)
+ !call gmsh_memory_usage(i)
+  call cgns_memory_usage(i)
+ !call flowvar_memory_usage(i)
+  call parallel_memory_usage(i)
+  call partition_memory_usage(i,xadj,adjncy,epart,node,edge,face, &
+                              cells_with_node,cells_with_node_ptr, &
+                              cells_surr_cell,cells_surr_cell_ptr, &
+                              cells_with_edge,cells_with_edge_ptr, &
+                              nodes_on_edge,face_rotation,flx,fp, &
+                              node_map,edge_map,face_map)
+  !
+  flush (i)
+  !
+  close (i,iostat=ierr,iomsg=error_message)
+  call io_error(pname,memfile,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  if (present(request_stop)) then
+    if (request_stop) then
+      write (error_message,20)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
+  ! Format Statements
+  !
+  1  format (i0)
+  10 format (a,",'.CPU-',i",i0,".",i0)
+  11 format (a,",'.CP-",i0,"'")
+  20 format ("After dumping memory usage")
+  !
+end subroutine report_parallel_memory_usage
 !
 !###############################################################################
 !
