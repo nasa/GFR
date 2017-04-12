@@ -6166,8 +6166,8 @@ continue
   ! node and edge arrays are not allocated on the root process
   !
   if (npd == 2) then
-    return
     call debug_timer(leaving_procedure,pname)
+    return
   end if
   !
   allocate ( packed_data(1:npd) , source=0 , stat=ierr , errmsg=error_message )
