@@ -70,7 +70,7 @@ subroutine get_cpu_locality
   !
 continue
   !
- !if (ncpu == 1) return
+  ! Initialize communication variables
   !
   my_host_comm = MPI_COMM_WORLD
   my_cpu_comm = MPI_COMM_WORLD
