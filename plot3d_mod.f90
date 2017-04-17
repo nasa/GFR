@@ -2953,8 +2953,8 @@ continue
       !
       ip(1:nfnods) = nodes_of_cell( p1 + ip(1:nfnods) )
       !
-      xyz_min(1:nr,nf) = sum( xyz_nodes(1:nr,ip(1:nfnods)) , dim=2 )
-      xyz_min(1:nr,nf) = xyz_min(1:nr,nf) / real(nfnods,kind=wp)
+      xyz_max(1:nr,nf) = sum( xyz_nodes(1:nr,ip(1:nfnods)) , dim=2 )
+      xyz_max(1:nr,nf) = xyz_max(1:nr,nf) / real(nfnods,kind=wp)
       !
     end do
     !
