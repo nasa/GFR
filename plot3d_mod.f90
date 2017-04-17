@@ -1732,6 +1732,7 @@ subroutine readbcsinfo( bcsfile )
   !
   !.. Use Statements ..
   use geovar, only : nr,nfbnd
+  use ovar, only : bc_names
   !
   !.. Formal Arguments ..
   character(len=*), intent(inout) :: bcsfile
@@ -1789,6 +1790,9 @@ continue
   allocate ( bcs_info(1:nbc) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bcs_info",1,__LINE__,__FILE__,ierr,error_message)
   !
+  allocate ( bc_names(1:nbc) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bcs_info",1,__LINE__,__FILE__,ierr,error_message)
+  !
   ! Rewind back to the beginning of the BC file and
   ! skip/read the header line.
   !
@@ -1803,7 +1807,7 @@ continue
     !
     read (iobcs,1,iostat=ierr) text
     !
-    call parse_list(text,clist,list_min_size=10)
+    call parse_list(text,clist,list_min_size=11)
     !
     ! Convert the BC string to its respective integer value
     !
@@ -1918,6 +1922,9 @@ continue
       nfbnd = nfbnd + bcs_info(nb)%nfaces
       !
     end if
+    !
+    bc_names(nb) = trim(clist(11))
+    if ( bc_names(nb) .ne. '1' ) bc_names(nb) = ''
     !
   end do
   !
