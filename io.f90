@@ -151,6 +151,7 @@ continue
     call check_input_file(input_fname,input_status)
     !
     if (input_status /= 0) then
+      call write_nml_input_file('recon.in.default')
       write (error_message,11)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
@@ -705,6 +706,39 @@ continue
   24 format ("MMS ERROR: The MMS solution chosen is invalid!")
   !
 end subroutine read_nml_input_file
+!
+!###############################################################################
+!
+subroutine write_nml_input_file(output_fname)
+  !
+  !.. Use Statements ..
+  use input_namelist_mod ! use all the variables in the input namelist
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: output_fname
+  !
+  !.. Local Scalars ..
+  integer ionml,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_nml_input_file"
+  !
+continue
+  !
+  if (mypnum == 0) then
+    open (newunit=ionml,file=output_fname,status="new",action="write", &
+                        delim='apostrophe', &
+                        position="rewind",iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                  ierr,error_message)
+    write (ionml,nml=input)
+    write (iout,101) trim(output_fname)
+    close(ionml)
+  endif
+  !
+  101 format(/,"Default namelist input file written to:  ",A)
+  !
+end subroutine write_nml_input_file
 !
 !###############################################################################
 !
