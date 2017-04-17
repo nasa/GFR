@@ -202,7 +202,8 @@ continue
         !
         call get_bc_isothermal_wall_solution(faceusp(nf)%v(:,:,1), &
                                              faceusp(nf)%v(:,:,2), &
-                                             bc_in(bc_idx)%wall_temperature)
+                                             bc_in(bc_idx)%wall_temperature, &
+                                             geofa(nf)%v(:,:))
         !
       case (bc_periodic)
         !
@@ -1653,7 +1654,7 @@ end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature)
+subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
   !
   ! #####################################################
   ! #####################################################
@@ -1668,15 +1669,18 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature)
   !.. Use Statements ..
   use ovar, only : tref,rgasref_nd
   use ovar, only : walls_are_exact
+  use ovar, only : aref
   !
   !.. Formal Arguments ..
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: wall_temperature
+  real(wp),    intent(in) :: fnrm(:,:)
   real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
   integer  :: k
   real(wp) :: wall_solution_location
+  real(wp) :: uwall
   !
   !.. Local Arrays ..
   real(wp) :: hvfp(1:size(gufp,dim=1))
@@ -1684,12 +1688,14 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature)
 continue
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
+  uwall = 30.0 / aref
   !
   do k = 1,size(gufp,dim=2)
     !
     ! Get the interior primitive variables
     !
     hvfp(:) = usp2v_sp( hufp(:,k) )
+    if ( fnrm(2,k) .gt. 0. ) hvfp(nmb) = uwall
     !
     ! Apply the no-slip condition to the boundary velocities
     !
