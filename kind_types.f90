@@ -240,6 +240,7 @@ module module_kind_types
   integer, parameter :: Taylor_Green_Vortex    = 9
   integer, parameter :: Nozzle_Jet             = 10
   integer, parameter :: Double_Mach_Reflection = 11
+  integer, parameter :: Infinite_Cylinder      = 12
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
