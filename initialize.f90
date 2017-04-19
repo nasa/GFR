@@ -436,6 +436,12 @@ continue
       !
     end if
     !
+  else if (itestcase == Infinite_Cylinder) then
+    !
+    do k = 1,np
+      return_value(:,k) = initialize_cylinder(xyz(:,k),bc_in(0)%pv(:))
+    end do
+    !
   else
     !
     do k = 1,np
@@ -507,6 +513,97 @@ continue
   return_value(:) = vsp2u_sp( return_value(:) )
   !
 end function jet_profile
+!
+!###############################################################################
+!
+pure &
+function initialize_cylinder(xyz,fs_pv) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xyz(:)
+  real(wp), intent(in) :: fs_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  real(wp) :: a,b,c,u,v,w,rho,pres
+  real(wp) :: r,theta,uinf
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: sig = one/ten
+  real(wp), parameter :: three2 = three/two
+  real(wp), parameter :: five4 = five/four
+  real(wp), parameter :: halfpi = half*pi
+  !
+continue
+  !
+  r = norm2(xyz(1:2))
+  theta = acos(xyz(1)/r)
+  !
+  rho  = fs_pv(nec)
+  uinf = fs_pv(nmx)
+  u    = uinf
+  v    = fs_pv(nmy)
+  w    = fs_pv(nmz)
+  pres = fs_pv(nee)
+  !
+  if (r < three2) then
+    !
+    u = uinf * cylinder_function(r,one,half)
+    !
+    a = sin( halfpi * xyz(3) )
+    !
+    if (r > half .and. r <= one) then
+      b = cylinder_function(r,three4,one4)
+    else
+      b = one - cylinder_function(r,five4,one4)
+    end if
+    !
+    if (theta > zero .and. theta < pi) then
+      c = cylinder_function(theta,halfpi,halfpi)
+    else
+      c = one - cylinder_function(theta,three*halfpi,halfpi)
+    end if
+    !
+    v = sig * uinf * b * c
+    w = sig * uinf * b * a*a
+    !
+  end if
+  !
+  return_value(nec) = rho
+  return_value(nmx) = u
+  return_value(nmy) = v
+  return_value(nmz) = w
+  return_value(nee) = pres
+  !
+  return_value(:) = vsp2u_sp( return_value(:) )
+  !
+end function initialize_cylinder
+!
+!###############################################################################
+!
+pure function cylinder_function(r,rm,ra) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: r,rm,ra
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  real(wp) :: r_min_rm,numer,denom
+  !
+continue
+  !
+  r_min_rm = r - rm
+  !
+  numer = two * ra * r_min_rm
+  denom = ra*ra - r_min_rm*r_min_rm
+  !
+  return_value = half * (one + tanh(numer/denom))
+  !
+end function cylinder_function
 !
 !###############################################################################
 !
