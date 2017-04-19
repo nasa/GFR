@@ -308,7 +308,7 @@ subroutine filter_usp
   !
 continue
   !
-  call debug_timer(entering_procedure,pname)
+ !call debug_timer(entering_procedure,pname)
   !
   ! Apply the filter to each cell
   !
@@ -328,7 +328,7 @@ continue
     !
   end do
   !
-  call debug_timer(leaving_procedure,pname)
+ !call debug_timer(leaving_procedure,pname)
   !
 end subroutine filter_usp
 !
