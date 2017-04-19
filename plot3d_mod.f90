@@ -1924,7 +1924,7 @@ continue
     end if
     !
     bc_names(nb) = trim(clist(11))
-    if ( bc_names(nb) .ne. '1' ) bc_names(nb) = ''
+   !if ( bc_names(nb) /= '1' ) bc_names(nb) = ''
     !
   end do
   !
