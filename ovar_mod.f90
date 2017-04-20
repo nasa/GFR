@@ -260,17 +260,7 @@ module ovar
   real(wp), public, save :: rltwo
   real(wp), public, save :: rl2mx
   !
-  integer,  public, save, allocatable, dimension(:) :: unloc
-  integer,  public, save, allocatable, dimension(:) :: ukloc
-  real(wp), public, save, allocatable, dimension(:) :: ulinf
-  real(wp), public, save, allocatable, dimension(:) :: ulone
-  real(wp), public, save, allocatable, dimension(:) :: ultwo
-  !
-  integer,  public, save, allocatable, dimension(:) :: vnloc
-  integer,  public, save, allocatable, dimension(:) :: vkloc
-  real(wp), public, save, allocatable, dimension(:) :: vlinf
-  real(wp), public, save, allocatable, dimension(:) :: vlone
-  real(wp), public, save, allocatable, dimension(:) :: vltwo
+  real(wp), public, save, allocatable :: uverr(:,:,:)
   !
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
   real(wp), public, save, dimension(1:5,1:2,1:5) :: vortex_error
@@ -485,95 +475,14 @@ continue
   else
     write (iou,7) "pv_in"
   end if
-  if (allocated(unloc)) then
-    call array%set( storage_size(unloc,kind=inttype) , &
-                            size(unloc,kind=inttype) )
+  if (allocated(uverr)) then
+    call array%set( storage_size(uverr,kind=inttype) , &
+                            size(uverr,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "unloc"
+    write (array_name,5) "uverr"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "unloc"
-  end if
-  if (allocated(ukloc)) then
-    call array%set( storage_size(ukloc,kind=inttype) , &
-                            size(ukloc,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "ukloc"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "ukloc"
-  end if
-  if (allocated(ulinf)) then
-    call array%set( storage_size(ulinf,kind=inttype) , &
-                            size(ulinf,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "ulinf"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "ulinf"
-  end if
-  if (allocated(ulone)) then
-    call array%set( storage_size(ulone,kind=inttype) , &
-                            size(ulone,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "ulone"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "ulone"
-  end if
-  if (allocated(ultwo)) then
-    call array%set( storage_size(ultwo,kind=inttype) , &
-                            size(ultwo,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "ultwo"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "ultwo"
-  end if
-  if (allocated(vnloc)) then
-    call array%set( storage_size(vnloc,kind=inttype) , &
-                            size(vnloc,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "vnloc"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "vnloc"
-  end if
-  if (allocated(vkloc)) then
-    call array%set( storage_size(vkloc,kind=inttype) , &
-                            size(vkloc,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "vkloc"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "vkloc"
-  end if
-  if (allocated(vlinf)) then
-    call array%set( storage_size(vlinf,kind=inttype) , &
-                            size(vlinf,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "vlinf"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "vlinf"
-  end if
-  if (allocated(vlone)) then
-    call array%set( storage_size(vlone,kind=inttype) , &
-                            size(vlone,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "vlone"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "vlone"
-  end if
-  if (allocated(vltwo)) then
-    call array%set( storage_size(vltwo,kind=inttype) , &
-                            size(vltwo,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "vltwo"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "vltwo"
+    write (iou,7) "uverr"
   end if
   !
   total = total%get_units()

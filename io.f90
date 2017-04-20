@@ -4570,9 +4570,11 @@ subroutine write_final_error
   use geovar, only : nr,n_global_cell
   use geovar, only : n_global_solpts,global_pinc_ptr
   use ovar,   only : itestcase,flux_divergence
-  use ovar,   only : vnloc,vkloc,vlone,vlinf,vltwo
-  use ovar,   only : unloc,ukloc,ulone,ulinf,ultwo
+  use ovar,   only : uverr
   use order_mod, only : n_order
+  !
+  !.. Local Scalars ..
+  integer :: n,k
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_final_error"
@@ -4581,18 +4583,20 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  n = nint(uverr(1,4,2))
+  k = nint(uverr(1,5,2))
   write (iout,31) itestcase,flux_divergence, &
                   n_order,n_global_cell,n_global_solpts, &
-                  vnloc(1),global_pinc_ptr(vnloc(1))+vkloc(1)
+                  n,global_pinc_ptr(n)+k
   !
-  write (iout,32) vlone(nec),  vlinf(nec),  vltwo(nec)
-  write (iout,33) vlone(nmx),  vlinf(nmx),  vltwo(nmx)
+  write (iout,32) uverr(nec,1,2),  uverr(nec,3,2),  uverr(nec,2,2)
+  write (iout,33) uverr(nmx,1,2),  uverr(nmx,3,2),  uverr(nmx,2,2)
   if (nr > 1) &
-  write (iout,34) vlone(nmy),  vlinf(nmy),  vltwo(nmy)
+  write (iout,34) uverr(nmy,1,2),  uverr(nmy,3,2),  uverr(nmy,2,2)
   if (nr > 2) &
-  write (iout,35) vlone(nmz),  vlinf(nmz),  vltwo(nmz)
-  write (iout,36) ulone(nq+1), ulinf(nq+1), ultwo(nq+1)
-  write (iout,37) vlone(nq+1), vlinf(nq+1), vltwo(nq+1)
+  write (iout,35) uverr(nmz,1,2),  uverr(nmz,3,2),  uverr(nmz,2,2)
+  write (iout,36) uverr(nq+1,1,1), uverr(nq+1,3,1), uverr(nq+1,2,1)
+  write (iout,37) uverr(nq+1,1,2), uverr(nq+1,3,2), uverr(nq+1,2,2)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -4620,7 +4624,8 @@ end subroutine write_final_error
 subroutine write_results_file(iflag,icount)
   !
   use geovar,  only : nr,n_global_solpts
-  use ovar,    only : ultwo,vltwo,work_units
+  use ovar,    only : work_units
+  use ovar,    only : uverr
   use order_mod, only : p_order
   !
   !.. Formal Arguments ..
@@ -4668,8 +4673,8 @@ continue
   !
   comp_cost = log10(merge(work_units,one,work_units > zero))
   !
-  u2(:) = ultwo(:)
-  v2(:) = vltwo(:)
+  u2(:) = uverr(:,2,1)
+  v2(:) = uverr(:,2,2)
   !
   where (u2 <= zero)
     u2 = one

@@ -35,24 +35,11 @@ contains
 !
 subroutine compute_final_error()
   !
-  ! Compute the final error. The error is
-  ! stored in the arrays ultwo and vltwo as
-  !
-  ! ultwo(1)      = density
-  ! ultwo(nmb:nme) = directional momentums
-  ! ultwo(nq)     = energy
-  ! ultwo(nq+1)   = entropy
-  !
-  ! vltwo(1)      = density
-  ! vltwo(nmb:nme) = directional velocities
-  ! vltwo(nq)     = pressure
-  ! vltwo(nq+1)   = magnitude of velocity
-  !
   !.. Use Statements ..
   use order_mod, only : maxEP
   use geovar,  only : nr,ncell,cell
-  use ovar,    only : vlinf,vlone,vltwo,vnloc,vkloc,total_volume
-  use ovar,    only : ulinf,ulone,ultwo,unloc,ukloc,itestcase
+  use ovar,    only : total_volume,itestcase
+  use ovar,    only : uverr
   use parallel_mod, only : cell_map
   use interpolation_mod, only : outerp
   !
@@ -162,23 +149,23 @@ continue
   !
   ! Find the max infinity norm for each variable
   !
-  ulinf(:) = maxval(all_error(:,1,3,:),dim=2)
-  vlinf(:) = maxval(all_error(:,2,3,:),dim=2)
+  uverr(:,3,1) = maxval(all_error(:,1,3,:),dim=2)
+  uverr(:,3,2) = maxval(all_error(:,2,3,:),dim=2)
   !
   ! Finish computing the L1 and L2 norms for each variable
   !
-  ulone(:) =       sum(all_error(:,1,1,:),dim=2) / total_volume
-  ultwo(:) = sqrt( sum(all_error(:,1,2,:),dim=2) / total_volume )
-  vlone(:) =       sum(all_error(:,2,1,:),dim=2) / total_volume
-  vltwo(:) = sqrt( sum(all_error(:,2,2,:),dim=2) / total_volume )
+  uverr(:,1,1) =       sum(all_error(:,1,1,:),dim=2) / total_volume
+  uverr(:,2,1) = sqrt( sum(all_error(:,1,2,:),dim=2) / total_volume )
+  uverr(:,1,2) =       sum(all_error(:,2,1,:),dim=2) / total_volume
+  uverr(:,2,2) = sqrt( sum(all_error(:,2,2,:),dim=2) / total_volume )
   !
   ! Get the location of the max infinity norm for each variable
   !
   do m = 1,nq+1
-    unloc(m) = nint( all_error(m,1,4,maxloc(all_error(m,1,3,:),dim=1)) )
-    ukloc(m) = nint( all_error(m,1,5,maxloc(all_error(m,1,3,:),dim=1)) )
-    vnloc(m) = nint( all_error(m,2,4,maxloc(all_error(m,2,3,:),dim=1)) )
-    vkloc(m) = nint( all_error(m,2,5,maxloc(all_error(m,2,3,:),dim=1)) )
+    uverr(m,4,1) = all_error(m,1,4,maxloc(all_error(m,1,3,:),dim=1))
+    uverr(m,5,1) = all_error(m,1,5,maxloc(all_error(m,1,3,:),dim=1))
+    uverr(m,4,2) = all_error(m,2,4,maxloc(all_error(m,2,3,:),dim=1))
+    uverr(m,5,2) = all_error(m,2,5,maxloc(all_error(m,2,3,:),dim=1))
   end do
   !
   call debug_timer(leaving_procedure,pname)
@@ -517,8 +504,7 @@ subroutine init_generic_mod
   !.. Use Statements ..
   use geovar, only : n_global_cell,n_global_solpts
   use ovar,   only : itcur,num_ts,rl2mx,itestcase
-  use ovar,   only : ulinf,ulone,ultwo,unloc,ukloc
-  use ovar,   only : vlinf,vlone,vltwo,vnloc,vkloc
+  use ovar,   only : uverr
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -540,56 +526,12 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  ! Allocate the error arrays
+  ! Allocate the error array
   !
-  if (.not. allocated(unloc)) then
-    allocate ( unloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"unloc",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(ukloc)) then
-    allocate ( ukloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ukloc",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(ulinf)) then
-    allocate ( ulinf(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ulinf",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(ulone)) then
-    allocate ( ulone(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ulone",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(ultwo)) then
-    allocate ( ultwo(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ultwo",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(vnloc)) then
-    allocate ( vnloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vnloc",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(vkloc)) then
-    allocate ( vkloc(1:nq+1) , source=0 , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vkloc",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(vlinf)) then
-    allocate ( vlinf(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vlinf",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(vlone)) then
-    allocate ( vlone(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vlone",1,__LINE__,__FILE__,ierr, &
-                     error_message,skip_alloc_pause)
-  end if
-  if (.not. allocated(vltwo)) then
-    allocate ( vltwo(1:nq+1) , source=zero , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vltwo",1,__LINE__,__FILE__,ierr, &
+  if (.not. allocated(uverr)) then
+    allocate ( uverr(1:nq+1,1:5,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uverr",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
   end if
   !
