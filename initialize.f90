@@ -44,6 +44,7 @@ subroutine initialize_flow()
   use order_mod, only : maxpts
   !
   use restart_mod, only : read_restart_file
+  use restart_mod, only : create_restart_fname_formats
   !
   use projection_mod, only : project_to_porder
   !
@@ -232,9 +233,19 @@ continue
     !
   end if
   !
+  ! Create the character format strings for the
+  ! restart file names and the linking commands
+  !
+  call create_restart_fname_formats
+  !
+  ! Initialize the previous time at which the time-averaged
+  ! variables were computed to the restart time if it is zero.
+  !
   if (prev_ave_time == zero) then
     prev_ave_time = time
   end if
+  !
+  ! Initialize the CFL cycles
   !
   call adjust_cfl_cycles
   !

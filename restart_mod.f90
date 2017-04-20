@@ -20,6 +20,7 @@ module restart_mod
   public :: read_restart_file
   public :: write_restart_file
   public :: check_restart_dir
+  public :: create_restart_fname_formats
   !
   !###########################
   !###  Module Parameters  ###
@@ -1820,9 +1821,6 @@ subroutine check_restart_dir
   character(len=100) :: char_num
   character(len=150) :: fname
   !
-  !.. Local Arrays ..
-  integer :: time_ave(1:2)
-  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_restart_dir"
   !
@@ -1981,6 +1979,54 @@ continue
               "explicitly given in the input file.")
   !
 end subroutine check_restart_dir
+!
+!###############################################################################
+!
+subroutine create_restart_fname_formats
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,num_ts
+  !
+  !.. Local Scalars ..
+  integer :: final_iter_digits
+  character(len=100) :: char_num
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_restart_fname_formats"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the final/maximum iteration number for this simulation and extract
+  ! the number of digits needed for an integer of this size.
+  ! NOTE: This procedure should be called after initializing the solution from
+  !       a restart file or by other means and itcur is given the value of
+  !       itrst from the restart file or 0 if not using a restart file.
+  !
+  write (char_num,1) itcur + num_ts
+  final_iter_digits = max(4,len_trim(adjustl(char_num)))
+  !
+  ! Create the format strings for creating the restart file names and commands
+  !
+  write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
+  write (lnkcmnd_fmt,3) final_iter_digits,trim(adjustl(restart_dir))
+  write (statfile_fmt,4) trim(adjustl(restart_dir)),final_iter_digits
+  write (tafile_fmt,5) trim(adjustl(restart_dir))
+  write (talink_fmt,6) trim(adjustl(restart_dir))
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (i0)
+  2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
+  3 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  4 format ("('",a,"out.',i0.",i0,",a,'.stat')")
+  5 format ("('",a,"out.',i0,a,'.ave')")
+  6 format ("('ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  !
+end subroutine create_restart_fname_formats
 !
 !###############################################################################
 !
