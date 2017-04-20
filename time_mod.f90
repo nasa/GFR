@@ -15,6 +15,7 @@ module time_mod
   public :: rupdate_TVD3_RK
   public :: rupdate_TVD4_RK
   public :: update_time_ave
+  public :: initialize_time_ave
   !
   real(wp), parameter :: o = zero
   !
@@ -1138,52 +1139,71 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (.not. allocated(uavesp)) then
+  ! Allocate and create the time_ave_variables array if it hasnt already
+  ! been allocated; otherwise, count the number of time-averaged variables it
+  ! contains. This character array identifies which time-averaged variables
+  ! are computed and written to the time-averaged solution/restart files.
+  !
+  if (.not. allocated(time_ave_variables)) then
     !
-    if (.not. allocated(time_ave_variables)) then
-      !
-      nvar = merge(16,8,nr==3)
-      allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      if (nr == 3) then
-        time_ave_variables( 1) = "x"
-        time_ave_variables( 2) = "y"
-        time_ave_variables( 3) = "z"
-        time_ave_variables( 4) = "r"
-        time_ave_variables( 5) = "f"
-        time_ave_variables( 6) = "xx"
-        time_ave_variables( 7) = "yy"
-        time_ave_variables( 8) = "zz"
-        time_ave_variables( 9) = "rr"
-        time_ave_variables(10) = "ff"
-        time_ave_variables(11) = "xy"
-        time_ave_variables(12) = "xz"
-        time_ave_variables(13) = "yz"
-        time_ave_variables(14) = "d"
-        time_ave_variables(15) = "t"
-        time_ave_variables(16) = "p"
-      else
-        time_ave_variables(1) = "x"
-        time_ave_variables(2) = "y"
-        time_ave_variables(3) = "xx"
-        time_ave_variables(4) = "yy"
-        time_ave_variables(5) = "xy"
-        time_ave_variables(6) = "d"
-        time_ave_variables(7) = "t"
-        time_ave_variables(8) = "p"
-      end if
-      !
+    nvar = merge(16,8,nr==3)
+    allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    if (nr == 3) then
+      time_ave_variables( 1) = "x"
+      time_ave_variables( 2) = "y"
+      time_ave_variables( 3) = "z"
+      time_ave_variables( 4) = "r"
+      time_ave_variables( 5) = "f"
+      time_ave_variables( 6) = "xx"
+      time_ave_variables( 7) = "yy"
+      time_ave_variables( 8) = "zz"
+      time_ave_variables( 9) = "rr"
+      time_ave_variables(10) = "ff"
+      time_ave_variables(11) = "xy"
+      time_ave_variables(12) = "xz"
+      time_ave_variables(13) = "yz"
+      time_ave_variables(14) = "d"
+      time_ave_variables(15) = "t"
+      time_ave_variables(16) = "p"
     else
-      !
-      nvar = size(time_ave_variables)
-      !
+      time_ave_variables(1) = "x"
+      time_ave_variables(2) = "y"
+      time_ave_variables(3) = "xx"
+      time_ave_variables(4) = "yy"
+      time_ave_variables(5) = "xy"
+      time_ave_variables(6) = "d"
+      time_ave_variables(7) = "t"
+      time_ave_variables(8) = "p"
     end if
+    !
+  else
+    !
+    nvar = size(time_ave_variables)
+    !
+  end if
+  !
+  ! Allocate the local module array used for computing
+  ! the current update to the time-averaged variables.
+  !
+  allocate ( ave(1:nvar) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate and initialize the time-averaged variables
+  ! solution array if it hasnt already been allocated.
+  !
+  if (.not. allocated(uavesp)) then
     !
     allocate ( uavesp(1:nvar,1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uavesp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Initialize the time-averaged variables to the initial/restart
+    ! solution since they werent read from a time-averaged restart file.
+    !
+    call update_time_ave
     !
   end if
   !
@@ -1202,17 +1222,15 @@ subroutine update_time_ave()
   use ovar,    only : time,prev_ave_time
   !
   !.. Local Scalars ..
-  integer  :: l,m,n,ierr
+  integer  :: l,m,n
+  integer  :: nc1,nc2,nm1,nm2
   real(wp) :: a,b,y,z,st,ct,theta
   real(wp) :: rho,vx,vy,vz,vr,vf
   real(wp) :: pres,temp,tke,tls
   character(len=1) :: ta_char
   !
-  !.. Local Saved Scalars ..
-  logical(lk), save :: needs_initialization = true
-  !
   !.. Local Arrays ..
-  real(wp) :: vsp(0:nq)
+  real(wp) :: vsp(0:nq) ! lower bound set to 0 in case of 2D flow where nmz=0
   real(wp) :: time_val(1:2)
   !
   !.. Local Parameters ..
@@ -1222,20 +1240,18 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (needs_initialization) then
-    !
-    call initialize_time_ave
-    !
-    allocate ( ave(1:size(uavesp,dim=1)) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    needs_initialization = fals
-    !
+  if (time == zero) then
+    time_val(1) = zero
+    time_val(2) = one
+  else
+    time_val(1) = prev_ave_time/time
+   !time_val(2) = (time-prev_ave_time)/time
+    time_val(2) = one - time_val(1) ! to try and ensure that sum(time_val) = 1
   end if
   !
-  time_val(1) = prev_ave_time/time
-  time_val(2) = (time-prev_ave_time)/time
+  ! Broadcast the time_val array so hopefully all MPI processes
+  ! have the exact same values for the two averaging coefficients
+  ! (in case there might be roundoff differences between processes).
   !
   call mpi_bcast(time_val,size(time_val,kind=int_mpi),mpi_flttyp, &
                  glb_root,MPI_COMM_WORLD,mpierr)
@@ -1245,17 +1261,20 @@ continue
   !
   vsp(:) = zero
   !
+  ! Adjust the coordinate and momentum indices for conversion to cylindrical
+  ! coordinates depending whether this is a 2D or 3D simulation
+  !
+  if (size(xyz,dim=1) == 2) then
+    nc1 = 1; nc2 = 2; nm1 = nmx; nm2 = nmy
+  else
+    nc1 = 2; nc2 = 3; nm1 = nmy; nm2 = nmz
+  end if
+  !
   do n = 1,n_solpts
     !
-    y = xyz(2,n)
-    z = xyz(3,n)
+    y = xyz(nc1,n)
+    z = xyz(nc2,n)
     !
-   !theta = atan(z/y)
-   !if (z < zero .and. y > zero) theta = theta + two*pi
-   !if (z < zero .and. y < zero) theta = theta + pi
-   !if (z > zero .and. y < zero) theta = theta + pi
-   !st = sin(theta)
-   !ct = cos(theta)
     if (all([y,z] == zero)) then
       !
       st = zero
@@ -1284,8 +1303,8 @@ continue
    !tke = vsp(ntk)
    !tls = vsp(ntl)
     !
-    vr = st*vz + ct*vy ! Radial    instantaneous velocity
-    vf = ct*vz - st*vy ! Azimuthal instantaneous velocity
+    vr = st*vsp(nm2) + ct*vsp(nm1) ! Radial    instantaneous velocity
+    vf = ct*vsp(nm2) - st*vsp(nm1) ! Azimuthal instantaneous velocity
     !
     ave(:) = one
     !
@@ -1324,6 +1343,10 @@ continue
     end do
     !
   end do
+  !
+  ! Update prev_ave_time to the current time
+  !
+  prev_ave_time = time
   !
   call debug_timer(leaving_procedure,pname)
   !

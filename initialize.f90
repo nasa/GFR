@@ -36,7 +36,7 @@ subroutine initialize_flow()
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
-  use ovar, only : prev_ave_time
+  use ovar, only : prev_ave_time,output_time_averaging
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
@@ -49,6 +49,8 @@ subroutine initialize_flow()
   use projection_mod, only : project_to_porder
   !
   use interpolation_mod, only : outerp
+  !
+  use time_mod, only : initialize_time_ave
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,np,l,l1,l2,m
@@ -238,11 +240,11 @@ continue
   !
   call create_restart_fname_formats
   !
-  ! Initialize the previous time at which the time-averaged
-  ! variables were computed to the restart time if it is zero.
+  ! Initialize the time-averaging information if outputting
+  ! time-averaged variables to solution/restart files
   !
-  if (prev_ave_time == zero) then
-    prev_ave_time = time
+  if (output_time_averaging) then
+    call initialize_time_ave
   end if
   !
   ! Initialize the CFL cycles

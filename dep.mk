@@ -209,6 +209,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \
                $(OBJDIR)/derivatives_mod.o \
+	       $(OBJDIR)/time_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
