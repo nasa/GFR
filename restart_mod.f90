@@ -1367,7 +1367,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom, &
                                         int_header,real_header)
   !
   !.. Use Statements ..
-  use ovar,    only : prev_ave_time
+  use ovar,    only : prev_ave_time,itcur
   use ovar,    only : restart_output_uses_host_roots
   use flowvar, only : uavesp,time_ave_variables
   !
@@ -1408,8 +1408,8 @@ continue
     write (fname,tafile_fmt) averaging_file_switch,""
     write (command,talink_fmt) averaging_file_switch,""
   else
-    write (fname,tafile_fmt) averaging_file_switch,".done"
-    write (command,talink_fmt) averaging_file_switch,".done"
+    write (fname,tafile_fmt) itcur,".done"
+    write (command,talink_fmt) itcur,".done"
   end if
   !
   ! Create the time averaged information to write to the averaging file
@@ -1972,8 +1972,8 @@ continue
   4 format ("Lustre striping command = '",a,"'")
   5 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
   6 format ("('",a,"out.',i0.",i0,",a,'.stat')")
-  7 format ("('",a,"out.',i1,a,'.ave')")
-  8 format ("('ln -sf out.',i1,a,'.ave ",a,"out.current.ave')")
+  7 format ("('",a,"out.',i0,a,'.ave')")
+  8 format ("('ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
   !
   100 format ("A simulation restart was requested but the restart file ", &
               "given in the input file, '",a,"', does not exist!!! NOTE: ", &
