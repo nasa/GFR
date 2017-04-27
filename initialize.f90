@@ -36,7 +36,7 @@ subroutine initialize_flow()
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
-  use ovar, only : prev_ave_time,output_time_averaging
+  use ovar, only : output_time_averaging
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
