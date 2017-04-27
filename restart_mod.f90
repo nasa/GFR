@@ -118,7 +118,8 @@ contains
 subroutine read_restart_file
   !
   !.. Use Statements ..
-  use ovar,    only : itrst,tmrst,dtrst,prev_ave_time
+  use ovar,    only : itrst,tmrst,dtrst
+  use ovar,    only : prev_ave_time,ave_start_time
   use ovar,    only : restart_file,time_ave_file
   use ovar,    only : output_time_averaging
   use ovar,    only : read_time_ave_restart
@@ -170,6 +171,7 @@ continue
       call read_solution_file(fname,int_header,real_header,uavesp,var_header)
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
+      ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
       !
       if (int_header(4) /= itrst) then
         write (error_message,1) int_header(4),itrst
@@ -934,8 +936,7 @@ continue
     ! Write the time averaged solution if we are time averaging
     !
     if (output_time_averaged_solution) then
-      call write_time_averaged_solution(itnum,ordered_geom, &
-                                        int_header,real_header)
+      call write_time_averaged_solution(itnum,ordered_geom,int_header)
     end if
     !
     ! Deallocate ordered_geom since it is no longer needed
@@ -1364,11 +1365,10 @@ end subroutine write_restart_old_format
 !
 !###############################################################################
 !
-subroutine write_time_averaged_solution(itnum,ordered_geom, &
-                                        int_header,real_header)
+subroutine write_time_averaged_solution(itnum,ordered_geom,int_header)
   !
   !.. Use Statements ..
-  use ovar,    only : prev_ave_time,itcur
+  use ovar,    only : time,prev_ave_time,ave_start_time,itcur
   use ovar,    only : restart_output_uses_host_roots
   use flowvar, only : uavesp,time_ave_variables
   !
@@ -1376,7 +1376,6 @@ subroutine write_time_averaged_solution(itnum,ordered_geom, &
   integer,         intent(in) :: itnum
   integer(i4),     intent(in) :: ordered_geom(:)
   integer(wip), intent(inout) :: int_header(:)
-  real(wp),     intent(inout) :: real_header(:)
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -1389,6 +1388,9 @@ subroutine write_time_averaged_solution(itnum,ordered_geom, &
   character(len=300) :: cmndmsg
   !
   _MPI_COMM_TYPE_ :: timeave_comm
+  !
+  !.. Local Arrays ..
+  real(wp) :: real_header(1:3)
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: var_header(:)
@@ -1435,7 +1437,7 @@ continue
   ! Store the time data specific to the time averaged solution
   ! into the respective location within the real_header array
   !
-  real_header(2) = prev_ave_time
+  real_header(:) = [ time , prev_ave_time , ave_start_time ]
   !
   ! Create the variable header for the time averaged solution
   !
