@@ -1970,10 +1970,10 @@ continue
   2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
   3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
   4 format ("Lustre striping command = '",a,"'")
-  5 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  5 format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
   6 format ("('",a,"out.',i0.",i0,",a,'.stat')")
   7 format ("('",a,"out.',i0,a,'.ave')")
-  8 format ("('ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  8 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
   !
   100 format ("A simulation restart was requested but the restart file ", &
               "given in the input file, '",a,"', does not exist!!! NOTE: ", &
@@ -2023,10 +2023,10 @@ continue
   !
   1 format (i0)
   2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
-  3 format ("('ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  3 format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
   4 format ("('",a,"out.',i0.",i0,",a,'.stat')")
   5 format ("('",a,"out.',i0,a,'.ave')")
-  6 format ("('ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  6 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
   !
 end subroutine create_restart_fname_formats
 !
