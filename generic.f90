@@ -504,7 +504,7 @@ subroutine init_generic_mod
   !.. Use Statements ..
   use geovar, only : n_global_cell,n_global_solpts
   use ovar,   only : itcur,num_ts,rl2mx,itestcase
-  use ovar,   only : uverr
+  use ovar,   only : uverr,output_time_averaging
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -546,7 +546,11 @@ continue
   write (char_num,1) n_global_solpts
   max_solpt_digits = max(5,len_trim(adjustl(char_num)))
   !
-  write (iter_out_fmt,100) final_iter_digits,max_cell_digits,max_solpt_digits
+ !if (output_time_averaging) then
+ !  write (iter_out_fmt,101) final_iter_digits
+ !else
+    write (iter_out_fmt,100) final_iter_digits,max_cell_digits,max_solpt_digits
+ !end if
   !
   ! Add on the remaining simulation time to the output if
   ! running in the PBS environment
@@ -573,6 +577,8 @@ continue
     write (iter_header,203) final_iter_digits-3, &
                             max_cell_digits-2, &
                             max_solpt_digits-3
+ !else if (output_time_averaging) then
+ !  write (iter_header,204) final_iter_digits-3
   else
     write (iter_header,202) final_iter_digits-3, &
                             max_cell_digits-2, &
@@ -614,6 +620,7 @@ continue
   2 format (/,"  After Pre-Processor and Initializations =>", &
               "  Wall Time Remaining = ",i3,2(":",i2.2))
   100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
+  101 format ("(1x,i",i0,",8es12.4")
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
               "'L2-Entropy',",i0,"x,'Cell',",i0,"x,'Solpt',5x,'x',8x,'y'")
   201 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-X-Mmntm',2x,", &
@@ -629,6 +636,8 @@ continue
   203 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',2x,", &
               "'OrdersDrop',2x,'Max-DensL2',",i0,"x,'Cell',",i0, &
               "x,'Solpt',5x,'x',8x,'y'")
+  204 format ("(/,",i0,"x,'iter',5x,'dt*',8x,'Time*',5x,'L2-Density',4x,", &
+              "'L2-Vx',7x,'L2-Vy',7x,'L2-Vz',7x,'L2-Pres'")
   !
 end subroutine init_generic_mod
 !
@@ -779,7 +788,9 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   use order_mod,         only : maxSP
   use geovar,            only : nr,cell,xyz
   use ovar,              only : mms_opt,itestcase
-  use flowvar,           only : usp,uoldsp
+  use ovar,              only : prev_ave_time,saved_ave_time,ave_start_time
+  use ovar,              only : output_time_averaging
+  use flowvar,           only : usp,uoldsp,uavesp
   use interpolation_mod, only : outerp
   use quadrature_mod,    only : std_elem
   use metrics_mod,       only : jacobian
@@ -796,10 +807,13 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   !.. Local Scalars ..
   integer :: m,l,k,n1,n2,np
   integer :: this_geom,this_order
+  real(wp) :: a,b
   logical(lk) :: use_error_matrix
   !
   !.. Local Arrays ..
   real(wp) :: xyz_offset(1:nr,1:maxSP)
+  real(wp) :: uprev(1:nq,1:maxSP)
+  real(wp) :: ucurr(1:nq,1:maxSP)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "collect_error_arrays"
@@ -838,17 +852,23 @@ continue
   !
   ! Get the current solution at the error points
   !
+  if (output_time_averaging) then
+    ucurr(1:nq,1:np) = uavesp(1:nq,n1:n2)
+  else
+    ucurr(1:nq,1:np) = usp(1:nq,n1:n2)
+  end if
+  !
   if (use_error_matrix) then
     !
     do m = 1,nq
       unew(m,1:np) = outerp(this_geom,this_order)% &
                                             error% &
-                     mv_mult( usp(m,n1:n2) )
+                     mv_mult( ucurr(m,1:np) )
     end do
     !
   else
     !
-    unew(1:nq,1:np) = usp(1:nq,n1:n2)
+    unew(1:nq,1:np) = ucurr(1:nq,1:np)
     !
   end if
   !
@@ -935,6 +955,19 @@ continue
     !
   else
     !
+    if (output_time_averaging) then
+      ! Compute uavesp at the previous averaging time
+      if (saved_ave_time == zero) then
+        uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+      else
+        a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
+        b = one - a
+        uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
+      end if
+    else
+      uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+    end if
+    !
     if (use_error_matrix) then
       !
       ! Get the solution from the previous time step at the error points
@@ -942,14 +975,14 @@ continue
       do m = 1,nq
         uold(m,1:np) = outerp(this_geom,this_order)% &
                                               error% &
-                       mv_mult( uoldsp(m,n1:n2) )
+                       mv_mult( uprev(m,1:np) )
       end do
       !
     else
       !
       ! Use the solution from the previous time step
       !
-      uold(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+      uold(1:nq,1:np) = uprev(1:nq,1:np)
       !
     end if
     !
