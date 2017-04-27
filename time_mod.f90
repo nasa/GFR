@@ -1126,6 +1126,7 @@ subroutine initialize_time_ave()
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
+  use ovar,    only : time,ave_start_time
   use flowvar, only : time_ave_variables
   use flowvar, only : uavesp
   !
@@ -1146,37 +1147,43 @@ continue
   !
   if (.not. allocated(time_ave_variables)) then
     !
+    ! Since the time_ave_variables array isnt allocated, this means that a
+    ! time-averaged restart file wasnt read and the start time of the
+    ! time-averaging needs to be initialized to the current time
+    !
+    ave_start_time = time
+    !
     nvar = merge(16,8,nr==3)
     allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
     if (nr == 3) then
-      time_ave_variables( 1) = "x"
-      time_ave_variables( 2) = "y"
-      time_ave_variables( 3) = "z"
-      time_ave_variables( 4) = "r"
-      time_ave_variables( 5) = "f"
-      time_ave_variables( 6) = "xx"
-      time_ave_variables( 7) = "yy"
-      time_ave_variables( 8) = "zz"
-      time_ave_variables( 9) = "rr"
-      time_ave_variables(10) = "ff"
-      time_ave_variables(11) = "xy"
-      time_ave_variables(12) = "xz"
-      time_ave_variables(13) = "yz"
-      time_ave_variables(14) = "d"
-      time_ave_variables(15) = "t"
-      time_ave_variables(16) = "p"
+      time_ave_variables( 1) = "d"
+      time_ave_variables( 2) = "x"
+      time_ave_variables( 3) = "y"
+      time_ave_variables( 4) = "z"
+      time_ave_variables( 5) = "p"
+      time_ave_variables( 6) = "r"
+      time_ave_variables( 7) = "f"
+      time_ave_variables( 8) = "xx"
+      time_ave_variables( 9) = "yy"
+      time_ave_variables(10) = "zz"
+      time_ave_variables(11) = "rr"
+      time_ave_variables(12) = "ff"
+      time_ave_variables(13) = "xy"
+      time_ave_variables(14) = "xz"
+      time_ave_variables(15) = "yz"
+      time_ave_variables(16) = "t"
     else
-      time_ave_variables(1) = "x"
-      time_ave_variables(2) = "y"
-      time_ave_variables(3) = "xx"
-      time_ave_variables(4) = "yy"
-      time_ave_variables(5) = "xy"
-      time_ave_variables(6) = "d"
-      time_ave_variables(7) = "t"
-      time_ave_variables(8) = "p"
+      time_ave_variables(1) = "d"
+      time_ave_variables(2) = "x"
+      time_ave_variables(3) = "y"
+      time_ave_variables(4) = "p"
+      time_ave_variables(5) = "xx"
+      time_ave_variables(6) = "yy"
+      time_ave_variables(7) = "xy"
+      time_ave_variables(8) = "t"
     end if
     !
   else
@@ -1220,6 +1227,8 @@ subroutine update_time_ave()
   use flowvar, only : time_ave_variables
   use flowvar, only : usp,uavesp
   use ovar,    only : time,prev_ave_time
+  use ovar,    only : ave_start_time,saved_ave_time
+  use ovar,    only : itcur
   !
   !.. Local Scalars ..
   integer  :: l,m,n
@@ -1240,14 +1249,16 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  if (time == zero) then
+  if (time == zero .or. time == ave_start_time) then
     time_val(1) = zero
     time_val(2) = one
   else
-    time_val(1) = prev_ave_time/time
-   !time_val(2) = (time-prev_ave_time)/time
+    time_val(1) = (prev_ave_time-ave_start_time) / (time-ave_start_time)
+   !time_val(2) = (time-prev_ave_time)/(time-ave_start_time)
     time_val(2) = one - time_val(1) ! to try and ensure that sum(time_val) = 1
   end if
+  !
+  saved_ave_time = prev_ave_time
   !
   ! Broadcast the time_val array so hopefully all MPI processes
   ! have the exact same values for the two averaging coefficients
