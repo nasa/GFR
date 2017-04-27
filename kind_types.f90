@@ -1312,7 +1312,7 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
                            command_status,command_message,procedure_name)
   !
   !.. Use Statements ..
-  use ifport, only : system
+  use ifport, only : system,ierrno
   !
   !.. Formal Arguments ..
   character(len=*),  intent(in) :: command
@@ -1322,6 +1322,12 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   character(len=*), intent(out) :: command_message
   character(len=*),  intent(in) :: procedure_name
   !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: command_line_procedure = "system (IFPORT)"
+  !
 continue
   !
   exit_status = 0
@@ -1330,16 +1336,29 @@ continue
   !
   if (mypnum == 0) then
     !
-    exit_status = system( trim(adjustl(command)) )
-    !
-    call write_command_results(procedure_name,command,exit_status)
-    !
-   !call execute_command_line( trim(adjustl(command)) , wait_for_completion , &
-   !                           exit_status , command_status , &
-   !                           command_message )
-   !!
-   !call write_command_results(procedure_name,command,exit_status, &
-   !                           command_status,command_message)
+    do n = 1,5
+      !
+      exit_status = system( trim(adjustl(command)) )
+      if (exit_status /= 0) then
+        command_status = ierrno()
+      end if
+      !
+      call write_command_results(procedure_name,command,exit_status, &
+                                 command_status=command_status, &
+                                 command_line_procedure=command_line_procedure)
+      !
+     !call execute_command_line( trim(adjustl(command)) , wait_for_completion , &
+     !                           exit_status , command_status , &
+     !                           command_message )
+     !!
+     !call write_command_results(procedure_name,command,exit_status, &
+     !                           command_status,command_message)
+      !
+      if (exit_status == 0) exit
+      !
+      flush (iout)
+      !
+    end do
     !
   end if
   !
@@ -1348,7 +1367,8 @@ end subroutine execute_command
 !###############################################################################
 !
 subroutine write_command_results(procedure_name,command,exit_status, &
-                                 command_status,command_message)
+                                 command_status,command_message, &
+                                 command_line_procedure)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: procedure_name
@@ -1358,15 +1378,25 @@ subroutine write_command_results(procedure_name,command,exit_status, &
   !.. Optional Arguments ..
   integer,          optional, intent(in) :: command_status
   character(len=*), optional, intent(in) :: command_message
+  character(len=*), optional, intent(in) :: command_line_procedure
+  !
+  !.. Local Scalars ..
+  character(len=20) :: clp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_command_results"
   !
 continue
   !
+  clp = "execute_command_line"
+  if (present(command_line_procedure)) then
+    clp = trim(adjustl(command_line_procedure))
+  end if
+  !
   if (mypnum == 0) then
     !
-    write (iout,1) trim(adjustl(command)), &
+    write (iout,1) trim(adjustl(clp)), &
+                   trim(adjustl(command)), &
                    trim(adjustl(procedure_name)), &
                    exit_status
     !
@@ -1394,7 +1424,7 @@ continue
   !
   ! Format Statements
   !
-  1 format (/,2x,"Calling execute_command_line with the command",/, &
+  1 format (/,2x,"Calling ",a," with the command",/, &
               5x,"'",a,"'",/, &
               2x,"from procedure '",a,"'",/, &
               5x,"status returned from command line = ",i0,/)
