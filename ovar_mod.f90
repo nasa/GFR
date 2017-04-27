@@ -232,7 +232,9 @@ module ovar
   real(wp), public, save :: time
   real(wp), public, save :: time_ref = 1.0_wp
   !
+  real(wp),     public, save :: saved_ave_time = 0.0_wp
   real(wp),     public, save :: prev_ave_time = 0.0_wp
+  real(wp),     public, save :: ave_start_time = 0.0_wp
   logical(ldk), public, save :: read_time_ave_restart = .false.
   !
   real(wp), public, save :: cfl_cycle_start
