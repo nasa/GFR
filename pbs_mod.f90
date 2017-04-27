@@ -49,6 +49,7 @@ subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "pbs_remaining_walltime"
   real(wp), parameter :: max_sec = real( 1000*3600-1 , kind=wp )
+  real(wp), parameter :: five_min = real( 300 , kind=wp )
   !
 continue
   !
@@ -99,7 +100,8 @@ continue
     !
     next_time_est = time_elapsed * (two+half)
     !
-    walltime_expiring = (wall_time_left-next_time_est <= zero)
+    walltime_expiring = (wall_time_left-next_time_est <= zero) .or. &
+                        (wall_time_left-five_min <= zero)
     !
     previous_wtl = current_wtl
     previous_wtime = current_wtime
