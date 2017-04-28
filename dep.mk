@@ -428,6 +428,7 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/interpolation_mod.o \
              $(FUNDIR)/usp2v.f90 \
+             $(FUNDIR)/temperature.f90 \
              $(FUNDIR)/viscosity.f90
 
 $(OBJDIR)/triangle.o : triangle.f90 \
