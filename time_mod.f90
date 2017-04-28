@@ -62,6 +62,12 @@ module time_mod
   !
   real(wp), save, allocatable :: ave(:)
   !
+  type :: time_ave_var_t
+    integer, allocatable :: idx(:)
+  end type time_ave_var_t
+  !
+  type(time_ave_var_t), save, allocatable :: time_ave_var(:)
+  !
 contains
 !
 !###############################################################################
@@ -1131,7 +1137,9 @@ subroutine initialize_time_ave()
   use flowvar, only : uavesp
   !
   !.. Local Scalars ..
-  integer :: nvar,ierr
+  integer :: l,m,nv,nvar,ierr
+  character(len=1)  :: ta_char
+  character(len=30) :: array_name
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_time_ave"
@@ -1192,6 +1200,52 @@ continue
     !
   end if
   !
+  allocate ( time_ave_var(1:nvar) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"time_ave_var",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do m = 1,size(time_ave_variables)
+    !
+    time_ave_variables(m) = trim(adjustl(time_ave_variables(m)))
+    !
+    nv = len_trim(time_ave_variables(m))
+    !
+    allocate ( time_ave_var(m)%idx(1:nv) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) m
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do l = 1,nv
+      !
+      ta_char = uppercase( time_ave_variables(m)(l:l) )
+      !
+      select case (ta_char)
+        case ("D")
+          time_ave_var(m)%idx(l) = nec
+        case ("X")
+          time_ave_var(m)%idx(l) = nmx
+        case ("Y")
+          time_ave_var(m)%idx(l) = nmy
+        case ("Z")
+          time_ave_var(m)%idx(l) = nmz
+        case ("P")
+          time_ave_var(m)%idx(l) = nee
+        case ("T")
+          time_ave_var(m)%idx(l) = nq+1
+        case ("R")
+          time_ave_var(m)%idx(l) = nq+2
+        case ("F")
+          time_ave_var(m)%idx(l) = nq+3
+        case ("K")
+          time_ave_var(m)%idx(l) = ntk
+        case ("E","W")
+          time_ave_var(m)%idx(l) = ntl
+        case default
+          ! ??? Should probably produce an error message and abort
+          time_ave_var(m)%idx(l) = nec
+      end select
+    end do
+  end do
+  !
   ! Allocate the local module array used for computing
   ! the current update to the time-averaged variables.
   !
@@ -1216,6 +1270,10 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
+  ! Format Statements
+  !
+  1 format ("time_ave_var(",i0,")%idx")
+  !
 end subroutine initialize_time_ave
 !
 !###############################################################################
@@ -1224,23 +1282,18 @@ subroutine update_time_ave()
   !
   !.. Use Statements ..
   use geovar,  only : xyz,n_solpts
-  use flowvar, only : time_ave_variables
   use flowvar, only : usp,uavesp
   use ovar,    only : time,prev_ave_time
   use ovar,    only : ave_start_time,saved_ave_time
-  use ovar,    only : itcur
   !
   !.. Local Scalars ..
-  integer  :: l,m,n
+  integer  :: m,n,nvar
   integer  :: nc1,nc2,nm1,nm2
   real(wp) :: a,b,y,z,st,ct,theta
-  real(wp) :: rho,vx,vy,vz,vr,vf
-  real(wp) :: pres,temp,tke,tls
-  character(len=1) :: ta_char
   !
   !.. Local Arrays ..
-  real(wp) :: vsp(0:nq) ! lower bound set to 0 in case of 2D flow where nmz=0
   real(wp) :: time_val(1:2)
+  real(wp) :: ave_var(1:nq+3)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "update_time_ave"
@@ -1270,7 +1323,7 @@ continue
   a = time_val(1)
   b = time_val(2)
   !
-  vsp(:) = zero
+  nvar = size(time_ave_var)
   !
   ! Adjust the coordinate and momentum indices for conversion to cylindrical
   ! coordinates depending whether this is a 2D or 3D simulation
@@ -1301,56 +1354,21 @@ continue
       !
     end if
     !
-    vsp(1:nq) = usp2v_sp( usp(1:nq,n) )
+    ! Primitive variables
+    ave_var(1:nq) = usp2v_sp( usp(1:nq,n) )
     !
-    temp = temperature_pv_sp( vsp(1:nq) )
+    ! Temperature
+    ave_var(nq+1) = temperature_pv_sp( ave_var(1:nq) )
     !
-    rho  = vsp(nec)
-    vx   = vsp(nmx)
-    vy   = vsp(nmy)
-    vz   = vsp(nmz)
-    pres = vsp(nee)
+    ! Radial    instantaneous velocity
+    ave_var(nq+2) = st*ave_var(nm2) + ct*ave_var(nm1)
+    ! Azimuthal instantaneous velocity
+    ave_var(nq+3) = ct*ave_var(nm2) - st*ave_var(nm1)
     !
-   !tke = vsp(ntk)
-   !tls = vsp(ntl)
+    ! Update the time-averaged variables
     !
-    vr = st*vsp(nm2) + ct*vsp(nm1) ! Radial    instantaneous velocity
-    vf = ct*vsp(nm2) - st*vsp(nm1) ! Azimuthal instantaneous velocity
-    !
-    ave(:) = one
-    !
-    do m = 1,size(time_ave_variables)
-      do l = 1,len_trim(time_ave_variables(m))
-        ta_char = uppercase( time_ave_variables(m)(l:l) )
-        select case (ta_char)
-          case ("D")
-            ave(m) = ave(m) * rho
-          case ("X")
-            ave(m) = ave(m) * vx
-          case ("Y")
-            ave(m) = ave(m) * vy
-          case ("Z")
-            ave(m) = ave(m) * vz
-          case ("P")
-            ave(m) = ave(m) * pres
-          case ("T")
-            ave(m) = ave(m) * temp
-          case ("R")
-            ave(m) = ave(m) * vr
-          case ("F")
-            ave(m) = ave(m) * vf
-          case ("K")
-            ave(m) = ave(m) * tke
-          case ("E","W")
-            ave(m) = ave(m) * tls
-          case default
-            ave(m) = ave(m) * one
-        end select
-      end do
-    end do
-    !
-    do m = 1,size(uavesp,dim=1)
-      uavesp(m,n) = a*uavesp(m,n) + b*ave(m)
+    do m = 1,nvar
+      uavesp(m,n) = a*uavesp(m,n) + b*product( ave_var(time_ave_var(m)%idx) )
     end do
     !
   end do
