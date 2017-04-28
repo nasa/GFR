@@ -960,9 +960,13 @@ continue
       if (saved_ave_time == zero) then
         uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
       else
-        a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
-        b = one - a
-        uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
+        if (saved_ave_time == ave_start_time) then
+          uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+        else
+          a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
+          b = one - a
+          uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
+        end if
       end if
     else
       uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
