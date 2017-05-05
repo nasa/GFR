@@ -1161,7 +1161,7 @@ continue
     !
     ave_start_time = time
     !
-    nvar = merge(16,8,nr==3)
+    nvar = merge(19,8,nr==3)
     allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
                      ierr,error_message)
@@ -1182,7 +1182,10 @@ continue
       time_ave_variables(13) = "xy"
       time_ave_variables(14) = "xz"
       time_ave_variables(15) = "yz"
-      time_ave_variables(16) = "t"
+      time_ave_variables(16) = "xr"
+      time_ave_variables(17) = "xf"
+      time_ave_variables(18) = "rf"
+      time_ave_variables(19) = "t"
     else
       time_ave_variables(1) = "d"
       time_ave_variables(2) = "x"
@@ -1198,6 +1201,12 @@ continue
     !
     nvar = size(time_ave_variables)
     !
+  end if
+  !
+  if (allocated(time_ave_var)) then
+    deallocate ( time_ave_var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"time_ave_var",2,__LINE__,__FILE__, &
+                     ierr,error_message)
   end if
   !
   allocate ( time_ave_var(1:nvar) , stat=ierr , errmsg=error_message )
@@ -1248,6 +1257,11 @@ continue
   !
   ! Allocate the local module array used for computing
   ! the current update to the time-averaged variables.
+  !
+  if (allocated(ave)) then
+    deallocate ( ave , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ave",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   allocate ( ave(1:nvar) , source=zero , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
