@@ -25,6 +25,7 @@ program Euler_tri
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
   use ovar, only : adjust_cfl_cycles
   use ovar, only : output_time_averaging
+  use ovar, only : time_average_restart_files
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -110,6 +111,8 @@ program Euler_tri
   use pbs_mod, only : pbs_remaining_walltime
   !
   use cpu_info_mod, only : get_cpu_locality
+  !
+  use averaging_mod, only : average_restart_files
   !
   use, intrinsic :: iso_c_binding,   only : c_long
   use, intrinsic :: ieee_exceptions, only : ieee_usual
@@ -296,6 +299,12 @@ continue
   !
   call initialize_flow
   call memory_pause("initializing solution","initializing generic module")
+  !
+  ! Time average the list of restart files
+  !
+  if (time_average_restart_files) then
+    call average_restart_files
+  end if
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
@@ -506,7 +515,7 @@ continue
     !
     completed_timesteps = iter
     !
-    call check_for_bad_number(__LINE__)
+   !call check_for_bad_number(__LINE__)
     !
     ! Update the time averaged variables
     !
