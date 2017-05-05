@@ -60,6 +60,11 @@ module restart_mod
   !
   integer, save :: averaging_file_switch = 1
   !
+  _MPI_DATA_TYPE_, save :: read_type
+  _MPI_DATA_TYPE_, save :: real_type
+  !
+  integer, save :: num_pts = 0
+  !
   !##################################
   !###  Module Derived Datatypes  ###
   !##################################
@@ -90,6 +95,8 @@ module restart_mod
   integer(INT_MPI), save, allocatable :: pts_displs(:)
   !
   type(sp_idx_t), save, allocatable :: host_output_order(:)
+  !
+  type(rstrt_cell_t), save, allocatable :: cell_input_data(:)
   !
   !############################################################################
   !###  Generic interfaces for subroutines to read REAL data using MPI I/O  ###
@@ -222,8 +229,9 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
                               var_header)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell,n_solpts
-  use geovar,       only : n_global_cell
+  use geovar, only : ncell,cell,n_solpts
+  use geovar, only : n_global_cell
+  use ovar,   only : time_average_restart_files
   !
   !.. Formal Arguments ..
   character(len=*),              intent(in   ) :: file_name
@@ -240,13 +248,11 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
-  _MPI_DATA_TYPE_ :: read_type
-  _MPI_DATA_TYPE_ :: real_type
   !.. Need to be MPI_OFFSET_KIND integers
   integer(MPI_OFFSET_KIND) :: file_disp
   integer(MPI_OFFSET_KIND) :: file_offset
   !
-  integer :: solution_errors,num_pts
+  integer :: solution_errors
   integer :: restart_nq,restart_ncells
   integer :: n_header_int,n_header_real
   !
@@ -256,7 +262,6 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !.. Local Allocatable Arrays ..
   integer(wip),       allocatable :: ordered_geom(:)
   real(wp),           allocatable :: rst_sol(:,:)
-  type(rstrt_cell_t), allocatable :: cell_input_data(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_solution_file"
@@ -495,16 +500,22 @@ continue
   call mpi_file_get_byte_offset(file_handle,file_offset,file_disp,mpierr)
   !
   ! Get the MPI derived types required to read the solution data section
-  ! of the restart file
+  ! of the restart file if cell_input_data is not allocated
   !
-  call get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
-                               num_pts,ordered_geom,cell_input_data)
+  if (.not. allocated(cell_input_data)) then
+    !
+    call get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
+                                 num_pts,ordered_geom,cell_input_data)
+    !
+  end if
   !
   ! Deallocate ordered_geom since it is no longer needed
   !
-  deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
-                   ierr,error_message)
+  if (allocated(ordered_geom)) then
+    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
   !
   ! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
   ! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
@@ -609,12 +620,23 @@ continue
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  ! Deallocate any local arrays that are still allocated
+  ! Deallocate cell_input_data if we are not time-averaging a bunch of
+  ! restart files. Also reset the variables real_type, read_type, and
+  ! num_pts to default values in case we ever need to come back here
+  ! and read in a new restart file.
   !
-  if (allocated(cell_input_data)) then
-    deallocate ( cell_input_data , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"cell_input_data",2,__LINE__,__FILE__,ierr, &
-                     error_message)
+  if (.not. time_average_restart_files) then
+    !
+    if (allocated(cell_input_data)) then
+      deallocate ( cell_input_data , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"cell_input_data",2,__LINE__,__FILE__,ierr, &
+                       error_message)
+    end if
+    !
+    real_type = MPI_DATATYPE_NULL
+    read_type = MPI_DATATYPE_NULL
+    num_pts = 0
+    !
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -1505,7 +1527,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,l1,l2,ierr
+  integer :: n,nc,np,n1,n2,l1,l2,ierr
   integer :: this_geom,this_order
   !
   !.. Local Parameters ..
@@ -1539,9 +1561,9 @@ continue
   ! data for each processor. We also have to copy over the solution data
   ! in the same order that is expected by the MPI derived datatype.
   !
-  n1 = size(current_sol,dim=1)
+  np = size(current_sol,dim=1)
   !
-  allocate ( output_sol(1:n1,1:n_solpts) , source=zero , &
+  allocate ( output_sol(1:np,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_sol",1,__LINE__,__FILE__,ierr,error_message)
   ! 
@@ -1556,7 +1578,7 @@ continue
     l1 = l2 + 1
     l2 = l2 + n2-n1+1
     !
-    output_sol(1:n1,l1:l2) = current_sol(1:n1,n1:n2)
+    output_sol(1:np,l1:l2) = current_sol(1:np,n1:n2)
     !
   end do
   !
@@ -1664,8 +1686,9 @@ continue
   ! Reorder the solution array to match its MPI derived datatypes
   !
   if (i_am_host_root) then
-    local_sol = output_sol ! F2003 AUTO-REALLOCATION
-    output_sol(:,:) = reorder_host_solution( local_sol(:,:) )
+   !local_sol = output_sol ! F2003 AUTO-REALLOCATION
+   !output_sol(:,:) = reorder_host_solution( local_sol(:,:) )
+    output_sol(:,:) = reorder_host_solution( output_sol(:,:) )
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2274,35 +2297,47 @@ continue
     call alloc_error(pname,"cell_output_order",1,__LINE__,__FILE__,ierr, &
                      error_message)
     !
-    allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
-    !
     ! Sort the og_offset array to find the output order for the cells so that
     ! the offsets for the MPI datatypes are monotonically increasing.
-    ! NOTE: This array is assumed to be small enough so that it doesnt require
-    !       some fancy sorting algorithm and this simple minloc method will
-    !       more than likely be relatively inexpensive.
+    !
+    call heap_sort_integer(lcell,og_offset,cell_output_order)
+    !
+    ! Get the solution point indices for each cell relative to their location
+    ! within the solution array, and save them to their new reordered location
     !
     do nc = 1,lcell
       !
-      n = minloc( og_offset , dim=1 , mask=msk )
-      !
-      msk(n) = fals ! mark this cell as found
-      !
-      cell_output_order(nc) = n
-      !
-      ! Get the solution point indices for this cell relative to their location
-      ! within the solution array, and save them to their new reordered location
+      n = cell_output_order(nc)
       !
       host_output_order(nc)%beg_sp = host_sp_idx(2*n-1)
       host_output_order(nc)%end_sp = host_sp_idx(2*n  )
       !
     end do
     !
-    ! Deallocate the msk array
-    !
-    deallocate ( msk , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+   !allocate ( msk(1:lcell) , source=true , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+   !!
+   !! Sort the og_offset array to find the output order for the cells so that
+   !! the offsets for the MPI datatypes are monotonically increasing.
+   !! NOTE: This array is assumed to be small enough so that it doesnt require
+   !!       some fancy sorting algorithm and this simple minloc method will
+   !!       more than likely be relatively inexpensive.
+   !!
+   !do nc = 1,lcell
+   !  !
+   !  n = minloc( og_offset , dim=1 , mask=msk )
+   !  !
+   !  msk(n) = fals ! mark this cell as found
+   !  !
+   !  cell_output_order(nc) = n
+   !  !
+   !  ! Get the solution point indices for this cell relative to their location
+   !  ! within the solution array, and save them to their new reordered location
+   !  !
+   !  host_output_order(nc)%beg_sp = host_sp_idx(2*n-1)
+   !  host_output_order(nc)%end_sp = host_sp_idx(2*n  )
+   !  !
+   !end do
     !
     ! Allocate the temporary array for applying the sorting to the offset
     ! and block length arrays.
@@ -2317,9 +2352,24 @@ continue
    !                       host_sp_idx(2*n  ), &
    !                       n=1,lcell)
    !flush (mypnum+1003)
+   !write (mypnum+1004,2) (cell_output_order(n), &
+   !                       og_offset(cell_output_order(n)), &
+   !                       n=1,size(og_offset))
+   !flush (mypnum+1004)
+   !write (mypnum+1005,2) (cell_output_order(n), &
+   !                       pts_offset(cell_output_order(n)), &
+   !                       n=1,size(pts_offset))
+   !flush (mypnum+1005)
     !
-    deallocate ( host_sp_idx , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"host_sp_idx",2,__LINE__,__FILE__,ierr,error_message)
+    if (allocated(msk)) then
+      deallocate ( msk , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (allocated(host_sp_idx)) then
+      deallocate ( host_sp_idx , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"host_sp_idx",2,__LINE__,__FILE__,ierr,error_message)
+    end if
     !
     allocate ( tmp_copy(1:lcell) , source=0_int_mpi , &
                stat=ierr , errmsg=error_message )
@@ -2524,20 +2574,25 @@ continue
   call alloc_error(pname,"cell_output_order",1,__LINE__,__FILE__,ierr, &
                    error_message)
   !
-  allocate ( msk(1:ncell) , source=true , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
-  !
   ! Sort the og_offset array to find the output order for the cells so that
   ! the offsets for the MPI datatypes are monotonically increasing.
-  ! NOTE: This array is assumed to be small enough so that it doesnt require
-  !       some fancy sorting algorithm and this simple minloc method will
-  !       more than likely be relatively inexpensive.
   !
-  do nc = 1,ncell
-    n = minloc( og_offset , dim=1 , mask=msk )
-    msk(n) = fals
-    cell_output_order(nc) = n
-  end do
+  call heap_sort_integer(ncell,og_offset,cell_output_order)
+ !!
+ !allocate ( msk(1:ncell) , source=true , stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !! Sort the og_offset array to find the output order for the cells so that
+ !! the offsets for the MPI datatypes are monotonically increasing.
+ !! NOTE: This array is assumed to be small enough so that it doesnt require
+ !!       some fancy sorting algorithm and this simple minloc method will
+ !!       more than likely be relatively inexpensive.
+ !!
+ !do nc = 1,ncell
+ !  n = minloc( og_offset , dim=1 , mask=msk )
+ !  msk(n) = fals
+ !  cell_output_order(nc) = n
+ !end do
  !do nc = 1,ncell
  !  if (cell_output_order(nc) /= nc) then
  !    write (iout,1) mypnum
@@ -2550,8 +2605,10 @@ continue
   !
   ! Deallocate the msk array
   !
-  deallocate ( msk , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(msk)) then
+    deallocate ( msk , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Allocate the temporary array for applying the sorting to the offset
   ! and block length arrays.
@@ -3353,6 +3410,7 @@ end subroutine read_rstrt_file_wp_rank2
 !###############################################################################
 !
 include "Functions/cell_solpts.f90"
+#include "Functions/sort.f90"
 !
 !###############################################################################
 !
