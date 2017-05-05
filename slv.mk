@@ -93,7 +93,8 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/restart_mod.o \
         $(OBJDIR)/postproc_mod.o \
         $(OBJDIR)/pbs_mod.o \
-        $(OBJDIR)/cpu_info_mod.o
+        $(OBJDIR)/cpu_info_mod.o \
+	$(OBJDIR)/averaging_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'

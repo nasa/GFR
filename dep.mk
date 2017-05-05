@@ -30,7 +30,18 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
               $(OBJDIR)/plot3d_mod.o \
               $(OBJDIR)/gmsh_mod.o \
               $(OBJDIR)/cgns_mod.o \
+              $(OBJDIR)/averaging_mod.o \
               $(OBJDIR)/cpu_info_mod.o
+
+$(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
+                  $(OBJDIR)/kind_types.o \
+                  $(OBJDIR)/geovar_mod.o \
+                  $(OBJDIR)/ovar_mod.o \
+                  $(OBJDIR)/flowvar_mod.o \
+                  $(OBJDIR)/io.o \
+                  $(OBJDIR)/time_mod.o \
+                  $(OBJDIR)/restart_mod.o \
+                  $(OBJDIR)/metrics.o
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
@@ -209,7 +220,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \
                $(OBJDIR)/derivatives_mod.o \
-	       $(OBJDIR)/time_mod.o \
+               $(OBJDIR)/time_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -413,6 +424,7 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/flowvar_mod.o \
                 $(OBJDIR)/parallel.o \
                 $(FUNDIR)/cell_solpts.f90 \
+                $(FUNDIR)/sort.f90 \
                           mpi_defs.h
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
