@@ -238,14 +238,14 @@ continue
     !
   end do
   !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
-                       mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
-  end if
+ !if (ncpu > 1) then
+ !  call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
+ !                     mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+ !end if
   !
   if (newton_failures > 0) then
     write (error_message,2) newton_failures
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Now that we have finished getting the boundary conditions local to
