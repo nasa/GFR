@@ -174,6 +174,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : iRKtype,num_stages,mms_opt
   use ovar,      only : convert_restart_to_cgns
   use ovar,      only : continuous_output
+  use ovar,      only : time_average_restart_files
   !
   !.. Local Scalars ..
   integer :: n,ne,nf,nn,nepts,nfpts
@@ -215,6 +216,11 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
     !
+  !
+  ! If we are only time averaging restart files, we dont need any of
+  ! these other arrays so 
+  !
+  if (time_average_restart_files) return
     !
     allocate ( residual(1:nq,1:n_solpts) , source=zero , &
                stat=ierr , errmsg=error_message )
