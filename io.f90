@@ -5920,7 +5920,7 @@ continue
           varname = trim(adjustl(varname)) // "Vr'"
           var_dim(n) = var_dim(n) * aref
         case ("F") 
-          varname = trim(adjustl(varname)) // "Vtheta'"
+          varname = trim(adjustl(varname)) // "Vf'"
           var_dim(n) = var_dim(n) * aref
         case ("K") 
           varname = trim(adjustl(varname)) // "TKE'"
