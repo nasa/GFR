@@ -260,7 +260,9 @@ continue
   !
   ! Initialize the solution at previous timestep array
   !
-  uoldsp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+  if (allocated(uoldsp)) then
+    uoldsp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+  end if
   !
   ! Initialize the solution gradient array
   !
