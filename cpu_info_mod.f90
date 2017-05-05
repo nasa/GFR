@@ -77,6 +77,8 @@ continue
   host_roots_comm = MPI_COMM_WORLD
   cpu_roots_comm = MPI_COMM_WORLD
   !
+  if (ncpu == 1) return
+  !
   allocate ( all_host_num(1:ncpu) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"all_host_num",1,__LINE__,__FILE__, &
