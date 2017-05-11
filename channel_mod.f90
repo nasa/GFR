@@ -72,14 +72,14 @@ end function channel_initialization
 subroutine channel_source()
   !
   !.. Use Statements ..
-  use geovar,      only : n_solpts
+  use geovar,      only : ncell,cell
   use ovar,        only : channel_body_force
   use ovar,        only : rhoref,aref
   use flowvar,     only : residual,usp
-  use metrics_mod, only : jacobian
+  use metrics_mod, only : metrics_dt
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,nc,n1,n2
   !
   real(wp) :: bfx,hc,vx
   !
@@ -97,14 +97,21 @@ continue
   !
   bfx = channel_body_force / (rhoref*aref*aref)
   !
-  do n = 1,n_solpts
+  do nc = 1,ncell
     !
-    vx = usp(nmx,n) / usp(nec,n)
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
     !
-    hc = -bfx / (jacobian(n)**jac_exp)
-    !
-    residual(nmx,n) = residual(nmx,n) + add_or_subtract * hc
-    residual(nee,n) = residual(nee,n) + add_or_subtract * hc * vx 
+    do n = n1,n2
+      !
+      vx = usp(nmx,n) / usp(nec,n)
+      !
+      hc = -bfx / (metrics_dt(nc)%jac(n-n1+1)**jac_exp)
+      !
+      residual(nmx,n) = residual(nmx,n) + add_or_subtract * hc
+      residual(nee,n) = residual(nee,n) + add_or_subtract * hc * vx 
+      !
+    end do
     !
   end do
   !

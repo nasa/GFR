@@ -651,7 +651,6 @@ subroutine getmaxent
   use order_mod,         only : maxEP,e_order
   use geovar,            only : nr,ncell,cell,xyz
   use ovar,              only : gam,bc_in,total_volume,itestcase
-  use metrics_mod,       only : jacobian
   use flowvar,           only : usp
   use parallel_mod,      only : cell_map
   use quadrature_mod,    only : std_elem
@@ -793,7 +792,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   use flowvar,           only : usp,uoldsp,uavesp
   use interpolation_mod, only : outerp
   use quadrature_mod,    only : std_elem
-  use metrics_mod,       only : jacobian
+  use metrics_mod,       only : metrics_dt
   use mms_mod,           only : mms_solution_at_xyz
   !
   !.. Formal Arguments ..
@@ -882,11 +881,11 @@ continue
     !
     jac(1:np) = outerp(this_geom,this_order)% &
                                        error% &
-                mv_mult( jacobian(n1:n2) )
+                mv_mult( metrics_dt(this_cell)%jac(:) )
     !
   else
     !
-    jac(1:np) = jacobian(n1:n2)
+    jac(1:np) = metrics_dt(this_cell)%jac(:)
     !
   end if
   !
@@ -1010,7 +1009,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   use flowvar, only : usp,dusp
   use interpolation_mod, only : outerp
   use quadrature_mod, only : std_elem
-  use metrics_mod, only : jacobian
+  use metrics_mod, only : metrics_dt
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: iter
@@ -1212,7 +1211,7 @@ continue
       !
       wtdjac(1:np) = outerp(this_geom,this_order)% &
                                             error% &
-                     mv_mult( jacobian(n1:n2) )
+                     mv_mult( metrics_dt(this_cell)%jac(:) )
       !
       wtdjac(1:np) = wtdjac(1:np) * outerp(this_geom,this_order)%err_wts
       !
@@ -1224,7 +1223,8 @@ continue
       !
       vsp(1:nq,1:np) = usp(1:nq,n1:n2)
       dcvdx(1:nr,1:nq,1:np) = dusp(1:nr,1:nq,n1:n2)
-      wtdjac(1:np) = jacobian(n1:n2) * std_elem(this_geom,this_order)%wts
+      wtdjac(1:np) = metrics_dt(this_cell)%jac * &
+                     std_elem(this_geom,this_order)%wts
       !
     end if
     !

@@ -34,6 +34,7 @@ module metrics_mod
   !
   ! dJ : derivative of the jacobian at the solution points
   !
+  logical(lk), parameter :: use_dJ = fals
   real(wp), public, save, allocatable, dimension(:,:) :: dJ
   !
   ! metrics : first derivative metrics terms at the solution points
@@ -56,9 +57,9 @@ module metrics_mod
   !                 by the jacobian is desired where this metric term is
   !                 predominantly used.
   !
-#ifdef USE_OLD_METRICS
-  real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics
-#else
+!!!#ifdef USE_OLD_METRICS
+  !real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics
+!!!#else
   !
   ! this is essentially metrics(:,:,n) = metrics(:,:,n,2) / jacobian(n)
   !
@@ -67,7 +68,17 @@ module metrics_mod
   !                            d(x_i)
   !
   real(wp), public, save, allocatable, dimension(:,:,:) :: metrics
-#endif
+  !
+  type, public :: metrics_t
+    real(wp), allocatable :: met(:,:,:)
+    real(wp), allocatable :: jac(:)
+    real(wp), allocatable :: dJ(:,:)
+  contains
+    procedure, public  :: vol => compute_cell_volume
+    procedure, private :: create_cell_metrics
+  end type metrics_t
+  !
+  type(metrics_t), public, save, allocatable :: metrics_dt(:)
   !
   ! spmat : solution points matrix
   ! dximat : dx matrix
@@ -174,17 +185,18 @@ subroutine get_metrics()
   integer  :: n,nc,n1,n2,np
   integer  :: this_geom,this_order
   integer  :: ref_dir,phys_dir
-  integer  :: min_jsp,min_jsp_cpu,min_jtp,min_jtp_cpu,min_vol_cpu
-  integer  :: max_jsp,max_jsp_cpu,max_jtp,max_jtp_cpu,max_vol_cpu
+  integer  :: min_jsp,min_jcl,min_jac_cpu,min_vol_cpu
+  integer  :: max_jsp,max_jcl,max_jac_cpu,max_vol_cpu
   integer  :: min_ncell_cpu,max_ncell_cpu
   integer  :: min_nnode_cpu,max_nnode_cpu
   integer  :: min_nfbnd_cpu,max_nfbnd_cpu
   integer  :: min_nface_cpu,max_nface_cpu
   integer  :: min_nspts_cpu,max_nspts_cpu
   integer  :: min_ncv,max_ncv,min_ncv_cpu,max_ncv_cpu
-  real(r8) :: loc_vol,tot_vol
+  real(r8) :: vol,loc_vol,tot_vol
   real(wp) :: ave_ncell,ave_nnode,ave_vol,ave_cell_vol
   real(wp) :: ave_nfbnd,ave_nface,ave_nspts
+  real(wp) :: jac_min,jac_max,vol_min,vol_max
   !
  !integer :: exitstat,cmndstat
  !character(len=1000) :: cmndmsg,command
@@ -195,8 +207,8 @@ subroutine get_metrics()
   integer  :: all_part_info(1:5,1:ncpu)
   real(wp) :: txyz(1:maxSP,1:nr)
   real(wp) :: outmet(1:nr,1:nr)
-  real(wp) :: jac_info(1:13)
-  real(wp) :: all_jac_info(1:13,1:ncpu)
+  real(wp) :: jac_info(1:11)
+  real(wp) :: all_jac_info(1:11,1:ncpu)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_metrics"
@@ -237,25 +249,35 @@ continue
   !
   ! Allocate the required metrics related arrays
   !
-#ifdef USE_OLD_METRICS
-  allocate ( metrics(1:nr,1:nr,1:n_totpts,1:2) , source=zero , &
-             stat=ierr , errmsg=error_message )
-#else
   allocate ( metrics(1:nr,1:nr,1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
-#endif
   call alloc_error(pname,"metrics",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( jacobian(1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"jacobian",1,__LINE__,__FILE__,ierr,error_message)
   !
-  allocate ( volj(1:n_totcel) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"volj",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( metrics_dt(1:ncell) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"metrics_dt",1,__LINE__,__FILE__,ierr,error_message)
+  !
+ !allocate ( volj(1:n_totcel) , source=zero , &
+ !           stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"volj",1,__LINE__,__FILE__,ierr,error_message)
   !
   local_volume = zero
   total_volume = zero
+  !
+  min_jsp = 1
+  max_jsp = 1
+  min_jcl = 1
+  max_jcl = 1
+  jac_min = huge(zero)
+  jac_max = -huge(zero)
+  !
+  min_ncv = 1
+  max_ncv = 1
+  vol_min = huge(zero)
+  vol_max = -huge(zero)
   !
   ! Loop over the cells to get the metrics at each solution point
   !
@@ -282,6 +304,11 @@ continue
       end do
     end do
     !
+    ! Compute the metrics and jacobian for this cell
+    !
+    call metrics_dt(nc)%create_cell_metrics(txyz(1:np,1:nr), &
+                                            this_geom,this_order,nc)
+    !
     ! Compute the metrics for all points in this cell
     ! NOTE: THIS REQUIRES USING THE VECTOR-MATRIX MULTIPLICATION OPERATION.
     !       I THINK THIS HAS TO DO WITH THE DERIVATIVE MATRIX BEING
@@ -289,37 +316,23 @@ continue
     !
     do ref_dir = 1,nr
       do phys_dir = 1,nr
-#ifdef USE_OLD_METRICS
-        metrics(phys_dir,ref_dir,n1:n2,1) = deriv(this_geom,this_order)% &
-                                                             d(ref_dir)% &
-                                            vm_mult( txyz(1:np,phys_dir) )
-#else
         metrics(phys_dir,ref_dir,n1:n2) = deriv(this_geom,this_order)% &
                                                            d(ref_dir)% &
                                           vm_mult( txyz(1:np,phys_dir) )
-#endif
       end do
     end do
     !
     ! Compute the Jacobian of the metrics tensor for each point in this cell
     !
     do n = n1,n2
-#ifdef USE_OLD_METRICS
-      jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n,1) )
-#else
       jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
-#endif
     end do
     !
     ! Compute the inverse metrics for each point in this cell
     !
     do n = n1,n2
-#ifdef USE_OLD_METRICS
-      metrics(1:nr,1:nr,n,2) = reverse_metrics( metrics(1:nr,1:nr,n,1) )
-#else
       metrics(1:nr,1:nr,n) = reverse_metrics( metrics(1:nr,1:nr,n) ) / &
                              jacobian(n)
-#endif
     end do
     !
     ! Compute the first derivative of Jacobian for all
@@ -338,12 +351,33 @@ continue
     ! Sum the product of the Jacobian and quadrature weight for each point
     ! in this cell to compute the volume of the current cell
     !
-    volj(nc) = dot( jacobian(n1:n2) , std_elem(this_geom,this_order)%wts(1:np) )
+   !volj(nc) = dot( jacobian(n1:n2) , std_elem(this_geom,this_order)%wts(1:np) )
+    vol = metrics_dt(nc)%vol(this_geom,this_order)
     !
     ! Add the volume of the current cell to the total volume
     ! of the current local partition
     !
-    if (nc <= ncell) local_volume = local_volume + volj(nc)
+    local_volume = local_volume + vol
+    !
+    if (vol < vol_min) then
+      vol_min = vol
+      min_ncv = nc
+    end if
+    if (vol > vol_max) then
+      vol_max = vol
+      max_ncv = nc
+    end if
+    !
+    if (minval(metrics_dt(nc)%jac) < jac_min) then
+      min_jsp = minloc(metrics_dt(nc)%jac,dim=1)
+      jac_min = metrics_dt(nc)%jac(min_jsp)
+      min_jcl = nc
+    end if
+    if (maxval(metrics_dt(nc)%jac) > jac_max) then
+      max_jsp = maxloc(metrics_dt(nc)%jac,dim=1)
+      jac_max = metrics_dt(nc)%jac(max_jsp)
+      max_jcl = nc
+    end if
     !
     ! Output the metrics if needed
     !
@@ -352,15 +386,11 @@ continue
         do i = ibeg,iend
           j1 = mod(i+1,2) + 1
           j2 = mod(i  ,2) + 1
-#ifdef USE_OLD_METRICS
-          outmet = metrics(1:nr,1:nr,n,j1)
-#else
           if (j1 == 1) then
             outmet = invert_matrix( metrics(1:nr,1:nr,n) )
           else
             outmet = metrics(1:nr,1:nr,n) * jacobian(n)
           end if
-#endif
          !if (j1 == 2) then
          !  outmet = outmet / jacobian(n)
          !end if
@@ -375,29 +405,17 @@ continue
     !
   end do metrics_loop
   !
-  np = cell(ncell)%end_sp
-  !
-  min_jsp = minloc(jacobian(1:np),dim=1)
-  max_jsp = maxloc(jacobian(1:np),dim=1)
-  min_jtp = minloc(jacobian,mask=jacobian/=zero,dim=1)
-  max_jtp = maxloc(jacobian,mask=jacobian/=zero,dim=1)
-  !
-  min_ncv = minloc(volj(1:ncell),dim=1)
-  max_ncv = maxloc(volj(1:ncell),dim=1)
-  !
   jac_info(1) = real(min_jsp,kind=wp)
-  jac_info(2) = real(max_jtp,kind=wp)
-  jac_info(3) = real(min_jsp,kind=wp)
-  jac_info(4) = real(max_jtp,kind=wp)
-  jac_info(5) = jacobian(min_jsp)
-  jac_info(6) = jacobian(max_jtp)
-  jac_info(7) = jacobian(min_jsp)
-  jac_info(8) = jacobian(max_jtp)
-  jac_info(9) = local_volume
-  jac_info(10) = real(min_ncv,kind=wp)
-  jac_info(11) = real(max_ncv,kind=wp)
-  jac_info(12) = volj(min_ncv)
-  jac_info(13) = volj(max_ncv)
+  jac_info(2) = real(min_jcl,kind=wp)
+  jac_info(3) = real(max_jsp,kind=wp)
+  jac_info(4) = real(max_jcl,kind=wp)
+  jac_info(5) = jac_min
+  jac_info(6) = jac_max
+  jac_info(7) = local_volume
+  jac_info(8) = real(min_ncv,kind=wp)
+  jac_info(9) = real(max_ncv,kind=wp)
+  jac_info(10) = vol_min
+  jac_info(11) = vol_max
   !
   part_info(1) = ncell
   part_info(2) = nnode
@@ -422,22 +440,20 @@ continue
     !
   end if
   !
-  min_jsp_cpu = minloc( all_jac_info(5,:) , dim=1 )
-  max_jsp_cpu = minloc( all_jac_info(6,:) , dim=1 )
-  min_jtp_cpu = minloc( all_jac_info(7,:) , dim=1 )
-  max_jtp_cpu = minloc( all_jac_info(8,:) , dim=1 )
-  min_vol_cpu = minloc( all_jac_info(9,:) , dim=1 )
-  max_vol_cpu = maxloc( all_jac_info(9,:) , dim=1 )
-  min_ncv_cpu = minloc( all_jac_info(12,:) , dim=1 )
-  max_ncv_cpu = maxloc( all_jac_info(13,:) , dim=1 )
+  min_jac_cpu = minloc( all_jac_info(5,:) , dim=1 )
+  max_jac_cpu = maxloc( all_jac_info(6,:) , dim=1 )
+  min_vol_cpu = minloc( all_jac_info(7,:) , dim=1 )
+  max_vol_cpu = maxloc( all_jac_info(7,:) , dim=1 )
+  min_ncv_cpu = minloc( all_jac_info(10,:) , dim=1 )
+  max_ncv_cpu = maxloc( all_jac_info(11,:) , dim=1 )
   !
-  min_jsp = nint( all_jac_info(1,min_jsp_cpu) )
-  max_jsp = nint( all_jac_info(2,max_jsp_cpu) )
-  min_jtp = nint( all_jac_info(3,min_jtp_cpu) )
-  max_jtp = nint( all_jac_info(4,max_jtp_cpu) )
+  min_jsp = nint( all_jac_info(1,min_jac_cpu) )
+  min_jcl = nint( all_jac_info(2,min_jac_cpu) )
+  max_jsp = nint( all_jac_info(3,max_jac_cpu) )
+  max_jcl = nint( all_jac_info(4,max_jac_cpu) )
   !
-  min_ncv = nint( all_jac_info(10,min_ncv_cpu) )
-  max_ncv = nint( all_jac_info(11,max_ncv_cpu) )
+  min_ncv = nint( all_jac_info(8,min_ncv_cpu) )
+  max_ncv = nint( all_jac_info(9,max_ncv_cpu) )
   !
   min_ncell_cpu = minloc( all_part_info(1,:) , dim=1 )
   max_ncell_cpu = maxloc( all_part_info(1,:) , dim=1 )
@@ -460,20 +476,18 @@ continue
               real( size(all_part_info,dim=2) , kind=kind(ave_nface) )
   ave_nspts = real( sum( all_part_info(5,:) ) , kind=kind(ave_nspts) ) / &
               real( size(all_part_info,dim=2) , kind=kind(ave_nspts) )
-  ave_vol   = sum( all_jac_info(9,:) ) / &
-              real( size(all_jac_info(9,:)) , kind=kind(ave_vol) )
+  ave_vol   = sum( all_jac_info(7,:) ) / &
+              real( size(all_jac_info(7,:)) , kind=kind(ave_vol) )
   !
-  ave_cell_vol = sum( all_jac_info(9,:) ) / &
+  ave_cell_vol = sum( all_jac_info(7,:) ) / &
                  real( sum( all_part_info(1,:) ) , kind=kind(ave_cell_vol) )
   !
   if (mypnum == 0) then
     !
-    write (iout,1) all_jac_info( 5,min_jsp_cpu),min_jsp,min_jsp_cpu-1, &
-                   all_jac_info( 6,max_jsp_cpu),max_jsp,max_jsp_cpu-1, &
-                   all_jac_info( 7,min_jtp_cpu),min_jtp,min_jtp_cpu-1, &
-                   all_jac_info( 8,max_jtp_cpu),max_jtp,max_jtp_cpu-1, &
-                   all_jac_info(12,min_ncv_cpu),min_ncv,min_ncv_cpu-1, &
-                   all_jac_info(13,max_ncv_cpu),max_ncv,max_ncv_cpu-1, &
+    write (iout,1) all_jac_info( 5,min_jac_cpu),min_jsp,min_jcl,min_jac_cpu-1, &
+                   all_jac_info( 6,max_jac_cpu),max_jsp,max_jcl,max_jac_cpu-1, &
+                   all_jac_info(10,min_ncv_cpu),min_ncv,min_ncv_cpu-1, &
+                   all_jac_info(11,max_ncv_cpu),max_ncv,max_ncv_cpu-1, &
                    ave_cell_vol
     !
     write (iout,2) all_part_info(1,min_ncell_cpu),min_ncell_cpu, &
@@ -491,17 +505,17 @@ continue
                    all_part_info(5,min_nspts_cpu),min_nspts_cpu, &
                    all_part_info(5,max_nspts_cpu),max_nspts_cpu, &
                    nint(ave_nspts), &
-                   all_jac_info(9,min_vol_cpu),min_vol_cpu, &
-                   all_jac_info(9,max_vol_cpu),max_vol_cpu, &
+                   all_jac_info(7,min_vol_cpu),min_vol_cpu, &
+                   all_jac_info(7,max_vol_cpu),max_vol_cpu, &
                    ave_vol
     !
   end if
   !
   1 format (/, &
-     " Min Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-     " Max Interior  Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-     " Min Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,/, &
-     " Max Int+Ghost Jacobian =",es16.8," @ SP ",i0,t58,"on CPU # ",i0,//, &
+     " Min Interior  Jacobian =",es16.8, &
+                 " @ SP ",i0,t52,"of Cell ",i0,t69,"on CPU # ",i0,/, &
+     " Max Interior  Jacobian =",es16.8, &
+                 " @ SP ",i0,t52,"of Cell ",i0,t69,"on CPU # ",i0,//, &
      " Min Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
      " Max Interior Cell Volume =",es16.8," @ Cell ",i0,t62,"on CPU # ",i0,/, &
      " Ave Interior Cell Volume =",es16.8)
@@ -525,41 +539,6 @@ continue
           " Min partition volume =",es16.8," on CPU # ",i0,/, &
           " Max partition volume =",es16.8," on CPU # ",i0,/, &
           " Ave partition volume =",es16.8,/)
-  !
- !write (iout,2) mypnum,"n_solpts",minval(jacobian(1:np)),maxval(jacobian(1:np))
- !write (iout,2) mypnum,"n_totpts",minval(jacobian,mask=jacobian/=zero),&
- !                                 maxval(jacobian,mask=jacobian/=zero)
- !2 format ("  For CPU #",i4.4," : min,max-val of Jacobian(1:",a,") = [", &
- !                                               es22.15,",",es22.15,"]")
- !write (*,*) mypnum,local_volume,sum(volj(1:ncell))
-  !
- !if (output_metrics) then
- !  exitstat = 0
- !  cmndstat = 0
- !  do i = ibeg,iend
- !        command = "sed -i " // &
- !                      "-e 's/-0\.000000E+00/      -      /g' " // &
- !                      "-e 's/0\.000000E+00/     -      /g' " // &
- !                  trim(adjustl(fname(i)))
- !    write (iout,194) "Executing: ",trim(adjustl(command))
- !    !
- !    exitstat = system( trim(command) )
- !   !call execute_command_line(trim(command),.true.,exitstat,cmndstat,cmndmsg)
- !    !
- !    if (exitstat /= 0 .or. cmndstat /= 0) then
- !      write (iout,199) exitstat,cmndstat,trim(adjustl(cmndmsg))
- !    end if
- !  end do
- !  write (error_message,*) "After outputting the metrics because ", &
- !                          "the output_metrics parameter is active!"
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
- !  194 format (a,a)
- !  199 format (/," Error attempting to use command line!",/, &
- !                " exit status    = ",i0,/, &
- !                " command status = ",i0,/, &
- !                " error message  = ",a,//)
- !end if
-  !
   !
   ! Get the face normal at the solution points on each face
   !
@@ -589,6 +568,11 @@ continue
       call io_error(pname,fname(i),2,__LINE__,__FILE__,ierr,error_message)
     end do
   end if
+  !
+ !if (allocated(volj)) then
+ !  deallocate ( volj , stat=ierr , errmsg=error_message )
+ !  call alloc_error(pname,"volj",2,__LINE__,__FILE__,ierr,error_message)
+ !end if
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -871,6 +855,107 @@ end subroutine compute_face_normals
 !
 !###############################################################################
 !
+pure function compute_cell_volume(this,geom,order) result(return_value)
+  !
+  !.. Use Statements ..
+  use quadrature_mod, only : std_elem
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(metrics_t), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: geom
+  integer, intent(in) :: order
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+continue
+  !
+  ! Sum the product of the Jacobian and quadrature weight for each point
+  ! in this cell to compute the volume of the current cell
+  !
+  return_value = dot( this%jac , std_elem(geom,order)%wts )
+  !
+end function compute_cell_volume
+!
+!###############################################################################
+!
+subroutine create_cell_metrics(this,txyz,geom,order,cell_idx)
+  !
+  !.. Use Statements ..
+  use derivatives_mod, only : deriv
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(metrics_t), intent(inout) :: this
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: txyz(:,:)
+  integer,  intent(in) :: geom
+  integer,  intent(in) :: order
+  integer,  intent(in) :: cell_idx
+  !
+  !.. Local Scalars ..
+  integer :: n,np,ierr
+  character(len=50) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_cell_metrics"
+  !
+continue
+  !
+  np = size(txyz,dim=1)
+  !
+  ! Compute the metrics for all points in this cell
+  !
+  ! USING F2003 AUTO-REALLOCATION
+  this%met = deriv(geom,order)%grad( txyz(:,:) )
+ !do ref_dir = 1,nr
+ !  do phys_dir = 1,nr
+ !    metrics(phys_dir,ref_dir,n1:n2) = deriv(this_geom,this_order)% &
+ !                                                       d(ref_dir)% &
+ !                                      vm_mult( txyz(1:np,phys_dir) )
+ !  end do
+ !end do
+  !
+  ! Compute the Jacobian of the metrics tensor for each point in this cell
+  !
+  allocate ( this%jac(1:np) , source=zero , stat=ierr , errmsg=error_message )
+  write (array_name,1) cell_idx
+  call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,np
+    this%jac(n) = compute_jacobian( this%met(n,:,:) )
+  end do
+  !
+  ! Compute the inverse metrics for each point in this cell
+  !
+  do n = 1,np
+    this%met(n,:,:) = reverse_metrics( this%met(n,:,:) ) / &
+                      this%jac(n)
+  end do
+  !
+  ! Compute the first derivative of Jacobian for all
+  ! points in this cell if the array is allocated
+  !
+  if (use_dJ) then
+    ! USING F2003 AUTO-REALLOCATION
+    this%dJ = deriv(geom,order)%grad( this%jac(:) )
+   !do ref_dir = 1,nr
+   !  dJ(ref_dir,n1:n2) = deriv(this_geom,this_order)% &
+   !                                       d(ref_dir)% &
+   !                      mv_mult( jacobian(n1:n2) )
+   !end do
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("metrics_dt(",i0,")%jac")
+  !
+end subroutine create_cell_metrics
+!
+!###############################################################################
+!
 subroutine metrics_memory_usage(iunit)
   !
   !.. Use Statements ..
@@ -883,6 +968,7 @@ subroutine metrics_memory_usage(iunit)
   integer :: i,iou
   character(len=36) :: array_name
   type(memory) :: array,dt
+  type(memory) :: metmet,metjac,metdj
   type(memory) :: total
   !
 continue
@@ -891,6 +977,9 @@ continue
   if (present(iunit)) iou = iunit
   !
   call total%reset
+  call metmet%reset
+  call metjac%reset
+  call metdj%reset
   !
   write (iou,1)
   !
@@ -925,6 +1014,62 @@ continue
   else
     !
     write (iou,7) "geofa"
+    !
+  end if
+  !
+  !-----------------------------------------------------------------------------
+  !
+  if (allocated(metrics_dt)) then
+    !
+    call dt%set( storage_size(metrics_dt,kind=inttype) , &
+                         size(metrics_dt,kind=inttype) )
+    !
+    write (array_name,5) "metrics_dt(:)"
+    write (iou,2) array_name,dt%get_units()
+    !
+    call array%reset
+    !
+    do i = lbound(metrics_dt,dim=1),ubound(metrics_dt,dim=1)
+      !
+      if (allocated(metrics_dt(i)%met)) then
+        call array%set( storage_size(metrics_dt(i)%met,kind=inttype) , &
+                                size(metrics_dt(i)%met,kind=inttype) )
+        call metmet%add(array)
+        call dt%add(array)
+      end if
+      !
+      if (allocated(metrics_dt(i)%jac)) then
+        call array%set( storage_size(metrics_dt(i)%jac,kind=inttype) , &
+                                size(metrics_dt(i)%jac,kind=inttype) )
+        call metjac%add(array)
+        call dt%add(array)
+      end if
+      !
+      if (allocated(metrics_dt(i)%dJ)) then
+        call array%set( storage_size(metrics_dt(i)%dJ,kind=inttype) , &
+                                size(metrics_dt(i)%dJ,kind=inttype) )
+        call metdJ%add(array)
+        call dt%add(array)
+      end if
+      !
+    end do
+    !
+    write (array_name,5) "metrics_dt(:)%met"
+    write (iou,6) array_name,metmet%get_units()
+    !
+    write (array_name,5) "metrics_dt(:)%jac"
+    write (iou,6) array_name,metjac%get_units()
+    !
+    write (array_name,5) "metrics_dt(:)%dJ"
+    write (iou,6) array_name,metdJ%get_units()
+    !
+    call total%add(dt)
+    write (array_name,5) "metrics_dt"
+    write (iou,2) array_name,dt%get_units()
+    !
+  else
+    !
+    write (iou,7) "metrics_dt"
     !
   end if
   !

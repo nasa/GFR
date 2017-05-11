@@ -251,10 +251,7 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   use geovar,            only : cell
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
-  use metrics_mod,       only : metrics,geofa
-#ifndef USE_OLD_METRICS
-  use metrics_mod,       only : jacobian
-#endif
+  use metrics_mod,       only : metrics_dt,geofa
   use flowvar,           only : usp,dusp,residual,faceflx,faceusp
   use ovar,              only : governing_equations
   use ovar,              only : output_dir,dump_fluxes
@@ -346,11 +343,8 @@ continue
       !
       do m = 1,nq
         do l = 1,nr
-#ifdef USE_OLD_METRICS
-          rsflx(k,m,l) = dot( xyflx(k,m,1:nr) , metrics(l,1:nr,n,2) )
-#else
-          rsflx(k,m,l) = dot(xyflx(k,m,1:nr),metrics(l,1:nr,n)) * jacobian(n)
-#endif
+          rsflx(k,m,l) = dot(xyflx(k,m,1:nr),metrics_dt(nc)%met(k,l,1:nr)) * &
+                         metrics_dt(nc)%jac(k)
         end do
       end do
       !
@@ -503,7 +497,7 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   use geovar,  only : bface,face,cell
   use ovar,    only : invs_flux_method,governing_equations
   use ovar,    only : output_dir,dump_fluxes
-  use metrics_mod,  only : geofa,volj
+  use metrics_mod,  only : geofa
   use correction_mod, only : correct
   use flowvar, only : usp,residual,faceflx,faceusp,facedusp
   !
@@ -900,10 +894,7 @@ subroutine discontinuous_gradient_at_solpts()
   !.. Use Statements ..
   use order_mod,  only : maxpts
   use geovar,  only : nr,ncell,cell
-#ifdef USE_OLD_METRICS
-  use metrics_mod,  only : jacobian
-#endif
-  use metrics_mod,  only : metrics
+  use metrics_mod,  only : metrics_dt
   use derivatives_mod, only : deriv
   use flowvar, only : usp,dusp
   !
@@ -913,7 +904,7 @@ subroutine discontinuous_gradient_at_solpts()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: dudr
-  real(wp), dimension(1:nr) :: dudx
+  real(wp), dimension(1:nr,1:nq) :: dudr1
   real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
 continue
@@ -944,27 +935,32 @@ continue
       !
       n = k+n1-1 ! total index of solution point on current partition
       !
+      dudr1(1:nr,1:nq) = deriv(this_geom,this_order)%grad( k , tusp(1:np,1:nq) )
+      !
       do m = 1,nq
-        !
-        ! Compute the derivatives in r-s space
-        !
+       !dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
         do l = 1,nr
-          dudr(l) = deriv(this_geom,this_order)% &
-                                           d(l)% &
-                    dot( k , tusp(1:np,m) )
+          dusp(l,m,n) = dot( dudr1(1:nr,m) , metrics_dt(nc)%met(k,1:nr,l) )
         end do
-        !
-        ! Transform the derivatives back to x-y space
-        !
-        do l = 1,nr
-#ifdef USE_OLD_METRICS
-          dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
-#else
-          dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n) )
-#endif
-        end do
-        !
       end do
+      !
+     !do m = 1,nq
+     !  !
+     !  ! Compute the derivatives in r-s space
+     !  !
+     !  do l = 1,nr
+     !    dudr(l) = deriv(this_geom,this_order)% &
+     !                                     d(l)% &
+     !              dot( k , tusp(1:np,m) )
+     !  end do
+     !  !
+     !  ! Transform the derivatives back to x-y space
+     !  !
+     !  do l = 1,nr
+     !    dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n) )
+     !  end do
+     !  !
+     !end do
       !
     end do
     !
@@ -981,14 +977,14 @@ subroutine correct_gradients_at_solpts()
   use order_mod,  only : maxpts,geom_solpts
   use geovar,  only : nfbnd,nface,nr,n_solpts,ncell
   use geovar,  only : face,cell,bface
-  use metrics_mod,  only : geofa,jacobian,volj
+  use metrics_mod,  only : geofa,metrics_dt
   use correction_mod, only : correct
   use flowvar, only : dusp,faceusp
   use ovar,    only : walls_are_exact
   use ovar,   only : LDG_beta
   !
   !.. Local Scalars ..
-  integer  :: i,k,l,m,n,nf,r1,r2,l1,l2,n1,n2,nc
+  integer  :: i,k,l,m,n,nk,nf,r1,r2,l1,l2,n1,n2,nc
   integer  :: kl,kr,nfp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
@@ -1124,9 +1120,10 @@ continue
       !
       do i = correct(host_geom,host_order)%row_ptr(kl)+1, &
              correct(host_geom,host_order)%row_ptr(kl+1)
-        n = l1 - 1 + correct(host_geom,host_order)%row_idx(i)
+        nk = correct(host_geom,host_order)%row_idx(i)
+        n = l1 - 1 + nk
         correct_n = dsl * correct(host_geom,host_order)%row_val(i) &
-                        / jacobian(n)
+                        / metrics_dt(host_cell)%jac(nk)
         do m = 1,nq
           correct_m = correct_n * ljfp(m)
           do l = 1,nr
@@ -1245,9 +1242,10 @@ continue
       !
       do i = correct(left_geom,left_order)%row_ptr(kl)+1, &
              correct(left_geom,left_order)%row_ptr(kl+1)
-        n = l1 - 1 + correct(left_geom,left_order)%row_idx(i)
+        nk = correct(left_geom,left_order)%row_idx(i)
+        n = l1 - 1 + nk
         correct_n = dsl * correct(left_geom,left_order)%row_val(i) &
-                        / jacobian(n)
+                        / metrics_dt(left_cell)%jac(nk)
         do m = 1,nq
           correct_m = correct_n * ljfp(m)
           do l = 1,nr
@@ -1261,9 +1259,10 @@ continue
       !
       do i = correct(right_geom,right_order)%row_ptr(kr)+1, &
              correct(right_geom,right_order)%row_ptr(kr+1)
-        n = r1 - 1 + correct(right_geom,right_order)%row_idx(i)
+        nk = correct(right_geom,right_order)%row_idx(i)
+        n = r1 - 1 + nk
         correct_n = dsr * correct(right_geom,right_order)%row_val(i) &
-                        / jacobian(n)
+                        / metrics_dt(right_cell)%jac(nk)
         do m = 1,nq
           correct_m = correct_n * rjfp(m)
           do l = 1,nr
@@ -1287,7 +1286,7 @@ subroutine correct_gradients_br2()
   use geovar,            only : cell
   use geovar,            only : nr,ncell,nfbnd,bface
   use geovar,            only : face
-  use metrics_mod,       only : geofa,jacobian
+  use metrics_mod,       only : geofa,metrics_dt
   use correction_mod,    only : correct
   use flowvar,           only : dusp,facedusp,faceusp
   use ovar,              only : walls_are_exact,LDG_beta
@@ -1337,7 +1336,7 @@ continue
       i1 = cmat%row_ptr(i)+1
       i2 = cmat%row_ptr(i+1)
       cmat%row_val(i1:i2) = cmat%row_val(i1:i2) / &
-                            jacobian(n1 + cmat%row_idx(i1:i2) - 1)
+                            metrics_dt(nc)%jac( cmat%row_idx(i1:i2) )
     end do
     !
     ! Create a local copy of dusp for this cell to which all the
@@ -1501,7 +1500,7 @@ subroutine correct_solution_for_output(interp_usp,interp_dusp)
   use geovar,  only : nr,nfbnd,nface,n_solpts
   use geovar,  only : bface,face,cell
   use ovar,    only : invs_flux_method,visc_flux_method
-  use metrics_mod,  only : geofa,jacobian
+  use metrics_mod,  only : geofa,metrics_dt
   use correction_mod, only : correct_sol
   use flowvar, only : usp,dusp,uoldsp,faceusp
   !
@@ -1512,7 +1511,7 @@ subroutine correct_solution_for_output(interp_usp,interp_dusp)
   real(wp), dimension(:,:,:), intent(inout) :: interp_dusp
   !
   !.. Local Scalars ..
-  integer  :: i,k,m,n,nf,r1,r2,l1,l2
+  integer  :: i,k,m,n,nf,nk,r1,r2,l1,l2
   integer  :: kl,kr,nfp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
@@ -1644,9 +1643,10 @@ continue
       !
       do i = correct_sol(host_geom,host_order)%row_ptr(kl)+1, &
              correct_sol(host_geom,host_order)%row_ptr(kl+1)
-        n = l1 - 1 + correct_sol(host_geom,host_order)%row_idx(i)
+        nk = correct_sol(host_geom,host_order)%row_idx(i)
+        n = l1 - 1 + nk
         correct_n = correct_sol(host_geom,host_order)%row_val(i)
-        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        if (use_jacobian) correct_n = correct_n / metrics_dt(host_cell)%jac(nk)
         do m = 1,nq
           usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
         end do
@@ -1734,9 +1734,10 @@ continue
       !
       do i = correct_sol(left_geom,left_order)%row_ptr(kl)+1, &
              correct_sol(left_geom,left_order)%row_ptr(kl+1)
-        n = l1 - 1 + correct_sol(left_geom,left_order)%row_idx(i)
+        nk = correct_sol(left_geom,left_order)%row_idx(i)
+        n = l1 - 1 + nk
         correct_n = correct_sol(left_geom,left_order)%row_val(i)
-        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        if (use_jacobian) correct_n = correct_n / metrics_dt(left_cell)%jac(nk)
         do m = 1,nq
           usp(m,n) = usp(m,n) + ljfp(m) * correct_n * left_coef
         end do
@@ -1748,9 +1749,10 @@ continue
       !
       do i = correct_sol(right_geom,right_order)%row_ptr(kr)+1, &
              correct_sol(right_geom,right_order)%row_ptr(kr+1)
-        n = r1 - 1 + correct_sol(right_geom,right_order)%row_idx(i)
+        nk = correct_sol(right_geom,right_order)%row_idx(i)
+        n = r1 - 1 + nk
         correct_n = correct_sol(right_geom,right_order)%row_val(i)
-        if (use_jacobian) correct_n = correct_n / jacobian(n)
+        if (use_jacobian) correct_n = correct_n / metrics_dt(right_cell)%jac(nk)
         do m = 1,nq
           usp(m,n) = usp(m,n) + rjfp(m) * correct_n * right_coef
         end do
@@ -1795,7 +1797,7 @@ subroutine flux_gradient_at_solpts_with_qdtr
   use projection_mod,    only : projct
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv,dqmat
-  use metrics_mod,       only : metrics,geofa,jacobian
+  use metrics_mod,       only : metrics_dt,geofa
   use flowvar,           only : usp,residual,faceflx,faceusp
   use ovar,              only : dflux_opt
   !
@@ -1867,15 +1869,11 @@ continue
         !
         do m = 1,nr
           do l = 1,nr
-#ifdef USE_OLD_METRICS
-            dxdr(l,m,k) = dot( lmat(1:nsp) , metrics(l,m,n1:n2,2) )
-#else
-            dxdr(l,m,k) = dot( lmat(1:nsp) , metrics(l,m,n1:n2)* &
-                                             jacobian(n1:n2) )
-#endif
+            dxdr(l,m,k) = dot( lmat(1:nsp) , metrics_dt(nc)%met(1:nsp,l,m)* &
+                                             metrics_dt(nc)%jac(1:nsp) )
           end do
         end do
-        qjac(k) = dot( lmat(1:nsp) , jacobian(n1:n2) )
+        qjac(k) = dot( lmat(1:nsp) , metrics_dt(nc)%jac(1:nsp) )
         !
       end do
       !
@@ -1883,14 +1881,11 @@ continue
       !
       uqp(1:nq,1:nsp) = usp(1:nq,n1:n2)
       !
-#ifdef USE_OLD_METRICS
-      dxdr(1:nr,1:nr,1:nsp) = metrics(1:nr,1:nr,n1:n2,2)
-#else
-      do n = n1,n2
-        dxdr(1:nr,1:nr,n-n1+1) = metrics(1:nr,1:nr,n) * jacobian(n)
+      do n = 1,nsp
+        dxdr(1:nr,1:nr,n) = metrics_dt(nc)%met(n,1:nr,1:nr) * &
+                            metrics_dt(nc)%jac(n)
       end do
-#endif
-      qjac(1:nsp) = jacobian(n1:n2)
+      qjac(1:nsp) = metrics_dt(nc)%jac(1:nsp)
       !
     end if
     !
@@ -2126,7 +2121,7 @@ subroutine correct_interface_flux_with_qdtr()
   use ovar,    only : flux_divergence,dflux_opt,itcur
   use ovar,    only : invs_flux_method
   use flowvar, only : usp,residual,faceflx,faceusp
-  use metrics_mod,  only : geofa,volj
+  use metrics_mod,  only : geofa!,volj
   use correction_mod, only : correct
   use interpolation_mod, only : interp
   use projection_mod, only : projct

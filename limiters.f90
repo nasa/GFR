@@ -317,7 +317,7 @@ subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
   use order_mod, only : maxSP,p_order,n_order
   use quadrature_mod, only : std_elem
   use flowvar, only : usp
-  use metrics_mod, only : jacobian
+  use metrics_mod, only : metrics_dt
   use filter_mod, only : filter
   use projection_mod, only : projct
   use ifport, only : dclock
@@ -411,11 +411,11 @@ continue
     !
     ! Compute the L2 inner product of the two polynomials
     !
-    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * jacobian(n1:n2) * &
+    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * metrics_dt(nc)%jac(1:np) * &
                   std_elem(this_geom,this_order)%wts(1:np) )
     l2_pm1 = max(l2_pm1,rndoff)
     !
-    l2_p = sum( rho_p(1:np) * rho_p(1:np) * jacobian(n1:n2) * &
+    l2_p = sum( rho_p(1:np) * rho_p(1:np) * metrics_dt(nc)%jac(1:np) * &
                 std_elem(this_geom,this_order)%wts(1:np) )
     !
     marker(nc) = log10( l2_pm1 / l2_p )

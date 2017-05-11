@@ -7248,7 +7248,7 @@ pure function vorticity_cv(uu) result(return_value)
   !.. Use Statements ..
   use order_mod, only : maxpts
   use geovar, only : nr,ncell,cell
-  use metrics_mod, only : jacobian,metrics
+  use metrics_mod, only : metrics_dt
   use derivatives_mod, only : deriv
   !
   real(wp), dimension(:,:), intent(in) :: uu
@@ -7286,17 +7286,10 @@ continue
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(2,1:np) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(2,1:np) )
       !
-#ifdef USE_OLD_METRICS
-      drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
-      dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
-      drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
-      dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
-#else
-      drdx = metrics(1,1,k) ! =  dyds/J
-      dsdx = metrics(2,1,k) ! = -dydr/J
-      drdy = metrics(1,2,k) ! = -dxds/J
-      dsdy = metrics(2,2,k) ! =  dxdr/J
-#endif
+      drdx = metrics_dt(n)%met(k,1,1) ! =  dyds/J
+      dsdx = metrics_dt(n)%met(k,2,1) ! = -dydr/J
+      drdy = metrics_dt(n)%met(k,1,2) ! = -dxds/J
+      dsdy = metrics_dt(n)%met(k,2,2) ! =  dxdr/J
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !
@@ -7320,7 +7313,7 @@ pure function vorticity_pv(vv) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : ncell,cell
-  use metrics_mod, only : jacobian,metrics
+  use metrics_mod, only : metrics_dt
   use derivatives_mod, only : deriv
   !
   real(wp), dimension(:,:), intent(in) :: vv
@@ -7351,17 +7344,10 @@ continue
       dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(3,n1:n2) )
       dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(3,n1:n2) )
       !
-#ifdef USE_OLD_METRICS
-      drdx = metrics(1,1,k,2)/jacobian(k) ! =  dyds/J
-      dsdx = metrics(2,1,k,2)/jacobian(k) ! = -dydr/J
-      drdy = metrics(1,2,k,2)/jacobian(k) ! = -dxds/J
-      dsdy = metrics(2,2,k,2)/jacobian(k) ! =  dxdr/J
-#else
-      drdx = metrics(1,1,k) ! =  dyds/J
-      dsdx = metrics(2,1,k) ! = -dydr/J
-      drdy = metrics(1,2,k) ! = -dxds/J
-      dsdy = metrics(2,2,k) ! =  dxdr/J
-#endif
+      drdx = metrics_dt(n)%met(k,1,1) ! =  dyds/J
+      dsdx = metrics_dt(n)%met(k,2,1) ! = -dydr/J
+      drdy = metrics_dt(n)%met(k,1,2) ! = -dxds/J
+      dsdy = metrics_dt(n)%met(k,2,2) ! =  dxdr/J
       !
       ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
       !

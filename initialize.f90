@@ -629,10 +629,7 @@ subroutine initialize_dusp()
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,  only : nr,ncell,cell
-#ifdef USE_OLD_METRICS
-  use metrics_mod,  only : jacobian
-#endif
-  use metrics_mod,  only : metrics
+  use metrics_mod,  only : metrics_dt
   use derivatives_mod, only : deriv
   use flowvar, only : usp,dusp
   !
@@ -692,25 +689,14 @@ continue
           !
           do l = 1,nr
             !
-#ifdef USE_OLD_METRICS
             dudr(1) = deriv(this_geom,this_order)%d(1)% &
-              dot( k , tusp(1:np,m)*metrics(1,l,n1:n2,2)/jacobian(n1:n2) )
+                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,1,l) )
             !
             dudr(2) = deriv(this_geom,this_order)%d(2)% &
-              dot( k , tusp(1:np,m)*metrics(2,l,n1:n2,2)/jacobian(n1:n2) )
+                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,2,l) )
             !
             dudr(3) = deriv(this_geom,this_order)%d(3)% &
-              dot( k , tusp(1:np,m)*metrics(3,l,n1:n2,2)/jacobian(n1:n2) )
-#else
-            dudr(1) = deriv(this_geom,this_order)%d(1)% &
-                      dot( k , tusp(1:np,m)*metrics(1,l,n1:n2) )
-            !
-            dudr(2) = deriv(this_geom,this_order)%d(2)% &
-                      dot( k , tusp(1:np,m)*metrics(2,l,n1:n2) )
-            !
-            dudr(3) = deriv(this_geom,this_order)%d(3)% &
-                      dot( k , tusp(1:np,m)*metrics(3,l,n1:n2) )
-#endif
+                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,3,l) )
             !
             dusp(l,m,n) = sum(dudr)!* jacobian(n)
             !
@@ -725,11 +711,7 @@ continue
           ! Transform the derivatives back to x-y space
           !
           do l = 1,nr
-#ifdef USE_OLD_METRICS
-            dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n,2) ) / jacobian(n)
-#else
-            dusp(l,m,n) = dot( dudr(1:nr) , metrics(1:nr,l,n) )
-#endif
+            dusp(l,m,n) = dot( dudr(1:nr) , metrics_dt(nc)%met(k,1:nr,l) )
           end do
           !
         end if

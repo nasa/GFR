@@ -240,7 +240,7 @@ subroutine get_cell_timestep(dtmin)
   use ovar, only : governing_equations
   use ovar, only : this_is_final_timestep
   !
-  use metrics_mod, only : geofa,jacobian
+  use metrics_mod, only : geofa,metrics_dt
   !
   use flowvar, only : dtsp,usp
   !
@@ -438,7 +438,7 @@ continue
       !
       jacl = interp(host_geom,host_order)% &
                        toFace(face_order)% &
-             dot( kl , jacobian(l1:l2) )
+             dot( kl , metrics_dt(host_cell)%jac(:) )
       !
       hl = half * dsl / jacl
       !
@@ -549,13 +549,13 @@ continue
       !
       jacl = interp(left_geom,left_order)% &
                        toFace(face_order)% &
-             dot( kl , jacobian(l1:l2) )
+             dot( kl , metrics_dt(left_cell)%jac(:) )
       !
       ! Interpolate the jacobian to the flux point for the right cell
       !
       jacr = interp(right_geom,right_order)% &
                          toFace(face_order)% &
-             dot( kr , jacobian(r1:r2) )
+             dot( kr , metrics_dt(right_cell)%jac(:) )
       !
       hl = half * dsl / jacl
       hr = half * dsr / jacr
@@ -619,7 +619,7 @@ subroutine get_point_timestep(dtmin)
   use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
   use ovar,    only : this_is_final_timestep
   use ovar,    only : governing_equations
-  use metrics_mod,  only : jacobian,metrics
+  use metrics_mod,  only : metrics_dt
   use flowvar, only : usp,dtsp
   !
   !.. Formal Arguments ..
@@ -670,11 +670,7 @@ continue
         visc = viscosity_cv_sp( usp(1:nq,n) )
       end if
       !
-#ifdef USE_OLD_METRICS
-      vel(1:nr) = matmul( metrics(1:nr,1:nr,n,2) , pv(nmb:nme) ) / jacobian(n)
-#else
-      vel(1:nr) = matmul( metrics(1:nr,1:nr,n) , pv(nmb:nme) )
-#endif
+      vel(1:nr) = matmul( metrics_dt(nc)%met(k,1:nr,1:nr) , pv(nmb:nme) )
       !
       vmag = rnorm2(vel)
       !
@@ -728,26 +724,24 @@ subroutine old_get_point_timestep(dtmin)
   !
   !.. Use Statements ..
   use order_mod,  only : n_order
-  use geovar,  only : nr,n_solpts
+  use geovar,  only : nr,ncell,cell
   use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
   use ovar,    only : this_is_final_timestep
-  use metrics_mod,  only : jacobian,metrics
+  use metrics_mod,  only : metrics_dt
   use flowvar, only : usp,dtsp
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
   !
   !.. Local Scalars ..
-  integer  :: n
+  integer  :: k,n,nc,n1,n2
   real(wp) :: dtpt,gm1,dtc,eign
   real(wp) :: dxdr,dydr,dxds,dyds
   real(wp) :: rho,vx,vy,pres,aspd
   real(wp) :: alfa,beta,gama
   !
   real(wp) :: vel(1:nr)
-#ifndef USE_OLD_METRICS
   real(wp) :: met(1:nr,1:nr)
-#endif
   !
 continue
   !
@@ -757,39 +751,41 @@ continue
   !
   dtc = CFL * two / real( (n_order+1)**2 , kind=wp )
   !
-  do n = 1,n_solpts
+  do nc = 1,ncell
     !
-#ifdef USE_OLD_METRICS
-    dxdr = metrics(1,1,n,1)
-    dydr = metrics(2,1,n,1)
-    dxds = metrics(1,2,n,1)
-    dyds = metrics(2,2,n,1)
-#else
-    met(1:nr,1:nr) = invert_matrix(metrics(1:nr,1:nr,n))
-    dxdr = met(1,1)
-    dydr = met(2,1)
-    dxds = met(1,2)
-    dyds = met(2,1)
-#endif
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
     !
-    rho  = usp(nec,n)
-    vel  = usp(nmb:nme,n)/rho
-    pres = gm1 * (usp(nee,n) - half*rho*selfdot(vel))
-    !
-    aspd = sqrt( max( gam*pres/rho , rndoff ) )
-    !
-    alfa = abs( vel(1)*dydr - vel(2)*dxdr )
-    beta = abs( vel(1)*dyds - vel(2)*dxds )
-    !
-    gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
-    !
-    eign = alfa + beta + gama
-    !
-    dtpt = dtc * jacobian(n) / eign
-    !
-    dtmin = min( dtpt , dtmin )
-    !
-    dtsp(n) = dtpt
+    do n = n1,n2
+      !
+      k = n-n1+1
+      !
+      met(1:nr,1:nr) = invert_matrix(metrics_dt(nc)%met(k,1:nr,1:nr))
+      dxdr = met(1,1)
+      dydr = met(2,1)
+      dxds = met(1,2)
+      dyds = met(2,1)
+      !
+      rho  = usp(nec,n)
+      vel  = usp(nmb:nme,n)/rho
+      pres = gm1 * (usp(nee,n) - half*rho*selfdot(vel))
+      !
+      aspd = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      alfa = abs( vel(1)*dydr - vel(2)*dxdr )
+      beta = abs( vel(1)*dyds - vel(2)*dxds )
+      !
+      gama = aspd*sqrt(dxdr**2 + dydr**2 + dxds**2 + dyds**2)
+      !
+      eign = alfa + beta + gama
+      !
+      dtpt = dtc * metrics_dt(nc)%jac(k) / eign
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
     !
   end do
   !
@@ -829,20 +825,27 @@ subroutine rresi
   !
   !.. Use Statements ..
   use order_mod, only : p_order,n_order
-  use geovar,  only : n_solpts
-  use geovar,  only : ncell,cell
+  use geovar,  only : n_solpts,ncell,cell
   use ovar,    only : itestcase
-  use metrics_mod,  only : jacobian
+  use metrics_mod,  only : metrics_dt
   use flowvar, only : residual
   use projection_mod, only : project_to_porder
   !
   !.. Local Scalars ..
-  integer :: n,m
+  integer  :: m,n,nc,n1,n2
+  real(wp) :: jac_inv
   !
 continue
   !
-  do n = 1,n_solpts
-    residual(:,n) = -residual(:,n) / jacobian(n)
+  do nc = 1,ncell
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    do n = n1,n2
+      jac_inv = one / metrics_dt(nc)%jac(n-n1+1)
+      do m = 1,nq
+        residual(m,n) = -residual(m,n) * jac_inv
+      end do
+    end do
   end do
   !
   ! Zero out the residuals for all but the density

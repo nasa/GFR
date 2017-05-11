@@ -166,7 +166,7 @@ subroutine deallocate_solver_arrays()
   use flowvar,     only : residual,dtsp,uoldsp,usp_sum,rssprk
   use flowvar,     only : nodeusp,nodedusp,edgeusp,edgedusp,edgexyz
   use flowvar,     only : global_usp,global_var
-  use metrics_mod, only : metrics,jacobian,geofa,volj,dJ
+  use metrics_mod, only : metrics_dt,metrics,jacobian,geofa,volj,dJ
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -266,6 +266,11 @@ continue
   if (allocated(global_var)) then
     deallocate ( global_var , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"global_var",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(metrics_dt)) then
+    deallocate ( metrics_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"metrics_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(metrics)) then
