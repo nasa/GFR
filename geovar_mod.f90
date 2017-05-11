@@ -236,10 +236,6 @@ module geovar
     !               Examples: for a triangle, in the range 1:3, quad 1:4,
     !                         tetr 1:4, pyra 1:5, pris 1:5, hexa 1:6
     integer :: cell_face
-#ifdef USE_FACE_FLXPTS
-    ! flxpts : indices for the flux points of this cell on the current face
-    integer, allocatable :: flxpts(:)
-#else
     ! fp_offset : offset to add to the flux point indices
     !             given by the rotation index
     integer :: fp_offset = 0
@@ -251,7 +247,6 @@ module geovar
     procedure :: get_fp_index => get_face_fp_index
     procedure :: get_fp_indices => get_face_fp_indices
     generic, public :: get_fp_idx => get_fp_index, get_fp_indices
-#endif
   end type cell_on_face_t
   !
   ! FACE_T : derived type to store information for each grid face
@@ -313,10 +308,6 @@ module geovar
     integer :: geom
     ! order : polynomial order of the current face
     integer :: order
-#ifdef USE_FACE_CELL_IDX
-    ! cell_idx : index of flx-pt relative to all flx-pts of the current cell
-    integer, allocatable :: cell_idx(:)
-#else
     ! fp_offset : offset to add to the flux point indices
     !             given by the rotation index
     integer :: fp_offset
@@ -328,7 +319,6 @@ module geovar
     procedure :: get_fp_index => get_cell_fp_index
     procedure :: get_fp_indices => get_cell_fp_indices
     generic, public :: get_fp_idx => get_fp_index, get_fp_indices
-#endif
   end type face_of_cell_t
   !
   !
@@ -343,10 +333,6 @@ module geovar
     ! ave_coef : gives the coefficient needed to compute an average
     !            i.e., ave_coef = 1/(number of cells that contain this edge)
     real(wp) :: ave_coef
-#ifdef USE_EDGE_CELL_IDX
-    ! cell_idx : index of edge-pt relative to all edge-pts of the current cell
-    integer, allocatable :: cell_idx(:)
-#else
     ! ep_offset : offset to add to the edge point indices
     integer :: ep_offset
     ! rev_dir : logical to indicate if the direction/rotation of the
@@ -361,7 +347,6 @@ module geovar
     procedure :: get_ep_index
     procedure :: get_ep_indices
     generic, public :: get_ep_idx => get_ep_index, get_ep_indices
-#endif
   end type edge_of_cell_t
   !
   !
@@ -465,8 +450,6 @@ contains
 !###############################################################################
 !###############################################################################
 !
-#ifndef USE_EDGE_CELL_IDX
-!
 pure function get_ep_indices(this) result(return_value)
   !.. Use Statements ..
   use module_kind_types, only : intseq
@@ -491,13 +474,9 @@ continue
   return_value = this%ep_offset + merge(this%order+2-k,k,this%rev_dir)
 end function get_ep_index
 !
-#endif
-!
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
-#ifndef USE_FACE_CELL_IDX
 !
 pure function get_cell_fp_indices(this) result(return_value)
   !.. Passed Argument from Invoking Object ..
@@ -524,13 +503,9 @@ continue
                                   pts(k)
 end function get_cell_fp_index
 !
-#endif
-!
 !###############################################################################
 !###############################################################################
 !###############################################################################
-!
-#ifndef USE_FACE_FLXPTS
 !
 pure function get_face_fp_indices(this,face_geom,face_order) &
                            result(return_value)
@@ -563,8 +538,6 @@ continue
                                               rot(this%rotation)% &
                                   pts(k)
 end function get_face_fp_index
-!
-#endif
 !
 !###############################################################################
 !###############################################################################
@@ -645,23 +618,6 @@ continue
       call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
       call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
       !
-#ifdef USE_FACE_FLXPTS
-      if (allocated(face(i)%left%flxpts)) then
-        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                                size(face(i)%left%flxpts,kind=inttype) )
-        call left_fp%add(array)
-        call flxpts%add(array)
-        call dt%add(array)
-      end if
-      !
-      if (allocated(face(i)%right%flxpts)) then
-        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                                size(face(i)%left%flxpts,kind=inttype) )
-        call right_fp%add(array)
-        call flxpts%add(array)
-        call dt%add(array)
-      end if
-#else
       call array%set( storage_size(face(i)%left%fp_offset,kind=inttype) )
       call array%add( storage_size(face(i)%left%rotation,kind=inttype) )
       call left_fp%add(array)
@@ -673,31 +629,15 @@ continue
       call right_fp%add(array)
       call flxpts%add(array)
       call dt%add(array)
-#endif
       !
     end do
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%left%flxpts"
     write (iou,6) array_name,left_fp%get_units()
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%right%flxpts"
     write (iou,6) array_name,right_fp%get_units()
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%[left,right]%flxpts"
     write (iou,6) array_name,flxpts%get_units()
     !
@@ -772,20 +712,10 @@ continue
           call dt%add( storage_size(cell(i)%face(j)%geom,kind=inttype) )
           call dt%add( storage_size(cell(i)%face(j)%order,kind=inttype) )
           !
-#ifdef USE_FACE_CELL_IDX
-          if (allocated(cell(i)%face(j)%cell_idx)) then
-            call array%set( &
-                       storage_size(cell(i)%face(j)%cell_idx,kind=inttype) , &
-                               size(cell(i)%face(j)%cell_idx,kind=inttype) )
-            call face_idx%add(array)
-            call dt%add(array)
-          end if
-#else
           call array%set( storage_size(cell(i)%face(j)%fp_offset,kind=inttype) )
           call array%add( storage_size(cell(i)%face(j)%rotation,kind=inttype) )
           call face_idx%add(array)
           call dt%add(array)
-#endif
           !
         end do
         !
@@ -803,20 +733,10 @@ continue
           call dt%add( storage_size(cell(i)%edge(j)%order,kind=inttype) )
           call dt%add( storage_size(cell(i)%edge(j)%ave_coef,kind=inttype) )
           !
-#ifdef USE_EDGE_CELL_IDX
-          if (allocated(cell(i)%edge(j)%cell_idx)) then
-            call array%set( &
-                       storage_size(cell(i)%edge(j)%cell_idx,kind=inttype) , &
-                               size(cell(i)%edge(j)%cell_idx,kind=inttype) )
-            call edge_idx%add(array)
-            call dt%add(array)
-          end if
-#else
           call array%set( storage_size(cell(i)%edge(j)%ep_offset,kind=inttype) )
           call array%add( storage_size(cell(i)%edge(j)%rev_dir,kind=inttype) )
           call edge_idx%add(array)
           call dt%add(array)
-#endif
           !
         end do
         !
@@ -840,19 +760,9 @@ continue
       !
     end do
     !
-#ifdef USE_FACE_CELL_IDX
-    write (iou,10) "FACE"
-#else
-    write (iou,11) "FACE"
-#endif
     write (array_name,5) "cell%face%cell_idx"
     write (iou,6) array_name,face_idx%get_units()
     !
-#ifdef USE_EDGE_CELL_IDX
-    write (iou,10) "EDGE"
-#else
-    write (iou,11) "EDGE"
-#endif
     write (array_name,5) "cell%edge%cell_idx"
     write (iou,6) array_name,edge_idx%get_units()
     !
@@ -1281,12 +1191,6 @@ continue
   6 format (" Array Component: ",a,dt)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   8 format ("pst_geom(",a,",",i0,")%connectivity")
-  !
-  10 format (3x,"NOTE: The USE_",a,"_CELL_IDX preprocessor flag is ENABLED!")
-  11 format (3x,"NOTE: The USE_",a,"_CELL_IDX preprocessor flag is DISABLED!")
-  !
-  20 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is ENABLED!")
-  21 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is DISABLED!")
   !
 end subroutine geovar_memory_usage
 !
