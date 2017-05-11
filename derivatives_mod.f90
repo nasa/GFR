@@ -23,7 +23,13 @@ module derivatives_mod
   type, public :: derivative_matrices
     type(matrix), allocatable :: d(:)
   contains
-    procedure :: div => divergence_derivative_matrices
+    private
+    procedure :: grad_p1 => gradient_for_point_rank1
+    procedure :: grad_p2 => gradient_for_point_rank2
+    procedure :: grad_c1 => gradient_for_cell_rank1
+    procedure :: grad_c2 => gradient_for_cell_rank2
+    procedure, public  :: div => divergence_derivative_matrices
+    generic,   public  :: grad => grad_p1,grad_p2,grad_c1,grad_c2
   end type derivative_matrices
   !
   ! deriv : derivative matrix for all combinations of cell geometry and 
@@ -87,6 +93,108 @@ continue
   end do
   !
 end function divergence_derivative_matrices
+!
+!###############################################################################
+!
+pure function gradient_for_point_rank1(this,n,f) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(derivative_matrices), intent(in) :: this
+  integer,                    intent(in) :: n
+  real(wp),                   intent(in) :: f(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(this%d))
+  !
+  !.. Local Scalars ..
+  integer :: l
+  !
+continue
+  !
+  return_value = zero
+  !
+  do l = 1,size(this%d)
+    return_value(l) = this%d(l)%dot( n , f(:) )
+  end do
+  !
+end function gradient_for_point_rank1
+!
+!###############################################################################
+!
+pure function gradient_for_point_rank2(this,n,f) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(derivative_matrices), intent(in) :: this
+  integer,                    intent(in) :: n
+  real(wp),                   intent(in) :: f(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(this%d),1:size(f,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: l,m
+  !
+continue
+  !
+  return_value = zero
+  !
+  do m = 1,size(f,dim=2)
+    do l = 1,size(this%d)
+      return_value(l,m) = this%d(l)%dot( n , f(:,m) )
+    end do
+  end do
+  !
+end function gradient_for_point_rank2
+!
+!###############################################################################
+!
+pure function gradient_for_cell_rank1(this,f) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(derivative_matrices), intent(in) :: this
+  real(wp),                   intent(in) :: f(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(f,dim=1),1:size(this%d))
+  !
+  !.. Local Scalars ..
+  integer :: l
+  !
+continue
+  !
+  return_value = zero
+  !
+  do l = 1,size(this%d) ! Derivative reference direction
+    return_value(:,l) = this%d(l)%vm_mult( f(:) )
+  end do
+  !
+end function gradient_for_cell_rank1
+!
+!###############################################################################
+!
+pure function gradient_for_cell_rank2(this,f) result(return_value)
+  !
+  !.. Formal Arguments ..
+  class(derivative_matrices), intent(in) :: this
+  real(wp),                   intent(in) :: f(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(f,dim=1),1:size(f,dim=2),1:size(this%d))
+  !
+  !.. Local Scalars ..
+  integer :: l,m
+  !
+continue
+  !
+  return_value = zero
+  !
+  do l = 1,size(this%d) ! Derivative reference direction
+    do m = 1,size(f,dim=2) ! variable to differentiate in direction 'l'
+      return_value(:,m,l) = this%d(l)%vm_mult( f(:,m) )
+    end do
+  end do
+  !
+end function gradient_for_cell_rank2
 !
 !###############################################################################
 !
