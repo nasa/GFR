@@ -9,6 +9,88 @@
 !###############################################################################
 !###############################################################################
 !
+pure function visc_flx_cv1(uu,dcvdx) result(return_value) 
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : cpref_nd,Pr
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(1:nq),      intent(in) :: uu
+  real(wp), dimension(1:nr,1:nq), intent(in) :: dcvdx
+  !
+  !.. Function Result ..
+  real(wp), dimension(1:nr,1:nq) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: i,j,l
+  real(wp) :: mvsc,mcdt
+  real(wp) :: ave_ext_rate
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: vel
+  real(wp), dimension(1:nr,1:nq) :: dpvdx
+  !
+continue
+  !
+  ! Initialize the viscous fluxes to zero.
+  ! NOTE: This takes care of the continuity equation
+  !
+  return_value = zero
+  !
+  ! Get the gradients of the primitive variables using the 
+  ! gradients of the conservative variables and the product rule
+  !
+  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
+  !
+  ! Get the velocity vector
+  !
+  vel(:) = uu(nmb:nme)/uu(nec)
+  !
+  ! Compute the molecular viscosity and molecular conductivity
+  !
+  mvsc = viscosity_cv_sp(uu)
+  mcdt = cpref_nd * mvsc / Pr
+  !
+  ! Compute the average extension rate
+  !
+  ave_ext_rate = zero
+  do l = 1,nr
+    ave_ext_rate = ave_ext_rate + dpvdx(l,nmb-1+l)
+  end do
+  ave_ext_rate = two3 * ave_ext_rate
+  !
+  ! Compute the viscous fluxes for the momentum equations which are just
+  ! the components of the viscous stress tensor.
+  ! NOTE: We are initially excluding the molecular viscosity term which
+  !       will be multiplied to the whole tau array after these loops.
+  !
+  do i = 1,nr
+    do j = 1,nr
+        return_value(j,nmb-1+i) = dpvdx(i,nmb-1+j) + dpvdx(j,nmb-1+i)
+    end do
+  end do
+  !
+  ! Subtract the average extension rate from the normal stresses
+  !
+  do l = 1,nr
+    return_value(l,nmb-1+l) = return_value(l,nmb-1+l) - ave_ext_rate
+  end do
+  !
+  ! Multiply the viscous stresses by the molecular viscosity
+  !
+  return_value(1:nr,nmb:nme) = mvsc * return_value(1:nr,nmb:nme)
+  !
+  ! Compute the viscous fluxes for the energy equation
+  !
+  do l = 1,nr
+    return_value(l,nq) = mcdt*dpvdx(l,nq) + dot( vel , return_value(l,nmb:nme) )
+  end do
+  !
+end function visc_flx_cv1
+!
+!###############################################################################
+!
 pure function visc_flx_cv(uu,dcvdx) result(return_value) 
   !
   !.. Use Statements ..
