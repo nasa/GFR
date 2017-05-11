@@ -106,6 +106,55 @@ end function invs_flx_vec_cv
 !
 !###############################################################################
 !
+pure function invs_flx_cv1(uu) result(return_value) 
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : gam
+  use ovar,   only : turb_is_on
+  use ovar,   only : include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: uu(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:nr,1:nq)
+  !
+  !.. Local Scalars ..
+  integer  :: l,m
+  real(wp) :: pres
+  !
+continue
+  !
+  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
+  !
+  return_value(1:nr,nec) = uu(nmb:nme)
+  !
+  do m = nmb,nme
+    do l = 1,nr
+      return_value(l,m) = uu(m)*uu(nec+l)/uu(nec)
+    end do
+    return_value(m-nec,m) = return_value(m-nec,m) + pres
+  end do
+  !
+  return_value(1:nr,nee) = (uu(nee) + pres) * uu(nmb:nme)/uu(nec)
+  !
+  if (turb_is_on) then
+    return_value(1:nr,ntk) = uu(ntk) * uu(nmb:nme)/uu(nec)
+    return_value(1:nr,ntl) = uu(ntl) * uu(nmb:nme)/uu(nec)
+    if (include_tke_in_energy) then
+      do l = 1,nr
+        return_value(l,nec+l) = return_value(l,nec+l) - (gam-one)*uu(ntk)
+        return_value(l,nee) = return_value(l,nee) - &
+                              (gam-one)*uu(ntk)*uu(nec+l)/uu(nec)
+      end do
+    end if
+  end if
+  !
+end function invs_flx_cv1
+!
+!###############################################################################
+!
 pure function invs_flx_cv(uu,dir) result(return_value) 
   !
   use ovar, only : gam
