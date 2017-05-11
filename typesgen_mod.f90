@@ -28,6 +28,7 @@ module generic_types_mod
    !procedure(dot_mat_function), pointer, private :: dot_mat
     procedure(dot_vec_function), pointer :: dot
     procedure(dot_mat_function), pointer :: dot_mat
+    procedure(dot_mat2_function), pointer :: dot_mat2
     procedure(mat_vec_mult), pointer :: mv_mult
     procedure(vec_mat_mult), pointer :: vm_mult
    !procedure(mat_mat_mult),        pointer :: mm_mult
@@ -71,6 +72,14 @@ module generic_types_mod
       real(wp), dimension(:,:), intent(in) :: array
       real(wp) :: return_value(1:size(array,dim=2))
     end function dot_mat_function
+    !
+    function dot_mat2_function(this,idx,array) result(return_value)
+      import :: wp, matrix
+      class(matrix), intent(in) :: this
+      integer, intent(in) :: idx
+      real(wp), dimension(:,:,:), intent(in) :: array
+      real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+    end function dot_mat2_function
     !
     function mat_vec_mult(this,vector) result(return_value)
       import :: wp, matrix
@@ -164,10 +173,11 @@ continue
   !
   ! Default assignments of procedure pointer
   !
-  this%dot     => dot_intrinsic
-  this%dot_mat => dot_mat_intrinsic
-  this%mv_mult => mat_vec_mult_intrinsic
-  this%vm_mult => vec_mat_mult_intrinsic
+  this%dot      => dot_intrinsic
+  this%dot_mat  => dot_mat_intrinsic
+  this%dot_mat2 => dot_mat2_intrinsic
+  this%mv_mult  => mat_vec_mult_intrinsic
+  this%vm_mult  => vec_mat_mult_intrinsic
   !
  !this%mm_mult       => mat_mat_mult_intrinsic
  !this%mm_rev_mult   => mat_mat_rev_mult_intrinsic
@@ -276,37 +286,63 @@ continue
           select case (n1)
             case (1)
               this%dot => dot_sparse_unrolled_p0
+              this%dot_mat => dot_mat_sparse_unrolled_p0
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p0
             case (2)
               this%dot => dot_sparse_unrolled_p1
+              this%dot_mat => dot_mat_sparse_unrolled_p1
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p1
             case (3)
               this%dot => dot_sparse_unrolled_p2
+              this%dot_mat => dot_mat_sparse_unrolled_p2
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p2
             case (4)
               this%dot => dot_sparse_unrolled_p3
+              this%dot_mat => dot_mat_sparse_unrolled_p3
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p3
             case (5)
               this%dot => dot_sparse_unrolled_p4
+              this%dot_mat => dot_mat_sparse_unrolled_p4
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p4
             case (6)
               this%dot => dot_sparse_unrolled_p5
+              this%dot_mat => dot_mat_sparse_unrolled_p5
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p5
             case (7)
               this%dot => dot_sparse_unrolled_p6
+              this%dot_mat => dot_mat_sparse_unrolled_p6
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p6
             case (8)
               this%dot => dot_sparse_unrolled_p7
+              this%dot_mat => dot_mat_sparse_unrolled_p7
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p7
             case (9)
               this%dot => dot_sparse_unrolled_p8
+              this%dot_mat => dot_mat_sparse_unrolled_p8
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p8
             case (10)
               this%dot => dot_sparse_unrolled_p9
+              this%dot_mat => dot_mat_sparse_unrolled_p9
+              this%dot_mat2 => dot_mat2_sparse_unrolled_p9
             case default
               this%dot => dot_sparse
+              this%dot_mat => dot_mat_sparse
+              this%dot_mat2 => dot_mat2_sparse
           end select
           !
         else
           !
           this%dot => dot_sparse
+          this%dot_mat => dot_mat_sparse
+          this%dot_mat2 => dot_mat2_sparse
           !
         end if
         !
       else
         !
         this%dot => dot_sparse
+        this%dot_mat => dot_mat_sparse
+        this%dot_mat2 => dot_mat2_sparse
         !
       end if
       !
@@ -856,6 +892,838 @@ continue
  !end do
   !
 end function dot_mat_intrinsic
+!
+!###############################################################################
+!
+pure function dot_mat_sparse(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = this%row_ptr(idx+1)
+  !
+  do n = 1,size(array,dim=2)
+#ifdef USE_INTEL_MKL
+    return_value(n) = doti( this%row_val(n1:n2) , &
+                            array( this%row_idx(n1:n2) , n ) )
+#else
+    return_value(n) = dot( this%row_val(n1:n2) , &
+                           array( this%row_idx(n1:n2) , n ) )
+#endif
+  end do
+  !
+end function dot_mat_sparse
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p0(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1) * array( this%row_idx(n1) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p0
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p1(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1) * array( this%row_idx(n1) , n ) + &
+                      this%row_val(n2) * array( this%row_idx(n2) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p1
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p2(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  n3 = n2+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1) * array( this%row_idx(n1) , n ) + &
+                      this%row_val(n2) * array( this%row_idx(n2) , n ) + &
+                      this%row_val(n3) * array( this%row_idx(n3) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p2
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p3(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  n3 = n2+1
+  n4 = n3+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1) * array( this%row_idx(n1) , n ) + &
+                      this%row_val(n2) * array( this%row_idx(n2) , n ) + &
+                      this%row_val(n3) * array( this%row_idx(n3) , n ) + &
+                      this%row_val(n4) * array( this%row_idx(n4) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p3
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p4(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p4
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p5(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5,n6
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n ) + &
+                      this%row_val(n6 ) * array( this%row_idx(n6 ) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p5
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p6(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5,n6,n7
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n ) + &
+                      this%row_val(n6 ) * array( this%row_idx(n6 ) , n ) + &
+                      this%row_val(n7 ) * array( this%row_idx(n7 ) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p6
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p7(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5,n6,n7,n8
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n ) + &
+                      this%row_val(n6 ) * array( this%row_idx(n6 ) , n ) + &
+                      this%row_val(n7 ) * array( this%row_idx(n7 ) , n ) + &
+                      this%row_val(n8 ) * array( this%row_idx(n8 ) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p7
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p8(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5,n6,n7,n8,n9
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  n9  = n8+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n ) + &
+                      this%row_val(n6 ) * array( this%row_idx(n6 ) , n ) + &
+                      this%row_val(n7 ) * array( this%row_idx(n7 ) , n ) + &
+                      this%row_val(n8 ) * array( this%row_idx(n8 ) , n ) + &
+                      this%row_val(n9 ) * array( this%row_idx(n9 ) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p8
+!
+!###############################################################################
+!
+pure function dot_mat_sparse_unrolled_p9(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  n9  = n8+1
+  n10 = n9+1
+  !
+  do n = 1,size(array,dim=2)
+    return_value(n) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n ) + &
+                      this%row_val(n2 ) * array( this%row_idx(n2 ) , n ) + &
+                      this%row_val(n3 ) * array( this%row_idx(n3 ) , n ) + &
+                      this%row_val(n4 ) * array( this%row_idx(n4 ) , n ) + &
+                      this%row_val(n5 ) * array( this%row_idx(n5 ) , n ) + &
+                      this%row_val(n6 ) * array( this%row_idx(n6 ) , n ) + &
+                      this%row_val(n7 ) * array( this%row_idx(n7 ) , n ) + &
+                      this%row_val(n8 ) * array( this%row_idx(n8 ) , n ) + &
+                      this%row_val(n9 ) * array( this%row_idx(n9 ) , n ) + &
+                      this%row_val(n10) * array( this%row_idx(n10) , n )
+  end do
+  !
+end function dot_mat_sparse_unrolled_p9
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+pure function dot_mat2_intrinsic(this,idx,array) result(return_value)
+  !
+  class(matrix), intent(in) :: this
+  integer,       intent(in) :: idx
+  real(wp),      intent(in) :: array(:,:,:)
+  !
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  integer :: n
+  !
+continue
+  !
+  do n = 1,size(array,dim=3)
+    return_value(:,n) = matmul( this%mat(:,idx) , array(:,:,n) )
+  end do
+  !
+end function dot_mat2_intrinsic
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = this%row_ptr(idx+1)
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+#ifdef USE_INTEL_MKL
+      return_value(n,m) = doti( this%row_val(n1:n2) , &
+                              array( this%row_idx(n1:n2) , n,m ) )
+#else
+      return_value(n,m) = dot( this%row_val(n1:n2) , &
+                             array( this%row_idx(n1:n2) , n,m ) )
+#endif
+    end do
+  end do
+  !
+end function dot_mat2_sparse
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p0(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p0
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p1(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p1
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p2(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  n3 = n2+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p2
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p3(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4
+  !
+continue
+  !
+  n1 = this%row_ptr(idx)+1
+  n2 = n1+1
+  n3 = n2+1
+  n4 = n3+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p3
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p4(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p4
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p5(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5,n6
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p5
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p6(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5,n6,n7
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
+                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p6
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p7(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5,n6,n7,n8
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
+                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
+                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p7
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p8(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5,n6,n7,n8,n9
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  n9  = n8+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
+                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
+                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m ) + &
+                          this%row_val(n9 ) * array( this%row_idx(n9 ) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p8
+!
+!###############################################################################
+!
+pure function dot_mat2_sparse_unrolled_p9(this,idx,array) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: idx
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
+  !
+  !.. Local Scalars ..
+  integer :: n,m,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10
+  !
+continue
+  !
+  n1  = this%row_ptr(idx)+1
+  n2  = n1+1
+  n3  = n2+1
+  n4  = n3+1
+  n5  = n4+1
+  n6  = n5+1
+  n7  = n6+1
+  n8  = n7+1
+  n9  = n8+1
+  n10 = n9+1
+  !
+  do m = 1,size(array,dim=3)
+    do n = 1,size(array,dim=2)
+      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
+                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
+                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m ) + &
+                          this%row_val(n9 ) * array( this%row_idx(n9 ) , n,m ) + &
+                          this%row_val(n10) * array( this%row_idx(n10) , n,m )
+    end do
+  end do
+  !
+end function dot_mat2_sparse_unrolled_p9
 !
 !###############################################################################
 !###############################################################################
