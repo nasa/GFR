@@ -407,10 +407,12 @@ continue
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
 #endif
       ! Interpolate the conservative variables to this flux point
-      do m = 1,nq
-        vl(m) = interp(host_geom,host_order)%toFace(face_order)% &
-                dot( kl , tlusp(1:npl,m) )
-      end do
+      vl(1:nq) = interp(host_geom,host_order)%toFace(face_order)% &
+                 dot_mat( kl , tlusp(1:npl,1:nq) )
+     !do m = 1,nq
+     !  vl(m) = interp(host_geom,host_order)%toFace(face_order)% &
+     !          dot( kl , tlusp(1:npl,m) )
+     !end do
       ! Convert to primitive variables
       vl(1:nq) = usp2v_sp( vl(1:nq) )
       !
@@ -504,12 +506,16 @@ continue
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
 #endif
       ! Interpolate the conservative variables to this flux point
-      do m = 1,nq
-        vl(m) = interp(left_geom,left_order)%toFace(face_order)% &
-                dot( kl , tlusp(1:npl,m) )
-        vr(m) = interp(right_geom,right_order)%toFace(face_order)% &
-                dot( kr , trusp(1:npr,m) )
-      end do
+      vl(1:nq) = interp(left_geom,left_order)%toFace(face_order)% &
+                 dot_mat( kl , tlusp(1:npl,1:nq) )
+      vr(1:nq) = interp(right_geom,right_order)%toFace(face_order)% &
+                 dot_mat( kr , trusp(1:npr,1:nq) )
+     !do m = 1,nq
+     !  vl(m) = interp(left_geom,left_order)%toFace(face_order)% &
+     !          dot( kl , tlusp(1:npl,m) )
+     !  vr(m) = interp(right_geom,right_order)%toFace(face_order)% &
+     !          dot( kr , trusp(1:npr,m) )
+     !end do
       ! Convert to primitive variables
       vl(1:nq) = usp2v_sp( vl(1:nq) )
       vr(1:nq) = usp2v_sp( vr(1:nq) )

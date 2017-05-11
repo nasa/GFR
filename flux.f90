@@ -116,11 +116,14 @@ continue
         !######################################################################
         !######################################################################
         !
-        do m = 1,nq
-          faceusp(nf)%v(m,kf,sf) = interp(this_geom,this_order)% &
-                                             toFace(face_order)% &
-                                   dot( lf , tusp(1:np,m) )
-        end do
+        faceusp(nf)%v(1:nq,kf,sf) = interp(this_geom,this_order)% &
+                                              toFace(face_order)% &
+                                    dot_mat( lf , tusp(1:np,1:nq) )
+       !do m = 1,nq
+       !  faceusp(nf)%v(m,kf,sf) = interp(this_geom,this_order)% &
+       !                                     toFace(face_order)% &
+       !                           dot( lf , tusp(1:np,m) )
+       !end do
         !
       end do
       !
@@ -204,13 +207,16 @@ continue
         !######################################################################
         !######################################################################
         !
-        do m = 1,nq
-          do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
-                                                  toFace(face_order)% &
-                                        dot( lf , tdusp(1:np,l,m) )
-          end do
-        end do
+        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
+                                                    toFace(face_order)% &
+                                          dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
+       !do m = 1,nq
+       !  do l = 1,nr
+       !    facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
+       !                                          toFace(face_order)% &
+       !                                dot( lf , tdusp(1:np,l,m) )
+       !  end do
+       !end do
         !
       end do
       !
@@ -377,13 +383,16 @@ continue
     !
 #ifdef USE_OLD_DIVERGENCE
     do k = 1,np
-      do l = 1,nr
-        do m = 1,nq
-          vflx(m,l) = deriv(this_geom,this_order)% &
-                                             d(l)% &
-                      dot( k , rsflx(1:np,m,l) )
-        end do
-      end do
+      vflx(1:nq,1:nr) = deriv(this_geom,this_order)% &
+                                               d(l)% &
+                        dot_mat2( k , rsflx(1:np,1:nq,1:nr) )
+     !do l = 1,nr
+     !  do m = 1,nq
+     !    vflx(m,l) = deriv(this_geom,this_order)% &
+     !                                       d(l)% &
+     !                dot( k , rsflx(1:np,m,l) )
+     !  end do
+     !end do
       lcl_res(1:nq,k) = sum( vflx , dim=2 )
     end do
 #else
@@ -444,13 +453,21 @@ continue
         !######################################################################
         !######################################################################
         !
-        do l = 1,nr
-          do m = 1,nq
-            vflx(m,l) = interp(this_geom,this_order)% &
-                                  toFace(face_order)% &
-                        dot( lf , xyflx(1:np,m,l) )
-          end do
-        end do
+        vflx(1:nq,1:nr) = interp(this_geom,this_order)% &
+                                    toFace(face_order)% &
+                          dot_mat2( lf , xyflx(1:np,1:nq,1:nr) )
+       !do l = 1,nr
+       !  vflx(1:nq,l) = interp(this_geom,this_order)% &
+       !                           toFace(face_order)% &
+       !                 dot_mat( lf , xyflx(1:np,1:nq,l) )
+       !end do
+       !do l = 1,nr
+       !  do m = 1,nq
+       !    vflx(m,l) = interp(this_geom,this_order)% &
+       !                          toFace(face_order)% &
+       !                dot( lf , xyflx(1:np,m,l) )
+       !  end do
+       !end do
         !
         do m = 1,nq
           faceflx(nf)%v(m,kf,sf) = dot( vflx(m,1:nr) , unrm(1:nr) )
@@ -1439,14 +1456,16 @@ continue
         ! lf: index of flx-pt within interp%mat
         lf = cell(nc)%face(ncf)%get_fp_idx(kf)
         !
-        !
-        do m = 1,nq
-          do l = 1,nr
-            facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
-                                                  toFace(face_order)% &
-                                        dot( lf ,face_dusp(1:np,l,m) )
-          end do
-        end do
+        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
+                                                    toFace(face_order)% &
+                                       dot_mat2( lf ,face_dusp(1:np,1:nr,1:nq) )
+       !do m = 1,nq
+       !  do l = 1,nr
+       !    facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
+       !                                          toFace(face_order)% &
+       !                                dot( lf ,face_dusp(1:np,l,m) )
+       !  end do
+       !end do
         !
       end do interpolate_face
       !

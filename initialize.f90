@@ -720,9 +720,7 @@ continue
           !
           ! Compute the derivatives in r-s space
           !
-          do l = 1,nr
-            dudr(l) = deriv(this_geom,this_order)%d(l)%dot( k , tusp(1:np,m) )
-          end do
+          dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
           !
           ! Transform the derivatives back to x-y space
           !
