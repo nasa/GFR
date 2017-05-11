@@ -730,11 +730,7 @@ continue
         !
         do kf = 1,nfp
           !
-#ifdef USE_FACE_CELL_IDX
-          lf = cell(nc)%face(ncf)%cell_idx(kf)
-#else
           lf = cell(nc)%face(ncf)%get_fp_idx(kf)
-#endif
           !
           xyz_face(kf,l) = interp(left_geom,left_order)% &
                                      toFace(face_order)% &

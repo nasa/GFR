@@ -266,12 +266,10 @@ subroutine get_cell_timestep(dtmin)
   real(wp) :: vl(1:nq),tlusp(1:maxSP,1:nq)
   real(wp) :: vr(1:nq),trusp(1:maxSP,1:nq)
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
   integer, allocatable :: right_fp_idx(:)
-#endif
 #endif
   !
   integer, parameter :: make_p_plus_one = 0
@@ -396,23 +394,17 @@ continue
     !
     tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
 #endif
-#endif
     !
     do k = 1,geom_solpts(face_geom,face_order)
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       ! Interpolate the conservative variables to this flux point
       do m = 1,nq
@@ -496,27 +488,20 @@ continue
     tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
     trusp(1:npr,1:nq) = transpose( usp(1:nq,r1:r2) )
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
     right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
 #endif
-#endif
     !
     do k = 1,geom_solpts(face_geom,face_order)
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
       kr = right_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       ! Interpolate the conservative variables to this flux point
       do m = 1,nq

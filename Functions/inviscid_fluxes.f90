@@ -61,11 +61,7 @@ continue
   !
   do kf = 1,size(rnrm,dim=2)
     !
-#ifdef USE_FACE_CELL_IDX
-    lf = face%cell_idx(kf)
-#else
     lf = face%get_fp_idx(kf)
-#endif
     !
     unrm(:) = unit_vector( rnrm(:,kf) )
     !

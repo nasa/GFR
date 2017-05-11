@@ -807,11 +807,7 @@ continue
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
-#ifdef USE_FACE_FLXPTS
-        lf = face(nf)%left%flxpts(kf)
-#else
         lf = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
-#endif
         !
         do l = 1,nr
           facexyz(nf)%v(l,kf) = interp(this_geom,this_order)% &
@@ -879,11 +875,7 @@ continue
         !
         do kf = 1,edge_order+1
           !
-#ifdef USE_EDGE_CELL_IDX
-          lf = cell(nc)%edge(n)%cell_idx(kf)
-#else
           lf = cell(nc)%edge(n)%get_ep_idx(kf)
-#endif
           !
           do l = 1,nr
             edgexyz(ne)%v(l,kf) = interp(this_geom,this_order)% &

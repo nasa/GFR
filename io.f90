@@ -4497,13 +4497,8 @@ continue
     !
     do k = 1,nfp
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
@@ -6811,11 +6806,7 @@ continue
       !
       ! Index of flx-pt local to the current host cell
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(this_face)%left%flxpts(k)
-#else
       kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
-#endif
       !
       ! First interpolate to the face flux points
       !
@@ -6921,11 +6912,7 @@ continue
       !
       ! Index of flx-pt local to the current host cell
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(this_face)%left%flxpts(k)
-#else
       kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
-#endif
       !
       ! First interpolate to the face flux points
       !

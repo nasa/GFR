@@ -106,11 +106,7 @@ continue
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         !######################################################################
         !######################################################################
@@ -198,11 +194,7 @@ continue
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         !######################################################################
         !######################################################################
@@ -438,11 +430,7 @@ continue
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         ! Get the unit normal for this face flux/solution point
         !
@@ -527,12 +515,10 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   real(wp), dimension(1:nq,1:maxFP) :: luqp,ruqp,fncq
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: lduqp,rduqp
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
   integer, allocatable :: right_fp_idx(:)
-#endif
 #endif
   !
   !.. Local Parameters ..
@@ -644,23 +630,17 @@ continue
       !
     end do
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
 #endif
-#endif
     if (dump_fluxes) then
       write (iofp,3) nf,host_cell
       do k = 1,nfp
-#ifdef USE_FACE_FLXPTS
-        write (iofp,4) k,face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
         write (iofp,4) k,left_fp_idx(k)
 #else
         write (iofp,4) k,face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
         do m = 1,nq
           write (iofp,7) fncq(m,k), lflx(m,k)
@@ -681,14 +661,10 @@ continue
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the contribution to the face length/area from the current flux
@@ -790,26 +766,19 @@ continue
       !
     end do
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
     right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
 #endif
-#endif
     if (dump_fluxes) then
       write (iofp,5) nf,left_cell,right_cell
       do k = 1,nfp
-#ifdef USE_FACE_FLXPTS
-        write (iofp,6) k,face(nf)%left%flxpts(k), &
-                         face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
         write (iofp,6) k,left_fp_idx(k),right_fp_idx(k)
 #else
         write (iofp,6) k,face(nf)%left%get_fp_idx(face_geom,face_order,k), &
                          face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
         do m = 1,nq
           write (iofp,7) fncq(m,k), lflx(m,k), rflx(m,k)
@@ -829,17 +798,12 @@ continue
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
       kr = right_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the face length for the left and right cell
@@ -1022,12 +986,10 @@ subroutine correct_gradients_at_solpts()
   real(wp), dimension(1:nq)          :: ljfp,rjfp
   real(wp), dimension(1:nq,1:maxpts) :: lufp,rufp
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
   integer, allocatable :: right_fp_idx(:)
-#endif
 #endif
   !
 continue
@@ -1069,25 +1031,19 @@ continue
     !   u_com = half*(u_left + u_right) - &
     !                (u_left - u_right)*dot(LDG_beta,unit_normal)
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-#endif
 #endif
     do k = 1,nfp
       !
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the unit normal at this flux point
@@ -1210,29 +1166,22 @@ continue
     !   u_com = half*(u_left + u_right) - &
     !                (u_left - u_right)*dot(LDG_beta,unit_normal)
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
     right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
-#endif
 #endif
     do k = 1,nfp
       !
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
       kr = right_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the unit normal at this flux point
@@ -1419,11 +1368,7 @@ continue
         !
         ! kf: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(ncf)%cell_idx(kf)
-#else
         lf = cell(nc)%face(ncf)%get_fp_idx(kf)
-#endif
         !
         ! Solution at this flux point for the left and right cells
         !
@@ -1492,11 +1437,8 @@ continue
         !
         ! kf: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(ncf)%cell_idx(kf)
-#else
         lf = cell(nc)%face(ncf)%get_fp_idx(kf)
-#endif
+        !
         !
         do m = 1,nq
           do l = 1,nr
@@ -1564,12 +1506,10 @@ subroutine correct_solution_for_output(interp_usp,interp_dusp)
   real(wp), dimension(1:nr,1:maxFP) :: rnrm
   real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
   integer, allocatable :: right_fp_idx(:)
-#endif
 #endif
   !
   real(wp), parameter :: addsub_cor =  one
@@ -1646,25 +1586,19 @@ continue
     ! NOTE: We only need to apply the correction to the left cell because
     !       this is a boundary face and the right cell is a ghost cell.
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-#endif
 #endif
     do k = 1,nfp
       !
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the contribution to the face length/area from the current flux
@@ -1744,29 +1678,22 @@ continue
     !
     ! Apply the flux correction due to the flux jump
     !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
     right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
-#endif
 #endif
     do k = 1,nfp
       !
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
       kr = right_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the face length for the left and right cell
@@ -2032,11 +1959,7 @@ continue
           !
           ! kf: index of the flx-pt local to this face
           ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-          lf = cell(nc)%face(n)%cell_idx(kf)
-#else
           lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
           !
           ! Get the unit normal for this face flux/solution point
           !
@@ -2108,11 +2031,7 @@ continue
      !    !
      !    ! kf: index of the flx-pt local to this face
      !    ! lf: index of flx-pt within interp%mat
-#ifdef USE_FACE_CELL_IDX
-     !    lf = cell(nc)%face(n)%cell_idx(kf)
-#else
      !    lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
      !    !
      !    ! Get the unit normal for this face flux/solution point
      !    !
@@ -2215,12 +2134,10 @@ subroutine correct_interface_flux_with_qdtr()
   !
   real(wp), dimension(1:maxGP,1:maxFP) :: pmat
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
   integer, allocatable :: right_fp_idx(:)
-#endif
 #endif
   !
 continue
@@ -2377,29 +2294,22 @@ continue
    !srcl(:) = zero
    !srcr(:) = zero
    !!
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
     ! Using F2003 auto-reallocation
     left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
     right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
-#endif
 #endif
     do k = 1,nfp
       !
       ! Get the index for the correction function 
       ! corresponding to the current interface flux point
       !
-#ifdef USE_FACE_FLXPTS
-      kl = face(nf)%left%flxpts(k)
-      kr = face(nf)%right%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
       kl = left_fp_idx(k)
       kr = right_fp_idx(k)
 #else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
       !
       ! Get the face length for the left and right cell
