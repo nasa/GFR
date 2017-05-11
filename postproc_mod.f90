@@ -1140,15 +1140,9 @@ continue
       ave = cell(nc)%edge(n)%ave_coef
       edge_order = cell(nc)%edge(n)%order
       !
-#ifdef USE_EDGE_CELL_IDX
-      edge_pts: do kf = 1,size(cell(nc)%edge(n)%cell_idx)
-        !
-        lf = cell(nc)%edge(n)%cell_idx(kf)
-#else
       edge_pts: do kf = 1,edge_order+1
         !
         lf = cell(nc)%edge(n)%get_ep_idx(kf)
-#endif
         !
         do m = 1,nq
           do l = 1,nr
@@ -1527,18 +1521,12 @@ continue
       nf = cell(nc)%face(n)%idx
       sf = cell(nc)%face(n)%side
       !
-#ifdef USE_FACE_CELL_IDX
-      do kf = 1,size(cell(nc)%face(n)%cell_idx)
-        !
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
       face_geom = cell(nc)%face(n)%geom
       face_order = cell(nc)%face(n)%order
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         faceusp(nf)%v(1,kf,sf) = real( cell_pts( face_pt(lf) ) , kind=wp )
         !
@@ -1554,15 +1542,9 @@ continue
       !
       if (edge_already_done(ne)) cycle pack_cell_edge_pts
       !
-#ifdef USE_EDGE_CELL_IDX
-      do kf = 1,size(cell(nc)%edge(n)%cell_idx)
-        !
-        lf = cell(nc)%edge(n)%cell_idx(kf)
-#else
       do kf = 1,cell(nc)%edge(n)%order+1
         !
         lf = cell(nc)%edge(n)%get_ep_idx(kf)
-#endif
         !
         edgeusp(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
         !
@@ -1685,18 +1667,12 @@ continue
       !
       nf = cell(nc)%face(n)%idx
       !
-#ifdef USE_FACE_CELL_IDX
-      do kf = 1,size(cell(nc)%face(n)%cell_idx)
-        !
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
       face_geom = cell(nc)%face(n)%geom
       face_order = cell(nc)%face(n)%order
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         cell_pts( face_pt(lf) ) = nint( faceusp(nf)%v(1,kf,1) , &
                                         kind=kind(cell_pts) )
@@ -1711,15 +1687,9 @@ continue
       !
       ne = cell(nc)%edge(n)%idx
       !
-#ifdef USE_EDGE_CELL_IDX
-      do kf = 1,size(cell(nc)%edge(n)%cell_idx)
-        !
-        lf = cell(nc)%edge(n)%cell_idx(kf)
-#else
       do kf = 1,cell(nc)%edge(n)%order+1
         !
         lf = cell(nc)%edge(n)%get_ep_idx(kf)
-#endif
         !
         cell_pts( edge_pt(lf) ) = nint( edgeusp(ne)%v(1,kf) , &
                                         kind=kind(cell_pts) )
@@ -2195,14 +2165,10 @@ continue
       !
       ! Get the number of face points for this face
       !
-#ifdef USE_FACE_CELL_IDX
-      nfp = size(cell(nc)%face(n)%cell_idx)
-#else
       face_geom = cell(nc)%face(n)%geom
       face_order = cell(nc)%face(n)%order
       !
       nfp = geom_solpts(face_geom,face_order)
-#endif
       !
       ! Allocate the out_idx component of output_face_pts for this face
       !
@@ -2213,11 +2179,7 @@ continue
       !
       do kf = 1,nfp
         !
-#ifdef USE_FACE_CELL_IDX
-        lf = cell(nc)%face(n)%cell_idx(kf)
-#else
         lf = cell(nc)%face(n)%get_fp_idx(kf)
-#endif
         !
         output_face_pts(ifc)%out_idx(kf) = cell_pts( face_pt(lf) )
         !
@@ -2255,11 +2217,7 @@ continue
       !
       ! Get the number of edge points for this edge
       !
-#ifdef USE_EDGE_CELL_IDX
-      nep = size(cell(nc)%edge(n)%cell_idx)
-#else
       nep = cell(nc)%edge(n)%order+1
-#endif
       !
       ! Allocate the out_idx component of output_edge_pts for this edge
       !
@@ -2270,11 +2228,7 @@ continue
       !
       do kf = 1,nep
         !
-#ifdef USE_EDGE_CELL_IDX
-        lf = cell(nc)%edge(n)%cell_idx(kf)
-#else
         lf = cell(nc)%edge(n)%get_ep_idx(kf)
-#endif
         !
         output_edge_pts(iec)%out_idx(kf) = cell_pts( edge_pt(lf) )
         !

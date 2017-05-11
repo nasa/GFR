@@ -118,11 +118,9 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdvsp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: dvsp
   !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   !.. Local Allocatable Arrays ..
   integer, allocatable :: left_fp_idx(:)
-#endif
 #endif
   !
   !.. Local Parameters ..
@@ -200,23 +198,17 @@ continue
       !
       ! Compute the profile quantities at each data point for this face
       !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
       ! Using F2003 auto-reallocation
       left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
 #endif
-#endif
       do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
-#ifdef USE_FACE_FLXPTS
-        kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
         kl = left_fp_idx(k)
 #else
         kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
         ! Index within qty_data for current flx-pt
         kf = ndata + k
@@ -510,10 +502,8 @@ subroutine init_bnd_profile_structures
   integer, allocatable, dimension(:) :: bface_map
   integer, allocatable, dimension(:,:) :: bface_nc
   character(len=100), allocatable, dimension(:) :: flow_var
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
   integer, allocatable :: left_fp_idx(:)
-#endif
 #endif
   !
   !.. Local Parameters ..
@@ -776,23 +766,17 @@ continue
       !
       txyz(1:np,1:nr) = transpose( xyz(1:nr,n1:n2) )
       !
-#ifndef USE_FACE_FLXPTS
 #ifdef USE_FACE_FP_ARRAYS
       ! Using F2003 auto-reallocation
       left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
 #endif
-#endif
       do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
-#ifdef USE_FACE_FLXPTS
-        kl = face(nf)%left%flxpts(k)
-#else
 #ifdef USE_FACE_FP_ARRAYS
         kl = left_fp_idx(k)
 #else
         kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
 #endif
         ! Index within qty_data for current flx-pt
         kf = ndata + k

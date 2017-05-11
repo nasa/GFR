@@ -2637,22 +2637,8 @@ continue
     face_geom = face(nf)%geom
     face_order = face(nf)%order
     !
-#ifdef USE_FACE_FLXPTS
-    left_rotation = 1 ! left rotation is always 1
-    face_pts = minval( face(nf)%right%flxpts )
-    associate ( flxpts => face(nf)%right%flxpts-face_pts , &
-                rot => fp%geord(face_geom,face_order)%rot )
-      find_rotation_loop: do i = lbound(rot,dim=1),ubound(rot,dim=1)
-        if ( all(rot(i)%pts == flxpts) ) then
-          right_rotation = i
-          exit find_rotation_loop
-        end if
-      end do find_rotation_loop
-    end associate
-#else
     left_rotation = face(nf)%left%rotation
     right_rotation = face(nf)%right%rotation
-#endif
     !
     face_rotation(1,nf) = fpidx(face_geom,face_order,left_rotation)
     face_rotation(2,nf) = fpidx(face_geom,face_order,right_rotation)
@@ -9276,23 +9262,6 @@ continue
       call dt%add( storage_size(face(i)%right%cell,kind=inttype) )
       call dt%add( storage_size(face(i)%right%cell_face,kind=inttype) )
       !
-#ifdef USE_FACE_FLXPTS
-      if (allocated(face(i)%left%flxpts)) then
-        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                                size(face(i)%left%flxpts,kind=inttype) )
-        call left_fp%add(array)
-        call flxpts%add(array)
-        call dt%add(array)
-      end if
-      !
-      if (allocated(face(i)%right%flxpts)) then
-        call array%set( storage_size(face(i)%left%flxpts,kind=inttype) , &
-                                size(face(i)%left%flxpts,kind=inttype) )
-        call right_fp%add(array)
-        call flxpts%add(array)
-        call dt%add(array)
-      end if
-#else
       call array%set( storage_size(face(i)%left%fp_offset,kind=inttype) )
       call array%add( storage_size(face(i)%left%rotation,kind=inttype) )
       call left_fp%add(array)
@@ -9304,31 +9273,15 @@ continue
       call right_fp%add(array)
       call flxpts%add(array)
       call dt%add(array)
-#endif
       !
     end do
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%left%flxpts"
     write (iou,6) array_name,left_fp%get_units()
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%right%flxpts"
     write (iou,6) array_name,right_fp%get_units()
     !
-#ifdef USE_FACE_FLXPTS
-    write (iou,20)
-#else
-    write (iou,21)
-#endif
     write (array_name,5) "face%[left,right]%flxpts"
     write (iou,6) array_name,flxpts%get_units()
     !
@@ -9598,9 +9551,6 @@ continue
   5 format ("'",a,"'")
   6 format (" Array Component: ",a,dt)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
-  !
-  20 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is ENABLED!")
-  21 format (3x,"NOTE: The USE_FACE_FLXPTS preprocessor flag is DISABLED!")
   !
 end subroutine partition_memory_usage
 !

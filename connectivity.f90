@@ -1356,25 +1356,6 @@ continue
    !rotation = nc
     rotation = 1
     !
-#ifdef USE_FACE_FLXPTS
-   !! Allocate the flxpts component of the face array for the left cell
-   !!
-   !allocate ( face(nf)%left%flxpts(1:nfp) , source=0 , &
-   !           stat=ierr , errmsg=error_message )
-   !write (array_name,2) nf,"left"
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-   !                 error_message,skip_alloc_pause)
-    !
-    ! The indices of the flux points for the left cell are just the 
-    ! sequential values of [face_pts:face_pts+nfp-1]
-    !
-    ! Using F2003 auto-reallocation
-    face(nf)%left%flxpts = face_pts + fp%geord(face_geom,face_order)% &
-                                                       rot(rotation)% &
-                                      pts(1:nfp)
-   !face(nf)%left%flxpts = face_pts + intseq(0,nfp-1)
-#else
-    !
     ! Save the offset for the flux points
     !
     face(nf)%left%fp_offset = face_pts
@@ -1382,7 +1363,6 @@ continue
     ! Save the rotation index for this face
     !
     face(nf)%left%rotation = rotation
-#endif
     !
     ! ##############################
     ! ##############################
@@ -1396,16 +1376,6 @@ continue
     !
     ! For the right cell, it depends on whether
     ! this is a boundary or interior face
-    !
-#ifdef USE_FACE_FLXPTS
-   !! Allocate the flxpts component of the face array for the left cell
-   !!
-   !allocate ( face(nf)%right%flxpts(1:nfp) , source=0 , &
-   !           stat=ierr , errmsg=error_message )
-   !write (array_name,2) nf,"right"
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-   !                 error_message,skip_alloc_pause)
-#endif
     !
     ! Find the offset for the flux points of the left cell
     !
@@ -1489,27 +1459,8 @@ continue
       !
       if (rotation == 0) error_finding_rotation = true
       !
-#ifdef USE_FACE_FLXPTS
-      ! Using F2003 auto-reallocation
-      face(nf)%right%flxpts = face_pts + fp%geord(face_geom,face_order)% &
-                                                          rot(rotation)% &
-                                         pts(1:nfp)
-     !face(nf)%right%flxpts = face_pts + intseq(ibeg,iend,iint)
-     !face(nf)%right%flxpts = face_pts + &
-     !                        RotateFluxPoints_Edge(left_nodes(1:nfnods), &
-     !                                              right_nodes(1:nfnods), &
-     !                                              face_order)
-      !
-      ! If the previous function made no changes, mark that there was an error
-      ! finding the correct face rotation between cells.
-      !
-      if (all(face(nf)%right%flxpts == face_pts)) then
-        error_finding_rotation = true
-      end if
-#else
       face(nf)%right%fp_offset = face_pts
       face(nf)%right%rotation = rotation
-#endif
       !
     else if (face_geom == Geom_Quad) then
       !
@@ -1533,26 +1484,8 @@ continue
       !
       if (rotation == 0) error_finding_rotation = true
       !
-#ifdef USE_FACE_FLXPTS
-      ! Using F2003 auto-reallocation
-      face(nf)%right%flxpts = face_pts + fp%geord(face_geom,face_order)% &
-                                                          rot(rotation)% &
-                                         pts(1:nfp)
-     !face(nf)%right%flxpts = face_pts + &
-     !                        RotateFluxPoints_Quad(left_nodes(1:nfnods), &
-     !                                              right_nodes(1:nfnods), &
-     !                                              face_order)
-      !
-      ! If the previous function made no changes, mark that there was an error
-      ! finding the correct face rotation between cells.
-      !
-      if (all(face(nf)%right%flxpts == face_pts)) then
-        error_finding_rotation = true
-      end if
-#else
       face(nf)%right%fp_offset = face_pts
       face(nf)%right%rotation = rotation
-#endif
       !
     else if (face_geom == Geom_Tria) then
       !
@@ -1568,26 +1501,8 @@ continue
       !
       if (rotation == 0) error_finding_rotation = true
       !
-#ifdef USE_FACE_FLXPTS
-      ! Using F2003 auto-reallocation
-      face(nf)%right%flxpts = face_pts + fp%geord(face_geom,face_order)% &
-                                                          rot(rotation)% &
-                                         pts(1:nfp)
-     !face(nf)%right%flxpts = face_pts + &
-     !                        RotateFluxPoints_Tria(left_nodes(1:nfnods), &
-     !                                              right_nodes(1:nfnods), &
-     !                                              nfp)
-      !
-      ! If the previous function made no changes, mark that there was an error
-      ! finding the correct face rotation between cells.
-      !
-      if (all(face(nf)%right%flxpts == face_pts)) then
-        error_finding_rotation = true
-      end if
-#else
       face(nf)%right%fp_offset = face_pts
       face(nf)%right%rotation = rotation
-#endif
       !
     end if
     !
@@ -2761,29 +2676,8 @@ continue
     cell(host_cell)%face(host_face)%geom = face_geom
     cell(host_cell)%face(host_face)%order = face_order
     !
-#ifdef USE_FACE_CELL_IDX
-   !nfp = geom_solpts(face_geom,face_order)
-   !!
-   !! Allocate the cell_idx array for the current cell face
-   !!
-   !allocate ( cell(host_cell)%face(host_face)%cell_idx(1:nfp) , &
-   !           source=0 , stat=ierr , errmsg=error_message )
-   !write (array_name,1) host_cell,host_face,"cell_idx"
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-   !                 error_message,skip_alloc_pause)
-    !
-    ! Get the beginning flux point for the left cell face if all faces
-    ! are of order face_order. This is the index needed because this is
-    ! used to get the correct location in the interp%toFace(face_order)%mat.
-    ! That array is set up with the indexing within mat assuming that
-    ! the order of all faces is face_order.
-    !
-    ! Using F2003 auto-reallocation
-    cell(host_cell)%face(host_face)%cell_idx = face(nf)%left%flxpts
-#else
     cell(host_cell)%face(host_face)%fp_offset = face(nf)%left%fp_offset
     cell(host_cell)%face(host_face)%rotation = face(nf)%left%rotation
-#endif
     !
   end do
   !
@@ -2814,29 +2708,8 @@ continue
     cell(left_cell)%face(left_face)%geom = face_geom
     cell(left_cell)%face(left_face)%order = face_order
     !
-#ifdef USE_FACE_CELL_IDX
-   !nfp = geom_solpts(face_geom,face_order)
-   !!
-   !! Allocate the cell_idx array for the left cell face
-   !!
-   !allocate ( cell(left_cell)%face(left_face)%cell_idx(1:nfp) , source=0 , &
-   !           stat=ierr , errmsg=error_message )
-   !write (array_name,1) left_cell,left_face,"cell_idx"
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-   !                 error_message,skip_alloc_pause)
-    !
-    ! Get the beginning flux point for the left cell face if all faces
-    ! are of order face_order. This is the index needed because this is
-    ! used to get the correct location in the interp%toFace(face_order)%mat.
-    ! That array is set up with the indexing within mat assuming that
-    ! the order of all faces is face_order.
-    !
-    ! Using F2003 auto-reallocation
-    cell(left_cell)%face(left_face)%cell_idx = face(nf)%left%flxpts
-#else
     cell(left_cell)%face(left_face)%fp_offset = face(nf)%left%fp_offset
     cell(left_cell)%face(left_face)%rotation = face(nf)%left%rotation
-#endif
     !
     ! #####################################
     ! #####################################
@@ -2852,27 +2725,8 @@ continue
     cell(right_cell)%face(right_face)%geom = face_geom
     cell(right_cell)%face(right_face)%order = face_order
     !
-#ifdef USE_FACE_CELL_IDX
-   !! Allocate the cell_idx array for the right cell face
-   !!
-   !allocate ( cell(right_cell)%face(right_face)%cell_idx(1:nfp) , source=0 , &
-   !           stat=ierr , errmsg=error_message )
-   !write (array_name,1) right_cell,right_face,"cell_idx"
-   !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-   !                 error_message,skip_alloc_pause)
-    !
-    ! Get the beginning flux point for the right cell face if all faces
-    ! are of order face_order. This is the index needed because this is
-    ! used to get the correct location in the interp%toFace(face_order)%mat.
-    ! That array is set up with the indexing within mat assuming that
-    ! the order of all faces is face_order.
-    !
-    ! Using F2003 auto-reallocation
-    cell(right_cell)%face(right_face)%cell_idx = face(nf)%right%flxpts
-#else
     cell(right_cell)%face(right_face)%fp_offset = face(nf)%right%fp_offset
     cell(right_cell)%face(right_face)%rotation = face(nf)%right%rotation
-#endif
     !
   end do
   !
@@ -2962,18 +2816,8 @@ continue
       cell(this_cell)%edge(cell_edge)%idx = this_edge
       cell(this_cell)%edge(cell_edge)%ave_coef = ave
       !
-#ifdef USE_EDGE_CELL_IDX
-      allocate ( cell(this_cell)%edge(cell_edge)%cell_idx(1:nep) , source=0 , &
-                 stat=ierr , errmsg=error_message )
-      write (array_name,2) this_cell,cell_edge,"cell_idx"
-      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                       error_message,skip_alloc_pause)
-      !
-      cell(this_cell)%edge(cell_edge)%cell_idx(1:nep) = intseq(ibeg,iend,iint)
-#else
       cell(this_cell)%edge(cell_edge)%ep_offset = nep*(cell_edge-1)
       cell(this_cell)%edge(cell_edge)%rev_dir = (iint == -1)
-#endif
       !
     end do cell_loop
     !
