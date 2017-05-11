@@ -531,11 +531,14 @@ continue
         !
         n = k+n1-1 ! total index of solution point within array
         !
-        do m = 1,nvar
-          array(m,n) = projct(this_geom,this_order)% &
-                                limiter(proj_order)% &
-                       dot( k , tmp(1:np,m) )
-        end do
+        array(1:nvar,n) = projct(this_geom,this_order)% &
+                                   limiter(proj_order)% &
+                          dot_mat( k , tmp(1:np,1:nvar) )
+       !do m = 1,nvar
+       !  array(m,n) = projct(this_geom,this_order)% &
+       !                        limiter(proj_order)% &
+       !               dot( k , tmp(1:np,m) )
+       !end do
         !
       end do
       !
