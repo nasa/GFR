@@ -86,6 +86,7 @@ program Euler_tri
   use flux_mod, only : interp_dusp_to_flxpts
   use flux_mod, only : flux_gradient_at_solpts_with_qdtr
   use flux_mod, only : flux_gradient_at_solpts_visc
+  use flux_mod, only : flux_gradient_at_solpts_visc1
   use flux_mod, only : correct_interface_flux_with_qdtr
   use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
@@ -462,6 +463,7 @@ continue
         call get_facedusp_bc
       end if
         call flux_gradient_at_solpts_visc(iter,nst)
+       !call flux_gradient_at_solpts_visc1(iter,nst)
         call correct_interface_flux_visc(iter,nst)
         !
      !end if

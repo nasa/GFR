@@ -12,6 +12,7 @@ module flux_mod
   public :: interp_dusp_to_flxpts
   public :: flux_gradient_at_solpts_with_qdtr
   public :: flux_gradient_at_solpts_visc
+  public :: flux_gradient_at_solpts_visc1
   public :: correct_interface_flux_with_qdtr
   public :: correct_interface_flux_visc
   public :: discontinuous_gradient_at_solpts
@@ -238,6 +239,245 @@ end subroutine interp_dusp_to_flxpts
 !
 !###############################################################################
 !###############################################################################
+!###############################################################################
+!
+subroutine flux_gradient_at_solpts_visc1(time_step,rk_step)
+  !
+  !... this subroutine get derivative of fluxes (no interaction)
+  !... for each cell, get f, g, ftd, gtd at the solution points
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxSP,geom_solpts
+  use geovar,            only : nr,ncell,using_quadrature
+  use geovar,            only : cell
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  use metrics_mod,       only : metrics_dt,geofa
+  use flowvar,           only : usp,dusp,residual,faceflx,faceusp
+  use ovar,              only : governing_equations
+  use ovar,              only : output_dir,dump_fluxes
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: time_step
+  integer, intent(in) :: rk_step
+  !
+  !.. Local Scalars ..
+  integer :: k,l,m,n,nc,n1,n2,np
+  integer :: nf,sf,kf,lf
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: ierr,iosp
+  !
+  character(len=100) :: flux_fmt
+  character(len=300) :: spf_fname
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr)      :: unrm
+  real(wp), dimension(1:nq,1:nr) :: vflx
+  real(wp), dimension(1:nq,1:maxSP) :: lcl_res
+  real(wp), dimension(1:maxSP,1:nq,1:nr) :: rsflx
+  real(wp), dimension(1:maxSP,1:nq,1:nr) :: xyflx
+  !
+  real(wp) :: tlcl_res(1:maxSP,1:nq)
+  real(wp) :: lcl_flx(1:nr,1:nq)
+  real(wp) :: vflx1(1:nr,1:nq)
+  real(wp) :: xyflx1(1:maxSP,1:nr,1:nq)
+  real(wp) :: rsflx1(1:maxSP,1:nr,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "flux_gradient_at_solpts_visc1"
+  !
+continue
+  !
+  ! Initialize faceflx to zero before we start
+  !
+  call faceflx%zero
+  !
+  ! Loop over the cells and get the derivative of the
+  ! fluxes at each solution point within each cell
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! #########
+    ! #########
+    ! ### 1 ###
+    ! #########
+    ! #########
+    !
+    ! Get the flux at each quadrature point in the current cell
+    !
+    do k = 1,np
+      !
+      n = k + n1-1
+      !
+      ! Inviscid fluxes
+      !
+     !do l = 1,nr
+     !  xyflx(k,:,l) = invs_flx_cv1( usp(:,n) , l ) ! x-directional flux
+     !end do
+      lcl_flx(1:nr,1:nq) = invs_flx_cv1( usp(1:nq,n) )
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        ! Viscous fluxes
+        !
+       !vflx(1:nq,1:nr) = visc_flx_cv( usp(1:nq,n) , dusp(1:nr,1:nq,n) )
+        vflx1(1:nr,1:nq) = visc_flx_cv1( usp(1:nq,n) , dusp(1:nr,1:nq,n) )
+        !
+        ! Subtract the viscous flux from the inviscid flux
+        !
+       !xyflx(k,1:nq,1:nr) = xyflx(k,1:nq,1:nr) - vflx(1:nq,1:nr)
+        lcl_flx(1:nr,1:nq) = lcl_flx(1:nr,1:nq) - vflx1(1:nr,1:nq)
+        !
+      end if
+      !
+      ! Transform the fluxes in the x-y physical
+      ! domain to the r-s computational domain
+      !
+      do m = 1,nq
+        do l = 1,nr
+         !rsflx(k,m,l) = dot(xyflx(k,m,1:nr),metrics(l,1:nr,n)) * jacobian(n)
+          vflx1(l,m) = dot(lcl_flx(1:nr,m),metrics_dt(nc)%met(k,l,1:nr)) * &
+                       metrics_dt(nc)%jac(k)
+        end do
+      end do
+      !
+      do m = 1,nq
+        do l = 1,nr
+          xyflx1(k,l,m) = lcl_flx(l,m)
+          rsflx1(k,l,m) = vflx1(l,m)
+        end do
+      end do
+      !
+    end do
+    !
+
+    !
+    ! #########
+    ! #########
+    ! ### 2 ###
+    ! #########
+    ! #########
+    !
+    ! Compute the divergence of the discontinuous fluxes 
+    !
+    ! Zero the residual array for the current cell
+    !
+   !lcl_res = zero
+   !tlcl_res = zero
+    !
+    ! Loop through each coordinate direction and add the divergence of
+    ! the flux to the local residual array for the current cell
+    !
+    do m = 1,nq
+     !lcl_res(m,1:np) = deriv(this_geom,this_order)%div( rsflx(1:np,m,1:nr) )
+      tlcl_res(1:np,m) = deriv(this_geom,this_order)%div( rsflx1(1:np,1:nr,m) )
+    end do
+    !
+    ! Copy the local residual for the current cell into the residual array
+    !
+   !residual(1:nq,n1:n2) = lcl_res(1:nq,1:np)
+    residual(1:nq,n1:n2) = transpose( tlcl_res(1:np,1:nq) )
+    !
+    !
+    ! #########
+    ! #########
+    ! ### 3 ###
+    ! #########
+    ! #########
+    !
+    ! Interpolate the fluxes to the interface flux points and dot this
+    ! interpolated vector with the face normal at each flux point
+    ! NOTE: We dont need to exchange this information for communication and
+    !       periodic boundary faces since this flux is only used within the
+    !       current cell.
+    !
+    ! Loop over the faces of this cell
+    !
+    do n = 1,size(cell(nc)%face)
+      !
+      nf = cell(nc)%face(n)%idx  ! index of the current face
+      sf = cell(nc)%face(n)%side ! side of face that cell nc is on
+      !
+      face_geom = cell(nc)%face(n)%geom   ! geom  of current face
+      face_order = cell(nc)%face(n)%order ! order of current face
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        !
+        ! Get the unit normal for this face flux/solution point
+        !
+        unrm(:) = unit_vector( geofa(nf)%v(:,kf) )
+        !
+        !######################################################################
+        !######################################################################
+        ! IF USING LOBATTO SOLUTION POINTS WE SHOULD CHANGE lf TO GIVE THE
+        ! INTERIOR SOLUTION POINT THAT CORRESPONDS TO THE CURRENT FLUX POINT
+        ! TO PREVENT HAVING TO DO THE ENTIRE DOT_PRODUCT COMPUTATION
+        !######################################################################
+        !######################################################################
+        !
+        lcl_flx(1:nr,1:nq) = interp(this_geom,this_order)% &
+                                       toFace(face_order)% &
+                             dot_mat2( lf , xyflx1(1:np,1:nr,1:nq) )
+    !!!!vflx(1:nq,1:nr) = interp(this_geom,this_order)% &
+    !!!!                            toFace(face_order)% &
+    !!!!                  dot_mat2( lf , xyflx(1:np,1:nq,1:nr) )
+       !do m = 1,nq
+       !  lcl_flx(1:nr,m) = interp(this_geom,this_order)% &
+       !                              toFace(face_order)% &
+       !                    dot_mat( lf , xyflx1(1:np,1:nr,m) )
+       !end do
+    !!!!do l = 1,nr
+    !!!!  vflx(1:nq,l) = interp(this_geom,this_order)% &
+    !!!!                           toFace(face_order)% &
+    !!!!                 dot_mat( lf , xyflx(1:np,1:nq,l) )
+    !!!!end do
+       !do m = 1,nq
+       !  do l = 1,nr
+       !    lcl_flx(l,m) = interp(this_geom,this_order)% &
+       !                             toFace(face_order)% &
+       !                   dot( lf , xyflx1(1:np,l,m) )
+       !  end do
+       !end do
+    !!!!do l = 1,nr
+    !!!!  do m = 1,nq
+    !!!!    vflx(m,l) = interp(this_geom,this_order)% &
+    !!!!                          toFace(face_order)% &
+    !!!!                dot( lf , xyflx(1:np,m,l) )
+    !!!!  end do
+    !!!!end do
+        !
+        do m = 1,nq
+         !faceflx(nf)%v(m,kf,sf) = dot( vflx(m,1:nr) , unrm(1:nr) )
+          faceflx(nf)%v(m,kf,sf) = dot( lcl_flx(1:nr,m) , unrm(1:nr) )
+        end do
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"flux_files/sp_",i0,".",i0,"_fluxes.dat")
+  2 format (100("#"),/,15x,"CELL ",i0,/,100("#"))
+  3 format (100("-"),/,5x,"SP ",i0," (",i0,")",/,100("-"))
+  4 format ("(",i0,"es15.6,5x,",i0,"es15.6)")
+  !
+end subroutine flux_gradient_at_solpts_visc1
+!
 !###############################################################################
 !
 subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
