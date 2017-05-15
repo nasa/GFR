@@ -2065,7 +2065,11 @@ subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
   !.. Local Scalars ..
   integer  :: np,nr,k,m,l
   real(wp) :: rho_inv,vel,pvar,cv_inv
+  real(wp) :: a,b
  !real(wp) :: rho_inv2,pvar_over_rho
+  !
+  !.. Local Arrays ..
+  real(wp) :: dtdx(1:size(gdufp,dim=1))
   !
 continue
   !
@@ -2131,17 +2135,26 @@ continue
     ! Now use the velocity gradients to subtract the gradient of
     ! kinetic-energy-per-unit-mass from the total energy gradient.
     ! 
-    do m = nmb,nme
-      vel = rho_inv * hufp(m,k)
-      do l = 1,nr
-        gdufp(l,nq,k) = gdufp(l,nq,k) - vel * gdufp(l,m,k)
-      end do
+   !dtdx(1:nr) = gdufp(1:nr,nq,k)
+   !do m = nmb,nme
+   !  vel = rho_inv * hufp(m,k)
+   !  do l = 1,nr
+   !    dtdx(l) = dtdx(l) - vel * gdufp(l,m,k)
+   !  end do
+   !end do
+   !!
+   !! Finish computing the temperature gradient by dividing through by
+   !! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+   !!
+   !gdufp(1:nr,nq,k) = dtdx(1:nr) * cv_inv
+    !
+    do l = 1,nr
+      a = rho_inv * selfdot( hufp(nmb:nme,k) ) * hdufp(l,nec,k)
+      b = dot( hufp(nmb:nme,k) , hdufp(l,nmb:nme,k) )
+      gdufp(l,nq,k) = gdufp(l,nq,k) + rho_inv*rho_inv*(a-b)
+      gdufp(l,nq,k) = gdufp(l,nq,k) * cv_inv
     end do
     !
-    ! Finish computing the temperature gradient by dividing through by
-    ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
-    !
-    gdufp(1:nr,nq,k) = gdufp(1:nr,nq,k) * cv_inv
     !
   end do
   !
