@@ -345,8 +345,8 @@ continue
       ! exactly what the subroutine get_bc_flowthrough_gradient does, so
       ! just use that instead of making a completely separate subroutine.
       !
-      call get_bc_flowthrough_gradient(facedusp(pf)%v(:,:,:,1), &
-                                       facedusp(nf)%v(:,:,:,2))
+      call get_bc_periodic_gradient(facedusp(pf)%v(:,:,:,1), &
+                                    facedusp(nf)%v(:,:,:,2))
       !
     else if (all(bface(1,nf) /= local_bc_ignore)) then
       !
@@ -1736,11 +1736,13 @@ subroutine get_bc_periodic_solution(pufp,gufp)
   real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer :: k,nfp
   !
 continue
   !
-  do k = 1,size(gufp,dim=2)
+  nfp = size(gufp,dim=2)
+  !
+  do k = 1,nfp
     !
     ! The conservative variables at this boundary flux point correspond
     ! to the conservative variables at the interior boundary flux points
@@ -1749,7 +1751,8 @@ continue
     ! NOTE: We may need to reverse the copy order, i.e., 
     !          gufp(:,k) = pufp(:,size(gufp,dim=2)+1-k)
     !
-    gufp(:,k) = pufp(:,k)
+    gufp(:,k) = pufp(:,nfp-k+1)
+    gufp(nme,k) = -pufp(nme,k)
     !
   end do
   !
@@ -1889,6 +1892,42 @@ end subroutine get_bc_mms_dirichlet_solution
 !###############################################################################
 !###############################################################################
 !###############################################################################
+!###############################################################################
+!
+subroutine get_bc_periodic_gradient(hdufp,gdufp)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  General flow-through boundary conditions
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
+  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: hdufp(:,:,:)
+  real(wp), intent(inout) :: gdufp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,nfp
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  nfp = size(gdufp,dim=3)
+  !
+  do k = 1,nfp
+    do j = 1,size(gdufp,dim=2)
+      do i = 1,size(gdufp,dim=1)
+        gdufp(i,j,k) = hdufp(i,j,nfp-k+1)
+      end do
+    end do
+  end do
+  !
+end subroutine get_bc_periodic_gradient
+!
 !###############################################################################
 !
 subroutine get_bc_flowthrough_gradient(hdufp,gdufp)
