@@ -1687,8 +1687,8 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
   real(wp) :: unrm(1:size(fnrm,dim=1))
   !
   !.. Local Parameters ..
-  logical(lk), parameter :: use_moving_wall = fals
- !logical(lk), parameter :: use_moving_wall = true
+ !logical(lk), parameter :: use_moving_wall = fals
+  logical(lk), parameter :: use_moving_wall = true
   !
 continue
   !
