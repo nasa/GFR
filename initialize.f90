@@ -1361,7 +1361,7 @@ continue
       if ( (bc_input(n)%wall_temp >= tmin) .and. &
            (bc_input(n)%wall_temp <= tmax) ) then
         !
-        bc_in(i)%wall_temperature = bc_input(n)%wall_temp
+        bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
         !
       else
         !
