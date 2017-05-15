@@ -1684,22 +1684,31 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
   !
   !.. Local Arrays ..
   real(wp) :: hvfp(1:size(gufp,dim=1))
+  real(wp) :: unrm(1:size(fnrm,dim=1))
+  !
+  !.. Local Parameters ..
+  logical(lk), parameter :: use_moving_wall = fals
+ !logical(lk), parameter :: use_moving_wall = true
   !
 continue
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
-  uwall = 30.0 / aref
+  uwall = 30.0_wp / aref
   !
   do k = 1,size(gufp,dim=2)
+    !
+    unrm(:) = unit_vector(fnrm(:,k))
     !
     ! Get the interior primitive variables
     !
     hvfp(:) = usp2v_sp( hufp(:,k) )
-    if ( fnrm(2,k) .gt. 0. ) hvfp(nmb) = uwall
     !
     ! Apply the no-slip condition to the boundary velocities
     !
     hvfp(nmb:nme) = -hvfp(nmb:nme) * wall_solution_location
+    if (use_moving_wall) then
+      if ( unrm(2) > half ) hvfp(nmb) = uwall
+    end if
     !
     ! Keeping the wall pressure constant, compute the wall
     ! density using the isothermal wall temperature.
