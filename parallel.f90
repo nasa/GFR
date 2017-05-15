@@ -2491,8 +2491,8 @@ continue
       pc = bface(2,pf)
       bface(7,nf) = epart(pc) - 1  ! adjacent partition processor ID
     else if (bface(1,nf) /= bc_cpu_bnd) then
-      bface(7,nf) = mypnum
-     !bface(7,nf) = epart(bface(2,nf))-1
+     !bface(7,nf) = mypnum
+      bface(7,nf) = epart(bface(2,nf))-1
     end if
   end do
   !
@@ -4452,10 +4452,14 @@ continue
     !
     ! Now that we have localized the information for this boundary face,
     ! change any periodic boundary conditions that require communication
-    ! across processors to communication boundaries
+    ! across processors to communication boundaries.
+    ! NOTE: Set the value to -bc_cpu_bnd to identify this face as a former
+    !       periodic boundary condition face.
     !
-    if (bface(1,loc_face)==bc_periodic .and. bface(7,loc_face)/=mypnum) then
-      bface(1,loc_face) = bc_cpu_bnd
+    if (bface(1,loc_face) == bc_periodic) then
+      if (bface(7,loc_face) /= this_part-1) then
+        bface(1,loc_face) = -bc_cpu_bnd
+      end if
     end if
     !
   end do
@@ -5562,7 +5566,7 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   !
   !.. Local Scalars ..
   logical(lk) :: flag
-  integer :: n,nfp,lfbnd,i,ierr
+  integer :: n,nfp,lfbnd,i,ibeg,iend,iint,ierr
   integer :: rmin,rmax,scnt,rcnt,p1,p2
   integer :: loc_face,glb_face,my_part
   integer :: adj_face,adj_cpu
@@ -5602,7 +5606,7 @@ continue
   !
   ! Count the number of faces located on partition boundaries
   !
-  n = count(bface(1,:) == bc_cpu_bnd)
+  n = count(abs(bface(1,:)) == bc_cpu_bnd)
   !
   ! Allocate the bnd_faces array
   !
@@ -5614,7 +5618,7 @@ continue
   n = 0
   fill_bnd_faces: do loc_face = 1,lfbnd
     !
-    if (bface(1,loc_face) /= bc_cpu_bnd) cycle fill_bnd_faces
+    if (abs(bface(1,loc_face)) /= bc_cpu_bnd) cycle fill_bnd_faces
     !
     n = n + 1
     !
@@ -5643,7 +5647,7 @@ continue
   !
   do loc_face = 1,lfbnd
     !
-    if (bface(1,loc_face) /= bc_cpu_bnd) cycle
+    if (abs(bface(1,loc_face)) /= bc_cpu_bnd) cycle
     !
     glb_face = face_map(my_part)%loc_to_glb(loc_face)
     !
@@ -5659,7 +5663,7 @@ continue
   !
   do loc_face = lfbnd,1,-1
     !
-    if (bface(1,loc_face) /= bc_cpu_bnd) cycle
+    if (abs(bface(1,loc_face)) /= bc_cpu_bnd) cycle
     !
     flxpt_offset(loc_face) = sum( flxpt_offset(1:loc_face-1) )
     !
@@ -5672,7 +5676,7 @@ continue
   !
   cpu_id(:) = -99
   do loc_face = 1,lfbnd
-    if (bface(1,loc_face) == bc_cpu_bnd) then
+    if (abs(bface(1,loc_face)) == bc_cpu_bnd) then
       cpu_id( bface(7,loc_face)+1 ) = bface(7,loc_face)
     end if
   end do
@@ -5735,7 +5739,7 @@ continue
     !
     do loc_face = 1,lfbnd
       !
-      if (bface(1,loc_face) /= bc_cpu_bnd) cycle
+      if (abs(bface(1,loc_face)) /= bc_cpu_bnd) cycle
       !
       if (bface(7,loc_face) == adj_cpu) then
         adj_face = bface(5,loc_face)
@@ -5800,8 +5804,23 @@ continue
       !
       left_rotation = face_rotation(1,glb_face)
       !
+      ibeg = 1
+      iend = size( flx(left_rotation)%pts )
+      iint = 1
+      !
+      ! Reverse the flux point ordering if this
+      ! used to be a periodic boundary face.
+      !
+      if (bface(1,loc_face) == -bc_cpu_bnd) then
+        ibeg = iend
+        iend = 1
+        iint = -1
+        bface(1,loc_face) = bc_cpu_bnd
+      end if
+      !
      !do n = 1,size( face(glb_face)%left%flxpts )
-      do n = 1,size( flx(left_rotation)%pts )
+     !do n = 1,size( flx(left_rotation)%pts )
+      do n = ibeg,iend,iint
         !
         scnt = scnt + 1
         !
