@@ -4435,7 +4435,7 @@ subroutine check_flux_point_orderings()
   use order_mod, only : maxSP,maxFP,geom_solpts
   use geovar, only : ncell,cell
   use geovar, only : nfbnd,nface,face
-  use geovar, only : nr,xyz
+  use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
@@ -4463,7 +4463,7 @@ continue
   write (rfile,*)
   write (dfile,*)
   !
-  do nf = nfbnd+1,nface
+  do nf = 1,nface
     !
     write_difference_file = fals
     xyz_fp(:,:,:) = zero
@@ -4477,7 +4477,15 @@ continue
     face_order = face(nf)%order
     !
     left_cell = face(nf)%left%cell
-    right_cell = face(nf)%right%cell
+    if (nf <= nfbnd) then
+      if (bface(1,nf) == bc_periodic) then
+        right_cell = face(bface(5,nf))%left%cell
+      else
+        cycle
+      endif
+    else
+      right_cell = face(nf)%right%cell
+    endif
     !
     left_geom = cell(left_cell)%geom
     left_order = cell(left_cell)%order
@@ -4498,7 +4506,11 @@ continue
     do k = 1,nfp
       !
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
+      if (nf <= nfbnd) then
+        kr = face(bface(5,nf))%left%get_fp_idx(face_geom,face_order,k)
+      else
+        kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
+      end if
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
