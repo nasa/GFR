@@ -1500,11 +1500,11 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m )
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m ) + &
+                          this%row_val(n5) * array( this%row_idx(n5) , n,m )
     end do
   end do
   !
@@ -1538,12 +1538,12 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
-                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m )
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m ) + &
+                          this%row_val(n5) * array( this%row_idx(n5) , n,m ) + &
+                          this%row_val(n6) * array( this%row_idx(n6) , n,m )
     end do
   end do
   !
@@ -1578,13 +1578,13 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
-                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
-                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m )
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m ) + &
+                          this%row_val(n5) * array( this%row_idx(n5) , n,m ) + &
+                          this%row_val(n6) * array( this%row_idx(n6) , n,m ) + &
+                          this%row_val(n7) * array( this%row_idx(n7) , n,m )
     end do
   end do
   !
@@ -1620,14 +1620,14 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
-                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
-                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
-                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m )
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m ) + &
+                          this%row_val(n5) * array( this%row_idx(n5) , n,m ) + &
+                          this%row_val(n6) * array( this%row_idx(n6) , n,m ) + &
+                          this%row_val(n7) * array( this%row_idx(n7) , n,m ) + &
+                          this%row_val(n8) * array( this%row_idx(n8) , n,m )
     end do
   end do
   !
@@ -1664,15 +1664,15 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
-                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
-                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
-                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m ) + &
-                          this%row_val(n9 ) * array( this%row_idx(n9 ) , n,m )
+      return_value(n,m) = this%row_val(n1) * array( this%row_idx(n1) , n,m ) + &
+                          this%row_val(n2) * array( this%row_idx(n2) , n,m ) + &
+                          this%row_val(n3) * array( this%row_idx(n3) , n,m ) + &
+                          this%row_val(n4) * array( this%row_idx(n4) , n,m ) + &
+                          this%row_val(n5) * array( this%row_idx(n5) , n,m ) + &
+                          this%row_val(n6) * array( this%row_idx(n6) , n,m ) + &
+                          this%row_val(n7) * array( this%row_idx(n7) , n,m ) + &
+                          this%row_val(n8) * array( this%row_idx(n8) , n,m ) + &
+                          this%row_val(n9) * array( this%row_idx(n9) , n,m )
     end do
   end do
   !
@@ -1710,16 +1710,17 @@ continue
   !
   do m = 1,size(array,dim=3)
     do n = 1,size(array,dim=2)
-      return_value(n,m) = this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
-                          this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
-                          this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
-                          this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
-                          this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
-                          this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
-                          this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
-                          this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m ) + &
-                          this%row_val(n9 ) * array( this%row_idx(n9 ) , n,m ) + &
-                          this%row_val(n10) * array( this%row_idx(n10) , n,m )
+      return_value(n,m) = &
+                        this%row_val(n1 ) * array( this%row_idx(n1 ) , n,m ) + &
+                        this%row_val(n2 ) * array( this%row_idx(n2 ) , n,m ) + &
+                        this%row_val(n3 ) * array( this%row_idx(n3 ) , n,m ) + &
+                        this%row_val(n4 ) * array( this%row_idx(n4 ) , n,m ) + &
+                        this%row_val(n5 ) * array( this%row_idx(n5 ) , n,m ) + &
+                        this%row_val(n6 ) * array( this%row_idx(n6 ) , n,m ) + &
+                        this%row_val(n7 ) * array( this%row_idx(n7 ) , n,m ) + &
+                        this%row_val(n8 ) * array( this%row_idx(n8 ) , n,m ) + &
+                        this%row_val(n9 ) * array( this%row_idx(n9 ) , n,m ) + &
+                        this%row_val(n10) * array( this%row_idx(n10) , n,m )
     end do
   end do
   !

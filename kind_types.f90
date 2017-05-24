@@ -1347,9 +1347,9 @@ continue
                                  command_status=command_status, &
                                  command_line_procedure=command_line_procedure)
       !
-     !call execute_command_line( trim(adjustl(command)) , wait_for_completion , &
-     !                           exit_status , command_status , &
-     !                           command_message )
+     !call execute_command_line(trim(adjustl(command)), wait_for_completion, &
+     !                          exit_status, command_status, &
+     !                          command_message )
      !!
      !call write_command_results(procedure_name,command,exit_status, &
      !                           command_status,command_message)

@@ -2368,7 +2368,8 @@ continue
     !
     if (allocated(host_sp_idx)) then
       deallocate ( host_sp_idx , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"host_sp_idx",2,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"host_sp_idx",2,__LINE__,__FILE__, &
+                       ierr,error_message)
     end if
     !
     allocate ( tmp_copy(1:lcell) , source=0_int_mpi , &

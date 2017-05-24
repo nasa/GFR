@@ -355,7 +355,8 @@ continue
                     host_roots_grp,1_int_mpi,MPI_INTEGER, &
                     glb_root,host_roots_comm,mpierr)
 #ifdef DEBUG_COMMUNICATORS
-    write (iout,103) ("host_roots_grp",n,host_roots_grp(n), n=1,size(host_roots_grp))
+    write (iout,103) ("host_roots_grp",n,host_roots_grp(n), &
+                      n=1,size(host_roots_grp))
     flush (iout) ; call mpi_barrier(host_roots_comm,mpierr)
 #endif
     !
@@ -380,7 +381,8 @@ continue
   call mpi_bcast(host_roots_grp,host_roots_size,MPI_INTEGER, &
                  glb_root,MPI_COMM_WORLD,mpierr)
 #ifdef DEBUG_COMMUNICATORS
-  write (iout,103) ("host_roots_grp",n,host_roots_grp(n), n=1,size(host_roots_grp))
+  write (iout,103) ("host_roots_grp",n,host_roots_grp(n), &
+                    n=1,size(host_roots_grp))
   flush (iout) ; call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
   !

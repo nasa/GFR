@@ -4557,8 +4557,10 @@ end subroutine create_serial_geom_arrays
 !!!  !
 !!!  ! Allocate the section_data array
 !!!  !
-!!!  allocate ( section_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
-!!!  call alloc_error(pname,"section_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!  allocate ( section_data(1:n1) , source=0 , &
+!!!             stat=ierr , errmsg=error_message )
+!!!  call alloc_error(pname,"section_data",1,__LINE__,__FILE__, &
+!!!                   ierr,error_message)
 !!!  !
 !!!  ! Create the section_data array
 !!!  !
@@ -4649,7 +4651,7 @@ end subroutine create_serial_geom_arrays
 !!!  !
 !!!end subroutine create_broadcast_arrays
 !!!!
-!!!!###############################################################################
+!###############################################################################
 !!!!
 !!!subroutine broadcast_grid_arrays
 !!!  !
@@ -4682,7 +4684,8 @@ end subroutine create_serial_geom_arrays
 !!!    n2 = data_sizes(7) / n1
 !!!    allocate ( grid_data(1:n1,1:n2) , source=zero , &
 !!!               stat=ierr , errmsg=error_message )
-!!!    call alloc_error(pname,"grid_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!    call alloc_error(pname,"grid_data",1,__LINE__,__FILE__, &
+!!!                     ierr,error_message)
 !!!    !
 !!!    ! Allocate the section_data array
 !!!    !
@@ -4695,8 +4698,10 @@ end subroutine create_serial_geom_arrays
 !!!    ! Allocate the boco_data array
 !!!    !
 !!!    n1 = data_sizes(11)
-!!!    allocate ( boco_data(1:n1) , source=0 , stat=ierr , errmsg=error_message )
-!!!    call alloc_error(pname,"boco_data",1,__LINE__,__FILE__,ierr,error_message)
+!!!    allocate ( boco_data(1:n1) , source=0 , &
+!!!               stat=ierr , errmsg=error_message )
+!!!    call alloc_error(pname,"boco_data",1,__LINE__,__FILE__, &
+!!!                     ierr,error_message)
 !!!    !
 !!!  end if
 !!!  !
