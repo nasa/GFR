@@ -191,6 +191,7 @@ module ovar
   !
   logical(lk),        public, save :: output_time_averaging = fals
   character(len=150), public, save :: time_ave_file = "out.ave"
+  real(wp),           public, save :: time_scaling_factor = 1.0_wp
   !
   logical(lk),        public, save :: time_average_restart_files = fals
   character(len=150), public, save :: restart_list_file = ""
@@ -561,6 +562,7 @@ module input_namelist_mod
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : output_time_averaging, time_ave_file
+  use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
   use order_mod, only : p_order,n_order,q_order
   use order_mod, only : o_order,e_order,all_orders
@@ -675,7 +677,7 @@ module input_namelist_mod
   namelist / input / bc_input
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, restart_list_file, &
-                     time_average_restart_files
+                     time_average_restart_files, time_scaling_factor
   !
   ! CFL ADJUSTMENT NAMELIST
   !
