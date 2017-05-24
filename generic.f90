@@ -189,6 +189,7 @@ subroutine rgeterr(walltime_expiring)
   use ovar,    only : this_is_final_timestep
   use ovar,    only : iter_out_interval
   use ovar,    only : Period_Timesteps
+  use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
   use parallel_mod, only : cell_map
   use interpolation_mod, only : outerp
   !
@@ -205,7 +206,7 @@ subroutine rgeterr(walltime_expiring)
   real(wp) :: xentmax,yentmax
   real(wp) :: entmax,entL2
   real(wp) :: rho,pres,sn,se,delx,dely
-  real(wp) :: wall_time_left
+  real(wp) :: wall_time_left,out_time
   real(wp) :: orders_converged,output_L2val
   !
   character(len=300) :: overflow_error
@@ -393,6 +394,10 @@ continue
   !
   if (mypnum == 0) then
     !
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
 #ifdef PBS_ENV
     !
     sec_left = abs(nint(wall_time_left))
@@ -404,7 +409,7 @@ continue
     hrs_left = sign(hrs_left,int(wall_time_left))
     !
    !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-    write (iout,iter_out_fmt) itcur,d_t,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,out_time, &
                               cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax, &
@@ -413,7 +418,7 @@ continue
 #else
     !
    !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
-    write (iout,iter_out_fmt) itcur,d_t,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,out_time, &
                               cfl,rltwo,output_L2val,nloc, &
                               global_pinc_ptr(nloc)+kloc, &
                               xentmax,yentmax
