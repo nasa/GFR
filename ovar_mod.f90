@@ -152,6 +152,8 @@ module ovar
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
+  integer, public, save :: plot3d_agglomerate_order = -1
+  !
   integer, public, save :: plot3d_all_strides = -1
   integer, public, save :: plot3d_i_stride    = -1
   integer, public, save :: plot3d_j_stride    = -1
@@ -514,6 +516,7 @@ module input_namelist_mod
   !.. Use Statements ..
   use ovar,      only : grid_format, gridfile, plot3d_all_strides
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
+  use ovar,      only : plot3d_agglomerate_order
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
   use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
   use ovar,      only : flux_divergence, correction_function, dflux_opt
@@ -578,7 +581,7 @@ module input_namelist_mod
                      grid_scaling_factor
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
-                     plot3d_all_strides
+                     plot3d_all_strides, plot3d_agglomerate_order
   ! BASE FR OPTIONS
   namelist / input / n_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
