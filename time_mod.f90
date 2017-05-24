@@ -1354,7 +1354,7 @@ continue
       !
     else
       !
-      theta = atan2(z,y)
+      theta = atan2(y,z)
       if (theta < zero) theta = theta + two*pi
       !
       st = sin(theta)
