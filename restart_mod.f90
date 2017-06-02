@@ -1832,6 +1832,7 @@ subroutine check_restart_dir
   use ovar, only : irestart,restart_file
   use ovar, only : output_time_averaging
   use ovar, only : time_ave_file,read_time_ave_restart
+  use ovar, only : restart_output_uses_host_roots
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
@@ -1984,6 +1985,13 @@ continue
   write (statfile_fmt,6) trim(adjustl(restart_dir)),final_iter_digits
   write (tafile_fmt,7) trim(adjustl(restart_dir))
   write (talink_fmt,8) trim(adjustl(restart_dir))
+  !
+  ! Make sure restart_output_uses_host_roots is
+  ! false if only one processor is being used.
+  !
+  if (ncpu <= 1) then
+    restart_output_uses_host_roots = fals
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
