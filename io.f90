@@ -5797,6 +5797,7 @@ subroutine write_parallel_cgns_time_ave_file()
   integer :: l,n,naq,ierr
   !
   character(len=1)     :: ta_char
+  character(len=1)     :: vmult
   character(len=CGLEN) :: varname
   character(len=CGLEN) :: sect_name
   character(len=170)   :: cgns_sol_file
@@ -5901,41 +5902,46 @@ continue
   !
   do n = 1,naq
     !
+    vmult = ""
     varname = ""
     do l = 1,len_trim(time_ave_variables(n))
       ta_char = uppercase( time_ave_variables(n)(l:l) )
       select case (ta_char)
         case ("D")
-          varname = trim(adjustl(varname)) // "Rho'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Rho"
           var_dim(n) = var_dim(n) * rhoref
         case ("X") 
-          varname = trim(adjustl(varname)) // "Vx'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Vx"
           var_dim(n) = var_dim(n) * aref
         case ("Y") 
-          varname = trim(adjustl(varname)) // "Vy'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Vy"
           var_dim(n) = var_dim(n) * aref
         case ("Z") 
-          varname = trim(adjustl(varname)) // "Vz'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Vz"
           var_dim(n) = var_dim(n) * aref
+        case ("E") 
+          varname = trim(adjustl(varname)) // trim(vmult) // "E"
+          var_dim(n) = var_dim(n) * rhoref * aref * aref
         case ("P") 
-          varname = trim(adjustl(varname)) // "P'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "P"
           var_dim(n) = var_dim(n) * rhoref * aref * aref
         case ("T") 
-          varname = trim(adjustl(varname)) // "T'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "T"
           var_dim(n) = var_dim(n) * tref
         case ("R") 
-          varname = trim(adjustl(varname)) // "Vr'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Vr"
           var_dim(n) = var_dim(n) * aref
         case ("F") 
-          varname = trim(adjustl(varname)) // "Vf'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "Vf"
           var_dim(n) = var_dim(n) * aref
         case ("K") 
-          varname = trim(adjustl(varname)) // "TKE'"
+          varname = trim(adjustl(varname)) // trim(vmult) // "TKE"
           var_dim(n) = var_dim(n) * tkeref
-        case ("E","W")
-          varname = trim(adjustl(varname)) // "TLS'"
+        case ("W")
+          varname = trim(adjustl(varname)) // trim(vmult) // "TLS"
           var_dim(n) = var_dim(n) * tlsref
       end select
+      vmult = "*"
     end do
     !
     call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
