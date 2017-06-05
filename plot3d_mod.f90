@@ -2008,6 +2008,13 @@ continue
     end if
   end do find_ncut
   !
+  if (mod(ncut,2) /= 0) then
+    write (error_message,4)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ncut = ncut/2
+  !
   ! Allocate the cut condition array
   !
   allocate ( cut_info(1:ncut) , stat=ierr , errmsg=error_message )
