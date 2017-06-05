@@ -52,7 +52,9 @@ subroutine compute_final_error()
   real(wp), dimension(1:maxEP) :: jac
   real(wp), dimension(1:maxEP) :: weights
   real(wp), dimension(1:nq,1:maxEP) :: uold
+  real(wp), dimension(1:nq,1:maxEP) :: vold
   real(wp), dimension(1:nq,1:maxEP) :: unew
+  real(wp), dimension(1:nq,1:maxEP) :: vnew
   real(wp), dimension(1:nr,1:maxEP) :: xyz_err
   real(wp), dimension(1:nq+1,1:2) :: ett
   real(wp), dimension(1:nq+1,1:2,1:5) :: error
@@ -93,7 +95,8 @@ continue
     end if
     !
     call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
-                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
+                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np), &
+                              vnew(1:nq,1:np),vold(1:nq,1:np))
     !
     ! Now loop through the solution points of this cell to compute the
     ! error between the solutions of the current and previous time steps
@@ -115,7 +118,7 @@ continue
       !
       ! Error for primitive variables at the current solution point
       !
-      ett(1:nq,2) = abs( usp2v_sp(unew(:,k)) - usp2v_sp(uold(:,k)) )
+      ett(1:nq,2) = abs( vnew(:,k) - vold(:,k) )
       ett(nq+1,2) = rnorm2( ett(nmb:nme,2) )
       !
       ! Now add the error for all variables at the current solution
@@ -786,7 +789,8 @@ end subroutine getmaxent
 !
 !###############################################################################
 !
-subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
+subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err, &
+                                vnew,vold)
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP
@@ -808,6 +812,10 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   real(wp), dimension(:),   intent(inout) :: jac
   real(wp), dimension(:),   intent(inout) :: weights
   !
+  !.. Optional Arguments ..
+  real(wp), optional, intent(inout) :: vnew(:,:)
+  real(wp), optional, intent(inout) :: vold(:,:)
+  !
   !.. Local Scalars ..
   integer :: m,l,k,n1,n2,np,nep
   integer :: this_geom,this_order
@@ -817,7 +825,9 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   !.. Local Arrays ..
   real(wp) :: xyz_offset(1:nr,1:maxSP)
   real(wp) :: uprev(1:nq,1:maxSP)
+  real(wp) :: vprev(1:nq,1:maxSP)
   real(wp) :: ucurr(1:nq,1:maxSP)
+  real(wp) :: vcurr(1:nq,1:maxSP)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "collect_error_arrays"
@@ -855,7 +865,7 @@ continue
   ! ## 1 ##
   ! #######
   !
-  ! Get the current solution at the error points
+  ! Get the conserved variables of the current solution at the error points
   !
   if (output_time_averaging) then
     ucurr(1:nq,1:np) = uavesp(1:nq,n1:n2)
@@ -874,6 +884,32 @@ continue
   else
     !
     unew(1:nq,1:nep) = ucurr(1:nq,1:np)
+    !
+  end if
+  !
+  ! Get the primitive variables of the current solution at the error points
+  !
+  if (present(vnew)) then
+    !
+    if (output_time_averaging) then
+      vcurr(1:nq,1:np) = uavesp(nq+1:2*nq,n1:n2)
+    else
+      vcurr(1:nq,1:np) = usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
+    end if
+    !
+    if (use_error_matrix) then
+      !
+      do m = 1,nq
+        vnew(m,1:nep) = outerp(this_geom,this_order)% &
+                                               error% &
+                        mv_mult( vcurr(m,1:np) )
+      end do
+      !
+    else
+      !
+      vnew(1:nq,1:nep) = vcurr(1:nq,1:np)
+      !
+    end if
     !
   end if
   !
@@ -948,6 +984,10 @@ continue
                                           return_cv=true )
     end do
     !
+    if (present(vold)) then
+      vold(1:nq,1:nep) = usp2v( uold(1:nq,1:nep) , swap_t_for_rho=true )
+    end if
+    !
   else if (any(itestcase == Transport_Problems)) then
     !
     ! Evaluate the exact analytical solution to the vortex transport problem
@@ -957,6 +997,10 @@ continue
     do k = 1,nep
       uold(1:nq,k) = vortex_solution( xyz_offset(1:nr,k) )
     end do
+    !
+    if (present(vold)) then
+      vold(1:nq,1:nep) = usp2v( uold(1:nq,1:nep) , swap_t_for_rho=true )
+    end if
     !
   else
     !
@@ -988,6 +1032,41 @@ continue
       ! Use the solution from the previous time step
       !
       uold(1:nq,1:nep) = uprev(1:nq,1:np)
+      !
+    end if
+    !
+    if (present(vold)) then
+      !
+      if (output_time_averaging) then
+        ! Compute uavesp at the previous averaging time
+        if (any(saved_ave_time == [zero,ave_start_time])) then
+          vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
+        else
+          ! a and b were already computed above, no need to do it again
+          vprev(1:nq,1:np) = b * uavesp(nq+1:2*nq,n1:n2) - &
+                             a * usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
+        end if
+      else
+        vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
+      end if
+      !
+      if (use_error_matrix) then
+        !
+        ! Get the solution from the previous time step at the error points
+        !
+        do m = 1,nq
+          vold(m,1:nep) = outerp(this_geom,this_order)% &
+                                                 error% &
+                          mv_mult( vprev(m,1:np) )
+        end do
+        !
+      else
+        !
+        ! Use the solution from the previous time step
+        !
+        vold(1:nq,1:nep) = vprev(1:nq,1:np)
+        !
+      end if
       !
     end if
     !
