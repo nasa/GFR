@@ -12,7 +12,7 @@ program Euler_tri
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
-  use ovar, only : nst,num_stages,iRKtype,time,itcur,num_ts
+  use ovar, only : nst,num_stages,iRKtype,time,time_ref,itcur,num_ts
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -845,7 +845,7 @@ continue
     !
     if (mypnum == 0) then
       !
-      write (iout,40) itcur,time
+      write (iout,40) itcur,time*time_ref
       call recon_cpu_time(-1)
       !
       call write_final_error
