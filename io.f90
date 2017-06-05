@@ -4630,9 +4630,8 @@ end subroutine write_final_error
 !
 subroutine write_results_file(iflag,icount)
   !
-  use geovar,  only : nr,n_global_solpts
-  use ovar,    only : work_units
-  use ovar,    only : uverr
+  use geovar,    only : nr,n_global_solpts
+  use ovar,      only : work_units,uverr,output_time_averaging,time
   use order_mod, only : p_order
   !
   !.. Formal Arguments ..
@@ -4642,6 +4641,7 @@ subroutine write_results_file(iflag,icount)
   !.. Local Scalars ..
   integer  :: i,ierr
   real(wp) :: comp_cost
+  character(len=14) :: suffix
   !
   !.. Local Saved Scalars ..
   integer,     save :: iores
@@ -4652,7 +4652,10 @@ subroutine write_results_file(iflag,icount)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_results_file"
-  character(len=*), parameter :: fname = "results.dat"
+  character(len=*), parameter :: fname = "residual.dat"
+  character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
+ !logical(lk),      parameter :: write_work_units = true
+  logical(lk),      parameter :: write_work_units = fals
   !
 continue
   !
@@ -4666,32 +4669,52 @@ continue
                         iostat=ierr,iomsg=error_message)
     call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
     !
-    if (nr == 1) then
-      write (iores,1) p_order, one/sqrt(real(n_global_solpts,kind=wp))
-    else if (nr == 2) then
-      write (iores,2) p_order, one/sqrt(real(n_global_solpts,kind=wp))
-    else if (nr == 3) then
-      write (iores,3) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    write (iores,1)
+    !
+    suffix = '",'
+    if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
+    !
+    write (iores,2) "<greek>r</greek>" // trim(suffix)
+    do i = 1,nr
+      write (iores,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
+    end do
+    write (iores,2) "Energy" // trim(suffix)
+    write (iores,2) "Entropy" // trim(suffix)
+    write (iores,2) "T" // trim(suffix)
+    do i = 1,nr
+      write (iores,2) uvw(i) // trim(suffix)
+    end do
+    write (iores,2) "p" // trim(suffix)
+    write (iores,2) "||V||" // trim(suffix)
+    if (write_work_units) then
+      write (iores,2) "Work units",'"'
+    else
+      write (iores,2) "Time",'"'
     end if
+    !
+    write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
     !
     file_is_opened = true
     !
   end if
   !
-  comp_cost = log10(merge(work_units,one,work_units > zero))
+  if (write_work_units) then
+    comp_cost = log10(merge(work_units,one,work_units > zero))
+  else
+    comp_cost = time
+  end if
   !
-  u2(:) = uverr(:,2,1)
-  v2(:) = uverr(:,2,2)
+  u2(:) = merge( uverr(:,2,1) , one , uverr(:,2,1)>zero )
+  v2(:) = merge( uverr(:,2,2) , one , uverr(:,2,2)>zero )
+ !!
+ !u2(:) = uverr(:,2,1)
+ !v2(:) = uverr(:,2,2)
+ !!
+ !where (u2 <= zero) u2 = one
+ !where (v2 <= zero) v2 = one
   !
-  where (u2 <= zero)
-    u2 = one
-  end where
-  where (v2 <= zero)
-    v2 = one
-  end where
-  !
-  write (iores,4) icount,(log10(u2(i)),i=1,nq+1), &
-                         (log10(v2(i)),i=2,nq+1), &
+  write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
+                         (log10(v2(i)),i=1,nq+1), &
                          comp_cost
   !
   ! Close the results file only if iflag is -1
@@ -4705,22 +4728,13 @@ continue
   !
   ! Format Statements
   !
-  1 format ('VARIABLES= "Timestep" "rho" "rhou" "Energy" &
-           &"Entropy" "u" "Pressure" "||V||" "Work units"',/, &
-            'Zone T="Residual Error"',/, &
+  1 format ('VARIABLES= "Timestep",')
+  2 format ('"',a,a)
+  3 format ('"',a,a,a)
+  4 format ('Zone T="Residual Error"',/, &
             'AUXDATA order="',i0,'"',/, &
             'AUXDATA h="',f10.6,'"')
-  2 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "Energy" &
-           &"Entropy" "u" "v" "Pressure" "||V||" "Work units"',/, &
-            'Zone T="Residual Error"',/, &
-            'AUXDATA order="',i0,'"',/, &
-            'AUXDATA h="',f10.6,'"')
-  3 format ('VARIABLES= "Timestep" "rho" "rhou" "rhov" "rhow" "Energy" &
-           &"Entropy" "u" "v" "w" "Pressure" "||V||" "Work units"',/, &
-            'Zone T="Residual Error"',/, &
-            'AUXDATA order="',i0,'"',/, &
-            'AUXDATA h="',f10.6,'"')
-  4 format (i10,*(es17.9))
+  5 format (i10,*(es17.9))
   !
 end subroutine write_results_file
 !
