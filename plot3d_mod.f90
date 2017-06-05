@@ -92,6 +92,9 @@ contains
 !
 subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   !
+  !.. Use Statements ..
+  use geovar, only : grid
+  !
   ! This routine reads in a multi-block grid in plot3d
   ! format and converts it to an unstructured grid.
   !
@@ -135,93 +138,128 @@ subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   !
 continue
   !
-  is_formatted = fals
+  ! Have only the host roots read in the grid file
   !
-  ! Reading a multi-block grid in Plot3d format
-  !
-  ! Check to see if the Plot3D grid file can be
-  ! opened and read as a formatted file.
-  !
-  open (newunit=iotst,file=gridfile,form="formatted",status="old", &
-                      action="read",position="rewind",iostat=ierr, &
-                      iomsg=error_message)
-  call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
-                ierr,error_message)
-  !
-  read (iotst,*,iostat=ierr) itest
-  if (ierr == 0) then
-    is_formatted = true
-  end if
-  !
-  close (iotst,iostat=ierr,iomsg=error_message)
-  call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
-                ierr,error_message)
-  !
-  ! If the Plot3D grid file could not be read as a formatted file,
-  ! check to see if it can be opened and read as an unformatted file.
-  !
-  if (.not.is_formatted) then
+  if (i_am_host_root) then
     !
-    open (newunit=iotst,file=gridfile,form="unformatted",status="old", &
+    ! First, allocate the grid derived type so that it can be filled
+    ! up as needed while processing the Plot3D grid file
+    !
+    if (allocated(grid)) then
+      deallocate ( grid , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    allocate ( grid , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Default the Plot3D grid file to unformatted
+    !
+    is_formatted = fals
+    !
+    ! Reading a multi-block grid in Plot3d format
+    !
+    ! Check to see if the Plot3D grid file can be
+    ! opened and read as a formatted file.
+    !
+    open (newunit=iotst,file=gridfile,form="formatted",status="old", &
                         action="read",position="rewind",iostat=ierr, &
                         iomsg=error_message)
     call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
                   ierr,error_message)
     !
-    read (iotst,iostat=ierr,iomsg=error_message) itest
+    ! Try to read the grid file as a formatted file.
+    ! Mark the grid file as formated if this succeeds.
+    !
+    read (iotst,*,iostat=ierr) itest
     if (ierr == 0) then
-      is_formatted = fals
-    else
-      call io_error(pname,trim(adjustl(gridfile)),4,__LINE__,__FILE__, &
-                    ierr,error_message)
+      is_formatted = true
     end if
     !
     close (iotst,iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
                   ierr,error_message)
     !
-  end if
-  !
-  ! Now read the Plot3D grid file in what ever format was determined
-  !
-  call readplot3d(gridfile)
-  !
-  ! Reading the boundary condition information
-  !
-  call readbcsinfo(bcsfile)
-  !
-  ! If this is a multiblock grid, we need to do some additional
-  ! work to deal with cut boundaries between blocks
-  !
-  if (nblk > 1) then
+    ! If the Plot3D grid file could not be read as a formatted file,
+    ! check to see if it can be opened and read as an unformatted file.
     !
-    ! Read cut information if this is a multiblock grid
+    if (.not.is_formatted) then
+      !
+      open (newunit=iotst,file=gridfile,form="unformatted",status="old", &
+                          action="read",position="rewind",iostat=ierr, &
+                          iomsg=error_message)
+      call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                    ierr,error_message)
+      !
+      ! Try to read the grid file as an unformatted file. If this fails,
+      ! something is wrong so throw an error and stop execution.
+      !
+      read (iotst,iostat=ierr,iomsg=error_message) itest
+      if (ierr == 0) then
+        is_formatted = fals
+      else
+        call io_error(pname,trim(adjustl(gridfile)),4,__LINE__,__FILE__, &
+                      ierr,error_message)
+      end if
+      !
+      close (iotst,iostat=ierr,iomsg=error_message)
+      call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                    ierr,error_message)
+      !
+    end if
     !
-    call readcutinfo(cutfile)
+    ! Now read the Plot3D grid file in what ever format was determined
     !
-    ! Find the points in the cuts
+    call readplot3d(gridfile)
     !
-    call findcutpoints
+    ! Reading the boundary condition information
     !
-  else
+    call readbcsinfo(bcsfile)
     !
-    ncut = 0
+    ! Create grid cells from the plot3d nodes
     !
-  end if
-  !
-  ! Go through the cut boundaries and remove all duplicate nodes.
-  ! This shouldnt do anything if there are no cut boundaries.
-  !
-  call remove_duplicate_nodes
-  !
-  ! Get the boundary face information
-  !
-  call getbface
-  !
-  ! Match the periodic boundaries if they exist
-  !
-  if (plot3d_has_periodic_faces) then
-    call match_plot3d_periodic_boundaries
+    call create_plot3d_grid_cells
+    !
+    ! If this is a multiblock grid, we need to do some additional
+    ! work to deal with cut boundaries between blocks
+    !
+    if (nblk > 1) then
+      !
+      ! Read cut information if this is a multiblock grid
+      !
+      call readcutinfo(cutfile)
+      !
+      ! Find the points in the cuts
+      !
+      call findcutpoints
+      !
+    else
+      !
+      ncut = 0
+      !
+    end if
+    !
+    ! Go through the cut boundaries and remove all duplicate nodes.
+    ! This shouldnt do anything if there are no cut boundaries.
+    !
+    call remove_duplicate_nodes
+    !
+    ! Reorder the grid points so that the corners of all the grid cells
+    ! are first followed by any high-order cell points existing due
+    ! to cell agglomeration.
+    !
+    call reorder_plot3d_nodes
+    !
+    ! Get the boundary face information
+    !
+    call getbface
+    !
+    ! Match the periodic boundaries if they exist
+    !
+    if (plot3d_has_periodic_faces) then
+      call match_plot3d_periodic_boundaries
+    end if
+    !
   end if
   !
   ! Write the output file for tecplot
@@ -230,11 +268,17 @@ continue
     if (mypnum == glb_root) call writetecplot
   end if
   !
-  if (mypnum == glb_root) then
-    call create_grid_dt
-  end if
+ !if (mypnum == glb_root) then
+ !  call create_grid_dt
+ !end if
+ !!
+ !call root_broadcasts_grid_dt
   !
-  call root_broadcasts_grid_dt
+  if (ncpu > 1) then
+    call broadcast_solver_geom_arrays
+  else
+    call create_serial_geom_arrays
+  end if
   !
   ! Deallocate all module arrays before we leave
   ! since we wont be needing them anymore.
@@ -275,6 +319,7 @@ subroutine readplot3d(gridfile)
   use geovar, only : nr,xyz_nodes
   use geovar, only : grid
   use geovar, only : ncell,nnode
+  use ovar,   only : plot3d_agglomerate_order
   use ovar,   only : plot3d_all_strides
   use ovar,   only : plot3d_i_stride
   use ovar,   only : plot3d_j_stride
@@ -301,6 +346,16 @@ subroutine readplot3d(gridfile)
   character(len=*), parameter :: pname = "readplot3d"
   !
 continue
+  !
+  ! Set all the coarsening strides to -1 to prevent coarsening
+  ! if agglomerating cells to create high-order curved cells.
+  !
+  if (plot3d_agglomerate_order > 0) then
+    plot3d_all_strides = -1
+    plot3d_i_stride = -1
+    plot3d_j_stride = -1
+    plot3d_k_stride = -1
+  end if
   !
   strides(:) = max(1,plot3d_all_strides)
   !
@@ -343,13 +398,35 @@ continue
   do iblk = 1,nblk
     do i = 1,nr
       if (mod(ijkpts(i,iblk)-1,strides(i)) /= 0) then
-        if (l == 0) write (iout,4)
+        if (mypnum == glb_root) then
+          if (l == 0) write (iout,4)
+          write (iout,5) iblk,i
+        end if
         l = 1
-        write (iout,5) i,iblk
       end if
     end do
   end do
-  if (l == 1) call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  !
+  ! If an error was found with the strides, only have the global root
+  ! call stop_recon with an abort flag. We cant use the stop_mpi flag
+  ! here because only the host roots will call this routine, and the
+  ! stop_mpi flag requires all processes to call stop_recon together,
+  ! which would result in the program hanging within stop_recon. We
+  ! only want the global root to call it with abort, to make sure that
+  ! the error statements in the above loop are written to iout. If some
+  ! other host root calls stop_recon with the abort flag, there isnt a
+  ! guarantee that those error statements will be written before the
+  ! call to mpi_abort.
+  !
+  if (l == 1) then
+    if (mypnum == glb_root) then
+      call stop_recon(abort,pname,__LINE__,__FILE__)
+    end if
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
+  end if
   !
   ! Allocate the node and cell offset array
   !
@@ -571,10 +648,16 @@ continue
     ncell_new = sum( product( ijkpts(1:nr,1:nblk)-1 , dim=1 ) )
     !
     if (npts /= nnode_new) then
-      write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
-      write (iout,*) " npts      = ",npts
-      write (iout,*) " nnode_new = ",nnode_new
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      if (mypnum == glb_root) then
+        write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
+        write (iout,*) " npts      = ",npts
+        write (iout,*) " nnode_new = ",nnode_new
+        call stop_recon(abort,pname,__LINE__,__FILE__)
+      end if
+      ! Have all the host roots call mpi_barrier here so that the MPI processes
+      ! that arent the global root do not continue past this point before the
+      ! global root has a chance to call mpi_abort within the above conditional.
+      call mpi_barrier(host_roots_comm,mpierr)
     end if
     !
     offset(1,1) = 1 ! node offset
@@ -783,7 +866,7 @@ continue
   ! Reading the header seemed to be successful. Make sure
   ! that all the block dimensions are valid values.
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     do n = 1,nblk
       write (iout,7) n,(ijkpts(l,n),l=1,3)
     end do
@@ -813,7 +896,14 @@ continue
   103 if (mypnum == glb_root) write (iout,5) errstr,errstr ; goto 999
   104 if (mypnum == glb_root) write (iout,6) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  999 continue
+  if (mypnum == glb_root) then
+    call stop_recon(abort,pname,__LINE__,__FILE__)
+  end if
+  ! Have all the host roots call mpi_barrier here so that the MPI processes
+  ! that arent the global root do not continue past this point before the
+  ! global root has a chance to call mpi_abort within the above conditional.
+  call mpi_barrier(host_roots_comm,mpierr)
   !
   ! Format Statements
   !
@@ -954,9 +1044,11 @@ continue
   ! Reading the header seemed to be successful. Make sure
   ! that all the block dimensions are valid values.
   !
-  do n = 1,nblk
-    write (iout,*) (ijkpts(l,n),l=1,3)
-  end do
+  if (mypnum == glb_root) then
+    do n = 1,nblk
+      write (iout,7) n,(ijkpts(l,n),l=1,3)
+    end do
+  end if
   !
   if (any(ijkpts(:,:) < 1)) goto 103 ! go to 104 error statement
   !
@@ -975,7 +1067,14 @@ continue
   102 if (mypnum == glb_root) write (iout,4) errstr,errstr ; goto 999
   103 if (mypnum == glb_root) write (iout,5) errstr,errstr ; goto 999
   !
-  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  999 continue
+  if (mypnum == glb_root) then
+    call stop_recon(abort,pname,__LINE__,__FILE__)
+  end if
+  ! Have all the host roots call mpi_barrier here so that the MPI processes
+  ! that arent the global root do not continue past this point before the
+  ! global root has a chance to call mpi_abort within the above conditional.
+  call mpi_barrier(host_roots_comm,mpierr)
   !
   ! Format Statements
   !
@@ -994,6 +1093,7 @@ continue
   5 format (/,a,/, &
             " ERROR READING THE UNFORMATTED PLOT3D GRID FILE HEADER!",/, &
             " THE MINIMUM NUMBER OF NODES IN ANY DIRECTION IS 1!",/,a,/)
+  7 format ("Block #",i0," dimensions: ",i0,2(" x ",i0))
   !
 end subroutine read_p3d_unformatted_header
 !
@@ -1714,6 +1814,543 @@ end subroutine read_p3d_unformatted_header
 !
 !###############################################################################
 !
+subroutine create_plot3d_grid_cells()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,ncell,nnode,xyz_nodes,grid
+  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use ovar,   only : plot3d_agglomerate_order
+  !
+  !.. Local Scalars ..
+  integer :: l,n,nb,nc,nf,nn,np,loc,dir,ie
+  integer :: i,ic,ip,ifa,ibeg,iend,npi
+  integer :: j,jc,jp,jfa,jbeg,jend,npj
+  integer :: k,kc,kp,kfa,kbeg,kend,npk
+  integer :: d1,dir1,beg1,end1,n1,nc1
+  integer :: d2,dir2,beg2,end2,n2,nc2
+  integer :: elem_type,face_type,bc_type
+  integer :: cell_pts,geom_pts,iblk,ierr
+  integer :: lcell,lfbnd,lnode,stride
+  integer :: tcell,tnode,tc,tn
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: ijk,ijk0,ijk1,ijk2,ijkf
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: ipg(:),ipc(:)
+  integer, allocatable :: cells_with_node_ptr(:)
+  integer, allocatable :: cells_with_node(:)
+  integer, allocatable :: lpoin(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_plot3d_grid_cells"
+  !
+continue
+  !
+  stride = max(1,plot3d_agglomerate_order)
+  !
+  ! Count the total number of cells across all blocks in this grid
+  !
+  l = 0
+  lcell = 0
+  lnode = 0
+  tcell = 0
+  tnode = 0
+  do iblk = 1,size(ijkpts,dim=2)
+    !
+    ! Check that the agglomeration order is acceptable for this block
+    !
+    nc = 1
+    nn = 1
+    tc = 1
+    tn = 1
+    do n = 1,size(ijkpts,1)
+      !
+      if (mod(ijkpts(n,iblk)-1,stride) /= 0) then
+        if (mypnum == glb_root) then
+          if (l == 0) write (iout,1)
+          write (iout,2) iblk,n
+        end if
+        l = 1
+      end if
+      !
+      ! Multiply the number of cells for this block
+      ! by the number of cells for this direction.
+      !
+      nc = nc * max( 1 , (ijkpts(n,iblk)-1)/stride )
+      nn = nn * ( (ijkpts(n,iblk)-1)/stride + 1 )
+      !
+      tc = tc * max( 1 , ijkpts(n,iblk)-1 )
+      tn = tn * ijkpts(n,iblk)
+      !
+    end do
+    !
+    ! Add the number of cells for this block to
+    ! the total number of cells for this grid
+    !
+    lcell = lcell + nc
+    lnode = lnode + nn
+    !
+    tcell = tcell + tc
+    tnode = tnode + tn
+    !
+  end do
+  !
+  ncell = lcell
+  !
+  write (iout,'(a," = ",i0)') "lcell",lcell
+  write (iout,'(a," = ",i0)') "tcell",tcell
+  write (iout,'(a," = ",i0)') "lnode",lnode
+  write (iout,'(a," = ",i0)') "tnode",tnode
+  !
+  ! Count the total number of boundary faces across all blocks in this grid
+  !
+  lfbnd = 0
+  do nb = 1,size(bcs_info)
+    !
+    iblk = bcs_info(nb)%bc%block
+    !
+    dir1 = bcs_info(nb)%bc%dir1
+    beg1 = bcs_info(nb)%bc%begpt(dir1)
+    end1 = bcs_info(nb)%bc%endpt(dir1)
+    !
+    dir2 = bcs_info(nb)%bc%dir2
+    beg2 = bcs_info(nb)%bc%begpt(dir2)
+    end2 = bcs_info(nb)%bc%endpt(dir2)
+    !
+    nc1 = end1 - beg1
+    nc2 = end2 - beg2
+    !
+    ! Check that the agglomeration order is acceptable for this block
+    !
+    if (mod(nc1,stride) /= 0) then
+      if (mypnum == glb_root) then
+        if (l == 0) write (iout,1)
+        write (iout,3) nb,iblk,dir1
+      end if
+      l = 1
+    end if
+    ! NOTE: This should be fine if nr==2 where nc2==0
+    if (mod(nc2,stride) /= 0) then
+      if (mypnum == glb_root) then
+        if (l == 0) write (iout,1)
+        write (iout,3) nb,iblk,dir2
+      end if
+      l = 1
+    end if
+    !
+    if (nc2 == 0) then
+      nc2 = stride ! Make sure nc2 is equal to the stride if nr==2 where nc2==0
+    end if
+    !
+    lfbnd = lfbnd + (nc1/stride)*(nc2/stride)
+    !
+  end do
+  write (iout,'(a," = ",i0)') "lfbnd",lfbnd
+  !
+  ! If an error was found with the strides, abort the simulation
+  !
+  if (l == 1) then
+    if (mypnum == glb_root) then
+      call stop_recon(abort,pname,__LINE__,__FILE__)
+    end if
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
+  end if
+  !
+  ! Allocate the elem component of the grid derived type
+  !
+  allocate ( grid%elem(1:lcell+lfbnd) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  geom_pts = 2**nr
+  cell_pts = (stride+1)**nr
+  elem_type = merge(Geom_Hexa,Geom_Quad,nr==3)
+  face_type = merge(Geom_Quad,Geom_Edge,nr==3)
+  !
+  allocate ( ipg(1:geom_pts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipg",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( ipc(1:cell_pts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipc",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  nc = 0
+  !
+  do iblk = 1,size(ijkpts,dim=2)
+    !
+    npi = ijkpts(1,iblk)
+    npj = ijkpts(2,iblk)
+    npk = ijkpts(3,iblk)
+    !
+    kc_loop: do kc = 1,max(1,npk-1),stride
+      jc_loop: do jc = 1,max(1,npj-1),stride
+        ic_loop: do ic = 1,max(1,npi-1),stride
+          !
+          nc = nc + 1
+          !
+          ipg(1) = map3dto1d( [ic,jc,kc] , iblk , 1 )
+          ipg(2) = ipg(1) + stride
+          ipg(3) = ipg(2) + stride*npi
+          ipg(4) = ipg(3) - stride
+          !
+          np = 0
+          if (nr == 3) then
+            ipg(5:8) = ipg(1:4) + stride*npi*npj
+            kp3_loop: do kp = 0,stride
+              k = kc + kp
+              jp3_loop: do jp = 0,stride
+                j = jc + jp
+                ip3_loop: do ip = 0,stride
+                  i = ic + ip
+                  np = np + 1
+                  ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+                end do ip3_loop
+              end do jp3_loop
+            end do kp3_loop
+          else if (nr == 2) then
+            k = 1
+            jp2_loop: do jp = 0,stride
+              j = jc + jp
+              ip2_loop: do ip = 0,stride
+                i = ic + ip
+                np = np + 1
+                ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+              end do ip2_loop
+            end do jp2_loop
+          end if
+          !
+          grid%elem(nc)%prop = element_properties(elem_type,stride)
+          !
+          ! USING F2003 AUTO-REALLOCATION
+          !
+          grid%elem(nc)%nodes = ipg
+          grid%elem(nc)%pts = ipc
+          grid%elem(nc)%tags = [0,0]
+          !
+        end do ic_loop
+      end do jc_loop
+    end do kc_loop
+    !
+  end do
+  !
+ !do nc = 1,lcell
+ !  n1 = size(grid%elem(nc)%nodes)
+ !  n2 = size(grid%elem(nc)%pts)
+ !  write (153,153) nc,(grid%elem(nc)%nodes(n),n=1,n1)
+ !  write (154,153) nc,(grid%elem(nc)%pts(n),n=1,n2)
+ !end do
+ !153 format ("nc = ",i4," : ",*(1x,i4,:))
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  allocate ( nodes_of_cell_ptr(1:lcell+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  do nc = 2,size(nodes_of_cell_ptr)
+    nodes_of_cell_ptr(nc) = nodes_of_cell_ptr(nc-1) + &
+                            size(grid%elem(nc-1)%nodes)
+  end do
+  !
+  allocate ( nodes_of_cell(1:last(nodes_of_cell_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nc = 1,lcell
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    nodes_of_cell(n1:n2) = grid%elem(nc)%nodes(:)
+  end do
+  !
+ !do nc = 1,size(nodes_of_cell_ptr)-1
+ !  n1 = nodes_of_cell_ptr(nc)+1
+ !  n2 = nodes_of_cell_ptr(nc+1)
+ !  write (151,151) nc,n1,n2,(nodes_of_cell(n),n=n1,n2)
+ !end do
+ !151 format ("nc = ",i4," (",i4,"->",i4,") : ",*(1x,i4,:))
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+ !allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
+  allocate ( cells_with_node_ptr(1:tnode+1) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  do nc = 1,lcell
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    do n = n1,n2
+      np = nodes_of_cell(n) + 1
+      cells_with_node_ptr(np) = cells_with_node_ptr(np) + 1
+    end do
+  end do
+  !
+  do n = 2,size(cells_with_node_ptr)
+    cells_with_node_ptr(n) = cells_with_node_ptr(n) + cells_with_node_ptr(n-1)
+  end do
+  !
+  allocate ( cells_with_node(1:last(cells_with_node_ptr)) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  do nc = 1,lcell
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    do n = n1,n2
+      j = nodes_of_cell(n)
+      np = cells_with_node_ptr(j) + 1
+      cells_with_node_ptr(j) = np
+      cells_with_node(np) = nc
+    end do
+  end do
+  !
+  do n = size(cells_with_node_ptr),2,-1
+    cells_with_node_ptr(n) = cells_with_node_ptr(n-1)
+  end do
+  cells_with_node_ptr(1) = 0
+  !
+ !do nc = 1,size(cells_with_node_ptr)-1
+ !  n1 = cells_with_node_ptr(nc)+1
+ !  n2 = cells_with_node_ptr(nc+1)
+ !  write (152,152) nc,n1,n2,(cells_with_node(n),n=n1,n2)
+ !end do
+ !152 format ("nn = ",i4," (",i4,"->",i4,") : ",*(1x,i4,:))
+  !
+  !#############################################################################
+  !#############################################################################
+  !#############################################################################
+  !
+  if (allocated(ipc)) then
+    deallocate ( ipc , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipc",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(ipg)) then
+    deallocate ( ipg , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ipg",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  geom_pts = 2**(nr-1)
+  cell_pts = (stride+1)**(nr-1)
+  !
+  allocate ( ipg(1:geom_pts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipg",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( ipc(1:cell_pts) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ipc",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate the point counting array lpoin
+  !
+ !allocate ( lpoin(1:lnode) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( lpoin(1:tnode) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  nc = lcell
+  !
+  do nb = 1,size(bcs_info)
+    !
+    ! Boundary condition type for this face
+    !
+    bc_type = bcs_info(nb)%bc_type
+    !
+   !if (bc_type == bc_periodic) then
+   !  plot3d_has_periodic_faces = true
+   !end if
+    !
+    ! Block number for this face
+    !
+    iblk = bcs_info(nb)%bc%block
+    !
+    ! Side/Direction (i,j,k) of this BC and its location (min,max)
+    !   dir: [1,2,3]       = [i,j,k]
+    !   loc: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
+    !
+    dir = bcs_info(nb)%bc%dir
+    loc = bcs_info(nb)%bc%loc
+    !
+    ijk0(:) = 0
+    ijk0(dir) = mod(loc+1,2)
+    !
+    ! Beginning index in each direction
+    !
+    ibeg = bcs_info(nb)%bc%begpt(1)
+    jbeg = bcs_info(nb)%bc%begpt(2)
+    kbeg = bcs_info(nb)%bc%begpt(3)
+    !
+    ! Ending index in each direction
+    ! NOTE: The index in bcs_info(nb)%bc%endpt(:) gives the node index that
+    !       the boundary condition ends at. We have to subtract one from
+    !       this index to convert it to a cell index. We also have to make
+    !       sure that an end index does not become 0 after subtracting one.
+    !       This would happen for whatever index corresponds to the face the
+    !       BC is on if it is a MIN face.
+    !
+    iend = max( 1 , bcs_info(nb)%bc%endpt(1)-1 )
+    jend = max( 1 , bcs_info(nb)%bc%endpt(2)-1 )
+    kend = max( 1 , bcs_info(nb)%bc%endpt(3)-1 )
+    !
+    ! If the BC is on a MAX face, we need to make sure that the beginning
+    ! index for this face direction is also converted to a cell index. For
+    ! all other directions, the beginning index will be less than the ending
+    ! index so this will not affect those indices.
+    ! NOTE: For whichever direction, dir, matches the face that the boundary
+    !       condition is on:
+    !          bcs_info(nb)%bc%begpt(dir) = bcs_info(nb)%bc%endpt(dir)
+    !       Thus subtracting one from the endpt value to convert to cell
+    !       indices will make one of the following i,j,k loops a zero-trip
+    !       loop and nothing will be done. Therefore, we must make sure
+    !       that the endpt values are not less than the begpt values.
+    !
+    ibeg = min(ibeg,iend)
+    jbeg = min(jbeg,jend)
+    kbeg = min(kbeg,kend)
+   !!
+   !! Output information about this boundary condition
+   !!
+   !if (mypnum == glb_root) then
+   !  write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk,cface(loc), &
+   !                 ibeg,iend,jbeg,jend,kbeg,kend
+   !end if
+    !
+    ijk1(:) = 0
+    ijk1( bcs_info(nb)%bc%dir1 ) = 1
+    !
+    ijk2(:) = 0
+    ijk2( bcs_info(nb)%bc%dir2 ) = 1
+    !
+    ! Loop through the boundary faces of this boundary condition and
+    ! store the necessary information in bface.
+    !
+    do kfa = kbeg,kend,stride
+      do jfa = jbeg,jend,stride
+        do ifa = ibeg,iend,stride
+          !
+          ijkf = [ifa,jfa,kfa] + ijk0
+          !
+          nc = nc + 1
+          !
+          ijk = ijkf
+          ipg(1) = map3dto1d( ijk , iblk , 1 )
+          !
+          ijk = ijkf + stride*ijk1
+          ipg(2) = map3dto1d( ijk , iblk , 1 )
+          !
+          np = 0
+          if (nr == 3) then
+            !
+            ijk = ijkf + stride*(ijk1 + ijk2)
+            ipg(3) = map3dto1d( ijk , iblk , 1 )
+            !
+            ijk = ijkf + stride*ijk2
+            ipg(4) = map3dto1d( ijk , iblk , 1 )
+            !
+            do d2 = 0,stride
+             !ijk = ijkf + d2*ijk2 - ijk1
+              do d1 = 0,stride
+               !ijk = ijk + ijk1
+                ijk = ijkf + d1*ijk1 + d2*ijk2
+                np = np + 1
+                ipc(np) = map3dto1d( ijk , iblk , 1 )
+              end do
+            end do
+            !
+          else
+            !
+            do d1 = 0,stride
+              ijk = ijkf + d1*ijk1
+              np = np + 1
+              ipc(np) = map3dto1d( ijk , iblk , 1 )
+            end do
+            !
+          end if
+          !
+          grid%elem(nc)%prop = element_properties(face_type,stride)
+          !
+          ! USING F2003 AUTO-REALLOCATION
+          !
+          grid%elem(nc)%pts = ipc
+          grid%elem(nc)%nodes = ipg
+          grid%elem(nc)%tags = [nb,0]
+          !
+          ! Find the host cell for this face
+          !
+          ! Mark the nodes for this boundary face
+          !
+          lpoin(ipg(:)) = 1
+          !
+          n1 = cells_with_node_ptr( ipg(1) )+1
+          n2 = cells_with_node_ptr( ipg(1) +1)
+          !
+          grid%elem(nc)%host_cell = 0
+          do ie = n1,n2
+            n = cells_with_node(ie)
+            if (sum( lpoin(grid%elem(n)%nodes(:)) ) == geom_pts) then
+              grid%elem(nc)%host_cell = n
+              lpoin(ipg(:)) = 0
+            end if
+          end do
+          if (grid%elem(nc)%host_cell == 0) write (iout,1092) nc-lcell,n,nc
+          !
+         !bface( 1,nf) = bc_type ! actual boundary condition for this face
+         !bface( 2,nf) = host_cell
+         !bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geom of host cell
+         !bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
+         !bface( 5,nf) = nb ! boundary condition group for this boundary face
+         !bface(10,nf) = ncell + nf ! ghost cell number
+          !
+        end do
+      end do
+    end do
+    !
+    ! End of loop over the boundary faces
+    !
+  end do
+  !
+ !do nc = lcell+1,size(grid%elem)
+ !  nf = nc-lcell
+ !  nb = grid%elem(nc)%tags(1)
+ !  n1 = size(grid%elem(nc)%nodes)
+ !  n2 = size(grid%elem(nc)%pts)
+ !  write (155,155) nf,nb,bcs_info(nb)%bc%block, &
+ !                  (grid%elem(nc)%nodes(n),n=1,n1)
+ !  write (156,155) nf,nb,bcs_info(nb)%bc%block, &
+ !                  (grid%elem(nc)%pts(n),n=1,n2)
+ !end do
+ !155 format ("nf = ",i4,", BC #",i2,", BLK #",i1," : ",*(1x,i4,:))
+  !
+  ! Deallocate lpoin, cells_with_node, and cells_with_node_ptr
+  ! since we no longer need them
+  !
+  deallocate ( cells_with_node_ptr , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node_ptr",2,__LINE__,__FILE__,ierr, &
+                   error_message)
+  deallocate ( cells_with_node , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cells_with_node",2,__LINE__,__FILE__,ierr, &
+                   error_message)
+  deallocate ( lpoin , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lpoin",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Format Statements
+  !
+  1 format (/," ERROR TRYING TO USE COARSENING STRIDES WITH PLOT3D!!!",/, &
+              " THE NUMBER OF GRID CELLS MUST BE EVENLY",/, &
+              " DIVISIBLE BY THE COARSENING STRIDES!!!",/)
+  2 format (3x,"Cells not evenly divisible in block ",i0," for direction ",i0)
+  3 format (3x,"Faces not evenly divisible for BC #",i0,/, &
+            6x,"in block ",i0," for direction ",i0)
+  1092 format (5x,"ERROR finding host cell for boundary face ",i10,", ",i10,i10)
+  !
+end subroutine create_plot3d_grid_cells
+!
+!###############################################################################
+!
 subroutine readbcsinfo( bcsfile )
   !
   ! This subs reads boundary conditions information by vulcan input file
@@ -1838,6 +2475,10 @@ continue
     end if
     !
     bcs_info(nb)%bc%loc = 2*dir-1 + merge(0,1,loc==1)
+    write (iout,'("nb = ",i2," ; loc = ",i1," ; hostface = ",i1)') &
+      nb,bcs_info(nb)%bc%loc, &
+      merge(HostFace3D(bcs_info(nb)%bc%loc), &
+            HostFace2D(bcs_info(nb)%bc%loc),nr==3)
     !
     ! Fill in the remaining directional information based on 2D/3D grid
     !
@@ -1856,8 +2497,15 @@ continue
       end if
       !
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-        if (mypnum == glb_root) write (iout,3) nb,dir,dir1
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+        if (mypnum == glb_root) then
+          write (iout,3) nb,dir,dir1
+          call stop_recon(abort,pname,__LINE__,__FILE__)
+        end if
+        ! Have all the host roots call mpi_barrier here so that the MPI
+        ! processes that arent the global root do not continue past this
+        ! point before the global root has a chance to call mpi_abort
+        ! within the above conditional.
+        call mpi_barrier(host_roots_comm,mpierr)
       end if
       !
       beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -2085,8 +2733,15 @@ continue
         end if
         !
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-          if (mypnum == glb_root) write (iout,3) n,m,dir,dir1
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+          if (mypnum == glb_root) then
+            write (iout,3) n,m,dir,dir1
+            call stop_recon(abort,pname,__LINE__,__FILE__)
+          end if
+          ! Have all the host roots call mpi_barrier here so that the MPI
+          ! processes that arent the global root do not continue past this
+          ! point before the global root has a chance to call mpi_abort
+          ! within the above conditional.
+          call mpi_barrier(host_roots_comm,mpierr)
         end if
         !
         beg1 = get_dir_limit( clist(idx1) , ijkpts(dir1,iblk) )
@@ -2135,9 +2790,16 @@ continue
     ! Check that both sides of the cut have the same number of points
     !
     if (cut_points(1) /= cut_points(2)) then
-      if (mypnum == 0) write (iout,2) trim(cut_info(n)%cut_name(1)), &
-                                           cut_points(1),cut_points(2)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      if (mypnum == glb_root) then
+        write (iout,2) trim(cut_info(n)%cut_name(1)), &
+                            cut_points(1),cut_points(2)
+        call stop_recon(abort,pname,__LINE__,__FILE__)
+      end if
+      ! Have all the host roots call mpi_barrier here so that the MPI
+      ! processes that arent the global root do not continue past this
+      ! point before the global root has a chance to call mpi_abort
+      ! within the above conditional.
+      call mpi_barrier(host_roots_comm,mpierr)
     else
       cut_info(n)%points = cut_points(1)
     end if
@@ -2171,6 +2833,8 @@ continue
             "        SIDE OF CUT = ",i0,/, &
             "        MAIN DIRECTION = ",i0,/, &
             "        FIRST DIRECTION = ",i0,/)
+  4 format (" ERROR READING CUT FILE! THERE SHOULD BE AN EVEN NUMBER OF CUT", &
+            " CONDITIONS IN THE CUT FILE, ONE FOR EACH SIDE OF A CUT!")
   !
 end subroutine readcutinfo
 !
@@ -2291,12 +2955,14 @@ continue
                      (abs(xyz_nodes(l,p1))+eps7)
       end do
       if (diff > eps2) then
-        if (nr == 2) then
-          write (iout,1) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
-          write (iout,1) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
-        else
-          write (iout,2) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
-          write (iout,2) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
+        if (mypnum == glb_root) then
+          if (nr == 2) then
+            write (iout,1) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+            write (iout,1) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
+          else
+            write (iout,2) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+            write (iout,2) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
+          end if
         end if
       end if
     end do
@@ -2315,10 +2981,10 @@ end subroutine findcutpoints
 subroutine remove_duplicate_nodes()
   !
   !.. Use Statements ..
-  use geovar, only : nnode,xyz_nodes
+  use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
   !
   !.. Local Scalars ..
-  integer :: ip,ipcut,ip1,ip2,ip3,n,ib1,ib2,ipn1,ipn2,ierr
+  integer :: ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
   integer :: new_pt,old_pt,duplicate_node,l
   integer :: lpts_new,lpts_old
   logical(lk) :: first_line_not_output
@@ -2525,18 +3191,40 @@ continue
   !
   call move_alloc( from=temp_xyz , to=xyz_nodes )
   !
-  ! Finally, update nnode with the new total number of grid nodes
-  !
-  nnode = lpts_new
-  !
   ! Deallocate new2old
   !
   deallocate ( new2old , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !! Create the nodes_of_cell_ptr and nodes_of_cell arrays
+ !!
+ !call create_nodes_of_cells(old2new)
   !
-  ! Create the nodes_of_cell_ptr and nodes_of_cell arrays
+  ! Fix all the node information in the grid derived type
   !
-  call create_nodes_of_cells(old2new)
+  do nc = 1,size(grid%elem)
+    if (allocated(grid%elem(nc)%nodes)) then
+     !do n = 1,size(grid%elem(nc)%nodes)
+     !  grid%elem(nc)%nodes(n) = old2new( grid%elem(nc)%nodes(n) )
+     !end do
+      grid%elem(nc)%nodes(:) = old2new( grid%elem(nc)%nodes(:) )
+    end if
+    if (allocated(grid%elem(nc)%pts)) then
+     !do n = 1,size(grid%elem(nc)%pts)
+     !  grid%elem(nc)%pts(n) = old2new( grid%elem(nc)%pts(n) )
+     !end do
+      grid%elem(nc)%pts(:) = old2new( grid%elem(nc)%pts(:) )
+    end if
+  end do
+  !
+  ! Fix the node information in nodes_of_cell
+  !
+  if (allocated(nodes_of_cell)) then
+   !do n = 1,size(nodes_of_cell)
+   !  nodes_of_cell(n) = old2new( nodes_of_cell(n) )
+   !end do
+    nodes_of_cell(:) = old2new( nodes_of_cell(:) )
+  end if
   !
   ! Deallocate old2new
   !
@@ -2556,6 +3244,97 @@ continue
   9 format (i4,i8, 4i12)
   !
 end subroutine remove_duplicate_nodes
+!
+!###############################################################################
+!
+subroutine reorder_plot3d_nodes
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,nnode,xyz_nodes,grid
+  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,lpts,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk), allocatable :: msk(:)
+  integer,     allocatable :: new2old(:)
+  integer,     allocatable :: old2new(:)
+  real(wp),    allocatable :: temp_xyz(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reorder_plot3d_nodes"
+  !
+continue
+  !
+  lpts = size(xyz_nodes,dim=2)
+  !
+  allocate ( msk(1:lpts) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nc = 1,ncell
+    msk( grid%elem(nc)%nodes(:) ) = true
+  end do
+  !
+  nnode = count(msk)
+  !
+  ! Initialize new2old and old2new
+  !
+  new2old = [ pack( intseq(1,lpts) , msk ) , & ! USING F2003 AUTO-REALLOCATION
+              pack( intseq(1,lpts) , .not. msk ) ]
+  !
+  ! Deallocate the msk array
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Initialize old2new to new2old to allocate it to the right size
+  old2new = new2old ! USING F2003 AUTO-REALLOCATION
+  ! Now, create the inverse map of new2old
+  old2new( new2old(:) ) = intseq(1,size(new2old))
+  !
+  call move_alloc( from=xyz_nodes , to=temp_xyz )
+  !
+  xyz_nodes = temp_xyz(:,new2old(1:nnode))
+  !
+  temp_xyz(:,:) = temp_xyz(:,new2old(:))
+  !
+  call move_alloc( from=temp_xyz , to=grid%xyz )
+  !
+  ! Deallocate new2old
+  !
+  deallocate ( new2old , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Fix all the node information in the grid derived type
+  !
+  do nc = 1,size(grid%elem)
+    if (allocated(grid%elem(nc)%nodes)) then
+      do n = 1,size(grid%elem(nc)%nodes)
+        grid%elem(nc)%nodes(n) = old2new( grid%elem(nc)%nodes(n) )
+      end do
+    end if
+    if (allocated(grid%elem(nc)%pts)) then
+      do n = 1,size(grid%elem(nc)%pts)
+        grid%elem(nc)%pts(n) = old2new( grid%elem(nc)%pts(n) )
+      end do
+    end if
+  end do
+  !
+  ! Fix the node information in nodes_of_cell
+  !
+  if (allocated(nodes_of_cell)) then
+    do n = 1,size(nodes_of_cell)
+      nodes_of_cell(n) = old2new( nodes_of_cell(n) )
+    end do
+  end if
+  !
+  ! Deallocate old2new
+  !
+  deallocate ( old2new , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
+  !
+end subroutine reorder_plot3d_nodes
 !
 !###############################################################################
 !
@@ -2667,7 +3446,7 @@ end subroutine create_nodes_of_cells
 subroutine getbface()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nbfai,ncell,nfbnd,bface
+  use geovar, only : nr,nbfai,ncell,nfbnd,bface,grid
   !
   !.. Local Scalars ..
   integer :: nf,nb,bc_type,iblk,ierr
@@ -2691,6 +3470,13 @@ subroutine getbface()
   ! hostface3d(loc) gives the face of the 3D hex  host cell on the boundary
   !
 continue
+  !
+  if (allocated(grid)) then
+    if (allocated(grid%elem)) then
+      call get_bface_from_grid_dt
+      return
+    end if
+  end if
   !
   ! Allocate the bface array
   !
@@ -2791,8 +3577,14 @@ continue
   end do face_loop
   !
   if (nfbnd /= nf) then
-    if (mypnum == glb_root) write (iout,2) nfbnd,nf
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    if (mypnum == glb_root) then
+      write (iout,2) nfbnd,nf
+      call stop_recon(abort,pname,__LINE__,__FILE__)
+    end if
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
   end if
   !
  !do nf = 1,nfbnd
@@ -2812,6 +3604,55 @@ continue
   3 format (a," - hc=",i0,", geo=",i1,", loc=",i1,", gc=",i0)
   !
 end subroutine getbface
+!
+!###############################################################################
+!
+subroutine get_bface_from_grid_dt()
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,nbfai,ncell,nfbnd,bface,grid
+  !
+  !.. Local Scalars ..
+  integer :: nb,nc,nf,ierr,loc,host_cell
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_bface_from_grid_dt"
+  !
+  ! hostface2d(loc) gives the face of the 2D quad host cell on the boundary
+  ! hostface3d(loc) gives the face of the 3D hex  host cell on the boundary
+  !
+continue
+  !
+  nfbnd = size(grid%elem) - ncell
+  !
+  ! Allocate the bface array
+  !
+  allocate ( bface(1:nbfai,1:nfbnd), source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nf = 1,nfbnd
+    !
+    nc = nf + ncell
+    !
+    host_cell = grid%elem(nc)%host_cell
+    !
+    nb = grid%elem(nc)%tags(1)
+    !
+    loc = bcs_info(nb)%bc%loc
+    !
+    bface( 1,nf) = bcs_info(nb)%bc_type
+    bface( 2,nf) = host_cell
+    bface( 3,nf) = grid%elem(host_cell)%prop%geom
+    bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
+    bface( 5,nf) = nb
+    bface(10,nf) = nc
+    !
+    grid%elem(nc)%tags(1) = bface(1,nf)
+    !
+  end do
+  !
+end subroutine get_bface_from_grid_dt
 !
 !###############################################################################
 !
@@ -2872,16 +3713,16 @@ continue
   ! Check to make sure the number of faces in each direction is consistent
   !
   if (any( pfaces([1,3,5]) /= pfaces([2,4,6]) )) then
-    if (pfaces(1) /= pfaces(2)) then
-      write (iout,1) "X",pfaces(1),pfaces(2)
+    if (mypnum == glb_root) then
+      if (pfaces(1) /= pfaces(2)) write (iout,1) "X",pfaces(1),pfaces(2)
+      if (pfaces(3) /= pfaces(4)) write (iout,1) "Y",pfaces(3),pfaces(4)
+      if (pfaces(5) /= pfaces(6)) write (iout,1) "Z",pfaces(5),pfaces(6)
+      call stop_recon(abort,pname,__LINE__,__FILE__)
     end if
-    if (pfaces(3) /= pfaces(4)) then
-      write (iout,1) "Y",pfaces(3),pfaces(4)
-    end if
-    if (pfaces(5) /= pfaces(6)) then
-      write (iout,1) "Z",pfaces(5),pfaces(6)
-    end if
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
   end if
   !
   !
@@ -3054,12 +3895,12 @@ subroutine create_grid_dt()
 continue
   !
   if (allocated(grid)) then
-    deallocate ( grid , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
+    if (allocated(grid%elem)) then
+      if (allocated(grid%xyz)) then
+        return
+      end if
+    end if
   end if
-  !
-  allocate ( grid , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
   !
   grid%xyz = xyz_nodes(:,:) ! F2003 AUTO-REALLOCATION
   !
@@ -3801,6 +4642,244 @@ continue
             "size(grid_elem)=",i0,"!!!")
   !
 end subroutine unpack_grid_dt
+!
+!###############################################################################
+!
+subroutine broadcast_solver_geom_arrays
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
+  use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar,    only : cell_geom,cell_order,xyz_nodes
+  use ovar,      only : iop_solpts,iop_flxpts,bc_names
+  !
+  !.. Local Scalars ..
+  integer :: n,nocsz,ierr,nbcnm
+  integer(INT_MPI) :: isz
+  !
+  !.. Local Arrays ..
+  integer :: grid_size(1:6)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "broadcast_solver_geom_arrays"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Broadcast the grid dimensions
+  !
+  if (mypnum == glb_root) then
+    grid_size(:) = [ nr , nnode , ncell , nfbnd , &
+                     size(nodes_of_cell) , size(bc_names) ]
+  end if
+  !
+  call mpi_bcast(grid_size,size(grid_size,kind=int_mpi),mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  nr    = grid_size(1)
+  nnode = grid_size(2)
+  ncell = grid_size(3)
+  nfbnd = grid_size(4)
+  nocsz = grid_size(5)
+  nbcnm = grid_size(6)
+  !
+  ! Have all the non-root processors allocate the arrays
+  !
+  if (mypnum /= glb_root) then
+    !
+    !===========================================================================
+    !
+    if (allocated(bface)) then
+      deallocate ( bface , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"bface",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    allocate ( bface(1:nbfai,1:nfbnd) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bface",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    !===========================================================================
+    !
+    if (allocated(nodes_of_cell_ptr)) then
+      deallocate ( nodes_of_cell_ptr , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodes_of_cell_ptr",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    allocate ( nodes_of_cell_ptr(1:ncell+1) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+    !
+    !===========================================================================
+    !
+    if (allocated(nodes_of_cell)) then
+      deallocate ( nodes_of_cell , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodes_of_cell",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    allocate ( nodes_of_cell(1:nocsz) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodes_of_cell",1,__LINE__,__FILE__,ierr, &
+                     error_message)
+    !
+    !===========================================================================
+    !
+    if (allocated(xyz_nodes)) then
+      deallocate ( xyz_nodes , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"xyz_nodes",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    allocate ( xyz_nodes(1:nr,1:nnode) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    !===========================================================================
+    !
+    if (allocated(bc_names)) then
+      deallocate ( bc_names , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"bc_names",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    allocate ( bc_names(1:nbcnm) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"bc_names",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    !===========================================================================
+    !
+  end if
+  !
+  ! Broadcast the bface array
+  !
+  isz = int( nbfai*nfbnd , kind=int_mpi )
+  call mpi_bcast(bface,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  ! Broadcast the nodes_of_cell_ptr array
+  !
+  isz = int( ncell+1 , kind=int_mpi )
+  call mpi_bcast(nodes_of_cell_ptr,isz,mpi_inttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  ! Broadcast the nodes_of_cell array
+  !
+  isz = int( nocsz , kind=int_mpi )
+  call mpi_bcast(nodes_of_cell,isz,mpi_inttyp,glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  ! Broadcast the xyz_nodes array
+  !
+  isz = int( nr*nnode , kind=int_mpi )
+  call mpi_bcast(xyz_nodes,isz,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  ! Get the geometry for all the interior cells
+  !
+  allocate ( cell_geom(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,ncell
+    cell_geom(n) = nodes_to_geom( nr , nodes_of_cell_ptr(n+1) - &
+                                       nodes_of_cell_ptr(n) )
+  end do
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,nbcnm
+    isz = len(bc_names(n),kind=int_mpi)
+    call mpi_bcast(bc_names(n),isz,MPI_CHARACTER,glb_root,MPI_COMM_WORLD,mpierr)
+  end do
+  !
+  ! Make sure that Lobatto nodes are requested if the grid contains triangle
+  ! elements since Gauss nodes is not currently set up for triangles.
+  !
+ !if (any(cell_geom == Geom_Tria)) then
+ !  write (error_message,11)
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !end if
+  !
+  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
+      iop_flxpts /= Legendre_Gauss_Lobatto) then
+    if (any(cell_geom == Geom_Tria)) then
+      write (error_message,12)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
+  !
+  11 format (" Triangles are temporarily disabled due to significant", &
+             " changes in the quadrilateral part of the code. These ", &
+             " changes have yet to be applied to triangles.")
+  12 format (" Quadrature points besides Gauss-Lobatto nodes are not", &
+             " currently supported for a grid containing triangle cells.")
+  !
+end subroutine broadcast_solver_geom_arrays
+!
+!###############################################################################
+!
+subroutine create_serial_geom_arrays
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use geovar,    only : nr,ncell
+  use geovar,    only : nodes_of_cell_ptr
+  use geovar,    only : cell_geom,cell_order
+  use ovar,      only : iop_solpts,iop_flxpts
+  !
+  !.. Local Scalars ..
+  integer :: n,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_serial_geom_arrays"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the geometry for all the interior cells
+  !
+  allocate ( cell_geom(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_geom",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,ncell
+    cell_geom(n) = nodes_to_geom( nr , nodes_of_cell_ptr(n+1) - &
+                                       nodes_of_cell_ptr(n) )
+  end do
+  !
+  allocate ( cell_order(1:ncell) , source=n_order , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_order",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Make sure that Lobatto nodes are requested if the grid contains triangle
+  ! elements since Gauss nodes is not currently set up for triangles.
+  !
+ !if (any(cell_geom == Geom_Tria)) then
+ !  write (error_message,11)
+ !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !end if
+  !
+  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
+      iop_flxpts /= Legendre_Gauss_Lobatto) then
+    if (any(cell_geom == Geom_Tria)) then
+      write (error_message,12)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  11 format (" Triangles are temporarily disabled due to significant", &
+             " changes in the quadrilateral part of the code. These ", &
+             " changes have yet to be applied to triangles.")
+  12 format (" Quadrature points besides Gauss-Lobatto nodes are not", &
+             " currently supported for a grid containing triangle cells.")
+  !
+end subroutine create_serial_geom_arrays
 !
 !###############################################################################
 !
