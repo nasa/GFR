@@ -204,7 +204,7 @@ end subroutine get_current_cfl
 subroutine get_constant_timestep(dtmin)
   !
   !.. Use Statements ..
-  use ovar,    only : dt_in,Final_Time,time,CFL
+  use ovar,    only : dt_in,time_ref,Final_Time,time,CFL
   use ovar,    only : this_is_final_timestep
   use flowvar, only : dtsp
   !
@@ -216,8 +216,8 @@ continue
   dtmin = CFL * dt_in
   !
   if (Final_Time > zero) then
-    if (time + dtmin > Final_Time + eps9) then
-      dtmin = Final_Time - time
+    if (time + dtmin > Final_Time/time_ref + eps9) then
+      dtmin = Final_Time/time_ref - time
       this_is_final_timestep = true
     end if
   end if
@@ -236,7 +236,7 @@ subroutine get_cell_timestep(dtmin)
   use geovar, only : nr,nfbnd,nface
   use geovar, only : face,cell
   !
-  use ovar, only : gam,Timestep_Type,Final_Time,time,CFL
+  use ovar, only : gam,Timestep_Type,time_ref,Final_Time,time,CFL
   use ovar, only : governing_equations
   use ovar, only : this_is_final_timestep
   !
@@ -602,8 +602,8 @@ continue
   ! Make sure the timestep size doesnt make the final time exceed Final_Time
   !
   if (Final_Time > zero) then
-    if (time + dtmin > Final_Time + eps9) then
-      dtsp(:) = Final_Time - time
+    if (time + dtmin > Final_Time/time_ref + eps9) then
+      dtsp(:) = Final_Time/time_ref - time
       this_is_final_timestep = true
     end if
   end if
@@ -616,7 +616,7 @@ subroutine get_point_timestep(dtmin)
   !
   !.. Use Statements ..
   use geovar,  only : nr,ncell,cell
-  use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
+  use ovar,    only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
   use ovar,    only : this_is_final_timestep
   use ovar,    only : governing_equations
   use metrics_mod,  only : metrics_dt
@@ -708,8 +708,8 @@ continue
     ! Make sure the timestep size doesnt make the final time exceed Final_Time
     !
     if (Final_Time > zero) then
-      if (time + dtmin > Final_Time + eps9) then
-        dtsp(:) = Final_Time - time
+      if (time + dtmin > Final_Time/time_ref + eps9) then
+        dtsp(:) = Final_Time/time_ref - time
         this_is_final_timestep = true
       end if
     end if
@@ -725,7 +725,7 @@ subroutine old_get_point_timestep(dtmin)
   !.. Use Statements ..
   use order_mod,  only : n_order
   use geovar,  only : nr,ncell,cell
-  use ovar,    only : gam,Final_Time,time,CFL,Timestep_Type
+  use ovar,    only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
   use ovar,    only : this_is_final_timestep
   use metrics_mod,  only : metrics_dt
   use flowvar, only : usp,dtsp
@@ -807,8 +807,8 @@ continue
     ! Make sure the timestep size doesnt make the final time exceed Final_Time
     !
     if (Final_Time > zero) then
-      if (time + dtmin > Final_Time + eps9) then
-        dtsp(:) = Final_Time - time
+      if (time + dtmin > Final_Time/time_ref + eps9) then
+        dtsp(:) = Final_Time/time_ref - time
         this_is_final_timestep = true
       end if
     end if
