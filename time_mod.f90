@@ -1155,40 +1155,55 @@ continue
     !
     ave_start_time = time
     !
-    nvar = merge(19,8,nr==3)
+    nvar = merge(23,11,nr==3)
     allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
                      ierr,error_message)
     !
     if (nr == 3) then
+      ! First 5 are the conserved variables
       time_ave_variables( 1) = "d"
-      time_ave_variables( 2) = "x"
-      time_ave_variables( 3) = "y"
-      time_ave_variables( 4) = "z"
-      time_ave_variables( 5) = "p"
-      time_ave_variables( 6) = "r"
-      time_ave_variables( 7) = "f"
-      time_ave_variables( 8) = "xx"
-      time_ave_variables( 9) = "yy"
-      time_ave_variables(10) = "zz"
-      time_ave_variables(11) = "rr"
-      time_ave_variables(12) = "ff"
-      time_ave_variables(13) = "xy"
-      time_ave_variables(14) = "xz"
-      time_ave_variables(15) = "yz"
-      time_ave_variables(16) = "xr"
-      time_ave_variables(17) = "xf"
-      time_ave_variables(18) = "rf"
-      time_ave_variables(19) = "t"
+      time_ave_variables( 2) = "dx"
+      time_ave_variables( 3) = "dy"
+      time_ave_variables( 4) = "dz"
+      time_ave_variables( 5) = "e"
+      ! Next 5 are the primitive variables
+      ! (with temperature instead of density)
+      time_ave_variables( 6) = "t"
+      time_ave_variables( 7) = "x"
+      time_ave_variables( 8) = "y"
+      time_ave_variables( 9) = "z"
+      time_ave_variables(10) = "p"
+      ! Remaining are derived variables
+      time_ave_variables(11) = "r"
+      time_ave_variables(12) = "f"
+      time_ave_variables(13) = "xx"
+      time_ave_variables(14) = "yy"
+      time_ave_variables(15) = "zz"
+      time_ave_variables(16) = "rr"
+      time_ave_variables(17) = "ff"
+      time_ave_variables(18) = "xy"
+      time_ave_variables(19) = "xz"
+      time_ave_variables(20) = "yz"
+      time_ave_variables(21) = "xr"
+      time_ave_variables(22) = "xf"
+      time_ave_variables(23) = "rf"
     else
-      time_ave_variables(1) = "d"
-      time_ave_variables(2) = "x"
-      time_ave_variables(3) = "y"
-      time_ave_variables(4) = "p"
-      time_ave_variables(5) = "xx"
-      time_ave_variables(6) = "yy"
-      time_ave_variables(7) = "xy"
-      time_ave_variables(8) = "t"
+      ! First 4 are the conserved variables
+      time_ave_variables( 1) = "d"
+      time_ave_variables( 2) = "dx"
+      time_ave_variables( 3) = "dy"
+      time_ave_variables( 4) = "e"
+      ! Next 4 are the primitive variables
+      ! (with temperature instead of density)
+      time_ave_variables( 5) = "t"
+      time_ave_variables( 6) = "x"
+      time_ave_variables( 7) = "y"
+      time_ave_variables( 8) = "p"
+      ! Remaining are derived variables
+      time_ave_variables( 9) = "xx"
+      time_ave_variables(10) = "yy"
+      time_ave_variables(11) = "xy"
     end if
     !
   else
@@ -1230,6 +1245,8 @@ continue
           time_ave_var(m)%idx(l) = nmy
         case ("Z")
           time_ave_var(m)%idx(l) = nmz
+        case ("E")
+          time_ave_var(m)%idx(l) = nee
         case ("P")
           time_ave_var(m)%idx(l) = nee
         case ("T")
@@ -1240,7 +1257,7 @@ continue
           time_ave_var(m)%idx(l) = nq+3
         case ("K")
           time_ave_var(m)%idx(l) = ntk
-        case ("E","W")
+        case ("W")
           time_ave_var(m)%idx(l) = ntl
         case default
           ! ??? Should probably produce an error message and abort
@@ -1373,9 +1390,23 @@ continue
     ! Azimuthal instantaneous velocity
     ave_var(nq+3) = ct*ave_var(nm2) - st*ave_var(nm1)
     !
-    ! Update the time-averaged variables
+    ! First, update the time-averaged conservative variables
     !
-    do m = 1,nvar
+    do m = 1,nq
+      uavesp(m,n) = a*uavesp(m,n) + b*usp(m,n)
+    end do
+    !
+    ! Next, update the time-averaged primitive variables
+    ! (with temperature instead of density)
+    !
+    uavesp(nq+1,n) = a*uavesp(nq+1,n) + b*ave_var(nq+1)
+    do m = 2,nq
+      uavesp(nq+m,n) = a*uavesp(nq+m,n) + b*ave_var(m)
+    end do
+    !
+    ! Update the remaining time-averaged variables
+    !
+    do m = 2*nq+1,nvar
       uavesp(m,n) = a*uavesp(m,n) + b*product( ave_var(time_ave_var(m)%idx) )
     end do
     !
