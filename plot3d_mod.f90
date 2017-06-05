@@ -234,10 +234,10 @@ continue
   ! Write the output file for tecplot
   !
   if (output_plot3d_to_tecplot) then
-    if (mypnum == 0) call writetecplot
+    if (mypnum == glb_root) call writetecplot
   end if
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     call create_grid_dt
   end if
   !
@@ -411,7 +411,7 @@ continue
     ! single or double precision so we have to be careful about
     ! reading in the node coordinates.
     !
-    ! In an unformatted Plot3D grid file, a separate record exists for 
+    ! In an unformatted Plot3D grid file, a separate record exists for
     ! the node coordinates of each block. Assume the grid file is in
     ! double precision and try reading in the node coordinates for the
     ! first block.
@@ -484,7 +484,7 @@ continue
   call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
                 ierr,error_message)
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     write (iout,1) " Finish reading the Plot3D file"
     write (iout,2) " nblk = ", nblk
@@ -525,7 +525,7 @@ continue
     end do
   end do
   !
-  !
+  ! Coarsen the grid nodes if any of the coarsening strides are larger than 1
   !
   if (any(strides > 1)) then
     !
@@ -599,7 +599,7 @@ continue
       !
     end do
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
       write (iout,*)
       write (iout,1) " AFTER COARSENING USING STRIDES OF"
@@ -819,11 +819,11 @@ continue
   !
   ! Error continuations
   !
-  100 if (mypnum == 0) write (iout,2) errstr,errstr ; goto 999
-  101 if (mypnum == 0) write (iout,3) errstr,errstr ; goto 999
-  102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
-  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
-  104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
+  100 if (mypnum == glb_root) write (iout,2) errstr,errstr ; goto 999
+  101 if (mypnum == glb_root) write (iout,3) errstr,errstr ; goto 999
+  102 if (mypnum == glb_root) write (iout,4) errstr,errstr ; goto 999
+  103 if (mypnum == glb_root) write (iout,5) errstr,errstr ; goto 999
+  104 if (mypnum == glb_root) write (iout,6) errstr,errstr ; goto 999
   !
   999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
@@ -982,10 +982,10 @@ continue
   !
   ! Error continuations
   !
-  100 if (mypnum == 0) write (iout,2) errstr,errstr ; goto 999
-  101 if (mypnum == 0) write (iout,3) errstr,errstr ; goto 999
-  102 if (mypnum == 0) write (iout,4) errstr,errstr ; goto 999
-  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
+  100 if (mypnum == glb_root) write (iout,2) errstr,errstr ; goto 999
+  101 if (mypnum == glb_root) write (iout,3) errstr,errstr ; goto 999
+  102 if (mypnum == glb_root) write (iout,4) errstr,errstr ; goto 999
+  103 if (mypnum == glb_root) write (iout,5) errstr,errstr ; goto 999
   !
   999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   !
@@ -1255,8 +1255,8 @@ end subroutine read_p3d_unformatted_header
 !  ! Try reading the marker using 4-byte integer
 !  !
 !  read (iogrd,pos=file_pos,iostat=ierr
-!  ! Test to see if the 
-!  
+!  ! Test to see if the
+!
 !  !
 !  !
 !  ! Loop through this procedure twice incase
@@ -1868,7 +1868,7 @@ continue
       end if
       !
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-        if (mypnum == 0) write (iout,3) nb,dir,dir1
+        if (mypnum == glb_root) write (iout,3) nb,dir,dir1
         call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
       end if
       !
@@ -2090,7 +2090,7 @@ continue
         end if
         !
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
-          if (mypnum == 0) write (iout,3) n,m,dir,dir1
+          if (mypnum == glb_root) write (iout,3) n,m,dir,dir1
           call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
         end if
         !
@@ -2245,7 +2245,7 @@ continue
      !ijk(dir) = merge(1,ijkpts(dir,iblk),loc==1)
       !
       ! Get the extent of the cut in the first direction
-      ! NOTE: stp1 adjusts the following loop for 
+      ! NOTE: stp1 adjusts the following loop for
       !       the situation when beg1 > end1
       !
       beg1 = cut_info(n)%side(m)%begpt(dir1)
@@ -2297,11 +2297,11 @@ continue
       end do
       if (diff > eps2) then
         if (nr == 2) then
-          write (iout,70) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
-          write (iout,70) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
+          write (iout,1) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+          write (iout,1) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
         else
-          write (iout,71) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
-          write (iout,71) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
+          write (iout,2) ipcut, p1, (ijk1(l),l=1,nr), (xyz_nodes(l,p1),l=1,nr)
+          write (iout,2) ipcut, p2, (ijk2(l),l=1,nr), (xyz_nodes(l,p2),l=1,nr)
         end if
       end if
     end do
@@ -2310,8 +2310,8 @@ continue
     !
   end do cut_loop
   !
-  70 format (2i8,2i5,4e14.6)
-  71 format (2i8,3i5,6e14.6)
+  1 format (2i8,2i5,4e14.6)
+  2 format (2i8,3i5,6e14.6)
   !
 end subroutine findcutpoints
 !
@@ -2456,7 +2456,7 @@ continue
     !
   end do
   !
-  if (mypnum == 0) write (iout,1) nnode_old,nnode_new
+  if (mypnum == glb_root) write (iout,1) nnode_old,nnode_new
   !
   ! Check the consistency
   !
@@ -2475,10 +2475,10 @@ continue
       !
       if (ipn1 /= ipn2) then
         if (first_line_not_output) then
-          if (mypnum == 0) write (iout,2)
+          if (mypnum == glb_root) write (iout,2)
           first_line_not_output = fals
         end if
-        if (mypnum == 0)  write (iout,9) n, ipcut, ip1, ip2, ipn1, ipn2
+        if (mypnum == glb_root)  write (iout,9) n, ipcut, ip1, ip2, ipn1, ipn2
       end if
       !
     end do
@@ -2744,7 +2744,7 @@ continue
     jend = max( 1 , bcs_info(nb)%bc%endpt(2)-1 )
     kend = max( 1 , bcs_info(nb)%bc%endpt(3)-1 )
     !
-    ! If the BC is on a MAX face, we need to make sure that the beginning 
+    ! If the BC is on a MAX face, we need to make sure that the beginning
     ! index for this face direction is also converted to a cell index. For
     ! all other directions, the beginning index will be less than the ending
     ! index so this will not affect those indices.
@@ -2755,14 +2755,14 @@ continue
     !       indices will make one of the following i,j,k loops a zero-trip
     !       loop and nothing will be done. Therefore, we must make sure
     !       that the endpt values are not less than the begpt values.
-    ! 
-    ibeg = min(ibeg,iend) 
+    !
+    ibeg = min(ibeg,iend)
     jbeg = min(jbeg,jend)
     kbeg = min(kbeg,kend)
     !
     ! Output information about this boundary condition
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk,cface(loc), &
                      ibeg,iend,jbeg,jend,kbeg,kend
     end if
@@ -2779,7 +2779,7 @@ continue
           host_cell = map3dto1d( [i,j,k] , iblk , 2 )
           !
           bface( 1,nf) = bc_type ! actual boundary condition for this face
-          bface( 2,nf) = host_cell 
+          bface( 2,nf) = host_cell
           bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geom of host cell
           bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
           bface( 5,nf) = nb ! boundary condition group for this boundary face
@@ -2794,7 +2794,7 @@ continue
   end do face_loop
   !
   if (nfbnd /= nf) then
-    if (mypnum == 0) write (iout,2) nfbnd,nf
+    if (mypnum == glb_root) write (iout,2) nfbnd,nf
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
@@ -4291,7 +4291,7 @@ continue
   ! Ignore if there is an error deallocating is_a_number since
   ! the function result should have been correctly computed
   !
-end function string_is_integer  
+end function string_is_integer
 !
 !###############################################################################
 !
