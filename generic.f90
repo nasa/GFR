@@ -809,7 +809,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err)
   real(wp), dimension(:),   intent(inout) :: weights
   !
   !.. Local Scalars ..
-  integer :: m,l,k,n1,n2,np
+  integer :: m,l,k,n1,n2,np,nep
   integer :: this_geom,this_order
   real(wp) :: a,b
   logical(lk) :: use_error_matrix
@@ -831,6 +831,7 @@ continue
   !
   n1 = cell(this_cell)%beg_sp
   n2 = cell(this_cell)%end_sp
+  np = n2-n1+1
   !
   ! Determine if we will be using the error matrix or not
   !
@@ -845,9 +846,9 @@ continue
   ! Get the number of error points
   !
   if (use_error_matrix) then
-    np = size(outerp(this_geom,this_order)%error%mat,dim=1)
+    nep = size(outerp(this_geom,this_order)%error%mat,dim=1)
   else
-    np = n2-n1+1
+    nep = np
   end if
   !
   ! #######
@@ -865,14 +866,14 @@ continue
   if (use_error_matrix) then
     !
     do m = 1,nq
-      unew(m,1:np) = outerp(this_geom,this_order)% &
-                                            error% &
-                     mv_mult( ucurr(m,1:np) )
+      unew(m,1:nep) = outerp(this_geom,this_order)% &
+                                             error% &
+                      mv_mult( ucurr(m,1:np) )
     end do
     !
   else
     !
-    unew(1:nq,1:np) = ucurr(1:nq,1:np)
+    unew(1:nq,1:nep) = ucurr(1:nq,1:np)
     !
   end if
   !
@@ -884,13 +885,13 @@ continue
   !
   if (use_error_matrix) then
     !
-    jac(1:np) = outerp(this_geom,this_order)% &
-                                       error% &
-                mv_mult( metrics_dt(this_cell)%jac(:) )
+    jac(1:nep) = outerp(this_geom,this_order)% &
+                                        error% &
+                 mv_mult( metrics_dt(this_cell)%jac(:) )
     !
   else
     !
-    jac(1:np) = metrics_dt(this_cell)%jac(:)
+    jac(1:nep) = metrics_dt(this_cell)%jac(:)
     !
   end if
   !
@@ -902,11 +903,11 @@ continue
   !
   if (use_error_matrix) then
     !
-    weights(1:np) = outerp(this_geom,this_order)%err_wts
+    weights(1:nep) = outerp(this_geom,this_order)%err_wts
     !
   else
     !
-    weights(1:np) = std_elem(this_geom,this_order)%wts
+    weights(1:nep) = std_elem(this_geom,this_order)%wts
     !
   end if
   !
@@ -919,14 +920,14 @@ continue
   if (use_error_matrix) then
     !
     do l = 1,nr
-      xyz_err(l,1:np) = outerp(this_geom,this_order)% &
-                                               error% &
-                        mv_mult( xyz(l,n1:n2) )
+      xyz_err(l,1:nep) = outerp(this_geom,this_order)% &
+                                                error% &
+                         mv_mult( xyz(l,n1:n2) )
     end do
     !
   else
     !
-    xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
+    xyz_err(1:nr,1:nep) = xyz(1:nr,n1:n2)
     !
   end if
   !
@@ -941,7 +942,7 @@ continue
     !
     ! Evaluate the exact analytical MMS solution at the error points
     !
-    do k = 1,np
+    do k = 1,nep
       uold(1:nq,k) = mms_solution_at_xyz( xyz_err(1:nr,k), &
                                           return_nondim=true, &
                                           return_cv=true )
@@ -951,9 +952,9 @@ continue
     !
     ! Evaluate the exact analytical solution to the vortex transport problem
     !
-    xyz_offset(1:nr,1:np) = vortex_offset( xyz_err(1:nr,1:np) )
+    xyz_offset(1:nr,1:nep) = vortex_offset( xyz_err(1:nr,1:nep) )
     !
-    do k = 1,np
+    do k = 1,nep
       uold(1:nq,k) = vortex_solution( xyz_offset(1:nr,k) )
     end do
     !
@@ -981,16 +982,16 @@ continue
       ! Get the solution from the previous time step at the error points
       !
       do m = 1,nq
-        uold(m,1:np) = outerp(this_geom,this_order)% &
-                                              error% &
-                       mv_mult( uprev(m,1:np) )
+        uold(m,1:nep) = outerp(this_geom,this_order)% &
+                                               error% &
+                        mv_mult( uprev(m,1:np) )
       end do
       !
     else
       !
       ! Use the solution from the previous time step
       !
-      uold(1:nq,1:np) = uprev(1:nq,1:np)
+      uold(1:nq,1:nep) = uprev(1:nq,1:np)
       !
     end if
     !
