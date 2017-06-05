@@ -962,16 +962,12 @@ continue
     !
     if (output_time_averaging) then
       ! Compute uavesp at the previous averaging time
-      if (saved_ave_time == zero) then
+      if (any(saved_ave_time == [zero,ave_start_time])) then
         uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
       else
-        if (saved_ave_time == ave_start_time) then
-          uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
-        else
-          a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
-          b = one - a
-          uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
-        end if
+        a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
+        b = one - a
+        uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
       end if
     else
       uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
