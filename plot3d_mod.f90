@@ -3807,7 +3807,7 @@ end subroutine unpack_grid_dt
 !
 !###############################################################################
 !
-pure function element_properties(elem_type) result(return_value)
+pure function element_properties(elem_type,elem_order) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : prop_t
@@ -3815,25 +3815,37 @@ pure function element_properties(elem_type) result(return_value)
   !.. Formal Arguments ..
   integer, intent(in) :: elem_type
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: elem_order
+  !
   !.. Function Result ..
   type(prop_t) :: return_value
   !
+  !.. Local Scalars ..
+  integer :: np,order
+  !
 continue
+  !
+  order = 1
+  if (present(elem_order)) order = elem_order
   !
   select case (elem_type)
     case (Geom_Edge)
-      return_value = prop_t(npts=2, &
-                            order=1, &
+      np = order + 1
+      return_value = prop_t(npts=np, &
+                            order=order, &
                             geom=Geom_Edge, &
                             elem_type=elem_type)
     case (Geom_Quad)
-      return_value = prop_t(npts=4, &
-                            order=1, &
+      np = (order+1)**2
+      return_value = prop_t(npts=np, &
+                            order=order, &
                             geom=Geom_Quad, &
                             elem_type=elem_type)
     case (Geom_Hexa)
-      return_value = prop_t(npts=8, &
-                            order=1, &
+      np = (order+1)**3
+      return_value = prop_t(npts=np, &
+                            order=order, &
                             geom=Geom_Hexa, &
                             elem_type=elem_type)
     case default
