@@ -276,6 +276,7 @@ subroutine read_nml_input_file(input_fname)
   real(wp) :: Period_Time_X,Period_Time_Y
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
+  real(wp) :: cfl_sum,cfl_time
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -576,13 +577,27 @@ continue
       !
     else if (Timestep_Type == Constant_Timestep) then
       !
-      cfl_beg = CFL
-      cfl_end = CFL
-      cfl_cycles = 1
-      !
-      if (Final_Time > zero) then
-        num_ts = nint( Final_Time / dt_in )
+      if (cfl_cycles < 2) then
+        cfl_beg = CFL
+        cfl_end = CFL
+        cfl_cycles = 1
+        if (Final_Time > zero) then
+          num_ts = nint( Final_Time / (CFL*dt_in*time_ref) )
+        end if
+      else
+        cfl_end = max(cfl_end,eps6)
+        cfl_beg = min(cfl_beg,cfl_end)
+        cfl_sum = real(cfl_cycles,kind=wp)*(cfl_beg+cfl_end)/two
+        cfl_time = cfl_sum*dt_in*time_ref
+        if (Final_Time > zero) then
+          num_ts = cfl_cycles
+          if (cfl_time < Final_Time) then
+            num_ts = num_ts + &
+                     nint( (Final_Time-cfl_time) / (CFL*dt_in*time_ref) )
+          end if
+        end if
       end if
+      !
       !
     else
       !

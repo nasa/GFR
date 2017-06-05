@@ -91,6 +91,8 @@ continue
   !
   if (Timestep_Type == Constant_Timestep) then
     !
+    call get_current_cfl
+    !
     call get_constant_timestep(dtmin)
     !
   else if (abs(Timestep_Type) == Cell_Timestep) then
