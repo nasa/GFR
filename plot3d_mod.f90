@@ -58,9 +58,6 @@ module module_plot3d
   integer, save, allocatable, dimension(:,:) :: offset
   integer, save, allocatable, dimension(:,:) :: ijkpts
   !
-  ! Arrays whose size is dependent on the number of nodes, nnode
-  integer, save, allocatable, dimension(:) :: lpnew
-  !
   ! Arrays whose size is dependent on the number of boundary conditions
   !
   type condition
@@ -217,10 +214,6 @@ continue
   !
   call remove_duplicate_nodes
   !
-  ! Create the nodes_of_cell_ptr and nodes_of_cell arrays
-  !
-  call create_nodes_of_cells
-  !
   ! Get the boundary face information
   !
   call getbface
@@ -264,11 +257,6 @@ continue
   if (allocated(offset)) then
     deallocate ( offset , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(lpnew)) then
-    deallocate ( lpnew , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"lpnew",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
 end subroutine read_plot3d_gridfile
@@ -2327,12 +2315,12 @@ end subroutine findcutpoints
 subroutine remove_duplicate_nodes()
   !
   !.. Use Statements ..
-  use geovar, only : nr,nnode,xyz_nodes
+  use geovar, only : nnode,xyz_nodes
   !
   !.. Local Scalars ..
   integer :: ip,ipcut,ip1,ip2,ip3,n,ib1,ib2,ipn1,ipn2,ierr
-  integer :: new_node,old_node,duplicate_node,l
-  integer :: nnode_new,nnode_old
+  integer :: new_pt,old_pt,duplicate_node,l
+  integer :: lpts_new,lpts_old
   logical(lk) :: first_line_not_output
  !real(wp) :: diff
   !
@@ -2342,7 +2330,8 @@ subroutine remove_duplicate_nodes()
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable, dimension(:)   :: lpoin
-  integer,  allocatable, dimension(:)   :: lpold
+  integer,  allocatable, dimension(:)   :: new2old
+  integer,  allocatable, dimension(:)   :: old2new
   real(wp), allocatable, dimension(:,:) :: temp_xyz
   !
   !.. Local Parameters ..
@@ -2352,17 +2341,13 @@ continue
   !
   first_line_not_output = true
   !
-  ! Save the old number of nodes, nnode, to nnode_old
+  ! Save the old number of grid nodes lpts_old
   !
-  nnode_old = nnode
+  lpts_old = size(xyz_nodes,dim=2)
   !
-  allocate ( lpoin(1:nnode_old) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
+  ! Initialize lpoin
   !
-  do ip = 1,nnode_old
-    lpoin(ip) = ip
-  end do
+  lpoin = intseq(1,lpts_old) ! USING F2003 AUTO-REALLOCATION
   !
   ! Remove the multiple defined points
   !
@@ -2428,42 +2413,40 @@ continue
     !
   end do
   !
-  ! Lpold(ip) = the old point number for a new point ip
-  ! Lpnew(ip) = the new point number for a old point ip
+  ! new2old(ip) = the old point number for a new point ip
+  ! old2new(ip) = the new point number for a old point ip
   !
-  nnode_new = count( lpoin(:) > 0 )
+  lpts_new = count( lpoin(:) > 0 )
   !
-  allocate ( lpold(1:nnode_new) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpold",1,__LINE__,__FILE__,ierr,error_message)
-  allocate ( lpnew(1:nnode_old) , source=0 , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpnew",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( new2old(1:lpts_new) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( old2new(1:lpts_old) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
   !
-  new_node = 0
-  do old_node = 1,nnode_old
-    if (lpoin(old_node) > 0) then
-      new_node = new_node + 1
-      lpold(new_node) = old_node
-      lpnew(old_node) = new_node
+  new_pt = 0
+  do old_pt = 1,lpts_old
+    if (lpoin(old_pt) > 0) then
+      new_pt = new_pt + 1
+      new2old(new_pt) = old_pt
+      old2new(old_pt) = new_pt
     end if
   end do
   !
   ! Get the new point number for all the old grid points
   !
-  do old_node = 1,nnode_old
+  do old_pt = 1,lpts_old
     !
-    if (lpoin(old_node) < 0) then
+    if (lpoin(old_pt) < 0) then
       !
-      duplicate_node = -lpoin(old_node)
-      new_node = lpnew(duplicate_node)
-      lpnew(old_node) = new_node
+      duplicate_node = -lpoin(old_pt)
+      new_pt = old2new(duplicate_node)
+      old2new(old_pt) = new_pt
       !
     end if
     !
   end do
   !
-  if (mypnum == glb_root) write (iout,1) nnode_old,nnode_new
+  if (mypnum == glb_root) write (iout,1) lpts_old,lpts_new
   !
   ! Check the consistency
   !
@@ -2477,8 +2460,8 @@ continue
       !
       ip1 = cut_info(n)%nodes(1,ipcut)
       ip2 = cut_info(n)%nodes(2,ipcut)
-      ipn1 = lpnew(ip1)
-      ipn2 = lpnew(ip2)
+      ipn1 = old2new(ip1)
+      ipn2 = old2new(ip2)
       !
       if (ipn1 /= ipn2) then
         if (first_line_not_output) then
@@ -2494,20 +2477,20 @@ continue
  !new_xyz = zero
  !old_xyz = zero
  !!
- !do ip = 1,nnode_old
+ !do ip = 1,lpts_old
  !  !
- !  new_node = lpnew(ip)
- !  old_node = lpold(new_node)
+ !  new_pt = old2new(ip)
+ !  old_pt = new2old(new_pt)
  !  !
- !  new_xyz(1:nr) = xyz_nodes(1:nr,new_node)
- !  old_xyz(1:nr) = xyz_nodes(1:nr,old_node)
+ !  new_xyz(:) = xyz_nodes(:,new_pt)
+ !  old_xyz(:) = xyz_nodes(:,old_pt)
  !  !
- !  write (44,3) ip, new_node, old_node, lpoin(ip)
+ !  write (44,3) ip, new_pt, old_pt, lpoin(ip)
  !  !
  !  diff = sum( abs(new_xyz-old_xyz) / (abs(new_xyz)+eps7) )
  !  !
  !  if (diff > eps2) then
- !    write (44,4) ip, lpnew(ip), (new_xyz(n), old_xyz(n), n=1,nr)
+ !    write (44,4) ip, old2new(ip), (new_xyz(n), old_xyz(n), n=1,size(new_xyz))
  !  end if
  !  !
  !end do
@@ -2521,18 +2504,18 @@ continue
   !
   ! Allocate the temporary nodal array
   !
-  allocate( temp_xyz(1:nr,1:nnode_new) , source=zero , &
-            stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  ! Copy over the non-duplicate nodes from xyz_nodes into temp_xyz
-  !
-  do n = 1,nnode_new
-    do l = 1,nr
-      temp_xyz(l,n) = xyz_nodes(l,lpold(n))
-    end do
-   !ipold = lpold(n)
-  end do
+  temp_xyz = xyz_nodes(:,new2old(:)) ! F2003 AUTO-REALLOCATION
+ !allocate( temp_xyz(1:size(xyz_nodes,dim=1),1:lpts_new) , source=zero , &
+ !          stat=ierr , errmsg=error_message )
+ !call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
+ !!
+ !! Copy over the non-duplicate nodes from xyz_nodes into temp_xyz
+ !!
+ !do n = 1,lpts_new
+ !  do l = 1,size(xyz_nodes,dim=1)
+ !    temp_xyz(l,n) = xyz_nodes(l,new2old(n))
+ !  end do
+ !end do
   !
   ! Use move_alloc to reallocate xyz_nodes. This does the following:
   !     1. Deallocates xyz_nodes
@@ -2544,12 +2527,21 @@ continue
   !
   ! Finally, update nnode with the new total number of grid nodes
   !
-  nnode = nnode_new
+  nnode = lpts_new
   !
-  ! Before we leave, deallocate lpold
+  ! Deallocate new2old
   !
-  deallocate ( lpold , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpold",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( new2old , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the nodes_of_cell_ptr and nodes_of_cell arrays
+  !
+  call create_nodes_of_cells(old2new)
+  !
+  ! Deallocate old2new
+  !
+  deallocate ( old2new , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Format Statements
   !
@@ -2567,13 +2559,16 @@ end subroutine remove_duplicate_nodes
 !
 !###############################################################################
 !
-subroutine create_nodes_of_cells()
+subroutine create_nodes_of_cells(old2new)
   !
   !.. Use Statements ..
   use order_mod, only : n_order
   use geovar, only : ncell,nr
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: old2new(:)
   !
   !.. Local Scalars ..
   integer :: n,cell_pts,ierr,iblk,nc,npx,npy,npz,i,j,k,n1,n2
@@ -2657,18 +2652,13 @@ continue
           n1 = nodes_of_cell_ptr(nc)+1
           n2 = nodes_of_cell_ptr(nc+1)
           !
-          nodes_of_cell(n1:n2) = lpnew( ip(1:cell_pts) )
+          nodes_of_cell(n1:n2) = old2new( ip(1:cell_pts) )
           !
         end do i_loop
       end do j_loop
     end do k_loop
     !
   end do block_loop
-  !
-  ! Deallocate lpnew since it is no longer needed
-  !
-  deallocate ( lpnew , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"lpnew",2,__LINE__,__FILE__,ierr,error_message)
   !
 end subroutine create_nodes_of_cells
 !
@@ -4594,15 +4584,6 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "ijkpts"
-  end if
-  if (allocated(lpnew)) then
-    call array%set( storage_size(lpnew,kind=inttype) , &
-                            size(lpnew,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "lpnew"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "lpnew"
   end if
   !
   total = total%get_units()
