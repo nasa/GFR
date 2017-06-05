@@ -3897,7 +3897,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid)
   !
   !.. Use Statements ..
   use geovar,        only : grid_t
-  use ovar,          only : grid_format
+  use ovar,          only : grid_format,plot3d_agglomerate_order
   use module_cgns,   only : cgns_element_properties
   use module_gmsh,   only : gmsh_element_properties
   use module_plot3d, only : plot3d_element_properties
@@ -3910,7 +3910,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid)
   !
   !.. Local Scalars ..
   integer :: n,nc,nn,np,n1,n2,ierr
-  integer :: i,ntags,elem_type
+  integer :: i,ntags,elem_type,plot3d_order
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "unpack_localized_grid_dt"
@@ -3956,7 +3956,8 @@ continue
     else if (grid_format == CGNS_Format) then
       grid%elem(nc)%prop = cgns_element_properties(elem_type)
     else if (grid_format == Plot3D_Format) then
-      grid%elem(nc)%prop = plot3d_element_properties(elem_type)
+      plot3d_order = max(1,plot3d_agglomerate_order)
+      grid%elem(nc)%prop = plot3d_element_properties(elem_type,plot3d_order)
     end if
     !
     ! Unpack the host cell if this is being used
