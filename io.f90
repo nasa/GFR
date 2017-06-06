@@ -4647,6 +4647,7 @@ subroutine write_results_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
   use ovar,      only : work_units,uverr,output_time_averaging,time
+  use ovar,      only : total_volume
   use order_mod, only : p_order
   !
   !.. Formal Arguments ..
@@ -4719,8 +4720,15 @@ continue
     comp_cost = time
   end if
   !
-  u2(:) = merge( uverr(:,2,1) , one , uverr(:,2,1)>zero )
-  v2(:) = merge( uverr(:,2,2) , one , uverr(:,2,2)>zero )
+  ! L1 Norm
+ !u2(:) = merge( uverr(:,1,1) , epsilon(zero)/two , uverr(:,1,1)>zero )
+ !v2(:) = merge( uverr(:,1,2) , epsilon(zero)/two , uverr(:,1,2)>zero )
+  ! L2 Norm
+  u2(:) = merge( uverr(:,2,1) , epsilon(zero)/total_volume , uverr(:,2,1)>zero )
+  v2(:) = merge( uverr(:,2,2) , epsilon(zero)/total_volume , uverr(:,2,2)>zero )
+  ! Infinity Norm
+ !u2(:) = merge( uverr(:,3,1) , epsilon(zero)/two , uverr(:,3,1)>zero )
+ !v2(:) = merge( uverr(:,3,2) , epsilon(zero)/two , uverr(:,3,2)>zero )
  !!
  !u2(:) = uverr(:,2,1)
  !v2(:) = uverr(:,2,2)
@@ -5209,6 +5217,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts,ncell,cell
   use ovar,    only : aref,rhoref,time_ref,tref
+  use ovar,    only : pref,machref,itestcase,bc_in
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : correct_output
   use ovar,    only : governing_equations
@@ -5639,6 +5648,7 @@ continue
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(nec,1:n_solpts)
           vartmp = vartmp * rhoref
+          if (itestcase == Freestream_Preservation) vartmp = vartmp - rhoref
           call cgns_write_field_parallel
         case ("Momentum") ! Momentum
           do m = nmb,nme
@@ -5681,16 +5691,21 @@ continue
             vartmp(1:n_solpts) = interp_usp(m,1:n_solpts) / &
                                  interp_usp(nec,1:n_solpts)
             vartmp = vartmp * aref
+            if (itestcase == Freestream_Preservation) then
+              if (m == nmb) vartmp = vartmp - aref*machref
+            end if
             call cgns_write_field_parallel
           end do
         case ("Pressure") ! Pressure
           n = n + 1
           vartmp = pressure_cv( interp_usp )
           vartmp = vartmp * rhoref * aref * aref
+          if (itestcase == Freestream_Preservation) vartmp = vartmp - pref
           call cgns_write_field_parallel
         case ("Mach") ! Mach number
           n = n + 1
           vartmp = mach_number_cv( interp_usp )
+          if (itestcase == Freestream_Preservation) vartmp = vartmp - machref
           call cgns_write_field_parallel
         case ("Entropy") ! Entropy
           n = n + 1
@@ -5700,6 +5715,7 @@ continue
           n = n + 1
           vartmp = temperature_cv( interp_usp )
           vartmp = vartmp * tref
+          if (itestcase == Freestream_Preservation) vartmp = vartmp - tref
           call cgns_write_field_parallel
         case ("Viscosity") ! Viscosity
           if (governing_equations == NavierStokes_Eqns) then

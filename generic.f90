@@ -795,7 +795,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err, &
   !.. Use Statements ..
   use order_mod,         only : maxSP
   use geovar,            only : nr,cell,xyz
-  use ovar,              only : mms_opt,itestcase
+  use ovar,              only : mms_opt,itestcase,bc_in
   use ovar,              only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,              only : output_time_averaging
   use flowvar,           only : usp,uoldsp,uavesp
@@ -1000,6 +1000,18 @@ continue
     !
     if (present(vold)) then
       vold(1:nq,1:nep) = usp2v( uold(1:nq,1:nep) , swap_t_for_rho=true )
+    end if
+    !
+  else if (itestcase == Freestream_Preservation) then
+    !
+    do k = 1,nep
+      uold(1:nq,k) = bc_in(0)%cv(1:nq)
+    end do
+    !
+    if (present(vold)) then
+      do k = 1,nep
+        vold(1:nq,k) = bc_in(0)%pv(1:nq)
+      end do
     end if
     !
   else

@@ -229,18 +229,19 @@ module module_kind_types
   !
   ! Parameters defining workshop test cases
   !
-  integer, parameter :: Generic_MeanFlow       = 1
-  integer, parameter :: Channel_Flow           = 2
-  integer, parameter :: Inviscid_Gaussian_Bump = 3
-  integer, parameter :: Laminar_BndLyr         = 4
-  integer, parameter :: Shu_Vortex             = 5
-  integer, parameter :: Vortex_Transport       = 6
-  integer, parameter :: Density_Transport      = 7
-  integer, parameter :: Entropy_Transport      = 8
-  integer, parameter :: Taylor_Green_Vortex    = 9
-  integer, parameter :: Nozzle_Jet             = 10
-  integer, parameter :: Double_Mach_Reflection = 11
-  integer, parameter :: Infinite_Cylinder      = 12
+  integer, parameter :: Generic_MeanFlow        = 1
+  integer, parameter :: Channel_Flow            = 2
+  integer, parameter :: Inviscid_Gaussian_Bump  = 3
+  integer, parameter :: Laminar_BndLyr          = 4
+  integer, parameter :: Shu_Vortex              = 5
+  integer, parameter :: Vortex_Transport        = 6
+  integer, parameter :: Density_Transport       = 7
+  integer, parameter :: Entropy_Transport       = 8
+  integer, parameter :: Taylor_Green_Vortex     = 9
+  integer, parameter :: Nozzle_Jet              = 10
+  integer, parameter :: Double_Mach_Reflection  = 11
+  integer, parameter :: Infinite_Cylinder       = 12
+  integer, parameter :: Freestream_Preservation = 13
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
