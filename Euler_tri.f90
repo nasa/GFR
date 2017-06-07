@@ -24,8 +24,8 @@ program Euler_tri
   use ovar, only : check_flux_point_coordinates
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
   use ovar, only : adjust_cfl_cycles
-  use ovar, only : output_time_averaging
-  use ovar, only : time_average_restart_files
+  use ovar, only : output_time_averaging,time_scaling_factor
+  use ovar, only : time_average_restart_files,ave_start_time
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -37,7 +37,7 @@ program Euler_tri
   use io_mod, only : read_input_file
   use io_mod, only : write_final_error
   use io_mod, only : write_parallel_cgns
-  use io_mod, only : write_results_file
+  use io_mod, only : write_residual_file
   use io_mod, only : check_flux_point_orderings
   use io_mod, only : TaylorGreen_8s_vorticity_solution
   !
@@ -68,9 +68,9 @@ program Euler_tri
   use module_bc, only : get_facedusp_bc
   !
   use generic_mod, only : init_generic_mod
-  use generic_mod, only : rgeterr
+  use generic_mod, only : write_iter_stats
   use generic_mod, only : getmaxent
-  use generic_mod, only : compute_final_error
+  use generic_mod, only : compute_residual_error
   use generic_mod, only : compute_TaylorGreen_KEDR
   !
   use time_mod, only : get_dtsp
@@ -127,12 +127,13 @@ program Euler_tri
   !
   integer  :: iter,i,ierr,k,npart
   integer  :: completed_timesteps
-  real(wp) :: dtmin
+  real(wp) :: dtmin,out_time
   !
   character(len=50) :: memfile
   !
   integer :: CGNS_action
   !
+  logical(lk)  :: exit_main_loop
   logical(lk)  :: walltime_expiring
   logical(ldk) :: request_stop
   logical(ldk) :: request_restart
@@ -277,7 +278,7 @@ continue
   !
   ! Output information about the global grid
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,11) n_global_cell, n_global_node, n_global_fbnd, &
                     n_global_solpts, total_volume, &
                     (solpts_edge(k), k=1,size(solpts_edge))
@@ -314,7 +315,7 @@ continue
     call report_memory_usage(n=2,request_stop=true)
   end if
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,19) minval(global_cell_order), maxval(global_cell_order)
   end if
   !
@@ -370,7 +371,7 @@ continue
   end if
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,8260)
   end if
   8260 format (//," Pausing before starting the main iteration loop!",/, &
@@ -418,7 +419,7 @@ continue
     ! Loop over the Runge-Kutta stages
     !
     rk_loop: do nst = 1,num_stages
-     !if (mypnum == 0) then 
+     !if (mypnum == glb_root) then 
      !  write (iout,'(3x,i3,1x,i1)') iter,nst
      !end if
       !
@@ -525,48 +526,40 @@ continue
       call update_time_ave
     end if
     !
-    ! Exit the main loop if we have reached the requested final simulation
-    ! time when running a time accurate simulation with a global time step.
+    ! Compute and output the residual error at the specified interval
     !
-    if (this_is_final_timestep .and. iter/=num_ts) then
+    if ( (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
+         (mod(itcur,results_interval) == 0 .and. iter/=num_ts) ) then
       !
-      call rgeterr(walltime_expiring)
+      ! Compute the residual error
       !
-      ! Exit the main loop since we have reached
-      ! the requested final simulation time
+      call compute_residual_error
       !
-      exit main_loop
+      if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
+        !
+        ! Output the density residual error to stdout
+        !
+        call write_iter_stats(walltime_expiring,exit_main_loop)
+        !
+        ! Exit the main loop if the convergence criteria were met
+        !
+        if (exit_main_loop) exit main_loop
+        !
+      end if
       !
-    end if
-    !
-    ! Compute the residual error from the density and output to terminal
-    !
-    if (mod(iter,iter_out_interval) == 0) then
+      ! Output the residual error at the specified interval
       !
-      call rgeterr(walltime_expiring)
-      !
-      ! Exit the main loop if the convergence criteria were met
-      !
-      if (convergence_reached) exit main_loop
-      !
-      if (iter /= num_ts) then
-        if (walltime_expiring) exit main_loop
+      if (mod(itcur,results_interval)==0 .and. iter/=num_ts) then
+        !
+        call recon_cpu_time(1)
+        !
+        if (mypnum == glb_root) call write_residual_file(0,itcur)
+        !
       end if
       !
     end if
     !
     call check_for_bad_number(__LINE__)
-    !
-    ! Output the error at the specified interval
-    !
-    if (mod(iter,results_interval)==0 .and. iter/=num_ts) then
-      !
-      call recon_cpu_time(1)
-      !
-      call compute_final_error
-      if (mypnum == 0) call write_results_file(0,itcur)
-      !
-    end if
     !
     ! Every 50 (1000 for NAS) iterations
     !    1. Compute the residual error for this time step and exit
@@ -585,7 +578,7 @@ continue
         !
         ! Have the root processor check for various temporary files
         !
-        if (mypnum == 0) then
+        if (mypnum == glb_root) then
           !
           ! Check for a stop request
           !
@@ -779,7 +772,7 @@ continue
     !
 #ifdef PAUSE_BETWEEN_ITERATIONS
     if (iter /= num_ts) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         write (iout,8261) iter,num_ts
       end if
       8261 format (//," Pausing after completing ",i0," of ",i0, &
@@ -797,7 +790,7 @@ continue
   end do main_loop
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,8262)
   end if
   8262 format (//," Pausing after finishing the main iteration loop!",/, &
@@ -826,9 +819,6 @@ continue
     end if
   end if
   !
-  !.. get min and max entropy value and location
-  if (.not. ignore_errors) call getmaxent
-  !
   if (continuous_output) then
     call new_write_parallel_cgns
   else
@@ -839,17 +829,24 @@ continue
   !
   if (.not. ignore_errors) then
     !
-    call compute_final_error
+    call compute_residual_error
+    !
+    ! Get min and max entropy value and location
+    call getmaxent
     !
     call compute_bnd_profiles
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       !
-      write (iout,40) itcur,time*time_ref
+      out_time = time*time_ref*time_scaling_factor
+      if (output_time_averaging) then
+        out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+      end if
+      write (iout,40) itcur,out_time
       call recon_cpu_time(-1)
       !
       call write_final_error
-      call write_results_file(-1,itcur)
+      call write_residual_file(-1,itcur)
       !
     end if
     !
@@ -858,7 +855,7 @@ continue
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
-  if (mypnum == 0) write (iout,50)
+  if (mypnum == glb_root) write (iout,50)
   !
   ! Finalize the overall MPI session and stop execution
   !
