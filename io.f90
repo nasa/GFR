@@ -24,7 +24,7 @@ module io_mod
   public :: read_grid_file
   public :: write_final_error
   public :: write_parallel_cgns
-  public :: write_results_file
+  public :: write_residual_file
   public :: check_flux_point_orderings
   public :: TaylorGreen_8s_vorticity_solution
   !
@@ -4643,7 +4643,7 @@ end subroutine write_final_error
 !
 !###############################################################################
 !
-subroutine write_results_file(iflag,icount)
+subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
   use ovar,      only : work_units,uverr,output_time_averaging,time
@@ -4667,7 +4667,7 @@ subroutine write_results_file(iflag,icount)
   real(wp), dimension(1:nq+1) :: u2,v2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_results_file"
+  character(len=*), parameter :: pname = "write_residual_file"
   character(len=*), parameter :: fname = "residual.dat"
   character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
  !logical(lk),      parameter :: write_work_units = true
@@ -4759,7 +4759,7 @@ continue
             'AUXDATA h="',f10.6,'"')
   5 format (i10,*(es17.9))
   !
-end subroutine write_results_file
+end subroutine write_residual_file
 !
 !###############################################################################
 !
