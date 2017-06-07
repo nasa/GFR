@@ -8,32 +8,34 @@ module generic_mod
   private
   !
   public :: init_generic_mod
-  public :: rgeterr
+  public :: write_iter_stats
   public :: getmaxent
-  public :: compute_final_error
+  public :: compute_residual_error
   public :: compute_TaylorGreen_KEDR
   public :: generic_memory_usage
   !
   character(len=100), save :: iter_out_fmt
   !
-  real(wp), save :: Density_Maximum_Residual = -huge(zero)
-  logical(lk),  save :: vortex_has_collapsed = fals
-  integer,  save :: final_countdown = 0
+  real(wp),    save :: Density_Maximum_Residual = -huge(zero)
+  logical(lk), save :: vortex_has_collapsed = fals
+  integer,     save :: final_countdown = 0
+  !
+  real(wp), save :: rl2mx = -huge(zero)
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that
   !            contains the temporal evolution of various integrated
   !            quantities relating to the kinetic energy
   !
-  integer,  save                              :: iotg
-  real(wp), save, allocatable, dimension(:,:) :: tgv_kedr
-  real(wp), save, allocatable, dimension(:,:) :: sum_kedr
-  real(wp), save,              dimension(1:7) :: tgv_dimen = zero
+  integer,  save              :: iotg
+  real(wp), save, allocatable :: tgv_kedr(:,:)
+  real(wp), save, allocatable :: sum_kedr(:,:)
+  real(wp), save              :: tgv_dimen(1:7) = zero
   !
 contains
 !
 !###############################################################################
 !
-subroutine compute_final_error()
+subroutine compute_residual_error()
   !
   !.. Use Statements ..
   use order_mod, only : maxEP
@@ -44,35 +46,39 @@ subroutine compute_final_error()
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer  :: this_cell,n1,n2,np,k,m
-  integer  :: this_geom,this_order
+  integer  :: this_cell,n1,n2,np,k,m,n
+  integer  :: this_geom,this_order,l1,l2,l3
   real(wp) :: sn,se
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxEP) :: jac
-  real(wp), dimension(1:maxEP) :: weights
-  real(wp), dimension(1:nq,1:maxEP) :: uold
-  real(wp), dimension(1:nq,1:maxEP) :: vold
-  real(wp), dimension(1:nq,1:maxEP) :: unew
-  real(wp), dimension(1:nq,1:maxEP) :: vnew
+  real(wp), dimension(1:maxEP) :: wtdjac
+  real(wp), dimension(1:nq,1:maxEP) :: uold,vold
+  real(wp), dimension(1:nq,1:maxEP) :: unew,vnew
   real(wp), dimension(1:nr,1:maxEP) :: xyz_err
   real(wp), dimension(1:nq+1,1:2) :: ett
-  real(wp), dimension(1:nq+1,1:2,1:5) :: error
-  real(wp), dimension(1:nq+1,1:2,1:5,1:ncpu) :: all_error
+  real(wp), dimension(1:nq+1,1:2,1:5+nr) :: error
+  real(wp), dimension(1:nq+1,1:2,1:5+nr,1:ncpu) :: all_error
   !
   ! error(1:nq+1,:,:) = error value for each flow equation + extra variable
   ! error(:,1,:) = error for conserved variables [rho,rho(u,v,..),rhoe,entropy]
   ! error(:,2,:) = error for primitive variables [rho,u,v,..,pressure,vel mag]
-  ! error(:,:,1) = L1 norm of total error for all solution points
-  ! error(:,:,2) = L2 norm of total error for all solution points
-  ! error(:,:,3) = maximum value of error for all solution points
+  ! error(:,:,1) = L1    norm of total error for all solution points
+  ! error(:,:,2) = L2%   norm of total error for all solution points
+  ! error(:,:,3) = L-inf norm (max value) of error for all solution points
   ! error(:,:,4) = ID of grid cell containing maximum value of error
   ! error(:,:,5) = ID of solution point with maximum value of error
+  ! error(:,:,6) = x-coordinate of sol-pt with max value of error
+  ! error(:,:,7) = y-coordinate of sol-pt with max value of error (if 2D or 3D)
+  ! error(:,:,8) = z-coordinate of sol-pt with max value of error (if 3D
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_final_error"
+  character(len=*), parameter :: pname = "compute_residual_error"
   !
 continue
+  !
+  l1 = 1
+  l2 = min(2,nr)
+  l3 = min(3,nr)
   !
   call debug_timer(entering_procedure,pname)
   !
@@ -95,13 +101,20 @@ continue
     end if
     !
     call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
-                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np), &
+                              wtdjac(1:np),xyz_err(1:nr,1:np), &
                               vnew(1:nq,1:np),vold(1:nq,1:np))
     !
     ! Now loop through the solution points of this cell to compute the
     ! error between the solutions of the current and previous time steps
     !
     do k = 1,np
+      !
+      ! Write out an error to stdout if density or pressure is negative
+      !
+      if (any([unew(nec,k),vnew(nee,k)] <= zero)) then
+        write (iout,1) mypnum,cell_map(mypnum+1)%loc_to_glb(this_cell),k, &
+                       unew(nec,k),vnew(nee,k),vnew(nec,k)
+      end if
       !
       ! Error for conserved variables at the current solution point
       !
@@ -124,8 +137,8 @@ continue
       ! Now add the error for all variables at the current solution
       ! point to the running integral sum for the L1 and L2 error norms
       !
-      error(:,:,1) = error(:,:,1) + jac(k)*weights(k)*ett(:,:)
-      error(:,:,2) = error(:,:,2) + jac(k)*weights(k)*ett(:,:)*ett(:,:)
+      error(:,:,1) = error(:,:,1) + wtdjac(k)*ett(:,:)
+      error(:,:,2) = error(:,:,2) + wtdjac(k)*ett(:,:)*ett(:,:)
       !
       ! If any of these errors are greater than the previous maximum
       ! values, save the error value and record this location
@@ -134,6 +147,9 @@ continue
         error(:,:,3) = abs(ett(:,:))
         error(:,:,4) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
         error(:,:,5) = real(k,kind=wp)
+        error(:,:,5+l1) = xyz_err(l1,k)
+        error(:,:,5+l2) = xyz_err(l2,k)
+        error(:,:,5+l3) = xyz_err(l3,k)
       end where
       !
     end do
@@ -150,201 +166,99 @@ continue
     all_error(:,:,:,1) = error(:,:,:)
   end if
   !
-  ! Find the max infinity norm for each variable
+  ! Finish computing the various global norms for all variables
   !
-  uverr(:,3,1) = maxval(all_error(:,1,3,:),dim=2)
-  uverr(:,3,2) = maxval(all_error(:,2,3,:),dim=2)
-  !
-  ! Finish computing the L1 and L2 norms for each variable
-  !
-  uverr(:,1,1) =       sum(all_error(:,1,1,:),dim=2) / total_volume
-  uverr(:,2,1) = sqrt( sum(all_error(:,1,2,:),dim=2) / total_volume )
-  uverr(:,1,2) =       sum(all_error(:,2,1,:),dim=2) / total_volume
-  uverr(:,2,2) = sqrt( sum(all_error(:,2,2,:),dim=2) / total_volume )
-  !
-  ! Get the location of the max infinity norm for each variable
-  !
-  do m = 1,nq+1
-    uverr(m,4,1) = all_error(m,1,4,maxloc(all_error(m,1,3,:),dim=1))
-    uverr(m,5,1) = all_error(m,1,5,maxloc(all_error(m,1,3,:),dim=1))
-    uverr(m,4,2) = all_error(m,2,4,maxloc(all_error(m,2,3,:),dim=1))
-    uverr(m,5,2) = all_error(m,2,5,maxloc(all_error(m,2,3,:),dim=1))
-  end do
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine compute_final_error
-!
-!###############################################################################
-!
-subroutine rgeterr(walltime_expiring)
-  !
-  !.. Use Statements ..
-  use, intrinsic :: ieee_exceptions, only : ieee_usual,ieee_get_flag
-  !
-  use order_mod,  only : maxEP
-  use geovar,  only : nr,ncell,cell
-  use geovar,  only : global_pinc_ptr
-  use ovar,    only : rlinf,rlone,rltwo,nloc,kloc,total_volume,gam,bc_in
-  use ovar,    only : itcur,d_t,time,rl2mx,minimum_timesteps,time_ref
-  use ovar,    only : convergence_reached,cfl,itestcase
-  use ovar,    only : convergence_order_max_res,convergence_order_abs_res
-  use ovar,    only : this_is_final_timestep
-  use ovar,    only : iter_out_interval
-  use ovar,    only : Period_Timesteps
-  use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
-  use parallel_mod, only : cell_map
-  use interpolation_mod, only : outerp
-  !
-  use pbs_mod, only : pbs_remaining_walltime
-  !
-  !.. Formal Arguments ..
-  logical(lk), intent(inout) :: walltime_expiring
-  !
-  !.. Local Scalars ..
-  integer  :: this_cell,n1,n2,np,m,l,k
-  integer  :: hrs_left,min_left,sec_left
-  integer  :: this_geom,this_order
-  integer  :: nentmax,kentmax
-  real(wp) :: xentmax,yentmax
-  real(wp) :: entmax,entL2
-  real(wp) :: rho,pres,sn,se,delx,dely
-  real(wp) :: wall_time_left,out_time
-  real(wp) :: orders_converged,output_L2val
-  !
-  character(len=300) :: overflow_error
-  character(len=300) :: divide_by_zero_error
-  character(len=300) :: invalid_error
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:maxEP) :: jac
-  real(wp), dimension(1:maxEP) :: weights
-  real(wp), dimension(1:nr,1:maxEP) :: xyz_err
-  real(wp), dimension(1:nq,1:maxEP) :: uold
-  real(wp), dimension(1:nq,1:maxEP) :: unew
-  real(wp), dimension(1:2) :: ett
-  real(wp), dimension(1:2,1:7) :: error
-  real(wp), dimension(1:2,1:7,1:ncpu) :: all_error
-  !
-  integer,      dimension(1:size(ieee_usual)) :: bad_number_found
-  logical(ldk), dimension(1:size(ieee_usual)) :: signaling_exceptions
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "rgeterr"
-  !
-  real(wp), parameter :: max_sec = real( 1000*3600-1 , kind=wp )
-  !
-  ! error(:,1) = L1 norm of total error for all solution points
-  ! error(:,2) = L2 norm of total error for all solution points
-  ! error(:,3) = maximum value of error for all solution points
-  ! error(:,4) = ID of grid cell containing maximum value of error
-  ! error(:,5) = ID of solution point with maximum value of error
-  ! error(:,6) = x-coordinate of solution point with maximum value of error
-  ! error(:,7) = y-coordinate of solution point with maximum value of error
-  ! error(1,:) = error values for density
-  ! error(2,:) = error values for entropy
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  overflow_error = ""
-  divide_by_zero_error = ""
-  invalid_error = ""
-  !
-  error(:,:) = zero  ! intialize everything to zero
-  error(:,3) = -eps6 ! make this slightly negative in case all error is zero
-  !
-  do this_cell = 1,ncell
+  do n = 1,2
     !
-    n1 = cell(this_cell)%beg_sp
-    n2 = cell(this_cell)%end_sp
-    np = n2-n1+1
+    ! n : 1 => conserved variables + entropy
+    !     2 => primitive variables (temp,vel,pres) + velocity magnitude
     !
-    this_geom = cell(this_cell)%geom
-    this_order = cell(this_cell)%order
+   !! L1 norm for the current set of variables
+   !uverr(:,1,n) =       sum(all_error(:,n,1,:),dim=2) / total_volume
+   !! L2 norm for the current set of variables
+   !uverr(:,2,n) = sqrt( sum(all_error(:,n,2,:),dim=2) / total_volume )
+   !! Infinity norm for the current set of variables
+   !uverr(:,3,n) = maxval(all_error(:,n,3,:),dim=2)
     !
-    if (allocated(outerp(this_geom,this_order)%error)) then
-      if (allocated(outerp(this_geom,this_order)%error%mat)) then
-        np = size(outerp(this_geom,this_order)%error%mat,dim=1)
-      end if
-    end if
-    !
-    call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
-                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
-    !
-    ! Now loop through the solution points of this cell to compute the
-    ! error between the solutions of the current and previous time steps
-    !
-    do k = 1,np
+    do m = 1,nq+1
       !
-      ! Get the change in density for this solution point
+      ! L1 norm for the current variable
+      uverr(m,1,n) =       sum(all_error(m,n,1,:)) / total_volume
+      ! L2 norm for the current variable
+      uverr(m,2,n) = sqrt( sum(all_error(m,n,2,:)) / total_volume )
+      ! Infinity norm for the current variable
+      uverr(m,3,n) = maxval(all_error(m,n,3,:))
       !
-      if (itestcase == Laminar_BndLyr) then
-        ett(1) = abs( unew(nmb,k) - uold(nmb,k) )
-      else
-        ett(1) = abs( unew(nec,k) - uold(nec,k) )
-      end if
-      !
-      ! Compute the entropy at this solution point
-      !
-      rho = unew(nec,k)
-      pres = pressure_cv_sp( unew(:,k) )
-      !
-      if (any([rho,pres] <= zero)) write (iout,111) this_cell,k,rho,pres
-      111 format ("cell = ",i0,"; SP = ",i0,"; ",*(1x,es14.6))
-      !
-      if (itestcase == Inviscid_Gaussian_Bump) then
-        sn = entropy_cv_sp( unew(:,k) , log_opt=fals , use_pref_nd=true )
-        se = one
-      else
-        sn = entropy_cv_sp( unew(:,k) )
-        se = entropy_cv_sp( bc_in(0)%cv(:) )
-      end if
-      !
-      ett(2) = sn - se
-      !
-      ! Get the norms of density and entropy
-      !
-      error(:,1) = error(:,1) + jac(k)*weights(k)*ett(:)
-      error(:,2) = error(:,2) + jac(k)*weights(k)*ett(:)*ett(:)
-      !
-      where (abs(ett(:)) > error(:,3))
-        error(:,3) = abs(ett)
-        error(:,4) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
-        error(:,5) = real(k,kind=wp)
-        error(:,6) = xyz_err(1,k)
-        error(:,7) = xyz_err(2,k)
-      end where
+      ! Processor with max inf norm for the current variable
+      k = maxloc(all_error(m,n,3,:),dim=1)
+      ! ID of grid cell with max inf norm for the current variable
+      uverr(m,4,n) = all_error(m,n,4,k)
+      ! ID of sol point with max inf norm for the current variable
+      uverr(m,5,n) = all_error(m,n,5,k)
+      ! Coordinates of sol point with max inf norm for the current variable
+      uverr(m,6:5+nr,n) = all_error(m,n,6:5+nr,k)
       !
     end do
     !
   end do
   !
-  ! Collect the error information from all processors
+  call debug_timer(leaving_procedure,pname)
   !
-  if (ncpu > 1) then
-    call mpi_allgather(error,    size(error,kind=int_mpi),mpi_flttyp, &
-                       all_error,size(error,kind=int_mpi),mpi_flttyp, &
-                       MPI_COMM_WORLD,mpierr)
-  else
-    all_error(:,:,1) = error(:,:)
-  end if
+  ! Format Statements
   !
-  rlinf = maxval(all_error(1,3,:))
-  nloc  = nint( all_error(1,4,maxloc(all_error(1,3,:),dim=1)) )
-  kloc  = nint( all_error(1,5,maxloc(all_error(1,3,:),dim=1)) )
+  1 format ("ERROR DETECTED! CPU #",i0," =>  cell=",i0,", SP=",i0," :",/, &
+            8x,"rho=",es13.6,", pres=",es13.6,", temp=",es13.6)
   !
-  entmax  = maxval(all_error(2,3,:))
-  nentmax = nint( all_error(2,4,maxloc(all_error(2,3,:),dim=1)) )
-  kentmax = nint( all_error(2,5,maxloc(all_error(2,3,:),dim=1)) )
-  xentmax =       all_error(2,6,maxloc(all_error(2,3,:),dim=1))
-  yentmax =       all_error(2,7,maxloc(all_error(2,3,:),dim=1))
+end subroutine compute_residual_error
+!
+!###############################################################################
+!
+subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
-  rlone =       sum(all_error(1,1,:)) / total_volume
-  rltwo = sqrt( sum(all_error(1,2,:)) / total_volume )
-  entL2 = sqrt( sum(all_error(2,2,:)) / total_volume )
+  !.. Use Statements ..
+  use geovar,  only : global_pinc_ptr
+  use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
+  use ovar,    only : convergence_reached,itestcase,Period_Timesteps
+  use ovar,    only : convergence_order_max_res,convergence_order_abs_res
+  use ovar,    only : uverr,this_is_final_timestep,iter_out_interval
+  use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
   !
+  use pbs_mod, only : pbs_remaining_walltime
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(inout) :: walltime_expiring
+  logical(lk), intent(  out) :: exit_main_loop
+  !
+  !.. Local Scalars ..
+  integer  :: hrs_left,min_left,sec_left
+  real(wp) :: xentmax,yentmax
+  real(wp) :: entL2
+  real(wp) :: wall_time_left,out_time
+  real(wp) :: orders_converged,output_L2val
+  real(wp) :: rltwo,nloc,kloc
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_iter_stats"
+  !
+continue
+  !
+  exit_main_loop = fals
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the density and entropy residual stats from uverr
+  !
+  rltwo = uverr(nec,2,1)
+  entL2 = uverr(nq+1,2,1)
+  !
+  nloc = nint( uverr(nec,4,1) )
+  kloc = nint( uverr(nec,5,1) )
+  !
+  ! Coordinates Location of the max inf norm for entropy
+  xentmax = uverr(nq+1,6,1)
+  yentmax = uverr(nq+1,7,1)
+  !
+  ! Maximum L2 norm of density for the current simulation
   rl2mx = max( rltwo , rl2mx )
   !
   if (any(itestcase == Transport_Problems)) then
@@ -358,7 +272,7 @@ continue
     if (vortex_has_collapsed) then
       !
       ! Need to subtract from final_countdown the number of time steps
-      ! that have been completed since the last call to rgeterr
+      ! that have been completed since the last call to write_iter_stats
       !
       final_countdown = max(final_countdown - iter_out_interval,0)
       !
@@ -395,7 +309,7 @@ continue
   !
   call pbs_remaining_walltime(walltime_expiring,wall_time_left)
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
     out_time = time*time_ref*time_scaling_factor
     if (output_time_averaging) then
@@ -445,35 +359,18 @@ continue
   ! we return from this subroutine to the main program.
   !
   if (vortex_has_collapsed .and. final_countdown==0) then
-    if (mypnum == 0) write (iout,6)
+    if (mypnum == glb_root) write (iout,6)
     convergence_reached = true
   end if
   !
-  ! Check to make sure that no floating-point exceptions are signaling
-  !
- !call ieee_get_flag(ieee_usual,signaling_exceptions)
- !!
- !bad_number_found = merge(1,0,signaling_exceptions)
- !!
- !call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
- !                   size(bad_number_found,kind=int_mpi), &
- !                   mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
- !!
- !if (sum(bad_number_found) > 0) then
- !  if (bad_number_found(1) > 0) write (overflow_error,8)
- !  if (bad_number_found(2) > 0) write (divide_by_zero_error,9)
- !  if (bad_number_found(3) > 0) write (invalid_error,10)
- !  write (error_message,7) trim(overflow_error), &
- !                          trim(divide_by_zero_error), &
- !                          trim(invalid_error)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
- !end if
+  if (convergence_reached) exit_main_loop = true
+  if (this_is_final_timestep) exit_main_loop = true
+  if (walltime_expiring) exit_main_loop = true
   !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format (i9,4(1x,es11.4),2i8,2es9.1,1x,i3,2(":",i2.2))
   2 format (/,"*******************************************************",/, &
               " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
@@ -495,23 +392,16 @@ continue
               " RUN ANOTHER 25 PERIODS PAST THE POINT OF COLLAPSE!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
               "******************************************************",/)
-  7 format ("A SIGNALING FLOATING POINT EXCEPTION WAS ", &
-            "DETECTED WHILE COMPUTING THE RESIDUAL NORM!!!", &
-            3(2x,a,:))
   !
-  8  format ("OVERFLOW EXCEPTION DETECTED!!!")
-  9  format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
-  10 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
-  !
-end subroutine rgeterr
+end subroutine write_iter_stats
 !
 !###############################################################################
 !
 subroutine init_generic_mod
   !
   !.. Use Statements ..
-  use geovar, only : n_global_cell,n_global_solpts
-  use ovar,   only : itcur,num_ts,rl2mx,itestcase
+  use geovar, only : nr,n_global_cell,n_global_solpts
+  use ovar,   only : itcur,num_ts,itestcase
   use ovar,   only : uverr,output_time_averaging
   !
   use pbs_mod, only : pbs_remaining_walltime
@@ -537,13 +427,11 @@ continue
   ! Allocate the error array
   !
   if (.not. allocated(uverr)) then
-    allocate ( uverr(1:nq+1,1:5,1:2) , source=zero , &
+    allocate ( uverr(1:nq+1,1:5+nr,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uverr",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
   end if
-  !
-  rl2mx = -huge(zero)
   !
   write (char_num,1) itcur + num_ts
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
@@ -653,33 +541,13 @@ end subroutine init_generic_mod
 !
 subroutine getmaxent
   !
-  !... get max entropy
-  !
   !.. Use Statements ..
-  use order_mod,         only : maxEP,e_order
-  use geovar,            only : nr,ncell,cell,xyz
-  use ovar,              only : gam,bc_in,total_volume,itestcase
-  use flowvar,           only : usp
-  use parallel_mod,      only : cell_map
-  use quadrature_mod,    only : std_elem
-  use interpolation_mod, only : outerp
+  use ovar, only : uverr
   !
   !.. Local Scalars ..
-  integer  :: this_cell,n1,n2,np,m,l,k
-  integer  :: this_geom,this_order
   integer  :: nentmax,kentmax
-  real(wp) :: xentmax,yentmax
-  real(wp) :: entmax,entL2
-  real(wp) :: ett,sn,se
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:maxEP) :: jac
-  real(wp), dimension(1:maxEP) :: weights
-  real(wp), dimension(1:nr,1:maxEP) :: xyz_err
-  real(wp), dimension(1:nq,1:maxEP) :: unew
-  real(wp), dimension(1:nq,1:maxEP) :: uold
-  real(wp), dimension(1:6) :: error
-  real(wp), dimension(1:6,1:ncpu) :: all_error
+  real(wp) :: xentmax,yentmax,zentmax
+  real(wp) :: entmax,entL1,entL2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "getmaxent"
@@ -688,100 +556,16 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  error(:) = zero  ! intialize everything to zero
-  error(2) = -eps6 ! make this slightly negative in case all error is zero
-  !
-  do this_cell = 1,ncell
-    !
-    n1 = cell(this_cell)%beg_sp
-    n2 = cell(this_cell)%end_sp
-    np = n2-n1+1
-    !
-    this_geom = cell(this_cell)%geom
-    this_order = cell(this_cell)%order
-    !
-    if (allocated(outerp(this_geom,this_order)%error)) then
-      if (allocated(outerp(this_geom,this_order)%error%mat)) then
-        np = size(outerp(this_geom,this_order)%error%mat,dim=1)
-      end if
-    end if
-    !
-    ! Interpolate the new and old solution to the error points
-    !
-    call collect_error_arrays(this_cell,unew(1:nq,1:np),uold(1:nq,1:np), &
-                              jac(1:np),weights(1:np),xyz_err(1:nr,1:np))
-    !
-   !if (allocated(outerp(this_geom,this_order)%error)) then
-   !  np = size(outerp(this_geom,this_order)%error%mat,dim=1)
-   !  do l = 1,nr
-   !    xyz_err(l,1:np) = outerp(this_geom,this_order)% &
-   !                                             error% &
-   !                      mv_mult( xyz(l,n1:n2) )
-   !  end do
-   !  do m = 1,nq
-   !    unew(m,1:np) = outerp(this_geom,this_order)% &
-   !                                          error% &
-   !                   mv_mult( usp(m,n1:n2) )
-   !  end do
-   !  jac(1:np) = outerp(this_geom,this_order)% &
-   !                                     error% &
-   !              mv_mult( jacobian(n1:n2) )
-   !  weights(1:np) = outerp(this_geom,this_order)%err_wts
-   !else
-   !  xyz_err(1:nr,1:np) = xyz(1:nr,n1:n2)
-   !  unew(1:nq,1:np) = usp(1:nq,n1:n2)
-   !  jac(1:np) = jacobian(n1:n2)
-   !  weights(1:np) = std_elem(this_geom,this_order)%wts
-   !end if
-    !     
-    ! Now loop through the solution points of this cell to compute the
-    ! error between the solutions of the current and previous time steps
-    !
-    do k = 1,np
-      !
-      if (itestcase == Inviscid_Gaussian_Bump) then
-        sn = entropy_cv_sp( unew(:,k) , log_opt=fals , use_pref_nd=true )
-        se = one
-      else
-        sn = entropy_cv_sp( unew(:,k) )
-        se = entropy_cv_sp( bc_in(0)%cv(:) )
-      end if
-      !
-      ett = sn - se
-      !
-      ! L2 norm of entropy
-      !
-      error(1) = error(1) + jac(k)*weights(k)*ett*ett
-      !
-      if (abs(ett) > error(2)) then
-        error(2) = abs(ett)
-        error(3) = real(cell_map(mypnum+1)%loc_to_glb(this_cell),kind=wp)
-        error(4) = real(k,kind=wp)
-        error(5) = xyz_err(1,k)
-        error(6) = xyz_err(2,k)
-      end if
-      !
-    end do
-    !
-  end do
-  !
-  ! Collect the error information from all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allgather(error,    size(error,kind=int_mpi),mpi_flttyp, &
-                       all_error,size(error,kind=int_mpi),mpi_flttyp, &
-                       MPI_COMM_WORLD,mpierr)
-  else
-    all_error(:,1) = error(:)
-  end if
-  !
-  entmax  = maxval(all_error(2,:))
-  nentmax = nint( all_error(3,maxloc(all_error(2,:),dim=1)) )
-  kentmax = nint( all_error(4,maxloc(all_error(2,:),dim=1)) )
-  xentmax =       all_error(5,maxloc(all_error(2,:),dim=1))
-  yentmax =       all_error(6,maxloc(all_error(2,:),dim=1))
-  !
-  entL2 = sqrt( sum(all_error(1,:)) / total_volume )
+  entL1   =       uverr(nq+1,1,1)
+  entL2   =       uverr(nq+1,2,1)
+  entmax  =       uverr(nq+1,3,1)
+  nentmax = nint( uverr(nq+1,4,1) )
+  kentmax = nint( uverr(nq+1,5,1) )
+  xentmax =       uverr(nq+1,6,1)
+  if (size(uverr,dim=2) >= 7) &
+  yentmax =       uverr(nq+1,7,1)
+  if (size(uverr,dim=2) == 8) &
+  zentmax =       uverr(nq+1,8,1)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -789,8 +573,7 @@ end subroutine getmaxent
 !
 !###############################################################################
 !
-subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err, &
-                                vnew,vold)
+subroutine collect_error_arrays(this_cell,unew,uold,wtdjac,xyz_err,vnew,vold)
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP
@@ -809,8 +592,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,jac,weights,xyz_err, &
   real(wp), dimension(:,:), intent(inout) :: unew
   real(wp), dimension(:,:), intent(inout) :: uold
   real(wp), dimension(:,:), intent(inout) :: xyz_err
-  real(wp), dimension(:),   intent(inout) :: jac
-  real(wp), dimension(:),   intent(inout) :: weights
+  real(wp), dimension(:),   intent(inout) :: wtdjac
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(inout) :: vnew(:,:)
@@ -917,38 +699,26 @@ continue
   ! ## 2 ##
   ! #######
   !
-  ! Get the local jacobians at the error points
+  ! Get the value of the metric jacobians multiplied
+  ! by the quadrature weights at the error points
   !
   if (use_error_matrix) then
     !
-    jac(1:nep) = outerp(this_geom,this_order)% &
-                                        error% &
-                 mv_mult( metrics_dt(this_cell)%jac(:) )
+    wtdjac(1:nep) = outerp(this_geom,this_order)% &
+                                           error% &
+                    mv_mult( metrics_dt(this_cell)%jac(:) )
+    !
+    wtdjac(1:nep) = wtdjac(1:nep) * outerp(this_geom,this_order)%err_wts
     !
   else
     !
-    jac(1:nep) = metrics_dt(this_cell)%jac(:)
+    wtdjac(1:nep) = metrics_dt(this_cell)%jac(:) * &
+                    std_elem(this_geom,this_order)%wts
     !
   end if
   !
   ! #######
   ! ## 3 ##
-  ! #######
-  !
-  ! Get the quadrature weights for the error points
-  !
-  if (use_error_matrix) then
-    !
-    weights(1:nep) = outerp(this_geom,this_order)%err_wts
-    !
-  else
-    !
-    weights(1:nep) = std_elem(this_geom,this_order)%wts
-    !
-  end if
-  !
-  ! #######
-  ! ## 4 ##
   ! #######
   !
   ! Get the coordinates of the error points
@@ -968,11 +738,13 @@ continue
   end if
   !
   ! #######
-  ! ## 5 ##
+  ! ## 4 ##
   ! #######
   !
-  ! Get either (a) the exact analytical solution or (b) solution from
-  ! the previous time step at the error points.
+  ! Get either
+  !   (a) the exact analytical solution or
+  !   (b) solution from the previous time step
+  ! at the error points.
   !
   if (mms_opt /= 0) then
     !
