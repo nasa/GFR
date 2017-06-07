@@ -231,11 +231,12 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   !
   !.. Local Scalars ..
   integer  :: hrs_left,min_left,sec_left
+  integer  :: nloc,kloc
   real(wp) :: xentmax,yentmax
   real(wp) :: entL2
   real(wp) :: wall_time_left,out_time
   real(wp) :: orders_converged,output_L2val
-  real(wp) :: rltwo,nloc,kloc
+  real(wp) :: rltwo
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_iter_stats"
