@@ -261,13 +261,6 @@ module ovar
   !
   real(wp), public, save :: betark(4,4)
   !
-  integer,  public, save :: nloc
-  integer,  public, save :: kloc
-  real(wp), public, save :: rlinf
-  real(wp), public, save :: rlone
-  real(wp), public, save :: rltwo
-  real(wp), public, save :: rl2mx
-  !
   real(wp), public, save, allocatable :: uverr(:,:,:)
   !
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
