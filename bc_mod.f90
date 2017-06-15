@@ -1204,6 +1204,10 @@ continue
       write (iout,2) "aspd_ext = ",aspd_ext
       write (iout,2) "vel      = ",vel
       write (iout,2) "veln_int = ",veln_int
+      write (iout,2) "aoa      = ",aoa
+      write (iout,2) "tan_aoa  = ",tan_aoa
+      write (iout,2) "dir_cos1 = ",dir_cos(1)
+      write (iout,2) "dir_cos2 = ",dir_cos(2)
       1 format (a,i0)
       2 format (a,es14.6)
       ierr = ierr + 1
