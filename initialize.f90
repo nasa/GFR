@@ -110,6 +110,10 @@ continue
     !
   else
     !
+    if (itestcase == Nozzle_Jet) then
+      call find_elem_for_initial_jet_profile
+    end if
+    !
     allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"xyz_init",1,__LINE__,__FILE__,ierr,error_message)
@@ -433,7 +437,13 @@ continue
     !
   else if (itestcase == Nozzle_Jet) then
     !
-    if (init_cond /= 0) then
+    if (init_cond == 2) then
+      !
+      do k = 1,np
+        return_value(:,k) = jet_profile2(xyz(1,k),bc_in(0)%pv(:))
+      end do
+      !
+    else if (init_cond /= 0) then
       !
       ! div = thickness parameter for shear layer
       !     = (radius of nozzle at the lip) * 0.1
@@ -530,13 +540,125 @@ continue
   !
   return_value(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
   return_value(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
-  return_value(nmy) = zero
-  return_value(nmz) = zero
+  return_value(nmx+1:nme) = zero
+ !return_value(nmz) = zero
   return_value(nee) = fs_pv(nee)
   !
   return_value(:) = vsp2u_sp( return_value(:) )
   !
 end function jet_profile
+!
+!###############################################################################
+!
+pure function jet_profile2(x,fs_pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : gam,grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: fs_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  real(wp) :: aspd,mach,xbeg,func
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  !
+  !.. Local Parameters ..
+  real(wp), parameter :: nozzle_len = 9.875_wp
+  !
+continue
+  !
+  ! Initialize to the free-stream primitive variables
+  !
+  return_value(:) = fs_pv(:)
+  !
+  ! If within the nozzle, initialize the velocity mach number to
+  ! a minimum of 0.05 at the inflow plane and use the error function
+  ! to smoothly transition this to the free-stream mach number within
+  ! the interior of the nozzle.
+  !
+  if (x < zero) then
+    !
+    aspd = sqrt(max(gam*fs_pv(nee)/fs_pv(nec),rndoff))
+    mach = norm2(fs_pv(nmb:nme)) / aspd
+    !
+    if (mach < 0.05_wp) then
+      !
+      xbeg = nozzle_len*grid_scaling_factor
+      !
+      func = half * (one - erf((ten/xbeg)*abs(x)-seven))
+      !
+      vel(:) = 0.05_wp * aspd * unit_vector( fs_pv(nmb:nme) )
+      !
+      return_value(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
+      !
+    end if
+    !
+  end if
+  !
+  return_value(:) = vsp2u_sp( return_value(:) )
+  !
+end function jet_profile2
+!
+!###############################################################################
+!
+subroutine find_elem_for_initial_jet_profile
+  !
+  !.. Use Statements ..
+  use geovar, only : grid
+  !
+  !.. Local Scalars ..
+  integer :: l,n,init
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_ave(1:3)
+  !
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: pts(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "find_elem_for_initial_jet_profile"
+  !
+ !integer, parameter :: init_val = 1 ! radial error function profile
+  integer, parameter :: init_val = 2 ! inflow mach number limiter
+  !
+continue
+  !
+  xyz_ave(:) = zero
+  !
+  do n = 1,size(grid%elem)
+    !
+    if (grid%elem(n)%tags(1) == 0) then
+      !
+      pts = grid%elem(n)%pts(:) ! USING F2003 AUTO-REALLOCATION
+      !
+      do l = 1,size(grid%xyz,dim=1)
+        xyz_ave(l) = sum(grid%xyz(l,pts(:))) / real(size(pts),kind=wp)
+      end do
+      ! 
+      if (xyz_ave(1) > zero) then
+        init = init_val
+      else
+        init = merge(init_val,0,point_is_in_nozzle_interior(xyz_ave))
+      end if
+      !
+      if (size(grid%elem(n)%tags) < 2) then
+        grid%elem(n)%tags = [grid%elem(n)%tags(1),init] ! F2003 AUTO-REALLOC
+      else
+        grid%elem(n)%tags(2) = init
+      end if
+      !
+    end if 
+    !
+  end do
+  !
+end subroutine find_elem_for_initial_jet_profile
 !
 !###############################################################################
 !
@@ -1270,7 +1392,7 @@ subroutine create_bc_in
   !
   !.. Local Scalars ..
   integer     :: i,ii,n,nf,nbc,ierr
-  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd
+  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
   real(wp)    :: alpha,beta,rhoa2,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
   logical(lk) :: static_is_set
@@ -1476,8 +1598,12 @@ continue
           alpha = alpha * radians2degrees
           beta = beta * radians2degrees
           !
+          visc = viscosity_pv_sp( [r,vel,p] )
+          !
+          reyn = rnorm2(vel)*r/visc
+          !
           write (iout,4) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
-          write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta
+          write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
           !
         end if
         !
@@ -1545,7 +1671,9 @@ continue
             4x,"Total Pressure        = ",es14.6,/, &
             4x,"Total Temperature     = ",es14.6,/, &
             4x,"Alpha Angle of Attack = ",es14.6,/, &
-            4x,"Beta  Angle of Attack = ",es14.6,/)
+            4x,"Beta  Angle of Attack = ",es14.6,/, &
+            4x,"Viscosity             = ",es14.6,/, &
+            4x,"Reynolds #            = ",es14.6,/)
   6 format (4x,"Number of boundary faces for this BC = ",i0)
   !
 end subroutine create_bc_in
