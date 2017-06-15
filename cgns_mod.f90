@@ -3842,54 +3842,10 @@ end subroutine create_nozzle_outflow_faces
 !
 !###############################################################################
 !
-pure function point_is_in_nozzle_interior(xyz) result(return_value)
-  !
-  ! NOTE: This function assumes the incoming xyz is in meters
-  !       since all the parameter coordinates are in meters.
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: xyz(:)
-  !
-  !.. Function Result ..
-  logical(lk) :: return_value
-  !
-  !.. Local Scalars ..
-  real(wp) :: x,r,radius
-  !
-  !.. Local Parameters ..
-  real(wp), parameter :: x_in   = -0.250825_wp
-  real(wp), parameter :: y_in   =  0.0762_wp
-  real(wp), parameter :: x_exit =  0.0_wp
-  !
-  real(wp), parameter :: eps_1 = eps6
-  real(wp), parameter :: eps_2 = eps3
-  !
-continue
-  !
-  return_value = fals
-  !
-  x = xyz(1)
-  !
-  if (x >= x_in-eps_1 .and. x < x_exit-eps_1) then
-    !
-    r = norm2(xyz(2:))
-    !
-    if (r <= y_in+eps_1) then
-      radius = smc000_interior_wall_radius(x,eps_1,eps_2)
-      return_value = ( r <= radius )
-    end if
-    !
-  end if
-  !
-end function point_is_in_nozzle_interior
-!
-!###############################################################################
-!
 subroutine find_elem_for_initial_jet_profile
   !
   !.. Use Statements ..
   use geovar, only : grid
-  use geovar, only : nr,bface,nodes_of_cell,nodes_of_cell_ptr
   !
   !.. Local Scalars ..
   integer :: l,n,init
