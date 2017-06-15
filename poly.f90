@@ -201,7 +201,9 @@ module polynomial_mod
   !
   interface eval_LagrangePoly1D
     module procedure eval_LagrangePoly1D_DP, &
-                     eval_LagrangePoly1D_QP
+                     eval_LagrangePoly1D_QP, &
+                     eval_LagrangePoly1D_arrays_DP, &
+                     eval_LagrangePoly1D_arrays_QP
   end interface eval_LagrangePoly1D
   !
   interface eval_LagrangePoly2D
@@ -3944,6 +3946,90 @@ continue
                  product( xi(k)-xi(1:nfp) , imask /= k )
   !
 end function eval_LagrangePoly1D_QP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly1D_arrays_DP(x,xi) result(return_value)
+  !
+  ! Get the values of the 1D Lagrange polynomials at point x
+  !
+  ! X  : Location at which to evaluate the k-th Lagrange polynomial
+  ! XI : Array of all the interpolation points
+  !
+  ! This evaluates the Lagrange polynomial at the location x.
+  ! The Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points xi(i) for i=1,nfp
+  ! except at xi(k) where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  real(lp),               intent(in) :: x
+  real(lp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(xi))
+  !
+  !.. Local Scalars ..
+  integer :: i,k,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  !
+continue
+  !
+  nfp = size(xi)
+  imask(:) = intseq(1,nfp)
+  !
+  do k = 1,nfp
+    return_value(k) = product( x    -xi(1:nfp) , imask /= k ) / &
+                      product( xi(k)-xi(1:nfp) , imask /= k )
+  end do
+  !
+end function eval_LagrangePoly1D_arrays_DP
+!
+!###############################################################################
+!
+pure function eval_LagrangePoly1D_arrays_QP(x,xi) result(return_value)
+  !
+  ! Get the values of the 1D Lagrange polynomials at point x
+  !
+  ! X  : Location at which to evaluate the k-th Lagrange polynomial
+  ! XI : Array of all the interpolation points
+  !
+  ! This evaluates the Lagrange polynomial at the location x.
+  ! The Lagrange polynomial corresponds to a function that
+  ! is zero at all iterpolation points xi(i) for i=1,nfp
+  ! except at xi(k) where the function is equal to 1.
+  !
+  !.. Function Precision ..
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  real(lp),               intent(in) :: x
+  real(lp), dimension(:), intent(in) :: xi
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(xi))
+  !
+  !.. Local Scalars ..
+  integer :: i,k,nfp
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:size(xi)) :: imask
+  !
+continue
+  !
+  nfp = size(xi)
+  imask(:) = intseq(1,nfp)
+  !
+  do k = 1,nfp
+    return_value(k) = product( x    -xi(1:nfp) , imask /= k ) / &
+                      product( xi(k)-xi(1:nfp) , imask /= k )
+  end do
+  !
+end function eval_LagrangePoly1D_arrays_QP
 !
 !###############################################################################
 !
