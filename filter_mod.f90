@@ -5,9 +5,11 @@ module filter_mod
   !
   use generic_types_mod, only : matrix
   !
-  use ovar, only : Filter_Option,Filter_etac
-  use ovar, only : Filter_Order,Filter_Alpha
-  use ovar, only : Filter_eps
+  use ovar, only : Filter_Option,Limiter_Filter_Option
+  use ovar, only : Filter_etac,  Limiter_Filter_etac
+  use ovar, only : Filter_Order, Limiter_Filter_Order
+  use ovar, only : Filter_Alpha, Limiter_Filter_Alpha
+  use ovar, only : Filter_eps,   Limiter_Filter_eps
   !
   implicit none
   !
@@ -28,6 +30,8 @@ module filter_mod
     ! exponential : matrix to filter a polynomial by multiplying the polynomial
     !               modes by an exponentially decreasing function
     type(matrix), allocatable :: exponential
+    ! limiter : filter matrix to use as a limiter for troubled cells
+    type(matrix), allocatable :: limiter
     ! cutoff : matrix to filter a polynomial by
     !          cutting-off (zeroing) higher modes
     type(matrix), allocatable :: cutoff(:)
@@ -183,11 +187,80 @@ continue
       if (associated(fmat)) fmat => null()
       if (associated(filt)) filt => null()
       !
+      ! ###############################
+      ! #####  2. Limiter Filter  #####
+      ! ###############################
+      !
+      ! Allocate the limiter filter matrix
+      !
+      allocate ( filter(this_geom,this_order)%limiter , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"limiter"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Assign local pointers as aliases to simplify the code
+      !
+      filt => filter(this_geom,this_order)%limiter
+      !
+      ! Allocate the limiter filter matrix
+      !
+      allocate ( filt%mat(1:npts,1:npts) , &
+                 source=zero , stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"limiter%mat"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Assign local pointers as aliases to simplify the code
+      !
+      fmat => filt%mat
+      !
+      ! Compute the filter matrices depending on geometry type
+      !
+      select case (this_geom)
+        case (Geom_Edge)
+          !
+          fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Tria)
+          !
+          fmat = FilterMatrix_Tria( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Quad)
+          !
+          fmat = FilterMatrix_Quad( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Tetr)
+          !
+          fmat = FilterMatrix_Tetr( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Pyra)
+          !
+          fmat = FilterMatrix_Pyra( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Pris)
+          !
+          fmat = FilterMatrix_Pris( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case (Geom_Hexa)
+          !
+          fmat = FilterMatrix_Hexa( vmat , vmat_inv , cutoff_order=-1 )
+          !
+        case default
+          !
+          write (error_message,100)
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          !
+      end select
+      !
+      ! Remove all associations of the local pointers before continuing
+      !
+      if (associated(fmat)) fmat => null()
+      if (associated(filt)) filt => null()
+      !
       ! ################################
-      ! #####  2. Cut-Off Filters  #####
+      ! #####  3. Cut-Off Filters  #####
       ! ################################
       !
-      ! Allocate the exponential filter matrix
+      ! Allocate the cutoff filter matrix
       !
       allocate ( filter(this_geom,this_order)%cutoff(1:this_order) , &
                  stat=ierr , errmsg=error_message )
@@ -200,7 +273,7 @@ continue
         !
         filt => filter(this_geom,this_order)%cutoff(cutoff_order)
         !
-        ! Allocate the exponential filter matrix
+        ! Allocate the cutoff filter matrix
         !
         allocate ( filt%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
@@ -276,6 +349,9 @@ continue
       if (allocated(filter(this_geom,this_order)%exponential)) then
         call filter(this_geom,this_order)%exponential%check_for_sparsity
       end if
+      if (allocated(filter(this_geom,this_order)%limiter)) then
+        call filter(this_geom,this_order)%limiter%check_for_sparsity
+      end if
       if (allocated(filter(this_geom,this_order)%cutoff)) then
         call filter(this_geom,this_order)%cutoff%check_for_sparsity
       end if
@@ -343,7 +419,7 @@ pure function FilterMatrix_Edge(vand,vand_inv,cutoff_order) result(return_value)
   real(wp), dimension(:,:), intent(in) :: vand_inv
   !
   !.. Optional Arguments ..
-  integer, optional, intent(in) :: cutoff_order
+  integer,  optional, intent(in) :: cutoff_order
   !
   !.. Function Return Value ..
   real(wp), allocatable :: return_value(:,:)
@@ -352,6 +428,7 @@ pure function FilterMatrix_Edge(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -371,11 +448,23 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order
-    fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -411,7 +500,7 @@ continue
         if (rd_qp == qzero) then
           fmat_qp(i+1,i+1) = feps_qp
         else
-          fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**Filter_Order)
+          fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
         end if
         !
       end if
@@ -452,6 +541,7 @@ function FilterMatrix_Quad(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -474,12 +564,24 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    i = merge(2,1,local_Filter_Option==2)
-    Filter_Cutoff = i*cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      i = merge(2,1,local_Filter_Option==2)
+      Filter_Cutoff = i*cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -525,7 +627,7 @@ continue
           filter_1D_qp(i+1) = feps_qp
         else
           filter_1D_qp(i+1) = feps_qp * &
-                              exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+                              exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
         end if
         !
       end if
@@ -563,7 +665,7 @@ continue
           if (rd_qp == qzero) then
             fmat_qp(k,k) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
@@ -605,6 +707,7 @@ pure function FilterMatrix_Tria(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -624,11 +727,23 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -667,7 +782,7 @@ continue
           if (rd_qp == qzero) then
             fmat_qp(k,k) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
@@ -711,6 +826,7 @@ pure function FilterMatrix_Tetr(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -730,11 +846,23 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -773,7 +901,7 @@ continue
           if (rd_qp == qzero) then
             fmat_qp(k,k) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
@@ -817,6 +945,7 @@ pure function FilterMatrix_Pyra(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -836,11 +965,23 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -879,7 +1020,7 @@ continue
           if (rd_qp == qzero) then
             fmat_qp(k,k) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
@@ -923,6 +1064,7 @@ pure function FilterMatrix_Pris(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -942,11 +1084,23 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    Filter_Cutoff = cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -985,7 +1139,7 @@ continue
           if (rd_qp == qzero) then
             fmat_qp(k,k) = feps_qp
           else
-            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+            fmat_qp(k,k) = feps_qp*exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
           end if
           !
         end if
@@ -1029,6 +1183,7 @@ pure function FilterMatrix_Hexa(vand,vand_inv,cutoff_order) result(return_value)
   integer  :: i,j,k,l,np,nsp,order
   integer  :: Filter_Cutoff,ierr
   integer  :: local_Filter_Option
+  integer  :: filt_order
   real(qp) :: rd_qp,fetac_qp
   real(qp) :: rn_qp,falpha_qp
   real(qp) :: feps_qp
@@ -1051,12 +1206,24 @@ continue
   !
   falpha_qp = real( Filter_Alpha , kind=qp )
   !
+  filt_order = Filter_Order
+  !
   if (present(cutoff_order)) then
-    local_Filter_Option = Cutoff_Filter_Option
-    i = merge(3,1,local_Filter_Option==2)
-    Filter_Cutoff = i*cutoff_order
-    fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
-    feps_qp = qzero
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      i = merge(3,1,local_Filter_Option==2)
+      Filter_Cutoff = i*cutoff_order
+      fetac_qp = real(Filter_Cutoff,kind=qp) / real(i*order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
   else
     fetac_qp  = real( Filter_etac , kind=qp )
     Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
@@ -1102,7 +1269,7 @@ continue
           filter_1D_qp(i+1) = feps_qp
         else
           filter_1D_qp(i+1) = feps_qp * &
-                              exp(-falpha_qp * (rn_qp/rd_qp)**Filter_Order)
+                              exp(-falpha_qp * (rn_qp/rd_qp)**filt_order)
         end if
         !
       end if
@@ -1143,7 +1310,7 @@ continue
             if (rd_qp == qzero) then
               fmat_qp(l,l) = feps_qp
             else
-              fmat_qp(l,l) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**Filter_Order)
+              fmat_qp(l,l) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
             end if
             !
           end if
