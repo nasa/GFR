@@ -196,7 +196,7 @@ subroutine limit_by_projecting
   use flowvar,    only : usp
   use projection_mod, only : projct
   use filter_mod, only : filter
-  use ovar, only : Filter_Option
+  use ovar, only : Limiter_Filter_Option
   !
   !.. Local Scalars ..
   integer :: k,m,n1,n2,nc,np,ntc
@@ -274,10 +274,10 @@ continue
       ! Apply the limiter by multplying the projection matrix with
       ! the solution in the current cell
       !
-      if (Filter_Option /= 0) then
+      if (Limiter_Filter_Option /= 0) then
         do m = 1,nq
           usp(m,n1:n2) = filter(this_geom,this_order)% &
-                                          exponential% &
+                                              limiter% &
                          mv_mult( tusp(1:np,m) )
         end do
         troubled_cell(nc) = fals ! only filter once
