@@ -119,6 +119,12 @@ module ovar
   !
   integer,  public, save :: Limiter_Option = 0
   !
+  integer,  public, save :: Limiter_Filter_Option = 0
+  integer,  public, save :: Limiter_Filter_Order  = 16
+  real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
+  real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
+  real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
+  !
   integer,  public, save :: Filter_Option = 0
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
@@ -537,8 +543,11 @@ module input_namelist_mod
   use ovar,      only : alpha_aoaref, beta_aoaref
   use ovar,      only : profile_io_all,profile_io_cgns,profile_io_restart
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
-  use ovar,      only : Filter_Option, Filter_etac, Filter_Order
-  use ovar,      only : Filter_Alpha, Filter_eps
+  use ovar,      only : Filter_Option, Limiter_Filter_Option
+  use ovar,      only : Filter_etac,   Limiter_Filter_etac
+  use ovar,      only : Filter_Order,  Limiter_Filter_Order
+  use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
+  use ovar,      only : Filter_eps,    Limiter_Filter_eps
   use ovar,      only : Limiter_Option
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
@@ -632,6 +641,10 @@ module input_namelist_mod
   ! FILTER OPTIONS
   namelist / input / Filter_Option, Filter_etac, Filter_Order, &
                      Filter_Alpha, Filter_eps
+  ! LIMITER FILTER OPTIONS
+  namelist / input / Limiter_Filter_Option, Limiter_Filter_etac, &
+                     Limiter_Filter_Order, Limiter_Filter_Alpha, &
+                     Limiter_Filter_eps
   ! LIMITER OPTIONS
   namelist / input / Limiter_Option
   ! VORTEX CONSTANTS
