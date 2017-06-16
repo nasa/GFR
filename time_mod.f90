@@ -908,12 +908,16 @@ continue
   !
   ! Apply the filter
   !
+  if (Filter_Option > 0) then
+    call filter_usp
+  end if
+  !
+  ! Apply the limiter
+  !
   if (Limiter_Option == -1) then
     call resolution_indicator(apply_projection=true)
   else if (Limiter_Option >= 1) then
     call limit_by_projecting
-  else if (Filter_Option > 0) then
-    call filter_usp
   end if
   !
 end subroutine rupdate_Classic_RK
@@ -961,12 +965,16 @@ continue
   !
   ! Apply the filter
   !
+  if (Filter_Option > 0) then
+    call filter_usp
+  end if
+  !
+  ! Apply the limiter
+  !
   if (Limiter_Option == -1) then
     call resolution_indicator(apply_projection=true)
   else if (Limiter_Option >= 1) then
     call limit_by_projecting
-  else if (Filter_Option > 0) then
-    call filter_usp
   end if
   !
 end subroutine rupdate_CK4_RK
@@ -1003,12 +1011,16 @@ continue
   !
   ! Apply the filter
   !
+  if (Filter_Option > 0) then
+    call filter_usp
+  end if
+  !
+  ! Apply the limiter
+  !
   if (Limiter_Option == -1) then
     call resolution_indicator(apply_projection=true)
   else if (Limiter_Option >= 1) then
     call limit_by_projecting
-  else if (Filter_Option > 0) then
-    call filter_usp
   end if
   !
 end subroutine rupdate_TVD2_RK
@@ -1045,12 +1057,16 @@ continue
   !
   ! Apply the filter
   !
+  if (Filter_Option > 0) then
+    call filter_usp
+  end if
+  !
+  ! Apply the limiter
+  !
   if (Limiter_Option == -1) then
     call resolution_indicator(apply_projection=true)
   else if (Limiter_Option >= 1) then
     call limit_by_projecting
-  else if (Filter_Option > 0) then
-    call filter_usp
   end if
   !
 end subroutine rupdate_TVD3_RK
@@ -1112,12 +1128,16 @@ continue
   !
   ! Apply the filter
   !
+  if (Filter_Option > 0) then
+    call filter_usp
+  end if
+  !
+  ! Apply the limiter
+  !
   if (Limiter_Option == -1) then
     call resolution_indicator(apply_projection=true)
   else if (Limiter_Option >= 1) then
     call limit_by_projecting
-  else if (Filter_Option > 0) then
-    call filter_usp
   end if
   !
 end subroutine rupdate_TVD4_RK
