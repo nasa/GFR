@@ -345,6 +345,8 @@ subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "resolution_indicator"
   real(wp),         parameter :: dpsi = half
+  real(wp),         parameter :: c1 = four
+  real(wp),         parameter :: c2 = 4.25_wp
   !
 continue
   !
@@ -366,7 +368,8 @@ continue
     ord_add = p_order
   else
     ord_mlt = 1
-    ord_add = 0
+   !ord_add = 0
+    ord_add = -1
   end if
   !
   do nc = 1,ncell
@@ -420,8 +423,7 @@ continue
     !
     marker(nc) = log10( l2_pm1 / l2_p )
     !
-    psi0 = -one*(four + 4.25_wp*log10(real(cutoff_order,kind=wp)))
-   !psi0 = -one*(2.25_wp + three*log10(real(cutoff_order,kind=wp)))
+    psi0 = -one*(c1 + c2*log10(real(cutoff_order,kind=wp)))
     !
     if (marker(nc) <= psi0-dpsi) then
       scaled_marker(nc) = zero
@@ -533,6 +535,10 @@ subroutine jump_indicator(troubled_cell)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "jump_indicator"
   real(wp), parameter :: dpsi = half
+  real(wp), parameter :: c1 = 2.25_wp
+ !real(wp), parameter :: c1 = three
+  real(wp), parameter :: c2 = three
+ !real(wp), parameter :: c2 = three
   !
 continue
   !
@@ -623,6 +629,8 @@ continue
     !
   end do
   !
+ !marker(1:ncell) = marker(1:ncell) / area_sum(1:ncell)
+  !
   where (marker(:) > zero)
     marker(:) = log10( marker(:) )
   else where
@@ -631,7 +639,7 @@ continue
   !
   do nc = 1,ncell
     !
-    psi0 = -one*(2.25_wp + three*log10(real(cell(nc)%order,kind=wp)))
+    psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
     !
    !marker(nc) = marker(nc) / area_sum(nc)
     !
