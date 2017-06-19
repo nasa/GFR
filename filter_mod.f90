@@ -49,8 +49,8 @@ module filter_mod
   !                i.e., for the polynomial (x^a * y^b * z*c), 
   !                      the total polynomial order = a+b+c
   !
- !integer, parameter :: Cutoff_Filter_Option = 1
-  integer, parameter :: Cutoff_Filter_Option = 2
+  integer, parameter :: Cutoff_Filter_Option = 1
+ !integer, parameter :: Cutoff_Filter_Option = 2
   !
 contains
 !
