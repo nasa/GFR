@@ -4647,7 +4647,7 @@ subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
   use ovar,      only : work_units,uverr,output_time_averaging,time
-  use ovar,      only : total_volume
+  use ovar,      only : total_volume,time_ref,time_scaling_factor
   use order_mod, only : p_order
   !
   !.. Formal Arguments ..
@@ -4717,7 +4717,7 @@ continue
   if (write_work_units) then
     comp_cost = log10(merge(work_units,one,work_units > zero))
   else
-    comp_cost = time
+    comp_cost = time*time_ref*time_scaling_factor
   end if
   !
   ! L1 Norm
