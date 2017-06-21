@@ -244,6 +244,7 @@ subroutine read_nml_input_file(input_fname)
   !
   !.. Use Statements ..
   use order_mod, only : initialize_geom_solpts
+  use order_mod, only : n_order,p_order,q_order,o_order,e_order
   !
   use geovar, only : nr,using_quadrature
   !
@@ -328,6 +329,14 @@ continue
   ! Adjust the name of the grid file
   !
   gridfile = trim(adjustl(gridfile))
+  !
+  ! Set the order variables using the input parameters
+  !
+  n_order = solution_order
+  p_order = projection_order
+  q_order = quadrature_order
+  o_order = output_order
+  e_order = error_order
   !
   ! Allow for the use of the variable all_orders to make
   ! n_order, p_order, and q_order all the same value without

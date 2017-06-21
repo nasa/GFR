@@ -566,8 +566,6 @@ module input_namelist_mod
   use ovar,      only : output_time_averaging, time_ave_file
   use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
-  use order_mod, only : p_order,n_order,q_order
-  use order_mod, only : o_order,e_order,all_orders
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -575,6 +573,13 @@ module input_namelist_mod
   ! Set everything in the module to public
   !
   public
+  !
+  integer, save :: all_orders = 3
+  integer, save :: solution_order = 3
+  integer, save :: projection_order = 3
+  integer, save :: quadrature_order = 3
+  integer, save :: output_order = -3
+  integer, save :: error_order = -3
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -587,7 +592,7 @@ module input_namelist_mod
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides, plot3d_agglomerate_order
   ! BASE FR OPTIONS
-  namelist / input / n_order, flux_divergence, correction_function
+  namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
   namelist / input / iop_solpts, iop_flxpts, iop_tripts
   ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
@@ -601,9 +606,9 @@ module input_namelist_mod
   ! CFL CONTROL VARIABLES
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
-  namelist / input / p_order, q_order, iop_qdtpts, dflux_opt
+  namelist / input / projection_order, quadrature_order, iop_qdtpts, dflux_opt
   ! ERROR-INTEGRATION OPTIONS
-  namelist / input / e_order, loc_error_pts
+  namelist / input / error_order, loc_error_pts
   ! FORCE GLOBAL ORDER AND SOLUTION POINTS
   namelist / input / all_orders, all_points
   ! PARALLEL OPTIONS
@@ -618,7 +623,7 @@ module input_namelist_mod
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
-  namelist / input / output_dir, output_interval, o_order, &
+  namelist / input / output_dir, output_interval, output_order, &
                      correct_output, continuous_output
   ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
   namelist / input / postproc_debug_grid
