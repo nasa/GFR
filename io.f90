@@ -250,7 +250,7 @@ subroutine read_nml_input_file(input_fname)
   !
   use input_namelist_mod ! use all the variables in the input namelist
   !
-  use ovar,   only : Total_Periods
+  use ovar,   only : Total_Periods,dflux_opt
   use ovar,   only : velref,aref,uref,Lref,time_ref
   use ovar,   only : Period_Timesteps,Period_Time
   use ovar,   only : Grid_Length
