@@ -484,7 +484,7 @@ continue
       Period_Time_Y = merge( Period_Time_Y, &
                              Grid_Length(2), &
                              Period_Time_Y > eps3 )
-      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
+      Period_Timesteps_Y = nint(Period_Time_Y/constant_dt)
       Period_Timesteps = Period_Timesteps_Y
       !
      !if (mypnum == 0) then
@@ -497,7 +497,7 @@ continue
       Period_Time_X = merge( Period_Time_X, &
                              Grid_Length(1), &
                              Period_Time_X > eps3 )
-      Period_Timesteps_X = nint(Period_Time_X/dt_in)
+      Period_Timesteps_X = nint(Period_Time_X/constant_dt)
       Period_Timesteps = Period_Timesteps_X
       !
      !if (mypnum == 0) then
@@ -509,8 +509,8 @@ continue
       Period_Time_X = Grid_Length(1) / (velref(1)/aref)
       Period_Time_Y = Grid_Length(2) / (velref(2)/aref)
       !
-      Period_Timesteps_X = nint(Period_Time_X/dt_in)
-      Period_Timesteps_Y = nint(Period_Time_Y/dt_in)
+      Period_Timesteps_X = nint(Period_Time_X/constant_dt)
+      Period_Timesteps_Y = nint(Period_Time_Y/constant_dt)
       !
       if (Period_Timesteps_X == Period_Timesteps_Y) then
         Period_Timesteps = Period_Timesteps_X
@@ -528,7 +528,7 @@ continue
       !
     end if
     !
-    Period_Time = dt_in*real(Period_Timesteps,kind=wp)
+    Period_Time = constant_dt*real(Period_Timesteps,kind=wp)
     !
     ! If Final_Time is negative, it is giving the total
     ! number of periods that the simulation will run
@@ -545,7 +545,7 @@ continue
     end if
    !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
     !
-    num_timesteps = nint( Final_Time / dt_in )
+    num_timesteps = nint( Final_Time / constant_dt )
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
@@ -565,7 +565,7 @@ continue
       !
       Final_Time = Final_Time / time_ref
       !
-      num_timesteps = nint( Final_Time / dt_in )
+      num_timesteps = nint( Final_Time / constant_dt )
       !
     end if
     !
@@ -591,18 +591,18 @@ continue
         cfl_end = CFL
         cfl_cycles = 1
         if (Final_Time > zero) then
-          num_timesteps = nint( Final_Time / (CFL*dt_in*time_ref) )
+          num_timesteps = nint( Final_Time / (CFL*constant_dt*time_ref) )
         end if
       else
         cfl_end = max(cfl_end,eps6)
         cfl_beg = min(cfl_beg,cfl_end)
         cfl_sum = real(cfl_cycles,kind=wp)*(cfl_beg+cfl_end)/two
-        cfl_time = cfl_sum*dt_in*time_ref
+        cfl_time = cfl_sum*constant_dt*time_ref
         if (Final_Time > zero) then
           num_timesteps = cfl_cycles
           if (cfl_time < Final_Time) then
             num_timesteps = num_timesteps + &
-                     nint( (Final_Time-cfl_time) / (CFL*dt_in*time_ref) )
+                     nint( (Final_Time-cfl_time) / (CFL*constant_dt*time_ref) )
           end if
         end if
       end if

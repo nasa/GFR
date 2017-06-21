@@ -206,7 +206,7 @@ end subroutine get_current_cfl
 subroutine get_constant_timestep(dtmin)
   !
   !.. Use Statements ..
-  use ovar,    only : dt_in,time_ref,Final_Time,time,CFL
+  use ovar,    only : constant_dt,time_ref,Final_Time,time,CFL
   use ovar,    only : this_is_final_timestep
   use flowvar, only : dtsp
   !
@@ -215,7 +215,7 @@ subroutine get_constant_timestep(dtmin)
   !
 continue
   !
-  dtmin = CFL * dt_in
+  dtmin = CFL * constant_dt
   !
   if (Final_Time > zero) then
     if (time + dtmin > Final_Time/time_ref + eps9) then

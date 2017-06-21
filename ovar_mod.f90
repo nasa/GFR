@@ -60,7 +60,7 @@ module ovar
   real(wp), public, save :: cfl_end    = 1.0_wp
   integer,  public, save :: cfl_cycles = 0
   real(wp), public, save :: cfl        = 1.0_wp
-  real(wp), public, save :: dt_in      = 0.0008_wp
+  real(wp), public, save :: constant_dt = 0.0008_wp
   integer,  public, save :: Timestep_Type = 0
   integer,  public, save :: minimum_timesteps = 100
   !
@@ -527,7 +527,7 @@ module input_namelist_mod
   use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
   use ovar,      only : invs_flux_method, visc_flux_method
   use ovar,      only : visc_variables_to_ave, walls_are_exact
-  use ovar,      only : num_timesteps, Final_Time, dt_in
+  use ovar,      only : num_timesteps, Final_Time, constant_dt
   use ovar,      only : cfl, cfl_beg, cfl_end, cfl_cycles
   use ovar,      only : Timestep_Type, minimum_timesteps
   use ovar,      only : all_points, metis_option, use_old_restart_format
@@ -606,7 +606,7 @@ module input_namelist_mod
   ! VISCOUS OPTIONS
   namelist / input / visc_variables_to_ave
   ! TIME STEPPING INFORMATION
-  namelist / input / num_timesteps, Final_Time, dt_in, Timestep_Type, minimum_timesteps
+  namelist / input / num_timesteps, Final_Time, constant_dt, Timestep_Type, minimum_timesteps
   ! CFL CONTROL VARIABLES
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
