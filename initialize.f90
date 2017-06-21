@@ -27,7 +27,7 @@ subroutine initialize_flow()
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
   use ovar, only : rhoref,aref,itestcase
-  use ovar, only : cv_in,iop_solpts
+  use ovar, only : cv_in
   use ovar, only : irestart,d_t,dt_in,itcur,time
   use ovar, only : dtrst,itrst,tmrst
   use ovar, only : rhoref,pref,tref,gam,rgasref,cpref

@@ -4652,7 +4652,7 @@ subroutine broadcast_solver_geom_arrays
   use geovar,    only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar,    only : nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order,xyz_nodes
-  use ovar,      only : iop_solpts,iop_flxpts,bc_names
+  use ovar,      only : loc_solution_pts,loc_flux_pts,bc_names
   !
   !.. Local Scalars ..
   integer :: n,nocsz,ierr,nbcnm
@@ -4795,8 +4795,8 @@ continue
  !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
-  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
-      iop_flxpts /= Legendre_Gauss_Lobatto) then
+  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
+      loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -4826,7 +4826,7 @@ subroutine create_serial_geom_arrays
   use geovar,    only : nr,ncell
   use geovar,    only : nodes_of_cell_ptr
   use geovar,    only : cell_geom,cell_order
-  use ovar,      only : iop_solpts,iop_flxpts
+  use ovar,      only : loc_solution_pts,loc_flux_pts
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -4861,8 +4861,8 @@ continue
  !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
-  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
-      iop_flxpts /= Legendre_Gauss_Lobatto) then
+  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
+      loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)

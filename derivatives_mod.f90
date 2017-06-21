@@ -204,7 +204,7 @@ subroutine init_derivative_matrices()
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
   use order_mod,      only : n_order
-  use ovar,           only : iop_solpts
+  use ovar,           only : loc_solution_pts
   use quadrature_mod, only : geom_is_used
   use quadrature_mod, only : std_elem
   !
@@ -270,7 +270,7 @@ continue
       select case (this_geom)
         case (Geom_Edge)
           !
-          this_dmat%d = Dmatrix_Edge( this_order , iop_solpts )
+          this_dmat%d = Dmatrix_Edge( this_order , loc_solution_pts )
           !
         case (Geom_Tria)
           !

@@ -2329,7 +2329,7 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   !
   !.. Use Statements ..
   use geovar,  only : bc_conflict
-  use ovar,    only : iop_flxpts
+  use ovar,    only : loc_flux_pts
   use ovar,    only : use_bc_conflicts
   use flowvar, only : face_var
   !
@@ -2371,7 +2371,7 @@ continue
         if (override) exit return_loop
       end if
       !
-      if (any(iop_flxpts == Gauss_Lobatto)) exit return_loop
+      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
       !
     end if
     !
@@ -2484,7 +2484,7 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   !
   !.. Use Statements ..
   use geovar,  only : nr,bc_conflict
-  use ovar,    only : iop_flxpts
+  use ovar,    only : loc_flux_pts
   use ovar,    only : use_bc_conflicts
   use flowvar, only : face_vec
   !
@@ -2526,7 +2526,7 @@ continue
         if (override) exit return_loop
       end if
       !
-      if (any(iop_flxpts == Gauss_Lobatto)) exit return_loop
+      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
       !
     end if
     !

@@ -349,21 +349,21 @@ continue
   end if
   !
   ! Allow for the use of the variable all_points to make
-  ! iop_solpts, iop_flxpts, and iop_qdtpts all the same value
+  ! loc_solution_pts, loc_flux_pts, and loc_quadrature_pts all the same value
   ! without having to explicitly specify each one individually.
   !
   if ( any(all_points == [1,2]) ) then
-    iop_solpts = all_points
-    iop_flxpts = all_points
-    iop_qdtpts = all_points
+    loc_solution_pts = all_points
+    loc_flux_pts = all_points
+    loc_quadrature_pts = all_points
   end if
   !
-  if (iop_solpts /= iop_flxpts) then
+  if (loc_solution_pts /= loc_flux_pts) then
     if (mypnum == 0) write (iout,101)
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
-  if (iop_solpts == Legendre_Gauss_Lobatto) then
+  if (loc_solution_pts == Legendre_Gauss_Lobatto) then
     if (continuous_output) then
       write (error_message,106)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -380,7 +380,7 @@ continue
   !
   q_order = max(n_order,q_order)
   !
-  using_quadrature = .not. (q_order==n_order .and. iop_solpts==iop_qdtpts)
+  using_quadrature = .not. (q_order==n_order .and. loc_solution_pts==loc_quadrature_pts)
   !
   ! Get the number of solution points for each of the different geometry types
   ! This includes quadrature and face values
@@ -415,8 +415,8 @@ continue
   !
   ! Make sure the initialization and error locations are valid
   !
-  if (all(loc_init_pts /= Legendre_Nodes)) loc_init_pts = iop_solpts
-  if (all(loc_error_pts /= Legendre_Nodes)) loc_error_pts = iop_solpts
+  if (all(loc_init_pts /= Legendre_Nodes)) loc_init_pts = loc_solution_pts
+  if (all(loc_error_pts /= Legendre_Nodes)) loc_error_pts = loc_solution_pts
   !
   ! Make sure the output order is greater than or
   ! equal to the solution order if it is positive
@@ -1299,7 +1299,7 @@ subroutine read_gambit_neutral_gridfile()
   use geovar, only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order
-  use ovar,   only : iop_solpts,iop_flxpts
+  use ovar,   only : loc_solution_pts,loc_flux_pts
   use ovar,   only : grid_scaling_factor
   use order_mod, only : n_order
   !
@@ -1595,8 +1595,8 @@ continue
     call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
-  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
-      iop_flxpts /= Legendre_Gauss_Lobatto) then
+  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
+      loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (*,2)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__)

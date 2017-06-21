@@ -1261,7 +1261,7 @@ subroutine create_solver_geom_arrays_gmsh
   use geovar, only : nr,ncell,nnode,nfbnd,nbfai,bface
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order,xyz_nodes
-  use ovar,   only : iop_solpts,iop_flxpts
+  use ovar,   only : loc_solution_pts,loc_flux_pts
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,ifa,nf,h1,h2,i,j,ie
@@ -2000,8 +2000,8 @@ continue
  !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
  !end if
   !
-  if (iop_solpts /= Legendre_Gauss_Lobatto .or. &
-      iop_flxpts /= Legendre_Gauss_Lobatto) then
+  if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
+      loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       if (mypnum == 0) write (iout,7)
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__)

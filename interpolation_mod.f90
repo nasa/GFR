@@ -456,7 +456,7 @@ end subroutine init_interpolation_matrices
 subroutine init_outerpolation_matrices()
   !
   !.. Use Statements ..
-  use ovar,            only : iop_solpts,loc_output_pts
+  use ovar,            only : loc_solution_pts,loc_output_pts
   use ovar,            only : loc_error_pts,loc_init_pts
   use order_mod,       only : n_order,o_order,e_order
   use order_mod,       only : geom_solpts,geom_flxpts
@@ -519,19 +519,19 @@ continue
   !
   ! Check if we need the matrix to compute the initial conditions
   !
-  if (iop_solpts /= loc_init_pts) then
+  if (loc_solution_pts /= loc_init_pts) then
     init_matrix_is_needed = true
   end if
   !
   ! Check if we need the matrix to output the solution for post-processing
   !
-  if (iop_solpts /= loc_output_pts .or. o_order > n_order) then
+  if (loc_solution_pts /= loc_output_pts .or. o_order > n_order) then
     output_matrix_is_needed = true
   end if
   !
   ! Check if we need the matrix for computing the error
   !
-  if (iop_solpts /= loc_error_pts .or. e_order > n_order) then
+  if (loc_solution_pts /= loc_error_pts .or. e_order > n_order) then
     error_matrix_is_needed = true
   end if
   !

@@ -176,8 +176,8 @@ subroutine init_geom_quadrature_rules()
   use order_mod, only : n_order,geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
-  use ovar,      only : iop_solpts
-  use ovar,      only : iop_tripts
+  use ovar,      only : loc_solution_pts
+  use ovar,      only : loc_triangle_pts
   !
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
@@ -253,9 +253,9 @@ continue
       ! for an edge with the current order
       !
       if (this_geom == Geom_Edge) then
-        this_elem = get_edge_quadrature(this_order,iop_solpts)
+        this_elem = get_edge_quadrature(this_order,loc_solution_pts)
       else if (this_geom == Geom_Tria) then
-        this_elem = get_tria_quadrature(this_order,iop_tripts)
+        this_elem = get_tria_quadrature(this_order,loc_triangle_pts)
       end if
       !
       ! Disassociate this_elem before continuing to the next loop combo
@@ -403,8 +403,8 @@ subroutine init_face_quadrature_rules()
   !.. Use Statements ..
   use order_mod, only : geom_solpts
   use order_mod, only : n_min_order,n_max_order
-  use ovar,      only : iop_flxpts
-  use ovar,      only : iop_tripts
+  use ovar,      only : loc_flux_pts
+  use ovar,      only : loc_triangle_pts
   !
   !.. Local Scalars ..
   integer :: n,npts,ndim,ierr
@@ -481,7 +481,7 @@ continue
     ! Fill in the solution points and quadrature weights
     ! for an edge with the current order
     !
-    this_elem = get_edge_quadrature(this_order,iop_flxpts)
+    this_elem = get_edge_quadrature(this_order,loc_flux_pts)
     !
     ! Disassociate this_elem before continuing to the next loop combo
     !
@@ -526,7 +526,7 @@ continue
       ! Fill in the solution points and quadrature weights
       ! for a triangle face with the current order
       !
-      this_elem = get_tria_quadrature(this_order,iop_tripts)
+      this_elem = get_tria_quadrature(this_order,loc_triangle_pts)
       !
       ! Disassociate this_elem before continuing to the next loop combo
       !
@@ -1330,8 +1330,6 @@ subroutine dump_solpts()
   use order_mod, only : n_order,geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
-  use ovar,      only : iop_solpts
-  use ovar,      only : iop_tripts
   !
   !.. Local Scalars ..
   integer :: npts,ndim,ierr,loc,io

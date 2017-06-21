@@ -766,7 +766,7 @@ subroutine write_restart_file(itnum)
   !.. Use Statements ..
   use geovar,       only : n_global_cell
   use ovar,         only : itcur,time,d_t
-  use ovar,         only : iop_solpts
+  use ovar,         only : loc_solution_pts
   use ovar,         only : output_time_averaging
   use ovar,         only : restart_output_uses_host_roots
   use flowvar,      only : usp
@@ -858,9 +858,9 @@ continue
       ! should switch so it writes the modal solution since that would give more
       ! flexibility regarding changes in the solution order between runs.
       !
-      if (iop_solpts == Legendre_Gauss) then
+      if (loc_solution_pts == Legendre_Gauss) then
         restart_solution_form = restart_gauss_nodal_solution
-      else if (iop_solpts == Legendre_Gauss_Lobatto) then
+      else if (loc_solution_pts == Legendre_Gauss_Lobatto) then
         restart_solution_form = restart_lobatto_nodal_solution
       end if
       !
@@ -2968,7 +2968,7 @@ end subroutine get_input_mpi_datatypes
 subroutine check_restart_solution_form(restart_solution_form)
   !
   !.. Use Statements ..
-  use ovar, only : iop_solpts
+  use ovar, only : loc_solution_pts
   !
   !.. Formal Arguments ..
   integer, intent(in) :: restart_solution_form
@@ -2982,9 +2982,9 @@ subroutine check_restart_solution_form(restart_solution_form)
   !
 continue
   !
-  if (restart_solution_form /= -iop_solpts) then
+  if (restart_solution_form /= -loc_solution_pts) then
     !
-    select case (iop_solpts)
+    select case (loc_solution_pts)
       case (Legendre_Gauss)         ; inp_solpts = "Gauss"
       case (Legendre_Gauss_Lobatto) ; inp_solpts = "Lobatto"
       case default                  ; inp_solpts = "Unknown"

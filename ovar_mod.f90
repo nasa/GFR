@@ -37,9 +37,9 @@ module ovar
   ! #############################
   !
   integer,  public, save :: all_points       = -1
-  integer,  public, save :: iop_solpts       = Legendre_Gauss
-  integer,  public, save :: iop_flxpts       = Legendre_Gauss
-  integer,  public, save :: iop_tripts       = 2
+  integer,  public, save :: loc_solution_pts       = Legendre_Gauss
+  integer,  public, save :: loc_flux_pts       = Legendre_Gauss
+  integer,  public, save :: loc_triangle_pts       = 2
   integer,  public, save :: flux_divergence  = 1
   integer,  public, save :: correction_function = Correction_gDG
   !
@@ -62,7 +62,7 @@ module ovar
   integer,  public, save :: Timestep_Type = 0
   integer,  public, save :: minimum_timesteps = 100
   !
-  integer,  public, save :: iop_qdtpts = 1
+  integer,  public, save :: loc_quadrature_pts = 1
   integer,  public, save :: dflux_opt  = 2
   !
   integer,  public, save :: metis_option = 3
@@ -518,7 +518,7 @@ module input_namelist_mod
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
   use ovar,      only : plot3d_agglomerate_order
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
-  use ovar,      only : iop_solpts, iop_flxpts, iop_tripts, iop_qdtpts
+  use ovar,      only : loc_solution_pts, loc_flux_pts, loc_triangle_pts, loc_quadrature_pts
   use ovar,      only : flux_divergence, correction_function, dflux_opt
   use ovar,      only : iRKtype, num_stages
   use ovar,      only : invs_flux_method, visc_flux_method
@@ -594,7 +594,7 @@ module input_namelist_mod
   ! BASE FR OPTIONS
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
-  namelist / input / iop_solpts, iop_flxpts, iop_tripts
+  namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts
   ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
   namelist / input / loc_output_pts, loc_init_pts
   ! SOLVER OPTIONS
@@ -606,7 +606,7 @@ module input_namelist_mod
   ! CFL CONTROL VARIABLES
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
-  namelist / input / projection_order, quadrature_order, iop_qdtpts, dflux_opt
+  namelist / input / projection_order, quadrature_order, loc_quadrature_pts, dflux_opt
   ! ERROR-INTEGRATION OPTIONS
   namelist / input / error_order, loc_error_pts
   ! FORCE GLOBAL ORDER AND SOLUTION POINTS
