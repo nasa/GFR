@@ -3973,7 +3973,7 @@ end function vorticity_dusp
 subroutine check_cgns_dir
   !
   !.. Use Statements ..
-  use ovar, only : output_dir,itrst,num_ts
+  use ovar, only : output_dir,itrst,num_timesteps
   use ovar, only : lustre_stripe_count,lustre_stripe_size
   !
   !.. Local Scalars ..
@@ -4087,7 +4087,7 @@ continue
   !
   ! Create the format string for creating the CGNS file names
   !
-  write (char_num,1) itrst + num_ts
+  write (char_num,1) itrst + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   write (cgnsfile_fmt,2) final_iter_digits

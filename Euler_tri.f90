@@ -12,7 +12,7 @@ program Euler_tri
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
-  use ovar, only : nst,num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_ts
+  use ovar, only : nst,num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_timesteps
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -322,7 +322,7 @@ continue
   ! Initialize any necessary information for use in the module generic_mod
   !
   call init_generic_mod
-  if (num_ts > 0) then
+  if (num_timesteps > 0) then
     call memory_pause("initializing generic module", &
                       "initial interpolation of C.V. to flux points")
   else
@@ -349,7 +349,7 @@ continue
  !call compute_cell_ave
   !
   !
-  if (num_ts > 0) then
+  if (num_timesteps > 0) then
     !
     call interp_cv_to_flxpts
     call memory_pause("initial interpolation of C.V. to flux points", &
@@ -396,7 +396,7 @@ continue
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","main iteration loop")
   !
-  main_loop: do iter = 1, num_ts
+  main_loop: do iter = 1, num_timesteps
     !
     ! Current iteration count including restart iterations
     !
@@ -529,7 +529,7 @@ continue
     ! Compute and output the residual error at the specified interval
     !
     if ( (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) .or. &
-         (mod(itcur,results_interval) == 0 .and. iter/=num_ts) ) then
+         (mod(itcur,results_interval) == 0 .and. iter/=num_timesteps) ) then
       !
       ! Compute the residual error
       !
@@ -549,7 +549,7 @@ continue
       !
       ! Output the residual error at the specified interval
       !
-      if (mod(itcur,results_interval)==0 .and. iter/=num_ts) then
+      if (mod(itcur,results_interval)==0 .and. iter/=num_timesteps) then
         !
         call recon_cpu_time(1)
         !
@@ -574,7 +574,7 @@ continue
       !
       ! Only do the rest if this is not the last time step
       !
-      if (iter /= num_ts) then
+      if (iter /= num_timesteps) then
         !
         ! Have the root processor check for various temporary files
         !
@@ -731,7 +731,7 @@ continue
     ! Output the restart file at specified step interval
     !
     if (restart_interval > 0 .and. .not.request_restart) then
-      if (mod(itcur,restart_interval)==0 .and. iter/=num_ts) then
+      if (mod(itcur,restart_interval)==0 .and. iter/=num_timesteps) then
         call write_restart_file(itcur)
       end if
     end if
@@ -739,7 +739,7 @@ continue
     ! Output the solution at the specified interval
     !
     if (output_interval > 0 .and. .not.request_solution) then
-      if (mod(itcur,output_interval)==0 .and. iter/=num_ts) then
+      if (mod(itcur,output_interval)==0 .and. iter/=num_timesteps) then
         if (continuous_output) then
           call new_write_parallel_cgns
         else
@@ -766,14 +766,14 @@ continue
     ! the various integrated quantities needed to get the
     ! different the kinetic energy dissipation rates
     !
-    if (itestcase == Taylor_Green_Vortex .and. iter/=num_ts) then
+    if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
       call compute_TaylorGreen_KEDR(iter,dtmin)
     end if
     !
 #ifdef PAUSE_BETWEEN_ITERATIONS
-    if (iter /= num_ts) then
+    if (iter /= num_timesteps) then
       if (mypnum == glb_root) then
-        write (iout,8261) iter,num_ts
+        write (iout,8261) iter,num_timesteps
       end if
       8261 format (//," Pausing after completing ",i0," of ",i0, &
                         " trips through the main iteration loop!",/, &
@@ -813,7 +813,7 @@ continue
   ! If solving the Taylor-Green Vortex problem,
   ! finalize the kinetic energy dissipation rates
   !
-  if (num_ts > 0) then
+  if (num_timesteps > 0) then
     if (itestcase == Taylor_Green_Vortex) then
       call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
     end if

@@ -1827,7 +1827,7 @@ end subroutine write_restart_status
 subroutine check_restart_dir
   !
   !.. Use Statements ..
-  use ovar, only : output_dir,itrst,num_ts
+  use ovar, only : output_dir,itrst,num_timesteps
   use ovar, only : lustre_stripe_count,lustre_stripe_size
   use ovar, only : load_restart_file,restart_file
   use ovar, only : output_time_averaging
@@ -1977,7 +1977,7 @@ continue
   !
   ! Create the format string for creating the restart file names
   !
-  write (char_num,1) itrst + num_ts
+  write (char_num,1) itrst + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   write (rstfile_fmt,2) trim(adjustl(restart_dir)),final_iter_digits
@@ -2018,7 +2018,7 @@ end subroutine check_restart_dir
 subroutine create_restart_fname_formats
   !
   !.. Use Statements ..
-  use ovar, only : itcur,num_ts
+  use ovar, only : itcur,num_timesteps
   !
   !.. Local Scalars ..
   integer :: final_iter_digits
@@ -2037,7 +2037,7 @@ continue
   !       a restart file or by other means and itcur is given the value of
   !       itrst from the restart file or 0 if not using a restart file.
   !
-  write (char_num,1) itcur + num_ts
+  write (char_num,1) itcur + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   ! Create the format strings for creating the restart file names and commands

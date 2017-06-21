@@ -402,7 +402,7 @@ subroutine init_generic_mod
   !
   !.. Use Statements ..
   use geovar, only : nr,n_global_cell,n_global_solpts
-  use ovar,   only : itcur,num_ts,itestcase
+  use ovar,   only : itcur,num_timesteps,itestcase
   use ovar,   only : uverr,output_time_averaging
   !
   use pbs_mod, only : pbs_remaining_walltime
@@ -434,7 +434,7 @@ continue
                      error_message,skip_alloc_pause)
   end if
   !
-  write (char_num,1) itcur + num_ts
+  write (char_num,1) itcur + num_timesteps
   final_iter_digits = max(4,len_trim(adjustl(char_num)))
   !
   write (char_num,1) n_global_cell

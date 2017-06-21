@@ -455,7 +455,7 @@ continue
     !
     if (mms_output_solution) then
       mms_init = one
-      num_ts = 0
+      num_timesteps = 0
       Final_Time = zero
     end if
     !
@@ -545,7 +545,7 @@ continue
     end if
    !if (mypnum == 0) write (*,*) Period_Time,Total_Periods,Final_Time
     !
-    num_ts = nint( Final_Time / dt_in )
+    num_timesteps = nint( Final_Time / dt_in )
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
@@ -565,7 +565,7 @@ continue
       !
       Final_Time = Final_Time / time_ref
       !
-      num_ts = nint( Final_Time / dt_in )
+      num_timesteps = nint( Final_Time / dt_in )
       !
     end if
     !
@@ -582,7 +582,7 @@ continue
     !
     if (convert_restart_to_cgns) then
       !
-      num_ts = 0
+      num_timesteps = 0
       !
     else if (Timestep_Type == Constant_Timestep) then
       !
@@ -591,7 +591,7 @@ continue
         cfl_end = CFL
         cfl_cycles = 1
         if (Final_Time > zero) then
-          num_ts = nint( Final_Time / (CFL*dt_in*time_ref) )
+          num_timesteps = nint( Final_Time / (CFL*dt_in*time_ref) )
         end if
       else
         cfl_end = max(cfl_end,eps6)
@@ -599,9 +599,9 @@ continue
         cfl_sum = real(cfl_cycles,kind=wp)*(cfl_beg+cfl_end)/two
         cfl_time = cfl_sum*dt_in*time_ref
         if (Final_Time > zero) then
-          num_ts = cfl_cycles
+          num_timesteps = cfl_cycles
           if (cfl_time < Final_Time) then
-            num_ts = num_ts + &
+            num_timesteps = num_timesteps + &
                      nint( (Final_Time-cfl_time) / (CFL*dt_in*time_ref) )
           end if
         end if
@@ -648,9 +648,9 @@ continue
   else
     !
     if (results_interval == 0) then
-      results_interval = num_ts/500
+      results_interval = num_timesteps/500
     else if (results_interval < 0) then
-      results_interval = num_ts/abs(results_interval)
+      results_interval = num_timesteps/abs(results_interval)
     end if
     results_interval = max(results_interval,1)
     !
@@ -661,16 +661,16 @@ continue
     end if
     !
     if (output_interval == 0) then
-      output_interval = num_ts/50
+      output_interval = num_timesteps/50
     else if (output_interval < 0) then
-      output_interval = num_ts/abs(output_interval)
+      output_interval = num_timesteps/abs(output_interval)
     end if
     output_interval = max(output_interval,1)
     !
     if (iter_out_interval == 0) then
       iter_out_interval = 1
     else if (iter_out_interval < 0) then
-      iter_out_interval = num_ts/abs(iter_out_interval)
+      iter_out_interval = num_timesteps/abs(iter_out_interval)
     end if
     iter_out_interval = max(iter_out_interval,1)
     !
@@ -4775,7 +4775,7 @@ end subroutine write_residual_file
 subroutine write_parallel_cgns(iflag)
   !
   !.. Use Statements ..
-  use ovar, only : itcur,itrst,num_ts,time,time_ref
+  use ovar, only : itcur,itrst,num_timesteps,time,time_ref
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : completely_disable_cgns
   use ovar, only : output_time_averaging
@@ -4811,7 +4811,7 @@ continue
     !
     ! Create the format string for creating the CGNS file names
     !
-    write (char_num,4) itrst + num_ts
+    write (char_num,4) itrst + num_timesteps
     final_iter_digits = max(4,len_trim(adjustl(char_num)))
     !
     write (cgnsfile_fmt,3) final_iter_digits
