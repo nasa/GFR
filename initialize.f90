@@ -28,7 +28,7 @@ subroutine initialize_flow()
   !
   use ovar, only : rhoref,aref,itestcase
   use ovar, only : cv_in
-  use ovar, only : irestart,d_t,dt_in,itcur,time
+  use ovar, only : load_restart_file,d_t,dt_in,itcur,time
   use ovar, only : dtrst,itrst,tmrst
   use ovar, only : rhoref,pref,tref,gam,rgasref,cpref
   use ovar, only : aref,machref,velref,uref,muref,reyref
@@ -94,7 +94,7 @@ continue
   !
   ! Check for a restart job, otherwise initialize usp
   !
-  if (irestart == 1) then
+  if (load_restart_file) then
     !
     ! Read in usp and the current iteration, time step,
     ! and elapsed time from the restart file

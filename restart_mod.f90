@@ -1829,7 +1829,7 @@ subroutine check_restart_dir
   !.. Use Statements ..
   use ovar, only : output_dir,itrst,num_ts
   use ovar, only : lustre_stripe_count,lustre_stripe_size
-  use ovar, only : irestart,restart_file
+  use ovar, only : load_restart_file,restart_file
   use ovar, only : output_time_averaging
   use ovar, only : time_ave_file,read_time_ave_restart
   use ovar, only : restart_output_uses_host_roots
@@ -1866,7 +1866,7 @@ continue
   !
   if (mypnum == glb_root) then
     !
-    if (irestart == 1) then
+    if (load_restart_file) then
       !
       fname = trim(adjustl(restart_file))
       !

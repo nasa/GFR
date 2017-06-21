@@ -74,7 +74,7 @@ module ovar
   !
   integer,  public, save :: itestcase = 5
   !
-  integer,  public, save :: irestart         = 0
+  logical(lk), public, save :: load_restart_file = fals
   integer,  public, save :: restart_interval = 0
   character(len=150), public, save :: restart_file = "out.rst"
   logical(lk), public, save :: restart_output_uses_host_roots = fals
@@ -533,7 +533,7 @@ module input_namelist_mod
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
   use ovar,      only : itestcase, governing_equations
-  use ovar,      only : irestart, restart_interval, restart_file
+  use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
   use ovar,      only : output_dir, output_interval
@@ -622,7 +622,7 @@ module input_namelist_mod
   ! INITIALIZATION / TEST CASE
   namelist / input / itestcase
   ! RESTART OPTIONS
-  namelist / input / irestart, restart_interval, use_old_restart_format, &
+  namelist / input / load_restart_file, restart_interval, use_old_restart_format, &
                      restart_file, restart_output_uses_host_roots
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
