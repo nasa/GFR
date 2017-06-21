@@ -876,7 +876,7 @@ subroutine rupdate_Classic_RK
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,num_stages
+  use ovar,    only : nst,num_rk_stages
   use ovar,    only : Limiter_Option
   use ovar,    only : Filter_Option
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
@@ -900,7 +900,7 @@ continue
     do m = 1,nq
       temp = zero
       do nt = 1,nst
-        temp = temp + alphark(nt,nst,num_stages)*rssprk(m,n,nt)
+        temp = temp + alphark(nt,nst,num_rk_stages)*rssprk(m,n,nt)
       end do
       usp(m,n) = uoldsp(m,n) + dtsp(n)*temp
     end do

@@ -45,8 +45,8 @@ module ovar
   !
   integer,  public, save :: governing_equations = Euler_Eqns
   !
-  integer,  public, save :: iRKtype     = TVD3_RK
-  integer,  public, save :: num_stages  = 3
+  integer,  public, save :: Runge_Kutta_Scheme     = TVD3_RK
+  integer,  public, save :: num_rk_stages  = 3
   integer,  public, save :: invs_flux_method = invs_flux_ROE
   integer,  public, save :: visc_flux_method = visc_flux_BR2
   logical(lk),  public, save :: walls_are_exact = true
@@ -520,7 +520,7 @@ module input_namelist_mod
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
   use ovar,      only : loc_solution_pts, loc_flux_pts, loc_triangle_pts, loc_quadrature_pts
   use ovar,      only : flux_divergence, correction_function, dflux_opt
-  use ovar,      only : iRKtype, num_stages
+  use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
   use ovar,      only : invs_flux_method, visc_flux_method
   use ovar,      only : visc_variables_to_ave, walls_are_exact
   use ovar,      only : num_ts, Final_Time, dt_in
@@ -598,7 +598,7 @@ module input_namelist_mod
   ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
   namelist / input / loc_output_pts, loc_init_pts
   ! SOLVER OPTIONS
-  namelist / input / iRKtype, num_stages, invs_flux_method, visc_flux_method
+  namelist / input / Runge_Kutta_Scheme, num_rk_stages, invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS
   namelist / input / visc_variables_to_ave
   ! TIME STEPPING INFORMATION

@@ -12,7 +12,7 @@ program Euler_tri
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
-  use ovar, only : nst,num_stages,iRKtype,time,time_ref,itcur,num_ts
+  use ovar, only : nst,num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_ts
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -418,7 +418,7 @@ continue
     !
     ! Loop over the Runge-Kutta stages
     !
-    rk_loop: do nst = 1,num_stages
+    rk_loop: do nst = 1,num_rk_stages
      !if (mypnum == glb_root) then 
      !  write (iout,'(3x,i3,1x,i1)') iter,nst
      !end if
@@ -502,15 +502,15 @@ continue
       !
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
-      if (iRKtype == Classic_RK) then
+      if (Runge_Kutta_Scheme == Classic_RK) then
         call rupdate_Classic_RK
-      else if (iRKtype == TVD2_RK) then
+      else if (Runge_Kutta_Scheme == TVD2_RK) then
         call rupdate_TVD2_RK
-      else if (iRKtype == TVD3_RK) then
+      else if (Runge_Kutta_Scheme == TVD3_RK) then
         call rupdate_TVD3_RK
-      else if (iRKtype == TVD4_RK) then
+      else if (Runge_Kutta_Scheme == TVD4_RK) then
         call rupdate_TVD4_RK
-      else if (iRKtype == CK4_RK) then
+      else if (Runge_Kutta_Scheme == CK4_RK) then
         call rupdate_CK4_RK
       end if
       !

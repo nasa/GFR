@@ -403,14 +403,14 @@ continue
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
-  if (iRKtype == TVD2_RK) then
-    num_stages = 2
-  else if (iRKtype == TVD3_RK) then
-    num_stages = 3
-  else if (iRKtype == TVD4_RK) then
-    num_stages = 5
-  else if (iRKtype == CK4_RK) then
-    num_stages = 5
+  if (Runge_Kutta_Scheme == TVD2_RK) then
+    num_rk_stages = 2
+  else if (Runge_Kutta_Scheme == TVD3_RK) then
+    num_rk_stages = 3
+  else if (Runge_Kutta_Scheme == TVD4_RK) then
+    num_rk_stages = 5
+  else if (Runge_Kutta_Scheme == CK4_RK) then
+    num_rk_stages = 5
   end if
   !
   ! Make sure the initialization and error locations are valid

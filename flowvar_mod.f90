@@ -171,7 +171,7 @@ subroutine allocate_flowvar_arrays()
   use geovar,    only : nfbnd,nface,face
   use geovar,    only : nnode,nedge,edge
   use order_mod, only : geom_solpts
-  use ovar,      only : iRKtype,num_stages,mms_opt
+  use ovar,      only : Runge_Kutta_Scheme,num_rk_stages,mms_opt
   use ovar,      only : convert_restart_to_cgns
   use ovar,      only : continuous_output
   use ovar,      only : time_average_restart_files
@@ -434,11 +434,11 @@ continue
   !
  !if (allocate_rk_arrays) then
     n = 0
-    if (iRKtype == Classic_RK) then
-      n = num_stages
-    else if (iRKtype == CK4_RK .or. iRKtype == TVD4_RK) then
+    if (Runge_Kutta_Scheme == Classic_RK) then
+      n = num_rk_stages
+    else if (Runge_Kutta_Scheme == CK4_RK .or. Runge_Kutta_Scheme == TVD4_RK) then
       n = 1
-      if (iRKtype == TVD4_RK) then
+      if (Runge_Kutta_Scheme == TVD4_RK) then
         !
         allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , &
                    stat=ierr , errmsg=error_message )
