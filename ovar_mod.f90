@@ -132,6 +132,9 @@ module ovar
   real(wp), public, save :: Filter_etac   = 0.0_wp
   real(wp), public, save :: Filter_eps    = 0.0_wp
   !
+  integer, public, save :: Filtering_Interval = 0
+  integer, public, save :: Limiting_Interval = 0
+  !
   ! Default to output solution at Legendre Gauss Lobatto points
   integer,  public, save :: loc_output_pts = Legendre_Gauss_Lobatto
   ! Default to initialize solution at solution points
@@ -197,6 +200,7 @@ module ovar
   integer, public, save :: sub_inflow_method = 1
   !
   logical(lk),        public, save :: output_time_averaging = fals
+  logical(lk),        public, save :: time_ave_vel_is_axisymm = true
   character(len=150), public, save :: time_ave_file = "out.ave"
   real(wp),           public, save :: time_scaling_factor = 1.0_wp
   !
@@ -553,6 +557,7 @@ module input_namelist_mod
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
   use ovar,      only : Limiter_Option
+  use ovar,      only : Filtering_Interval, Limiting_Interval
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
   use ovar,      only : output_plot3d_to_tecplot, output_bface_array
@@ -568,6 +573,7 @@ module input_namelist_mod
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : output_time_averaging, time_ave_file
+  use ovar,      only : time_ave_vel_is_axisymm
   use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
   use module_cgns_types, only : cgns_use_queue
@@ -656,6 +662,8 @@ module input_namelist_mod
                      Limiter_Filter_eps
   ! LIMITER OPTIONS
   namelist / input / Limiter_Option
+  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
+  namelist / input / Filtering_Interval, Limiting_Interval
   ! VORTEX CONSTANTS
   namelist / input / vortex_bigR, vortex_bigGam
   ! TAYLOR-GREEN VORTEX CONSTANTS
@@ -692,7 +700,8 @@ module input_namelist_mod
   namelist / input / bc_input
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, restart_list_file, &
-                     time_average_restart_files, time_scaling_factor
+                     time_average_restart_files, time_scaling_factor, &
+                     time_ave_vel_is_axisymm
   !
   ! CFL ADJUSTMENT NAMELIST
   !
