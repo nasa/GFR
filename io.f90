@@ -4756,6 +4756,7 @@ continue
   write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
                          (log10(v2(i)),i=1,nq+1), &
                          comp_cost
+  flush (iores)
   !
   ! Close the results file only if iflag is -1
   !
