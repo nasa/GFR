@@ -138,6 +138,8 @@ subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Have only the host roots read in the grid file
   !
   if (i_am_host_root) then
@@ -303,6 +305,8 @@ continue
     call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine read_plot3d_gridfile
 !
 !###############################################################################
@@ -334,6 +338,7 @@ subroutine readplot3d(gridfile)
   integer :: noff,npts,nnode_new,ncell_new
   integer :: ibeg,iend,jbeg,jend,kbeg,kend
   integer :: iogrd
+  character(len=100) :: read_message
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: strides
@@ -346,6 +351,8 @@ subroutine readplot3d(gridfile)
   character(len=*), parameter :: pname = "readplot3d"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Set all the coarsening strides to -1 to prevent coarsening
   ! if agglomerating cells to create high-order curved cells.
@@ -465,9 +472,12 @@ continue
     ! forward so read in the node coordinates
     !
     do iblk = 1,nblk
+      write (read_message,10) iblk
+      call debug_timer(start_timer,read_message)
       noff = offset(1,iblk)-1
       npts = product(ijkpts(1:nr,iblk))
       read (iogrd,*) ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
+      call debug_timer(stop_timer,read_message)
     end do
     !
   else
@@ -481,9 +491,12 @@ continue
     ! double precision and try reading in the node coordinates for the
     ! first block.
     !
+    write (read_message,11) 1
+    call debug_timer(start_timer,read_message)
     noff = offset(1,1)-1
     npts = product(ijkpts(1:nr,1))
     read (iogrd,iostat=ierr) ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
+    call debug_timer(stop_timer,read_message)
     !
     if (ierr /= 0) then
       !
@@ -502,6 +515,8 @@ continue
      !  write (iout,'(*(2x,i0))') (ijkpts(l,iblk),l=1,nr)
      !end do
       do iblk = 1,nblk
+        write (read_message,12) iblk
+        call debug_timer(start_timer,read_message)
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
         read (iogrd,iostat=ierr,iomsg=error_message) &
@@ -510,6 +525,7 @@ continue
        !  write (110,'(*(es20.10))') (r4_nodes(l,i+noff),l=1,nr)
        !end do
         call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
+        call debug_timer(stop_timer,read_message)
       end do
       !
       is_dbl_precision = fals
@@ -530,11 +546,14 @@ continue
       ! block in double precision, continue reading the remaining blocks.
       !
       do iblk = 2,nblk
+        write (read_message,11) iblk
+        call debug_timer(start_timer,read_message)
         noff = offset(1,iblk)-1
         npts = product(ijkpts(1:nr,iblk))
         read (iogrd,iostat=ierr,iomsg=error_message) &
                                       ((xyz_nodes(l,i+noff), i=1,npts), l=1,nr)
         call io_error(pname,gridfile,-1,__LINE__,__FILE__,ierr,error_message)
+        call debug_timer(stop_timer,read_message)
       end do
       !
       is_dbl_precision = true
@@ -701,6 +720,8 @@ continue
  !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
  !                "multiblock testing in readplot3d")
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (a)
@@ -710,6 +731,10 @@ continue
               " THE NUMBER OF GRID CELLS MUST BE EVENLY",/, &
               " DIVISIBLE BY THE COARSENING STRIDES!!!",/)
   5 format (3x,"Cells not evenly divisible in block ",i0," for direction ",i0)
+  !
+  10 format ("Reading formatted coordinates for block # ",i0)
+  11 format ("Reading 64-bit unformatted coordinates for block # ",i0)
+  12 format ("Reading 32-bit unformatted coordinates for block # ",i0)
   !
 end subroutine readplot3d
 !
@@ -735,6 +760,8 @@ subroutine read_p3d_formatted_header(iogrd,gridfile)
   character(len=*), parameter :: pname = "read_p3d_formatted_header"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Read the first line as text to see how many values it contains
   !
@@ -886,6 +913,8 @@ continue
     call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Return statement to ignore the remaining error crap
   !
   return
@@ -952,6 +981,8 @@ subroutine read_p3d_unformatted_header(iogrd,gridfile)
   character(len=*), parameter :: pname = "read_p3d_unformatted_header"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Whatever the Plot3D format, the first record
   ! should contain at least one integer
@@ -1057,6 +1088,8 @@ continue
   ! If all the third dimensions are 1, this is a 2D grid
   !
   nr = merge( 2 , 3 , all(ijkpts(3,1:nblk) == 1) )
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Return statement to ignore the remaining error crap
   !
@@ -1849,6 +1882,8 @@ subroutine create_plot3d_grid_cells()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   stride = max(1,plot3d_agglomerate_order)
   !
   ! Count the total number of cells across all blocks in this grid
@@ -2339,6 +2374,8 @@ continue
   deallocate ( lpoin , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/," ERROR TRYING TO USE COARSENING STRIDES WITH PLOT3D!!!",/, &
@@ -2376,6 +2413,8 @@ subroutine readbcsinfo( bcsfile )
   character(len=*), parameter :: pname = "readbcsinfo"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Initialize the total number of boundary faces
   !
@@ -2577,6 +2616,8 @@ continue
     call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (a)
@@ -2614,6 +2655,8 @@ subroutine readcutinfo( cutfile )
   character(len=*), parameter :: pname = "readcutinfo"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Check the name of the cut file specified in the input file
   ! and alter it if necessary
@@ -2819,6 +2862,8 @@ continue
     call alloc_error(pname,"clist",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (a)
@@ -2855,6 +2900,7 @@ subroutine findcutpoints()
   integer :: loc,dir,dir1,dir2
   integer :: beg1,beg2,end1,end2,stp1,stp2,n1,n2
   real(wp) :: diff
+  character(len=100) :: cut_message
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: ijk,ijk1,ijk2
@@ -2863,6 +2909,8 @@ subroutine findcutpoints()
   character(len=*), parameter :: pname = "findcutpoints"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop over the number of cuts
   !
@@ -2881,6 +2929,8 @@ continue
     !
     ! Loop over the two blocks
     !
+    write (cut_message,10) n
+    call debug_timer(start_timer,cut_message)
     two_blocks: do m = 1,2
       !
       ! Set the number of cut points
@@ -2935,11 +2985,14 @@ continue
       end do
       !
     end do two_blocks
+    call debug_timer(stop_timer,cut_message)
     !
     ! Check the consistency of data
     !
     ! Loop over the number of points in this cut
     !
+    write (cut_message,11) n
+    call debug_timer(start_timer,cut_message)
     do ipcut = 1,cut_info(n)%points
       !
       p1 = cut_info(n)%nodes(1,ipcut)
@@ -2968,13 +3021,19 @@ continue
         end if
       end if
     end do
+    call debug_timer(stop_timer,cut_message)
     !
     ! End of loops over the cuts
     !
   end do cut_loop
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   1 format (2i8,2i5,4e14.6)
   2 format (2i8,3i5,6e14.6)
+  !
+  10 format ("Creating cut matches for cut # ",i0)
+  11 format ("Checking the consistency of cut matches for cut # ",i0)
   !
 end subroutine findcutpoints
 !
@@ -3006,6 +3065,8 @@ subroutine remove_duplicate_nodes()
   character(len=*), parameter :: pname = "remove_duplicate_nodes"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   first_line_not_output = true
   !
@@ -3233,6 +3294,8 @@ continue
   deallocate ( old2new , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/," After removing duplicate nodes due to cut", &
@@ -3268,6 +3331,8 @@ subroutine reorder_plot3d_nodes
   character(len=*), parameter :: pname = "reorder_plot3d_nodes"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   lpts = size(xyz_nodes,dim=2)
   !
@@ -3336,6 +3401,8 @@ continue
   deallocate ( old2new , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine reorder_plot3d_nodes
 !
 !###############################################################################
@@ -3361,6 +3428,8 @@ subroutine create_nodes_of_cells(old2new)
   character(len=*), parameter :: pname = "create_nodes_of_cells"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Allocate the nodes_of_cell pointer array
   !
@@ -3441,6 +3510,8 @@ continue
     !
   end do block_loop
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine create_nodes_of_cells
 !
 !###############################################################################
@@ -3473,9 +3544,12 @@ subroutine getbface()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   if (allocated(grid)) then
     if (allocated(grid%elem)) then
       call get_bface_from_grid_dt
+      call debug_timer(leaving_procedure,pname)
       return
     end if
   end if
@@ -3594,6 +3668,8 @@ continue
  !                (bface(i,nf),i=2,4),bface(10,nf)
  !end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   ! Format Statements
   !
   1 format (/," BC #",i0," - ",a,": on Block ",i0," on the ",a," face.",/, &
@@ -3625,6 +3701,8 @@ subroutine get_bface_from_grid_dt()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   nfbnd = size(grid%elem) - ncell
   !
   ! Allocate the bface array
@@ -3653,6 +3731,8 @@ continue
     grid%elem(nc)%tags(1) = bface(1,nf)
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_bface_from_grid_dt
 !
@@ -3689,6 +3769,8 @@ subroutine match_plot3d_periodic_boundaries()
   character(len=*), parameter :: pname = "match_plot3d_periodic_boundaries"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   if (nr == 3) then
     hostface = HostFace3D
@@ -3863,6 +3945,8 @@ continue
   deallocate ( face_msk , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_msk",2,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
   1 format (/," The number of periodic faces in the ",a, &
               " direction is not consistent!",/, &
               "     Periodic faces on MIN boundary: ",i0,/, &
@@ -3896,9 +3980,12 @@ subroutine create_grid_dt()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   if (allocated(grid)) then
     if (allocated(grid%elem)) then
       if (allocated(grid%xyz)) then
+        call debug_timer(leaving_procedure,pname)
         return
       end if
     end if
@@ -3942,6 +4029,8 @@ continue
     grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOCATION
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine create_grid_dt
 !
@@ -4535,6 +4624,8 @@ subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! First allocate the grid derived type
   !
   if (allocated(grid)) then
@@ -4635,6 +4726,8 @@ continue
     deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
