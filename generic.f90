@@ -80,7 +80,9 @@ continue
   l2 = min(2,nr)
   l3 = min(3,nr)
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
+#endif
   !
   error(:,:,:) = zero  ! intialize everything to zero
   error(:,:,3) = -eps6 ! make this slightly negative in case all error is zero
@@ -202,7 +204,9 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
   ! Format Statements
   !
@@ -245,7 +249,9 @@ continue
   !
   exit_main_loop = fals
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
+#endif
   !
   ! Get the density and entropy residual stats from uverr
   !
@@ -368,7 +374,9 @@ continue
   if (this_is_final_timestep) exit_main_loop = true
   if (walltime_expiring) exit_main_loop = true
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
   ! Format Statements
   !
