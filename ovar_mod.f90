@@ -283,8 +283,6 @@ module ovar
   integer, public, save, allocatable :: all_host_num(:)
   integer, public, save, allocatable :: all_cpu_num(:)
   !
-  integer,  public, save :: nst
-  !
   integer,  public, save :: Total_Periods
   !
   logical(lk),  public, save :: write_TaylorGreen_8s_solution = fals

@@ -12,7 +12,7 @@ program Euler_tri
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
-  use ovar, only : nst,num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_timesteps
+  use ovar, only : num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_timesteps
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -126,7 +126,7 @@ program Euler_tri
   !
   character(len=*), parameter :: pname = "Euler_tri(main)"
   !
-  integer  :: iter,i,ierr,k,npart
+  integer  :: iter,nst,i,ierr,k,npart
   integer  :: completed_timesteps
   real(wp) :: dtmin,out_time
   !

@@ -869,20 +869,25 @@ end subroutine rresi
 !
 !###############################################################################
 !
-subroutine rupdate_Classic_RK
+subroutine rupdate_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   !
   ! First, store d(utd)/dt for runge kutta time
   ! stepping then update usp
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,num_rk_stages
+  use ovar,    only : num_rk_stages
   use ovar,    only : Limiter_Option
   use ovar,    only : Filter_Option
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
   integer   :: n,m,nt
@@ -909,30 +914,49 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) then
-    call filter_usp
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Filter : nst = ",i0)
+#endif
+      call filter_usp
+    end if
   end if
   !
   ! Apply the limiter
   !
-  if (Limiter_Option == -1) then
-    call resolution_indicator(apply_projection=true)
-  else if (Limiter_Option >= 1) then
-    call limit_by_projecting
+  if (Limiter_Option /= 0) then
+    if (Apply_Limiter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,2) nst
+      2 format (8x,"Applying Limiter : nst = ",i0)
+#endif
+      if (Limiter_Option == -1) then
+        call resolution_indicator(apply_projection=true)
+      else if (Limiter_Option >= 1) then
+        call limit_by_projecting
+      end if
+    end if
   end if
   !
 end subroutine rupdate_Classic_RK
 !
 !###############################################################################
 !
-subroutine rupdate_CK4_RK
+subroutine rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Limiter_Option,Filter_Option
+  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : rssprk,residual,usp,dtsp
   use filter_mod, only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
   integer :: n
@@ -966,30 +990,49 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) then
-    call filter_usp
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Filter : nst = ",i0)
+#endif
+      call filter_usp
+    end if
   end if
   !
   ! Apply the limiter
   !
-  if (Limiter_Option == -1) then
-    call resolution_indicator(apply_projection=true)
-  else if (Limiter_Option >= 1) then
-    call limit_by_projecting
+  if (Limiter_Option /= 0) then
+    if (Apply_Limiter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,2) nst
+      2 format (8x,"Applying Limiter : nst = ",i0)
+#endif
+      if (Limiter_Option == -1) then
+        call resolution_indicator(apply_projection=true)
+      else if (Limiter_Option >= 1) then
+        call limit_by_projecting
+      end if
+    end if
   end if
   !
 end subroutine rupdate_CK4_RK
 !
 !###############################################################################
 !
-subroutine rupdate_TVD2_RK
+subroutine rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Limiter_Option,Filter_Option
+  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
   integer   :: n
@@ -1012,30 +1055,49 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) then
-    call filter_usp
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Filter : nst = ",i0)
+#endif
+      call filter_usp
+    end if
   end if
   !
   ! Apply the limiter
   !
-  if (Limiter_Option == -1) then
-    call resolution_indicator(apply_projection=true)
-  else if (Limiter_Option >= 1) then
-    call limit_by_projecting
+  if (Limiter_Option /= 0) then
+    if (Apply_Limiter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,2) nst
+      2 format (8x,"Applying Limiter : nst = ",i0)
+#endif
+      if (Limiter_Option == -1) then
+        call resolution_indicator(apply_projection=true)
+      else if (Limiter_Option >= 1) then
+        call limit_by_projecting
+      end if
+    end if
   end if
   !
 end subroutine rupdate_TVD2_RK
 !
 !###############################################################################
 !
-subroutine rupdate_TVD3_RK
+subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Limiter_Option,Filter_Option
+  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
   use filter_mod, only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
   integer :: n
@@ -1058,30 +1120,49 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) then
-    call filter_usp
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Filter : nst = ",i0)
+#endif
+      call filter_usp
+    end if
   end if
   !
   ! Apply the limiter
   !
-  if (Limiter_Option == -1) then
-    call resolution_indicator(apply_projection=true)
-  else if (Limiter_Option >= 1) then
-    call limit_by_projecting
+  if (Limiter_Option /= 0) then
+    if (Apply_Limiter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,2) nst
+      2 format (8x,"Applying Limiter : nst = ",i0)
+#endif
+      if (Limiter_Option == -1) then
+        call resolution_indicator(apply_projection=true)
+      else if (Limiter_Option >= 1) then
+        call limit_by_projecting
+      end if
+    end if
   end if
   !
 end subroutine rupdate_TVD3_RK
 !
 !###############################################################################
 !
-subroutine rupdate_TVD4_RK
+subroutine rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : nst,Limiter_Option,Filter_Option
+  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : rssprk,residual,usp,uoldsp,usp_sum,dtsp
   use filter_mod, only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
   integer :: n
@@ -1129,15 +1210,29 @@ continue
   ! Apply the filter
   !
   if (Filter_Option > 0) then
-    call filter_usp
+    if (Apply_Filter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,1) nst
+      1 format (8x,"Applying Filter : nst = ",i0)
+#endif
+      call filter_usp
+    end if
   end if
   !
   ! Apply the limiter
   !
-  if (Limiter_Option == -1) then
-    call resolution_indicator(apply_projection=true)
-  else if (Limiter_Option >= 1) then
-    call limit_by_projecting
+  if (Limiter_Option /= 0) then
+    if (Apply_Limiter) then
+#ifdef PROFILE_ON
+      if (mypnum == glb_root) write (iout,2) nst
+      2 format (8x,"Applying Limiter : nst = ",i0)
+#endif
+      if (Limiter_Option == -1) then
+        call resolution_indicator(apply_projection=true)
+      else if (Limiter_Option >= 1) then
+        call limit_by_projecting
+      end if
+    end if
   end if
   !
 end subroutine rupdate_TVD4_RK
