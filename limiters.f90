@@ -203,11 +203,14 @@ subroutine limit_by_projecting
   integer :: this_geom,this_order
   integer :: dropped_orders,proj_order
   logical(lk) :: there_are_no_troubles
+  logical(lk) :: first_output
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxpts,1:nq) :: tusp
   !
 continue
+  !
+  first_output = true
   !
   ! Loop from the highest order to the lowest order and project
   ! any marked cells to one degree lower order until there are
@@ -230,16 +233,22 @@ continue
     ! Loop through the cells applying the projection limiter to
     ! any troubled cells.
     !
-#ifdef DEBUG_ON
+#ifdef PROFILE_ON
     ntc = count(troubled_cell)
     if (ncpu > 1) then
       call mpi_allreduce(MPI_IN_PLACE,ntc,1_int_mpi,mpi_inttyp, &
                          MPI_SUM,MPI_COMM_WORLD,mpierr)
     end if
-    if (mypnum == 0) then
-      write (iout,100) n_max_order-dropped_orders+1,ntc
+    if (mypnum == glb_root) then
+      if (first_output) then
+        write (iout,100) ntc,n_max_order-dropped_orders+1
+        first_output = fals
+      else
+        write (iout,101) ntc,n_max_order-dropped_orders+1
+      endif
     end if
-    100 format (4x,"For a P",i0," solution, there are ",i8," troubled cells.")
+    100 format (6x,"=> ",i8," troubled cells at P",i0)
+    101 format (9x,i8," troubled cells at P",i0)
 #endif
     cell_loop: do nc = 1,ncell
       !
@@ -302,7 +311,15 @@ continue
     !
     ! Exit this loop if there are no more troubled cells remaining
     !
-    if (there_are_no_troubles) exit order_loop
+    if (there_are_no_troubles) then
+#ifdef PROFILE_ON
+      if (Limiter_Filter_Option == 0) then
+        if (mypnum == glb_root) write (iout,200)
+        200 format (8x,"No more troubled cells!")
+      end if
+#endif
+      exit order_loop
+    end if
     !
   end do order_loop
   !
@@ -765,7 +782,7 @@ continue
     !
   end do
   !
-#ifdef DEBUG_ON
+#ifdef PROFILE_ON
   n1 = merge(1,0,there_are_no_troubles)
   call mpi_allreduce(MPI_IN_PLACE,n1,1_int_mpi,mpi_inttyp, &
                      MPI_MIN,MPI_COMM_WORLD,mpierr)
