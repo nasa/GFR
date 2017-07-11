@@ -330,6 +330,14 @@ continue
   !
   gridfile = trim(adjustl(gridfile))
   !
+  ! Make sure both profile_io_restart and profile_io_cgns
+  ! are true if profile_io_all is true
+  !
+  if (profile_io_all) then
+    profile_io_restart = true
+    profile_io_cgns = true
+  end if
+  !
   ! Set the order variables using the input parameters
   !
   n_order = solution_order
@@ -5230,6 +5238,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : correct_output
   use ovar,    only : governing_equations
+  use ovar,    only : profile_io_cgns
   use flowvar, only : usp,dusp
   !
   use module_limiters, only : marker,scaled_marker
@@ -5244,6 +5253,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   !.. Local Scalars ..
   integer :: k,l,m,n,nc,ierr
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
   !
   character(len=CGLEN) :: varname
   character(len=CGLEN) :: sect_name
@@ -5300,9 +5312,10 @@ continue
   call debug_timer(entering_procedure,pname)
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,1)
-    flush(iout)
+    flush (iout)
+    if (profile_io_cgns) beg_wall_time = mpi_wtime()
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
@@ -5814,9 +5827,15 @@ continue
   !
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
-    write (iout,2)
-    flush(iout)
+  if (mypnum == glb_root) then
+    if (profile_io_cgns) then
+      end_wall_time = mpi_wtime()
+      write (iout,2) trim(adjustl(cgns_sol_file)), &
+                     end_wall_time - beg_wall_time
+    else
+      write (iout,2)
+    end if
+    flush (iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
@@ -5825,7 +5844,9 @@ continue
   ! Format Statements
   !
   1 format (/," Entering write_parallel_cgns_solution_file")
-  2 format (" Leaving write_parallel_cgns_solution_file",/)
+  2 format (" Leaving write_parallel_cgns_solution_file",/,:, &
+          5x,"Wall time taken to write the file '",a, &
+             "' = ",f12.6," seconds",/)
   !
   !-----------------------------------------------------------------------------
   !
@@ -5845,10 +5866,14 @@ subroutine write_parallel_cgns_time_ave_file()
   use geovar,  only : nr,n_solpts
   use ovar,    only : aref,rhoref,tref,tkeref,tlsref
   use ovar,    only : interpolate_before_output_variable
+  use ovar,    only : profile_io_cgns
   use flowvar, only : uavesp,time_ave_variables
   !
   !.. Local Scalars ..
   integer :: l,n,naq,ierr
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
   !
   character(len=1)     :: ta_char
   character(len=1)     :: vmult
@@ -5877,9 +5902,10 @@ continue
   call debug_timer(entering_procedure,pname)
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     write (iout,1)
-    flush(iout)
+    flush (iout)
+    if (profile_io_cgns) beg_wall_time = mpi_wtime()
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
@@ -6057,9 +6083,15 @@ continue
   !
 #ifdef PBS_ENV
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == 0) then
-    write (iout,2)
-    flush(iout)
+  if (mypnum == glb_root) then
+    if (profile_io_cgns) then
+      end_wall_time = mpi_wtime()
+      write (iout,2) trim(adjustl(cgns_sol_file)), &
+                     end_wall_time - beg_wall_time
+    else
+      write (iout,2)
+    end if
+    flush (iout)
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
@@ -6068,7 +6100,9 @@ continue
   ! Format Statements
   !
   1 format (/," Entering write_parallel_cgns_time_ave_file")
-  2 format (" Leaving write_parallel_cgns_time_ave_file",/)
+  2 format (" Leaving write_parallel_cgns_time_ave_file",/,:, &
+          5x,"Wall time taken to write the file '",a, &
+             "' = ",f12.6," seconds",/)
   !
   !-----------------------------------------------------------------------------
   !
