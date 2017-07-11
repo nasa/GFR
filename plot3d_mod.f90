@@ -551,6 +551,7 @@ continue
   !
   if (mypnum == glb_root) then
     !
+    write (iout,*)
     write (iout,1) " Finish reading the Plot3D file"
     write (iout,2) " nblk = ", nblk
     write (iout,2) " ncell = ", ncell
@@ -579,6 +580,7 @@ continue
      !  write (iout,*) "The unformatted grid file is in little endian format"
      !end if
     end if
+    write (iout,*)
     !
   end if
   !
@@ -866,11 +868,11 @@ continue
   ! Reading the header seemed to be successful. Make sure
   ! that all the block dimensions are valid values.
   !
-  if (mypnum == glb_root) then
-    do n = 1,nblk
-      write (iout,7) n,(ijkpts(l,n),l=1,3)
-    end do
-  end if
+ !if (mypnum == glb_root) then
+ !  do n = 1,nblk
+ !    write (iout,7) n,(ijkpts(l,n),l=1,3)
+ !  end do
+ !end if
   if (any(ijkpts(:,:) < 1)) goto 104 ! go to 104 error statement
   !
   ! If all the third dimensions are 1, this is a 2D grid
@@ -1044,11 +1046,11 @@ continue
   ! Reading the header seemed to be successful. Make sure
   ! that all the block dimensions are valid values.
   !
-  if (mypnum == glb_root) then
-    do n = 1,nblk
-      write (iout,7) n,(ijkpts(l,n),l=1,3)
-    end do
-  end if
+ !if (mypnum == glb_root) then
+ !  do n = 1,nblk
+ !    write (iout,7) n,(ijkpts(l,n),l=1,3)
+ !  end do
+ !end if
   !
   if (any(ijkpts(:,:) < 1)) goto 103 ! go to 104 error statement
   !
@@ -1898,10 +1900,10 @@ continue
   !
   ncell = lcell
   !
-  write (iout,'(a," = ",i0)') "lcell",lcell
-  write (iout,'(a," = ",i0)') "tcell",tcell
-  write (iout,'(a," = ",i0)') "lnode",lnode
-  write (iout,'(a," = ",i0)') "tnode",tnode
+ !write (iout,'(a," = ",i0)') "lcell",lcell
+ !write (iout,'(a," = ",i0)') "tcell",tcell
+ !write (iout,'(a," = ",i0)') "lnode",lnode
+ !write (iout,'(a," = ",i0)') "tnode",tnode
   !
   ! Count the total number of boundary faces across all blocks in this grid
   !
@@ -1946,7 +1948,7 @@ continue
     lfbnd = lfbnd + (nc1/stride)*(nc2/stride)
     !
   end do
-  write (iout,'(a," = ",i0)') "lfbnd",lfbnd
+ !write (iout,'(a," = ",i0)') "lfbnd",lfbnd
   !
   ! If an error was found with the strides, abort the simulation
   !
@@ -2475,10 +2477,10 @@ continue
     end if
     !
     bcs_info(nb)%bc%loc = 2*dir-1 + merge(0,1,loc==1)
-    write (iout,'("nb = ",i2," ; loc = ",i1," ; hostface = ",i1)') &
-      nb,bcs_info(nb)%bc%loc, &
-      merge(HostFace3D(bcs_info(nb)%bc%loc), &
-            HostFace2D(bcs_info(nb)%bc%loc),nr==3)
+   !write (iout,'("nb = ",i2," ; loc = ",i1," ; hostface = ",i1)') &
+   !  nb,bcs_info(nb)%bc%loc, &
+   !  merge(HostFace3D(bcs_info(nb)%bc%loc), &
+   !        HostFace2D(bcs_info(nb)%bc%loc),nr==3)
     !
     ! Fill in the remaining directional information based on 2D/3D grid
     !
