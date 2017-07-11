@@ -26,6 +26,7 @@ program Euler_tri
   use ovar, only : adjust_cfl_cycles
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
+  use ovar, only : Filtering_Interval,Limiting_Interval
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -140,6 +141,9 @@ program Euler_tri
   logical(ldk) :: request_solution
   logical(ldk) :: request_cfl_adjustment
   logical(ldk) :: request_restart_interupt
+  !
+  logical(lk)  :: Apply_Filter
+  logical(lk)  :: Apply_Limiter
   !
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
@@ -423,6 +427,17 @@ continue
      !  write (iout,'(3x,i3,1x,i1)') iter,nst
      !end if
       !
+      Apply_Filter = (Filtering_Interval == 0)
+      Apply_Limiter = (Limiting_Interval == 0)
+      if (nst == num_rk_stages) then
+        if (Filtering_Interval > 0) then
+          Apply_Filter = (mod(iter,Filtering_Interval) == 0)
+        end if
+        if (Limiting_Interval > 0) then
+          Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
+        end if
+      end if
+      !
       call interp_cv_to_flxpts
       call get_faceusp_bc
       if (nst == 1) call get_dtsp(dtmin)
@@ -503,15 +518,15 @@ continue
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
       if (Runge_Kutta_Scheme == Classic_RK) then
-        call rupdate_Classic_RK
+        call rupdate_Classic_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD2_RK) then
-        call rupdate_TVD2_RK
+        call rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD3_RK) then
-        call rupdate_TVD3_RK
+        call rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD4_RK) then
-        call rupdate_TVD4_RK
+        call rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == CK4_RK) then
-        call rupdate_CK4_RK
+        call rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
       end if
       !
     end do rk_loop
