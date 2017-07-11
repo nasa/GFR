@@ -1149,12 +1149,13 @@ subroutine initialize_time_ave()
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
   use ovar,    only : time,ave_start_time
+  use ovar,    only : time_ave_vel_is_axisymm
   use flowvar, only : time_ave_variables
   use flowvar, only : uavesp
   !
   !.. Local Scalars ..
   integer :: l,m,nv,nvar,ierr
-  character(len=1)  :: ta_char
+  character(len=1)  :: ta_char,v1,v2,v3
   character(len=30) :: array_name
   !
   !.. Local Parameters ..
@@ -1171,61 +1172,146 @@ continue
   !
   if (.not. allocated(time_ave_variables)) then
     !
+    v1 = "x"
+    v2 = merge( "r" , "y" , time_ave_vel_is_axisymm )
+    v3 = merge( "f" , "z" , time_ave_vel_is_axisymm )
+    !
     ! Since the time_ave_variables array isnt allocated, this means that a
     ! time-averaged restart file wasnt read and the start time of the
     ! time-averaging needs to be initialized to the current time
     !
     ave_start_time = time
     !
-    nvar = merge(23,11,nr==3)
-    allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+   !nvar = merge(23,11,nr==3)
+   !allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
+   !                 ierr,error_message)
     !
     if (nr == 3) then
+      !
       ! First 5 are the conserved variables
-      time_ave_variables( 1) = "d"
-      time_ave_variables( 2) = "dx"
-      time_ave_variables( 3) = "dy"
-      time_ave_variables( 4) = "dz"
-      time_ave_variables( 5) = "e"
+      !
+     !time_ave_variables( 1) = "d"
+     !time_ave_variables( 2) = "dx"
+     !time_ave_variables( 3) = "dy"
+     !time_ave_variables( 4) = "dz"
+     !time_ave_variables( 5) = "e"
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ "d" , "dx" , "dy" , "dz" , "e" ]
+      !
       ! Next 5 are the primitive variables
+      !
       ! (with temperature instead of density)
-      time_ave_variables( 6) = "t"
-      time_ave_variables( 7) = "x"
-      time_ave_variables( 8) = "y"
-      time_ave_variables( 9) = "z"
-      time_ave_variables(10) = "p"
+     !time_ave_variables( 6) = "t"
+     !time_ave_variables( 7) = "x"
+     !time_ave_variables( 8) = "y"
+     !time_ave_variables( 9) = "z"
+     !time_ave_variables(10) = "p"
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ time_ave_variables(:) , &
+                             "t" , "x" , "y" , "z" , "p" ]
+      !
       ! Remaining are derived variables
-      time_ave_variables(11) = "r"
-      time_ave_variables(12) = "f"
-      time_ave_variables(13) = "xx"
-      time_ave_variables(14) = "yy"
-      time_ave_variables(15) = "zz"
-      time_ave_variables(16) = "rr"
-      time_ave_variables(17) = "ff"
-      time_ave_variables(18) = "xy"
-      time_ave_variables(19) = "xz"
-      time_ave_variables(20) = "yz"
-      time_ave_variables(21) = "xr"
-      time_ave_variables(22) = "xf"
-      time_ave_variables(23) = "rf"
+      !
+     !m = 10
+     !if (time_ave_vel_is_axisymm) then
+     !  m = m+1 ; time_ave_variables(m) = "d" // v2
+     !  m = m+1 ; time_ave_variables(m) = "d" // v3
+     !  m = m+1 ; time_ave_variables(m) = v2
+     !  m = m+1 ; time_ave_variables(m) = v3
+     !endif
+     !m = m+1 ; time_ave_variables(m) = v1 // v1
+     !m = m+1 ; time_ave_variables(m) = v2 // v2
+     !m = m+1 ; time_ave_variables(m) = v3 // v3
+     !m = m+1 ; time_ave_variables(m) = v1 // v2
+     !m = m+1 ; time_ave_variables(m) = v1 // v3
+     !m = m+1 ; time_ave_variables(m) = v2 // v3
+     !!
+     !m = m+1 ; time_ave_variables(m) = v1 // "t"
+     !m = m+1 ; time_ave_variables(m) = v2 // "t"
+     !m = m+1 ; time_ave_variables(m) = v3 // "t"
+     !m = m+1 ; time_ave_variables(m) = "dt"
+     !!
+     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v1
+     !m = m+1 ; time_ave_variables(m) = "d" // v2 // v2
+     !m = m+1 ; time_ave_variables(m) = "d" // v3 // v3
+     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v2
+     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v3
+     !m = m+1 ; time_ave_variables(m) = "d" // v2 // v3
+     !!
+     !m = m+1 ; time_ave_variables(m) = "d" // v1 // "t"
+     !m = m+1 ; time_ave_variables(m) = "d" // v2 // "t"
+     !m = m+1 ; time_ave_variables(m) = "d" // v3 // "t"
+      !
+      ! ALL OF THE BELOW ASSIGNMENTS USE F2003 AUTO-REALLOCATION TO
+      ! APPEND A NEW ARRAY ELEMENT ONTO THE time_ave_variables ARRAY
+      ! FOR EACH ADDITIONAL TIME AVERAGED VARIABLE
+      !
+      if (time_ave_vel_is_axisymm) then
+        time_ave_variables = [ time_ave_variables(:) , "d" // v2 ]
+        time_ave_variables = [ time_ave_variables(:) , "d" // v3 ]
+        time_ave_variables = [ time_ave_variables(:) , v2 ]
+        time_ave_variables = [ time_ave_variables(:) , v3 ]
+      end if
+      !
+      time_ave_variables = [ time_ave_variables(:) , v1 // v1 ]
+      time_ave_variables = [ time_ave_variables(:) , v2 // v2 ]
+      time_ave_variables = [ time_ave_variables(:) , v3 // v3 ]
+      time_ave_variables = [ time_ave_variables(:) , v1 // v2 ]
+      time_ave_variables = [ time_ave_variables(:) , v1 // v3 ]
+      time_ave_variables = [ time_ave_variables(:) , v2 // v3 ]
+      !
+      time_ave_variables = [ time_ave_variables(:) , v1 // "t" ]
+      time_ave_variables = [ time_ave_variables(:) , v2 // "t" ]
+      time_ave_variables = [ time_ave_variables(:) , v3 // "t" ]
+      time_ave_variables = [ time_ave_variables(:) , "dt" ]
+      !
+      time_ave_variables = [ time_ave_variables(:) , "d" // v1 // v1 ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v2 // v2 ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v3 // v3 ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v1 // v2 ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v1 // v3 ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v2 // v3 ]
+      !
+      time_ave_variables = [ time_ave_variables(:) , "d" // v1 // "t" ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v2 // "t" ]
+      time_ave_variables = [ time_ave_variables(:) , "d" // v3 // "t" ]
+      !
+      nvar = size(time_ave_variables)
+      !
     else
+      !
       ! First 4 are the conserved variables
-      time_ave_variables( 1) = "d"
-      time_ave_variables( 2) = "dx"
-      time_ave_variables( 3) = "dy"
-      time_ave_variables( 4) = "e"
+      !
+     !time_ave_variables( 1) = "d"
+     !time_ave_variables( 2) = "dx"
+     !time_ave_variables( 3) = "dy"
+     !time_ave_variables( 4) = "e"
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ "d" , "dx" , "dy" , "e" ]
+      !
       ! Next 4 are the primitive variables
       ! (with temperature instead of density)
-      time_ave_variables( 5) = "t"
-      time_ave_variables( 6) = "x"
-      time_ave_variables( 7) = "y"
-      time_ave_variables( 8) = "p"
+      !
+     !time_ave_variables( 5) = "t"
+     !time_ave_variables( 6) = "x"
+     !time_ave_variables( 7) = "y"
+     !time_ave_variables( 8) = "p"
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ time_ave_variables(:) , "t" , "x" , "y" , "p" ]
+      !
       ! Remaining are derived variables
-      time_ave_variables( 9) = "xx"
-      time_ave_variables(10) = "yy"
-      time_ave_variables(11) = "xy"
+      !
+     !time_ave_variables( 9) = "xx"
+     !time_ave_variables(10) = "yy"
+     !time_ave_variables(11) = "xy"
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ time_ave_variables(:) , "xx" ]
+      time_ave_variables = [ time_ave_variables(:) , "yy" ]
+      time_ave_variables = [ time_ave_variables(:) , "xy" ]
+      !
+      nvar = size(time_ave_variables)
+      !
     end if
     !
   else
