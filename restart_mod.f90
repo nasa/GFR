@@ -44,11 +44,15 @@ module restart_mod
 #ifdef PBS_ENV
   _MPI_DATA_TYPE_, save :: ordered_geom_type
   _MPI_DATA_TYPE_, save :: solution_type
+  _MPI_DATA_TYPE_, save :: sol_block_type
   _MPI_DATA_TYPE_, save :: averaging_type
+  _MPI_DATA_TYPE_, save :: ave_block_type
 #else
   _MPI_DATA_TYPE_, save :: ordered_geom_type = MPI_DATATYPE_NULL
   _MPI_DATA_TYPE_, save :: solution_type     = MPI_DATATYPE_NULL
+  _MPI_DATA_TYPE_, save :: sol_block_type    = MPI_DATATYPE_NULL
   _MPI_DATA_TYPE_, save :: averaging_type    = MPI_DATATYPE_NULL
+  _MPI_DATA_TYPE_, save :: ave_block_type    = MPI_DATATYPE_NULL
 #endif
   !
   character(len=170), save :: restart_dir = ""
@@ -57,10 +61,14 @@ module restart_mod
   character(len=170), save :: statfile_fmt
   character(len=170), save :: tafile_fmt
   character(len=170), save :: talink_fmt
+  character(len=170), save :: tastat_fmt
+  character(len=170), save :: tadone_fmt
+  character(len=170), save :: talkdn_fmt
   !
   integer, save :: averaging_file_switch = 1
   !
   _MPI_DATA_TYPE_, save :: read_type
+  _MPI_DATA_TYPE_, save :: read_block_type
   _MPI_DATA_TYPE_, save :: real_type
   !
   integer, save :: num_pts = 0
@@ -504,7 +512,8 @@ continue
   !
   if (.not. allocated(cell_input_data)) then
     !
-    call get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
+    call get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
+                                 read_block_type,read_type, &
                                  num_pts,ordered_geom,cell_input_data)
     !
   end if
@@ -539,7 +548,7 @@ continue
   !
   ! Set the file view to write the ordered_geom array to the restart file
   !
-  call mpi_file_set_view(file_handle,file_disp,real_type, &
+  call mpi_file_set_view(file_handle,file_disp,read_block_type, &
                          read_type, trim(adjustl(file_datarep)), &
                          file_info, mpierr)
   !
@@ -552,12 +561,16 @@ continue
   ! Read in the solution restart data
   !
   if (restart_rp == wp) then
-    call read_rstrt_file_wp(file_handle,rst_sol)
+    call read_rstrt_file_wp(file_handle,rst_sol, &
+                            read_block_type)
   else
     select case (restart_rp)
-      case (real64)  ; call read_rstrt_file_r8(file_handle,rst_sol)
-      case (real32)  ; call read_rstrt_file_r4(file_handle,rst_sol)
-      case (real128) ; call read_rstrt_file_r16(file_handle,rst_sol)
+      case (real64)  ; call read_rstrt_file_r8(file_handle,rst_sol, &
+                                               read_block_type)
+      case (real32)  ; call read_rstrt_file_r4(file_handle,rst_sol, &
+                                               read_block_type)
+      case (real128) ; call read_rstrt_file_r16(file_handle,rst_sol, &
+                                                read_block_type)
       case default
         write (error_message,23)
         call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -938,7 +951,8 @@ continue
       !
       call write_solution_file(fname,int_header,real_header,restart_comm, &
                                ordered_geom,ordered_geom_type, &
-                               solution,solution_type,statfile=statfile)
+                               solution,solution_type,sol_block_type, &
+                               statfile=statfile)
       !
     end if
     !
@@ -979,7 +993,7 @@ end subroutine write_restart_file
 !
 subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
                                ordered_geom,og_type,solution,sol_type, &
-                               var_header,statfile)
+                               sol_blktyp,var_header,statfile)
   !
   !.. Use Statements ..
   use ovar,    only : lustre_stripe_factor
@@ -996,6 +1010,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   _MPI_DATA_TYPE_,  intent(in) :: og_type
   real(wp),         intent(in) :: solution(:,:)
   _MPI_DATA_TYPE_,  intent(in) :: sol_type
+  _MPI_DATA_TYPE_,  intent(in) :: sol_blktyp
   !
   !.. Optional Arguments ..
   integer,          optional, intent(in) :: var_header(:)
@@ -1227,7 +1242,7 @@ continue
       !
       call mpi_file_write(file_handle,var_header, &
                           size(var_header,kind=int_mpi), &
-                          mpi_inttyp,istat(1),mpierr)
+                          MPI_INTEGER,istat(1),mpierr)
       !
     end if
     !
@@ -1264,7 +1279,7 @@ continue
   !
   ! Set the file fiew to write the solution data to the restart file
   !
-  call mpi_file_set_view(file_handle,file_disp,mpi_flttyp, &
+  call mpi_file_set_view(file_handle,file_disp,sol_blktyp, &
                          sol_type, trim(adjustl(file_datarep)), &
                          file_info, mpierr)
   !
@@ -1274,8 +1289,8 @@ continue
   ! Write the solution data to the restart file
   !
   call mpi_file_write_all(file_handle,solution, &
-                          size(solution,kind=int_mpi), &
-                          mpi_flttyp,istat(1),mpierr)
+                          size(solution,dim=2,kind=int_mpi), &
+                          sol_blktyp,istat(1),mpierr)
   !
   call WRITE_RESTART_STATUS(ios,file_comm,file_name=statfile, &
                             mpistat=istat, &
@@ -1406,6 +1421,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header)
   logical(lk) :: involved_with_output
   !
   character(len=100) :: fname
+  character(len=100) :: statfile
   character(len=300) :: command
   character(len=300) :: cmndmsg
   !
@@ -1432,9 +1448,11 @@ continue
   if (itnum > 0) then
     write (fname,tafile_fmt) averaging_file_switch,""
     write (command,talink_fmt) averaging_file_switch,""
+    write (statfile,tastat_fmt) averaging_file_switch,""
   else
-    write (fname,tafile_fmt) itcur,".done"
-    write (command,talink_fmt) itcur,".done"
+    write (fname,tadone_fmt) itcur,".done"
+    write (command,talkdn_fmt) itcur,".done"
+    write (statfile,tastat_fmt) itcur,".done"
   end if
   !
   ! Create the time averaged information to write to the averaging file
@@ -1478,7 +1496,8 @@ continue
     !
     call write_solution_file(fname,int_header,real_header,timeave_comm, &
                              ordered_geom,ordered_geom_type, &
-                             solution,averaging_type,var_header=var_header)
+                             solution,averaging_type,ave_block_type, &
+                             var_header=var_header,statfile=statfile)
     !
   end if
   !
@@ -1520,7 +1539,7 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   use geovar,  only : ncell,cell,n_solpts
   !
   !.. Formal Arguments ..
-  real(wp), allocatable,    intent(in) :: current_sol(:,:)
+  real(wp),                 intent(in) :: current_sol(:,:)
   real(wp), allocatable, intent(inout) :: output_sol(:,:)
   !
   !.. Optional Arguments ..
@@ -1594,7 +1613,7 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   use geovar,  only : ncell,cell,n_solpts
   !
   !.. Formal Arguments ..
-  real(wp), allocatable,    intent(in) :: current_sol(:,:)
+  real(wp),                 intent(in) :: current_sol(:,:)
   real(wp), allocatable, intent(inout) :: output_sol(:,:)
   !
   !.. Optional Arguments ..
@@ -1985,6 +2004,9 @@ continue
   write (statfile_fmt,6) trim(adjustl(restart_dir)),final_iter_digits
   write (tafile_fmt,7) trim(adjustl(restart_dir))
   write (talink_fmt,8) trim(adjustl(restart_dir))
+  write (tastat_fmt,9) trim(adjustl(restart_dir))
+  write (tadone_fmt,10) trim(adjustl(restart_dir)),final_iter_digits
+  write (talkdn_fmt,11) final_iter_digits,trim(adjustl(restart_dir))
   !
   ! Make sure restart_output_uses_host_roots is
   ! false if only one processor is being used.
@@ -1997,14 +2019,17 @@ continue
   !
   ! Format Statements
   !
-  1 format (i0)
-  2 format ("('",a,"out.',i0.",i0,",a,'.rst')")
-  3 format ("lfs setstripe -c ",i0," -S ",a,1x,a)
-  4 format ("Lustre striping command = '",a,"'")
-  5 format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
-  6 format ("('",a,"out.',i0.",i0,",a,'.stat')")
-  7 format ("('",a,"out.',i0,a,'.ave')")
-  8 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  1  format (i0)
+  2  format ("('",a,"out.',i0.",i0,",a,'.rst')")
+  3  format ("lfs setstripe -c ",i0," -S ",a,1x,a)
+  4  format ("Lustre striping command = '",a,"'")
+  5  format ("('/bin/ln -sf out.',i0.",i0,",a,'.rst ",a,"out.current.rst')")
+  6  format ("('",a,"out.',i0.",i0,",a,'.stat')")
+  7  format ("('",a,"out.',i0,a,'.ave')")
+  8  format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  9  format ("('",a,"out.',i0,a,'.ave.stat')")
+  10 format ("('",a,"out.',i0.",i0,",a,'.ave')")
+  11 format ("('/bin/ln -sf out.',i0.",i0,",a,'.ave ",a,"out.current.ave')")
   !
   100 format ("A simulation restart was requested but the restart file ", &
               "given in the input file, '",a,"', does not exist!!! NOTE: ", &
@@ -2047,6 +2072,9 @@ continue
   write (statfile_fmt,4) trim(adjustl(restart_dir)),final_iter_digits
   write (tafile_fmt,5) trim(adjustl(restart_dir))
   write (talink_fmt,6) trim(adjustl(restart_dir))
+  write (tastat_fmt,7) trim(adjustl(restart_dir))
+  write (tadone_fmt,8) trim(adjustl(restart_dir)),final_iter_digits
+  write (talkdn_fmt,9) final_iter_digits,trim(adjustl(restart_dir))
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -2058,6 +2086,9 @@ continue
   4 format ("('",a,"out.',i0.",i0,",a,'.stat')")
   5 format ("('",a,"out.',i0,a,'.ave')")
   6 format ("('/bin/ln -sf out.',i0,a,'.ave ",a,"out.current.ave')")
+  7 format ("('",a,"out.',i0,a,'.ave.stat')")
+  8 format ("('",a,"out.',i0.",i0,",a,'.ave')")
+  9 format ("('/bin/ln -sf out.',i0.",i0,",a,'.ave ",a,"out.current.ave')")
   !
 end subroutine create_restart_fname_formats
 !
@@ -2425,15 +2456,19 @@ continue
     ! Create the MPI derived datatype for writing the
     ! solution data to the restart file
     !
+    call mpi_type_contiguous(int(nq,kind=int_mpi),mpi_flttyp, &
+                             sol_block_type,mpierr)
+    call mpi_type_commit(sol_block_type,mpierr)
+    !
     ! Multiply the offsets and block lengths by nq to account
     ! for the number of equations in the solution data
     !
     sol_offset = pts_offset(:) * int(nq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
     sol_blklen = pts_blklen(:) * int(nq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
     !
-    call mpi_type_indexed(size(sol_offset,kind=int_mpi), &
-                          sol_blklen,sol_offset, &
-                          mpi_flttyp,solution_type,mpierr)
+    call mpi_type_indexed(size(pts_offset,kind=int_mpi), &
+                          pts_blklen,pts_offset, &
+                          sol_block_type,solution_type,mpierr)
     call mpi_type_commit(solution_type,mpierr)
     !
     ! Create the MPI derived datatype for writing the
@@ -2442,6 +2477,9 @@ continue
     if (allocated(uavesp)) then
       !
       naq = size(uavesp,dim=1)
+      call mpi_type_contiguous(int(naq,kind=int_mpi),mpi_flttyp, &
+                               ave_block_type,mpierr)
+      call mpi_type_commit(ave_block_type,mpierr)
       !
       ! Multiply the offsets and block lengths by naq to account for
       ! the number of time averaged quantities in the solution data
@@ -2449,10 +2487,10 @@ continue
       ave_offset = pts_offset(:)*int(naq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
       ave_blklen = pts_blklen(:)*int(naq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
       !
-      call mpi_type_indexed(size(ave_offset,kind=int_mpi), &
-                            ave_blklen,ave_offset, &
-                            mpi_flttyp,averaging_type,mpierr)
-      call mpi_type_commit(solution_type,mpierr)
+      call mpi_type_indexed(size(pts_offset,kind=int_mpi), &
+                            pts_blklen,pts_offset, &
+                            ave_block_type,averaging_type,mpierr)
+      call mpi_type_commit(averaging_type,mpierr)
       !
     end if
     !
@@ -2684,7 +2722,7 @@ continue
     call mpi_type_indexed(size(ave_offset,kind=int_mpi), &
                           ave_blklen,ave_offset, &
                           mpi_flttyp,averaging_type,mpierr)
-    call mpi_type_commit(solution_type,mpierr)
+    call mpi_type_commit(averaging_type,mpierr)
     !
   end if
   !
@@ -2731,7 +2769,8 @@ end subroutine get_output_mpi_datatypes
 !
 !###############################################################################
 !
-subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
+subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
+                                   read_block_type,read_type, &
                                    num_pts,ordered_geom,cell_input_data)
   !
   !.. Use Statements ..
@@ -2742,6 +2781,7 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type,read_type, &
   integer(wip),                     intent(in) :: restart_nq
   integer(wip),                     intent(in) :: restart_rp
   _MPI_DATA_TYPE_,               intent(inout) :: real_type
+  _MPI_DATA_TYPE_,               intent(inout) :: read_block_type
   _MPI_DATA_TYPE_,               intent(inout) :: read_type
   integer(wip),                  intent(inout) :: num_pts
   integer(wip),                     intent(in) :: ordered_geom(:)
@@ -2767,6 +2807,7 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  read_block_type = MPI_DATATYPE_NULL
   read_type = MPI_DATATYPE_NULL
   !
   ! First determine the MPI real type for the restart solution data
@@ -2939,15 +2980,16 @@ continue
   ! Dont forget to account for the number of equations in the offsets
   ! and block lengths for the solution data
   !
-  sol_offset = sol_offset * int( restart_nq , kind=int_mpi )
-  sol_blklen = sol_blklen * int( restart_nq , kind=int_mpi )
+  call mpi_type_contiguous(int(restart_nq,kind=int_mpi),real_type, &
+                           read_block_type,mpierr)
+  call mpi_type_commit(read_block_type,mpierr)
   !
   ! Create the MPI derived datatype for reading the
   ! solution data to the restart file
   !
   call mpi_type_indexed(size(sol_offset,kind=int_mpi), &
                         sol_blklen,sol_offset, &
-                        real_type,read_type,mpierr)
+                        read_block_type,read_type,mpierr)
   call mpi_type_commit(read_type,mpierr)
   !
   ! Deallocate the local arrays before leaving
@@ -3210,11 +3252,12 @@ continue
   !
 end subroutine read_rstrt_file_r4_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r4_rank2(file_handle,real_data)
+subroutine read_rstrt_file_r4_rank2(file_handle,real_data,read_block_type)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
+  _MPI_DATA_TYPE_, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(real32) :: read_real(1:size(real_data,dim=1), &
@@ -3228,8 +3271,8 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL4,MPI_STATUS_IGNORE,mpierr)
+                         size(read_real,dim=2,kind=int_mpi), &
+                         read_block_type,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
   !
@@ -3269,11 +3312,12 @@ continue
   !
 end subroutine read_rstrt_file_r8_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r8_rank2(file_handle,real_data)
+subroutine read_rstrt_file_r8_rank2(file_handle,real_data,read_block_type)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
+  _MPI_DATA_TYPE_, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(real64) :: read_real(1:size(real_data,dim=1), &
@@ -3287,8 +3331,8 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL8,MPI_STATUS_IGNORE,mpierr)
+                         size(read_real,dim=2,kind=int_mpi), &
+                         read_block_type,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
   !
@@ -3328,11 +3372,12 @@ continue
   !
 end subroutine read_rstrt_file_r16_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_r16_rank2(file_handle,real_data)
+subroutine read_rstrt_file_r16_rank2(file_handle,real_data,read_block_type)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
+  _MPI_DATA_TYPE_, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(real128) :: read_real(1:size(real_data,dim=1), &
@@ -3346,8 +3391,8 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
-                         size(read_real,kind=int_mpi), &
-                         MPI_REAL16,MPI_STATUS_IGNORE,mpierr)
+                         size(read_real,dim=2,kind=int_mpi), &
+                         read_block_type,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = real( read_real , kind=wp )
   !
@@ -3387,11 +3432,12 @@ continue
   !
 end subroutine read_rstrt_file_wp_rank1
 !-------------------------------------------------------------------------------
-subroutine read_rstrt_file_wp_rank2(file_handle,real_data)
+subroutine read_rstrt_file_wp_rank2(file_handle,real_data,read_block_type)
   !
   !.. Formal Arguments ..
   _MPI_FILE_TYPE_, intent(in) :: file_handle
   real(wp),     intent(inout) :: real_data(:,:)
+  _MPI_DATA_TYPE_, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
   real(wp) :: read_real(1:size(real_data,dim=1), &
@@ -3405,8 +3451,8 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   call mpi_file_read_all(file_handle,read_real, &
-                         size(real_data,kind=int_mpi), &
-                         mpi_flttyp,MPI_STATUS_IGNORE,mpierr)
+                         size(real_data,dim=2,kind=int_mpi), &
+                         read_block_type,MPI_STATUS_IGNORE,mpierr)
   !
   real_data = read_real
   !
