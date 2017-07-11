@@ -588,6 +588,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,wtdjac,xyz_err,vnew,vold)
   use order_mod,         only : maxSP
   use geovar,            only : nr,cell,xyz
   use ovar,              only : mms_opt,itestcase,bc_in
+  use ovar,              only : itcur,itrst,read_time_ave_restart
   use ovar,              only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,              only : output_time_averaging
   use flowvar,           only : usp,uoldsp,uavesp
@@ -799,12 +800,18 @@ continue
     !
     if (output_time_averaging) then
       ! Compute uavesp at the previous averaging time
-      if (any(saved_ave_time == [zero,ave_start_time])) then
+      if (any(saved_ave_time == [zero,ave_start_time]) .or. &
+          (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
         uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
       else
         a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
         b = one - a
         uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
+       !if (any(uprev(nec,1:np) <= zero)) then
+       !  uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+       !else if (any(pressure_cv(uprev(1:nq,1:np)) <= zero)) then
+       !  uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+       !end if
       end if
     else
       uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
@@ -832,7 +839,8 @@ continue
       !
       if (output_time_averaging) then
         ! Compute uavesp at the previous averaging time
-        if (any(saved_ave_time == [zero,ave_start_time])) then
+        if (any(saved_ave_time == [zero,ave_start_time]) .or. &
+            (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
           vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
         else
           ! a and b were already computed above, no need to do it again
