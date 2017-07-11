@@ -156,12 +156,14 @@ rebuild-wes: rebuild-westmere
 merope: BDIR := optimize_merope
 merope: EXEF := recon_merope
 merope: TRGT := merope
+merope: FCADD += -DPROFILE_ON
 merope: build
 
 .PHONY: rebuild-merope
 rebuild-merope: BDIR := optimize_merope
 rebuild-merope: EXEF := recon_merope
 rebuild-merope: TRGT := merope
+rebuild-merope: FCADD += -DPROFILE_ON
 rebuild-merope: clean-build
 rebuild-merope: build
 
