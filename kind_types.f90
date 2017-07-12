@@ -284,9 +284,10 @@ module module_kind_types
   integer, parameter :: project_derivatives = 1
   integer, parameter :: derivative_of_proj_fluxes = 2
   !
-  integer, parameter :: invs_flux_ROE   = 1
-  integer, parameter :: invs_flux_HLLC  = 2
-  integer, parameter :: invs_flux_LDFSS = 3
+  integer, parameter :: invs_flux_ROE          = 1
+  integer, parameter :: invs_flux_HLLC         = 2
+  integer, parameter :: invs_flux_LDFSS        = 3
+  integer, parameter :: invs_flux_Rotated_RHLL = 4
   !
   integer, parameter :: visc_flux_BR1 = 1
   integer, parameter :: visc_flux_BR2 = 2

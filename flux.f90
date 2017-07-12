@@ -864,6 +864,14 @@ continue
           iflx(:) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
         else if (invs_flux_method == invs_flux_LDFSS) then
           iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
+        else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+          if (nr == 2) then
+            iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm(:) , luqp(:,k) , &
+                                                                 ruqp(:,k) )
+          else
+            iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm(:) , luqp(:,k) , &
+                                                                 ruqp(:,k) )
+          end if
         end if
         !
         ! Get the common viscous flux at the current flux point
@@ -1002,6 +1010,14 @@ continue
         iflx(:) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
       else if (invs_flux_method == invs_flux_LDFSS) then
         iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
+      else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+        if (nr == 2) then
+          iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm(:) , luqp(:,k) , &
+                                                               ruqp(:,k) )
+        else
+          iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm(:) , luqp(:,k) , &
+                                                               ruqp(:,k) )
+        end if
       end if
       !
       ! Get the common viscous flux at the current flux point
@@ -2488,6 +2504,14 @@ continue
         fncq(:,k) = hllc_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
       else if (invs_flux_method == invs_flux_LDFSS) then
         fncq(:,k) = ldfss_upwind_flux_cv ( unrm(:) , luqp(:,k) , ruqp(:,k) )
+      else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+        if (nr == 2) then
+          fncq(:,k) = rotated_rhll_upwind_flux_cv_2d ( unrm(:) , luqp(:,k) , &
+                                                                 ruqp(:,k) )
+        else
+          fncq(:,k) = rotated_rhll_upwind_flux_cv_3d ( unrm(:) , luqp(:,k) , &
+                                                                 ruqp(:,k) )
+        end if
       end if
       !
     end do
