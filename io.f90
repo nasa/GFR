@@ -4663,8 +4663,9 @@ end subroutine write_final_error
 subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
-  use ovar,      only : work_units,uverr,output_time_averaging,time
-  use ovar,      only : total_volume,time_ref,time_scaling_factor
+  use ovar,      only : work_units,uverr,total_volume
+  use ovar,      only : time,time_ref,time_scaling_factor
+  use ovar,      only : output_time_averaging,ave_start_time
   use order_mod, only : p_order
   !
   !.. Formal Arguments ..
@@ -4705,7 +4706,8 @@ continue
     write (iores,1)
     !
     suffix = '",'
-    if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
+    if (output_time_averaging) suffix = '<sub>ave</sub>",'
+   !if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
     !
     write (iores,2) "<greek>r</greek>" // trim(suffix)
     do i = 1,nr
@@ -4735,6 +4737,9 @@ continue
     comp_cost = log10(merge(work_units,one,work_units > zero))
   else
     comp_cost = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      comp_cost = comp_cost - ave_start_time*time_ref*time_scaling_factor
+    end if
   end if
   !
   ! L1 Norm
