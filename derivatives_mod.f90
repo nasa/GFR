@@ -335,59 +335,6 @@ continue
     end do
   end do
   !
- !write (iout,6) "Quad dr: ", &
- !               count(abs(deriv(Geom_Quad,n_order)%d(1)%mat) > zero), &
- !               size(deriv(Geom_Quad,n_order)%d(1)%mat), &
- !               100.0_wp*(one - &
- !        real(count(abs(deriv(Geom_Quad,n_order)%d(1)%mat) > zero),kind=wp) / &
- !        real(size(deriv(Geom_Quad,n_order)%d(1)%mat),kind=wp) )
- !write (iout,6) "Quad ds: ", &
- !               count(abs(deriv(Geom_Quad,n_order)%d(2)%mat) > zero), &
- !               size(deriv(Geom_Quad,n_order)%d(2)%mat), &
- !               100.0_wp*(one - &
- !        real(count(abs(deriv(Geom_Quad,n_order)%d(2)%mat) > zero),kind=wp) / &
- !        real(size(deriv(Geom_Quad,n_order)%d(2)%mat),kind=wp) )
- !write (iout,6) "Hexa dr: ", &
- !               count(abs(deriv(Geom_Hexa,n_order)%d(1)%mat) > zero), &
- !               size(deriv(Geom_Hexa,n_order)%d(1)%mat), &
- !               100.0_wp*(one - &
- !        real(count(abs(deriv(Geom_Hexa,n_order)%d(1)%mat) > zero),kind=wp) / &
- !        real(size(deriv(Geom_Hexa,n_order)%d(1)%mat),kind=wp) )
- !write (iout,6) "Hexa ds: ", &
- !               count(abs(deriv(Geom_Hexa,n_order)%d(2)%mat) > zero), &
- !               size(deriv(Geom_Hexa,n_order)%d(2)%mat), &
- !               100.0_wp*(one - &
- !        real(count(abs(deriv(Geom_Hexa,n_order)%d(2)%mat) > zero),kind=wp) / &
- !        real(size(deriv(Geom_Hexa,n_order)%d(2)%mat),kind=wp) )
- !write (iout,6) "Hexa dt: ", &
- !               count(abs(deriv(Geom_Hexa,n_order)%d(3)%mat) > zero), &
- !               size(deriv(Geom_Hexa,n_order)%d(3)%mat), &
- !               100.0_wp*(one - &
- !        real(count(abs(deriv(Geom_Hexa,n_order)%d(3)%mat) > zero),kind=wp) / &
- !        real(size(deriv(Geom_Hexa,n_order)%d(3)%mat),kind=wp) )
- !6 format (a,i8,i8,f7.2)
- !call deriv(Geom_Quad,n_order)%d(1)%output_sparsity("quad.dr.tec.dat")
- !call deriv(Geom_Quad,n_order)%d(2)%output_sparsity("quad.ds.tec.dat")
- !call deriv(Geom_Hexa,n_order)%d(1)%output_sparsity("hexa.dr.tec.dat")
- !call deriv(Geom_Hexa,n_order)%d(2)%output_sparsity("hexa.ds.tec.dat")
- !call deriv(Geom_Hexa,n_order)%d(3)%output_sparsity("hexa.dt.tec.dat")
- !n1 = size(deriv(geom_hexa,n_order)%d(ndim)%mat,dim=1)
- !n2 = size(deriv(geom_hexa,n_order)%d(ndim)%mat,dim=2)
- !do ndim = 1,3
- !  do n = 1,n2
- !   !write (140+ndim,3) (deriv(geom_hexa,2)%d(ndim)%mat(i,n),i=1,n1)
- !   !write (140+ndim,4)
- !    write (140+ndim,5) ( merge('1','-', &
- !               abs(deriv(geom_hexa,n_order)%d(ndim)%mat(i,n))>zero) , i=1,n1 )
- !  end do
- !end do
- !3 format (3(es14.6,6x))
- !4 format (/,"##########################################################",/)
- !5 format (*(1x,a1))
- !6 format ("After output of derivative matrices for hexa geometries")
- !write (error_message,6)
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements

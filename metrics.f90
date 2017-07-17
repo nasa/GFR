@@ -23,21 +23,41 @@ module metrics_mod
   !
   type(face_nrm), public, save, allocatable :: geofa(:)
   !
-  ! volj : Volume of the grid cells evaluated by integrating the jacobian at the
-  !        solution points using the quadrature rule
-  !
-  real(wp), public, save, allocatable, dimension(:) :: volj
-  !
-  ! jacobian : jacobian of the solution points
-  !
-  real(wp), public, save, allocatable, dimension(:) :: jacobian
-  !
-  ! dJ : derivative of the jacobian at the solution points
-  !
   logical(lk), parameter :: use_dJ = fals
-  real(wp), public, save, allocatable, dimension(:,:) :: dJ
   !
-  ! metrics : first derivative metrics terms at the solution points
+  !     For solution point 'n' of cell 'nc',
+  !         metrics_dt(nc)%met(n,l,i) gives the partial derivative
+  !                             d(xi_l)
+  !                             -------
+  !                             d(x_i)
+  !     where ( x_1, x_2, x_3) = (x,y,z) -> the physical coordinates
+  !     where (xi_1,xi_2,xi_3) = (xi,eta,zeta) or (r,s,t) -> the computational
+  !                           coordinates within the standard elemental region
+  !           NOTE: the first index l gives the index of the numerator and
+  !                 the second index i gives the index of the denominator
+  !           NOTE: For 2D z and zeta (or t) do not exist
+  !
+  type, public :: metrics_t
+    ! met : first derivative metrics terms at the solution points
+    !       SEE ABOVE DESCRIPTION
+    real(wp), allocatable :: met(:,:,:)
+    ! jac : jacobian of the solution points
+    real(wp), allocatable :: jac(:)
+    ! dJ : gradient of the jacobian at the solution points
+    real(wp), allocatable :: dJ(:,:)
+  contains
+    ! vol : type-bound procedure to compute volume of a grid cell by
+    !       integerating the jacobian at the solution points using the
+    !       appropriate quadrature rule
+    procedure, public  :: vol => compute_cell_volume
+    procedure, private :: create_cell_metrics
+  end type metrics_t
+  !
+  type(metrics_t), public, save, allocatable :: metrics_dt(:)
+  !
+  !
+  !
+  ! DEFINITIONS FOR PREVIOUS VERSION OF METRICS ARRAY
   !     For solution point 'n', metrics(l,i,n,1) gives the partial derivative
   !                             d (x_l)
   !                             -------
@@ -57,28 +77,10 @@ module metrics_mod
   !                 by the jacobian is desired where this metric term is
   !                 predominantly used.
   !
-!!!#ifdef USE_OLD_METRICS
-  !real(wp), public, save, allocatable, dimension(:,:,:,:) :: metrics
-!!!#else
-  !
   ! this is essentially metrics(:,:,n) = metrics(:,:,n,2) / jacobian(n)
-  !
   !                            d(xi_l)
   ! or simply metrics(l,i,n) = -------
   !                            d(x_i)
-  !
-  real(wp), public, save, allocatable, dimension(:,:,:) :: metrics
-  !
-  type, public :: metrics_t
-    real(wp), allocatable :: met(:,:,:)
-    real(wp), allocatable :: jac(:)
-    real(wp), allocatable :: dJ(:,:)
-  contains
-    procedure, public  :: vol => compute_cell_volume
-    procedure, private :: create_cell_metrics
-  end type metrics_t
-  !
-  type(metrics_t), public, save, allocatable :: metrics_dt(:)
   !
   ! spmat : solution points matrix
   ! dximat : dx matrix
@@ -165,7 +167,6 @@ contains
 !
 subroutine get_metrics()
   !
- !use ifport
   !.. Use Statements ..
   use geovar, only : nr,n_totpts,n_totcel
   use geovar, only : ncell,cell,xyz
@@ -197,9 +198,6 @@ subroutine get_metrics()
   real(wp) :: ave_ncell,ave_nnode,ave_vol,ave_cell_vol
   real(wp) :: ave_nfbnd,ave_nface,ave_nspts
   real(wp) :: jac_min,jac_max,vol_min,vol_max
-  !
- !integer :: exitstat,cmndstat
- !character(len=1000) :: cmndmsg,command
   !
   !.. Local Arrays ..
   integer  :: iom(1:4)
@@ -249,20 +247,8 @@ continue
   !
   ! Allocate the required metrics related arrays
   !
-  allocate ( metrics(1:nr,1:nr,1:n_totpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"metrics",1,__LINE__,__FILE__,ierr,error_message)
-  !
-  allocate ( jacobian(1:n_totpts) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"jacobian",1,__LINE__,__FILE__,ierr,error_message)
-  !
   allocate ( metrics_dt(1:ncell) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"metrics_dt",1,__LINE__,__FILE__,ierr,error_message)
-  !
- !allocate ( volj(1:n_totcel) , source=zero , &
- !           stat=ierr , errmsg=error_message )
- !call alloc_error(pname,"volj",1,__LINE__,__FILE__,ierr,error_message)
   !
   local_volume = zero
   total_volume = zero
@@ -309,49 +295,9 @@ continue
     call metrics_dt(nc)%create_cell_metrics(txyz(1:np,1:nr), &
                                             this_geom,this_order,nc)
     !
-    ! Compute the metrics for all points in this cell
-    ! NOTE: THIS REQUIRES USING THE VECTOR-MATRIX MULTIPLICATION OPERATION.
-    !       I THINK THIS HAS TO DO WITH THE DERIVATIVE MATRIX BEING
-    !       TRANSPOSED FOR BETTER MEMORY ACCESS WITHIN THE SOLVER.
-    !
-    do ref_dir = 1,nr
-      do phys_dir = 1,nr
-        metrics(phys_dir,ref_dir,n1:n2) = deriv(this_geom,this_order)% &
-                                                           d(ref_dir)% &
-                                          vm_mult( txyz(1:np,phys_dir) )
-      end do
-    end do
-    !
-    ! Compute the Jacobian of the metrics tensor for each point in this cell
-    !
-    do n = n1,n2
-      jacobian(n) = compute_jacobian( metrics(1:nr,1:nr,n) )
-    end do
-    !
-    ! Compute the inverse metrics for each point in this cell
-    !
-    do n = n1,n2
-      metrics(1:nr,1:nr,n) = reverse_metrics( metrics(1:nr,1:nr,n) ) / &
-                             jacobian(n)
-    end do
-    !
-    ! Compute the first derivative of Jacobian for all
-    ! points in this cell if the array is allocated
-    !
-    if (allocated(dJ)) then
-      !
-      do ref_dir = 1,nr
-        dJ(ref_dir,n1:n2) = deriv(this_geom,this_order)% &
-                                             d(ref_dir)% &
-                            mv_mult( jacobian(n1:n2) )
-      end do
-      !
-    end if
-    !
     ! Sum the product of the Jacobian and quadrature weight for each point
     ! in this cell to compute the volume of the current cell
     !
-   !volj(nc) = dot( jacobian(n1:n2) , std_elem(this_geom,this_order)%wts(1:np) )
     vol = metrics_dt(nc)%vol(this_geom,this_order)
     !
     ! Add the volume of the current cell to the total volume
@@ -382,20 +328,18 @@ continue
     ! Output the metrics if needed
     !
     if (output_metrics) then
-      do n = n1,n2
+      do n = 1,np
         do i = ibeg,iend
           j1 = mod(i+1,2) + 1
           j2 = mod(i  ,2) + 1
           if (j1 == 1) then
-            outmet = invert_matrix( metrics(1:nr,1:nr,n) )
+            outmet = invert_matrix( metrics_dt(nc)%met(n,1:nr,1:nr) )
           else
-            outmet = metrics(1:nr,1:nr,n) * jacobian(n)
+            outmet = metrics_dt(nc)%met(n,1:nr,1:nr) * &
+                     metrics_dt(nc)%jac(n)
           end if
-         !if (j1 == 2) then
-         !  outmet = outmet / jacobian(n)
-         !end if
           where (abs(outmet) < eps14) outmet = zero
-          write (iom(i),22) n
+          write (iom(i),22) n+n1-1
           write (iom(i),23) ((cxyz(k,j1),k=1,nr), &
                               cxyz(l,j2), &
                              (outmet(k,l), k=1,nr), l=1,nr)
@@ -569,11 +513,6 @@ continue
     end do
   end if
   !
- !if (allocated(volj)) then
- !  deallocate ( volj , stat=ierr , errmsg=error_message )
- !  call alloc_error(pname,"volj",2,__LINE__,__FILE__,ierr,error_message)
- !end if
-  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -723,10 +662,6 @@ continue
         end do
         !
       end do
-     !do k = 1,nfp
-     !  write (184,'(3es12.4)') (xyz_face(k,l),l=1,nr)
-     !end do
-     !write (184,*)
       !
       ! If the current face is an edge, initialize the k components of the
       ! two vectors the dvec array to one and everything else to zero
@@ -767,8 +702,6 @@ continue
         ! Finally, the length/area normal to the current face at the current
         ! flux point is just the cross product of the two vectors in dvec
         !
-       !write (183,'(3es12.4,4x,3es12.4)') (dvec(l,1),l=1,size(dvec,dim=1)), &
-       !                                   (dvec(l,2),l=1,size(dvec,dim=1))
         dvec(:,3) = cross_product( dvec(:,1) , dvec(:,2) )
         !
         ! Zero/chop all the normals less than 10*roundoff
@@ -814,7 +747,6 @@ continue
         end if
         !
       end do
-     !write (183,*)
       !
     end do cell_face_loop
     !
@@ -1074,43 +1006,6 @@ continue
   end if
   !
   !-----------------------------------------------------------------------------
-  !
-  if (allocated(metrics)) then
-    call array%set( storage_size(metrics,kind=inttype) , &
-                            size(metrics,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "metrics"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "metrics"
-  end if
-  if (allocated(jacobian)) then
-    call array%set( storage_size(jacobian,kind=inttype) , &
-                            size(jacobian,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "jacobian"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "jacobian"
-  end if
-  if (allocated(dJ)) then
-    call array%set( storage_size(dJ,kind=inttype) , &
-                            size(dJ,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "dJ"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "dJ"
-  end if
-  if (allocated(volj)) then
-    call array%set( storage_size(volj,kind=inttype) , &
-                            size(volj,kind=inttype) )
-    call total%add(array)
-    write (array_name,5) "volj"
-    write (iou,2) array_name,array%get_units()
-  else
-    write (iou,7) "volj"
-  end if
   !
   total = total%get_units()
   write (iou,3) total%rmem,trim(adjustl(total%units))

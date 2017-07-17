@@ -725,19 +725,6 @@ continue
         write (array_name,1) Geom_Name(this_geom),this_order,"error%mat"
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
-       !if (mypnum == 0) then
-       !  write (iout,*)
-       !  100 format (a,i0)
-       !  write (iout,100) "this_geom = ",this_geom
-       !  write (iout,100) "this_order = ",this_order
-       !  write (iout,100) "epts = ",epts
-       !  write (iout,100) "npts = ",npts
-       !  write (iout,100) "size(this_outerp%error%mat,dim=1) = ", &
-       !                    size(this_outerp%error%mat,dim=1)
-       !  write (iout,100) "size(this_outerp%error%mat,dim=2) = ", &
-       !                    size(this_outerp%error%mat,dim=2)
-       !  write (iout,*)
-       !end if
         !
         ! Assign local pointersto these matrices
         ! as aliases to simplify the code
@@ -830,8 +817,6 @@ continue
       end if
     end do
   end do
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
- !                "end of init_outerpolation_matrices")
   !
   call debug_timer(leaving_procedure,pname)
   !

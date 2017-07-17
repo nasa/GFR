@@ -134,55 +134,6 @@ continue
   ! of the points defining each element that were given by the grid file to
   ! the coordinates of the solution points within each cell
   !
- !write (iout,10) "lbound(mapping,dim=1) = ",lbound(mapping,dim=1)
- !write (iout,10) "ubound(mapping,dim=1) = ",ubound(mapping,dim=1)
- !write (iout,10) "lbound(mapping,dim=2) = ",lbound(mapping,dim=2)
- !write (iout,10) "ubound(mapping,dim=2) = ",ubound(mapping,dim=2)
- !do this_order = lbound(mapping,dim=2),ubound(mapping,dim=2)
- !  do this_geom = lbound(mapping,dim=1),ubound(mapping,dim=1)
- !    if (allocated(mapping(this_geom,this_order)%MeshOrder)) then
- !      write (iout,11) "l",Geom_Name(this_geom),this_order,"MeshOrder", &
- !                 lbound(mapping(this_geom,this_order)%MeshOrder,dim=1)
- !      write (iout,11) "u",Geom_Name(this_geom),this_order,"MeshOrder", &
- !                 ubound(mapping(this_geom,this_order)%MeshOrder,dim=1)
- !    else
- !      write (iout,12) Geom_Name(this_geom),this_order,"MeshOrder"
- !      write (iout,13) Geom_Name(this_geom),this_order,"min_order", &
- !                      mapping(this_geom,this_order)%min_order
- !      write (iout,13) Geom_Name(this_geom),this_order,"max_order", &
- !                      mapping(this_geom,this_order)%max_order
- !    end if
- !    if (allocated(mapping(this_geom,this_order)%EdgeDefOrder)) then
- !      write (iout,11) "l",Geom_Name(this_geom),this_order,"EdgeDefOrder", &
- !                 lbound(mapping(this_geom,this_order)%EdgeDefOrder,dim=1)
- !      write (iout,11) "u",Geom_Name(this_geom),this_order,"EdgeDefOrder", &
- !                 ubound(mapping(this_geom,this_order)%EdgeDefOrder,dim=1)
- !    else
- !      write (iout,12) Geom_Name(this_geom),this_order,"EdgeDefOrder"
- !      write (iout,13) Geom_Name(this_geom),this_order,"min_edge_def", &
- !                      mapping(this_geom,this_order)%min_edge_def
- !      write (iout,13) Geom_Name(this_geom),this_order,"max_edge_def", &
- !                      mapping(this_geom,this_order)%max_edge_def
- !    end if
- !    if (allocated(mapping(this_geom,this_order)%FaceDefOrder)) then
- !      write (iout,11) "l",Geom_Name(this_geom),this_order,"FaceDefOrder", &
- !                 lbound(mapping(this_geom,this_order)%FaceDefOrder,dim=1)
- !      write (iout,11) "u",Geom_Name(this_geom),this_order,"FaceDefOrder", &
- !                 ubound(mapping(this_geom,this_order)%FaceDefOrder,dim=1)
- !    else
- !      write (iout,12) Geom_Name(this_geom),this_order,"FaceDefOrder"
- !      write (iout,13) Geom_Name(this_geom),this_order,"min_face_def", &
- !                      mapping(this_geom,this_order)%min_face_def
- !      write (iout,13) Geom_Name(this_geom),this_order,"max_face_def", &
- !                      mapping(this_geom,this_order)%max_face_def
- !    end if
- !  end do
- !end do
- !10 format (1x,a,i0)
- !11 format (1x,a,"bound(mapping(",a,",",i0,")%",a,") = ",i0)
- !12 format (1x,"mapping(",a,",",i0,")%",a," IS NOT ALLOCATED!")
- !13 format (1x,"mapping(",a,",",i0,")%",a," = ",i0)
-  !
   do this_cell = 1,ncell
     !
     this_geom = cell_geom(this_cell)
@@ -344,14 +295,6 @@ continue
     deallocate ( mapping , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  !
-  ! Deallocate the grid derived type now that we are done with mapping
-  ! the mesh coordinates to the solution points for each cell
-  !
- !if (allocated(grid)) then
- !  deallocate ( grid , stat=ierr , errmsg=error_message )
- !  call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
- !end if
   !
   call debug_timer(leaving_procedure,pname)
   !

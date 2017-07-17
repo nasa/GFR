@@ -84,7 +84,6 @@ module ovar
   !
   character(len=150), public, save :: output_dir = "."
   integer,            public, save :: output_interval = -5
-  logical(lk),            public, save :: correct_output  = fals
   logical(lk),            public, save :: continuous_output  = fals
   logical(lk),            public, save :: postproc_debug_grid = fals
   !
@@ -524,7 +523,8 @@ module input_namelist_mod
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
   use ovar,      only : plot3d_agglomerate_order
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
-  use ovar,      only : loc_solution_pts, loc_flux_pts, loc_triangle_pts, loc_quadrature_pts
+  use ovar,      only : loc_solution_pts, loc_flux_pts
+  use ovar,      only : loc_triangle_pts, loc_quadrature_pts
   use ovar,      only : flux_divergence, correction_function
   use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
   use ovar,      only : invs_flux_method, visc_flux_method
@@ -539,7 +539,7 @@ module input_namelist_mod
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
   use ovar,      only : output_dir, output_interval
-  use ovar,      only : correct_output, continuous_output
+  use ovar,      only : continuous_output
   use ovar,      only : postproc_debug_grid
   use ovar,      only : output_bnd_profiles,sub_inflow_method
   use ovar,      only : machref, reyref, gam, Pr, Prt
@@ -606,11 +606,13 @@ module input_namelist_mod
   ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
   namelist / input / loc_output_pts, loc_init_pts
   ! SOLVER OPTIONS
-  namelist / input / Runge_Kutta_Scheme, num_rk_stages, invs_flux_method, visc_flux_method
+  namelist / input / Runge_Kutta_Scheme, num_rk_stages, &
+                     invs_flux_method, visc_flux_method
   ! VISCOUS OPTIONS
   namelist / input / visc_variables_to_ave
   ! TIME STEPPING INFORMATION
-  namelist / input / num_timesteps, Final_Time, constant_dt, Timestep_Type, minimum_timesteps
+  namelist / input / num_timesteps, Final_Time, constant_dt, &
+                     Timestep_Type, minimum_timesteps
   ! CFL CONTROL VARIABLES
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
@@ -626,13 +628,14 @@ module input_namelist_mod
   ! INITIALIZATION / TEST CASE
   namelist / input / itestcase
   ! RESTART OPTIONS
-  namelist / input / load_restart_file, restart_interval, use_old_restart_format, &
-                     restart_file, restart_output_uses_host_roots
+  namelist / input / load_restart_file, restart_interval, &
+                     use_old_restart_format, restart_file, &
+                     restart_output_uses_host_roots
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
   namelist / input / output_dir, output_interval, output_order, &
-                     correct_output, continuous_output
+                     continuous_output
   ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
   namelist / input / postproc_debug_grid
   ! GOVERNING EQUATIONS

@@ -451,19 +451,10 @@ pure function dot_sparse_unrolled_p1(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2)
-#else
   n2 = n1+1
   !
   return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
                  this%row_val(n2) * vector( this%row_idx(n2) )
-#endif
   !
 end function dot_sparse_unrolled_p1
 !
@@ -490,21 +481,12 @@ pure function dot_sparse_unrolled_p2(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
-#else
   n2 = n1+1
   n3 = n2+1
   !
   return_value = this%row_val(n1) * vector( this%row_idx(n1) ) + &
                  this%row_val(n2) * vector( this%row_idx(n2) ) + &
                  this%row_val(n3) * vector( this%row_idx(n3) )
-#endif
   !
 end function dot_sparse_unrolled_p2
 !
@@ -531,14 +513,6 @@ pure function dot_sparse_unrolled_p3(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -547,7 +521,6 @@ continue
                  this%row_val(n2) * vector( this%row_idx(n2) ) + &
                  this%row_val(n3) * vector( this%row_idx(n3) ) + &
                  this%row_val(n4) * vector( this%row_idx(n4) )
-#endif
   !
 end function dot_sparse_unrolled_p3
 !
@@ -574,14 +547,6 @@ pure function dot_sparse_unrolled_p4(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4) + a(5)*b(5)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -592,7 +557,6 @@ continue
                  this%row_val(n3) * vector( this%row_idx(n3) ) + &
                  this%row_val(n4) * vector( this%row_idx(n4) ) + &
                  this%row_val(n5) * vector( this%row_idx(n5) )
-#endif
   !
 end function dot_sparse_unrolled_p4
 !
@@ -619,15 +583,6 @@ pure function dot_sparse_unrolled_p5(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + &
-                 a(4)*b(4) + a(5)*b(5) + a(6)*b(6)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -640,7 +595,6 @@ continue
                  this%row_val(n4) * vector( this%row_idx(n4) ) + &
                  this%row_val(n5) * vector( this%row_idx(n5) ) + &
                  this%row_val(n6) * vector( this%row_idx(n6) )
-#endif
   !
 end function dot_sparse_unrolled_p5
 !
@@ -667,15 +621,6 @@ pure function dot_sparse_unrolled_p6(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4) + &
-                 a(5)*b(5) + a(6)*b(6) + a(7)*b(7)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -690,7 +635,6 @@ continue
                  this%row_val(n5) * vector( this%row_idx(n5) ) + &
                  this%row_val(n6) * vector( this%row_idx(n6) ) + &
                  this%row_val(n7) * vector( this%row_idx(n7) )
-#endif
   !
 end function dot_sparse_unrolled_p6
 !
@@ -717,15 +661,6 @@ pure function dot_sparse_unrolled_p7(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + a(4)*b(4) + &
-                 a(5)*b(5) + a(6)*b(6) + a(7)*b(7) + a(8)*b(8)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -742,7 +677,6 @@ continue
                  this%row_val(n6) * vector( this%row_idx(n6) ) + &
                  this%row_val(n7) * vector( this%row_idx(n7) ) + &
                  this%row_val(n8) * vector( this%row_idx(n8) )
-#endif
   !
 end function dot_sparse_unrolled_p7
 !
@@ -769,16 +703,6 @@ pure function dot_sparse_unrolled_p8(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a(2)*b(2) + a(3)*b(3) + &
-                 a(4)*b(4) + a(5)*b(5) + a(6)*b(6) + &
-                 a(7)*b(7) + a(8)*b(8) + a(9)*b(9)
-#else
   n2 = n1+1
   n3 = n2+1
   n4 = n3+1
@@ -797,7 +721,6 @@ continue
                  this%row_val(n7) * vector( this%row_idx(n7) ) + &
                  this%row_val(n8) * vector( this%row_idx(n8) ) + &
                  this%row_val(n9) * vector( this%row_idx(n9) )
-#endif
   !
 end function dot_sparse_unrolled_p8
 !
@@ -824,16 +747,6 @@ pure function dot_sparse_unrolled_p9(this,idx,vector) result(return_value)
 continue
   !
   n1 = this%row_ptr(idx)+1
-#ifdef MATVEC_VERSION_1
-  n2 = this%row_ptr(idx+1)
-  !
-  a = this%row_val(n1:n2)
-  b = vector( this%row_idx(n1:n2) )
-  !
-  return_value = a(1)*b(1) + a( 2)*b( 2) + a(3)*b(3) + a(4)*b(4) + &
-                 a(5)*b(5) + a( 6)*b( 6) + a(7)*b(7) + a(8)*b(8) + &
-                 a(9)*b(9) + a(10)*b(10)
-#else
   n2  = n1+1
   n3  = n2+1
   n4  = n3+1
@@ -854,7 +767,6 @@ continue
                  this%row_val(n8 ) * vector( this%row_idx(n8 ) ) + &
                  this%row_val(n9 ) * vector( this%row_idx(n9 ) ) + &
                  this%row_val(n10) * vector( this%row_idx(n10) )
-#endif
   !
 end function dot_sparse_unrolled_p9
 !
@@ -896,6 +808,10 @@ end function dot_mat_intrinsic
 !###############################################################################
 !
 pure function dot_mat_sparse(this,idx,array) result(return_value)
+  !
+#ifdef USE_INTEL_MKL
+  use blas95, only : doti
+#endif
   !
   !.. Passed Argument from Invoking Object ..
   class(matrix), intent(in) :: this
@@ -1312,6 +1228,10 @@ end function dot_mat2_intrinsic
 !###############################################################################
 !
 pure function dot_mat2_sparse(this,idx,array) result(return_value)
+  !
+#ifdef USE_INTEL_MKL
+  use blas95, only : doti
+#endif
   !
   !.. Passed Argument from Invoking Object ..
   class(matrix), intent(in) :: this

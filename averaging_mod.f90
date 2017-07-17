@@ -166,7 +166,7 @@ subroutine deallocate_solver_arrays()
   use flowvar,     only : residual,dtsp,uoldsp,usp_sum,rssprk
   use flowvar,     only : nodeusp,nodedusp,edgeusp,edgedusp,edgexyz
   use flowvar,     only : global_usp,global_var
-  use metrics_mod, only : metrics_dt,metrics,jacobian,geofa,volj,dJ
+  use metrics_mod, only : metrics_dt,geofa
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -273,29 +273,9 @@ continue
     call alloc_error(pname,"metrics_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(metrics)) then
-    deallocate ( metrics , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"metrics",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(jacobian)) then
-    deallocate ( jacobian , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"jacobian",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
   if (allocated(geofa)) then
     deallocate ( geofa , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(volj)) then
-    deallocate ( volj , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"volj",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  if (allocated(dJ)) then
-    deallocate ( dJ , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"dJ",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)

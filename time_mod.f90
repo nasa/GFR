@@ -185,8 +185,6 @@ subroutine get_current_cfl
 continue
   !
   if (itcur < cfl_cycle_end) then
-   !cfl = cfl_beg + (cfl_end - cfl_beg) * real(itcur-1,kind=wp) / &
-   !                                      real(cfl_cycles-1,kind=wp)
     if (cfl_cycles < 2) then
       cycle_ratio = one
     else
@@ -282,98 +280,8 @@ subroutine get_cell_timestep(dtmin)
   !
 continue
   !
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ##########                  ##########
-  ! ##########   FROM HPMUSIC   ##########
-  ! ##########   ||||||||||||   ##########
-  ! ##########   VVVVVVVVVVVV   ##########
-  ! ##########                  ##########
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  !
-  !void CPR_NS_2D_Solver<T>::ComputeLocalTimeStep(Real cfl, Real *dt_cell){
-  !
-  !  for(int i=0;i<n_cell_;++i){
-  !    Real factor=0.;
-  !    ElemType type=this->grid_->elem_type[i];
-  !    for(int side=0; side<NumSideFromType(type); ++side){
-  !      int face = this->grid_->elem_to_face[i][side];
-  !      FaceData *face_data=&this->grid_->face[face];
-  !      int c1 = face_data->left_cell;
-  !      int c2 = face_data->right_cell;
-  !
-  !      Real dx,dy;
-  !      if(face_data->face_type==BOUNDARY){
-  !        dx=x_fc_[face]-x_cc_[c1];
-  !        dy=y_fc_[face]-y_cc_[c1];
-  !      }else{
-  !        dx=x_cc_[c2]-x_cc_[c1];
-  !        dy=y_cc_[c2]-y_cc_[c1];
-  !      }
-  !
-  !      Real u=0.,v=0., c=0.,mu_k=0.,nx=0.,ny=0.,area=0.,p=0.;
-  !      T *q=&u_fp_[i][0];
-  !      int nfp_f=n_lfp_f_[face];
-  !      for(int j=0;j<nfp_f; ++j){
-  !        int ir=j*nv_;
-  !        int ix=ir+1;
-  !        int iy=ir+2;
-  !        int ie=ir+3;
-  !        T rhoi = 1./q[ir];
-  !        u = u+q[ix]*rhoi;
-  !        v = v+q[iy]*rhoi;
-  !        p = (gas_.gamma-1.)*
-  !            (q[ie]-0.5*(q[ix]*q[ix]+q[iy]*q[iy])*rhoi);//? why not +=
-  !        c = c+sqrt(gas_.gamma*p*rhoi);
-  !        mu_k = mu_k+gas_.mu*rhoi;
-  !        nx+=fm_fp_.nx_[face][j];
-  !        ny+=fm_fp_.ny_[face][j];
-  !        area+=fm_fp_.area_[face][j];
-  !      }
-  !      u /= nfp_f;
-  !      v /= nfp_f;
-  !      c /= nfp_f;
-  !      mu_k /= nfp_f;
-  !      nx/=  nfp_f;
-  !      ny/=  nfp_f;
-  !      area/= nfp_f;
-  !
-  !      factor += (fabs(u*nx+v*ny)+c+2.*mu_k/fabs(dx*nx+dy*ny))*area;
-  !    }
-  !
-  !    dt_cell[i] = cfl*vol_[i]/factor;
-  !    if(dt_cell[i]!=dt_cell[i]){
-  !      stringstream ss;
-  !      ss<<"Local time step is NaN at cell "<<i<<" !!!"<<endl;
-  !      fatal_error(ss.str());
-  !    }
-  !  }//end of cell i
-  !}
-  !
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ##########                  ##########
-  ! ##########   AAAAAAAAAAAA   ##########
-  ! ##########   ||||||||||||   ##########
-  ! ##########   FROM HPMUSIC   ##########
-  ! ##########                  ##########
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  ! ######################################
-  !
   mul = zero
   mur = zero
-  !
- !pp1sq = real( (n_order+1)**2 , kind=wp )
- !pp1sq = real( (n_order+1)**nr , kind=wp )
   !
   dtmin = huge(zero)
   dtsp(:) = dtmin
@@ -396,23 +304,18 @@ continue
     !
     tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
     !
-#ifdef USE_FACE_FP_ARRAYS
-    ! Using F2003 auto-reallocation
-    left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-#endif
     !
     do k = 1,geom_solpts(face_geom,face_order)
       !
-#ifdef USE_FACE_FP_ARRAYS
-      kl = left_fp_idx(k)
-#else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
+      !
       ! Interpolate the conservative variables to this flux point
-      vl(1:nq) = interp(host_geom,host_order)%toFace(face_order)% &
+      vl(1:nq) = interp(host_geom,host_order)% &
+                           toFace(face_order)% &
                  dot_mat( kl , tlusp(1:npl,1:nq) )
      !do m = 1,nq
-     !  vl(m) = interp(host_geom,host_order)%toFace(face_order)% &
+     !  vl(m) = interp(host_geom,host_order)% &
+     !                    toFace(face_order)% &
      !          dot( kl , tlusp(1:npl,m) )
      !end do
       ! Convert to primitive variables
@@ -427,7 +330,6 @@ continue
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       !
@@ -445,12 +347,10 @@ continue
       hl = half * dsl / jacl
       !
       eigni = abs(vell) + al
-     !eignv = pp1sq * hl * mul
       eignv = psql * hl * mul
       !
       ! Compute the timestep for this flux point
       !
-     !dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv)) )
       dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv)) )
       !
       ! Store the minimum timestep for this cell in the location
@@ -492,30 +392,25 @@ continue
     tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
     trusp(1:npr,1:nq) = transpose( usp(1:nq,r1:r2) )
     !
-#ifdef USE_FACE_FP_ARRAYS
-    ! Using F2003 auto-reallocation
-    left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-    right_fp_idx = face(nf)%right%get_fp_idx(face_geom,face_order)
-#endif
     !
     do k = 1,geom_solpts(face_geom,face_order)
       !
-#ifdef USE_FACE_FP_ARRAYS
-      kl = left_fp_idx(k)
-      kr = right_fp_idx(k)
-#else
       kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
       kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-#endif
+      !
       ! Interpolate the conservative variables to this flux point
-      vl(1:nq) = interp(left_geom,left_order)%toFace(face_order)% &
+      vl(1:nq) = interp(left_geom,left_order)% &
+                           toFace(face_order)% &
                  dot_mat( kl , tlusp(1:npl,1:nq) )
-      vr(1:nq) = interp(right_geom,right_order)%toFace(face_order)% &
+      vr(1:nq) = interp(right_geom,right_order)% &
+                             toFace(face_order)% &
                  dot_mat( kr , trusp(1:npr,1:nq) )
      !do m = 1,nq
-     !  vl(m) = interp(left_geom,left_order)%toFace(face_order)% &
+     !  vl(m) = interp(left_geom,left_order)% &
+     !                    toFace(face_order)% &
      !          dot( kl , tlusp(1:npl,m) )
-     !  vr(m) = interp(right_geom,right_order)%toFace(face_order)% &
+     !  vr(m) = interp(right_geom,right_order)% &
+     !                      toFace(face_order)% &
      !          dot( kr , trusp(1:npr,m) )
      !end do
       ! Convert to primitive variables
@@ -533,8 +428,6 @@ continue
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
-     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       velr = selfdot( vr(nmb:nme) )
@@ -563,14 +456,11 @@ continue
       hr = half * dsr / jacr
       !
       eigni = max( abs(vell) + al , abs(velr) + ar )
-     !eignv = pp1sq * max( hl * mul , hr * mur )
       eignv = max( psql * hl * mul , psqr * hr * mur )
       !
       ! Compute the timestep for this flux point
       !
-     !dtl = min( dtsp(l1) , CFL / (pp1sq * hl * (eigni + eignv) ) )
       dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv) ) )
-     !dtr = min( dtsp(r1) , CFL / (pp1sq * hr * (eigni + eignv) ) )
       dtr = min( dtsp(r1) , CFL / (psqr * hr * (eigni + eignv) ) )
       !
       ! Store the minimum timestep for all solution points in both cells
@@ -1286,57 +1176,17 @@ continue
       !
       ! First 5 are the conserved variables
       !
-     !time_ave_variables( 1) = "d"
-     !time_ave_variables( 2) = "dx"
-     !time_ave_variables( 3) = "dy"
-     !time_ave_variables( 4) = "dz"
-     !time_ave_variables( 5) = "e"
       ! USING F2003 AUTO-REALLOCATION
       time_ave_variables = [ "d" , "dx" , "dy" , "dz" , "e" ]
       !
       ! Next 5 are the primitive variables
-      !
       ! (with temperature instead of density)
-     !time_ave_variables( 6) = "t"
-     !time_ave_variables( 7) = "x"
-     !time_ave_variables( 8) = "y"
-     !time_ave_variables( 9) = "z"
-     !time_ave_variables(10) = "p"
+      !
       ! USING F2003 AUTO-REALLOCATION
       time_ave_variables = [ time_ave_variables(:) , &
                              "t" , "x" , "y" , "z" , "p" ]
       !
       ! Remaining are derived variables
-      !
-     !m = 10
-     !if (time_ave_vel_is_axisymm) then
-     !  m = m+1 ; time_ave_variables(m) = "d" // v2
-     !  m = m+1 ; time_ave_variables(m) = "d" // v3
-     !  m = m+1 ; time_ave_variables(m) = v2
-     !  m = m+1 ; time_ave_variables(m) = v3
-     !endif
-     !m = m+1 ; time_ave_variables(m) = v1 // v1
-     !m = m+1 ; time_ave_variables(m) = v2 // v2
-     !m = m+1 ; time_ave_variables(m) = v3 // v3
-     !m = m+1 ; time_ave_variables(m) = v1 // v2
-     !m = m+1 ; time_ave_variables(m) = v1 // v3
-     !m = m+1 ; time_ave_variables(m) = v2 // v3
-     !!
-     !m = m+1 ; time_ave_variables(m) = v1 // "t"
-     !m = m+1 ; time_ave_variables(m) = v2 // "t"
-     !m = m+1 ; time_ave_variables(m) = v3 // "t"
-     !m = m+1 ; time_ave_variables(m) = "dt"
-     !!
-     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v1
-     !m = m+1 ; time_ave_variables(m) = "d" // v2 // v2
-     !m = m+1 ; time_ave_variables(m) = "d" // v3 // v3
-     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v2
-     !m = m+1 ; time_ave_variables(m) = "d" // v1 // v3
-     !m = m+1 ; time_ave_variables(m) = "d" // v2 // v3
-     !!
-     !m = m+1 ; time_ave_variables(m) = "d" // v1 // "t"
-     !m = m+1 ; time_ave_variables(m) = "d" // v2 // "t"
-     !m = m+1 ; time_ave_variables(m) = "d" // v3 // "t"
       !
       ! ALL OF THE BELOW ASSIGNMENTS USE F2003 AUTO-REALLOCATION TO
       ! APPEND A NEW ARRAY ELEMENT ONTO THE time_ave_variables ARRAY
@@ -1378,28 +1228,17 @@ continue
       !
       ! First 4 are the conserved variables
       !
-     !time_ave_variables( 1) = "d"
-     !time_ave_variables( 2) = "dx"
-     !time_ave_variables( 3) = "dy"
-     !time_ave_variables( 4) = "e"
       ! USING F2003 AUTO-REALLOCATION
       time_ave_variables = [ "d" , "dx" , "dy" , "e" ]
       !
       ! Next 4 are the primitive variables
       ! (with temperature instead of density)
       !
-     !time_ave_variables( 5) = "t"
-     !time_ave_variables( 6) = "x"
-     !time_ave_variables( 7) = "y"
-     !time_ave_variables( 8) = "p"
       ! USING F2003 AUTO-REALLOCATION
       time_ave_variables = [ time_ave_variables(:) , "t" , "x" , "y" , "p" ]
       !
       ! Remaining are derived variables
       !
-     !time_ave_variables( 9) = "xx"
-     !time_ave_variables(10) = "yy"
-     !time_ave_variables(11) = "xy"
       ! USING F2003 AUTO-REALLOCATION
       time_ave_variables = [ time_ave_variables(:) , "xx" ]
       time_ave_variables = [ time_ave_variables(:) , "yy" ]
@@ -1535,7 +1374,6 @@ continue
     time_val(2) = one
   else
     time_val(1) = (prev_ave_time-ave_start_time) / (time-ave_start_time)
-   !time_val(2) = (time-prev_ave_time)/(time-ave_start_time)
     time_val(2) = one - time_val(1) ! to try and ensure that sum(time_val) = 1
   end if
   !

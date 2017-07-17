@@ -28,16 +28,11 @@ module base_kind_types
   !
   ! KIND definitions for 32-bit or 64-bit integer variables (IEEE 754)
   !
- !integer, public, parameter :: I4 = selected_int_kind(9)
- !integer, public, parameter :: I8 = selected_int_kind(18)
   integer, public, parameter :: I4 = int32
   integer, public, parameter :: I8 = max( int32 , int64 )
   !
   ! KIND definitions for single or double precision real variables (IEEE 754)
   !
- !integer, public, parameter :: R4 = selected_real_kind(6,37)
- !integer, public, parameter :: R8 = selected_real_kind(15,307)
- !integer, public, parameter :: R16 = max( R8 , selected_real_kind(33, 4931) )
   integer, public, parameter :: R4 = real32
   integer, public, parameter :: R8 = real64
   integer, public, parameter :: R16 = max( real64 , real128 )

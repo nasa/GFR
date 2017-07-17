@@ -12,7 +12,8 @@ program Euler_tri
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
-  use ovar, only : num_rk_stages,Runge_Kutta_Scheme,time,time_ref,itcur,num_timesteps
+  use ovar, only : num_rk_stages,Runge_Kutta_Scheme
+  use ovar, only : time,time_ref,itcur,num_timesteps
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -85,10 +86,7 @@ program Euler_tri
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
-  use flux_mod, only : flux_gradient_at_solpts_with_qdtr
   use flux_mod, only : flux_gradient_at_solpts_visc
-  use flux_mod, only : flux_gradient_at_solpts_visc1
-  use flux_mod, only : correct_interface_flux_with_qdtr
   use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
@@ -157,21 +155,6 @@ program Euler_tri
   !
   real(wp) :: cfl_tmp(1:4)
   !
- !integer, parameter :: test_param = merge( 1 , 2 , ignore_errors )
-  !
-! integer(c_long) :: current_wtl
-  !
-  ! Interface for pbs_time_left procedure
-  !
-#ifdef PBS_ENV
-! interface
-!   subroutine pbs_time_left(seconds_left) bind(c,name="pbs_time_left_")
-!     use, intrinsic :: iso_c_binding, only : c_long
-!     integer(c_long) :: seconds_left
-!   end subroutine pbs_time_left
-! end interface
-#endif
-  !
 continue
   !
   request_restart = .false.
@@ -207,7 +190,6 @@ continue
   !              to the respective processor along with
   !              connectivities for the partition boundaries
   npart = ncpu
- !npart = 1200
   if (npart > 1) then
     call partition_grid(npart,metis_option,bface,nodes_of_cell, &
                         nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
@@ -269,16 +251,6 @@ continue
   if (check_flux_point_coordinates) then
     call check_flux_point_orderings
   end if
-  !
-  ! Output information about each partition
-  !
- !do i = 0,ncpu-1
- !  if (mypnum == i) then
- !    write (iout,10) mypnum, ncell, nnode, nfbnd, nface, n_solpts, local_volume
- !  end if
- !  call mpi_barrier(MPI_COMM_WORLD,mpierr)
- !end do
- !call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   ! Output information about the global grid
   !
@@ -350,8 +322,6 @@ continue
   call recon_cpu_time(0)
   !
   call initialize_limiters
- !call compute_cell_ave
-  !
   !
   if (num_timesteps > 0) then
     !
@@ -410,22 +380,9 @@ continue
     !
     uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
     !
-    ! Update the global time step
-    !
-   !call get_dtsp(dtmin)
-   !!
-   !! Update elapsed time
-   !! NOTE: This is only time accurate when using a global timestep
-   !!
-   !time = time + dtmin
-   !d_t = dtmin
-    !
     ! Loop over the Runge-Kutta stages
     !
     rk_loop: do nst = 1,num_rk_stages
-     !if (mypnum == glb_root) then 
-     !  write (iout,'(3x,i3,1x,i1)') iter,nst
-     !end if
       !
       Apply_Filter = (Filtering_Interval == 0)
       Apply_Limiter = (Limiting_Interval == 0)
@@ -442,32 +399,6 @@ continue
       call get_faceusp_bc
       if (nst == 1) call get_dtsp(dtmin)
       !
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! #####                                                            #####
-      ! #####  CURRENTLY THE INVISCID OVER-INTEGRATION PATH IS DISABLED  #####
-      ! #####  BECAUSE THE ARRAYS interp(:,:)%toCell(:) and projct(:,:)  #####
-      ! #####  STILL NEED TO BE SET UP PROPERLY FOR THIS PATH TO WORK!!  #####
-      ! #####                                                            #####
-      ! #####       ||||||||||||||||||||||||||||||||||||||||||||||       #####
-      ! #####       VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV       #####
-      ! #####                                                            #####
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      !
-     !if (governing_equations == Euler_Eqns) then
-     !  !
-     !  call flux_gradient_at_solpts_with_qdtr
-     !  call correct_interface_flux_with_qdtr
-     !  !
-     !else if (governing_equations == NavierStokes_Eqns) then
-        !
       if (governing_equations == NavierStokes_Eqns) then
         call discontinuous_gradient_at_solpts
         if (visc_flux_method == visc_flux_BR2) then
@@ -478,30 +409,9 @@ continue
         end if
         call get_facedusp_bc
       end if
-        call flux_gradient_at_solpts_visc(iter,nst)
-       !call flux_gradient_at_solpts_visc1(iter,nst)
-        call correct_interface_flux_visc(iter,nst)
-        !
-     !end if
       !
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! #####                                                            #####
-      ! #####       AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA       #####
-      ! #####       ||||||||||||||||||||||||||||||||||||||||||||||       #####
-      ! #####                                                            #####
-      ! #####  CURRENTLY THE INVISCID OVER-INTEGRATION PATH IS DISABLED  #####
-      ! #####  BECAUSE THE ARRAYS interp(:,:)%toCell(:) and projct(:,:)  #####
-      ! #####  STILL NEED TO BE SET UP PROPERLY FOR THIS PATH TO WORK!!  #####
-      ! #####                                                            #####
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
-      ! ######################################################################
+      call flux_gradient_at_solpts_visc(iter,nst)
+      call correct_interface_flux_visc(iter,nst)
       !
       ! Compute the source terms for the method of manufactured solutions (MMS)
       !

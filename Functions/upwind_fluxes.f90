@@ -390,6 +390,11 @@ pure function ausm_plus_upwind_flux(unrm,pvl,pvr) result(return_value)
   !
   real(wp), dimension(1:nr) :: vell,velr
   !
+  !.. Local Parameters ..
+  real(wp), parameter :: amco2m = 1.0e-4_wp         
+  real(wp), parameter :: alphax = 0.1875_wp
+  real(wp), parameter :: betax  = 0.125_wp
+  !
 continue
   !
   gm1 = gam - one

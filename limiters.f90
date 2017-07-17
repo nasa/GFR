@@ -658,8 +658,6 @@ continue
     !
     psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
     !
-   !marker(nc) = marker(nc) / area_sum(nc)
-    !
     if (marker(nc) <= psi0-dpsi) then
       scaled_marker(nc) = zero
     else if (marker(nc) >= psi0+dpsi) then
@@ -678,9 +676,6 @@ continue
     deallocate ( area_sum , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"area_sum",2,__LINE__,__FILE__,ierr,error_message)
   end if
-  !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
- !                "temporary stop at end of jump_indicator")
   !
 end subroutine jump_indicator
 !
@@ -764,16 +759,6 @@ continue
       troubled_cell(nc) = fals
       cycle
     end if
-    !
-    ! Recheck if this cell is still troubled after the previous projection
-    !
-    ! ###########################################################
-    ! ###########################################################
-    ! ###########################################################
-    ! #####   NEED TO FIND WAY TO IDENTIFY TROUBLED CELLS   #####
-    ! ###########################################################
-    ! ###########################################################
-    ! ###########################################################
     !
     ! If the current cell is determined to be troubled, change
     ! there_are_no_troubles to fals meaning that troubles cells exist.

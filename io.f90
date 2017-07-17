@@ -388,7 +388,8 @@ continue
   !
   q_order = max(n_order,q_order)
   !
-  using_quadrature = .not. (q_order==n_order .and. loc_solution_pts==loc_quadrature_pts)
+  using_quadrature = .not. (q_order==n_order .and. &
+                            loc_solution_pts==loc_quadrature_pts)
   !
   ! Get the number of solution points for each of the different geometry types
   ! This includes quadrature and face values
@@ -5242,7 +5243,6 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : aref,rhoref,time_ref,tref
   use ovar,    only : pref,machref,itestcase,bc_in
   use ovar,    only : interpolate_before_output_variable
-  use ovar,    only : correct_output
   use ovar,    only : governing_equations
   use ovar,    only : profile_io_cgns
   use flowvar, only : usp,dusp
@@ -5250,8 +5250,6 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use module_limiters, only : marker,scaled_marker
   use module_limiters, only : resolution_indicator
   use module_limiters, only : jump_indicator
-  !
-  use flux_mod, only : correct_solution_for_output
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: sol_file
@@ -5492,12 +5490,6 @@ continue
     !
     interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
     interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
-    !
-    ! Correct the solution and gradients before writing to the CGNS file
-    !
-    if (correct_output) then
-      call correct_solution_for_output(interp_usp,interp_dusp)
-    end if
     !
     ! Count the total number of solution variables that will be written
     ! and allocate isvar_s accordingly
