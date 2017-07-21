@@ -6460,8 +6460,8 @@ continue
             rn = real( node(glb_node)%cpu(i)%num_cells , kind=wp )
             !
             bnd_nodes(n)%ave_correction = rn / rd
-            bnd_nodes(n)%my_responsibility = node(glb_node)% &
-                                             controlling_partition
+            bnd_nodes(n)%my_responsibility = &
+                   ( node(glb_node)%controlling_partition == my_part )
             !
             cycle fill_bnd_nodes
             !
@@ -6513,8 +6513,8 @@ continue
             rn = real( edge(glb_edge)%cpu(i)%num_cells , kind=wp ) 
             !
             bnd_edges(n)%ave_correction = rn / rd
-            bnd_edges(n)%my_responsibility = edge(glb_edge)% &
-                                             controlling_partition
+            bnd_edges(n)%my_responsibility = &
+                   ( edge(glb_edge)%controlling_partition == my_part )
             !
             cycle fill_bnd_edges
             !

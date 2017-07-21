@@ -1321,7 +1321,7 @@ continue
       !
       velx2 = hufp(nmx,k)**2
       !
-      gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**-gm1_inv )
+      gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**(-gm1_inv) )
       gufp(nmb:nme,k) = zero
       gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
       gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
