@@ -1764,8 +1764,12 @@ continue
     ! NOTE: We may need to reverse the copy order, i.e., 
     !          gufp(:,k) = pufp(:,size(gufp,dim=2)+1-k)
     !
+#ifdef REVERSE_PERIODIC
     gufp(:,k) = pufp(:,nfp-k+1)
     gufp(nme,k) = -pufp(nme,k)
+#else
+    gufp(:,k) = pufp(:,k)
+#endif
     !
   end do
   !
@@ -1934,7 +1938,11 @@ continue
   do k = 1,nfp
     do j = 1,size(gdufp,dim=2)
       do i = 1,size(gdufp,dim=1)
+#ifdef REVERSE_PERIODIC
         gdufp(i,j,k) = hdufp(i,j,nfp-k+1)
+#else
+        gdufp(i,j,k) = hdufp(i,j,k)
+#endif
       end do
     end do
   end do
