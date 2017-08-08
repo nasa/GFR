@@ -333,6 +333,7 @@ module module_kind_types
   integer, parameter :: k_omega_2006 = -k_omega
   !
   ! Grid Types
+  integer, parameter :: Internally_Generated_Grid = -1
   integer, parameter :: Gambit_Neutral = 1
   integer, parameter :: Gmsh_Format = 2
   integer, parameter :: Plot3D_Format = 3
