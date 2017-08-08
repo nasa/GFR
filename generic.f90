@@ -479,7 +479,8 @@ continue
                             max_cell_digits-2, &
                             max_solpt_digits-3
   else if (itestcase == Taylor_Green_Vortex) then
-    write (iter_header,203) final_iter_digits-3, &
+   !write (iter_header,203) final_iter_digits-3, &
+    write (iter_header,202) final_iter_digits-3, &
                             max_cell_digits-2, &
                             max_solpt_digits-3
  !else if (output_time_averaging) then
@@ -898,7 +899,7 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   real(wp), intent(in) :: dtmin
   !
   !.. Local Scalars ..
-  integer :: k,l,m,n,nc,np,n1,n2,tgv_idx
+  integer :: k,l,m,n,nc,nep,n1,n2,tgv_idx
   integer :: ierr,nke,ndt,nmin,nmax,nbeg,nend
   integer :: this_cell,this_geom,this_order
   !
@@ -1062,7 +1063,6 @@ continue
     !
     n1 = cell(this_cell)%beg_sp
     n2 = cell(this_cell)%end_sp
-    np = n2-n1+1
     !
     this_geom = cell(this_cell)%geom
     this_order = cell(this_cell)%order
@@ -1072,41 +1072,45 @@ continue
     !
     if (allocated(outerp(this_geom,this_order)%error)) then
       !
+      nep = size(outerp(this_geom,this_order)%error%mat,dim=1)
+      !
       ! The error quadrature points are different from the solution points so
       ! we must interpolate these values from the solution points to the
       ! error quadrature points
       !
       ! NOTE: The vsp array will temporarily hold the conservative variables
       do m = 1,nq
-        vsp(m,1:np) = outerp(this_geom,this_order)% &
-                                             error% &
-                      mv_mult( usp(m,n1:n2) )
+        vsp(m,1:nep) = outerp(this_geom,this_order)% &
+                                              error% &
+                       mv_mult( usp(m,n1:n2) )
       end do
       !
       do m = 1,nq
         do l = 1,nr
-          dcvdx(l,m,1:np) = outerp(this_geom,this_order)% &
-                                                   error% &
-                            mv_mult( dusp(l,m,n1:n2) )
+          dcvdx(l,m,1:nep) = outerp(this_geom,this_order)% &
+                                                    error% &
+                             mv_mult( dusp(l,m,n1:n2) )
         end do
       end do
       !
-      wtdjac(1:np) = outerp(this_geom,this_order)% &
-                                            error% &
-                     mv_mult( metrics_dt(this_cell)%jac(:) )
+      wtdjac(1:nep) = outerp(this_geom,this_order)% &
+                                             error% &
+                      mv_mult( metrics_dt(this_cell)%jac(:) )
       !
-      wtdjac(1:np) = wtdjac(1:np) * outerp(this_geom,this_order)%err_wts
+      wtdjac(1:nep) = wtdjac(1:nep) * outerp(this_geom,this_order)%err_wts
       !
     else
+      !
+      nep = n2-n1+1
       !
       ! The error quadrature points and solution points are co-located so
       ! just copy these values into the local arrays.
       ! NOTE: The vsp array will temporarily hold the conservative variables
       !
-      vsp(1:nq,1:np) = usp(1:nq,n1:n2)
-      dcvdx(1:nr,1:nq,1:np) = dusp(1:nr,1:nq,n1:n2)
-      wtdjac(1:np) = metrics_dt(this_cell)%jac * &
-                     std_elem(this_geom,this_order)%wts
+      vsp(1:nq,1:nep) = usp(1:nq,n1:n2)
+      dcvdx(1:nr,1:nq,1:nep) = dusp(1:nr,1:nq,n1:n2)
+      wtdjac(1:nep) = metrics_dt(this_cell)%jac * &
+                      std_elem(this_geom,this_order)%wts
       !
     end if
     !
@@ -1114,18 +1118,18 @@ continue
     ! to primitive variable derivatives
     ! NOTE: The vsp array currently contains the conservative variables
     !
-    do k = 1,np
+    do k = 1,nep
       dpvdx(1:nr,1:nq,k) = grad_cv_to_grad_pv_sp( vsp(1:nq,k) , &
                                                   dcvdx(1:nr,1:nq,k) )
     end do
     !
     ! Convert the conservative variables in vsp to primitive variables
     !
-    vsp(1:nq,1:np) = usp2v( vsp(1:nq,1:np) )
+    vsp(1:nq,1:nep) = usp2v( vsp(1:nq,1:nep) )
     !
     ! Loop through the solution points of the current 
     !
-    do k = 1,np
+    do k = 1,nep
       !
       ! Compute the divergence of the velocity
       !
