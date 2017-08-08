@@ -3958,6 +3958,8 @@ continue
     else if (grid_format == Plot3D_Format) then
       plot3d_order = max(1,plot3d_agglomerate_order)
       grid%elem(nc)%prop = plot3d_element_properties(elem_type,plot3d_order)
+    else
+      grid%elem(nc)%prop = linear_element_properties(elem_type)
     end if
     !
     ! Unpack the host cell if this is being used
@@ -4034,6 +4036,28 @@ continue
             "size(grid_elem)=",i0,"!!!")
   !
 end subroutine unpack_localized_grid_dt
+!
+!###############################################################################
+!
+pure function linear_element_properties(elem_type) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : prop_t
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: elem_type
+  !
+  !.. Function Result ..
+  type(prop_t) :: return_value
+  !
+continue
+  !
+  return_value = prop_t(npts=geom_nodes(elem_type), &
+                        order=1, &
+                        geom=elem_type, &
+                        elem_type=elem_type)
+  !
+end function linear_element_properties
 !
 !###############################################################################
 !
@@ -5813,9 +5837,11 @@ continue
       ! used to be a periodic boundary face.
       !
       if (bface(1,loc_face) == -bc_cpu_bnd) then
-        ibeg = iend
-        iend = 1
-        iint = -1
+        if (nr < 3) then
+          ibeg = iend
+          iend = 1
+          iint = -1
+        end if
         bface(1,loc_face) = bc_cpu_bnd
       end if
       !
