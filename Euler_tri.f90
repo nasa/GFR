@@ -40,7 +40,8 @@ program Euler_tri
   use io_mod, only : write_final_error
   use io_mod, only : write_parallel_cgns
   use io_mod, only : write_residual_file
-  use io_mod, only : check_flux_point_orderings
+  use io_mod, only : check_face_flux_point_orderings
+  use io_mod, only : check_cell_flux_point_orderings
   use io_mod, only : TaylorGreen_8s_vorticity_solution
   !
   use restart_mod, only : write_restart_file
@@ -249,7 +250,8 @@ continue
   ! the flux points from the two cells on an interface
   !
   if (check_flux_point_coordinates) then
-    call check_flux_point_orderings
+    call check_face_flux_point_orderings
+    call check_cell_flux_point_orderings
   end if
   !
   ! Output information about the global grid
