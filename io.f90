@@ -25,7 +25,8 @@ module io_mod
   public :: write_final_error
   public :: write_parallel_cgns
   public :: write_residual_file
-  public :: check_flux_point_orderings
+  public :: check_face_flux_point_orderings
+  public :: check_cell_flux_point_orderings
   public :: TaylorGreen_8s_vorticity_solution
   !
   ! ###########################
@@ -558,9 +559,9 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
-    cfl_beg = CFL
-    cfl_end = CFL
-    cfl_cycles = 1
+   !cfl_beg = CFL
+   !cfl_end = CFL
+   !cfl_cycles = 1
     !
     ! Set the variable time_ref to adjust our nondimension time to match
     ! the nondimensional time used for the Taylor-Green Vortex problem
@@ -572,9 +573,9 @@ continue
       ! Need to adjust the nondimensional final time which uses uref as the
       ! velocity for nondimensionalization and we use aref within the code
       !
-      Final_Time = Final_Time / time_ref
-      !
       num_timesteps = nint( Final_Time / constant_dt )
+      !
+     !Final_Time = Final_Time * time_ref
       !
     end if
     !
@@ -1227,6 +1228,7 @@ end subroutine check_cgns_dir
 subroutine read_grid_file()
   !
   !.. Use Statements ..
+  use geovar,         only : grid
   use module_cgns,    only : read_cgns_gridfile
   use module_gmsh,    only : read_gmsh_gridfile
   use module_plot3d,  only : read_plot3d_gridfile
@@ -1261,6 +1263,12 @@ continue
     call read_cgns_gridfile( gridfile )
   else if (grid_format == Plot3D_Format) then
     call read_plot3d_gridfile( gridfile , plot3d_cutfile , plot3d_bcsfile )
+  end if
+  !
+  if (.not. allocated(grid)) then
+    if (i_am_host_root) then
+      call create_linear_grid_dt
+    end if
   end if
   !
   ! Check that all the nodes are in counter-clockwise
@@ -1657,6 +1665,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
+  !
   ! If we are generating the grid on the fly, make the reference length 1
   !
   Lref = one
@@ -1981,6 +1994,11 @@ subroutine create_TaylorGreenVortex_grid()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
   !
   ! If we are generating the grid on the fly, make the reference length 1
   !
@@ -2352,6 +2370,11 @@ subroutine create_postproc_debug_grid
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Reset the grid format input parameter to identify
+  ! the grid as internally generated
+  !
+  grid_format = Internally_Generated_Grid
   !
   bnd_face_error = fals
   !
@@ -3009,6 +3032,145 @@ continue
   end function map3dto1d
   !
 end subroutine create_postproc_debug_grid
+!
+!###############################################################################
+!
+subroutine create_linear_grid_dt()
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,nfbnd,grid,xyz_nodes,cell_geom
+  use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : prop_t
+  !
+  !.. Local Scalars ..
+  integer :: nc,nf,np,n1,n2,ierr
+  integer :: host_cell,host_geom,host_side
+  integer :: nfnods,face_geom
+  !
+  !.. Local Arrays ..
+  integer :: ip(1:4)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_linear_grid_dt"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( grid , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  grid%xyz = xyz_nodes(:,:) ! USING F2003 AUTO-REALLOCATION
+  !
+  allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nc = 1,ncell
+    !
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    np = n2-n1+1
+    !
+    grid%elem(nc)%prop = prop_t(npts=np, &
+                                order=1, &
+                                geom=cell_geom(nc), &
+                                elem_type=cell_geom(nc))
+    !
+    grid%elem(nc)%pts = nodes_of_cell(n1:n2)   ! USING F2003 AUTO-REALLOCATION
+    grid%elem(nc)%nodes = nodes_of_cell(n1:n2) ! USING F2003 AUTO-REALLOCATION
+    !
+    grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOCATION
+    !
+    grid%elem(nc) = reorder_linear_pts(grid%elem(nc))
+    !
+  end do
+  !
+  do nf = 1,nfbnd
+    !
+    nc = ncell + nf
+    !
+    host_cell = bface(2,nf)
+    host_geom = bface(3,nf)
+    host_side = bface(4,nf)
+    nfnods = num_face_nodes(host_side,host_geom)
+    !
+    n1 = nodes_of_cell_ptr(host_cell)+1
+    n2 = nodes_of_cell_ptr(host_cell+1)
+    !
+    ip(1:nfnods) = side_nodes(1:nfnods,host_side,host_geom)
+    !
+    face_geom = cell_face_geom(host_side,host_geom)
+    !
+    grid%elem(nc)%prop = prop_t(npts=nfnods, &
+                                order=1, &
+                                geom=face_geom, &
+                                elem_type=face_geom)
+    !
+    ! USING F2003 AUTO-REALLOCATION
+    grid%elem(nc)%pts = nodes_of_cell( n1 + ip(1:nfnods) )
+    grid%elem(nc)%nodes = nodes_of_cell( n1 + ip(1:nfnods) )
+    !
+    grid%elem(nc)%host_cell = host_cell
+    !
+    grid%elem(nc)%tags = [bface(1,nf),0] ! F2003 AUTO-REALLOCATION
+    !
+    grid%elem(nc) = reorder_linear_pts(grid%elem(nc))
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_linear_grid_dt
+!
+!###############################################################################
+!
+pure function reorder_linear_pts(elem,reverse) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : elem_t
+  !
+  !.. Formal Arguments ..
+  type(elem_t), intent(in) :: elem
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: reverse
+  !
+  !.. Function Result ..
+  type(elem_t) :: return_value
+  !
+  !.. Local Scalars ..
+  logical(lk) :: reverse_reorder
+  !
+  !.. Local Parameters ..
+  integer, parameter :: quad(4) = [1,2,4,3]
+  integer, parameter :: hexa(8) = [1,2,4,3,5,6,8,7]
+  !
+continue
+  !
+  return_value = elem
+  !
+  reverse_reorder = fals
+  if (present(reverse)) then
+    reverse_reorder = reverse
+  end if
+  !
+  if (reverse_reorder) then
+    select case (elem%prop%geom)
+      case (Geom_Quad)
+        return_value%pts( quad(:) ) = elem%pts(:)
+      case (Geom_Hexa)
+        return_value%pts( hexa(:) ) = elem%pts(:)
+    end select
+  else
+    select case (elem%prop%geom)
+      case (Geom_Quad)
+        return_value%pts(:) = elem%pts( quad(:) )
+      case (Geom_Hexa)
+        return_value%pts(:) = elem%pts( hexa(:) )
+    end select
+  end if
+  !
+end function reorder_linear_pts
 !
 !###############################################################################
 !
@@ -4462,63 +4624,135 @@ end subroutine find_bc_conflicts
 !
 !###############################################################################
 !
-subroutine check_flux_point_orderings()
+subroutine check_face_flux_point_orderings()
   !
   !.. Use Statements ..
-  use order_mod, only : maxSP,maxFP,geom_solpts
+  use order_mod, only : geom_solpts
   use geovar, only : ncell,cell
   use geovar, only : nfbnd,nface,face
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
+  use flowvar, only : face_var
+  use parallel_mod, only : exchange_faceusp,wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,nfp,k,kl,kr,l
+  integer :: nf,nfp,kf,kl,kr,l,ierr
   integer :: l1,l2,r1,r2,npl,npr
   integer :: face_geom,face_order
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
-  logical(lk) :: write_difference_file
+  integer :: lfile,rfile,dfile
+  character(len=25) :: face_string
+  character(len=100) :: array_name
   !
   !.. Local Arrays ..
-  real(wp) :: xyz_fp(1:nr,1:maxFP,1:2)
+  type(face_var), allocatable :: face_xyz(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "check_flux_point_orderings"
-  integer, parameter :: lfile = 161
-  integer, parameter :: rfile = 162
-  integer, parameter :: dfile = 163
+  character(len=*), parameter :: pname = "check_face_flux_point_orderings"
+ !integer, parameter :: lfile = 161
+ !integer, parameter :: rfile = 162
+ !integer, parameter :: dfile = 163
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  lfile = 101 + mypnum
+  rfile = 201 + mypnum
+  dfile = 301 + mypnum
+  !
   write (lfile,*)
   write (rfile,*)
   write (dfile,*)
   !
+  allocate ( face_xyz(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
   do nf = 1,nface
-    !
-    write_difference_file = fals
-    xyz_fp(:,:,:) = zero
-    !
-   !write (lfile,2) nf-nfbnd
-   !write (rfile,2) nf-nfbnd
-   !write (lfile,12) nf-nfbnd
-   !write (rfile,12) nf-nfbnd
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    nfp = geom_solpts(face_geom,face_order)
+    allocate ( face_xyz(nf)%v(1:nq,1:nfp,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,'("face_xyz(",i0,")%v")') nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  do nf = 1,nfbnd
     !
     face_geom = face(nf)%geom
     face_order = face(nf)%order
     !
     left_cell = face(nf)%left%cell
-    if (nf <= nfbnd) then
-      if (bface(1,nf) == bc_periodic) then
-        right_cell = face(bface(5,nf))%left%cell
-      else
-        cycle
-      endif
-    else
-      right_cell = face(nf)%right%cell
+    !
+    left_geom = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    l1 = cell(left_cell)%beg_sp
+    l2 = cell(left_cell)%end_sp
+    npl = l2-l1+1
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    do kf = 1,nfp
+      !
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      !
+      ! Interpolate the coordinates for this flux point for the left cell
+      !
+      do l = 1,nr
+        face_xyz(nf)%v(l,kf,1) = interp(left_geom,left_order)% &
+                                           toFace(face_order)% &
+                                 dot( kl , xyz(l,l1:l2) )
+      end do
+      !
+    end do
+    !
+    if (bface(1,nf) == bc_periodic) then
+      !
+      right_cell = face(bface(5,nf))%left%cell
+      !
+      right_geom = cell(right_cell)%geom
+      right_order = cell(right_cell)%order
+      !
+      r1 = cell(right_cell)%beg_sp
+      r2 = cell(right_cell)%end_sp
+      npr = r2-r1+1
+      !
+      do kf = 1,nfp
+        !
+        kr = face(bface(5,nf))%left%get_fp_idx(face_geom,face_order,kf)
+        !
+        ! Interpolate the coordinates for this flux point for the right cell
+        !
+        do l = 1,nr
+          face_xyz(nf)%v(l,kf,2) = interp(right_geom,right_order)% &
+                                               toFace(face_order)% &
+                                   dot( kr , xyz(l,r1:r2) )
+        end do
+        !
+      end do
+      !
+    else if (bface(1,nf) /= bc_cpu_bnd) then
+      !
+      do kf = 1,nfp
+        do l = 1,nr
+          face_xyz(nf)%v(l,kf,2) = face_xyz(nf)%v(l,kf,1)
+        end do
+      end do
+      !
     endif
+    !
+  end do
+  !
+  do nf = nfbnd+1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    left_cell = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
     !
     left_geom = cell(left_cell)%geom
     left_order = cell(left_cell)%order
@@ -4536,53 +4770,246 @@ continue
     !
     nfp = geom_solpts(face_geom,face_order)
     !
-    do k = 1,nfp
+    do kf = 1,nfp
       !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-      if (nf <= nfbnd) then
-        kr = face(bface(5,nf))%left%get_fp_idx(face_geom,face_order,k)
-      else
-        kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-      end if
+      kl = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      kr = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
       do l = 1,nr
-        xyz_fp(l,k,1) = interp(left_geom,left_order)% &
-                                  toFace(face_order)% &
-                        dot( kl , xyz(l,l1:l2) )
+        face_xyz(nf)%v(l,kf,1) = interp(left_geom,left_order)% &
+                                           toFace(face_order)% &
+                                 dot( kl , xyz(l,l1:l2) )
       end do
       !
       ! Interpolate the coordinates for this flux point for the right cell
       !
       do l = 1,nr
-        xyz_fp(l,k,2) = interp(right_geom,right_order)% &
-                                    toFace(face_order)% &
-                        dot( kr , xyz(l,r1:r2) )
-        if (abs(xyz_fp(l,k,2)-xyz_fp(l,k,1)) > eps6) then
-          write_difference_file = true
-        end if
+        face_xyz(nf)%v(l,kf,2) = interp(right_geom,right_order)% &
+                                             toFace(face_order)% &
+                                 dot( kr , xyz(l,r1:r2) )
       end do
       !
     end do
     !
-    if (write_difference_file) then
-      write (lfile,12) nf-nfbnd
-      write (rfile,12) nf-nfbnd
-      write (dfile,12) nf-nfbnd
-      do k = 1,nfp
+  end do
+  !
+  if (ncpu > 1) then
+    call exchange_faceusp(face_xyz)
+    call wait_faceusp(face_xyz)
+  end if
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    face_string = ""
+    if (nf < nfbnd) then
+      if (bface(1,nf) == bc_periodic) then
+        face_string = "(periodic face)"
+      else if (bface(1,nf) == bc_cpu_bnd) then
+        face_string = "(cpu boundary)"
+      else
+        face_string = "(non-communication BC)"
+      end if
+    end if
+    !
+    write (lfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (rfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (dfile,12) nf-nfbnd,trim(adjustl(face_string))
+    !
+    do kf = 1,nfp
+      !
+      write (lfile,11) (face_xyz(nf)%v(l,kf,1),l=1,nr)
+      !
+      write (rfile,11) (face_xyz(nf)%v(l,kf,2),l=1,nr)
+      !
+      write (dfile,11) (abs( face_xyz(nf)%v(l,kf,2) - &
+                             face_xyz(nf)%v(l,kf,1)) , l=1,nr), &
+                        norm2( face_xyz(nf)%v(1:nr,kf,2) - &
+                               face_xyz(nf)%v(1:nr,kf,1) )
+      !
+    end do
+    !
+  end do
+  !
+  deallocate ( face_xyz , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !                "After dumping flux point coordinates")
+  !
+  ! Format Statements
+  !
+ !1 format (i4,*(es23.15))
+  1 format (i4,*(es12.4))
+  2 format (/,"#######################################################",/, &
+              "#################  FACE ",i0,"  ###########################",/, &
+              "#######################################################",/)
+ 11 format (1x,*(es12.4))
+ 12 format ("FACE ",i0,4x,a)
+  !
+end subroutine check_face_flux_point_orderings
+!
+!###############################################################################
+!
+subroutine check_cell_flux_point_orderings()
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP,geom_solpts
+  use geovar, only : ncell,cell
+  use geovar, only : nfbnd,nface,face
+  use geovar, only : nr,xyz,bface
+  use interpolation_mod, only : interp
+  use flowvar, only : face_var
+  use parallel_mod, only : exchange_faceusp,wait_faceusp
+  !
+  !.. Local Scalars ..
+  integer :: nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  integer :: lfile,rfile,dfile
+  character(len=25) :: face_string
+  character(len=100) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp) :: txyz(1:maxSP,1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  type(face_var), allocatable :: face_xyz(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_cell_flux_point_orderings"
+ !integer, parameter :: lfile = 261
+ !integer, parameter :: rfile = 262
+ !integer, parameter :: dfile = 263
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  lfile = 401 + mypnum
+  rfile = 501 + mypnum
+  dfile = 601 + mypnum
+  !
+  write (lfile,*)
+  write (rfile,*)
+  write (dfile,*)
+  !
+  allocate ( face_xyz(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nf = 1,nface
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    nfp = geom_solpts(face_geom,face_order)
+    allocate ( face_xyz(nf)%v(1:nq,1:nfp,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,'("face_xyz(",i0,")%v")') nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    np = n2-n1+1
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    do kf = 1,np
+      do l = 1,nr
+        txyz(kf,l) = xyz(l,kf+n1-1)
+      end do
+    end do
+    !
+    do n = 1,size(cell(nc)%face)
+      !
+      nf = cell(nc)%face(n)%idx
+      sf = cell(nc)%face(n)%side
+      !
+      face_geom = cell(nc)%face(n)%geom
+      face_order = cell(nc)%face(n)%order
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
         !
-       !write (lfile,1) kl,(xyz_fp(l,k,1),l=1,nr)
-        write (lfile,11) (xyz_fp(l,k,1),l=1,nr)
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
         !
-       !write (rfile,1) kr,(xyz_fp(l,k,2),l=1,nr)
-        write (rfile,11) (xyz_fp(l,k,2),l=1,nr)
-        !
-        write (dfile,11) (abs(xyz_fp(l,k,2)-xyz_fp(l,k,1)),l=1,nr), &
-                         norm2(xyz_fp(:,k,2)-xyz_fp(:,k,1))
+        face_xyz(nf)%v(1:nr,kf,sf) = interp(this_geom,this_order)% &
+                                               toFace(face_order)% &
+                                     dot_mat( lf , txyz(1:np,1:nr) )
         !
       end do
+      !
+    end do
+    !
+  end do
+  !
+  do nf = 1,nfbnd
+    !
+    if (bface(1,nf) == bc_periodic) then
+      !
+      pf = bface(5,nf)
+      !
+      face_geom = face(nf)%geom
+      face_order = face(nf)%order
+      !
+      nfp = geom_solpts(face_geom,face_order)
+      !
+      do kf = 1,nfp
+        face_xyz(nf)%v(1:nr,kf,2) = face_xyz(pf)%v(1:nr,kf,1)
+      end do
+      !
     end if
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    call exchange_faceusp(face_xyz)
+    call wait_faceusp(face_xyz)
+  end if
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    face_string = ""
+    if (nf < nfbnd) then
+      if (bface(1,nf) == bc_periodic) then
+        face_string = "(periodic face)"
+      else if (bface(1,nf) == bc_cpu_bnd) then
+        face_string = "(cpu boundary)"
+      else
+        face_string = "(non-communication BC)"
+      end if
+    end if
+    !
+    write (lfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (rfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (dfile,12) nf-nfbnd,trim(adjustl(face_string))
+    !
+    do kf = 1,nfp
+      !
+      write (lfile,11) (face_xyz(nf)%v(l,kf,1),l=1,nr)
+      !
+      write (rfile,11) (face_xyz(nf)%v(l,kf,2),l=1,nr)
+      !
+      write (dfile,11) (abs( face_xyz(nf)%v(l,kf,2) - &
+                             face_xyz(nf)%v(l,kf,1) ) , l=1,nr), &
+                       norm2( face_xyz(nf)%v(1:nr,kf,2) - &
+                              face_xyz(nf)%v(1:nr,kf,1) )
+      !
+    end do
     !
   end do
   !
@@ -4596,12 +5023,12 @@ continue
  !1 format (i4,*(es23.15))
   1 format (i4,*(es12.4))
   2 format (/,"#######################################################",/, &
-              "#################  FACE ",i0,"  ###########################",/, &
+              "#################  CELL ",i0,"  ###########################",/, &
               "#######################################################",/)
  11 format (1x,*(es12.4))
- 12 format ("FACE ",i0)
+ 12 format ("FACE ",i0,4x,a)
   !
-end subroutine check_flux_point_orderings
+end subroutine check_cell_flux_point_orderings
 !
 !###############################################################################
 !
@@ -5266,40 +5693,49 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
   !
+  !.. Local Allocatable Arrays ..
+  character(len=:), allocatable :: char_sname(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
- !character(len=*), parameter :: char_sname(1:7) = ["Density         ", &
- !                                                  "Velocity        ", &
- !                                                  "Pressure        ", &
- !                                                  "Mach            ", &
- !                                                  "Temperature     ", &
- !                                                  "ResolutionMarker", &
- !                                                  "JumpMarker      "]
-  character(len=*), parameter :: char_sname(1:5) = ["Density    ", &
-                                                    "Velocity   ", &
-                                                    "Pressure   ", &
-                                                    "Mach       ", &
-                                                    "Temperature"]
- !character(len=*), parameter :: char_sname(1:9) = ["Density    ", &
- !                                                  "Velocity   ", &
- !                                                  "Energy     ", &
- !                                                  "Pressure   ", &
- !                                                  "Vorticity  ", &
- !                                                  "Mach       ", &
- !                                                  "Entropy    ", &
- !                                                  "Viscosity  ", &
- !                                                  "Temperature"]
- !character(len=*), parameter :: char_sname(1:6) = ["Density     ", &
- !                                                  "Momentum    ", &
- !                                                  "Energy      ", &
- !                                                  "GradDensity ", &
- !                                                  "GradMomentum", &
- !                                                  "GradEnergy  "]
- !character(len=*), parameter :: char_sname(1:4) = ["Density  ", &
- !                                                  "Velocity ", &
- !                                                  "Pressure ", &
- !                                                  "Vorticity" ]
+ !character(len=*), parameter :: char_sdefault(1:7) = ["Density         ", &
+ !                                                     "Velocity        ", &
+ !                                                     "Pressure        ", &
+ !                                                     "Mach            ", &
+ !                                                     "Temperature     ", &
+ !                                                     "ResolutionMarker", &
+ !                                                     "JumpMarker      "]
+  character(len=*), parameter :: char_sdefault(1:5) = ["Density    ", &
+                                                       "Velocity   ", &
+                                                       "Pressure   ", &
+                                                       "Mach       ", &
+                                                       "Temperature"]
+ !character(len=*), parameter :: char_sdefault(1:6) = ["Density    ", &
+ !                                                     "Velocity   ", &
+ !                                                     "Pressure   ", &
+ !                                                     "Mach       ", &
+ !                                                     "Temperature", &
+ !                                                     "Vorticity  "]
+ !character(len=*), parameter :: char_sdefault(1:9) = ["Density    ", &
+ !                                                     "Velocity   ", &
+ !                                                     "Energy     ", &
+ !                                                     "Pressure   ", &
+ !                                                     "Vorticity  ", &
+ !                                                     "Mach       ", &
+ !                                                     "Entropy    ", &
+ !                                                     "Viscosity  ", &
+ !                                                     "Temperature"]
+ !character(len=*), parameter :: char_sdefault(1:6) = ["Density     ", &
+ !                                                     "Momentum    ", &
+ !                                                     "Energy      ", &
+ !                                                     "GradDensity ", &
+ !                                                     "GradMomentum", &
+ !                                                     "GradEnergy  "]
+ !character(len=*), parameter :: char_sdefault(1:4) = ["Density  ", &
+ !                                                     "Velocity ", &
+ !                                                     "Pressure ", &
+ !                                                     "Vorticity" ]
   !
   !.. Local Arrays ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
@@ -5323,6 +5759,25 @@ continue
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
+  !
+  ! Make sure vorticity is one of the variables that will
+  ! be output if running the Taylor-Green vortex problem.
+  !
+  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+  if (itestcase == Taylor_Green_Vortex) then
+    one_pass_loop: do nc = 1,1
+      do n = 1,size(char_sname)
+        if (adjustl(trim(char_sname(n))) == "Vorticity") then
+          exit one_pass_loop
+        end if
+      end do
+      n = max( len("Vorticity") , len(char_sname) )
+      ! USING F2003 AUTO-REALLOCATION
+      char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
+    end do one_pass_loop
+  end if
+  !
+  ! Get the name of the current solution file
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // trim(adjustl(sol_file))
   !
@@ -6316,6 +6771,7 @@ subroutine TaylorGreen_8s_vorticity_solution()
   !
   !.. Use Statements ..
   use ovar, only : write_TaylorGreen_8s_solution
+  use iso_c_binding, only : c_null_ptr
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -6326,6 +6782,10 @@ subroutine TaylorGreen_8s_vorticity_solution()
   integer(CST) :: my_beg,my_end,my_pts
   !
   character(len=170) :: cgns_vort_file
+  !
+  integer(INT_MPI) :: color,key
+  _MPI_COMM_TYPE_ :: vort_comm
+  logical(lk) :: i_am_vort_cpu
   !
   !.. Local Arrays ..
   integer(CST), dimension(1:3) :: my_vort_pts
@@ -6359,200 +6819,216 @@ continue
   call get_data_for_8s_vorticity_solution(my_vort_pts,my_vort_cells, &
                                           vort_zone_size,my_vort_faces,ipelem)
   !
-  ! Open the CGNS file
-  !
-  call cgp_open_f(cgns_vort_file,CG_MODE_WRITE,ifile_v,cgierr)
-  call io_error(pname,cgns_vort_file,1,__LINE__,__FILE__,cgierr)
-  !
-  ! Set the CGNS base (who knows what this is for)
-  ! NOTE: We are creating this base 2-dimensional with surface (2D) cells
-  !       since this file will contain a 2D solution along a boundary face
-  !
-  call cg_base_write_f(ifile_v,bname,2_CBT,2_CBT,ibase_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Write the title for this solution
-  !
-  call cg_zone_write_f(ifile_v,ibase_v,zname,vort_zone_size, &
-                       UNSTRUCTURED,izone_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Create data nodes for the coordinates
-  !
-  call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
-                         "CoordinateY",ixyz_v(1),cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
-                  cgierr,__LINE__,__FILE__,"Write node: Coordinate = 1 (Y)")
-  !
-  call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
-                         "CoordinateZ",ixyz_v(2),cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
-                  cgierr,__LINE__,__FILE__,"Write node: Coordinate = 2 (Z)")
-  !
-  ! Now create and write the coordinate data in parallel
-  !
-  ! Stop/Disable the CGNS queue if it is not to be used
-  !
-  call disable_cgns_queue(pname,cgns_vort_file)
-  !
-  ! For each boundary face within the grid region of interest, interpolate the
-  ! coordinates of the solution points for the host cell to the boundary face
-  ! and this interpolate those face points to the output face points.
-  !
   my_pts = my_vort_pts(1)
   my_beg = my_vort_pts(2)
   my_end = my_vort_pts(3)
   !
-  allocate ( vary(1:my_pts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"vary",1,__LINE__,__FILE__,ierr,error_message)
-  vary = real( zero , kind=kind(vary) )
+  i_am_vort_cpu = (my_pts > 0)
+  color = merge( 1_INT_MPI , MPI_UNDEFINED , i_am_vort_cpu )
+  key = 0_INT_MPI
   !
-  allocate ( varz(1:my_pts) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"varz",1,__LINE__,__FILE__,ierr,error_message)
-  varz = real( zero , kind=kind(varz) )
+  call mpi_comm_split(MPI_COMM_WORLD,color,key,vort_comm,mpierr)
   !
-  ! Interpolate the coordinates to the output points
-  !
-  call get_vort_face_coordinates(my_vort_faces,vary,varz)
-  !
-  ! Add the data for the y-coordinate to the output queue
-  ! NOTE: It is an error for a processor to try an write data if it doesnt
-  !       have any data to write, so make sure that only those processors
-  !       that have data to write call the CGNS write subroutine.
-  !
-  cgierr = 0
-  if (my_end-my_beg+1_CST > 0_CST) then
+  if (i_am_vort_cpu) then
+    !
+#ifdef USE_MPI_F08
+    call cgp_mpi_comm_f(vort_comm%mpi_val,cgierr)
+#else
+    call cgp_mpi_comm_f(vort_comm,cgierr)
+#endif
+    !
+    ! Open the CGNS file
+    !
+    call cgp_open_f(cgns_vort_file,CG_MODE_WRITE,ifile_v,cgierr)
+    call io_error(pname,cgns_vort_file,1,__LINE__,__FILE__,cgierr)
+    !
+    ! Set the CGNS base (who knows what this is for)
+    ! NOTE: We are creating this base 2-dimensional with surface (2D) cells
+    !       since this file will contain a 2D solution along a boundary face
+    !
+    call cg_base_write_f(ifile_v,bname,2_CBT,2_CBT,ibase_v,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cg_base_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    ! Write the title for this solution
+    !
+    call cg_zone_write_f(ifile_v,ibase_v,zname,vort_zone_size, &
+                         UNSTRUCTURED,izone_v,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cg_zone_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    ! Create data nodes for the coordinates
+    !
+    call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
+                           "CoordinateY",ixyz_v(1),cgierr)
+    call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
+                    cgierr,__LINE__,__FILE__,"Write node: Coordinate = 1 (Y)", &
+                    not_parallel=true)
+    !
+    call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
+                           "CoordinateZ",ixyz_v(2),cgierr)
+    call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
+                    cgierr,__LINE__,__FILE__,"Write node: Coordinate = 2 (Z)", &
+                    not_parallel=true)
+    !
+    ! Now create and write the coordinate data in parallel
+    !
+    ! Stop/Disable the CGNS queue if it is not to be used
+    !
+    call disable_cgns_queue(pname,cgns_vort_file)
+    !
+    ! For each boundary face within the grid region of interest, interpolate the
+    ! coordinates of the solution points for the host cell to the boundary face
+    ! and this interpolate those face points to the output face points.
+    !
+    allocate ( vary(1:my_pts) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vary",1,__LINE__,__FILE__,ierr,error_message)
+    vary = real( zero , kind=kind(vary) )
+    !
+    allocate ( varz(1:my_pts) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"varz",1,__LINE__,__FILE__,ierr,error_message)
+    varz = real( zero , kind=kind(varz) )
+    !
+    ! Interpolate the coordinates to the output points
+    !
+    call get_vort_face_coordinates(my_vort_faces,vary,varz)
+    !
+    ! Add the data for the y-coordinate to the output queue
+    ! NOTE: It is an error for a processor to try an write data if it doesnt
+    !       have any data to write, so make sure that only those processors
+    !       that have data to write call the CGNS write subroutine.
+    !
+    cgierr = 0
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(1), &
                                 my_beg,my_end,vary,cgierr)
-  end if
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
-                  cgierr,__LINE__,__FILE__,"Write data: Coordinate = 1 (Y)")
-  !
-  ! Add the data for the z-coordinate to the output queue
-  ! NOTE: It is an error for a processor to try an write data if it doesnt
-  !       have any data to write, so make sure that only those processors
-  !       that have data to write call the CGNS write subroutine.
-  !
-  cgierr = 0
-  if (my_end-my_beg+1_CST > 0_CST) then
+    call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate = 1 (Y)", &
+                    not_parallel=true)
+    !
+    ! Add the data for the z-coordinate to the output queue
+    ! NOTE: It is an error for a processor to try an write data if it doesnt
+    !       have any data to write, so make sure that only those processors
+    !       that have data to write call the CGNS write subroutine.
+    !
+    cgierr = 0
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(2), &
                                 my_beg,my_end,varz,cgierr)
-  end if
-  call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
-                  cgierr,__LINE__,__FILE__,"Write data: Coordinate = 2 (Z)")
-  !
-  ! Finally, flush the queue containing the
-  ! coordinate variables to the CGNS file
-  !
-  call flush_cgns_queue(pname,cgns_vort_file)
-  !
-  ! Create the data node for the grid connectivity
-  !
-  call cgp_section_write_f(ifile_v,ibase_v,izone_v,"Quadrilaterals", &
-                           QUAD_4,1_CST,vort_zone_size(2), &
-                           0_CBT,isect_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_section_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Write the element connectivity in parallel
-  !
-  ! Reset the queue.
-  !
-  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
-  !
-  my_beg = my_vort_cells(2)
-  my_end = my_vort_cells(3)
-  !
-  ! Add the element connectivity data to the output queue.
-  ! NOTE: It is an error for a processor to try an write data if it doesnt
-  !       have any data to write, so make sure that only those processors
-  !       that have data to write call the CGNS write subroutine.
-  !
-  cgierr = 0
-  if (my_end-my_beg+1_CST > 0_CST) then
+    call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
+                    cgierr,__LINE__,__FILE__,"Write data: Coordinate = 2 (Z)", &
+                    not_parallel=true)
+    !
+    ! Finally, flush the queue containing the
+    ! coordinate variables to the CGNS file
+    !
+    call flush_cgns_queue(pname,cgns_vort_file)
+    !
+    ! Create the data node for the grid connectivity
+    !
+    call cgp_section_write_f(ifile_v,ibase_v,izone_v,"Quadrilaterals", &
+                             QUAD_4,1_CST,vort_zone_size(2), &
+                             0_CBT,isect_v,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cgp_section_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    ! Write the element connectivity in parallel
+    !
+    ! Reset the queue.
+    !
+    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
+    !
+    my_beg = my_vort_cells(2)
+    my_end = my_vort_cells(3)
+    !
+    ! Add the element connectivity data to the output queue.
+    ! NOTE: It is an error for a processor to try an write data if it doesnt
+    !       have any data to write, so make sure that only those processors
+    !       that have data to write call the CGNS write subroutine.
+    !
+    cgierr = 0
     call cgp_elements_write_data_f(ifile_v,ibase_v,izone_v,isect_v, &
                                    my_beg,my_end,ipelem,cgierr)
-  end if
-  call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Finally, flush the queue containing the
-  ! element connectivity to the CGNS file.
-  !
-  call flush_cgns_queue(pname,cgns_vort_file)
-  !
-  ! Deallocate the arrays varz, and ipelem
-  ! NOTE: Keep vary allocated and use it to store the vorticity variable
-  !
-  if (allocated(varz)) then
-    deallocate ( varz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"varz",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (allocated(ipelem)) then
-    deallocate ( ipelem , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  ! Evaluate and write the vorticity solution
-  !
-  my_beg = my_vort_pts(2)
-  my_end = my_vort_pts(3)
-  !
-  ! Create the solution node
-  !
-  call cg_sol_write_f(ifile_v,ibase_v,izone_v,"VorticitySolution", &
-                      VERTEX,isol_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cg_sol_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  !
-  ! Create a data node for the vorticity solution
-  !
-  call cgp_field_write_f(ifile_v,ibase_v,izone_v,isol_v,CGNS_KIND_REAL, &
-                         "VorticityMagnitude",isvar_v,cgierr)
-  call cgns_error(pname,cgns_vort_file,"cgp_field_write_f", &
-                  cgierr,__LINE__,__FILE__, &
-                  "Write node: Solution variable = 1 (VorticityMagnitude)")
-  !
-  ! Compute the vorticity magnitude at each face point
-  !
-  call get_vort_face_solution(my_vort_faces,vary)
-  !
-  ! Reset the queue.
-  !
-  call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
-  !
-  ! Add the data for current variable to the output queue.
-  ! NOTE: It is an error for a processor to try an write data if it doesnt
-  !       have any data to write, so make sure that only those processors
-  !       that have data to write call the CGNS write subroutine.
-  !
-  cgierr = 0
-  if (my_end-my_beg+1_CST > 0_CST) then
+    call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    ! Finally, flush the queue containing the
+    ! element connectivity to the CGNS file.
+    !
+    call flush_cgns_queue(pname,cgns_vort_file)
+    !
+    ! Deallocate the arrays varz, and ipelem
+    ! NOTE: Keep vary allocated and use it to store the vorticity variable
+    !
+    if (allocated(varz)) then
+      deallocate ( varz , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"varz",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    if (allocated(ipelem)) then
+      deallocate ( ipelem , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipelem",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    ! Evaluate and write the vorticity solution
+    !
+    my_beg = my_vort_pts(2)
+    my_end = my_vort_pts(3)
+    !
+    ! Create the solution node
+    !
+    call cg_sol_write_f(ifile_v,ibase_v,izone_v,"VorticitySolution", &
+                        VERTEX,isol_v,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cg_sol_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    ! Create a data node for the vorticity solution
+    !
+    call cgp_field_write_f(ifile_v,ibase_v,izone_v,isol_v,CGNS_KIND_REAL, &
+                           "VorticityMagnitude",isvar_v,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cgp_field_write_f", &
+                    cgierr,__LINE__,__FILE__, &
+                    "Write node: Solution variable = 1 (VorticityMagnitude)", &
+                    not_parallel=true)
+    !
+    ! Compute the vorticity magnitude at each face point
+    !
+    call get_vort_face_solution(my_vort_faces,vary)
+    !
+    ! Reset the queue.
+    !
+    call set_cgns_queue(BEGIN_CGNS_QUEUE,pname,cgns_vort_file)
+    !
+    ! Add the data for current variable to the output queue.
+    ! NOTE: It is an error for a processor to try an write data if it doesnt
+    !       have any data to write, so make sure that only those processors
+    !       that have data to write call the CGNS write subroutine.
+    !
+    cgierr = 0
     call cgp_field_write_data_f(ifile_v,ibase_v,izone_v,isol_v,isvar_v, &
                                 my_beg,my_end,vary,cgierr)
+    call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f", &
+                    cgierr,__LINE__,__FILE__, &
+                    "Write data: Solution variable = 1 (VorticityMagnitude)", &
+                    not_parallel=true)
+    !
+    ! Finally, flush the queue containing
+    ! the current variable to the CGNS file.
+    !
+    call flush_cgns_queue(pname,cgns_vort_file)
+    !
+    ! Deallocate vary now that we are finished with it
+    !
+    if (allocated(vary)) then
+      deallocate ( vary , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"vary",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    ! Close the CGNS file
+    !
+    call cgp_close_f(ifile_v,cgierr)
+    call io_error(pname,cgns_vort_file,2,__LINE__,__FILE__,cgierr)
+    !
   end if
-  call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f", &
-                  cgierr,__LINE__,__FILE__, &
-                  "Write data: Solution variable = 1 (VorticityMagnitude)")
   !
-  ! Finally, flush the queue containing
-  ! the current variable to the CGNS file.
-  !
-  call flush_cgns_queue(pname,cgns_vort_file)
-  !
-  ! Deallocate vary now that we are finished with it
-  !
-  if (allocated(vary)) then
-    deallocate ( vary , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vary",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  ! Close the CGNS file
-  !
-  call cgp_close_f(ifile_v,cgierr)
-  call io_error(pname,cgns_vort_file,2,__LINE__,__FILE__,cgierr)
+  call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
   !
   write_TaylorGreen_8s_solution = fals
   !
