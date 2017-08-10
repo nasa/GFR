@@ -645,7 +645,7 @@ module module_kind_types
   !
   !
   !
-  private :: reciprocal_SP, reciprocal_DP,reciprocal_QP
+  private :: reciprocal_SP,reciprocal_DP,reciprocal_QP
   !
   interface reciprocal
     module procedure reciprocal_SP, reciprocal_DP, reciprocal_QP
@@ -653,7 +653,7 @@ module module_kind_types
   !
   !
   !
-  private :: chop_WP, chop_SP, chop_DP, chop_QP
+  private :: chop_WP,chop_SP,chop_DP,chop_QP
   !
   interface chop
     module procedure chop_WP, chop_SP, chop_DP, chop_QP
