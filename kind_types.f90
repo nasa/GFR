@@ -612,9 +612,15 @@ module module_kind_types
   !
   private :: rnorm2_SP,rnorm2_DP,rnorm2_QP
   !
-  interface rnorm2
-    module procedure rnorm2_SP, rnorm2_DP, rnorm2_QP
-  end interface rnorm2
+#ifdef SPECIAL_FOR_PGI
+  interface norm2
+    module procedure rnorm2_SP
+    module procedure rnorm2_DP
+#ifndef DISABLE_QP
+    module procedure rnorm2_QP
+#endif
+  end interface norm2
+#endif
   !
   !
   !
