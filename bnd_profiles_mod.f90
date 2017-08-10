@@ -179,12 +179,12 @@ continue
       !
       nn1 = nodes_of_cell_ptr(host_cell)+1
       !
-      jacfp = rnorm2( half * (xyz_nodes(:,nodes_of_cell(nn1+ &
-                                        side_nodes(1,host_side,host_geom))) - &
-                              xyz_nodes(:,nodes_of_cell(nn1+ &
-                                        side_nodes(2,host_side,host_geom))) &
-                              ) &
-                    )
+      jacfp = norm2( half * (xyz_nodes(:,nodes_of_cell(nn1+ &
+                                       side_nodes(1,host_side,host_geom))) - &
+                             xyz_nodes(:,nodes_of_cell(nn1+ &
+                                       side_nodes(2,host_side,host_geom))) &
+                             ) &
+                   )
       !
      !dvsp(1:nr,1:nq,1:np) = grad_cv_to_grad_pv( usp(1:nq,n1:n2) , &
      !                                           dusp(1,1:nq,n1:n2), &

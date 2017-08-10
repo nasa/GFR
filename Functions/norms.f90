@@ -38,7 +38,7 @@ pure function unit_vector_SP(xyz) result(return_value)
   real(SP), dimension(:), intent(in) :: xyz
   real(SP), dimension(1:size(xyz)) :: return_value
   real(SP) :: grads,grdsnz,grdsrt
-  grads = rnorm2(xyz)
+  grads = norm2(xyz)
   grdsnz = max(grads,real(epsilon(0.0_SP),kind=SP))
   grdsrt = grads / grdsnz
   return_value(:) = xyz(:) / grdsnz*grdsrt
@@ -48,7 +48,7 @@ pure function unit_vector_DP(xyz) result(return_value)
   real(DP), dimension(:), intent(in) :: xyz
   real(DP), dimension(1:size(xyz)) :: return_value
   real(DP) :: grads,grdsnz,grdsrt
-  grads = rnorm2(xyz)
+  grads = norm2(xyz)
   grdsnz = max(grads,real(epsilon(0.0_DP),kind=DP))
   grdsrt = grads / grdsnz
   return_value(:) = xyz(:) / grdsnz*grdsrt
@@ -58,7 +58,7 @@ pure function unit_vector_QP(xyz) result(return_value)
   real(QP), dimension(:), intent(in) :: xyz
   real(QP), dimension(1:size(xyz)) :: return_value
   real(QP) :: grads,grdsnz,grdsrt
-  grads = rnorm2(xyz)
+  grads = norm2(xyz)
   grdsnz = max(grads,real(epsilon(0.0_DP),kind=QP))
   grdsrt = grads / grdsnz
   return_value(:) = xyz(:) / grdsnz*grdsrt

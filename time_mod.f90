@@ -325,7 +325,7 @@ continue
         mul = viscosity_pv_sp( vl(1:nq) )
       end if
       !
-      ds = rnorm2( geofa(nf)%v(1:nr,k) )
+      ds = norm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(host_geom) ! face length/area for left cell
       !
       ! Normal velocity at this flux point
@@ -422,7 +422,7 @@ continue
         mur = viscosity_pv_sp( vr(1:nq) )
       end if
       !
-      ds = rnorm2( geofa(nf)%v(1:nr,k) )
+      ds = norm2( geofa(nf)%v(1:nr,k) )
       dsl = ds * cl(left_geom) ! face length/area for left  cell
       dsr = ds * cl(right_geom) ! face length/area for right cell
       !
@@ -564,7 +564,7 @@ continue
       !
       vel(1:nr) = matmul( metrics_dt(nc)%met(k,1:nr,1:nr) , pv(nmb:nme) )
       !
-      vmag = rnorm2(vel)
+      vmag = norm2(vel)
       !
       aspd = sqrt( max( gam*pv(nee)/pv(nec) , rndoff ) )
       !

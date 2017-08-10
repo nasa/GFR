@@ -7558,7 +7558,7 @@ continue
       ! NOTE: Dont forget to adjust the nondimensionalization of the
       !       vorticity by dividing through by time_ref to get vorticity*
       !        
-      vorticity(f1-1+k) = real( rnorm2(vort_vec) / time_ref , &
+      vorticity(f1-1+k) = real( norm2(vort_vec) / time_ref , &
                                 kind=kind(vorticity) )
       !
     end do

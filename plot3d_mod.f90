@@ -3897,8 +3897,8 @@ continue
         !
         if (matched(pf)) cycle
         !
-        ds(pf) = dscoef * rnorm2( xyz_min(idx(:,n),nf) - &
-                                  xyz_max(idx(:,n),pf) )
+        ds(pf) = dscoef * norm2( xyz_min(idx(:,n),nf) - &
+                                 xyz_max(idx(:,n),pf) )
         !
       end do
       !

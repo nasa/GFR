@@ -40,12 +40,12 @@ continue
     !
     ! For a pure 2D flow, there shouldnt be any z information so
     ! d3 should only contain a k component. If this is the case,
-    ! the following rnorm2 computation will just extract this
+    ! the following norm2 computation will just extract this
     ! k component which is the value of the 2D jacobian. If there
     ! is z information, all of the i,j,k components will contain
     ! information and the jacobian is the magnitude of this vector.
     !
-    return_value = rnorm2( d3 )
+    return_value = norm2( d3 )
     !
   else if (n2 >= 3) then
     !
@@ -106,12 +106,12 @@ continue
     !
     ! For a pure 2D flow, there shouldnt be any z information so
     ! d3 should only contain a k component. If this is the case,
-    ! the following rnorm2 computation will just extract this
+    ! the following norm2 computation will just extract this
     ! k component which is the value of the 2D jacobian. If there
     ! is z information, all of the i,j,k components will contain
     ! information and the jacobian is the magnitude of this vector.
     !
-    return_value = rnorm2( d3 )
+    return_value = norm2( d3 )
     !
   else if (n2 >= 3) then
     !
@@ -172,12 +172,12 @@ continue
     !
     ! For a pure 2D flow, there shouldnt be any z information so
     ! d3 should only contain a k component. If this is the case,
-    ! the following rnorm2 computation will just extract this
+    ! the following norm2 computation will just extract this
     ! k component which is the value of the 2D jacobian. If there
     ! is z information, all of the i,j,k components will contain
     ! information and the jacobian is the magnitude of this vector.
     !
-    return_value = rnorm2( d3 )
+    return_value = norm2( d3 )
     !
   else if (n2 >= 3) then
     !

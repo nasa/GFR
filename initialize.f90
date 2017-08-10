@@ -1600,7 +1600,7 @@ continue
           !
           visc = viscosity_pv_sp( [r,vel,p] )
           !
-          reyn = rnorm2(vel)*r/visc
+          reyn = norm2(vel)*r/visc
           !
           write (iout,4) r,(bc_in(i)%pv(ii)*aref,ii=nmb,nme)
           write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn

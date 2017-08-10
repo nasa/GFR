@@ -591,7 +591,7 @@ continue
       ! Get the contribution to the face length/area from the current flux
       ! point for the left cell
       !
-      ds  = rnorm2( rnrm(:,k) )
+      ds  = norm2( rnrm(:,k) )
       dsl = ds * cl(host_geom)
       !
       ! Add the flux correction to the residuals of the sol-pts in cell
@@ -723,7 +723,7 @@ continue
       !
       ! Get the face length for the left and right cell
       !
-      ds  = rnorm2( rnrm(:,k) )
+      ds  = norm2( rnrm(:,k) )
       dsl = ds * cl(left_geom)
       dsr = ds * cl(right_geom)
       !
@@ -954,7 +954,7 @@ continue
       !
       ! Get the face length for the current face
       !
-      dsl = cl(host_geom) * rnorm2( geofa(nf)%v(1:nr,k) )
+      dsl = cl(host_geom) * norm2( geofa(nf)%v(1:nr,k) )
       !
       ! Compute the LDG directional parameters
       ! NOTE: cbias is used for all boundary faces that allow for flow
@@ -1085,7 +1085,7 @@ continue
       !
       ! Get the face length for the current face
       !
-      ds = rnorm2( geofa(nf)%v(1:nr,k) )
+      ds = norm2( geofa(nf)%v(1:nr,k) )
       dsl = cl(left_geom)*ds
       dsr = cl(right_geom)*ds
       !
@@ -1269,7 +1269,7 @@ continue
         !
         ! Get the face length for the current face
         !
-        dsl = cl(this_geom) * rnorm2( geofa(nf)%v(1:nr,kf) )
+        dsl = cl(this_geom) * norm2( geofa(nf)%v(1:nr,kf) )
         !
         ! Compute the BR2 jump correction for this point
         !    jump_left  =  half * (u_right - u_left)

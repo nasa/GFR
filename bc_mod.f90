@@ -1448,7 +1448,7 @@ continue
       ! velocity multiplied by the unit normal
       !
       if (vn_int < zero) then
-        gufp(nmb:nme,k) = rnorm2( hvfp(nmb:nme) ) * rnrm(:)
+        gufp(nmb:nme,k) = norm2( hvfp(nmb:nme) ) * rnrm(:)
       end if
       !
       ! Set the boundary pressure to the reference pressure if the normal

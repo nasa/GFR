@@ -134,7 +134,7 @@ continue
       ! Error for primitive variables at the current solution point
       !
       ett(1:nq,2) = abs( vnew(:,k) - vold(:,k) )
-      ett(nq+1,2) = rnorm2( ett(nmb:nme,2) )
+      ett(nq+1,2) = norm2( ett(nmb:nme,2) )
       !
       ! Now add the error for all variables at the current solution
       ! point to the running integral sum for the L1 and L2 error norms
