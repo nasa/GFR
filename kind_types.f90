@@ -62,6 +62,11 @@ module module_kind_types
 #else
   use rename_intrinsics, only : dot => dot_product
 #endif
+#ifndef SPECIAL_FOR_GCC
+  use, intrinsic :: ieee_arithmetic, only : is_nan => ieee_is_nan
+  use, intrinsic :: ieee_arithmetic, only : is_finite => ieee_is_finite
+  use, intrinsic :: ieee_arithmetic, only : is_negative => ieee_is_negative
+#endif
   !
   implicit none
   !
@@ -820,6 +825,48 @@ module module_kind_types
                      big_to_little_endian_r4, &
                      big_to_little_endian_r8
   end interface big_to_little_endian
+  !
+  !
+  !
+  private :: is_nan_SP,is_nan_DP,is_nan_QP
+  !
+  interface is_nan
+#ifdef SPECIAL_FOR_GCC
+    module procedure is_nan_SP
+    module procedure is_nan_DP
+#ifndef DISABLE_QP
+    module procedure is_nan_QP
+#endif
+#endif
+  end interface is_nan
+  !
+  !
+  !
+  private :: is_finite_SP,is_finite_DP,is_finite_QP
+  !
+  interface is_finite
+#ifdef SPECIAL_FOR_GCC
+    module procedure is_finite_SP
+    module procedure is_finite_DP
+#ifndef DISABLE_QP
+    module procedure is_finite_QP
+#endif
+#endif
+  end interface is_finite
+  !
+  !
+  !
+  private :: is_negative_SP,is_negative_DP,is_negative_QP
+  !
+  interface is_negative
+#ifdef SPECIAL_FOR_GCC
+    module procedure is_negative_SP
+    module procedure is_negative_DP
+#ifndef DISABLE_QP
+    module procedure is_negative_QP
+#endif
+#endif
+  end interface is_negative
   !
 contains
 !
@@ -1857,6 +1904,7 @@ include "Functions/reverse_metrics.f90"
 include "Functions/chop.f90"
 include "Functions/intseq.f90"
 include "Functions/big_to_little_endian.f90"
+include "Functions/checks_for_bad_numbers.f90"
 !
 ! Include statements for functions that DO NOT have a generic interface
 !

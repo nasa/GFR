@@ -272,6 +272,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/all_are_equal.f90 \
                $(FUNDIR)/bc_integer_to_string.f90 \
                $(FUNDIR)/big_to_little_endian.f90 \
+               $(FUNDIR)/checks_for_bad_numbers.f90 \
                $(FUNDIR)/chop.f90 \
                $(FUNDIR)/cross_product.f90 \
                $(FUNDIR)/deltafun.f90 \
