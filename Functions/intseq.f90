@@ -26,15 +26,15 @@ pure function intseq_with_interval_i1(seq_beg,seq_end,seq_interval) &
   !
   integer(lp), allocatable :: return_value(:)
   !
-  integer(lp) :: iint,n
+  integer(lp) :: loc_interval,n
   integer :: ierr
   !
 continue
-  iint = 1_lp
-  if (seq_interval /= 0_lp) iint = seq_interval
-  n = (seq_end-seq_beg)/iint + 1_lp
+  loc_interval = 1_lp
+  if (seq_interval /= 0_lp) loc_interval = seq_interval
+  n = (seq_end-seq_beg)/loc_interval + 1_lp
   allocate ( return_value(1:n) , stat=ierr )
-  return_value = [(n,n=seq_beg,seq_end,iint)]
+  return_value = [(n,n=seq_beg,seq_end,loc_interval)]
 end function intseq_with_interval_i1
 !
 !###############################################################################
@@ -88,15 +88,15 @@ pure function intseq_with_interval_i2(seq_beg,seq_end,seq_interval) &
   !
   integer(lp), allocatable :: return_value(:)
   !
-  integer(lp) :: iint,n
+  integer(lp) :: loc_interval,n
   integer :: ierr
   !
 continue
-  iint = 1_lp
-  if (seq_interval /= 0_lp) iint = seq_interval
-  n = (seq_end-seq_beg)/iint + 1_lp
+  loc_interval = 1_lp
+  if (seq_interval /= 0_lp) loc_interval = seq_interval
+  n = (seq_end-seq_beg)/loc_interval + 1_lp
   allocate ( return_value(1:n) , stat=ierr )
-  return_value = [(n,n=seq_beg,seq_end,iint)]
+  return_value = [(n,n=seq_beg,seq_end,loc_interval)]
 end function intseq_with_interval_i2
 !
 !###############################################################################
@@ -150,15 +150,15 @@ pure function intseq_with_interval_i4(seq_beg,seq_end,seq_interval) &
   !
   integer(lp), allocatable :: return_value(:)
   !
-  integer(lp) :: iint,n
+  integer(lp) :: loc_interval,n
   integer :: ierr
   !
 continue
-  iint = 1_lp
-  if (seq_interval /= 0_lp) iint = seq_interval
-  n = (seq_end-seq_beg)/iint + 1_lp
+  loc_interval = 1_lp
+  if (seq_interval /= 0_lp) loc_interval = seq_interval
+  n = (seq_end-seq_beg)/loc_interval + 1_lp
   allocate ( return_value(1:n) , stat=ierr )
-  return_value = [(n,n=seq_beg,seq_end,iint)]
+  return_value = [(n,n=seq_beg,seq_end,loc_interval)]
 end function intseq_with_interval_i4
 !
 !###############################################################################
@@ -212,15 +212,15 @@ pure function intseq_with_interval_i8(seq_beg,seq_end,seq_interval) &
   !
   integer(lp), allocatable :: return_value(:)
   !
-  integer(lp) :: iint,n
+  integer(lp) :: loc_interval,n
   integer :: ierr
   !
 continue
-  iint = 1_lp
-  if (seq_interval /= 0_lp) iint = seq_interval
-  n = (seq_end-seq_beg)/iint + 1_lp
+  loc_interval = 1_lp
+  if (seq_interval /= 0_lp) loc_interval = seq_interval
+  n = (seq_end-seq_beg)/loc_interval + 1_lp
   allocate ( return_value(1:n) , stat=ierr )
-  return_value = [(n,n=seq_beg,seq_end,iint)]
+  return_value = [(n,n=seq_beg,seq_end,loc_interval)]
 end function intseq_with_interval_i8
 !
 !###############################################################################

@@ -871,7 +871,7 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,nc,ierr
   integer :: i,ic,ifa,ip1,ip2,ip3,jc
-  integer :: ibeg,iend,iint
+  integer :: ibeg,iend,interval
   integer :: gmin,gmax,omin,omax
   integer :: face_counter,nfp,l1,r1,l2,r2
   integer :: left_cell,left_geom
@@ -2545,7 +2545,7 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   integer, allocatable, dimension(:,:), intent(in) :: nodes_on_edge
   !
   !.. Local Scalars ..
-  integer :: k,l,i,ibeg,iend,iint,ierr
+  integer :: k,l,i,ibeg,iend,interval,ierr
   integer :: n,nc,nc1,nc2,np,np1,np2
   integer :: ncf,nf,nfp,nep,lbeg,rbeg
   integer :: num_faces,num_edges,num_nodes
@@ -2780,7 +2780,7 @@ continue
             cell_edge = i
             ibeg = nep*(i-1) + 1
             iend = nep*i
-            iint = 1
+            interval = 1
             !
             exit one_pass
             !
@@ -2789,7 +2789,7 @@ continue
             cell_edge = i
             ibeg = nep*i
             iend = nep*(i-1) + 1
-            iint = -1
+            interval = -1
             !
             exit one_pass
             !
@@ -2817,7 +2817,7 @@ continue
       cell(this_cell)%edge(cell_edge)%ave_coef = ave
       !
       cell(this_cell)%edge(cell_edge)%ep_offset = nep*(cell_edge-1)
-      cell(this_cell)%edge(cell_edge)%rev_dir = (iint == -1)
+      cell(this_cell)%edge(cell_edge)%rev_dir = (interval == -1)
       !
     end do cell_loop
     !

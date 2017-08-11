@@ -622,7 +622,7 @@ end function get_quadrature_wts
 !
 !###############################################################################
 !
-pure function get_edge_quadrature(n,loc) result(return_value)
+pure function get_edge_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
   use polynomial_mod, only : nodes_legendre_gauss
@@ -631,7 +631,7 @@ pure function get_edge_quadrature(n,loc) result(return_value)
   use polynomial_mod, only : weights_legendre_gauss_lobatto
   !
   integer, intent(in) :: n
-  integer, intent(in) :: loc
+  integer, intent(in) :: location
   !
   type(element_type) :: return_value
   !
@@ -650,7 +650,7 @@ continue
   allocate ( wts(1:npts) , source=qzero , stat=ierr )
   allocate ( val_at_pts(1:npts) , source=qzero , stat=ierr )
   !
-  select case (loc)
+  select case (location)
     !
     case (Legendre_Gauss)
       !
@@ -690,14 +690,14 @@ end function get_edge_quadrature
 !
 !###############################################################################
 !
-pure function get_tria_quadrature(n,loc) result(return_value)
+pure function get_tria_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
   use triangle_mod,   only : TriNodes2D_DG
   use triangle_mod,   only : TriNodes2D_HT
   !
   integer, intent(in) :: n
-  integer, intent(in) :: loc
+  integer, intent(in) :: location
   !
   type(element_type) :: return_value
   !
@@ -714,7 +714,7 @@ continue
   allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
   allocate ( wts(1:npts) , source=qzero , stat=ierr )
   !
-  select case (loc)
+  select case (location)
     !
     case (DG_TriPoints)
       !
@@ -1334,7 +1334,7 @@ subroutine dump_solpts()
   use order_mod, only : n_min_order,n_max_order
   !
   !.. Local Scalars ..
-  integer :: npts,ndim,ierr,loc,io
+  integer :: npts,ndim,ierr,location,io
   integer :: this_geom,this_order
   character(len=100) :: array_name
   !
@@ -1387,14 +1387,14 @@ continue
   !
   this_geom = Geom_Edge
   !
-  do loc = 1,3
+  do location = 1,3
     !
     basic_order_loop: do this_order = min_order,max_order
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
-      this_elem => edge_elem(this_order,loc)
+      this_elem => edge_elem(this_order,location)
       !
       ! Spatial dimension of the current geometry
       ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
@@ -1405,7 +1405,7 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      if (loc == 3) npts = npts + 2
+      if (location == 3) npts = npts + 2
       !
       ! Allocate the wts component of the current geometry/order combination
       !
@@ -1423,7 +1423,7 @@ continue
       ! Fill in the solution points and quadrature weights
       ! for an edge with the current order
       !
-      this_elem = get_edge_points(this_order,loc)
+      this_elem = get_edge_points(this_order,location)
       !
       ! Disassociate this_elem before continuing to the next loop combo
       !
@@ -1441,7 +1441,7 @@ continue
   ! Loop through all the possible combinations of cell geometry and order
   ! and get the quadrature rules for each one
   !
-  quad_loc_loop: do loc = 1,3
+  quad_loc_loop: do location = 1,3
     !
     quad_order_loop: do this_order = min_order,max_order
       !
@@ -1449,12 +1449,12 @@ continue
       ! array in order to simplify the remaining code in this loop and
       ! make it more legible.
       !
-      ref_edge => edge_elem(this_order,loc)
+      ref_edge => edge_elem(this_order,location)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
-      this_elem => quad_elem(this_order,loc)
+      this_elem => quad_elem(this_order,location)
       !
       ! Spatial dimension of the current geometry
       ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node
@@ -1505,7 +1505,7 @@ continue
   ! Loop through all the possible combinations of cell geometry and order
   ! and get the quadrature rules for each one
   !
-  hexa_loc_loop: do loc = 1,3
+  hexa_loc_loop: do location = 1,3
     !
     hexa_order_loop: do this_order = min_order,max_order
       !
@@ -1513,12 +1513,12 @@ continue
       ! array in order to simplify the remaining code in this loop and
       ! make it more legible.
       !
-      ref_edge => edge_elem(this_order,loc)
+      ref_edge => edge_elem(this_order,location)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
       !
-      this_elem => hexa_elem(this_order,loc)
+      this_elem => hexa_elem(this_order,location)
       !
       ! Spatial dimension of the current geometry
       ! NOTE: Make sure that ndim is at minimum 1, primarily for Geom_Node

@@ -1857,7 +1857,7 @@ subroutine create_plot3d_grid_cells()
   use ovar,   only : plot3d_agglomerate_order
   !
   !.. Local Scalars ..
-  integer :: l,n,nb,nc,nf,nn,np,loc,dir,ie
+  integer :: l,n,nb,nc,nf,nn,np,location,dir,ie
   integer :: i,ic,ip,ifa,ibeg,iend,npi
   integer :: j,jc,jp,jfa,jbeg,jend,npj
   integer :: k,kc,kp,kfa,kbeg,kend,npk
@@ -2210,10 +2210,10 @@ continue
     !   loc: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
     !
     dir = bcs_info(nb)%bc%dir
-    loc = bcs_info(nb)%bc%loc
+    location = bcs_info(nb)%bc%loc
     !
     ijk0(:) = 0
-    ijk0(dir) = mod(loc+1,2)
+    ijk0(dir) = mod(location+1,2)
     !
     ! Beginning index in each direction
     !
@@ -2252,8 +2252,8 @@ continue
    !! Output information about this boundary condition
    !!
    !if (mypnum == glb_root) then
-   !  write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk,cface(loc), &
-   !                 ibeg,iend,jbeg,jend,kbeg,kend
+   !  write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk, &
+   !                 cface(location),ibeg,iend,jbeg,jend,kbeg,kend
    !end if
     !
     ijk1(:) = 0
@@ -2338,7 +2338,7 @@ continue
          !bface( 1,nf) = bc_type ! actual boundary condition for this face
          !bface( 2,nf) = host_cell
          !bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geom of host cell
-         !bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
+         !bface( 4,nf) = merge(HostFace3D(location),HostFace2D(location),nr==3)
          !bface( 5,nf) = nb ! boundary condition group for this boundary face
          !bface(10,nf) = ncell + nf ! ghost cell number
           !
@@ -2402,7 +2402,7 @@ subroutine readbcsinfo( bcsfile )
   character(len=*), intent(inout) :: bcsfile
   !
   !.. Local Scalars ..
-  integer :: nb,ierr,dir,dir1,dir2,beg1,end1,beg2,end2,idx1,loc,iblk
+  integer :: nb,ierr,dir,dir1,dir2,beg1,end1,beg2,end2,idx1,location,iblk
   integer :: iobcs
   character(len=150) :: text
   !
@@ -2495,18 +2495,18 @@ continue
     ! Find whether this BC is on a min or max face
     !
     if (clist(4) == "MIN") then
-      loc = 1
+      location = 1
       bcs_info(nb)%bc%begpt(dir) = 1
       bcs_info(nb)%bc%endpt(dir) = 1
     else if (clist(4) == "MAX") then
-      loc = 2
+      location = 2
       bcs_info(nb)%bc%begpt(dir) = ijkpts(dir,iblk)
       bcs_info(nb)%bc%endpt(dir) = ijkpts(dir,iblk)
     else
-      read (clist(4),*,iostat=ierr,iomsg=error_message) loc
+      read (clist(4),*,iostat=ierr,iomsg=error_message) location
       call io_error(pname,"bcs_info(nb)%bc%begpt(dir)",-1,__LINE__,__FILE__, &
                     ierr,error_message)
-      if (loc == 1) then
+      if (location == 1) then
         bcs_info(nb)%bc%begpt(dir) = 1
         bcs_info(nb)%bc%endpt(dir) = 1
       else
@@ -2515,8 +2515,8 @@ continue
       end if
     end if
     !
-    bcs_info(nb)%bc%loc = 2*dir-1 + merge(0,1,loc==1)
-   !write (iout,'("nb = ",i2," ; loc = ",i1," ; hostface = ",i1)') &
+    bcs_info(nb)%bc%loc = 2*dir-1 + merge(0,1,location==1)
+   !write (iout,'("nb = ",i2," ; location = ",i1," ; hostface = ",i1)') &
    !  nb,bcs_info(nb)%bc%loc, &
    !  merge(HostFace3D(bcs_info(nb)%bc%loc), &
    !        HostFace2D(bcs_info(nb)%bc%loc),nr==3)
@@ -2641,7 +2641,7 @@ subroutine readcutinfo( cutfile )
   character(len=*), intent(inout) :: cutfile
   !
   !.. Local Scalars ..
-  integer :: n,m,ierr,dir,dir1,dir2,beg1,beg2,end1,end2,idx1,loc,iblk
+  integer :: n,m,ierr,dir,dir1,dir2,beg1,beg2,end1,end2,idx1,location,iblk
   integer :: iocut
   character(len=150) :: text
   !
@@ -2739,18 +2739,18 @@ continue
       ! Find whether this cut is on a min or max face
       !
       if (clist(4) == "MIN") then
-        loc = 1
+        location = 1
         cut_info(n)%side(m)%begpt(dir) = 1
         cut_info(n)%side(m)%endpt(dir) = 1
       else if (clist(4) == "MAX") then
-        loc = 2
+        location = 2
         cut_info(n)%side(m)%begpt(dir) = ijkpts(dir,iblk)
         cut_info(n)%side(m)%endpt(dir) = ijkpts(dir,iblk)
       else
-        read (clist(4),*,iostat=ierr,iomsg=error_message) loc
+        read (clist(4),*,iostat=ierr,iomsg=error_message) location
         call io_error(pname,"cut_info(n)%side(m)%begpt(dir)",-1, &
                       __LINE__,__FILE__,ierr,error_message)
-        if (loc == 1) then
+        if (location == 1) then
           cut_info(n)%side(m)%begpt(dir) = 1
           cut_info(n)%side(m)%endpt(dir) = 1
         else
@@ -2759,7 +2759,7 @@ continue
         end if
       end if
       !
-      cut_info(n)%side(m)%loc = 2*dir-1 + merge(0,1,loc==1)
+      cut_info(n)%side(m)%loc = 2*dir-1 + merge(0,1,location==1)
       !
       ! Fill in the remaining directional information based on 2D/3D grid
       !
@@ -2897,7 +2897,7 @@ subroutine findcutpoints()
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,np,iblk,ierr
   integer :: ipcut,p1,p2,b1,b2
-  integer :: loc,dir,dir1,dir2
+  integer :: location,dir,dir1,dir2
   integer :: beg1,beg2,end1,end2,stp1,stp2,n1,n2
   real(wp) :: diff
   character(len=100) :: cut_message
@@ -2951,9 +2951,9 @@ continue
       ! Get the node index in the primary direction
       !
       ijk(dir) = cut_info(n)%side(m)%begpt(dir)
-     !loc = mod(cut_info(n)%side(m)%loc+1,2) + 1 ! converts [1,2,3,4,5,6]
-     !!                                                  to [1,2,1,2,1,2]
-     !ijk(dir) = merge(1,ijkpts(dir,iblk),loc==1)
+     !location = mod(cut_info(n)%side(m)%loc+1,2) + 1 ! converts [1,2,3,4,5,6]
+     !!                                                       to [1,2,1,2,1,2]
+     !ijk(dir) = merge(1,ijkpts(dir,iblk),location==1)
       !
       ! Get the extent of the cut in the first direction
       ! NOTE: stp1 adjusts the following loop for
@@ -3523,7 +3523,7 @@ subroutine getbface()
   !
   !.. Local Scalars ..
   integer :: nf,nb,bc_type,iblk,ierr
-  integer :: i,j,k,host_cell,dir,loc
+  integer :: i,j,k,host_cell,dir,location
   integer :: ibeg,iend,jbeg,jend,kbeg,kend
   !
   !.. Local Arrays ..
@@ -3580,10 +3580,10 @@ continue
     !
     ! Side/Direction (i,j,k) of this BC and its location (min,max)
     !   dir: [1,2,3]       = [i,j,k]
-    !   loc: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
+    !   location: [1,2,3,4,5,6] = [imin,imax,jmin,jmax,kmin,kmax]
     !
     dir = bcs_info(nb)%bc%dir
-    loc = bcs_info(nb)%bc%loc
+    location = bcs_info(nb)%bc%loc
     !
     ! Beginning index in each direction
     !
@@ -3622,8 +3622,8 @@ continue
     ! Output information about this boundary condition
     !
     if (mypnum == glb_root) then
-      write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk,cface(loc), &
-                     ibeg,iend,jbeg,jend,kbeg,kend
+      write (iout,1) nb,trim(bc_integer_to_string(bc_type)),iblk, &
+                     cface(location),ibeg,iend,jbeg,jend,kbeg,kend
     end if
     !
     ! Loop through the boundary faces of this boundary condition and
@@ -3640,7 +3640,7 @@ continue
           bface( 1,nf) = bc_type ! actual boundary condition for this face
           bface( 2,nf) = host_cell
           bface( 3,nf) = merge(Geom_Hexa,Geom_Quad,nr==3) ! geom of host cell
-          bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
+          bface( 4,nf) = merge(HostFace3D(location),HostFace2D(location),nr==3)
           bface( 5,nf) = nb ! boundary condition group for this boundary face
           bface(10,nf) = ncell + nf ! ghost cell number
           !
@@ -3679,7 +3679,7 @@ continue
   2 format (/," Error creating the boundary face array!",/, &
               " The number of expected boundary faces = ",i0,/, &
               " The number of created  boundary faces = ",i0,/)
-  3 format (a," - hc=",i0,", geo=",i1,", loc=",i1,", gc=",i0)
+  3 format (a," - hc=",i0,", geo=",i1,", location=",i1,", gc=",i0)
   !
 end subroutine getbface
 !
@@ -3691,7 +3691,7 @@ subroutine get_bface_from_grid_dt()
   use geovar, only : nr,nbfai,ncell,nfbnd,bface,grid
   !
   !.. Local Scalars ..
-  integer :: nb,nc,nf,ierr,loc,host_cell
+  integer :: nb,nc,nf,ierr,location,host_cell
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_bface_from_grid_dt"
@@ -3719,12 +3719,12 @@ continue
     !
     nb = grid%elem(nc)%tags(1)
     !
-    loc = bcs_info(nb)%bc%loc
+    location = bcs_info(nb)%bc%loc
     !
     bface( 1,nf) = bcs_info(nb)%bc_type
     bface( 2,nf) = host_cell
     bface( 3,nf) = grid%elem(host_cell)%prop%geom
-    bface( 4,nf) = merge(HostFace3D(loc),HostFace2D(loc),nr==3)
+    bface( 4,nf) = merge(HostFace3D(location),HostFace2D(location),nr==3)
     bface( 5,nf) = nb
     bface(10,nf) = nc
     !

@@ -5595,7 +5595,7 @@ subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
   !
   !.. Local Scalars ..
   logical(lk) :: flag
-  integer :: n,nfp,lfbnd,i,ibeg,iend,iint,ierr
+  integer :: n,nfp,lfbnd,i,ibeg,iend,interval,ierr
   integer :: rmin,rmax,scnt,rcnt,p1,p2
   integer :: loc_face,glb_face,my_part
   integer :: adj_face,adj_cpu
@@ -5835,7 +5835,7 @@ continue
       !
       ibeg = 1
       iend = size( flx(left_rotation)%pts )
-      iint = 1
+      interval = 1
       !
       ! Reverse the flux point ordering if this
       ! used to be a periodic boundary face.
@@ -5844,14 +5844,14 @@ continue
         if (nr < 3) then
           ibeg = iend
           iend = 1
-          iint = -1
+          interval = -1
         end if
         bface(1,loc_face) = bc_cpu_bnd
       end if
       !
      !do n = 1,size( face(glb_face)%left%flxpts )
      !do n = 1,size( flx(left_rotation)%pts )
-      do n = ibeg,iend,iint
+      do n = ibeg,iend,interval
         !
         scnt = scnt + 1
         !

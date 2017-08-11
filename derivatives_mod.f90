@@ -346,7 +346,7 @@ end subroutine init_derivative_matrices
 !
 !###############################################################################
 !
-pure function Dmatrix_Edge(n,loc) result(return_value)
+pure function Dmatrix_Edge(n,location) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : derivative_matrix_legendre_gauss
@@ -354,7 +354,7 @@ pure function Dmatrix_Edge(n,loc) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: n
-  integer, intent(in) :: loc
+  integer, intent(in) :: location
   !
   !.. Function Result ..
   type(matrix), allocatable :: return_value(:)
@@ -379,7 +379,7 @@ continue
   !
   ! Compute the derivative matrix using quad precision
   !
-  select case (loc)
+  select case (location)
     !
     case (Legendre_Gauss)
       !
