@@ -3418,8 +3418,17 @@ continue
   !
   ! Create an array to mark the remaining group ids
   !
+#ifdef SPECIAL_FOR_GCC
+  mintag =  huge(mintag)
+  maxtag = -huge(maxtag)
+  do n = lbound(grid%elem,dim=1),ubound(grid%elem,dim=1)
+    mintag = min( mintag , grid%elem(n)%tags(1) )
+    maxtag = max( maxtag , grid%elem(n)%tags(1) )
+  end do
+#else
   mintag = minval(grid%elem(:)%tags(1))
   maxtag = maxval(grid%elem(:)%tags(1))
+#endif
   !
   allocate ( grp_still_remains(mintag:maxtag) , source=fals , &
              stat=ierr , errmsg=error_message )
@@ -3519,7 +3528,13 @@ continue
     ! Reset the id for the current nozzle group
     nozzle_grps(m)%grp_id = 1-m
     ! Make sure the id for these elements matches the new group id
+#ifdef SPECIAL_FOR_GCC
+    do l = l1,l2
+      temp_nozzle%elem(l)%tags(1) = 1-m
+    end do
+#else
     temp_nozzle%elem(l1:l2)%tags(1) = 1-m
+#endif
     !
     nozzle_grps(m)%cells = intseq(l1,l2) ! USING F2003 AUTO-REALLOCATION
     !
