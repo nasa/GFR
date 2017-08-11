@@ -1087,7 +1087,7 @@ subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
   real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
   real(wp) :: temp_int,aspd_int,veln_int
   real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
-  real(wp) :: rminus,rafac,vel,func,dfunc,dtemp
+  real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp
   real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
   real(wp) :: temp_ref,ttot_ref,ptot_ref,aoa
   !
@@ -1100,6 +1100,9 @@ subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
   !
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
+  character(len=*), parameter :: cvel(1:3) = ["x","y","z"]
+  !
+  real(wp) :: dtemp_save(1:newton_iter)
   !
 continue
   !
@@ -1162,14 +1165,15 @@ continue
     !
     rafac = one / dot( dir_cos(:) , rnrm(:) )
     !
-    vel = rafac * (rminus + two*aspd_ext/gm1)
+    veln_ext = rafac * (rminus + two*aspd_ext/gm1)
     !
-    func = ttot_ref - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
-    dfunc = -(one + vel*rafac/aspd_ext)
+    func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+    dfunc = -(one + veln_ext*rafac/aspd_ext)
     !
     newton_iteration: do n = 1,newton_iter
       !
       dtemp = func/dfunc
+      dtemp_save(n) = dtemp
       !
       if (abs(dtemp) < dterr) then
         convergence_reached = true
@@ -1178,12 +1182,20 @@ continue
       !
       temp_ext = temp_ext - dtemp
       aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
-      vel = rafac * (rminus + two*aspd_ext/gm1)
+      veln_ext = rafac * (rminus + two*aspd_ext/gm1)
       !
-      func = ttot_ref - temp_ext - half*gm1*vel*vel/(gam*rgasref_nd)
-      dfunc = -(one + vel*rafac/aspd_ext)
+      func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+      dfunc = -(one + veln_ext*rafac/aspd_ext)
       !
     end do newton_iteration
+    !
+    mach_ext = veln_ext / aspd_ext
+    !
+    pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+    !
+    gufp(nec,k) = pres_ext / (rgasref_nd * temp_ext)
+    gufp(nmb:nme,k) = veln_ext*dir_cos(:)
+    gufp(nee,k) = pres_ext
     !
     ! Check to make sure the temperature converged
     !
@@ -1191,35 +1203,45 @@ continue
       dtemp = func/dfunc
       write (iout,1) "mypnum   = ",mypnum
       write (iout,1) "nf       = ",nf
-      write (iout,1) "k        = ",k
-      write (iout,2) "dterr    = ",dterr
-      write (iout,2) "temp_int = ",temp_int
-      write (iout,2) "temp_ext = ",temp_ext
-      write (iout,2) "pres_ext = ",pres_ext
-      write (iout,2) "pres_int = ",hvfp(nee)
-      write (iout,2) "func     = ",func
-      write (iout,2) "dfunc    = ",dfunc
-      write (iout,2) "dtemp    = ",dtemp
-      write (iout,2) "aspd_int = ",aspd_int
-      write (iout,2) "aspd_ext = ",aspd_ext
-      write (iout,2) "vel      = ",vel
-      write (iout,2) "veln_int = ",veln_int
+      write (iout,1) "k        = ",k,          " "
       write (iout,2) "aoa      = ",aoa
       write (iout,2) "tan_aoa  = ",tan_aoa
       write (iout,2) "dir_cos1 = ",dir_cos(1)
-      write (iout,2) "dir_cos2 = ",dir_cos(2)
-      1 format (a,i0)
-      2 format (a,es14.6)
+      write (iout,2) "dir_cos2 = ",dir_cos(2), " "
+      write (iout,2) "dens_int = ",hvfp(nec)
+      do n = nmb,nme
+        write (iout,3) cvel(n-nmb+1),"int",hvfp(n)
+      end do
+      write (iout,2) "pres_int = ",hvfp(nee)
+      write (iout,2) "temp_int = ",temp_int
+      write (iout,2) "aspd_int = ",aspd_int
+      write (iout,2) "veln_int = ",veln_int,   " "
+      write (iout,2) "dterr    = ",dterr
+      write (iout,2) "func     = ",func
+      write (iout,2) "dfunc    = ",dfunc
+      write (iout,2) "dtemp    = ",dtemp,      " "
+      write (iout,2) "dens_ext = ",gufp(nec,k)
+      do n = nmb,nme
+        write (iout,3) cvel(n-nmb+1),"ext",gufp(n,k)
+      end do
+      write (iout,2) "pres_ext = ",pres_ext
+      write (iout,2) "temp_ext = ",temp_ext
+      write (iout,2) "aspd_ext = ",aspd_ext
+      write (iout,2) "veln_ext = ",veln_ext,   " "
+      do n = 1,size(dtemp_save)
+        if (n == 1) write (iout,4)
+        write (iout,5) n,dtemp_save(n)
+        if (n == size(dtemp_save)) write (iout,5) n+1,dtemp, " "
+      end do
+      1 format (1x,a,i0,:,/,a)
+      2 format (1x,a,es14.6,:,/,a)
+      3 format (1x,"vel",a1,"_",a3," = ",es14.6)
+      4 format (/,50("-"),/, &
+                  4x,"Values of dtemp for each Newton Iteration",/, &
+                  50("-"))
+      5 format (4x,i3,4x,es23.15,:,/,50("-"),a,/)
       ierr = ierr + 1
     end if
-    !
-    mach_ext = vel / aspd_ext
-    !
-    pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
-    !
-    gufp(nec,k) = pres_ext / (rgasref_nd * temp_ext)
-    gufp(nmb:nme,k) = vel*dir_cos(:)
-    gufp(nee,k) = pres_ext
     !
     gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
     !
