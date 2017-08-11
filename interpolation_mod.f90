@@ -1948,7 +1948,7 @@ continue
   ! Use the chop function to copy interp_mat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( interp_mat_qp )
+  return_value(:,:) = chop( interp_mat_qp(:,:) )
   !
 end function InterpToNode_Hexa
 !
