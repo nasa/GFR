@@ -462,8 +462,6 @@ continue
 end function get_ep_indices
 !
 pure function get_ep_index(this,k) result(return_value)
-  !.. Use Statements ..
-  use module_kind_types, only : intseq
   !.. Passed Argument from Invoking Object ..
   class(edge_of_cell_t), intent(in) :: this
   !.. Formal Arguments ..
