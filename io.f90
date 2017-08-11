@@ -3040,7 +3040,6 @@ subroutine create_linear_grid_dt()
   !.. Use Statements ..
   use geovar, only : ncell,nfbnd,grid,xyz_nodes,cell_geom
   use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
-  use geovar, only : prop_t
   !
   !.. Local Scalars ..
   integer :: nc,nf,np,n1,n2,ierr
@@ -3071,10 +3070,14 @@ continue
     n2 = nodes_of_cell_ptr(nc+1)
     np = n2-n1+1
     !
-    grid%elem(nc)%prop = prop_t(npts=np, &
-                                order=1, &
-                                geom=cell_geom(nc), &
-                                elem_type=cell_geom(nc))
+   !grid%elem(nc)%prop = prop_t(npts=np, &
+   !                            order=1, &
+   !                            geom=cell_geom(nc), &
+   !                            elem_type=cell_geom(nc))
+    grid%elem(nc)%prop%npts = np
+    grid%elem(nc)%prop%order = 1
+    grid%elem(nc)%prop%geom = cell_geom(nc)
+    grid%elem(nc)%prop%elem_type = cell_geom(nc)
     !
     grid%elem(nc)%pts = nodes_of_cell(n1:n2)   ! USING F2003 AUTO-REALLOCATION
     grid%elem(nc)%nodes = nodes_of_cell(n1:n2) ! USING F2003 AUTO-REALLOCATION
@@ -3101,10 +3104,14 @@ continue
     !
     face_geom = cell_face_geom(host_side,host_geom)
     !
-    grid%elem(nc)%prop = prop_t(npts=nfnods, &
-                                order=1, &
-                                geom=face_geom, &
-                                elem_type=face_geom)
+   !grid%elem(nc)%prop = prop_t(npts=nfnods, &
+   !                            order=1, &
+   !                            geom=face_geom, &
+   !                            elem_type=face_geom)
+    grid%elem(nc)%prop%npts = nfnods
+    grid%elem(nc)%prop%order = 1
+    grid%elem(nc)%prop%geom = face_geom
+    grid%elem(nc)%prop%elem_type = face_geom
     !
     ! USING F2003 AUTO-REALLOCATION
     grid%elem(nc)%pts = nodes_of_cell( n1 + ip(1:nfnods) )

@@ -5003,27 +5003,43 @@ continue
   select case (elem_type)
     case (Geom_Edge)
       np = order + 1
-      return_value = prop_t(npts=np, &
-                            order=order, &
-                            geom=Geom_Edge, &
-                            elem_type=elem_type)
+     !return_value = prop_t(npts=np, &
+     !                      order=order, &
+     !                      geom=Geom_Edge, &
+     !                      elem_type=elem_type)
+      return_value%npts = np
+      return_value%order = order
+      return_value%geom = Geom_Edge
+      return_value%elem_type = elem_type
     case (Geom_Quad)
       np = (order+1)**2
-      return_value = prop_t(npts=np, &
-                            order=order, &
-                            geom=Geom_Quad, &
-                            elem_type=elem_type)
+     !return_value = prop_t(npts=np, &
+     !                      order=order, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=elem_type)
+      return_value%npts = np
+      return_value%order = order
+      return_value%geom = Geom_Quad
+      return_value%elem_type = elem_type
     case (Geom_Hexa)
       np = (order+1)**3
-      return_value = prop_t(npts=np, &
-                            order=order, &
-                            geom=Geom_Hexa, &
-                            elem_type=elem_type)
+     !return_value = prop_t(npts=np, &
+     !                      order=order, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=elem_type)
+      return_value%npts = np
+      return_value%order = order
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = elem_type
     case default
-      return_value = prop_t(npts=-1, &
-                            order=-1, &
-                            geom=Geom_Unknown, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=-1, &
+     !                      order=-1, &
+     !                      geom=Geom_Unknown, &
+     !                      elem_type=int(elem_type))
+      return_value%npts = -1
+      return_value%order = -1
+      return_value%geom = Geom_Unknown
+      return_value%elem_type = int(elem_type)
   end select
   !
 end function element_properties

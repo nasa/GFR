@@ -4821,296 +4821,531 @@ continue
   !
   select case (elem_type)
     case (NODE)
-      return_value = prop_t(npts=1, &
-                            order=1, &
-                            geom=Geom_Node, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=1, &
+     !                      order=1, &
+     !                      geom=Geom_Node, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 1
+      return_value%order = 1
+      return_value%geom = Geom_Node
+      return_value%elem_type = int(elem_type)
     case (BAR_2)
-      return_value = prop_t(npts=2, &
-                            order=1, &
-                            geom=Geom_Edge, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=2, &
+     !                      order=1, &
+     !                      geom=Geom_Edge, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 2
+      return_value%order = 1
+      return_value%geom = Geom_Edge
+      return_value%elem_type = int(elem_type)
     case (BAR_3)
-      return_value = prop_t(npts=3, &
-                            order=2, &
-                            geom=Geom_Edge, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=3, &
+     !                      order=2, &
+     !                      geom=Geom_Edge, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 3
+      return_value%order = 2
+      return_value%geom = Geom_Edge
+      return_value%elem_type = int(elem_type)
     case (TRI_3)
-      return_value = prop_t(npts=3, &
-                            order=1, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=3, &
+     !                      order=1, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 3
+      return_value%order = 1
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
     case (TRI_6)
-      return_value = prop_t(npts=6, &
-                            order=2, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=6, &
+     !                      order=2, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 6
+      return_value%order = 2
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
     case (QUAD_4)
-      return_value = prop_t(npts=4, &
-                            order=1, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=4, &
+     !                      order=1, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 4
+      return_value%order = 1
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
     case (QUAD_8)
-      return_value = prop_t(npts=8, &
-                            order=2, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=8, &
+     !                      order=2, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 8
+      return_value%order = 2
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (QUAD_9)
-      return_value = prop_t(npts=9, &
-                            order=2, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=9, &
+     !                      order=2, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 9
+      return_value%order = 2
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
     case (TETRA_4)
-      return_value = prop_t(npts=4, &
-                            order=1, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=4, &
+     !                      order=1, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 4
+      return_value%order = 1
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
     case (TETRA_10)
-      return_value = prop_t(npts=10, &
-                            order=2, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=10, &
+     !                      order=2, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 10
+      return_value%order = 2
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
     case (PYRA_5)
-      return_value = prop_t(npts=5, &
-                            order=1, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=5, &
+     !                      order=1, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 5
+      return_value%order = 1
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
     case (PYRA_13)
-      return_value = prop_t(npts=13, &
-                            order=2, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=13, &
+     !                      order=2, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 13
+      return_value%order = 2
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PYRA_14)
-      return_value = prop_t(npts=14, &
-                            order=2, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=14, &
+     !                      order=2, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 14
+      return_value%order = 2
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
     case (PENTA_6)
-      return_value = prop_t(npts=6, &
-                            order=1, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=6, &
+     !                      order=1, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 6
+      return_value%order = 1
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
     case (PENTA_15)
-      return_value = prop_t(npts=15, &
-                            order=2, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=15, &
+     !                      order=2, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 15
+      return_value%order = 2
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PENTA_18)
-      return_value = prop_t(npts=18, &
-                            order=2, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=18, &
+     !                      order=2, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 18
+      return_value%order = 2
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
     case (HEXA_8)
-      return_value = prop_t(npts=8, &
-                            order=1, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=8, &
+     !                      order=1, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 8
+      return_value%order = 1
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
     case (HEXA_20)
-      return_value = prop_t(npts=20, &
-                            order=2, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=20, &
+     !                      order=2, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 20
+      return_value%order = 2
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (HEXA_27)
-      return_value = prop_t(npts=27, &
-                            order=2, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=27, &
+     !                      order=2, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 27
+      return_value%order = 2
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
    !case (MIXED)   ! MIXED TYPE SHOULD BE SEPARATED BY NOW
    !case (NGON_n)  ! UNSUPPORTED TYPE
    !case (NFACE_n) ! UNSUPPORTED TYPE
     case (BAR_4)
-      return_value = prop_t(npts=4, &
-                            order=3, &
-                            geom=Geom_Edge, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=4, &
+     !                      order=3, &
+     !                      geom=Geom_Edge, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 4
+      return_value%order = 3
+      return_value%geom = Geom_Edge
+      return_value%elem_type = int(elem_type)
     case (TRI_9)
-      return_value = prop_t(npts=9, &
-                            order=3, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=9, &
+     !                      order=3, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 9
+      return_value%order = 3
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (TRI_10)
-      return_value = prop_t(npts=10, &
-                            order=3, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=10, &
+     !                      order=3, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 10
+      return_value%order = 3
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
     case (QUAD_12)
-      return_value = prop_t(npts=12, &
-                            order=3, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=12, &
+     !                      order=3, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 12
+      return_value%order = 3
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (QUAD_16)
-      return_value = prop_t(npts=16, &
-                            order=3, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=16, &
+     !                      order=3, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 16
+      return_value%order = 3
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
     case (TETRA_16)
-      return_value = prop_t(npts=16, &
-                            order=3, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=16, &
+     !                      order=3, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 16
+      return_value%order = 3
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (TETRA_20)
-      return_value = prop_t(npts=20, &
-                            order=3, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=20, &
+     !                      order=3, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 20
+      return_value%order = 3
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
     case (PYRA_21)
-      return_value = prop_t(npts=21, &
-                            order=3, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=21, &
+     !                      order=3, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 21
+      return_value%order = 3
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PYRA_29)
-      return_value = prop_t(npts=29, &
-                            order=3, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=29, &
+     !                      order=3, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 29
+      return_value%order = 3
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (PYRA_30)
-      return_value = prop_t(npts=30, &
-                            order=3, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=30, &
+     !                      order=3, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 30
+      return_value%order = 3
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
     case (PENTA_24)
-      return_value = prop_t(npts=24, &
-                            order=3, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=24, &
+     !                      order=3, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 24
+      return_value%order = 3
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PENTA_38)
-      return_value = prop_t(npts=38, &
-                            order=3, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=38, &
+     !                      order=3, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 38
+      return_value%order = 3
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (PENTA_40)
-      return_value = prop_t(npts=40, &
-                            order=3, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=40, &
+     !                      order=3, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 40
+      return_value%order = 3
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
     case (HEXA_32)
-      return_value = prop_t(npts=32, &
-                            order=3, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=32, &
+     !                      order=3, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 32
+      return_value%order = 3
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (HEXA_56)
-      return_value = prop_t(npts=56, &
-                            order=3, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=56, &
+     !                      order=3, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 56
+      return_value%order = 3
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (HEXA_64)
-      return_value = prop_t(npts=64, &
-                            order=3, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=64, &
+     !                      order=3, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 64
+      return_value%order = 3
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
     case (BAR_5)
-      return_value = prop_t(npts=5, &
-                            order=4, &
-                            geom=Geom_Edge, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=5, &
+     !                      order=4, &
+     !                      geom=Geom_Edge, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 5
+      return_value%order = 4
+      return_value%geom = Geom_Edge
+      return_value%elem_type = int(elem_type)
     case (TRI_12)
-      return_value = prop_t(npts=12, &
-                            order=4, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=12, &
+     !                      order=4, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 12
+      return_value%order = 4
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (TRI_15)
-      return_value = prop_t(npts=15, &
-                            order=4, &
-                            geom=Geom_Tria, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=15, &
+     !                      order=4, &
+     !                      geom=Geom_Tria, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 15
+      return_value%order = 4
+      return_value%geom = Geom_Tria
+      return_value%elem_type = int(elem_type)
     case (QUAD_P4_16)
-      return_value = prop_t(npts=16, &
-                            order=4, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=16, &
+     !                      order=4, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 16
+      return_value%order = 4
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (QUAD_25)
-      return_value = prop_t(npts=25, &
-                            order=4, &
-                            geom=Geom_Quad, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=25, &
+     !                      order=4, &
+     !                      geom=Geom_Quad, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 25
+      return_value%order = 4
+      return_value%geom = Geom_Quad
+      return_value%elem_type = int(elem_type)
     case (TETRA_22)
-      return_value = prop_t(npts=22, &
-                            order=4, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=22, &
+     !                      order=4, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 22
+      return_value%order = 4
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (TETRA_34)
-      return_value = prop_t(npts=34, &
-                            order=4, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=34, &
+     !                      order=4, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 34
+      return_value%order = 4
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (TETRA_35)
-      return_value = prop_t(npts=35, &
-                            order=4, &
-                            geom=Geom_Tetr, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=35, &
+     !                      order=4, &
+     !                      geom=Geom_Tetr, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 35
+      return_value%order = 4
+      return_value%geom = Geom_Tetr
+      return_value%elem_type = int(elem_type)
     case (PYRA_P4_29)
-      return_value = prop_t(npts=29, &
-                            order=4, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=29, &
+     !                      order=4, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 29
+      return_value%order = 4
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PYRA_50)
-      return_value = prop_t(npts=50, &
-                            order=4, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=50, &
+     !                      order=4, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 50
+      return_value%order = 4
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (PYRA_55)
-      return_value = prop_t(npts=55, &
-                            order=4, &
-                            geom=Geom_Pyra, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=55, &
+     !                      order=4, &
+     !                      geom=Geom_Pyra, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 55
+      return_value%order = 4
+      return_value%geom = Geom_Pyra
+      return_value%elem_type = int(elem_type)
     case (PENTA_33)
-      return_value = prop_t(npts=33, &
-                            order=4, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=33, &
+     !                      order=4, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 33
+      return_value%order = 4
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (PENTA_66)
-      return_value = prop_t(npts=66, &
-                            order=4, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=66, &
+     !                      order=4, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 66
+      return_value%order = 4
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (PENTA_75)
-      return_value = prop_t(npts=75, &
-                            order=4, &
-                            geom=Geom_Pris, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=75, &
+     !                      order=4, &
+     !                      geom=Geom_Pris, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 75
+      return_value%order = 4
+      return_value%geom = Geom_Pris
+      return_value%elem_type = int(elem_type)
     case (HEXA_44)
-      return_value = prop_t(npts=44, &
-                            order=4, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type), &
-                            family=Edge_Defined)
+     !return_value = prop_t(npts=44, &
+     !                      order=4, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Edge_Defined)
+      return_value%npts = 44
+      return_value%order = 4
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
+      return_value%family = Edge_Defined
     case (HEXA_98)
-      return_value = prop_t(npts=98, &
-                            order=4, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type), &
-                            family=Face_Defined)
+     !return_value = prop_t(npts=98, &
+     !                      order=4, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type), &
+     !                      family=Face_Defined)
+      return_value%npts = 98
+      return_value%order = 4
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
+      return_value%family = Face_Defined
     case (HEXA_125)
-      return_value = prop_t(npts=125, &
-                            order=4, &
-                            geom=Geom_Hexa, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=125, &
+     !                      order=4, &
+     !                      geom=Geom_Hexa, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = 125
+      return_value%order = 4
+      return_value%geom = Geom_Hexa
+      return_value%elem_type = int(elem_type)
     case default
-      return_value = prop_t(npts=-1, &
-                            order=-1, &
-                            geom=Geom_Unknown, &
-                            elem_type=int(elem_type))
+     !return_value = prop_t(npts=-1, &
+     !                      order=-1, &
+     !                      geom=Geom_Unknown, &
+     !                      elem_type=int(elem_type)
+      return_value%npts = -1
+      return_value%order = -1
+      return_value%geom = Geom_Unknown
+      return_value%elem_type = int(elem_type)
   end select
   !
 end function element_properties

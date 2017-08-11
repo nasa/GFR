@@ -4052,10 +4052,14 @@ pure function linear_element_properties(elem_type) result(return_value)
   !
 continue
   !
-  return_value = prop_t(npts=geom_nodes(elem_type), &
-                        order=1, &
-                        geom=elem_type, &
-                        elem_type=elem_type)
+ !return_value = prop_t(npts=geom_nodes(elem_type), &
+ !                      order=1, &
+ !                      geom=elem_type, &
+ !                      elem_type=elem_type)
+  return_value%npts = geom_nodes(elem_type)
+  return_value%order = 1
+  return_value%geom = elem_type
+  return_value%elem_type = elem_type
   !
 end function linear_element_properties
 !
