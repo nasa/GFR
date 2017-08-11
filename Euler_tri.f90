@@ -116,10 +116,6 @@ program Euler_tri
   use averaging_mod, only : average_restart_files
   !
   use, intrinsic :: iso_c_binding,   only : c_long
-  use, intrinsic :: ieee_exceptions, only : ieee_usual
-  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
-  !
-  use iso_c_binding, only : c_long
   !
   implicit none
   !
@@ -150,9 +146,6 @@ program Euler_tri
   character(len=300) :: overflow_error = ""
   character(len=300) :: divide_by_zero_error = ""
   character(len=300) :: invalid_error = ""
-  !
-  integer      :: bad_number_found(1:size(ieee_usual))
-  logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
   !
   real(wp) :: cfl_tmp(1:4)
   !
@@ -837,8 +830,18 @@ contains
 !
 subroutine check_for_bad_number(line_num)
   !
+#ifndef SPECIAL_FOR_GCC
+  use, intrinsic :: ieee_exceptions, only : ieee_usual
+  use, intrinsic :: ieee_exceptions, only : ieee_get_flag
+#endif
+  !
   !.. Formal Arguments ..
   integer, intent(in) :: line_num
+  !
+#ifndef SPECIAL_FOR_GCC
+  !.. Local Arrays ..
+  integer      :: bad_number_found(1:size(ieee_usual))
+  logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
   !
   character(len=*), parameter :: pname = "check_for_bad_number"
   !
@@ -895,6 +898,7 @@ continue
   101 format ("OVERFLOW EXCEPTION DETECTED!!!")
   102 format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
   103 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
+#endif
   !
 end subroutine check_for_bad_number
 !
