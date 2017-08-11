@@ -1376,9 +1376,6 @@ end subroutine io_error
 subroutine execute_command(command,wait_for_completion,exit_status, &
                            command_status,command_message,procedure_name)
   !
-  !.. Use Statements ..
-  use ifport, only : system,ierrno
-  !
   !.. Formal Arguments ..
   character(len=*),  intent(in) :: command
   logical(ldk),      intent(in) :: wait_for_completion
@@ -1391,7 +1388,18 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   integer :: n
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: command_line_procedure = "system (IFPORT)"
+  character(len=*), parameter :: command_line_procedure = "system()"
+  !
+  !.. Function Interfaces ..
+  interface
+    integer function system(str)
+      character*(*) str
+    end function system
+  end interface
+  interface
+    integer function ierrno()
+    end function ierrno
+  end interface
   !
 continue
   !
