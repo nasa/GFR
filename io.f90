@@ -1075,9 +1075,11 @@ continue
         !
         command = "mkdir -p "//trim(output_dir)//"flux_files"
         !
-        call execute_command_line( trim(command) , wait_for_completion , &
-                                   exitstat , cmndstat , cmndmsg )
-        call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+        call execute_command(command,wait_for_completion,exitstat, &
+                             cmndstat,cmndmsg,pname)
+       !call execute_command_line( trim(command) , wait_for_completion , &
+       !                           exitstat , cmndstat , cmndmsg )
+       !call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
         !
         if (exitstat /= 0 .or. cmndstat /= 0) then
           write (error_message,2) trim(output_dir)//"flux_files"
@@ -1165,9 +1167,11 @@ continue
       !
       command = "mkdir -p "//trim(test_dir)
       !
-      call execute_command_line( trim(command) , wait_for_completion , &
-                                 exitstat , cmndstat , cmndmsg )
-      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+      call execute_command(command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+     !call execute_command_line( trim(command) , wait_for_completion , &
+     !                           exitstat , cmndstat , cmndmsg )
+     !call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       if (exitstat /= 0 .or. cmndstat /= 0) then
         using_cgns_dir = fals
@@ -1193,9 +1197,11 @@ continue
                         trim(adjustl(cgns_dir))
       write (iout,2) trim(adjustl(command))
       !
-      call execute_command_line( trim(command) , wait_for_completion , &
-                                 exitstat , cmndstat , cmndmsg )
-      call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
+      call execute_command(command,wait_for_completion,exitstat, &
+                           cmndstat,cmndmsg,pname)
+     !call execute_command_line( trim(command) , wait_for_completion , &
+     !                           exitstat , cmndstat , cmndmsg )
+     !call write_command_results(pname,command,exitstat,cmndstat,cmndmsg)
       !
       ! We arent going to test the status of executing this command because
       ! it worked or it didnt. Either way, we will continue on and output
