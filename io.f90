@@ -5784,9 +5784,23 @@ continue
           exit one_pass_loop
         end if
       end do
+#ifdef SPECIAL_FOR_GCC
+      n = max( len("Vorticity") , len(char_sdefault) )
+      if (allocated(char_sname)) then
+        deallocate ( char_sname , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"char_sname",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+      allocate ( character(len=n) :: char_sname(1:size(char_sdefault)+1) , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"char_sname",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      char_sname(:) = [ char_sdefault(:) , "Vorticity" ]
+#else
       n = max( len("Vorticity") , len(char_sname) )
       ! USING F2003 AUTO-REALLOCATION
       char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
+#endif
     end do one_pass_loop
   end if
   !
