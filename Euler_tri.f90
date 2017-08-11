@@ -739,13 +739,13 @@ continue
     end if
   end if
   !
+  call write_restart_file(-1)
+  !
   if (continuous_output) then
     call new_write_parallel_cgns
   else
     call write_parallel_cgns(close_CGNS)
   end if
-  !
-  call write_restart_file(-1)
   !
   if (.not. ignore_errors) then
     !
