@@ -13,7 +13,7 @@ vpath %.o $(OBJDIR)
 vpath %.f90 ./
 vpath %.mod $(MODDIR)
 
-MOD = -module $(MODDIR)
+MOD = $(MODFLAG) $(MODDIR)
 FSFXFLG = .f90
 
 CSFXFLG = .c
@@ -21,14 +21,11 @@ CFLAG = -O3 -g
 
 HDF5LIB = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl
 
-O2OPT = -O2 -ip
-#O3OPT = -O3 -ipo
- O3OPT = -O3 -ip
+O2OPT = -O2 $(IPFLAG)
+#O3OPT = -O3 $(IPOFLAG)
+ O3OPT = -O3 $(IPFLAG)
 
 TARGET = $(AUTOTARGETCPU) $(TARGETCPU)
-ADDOPT = -debug inline-debug-info $(ALIGN)
-#ADDOPT += -trace
-#ADDOPT += -watch
 
 EXEDIR := $(HOME)/bin
 
@@ -38,7 +35,7 @@ ifneq "$(MKLLIB)" ""
   MKLINC = -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
 endif
 
-FPP = -fpp $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
+FPP = $(FPPFLAG) $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
 
 INCDIR = $(sort $(CGNSDIR) $(METISDIR))
 LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
@@ -47,11 +44,11 @@ FINC = $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-FCBASE = -traceback -g -assume realloc_lhs
+FCBASE = $(TRACEFLAG) -g $(REALLOCFLAG)
 
-ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD)
+ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(EXTFLAGS)
 
-DEBUGFLAGS = -ftrapuv -check all -debug -fp-stack-check
+DEBUGFLAGS = $(CHECKFLAG) $(DEBUGFLAG) 
 
 COBJS := $(OBJDIR)/mycpu.o
 
@@ -108,27 +105,27 @@ O3-ipo-opt: OPTIM = $(O3OPT) $(TARGET) $(ADDOPT)
 O3-ipo-opt: optimize
 
 .PHONY: broadwell
-broadwell: OPTIM = $(O3OPT) -xCORE-AVX2 $(ADDOPT)
+broadwell: OPTIM = $(O3OPT) $(ARCHFLAG)$(BROARCH) $(ADDOPT)
 broadwell: optimize
 
 .PHONY: haswell
-haswell: OPTIM = $(O3OPT) -xCORE-AVX2 $(ADDOPT)
+haswell: OPTIM = $(O3OPT) $(ARCHFLAG)$(HASARCH) $(ADDOPT)
 haswell: optimize
 
 .PHONY: ivybridge
-ivybridge: OPTIM = $(O3OPT) -xCORE-AVX-I $(ADDOPT)
+ivybridge: OPTIM = $(O3OPT) $(ARCHFLAG)$(IVYARCH) $(ADDOPT)
 ivybridge: optimize
 
 .PHONY: sandybridge
-sandybridge: OPTIM = $(O3OPT) -xAVX $(ADDOPT)
+sandybridge: OPTIM = $(O3OPT) $(ARCHFLAG)$(SANARCH) $(ADDOPT)
 sandybridge: optimize
 
 .PHONY: westmere
-westmere: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
+westmere: OPTIM = $(O3OPT) $(ARCHFLAG)$(WESARCH) $(ADDOPT)
 westmere: optimize
 
 .PHONY: merope
-merope: OPTIM = $(O3OPT) -xSSE4.2 $(ADDOPT)
+merope: OPTIM = $(O3OPT) $(ARCHFLAG)$(WESARCH) $(ADDOPT)
 merope: optimize
 
 .PHONY: optimize
@@ -160,7 +157,7 @@ all: Command-Cend  = $(HighlightName); $(CC) $(CFLAG) -c -o $@ $<
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJS) $(COBJS)
-	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(FLIB)
+	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(EXTOBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
 
 %.o:%$(FSFXFLG)
