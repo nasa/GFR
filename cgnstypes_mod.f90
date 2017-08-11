@@ -69,13 +69,21 @@ module module_cgns_types
   integer, parameter :: CST = cgsize_t ! CGNS data integer type
   integer, parameter :: CET = cgenum_t ! CGNS enumerator integer type
   !
+  integer, parameter :: CGLEN = 32     ! maximum length for a CGNS string
+  !
+#ifdef SPECIAL_FOR_PGI
+  integer, parameter :: CRT = r4       ! CGNS data real type
+  integer(kind(REALSINGLE)), parameter :: cgns_kind_real = REALSINGLE
+  !
+ !integer, parameter :: CRT = r8       ! CGNS data real type
+ !integer(kind(REALSINGLE)), parameter :: cgns_kind_real = REALDOUBLE
+#else
   integer, parameter :: CRT = r4       ! CGNS data real type
  !integer, parameter :: CRT = r8       ! CGNS data real type
   !
-  integer, parameter :: CGLEN = 32     ! maximum length for a CGNS string
-  !
   integer(kind(REALSINGLE)), parameter :: &
       cgns_kind_real = merge(REALDOUBLE,REALSINGLE,CRT == r8)
+#endif
   !
   ! Constants to control the CGNS I/O queue
   !

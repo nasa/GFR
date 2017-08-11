@@ -846,15 +846,16 @@ subroutine read_cgns_coord(c)
   integer      :: ierr
   integer(CST) :: np,ibeg,iend
   integer(CET) :: stored_datatype
+  integer(CET) :: read_datatype
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_cgns_coord"
-  integer(CET),     parameter :: read_datatype = merge(REALDOUBLE, &
-                                                       REALSINGLE,wp==r8)
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  read_datatype = merge(REALDOUBLE,REALSINGLE,wp==r8)
   !
   ! Read the coordinate info
   !
@@ -896,6 +897,7 @@ subroutine read_cgns_additional_coord(c)
   integer(CST) :: np,ibeg,iend
   integer(CBT) :: data_dimension
   integer(CET) :: stored_datatype
+  integer(CET) :: read_datatype
   !
   !.. Local Arrays ..
   integer(CST) :: dimension_vector(1:12) ! NOTE: 12 is the maximum number of
@@ -905,12 +907,12 @@ subroutine read_cgns_additional_coord(c)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_cgns_additional_coord"
-  integer(CET),     parameter :: read_datatype = merge(REALDOUBLE, &
-                                                       REALSINGLE,wp==r8)
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  read_datatype = merge(REALDOUBLE,REALSINGLE,wp==r8)
   !
   ! Read the coordinate info
   !
