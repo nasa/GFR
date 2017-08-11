@@ -782,9 +782,10 @@ module module_kind_types
   !
   !
   !
-  private :: invert_matrix_DP,invert_matrix_QP
+  private :: invert_matrix_SP,invert_matrix_DP,invert_matrix_QP
   !
   interface invert_matrix
+    module procedure invert_matrix_SP
     module procedure invert_matrix_DP
 #ifndef DISABLE_QP
     module procedure invert_matrix_QP
@@ -793,9 +794,10 @@ module module_kind_types
   !
   !
   !
-  private :: invert_matrix90_DP,invert_matrix90_QP
+  private :: invert_matrix90_SP,invert_matrix90_DP,invert_matrix90_QP
   !
   interface invert_matrix90
+    module procedure invert_matrix90_SP
     module procedure invert_matrix90_DP
 #ifndef DISABLE_QP
     module procedure invert_matrix90_QP
@@ -804,9 +806,10 @@ module module_kind_types
   !
   !
   !
-  private :: ludcmp_DP,ludcmp_QP
+  private :: ludcmp_SP,ludcmp_DP,ludcmp_QP
   !
   interface ludcmp
+    module procedure ludcmp_SP
     module procedure ludcmp_DP
 #ifndef DISABLE_QP
     module procedure ludcmp_QP
@@ -815,9 +818,10 @@ module module_kind_types
   !
   !
   !
-  private :: lubksb_DP,lubksb_QP
+  private :: lubksb_SP,lubksb_DP,lubksb_QP
   !
   interface lubksb
+    module procedure lubksb_SP
     module procedure lubksb_DP
 #ifndef DISABLE_QP
     module procedure lubksb_QP
@@ -826,9 +830,10 @@ module module_kind_types
   !
   !
   !
-  private :: determinant_DP,determinant_QP
+  private :: determinant_SP,determinant_DP,determinant_QP
   !
   interface determinant
+    module procedure determinant_SP
     module procedure determinant_DP
 #ifndef DISABLE_QP
     module procedure determinant_QP
