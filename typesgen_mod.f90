@@ -1948,6 +1948,7 @@ pure function memory_usage(this) result(return_value)
   !.. Local Scalars ..
   type(memory) :: array
   !
+#ifndef DISABLE_DTIO
 continue
   !
   call return_value%reset
@@ -1994,6 +1995,7 @@ continue
     call return_value%add(array)
   end if
   !
+#endif
 end function memory_usage
 !
 !###############################################################################

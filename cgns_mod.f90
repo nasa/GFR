@@ -6950,6 +6950,7 @@ subroutine cgns_memory_usage(iunit)
   type(memory) :: total
   type(memory) :: bdt,zdt,sdt,gdt,cdt,bcdt
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -7246,6 +7247,7 @@ continue
   10 format ("base(",i0,")%zone")
   11 format ("base(",i0,")%zone(",i0,")%",a,:,"(",i0,")%",a)
   !
+#endif
 end subroutine cgns_memory_usage
 !
 !###############################################################################

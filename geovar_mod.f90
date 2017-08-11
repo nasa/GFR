@@ -562,6 +562,7 @@ subroutine geovar_memory_usage(iunit)
   type(memory) :: right_fp
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -1192,6 +1193,7 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   8 format ("pst_geom(",a,",",i0,")%connectivity")
   !
+#endif
 end subroutine geovar_memory_usage
 !
 !###############################################################################

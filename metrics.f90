@@ -903,6 +903,7 @@ subroutine metrics_memory_usage(iunit)
   type(memory) :: metmet,metjac,metdj
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -1019,6 +1020,7 @@ continue
   6 format (" Array Component: ",a,dt)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine metrics_memory_usage
 !
 !###############################################################################

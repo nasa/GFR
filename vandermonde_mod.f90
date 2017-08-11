@@ -872,6 +872,7 @@ subroutine vandermonde_memory_usage(iunit)
   type(memory) :: array,dt
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -1013,6 +1014,7 @@ continue
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine vandermonde_memory_usage
 !
 !###############################################################################

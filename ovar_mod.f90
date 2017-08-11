@@ -460,6 +460,7 @@ subroutine ovar_memory_usage(iunit)
   type(memory) :: array
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -508,6 +509,7 @@ continue
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine ovar_memory_usage
 !
 !###############################################################################

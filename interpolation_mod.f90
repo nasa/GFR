@@ -2965,6 +2965,7 @@ subroutine interpolation_memory_usage(iunit)
   type(memory) :: array,dt
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -3200,6 +3201,7 @@ continue
   6 format (" Array: ",a," memory = ",i0,1x,a,a)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine interpolation_memory_usage
 !
 !###############################################################################

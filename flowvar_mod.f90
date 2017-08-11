@@ -539,6 +539,7 @@ subroutine flowvar_memory_usage(iunit)
   type(memory) :: array,dt
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -997,6 +998,7 @@ continue
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   8 format (" Storage size for ",a," = ",i0," Bits, ",i0," Bytes")
   !
+#endif
 end subroutine flowvar_memory_usage
 !
 !###############################################################################

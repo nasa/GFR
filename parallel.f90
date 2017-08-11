@@ -8511,6 +8511,7 @@ subroutine parallel_memory_usage(iunit)
   type(memory) :: array,dt
   type(memory) :: total
   !
+#ifndef DISABLE_DTIO
 continue
   !
   iou = iout
@@ -8808,6 +8809,7 @@ continue
   5 format ("'",a,"'")
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine parallel_memory_usage
 !
 !###############################################################################
@@ -8854,6 +8856,7 @@ subroutine partition_memory_usage(iou,xadj,adjncy,epart,node,edge,face, &
   type(memory) :: left_fp
   type(memory) :: right_fp
   !
+#ifndef DISABLE_DTIO
 continue
   !
   call total%reset
@@ -9309,6 +9312,7 @@ continue
   6 format (" Array Component: ",a,dt)
   7 format (" Array: ",a36," -       NOT ALLOCATED")
   !
+#endif
 end subroutine partition_memory_usage
 !
 !###############################################################################

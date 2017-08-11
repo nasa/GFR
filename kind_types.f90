@@ -1951,7 +1951,9 @@ module module_memory
     generic :: add => compute_memory_usage, add_memory
     generic :: set => reset_and_compute_memory_usage, &
                       reset_and_add_memory
+#ifndef DISABLE_DTIO
     generic :: write(formatted) => memout
+#endif
   end type memory
   !
   !.. Module Parameters ..
