@@ -337,7 +337,6 @@ subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
   use metrics_mod, only : metrics_dt
   use filter_mod, only : filter
   use projection_mod, only : projct
-  use ifport, only : dclock
   !
   !.. Optional Arguments ..
   logical(lk), optional,    intent(in) :: apply_projection
