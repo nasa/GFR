@@ -57,7 +57,7 @@ module generic_types_mod
   !
   abstract interface
     !
-    function dot_vec_function(this,idx,vector) result(return_value)
+    pure function dot_vec_function(this,idx,vector) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       integer, intent(in) :: idx
@@ -65,7 +65,7 @@ module generic_types_mod
       real(wp) :: return_value
     end function dot_vec_function
     !
-    function dot_mat_function(this,idx,array) result(return_value)
+    pure function dot_mat_function(this,idx,array) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       integer, intent(in) :: idx
@@ -73,7 +73,7 @@ module generic_types_mod
       real(wp) :: return_value(1:size(array,dim=2))
     end function dot_mat_function
     !
-    function dot_mat2_function(this,idx,array) result(return_value)
+    pure function dot_mat2_function(this,idx,array) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       integer, intent(in) :: idx
@@ -81,14 +81,14 @@ module generic_types_mod
       real(wp) :: return_value(1:size(array,dim=2),1:size(array,dim=3))
     end function dot_mat2_function
     !
-    function mat_vec_mult(this,vector) result(return_value)
+    pure function mat_vec_mult(this,vector) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:), intent(in) :: vector
       real(wp), dimension(1:size(this%mat,dim=1)) :: return_value
     end function mat_vec_mult
     !
-    function vec_mat_mult(this,vector) result(return_value)
+    pure function vec_mat_mult(this,vector) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:), intent(in) :: vector
@@ -100,7 +100,7 @@ module generic_types_mod
     !
     !
     !
-    function mat_mat_mult(this,mat) result(return_value)
+    pure function mat_mat_mult(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
@@ -108,7 +108,7 @@ module generic_types_mod
                           1:size(this%mat,dim=2)) :: return_value
     end function mat_mat_mult
     !
-    function mat_mat_rev_mult(this,mat) result(return_value)
+    pure function mat_mat_rev_mult(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
@@ -116,7 +116,7 @@ module generic_types_mod
                           1:size(     mat,dim=2)) :: return_value
     end function mat_mat_rev_mult
     !
-    function mat_mat_mult_rt(this,mat) result(return_value)
+    pure function mat_mat_mult_rt(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
@@ -124,7 +124,7 @@ module generic_types_mod
                           1:size(     mat,dim=1)) :: return_value
     end function mat_mat_mult_rt
     !
-    function mat_mat_rev_mult_rt(this,mat) result(return_value)
+    pure function mat_mat_rev_mult_rt(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
@@ -132,7 +132,7 @@ module generic_types_mod
                           1:size(this%mat,dim=1)) :: return_value
     end function mat_mat_rev_mult_rt
     !
-    function mat_mat_mult_ut(this,mat) result(return_value)
+    pure function mat_mat_mult_ut(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
@@ -140,7 +140,7 @@ module generic_types_mod
                           1:size(     mat,dim=2)) :: return_value
     end function mat_mat_mult_ut
     !
-    function mat_mat_rev_mult_ut(this,mat) result(return_value)
+    pure function mat_mat_rev_mult_ut(this,mat) result(return_value)
       import :: wp, matrix
       class(matrix), intent(in) :: this
       real(wp), dimension(:,:), intent(in) :: mat
