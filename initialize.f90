@@ -412,7 +412,7 @@ continue
     !
   else if (itestcase == Taylor_Green_Vortex) then
     !
-    allocate ( adj_xyz , source=xyz , stat=ierr )
+    adj_xyz = xyz ! F2003 AUTO-REALLOCATION
     !
     if (postproc_debug_grid) then
       dl = real(ncell,kind=wp)**(-one3)
