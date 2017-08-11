@@ -26,8 +26,12 @@ pure function smc000_interior_wall_radius(x,eps_1,eps_2) result(return_value)
   real(wp), parameter :: pd(2) = [-0.0830072_wp,         0.03265306999550994_wp]
   real(wp), parameter :: pe(2) = [ 0.0_wp,               0.0254_wp ]
   !
-  real(wp), parameter :: lg2 = dot(pf-pa,pf-pa)
-  real(wp), parameter :: lh2 = dot(pg-pc,pg-pc)
+ !real(wp), parameter :: lg2 = dot(pf-pa,pf-pa)
+  real(wp), parameter :: lg2 = (pf(1)-pa(1))*(pf(1)-pa(1)) + &
+                               (pf(2)-pa(2))*(pf(2)-pa(2))
+ !real(wp), parameter :: lh2 = dot(pg-pc,pg-pc)
+  real(wp), parameter :: lh2 = (pg(1)-pc(1))*(pg(1)-pc(1)) + &
+                               (pg(2)-pc(2))*(pg(2)-pc(2))
   !
   real(wp), parameter :: mcd = (pb(2)-pc(2)) / (pb(1)-pc(1))
   real(wp), parameter :: bcd = (pb(1)*pc(2)-pb(2)*pc(1)) / (pb(1)-pc(1))
