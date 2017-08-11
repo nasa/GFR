@@ -6793,7 +6793,11 @@ continue
   ! with all other processors that have a higher rank
   !
   cpu_nums(:) = 0_int_mpi
+#ifdef SPECIAL_FOR_PGI
+  cpu_nums(my_part) = int( count( cpu_msk(my_part+1:ncpu) ) , kind=int_mpi )
+#else
   cpu_nums(my_part) = count( cpu_msk(my_part+1:ncpu) , kind=int_mpi )
+#endif
   !
   ! Collect the number of communication pairs for all processors
   !
