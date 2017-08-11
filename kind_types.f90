@@ -39,7 +39,21 @@ module base_kind_types
   !
   ! KIND definitions for logical variables
   !
+#ifdef SPECIAL_FOR_PGI
+  integer, public, parameter :: l1k = logical_kinds(1)
+#else
+#ifdef SPECIAL_FOR_GCC
+  integer,         parameter :: lb_lk = lbound(logical_kinds,dim=1)
+  integer,         parameter :: ub_lk = ubound(logical_kinds,dim=1)
+  integer, public, parameter :: l1k = min(logical_kinds(min(lb_lk+0,ub_lk)), &
+                                          logical_kinds(min(lb_lk+1,ub_lk)), &
+                                          logical_kinds(min(lb_lk+2,ub_lk)), &
+                                          logical_kinds(min(lb_lk+3,ub_lk)), &
+                                          logical_kinds(min(lb_lk+4,ub_lk)))
+#else
   integer, public, parameter :: l1k = minval(logical_kinds)
+#endif
+#endif
   integer, public, parameter :: ldk = kind(.true.)
   !
   ! Unit for I/O to standard output
