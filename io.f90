@@ -5110,7 +5110,7 @@ subroutine write_residual_file(iflag,icount)
   !.. Local Scalars ..
   integer  :: i,ierr
   real(wp) :: comp_cost
-  character(len=14) :: suffix
+  character(len=25) :: suffix
   !
   !.. Local Saved Scalars ..
   integer,     save :: iores
