@@ -1930,10 +1930,8 @@ continue
     call reallocate( remaining_pts , n_total_output_pts )
     remaining_pts(:) = 0
     !
-    allocate ( tmp_cell_points , source=cell_points , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"tmp_cell_points",1,__LINE__,__FILE__,ierr, &
-                     error_message)
+    ! USING F2003 AUTO-REALLOCATION
+    tmp_cell_points = cell_points
     !
     running_offset = 0
     !
