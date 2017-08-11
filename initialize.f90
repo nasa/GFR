@@ -939,7 +939,11 @@ continue
     !
     ! Initialize edgexyz to zero
     !
+#ifdef SPECIAL_FOR_PGI
+    call edgexyz%zero_ne2d_t
+#else
     call edgexyz%zero
+#endif
     !
     ! Allocate the mask array to mark which edges have been finished
     !

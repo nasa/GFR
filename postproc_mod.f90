@@ -1027,8 +1027,13 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+#ifdef SPECIAL_FOR_PGI
+  call faceusp%zero_face_var
+  call facedusp%zero_face_vec
+#else
   call faceusp%zero
   call facedusp%zero
+#endif
   !
   call interp_cv_to_flxpts
   !
@@ -1095,11 +1100,17 @@ continue
   !
   ! Zero out the nodeusp, nodedusp, edgeusp, and edgedusp arrays
   !
+#ifdef SPECIAL_FOR_PGI
+  call nodeusp%zero_ne1d_t
+  call nodedusp%zero_ne2d_t
+  call edgeusp%zero_ne2d_t
+  call edgedusp%zero_ne3d_t
+#else
   call nodeusp%zero
   call nodedusp%zero
-  !
   call edgeusp%zero
   call edgedusp%zero
+#endif
   !
   ! Loop over all the cells on the current processor and compute the
   ! contribution to the edge and node solutions from each cell
@@ -1434,11 +1445,19 @@ continue
   ! Zero the nodeusp, nodedusp, edgeusp, edgedusp, and faceusp array
   ! before we start storing point indices in these arrays
   !
+#ifdef SPECIAL_FOR_PGI
+  call nodeusp%zero_ne1d_t
+  call nodedusp%zero_ne2d_t
+  call edgeusp%zero_ne2d_t
+  call edgedusp%zero_ne3d_t
+  call faceusp%zero_face_var
+#else
   call nodeusp%zero
   call nodedusp%zero
   call edgeusp%zero
   call edgedusp%zero
   call faceusp%zero
+#endif
   !
   !###########################################################################
   !###########################################################################

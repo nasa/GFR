@@ -251,7 +251,11 @@ continue
   !
   ! Initialize faceflx to zero before we start
   !
+#ifdef SPECIAL_FOR_PGI
+  call faceflx%zero_face_var
+#else
   call faceflx%zero
+#endif
   !
   ! Loop over the cells and get the derivative of the
   ! fluxes at each solution point within each cell

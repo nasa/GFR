@@ -74,7 +74,11 @@ module flowvar
   type, public :: face_var
     real(wp), allocatable :: v(:,:,:)
   contains
+#ifdef SPECIAL_FOR_PGI
+    procedure :: zero_face_var
+#else
     procedure :: zero => zero_face_var
+#endif
   end type face_var
   !
   !
@@ -87,7 +91,11 @@ module flowvar
   type, public :: face_vec
     real(wp), allocatable :: v(:,:,:,:)
   contains
+#ifdef SPECIAL_FOR_PGI
+    procedure :: zero_face_vec
+#else
     procedure :: zero => zero_face_vec
+#endif
   end type face_vec
   !
   ! FACEFLX  : flux normal to cell faces at each interface flux point
@@ -112,7 +120,11 @@ module flowvar
   type, public :: ne1d_t
     real(wp), allocatable :: v(:)
   contains
+#ifdef SPECIAL_FOR_PGI
+    procedure :: zero_ne1d_t
+#else
     procedure :: zero => zero_ne1d_t
+#endif
   end type ne1d_t
   !
   ! NE2D_T : Derived type containing a 2D array for storing edge/node
@@ -121,7 +133,11 @@ module flowvar
   type, public :: ne2d_t
     real(wp), allocatable :: v(:,:)
   contains
+#ifdef SPECIAL_FOR_PGI
+    procedure :: zero_ne2d_t
+#else
     procedure :: zero => zero_ne2d_t
+#endif
   end type ne2d_t
   !
   ! NE3D_T : Derived type containing a 3D array for storing edge/node
@@ -130,7 +146,11 @@ module flowvar
   type, public :: ne3d_t
     real(wp), allocatable :: v(:,:,:)
   contains
+#ifdef SPECIAL_FOR_PGI
+    procedure :: zero_ne3d_t
+#else
     procedure :: zero => zero_ne3d_t
+#endif
   end type ne3d_t
   !
   ! NODEUSP  : conservative variables at the nodes
