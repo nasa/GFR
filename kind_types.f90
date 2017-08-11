@@ -1469,12 +1469,20 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   !
   !.. Function Interfaces ..
   interface
-    integer function system(str)
-      character*(*) str
+    function system(command) result(ierr) bind(c)
+      use, intrinsic :: iso_c_binding, only : c_char,c_int
+      character(kind=c_char), intent(in) :: command(*)
+      integer(c_int) :: ierr
     end function system
   end interface
   interface
-    integer function ierrno()
+#ifdef SPECIAL_FOR_GCC
+    function ierrno() result(ierr) bind(c,name="_gfortran_ierrno_i4")
+#else
+    function ierrno() result(ierr)! bind(c)
+#endif
+      use, intrinsic :: iso_c_binding, only : c_int
+      integer(c_int) :: ierr
     end function ierrno
   end interface
   !
