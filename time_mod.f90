@@ -330,6 +330,7 @@ continue
       !
       ! Normal velocity at this flux point
       !
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       !
@@ -428,6 +429,8 @@ continue
       !
       ! Normal velocity at this flux point
       !
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
+     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       velr = selfdot( vr(nmb:nme) )
