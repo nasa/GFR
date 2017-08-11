@@ -6778,7 +6778,6 @@ subroutine TaylorGreen_8s_vorticity_solution()
   !
   !.. Use Statements ..
   use ovar, only : write_TaylorGreen_8s_solution
-  use iso_c_binding, only : c_null_ptr
   !
   !.. Local Scalars ..
   integer :: ierr
