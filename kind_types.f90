@@ -597,10 +597,14 @@ module module_kind_types
   !
   !
   !
-  private :: cross_product_DP,cross_product_QP
+  private :: cross_product_SP,cross_product_DP,cross_product_QP
   !
   interface cross_product
-    module procedure cross_product_SP, cross_product_DP, cross_product_QP
+    module procedure cross_product_SP
+    module procedure cross_product_DP
+#ifndef DISABLE_QP
+    module procedure cross_product_QP
+#endif
   end interface cross_product
   !
   !
@@ -608,7 +612,8 @@ module module_kind_types
   private :: deltafun_DP_LDK,deltafun_DP_LK
   !
   interface deltafun
-    module procedure deltafun_DP_LDK, deltafun_DP_LK
+    module procedure deltafun_DP_LDK
+    module procedure deltafun_DP_LK
   end interface deltafun
   !
   !
@@ -616,7 +621,8 @@ module module_kind_types
   private :: deltafun_QP_LDK,deltafun_QP_LK
   !
   interface deltafun_QP
-    module procedure deltafun_QP_LDK, deltafun_QP_LK
+    module procedure deltafun_QP_LDK
+    module procedure deltafun_QP_LK
   end interface deltafun_QP
   !
   !
@@ -624,7 +630,11 @@ module module_kind_types
   private :: selfdot_SP,selfdot_DP,selfdot_QP
   !
   interface selfdot
-    module procedure selfdot_SP, selfdot_DP, selfdot_QP
+    module procedure selfdot_SP
+    module procedure selfdot_DP
+#ifndef DISABLE_QP
+    module procedure selfdot_QP
+#endif
   end interface selfdot
   !
   !
@@ -646,7 +656,11 @@ module module_kind_types
   private :: unit_vector_SP,unit_vector_DP,unit_vector_QP
   !
   interface unit_vector
-    module procedure unit_vector_SP, unit_vector_DP, unit_vector_QP
+    module procedure unit_vector_SP
+    module procedure unit_vector_DP
+#ifndef DISABLE_QP
+    module procedure unit_vector_QP
+#endif
   end interface unit_vector
   !
   !
@@ -654,7 +668,10 @@ module module_kind_types
   private :: outerprod_DP,outerprod_QP
   !
   interface outerprod
-    module procedure outerprod_DP, outerprod_QP
+    module procedure outerprod_DP
+#ifndef DISABLE_QP
+    module procedure outerprod_QP
+#endif
   end interface outerprod
   !
   !
@@ -662,7 +679,11 @@ module module_kind_types
   private :: reciprocal_SP,reciprocal_DP,reciprocal_QP
   !
   interface reciprocal
-    module procedure reciprocal_SP, reciprocal_DP, reciprocal_QP
+    module procedure reciprocal_SP
+    module procedure reciprocal_DP
+#ifndef DISABLE_QP
+    module procedure reciprocal_QP
+#endif
   end interface reciprocal
   !
   !
@@ -670,7 +691,12 @@ module module_kind_types
   private :: chop_WP,chop_SP,chop_DP,chop_QP
   !
   interface chop
-    module procedure chop_WP, chop_SP, chop_DP, chop_QP
+    module procedure chop_WP
+    module procedure chop_SP
+    module procedure chop_DP
+#ifndef DISABLE_QP
+    module procedure chop_QP
+#endif
   end interface chop
   !
   !
@@ -678,7 +704,10 @@ module module_kind_types
   private :: reflect_DP,reflect_QP
   !
   interface reflect
-    module procedure reflect_DP, reflect_QP
+    module procedure reflect_DP
+#ifndef DISABLE_QP
+    module procedure reflect_QP
+#endif
   end interface reflect
   !
   !
@@ -686,7 +715,10 @@ module module_kind_types
   private :: rotate_2d_DP,rotate_2d_QP
   !
   interface rotate_2d
-    module procedure rotate_2d_DP, rotate_2d_QP
+    module procedure rotate_2d_DP
+#ifndef DISABLE_QP
+    module procedure rotate_2d_QP
+#endif
   end interface rotate_2d
   !
   !
@@ -694,7 +726,10 @@ module module_kind_types
   private :: rotate_DP,rotate_QP
   !
   interface rotate
-    module procedure rotate_DP, rotate_QP
+    module procedure rotate_DP
+#ifndef DISABLE_QP
+    module procedure rotate_QP
+#endif
   end interface rotate
   !
   !
@@ -702,7 +737,11 @@ module module_kind_types
   private :: node_center_SP,node_center_DP,node_center_QP
   !
   interface node_center
-    module procedure node_center_SP, node_center_DP, node_center_QP
+    module procedure node_center_SP
+    module procedure node_center_DP
+#ifndef DISABLE_QP
+    module procedure node_center_QP
+#endif
   end interface node_center
   !
   !
@@ -710,7 +749,11 @@ module module_kind_types
   private :: face_normal_SP,face_normal_DP,face_normal_QP
   !
   interface face_normal
-    module procedure face_normal_SP, face_normal_DP, face_normal_QP
+    module procedure face_normal_SP
+    module procedure face_normal_DP
+#ifndef DISABLE_QP
+    module procedure face_normal_QP
+#endif
   end interface face_normal
   !
   !
@@ -718,9 +761,11 @@ module module_kind_types
   private :: compute_jacobian_SP,compute_jacobian_DP,compute_jacobian_QP
   !
   interface compute_jacobian
-    module procedure compute_jacobian_SP, &
-                     compute_jacobian_DP, &
-                     compute_jacobian_QP
+    module procedure compute_jacobian_SP
+    module procedure compute_jacobian_DP
+#ifndef DISABLE_QP
+    module procedure compute_jacobian_QP
+#endif
   end interface compute_jacobian
   !
   !
@@ -728,9 +773,11 @@ module module_kind_types
   private :: reverse_metrics_SP,reverse_metrics_DP,reverse_metrics_QP
   !
   interface reverse_metrics
-    module procedure reverse_metrics_SP, &
-                     reverse_metrics_DP, &
-                     reverse_metrics_QP
+    module procedure reverse_metrics_SP
+    module procedure reverse_metrics_DP
+#ifndef DISABLE_QP
+    module procedure reverse_metrics_QP
+#endif
   end interface reverse_metrics
   !
   !
@@ -738,7 +785,10 @@ module module_kind_types
   private :: invert_matrix_DP,invert_matrix_QP
   !
   interface invert_matrix
-    module procedure invert_matrix_DP, invert_matrix_QP
+    module procedure invert_matrix_DP
+#ifndef DISABLE_QP
+    module procedure invert_matrix_QP
+#endif
   end interface invert_matrix
   !
   !
@@ -746,7 +796,10 @@ module module_kind_types
   private :: invert_matrix90_DP,invert_matrix90_QP
   !
   interface invert_matrix90
-    module procedure invert_matrix90_DP, invert_matrix90_QP
+    module procedure invert_matrix90_DP
+#ifndef DISABLE_QP
+    module procedure invert_matrix90_QP
+#endif
   end interface invert_matrix90
   !
   !
@@ -754,7 +807,10 @@ module module_kind_types
   private :: ludcmp_DP,ludcmp_QP
   !
   interface ludcmp
-    module procedure ludcmp_DP, ludcmp_QP
+    module procedure ludcmp_DP
+#ifndef DISABLE_QP
+    module procedure ludcmp_QP
+#endif
   end interface ludcmp
   !
   !
@@ -762,7 +818,10 @@ module module_kind_types
   private :: lubksb_DP,lubksb_QP
   !
   interface lubksb
-    module procedure lubksb_DP, lubksb_QP
+    module procedure lubksb_DP
+#ifndef DISABLE_QP
+    module procedure lubksb_QP
+#endif
   end interface lubksb
   !
   !
@@ -770,7 +829,10 @@ module module_kind_types
   private :: determinant_DP,determinant_QP
   !
   interface determinant
-    module procedure determinant_DP, determinant_QP
+    module procedure determinant_DP
+#ifndef DISABLE_QP
+    module procedure determinant_QP
+#endif
   end interface determinant
   !
   !
@@ -778,7 +840,12 @@ module module_kind_types
   private :: random_i4,random_sp,random_dp,random_qp
   !
   interface random
-    module procedure random_i4,random_sp,random_dp,random_qp
+    module procedure random_i4
+    module procedure random_sp
+    module procedure random_dp
+#ifndef DISABLE_QP
+    module procedure random_qp
+#endif
   end interface random
   !
   !
@@ -804,9 +871,14 @@ module module_kind_types
   private :: identity_matrix_dim_QP,identity_matrix_mat_QP
   !
   interface identity_matrix
-    module procedure identity_matrix_dim_SP,identity_matrix_mat_SP, &
-                     identity_matrix_dim_DP,identity_matrix_mat_DP, &
-                     identity_matrix_dim_QP,identity_matrix_mat_QP
+    module procedure identity_matrix_dim_SP
+    module procedure identity_matrix_mat_SP
+    module procedure identity_matrix_dim_DP
+    module procedure identity_matrix_mat_DP
+#ifndef DISABLE_QP
+    module procedure identity_matrix_dim_QP
+    module procedure identity_matrix_mat_QP
+#endif
   end interface identity_matrix
   !
   !

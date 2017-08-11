@@ -6,6 +6,11 @@ module polynomial_mod
   use module_kind_types
   !
   implicit none
+#ifdef DISABLE_QP
+  integer, parameter :: local_qp = SP
+#else
+  integer, parameter :: local_qp = QP
+#endif
   !
   private
   !
@@ -359,7 +364,7 @@ end subroutine JacobiGL_DP
 pure subroutine JacobiGL_QP(alpha,beta,n,xi,weights)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -466,7 +471,7 @@ end subroutine eval_jacobi_poly_DP
 pure subroutine eval_jacobi_poly_QP(n,alpha,beta,x,y,dy,d2y)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,   intent(in) :: n
@@ -571,7 +576,7 @@ end subroutine eval_legendre_poly_DP
 pure subroutine eval_legendre_poly_QP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,   intent(in) :: n
@@ -662,7 +667,7 @@ end subroutine eval_chebyshev_poly_DP
 pure subroutine eval_chebyshev_poly_QP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,   intent(in) :: n
@@ -760,7 +765,7 @@ end subroutine eval_normalized_jacobi_poly_DP
 pure subroutine eval_normalized_jacobi_poly_QP(n,alpha,beta,x,y,dy)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,   intent(in) :: n
@@ -871,7 +876,7 @@ end function normalized_jacobi_poly_DP
 pure function normalized_jacobi_poly_QP(N,alpha,beta,x) result(return_value)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: N
@@ -990,7 +995,7 @@ pure function grad_normalized_jacobi_poly_QP(n,alpha,beta,x) &
                                       result(return_value)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n
@@ -1097,7 +1102,7 @@ end subroutine nodes_jacobi_gauss_DP
 pure subroutine nodes_jacobi_gauss_QP(n,alpha,beta,xi,dxi)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -1186,7 +1191,7 @@ end subroutine nodes_legendre_gauss_DP
 pure subroutine nodes_legendre_gauss_QP(n,xi,dxi)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -1273,7 +1278,7 @@ end subroutine nodes_right_radau_DP
 pure subroutine nodes_right_radau_QP(n,xi)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: n
@@ -1365,7 +1370,7 @@ end subroutine nodes_chebyshev_gauss_DP
 pure subroutine nodes_chebyshev_gauss_QP(n,xi)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -1475,7 +1480,7 @@ end subroutine nodes_jacobi_gauss_lobatto_DP
 pure subroutine nodes_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,vn)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -1625,7 +1630,7 @@ end subroutine nodes_legendre_gauss_lobatto_DP
 pure subroutine nodes_legendre_gauss_lobatto_QP(n,xi,vn)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -1736,7 +1741,7 @@ end subroutine nodes_chebyshev_gauss_lobatto_DP
 pure subroutine nodes_chebyshev_gauss_lobatto_QP(n,xi)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -1843,7 +1848,7 @@ pure subroutine weights_jacobi_gauss_QP(n,alpha,beta,xi,dy,weights)
   !***************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -1934,7 +1939,7 @@ pure subroutine weights_legendre_gauss_QP(n,xi,dy,weights)
   !****************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -2017,7 +2022,7 @@ pure subroutine weights_right_radau_QP(n,xi,weights)
   !**********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -2093,7 +2098,7 @@ pure subroutine weights_chebyshev_gauss_QP(n,weights)
   !****************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                   intent(in) :: n
@@ -2216,7 +2221,7 @@ pure subroutine weights_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -2343,7 +2348,7 @@ pure subroutine weights_legendre_gauss_lobatto_QP(n,vn,weights)
   !**********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -2421,7 +2426,7 @@ pure subroutine weights_chebyshev_gauss_lobatto_QP(n,weights)
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -2549,7 +2554,7 @@ pure subroutine weights_dgbook_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: n
@@ -2707,7 +2712,7 @@ pure function derivative_matrix_legendre_gauss_QP(n,a) result(return_value)
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS POLYNOMIAL
@@ -2839,7 +2844,7 @@ pure subroutine old_derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: n
@@ -2954,7 +2959,7 @@ pure function derivative_matrix_legendre_gauss_lobatto_QP(n,a) &
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n ! ORDER OF LEGENDRE GAUSS-LOBATTO POLYNOMIAL
@@ -3079,7 +3084,7 @@ pure subroutine old_derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: n
@@ -3220,7 +3225,7 @@ pure subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta, &
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: n
@@ -3372,7 +3377,7 @@ pure subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
   !***********************************************************************
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: n
@@ -3509,7 +3514,7 @@ end function gammafun_DP
 elemental function gammafun_QP(x) result(return_value)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: x
@@ -3599,7 +3604,7 @@ end function log_gammafun_DP
 elemental function log_gammafun_QP(x) result(return_value)
   !
   !.. Function Precision .. 
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   real(lp), intent(in) :: x
@@ -3662,7 +3667,7 @@ end function coefrr_DP
 pure function coefrr_QP(n,a) result(return_value)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n
@@ -3750,7 +3755,7 @@ end function coefle_DP
 pure function coefle_QP(n,a) result(return_value)
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: n
@@ -3838,7 +3843,7 @@ pure function eval_LagrangePoly_QP(ijk,xyz,xi) result(return_value)
   ! XI  : Array of the 1D solution points
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  dimension(:), intent(in) :: ijk
@@ -3921,7 +3926,7 @@ pure function eval_LagrangePoly1D_QP(k,x,xi) result(return_value)
   ! except at xi(k) where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: k
@@ -4004,7 +4009,7 @@ pure function eval_LagrangePoly1D_arrays_QP(x,xi) result(return_value)
   ! except at xi(k) where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   real(lp),               intent(in) :: x
@@ -4091,7 +4096,7 @@ pure function eval_LagrangePoly2D_arrays_QP(ij,xy,xi,eta) result(return_value)
   ! except at [xi(k),eta(l)] where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  dimension(:), intent(in) :: ij
@@ -4170,7 +4175,7 @@ pure function eval_LagrangePoly2D_QP(k,l,x,y,xi,eta) result(return_value)
   ! except at [xi(k),eta(l)] where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: k
@@ -4263,7 +4268,7 @@ pure function eval_LagrangePoly3D_arrays_QP(ijk,xyz,xi,eta,zeta) &
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,  dimension(:), intent(in) :: ijk
@@ -4357,7 +4362,7 @@ pure function eval_LagrangePoly3D_QP(i,j,k,x,y,z,xi,eta,zeta) &
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: i,j,k
@@ -4467,7 +4472,7 @@ pure function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: m
@@ -4597,7 +4602,7 @@ pure function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
-  integer, parameter :: lp = qp
+  integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
   integer,                intent(in) :: m

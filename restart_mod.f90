@@ -3357,7 +3357,7 @@ subroutine read_rstrt_file_r16_rank1(file_handle,real_data)
   real(wp),     intent(inout) :: real_data(:)
   !
   !.. Local Arrays ..
-  real(real128) :: read_real(1:size(real_data))
+  real(max(real64,real128)) :: read_real(1:size(real_data))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r16_rank1"
@@ -3384,8 +3384,8 @@ subroutine read_rstrt_file_r16_rank2(file_handle,real_data,read_block_type)
   _MPI_DATA_TYPE_, intent(in) :: read_block_type
   !
   !.. Local Arrays ..
-  real(real128) :: read_real(1:size(real_data,dim=1), &
-                             1:size(real_data,dim=2))
+  real(max(real64,real128)) :: read_real(1:size(real_data,dim=1), &
+                                         1:size(real_data,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_rstrt_file_r16_rank2"

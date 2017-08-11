@@ -67,8 +67,10 @@ module quadrature_mod
   logical(lk), public, protected, save :: geom_is_used(Geom_Min:Geom_Max)
   !
   interface get_triangle_weights_at_solpts
-    module procedure get_triangle_weights_at_solpts_DP, &
-                     get_triangle_weights_at_solpts_QP
+    module procedure get_triangle_weights_at_solpts_DP
+#ifndef DISABLE_QP
+    module procedure get_triangle_weights_at_solpts_QP
+#endif
   end interface get_triangle_weights_at_solpts
   !
 contains

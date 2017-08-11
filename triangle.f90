@@ -6,6 +6,11 @@ module triangle_mod
   use module_kind_types
   !
   implicit none
+#ifdef DISABLE_QP
+  integer, parameter :: local_qp = SP
+#else
+  integer, parameter :: local_qp = QP
+#endif
   !
   private
   !
@@ -48,12 +53,12 @@ contains
 !
 pure function EquiTriNodes2D_DP(N,val) result(return_value)
   !
-  integer,  intent(in) :: N
-  real(dp), intent(in) :: val
-  !
-  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  integer,  intent(in) :: N
+  real(lp), intent(in) :: val
+  !
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   integer :: i,j,k,np
   !
@@ -99,12 +104,12 @@ end function EquiTriNodes2D_DP
 !
 pure function EquiTriNodes2D_QP(N,val) result(return_value)
   !
+  integer, parameter :: lp = local_qp
+  !
   integer,  intent(in) :: N
-  real(qp), intent(in) :: val
+  real(lp), intent(in) :: val
   !
-  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  integer, parameter :: lp = qp
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   integer :: i,j,k,np
   !
@@ -153,12 +158,12 @@ pure function Warpfactor_DP(N,r) result(return_value)
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
-  integer,  intent(in) :: N
-  real(dp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
-  !
-  real(dp), dimension(1:(N+1)*(N+2)/2) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  integer,  intent(in) :: N
+  real(lp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  !
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   integer  :: i,j,np,nn
@@ -235,12 +240,12 @@ pure function Warpfactor_QP(N,r) result(return_value)
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
   !
+  integer, parameter :: lp = local_qp
+  !
   integer,  intent(in) :: N
-  real(qp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
+  real(lp), dimension(1:(N+1)*(N+2)/2), intent(in) :: r
   !
-  real(qp), dimension(1:(N+1)*(N+2)/2) :: return_value
-  !
-  integer, parameter :: lp = qp
+  real(lp), dimension(1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   integer  :: i,j,np,nn
@@ -314,11 +319,11 @@ end function Warpfactor_QP
 !
 pure function Nodes2D_DP(N,val) result(return_value)
   !
-  integer,  intent(in) :: N
-  real(dp), intent(in) :: val
-  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  integer,  intent(in) :: N
+  real(lp), intent(in) :: val
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   real(lp) :: alpha
@@ -381,11 +386,11 @@ end function Nodes2D_DP
 !
 pure function Nodes2D_QP(N,val) result(return_value)
   !
-  integer,  intent(in) :: N
-  real(qp), intent(in) :: val
-  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
+  integer, parameter :: lp = local_qp
   !
-  integer, parameter :: lp = qp
+  integer,  intent(in) :: N
+  real(lp), intent(in) :: val
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   real(lp) :: alpha
@@ -448,10 +453,10 @@ end function Nodes2D_QP
 !
 pure function xytors_DP(xy) result(return_value)
   !
-  real(dp), dimension(:,:), intent(in) :: xy
-  real(dp), dimension(size(xy,1),size(xy,2)) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  real(lp), dimension(:,:), intent(in) :: xy
+  real(lp), dimension(size(xy,1),size(xy,2)) :: return_value
   !
   !.. Local Scalars ..
   integer   :: i
@@ -479,10 +484,10 @@ end function xytors_DP
 !
 pure function xytors_QP(xy) result(return_value)
   !
-  real(qp), dimension(:,:), intent(in) :: xy
-  real(qp), dimension(size(xy,1),size(xy,2)) :: return_value
+  integer, parameter :: lp = local_qp
   !
-  integer, parameter :: lp = qp
+  real(lp), dimension(:,:), intent(in) :: xy
+  real(lp), dimension(size(xy,1),size(xy,2)) :: return_value
   !
   !.. Local Scalars ..
   integer   :: i
@@ -510,12 +515,12 @@ end function xytors_QP
 !
 pure function TriNodes2D_DG_DP(N,val) result(return_value)
   !
-  integer,  intent(in) :: N
-  real(dp), intent(in) :: val
-  !
-  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  integer,  intent(in) :: N
+  real(lp), intent(in) :: val
+  !
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   real(lp), parameter :: half = 0.5_lp
   real(lp), parameter :: one  = 1.0_lp
@@ -536,12 +541,12 @@ end function TriNodes2D_DG_DP
 !
 pure function TriNodes2D_DG_QP(N,val) result(return_value)
   !
+  integer, parameter :: lp = local_qp
+  !
   integer,  intent(in) :: N
-  real(qp), intent(in) :: val
+  real(lp), intent(in) :: val
   !
-  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  integer, parameter :: lp = qp
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   real(lp), parameter :: half = 0.5_lp
   real(lp), parameter :: one  = 1.0_lp
@@ -564,12 +569,12 @@ pure function TriNodes2D_HT_DP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
-  integer,  intent(in) :: N
-  real(dp), intent(in) :: val
-  !
-  real(dp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
   integer, parameter :: lp = dp
+  !
+  integer,  intent(in) :: N
+  real(lp), intent(in) :: val
+  !
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   integer  :: i,j,k,isp,np1d,np2d,m
@@ -629,12 +634,12 @@ pure function TriNodes2D_HT_QP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
+  integer, parameter :: lp = local_qp
+  !
   integer,  intent(in) :: N
-  real(qp), intent(in) :: val
+  real(lp), intent(in) :: val
   !
-  real(qp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
-  !
-  integer, parameter :: lp = qp
+  real(lp), dimension(1:2,1:(N+1)*(N+2)/2) :: return_value
   !
   !.. Local Scalars ..
   integer  :: i,j,k,isp,np1d,np2d,m
