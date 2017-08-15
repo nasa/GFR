@@ -290,10 +290,9 @@ time-optimize:
 	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" time
 
-.PHOHY: link-to-haswell
+.PHONY: link-to-haswell
 link-to-haswell:
-	/bin/ln -sf recon_haswell recon_broadwell
-	/bin/ln -sf recon_haswell $(HOME)/bin/recon_broadwell
+	make -f slv.mk link-to-haswell
 
 .PHONY: deplist
 deplist:

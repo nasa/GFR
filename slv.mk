@@ -34,12 +34,12 @@ ifdef MKLFPP
 endif
 
 ifdef PBSFPP
-  PBSINC := -L /u/scicon/tools/lib 
+  PBSDIR := -L/u/scicon/tools/lib 
   PBSLIB := -lpbs_time_left
   ifneq "$(COMPFAMILY)" "intel"
     INTELVER := 2016.2.181
     INTELDIR := /nasa/intel/Compiler/$(INTELVER)
-    PBSINC += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
+    PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
     PBSLIB += -lirc
   endif
   TARGET = $(AUTOTARGETARCH)
@@ -53,7 +53,7 @@ INCDIR = $(sort $(CGNSDIR) $(METISDIR))
 LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR))
 
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
-FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
+FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
 FCBASE = $(TRACEFLAG) -g $(REALLOCFLAG)
@@ -185,6 +185,10 @@ $(OBJS):
 	$(QUIET) $(Command-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Command-End)
 ##$(QUIET) $(Time-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Time-End) $(HighlightName)
 
+.PHONY: link-to-haswell
+link-to-haswell:
+	if [ -d $(EXEDIR) ] ; then /bin/ln -sf recon_haswell $(EXEDIR)/recon_broadwell ; fi
+
 .PHONY: clean
 clean:
 	/bin/rm -f $(OBJDIR)/*.o $(MODDIR)/*.mod $(EXECUTABLE)
@@ -236,6 +240,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC
+  EXTOBJS  := $(METISDIR)/include/metis.o
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
   AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH)
   HOSTARCH := $(ARCHFLAG)native
@@ -255,7 +260,7 @@ else ifeq "$(COMPFAMILY)" "pgi"
   TRACEFLAG := -traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  EXTOBJS  := $(METIS_ROOT)/include/metis.o
+  EXTOBJS  := $(METISDIR)/include/metis.o
   AUTOTARGETARCH := -tp=$(SANARCH),$(HASARCH)
   HOSTARCH :=
 endif
