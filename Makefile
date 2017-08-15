@@ -337,3 +337,5 @@ clean:
 	               "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_haswell" \
 	               "BUILDDIR=optimize_haswell" clean
+	if [ -L recon_broadwell ] ; then /bin/rm -f recon_broadwell ; fi
+
