@@ -19,36 +19,46 @@ FSFXFLG = .f90
 CSFXFLG = .c
 CFLAG = -O3 -g
 
-HDF5LIB = -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl
+HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
+CGNSLIB  := -lcgns
+METISLIB := -lmetis
 
-O2OPT = -O2 $(IPFLAG)
-#O3OPT = -O3 $(IPOFLAG)
- O3OPT = -O3 $(IPFLAG)
-
-TARGET = $(AUTOTARGETCPU) $(TARGETCPU)
-
-EXEDIR := $(HOME)/bin
-
-ifneq "$(MKLLIB)" ""
-  MKLFLAG = -mkl
-  MKLFPP = -DUSE_INTEL_MKL
-  MKLINC = -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
+ifdef SZIPDIR
+  SZIPLIB := -lsz
 endif
+
+ifdef MKLFPP
+  MKLFLAG := -mkl
+  MKLINC  := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
+  MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
+endif
+
+ifdef PBSFPP
+  PBSINC := -L /u/scicon/tools/lib 
+  PBSLIB := -lpbs_time_left
+  ifneq "$(COMPFAMILY)" "intel"
+    INTELVER := 2016.2.181
+    INTELDIR := /nasa/intel/Compiler/$(INTELVER)
+    PBSINC += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
+    PBSLIB += -lirc
+  endif
+  TARGET = $(AUTOTARGETARCH)
+endif
+
+TARGET ?= $(HOSTARCH)
 
 FPP = $(FPPFLAG) $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
 
 INCDIR = $(sort $(CGNSDIR) $(METISDIR))
-LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR) $(PBSDIR))
+LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR))
 
-FINC = $(foreach i,$(INCDIR),-I$(i)/include) $(MKLINC) $(OTHERINCDIR)
+FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
 FCBASE = $(TRACEFLAG) -g $(REALLOCFLAG)
 
-ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(EXTFLAGS)
-
-DEBUGFLAGS = $(CHECKFLAG) $(DEBUGFLAG) 
+ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(CMPFLAGS)
 
 COBJS := $(OBJDIR)/mycpu.o
 
@@ -97,35 +107,35 @@ OBJS := $(OBJDIR)/kind_types.o \
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
 
 .PHONY: O2-ip-opt
-O2-ip-opt: OPTIM = $(O2OPT) $(TARGET) $(ADDOPT)
+O2-ip-opt: OPTIM = -O2 $(OPTFLAG) $(TARGET)
 O2-ip-opt: optimize
 
 .PHONY: O3-ipo-opt
-O3-ipo-opt: OPTIM = $(O3OPT) $(TARGET) $(ADDOPT)
+O3-ipo-opt: OPTIM = -O3 $(OPTFLAG) $(TARGET)
 O3-ipo-opt: optimize
 
 .PHONY: broadwell
-broadwell: OPTIM = $(O3OPT) $(ARCHFLAG)$(BROARCH) $(ADDOPT)
+broadwell: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(BROARCH)
 broadwell: optimize
 
 .PHONY: haswell
-haswell: OPTIM = $(O3OPT) $(ARCHFLAG)$(HASARCH) $(ADDOPT)
+haswell: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(HASARCH)
 haswell: optimize
 
 .PHONY: ivybridge
-ivybridge: OPTIM = $(O3OPT) $(ARCHFLAG)$(IVYARCH) $(ADDOPT)
+ivybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(IVYARCH)
 ivybridge: optimize
 
 .PHONY: sandybridge
-sandybridge: OPTIM = $(O3OPT) $(ARCHFLAG)$(SANARCH) $(ADDOPT)
+sandybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
 sandybridge: optimize
 
 .PHONY: westmere
-westmere: OPTIM = $(O3OPT) $(ARCHFLAG)$(WESARCH) $(ADDOPT)
+westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 westmere: optimize
 
 .PHONY: merope
-merope: OPTIM = $(O3OPT) $(ARCHFLAG)$(WESARCH) $(ADDOPT)
+merope: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
 
 .PHONY: optimize
@@ -134,7 +144,7 @@ optimize: all
 
 .PHONY: debug
 debug: FPP += -DDEBUG_ON
-debug: FCFLAG = $(FCBASE) $(DEBUGFLAGS) $(ADDFLAGS)
+debug: FCFLAG = $(FCBASE) $(DBGFLAG) $(ADDFLAGS)
 debug: all
 
 
@@ -145,7 +155,7 @@ deplist: debug
 .PHONY: time
 time: Command-Beg := /usr/bin/time -f '%e'
 time: Command-End  = 2>&1 | awk '{ printf "%-25s%8.2f seconds", "$<", $$1 }' $(HighlightName)
-time: FCFLAG = $(FCBASE) $(O3OPT) $(TARGET) $(ADDOPT) $(ADDFLAGS)
+time: FCFLAG = $(FCBASE) -O3 $(OPTFLAG) $(TARGET) $(ADDFLAGS)
 time: $(OBJS)
 	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
 	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
@@ -158,7 +168,7 @@ all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJS) $(COBJS)
 	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(COBJS) $(EXTOBJS) $(FLIB)
-	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
+	if [ -d $(EXEDIR) ] ; then /bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE) ; fi
 
 %.o:%$(FSFXFLG)
 	$(QUIET) echo $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(HighlightName);\
@@ -184,12 +194,70 @@ dump-variables:
 	$(QUIET) echo "FC = $(FC)"
 	$(QUIET) echo "FPP = $(FPP)"
 	$(QUIET) echo "FCBASE = $(FCBASE)"
-	$(QUIET) echo "O3OPT = $(O3OPT)"
-	$(QUIET) echo "ADDOPT = $(ADDOPT)"
 	$(QUIET) echo "ADDFLAGS = $(ADDFLAGS)"
 	$(QUIET) echo "FCFLAG = $(FCFLAG)"
 	$(QUIET) echo "OBJDIR = $(OBJDIR)"
 	$(QUIET) echo "MODDIR = $(MODDIR)"
 	$(QUIET) echo "EXECUTABLE = $(EXECUTABLE)"
+
+# Unique definitions for each compiler
+ifeq "$(COMPFAMILY)" "intel"
+  # Intel flags
+  MODFLAG := -module
+  ARCHFLAG := -x
+  TUNEFLAG := -ax
+  WESARCH := SSE4.2
+  SANARCH := AVX
+  IVYARCH := CORE-AVX-I
+  HASARCH := CORE-AVX2
+  BROARCH := CORE-AVX2
+  FPPFLAG := -fpp
+  OPTFLAG := -ip -align array32byte
+  DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check
+  IPFLAG  := -ip
+  IPOFLAG := -ipo
+  TRACEFLAG := -traceback
+  REALLOCFLAG := -assume realloc_lhs
+  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(HASARCH),$(IVYARCH)
+  HOSTARCH := $(ARCHFLAG)Host
+else ifeq "$(COMPFAMILY)" "gcc"
+  # GCC flags
+  MODFLAG := -J
+  ARCHFLAG := -march=
+  TUNEFLAG := -mtune=
+  WESARCH := westmere
+  SANARCH := sandybridge
+  IVYARCH := ivybridge
+  HASARCH := haswell
+  BROARCH := broadwell
+  FPPFLAG := -cpp
+  OPTFLAG := 
+  DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
+  TRACEFLAG := -fbacktrace
+  REALLOCFLAG := -frealloc-lhs
+  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC
+  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
+  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH)
+  HOSTARCH := $(ARCHFLAG)native
+else ifeq "$(COMPFAMILY)" "pgi"
+  # PGI flags
+  MODFLAG := -module
+  ARCHFLAG := -tp=
+  TUNEFLAG := -tp=
+  WESARCH := nehalem
+  SANARCH := sandybridge
+  IVYARCH := sandybridge
+  HASARCH := haswell
+  BROARCH := haswell
+  FPPFLAG := -Mpreprocess
+  OPTFLAG :=
+  DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
+  TRACEFLAG := -traceback
+  REALLOCFLAG := -Mallocatable=03
+  CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
+  EXTOBJS  := $(METIS_ROOT)/include/metis.o
+  AUTOTARGETARCH := -tp=$(SANARCH),$(HASARCH)
+  HOSTARCH :=
+endif
 
 include dep.mk
