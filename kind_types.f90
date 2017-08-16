@@ -11,6 +11,215 @@ end module rename_intrinsics
 !
 !###############################################################################
 !
+module compatibility_pgi_mod
+  !
+  ! Interfaces to PGI built-in (non-standard) intrinsic procedures
+  !
+  ! NOTE: This is copied from the file 'lib3f.h' which can be found
+  !       in the include directory of the PGI installation.
+  !
+  implicit none
+  !
+#ifdef SPECIAL_FOR_PGI
+  public
+  !
+  interface
+    !
+    function system(command) result(ierr)
+      character*(*), intent(in) :: command
+      integer :: ierr
+    end function system
+    !
+    function ierrno() result(ierr)
+      integer :: ierr
+    end function ierrno
+    !
+    subroutine gerror(string)
+      character*(*), intent(out) :: string
+    end subroutine gerror
+    !
+  end interface
+  !
+contains
+!
+!###############################################################################
+!
+subroutine execute_command_line(command,wait,exitstat,cmdstat,cmdmsg)
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: command
+  !
+  !.. Optional Arguments ..
+  logical,          optional,    intent(in) :: wait
+  integer,          optional, intent(inout) :: exitstat
+  integer,          optional, intent(inout) :: cmdstat
+  character(len=*), optional, intent(inout) :: cmdmsg
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  character(len=len_trim(adjustl(command))) :: command_string
+  !
+continue
+  !
+  command_string = trim(adjustl(command))
+  !
+  ierr = system( command_string )
+  !
+  if (present(exitstat)) then
+    exitstat = ierr
+  end if
+  !
+  if (present(cmdstat)) then
+    cmdstat = ierrno()
+  end if
+  !
+  if (present(cmdmsg)) then
+    call gerror( cmdmsg )
+  end if
+  !
+end subroutine execute_command_line
+!
+!###############################################################################
+!
+#endif
+end module compatibility_pgi_mod
+!
+!###############################################################################
+!
+module compatibility_gcc_mod
+  !
+  ! Interfaces to GCC built-in (non-standard) intrinsic procedures
+  !
+  ! NOTE: These interfaces are defined based on the definitions of these
+  !       procedures in the GNU Fortran Manual which can be found at
+  !       https://gcc.gnu.org/onlinedocs/gcc-4.9.4/gfortran.pdf
+  !
+  ! NOTE: The C binding names are based on the result of the command
+  !       `nm -D libgfortran.so | grep -i '\(system\|ierrno\|gerror\)'`
+  !       which shows that these procedures are prefixed with '_gfortran'
+  !       when compiled and linked into the libraries.
+  !       
+  implicit none
+  !
+#ifdef SPECIAL_FOR_GCC
+  private
+  !
+  public :: system
+  public :: ierrno
+  public :: gerror
+  !
+  interface
+    !
+    function gcc_system(command) result(ierr) bind(c,name="_gfortran_system")
+      use, intrinsic :: iso_c_binding, only : c_char,c_int
+      character(kind=c_char), intent(in) :: command(*)
+      integer(c_int) :: ierr
+    end function gcc_system
+    !
+    ! NOTE: There are two version of ierrno()
+    !           _gfortran_ierrno_i4 which returns a 32-bit integer
+    !           _gfortran_ierrno_i8 which returns a 64-bit integer
+    !
+    function ierrno() result(ierr) bind(c,name="_gfortran_ierrno_i4")
+      use, intrinsic :: iso_c_binding, only : c_int
+      integer(c_int) :: ierr
+    end function ierrno
+    !
+    subroutine gcc_gerror(string) bind(c,name="_gfortran_gerror")
+      use, intrinsic :: iso_c_binding, only : c_char
+      character(kind=c_char), intent(out) :: string(*)
+    end subroutine gcc_gerror
+    !
+  end interface
+  !
+contains
+!
+!###############################################################################
+!
+function system(command) result(ierr)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_char,c_int,c_null_char
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: command
+  !
+  !.. Function Result ..
+  integer(c_int) :: ierr
+  !
+  !.. Local Scalars ..
+  integer :: n,nlen
+  character(len=len_trim(adjustl(command))) :: command_string
+  character(len=100) :: frmt
+  !
+  !.. Local Arrays ..
+  character(len=1,kind=c_char) :: c_command(1:len_trim(adjustl(command))+1)
+  !
+continue
+  !
+  command_string = trim(adjustl(command))
+  write (*,100) "command_string",command_string
+  100 format (a," = '",a,"'")
+  !
+  nlen = len(command_string)
+  do n = 1,nlen
+    c_command(n) = command_string(n:n)
+  end do
+  c_command(nlen+1) = c_null_char
+  write (frmt,101) nlen+1
+  101 format ('(a," = ',"'",'",',i0,'(a),"',"'",'")')
+ !101 format (a," = '",<nlen+1>(a),"'")
+  write (*,fmt=frmt) "c_command",(c_command(n),n=1,size(c_command))
+  !
+  ierr = gcc_system( c_command )
+  !
+end function system
+!
+!###############################################################################
+!
+subroutine gerror(string)
+  !
+  !.. Use Statements ..
+  use, intrinsic :: iso_c_binding, only : c_char,c_int,c_null_char
+  !
+  !.. Formal Arguments ..
+ !character(len=:), allocatable, intent(out) :: string
+  character(len=*), intent(out) :: string
+  !
+  !.. Local Scalars ..
+  integer :: n,nlen,ierr
+  !
+  !.. Local Arrays ..
+  character(len=1,kind=c_char) :: c_string(1:301)
+  !
+continue
+  !
+  c_string(:) = c_null_char
+  !
+  call gcc_gerror( c_string )
+  !
+  do n = 1,size(c_string)
+    if (c_string(n) == c_null_char) then
+      nlen = n-1
+      exit
+    end if
+  end do
+  !
+ !allocate ( character(len=nlen) :: string , stat=ierr )
+  !
+  do n = 1,min(nlen,len(string))
+    string(n:n) = c_string(n)
+  end do
+  !
+end subroutine gerror
+!
+!###############################################################################
+!
+#endif
+end module compatibility_gcc_mod
+!
+!###############################################################################
+!
 module base_kind_types
   !
   !.. Use Statements ..
@@ -1453,6 +1662,23 @@ end subroutine io_error
 subroutine execute_command(command,wait_for_completion,exit_status, &
                            command_status,command_message,procedure_name)
   !
+#define USE_EXECUTE_COMMAND_LINE
+#ifdef USE_EXECUTE_COMMAND_LINE
+#ifdef SPECIAL_FOR_PGI
+  use compatibility_pgi_mod, only : execute_command_line
+#endif
+#else
+#ifdef SPECIAL_FOR_PGI
+  use compatibility_pgi_mod, only : system,ierrno,gerror
+#else
+#ifdef SPECIAL_FOR_GCC
+  use compatibility_gcc_mod, only : system,ierrno,gerror
+#else
+  use ifport, only : system,ierrno
+  use ifcore, only : gerror
+#endif
+#endif
+#endif
   !.. Formal Arguments ..
   character(len=*),  intent(in) :: command
   logical(ldk),      intent(in) :: wait_for_completion
@@ -1464,53 +1690,43 @@ subroutine execute_command(command,wait_for_completion,exit_status, &
   !.. Local Scalars ..
   integer :: n
   !
-  !.. Local Parameters ..
-  character(len=*), parameter :: command_line_procedure = "system()"
+  !.. Allocatable Scalars ..
+  character(len=:), allocatable :: command_string
+ !character(len=len_trim(adjustl(command))) :: command_string
   !
-  !.. Function Interfaces ..
-  interface
-    function system(command) result(ierr) bind(c)
-      use, intrinsic :: iso_c_binding, only : c_char,c_int
-      character(kind=c_char), intent(in) :: command(*)
-      integer(c_int) :: ierr
-    end function system
-  end interface
-  interface
-#ifdef SPECIAL_FOR_GCC
-    function ierrno() result(ierr) bind(c,name="_gfortran_ierrno_i4")
+  !.. Local Parameters ..
+#ifdef USE_EXECUTE_COMMAND_LINE
+  character(len=*), parameter :: command_line_procedure = "execute_command_line"
 #else
-    function ierrno() result(ierr)! bind(c)
+  character(len=*), parameter :: command_line_procedure = "system"
 #endif
-      use, intrinsic :: iso_c_binding, only : c_int
-      integer(c_int) :: ierr
-    end function ierrno
-  end interface
   !
 continue
   !
-  exit_status = 0
-  command_status = 0
-  command_message = ""
+  command_string = trim(adjustl(command))
   !
   if (mypnum == 0) then
     !
     do n = 1,5
       !
-      exit_status = system( trim(adjustl(command)) )
+      exit_status = 0
+      command_status = 0
+      command_message = ""
+      !
+#ifdef USE_EXECUTE_COMMAND_LINE
+      call execute_command_line(command_string,wait_for_completion, &
+                                exit_status,command_status,command_message )
+#else
+      exit_status = system( command_string )
       if (exit_status /= 0) then
         command_status = ierrno()
+        call gerror(command_message)
       end if
+#endif
       !
       call write_command_results(procedure_name,command,exit_status, &
-                                 command_status=command_status, &
-                                 command_line_procedure=command_line_procedure)
-      !
-     !call execute_command_line(trim(adjustl(command)), wait_for_completion, &
-     !                          exit_status, command_status, &
-     !                          command_message )
-     !!
-     !call write_command_results(procedure_name,command,exit_status, &
-     !                           command_status,command_message)
+                                 command_status,command_message, &
+                                 command_line_procedure)
       !
       if (exit_status == 0) exit
       !
@@ -1559,12 +1775,12 @@ continue
                    exit_status
     !
     if (present(command_message)) then
-      write (iout,6) trim(adjustl(command_message))
+      write (iout,6) trim(adjustl(clp)),trim(adjustl(command_message))
     end if
     !
     if (present(command_status)) then
       !
-      write (iout,5) command_status
+      write (iout,5) trim(adjustl(clp)),command_status
       !
       if (command_status == -1) then
         write (iout,2)
@@ -1576,6 +1792,7 @@ continue
       !
     end if
     !
+    write (iout,*)
     flush (iout)
     !
   end if
@@ -1585,14 +1802,14 @@ continue
   1 format (/,2x,"Calling ",a," with the command",/, &
               5x,"'",a,"'",/, &
               2x,"from procedure '",a,"'",/, &
-              5x,"status returned from command line = ",i0,/)
+              5x,"status returned from command line = ",i0)
   2 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR ", &
                  "DOES NOT SUPPORT COMMAND LINE EXECUTION!!!",/)
   3 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR DOES ", &
                  "NOT SUPPORT ASYNCHRONOUS COMMAND EXECUTION!!!",/)
   4 format (/,2x,"AN ERROR OCCURRED CALLING 'execute_command_line'!!!",/)
-  5 format (5x,"status  returned from execute_command_line = ",i0)
-  6 format (5x,"message returned from execute_command_line = '",a,"'")
+  5 format (5x,"status  returned from ",a,"() = ",i0)
+  6 format (5x,"message returned from ",a,"() = '",a,"'")
 
   !
 end subroutine write_command_results
