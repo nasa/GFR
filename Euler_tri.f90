@@ -791,7 +791,7 @@ continue
                '  ncell = ',i0,'  nnode = ',i0, &
                '  nfbnd = ',i0,'  nDOF = ',i0,/, &
                '  Total Grid Volume = ',f13.6,/, &
-               '  1D Solution Points = ',6f9.5,:,*(/,23x,6f9.5))
+               '  1D Solution Points = ',100(6f9.5,:,/,23x))
   !
   19 format (/,' Lowest  Cell Order = ',i4,/, &
                ' Highest Cell Order = ',i4,/)
