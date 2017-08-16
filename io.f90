@@ -808,8 +808,10 @@ continue
       ip = min( lustre_stripe_count + i , max_lustre_count )
       im = max( lustre_stripe_count - i , 0 )
       if (mod(ncpu,ip) == 0) then
-        lustre_stripe_count = ip
-        exit count_loop
+        if (ncpu/ip >= 4) then
+          lustre_stripe_count = ip
+          exit count_loop
+        end if
       else if (mod(ncpu,im) == 0) then
         lustre_stripe_count = im
         exit count_loop
