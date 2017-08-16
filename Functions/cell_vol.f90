@@ -98,7 +98,7 @@ continue
   !
   vol1 = vol_tet( xyz_pts(:,[1,2,3,5]) )
   !
-  vol1 = vol_tet( xyz_pts(:,[1,3,4,5]) )
+  vol2 = vol_tet( xyz_pts(:,[1,3,4,5]) )
   !
   return_value = vol1 + vol2
   !
