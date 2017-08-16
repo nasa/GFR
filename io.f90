@@ -5703,13 +5703,15 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
   !
+  logical(lk) :: need_vorticity
+  !
   character(len=CGLEN) :: varname
   character(len=CGLEN) :: sect_name
   character(len=170)   :: cgns_sol_file
   character(len=300)   :: link_path
   !
   !.. Local Allocatable Arrays ..
-  character(len=:), allocatable :: char_sname(:)
+  character(len=CGLEN), allocatable :: char_sname(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
@@ -5778,33 +5780,38 @@ continue
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
   !
-  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+  need_vorticity = fals
   if (itestcase == Taylor_Green_Vortex) then
     one_pass_loop: do nc = 1,1
-      do n = 1,size(char_sname)
-        if (adjustl(trim(char_sname(n))) == "Vorticity") then
+      do n = 1,size(char_sdefault)
+        if (adjustl(trim(char_sdefault(n))) == "Vorticity") then
           exit one_pass_loop
         end if
       end do
-#ifdef SPECIAL_FOR_GCC
-      n = max( len("Vorticity") , len(char_sdefault) )
-      if (allocated(char_sname)) then
-        deallocate ( char_sname , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"char_sname",2,__LINE__,__FILE__, &
-                         ierr,error_message)
-      end if
-      allocate ( character(len=n) :: char_sname(1:size(char_sdefault)+1) , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"char_sname",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      char_sname(:) = [ char_sdefault(:) , "Vorticity" ]
-#else
-      n = max( len("Vorticity") , len(char_sname) )
-      ! USING F2003 AUTO-REALLOCATION
-      char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
-#endif
+      need_vorticity = true
     end do one_pass_loop
   end if
+  !
+  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+  if (need_vorticity) then
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ char_sname , "Vorticity" ]
+  end if
+  !
+!#ifdef SPECIAL_FOR_GCC
+! char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+! if (need_vorticity) then
+!   ! USING F2003 AUTO-REALLOCATION
+!   char_sname = [ char_sname , "Vorticity" ]
+! end if
+!#else
+! char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+! if (need_vorticity) then
+!   n = max( len("Vorticity") , len(char_sdefault) )
+!   ! USING F2003 AUTO-REALLOCATION
+!   char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
+! end if
+!#endif
   !
   ! Get the name of the current solution file
   !
