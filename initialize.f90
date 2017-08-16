@@ -1424,7 +1424,8 @@ continue
   one_over_gm1 = one / gm1
   gam_over_gm1 = gam*one_over_gm1
   !
-  nbc = 1
+  ! Find any boundary conditions that were set in the
+  ! input namelist file using the bc_input array
   !
   do n = 1,size(bc_input)
     !
@@ -1460,7 +1461,7 @@ continue
   !
   ! Set the other boundary conditions
   !
-  do i = 1,size(bc_list)
+  do i = 1,nbc
     !
     n = bc_list(i)
     !
