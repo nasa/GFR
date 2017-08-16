@@ -1653,7 +1653,11 @@ continue
                      error_message)
     !
     ! F2003 AUTO-REALLOCATION
+#ifdef SPECIAL_FOR_GCC
+    local_og = [ int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=i4 ) ]
+#else
     local_og = int( 100*cell(1:ncell)%order + cell(1:ncell)%geom , kind=i4 )
+#endif
     !
     call mpi_gatherv(local_og,int(ncell,kind=int_mpi),MPI_INTEGER, &
                      ordered_geom,og_counts,og_displs,MPI_INTEGER, &
@@ -2218,7 +2222,11 @@ continue
   !       these are very small arrays and consume little to no memory.
   !
   ! F2003 AUTO-REALLOCATION
+#ifdef SPECIAL_FOR_GCC
+  og_counts = [ int(host_cells,kind=int_mpi) ]
+#else
   og_counts = int(host_cells,kind=int_mpi)
+#endif
   !
   ! F2003 AUTO-REALLOCATION
   og_displs = eoshift( og_counts , shift=TO_END , boundary=0_int_mpi )
@@ -2231,7 +2239,11 @@ continue
   recvdispls = 2_int_mpi*og_displs ! F2003 AUTO-REALLOCATION
   ! 
   ! F2003 AUTO-REALLOCATION
+#ifdef SPECIAL_FOR_GCC
+  pts_counts = [ int(host_pts,kind=int_mpi) ]
+#else
   pts_counts = int(host_pts,kind=int_mpi)
+#endif
   !
   ! F2003 AUTO-REALLOCATION
   pts_displs = eoshift( pts_counts , shift=TO_END , boundary=0_int_mpi )
