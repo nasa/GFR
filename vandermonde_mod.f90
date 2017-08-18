@@ -214,6 +214,9 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: solpts(:,:)
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: edgpts(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "Compute_Basis_Matrix"
   !
@@ -238,12 +241,15 @@ continue
     case (Geom_Edge)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
+       !solpts => nodal_points
       else
-        solpts => std_elem(elem_geom,elem_order)%pts
+        edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
+       !solpts => std_elem(elem_geom,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Edge( solpts(1,:) , basis_order )
+      return_value(:,:) = Vandermonde_Edge( edgpts , basis_order )
+     !return_value(:,:) = Vandermonde_Edge( solpts(1,:) , basis_order )
       !
     case (Geom_Tria)
       !
@@ -258,12 +264,15 @@ continue
     case (Geom_Quad)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
+       !solpts => nodal_points
       else
-        solpts => std_elem(Geom_Edge,elem_order)%pts
+        edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
+       !solpts => std_elem(Geom_Edge,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Quad( solpts(1,:) , basis_order )
+      return_value(:,:) = Vandermonde_Quad( edgpts , basis_order )
+     !return_value(:,:) = Vandermonde_Quad( solpts(1,:) , basis_order )
       !
     case (Geom_Tetr)
       !
@@ -298,12 +307,15 @@ continue
     case (Geom_Hexa)
       !
       if (present(nodal_points)) then
-        solpts => nodal_points
+        edgpts = nodal_points(1,:) ! F2003 AUTO-REALLOCATION
+       !solpts => nodal_points
       else
-        solpts => std_elem(Geom_Edge,elem_order)%pts
+        edgpts = std_elem(Geom_Edge,elem_order)%pts(1,:) ! F2003 AUTO-REALLOC
+       !solpts => std_elem(Geom_Edge,elem_order)%pts
       end if
       !
-      return_value(:,:) = Vandermonde_Hexa( solpts(1,:) , basis_order )
+      return_value(:,:) = Vandermonde_Hexa( edgpts , basis_order )
+     !return_value(:,:) = Vandermonde_Hexa( solpts(1,:) , basis_order )
       !
     case default
       !

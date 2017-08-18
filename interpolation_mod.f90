@@ -108,7 +108,11 @@ subroutine init_interpolation_matrices()
   type(matrix), pointer :: this_edge
   type(matrix), pointer :: this_node
   real(wp), pointer, contiguous :: solpts(:,:)
-  real(wp), pointer, contiguous :: flxpts(:,:)
+ !real(wp), pointer, contiguous :: flxpts(:,:)
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: edgpts(:)
+  real(wp), allocatable :: flxpts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_interpolation_matrices"
@@ -124,7 +128,7 @@ continue
   this_edge   => null()
   this_node   => null()
   solpts      => null()
-  flxpts      => null()
+ !flxpts      => null()
   !
   gmin = n_min_geom
   gmax = n_max_geom
@@ -199,9 +203,11 @@ continue
         select case (this_geom)
           case (Geom_Edge)
             !
-            solpts => std_elem(this_geom,this_order)%pts
+            edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(this_geom,this_order)%pts
             !
-            this_face%mat = InterpToFace_Edge( solpts(1,:) )
+            this_face%mat = InterpToFace_Edge( edgpts )
+           !this_face%mat = InterpToFace_Edge( solpts(1,:) )
             !
           case (Geom_Tria)
             !
@@ -211,10 +217,13 @@ continue
             !
           case (Geom_Quad)
             !
-            solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts => face_elem(Geom_Edge,face_order)%pts
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(Geom_Edge,this_order)%pts
+            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !flxpts => face_elem(Geom_Edge,face_order)%pts
             !
-            this_face%mat = InterpToFace_Quad( solpts(1,:) , flxpts(1,:) )
+            this_face%mat = InterpToFace_Quad( edgpts , flxpts )
+           !this_face%mat = InterpToFace_Quad( solpts(1,:) , flxpts(1,:) )
             !
           case (Geom_Tetr)
             !
@@ -236,10 +245,13 @@ continue
             !
           case (Geom_Hexa)
             !
-            solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts => face_elem(Geom_Edge,face_order)%pts
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(Geom_Edge,this_order)%pts
+            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !flxpts => face_elem(Geom_Edge,face_order)%pts
             !
-            this_face%mat = InterpToFace_Hexa( solpts(1,:) , flxpts(1,:) )
+            this_face%mat = InterpToFace_Hexa( edgpts , flxpts )
+           !this_face%mat = InterpToFace_Hexa( solpts(1,:) , flxpts(1,:) )
             !
           case default
             !
@@ -252,7 +264,7 @@ continue
         !
         if (associated(this_face)) this_face => null()
         if (associated(solpts   )) solpts    => null()
-        if (associated(flxpts   )) flxpts    => null()
+       !if (associated(flxpts   )) flxpts    => null()
         !
       end do face_order_loop
       !
@@ -313,10 +325,13 @@ continue
             !
           case (Geom_Hexa)
             !
-            solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts => face_elem(Geom_Edge,edge_order)%pts
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(Geom_Edge,this_order)%pts
+            flxpts = face_elem(Geom_Edge,edge_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !flxpts => face_elem(Geom_Edge,edge_order)%pts
             !
-            this_edge%mat = InterpToEdge_Hexa( solpts(1,:) , flxpts(1,:) )
+            this_edge%mat = InterpToEdge_Hexa( edgpts , flxpts )
+           !this_edge%mat = InterpToEdge_Hexa( solpts(1,:) , flxpts(1,:) )
             !
           case default
             !
@@ -329,7 +344,7 @@ continue
         !
         if (associated(this_edge)) this_edge => null()
         if (associated(solpts   )) solpts    => null()
-        if (associated(flxpts   )) flxpts    => null()
+       !if (associated(flxpts   )) flxpts    => null()
         !
       end do edge_order_loop
       !
@@ -377,9 +392,11 @@ continue
             !
           case (Geom_Quad)
             !
-            solpts => std_elem(Geom_Edge,this_order)%pts
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(Geom_Edge,this_order)%pts
             !
-            this_node%mat = InterpToNode_Quad( solpts(1,:) )
+            this_node%mat = InterpToNode_Quad( edgpts )
+           !this_node%mat = InterpToNode_Quad( solpts(1,:) )
             !
           case (Geom_Tetr)
             !
@@ -401,9 +418,11 @@ continue
             !
           case (Geom_Hexa)
             !
-            solpts => std_elem(Geom_Edge,this_order)%pts
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+           !solpts => std_elem(Geom_Edge,this_order)%pts
             !
-            this_node%mat = InterpToNode_Hexa( solpts(1,:) )
+            this_node%mat = InterpToNode_Hexa( edgpts )
+           !this_node%mat = InterpToNode_Hexa( solpts(1,:) )
             !
           case default
             !
@@ -415,7 +434,7 @@ continue
         ! Remove all associations of the local pointers before continuing
         !
         if (associated(solpts   )) solpts    => null()
-        if (associated(flxpts   )) flxpts    => null()
+       !if (associated(flxpts   )) flxpts    => null()
         if (associated(this_node)) this_node => null()
         !
       end do node_loop
@@ -861,6 +880,9 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   !.. Local Pointers ..
   real(wp), pointer, contiguous :: solpts(:,:)
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: edgpts(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "InterptoCell"
   !
@@ -871,9 +893,11 @@ continue
   select case (this_geom)
     case (Geom_Edge)
       !
-      solpts => std_elem(Geom_Edge,this_order)%pts
+      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
-      return_value(:,:) = InterpToCell_Edge( solpts(1,:) , pts )
+      return_value(:,:) = InterpToCell_Edge( edgpts , pts )
+     !return_value(:,:) = InterpToCell_Edge( solpts(1,:) , pts )
       !
     case (Geom_Tria)
       !
@@ -883,9 +907,11 @@ continue
       !
     case (Geom_Quad)
       !
-      solpts => std_elem(Geom_Edge,this_order)%pts
+      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
-      return_value(:,:) = InterpToCell_Quad( solpts(1,:) , pts )
+      return_value(:,:) = InterpToCell_Quad( edgpts , pts )
+     !return_value(:,:) = InterpToCell_Quad( solpts(1,:) , pts )
       !
     case (Geom_Tetr)
       !
@@ -907,9 +933,11 @@ continue
       !
     case (Geom_Hexa)
       !
-      solpts => std_elem(Geom_Edge,this_order)%pts
+      edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+     !solpts => std_elem(Geom_Edge,this_order)%pts
       !
-      return_value(:,:) = InterpToCell_Hexa( solpts(1,:) , pts )
+      return_value(:,:) = InterpToCell_Hexa( edgpts , pts )
+     !return_value(:,:) = InterpToCell_Hexa( solpts(1,:) , pts )
       !
     case default
       !

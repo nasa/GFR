@@ -61,6 +61,9 @@ subroutine init_correction_matrices()
   real(wp), pointer, contiguous :: solpts(:,:)
   real(wp), pointer, contiguous :: cmat(:,:)
   !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: edgpts(:)
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_correction_matrices"
   !
@@ -120,9 +123,11 @@ continue
       select case (this_geom)
         case (Geom_Edge)
           !
-          solpts => std_elem(this_geom,this_order)%pts
+          edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+         !solpts => std_elem(this_geom,this_order)%pts
           !
-          cmat(:,1) = CorrectionMatrix_Edge( solpts(1,:) )
+          cmat(:,1) = CorrectionMatrix_Edge( edgpts )
+         !cmat(:,1) = CorrectionMatrix_Edge( solpts(1,:) )
           cmat(:,2) = cmat(nsolpts:1:-1,1)
           !
         case (Geom_Tria)
@@ -133,9 +138,11 @@ continue
           !
         case (Geom_Quad)
           !
-          solpts => std_elem(Geom_Edge,this_order)%pts
+          edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+         !solpts => std_elem(Geom_Edge,this_order)%pts
           !
-          cmat = CorrectionMatrix_Quad( solpts(1,:) )
+          cmat = CorrectionMatrix_Quad( edgpts )
+         !cmat = CorrectionMatrix_Quad( solpts(1,:) )
           !
         case (Geom_Tetr)
           !
@@ -157,9 +164,11 @@ continue
           !
         case (Geom_Hexa)
           !
-          solpts => std_elem(Geom_Edge,this_order)%pts
+          edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+         !solpts => std_elem(Geom_Edge,this_order)%pts
           !
-          cmat = CorrectionMatrix_Hexa( solpts(1,:) )
+          cmat = CorrectionMatrix_Hexa( edgpts )
+         !cmat = CorrectionMatrix_Hexa( solpts(1,:) )
           !
         case default
           !
