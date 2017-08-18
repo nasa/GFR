@@ -5517,6 +5517,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+#ifndef SPECIAL_FOR_PGI
+  !
   cgns_time_file = trim(adjustl(cgns_dir)) // cgns_time_fname
   !
   call cgp_open_f(cgns_time_file,CG_MODE_WRITE,ifile_t,cgierr)
@@ -5634,6 +5636,8 @@ continue
   call cgp_close_f(ifile_t,cgierr)
   call cgns_error(pname,cgns_time_file,"cgp_close_f", &
                   cgierr,__LINE__,__FILE__)
+  !
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5929,6 +5933,8 @@ continue
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
+  !
+#ifndef SPECIAL_FOR_PGI
   !
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
@@ -6444,6 +6450,8 @@ continue
   call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
   !
+#endif
+  !
   ! Deallocate the arrays var and vartmp
   !
   if (allocated(var)) then
@@ -6551,6 +6559,8 @@ continue
   end if
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
 #endif
+  !
+#ifndef SPECIAL_FOR_PGI
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // fname
   !
@@ -6703,6 +6713,8 @@ continue
   !
   call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_grid_file,2,__LINE__,__FILE__,cgierr)
+  !
+#endif
   !
   ! Deallocate the arrays var and vartmp
   !
@@ -6999,6 +7011,7 @@ subroutine TaylorGreen_8s_vorticity_solution()
 continue
   !
   call debug_timer(entering_procedure,pname)
+#ifndef SPECIAL_FOR_PGI
   !
   cgns_vort_file = trim(adjustl(cgns_dir)) // fname
   !
@@ -7217,6 +7230,7 @@ continue
   end if
   !
   call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
+#endif
   !
   write_TaylorGreen_8s_solution = fals
   !
