@@ -21,7 +21,7 @@ program Euler_tri
   use ovar, only : recon_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
-  use ovar, only : continuous_output
+  use ovar, only : continuous_output,completely_disable_cgns
   use ovar, only : check_flux_point_coordinates
   use ovar, only : cfl,cfl_beg,cfl_end,cfl_cycles
   use ovar, only : adjust_cfl_cycles
@@ -679,7 +679,11 @@ continue
     !
     if (itestcase == Taylor_Green_Vortex) then
       if (write_TaylorGreen_8s_solution) then
-        call TaylorGreen_8s_vorticity_solution
+        if (completely_disable_cgns) then
+          write_TaylorGreen_8s_solution = fals
+        else
+          call TaylorGreen_8s_vorticity_solution
+        end if
       end if
       if (write_TaylorGreen_full_solution) then
         if (continuous_output) then
