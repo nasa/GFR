@@ -5860,7 +5860,11 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=300)   :: link_path
   !
   !.. Local Allocatable Arrays ..
+#ifdef SPECIAL_FOR_INTEL
+  character(len=:), allocatable :: char_sname(:)
+#else
   character(len=CGLEN), allocatable :: char_sname(:)
+#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
@@ -5941,26 +5945,26 @@ continue
     end do one_pass_loop
   end if
   !
+ !char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+ !if (need_vorticity) then
+ !  ! USING F2003 AUTO-REALLOCATION
+ !  char_sname = [ char_sname , "Vorticity" ]
+ !end if
+  !
+#ifdef SPECIAL_FOR_INTEL
+  char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
+  if (need_vorticity) then
+    n = max( len("Vorticity") , len(char_sdefault) )
+    ! USING F2003 AUTO-REALLOCATION
+    char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
+  end if
+#else
   char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
   if (need_vorticity) then
     ! USING F2003 AUTO-REALLOCATION
     char_sname = [ char_sname , "Vorticity" ]
   end if
-  !
-!#ifdef SPECIAL_FOR_GCC
-! char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
-! if (need_vorticity) then
-!   ! USING F2003 AUTO-REALLOCATION
-!   char_sname = [ char_sname , "Vorticity" ]
-! end if
-!#else
-! char_sname = char_sdefault ! USING F2003 AUTO-REALLOCATION
-! if (need_vorticity) then
-!   n = max( len("Vorticity") , len(char_sdefault) )
-!   ! USING F2003 AUTO-REALLOCATION
-!   char_sname = [ character(len=n) :: char_sname , "Vorticity" ]
-! end if
-!#endif
+#endif
   !
   ! Get the name of the current solution file
   !
