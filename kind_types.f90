@@ -61,20 +61,28 @@ subroutine execute_command_line(command,wait,exitstat,cmdstat,cmdmsg)
   !
 continue
   !
+  if (present(exitstat)) exitstat = 0
+  if (present(cmdstat)) cmdstat = 0
+  if (present(cmdmsg)) cmdmsg = ""
+  !
   command_string = trim(adjustl(command))
   !
   ierr = system( command_string )
   !
-  if (present(exitstat)) then
-    exitstat = ierr
-  end if
-  !
-  if (present(cmdstat)) then
-    cmdstat = ierrno()
-  end if
-  !
-  if (present(cmdmsg)) then
-    call gerror( cmdmsg )
+  if (ierr /= 0) then
+    !
+    if (present(exitstat)) then
+      exitstat = ierr
+    end if
+    !
+    if (present(cmdstat)) then
+      cmdstat = ierrno()
+    end if
+    !
+    if (present(cmdmsg)) then
+      call gerror( cmdmsg )
+    end if
+    !
   end if
   !
 end subroutine execute_command_line
@@ -1787,7 +1795,7 @@ continue
       else if (command_status == -2) then
         write (iout,3)
       else if (command_status /= 0) then
-        write (iout,4)
+        write (iout,4) trim(adjustl(clp))
       end if
       !
     end if
@@ -1807,7 +1815,7 @@ continue
                  "DOES NOT SUPPORT COMMAND LINE EXECUTION!!!",/)
   3 format (/,2x,"ERROR RETURNED INDICATES THIS PROCESSOR DOES ", &
                  "NOT SUPPORT ASYNCHRONOUS COMMAND EXECUTION!!!",/)
-  4 format (/,2x,"AN ERROR OCCURRED CALLING 'execute_command_line'!!!",/)
+  4 format (/,2x,"AN ERROR OCCURRED CALLING ",a,"() !!!",/)
   5 format (5x,"status  returned from ",a,"() = ",i0)
   6 format (5x,"message returned from ",a,"() = '",a,"'")
 
