@@ -2229,7 +2229,14 @@ continue
 #endif
   !
   ! F2003 AUTO-REALLOCATION
+#ifdef SPECIAL_FOR_PGI
+  allocate ( og_displs(1:size(og_counts)) , &
+             source=eoshift( og_counts , shift=TO_END , boundary=0_int_mpi ) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"og_displs",1,__LINE__,__FILE__,ierr,error_message)
+#else
   og_displs = eoshift( og_counts , shift=TO_END , boundary=0_int_mpi )
+#endif
   !
   do n = 2,size(og_displs)
     og_displs(n) = og_displs(n) + og_displs(n-1)
@@ -2246,7 +2253,14 @@ continue
 #endif
   !
   ! F2003 AUTO-REALLOCATION
+#ifdef SPECIAL_FOR_PGI
+  allocate ( pts_displs(1:size(pts_counts)) , &
+             source=eoshift( pts_counts , shift=TO_END , boundary=0_int_mpi ) , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"pts_displs",1,__LINE__,__FILE__,ierr,error_message)
+#else
   pts_displs = eoshift( pts_counts , shift=TO_END , boundary=0_int_mpi )
+#endif
   !
   do n = 2,size(pts_displs)
     pts_displs(n) = pts_displs(n) + pts_displs(n-1)

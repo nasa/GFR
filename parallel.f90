@@ -3568,7 +3568,12 @@ continue
       !
       i1 = i0 + 1
       i2 = i0 + np
+#ifdef SPECIAL_FOR_PGI
+     !flx(n)%pts = buffer(i1:i2) ! using F2003 auto-reallocation
+      flx(n)%pts = buffer(i1-1 + intseq(1,np)) ! using F2003 auto-reallocation
+#else
       flx(n)%pts = buffer(i1:i2) ! using F2003 auto-reallocation
+#endif
       !
     end do
     !
@@ -3977,7 +3982,11 @@ continue
       np = grid%elem(nc)%prop%npts
       n1 = n + i + 1
       n2 = n + i + np
+#ifdef SPECIAL_FOR_PGI
+      grid%elem(nc)%pts = grid_elem(n1-1+intseq(1,np)) ! F2003 AUTO-REALLOC
+#else
       grid%elem(nc)%pts = grid_elem(n1:n2) ! using F2003 auto-reallocation
+#endif
       i = i + np
     else
       i = i + 1
@@ -3987,7 +3996,11 @@ continue
     !
     n1 = n + i + 1
     n2 = n + i + ntags
+#ifdef SPECIAL_FOR_PGI
+    grid%elem(nc)%tags = grid_elem(n1-1+intseq(1,ntags)) ! F2003 AUTO-REALLOC
+#else
     grid%elem(nc)%tags = grid_elem(n1:n2) ! using F2003 auto-reallocation
+#endif
     i = i + ntags
     !
     ! Unpack the node indices from grid_elem if the next value in grid_elem
@@ -3997,7 +4010,11 @@ continue
       nn = geom_nodes( grid%elem(nc)%prop%geom )
       n1 = n + i + 1
       n2 = n + i + nn
+#ifdef SPECIAL_FOR_PGI
+      grid%elem(nc)%nodes = grid_elem(n1-1+intseq(1,nn)) ! F2003 AUTO-REALLOC
+#else
       grid%elem(nc)%nodes = grid_elem(n1:n2) ! using F2003 auto-reallocation
+#endif
       i = i + nn
     else
       i = i + 1
@@ -5136,7 +5153,8 @@ continue
         ! Now add the localized indices from
         ! global_grid%elem(:)%pts to grid_elem
         !
-        do j = 1,size(global_grid%elem(glb_cell)%pts)
+        do j = lbound(global_grid%elem(glb_cell)%pts,dim=1), &
+               ubound(global_grid%elem(glb_cell)%pts,dim=1)
           i = i + 1
           grid_elem(n+i) = g2l_map( global_grid%elem(glb_cell)%pts(j) )
         end do
@@ -5150,7 +5168,8 @@ continue
     !
     if (send_grid_elem_tags) then
       if (allocated(global_grid%elem(glb_cell)%tags)) then
-        do j = 1,size(global_grid%elem(glb_cell)%tags)
+        do j = lbound(global_grid%elem(glb_cell)%tags,dim=1), &
+               ubound(global_grid%elem(glb_cell)%tags,dim=1)
           i = i + 1
           grid_elem(n+i) = global_grid%elem(glb_cell)%tags(j)
         end do
@@ -5189,7 +5208,8 @@ continue
         ! Now add the localized indices from
         ! global_grid%elem(:)%nodes to grid_elem
         !
-        do j = 1,size(global_grid%elem(glb_cell)%nodes)
+        do j = lbound(global_grid%elem(glb_cell)%nodes,dim=1), &
+               ubound(global_grid%elem(glb_cell)%nodes,dim=1)
           i = i + 1
           grid_elem(n+i) = g2l_map( global_grid%elem(glb_cell)%nodes(j) )
         end do
@@ -5833,8 +5853,8 @@ continue
       !
       left_rotation = face_rotation(1,glb_face)
       !
-      ibeg = 1
-      iend = size( flx(left_rotation)%pts )
+      ibeg = lbound( flx(left_rotation)%pts , dim=1 )
+      iend = ubound( flx(left_rotation)%pts , dim=1 )
       interval = 1
       !
       ! Reverse the flux point ordering if this
@@ -5842,8 +5862,8 @@ continue
       !
       if (bface(1,loc_face) == -bc_cpu_bnd) then
         if (nr < 3) then
-          ibeg = iend
-          iend = 1
+          ibeg = ubound( flx(left_rotation)%pts , dim=1 )
+          iend = lbound( flx(left_rotation)%pts , dim=1 )
           interval = -1
         end if
         bface(1,loc_face) = bc_cpu_bnd
@@ -5877,7 +5897,8 @@ continue
       !
       left_rotation = face_rotation(1,glb_face)
       !
-      do n = 1,size( flx(left_rotation)%pts )
+      do n = lbound( flx(left_rotation)%pts , dim=1 ), &
+             ubound( flx(left_rotation)%pts , dim=1 )
      !do n = 1,size( face(glb_face)%left%flxpts )
         !
         rcnt = rcnt + 1
