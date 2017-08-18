@@ -3597,16 +3597,16 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   use geovar, only : grid_t,grid
   !
   !.. Formal Arguments ..
-  type(face_t),             intent(in) :: face(:)
-  type(map_t),              intent(in) :: node_map(:)
-  type(map_t),              intent(in) :: face_map(:)
-  type(map_t),              intent(in) :: cell_map(:)
-  integer,  allocatable, intent(inout) :: cell_geom(:)
-  integer,  allocatable, intent(inout) :: cell_order(:)
-  integer,  allocatable, intent(inout) :: nodes_of_cell(:)
-  integer,  allocatable, intent(inout) :: nodes_of_cell_ptr(:)
-  integer,  allocatable, intent(inout) :: bface(:,:)
-  real(wp), allocatable, intent(inout) :: xyz_nodes(:,:)
+  type(face_t), allocatable,    intent(in) :: face(:)
+  type(map_t),                  intent(in) :: node_map(:)
+  type(map_t),                  intent(in) :: face_map(:)
+  type(map_t),                  intent(in) :: cell_map(:)
+  integer,      allocatable, intent(inout) :: cell_geom(:)
+  integer,      allocatable, intent(inout) :: cell_order(:)
+  integer,      allocatable, intent(inout) :: nodes_of_cell(:)
+  integer,      allocatable, intent(inout) :: nodes_of_cell_ptr(:)
+  integer,      allocatable, intent(inout) :: bface(:,:)
+  real(wp),     allocatable, intent(inout) :: xyz_nodes(:,:)
   !
   !.. Local Scalars ..
   integer :: n,my_part,this_part,lcell,lnode,gnode,ierr
