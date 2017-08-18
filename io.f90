@@ -5907,7 +5907,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
  !                                                     "Pressure ", &
  !                                                     "Vorticity" ]
   !
-  !.. Local Arrays ..
+  !.. Local Scalars ..
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   !.. Local Allocatable Arrays ..
@@ -6311,26 +6311,26 @@ continue
         case ("Density") ! Density
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(nec,1:n_solpts)
-          vartmp = vartmp * rhoref
-          if (itestcase == Freestream_Preservation) vartmp = vartmp - rhoref
+          vartmp(:) = vartmp * rhoref
+          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - rhoref
           call cgns_write_field_parallel
         case ("Momentum") ! Momentum
           do m = nmb,nme
             n = n + 1
             vartmp(1:n_solpts) = interp_usp(m,1:n_solpts)
-            vartmp = vartmp * rhoref * aref
+            vartmp(:) = vartmp * rhoref * aref
             call cgns_write_field_parallel
           end do
         case ("Energy") ! Energy
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(nee,1:n_solpts)
-          vartmp = vartmp * rhoref * aref * aref
+          vartmp(:) = vartmp * rhoref * aref * aref
           call cgns_write_field_parallel
         case ("GradDensity") ! GradDensity
           do m = 1,nr
             n = n + 1
             vartmp(1:n_solpts) = interp_dusp(m,nec,1:n_solpts)
-            vartmp = vartmp * rhoref
+            vartmp(:) = vartmp * rhoref
             call cgns_write_field_parallel
           end do
         case ("GradMomentum") ! GradMomentum
@@ -6338,7 +6338,7 @@ continue
             do k = 1,nr
               n = n + 1
               vartmp(1:n_solpts) = interp_dusp(k,m,1:n_solpts)
-              vartmp = vartmp * rhoref * aref
+              vartmp(:) = vartmp * rhoref * aref
               call cgns_write_field_parallel
             end do
           end do
@@ -6346,7 +6346,7 @@ continue
           do m = 1,nr
             n = n + 1
             vartmp(1:n_solpts) = interp_dusp(m,nee,1:n_solpts)
-            vartmp = vartmp * rhoref * aref * aref
+            vartmp(:) = vartmp * rhoref * aref * aref
             call cgns_write_field_parallel
           end do
         case ("Velocity") ! Velocity
@@ -6354,38 +6354,38 @@ continue
             n = n + 1
             vartmp(1:n_solpts) = interp_usp(m,1:n_solpts) / &
                                  interp_usp(nec,1:n_solpts)
-            vartmp = vartmp * aref
+            vartmp(:) = vartmp * aref
             if (itestcase == Freestream_Preservation) then
-              if (m == nmb) vartmp = vartmp - aref*machref
+              if (m == nmb) vartmp(:) = vartmp - aref*machref
             end if
             call cgns_write_field_parallel
           end do
         case ("Pressure") ! Pressure
           n = n + 1
-          vartmp = pressure_cv( interp_usp )
-          vartmp = vartmp * rhoref * aref * aref
-          if (itestcase == Freestream_Preservation) vartmp = vartmp - pref
+          vartmp(:) = pressure_cv( interp_usp )
+          vartmp(:) = vartmp * rhoref * aref * aref
+          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - pref
           call cgns_write_field_parallel
         case ("Mach") ! Mach number
           n = n + 1
-          vartmp = mach_number_cv( interp_usp )
-          if (itestcase == Freestream_Preservation) vartmp = vartmp - machref
+          vartmp(:) = mach_number_cv( interp_usp )
+          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - machref
           call cgns_write_field_parallel
         case ("Entropy") ! Entropy
           n = n + 1
-          vartmp = entropy_cv( interp_usp )
+          vartmp(:) = entropy_cv( interp_usp )
           call cgns_write_field_parallel
         case ("Temperature") ! Temperature
           n = n + 1
-          vartmp = temperature_cv( interp_usp )
-          vartmp = vartmp * tref
-          if (itestcase == Freestream_Preservation) vartmp = vartmp - tref
+          vartmp(:) = temperature_cv( interp_usp )
+          vartmp(:) = vartmp * tref
+          if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - tref
           call cgns_write_field_parallel
         case ("Viscosity") ! Viscosity
           if (governing_equations == NavierStokes_Eqns) then
             n = n + 1
-            vartmp = viscosity_cv( interp_usp )
-            vartmp = vartmp * rhoref * aref
+            vartmp(:) = viscosity_cv( interp_usp )
+            vartmp(:) = vartmp * rhoref * aref
             call cgns_write_field_parallel
           end if
         case ("Vorticity") ! Vorticity
@@ -6394,8 +6394,8 @@ continue
           do m = 1,nr
             n = n + 1
             k = merge(m,3,nr==3)
-            vartmp = vorticity_dusp( interp_usp , interp_dusp , k )
-            vartmp = vartmp / time_ref
+            vartmp(:) = vorticity_dusp( interp_usp , interp_dusp , k )
+            vartmp(:) = vartmp / time_ref
             call cgns_write_field_parallel
             if (nr < 3) exit
           end do
