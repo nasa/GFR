@@ -3852,8 +3852,10 @@ continue
               " does not match the expected size (",i0,") !!!")
   203 format (" The face nodes for the new face element ",i0, &
               " do not match the expected face nodes!!!")
-  204 format ("   The extracted face nodes = [ ",*(i0,:,", "))
-  205 format ("   The expected  face nodes = [ ",*(i0,:,", "))
+  204 format ("   The extracted face nodes = [ ",100(i0,:,", "))
+ !204 format ("   The extracted face nodes = [ ",*(i0,:,", "))
+  205 format ("   The expected  face nodes = [ ",100(i0,:,", "))
+ !205 format ("   The expected  face nodes = [ ",*(i0,:,", "))
   !
 end subroutine create_nozzle_outflow_faces
 !
@@ -4350,7 +4352,8 @@ continue
   !
   ! Format Statements
   !
-  1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
+  1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,100(5(1x,i0),/))
+ !1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
   !
   11 format (" Triangles are temporarily disabled due to significant", &
              " changes in the quadrilateral part of the code. These ", &

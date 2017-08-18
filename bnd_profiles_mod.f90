@@ -461,7 +461,8 @@ continue
   !
   ! Format Statements
   !
-  100 format ('VARIABLES =',*(' "',a,'"',:))
+  100 format ('VARIABLES =',100(' "',a,'"',:))
+ !100 format ('VARIABLES =',*(' "',a,'"',:))
   101 format ('ZONE T="',a,'", N=',i0,', E=',i0, &
               ', DATAPACKING=BLOCK, ZONETYPE=',a,:, &
               ', PASSIVEVARLIST=[',i0,'-',i0,']')

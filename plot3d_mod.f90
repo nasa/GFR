@@ -4902,7 +4902,8 @@ continue
   !
   ! Format Statements
   !
-  1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
+  1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,100(5(1x,i0),/))
+ !1 format (" CPU #",i0,": grid_size(:) = ",5(1x,i0),:,/,27x,*(5(1x,i0),/))
   !
   11 format (" Triangles are temporarily disabled due to significant", &
              " changes in the quadrilateral part of the code. These ", &

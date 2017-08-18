@@ -3258,7 +3258,8 @@ continue
   3 format('ZONE T="',a,' - R(',i0,')", N=8, E=1, ', &
            'DATAPACKING=POINT, ZONETYPE=FELINESEG',/, &
            'VARSHARELIST=([1-5]=',i0,')')
-  4 format(*(1x,i0))
+  4 format(100(1x,i0))
+ !4 format(*(1x,i0))
   !
 end subroutine tecplot_rotations
 !
@@ -3365,7 +3366,8 @@ continue
            'DATAPACKING=POINT, ZONETYPE=FELINESEG',/, &
            'VARSHARELIST=([1-6]=',i0,')')
   4 format(3(1x,i0),2(1x,i3),1x,i0)
-  5 format(*(1x,i0))
+  5 format(100(1x,i0))
+ !5 format(*(1x,i0))
   6 format('ZONE T="Full Grid", N=',i0,', E=',i0,', ', &
            'DATAPACKING=POINT, ZONETYPE=FEBRICK')
   !
@@ -4628,7 +4630,8 @@ continue
   !
   1 format (a,i0,a)
   2 format (//," Number of BC Conflicts = ",i0,/)
-  3 format (" Conflict #",i0,": Node = ",i0,"; Faces = ",*(i0,:,", "))
+  3 format (" Conflict #",i0,": Node = ",i0,"; Faces = ",100(i0,:,", "))
+ !3 format (" Conflict #",i0,": Node = ",i0,"; Faces = ",*(i0,:,", "))
   4 format ("ERROR FINDING THE NODES OF")
   5 format (a,20x,i10,' - ',a)
   6 format (a,23x,"HOST CELLS ON ",i0," BOUNDARY FACES!")
@@ -4863,11 +4866,13 @@ continue
   ! Format Statements
   !
  !1 format (i4,*(es23.15))
-  1 format (i4,*(es12.4))
+  1 format (i4,100(es12.4))
+ !1 format (i4,*(es12.4))
   2 format (/,"#######################################################",/, &
               "#################  FACE ",i0,"  ###########################",/, &
               "#######################################################",/)
- 11 format (1x,*(es12.4))
+ 11 format (1x,100(es12.4))
+!11 format (1x,*(es12.4))
  12 format ("FACE ",i0,4x,a)
   !
 end subroutine check_face_flux_point_orderings
@@ -5036,11 +5041,13 @@ continue
   ! Format Statements
   !
  !1 format (i4,*(es23.15))
-  1 format (i4,*(es12.4))
+  1 format (i4,100(es12.4))
+ !1 format (i4,*(es12.4))
   2 format (/,"#######################################################",/, &
               "#################  CELL ",i0,"  ###########################",/, &
               "#######################################################",/)
- 11 format (1x,*(es12.4))
+ 11 format (1x,100(es12.4))
+!11 format (1x,*(es12.4))
  12 format ("FACE ",i0,4x,a)
   !
 end subroutine check_cell_flux_point_orderings
@@ -5223,7 +5230,8 @@ continue
   4 format ('Zone T="Residual Error"',/, &
             'AUXDATA order="',i0,'"',/, &
             'AUXDATA h="',f10.6,'"')
-  5 format (i10,*(es17.9))
+  5 format (i10,100(es17.9))
+ !5 format (i10,*(es17.9))
   !
 end subroutine write_residual_file
 !

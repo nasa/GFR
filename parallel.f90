@@ -6120,8 +6120,10 @@ continue
   !
   1 format (/," CPU ",i0," -> CPU ",i0," :: Sending")
   2 format (/," CPU ",i0," <- CPU ",i0," :: Receiving")
-  3 format (*(12i6,/))
-  4 format (" Cell = ",i0,*(/,12i6))
+  3 format (100(12i6,/))
+ !3 format (*(12i6,/))
+  4 format (" Cell = ",i0,100(/,12i6))
+ !4 format (" Cell = ",i0,*(/,12i6))
   5 format (" CPU ",i0," -> CPU ",i0," :: Sending   - ",3i6)
   6 format (" CPU ",i0," <- CPU ",i0," :: Receiving - ",3i6)
   7 format (2x,i6,": Sending - ",i0,4x,2f12.4,/, &
@@ -7345,7 +7347,8 @@ continue
   !
   1 format ("nodpt_offsets/",i4.4,".4.dat")
   2 format ("bnd_nodes(",i4,")%idx = ",i0,"  ; node(gn=",i0, &
-            ")%cpu(:)%partition = [",*(i0,:,","))
+            ")%cpu(:)%partition = [",100(i0,:,","))
+           !")%cpu(:)%partition = [",*(i0,:,","))
   3 format ("bnd_nodes(",i4,")%idx = ",i0,"  ; node(gn=",i0, &
             ")%cpu IS NOT ALLOCATED")
   !

@@ -683,7 +683,8 @@ continue
   !
   iu = iu + 1
   1 format (a,i0)
-  2 format (/,a,/,*(6(1x,g12.4,:),/))
+  2 format (/,a,/,100(6(1x,g12.4,:),/))
+ !2 format (/,a,/,*(6(1x,g12.4,:),/))
 #endif
   !
 end function Compute_Projection_Matrix

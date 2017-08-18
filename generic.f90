@@ -1384,7 +1384,8 @@ continue
             'AUXDATA order="',i0,'"',/, &
             'AUXDATA RDOF="',i0,'<sup>3</sup>"',/, &
             'AUXDATA DOF="',i0,'<sup>3</sup>"')
-  2 format (*(es17.9))
+  2 format (100(es17.9))
+ !2 format (*(es17.9))
   !
 end subroutine compute_TaylorGreen_KEDR
 !
