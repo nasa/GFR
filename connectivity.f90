@@ -420,7 +420,8 @@ continue
       !
       write (iout,9023) n,(cells_with_node(i),i=n1,n2)
       9023 format ("Found a duplicate cell around node ",i0,/, &
-                   "  Cell list: ",*(2x,i0))
+                   "  Cell list: ",100(2x,i0))
+                  !"  Cell list: ",*(2x,i0))
       !
       ! Compute the difference from the original number of cells found for
       ! this node and the new unique number of cells that surround this node
