@@ -7445,7 +7445,7 @@ continue
   !
   ! Wait for all faceusp sends and receives to complete
   !
-  fstat = reshape(fusp_istat,[size(fusp_istat)])
+  fstat = reshape(fusp_istat,[size(fusp_istat)]) ! F2003 AUTO-REALLOCATION
   call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst,fstat,mpierr)
  !call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
  !                 reshape(fusp_istat,[size(fusp_istat)]),mpierr)
@@ -7555,7 +7555,7 @@ continue
   !
   ! Wait for all facedusp sends and receives to complete
   !
-  fstat = reshape(fdusp_istat,[size(fdusp_istat)])
+  fstat = reshape(fdusp_istat,[size(fdusp_istat)]) ! F2003 AUTO-REALLOCATION
   call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst,fstat,mpierr)
  !call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst, &
  !                 reshape(fdusp_istat,[size(fdusp_istat)]),mpierr)
@@ -7853,6 +7853,8 @@ subroutine exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
   !.. Local Allocatable Arrays ..
   real(r8), allocatable, dimension(:) :: send_buffer
   real(r8), allocatable, dimension(:) :: recv_buffer
+  !
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "exch_connectivity"
@@ -8180,8 +8182,10 @@ continue
   !
   ! 2.4) Wait for all faceusp sends and receives to complete
   !
-  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
-                   reshape(fusp_istat,[size(fusp_istat)]),mpierr)
+  fstat = reshape(fusp_istat,[size(fusp_istat)]) ! F2003 AUTO-REALLOCATION
+  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst,fstat,mpierr)
+ !call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst, &
+ !                 reshape(fusp_istat,[size(fusp_istat)]),mpierr)
   !
   ! 2.5) Update the right states for only the communication boundary faces
   !
