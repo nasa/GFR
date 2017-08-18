@@ -208,33 +208,42 @@ continue
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_vandermonde_matrices
   call memory_pause("initializing vandermonde matrices", &
                     "initializing derivative matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_derivative_matrices
   call memory_pause("initializing derivative matrices", &
                     "initializing correction matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_correction_matrices
   call memory_pause("initializing correction matrices", &
                     "initializing interpolation matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_interpolation_matrices
   call memory_pause("initializing interpolation matrices", &
                     "initializing outerpolation matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_outerpolation_matrices
   call memory_pause("initializing outerpolation matrices", &
                     "initializing projection matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_projection_matrices
   call memory_pause("initializing projection matrices", &
                     "initializing filter matrices")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_filter_matrices
   call memory_pause("initializing filter matrices", &
                     "initializing boundary profile stuff")
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_bnd_profile_structures
   call memory_pause("initializing boundary profile stuff", &
                     "initializing metrics")
   !
   ! Get the grid metrics
   !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call get_metrics
   call memory_pause("initializing metrics","initializing solution")
   !
