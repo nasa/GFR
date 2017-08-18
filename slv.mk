@@ -222,6 +222,7 @@ ifeq "$(COMPFAMILY)" "intel"
   IPOFLAG := -ipo
   TRACEFLAG := -traceback
   REALLOCFLAG := -assume realloc_lhs
+  CMPFLAGS := -DSPECIAL_FOR_INTEL
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(HASARCH),$(IVYARCH)
   HOSTARCH := $(ARCHFLAG)Host
 else ifeq "$(COMPFAMILY)" "gcc"
