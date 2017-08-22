@@ -1172,7 +1172,7 @@ subroutine correct_gradients_br2()
   use order_mod,         only : maxSP,maxFP,geom_solpts
   use geovar,            only : cell
   use geovar,            only : nr,ncell,nfbnd,bface
-  use geovar,            only : face
+  use geovar,            only : face,fp
   use metrics_mod,       only : geofa,metrics_dt
   use correction_mod,    only : correct
   use flowvar,           only : dusp,facedusp,faceusp
@@ -1195,14 +1195,81 @@ subroutine correct_gradients_br2()
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: face_dusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: dusp_copy
   !
-  integer :: i,i1,i2
+  integer :: i,i1,i2,nfp,j,j1,j2,r1,r2,r3
   type(matrix) :: cmat
+ !integer :: idx(1:1000)
+ !real(wp), allocatable :: array(:)
+ !real(wp), allocatable :: row_val(:)
+ !integer, allocatable :: row_ptr(:)
+ !integer, allocatable :: row_idx(:)
+ !real(wp) :: array(1:1000)
+  integer :: array(1:1)
+ !real(wp) :: row_val(1:1000)
+ !integer :: row_ptr(1:1000)
+ !integer :: row_idx(1:1000)
   !
+  type :: matrix2
+    real(wp), allocatable :: row_val(:)
+    integer, allocatable :: row_idx(:)
+    integer, allocatable :: row_ptr(:)
+  end type matrix2
+  !
+  type(matrix2), allocatable :: correct2(:,:)
+  type :: interp2_t
+    type(matrix2), allocatable :: toFace(:)
+  end type interp2_t
+  type(interp2_t), allocatable :: interp2(:,:)
 continue
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
+  n1 = lbound(correct,dim=2)
+  n2 = ubound(correct,dim=2)
+  i1 = lbound(correct,dim=1)
+  i2 = ubound(correct,dim=1)
+  allocate (correct2(i1:i2,n1:n2))
+  do n = lbound(correct,dim=2),ubound(correct,dim=2)
+    do i = lbound(correct,dim=1),ubound(correct,dim=1)
+      if (allocated(correct(i,n)%row_val)) &
+        correct2(i,n)%row_val = correct(i,n)%row_val
+      if (allocated(correct(i,n)%row_idx)) &
+        correct2(i,n)%row_idx = correct(i,n)%row_idx
+      if (allocated(correct(i,n)%row_ptr)) &
+        correct2(i,n)%row_ptr = correct(i,n)%row_ptr
+    end do
+  end do
+  n1 = lbound(interp,dim=2)
+  n2 = ubound(interp,dim=2)
+  i1 = lbound(interp,dim=1)
+  i2 = ubound(interp,dim=1)
+  allocate (interp2(i1:i2,n1:n2))
+  do n = n1,n2
+    do i = i1,i2
+      if (allocated(interp(i,n)%toFace)) then
+        j1 = lbound(interp(i,n)%toFace,dim=1)
+        j2 = ubound(interp(i,n)%toFace,dim=1)
+        allocate ( interp2(i,n)%toFace(j1:j2) )
+        do j = j1,j2
+          if (allocated(interp(i,n)%toFace(j)%row_val)) &
+            interp2(i,n)%toFace(j)%row_val = interp(i,n)%toFace(j)%row_val
+          if (allocated(interp(i,n)%toFace(j)%row_idx)) &
+            interp2(i,n)%toFace(j)%row_idx = interp(i,n)%toFace(j)%row_idx
+          if (allocated(interp(i,n)%toFace(j)%row_ptr)) &
+            interp2(i,n)%toFace(j)%row_ptr = interp(i,n)%toFace(j)%row_ptr
+        end do
+      end if
+    end do
+  end do
+ !cmat = correct(Geom_Hexa,3)
+ !array = cmat%row_val ; array(:) = zero
+ !!$ACC DATA COPYIN(correct2(:,:),interp2(:,:),metrics_dt(:))
+ !!$ACC PARALLEL DO PRIVATE(row_val,row_ptr,row_idx,unrm,lufp,rufp, &
+ !!$ACC KERNELS
+ !!$ACC PARALLEL DO GANG VECTOR PRIVATE(row_val,row_ptr,row_idx,unrm,lufp,rufp, &
+ !!$ACC&                    ujump,cell_dusp,face_dusp,dusp_copy,array)
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(unrm,lufp,rufp, &
+  !$ACC&                    ujump,cell_dusp,face_dusp,dusp_copy,array)
   cell_loop: do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -1216,14 +1283,32 @@ continue
     ! the jacobian for each solution point. This will help reduce cache
     ! misses and prevent repetitive instances of division by the jacobian.
     !
-    cmat = correct(this_geom,this_order)
+   !r1 = size(correct2(this_geom,this_order)%row_val)
+   !!$ACC LOOP SEQ
+   !do n = 1,r1
+   !  row_val(n) = correct2(this_geom,this_order)%row_val(n)
+   !end do
+   !r2 = size(correct2(this_geom,this_order)%row_idx)
+   !!$ACC LOOP SEQ
+   !do n = 1,r2
+   !  row_idx(n) = correct2(this_geom,this_order)%row_idx(n)
+   !end do
+   !r3 = size(correct2(this_geom,this_order)%row_ptr)
+   !!$ACC LOOP SEQ
+   !do n = 1,r3
+   !  row_ptr(n) = correct2(this_geom,this_order)%row_ptr(n)
+   !end do
+   !cmat = correct(this_geom,this_order)
     !
-    do i = 1,size(cmat%row_ptr)-1
-      i1 = cmat%row_ptr(i)+1
-      i2 = cmat%row_ptr(i+1)
-      cmat%row_val(i1:i2) = cmat%row_val(i1:i2) / &
-                            metrics_dt(nc)%jac( cmat%row_idx(i1:i2) )
-    end do
+!!#ifdef ENABLE_LOOP
+   !nfp = r3 - 1
+   !do i = 1,nfp
+   !  i1 = row_ptr(i)+1
+   !  i2 = row_ptr(i+1)
+   !  array(i1:i2) = metrics_dt(nc)%jac( row_idx(i1:i2) )
+   !  row_val(i1:i2) = row_val(i1:i2) / array(i1:i2)
+   !end do
+!!#endif
     !
     ! Create a local copy of dusp for this cell to which all the
     ! corrections will be applied. This will help reduce cache misses.
@@ -1242,6 +1327,7 @@ continue
     !
     ! Loop over the faces of this cell
     !
+!#ifdef ENABLE_LOOP
     cell_faces: do ncf = 1,size(cell(nc)%face)
       !
       nf = cell(nc)%face(ncf)%idx  ! index of the current face
@@ -1255,12 +1341,20 @@ continue
       face_dusp(1:np,1:nr,1:nq) = dusp_copy(1:np,1:nr,1:nq)
       !
       ! Loop over the points on this face
+      nfp = geom_solpts(face_geom,face_order)
       !
-      face_points: do kf = 1,geom_solpts(face_geom,face_order)
+!#ifdef ENABLE_LOOP
+      face_points: do kf = 1,nfp
         !
         ! kf: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(ncf)%get_fp_idx(kf)
+        !
+       !lf = 1
+       !lf = cell(nc)%face(ncf)%get_fp_idx(kf)
+        lf = cell(nc)%face(ncf)%fp_offset + fp%geord(cell(nc)%face(ncf)%geom, &
+                                                     cell(nc)%face(ncf)%order)% &
+                                               rot(cell(nc)%face(ncf)%rotation)% &
+                                               pts(kf)
         !
         ! Solution at this flux point for the left and right cells
         !
@@ -1269,11 +1363,15 @@ continue
         !
         ! Get the unit normal at this flux point
         !
-        unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,kf) )
+        dsl = norm2( geofa(nf)%v(1:nr,kf) )
+       !unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,kf) )
+        unrm(1:nr) = geofa(nf)%v(1:nr,kf)/dsl
+       !unrm(1:nr) = one
         !
         ! Get the face length for the current face
         !
-        dsl = cl(this_geom) * norm2( geofa(nf)%v(1:nr,kf) )
+       !dsl = cl(this_geom) * norm2( geofa(nf)%v(1:nr,kf) )
+        dsl = cl(this_geom) * dsl
         !
         ! Compute the BR2 jump correction for this point
         !    jump_left  =  half * (u_right - u_left)
@@ -1308,9 +1406,14 @@ continue
         !
         ! Apply the jump correction to the interior discontinuous gradients
         !
-        do i = cmat%row_ptr(lf)+1, cmat%row_ptr(lf+1)
-          n = cmat%row_idx(i)
-          correct_n = dsl * cmat%row_val(i)
+      ! do i = row_ptr(lf)+1, row_ptr(lf+1)
+        do i = correct2(this_geom,this_order)%row_ptr(lf)+1, &
+               correct2(this_geom,this_order)%row_ptr(lf+1)
+      !   n = row_idx(i)
+          n = correct2(this_geom,this_order)%row_idx(i)
+      !   correct_n = dsl * row_val(i) / metrics_dt(nc)%jac(n)
+          correct_n = dsl * correct2(this_geom,this_order)%row_val(i) / &
+                                         metrics_dt(nc)%jac(n)
           do m = 1,nq
             correct_m = correct_n * ujump(m)
             do l = 1,nr
@@ -1321,31 +1424,48 @@ continue
         end do
         !
       end do face_points
+!#endif
       !
       ! Interpolate the face corrected gradient from the interior solution
       ! points to the interface flux points now that we are done with all
       ! the flux points on the current face of the current cell.
       !
-      interpolate_face: do kf = 1,geom_solpts(face_geom,face_order)
+!#ifdef ENABLE_LOOP
+      nfp = geom_solpts(face_geom,face_order)
+      interpolate_face: do k = 1,nfp
         !
-        ! kf: index of flx-pt local to this face
+        ! k: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(ncf)%get_fp_idx(kf)
-        !
-        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
-                                                    toFace(face_order)% &
-                                       dot_mat2( lf ,face_dusp(1:np,1:nr,1:nq) )
-       !do m = 1,nq
-       !  do l = 1,nr
-       !    facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
-       !                                          toFace(face_order)% &
-       !                                dot( lf ,face_dusp(1:np,l,m) )
-       !  end do
-       !end do
+       !lf = 1
+       !lf = cell(nc)%face(ncf)%get_fp_idx(k)
+        lf = cell(nc)%face(ncf)%fp_offset + fp%geord(cell(nc)%face(ncf)%geom, &
+                                                     cell(nc)%face(ncf)%order)% &
+                                               rot(cell(nc)%face(ncf)%rotation)% &
+                                               pts(k)
+       !!
+       !facedusp(nf)%v(1:nr,1:nq,k,sf) = interp(this_geom,this_order)% &
+       !                                            toFace(face_order)% &
+       !                               dot_mat2( lf ,face_dusp(1:np,1:nr,1:nq) )
+        do m = 1,nq
+          do l = 1,nr
+            facedusp(nf)%v(l,m,k,sf) = zero
+            do i = interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                   interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+              n = interp2(this_geom,this_order)%toFace(face_order)%row_idx(i)
+              facedusp(nf)%v(l,m,k,sf) = facedusp(nf)%v(l,m,k,sf) + &
+                                         face_dusp(n,l,m) * &
+                                            interp2(this_geom,this_order)% &
+                                            toFace(face_order)% &
+                                            row_val(i)
+            end do
+          end do
+        end do
         !
       end do interpolate_face
+!#endif
       !
     end do cell_faces
+!#endif
     !
     ! Copy the total corrected gradient accounting for all cell faces
     ! back into dusp
@@ -1353,6 +1473,8 @@ continue
     dusp(1:nr,1:nq,n1:n2) = cell_dusp(1:nr,1:nq,1:np)
     !
   end do cell_loop
+ !!$ACC END KERNELS
+ !!$ACC END DATA
   !
   ! Exchange the left and right states for faces on communication boundaries
   !
