@@ -1186,7 +1186,8 @@ subroutine correct_gradients_br2()
   integer :: nf,kf,lf,sf,ncf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
-  real(wp) :: dsl,cbias,hfpb,correct_n,correct_m
+  integer :: fp_offset,face_rot
+  real(wp) :: dsl,cbias,hfpb,correct_n,correct_m,val
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: unrm
@@ -1197,16 +1198,10 @@ subroutine correct_gradients_br2()
   !
   integer :: i,i1,i2,nfp,j,j1,j2,r1,r2,r3
   type(matrix) :: cmat
- !integer :: idx(1:1000)
- !real(wp), allocatable :: array(:)
- !real(wp), allocatable :: row_val(:)
- !integer, allocatable :: row_ptr(:)
- !integer, allocatable :: row_idx(:)
- !real(wp) :: array(1:1000)
-  integer :: array(1:1)
- !real(wp) :: row_val(1:1000)
- !integer :: row_ptr(1:1000)
- !integer :: row_idx(1:1000)
+  integer :: array(1:1) ! DONT REMOVE THIS
+  integer :: fpidx(1:maxFP)
+  real(wp) :: fp_unrm(1:nr,1:maxFP)
+  real(wp) :: fp_area(1:maxFP)
   !
   type :: matrix2
     real(wp), allocatable :: row_val(:)
@@ -1261,14 +1256,11 @@ continue
       end if
     end do
   end do
- !cmat = correct(Geom_Hexa,3)
- !array = cmat%row_val ; array(:) = zero
- !!$ACC DATA COPYIN(correct2(:,:),interp2(:,:),metrics_dt(:))
- !!$ACC PARALLEL DO PRIVATE(row_val,row_ptr,row_idx,unrm,lufp,rufp, &
- !!$ACC KERNELS
- !!$ACC PARALLEL DO GANG VECTOR PRIVATE(row_val,row_ptr,row_idx,unrm,lufp,rufp, &
- !!$ACC&                    ujump,cell_dusp,face_dusp,dusp_copy,array)
+  !
+ !!$ACC PARALLEL DO GANG VECTOR_LENGTH(64) PRIVATE(unrm,lufp,rufp, &
+ !!$ACC PARALLEL DO GANG PRIVATE(unrm,lufp,rufp, &
   !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(unrm,lufp,rufp, &
+  !$ACC&                    fpidx,fp_unrm,fp_area, &
   !$ACC&                    ujump,cell_dusp,face_dusp,dusp_copy,array)
   cell_loop: do nc = 1,ncell
     !
@@ -1279,55 +1271,28 @@ continue
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
     !
-    ! Store a local copy of the correction matrices divided by the value of
-    ! the jacobian for each solution point. This will help reduce cache
-    ! misses and prevent repetitive instances of division by the jacobian.
-    !
-   !r1 = size(correct2(this_geom,this_order)%row_val)
-   !!$ACC LOOP SEQ
-   !do n = 1,r1
-   !  row_val(n) = correct2(this_geom,this_order)%row_val(n)
-   !end do
-   !r2 = size(correct2(this_geom,this_order)%row_idx)
-   !!$ACC LOOP SEQ
-   !do n = 1,r2
-   !  row_idx(n) = correct2(this_geom,this_order)%row_idx(n)
-   !end do
-   !r3 = size(correct2(this_geom,this_order)%row_ptr)
-   !!$ACC LOOP SEQ
-   !do n = 1,r3
-   !  row_ptr(n) = correct2(this_geom,this_order)%row_ptr(n)
-   !end do
-   !cmat = correct(this_geom,this_order)
-    !
-!!#ifdef ENABLE_LOOP
-   !nfp = r3 - 1
-   !do i = 1,nfp
-   !  i1 = row_ptr(i)+1
-   !  i2 = row_ptr(i+1)
-   !  array(i1:i2) = metrics_dt(nc)%jac( row_idx(i1:i2) )
-   !  row_val(i1:i2) = row_val(i1:i2) / array(i1:i2)
-   !end do
-!!#endif
-    !
     ! Create a local copy of dusp for this cell to which all the
     ! corrections will be applied. This will help reduce cache misses.
-    !
-    cell_dusp(1:nr,1:nq,1:np) = dusp(1:nr,1:nq,n1:n2)
     !
     ! Create a transposed copy of the uncorrected dusp for this cell which
     ! will be used to reset the face_dusp array in the cell_faces loop. This
     ! will help reduce cache misses.
     !
+    !$ACC LOOP VECTOR COLLAPSE(3)
     do n = 1,np
-      dusp_copy(n,1:nr,1:nq) = cell_dusp(1:nr,1:nq,n)
+      do i = 1,nq
+        do j = 1,nr
+          val = dusp(j,i,n-1+n1)
+          cell_dusp(j,i,n) = val
+          dusp_copy(n,j,i) = val
+        end do
+      end do
     end do
     !
     ! Now Interpolate the interior solution gradients to the flux points
     !
     ! Loop over the faces of this cell
     !
-!#ifdef ENABLE_LOOP
     cell_faces: do ncf = 1,size(cell(nc)%face)
       !
       nf = cell(nc)%face(ncf)%idx  ! index of the current face
@@ -1335,146 +1300,130 @@ continue
       !
       face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
       face_order = cell(nc)%face(ncf)%order ! order of current face
+      fp_offset = cell(nc)%face(ncf)%fp_offset
+      face_rot = cell(nc)%face(ncf)%rotation
       !
       ! Reset face_dusp to the original discontinuous gradient
       !
       face_dusp(1:np,1:nr,1:nq) = dusp_copy(1:np,1:nr,1:nq)
+     !!$ACC LOOP VECTOR COLLAPSE(3)
+     !do i = 1,nq
+     !  do j = 1,nr
+     !    do n = 1,np
+     !      face_dusp(n,j,i) = dusp_copy(n,j,i)
+     !    end do
+     !  end do
+     !end do
       !
       ! Loop over the points on this face
-      nfp = geom_solpts(face_geom,face_order)
       !
-!#ifdef ENABLE_LOOP
+      nfp = geom_solpts(face_geom,face_order)
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      ! Compute the BR2 jump correction for this point
+      !    jump_left  =  half * (u_right - u_left)
+      !    jump_right = -half * (u_right - u_left)
+      !
+      ! NOTE: Multiplying by the normal in the loop below that applies the
+      !       correction
+      !           i.e., correct_m * unrm(l)
+      !       takes care of the minus sign if the current cell is the right
+      !       cell on the current face.
+      !
+      ! NOTE: Boundary faces should never be the right cell on the interface.
+      !       For non-wall boundaries, this should reduce to jump_left above.
+      !       For wall boundaries, jump_left should reduce to:
+      !         jump_left = (u_right - u_left) where u_right = u_wall
+      !
+      cbias = zero
+      !
+      ! Reset cbias if this is a wall boundary
+      !
+      if (nf <= nfbnd .and. walls_are_exact) then
+        if (any(bface(1,nf) == bc_walls)) cbias = half
+      end if
+      !
+      hfpb = cbias + half
+      !
+      do kf = 1,nfp
+        dsl = norm2( geofa(nf)%v(1:nr,kf) )
+        fp_unrm(1:nr,kf) = geofa(nf)%v(1:nr,kf)/dsl
+        fp_area(kf) = cl(this_geom) * dsl
+      end do
+      !
+      !$ACC LOOP VECTOR COLLAPSE(3)
       face_points: do kf = 1,nfp
         !
         ! kf: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
         !
-       !lf = 1
-       !lf = cell(nc)%face(ncf)%get_fp_idx(kf)
-        lf = cell(nc)%face(ncf)%fp_offset + fp%geord(cell(nc)%face(ncf)%geom, &
-                                                     cell(nc)%face(ncf)%order)% &
-                                               rot(cell(nc)%face(ncf)%rotation)% &
-                                               pts(kf)
-        !
-        ! Solution at this flux point for the left and right cells
-        !
-        lufp(:) = faceusp(nf)%v(:,kf,1)
-        rufp(:) = faceusp(nf)%v(:,kf,2)
-        !
-        ! Get the unit normal at this flux point
-        !
-        dsl = norm2( geofa(nf)%v(1:nr,kf) )
-       !unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,kf) )
-        unrm(1:nr) = geofa(nf)%v(1:nr,kf)/dsl
-       !unrm(1:nr) = one
-        !
-        ! Get the face length for the current face
-        !
-       !dsl = cl(this_geom) * norm2( geofa(nf)%v(1:nr,kf) )
-        dsl = cl(this_geom) * dsl
-        !
-        ! Compute the BR2 jump correction for this point
-        !    jump_left  =  half * (u_right - u_left)
-        !    jump_right = -half * (u_right - u_left)
-        !
-        ! NOTE: Multiplying by the normal in the loop below that applies the
-        !       correction
-        !           i.e., correct_m * unrm(l)
-        !       takes care of the minus sign if the current cell is the right
-        !       cell on the current face.
-        !
-        ! NOTE: Boundary faces should never be the right cell on the interface.
-        !       For non-wall boundaries, this should reduce to jump_left above.
-        !       For wall boundaries, jump_left should reduce to:
-        !         jump_left = (u_right - u_left) where u_right = u_wall
-        !
-        cbias = zero
-        !
-        ! Reset cbias if this is a wall boundary
-        !
-        if (nf <= nfbnd .and. walls_are_exact) then
-          if (any(bface(1,nf) == bc_walls)) cbias = half
-        end if
-        !
-        hfpb = cbias + half
-        !
-        ! Get the interface jumps to correct the gradients
-        !
-        do m = 1,nq
-          ujump(m) = hfpb*(rufp(m) - lufp(m))
-        end do
-        !
         ! Apply the jump correction to the interior discontinuous gradients
         !
-      ! do i = row_ptr(lf)+1, row_ptr(lf+1)
-        do i = correct2(this_geom,this_order)%row_ptr(lf)+1, &
-               correct2(this_geom,this_order)%row_ptr(lf+1)
-      !   n = row_idx(i)
-          n = correct2(this_geom,this_order)%row_idx(i)
-      !   correct_n = dsl * row_val(i) / metrics_dt(nc)%jac(n)
-          correct_n = dsl * correct2(this_geom,this_order)%row_val(i) / &
-                                         metrics_dt(nc)%jac(n)
-          do m = 1,nq
-            correct_m = correct_n * ujump(m)
-            do l = 1,nr
-              face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * unrm(l)
-              cell_dusp(l,m,n) = cell_dusp(l,m,n) + correct_m * unrm(l)
+        do m = 1,nq
+          do l = 1,nr
+            lf = fpidx(kf)
+            do i = correct2(this_geom,this_order)%row_ptr(lf)+1, &
+                   correct2(this_geom,this_order)%row_ptr(lf+1)
+              n = correct2(this_geom,this_order)%row_idx(i)
+              correct_n = correct2(this_geom,this_order)%row_val(i) * &
+                          fp_area(kf) / metrics_dt(nc)%jac(n)
+              correct_m = correct_n * hfpb * (faceusp(nf)%v(m,kf,2) - &
+                                              faceusp(nf)%v(m,kf,1))
+             !correct_m = correct2(this_geom,this_order)%row_val(i) * &
+             !            (faceusp(nf)%v(m,kf,2) - faceusp(nf)%v(m,kf,1)) * &
+             !            hfpb * fp_area(kf) / metrics_dt(nc)%jac(n)
+              face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * fp_unrm(l,kf)
+              cell_dusp(l,m,n) = cell_dusp(l,m,n) + correct_m * fp_unrm(l,kf)
             end do
           end do
         end do
         !
       end do face_points
-!#endif
       !
       ! Interpolate the face corrected gradient from the interior solution
       ! points to the interface flux points now that we are done with all
       ! the flux points on the current face of the current cell.
       !
-!#ifdef ENABLE_LOOP
-      nfp = geom_solpts(face_geom,face_order)
+      !$ACC LOOP VECTOR COLLAPSE(3)
       interpolate_face: do k = 1,nfp
         !
         ! k: index of flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-       !lf = 1
-       !lf = cell(nc)%face(ncf)%get_fp_idx(k)
-        lf = cell(nc)%face(ncf)%fp_offset + fp%geord(cell(nc)%face(ncf)%geom, &
-                                                     cell(nc)%face(ncf)%order)% &
-                                               rot(cell(nc)%face(ncf)%rotation)% &
-                                               pts(k)
-       !!
-       !facedusp(nf)%v(1:nr,1:nq,k,sf) = interp(this_geom,this_order)% &
-       !                                            toFace(face_order)% &
-       !                               dot_mat2( lf ,face_dusp(1:np,1:nr,1:nq) )
+        !
         do m = 1,nq
           do l = 1,nr
-            facedusp(nf)%v(l,m,k,sf) = zero
+            lf = fpidx(k)
+            val = zero
             do i = interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
                    interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
               n = interp2(this_geom,this_order)%toFace(face_order)%row_idx(i)
-              facedusp(nf)%v(l,m,k,sf) = facedusp(nf)%v(l,m,k,sf) + &
-                                         face_dusp(n,l,m) * &
-                                            interp2(this_geom,this_order)% &
-                                            toFace(face_order)% &
-                                            row_val(i)
+              val = val + face_dusp(n,l,m) * interp2(this_geom,this_order)% &
+                                                        toFace(face_order)% &
+                                             row_val(i)
             end do
+            facedusp(nf)%v(l,m,k,sf) = val
           end do
         end do
         !
       end do interpolate_face
-!#endif
       !
     end do cell_faces
-!#endif
     !
     ! Copy the total corrected gradient accounting for all cell faces
     ! back into dusp
     !
-    dusp(1:nr,1:nq,n1:n2) = cell_dusp(1:nr,1:nq,1:np)
+   !dusp(1:nr,1:nq,n1:n2) = cell_dusp(1:nr,1:nq,1:np)
+   !$ACC LOOP VECTOR COLLAPSE(3)
+    do n = 1,np
+      do i = 1,nq
+        do j = 1,nr
+          dusp(j,i,n-1+n1) = cell_dusp(j,i,n)
+        end do
+      end do
+    end do
     !
   end do cell_loop
- !!$ACC END KERNELS
- !!$ACC END DATA
   !
   ! Exchange the left and right states for faces on communication boundaries
   !
