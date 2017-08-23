@@ -22,8 +22,8 @@ contains
 !
 subroutine interp_cv_to_flxpts()
   !
-  use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : ncell,cell
+  use order_mod,         only : maxSP,maxFP,geom_solpts
+  use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar,           only : usp,faceusp
   !
@@ -31,12 +31,15 @@ subroutine interp_cv_to_flxpts()
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,np,k,m
-  integer :: nf,kf,lf,sf
+  integer :: nf,kf,lf,sf,i,j,nfp
   integer :: this_geom,this_order
   integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  real(wp) :: val
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nq) :: tusp
+  integer, dimension(1:maxFP) :: fpidx
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cv_to_flxpts"
@@ -46,6 +49,7 @@ continue
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(tusp,fpidx)
   do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -57,6 +61,7 @@ continue
     !
     ! Create transpose of usp array to reduce cache misses
     !
+    !$ACC LOOP VECTOR COLLAPSE(2)
     do k = 1,np
       do m = 1,nq
         tusp(k,m) = usp(m,k+n1-1)
@@ -75,20 +80,31 @@ continue
       face_geom = cell(nc)%face(n)%geom   ! geom  of current face
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,geom_solpts(face_geom,face_order)
+      fp_offset = cell(nc)%face(n)%fp_offset
+      face_rot = cell(nc)%face(n)%rotation
+      !
+      nfp = geom_solpts(face_geom,face_order)
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do kf = 1,nfp
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
         !
-        faceusp(nf)%v(1:nq,kf,sf) = interp(this_geom,this_order)% &
+        do m = 1,nq
+          lf = fpidx(kf)
+          val = zero
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            val = val + tusp(j,m) * interp(this_geom,this_order)% &
                                               toFace(face_order)% &
-                                    dot_mat( lf , tusp(1:np,1:nq) )
-       !do m = 1,nq
-       !  faceusp(nf)%v(m,kf,sf) = interp(this_geom,this_order)% &
-       !                                     toFace(face_order)% &
-       !                           dot( lf , tusp(1:np,m) )
-       !end do
+                                    row_val(i)
+          end do
+          faceusp(nf)%v(m,kf,sf) = val
+        end do
         !
       end do
       !
@@ -106,8 +122,8 @@ end subroutine interp_cv_to_flxpts
 !
 subroutine interp_dusp_to_flxpts()
   !
-  use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,ncell,cell
+  use order_mod,         only : maxSP,maxFP,geom_solpts
+  use geovar,            only : nr,ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar,           only : dusp,facedusp
   !
@@ -115,18 +131,22 @@ subroutine interp_dusp_to_flxpts()
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,np,k,l,m
-  integer :: nf,kf,lf,sf
+  integer :: nf,kf,lf,sf,i,j,nfp
   integer :: this_geom,this_order
   integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
+  real(wp) :: val
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
+  integer, dimension(1:maxFP) :: fpidx
   !
 continue
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(tdusp,fpidx)
   do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -138,6 +158,7 @@ continue
     !
     ! Create transpose of dusp array to reduce cache misses
     !
+    !$ACC LOOP VECTOR COLLAPSE(3)
     do k = 1,np
       do m = 1,nq
         do l = 1,nr
@@ -158,23 +179,37 @@ continue
       face_geom = cell(nc)%face(n)%geom   ! geom  of current face
       face_order = cell(nc)%face(n)%order ! order of current face
       !
-      do kf = 1,geom_solpts(face_geom,face_order)
+      fp_offset = cell(nc)%face(n)%fp_offset
+      face_rot = cell(nc)%face(n)%rotation
+      !
+      nfp = geom_solpts(face_geom,face_order)
+      fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(face_rot)%pts(1:nfp)
+      !
+      !$ACC LOOP VECTOR COLLAPSE(3)
+      do kf = 1,nfp
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+       !lf = cell(nc)%face(n)%get_fp_idx(kf)
         !
-        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
-                                                    toFace(face_order)% &
-                                          dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
-       !do m = 1,nq
-       !  do l = 1,nr
-       !    facedusp(nf)%v(l,m,kf,sf) = interp(this_geom,this_order)% &
-       !                                          toFace(face_order)% &
-       !                                dot( lf , tdusp(1:np,l,m) )
-       !  end do
-       !end do
-        !
+        do m = 1,nq
+          do l = 1,nr
+            lf = fpidx(kf)
+            val = zero
+            do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                   interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+              j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+              val = val + tdusp(j,l,m) * interp(this_geom,this_order)% &
+                                                   toFace(face_order)% &
+                                         row_val(i)
+            end do
+            facedusp(nf)%v(l,m,kf,sf) = val
+          end do
+        end do
+       !facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
+       !                                            toFace(face_order)% &
+       !                                  dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
       end do
       !
     end do
@@ -800,26 +835,28 @@ subroutine discontinuous_gradient_at_solpts()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use order_mod,       only : maxpts
+  use order_mod,       only : maxSP
   use geovar,          only : nr,ncell,cell
   use metrics_mod,     only : metrics_dt
   use derivatives_mod, only : deriv
   use flowvar,         only : usp,dusp
   !
   !.. Local Scalars ..
-  integer :: k,l,m,n,nc,n1,n2,np
+  integer :: i,j,k,l,m,n,nc,n1,n2,np
   integer :: this_geom,this_order
+  real(wp) :: val
   !
   !.. Local Arrays ..
  !real(wp), dimension(1:nr) :: dudr
-  real(wp), dimension(1:nr,1:nq) :: dudr
-  real(wp), dimension(1:maxpts,1:nq) :: tusp
+  real(wp), dimension(1:nr,1:nq,1:maxSP) :: dudr
+  real(wp), dimension(1:maxSP,1:nq) :: tusp
   !
 continue
   !
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point
   !
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(dudr,tusp)
   do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
@@ -831,6 +868,7 @@ continue
     !
     ! Store the transpose of usp for this cell to reduce cache misses
     !
+    !$ACC LOOP VECTOR COLLAPSE(2)
     do k = 1,np
       do m = 1,nq
         tusp(k,m) = usp(m,k+n1-1)
@@ -839,36 +877,36 @@ continue
     !
     ! Compute the gradient of the conservative variables at each solution point
     !
+    !$ACC LOOP VECTOR COLLAPSE(3)
     do k = 1,np
-      !
-      n = k+n1-1 ! total index of solution point on current partition
-      !
-      dudr(1:nr,1:nq) = deriv(this_geom,this_order)%grad( k , tusp(1:np,1:nq) )
-      !
       do m = 1,nq
         do l = 1,nr
-          dusp(l,m,n) = dot( dudr(1:nr,m) , metrics_dt(nc)%met(k,1:nr,l) )
+          n = k+n1-1 ! total index of solution point on current partition
+          !
+          !dudr(l,m) = deriv(this_geom,this_order)% &
+          !                                   d(l)% &
+          !            dot( k , tusp(1:np,m) )
+          val = zero
+          do i = deriv(this_geom,this_order)%d(l)%row_ptr(k)+1, &
+                 deriv(this_geom,this_order)%d(l)%row_ptr(k+1)
+            j = deriv(this_geom,this_order)%d(l)%row_idx(i)
+            val = val + tusp(j,m) * deriv(this_geom,this_order)% &
+                                                           d(l)% &
+                                    row_val(i)
+          end do
+          dudr(l,m,k) = val
         end do
       end do
-      !
-     !do m = 1,nq
-     !  !
-     !  ! Compute the derivatives in r-s space
-     !  !
-     !  do l = 1,nr
-     !    dudr(l) = deriv(this_geom,this_order)% &
-     !                                     d(l)% &
-     !              dot( k , tusp(1:np,m) )
-     !  end do
-     !  !
-     !  ! Transform the derivatives back to x-y space
-     !  !
-     !  do l = 1,nr
-     !    dusp(l,m,n) = dot( dudr(1:nr) , metrics_dt(nc)%met(k,1:nr,l) )
-     !  end do
-     !  !
-     !end do
-      !
+    end do
+    !
+    !$ACC LOOP VECTOR COLLAPSE(3)
+    do k = 1,np
+      do m = 1,nq
+        do l = 1,nr
+          n = k+n1-1 ! total index of solution point on current partition
+          dusp(l,m,n) = dot( dudr(1:nr,m,k) , metrics_dt(nc)%met(k,1:nr,l) )
+        end do
+      end do
     end do
     !
   end do
@@ -1219,43 +1257,43 @@ continue
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
-  n1 = lbound(correct,dim=2)
-  n2 = ubound(correct,dim=2)
-  i1 = lbound(correct,dim=1)
-  i2 = ubound(correct,dim=1)
-  allocate (correct2(i1:i2,n1:n2))
-  do n = lbound(correct,dim=2),ubound(correct,dim=2)
-    do i = lbound(correct,dim=1),ubound(correct,dim=1)
-      if (allocated(correct(i,n)%row_val)) &
-        correct2(i,n)%row_val = correct(i,n)%row_val
-      if (allocated(correct(i,n)%row_idx)) &
-        correct2(i,n)%row_idx = correct(i,n)%row_idx
-      if (allocated(correct(i,n)%row_ptr)) &
-        correct2(i,n)%row_ptr = correct(i,n)%row_ptr
-    end do
-  end do
-  n1 = lbound(interp,dim=2)
-  n2 = ubound(interp,dim=2)
-  i1 = lbound(interp,dim=1)
-  i2 = ubound(interp,dim=1)
-  allocate (interp2(i1:i2,n1:n2))
-  do n = n1,n2
-    do i = i1,i2
-      if (allocated(interp(i,n)%toFace)) then
-        j1 = lbound(interp(i,n)%toFace,dim=1)
-        j2 = ubound(interp(i,n)%toFace,dim=1)
-        allocate ( interp2(i,n)%toFace(j1:j2) )
-        do j = j1,j2
-          if (allocated(interp(i,n)%toFace(j)%row_val)) &
-            interp2(i,n)%toFace(j)%row_val = interp(i,n)%toFace(j)%row_val
-          if (allocated(interp(i,n)%toFace(j)%row_idx)) &
-            interp2(i,n)%toFace(j)%row_idx = interp(i,n)%toFace(j)%row_idx
-          if (allocated(interp(i,n)%toFace(j)%row_ptr)) &
-            interp2(i,n)%toFace(j)%row_ptr = interp(i,n)%toFace(j)%row_ptr
-        end do
-      end if
-    end do
-  end do
+ !n1 = lbound(correct,dim=2)
+ !n2 = ubound(correct,dim=2)
+ !i1 = lbound(correct,dim=1)
+ !i2 = ubound(correct,dim=1)
+ !allocate (correct2(i1:i2,n1:n2))
+ !do n = lbound(correct,dim=2),ubound(correct,dim=2)
+ !  do i = lbound(correct,dim=1),ubound(correct,dim=1)
+ !    if (allocated(correct(i,n)%row_val)) &
+ !      correct2(i,n)%row_val = correct(i,n)%row_val
+ !    if (allocated(correct(i,n)%row_idx)) &
+ !      correct2(i,n)%row_idx = correct(i,n)%row_idx
+ !    if (allocated(correct(i,n)%row_ptr)) &
+ !      correct2(i,n)%row_ptr = correct(i,n)%row_ptr
+ !  end do
+ !end do
+ !n1 = lbound(interp,dim=2)
+ !n2 = ubound(interp,dim=2)
+ !i1 = lbound(interp,dim=1)
+ !i2 = ubound(interp,dim=1)
+ !allocate (interp2(i1:i2,n1:n2))
+ !do n = n1,n2
+ !  do i = i1,i2
+ !    if (allocated(interp(i,n)%toFace)) then
+ !      j1 = lbound(interp(i,n)%toFace,dim=1)
+ !      j2 = ubound(interp(i,n)%toFace,dim=1)
+ !      allocate ( interp2(i,n)%toFace(j1:j2) )
+ !      do j = j1,j2
+ !        if (allocated(interp(i,n)%toFace(j)%row_val)) &
+ !          interp2(i,n)%toFace(j)%row_val = interp(i,n)%toFace(j)%row_val
+ !        if (allocated(interp(i,n)%toFace(j)%row_idx)) &
+ !          interp2(i,n)%toFace(j)%row_idx = interp(i,n)%toFace(j)%row_idx
+ !        if (allocated(interp(i,n)%toFace(j)%row_ptr)) &
+ !          interp2(i,n)%toFace(j)%row_ptr = interp(i,n)%toFace(j)%row_ptr
+ !      end do
+ !    end if
+ !  end do
+ !end do
   !
  !!$ACC PARALLEL DO GANG VECTOR_LENGTH(64) PRIVATE(unrm,lufp,rufp, &
  !!$ACC PARALLEL DO GANG PRIVATE(unrm,lufp,rufp, &
@@ -1363,14 +1401,14 @@ continue
         do m = 1,nq
           do l = 1,nr
             lf = fpidx(kf)
-            do i = correct2(this_geom,this_order)%row_ptr(lf)+1, &
-                   correct2(this_geom,this_order)%row_ptr(lf+1)
-              n = correct2(this_geom,this_order)%row_idx(i)
-              correct_n = correct2(this_geom,this_order)%row_val(i) * &
+            do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
+                   correct(this_geom,this_order)%row_ptr(lf+1)
+              n = correct(this_geom,this_order)%row_idx(i)
+              correct_n = correct(this_geom,this_order)%row_val(i) * &
                           fp_area(kf) / metrics_dt(nc)%jac(n)
               correct_m = correct_n * hfpb * (faceusp(nf)%v(m,kf,2) - &
                                               faceusp(nf)%v(m,kf,1))
-             !correct_m = correct2(this_geom,this_order)%row_val(i) * &
+             !correct_m = correct(this_geom,this_order)%row_val(i) * &
              !            (faceusp(nf)%v(m,kf,2) - faceusp(nf)%v(m,kf,1)) * &
              !            hfpb * fp_area(kf) / metrics_dt(nc)%jac(n)
               face_dusp(n,l,m) = face_dusp(n,l,m) + correct_m * fp_unrm(l,kf)
@@ -1395,10 +1433,10 @@ continue
           do l = 1,nr
             lf = fpidx(k)
             val = zero
-            do i = interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-                   interp2(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-              n = interp2(this_geom,this_order)%toFace(face_order)%row_idx(i)
-              val = val + face_dusp(n,l,m) * interp2(this_geom,this_order)% &
+            do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                   interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+              n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+              val = val + face_dusp(n,l,m) * interp(this_geom,this_order)% &
                                                         toFace(face_order)% &
                                              row_val(i)
             end do
