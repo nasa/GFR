@@ -17,7 +17,8 @@ MOD = $(MODFLAG) $(MODDIR)
 FSFXFLG = .f90
 
 CSFXFLG = .c
-CFLAG = -O3 -g
+CFLAG = -O3
+#CFLAG += -g
 
 HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
 CGNSLIB  := -lcgns
@@ -34,13 +35,13 @@ ifdef MKLFPP
 endif
 
 ifdef PBSFPP
-  PBSDIR := -L/u/scicon/tools/lib 
-  PBSLIB := -lpbs_time_left
+ #PBSDIR := -L/u/scicon/tools/lib 
+ #PBSLIB := -lpbs_time_left
   ifneq "$(COMPFAMILY)" "intel"
     INTELVER := 2016.2.181
     INTELDIR := /nasa/intel/Compiler/$(INTELVER)
-    PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
-    PBSLIB += -lirc
+   #PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
+   #PBSLIB += -lirc
   endif
   TARGET = $(AUTOTARGETARCH)
 endif
@@ -56,7 +57,9 @@ FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
 
-FCBASE = $(TRACEFLAG) -g $(REALLOCFLAG)
+FCBASE = $(REALLOCFLAG)
+#FCBASE += $(TRACEFLAG)
+#FCBASE += -g
 
 ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(CMPFLAGS)
 
@@ -131,11 +134,12 @@ sandybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
 sandybridge: optimize
 
 .PHONY: westmere
-westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+westmere: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+#westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 westmere: optimize
 
 .PHONY: merope
-merope: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+merope: OPTIM = -O2 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
 
 .PHONY: optimize
@@ -216,7 +220,8 @@ ifeq "$(COMPFAMILY)" "intel"
   HASARCH := CORE-AVX2
   BROARCH := CORE-AVX2
   FPPFLAG := -fpp
-  OPTFLAG := -ip -align array32byte
+ #OPTFLAG := -ip -align array32byte
+  OPTFLAG := -O2
   DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check
   IPFLAG  := -ip
   IPOFLAG := -ipo
@@ -236,7 +241,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   HASARCH := haswell
   BROARCH := broadwell
   FPPFLAG := -cpp
-  OPTFLAG := 
+  OPTFLAG := -O2
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
@@ -256,9 +261,10 @@ else ifeq "$(COMPFAMILY)" "pgi"
   HASARCH := haswell
   BROARCH := haswell
   FPPFLAG := -Mpreprocess
-  OPTFLAG :=
+  OPTFLAG := -O2
+ #OPTFLAG := -O3 -fast -Mipa=fast,inline
   DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
-  TRACEFLAG := -traceback
+  TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
   EXTOBJS  := $(METISDIR)/include/metis.o

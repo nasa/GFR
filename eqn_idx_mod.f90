@@ -43,6 +43,8 @@ module eqn_idx
   !
   integer, public, protected, save :: nq = 4
   !
+  !$ACC DECLARE CREATE(nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq)
+  !
   ! NGOV : Equation control parameters 
   !
   !        NOTE: THIS IS COPIED FROM VULCAN MOST IS NOT USED
@@ -174,6 +176,8 @@ continue
   !
   ntk = ngov(1,4)
   ntl = ngov(2,4)
+  !
+  !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
   !
 end subroutine create_equation_indices
 !

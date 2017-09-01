@@ -100,6 +100,7 @@ continue
     call get_current_cfl
     !
     call get_cell_timestep(dtmin)
+   !call get_cell_timestep_old(dtmin)
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
     !
@@ -162,8 +163,9 @@ continue
     !
   end if
   !
-  time = time + dtmin
+ !time = time + dtmin
   d_t = dtmin
+ !!$ACC UPDATE DEVICE(time)
   !
   ! Format Statements
   !
@@ -229,6 +231,264 @@ end subroutine get_constant_timestep
 !###############################################################################
 !
 subroutine get_cell_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order,maxSP,geom_solpts
+  !
+  use geovar, only : nr,nfbnd,nface
+  use geovar, only : face,cell
+  !
+  use ovar, only : gam,Timestep_Type,time_ref,Final_Time,time,CFL
+  use ovar, only : governing_equations
+  use ovar, only : this_is_final_timestep
+  !
+  use metrics_mod, only : geofa,metrics_dt
+  !
+  use flowvar, only : dtsp,faceusp
+  !
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: nf,kf,sf,m
+  integer  :: l1,l2,npl,lcfp
+  integer  :: r1,r2,npr,rcfp
+  integer  :: face_geom,face_order,nfp
+  integer  :: host_cell,host_geom,host_order
+  integer  :: left_cell,left_geom,left_order
+  integer  :: right_cell,right_geom,right_order
+  real(wp) :: ds,eigni,eignv,pp1sq
+  real(wp) :: dsl,vell,al,jacl,dtl,mul,hl
+  real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
+  real(wp) :: psql,psqr
+  !
+  !.. Local Arrays ..
+  real(wp) :: vl(1:nq)
+  real(wp) :: vr(1:nq)
+  !
+#ifdef USE_FACE_FP_ARRAYS
+  !.. Local Allocatable Arrays ..
+  integer, allocatable :: left_fp_idx(:)
+  integer, allocatable :: right_fp_idx(:)
+#endif
+  !
+  integer, parameter :: make_p_plus_one = 0
+ !integer, parameter :: make_p_plus_one = 1
+  !
+  logical(lk), parameter :: use_sqrt = true
+ !logical(lk), parameter :: use_sqrt = fals
+  !
+  integer, parameter :: lsf = 1
+  integer, parameter :: rsf = 2
+  !
+continue
+  !
+  mul = zero
+  mur = zero
+  !
+  dtmin = huge(zero)
+  dtsp(:) = dtmin
+  !
+  do nf = 1,nfbnd
+    !
+    host_cell = face(nf)%left%cell ! left cell on face
+    !
+    host_geom  = cell(host_cell)%geom  ! host cell geometry
+    host_order = cell(host_cell)%order ! host cell order
+    !
+    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
+    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
+    npl = l2-l1+1               ! number of solution points in left cell
+    !
+    face_geom = face(nf)%geom   ! geometry of the current face
+    face_order = face(nf)%order ! order    of the current face
+    !
+    psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    do kf = 1,nfp
+      !
+      ! Get the primitive variables at this face point
+      !
+      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        mul = viscosity_pv_sp( vl(1:nq) )
+      end if
+      !
+      ds = norm2( geofa(nf)%v(1:nr,kf) )
+      dsl = ds * cl(host_geom) ! face length/area for left cell
+      !
+      ! Normal velocity at this flux point
+      !
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
+      vell = selfdot( vl(nmb:nme) )
+      if (use_sqrt) vell = sqrt(vell)
+      !
+      ! Speed of sound at this face
+      !
+      al = max( gam*vl(nee)/vl(nec) , rndoff )
+      if (use_sqrt) al = sqrt(al)
+      !
+      ! Interpolate the jacobian to the flux point
+      !
+      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      !
+      jacl = interp(host_geom,host_order)% &
+                       toFace(face_order)% &
+             dot( lcfp , metrics_dt(host_cell)%jac(:) )
+      !
+      hl = half * dsl / jacl
+      !
+      eigni = abs(vell) + al
+      eignv = psql * hl * mul
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv)) )
+      !
+      ! Store the minimum timestep for this cell in the location
+      ! of the first solution point for this cell
+      !
+      dtsp(l1:l2) = dtl
+      !
+      dtmin = min( dtmin , dtl )
+      !
+    end do
+    !
+  end do
+  !
+  do nf = nfbnd+1,nface
+    !
+    left_cell  = face(nf)%left%cell  ! left  cell on face
+    right_cell = face(nf)%right%cell ! right cell on face
+    !
+    left_geom  = cell(left_cell)%geom  ! left cell geometry
+    left_order = cell(left_cell)%order ! left cell order
+    !
+    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left  cell
+    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
+    npl = l2-l1+1               ! number of solution points in left  cell
+    !
+    right_geom  = cell(right_cell)%geom  ! right cell geometry
+    right_order = cell(right_cell)%order ! right cell order
+    !
+    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
+    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
+    npr = r2-r1+1                ! number of solution points in right cell
+    !
+    face_geom = face(nf)%geom   ! geometry of the current face
+    face_order = face(nf)%order ! order    of the current face
+    !
+    psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
+    psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    do kf = 1,nfp
+      !
+      ! Get the primitive variables at this face point
+      !
+      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
+      vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,rsf) )
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        mul = viscosity_pv_sp( vl(1:nq) )
+        mur = viscosity_pv_sp( vr(1:nq) )
+      end if
+      !
+      ds = norm2( geofa(nf)%v(1:nr,kf) )
+      dsl = ds * cl(left_geom) ! face length/area for left  cell
+      dsr = ds * cl(right_geom) ! face length/area for right cell
+      !
+      ! Normal velocity at this flux point
+      !
+     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
+     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
+      vell = selfdot( vl(nmb:nme) )
+      if (use_sqrt) vell = sqrt(vell)
+      velr = selfdot( vr(nmb:nme) )
+      if (use_sqrt) velr = sqrt(velr)
+      !
+      ! Speed of sound at this face
+      !
+      al = max( gam*vl(nee)/vl(nec) , rndoff )
+      if (use_sqrt) al = sqrt(al)
+      ar = max( gam*vr(nee)/vr(nec) , rndoff )
+      if (use_sqrt) ar = sqrt(ar)
+      !
+      ! Interpolate the jacobian to the flux point for the left cell
+      !
+      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      !
+      jacl = interp(left_geom,left_order)% &
+                       toFace(face_order)% &
+             dot( lcfp , metrics_dt(left_cell)%jac(:) )
+      !
+      ! Interpolate the jacobian to the flux point for the right cell
+      !
+      rcfp = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
+      !
+      jacr = interp(right_geom,right_order)% &
+                         toFace(face_order)% &
+             dot( rcfp , metrics_dt(right_cell)%jac(:) )
+      !
+      hl = half * dsl / jacl
+      hr = half * dsr / jacr
+      !
+      eigni = max( abs(vell) + al , abs(velr) + ar )
+      eignv = max( psql * hl * mul , psqr * hr * mur )
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv) ) )
+      dtr = min( dtsp(r1) , CFL / (psqr * hr * (eigni + eignv) ) )
+      !
+      ! Store the minimum timestep for all solution points in both cells
+      !
+      dtsp(l1:l2) = dtl
+      dtsp(r1:r2) = dtr
+      !
+      dtmin = min( dtmin , dtl , dtr )
+      !
+    end do
+    !
+  end do
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Limit the local timesteps if using a global timestepping
+  !
+  if (Timestep_Type == Global_Cell_Timestep) then
+    !
+    ! Set all time step sizes to the global minimum timestep
+    !
+    dtsp(:) = dtmin
+    !
+  end if
+  !
+  ! Make sure the timestep size doesnt make the final time exceed Final_Time
+  !
+  if (Final_Time > zero) then
+    if (time + dtmin > Final_Time/time_ref + eps9) then
+      dtsp(:) = Final_Time/time_ref - time
+      this_is_final_timestep = true
+    end if
+  end if
+  !
+end subroutine get_cell_timestep
+!
+!###############################################################################
+!
+subroutine get_cell_timestep_old(dtmin)
   !
   !.. Use Statements ..
   use order_mod, only : n_order,maxSP,geom_solpts
@@ -503,7 +763,7 @@ continue
     end if
   end if
   !
-end subroutine get_cell_timestep
+end subroutine get_cell_timestep_old
 !
 !###############################################################################
 !
@@ -732,9 +992,11 @@ subroutine rresi
   !
 continue
   !
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
   do nc = 1,ncell
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
+    !$ACC LOOP VECTOR
     do n = n1,n2
       jac_inv = one / metrics_dt(nc)%jac(n-n1+1)
       do m = 1,nq
@@ -746,13 +1008,13 @@ continue
   ! Zero out the residuals for all but the density
   ! equation if running the density transport test case
   !
-  if (itestcase == Density_Transport) then
-    do n = 1,n_solpts
-      do m = nec+1,nq
-        residual(m,n) = residual(nec,n)
-      end do
-    end do
-  end if
+ !if (itestcase == Density_Transport) then
+ !  do n = 1,n_solpts
+ !    do m = nec+1,nq
+ !      residual(m,n) = residual(nec,n)
+ !    end do
+ !  end do
+ !end if
   !
   if (p_order < n_order) then
     call project_to_porder(cell,residual)
@@ -993,7 +1255,7 @@ subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,m
   !
   ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
   !
@@ -1002,12 +1264,13 @@ subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
   !
 continue
   !
+  !$ACC PARALLEL DO GANG WORKER VECTOR COLLAPSE(2)
   do n = 1,n_solpts
-    !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + &
-                            usp(:,n) + &
-                            dtsp(n)*residual(:,n))
-    !
+    do m = 1,nq
+      usp(m,n) = beta(nst) * (alfa(nst)*uoldsp(m,n) + &
+                              usp(m,n) + &
+                              dtsp(n)*residual(m,n))
+    end do
   end do
   !
   ! Apply the filter

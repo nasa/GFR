@@ -9,6 +9,441 @@
 !###############################################################################
 !###############################################################################
 !
+pure subroutine visc_flx_cv_gpu(usp,dusp,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd,cpref_nd,Pr
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: l,m,n,np,nr
+  real(wp) :: cv_inv,cpPr,mvsc
+  real(wp) :: rho_inv,ave_ext_rate
+  real(wp) :: dudx,dudy,dudz
+  real(wp) :: dvdx,dvdy,dvdz
+  real(wp) :: dwdx,dwdy,dwdz
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: tusp(:,:)
+  real(wp), allocatable :: tdpvdx(:,:,:)
+  !
+continue
+  !
+  np = size(return_value,dim=1)
+  nr = size(return_value,dim=2)
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  cpPr = cpref_nd/Pr
+  !
+  allocate ( tusp(1:np,1:nq) )
+  allocate ( tdpvdx(1:np,1:nr,1:nq) )
+  !$ACC DATA CREATE(tusp,tdpvdx) &
+  !$ACC&     COPY(return_value) &
+  !$ACC&     COPYIN(usp,dusp)
+  !
+  !$ACC PARALLEL LOOP
+  do n = 1,np
+    tusp(n,nec) = usp(nec,n)
+  end do
+  !
+  ! NOTE: EMBED 1/RHO IN ALL OTHER VARIABLES
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do m = nmb,nq
+    do n =1,np
+      tusp(n,m) = usp(m,n)/tusp(n,nec)
+    end do
+  end do
+  !
+  ! Temporarily store the transposed conserved variable
+  ! gradients in the return_value array
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(3)
+  do n = 1,np
+    do m = 1,nq
+      do l = 1,nr
+        return_value(n,l,m) = dusp(l,m,n)
+      end do
+    end do
+  end do
+  !
+ !!$ACC PARALLEL LOOP COLLAPSE(3)
+ !do m = 1,nq
+ !  do l = 1,nr
+ !    do n = 1,np
+ !      return_value(n,l,m) = return_value(n,l,m)/tusp(n,nec)
+ !    end do
+ !  end do
+ !end do
+  !
+  ! Get the gradients of the primitive variables using the 
+  ! gradients of the conservative variables and the product rule
+  !
+ !call grad_cv_to_grad_pv_sp_sub(uu,dcvdx,dpvdx)
+  call grad_cv_to_grad_pv_gpu(tusp,return_value,tdpvdx, &
+                              tusp_includes_rho_inv=true)
+  ! 
+  ! Replace energy variable with molecular viscosity
+  !
+  !$ACC PARALLEL LOOP
+  do n = 1,np
+    tusp(n,nee) = viscosity_cv_sp( usp(:,n) )
+  end do
+  !
+  ! Density flux is zero
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do l = 1,nr
+    do n = 1,np
+      return_value(n,l,nec) = zero
+    end do
+  end do
+  !
+  ! Momentum equations
+ !!
+ !! Compute the average extension rate
+ !!
+ !ave_ext_rate = zero
+ !do l = 1,nr
+ !  ave_ext_rate = ave_ext_rate + dpvdx(l,nmb-1+l)
+ !end do
+ !ave_ext_rate = two3 * ave_ext_rate
+ !!
+ !! Compute the viscous fluxes for the momentum equations which are just
+ !! the components of the viscous stress tensor.
+ !! NOTE: We are initially excluding the molecular viscosity term which
+ !!       will be multiplied to the whole tau array after these loops.
+ !!
+ !do j = 1,nr
+ !  do i = 1,nr
+ !      return_value(nmb-1+i,j) = dpvdx(i,nmb-1+j) + dpvdx(j,nmb-1+i)
+ !  end do
+ !end do
+ !!
+ !! Get the velocity vector
+ !!
+ !vel(:) = uu(nmb:nme)/uu(nec)
+ !!
+ !! Compute the molecular viscosity and molecular conductivity
+ !!
+ !mvsc = viscosity_cv_sp(uu)
+ !mcdt = cpref_nd * mvsc / Pr
+ !!
+ !! Subtract the average extension rate from the normal stresses
+ !!
+ !do l = 1,nr
+ !  return_value(nmb-1+l,l) = return_value(nmb-1+l,l) - ave_ext_rate
+ !end do
+ !!
+ !! Multiply the viscous stresses by the molecular viscosity
+ !!
+ !return_value(nmb:nme,1:nr) = mvsc * return_value(nmb:nme,1:nr)
+  !
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP
+    do n = 1,np
+      !
+      mvsc = tusp(n,nee)
+      !
+      dudx = mvsc * tdpvdx(n,1,nmx)
+      dudy = mvsc * tdpvdx(n,2,nmx)
+      dudz = mvsc * tdpvdx(n,3,nmx)
+      !
+      dvdx = mvsc * tdpvdx(n,1,nmy)
+      dvdy = mvsc * tdpvdx(n,2,nmy)
+      dvdz = mvsc * tdpvdx(n,3,nmy)
+      !
+      dwdx = mvsc * tdpvdx(n,1,nmz)
+      dwdy = mvsc * tdpvdx(n,2,nmz)
+      dwdz = mvsc * tdpvdx(n,3,nmz)
+      !
+      ave_ext_rate = two3 * (dudx + dvdy + dwdz)
+      !
+      return_value(n,1,nmx) = dudx + dudx - ave_ext_rate
+      return_value(n,2,nmx) = dvdx + dudy
+      return_value(n,3,nmx) = dwdx + dudz
+      !
+      return_value(n,1,nmy) = dudy + dvdx
+      return_value(n,2,nmy) = dvdy + dvdy - ave_ext_rate
+      return_value(n,3,nmy) = dwdy + dvdz
+      !
+      return_value(n,1,nmz) = dudz + dwdx
+      return_value(n,2,nmz) = dvdz + dwdy
+      return_value(n,3,nmz) = dwdz + dwdz - ave_ext_rate
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP
+    do n = 1,np
+      !
+      mvsc = tusp(n,nee)
+      !
+      dudx = mvsc * tdpvdx(n,1,nmx)
+      dudy = mvsc * tdpvdx(n,2,nmx)
+      !
+      dvdx = mvsc * tdpvdx(n,1,nmy)
+      dvdy = mvsc * tdpvdx(n,2,nmy)
+      !
+      ave_ext_rate = two3 * (dudx + dvdy)
+      !
+      return_value(n,1,nmx) = dudx + dudx - ave_ext_rate
+      return_value(n,2,nmx) = dvdx + dudy
+      !
+      return_value(n,1,nmy) = dudy + dvdx
+      return_value(n,2,nmy) = dvdy + dvdy - ave_ext_rate
+      !
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP
+    do n = 1,np
+      return_value(n,1,nmx) = two * two3 * tusp(n,nee) * tdpvdx(n,1,nmx)
+    end do
+    !
+  end if
+  !
+  ! Energy Equation
+  !
+ !do l = 1,nr
+ !  return_value(nq,l) = mcdt*dpvdx(l,nq) + &
+ !                       dot( vel(1:nr) , return_value(nmb:nme,l) )
+ !end do
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,nr
+      do n = 1,np
+        return_value(n,l,nee) = cpPr*tusp(n,nee)*tdpvdx(n,l,nee) &
+                              + tusp(n,nmx)*return_value(n,l,nmx) &
+                              + tusp(n,nmy)*return_value(n,l,nmy) &
+                              + tusp(n,nmz)*return_value(n,l,nmz)
+      end do
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,nr
+      do n = 1,np
+        return_value(n,l,nee) = cpPr*tusp(n,nee)*tdpvdx(n,l,nee) &
+                              + tusp(n,nmx)*return_value(n,l,nmx) &
+                              + tusp(n,nmy)*return_value(n,l,nmy)
+      end do
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,nr
+      do n = 1,np
+        return_value(n,l,nee) = cpPr*tusp(n,nee)*tdpvdx(n,l,nee) &
+                              + tusp(n,nmx)*return_value(n,l,nmx)
+      end do
+    end do
+    !
+  end if
+  !
+  !$ACC END DATA
+  deallocate ( tusp )
+  deallocate ( tdpvdx )
+  !
+end subroutine visc_flx_cv_gpu
+!
+!###############################################################################
+!
+pure subroutine grad_cv_to_grad_pv_gpu(tusp,tdcvdx,return_value, &
+                                       tusp_includes_rho_inv)
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use ovar, only : rgasref_nd,gam
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: tusp_includes_rho_inv
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n,np,nr
+  real(wp) :: cv_inv,rho_inv
+  !
+  logical(lk) :: tusp_needs_rho_inv
+  !
+continue
+  !
+  tusp_needs_rho_inv = true
+  if (present(tusp_includes_rho_inv)) then
+    tusp_needs_rho_inv = .not. tusp_includes_rho_inv
+  end if
+  !
+  !$ACC DATA PRESENT(tusp,tdcvdx,return_value)
+  !
+  np = size(tdcvdx,dim=1)
+  nr = size(tdcvdx,dim=2)
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Embed 1/rho in the all variables except density
+  !
+  if (tusp_needs_rho_inv) then
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do m = nmb,nq
+      do n = 1,np
+        tusp(n,m) = tusp(n,m)/tusp(n,nec)
+      end do
+    end do
+  end if
+  !
+  ! Copy the density gradient
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do l = 1,nr
+    do n = 1,np
+      return_value(n,l,nec) = tdcvdx(n,l,nec)
+    end do
+  end do
+  !
+  ! Using the chain rule:
+  !
+  ! 1. Compute the velocity gradients (m = 2,nq-1)
+  ! 2. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (m = nq)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(3)
+  do m = nmb,nq
+    do l = 1,nr
+     !dpvdx(l,m) = rho_inv*dcvdx(l,m) - rho_inv*var(m)*dcvdx(l,nec)
+      do n = 1,np
+        rho_inv = one/tusp(n,nec)
+        return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
+                              rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
+      end do
+    end do
+  end do
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  ! 
+  !
+#ifdef NOT_SURE_ABOUT_LOOP
+  do m = nmb,nme
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,nr
+     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
+      do n = 1,np
+        return_value(n,l,nee) = return_value(n,l,nee) &
+                              - return_value(n,l,m)*tusp(n,m)
+      end do
+    end do
+  end do
+#else
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,3
+     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
+      do n = 1,np
+        return_value(n,l,nee) = return_value(n,l,nee) &
+                              - return_value(n,l,nmx)*tusp(n,nmx) &
+                              - return_value(n,l,nmy)*tusp(n,nmy) &
+                              - return_value(n,l,nmz)*tusp(n,nmz)
+      end do
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,2
+     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
+      do n = 1,np
+        return_value(n,l,nee) = return_value(n,l,nee) &
+                              - return_value(n,l,nmx)*tusp(n,nmx) &
+                              - return_value(n,l,nmy)*tusp(n,nmy)
+      end do
+    end do
+  else
+    !$ACC PARALLEL LOOP
+    do n = 1,np
+      return_value(n,1,nee) = return_value(n,1,nee) &
+                            - return_value(n,1,nmx)*tusp(n,nmx)
+    end do
+  end if
+#endif
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+ !dpvdx(1:nr,nee) = dpvdx(1:nr,nee) * cv_inv
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do l = 1,nr
+    do n = 1,np
+      return_value(n,l,nee) = return_value(n,l,nee) * cv_inv
+    end do
+  end do
+  !
+  ! Remove the embedded 1/rho in the all variables except density
+  !
+  if (tusp_needs_rho_inv) then
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do m = nmb,nq
+      do n = 1,np
+        tusp(n,m) = tusp(n,m)*tusp(n,nec)
+      end do
+    end do
+  end if
+  !$ACC END DATA
+  !
+! rho_inv = one/rusp(nec)
+! !
+! var(1:nq) = rho_inv*rusp(1:nq)
+! !
+! ! Copy the density gradient
+! !
+! return_value(1:nr,nec) = dcvdx(1:nr,nec)
+! !
+! ! Using the chain rule:
+! !
+! ! 1. Compute the velocity gradients (m = 2,nq-1)
+! ! 2. Compute the total energy gradient and store in the
+! !    location for the temperature gradient (m = nq)
+! !
+! do m = nmb,nee
+!   do l = 1,nr
+!     return_value(l,m) = rho_inv*dcvdx(l,m) - rho_inv*var(m)*dcvdx(l,nec)
+!   end do
+! end do
+! !
+! ! The location for the temperature gradient currently contains
+! ! the total energy gradient from the previous loop.
+! ! Now use the velocity gradients to subtract the gradient of
+! ! kinetic-energy-per-unit-mass from the total energy gradient.
+! ! 
+! do m = nmb,nme
+!   do l = 1,nr
+!     return_value(l,nee) = return_value(l,nee) - var(m)*return_value(l,m)
+!   end do
+! end do
+! !
+! ! Finish computing the temperature gradient by dividing through by
+! ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+! !
+! return_value(1:nr,nee) = return_value(1:nr,nee) * cv_inv
+! !
+end subroutine grad_cv_to_grad_pv_gpu
+!
+!###############################################################################
+!
 pure function visc_flx_cv1(uu,dcvdx) result(return_value) 
   !
   !.. Use Statements ..
@@ -91,7 +526,9 @@ end function visc_flx_cv1
 !
 !###############################################################################
 !
-pure function visc_flx_cv(uu,dcvdx) result(return_value) 
+!pure function visc_flx_cv(uu,dcvdx) result(return_value) 
+pure subroutine visc_flx_cv(uu,dcvdx,return_value)
+  !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -102,7 +539,7 @@ pure function visc_flx_cv(uu,dcvdx) result(return_value)
   real(wp), dimension(1:nr,1:nq), intent(in) :: dcvdx
   !
   !.. Function Result ..
-  real(wp), dimension(1:nq,1:nr) :: return_value
+  real(wp), dimension(1:nq,1:nr), intent(inout) :: return_value
   !
   !.. Local Scalars ..
   integer :: i,j,l
@@ -118,12 +555,14 @@ continue
   ! Initialize the viscous fluxes to zero.
   ! NOTE: This takes care of the continuity equation
   !
-  return_value = zero
+ !i = 0
+  return_value(1:nq,1:nr) = zero
   !
   ! Get the gradients of the primitive variables using the 
   ! gradients of the conservative variables and the product rule
   !
-  dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
+ !dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp_sub(uu,dcvdx)
+  call grad_cv_to_grad_pv_sp_sub(uu,dcvdx,dpvdx)
   !
   ! Get the velocity vector
   !
@@ -166,10 +605,12 @@ continue
   ! Compute the viscous fluxes for the energy equation
   !
   do l = 1,nr
-    return_value(nq,l) = mcdt*dpvdx(l,nq) + dot( vel , return_value(nmb:nme,l) )
+    return_value(nq,l) = mcdt*dpvdx(l,nq) + &
+                         dot( vel(1:nr) , return_value(nmb:nme,l) )
   end do
   !
-end function visc_flx_cv
+!end function visc_flx_cv
+end subroutine visc_flx_cv
 !
 !###############################################################################
 !
@@ -197,7 +638,8 @@ continue
   !
   unrm(:) = unit_vector( rnrm(:) )
   !
-  vflx(1:nq,1:nr) = visc_flx_cv(uu,dcvdx)
+ !vflx(1:nq,1:nr) = visc_flx_cv(uu,dcvdx)
+  call visc_flx_cv(uu,dcvdx,vflx)
   !
   return_value(1:nq) = unrm(1)*vflx(1:nq,1)
   do l = 2,nr
@@ -344,8 +786,10 @@ continue
     !
     ! Get the left and right viscous fluxes
     !
-    lvflx(1:nq,1:nr) = visc_flx_cv(ul,duldx)
-    rvflx(1:nq,1:nr) = visc_flx_cv(ur,durdx)
+    call visc_flx_cv(ul,duldx,lvflx)
+   !lvflx(1:nq,1:nr) = visc_flx_cv(ul,duldx)
+    call visc_flx_cv(ur,durdx,rvflx)
+   !rvflx(1:nq,1:nr) = visc_flx_cv(ur,durdx)
     !
     ! Use the LDG method to compute the common viscous flux vector
     !
@@ -431,7 +875,8 @@ continue
     ! Compute the common viscous flux vector using
     ! the common solution and common gradient
     !
-    fvcom(1:nq,1:nr) = visc_flx_cv(ucom,qcom)
+    call visc_flx_cv(ucom,qcom,fvcom)
+   !fvcom(1:nq,1:nr) = visc_flx_cv(ucom,qcom)
     !
     ! Finally, dot the common viscous flux vector with the face unit normal
     !

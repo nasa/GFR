@@ -1,4 +1,5 @@
 pure function viscosity_cv(uu) result(return_value)
+ !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : tref,rhoref,aref
@@ -43,6 +44,7 @@ end function viscosity_cv
 !###############################################################################
 !
 pure function viscosity_cv_sp(uu) result(return_value)
+  !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : tref,rhoref,aref
@@ -51,7 +53,7 @@ pure function viscosity_cv_sp(uu) result(return_value)
   use ovar, only : include_tke_in_energy
   !
   !.. Formal Arguments ..
-  real(wp), dimension(:), intent(in) :: uu
+  real(wp), dimension(1:nq), intent(in) :: uu
   !
   !.. Function Result ..
   real(wp) :: return_value
@@ -81,6 +83,7 @@ end function viscosity_cv_sp
 !###############################################################################
 !
 pure function viscosity_pv(vv) result(return_value)
+ !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : tref,rhoref,aref,rgasref_nd
@@ -112,6 +115,7 @@ end function viscosity_pv
 !###############################################################################
 !
 pure function viscosity_pv_sp(vv) result(return_value)
+ !!$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : tref,rhoref,aref,rgasref_nd

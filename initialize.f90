@@ -1252,6 +1252,8 @@ continue
   !
   call initialize_turbulence
   !
+  !$ACC UPDATE DEVICE(aref,rhoref,tref,gam,rgasref_nd,cpref_nd,ptotref_nd)
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -1314,6 +1316,8 @@ continue
     suth_c1 = suth_muref * muref_scale
     !
   end if
+  !
+  !$ACC UPDATE DEVICE(suth_Tref,suth_Sref,suth_muref,suth_c1)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1379,6 +1383,8 @@ continue
     pv_in(1:nq) =  usp2v_sp( cv_in(1:nq) )
     !
   end if
+  !
+  !$ACC UPDATE DEVICE(turb_is_on,include_tke_in_energy)
   !
   call debug_timer(leaving_procedure,pname)
   !

@@ -258,6 +258,10 @@ module geovar
     !         NOTE: This should be the maximum solution order between the two
     !               cells attached to the current face.
     integer :: order
+    ! beg_fp : index of first flux point on the current face
+    integer :: beg_fp
+    ! end_fp : index of last  flux point on the current face
+    integer :: end_fp
     ! nodes : array containing the indices for the grid nodes that define this
     !         face. At most this array will contain four node indices for a
     !         quadrilateral face. For triangular or edge faces, the remaining
@@ -444,6 +448,8 @@ module geovar
   !
   type(grid_t), public, save, allocatable :: grid
   !
+  !$ACC DECLARE CREATE(nr)
+  !
 contains
 !
 !###############################################################################
@@ -465,7 +471,7 @@ pure function get_ep_index(this,k) result(return_value)
   !.. Passed Argument from Invoking Object ..
   class(edge_of_cell_t), intent(in) :: this
   !.. Formal Arguments ..
-  integer, intent(in) :: k
+  integer, value, intent(in) :: k
   !.. Function Result ..
   integer :: return_value
 continue
@@ -492,7 +498,7 @@ pure function get_cell_fp_index(this,k) result(return_value)
   !.. Passed Argument from Invoking Object ..
   class(face_of_cell_t), intent(in) :: this
   !.. Formal Arguments ..
-  integer, intent(in) :: k
+  integer, value, intent(in) :: k
   !.. Function Result ..
   integer :: return_value
 continue
@@ -510,8 +516,8 @@ pure function get_face_fp_indices(this,face_geom,face_order) &
   !.. Passed Argument from Invoking Object ..
   class(cell_on_face_t), intent(in) :: this
   !.. Formal Arguments ..
-  integer, intent(in) :: face_geom
-  integer, intent(in) :: face_order
+  integer, value, intent(in) :: face_geom
+  integer, value, intent(in) :: face_order
   !.. Function Result ..
   integer, allocatable :: return_value(:)
 continue
@@ -526,9 +532,9 @@ pure function get_face_fp_index(this,face_geom,face_order,k) &
   !.. Passed Argument from Invoking Object ..
   class(cell_on_face_t), intent(in) :: this
   !.. Formal Arguments ..
-  integer, intent(in) :: face_geom
-  integer, intent(in) :: face_order
-  integer, intent(in) :: k
+  integer, value, intent(in) :: face_geom
+  integer, value, intent(in) :: face_order
+  integer, value, intent(in) :: k
   !.. Function Result ..
   integer :: return_value
 continue

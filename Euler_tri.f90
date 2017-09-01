@@ -33,6 +33,7 @@ program Euler_tri
   use input_namelist_mod, only : restart_interupt
   !
   use flowvar, only : usp,uoldsp
+  use flowvar, only : faceusp,facedusp
   !
   use quadrature_mod, only : solpts_edge
   !
@@ -88,6 +89,8 @@ program Euler_tri
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
   use flux_mod, only : flux_gradient_at_solpts_visc
+  use flux_mod, only : flux_gradient_at_solpts_visc_gpu
+  use flux_mod, only : flux_gradient_at_solpts_visc_gpu1
   use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
@@ -95,6 +98,10 @@ program Euler_tri
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
+  use parallel_mod, only : exchange_faceusp
+  use parallel_mod, only : exchange_facedusp
+  use parallel_mod, only : wait_faceusp
+  use parallel_mod, only : wait_facedusp
   !
   use module_limiters, only : initialize_limiters
   use module_limiters, only : compute_cell_ave
@@ -331,9 +338,15 @@ continue
     !
     call interp_cv_to_flxpts
     call memory_pause("initial interpolation of C.V. to flux points", &
+                      "exchanging C.V. between communication faces")
+    if (ncpu > 1) call exchange_faceusp(faceusp)
+    call memory_pause("exchanging C.V. between communication faces", &
                       "initial evaluation of boundary conditions")
     call get_faceusp_bc
     call memory_pause("initial evaluation of boundary conditions", &
+                      "waiting for C.V. exchanges to complete")
+    if (ncpu > 1) call wait_faceusp(faceusp)
+    call memory_pause("waiting for C.V. exchanges to complete", &
                       "initial TGV KEDR evaluation")
     !
     if (itestcase == Taylor_Green_Vortex) then
@@ -379,6 +392,7 @@ continue
     ! Current iteration count including restart iterations
     !
     itcur = itcur + 1
+    !$ACC UPDATE DEVICE(itcur)
     !
     ! Store a copy of the solution from the previous time step
     !
@@ -398,24 +412,73 @@ continue
           Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
         end if
       end if
-      !
+#ifdef NEW_FLUX_REARRANGEMENT
       call interp_cv_to_flxpts
-      call get_faceusp_bc
-      if (nst == 1) call get_dtsp(dtmin)
-      !
+      if (ncpu > 1) call exchange_faceusp(faceusp)
       if (governing_equations == NavierStokes_Eqns) then
         call discontinuous_gradient_at_solpts
+      end if
+      call get_faceusp_bc
+      call get_invs_common_fluxes_interior
+      !
+      if (ncpu > 1) call wait_faceusp(faceusp)
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        if (visc_flux_method == visc_flux_BR2) then
+          call correct_gradients_br2
+        else
+          call correct_gradients_at_solpts
+          call interp_dusp_to_flxpts
+        end if
+        if (ncpu > 1) call exchange_facedusp(facedusp)
+        call get_facedusp_bc
+        call get_visc_common_fluxes_interior
+      end if
+      !
+      call get_invs_common_fluxes_bc
+      !
+      if (governing_equation == NavierStokes_Eqns) then
+        if (ncpu > 1) call wait_facedusp(facedusp)
+        call get_visc_common_fluxes_bc
+      end if
+      !
+      call new_flux_gradient_at_solpts_visc
+#else
+      !
+      call interp_cv_to_flxpts
+      !
+      if (ncpu > 1) call exchange_faceusp(faceusp)
+      !
+      call get_faceusp_bc
+      !
+      if (ncpu > 1) call wait_faceusp(faceusp)
+      !
+     !if (nst == 1) call get_dtsp(dtmin)
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        !
+        call discontinuous_gradient_at_solpts
+        !
         if (visc_flux_method == visc_flux_BR2) then
           call correct_gradients_br2
         else if (visc_flux_method /= visc_flux_BR2) then
           call correct_gradients_at_solpts
           call interp_dusp_to_flxpts
         end if
+        !
+        if (ncpu > 1) call exchange_facedusp(facedusp)
+        !
         call get_facedusp_bc
+        !
+        if (ncpu > 1) call wait_facedusp(facedusp)
+        !
       end if
       !
-      call flux_gradient_at_solpts_visc(iter,nst)
+     !call flux_gradient_at_solpts_visc(iter,nst)
+     !call flux_gradient_at_solpts_visc_gpu(iter,nst)
+      call flux_gradient_at_solpts_visc_gpu1(iter,nst)
       call correct_interface_flux_visc(iter,nst)
+#endif
       !
       ! Compute the source terms for the method of manufactured solutions (MMS)
       !
@@ -428,6 +491,8 @@ continue
       ! Compute the final residual for each solution point
       !
       call rresi
+      !
+      if (nst == 1) call get_dtsp(dtmin)
       !
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
@@ -446,6 +511,11 @@ continue
     end do rk_loop
     !
     completed_timesteps = iter
+    !
+    ! Update the current time now that the Runge-Kutta loop is finished
+    !
+    time = time + dtmin
+    !$ACC UPDATE DEVICE(time)
     !
    !call check_for_bad_number(__LINE__)
     !

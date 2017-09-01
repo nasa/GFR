@@ -62,7 +62,7 @@ subroutine get_faceusp_bc
   use metrics_mod,  only : geofa
   use flowvar,      only : faceusp,facexyz
   !
-  use parallel_mod, only : wait_faceusp
+ !use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
   integer :: nf,pf,bc_idx
@@ -80,6 +80,7 @@ continue
   ! Loop over the boundary faces and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
+ !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
   do nf = 1,nfbnd
     !
     bc_idx = bface(6,nf)
@@ -218,10 +219,12 @@ continue
         !
         ! Dirichlet boundary condition for MMS
         !
+#ifndef USE_ACC
         call get_bc_mms_dirichlet_solution(faceusp(nf)%v(:,:,1), &
                                            faceusp(nf)%v(:,:,2), &
                                            facexyz(nf)%v(:,:), &
                                            geofa(nf)%v(:,:))
+#endif
         !
       case (bc_cpu_bnd)
         !
@@ -231,8 +234,8 @@ continue
         !
         ! This shouldn't be here and is an unknown boundary condition
         !
-        write (iout,1) bface(1,nf)
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+       !write (iout,1) bface(1,nf)
+       !call stop_recon(abort,pname,__LINE__,__FILE__)
         !
     end select
     !
@@ -252,9 +255,9 @@ continue
   ! this cell, make sure that the communication of faceusp between
   ! processors has completed before continuing onwards.
   !
-  if (ncpu > 1) call wait_faceusp(faceusp)
+ !if (ncpu > 1) call wait_faceusp(faceusp)
   !
-  call exchange_bc_conflicts_usp(faceusp)
+ !call exchange_bc_conflicts_usp(faceusp)
   !
   ! Format Statements
   !
@@ -284,7 +287,7 @@ subroutine get_facedusp_bc
   use flowvar,      only : faceusp,facedusp
   use metrics_mod,  only : geofa
   !
-  use parallel_mod, only : wait_facedusp
+ !use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
   integer :: nf,pf
@@ -300,6 +303,7 @@ continue
   ! Loop over the boundary faces and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
+ !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
   do nf = 1,nfbnd
     !
     ! Compute the solution at the boundary flux points
@@ -370,9 +374,9 @@ continue
   ! this cell, make sure that the communication of facedusp between
   ! processors has completed before continuing onwards.
   !
-  if (ncpu > 1) call wait_facedusp(facedusp)
+ !if (ncpu > 1) call wait_facedusp(facedusp)
   !
-  call exchange_bc_conflicts_dusp(facedusp)
+ !call exchange_bc_conflicts_dusp(facedusp)
   !
   ! Format Statements
   !
@@ -399,6 +403,7 @@ end subroutine get_facedusp_bc
 !###############################################################################
 !
 subroutine get_bc_freestream_solution(gufp,cv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -431,6 +436,7 @@ end subroutine get_bc_freestream_solution
 !###############################################################################
 !
 subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm,cv_in,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -583,6 +589,7 @@ end subroutine get_bc_characteristic_solution_old
 !###############################################################################
 !
 subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,pv_in,relax)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -733,6 +740,7 @@ end subroutine get_bc_characteristic_solution
 !###############################################################################
 !
 subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -842,6 +850,7 @@ end subroutine get_bc_generic_inflow_solution
 !###############################################################################
 !
 subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -939,6 +948,7 @@ end subroutine get_bc_generic_outflow_solution
 !###############################################################################
 !
 subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1055,6 +1065,7 @@ end subroutine get_bc_generic_freeflow_solution
 !###############################################################################
 !
 subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1252,6 +1263,7 @@ end subroutine get_bc_sub_inflow_newton
 !###############################################################################
 !
 subroutine get_bc_sub_inflow_solution(hufp,gufp,cv_in,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1384,6 +1396,7 @@ end subroutine get_bc_sub_inflow_solution
 !###############################################################################
 !
 subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm,pv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1496,6 +1509,7 @@ end subroutine get_bc_sub_outflow_solution
 !###############################################################################
 !
 subroutine get_bc_sup_inflow_solution(gufp,cv_in)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1529,6 +1543,7 @@ end subroutine get_bc_sup_inflow_solution
 !###############################################################################
 !
 subroutine get_bc_sup_outflow_solution(hufp,gufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1562,6 +1577,7 @@ end subroutine get_bc_sup_outflow_solution
 !###############################################################################
 !
 subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1628,6 +1644,7 @@ end subroutine get_bc_slip_wall_solution
 !###############################################################################
 !
 subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1681,6 +1698,7 @@ end subroutine get_bc_adiabatic_wall_solution
 !###############################################################################
 !
 subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1756,6 +1774,7 @@ end subroutine get_bc_isothermal_wall_solution
 !###############################################################################
 !
 subroutine get_bc_periodic_solution(pufp,gufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1800,6 +1819,7 @@ end subroutine get_bc_periodic_solution
 !###############################################################################
 !
 subroutine get_bc_mms_dirichlet_solution(hufp,gufp,fxyz,fnrm)
+ !!$ACC ROUTINE SEQ
   !
   ! #########################################################
   ! #########################################################
@@ -1934,6 +1954,7 @@ end subroutine get_bc_mms_dirichlet_solution
 !###############################################################################
 !
 subroutine get_bc_periodic_gradient(hdufp,gdufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1957,6 +1978,7 @@ continue
   !
   nfp = size(gdufp,dim=3)
   !
+ !!$ACC LOOP VECTOR COLLAPSE(3)
   do k = 1,nfp
     do j = 1,size(gdufp,dim=2)
       do i = 1,size(gdufp,dim=1)
@@ -1974,6 +1996,7 @@ end subroutine get_bc_periodic_gradient
 !###############################################################################
 !
 subroutine get_bc_flowthrough_gradient(hdufp,gdufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -1995,6 +2018,7 @@ continue
   !
   ! Simply copy the interior gradients to the boundary flux points
   !
+ !!$ACC LOOP VECTOR COLLAPSE(3)
   do k = 1,size(gdufp,dim=3)
     do j = 1,size(gdufp,dim=2)
       do i = 1,size(gdufp,dim=1)
@@ -2008,6 +2032,7 @@ end subroutine get_bc_flowthrough_gradient
 !###############################################################################
 !
 subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -2077,6 +2102,7 @@ end subroutine get_bc_adiabatic_wall_gradient
 !###############################################################################
 !
 subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -2197,6 +2223,7 @@ end subroutine get_bc_wall_gradient
 !###############################################################################
 !
 subroutine get_bc_slip_wall_gradient(hdufp,gdufp,fnrm)
+ !!$ACC ROUTINE SEQ
   !
   ! #####################################################
   ! #####################################################
@@ -2353,316 +2380,6 @@ continue
   3 format ('("bface.",i0.',i0,',".dat")')
   !
 end subroutine output_bface
-!
-!###############################################################################
-!
-subroutine exchange_bc_conflicts_usp(faceusp,override)
-  !
-  !.. Use Statements ..
-  use geovar,  only : bc_conflict
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : face_var
-  !
-  !.. Formal Arguments ..
-  type(face_var), intent(inout) :: faceusp(:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: override
-  !
-  !.. Local Scalars ..
-  integer :: i,n,nf,km,ks,nfm,nfs
-  integer(int_mpi) :: itag,send_cpu,recv_cpu
-  !
-  !.. Local Arrays ..
-  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
-  real(r8) :: exch_send(1:nq)
-  real(r8) :: exch_recv(1:nq)
-  !
-continue
-  !
-  ! We have finished computing the gradients on the non-communication
-  ! boundary faces and the communication of all other gradients between
-  ! processors of adjacent partitions has completed. Now we have to
-  ! correct any flux points on boundary faces that have conflicting
-  ! boundary conditions.
-  !
-  ! This only needs to be done if we are using flux points that include
-  ! the end points of the face (e.g., Lobatto) so skip all of this and
-  ! return if we are not using a quadrature with flux points at the
-  ! end points UNLESS override is present. If override is present, only
-  ! exit return_loop if it is true. If it is not true, we dont care
-  ! that it is present and we only care if we are using Lobatto points.
-  !
-  return_loop: do i = 1,1
-    !
-    if (use_bc_conflicts) then
-      !
-      if (present(override)) then
-        if (override) exit return_loop
-      end if
-      !
-      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
-      !
-    end if
-    !
-    ! Return if we have reached this point
-    !
-    return
-    !
-  end do return_loop
-  !
-  ! Now go through and exchange faceusp at bc conflicts
-  !
-  do n = 1,size(bc_conflict)
-    !
-    ! Continue to the next bc_conflict if this processor
-    ! has zero involvment with this conflict.
-    ! 
-    if (bc_conflict(n)%not_my_conflict) cycle
-    !
-    ! Overwrite the boundary gradient depending on if this conflict
-    ! is local or needs to be sent to another processor via MPI.
-    !
-    if (bc_conflict(n)%is_local) then
-      !
-      ! This conflict is local to this processor so just
-      ! overwrite the boundary gradient in the slave flux points
-      ! with the boundary gradient in the master flux point.
-      !
-      km = bc_conflict(n)%master%flux_point
-      nfm = bc_conflict(n)%master%face
-      !
-      do i = 1,size(bc_conflict(n)%slave)
-        !
-        ks = bc_conflict(n)%slave(i)%flux_point
-        nfs = bc_conflict(n)%slave(i)%face
-        !
-        faceusp(nfs)%v(:,ks,2) = faceusp(nfm)%v(:,km,2)
-        !
-      end do
-      !
-    else
-      !
-      ! This conflict is on a partition boundary so we need to
-      ! use MPI to exchange the boundary gradients.
-      !
-      send_cpu = bc_conflict(n)%master%cpu
-      !
-      if (mypnum == send_cpu) then
-        !
-        km = bc_conflict(n)%master%flux_point
-        nfm = bc_conflict(n)%master%face
-        !
-        exch_send = real(faceusp(nfm)%v(:,km,2),kind=r8)
-        !
-        do i = 1,size(bc_conflict(n)%slave)
-          !
-          recv_cpu = bc_conflict(n)%slave(i)%cpu
-          !
-          ! Off-chance that we have multiple slaves on a conflict
-          ! but some are local and some need MPI communication
-          !
-          if (mypnum == recv_cpu) then
-            !
-            ks = bc_conflict(n)%slave(i)%flux_point
-            nfs = bc_conflict(n)%slave(i)%face
-            !
-            faceusp(nfs)%v(:,ks,2) = real(exch_send,kind=wp)
-            !
-          else
-            !
-            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
-            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
-                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
-            !
-          end if
-          !
-        end do
-        !
-      else
-        !
-        do i = 1,size(bc_conflict(n)%slave)
-          !
-          recv_cpu = bc_conflict(n)%slave(i)%cpu
-          !
-          if (mypnum == recv_cpu) then
-            !
-            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
-            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
-                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
-            !
-            ks = bc_conflict(n)%slave(i)%flux_point
-            nfs = bc_conflict(n)%slave(i)%face
-            !
-            faceusp(nfs)%v(:,ks,2) = real(exch_recv,kind=wp)
-            !
-          end if
-          !
-        end do
-        !
-      end if
-      !
-    end if
-    !
-  end do
-  !
-end subroutine exchange_bc_conflicts_usp
-!
-!###############################################################################
-!
-subroutine exchange_bc_conflicts_dusp(facedusp,override)
-  !
-  !.. Use Statements ..
-  use geovar,  only : nr,bc_conflict
-  use ovar,    only : loc_flux_pts
-  use ovar,    only : use_bc_conflicts
-  use flowvar, only : face_vec
-  !
-  !.. Formal Arguments ..
-  type(face_vec), intent(inout) :: facedusp(:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: override
-  !
-  !.. Local Scalars ..
-  integer :: i,n,nf,km,ks,nfm,nfs
-  integer(int_mpi) :: itag,send_cpu,recv_cpu
-  !
-  !.. Local Arrays ..
-  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
-  real(r8) :: exch_send(1:nr,1:nq)
-  real(r8) :: exch_recv(1:nr,1:nq)
-  !
-continue
-  !
-  ! We have finished computing the gradients on the non-communication
-  ! boundary faces and the communication of all other gradients between
-  ! processors of adjacent partitions has completed. Now we have to
-  ! correct any flux points on boundary faces that have conflicting
-  ! boundary conditions.
-  !
-  ! This only needs to be done if we are using flux points that include
-  ! the end points of the face (e.g., Lobatto) so skip all of this and
-  ! return if we are not using a quadrature with flux points at the
-  ! end points UNLESS override is present. If override is present, only
-  ! exit return_loop if it is true. If it is not true, we dont care
-  ! that it is present and we only care if we are using Lobatto points.
-  !
-  return_loop: do i = 1,1
-    !
-    if (use_bc_conflicts) then
-      !
-      if (present(override)) then
-        if (override) exit return_loop
-      end if
-      !
-      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
-      !
-    end if
-    !
-    ! Return if we have reached this point
-    !
-    return
-    !
-  end do return_loop
-  !
-  ! Now go through and exchange facedusp at bc conflicts
-  !
-  do n = 1,size(bc_conflict)
-    !
-    ! Continue to the next bc_conflict if this processor
-    ! has zero involvment with this conflict.
-    ! 
-    if (bc_conflict(n)%not_my_conflict) cycle
-    !
-    ! Overwrite the boundary gradient depending on if this conflict
-    ! is local or needs to be sent to another processor via MPI.
-    !
-    if (bc_conflict(n)%is_local) then
-      !
-      ! This conflict is local to this processor so just
-      ! overwrite the boundary gradient in the slave flux points
-      ! with the boundary gradient in the master flux point.
-      !
-      km = bc_conflict(n)%master%flux_point
-      nfm = bc_conflict(n)%master%face
-      !
-      do i = 1,size(bc_conflict(n)%slave)
-        !
-        ks = bc_conflict(n)%slave(i)%flux_point
-        nfs = bc_conflict(n)%slave(i)%face
-        !
-        facedusp(nfs)%v(:,:,ks,2) = facedusp(nfm)%v(:,:,km,2)
-        !
-      end do
-      !
-    else
-      !
-      ! This conflict is on a partition boundary so we need to
-      ! use MPI to exchange the boundary gradients.
-      !
-      send_cpu = bc_conflict(n)%master%cpu
-      !
-      if (mypnum == send_cpu) then
-        !
-        km = bc_conflict(n)%master%flux_point
-        nfm = bc_conflict(n)%master%face
-        !
-        exch_send = real(facedusp(nfm)%v(:,:,km,2),kind=r8)
-        !
-        do i = 1,size(bc_conflict(n)%slave)
-          !
-          recv_cpu = bc_conflict(n)%slave(i)%cpu
-          !
-          ! Off-chance that we have multiple slaves on a conflict
-          ! but some are local and some need MPI communication
-          !
-          if (mypnum == recv_cpu) then
-            !
-            ks = bc_conflict(n)%slave(i)%flux_point
-            nfs = bc_conflict(n)%slave(i)%face
-            !
-            facedusp(nfs)%v(:,:,ks,2) = real(exch_send,kind=wp)
-            !
-          else
-            !
-            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
-            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
-                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
-            !
-          end if
-          !
-        end do
-        !
-      else
-        !
-        do i = 1,size(bc_conflict(n)%slave)
-          !
-          recv_cpu = bc_conflict(n)%slave(i)%cpu
-          !
-          if (mypnum == recv_cpu) then
-            !
-            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
-            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
-                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
-            !
-            ks = bc_conflict(n)%slave(i)%flux_point
-            nfs = bc_conflict(n)%slave(i)%face
-            !
-            facedusp(nfs)%v(:,:,ks,2) = real(exch_recv,kind=wp)
-            !
-          end if
-          !
-        end do
-        !
-      end if
-      !
-    end if
-    !
-  end do
-  !
-end subroutine exchange_bc_conflicts_dusp
 !
 !###############################################################################
 !

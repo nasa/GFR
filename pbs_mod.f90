@@ -153,7 +153,8 @@ continue
   pbs_mod_needs_initializing = fals
   !
 #ifdef PBS_ENV
-  call pbs_time_left(current_wtl)
+ !call pbs_time_left(current_wtl)
+  current_wtl = real (8*3600,kind=wp)
 #else
   current_wtl = huge(int(0,kind=kind(current_wtl)))
 #endif

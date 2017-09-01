@@ -9,6 +9,7 @@ pure function normal_invs_flx_cv(uu,rnrm) result(return_value)
   !
   integer :: n
   real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:nq) :: flx
   !
 continue
   !
@@ -17,7 +18,8 @@ continue
   return_value = zero
   !
   do n = 1,nr
-    return_value = return_value + unrm(n) * invs_flx_cv(uu,n)
+    call invs_flx_cv(uu,n,flx)
+    return_value(1:nq) = return_value(1:nq) + unrm(n) * flx(1:nq)
   end do
   !
 end function normal_invs_flx_cv
@@ -91,11 +93,14 @@ pure function invs_flx_vec_cv(uu) result(return_value)
   real(wp) :: return_value(1:size(uu),1:nr)
   !
   integer :: l
+  real(wp) :: flx(1:nq)
   !
 continue
   !
   do l = 1,nr
-    return_value(:,l) = invs_flx_cv( uu(:) , l )
+    call invs_flx_cv(uu,l,flx)
+    return_value(1:nq,l) = flx(1:nq)
+   !return_value(:,l) = invs_flx_cv( uu(:) , l )
   end do
   !
 end function invs_flx_vec_cv
@@ -151,7 +156,9 @@ end function invs_flx_cv1
 !
 !###############################################################################
 !
-pure function invs_flx_cv(uu,dir) result(return_value) 
+!pure function invs_flx_cv(uu,dir) result(return_value) 
+pure subroutine invs_flx_cv_sub(uu,dir,return_value,a) 
+  !$ACC ROUTINE SEQ
   !
   use ovar, only : gam
   use ovar, only : turb_is_on
@@ -160,12 +167,17 @@ pure function invs_flx_cv(uu,dir) result(return_value)
   integer,                   intent(in) :: dir
   real(wp), dimension(1:nq), intent(in) :: uu
   !
-  real(wp), dimension(1:nq) :: return_value
+  integer, intent(inout) :: a
+  real(wp), dimension(1:nq), intent(inout) :: return_value
   !
   integer :: meq
   real(wp) :: pres,flxvel
   !
 continue
+  !
+ !a = 0
+ !uu(1:nq) = zero
+  return_value(1:nq) = zero
   !
   meq = nec + dir
   !
@@ -187,7 +199,152 @@ continue
     end if
   end if
   !
-end function invs_flx_cv
+end subroutine invs_flx_cv_sub
+!
+!###############################################################################
+!
+pure subroutine invs_flx_cv(uu,dir,return_value) 
+  !$ACC ROUTINE SEQ
+  !
+  use ovar, only : gam
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
+  !
+  integer,  value,           intent(in) :: dir
+  real(wp), dimension(1:nq), intent(in) :: uu
+  !
+  real(wp), dimension(1:nq), intent(inout) :: return_value
+  !
+  integer :: meq
+  real(wp) :: pres,flxvel
+  !
+continue
+  !
+ !meq = 0
+  return_value(1:nq) = zero
+  !
+  meq = nec + dir
+  !
+  flxvel = uu(meq)/uu(nec)
+  !
+  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
+  !
+  return_value(nec) = uu(meq)
+  return_value(nmb:nme) = flxvel * uu(nmb:nme)
+  return_value(meq) = return_value(meq) + pres
+  return_value(nee) = flxvel * (uu(nee) + pres)
+  !
+  if (turb_is_on) then
+    return_value(ntk) = flxvel * uu(ntk)
+    return_value(ntl) = flxvel * uu(ntl)
+    if (include_tke_in_energy) then
+      return_value(meq) = return_value(meq) - (gam-one)*uu(ntk)
+      return_value(nee) = return_value(nee) - (gam-one)*uu(ntk)*flxvel
+    end if
+  end if
+  !
+!end function invs_flx_cv
+end subroutine invs_flx_cv
+!
+!###############################################################################
+!
+pure subroutine invs_flx_cv_gpu(usp,return_value) 
+  !
+  use ovar, only : gam
+  use ovar, only : turb_is_on
+  use ovar, only : include_tke_in_energy
+  !
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  integer :: l,m,n,np,nr,meq
+  real(wp) :: pres,gm1,val,flxvel,q2
+  !
+  real(wp), allocatable :: uu(:,:)
+  !
+continue
+  !
+  np = size(return_value,dim=1)
+  nr = size(return_value,dim=2)
+  gm1 = gam - one
+  !
+  allocate ( uu(1:np,1:nq) )
+  !$ACC DATA CREATE(uu) &
+  !$ACC&     COPY(return_value) &
+  !$ACC&     COPYIN(usp)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do n = 1,np
+    do m = 1,nq
+      uu(n,m) = usp(m,n)
+    end do
+  end do
+  !
+  ! Continuity equation
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do l = 1,nr
+    do n = 1,np
+      return_value(n,l,nec) = uu(n,nec+l)
+    end do
+  end do
+  !
+  ! Momentum equations (without pressure flux)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(3)
+  do m = nmb,nme
+    do l = 1,nr
+      do n = 1,np
+        return_value(n,l,m) = uu(n,m)*uu(n,nec+l)/uu(n,nec)
+      end do
+    end do
+  end do
+  !
+  ! Energy equation and pressure flux
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2)
+  do l = 1,nr
+    do n = 1,np
+      meq = nec + l
+      q2 = zero
+      !$ACC LOOP SEQ
+      do m = nmb,nme
+        q2 = q2 + uu(n,m)*uu(n,m)
+      end do
+      pres = gm1*(uu(n,nee) - half*q2/uu(n,nec))
+      return_value(n,l,meq) = return_value(n,l,meq) + pres
+      return_value(n,l,nee) = (uu(n,nee) + pres)*uu(n,meq)/uu(n,nec)
+    end do
+  end do
+  !
+  ! Turbulence equations
+  !
+  if (turb_is_on) then
+    !$ACC PARALLEL LOOP COLLAPSE(2)
+    do l = 1,nr
+      do n = 1,np
+        flxvel = uu(n,nec+l) / uu(n,nec)
+        return_value(n,l,ntk) = flxvel * uu(n,ntk)
+        return_value(n,l,ntl) = flxvel * uu(n,ntl)
+      end do
+    end do
+    if (include_tke_in_energy) then
+      !$ACC PARALLEL LOOP COLLAPSE(2)
+      do l = 1,nr
+        do n = 1,np
+          meq = nec + l
+          val = gm1*uu(n,ntk)
+          return_value(n,l,meq) = return_value(n,l,meq) - val
+          return_value(n,l,nee) = return_value(n,l,nee) - val*uu(n,meq)/uu(n,nec)
+        end do
+      end do
+    end if
+  end if
+  !
+  !$ACC END DATA
+  deallocate ( uu )
+  !
+end subroutine invs_flx_cv_gpu
 !
 !###############################################################################
 !

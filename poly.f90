@@ -3453,7 +3453,7 @@ elemental function gammafun_DP(x) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: ind,k
-  real(lp) :: xx,pr,s,g
+  real(lp) :: xx,prdct,s,g
   !
   !.. Local Constants ..
   real(lp), parameter :: half  = 0.5_lp
@@ -3491,12 +3491,12 @@ continue
     xx = one - xx
   end if
   !
-  pr = one
+  prdct = one
   s = s_start
   !
   do k = 1,11
-    pr = pr * (xx-real(k,kind=lp)) / (xx+real(k-1,kind=lp))
-    s  = s + gamma_constant(k)*pr
+    prdct = prdct * (xx-real(k,kind=lp)) / (xx+real(k-1,kind=lp))
+    s  = s + gamma_constant(k)*prdct
   end do
   !
   g = s * exp(one-xx) * (xx+nine2)**(xx-half)
@@ -3524,7 +3524,7 @@ elemental function gammafun_QP(x) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: ind,k
-  real(lp) :: xx,pr,s,g
+  real(lp) :: xx,prdct,s,g
   !
   !.. Local Constants ..
   real(lp), parameter :: half  = 0.5_lp
@@ -3562,12 +3562,12 @@ continue
     xx = one - xx
   end if
   !
-  pr = one
+  prdct = one
   s = s_start
   !
   do k = 1,11
-    pr = pr * (xx-real(k,kind=lp)) / (xx+real(k-1,kind=lp))
-    s  = s + gamma_constant(k)*pr
+    prdct = prdct * (xx-real(k,kind=lp)) / (xx+real(k-1,kind=lp))
+    s  = s + gamma_constant(k)*prdct
   end do
   !
   g = s * exp(one-xx) * (xx+nine2)**(xx-half)

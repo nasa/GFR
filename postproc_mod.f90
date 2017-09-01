@@ -1012,8 +1012,6 @@ subroutine get_face_solutions
   use geovar,    only : nfbnd,nface
   use flowvar,   only : faceusp,facedusp
   !
-  use flux_mod,  only : interp_cv_to_flxpts
-  use flux_mod,  only : interp_dusp_to_flxpts
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
   !
@@ -1035,7 +1033,7 @@ continue
   call facedusp%zero
 #endif
   !
-  call interp_cv_to_flxpts
+  call pp_interp_cv_to_flxpts
   !
   call get_faceusp_bc
   !
@@ -1049,7 +1047,7 @@ continue
   !
   !
   !
-  call interp_dusp_to_flxpts
+  call pp_interp_dusp_to_flxpts
   !
   call get_facedusp_bc
   !
@@ -1065,6 +1063,163 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_face_solutions
+!                                                                                 
+!###############################################################################  
+!                                                                                 
+subroutine pp_interp_cv_to_flxpts()                                                  
+  !                                                                               
+  use order_mod,         only : maxSP,geom_solpts                                 
+  use geovar,            only : ncell,cell                                        
+  use interpolation_mod, only : interp                                            
+  use flowvar,           only : usp,faceusp                                       
+  !                                                                               
+  use parallel_mod,      only : exchange_faceusp                                  
+  !                                                                               
+  !.. Local Scalars ..                                                            
+  integer :: n,nc,n1,n2,np,k,m                                                    
+  integer :: nf,kf,lf,sf                                                          
+  integer :: this_geom,this_order                                                 
+  integer :: face_geom,face_order                                                 
+  !                                                                               
+  !.. Local Arrays ..                                                             
+  real(wp), dimension(1:maxSP,1:nq) :: tusp                                       
+  !                                                                               
+  !.. Local Parameters ..                                                         
+  character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts"                    
+  !                                                                               
+continue                                                                          
+  !                                                                               
+  ! Loop through each interior cell and interpolate the conserved                 
+  ! variables at the solution points to the flux points of each cell              
+  !                                                                               
+  do nc = 1,ncell                                                                 
+    !                                                                             
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell               
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell               
+    np = n2-n1+1         ! number of sol-pts in this cell                         
+    !                                                                             
+    this_geom = cell(nc)%geom   ! geometry type of this cell                      
+    this_order = cell(nc)%order ! solution order of this cell                     
+    !                                                                             
+    ! Create transpose of usp array to reduce cache misses                        
+    !                                                                             
+    do k = 1,np                                                                   
+      do m = 1,nq                                                                 
+        tusp(k,m) = usp(m,k+n1-1)                                                 
+      end do                                                                      
+    end do                                                                        
+    !                                                                             
+    ! Now interpolate the interior solution gradients to the flux points          
+    !                                                                             
+    ! Loop over the faces of this cell                                            
+    !                                                                             
+    do n = 1,size(cell(nc)%face)                                                  
+      !                                                                           
+      nf = cell(nc)%face(n)%idx  ! index of the current face                      
+      sf = cell(nc)%face(n)%side ! side of face that cell nc is on                
+      !                                                                           
+      face_geom = cell(nc)%face(n)%geom   ! geom  of current face                 
+      face_order = cell(nc)%face(n)%order ! order of current face                 
+      !                                                                           
+      do kf = 1,geom_solpts(face_geom,face_order)                                 
+        !                                                                         
+        ! kf: index of the flx-pt local to this face                              
+        ! lf: index of flx-pt within interp%mat                                   
+        lf = cell(nc)%face(n)%get_fp_idx(kf)                                      
+        !                                                                         
+        faceusp(nf)%v(1:nq,kf,sf) = interp(this_geom,this_order)% &               
+                                              toFace(face_order)% &               
+                                    dot_mat( lf , tusp(1:np,1:nq) )               
+        !                                                                         
+      end do                                                                      
+      !                                                                           
+    end do                                                                        
+    !                                                                             
+  end do                                                                          
+  !                                                                               
+  ! Exchange the left and right states for faces on communication boundaries      
+  !                                                                               
+  if (ncpu > 1) call exchange_faceusp(faceusp)                                    
+  !                                                                               
+end subroutine pp_interp_cv_to_flxpts                                                
+!                                                                                 
+!###############################################################################  
+!                                                                                 
+subroutine pp_interp_dusp_to_flxpts()                                                
+  !                                                                               
+  use order_mod,         only : maxSP,geom_solpts                                 
+  use geovar,            only : nr,ncell,cell                                     
+  use interpolation_mod, only : interp                                            
+  use flowvar,           only : dusp,facedusp                                     
+  !                                                                               
+  use parallel_mod,      only : exchange_facedusp                                 
+  !                                                                               
+  !.. Local Scalars ..
+  integer :: n,nc,n1,n2,np,k,l,m
+  integer :: nf,kf,lf,sf
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1               ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Create transpose of dusp array to reduce cache misses
+    !
+    do k = 1,np
+      do m = 1,nq
+        do l = 1,nr
+          tdusp(k,l,m) = dusp(l,m,k+n1-1)
+        end do
+      end do
+    end do
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    do n = 1,size(cell(nc)%face)
+      !
+      nf = cell(nc)%face(n)%idx  ! index of the current face
+      sf = cell(nc)%face(n)%side ! side of face that cell nc is on
+      !
+      face_geom = cell(nc)%face(n)%geom   ! geom  of current face
+      face_order = cell(nc)%face(n)%order ! order of current face
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        !
+        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
+                                                    toFace(face_order)% &
+                                          dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Exchange the left and right states for faces on communication boundaries
+  !
+  if (ncpu > 1) call exchange_facedusp(facedusp)
+  !
+end subroutine pp_interp_dusp_to_flxpts
 !
 !###############################################################################
 !

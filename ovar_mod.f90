@@ -354,6 +354,11 @@ module ovar
   !
   character(len=32), public, save, allocatable :: bc_names(:)
   !
+  !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
+  !$ACC&               turb_is_on,include_tke_in_energy, &
+  !$ACC&               time,itcur,gam,pr,aref,rhoref,tref, &
+  !$ACC&               cpref_nd,ptotref_nd,rgasref_nd, &
+  !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1)
 contains
 !
 !###############################################################################

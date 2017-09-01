@@ -1,8 +1,9 @@
 #
 #
 
- MAKE = make -j 16
-#MAKE = make
+#MAKE = make -j 16
+#MAKE = make -j 4
+ MAKE = make
 #MAKE = make --debug
 
 #MAKEOPT = -B
@@ -136,6 +137,7 @@ rebuild-san: rebuild-sandybridge
 westmere: BDIR := optimize_westmere
 westmere: EXEF := recon_westmere
 westmere: TRGT := westmere
+westmere: FCADD += -pg
 westmere: build
 
 .PHONY: rebuild-westmere
@@ -156,7 +158,16 @@ rebuild-wes: rebuild-westmere
 merope: BDIR := optimize_merope
 merope: EXEF := recon_merope
 merope: TRGT := merope
-merope: FCADD += -DPROFILE_ON
+#merope: FCADD += -DPROFILE_ON
+#merope: FCADD += -acc -Minfo=accel
+#merope: FCADD += -acc -ta=tesla:ptxinfo -Minfo=accel
+#merope: FCADD += -acc -ta=tesla:deepcopy,ptxinfo -Minfo=accel
+#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35,keepgpu -Minfo=accel
+merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
+#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo -Minfo=accel
+#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,maxregcount:96 -Minfo=accel
+#merope: FCADD += -Mnoidiom
+#merope: FCADD += -g
 merope: build
 
 .PHONY: rebuild-merope

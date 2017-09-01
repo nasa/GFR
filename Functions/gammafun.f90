@@ -8,7 +8,7 @@ elemental function gammafun(x) result(return_value)
   real(wp) :: return_value
   !
   integer   :: ind,k
-  real(wp) :: xx,pr,s,g
+  real(wp) :: xx,prdct,s,g
   !
   real(wp), parameter :: s_start = 0.426401432711220868_wp
   real(wp), parameter :: gamma_constant(1:11) = &
@@ -39,12 +39,12 @@ continue
     xx = one - xx
   end if
   !
-  pr = one
+  prdct = one
   s = s_start
   !
   do k = 1,11
-    pr = pr * (xx-real(k,kind=wp)) / (xx+real(k-1,kind=wp))
-    s  = s + gamma_constant(k)*pr
+    prdct = prdct * (xx-real(k,kind=wp)) / (xx+real(k-1,kind=wp))
+    s  = s + gamma_constant(k)*prdct
   end do
   !
   g = s * exp(one-xx) * (xx+(nine/two))**(xx-half)

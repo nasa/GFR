@@ -50,14 +50,14 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/metrics.o \
            $(OBJDIR)/flowvar_mod.o \
-           $(OBJDIR)/interpolation_mod.o \
-           $(OBJDIR)/parallel.o \
            $(OBJDIR)/mms_mod.o \
            $(FUNDIR)/pressure.f90 \
            $(FUNDIR)/temperature.f90 \
            $(FUNDIR)/usp2v.f90 \
            $(FUNDIR)/vsp2u.f90 \
                      mpi_defs.h
+          #$(OBJDIR)/interpolation_mod.o \
+          #$(OBJDIR)/parallel.o \
 
 $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/kind_types.o \
@@ -161,9 +161,7 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/order_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
-         $(OBJDIR)/bc_mod.o \
          $(OBJDIR)/metrics.o \
-         $(OBJDIR)/parallel.o \
          $(OBJDIR)/quadrature_mod.o \
          $(OBJDIR)/interpolation_mod.o \
          $(OBJDIR)/correction_mod.o \
@@ -173,7 +171,10 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(FUNDIR)/inviscid_fluxes.f90 \
          $(FUNDIR)/viscous_fluxes.f90 \
          $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-         $(FUNDIR)/viscosity.f90
+         $(FUNDIR)/viscosity.f90 \
+         $(FUNDIR)/pressure.f90
+        #$(OBJDIR)/bc_mod.o \
+        #$(OBJDIR)/parallel.o \
 
 $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/kind_types.o \
@@ -380,7 +381,6 @@ $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/eqn_idx_mod.o \
                  $(OBJDIR)/geovar_mod.o \
                  $(OBJDIR)/flowvar_mod.o \
-                 $(OBJDIR)/flux.o \
                  $(OBJDIR)/bc_mod.o \
                  $(OBJDIR)/order_mod.o \
                  $(OBJDIR)/interpolation_mod.o \

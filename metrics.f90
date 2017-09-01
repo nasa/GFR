@@ -16,7 +16,10 @@ module metrics_mod
   public :: metrics_memory_usage
   !
   type, public :: face_nrm
+   !real(wp) :: area
     real(wp), allocatable :: v(:,:)
+  contains
+    procedure, public :: area => compute_face_area
   end type face_nrm
   !
   ! geofa : normal of the face at each of the solution points on the face
@@ -708,6 +711,9 @@ continue
         !
         geofa(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
         !
+       !geofa(nf)%area = geofa(nf)%area + norm2(geofa(nf)%v(1:nr,k)) * &
+       !                                  std_elem(face_geom,face_order)%wts(k)
+        !
         if (output_face_normals) then
           !
           npcount = npcount + 1
@@ -810,6 +816,38 @@ continue
   return_value = dot( this%jac , std_elem(geom,order)%wts )
   !
 end function compute_cell_volume
+!
+!###############################################################################
+!
+pure function compute_face_area(this,geom,order) result(return_value)
+  !
+  !.. Use Statements ..
+  use quadrature_mod, only : std_elem
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(face_nrm), intent(in) :: this
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: geom
+  integer, intent(in) :: order
+  !
+  !.. Function Result ..
+  real(wp) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Sum the product of the Jacobian and quadrature weight for each point
+  ! in this cell to compute the volume of the current cell
+  !
+  do n = 1,size(this%v,dim=2)
+    return_value = return_value + norm2(this%v(:,n)) * &
+                                  std_elem(geom,order)%wts(n)
+  end do
+  !
+end function compute_face_area
 !
 !###############################################################################
 !

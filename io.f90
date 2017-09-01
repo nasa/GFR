@@ -711,6 +711,8 @@ continue
     !
   end if
   !
+  !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method)
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
