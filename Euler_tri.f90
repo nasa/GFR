@@ -95,6 +95,11 @@ program Euler_tri
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
   use flux_mod, only : correct_gradients_br2
+  use flux_mod, only : new_flux_gradient_at_solpts
+  use flux_mod, only : get_invs_common_fluxes_interior
+  use flux_mod, only : get_visc_common_fluxes_interior
+  use flux_mod, only : get_invs_common_fluxes_bc
+  use flux_mod, only : get_visc_common_fluxes_bc
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
@@ -412,6 +417,7 @@ continue
           Apply_Limiter = (mod(iter,Limiting_Interval) == 0)
         end if
       end if
+#define NEW_FLUX_REARRANGEMENT
 #ifdef NEW_FLUX_REARRANGEMENT
       call interp_cv_to_flxpts
       if (ncpu > 1) call exchange_faceusp(faceusp)
@@ -437,12 +443,12 @@ continue
       !
       call get_invs_common_fluxes_bc
       !
-      if (governing_equation == NavierStokes_Eqns) then
+      if (governing_equations == NavierStokes_Eqns) then
         if (ncpu > 1) call wait_facedusp(facedusp)
         call get_visc_common_fluxes_bc
       end if
       !
-      call new_flux_gradient_at_solpts_visc
+      call new_flux_gradient_at_solpts
 #else
       !
       call interp_cv_to_flxpts

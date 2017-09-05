@@ -112,6 +112,8 @@ module flowvar
   type(face_var), public, save, allocatable, dimension(:) :: faceflx
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
   !
+  real(wp), public, save, allocatable :: faceflx_array(:,:)
+  !
   !
   !
   ! NE1D_T : Derived type containing a 1D array for storing edge/node
