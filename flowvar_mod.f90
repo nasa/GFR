@@ -98,22 +98,29 @@ module flowvar
 #endif
   end type face_vec
   !
-  ! FACEFLX  : flux normal to cell faces at each interface flux point
   ! FACEUSP  : conservative variables at the interface flux points
   ! FACEDUSP : conservative variable gradients at the interface flux points
   ! FACEXYZ  : coordinates of the flux points on the boundary faces
   !
-  ! faceflx(1:nface)%v(1:nq,1:n_sp1de,1:2) ! this is the normal face flux
   ! faceusp(1:nface)%v(1:nq,1:n_sp1de,1:2)
   ! facedusp(1:nface)%v(1:nr,1:nq,1:n_sp1de,1:2)
+  ! facexyz(1:nface)%v(1:nr,1:n_sp1de)
   !
   type(face_var), public, save, allocatable, dimension(:) :: faceusp
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp
-  type(face_var), public, save, allocatable, dimension(:) :: faceflx
   type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
   !
-  real(wp), public, save, allocatable :: faceflx_array(:,:)
+  ! FACEUSP_ARRAY  : conservative variables at the interface flux points
+  ! FACEDUSP_ARRAY : conservative variable gradients at the interface flux points
   !
+  real(wp), public, save, allocatable :: faceusp_array(:,:,:)
+  real(wp), public, save, allocatable :: facedusp_array(:,:,:,:)
+  !
+  ! FACEFLX  : flux normal to cell faces at each interface flux point
+  !
+  real(wp), public, save, allocatable :: faceflx(:,:)
+  !
+  !$ACC DECLARE CREATE(faceusp_array,facedusp_array,faceflx)
   !
   !
   ! NE1D_T : Derived type containing a 1D array for storing edge/node
@@ -250,9 +257,6 @@ continue
     allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"facedusp",1,__LINE__,__FILE__,ierr,error_message)
     !
-    allocate ( faceflx(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceflx",1,__LINE__,__FILE__,ierr,error_message)
-    !
     ! If using the continuous output option or MMS, allocate the facexyz array
     !
     if (continuous_output) then
@@ -317,22 +321,29 @@ continue
       end do
     end if
     !
-    if (allocated(faceflx)) then
-      do nf = 1,nface
-        !
-        face_geom = face(nf)%geom
-        face_order = face(nf)%order
-        !
-        nfpts = geom_solpts(face_geom,face_order)
-        !
-        allocate ( faceflx(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "faceflx",nf
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
-    end if
+    !
+    nfpts = face(nface)%end_fp ! end fp index for last face
+    !
+    allocate ( faceflx(1:nfpts,1:nq) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceflx",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !$ACC UPDATE DEVICE(faceflx)
+    !
+#ifdef USE_FACE_ARRAYS
+    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    !$ACC UPDATE DEVICE(faceusp_array,facedusp_array)
+#endif
+    !
     !
     if (allocated(facexyz)) then
       do nf = 1,size(facexyz) ! could be nfbnd or nface
@@ -651,45 +662,6 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(faceflx)) then
-    !
-    call array%set( storage_size(faceflx,kind=inttype) )
-    !
-    write (array_name,5) "type(face_var)"
-    write (iou,6) array_name,array%get_units()
-    !
-    call array%set( storage_size(faceflx,kind=inttype) , &
-                            size(faceflx,kind=inttype) )
-    !
-    write (array_name,5) "faceflx(:)"
-    write (iou,6) array_name,array%get_units()
-    !
-    call dt%set(array)
-    !
-    call array%reset
-    !
-    do i = lbound(faceflx,dim=1),ubound(faceflx,dim=1)
-      !
-      call array%add( storage_size(faceflx(i)%v,kind=inttype) , &
-                              size(faceflx(i)%v,kind=inttype) )
-      !
-    end do
-    !
-    write (array_name,5) "faceflx(:)%v"
-    write (iou,6) array_name,array%get_units()
-    !
-    call dt%add(array)
-    !
-    call total%add(dt)
-    write (array_name,5) "faceflx"
-    write (iou,2) array_name,dt%get_units()
-    !
-  else
-    write (iou,7) "faceflx"
-  end if
-  !
-  !-----------------------------------------------------------------------------
-  !
   if (allocated(facexyz)) then
     !
     call array%set( storage_size(facexyz,kind=inttype) )
@@ -1004,6 +976,33 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "dtsp"
+  end if
+  if (allocated(faceusp_array)) then
+    call array%set( storage_size(faceusp_array,kind=inttype) , &
+                            size(faceusp_array,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "faceusp_array"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "faceusp_array"
+  end if
+  if (allocated(facedusp_array)) then
+    call array%set( storage_size(facedusp_array,kind=inttype) , &
+                            size(facedusp_array,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "facedusp_array"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "facedusp_array"
+  end if
+  if (allocated(faceflx)) then
+    call array%set( storage_size(faceflx,kind=inttype) , &
+                            size(faceflx,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "faceflx"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "faceflx"
   end if
   !
   total = total%get_units()

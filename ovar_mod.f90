@@ -358,7 +358,9 @@ module ovar
   !$ACC&               turb_is_on,include_tke_in_energy, &
   !$ACC&               time,itcur,gam,pr,aref,rhoref,tref, &
   !$ACC&               cpref_nd,ptotref_nd,rgasref_nd, &
-  !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1)
+  !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
+  !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
+  !$ACC&               invs_flux_method)
 contains
 !
 !###############################################################################

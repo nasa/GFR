@@ -24,9 +24,15 @@ module geovar
   !
   ! n_solpts : total number of solution points across all cells
   ! n_flxpts : total number of flux points across all cells
+  ! n_bnd_flxpts : total number of flux points across all boundary faces
+  ! n_wall_flxpts : total number of flux points for all wall boundary faces
   !
   integer, public, save :: n_solpts
   integer, public, save :: n_flxpts
+  integer, public, save :: n_bnd_flxpts
+  integer, public, save :: n_wall_flxpts = 0
+  !
+  integer, public, save, allocatable :: bc_fp_groups(:)
   !
   ! over-integration parameters
   !
@@ -151,6 +157,9 @@ module geovar
   !                            cell.
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
+  !
+  integer, public, save, allocatable :: fp_bc(:)
+  !$ACC DECLARE CREATE(fp_bc)
   !
   ! CONFLICT : A data type that provides the node and face indices for any
   !            boundary condition conflicts. A boundary condition conflict

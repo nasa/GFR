@@ -1,7 +1,9 @@
 module flux_mod
   !
+#define PROFILE_ON
+  !
   !.. Use Statements ..
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
   !
   implicit none
@@ -13,7 +15,7 @@ module flux_mod
   public :: flux_gradient_at_solpts_visc
   public :: flux_gradient_at_solpts_visc_gpu
   public :: flux_gradient_at_solpts_visc_gpu1
-  public :: new_flux_gradient_at_solpts
+  public :: flux_gradient_at_solpts
   public :: correct_interface_flux_visc
   public :: discontinuous_gradient_at_solpts
   public :: correct_gradients_at_solpts
@@ -22,6 +24,13 @@ module flux_mod
   public :: get_visc_common_fluxes_interior
   public :: get_invs_common_fluxes_bc
   public :: get_visc_common_fluxes_bc
+  public :: get_invs_common_fluxes_interior_faces
+  public :: get_visc_common_fluxes_interior_faces
+  public :: get_invs_common_fluxes_bc_faces
+  public :: get_visc_common_fluxes_bc_faces
+  !
+  integer, public, save, allocatable :: list_of_wall_bcs(:)
+  !$ACC DECLARE CREATE(list_of_wall_bcs)
   !
 contains
 !
@@ -32,12 +41,18 @@ subroutine interp_cv_to_flxpts()
   use order_mod,         only : maxSP,maxFP,geom_solpts
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : usp,faceusp
+  use flowvar,           only : usp
+#ifdef USE_FACE_ARRAYS
+  use geovar,            only : face
+  use flowvar,           only : faceusp_array
+#else
+  use flowvar,           only : faceusp
+#endif
   !
  !use parallel_mod,      only : exchange_faceusp
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,np,k,m
+  integer :: n,nc,n1,n2,np,k,m,f0
   integer :: nf,kf,lf,sf,i,j,nfp
   integer :: this_geom,this_order
   integer :: face_geom,face_order
@@ -53,10 +68,16 @@ subroutine interp_cv_to_flxpts()
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
-  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(tusp,fpidx)
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) &
+#ifdef USE_FACE_ARRAYS
+  !$ACC&                 PRESENT(faceusp_array) &
+#endif
+  !$ACC&                 PRIVATE(tusp,fpidx)
   do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -90,19 +111,25 @@ continue
       fp_offset = cell(nc)%face(n)%fp_offset
       face_rot = cell(nc)%face(n)%rotation
       !
+#ifdef USE_FACE_ARRAYS
+      f0 = face(nf)%beg_fp - 1
+      nfp = face(nf)%end_fp - f0
+#else
       nfp = geom_solpts(face_geom,face_order)
+#endif
       fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
                                     rot(face_rot)%pts(1:nfp)
       !
       !$ACC LOOP VECTOR COLLAPSE(2)
       do kf = 1,nfp
-        !
-        ! kf: index of the flx-pt local to this face
-        ! lf: index of flx-pt within interp%mat
-        !
         do m = 1,nq
+          !
+          ! kf: index of the flx-pt local to this face
+          ! lf: index of flx-pt within interp%mat
+          !
           lf = fpidx(kf)
           val = zero
+
           do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
                  interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
             j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
@@ -110,7 +137,11 @@ continue
                                               toFace(face_order)% &
                                     row_val(i)
           end do
+#ifdef USE_FACE_ARRAYS
+          faceusp_array(f0+kf,m,sf) = val
+#else
           faceusp(nf)%v(m,kf,sf) = val
+#endif
         end do
         !
       end do
@@ -122,6 +153,8 @@ continue
   ! Exchange the left and right states for faces on communication boundaries
   !
  !if (ncpu > 1) call exchange_faceusp(faceusp)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine interp_cv_to_flxpts
 !
@@ -148,7 +181,12 @@ subroutine interp_dusp_to_flxpts()
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
   integer, dimension(1:maxFP) :: fpidx
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_flxpts"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
@@ -227,6 +265,8 @@ continue
   !
  !if (ncpu > 1) call exchange_facedusp(facedusp)
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine interp_dusp_to_flxpts
 !
 !###############################################################################
@@ -280,6 +320,8 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   character(len=*), parameter :: pname = "flux_gradient_at_solpts_visc"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
  !!$ACC DATA CREATE
   vflx(:,:) = zero
@@ -444,6 +486,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine flux_gradient_at_solpts_visc
 !
 !###############################################################################
@@ -455,12 +499,12 @@ subroutine flux_gradient_at_solpts_visc_gpu(time_step,rk_step)
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
-  use geovar,            only : nr,ncell,using_quadrature
+  use geovar,            only : nr,ncell
   use geovar,            only : cell,fp,n_solpts
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   use metrics_mod,       only : metrics_dt,geofa
-  use flowvar,           only : usp,dusp,residual,faceusp
+  use flowvar,           only : usp,dusp,residual
   use ovar,              only : governing_equations
   use ovar,              only : output_dir,dump_fluxes
   use ovar,              only : gam,rgasref_nd,cpref_nd,Pr
@@ -509,6 +553,8 @@ subroutine flux_gradient_at_solpts_visc_gpu(time_step,rk_step)
   character(len=*), parameter :: pname = "flux_gradient_at_solpts_visc_gpu"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   vflux(1:nq,1:nr) = zero
   !
@@ -701,7 +747,7 @@ continue
 !      end do
 !    end do
 !    !
-!    ! Get the flux at each quadrature point in the current cell
+!    ! Get the flux at each point in the current cell
 !    !
 !    ! Inviscid fluxes
 !    !
@@ -1141,6 +1187,8 @@ continue
 !    !
 !  end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine flux_gradient_at_solpts_visc_gpu
 !
 !###############################################################################
@@ -1152,7 +1200,7 @@ subroutine flux_gradient_at_solpts_visc_gpu1(time_step,rk_step)
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
-  use geovar,            only : nr,ncell,using_quadrature
+  use geovar,            only : nr,ncell
   use geovar,            only : cell,fp,n_solpts
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
@@ -1208,53 +1256,29 @@ subroutine flux_gradient_at_solpts_visc_gpu1(time_step,rk_step)
   !
 continue
   !
- !vflux(1:nq,1:nr) = zero
- !!
- !!$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRIVATE(iflux,vflux)
- !do n = 1,n_solpts
- !  !
- ! !!$ACC LOOP SEQ
- !  do l = 1,nr
- !    call invs_flx_cv( usp(:,n) , l , iflux(:,l) )
- !  end do
- !  !
- !  if (governing_equations == NavierStokes_Eqns) then
- !    call visc_flx_cv( usp(:,n) , dusp(:,:,n) , vflux )
- !  end if
- !  !
- ! !!$ACC LOOP SEQ
- !  do l = 1,nr
- !   !!$ACC LOOP SEQ
- !    do m = 1,nq
- !      fluxes(m,l,n) = iflux(m,l) - vflux(m,l)
- !    end do
- !  end do
- !  !
- !end do
+  call debug_timer(entering_procedure,pname)
   !
-  call invs_flx_cv_gpu( usp , ifluxes )
+  if (nr == 3) then
+    call invs_flx_cv_gpu_3d( usp , ifluxes )
+  else if (nr == 2) then
+    call invs_flx_cv_gpu_2d( usp , ifluxes )
+  else
+    call invs_flx_cv_gpu_nd( usp , ifluxes )
+  end if
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
-#define USE_GPU_FLUXES
-#ifndef USE_GPU_FLUXES
-   !!$ACC PARALLEL LOOP
-    !$ACC PARALLEL LOOP PRIVATE(vflux)
-    do n = 1,n_solpts
-      call visc_flx_cv( usp(:,n) , dusp(:,:,n) , vflux )
-      do l = 1,nr
-        do m = 1,nq
-          vfluxes(n,l,m) = vflux(m,l)
-        end do
-      end do
-    end do
-#else
-    call visc_flx_cv_gpu( usp , dusp , vfluxes )
-#endif
+    if (nr == 3) then
+      call visc_flx_cv_gpu_3d( usp , dusp , vfluxes )
+    else if (nr == 2) then
+      call visc_flx_cv_gpu_2d( usp , dusp , vfluxes )
+    else
+      call visc_flx_cv_gpu_nd( usp , dusp , vfluxes )
+    end if
     !
   else
     !
-    !$ACC PARALLEL LOOP COLLAPSE(3)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
     do m = 1,nq
       do l = 1,nr
         do n = 1,n_solpts
@@ -1265,7 +1289,7 @@ continue
     !
   end if
   !
-  !$ACC PARALLEL LOOP COLLAPSE(3)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
   do m = 1,nq
     do l = 1,nr
       do n = 1,n_solpts
@@ -1409,118 +1433,80 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine flux_gradient_at_solpts_visc_gpu1
 !
 !###############################################################################
 !
-subroutine new_flux_gradient_at_solpts()
+subroutine flux_gradient_at_solpts()
   !
   !... this subroutine get derivative of fluxes (no interaction)
   !... for each cell, get f, g, ftd, gtd at the solution points
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
-  use geovar,            only : nr,ncell,using_quadrature
+  use geovar,            only : nr,ncell
   use geovar,            only : cell,fp,n_solpts
- !use geovar,            only : face
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   use metrics_mod,       only : metrics_dt,geofa
-  use flowvar,           only : usp,dusp,residual,faceflx
- !use flowvar,           only : faceflx_array
+  use flowvar,           only : usp,dusp,residual
+  use flowvar,           only : faceflx
+  use geovar,            only : face
   use ovar,              only : governing_equations
   use correction_mod,    only : correct
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l,m,n,nc,n1,n2,np
-  integer :: nf,sf,kf,lf,f1
+  integer :: i,j,k,l,m,n,nc,n0,n1,n2,np
+  integer :: nf,sf,kf,lf,f0
   integer :: this_geom,this_order
   integer :: face_geom,face_order
   integer :: ierr,io
   integer :: fp_offset,face_rot,nfp,ncf,num_cell_faces
-  real(wp) :: val,flxvel
-  real(wp) :: mvsc,mcdt,ave_ext_rate
-  real(wp) :: cv_inv,kflx
-  real(wp) :: fval,correct_n,ds
+  real(wp) :: val,fval,correct_n,ds
   !
   character(len=100) :: flux_fmt
   character(len=300) :: spf_fname
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr)      :: unrm
-  real(wp), dimension(1:nq,1:maxSP) :: lcl_res
-  real(wp), dimension(1:maxSP,1:nq,1:nr) :: vflx
-  real(wp), dimension(1:maxSP,1:nq,1:nr) :: rsflx
-  real(wp), dimension(1:maxSP,1:nq,1:nr) :: xyflx
-  integer, dimension(1:maxFP) :: fpidx
-  real(wp), dimension(1:nq) :: flx
-  real(wp), dimension(1:maxSP) :: pres
-  real(wp), dimension(1:maxSP,1:nq,1:nr) :: tdusp
-  real(wp), dimension(1:maxSP,1:nq,1:nr) :: dpvdx
-  real(wp), dimension(1:nq) :: var
-  real(wp), dimension(1:nq,1:nr) :: vflux
-  real(wp), dimension(1:nq,1:nr) :: iflux
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: tflx
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: rflx
-  real(wp), dimension(1:maxFP) :: area
-  !
-  real(wp), dimension(1:n_solpts,1:nr,1:nq) :: tfluxes
-  real(wp), dimension(1:n_solpts,1:nr,1:nq) :: ifluxes
-  real(wp), dimension(1:n_solpts,1:nr,1:nq) :: vfluxes
-  real(wp), dimension(1:n_solpts,1:nq) :: tusp
+  integer  :: fpidx(1:maxFP)
+  real(wp) :: lcl_res(1:nq,1:maxSP)
+  real(wp) :: rflx(1:maxSP,1:nr,1:nq)
+  real(wp) :: tfluxes(1:n_solpts,1:nr,1:nq)
+  real(wp) :: ifluxes(1:n_solpts,1:nr,1:nq)
+  real(wp) :: vfluxes(1:n_solpts,1:nr,1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "new_flux_gradient_at_solpts"
+  character(len=*), parameter :: pname = "flux_gradient_at_solpts"
   !
 continue
   !
- !vflux(1:nq,1:nr) = zero
- !!
- !!$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRIVATE(iflux,vflux)
- !do n = 1,n_solpts
- !  !
- ! !!$ACC LOOP SEQ
- !  do l = 1,nr
- !    call invs_flx_cv( usp(:,n) , l , iflux(:,l) )
- !  end do
- !  !
- !  if (governing_equations == NavierStokes_Eqns) then
- !    call visc_flx_cv( usp(:,n) , dusp(:,:,n) , vflux )
- !  end if
- !  !
- ! !!$ACC LOOP SEQ
- !  do l = 1,nr
- !   !!$ACC LOOP SEQ
- !    do m = 1,nq
- !      fluxes(m,l,n) = iflux(m,l) - vflux(m,l)
- !    end do
- !  end do
- !  !
- !end do
+  call debug_timer(entering_procedure,pname)
   !
-  call invs_flx_cv_gpu( usp , ifluxes )
+  !$ACC ENTER DATA CREATE(tfluxes,ifluxes,vfluxes)
+  !
+  if (nr == 3) then
+    call invs_flx_cv_gpu_3d( usp , ifluxes )
+  else if (nr == 2) then
+    call invs_flx_cv_gpu_2d( usp , ifluxes )
+  else
+    call invs_flx_cv_gpu_nd( usp , ifluxes )
+  end if
   !
   if (governing_equations == NavierStokes_Eqns) then
     !
-#define USE_GPU_FLUXES
-#ifndef USE_GPU_FLUXES
-   !!$ACC PARALLEL LOOP
-    !$ACC PARALLEL LOOP PRIVATE(vflux)
-    do n = 1,n_solpts
-      call visc_flx_cv( usp(:,n) , dusp(:,:,n) , vflux )
-      do l = 1,nr
-        do m = 1,nq
-          vfluxes(n,l,m) = vflux(m,l)
-        end do
-      end do
-    end do
-#else
-    call visc_flx_cv_gpu( usp , dusp , vfluxes )
-#endif
+    if (nr == 3) then
+      call visc_flx_cv_gpu_3d( usp , dusp , vfluxes )
+    else if (nr == 2) then
+      call visc_flx_cv_gpu_2d( usp , dusp , vfluxes )
+    else
+      call visc_flx_cv_gpu_nd( usp , dusp , vfluxes )
+    end if
     !
   else
     !
-    !$ACC PARALLEL LOOP COLLAPSE(3)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
     do m = 1,nq
       do l = 1,nr
         do n = 1,n_solpts
@@ -1531,7 +1517,7 @@ continue
     !
   end if
   !
-  !$ACC PARALLEL LOOP COLLAPSE(3)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
   do m = 1,nq
     do l = 1,nr
       do n = 1,n_solpts
@@ -1542,26 +1528,31 @@ continue
   !
   !#############################################################################
   !
-  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) &
-  !$ACC& PRIVATE(rflx,lcl_res,tflx,fpidx,area)
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(tfluxes) &
+  !$ACC&                   PRIVATE(rflx,lcl_res)
   do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp
-    n2 = cell(nc)%end_sp
-    np = n2-n1+1
+   !n1 = cell(nc)%beg_sp
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+   !n2 = cell(nc)%end_sp
+   !np = n2-n1+1
+   !np = n2-n0
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    !$ACC LOOP VECTOR COLLAPSE(3)
-    do k = 1,np
-      do l = 1,nr
-        do m = 1,nq
-          n = k+n1-1
-          tflx(k,l,m) = tfluxes(n,l,m)
-        end do
-      end do
-    end do
+   !!$ACC LOOP VECTOR COLLAPSE(3)
+   !do k = 1,np
+   !  do l = 1,nr
+   !    do m = 1,nq
+   !     !n = k+n1-1
+   !      n = n0+k
+   !      tflx(k,l,m) = tfluxes(n,l,m)
+   !    end do
+   !  end do
+   !end do
     !
     !$ACC LOOP VECTOR COLLAPSE(3)
     do m = 1,nq
@@ -1569,7 +1560,7 @@ continue
         do k = 1,np
           val = zero
           do i = 1,nr
-            val = val + tflx(k,i,m)*metrics_dt(nc)%met(k,l,i)
+            val = val + tfluxes(n0+k,i,m)*metrics_dt(nc)%met(k,l,i)
           end do
           rflx(k,l,m) = val * metrics_dt(nc)%jac(k)
         end do
@@ -1602,25 +1593,26 @@ continue
     ! Copy the local residual for the current cell into the residual array
     !
     !$ACC LOOP VECTOR COLLAPSE(2)
-    do n = n1,n2
+    do k = 1,np
       do m = 1,nq
-        residual(m,n) = lcl_res(m,n-n1+1)
+        residual(m,n0+k) = lcl_res(m,k)
       end do
     end do
     !
- !end do
+  end do
  !!
  !!#############################################################################
  !!
- !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(tflx,fpidx,area)
- !do nc = 1,ncell
- !  !
- !  n1 = cell(nc)%beg_sp
- !  n2 = cell(nc)%end_sp
- !  np = n2-n1+1
- !  !
- !  this_geom = cell(nc)%geom
- !  this_order = cell(nc)%order
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(faceflx,tfluxes) &
+  !$ACC&                   PRIVATE(fpidx)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     ! Interpolate the fluxes to the interface flux points and dot this
     ! interpolated vector with the face normal at each flux point
@@ -1635,7 +1627,7 @@ continue
       !
       nf = cell(nc)%face(ncf)%idx  ! index of the current face
       sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
-      ds = cl(this_geom) * merge(-one,one,sf==1)
+      ds = cl(this_geom) * merge(one,-one,sf==1)
       !
       face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
       face_order = cell(nc)%face(ncf)%order ! order of current face
@@ -1643,7 +1635,7 @@ continue
       face_rot = cell(nc)%face(ncf)%rotation
       !
       nfp = geom_solpts(face_geom,face_order)
-     !f1 = face(nf)%beg_fp-1
+      f0 = face(nf)%beg_fp-1
       fpidx(1:nfp) = fp_offset + fp%geord(face_geom,face_order)% &
                                     rot(face_rot)%pts(1:nfp)
       !
@@ -1652,22 +1644,25 @@ continue
         do m = 1,nq
           fval = zero
           lf = fpidx(kf)
+          ! Get the normal interior discontinuous flux at this flux point
           do l = 1,nr
             val = zero
             do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
                    interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-              n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-              val = val + tflx(n,l,m) * interp(this_geom,this_order)% &
+             !n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+              n = n0 + interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+             !val = val + tflx(n,l,m) * interp(this_geom,this_order)% &
+              val = val + tfluxes(n,l,m) * interp(this_geom,this_order)% &
                                                   toFace(face_order)% &
                                         row_val(i)
             end do
             fval = fval + val * geofa(nf)%v(l,kf)
           end do
-          fval = fval - ( faceflx(nf)%v(m,kf,1) - faceflx(nf)%v(m,kf,2) )
-         !fval = fval - faceflx_array(f1+kf,m)
+          ! Subtract the interior discontinuous flux from the common flux
+          fval = faceflx(f0+kf,m) - fval
           do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
                  correct(this_geom,this_order)%row_ptr(lf+1)
-            n = n1 - 1 + correct(this_geom,this_order)%row_idx(i)
+            n = n0 + correct(this_geom,this_order)%row_idx(i)
             correct_n = correct(this_geom,this_order)%row_val(i) * fval * ds
             residual(m,n) = residual(m,n) + correct_n
           end do
@@ -1678,13 +1673,14 @@ continue
     !
   end do
   !
-end subroutine new_flux_gradient_at_solpts
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine flux_gradient_at_solpts
 !
 !###############################################################################
 !
 subroutine correct_interface_flux_visc(time_step,rk_step)
   !
-  use generic_types_mod, only : matrix
   use order_mod,         only : maxFP,geom_solpts
   use geovar,            only : nr,nfbnd,nface
   use geovar,            only : bface,face,cell
@@ -1722,6 +1718,8 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   character(len=*), parameter :: pname = "correct_interface_flux_visc"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! ##############################################################
   ! ##############################################################
@@ -1762,7 +1760,7 @@ continue
     !
     rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
     !
-    ! Get the common flux at each quadrature flux point
+    ! Get the common flux at each flux point
     !
     do k = 1,nfp
       !
@@ -1897,7 +1895,7 @@ continue
     !
     rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
     !
-    ! Get the common flux at each quadrature flux point
+    ! Get the common flux at each flux point
     !
     do k = 1,nfp
       !
@@ -1981,6 +1979,8 @@ continue
     !
   end do interior_fluxes
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine correct_interface_flux_visc
 !
 !###############################################################################
@@ -1995,96 +1995,52 @@ end subroutine correct_interface_flux_visc
 !
 subroutine get_invs_common_fluxes_interior()
   !
-  use order_mod,   only : maxFP,geom_solpts
-  use geovar,      only : nr,nfbnd,nface
-  use geovar,      only : face
+  use geovar,      only : nr,n_bnd_flxpts,n_flxpts
   use ovar,        only : invs_flux_method
-  use metrics_mod, only : geofa
-  use flowvar,     only : faceusp
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
   use flowvar,     only : faceflx
- !use flowvar,     only : faceflx_array
   !
   !.. Local Scalars ..
-  integer :: k,n,nf,n1,n2,nfp
-  integer :: face_geom,face_order
-  real(wp) :: ds
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: iflx
-  real(wp), dimension(1:nr,1:maxFP) :: rnrm
-  real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_interior"
   !
 continue
   !
-  ! Loop over the interior faces and reconstruct the
-  ! interface fluxes at each cell solution point
+  call debug_timer(entering_procedure,pname)
   !
-  n2 = 0
-  do nf = 1,nfbnd
-    face_geom = face(nf)%geom
-    face_order = face(nf)%order
-    n2 = n2 + geom_solpts(face_geom,face_order)
-  end do
+  ! Get the inviscid upwind flux at all of the interior flux points
   !
-  interior_fluxes: do nf = nfbnd+1,nface
+  n1 = n_bnd_flxpts+1
+  n2 = n_flxpts
+  !
+  if (invs_flux_method == invs_flux_ROE) then
     !
-   !n1 = face(nf)%beg_fp
-   !n2 = face(nf)%end_fp
-   !np = n2-n1+1
+    if (nr == 3) then
+      call roe_upwind_flux_gpu_3d(n1,n2,facenrm,faceusp_array,faceflx)
+    else if (nr == 2) then
+      call roe_upwind_flux_gpu_2d(n1,n2,facenrm,faceusp_array,faceflx)
+    else
+      call roe_upwind_flux_gpu_nd(n1,n2,facenrm,faceusp_array,faceflx)
+    end if
     !
-    face_geom = face(nf)%geom  ! geometry of face
-    face_order = face(nf)%order ! order of face
+  else if (invs_flux_method == invs_flux_HLLC) then
     !
-    nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
-    n1 = n2 + 1
-    n2 = n2 + nfp
+    call hllc_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
     !
-    lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-    rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
+  else if (invs_flux_method == invs_flux_LDFSS) then
     !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
+    call ldfss_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
     !
-    ! Get the common flux at each quadrature flux point
+  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
     !
-    do k = 1,nfp
-      !
-      n = n1-1+k
-      !
-      ! Get the unit normal at this flux point
-      !
-      ds = norm2(rnrm(:,k))
-      unrm(:) = rnrm(:,k) / ds
-      !
-      ! Get the inviscid upwind flux at the current flux point
-      !
-      if (invs_flux_method == invs_flux_ROE) then
-        iflx(:) = upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-      else if (invs_flux_method == invs_flux_HLLC) then
-        iflx(:) = hllc_upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-      else if (invs_flux_method == invs_flux_LDFSS) then
-        iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-      else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-        if (nr == 2) then
-          iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm(:) , lufp(:,k) , &
-                                                               rufp(:,k) )
-        else
-          iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm(:) , lufp(:,k) , &
-                                                               rufp(:,k) )
-        end if
-      end if
-      !
-      ! Get the total common boundary flux at this flux point
-      !
-      faceflx(nf)%v(:,k,1) = iflx(:)*ds
-     !faceflx_array(n,:) = iflx(:)*ds
-      !
-    end do
+    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
     !
-  end do interior_fluxes
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_invs_common_fluxes_interior
 !
@@ -2092,84 +2048,55 @@ end subroutine get_invs_common_fluxes_interior
 !
 subroutine get_visc_common_fluxes_interior()
   !
-  use order_mod,   only : maxFP,geom_solpts
-  use geovar,      only : nr,nfbnd,nface
-  use geovar,      only : face
-  use metrics_mod, only : geofa
-  use flowvar,     only : faceusp,facedusp
+  use geovar,      only : nr,n_bnd_flxpts,n_flxpts
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
   use flowvar,     only : faceflx
- !use flowvar,     only : faceflx_array
+  use ovar,        only : visc_variables_to_ave
   !
   !.. Local Scalars ..
-  integer :: k,n,nf,n1,n2,nfp
-  integer :: face_geom,face_order
-  real(wp) :: ds
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: vflx
-  real(wp), dimension(1:nr,1:maxFP) :: rnrm
-  real(wp), dimension(1:nq,1:maxFP) :: luqp,ruqp
-  real(wp), dimension(1:nr,1:nq,1:maxFP) :: lduqp,rduqp
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_interior"
   !
 continue
   !
-  ! Loop over the interior faces and reconstruct the
-  ! interface fluxes at each cell solution point
+  call debug_timer(entering_procedure,pname)
   !
-  n2 = 0
-  do nf = 1,nfbnd
-    face_geom = face(nf)%geom
-    face_order = face(nf)%order
-    n2 = n2 + geom_solpts(face_geom,face_order)
-  end do
+  n1 = n_bnd_flxpts+1
+  n2 = n_flxpts
   !
-  interior_fluxes: do nf = nfbnd+1,nface
+  if (visc_variables_to_ave == visc_interface_fluxes) then
     !
-   !n1 = face(nf)%beg_fp
-   !n2 = face(nf)%end_fp
-   !np = n2-n1+1
+    if (nr == 3) then
+      call common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    else if (nr == 2) then
+      call common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    else
+      call common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    end if
     !
-    face_geom = face(nf)%geom  ! geometry of face
-    face_order = face(nf)%order ! order of face
+  else ! visc_variables_to_ave == visc_solution_and_gradients
     !
-    nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
-    n1 = n2 + 1
-    n2 = n2 + nfp
+    if (nr == 3) then
+      call common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    else if (nr == 2) then
+      call common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    else
+      call common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    end if
     !
-    luqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-    ruqp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
-    !
-    lduqp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,1)
-    rduqp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,2)
-    !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
-    !
-    ! Get the common flux at each quadrature flux point
-    !
-    do k = 1,nfp
-      !
-      n = n1-1+k
-      !
-      ! Get the unit normal at this flux point
-      !
-      ds = norm2(rnrm(:,k))
-      unrm(:) = rnrm(:,k) / ds
-      !
-      ! Get the common viscous flux at the current flux point
-      !
-      vflx(:) = common_visc_flx_cv( unrm(:), luqp(:,k), lduqp(:,:,k), &
-                                             ruqp(:,k), rduqp(:,:,k) )
-      !
-      faceflx(nf)%v(:,k,2) = vflx(:)*ds
-     !faceflx_array(n,:) = faceflx_array(n,:) - vflx(:)*ds
-      !
-    end do
-    !
-  end do interior_fluxes
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_visc_common_fluxes_interior
 !
@@ -2177,129 +2104,68 @@ end subroutine get_visc_common_fluxes_interior
 !
 subroutine get_invs_common_fluxes_bc()
   !
-  use order_mod,   only : maxFP,geom_solpts
-  use geovar,      only : nr,nfbnd,n_flxpts
-  use geovar,      only : bface,face
+  use geovar,      only : nr,n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : invs_flux_method
-  use metrics_mod, only : geofa
-  use flowvar,     only : faceusp
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
   use flowvar,     only : faceflx
- !use flowvar,     only : faceflx_array
   !
   !.. Local Scalars ..
-  integer :: k,n,nf,n1,n2,nfp
-  integer :: face_geom,face_order
-  real(wp) :: ds
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: iflx
-  real(wp), dimension(1:nr,1:maxFP) :: rnrm
-  real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
-  integer :: face_bc(1:n_flxpts)
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
   !
 continue
   !
-  ! Loop through the boundary faces to apply the correction
-  ! due to the boundary fluxes.
+  call debug_timer(entering_procedure,pname)
   !
- !do nf = 1,nfbnd
- !  n1 = face(nf)%beg_fp
- !  n2 = face(nf)%end_fp
- !  do n = n1,n2
- !    face_bc(n) = bface(1,nf)
- !  end do
- !end do
+  ! Get the inviscid common flux for all flux points on wall BCs
   !
-  ! PROBABLY NEED TO SORT WALL FACES FROM OTHER BOUNDARY FACES SINCE
-  ! THEY WILL CALL DIFFERENT SUBROUTINES TO COMPUTE THE COMMON FLUX
+  n1 = 1
+  n2 = n_wall_flxpts
   !
-  n2 = 0
-  boundary_fluxes: do nf = 1,nfbnd
-    !
-   !n1 = face(nf)%beg_fp
-   !n2 = face(nf)%end_fp
-   !nfp = n2-n1+1
-    !
-    face_geom  = face(nf)%geom  ! geometry of face
-    face_order = face(nf)%order ! order of face
-    !
-    nfp = geom_solpts(face_geom,face_order)
-    n1 = n2 + 1
-    n2 = n2 + nfp
-    !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
-    !
-    ! Get the common flux at each quadrature flux point
-    !
-    if (any(bface(1,nf) == bc_walls)) then
-      !
-      ! This is a wall boundary so ensure that the inviscid
-      ! boundary flux is only due to the pressure term.
-      !
-      ! FP solution from left  cell on face
-      lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-      !
-      do k = 1,nfp
-        !
-        n = n1-1+k
-        !
-        ! Get the unit normal at this flux point
-        !
-        ds = norm2(rnrm(:,k))
-        unrm(:) = rnrm(:,k) / ds
-        !
-        iflx(:) = invs_wall_flx_cv( unrm(:) , lufp(:,k) )
-        !
-        faceflx(nf)%v(:,k,1) = iflx(:)*ds
-       !faceflx_array(n,:) = iflx(:)*ds
-        !
-      end do
-      !
+  if (n2 >= n1) then
+    if (nr == 3) then
+      call invs_wall_flx_gpu_3d(n1,n2,facenrm,faceusp_array,faceflx)
+    else if (nr == 2) then
+      call invs_wall_flx_gpu_2d(n1,n2,facenrm,faceusp_array,faceflx)
     else
-      !
-      ! For all other boundaries, compute the boundary
-      ! fluxes in the same way as the interior faces.
-      !
-      ! FP solution from left  cell on face
-      lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-      ! FP solution from right cell on face
-      rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
-      !
-      do k = 1,nfp
-        !
-        n = n1-1+k
-        !
-        ds = norm2(rnrm(:,k))
-        unrm(:) = rnrm(:,k) / ds
-        !
-        if (invs_flux_method == invs_flux_ROE) then
-          iflx(:) = upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-        else if (invs_flux_method == invs_flux_HLLC) then
-          iflx(:) = hllc_upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-        else if (invs_flux_method == invs_flux_LDFSS) then
-          iflx(:) = ldfss_upwind_flux_cv ( unrm(:) , lufp(:,k) , rufp(:,k) )
-        else if (invs_flux_method == invs_flux_Rotated_RHLL) then
-          if (nr == 2) then
-            iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm(:) , lufp(:,k) , &
-                                                                 rufp(:,k) )
-          else
-            iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm(:) , lufp(:,k) , &
-                                                                 rufp(:,k) )
-          end if
-        end if
-        !
-        faceflx(nf)%v(:,k,1) = iflx(:)*ds
-       !faceflx_array(n,:) = iflx(:)*ds
-        !
-      end do
-      !
+      call invs_wall_flx_gpu_nd(n1,n2,facenrm,faceusp_array,faceflx)
+    end if
+  end if
+  !
+  ! For all other boundaries, compute the boundary
+  ! fluxes in the same way as the interior faces.
+  !
+  n1 = n_wall_flxpts+1
+  n2 = n_bnd_flxpts
+  !
+  if (invs_flux_method == invs_flux_ROE) then
+    !
+    if (nr == 3) then
+      call roe_upwind_flux_gpu_3d(n1,n2,facenrm,faceusp_array,faceflx)
+    else if (nr == 2) then
+      call roe_upwind_flux_gpu_2d(n1,n2,facenrm,faceusp_array,faceflx)
+    else
+      call roe_upwind_flux_gpu_nd(n1,n2,facenrm,faceusp_array,faceflx)
     end if
     !
-  end do boundary_fluxes
+  else if (invs_flux_method == invs_flux_HLLC) then
+    !
+    call hllc_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
+    !
+  else if (invs_flux_method == invs_flux_LDFSS) then
+    !
+    call ldfss_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
+    !
+  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+    !
+    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm,faceusp_array,faceflx)
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_invs_common_fluxes_bc
 !
@@ -2307,31 +2173,283 @@ end subroutine get_invs_common_fluxes_bc
 !
 subroutine get_visc_common_fluxes_bc()
   !
-  use order_mod,   only : maxFP,geom_solpts
-  use geovar,      only : nr,nfbnd,n_flxpts
-  use geovar,      only : bface,face
-  use metrics_mod, only : geofa
-  use flowvar,     only : faceusp,facedusp
+  use geovar,      only : nr,n_wall_flxpts,n_bnd_flxpts
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
   use flowvar,     only : faceflx
-  use flowvar,     only : faceflx_array
+  use ovar,        only : visc_variables_to_ave
   !
   !.. Local Scalars ..
-  integer :: k,n,nf,n1,n2,nfp
-  integer :: face_geom,face_order
-  real(wp) :: ds
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: vflx
-  real(wp), dimension(1:nr,1:maxFP) :: rnrm
-  real(wp), dimension(1:nq,1:maxFP) :: lufp,rufp
-  real(wp), dimension(1:nr,1:nq,1:maxFP) :: ldufp,rdufp
-  integer :: face_bc(1:n_flxpts)
+  integer :: n1,n2
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_bc"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the viscous common flux for all flux points on wall BCs
+  !
+  n1 = 1
+  n2 = n_wall_flxpts
+  !
+  if (n2 >= n1) then
+    if (nr == 3) then
+      call visc_wall_flx_gpu_3d(n1,n2,facenrm,faceusp_array, &
+                                facedusp_array,faceflx)
+    else if (nr == 2) then
+      call visc_wall_flx_gpu_2d(n1,n2,facenrm,faceusp_array, &
+                                facedusp_array,faceflx)
+    else
+      call visc_wall_flx_gpu_nd(n1,n2,facenrm,faceusp_array, &
+                                facedusp_array,faceflx)
+    end if
+  end if
+  !
+  ! For all other boundaries, compute the boundary
+  ! fluxes in the same way as the interior faces.
+  !
+  n1 = n_wall_flxpts+1
+  n2 = n_bnd_flxpts
+  !
+  if (visc_variables_to_ave == visc_interface_fluxes) then
+    !
+    if (nr == 3) then
+      call common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    else if (nr == 2) then
+      call common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    else
+      call common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,faceusp_array, &
+                                         facedusp_array,faceflx)
+    end if
+    !
+  else ! visc_variables_to_ave == visc_solution_and_gradients
+    !
+    if (nr == 3) then
+      call common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    else if (nr == 2) then
+      call common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    else
+      call common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,faceusp_array, &
+                                               facedusp_array,faceflx)
+    end if
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_visc_common_fluxes_bc
+!
+!###############################################################################
+!
+subroutine get_invs_common_fluxes_interior_faces()
+  !
+  use geovar,      only : nr,nfbnd,nface
+  use geovar,      only : face
+  use ovar,        only : invs_flux_method
+  use metrics_mod, only : geofa
+#ifdef USE_FACE_ARRAYS
+  use flowvar,     only : faceusp_array
+#else
+  use flowvar,     only : faceusp
+#endif
+  use flowvar,     only : faceflx
+  !
+  !.. Local Scalars ..
+  integer :: k,nf,f0,nfp
+  real(wp) :: ds
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:nq) :: iflx
+  real(wp), dimension(1:nr) :: rnrm
+  real(wp), dimension(1:nq) :: lufp,rufp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_invs_common_fluxes_interior_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Loop over the interior faces and reconstruct the
+  ! interface fluxes at each cell solution point
+  !
+  do nf = nfbnd+1,nface
+    !
+    f0 = face(nf)%beg_fp - 1 ! one less than the beg idx for fp on face nf
+    nfp = face(nf)%end_fp - f0 ! total number of fp on face nf
+    !
+    ! Get the common flux at each flux point
+    !
+    do k = 1,nfp
+      !
+      ! Get the unit normal at this flux point
+      !
+      rnrm(1:nr) = geofa(nf)%v(1:nr,k)
+      ds = norm2(rnrm(:))
+      unrm(:) = rnrm(:) / ds
+      !
+      ! Left and right solution at this flux point
+      !
+#ifdef USE_FACE_ARRAYS
+      lufp(1:nq) = faceusp_array(f0+k,1:nq,1)
+      rufp(1:nq) = faceusp_array(f0+k,1:nq,2)
+#else
+      lufp(1:nq) = faceusp(nf)%v(1:nq,k,1)
+      rufp(1:nq) = faceusp(nf)%v(1:nq,k,2)
+#endif
+      !
+      ! Get the inviscid upwind flux at the current flux point
+      !
+      if (invs_flux_method == invs_flux_ROE) then
+        iflx(:) = upwind_flux_cv ( unrm , lufp , rufp )
+      else if (invs_flux_method == invs_flux_HLLC) then
+        iflx(:) = hllc_upwind_flux_cv ( unrm , lufp , rufp )
+      else if (invs_flux_method == invs_flux_LDFSS) then
+        iflx(:) = ldfss_upwind_flux_cv ( unrm , lufp , rufp )
+      else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+        if (nr == 2) then
+          iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm , lufp , rufp )
+        else
+          iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm , lufp , rufp )
+        end if
+      end if
+      !
+      ! Get the total common boundary flux at this flux point
+      !
+      faceflx(f0+k,:) = iflx(:)*ds
+      !
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_invs_common_fluxes_interior_faces
+!
+!###############################################################################
+!
+subroutine get_visc_common_fluxes_interior_faces()
+  !
+  use geovar,      only : nr,nfbnd,nface
+  use geovar,      only : face
+  use metrics_mod, only : geofa
+#ifdef USE_FACE_ARRAYS
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
+#else
+  use flowvar,     only : faceusp
+  use flowvar,     only : facedusp
+#endif
+  use flowvar,     only : faceflx
+  !
+  !.. Local Scalars ..
+  integer :: k,nf,f0,nfp
+  real(wp) :: ds
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:nq) :: vflx
+  real(wp), dimension(1:nr) :: rnrm
+  real(wp), dimension(1:nq) :: lufp,rufp
+  real(wp), dimension(1:nr,1:nq) :: ldufp,rdufp
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_visc_common_fluxes_interior_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Loop over the interior faces and reconstruct the
+  ! interface fluxes at each cell solution point
+  !
+  do nf = nfbnd+1,nface
+    !
+    f0 = face(nf)%beg_fp - 1 ! one less than the beg idx for fp on face nf
+    nfp = face(nf)%end_fp - f0 ! total number of fp on face nf
+    !
+   !n1 = face(nf)%beg_fp ! beginning index for flxpts on face nf
+   !n2 = face(nf)%end_fp ! ending    index for flxpts on face nf
+   !nfp = n2-n1+1        ! total number of flux points on this face
+    !
+    ! Get the common flux at each flux point
+    !
+    do k = 1,nfp
+      !
+      ! Get the unit normal at this flux point
+      !
+      rnrm(1:nr) = geofa(nf)%v(1:nr,k)
+      ds = norm2(rnrm(:))
+      unrm(:) = rnrm(:) / ds
+      !
+#ifdef USE_FACE_ARRAYS
+      lufp(1:nq) = faceusp_array(f0+k,1:nq,1)
+      rufp(1:nq) = faceusp_array(f0+k,1:nq,2)
+      !
+      ldufp(1:nr,1:nq) = facedusp_array(f0+k,1:nr,1:nq,1)
+      rdufp(1:nr,1:nq) = facedusp_array(f0+k,1:nr,1:nq,2)
+#else
+      lufp(1:nq) = faceusp(nf)%v(1:nq,k,1)
+      rufp(1:nq) = faceusp(nf)%v(1:nq,k,2)
+      !
+      ldufp(1:nr,1:nq) = facedusp(nf)%v(1:nr,1:nq,k,1)
+      rdufp(1:nr,1:nq) = facedusp(nf)%v(1:nr,1:nq,k,2)
+#endif
+      !
+      ! Get the common viscous flux at the current flux point
+      !
+      vflx(:) = common_visc_flx_cv( unrm , lufp , ldufp , rufp , rdufp )
+      !
+      faceflx(f0+k,:) = faceflx(f0+k,:) - vflx(:)*ds
+      !
+    end do
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_visc_common_fluxes_interior_faces
+!
+!###############################################################################
+!
+subroutine get_invs_common_fluxes_bc_faces()
+  !
+  use geovar,      only : nr,nfbnd,n_flxpts
+  use geovar,      only : bface,face
+  use ovar,        only : invs_flux_method
+  use metrics_mod, only : geofa
+#ifdef USE_FACE_ARRAYS
+  use flowvar,     only : faceusp_array
+#else
+  use flowvar,     only : faceusp
+#endif
+  use flowvar,     only : faceflx
+  !
+  !.. Local Scalars ..
+  integer :: k,nf,f0,nfp
+  real(wp) :: ds
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:nq) :: iflx
+  real(wp), dimension(1:nr) :: rnrm
+  real(wp), dimension(1:nq) :: lufp,rufp
+  integer :: face_bc(1:n_flxpts)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_invs_common_fluxes_bc_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop through the boundary faces to apply the correction
   ! due to the boundary fluxes.
@@ -2347,46 +2465,41 @@ continue
   ! PROBABLY NEED TO SORT WALL FACES FROM OTHER BOUNDARY FACES SINCE
   ! THEY WILL CALL DIFFERENT SUBROUTINES TO COMPUTE THE COMMON FLUX
   !
-  n2 = 0
-  boundary_fluxes: do nf = 1,nfbnd
+  do nf = 1,nfbnd
     !
-   !n1 = face(nf)%beg_fp
-   !n2 = face(nf)%end_fp
-   !nfp = n2-n1+1
+    f0 = face(nf)%beg_fp - 1 ! one less than the beg idx for fp on face nf
+    nfp = face(nf)%end_fp - f0 ! total number of fp on face nf
     !
-    face_geom  = face(nf)%geom  ! geometry of face
-    face_order = face(nf)%order ! order of face
+   !n1 = face(nf)%beg_fp ! beginning index for flxpts on face nf
+   !n2 = face(nf)%end_fp ! ending    index for flxpts on face nf
+   !nfp = n2-n1+1        ! total number of flux points on this face
     !
-    nfp = geom_solpts(face_geom,face_order)
-    n1 = n2 + 1
-    n2 = n2 + nfp
-    !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
-    !
-    ! Get the common flux at each quadrature flux point
+    ! Get the common flux at each flux point
     !
     if (any(bface(1,nf) == bc_walls)) then
       !
-      ! Compute the viscous wall boundary flux
-      !
-      ! FP solution from right cell on face
-      rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
-      ! Solution gradient at FP from right cell on face
-      rdufp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,2)
+      ! This is a wall boundary so ensure that the inviscid
+      ! boundary flux is only due to the pressure term.
       !
       do k = 1,nfp
         !
-        n = n1-1+k
-        !
         ! Get the unit normal at this flux point
         !
-        ds = norm2(rnrm(:,k))
-        unrm(:) = rnrm(:,k) / ds
+        rnrm(1:nr) = geofa(nf)%v(1:nr,k) ! Area face normals at FP
+        ds = norm2(rnrm(:))
+        unrm(:) = rnrm(:) / ds
         !
-        vflx(:) = visc_wall_flx_cv( unrm(:) , rufp(:,k) , rdufp(:,:,k) )
+#ifdef USE_FACE_ARRAYS
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp_array(f0+k,1:nq,1)
+#else
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp(nf)%v(1:nq,k,1)
+#endif
         !
-        faceflx(nf)%v(:,k,2) = vflx(:)*ds
-       !faceflx_array(n,:) = faceflx_array(n,:) - vflx(:)*ds
+        iflx(:) = invs_wall_flx_cv( unrm , lufp )
+        !
+        faceflx(f0+k,:) = iflx(:)*ds
         !
       end do
       !
@@ -2395,40 +2508,192 @@ continue
       ! For all other boundaries, compute the boundary
       ! fluxes in the same way as the interior faces.
       !
-      ! FP solution from left  cell on face
-      lufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-      ! FP solution from right cell on face
-      rufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,2)
-      !
-      ! Solution gradient at FP from left  cell on face
-      ldufp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,1)
-      ! Solution gradient at FP from right cell on face
-      rdufp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,2)
-      !
       do k = 1,nfp
         !
-        n = n1-1+k
+        rnrm(1:nr) = geofa(nf)%v(1:nr,k) ! Area face normals at FP
+        ds = norm2(rnrm(:))
+        unrm(:) = rnrm(:) / ds
         !
-        ! Get the unit normal at this flux point
+#ifdef USE_FACE_ARRAYS
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp_array(f0+k,1:nq,1)
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp_array(f0+k,1:nq,2)
+#else
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp(nf)%v(1:nq,k,1)
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp(nf)%v(1:nq,k,2)
+#endif
         !
-        ds = norm2(rnrm(:,k))
-        unrm(:) = rnrm(:,k) / ds
+        if (invs_flux_method == invs_flux_ROE) then
+          iflx(:) = upwind_flux_cv ( unrm , lufp , rufp )
+        else if (invs_flux_method == invs_flux_HLLC) then
+          iflx(:) = hllc_upwind_flux_cv ( unrm , lufp , rufp )
+        else if (invs_flux_method == invs_flux_LDFSS) then
+          iflx(:) = ldfss_upwind_flux_cv ( unrm , lufp , rufp )
+        else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+          if (nr == 2) then
+            iflx(:) = rotated_rhll_upwind_flux_cv_2d ( unrm , lufp , rufp )
+          else
+            iflx(:) = rotated_rhll_upwind_flux_cv_3d ( unrm , lufp , rufp )
+          end if
+        end if
         !
-        ! Get the common viscous flux at the current flux point
-        !
-        vflx(:) = common_visc_flx_cv( unrm(:), lufp(:,k), ldufp(:,:,k), &
-                                               rufp(:,k), rdufp(:,:,k) )
-        !
-        faceflx(nf)%v(:,k,2) = vflx(:)*ds
-       !faceflx_array(n,:) = faceflx_array(n,:) - vflx(:)*ds
+        faceflx(f0+k,:) = iflx(:)*ds
         !
       end do
       !
     end if
     !
-  end do boundary_fluxes
+  end do
   !
-end subroutine get_visc_common_fluxes_bc
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_invs_common_fluxes_bc_faces
+!
+!###############################################################################
+!
+subroutine get_visc_common_fluxes_bc_faces()
+  !
+  use geovar,      only : nr,nfbnd,n_flxpts
+  use geovar,      only : bface,face
+  use metrics_mod, only : geofa
+#ifdef USE_FACE_ARRAYS
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
+#else
+  use flowvar,     only : faceusp
+  use flowvar,     only : facedusp
+#endif
+  use flowvar,     only : faceflx
+  !
+  !.. Local Scalars ..
+  integer :: k,nf,f0,nfp
+  real(wp) :: ds
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: unrm
+  real(wp), dimension(1:nq) :: vflx
+  real(wp), dimension(1:nr) :: rnrm
+  real(wp), dimension(1:nq) :: lufp,rufp
+  real(wp), dimension(1:nr,1:nq) :: ldufp,rdufp
+  integer :: face_bc(1:n_flxpts)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_visc_common_fluxes_bc_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Loop through the boundary faces to apply the correction
+  ! due to the boundary fluxes.
+  !
+ !do nf = 1,nfbnd
+ !  n1 = face(nf)%beg_fp
+ !  n2 = face(nf)%end_fp
+ !  do n = n1,n2
+ !    face_bc(n) = bface(1,nf)
+ !  end do
+ !end do
+  !
+  ! PROBABLY NEED TO SORT WALL FACES FROM OTHER BOUNDARY FACES SINCE
+  ! THEY WILL CALL DIFFERENT SUBROUTINES TO COMPUTE THE COMMON FLUX
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1 ! one less than the beg idx for fp on face nf
+    nfp = face(nf)%end_fp - f0 ! total number of fp on face nf
+    !
+   !n1 = face(nf)%beg_fp ! beginning index for flxpts on face nf
+   !n2 = face(nf)%end_fp ! ending    index for flxpts on face nf
+   !nfp = n2-n1+1        ! total number of flux points on this face
+    !
+    ! Get the common flux at each flux point
+    !
+    if (any(bface(1,nf) == bc_walls)) then
+      !
+      ! Compute the viscous wall boundary flux
+      !
+      do k = 1,nfp
+        !
+        ! Get the unit normal at this flux point
+        !
+        rnrm(1:nr) = geofa(nf)%v(1:nr,k) ! Area face normals at FP
+        ds = norm2(rnrm(:))
+        unrm(:) = rnrm(:) / ds
+        !
+#ifdef USE_FACE_ARRAYS
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp_array(f0+k,1:nq,2)
+        !
+        ! Solution gradient at FP from right cell on face
+        rdufp(1:nr,1:nq) = facedusp_array(f0+k,1:nr,1:nq,2)
+#else
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp(nf)%v(1:nq,k,2)
+        !
+        ! Solution gradient at FP from right cell on face
+        rdufp(1:nr,1:nq) = facedusp(nf)%v(1:nr,1:nq,k,2)
+#endif
+        !
+        vflx(:) = visc_wall_flx_cv( unrm , rufp , rdufp )
+        !
+        faceflx(f0+k,:) = faceflx(f0+k,:) - vflx(:)*ds
+        !
+      end do
+      !
+    else
+      !
+      ! For all other boundaries, compute the boundary
+      ! fluxes in the same way as the interior faces.
+      !
+      do k = 1,nfp
+        !
+        ! Get the unit normal at this flux point
+        !
+        rnrm(1:nr) = geofa(nf)%v(1:nr,k) ! Area face normals at FP
+        ds = norm2(rnrm(:))
+        unrm(:) = rnrm(:) / ds
+        !
+#ifdef USE_FACE_ARRAYS
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp_array(f0+k,1:nq,1)
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp_array(f0+k,1:nq,2)
+        !
+        ! Solution gradient at FP from left  cell on face
+        ldufp(1:nr,1:nq) = facedusp_array(f0+k,1:nr,1:nq,1)
+        ! Solution gradient at FP from right cell on face
+        rdufp(1:nr,1:nq) = facedusp_array(f0+k,1:nr,1:nq,2)
+#else
+        ! FP solution from left  cell on face
+        lufp(1:nq) = faceusp(nf)%v(1:nq,k,1)
+        ! FP solution from right cell on face
+        rufp(1:nq) = faceusp(nf)%v(1:nq,k,2)
+        !
+        ! Solution gradient at FP from left  cell on face
+        ldufp(1:nr,1:nq) = facedusp(nf)%v(1:nr,1:nq,k,1)
+        ! Solution gradient at FP from right cell on face
+        rdufp(1:nr,1:nq) = facedusp(nf)%v(1:nr,1:nq,k,2)
+#endif
+        !
+        ! Get the common viscous flux at the current flux point
+        !
+        vflx(:) = common_visc_flx_cv( unrm, lufp, ldufp, rufp, rdufp )
+        !
+        faceflx(f0+k,:) = faceflx(f0+k,:) - vflx(:)*ds
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_visc_common_fluxes_bc_faces
 !
 !###############################################################################
 !
@@ -2465,7 +2730,12 @@ subroutine discontinuous_gradient_at_solpts()
   real(wp), dimension(1:maxSP,1:nq) :: tusp
  !real(wp), dimension(1:maxSP,1:nr,1:2) :: dtusp
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "discontinuous_gradient_at_solpts"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point
@@ -2534,6 +2804,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine discontinuous_gradient_at_solpts
 !
 !###############################################################################
@@ -2541,7 +2813,6 @@ end subroutine discontinuous_gradient_at_solpts
 subroutine correct_gradients_at_solpts()
   !
   !.. Use Statements ..
-  use generic_types_mod, only : matrix
   use order_mod,         only : maxpts,geom_solpts
   use geovar,            only : nfbnd,nface,nr,n_solpts,ncell
   use geovar,            only : face,cell,bface
@@ -2567,7 +2838,12 @@ subroutine correct_gradients_at_solpts()
   real(wp), dimension(1:nq)          :: ljfp,rjfp
   real(wp), dimension(1:nq,1:maxpts) :: lufp,rufp
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "correct_gradients_at_solpts"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! #######################
   ! #######################
@@ -2823,6 +3099,8 @@ continue
     !
   end do interior_faces
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine correct_gradients_at_solpts
 !
 !###############################################################################
@@ -2835,14 +3113,22 @@ subroutine correct_gradients_br2()
   use geovar,            only : fp
   use metrics_mod,       only : geofa,metrics_dt
   use correction_mod,    only : correct
-  use flowvar,           only : dusp,facedusp,faceusp
+  use flowvar,           only : dusp
+#ifdef USE_FACE_ARRAYS
+  use geovar,            only : face
+  use flowvar,           only : faceusp_array
+  use flowvar,           only : facedusp_array
+#else
+  use flowvar,           only : faceusp
+  use flowvar,           only : facedusp
+#endif
   use ovar,              only : walls_are_exact
   use interpolation_mod, only : interp
   !
  !use parallel_mod,      only : exchange_facedusp
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,np,l,m
+  integer :: n,nc,n1,n2,np,l,m,f0
   integer :: nf,kf,lf,sf,ncf,j
   integer :: this_geom,this_order
   integer :: face_geom,face_order
@@ -2860,14 +3146,23 @@ subroutine correct_gradients_br2()
   real(wp), dimension(1:6) :: cf_hfpb
   integer, dimension(1:maxFP,1:6) :: cf_fpidx
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "correct_gradients_br2"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
-  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) PRIVATE(face_dusp_corr,cf_fpidx, &
-  !$ACC&                                           cf_nf,cf_sf,cf_nfp,cf_hfpb, &
-  !$ACC&                                           cf_face_order,array)
+  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32) &
+#ifdef USE_FACE_ARRAYS
+  !$ACC&                 PRESENT(faceusp_array,facedusp_array) &
+#endif
+  !$ACC&                 PRESENT(list_of_wall_bcs) &
+  !$ACC&                 PRIVATE(face_dusp_corr,cf_fpidx,cf_nf,cf_sf, &
+  !$ACC&                         cf_nfp,cf_hfpb,cf_face_order,array)
   cell_loop: do nc = 1,ncell
     !
     n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -2904,8 +3199,8 @@ continue
       cbias = zero
       if (nf <= nfbnd .and. walls_are_exact) then
         !$ACC LOOP SEQ
-        do m = 1,size(bc_walls)
-          if (bface(1,nf) == bc_walls(m)) then
+        do m = 1,size(list_of_wall_bcs)
+          if (bface(1,nf) == list_of_wall_bcs(m)) then
             cbias = half
             exit
           end if
@@ -2929,7 +3224,6 @@ continue
    !end do
     !
     ! Loop over the faces of this cell
-#ifndef ENABLE_LOOP
     cell_faces: do ncf = 1,num_cell_faces
       !
       ! kf: index of flx-pt local to this face
@@ -2942,12 +3236,19 @@ continue
         do m = 1,nq
           do l = 1,nr
             nf = cf_nf(ncf)
+#ifdef USE_FACE_ARRAYS
+            f0 = face(nf)%beg_fp - 1
+#endif
            !nf = cell(nc)%face(ncf)%idx
             lf = cf_fpidx(kf,ncf)
             do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
                    correct(this_geom,this_order)%row_ptr(lf+1)
               n = correct(this_geom,this_order)%row_idx(i)
+#ifdef USE_FACE_ARRAYS
+              correct_n = faceusp_array(f0+kf,m,2) - faceusp_array(f0+kf,m,1)
+#else
               correct_n = faceusp(nf)%v(m,kf,2) - faceusp(nf)%v(m,kf,1)
+#endif
               correct_m = correct(this_geom,this_order)%row_val(i) * &
                           correct_n * cf_hfpb(ncf) / metrics_dt(nc)%jac(n)
               face_dusp_corr(n,l,m,ncf) = face_dusp_corr(n,l,m,ncf) + &
@@ -2958,7 +3259,6 @@ continue
         !
       end do face_points
     end do cell_faces
-#endif
     !
     ! Interpolate the face corrected gradient from the interior solution
     ! points to the interface flux points now that we are done with all
@@ -2975,6 +3275,9 @@ continue
           do l = 1,nr
             nf = cf_nf(ncf)
            !nf = cell(nc)%face(ncf)%idx
+#ifdef USE_FACE_ARRAYS
+            f0 = face(nf)%beg_fp - 1
+#endif
             sf = cf_sf(ncf)
            !sf = cell(nc)%face(ncf)%side
             face_order = cf_face_order(ncf)
@@ -2988,7 +3291,11 @@ continue
                                                    toFace(face_order)% &
                                         row_val(i)
             end do
+#ifdef USE_FACE_ARRAYS
+            facedusp_array(f0+kf,l,m,sf) = val
+#else
             facedusp(nf)%v(l,m,kf,sf) = val
+#endif
           end do
         end do
         !
@@ -3028,6 +3335,8 @@ continue
   ! Exchange the left and right states for faces on communication boundaries
   !
  !if (ncpu > 1) call exchange_facedusp(facedusp)
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine correct_gradients_br2
 !
@@ -3375,6 +3684,172 @@ end subroutine check_for_bad_number
 !
 !###############################################################################
 !
+subroutine debug_timer(time_flag,message,processor,part_num,acc)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: processor
+  integer, optional, intent(in) :: part_num
+  integer, optional, intent(in) :: acc
+  !
+#ifdef PROFILE_ON
+  !.. Local Scalars ..
+  real(wp), save :: beg_wall_time
+  real(wp)       :: end_wall_time
+  real(wp)       :: wall_time
+  !
+  integer, save :: procedure_counter = 0
+  integer       :: i,hours,minutes,seconds,total_sec
+  integer       :: output_cpu
+  !
+  character(len=300) :: out_message
+  !
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(10)
+  real(wp), save :: accumulated_time(10)
+  real(wp), save :: accumulation_beg_time(10)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: leading_space = "                    "
+  !
+continue
+  !
+  output_cpu = 0
+  if (present(processor)) output_cpu = processor
+  !
+  if (time_flag == start_timer) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+    if (mypnum == output_cpu) then
+      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == stop_timer) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_wall_time
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
+    end if
+    !
+    ! Reset beg_wall_time in case this procedure is called twice
+    ! in a row with time_flag set to stop_timer
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+  else if (time_flag == reset_accumulated_time) then
+    !
+    if (present(acc)) then
+      accumulated_time(acc) = zero
+    end if
+    !
+  else if (time_flag == report_accumulated_time) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),accumulated_time(acc), &
+                     trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == start_accumulation) then
+    !
+    if (present(acc)) then
+      accumulation_beg_time(acc) = mpi_wtime()
+    end if
+    !
+  else if (time_flag == stop_accumulation) then
+    !
+    if (present(acc)) then
+      wall_time = mpi_wtime() - accumulation_beg_time(acc)
+      accumulated_time(acc) = accumulated_time(acc) + wall_time
+    end if
+    !
+  else if (time_flag == entering_procedure) then
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,3) leading_space(1:i),trim(adjustl(message))
+    end if
+    !
+    procedure_counter = procedure_counter + 1
+    !
+    beg_procedure_time(procedure_counter) = mpi_wtime()
+   !beg_procedure_time(procedure_counter) = dclock()
+   !call cpu_time( beg_procedure_time(procedure_counter) )
+    !
+  else if (time_flag == leaving_procedure) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
+    !
+    procedure_counter = max( 0 , procedure_counter-1 )
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
+    end if
+    !
+  end if
+  !
+  flush (iout)
+  !
+  ! Format Statements
+  !
+  1 format (a,"## Starting timer for: ",a)
+  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
+  3 format (a,"=> Entering procedure : ",a)
+  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
+  5 format (a)
+  6 format (a," for partition # ",i0)
+  !
+#endif
+  !
+end subroutine debug_timer
 !
 !###############################################################################
 !
@@ -3383,7 +3858,7 @@ end subroutine check_for_bad_number
 !
 !###############################################################################
 !
-include "Functions/upwind_fluxes.f90"
+#include "Functions/upwind_fluxes.f90"
 include "Functions/grad_cv_to_grad_pv.f90"
 include "Functions/viscosity.f90"
 include "Functions/pressure.f90"

@@ -1,6 +1,8 @@
 module time_mod
   !
-  use module_kind_types
+#define PROFILE_ON
+  !
+  use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
   !
   implicit none
@@ -16,6 +18,7 @@ module time_mod
   public :: rupdate_TVD4_RK
   public :: update_time_ave
   public :: initialize_time_ave
+  public :: save_old_solution
   !
   real(wp), parameter :: o = zero
   !
@@ -75,17 +78,10 @@ contains
 subroutine get_dtsp(dtmin)
   !
   !.. Use Statements ..
-  use ovar,    only : Timestep_Type,time,d_t
-  use ovar,    only : itestcase,time_ref
-  use ovar,    only : write_TaylorGreen_8s_solution
-  use ovar,    only : write_TaylorGreen_full_solution
-  use flowvar, only : dtsp
+  use ovar, only : Timestep_Type,d_t,itestcase,Final_Time
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  real(wp) :: tstar,new_tstar
   !
 continue
   !
@@ -99,8 +95,15 @@ continue
     !
     call get_current_cfl
     !
-    call get_cell_timestep(dtmin)
-   !call get_cell_timestep_old(dtmin)
+    if (Timestep_Type == Global_Cell_Timestep) then
+      call get_cell_global_timestep_gpu(dtmin)
+     !call get_cell_timestep(dtmin)
+     !call get_cell_timestep_old(dtmin)
+    else if (Timestep_Type == Local_Cell_Timestep) then
+      call get_cell_local_timestep_gpu(dtmin)
+     !call get_cell_timestep(dtmin)
+     !call get_cell_timestep_old(dtmin)
+    end if
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
     !
@@ -110,66 +113,18 @@ continue
     !
   end if
   !
- !write (iout,1) time,dtmin,time+dtmin
-  !
   if (itestcase == Taylor_Green_Vortex) then
-    !
-    tstar = time*time_ref
-    new_tstar = tstar + dtmin*time_ref
-    !
-    if (tstar < eight .and. new_tstar >= eight) then
-      !
-      dtmin = (eight - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_8s_solution = true
-      !
-    else if (tstar < three .and. new_tstar >= three) then
-      !
-      dtmin = (three - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    else if (tstar < five .and. new_tstar >= five) then
-      !
-      dtmin = (five - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    else if (tstar < seven .and. new_tstar >= seven) then
-      !
-      dtmin = (seven - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    else if (tstar < nine .and. new_tstar >= nine) then
-      !
-      dtmin = (nine - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    else if (tstar < 11.0_wp .and. new_tstar >= 11.0_wp) then
-      !
-      dtmin = (11.0_wp - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    else if (tstar < 15.0_wp .and. new_tstar >= 15.0_wp) then
-      !
-      dtmin = (15.0_wp - tstar) / time_ref
-      dtsp(:) = dtmin
-      write_TaylorGreen_full_solution = true
-      !
-    end if
-    !
+    call check_tstar_for_TaylorGreen(dtmin)
   end if
   !
- !time = time + dtmin
+  ! Make sure the timestep size doesnt make the final time exceed Final_Time
+  !
+  if (Final_time > zero) then
+    call check_final_time(dtmin)
+  end if
+  !
+  !
   d_t = dtmin
- !!$ACC UPDATE DEVICE(time)
-  !
-  ! Format Statements
-  !
-  1 format (" Old Time = ",es14.6,"; Timestep = ",es14.6,"; New Time = ",es14.6)
   !
 end subroutine get_dtsp
 !
@@ -230,6 +185,769 @@ end subroutine get_constant_timestep
 !
 !###############################################################################
 !
+subroutine get_cell_global_timestep_gpu(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,nface,n_solpts
+  use geovar, only : face,cell,n_bnd_flxpts,n_flxpts
+  !
+  use ovar, only : CFL,governing_equations
+  !
+  use metrics_mod, only : facenrm,facejac
+  !
+  use flowvar, only : dtsp
+  use flowvar, only : faceusp_array
+  !
+  use gpu_mod, only : viscosity_cv_gpu
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n,kf,nf,f1,f2,n1,n2
+  integer  :: left_cell,left_geom,left_order
+  integer  :: right_cell,right_geom,right_order
+  real(wp) :: ds,eigni_fp,eignv_fp
+  real(wp) :: dtl,hl,lcl
+  real(wp) :: dtr,hr,rcl
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: viscl(:)
+  real(wp), allocatable :: viscr(:)
+  real(wp), allocatable :: eigni(:,:)
+  real(wp), allocatable :: dsf(:)
+  real(wp), allocatable :: psq(:,:)
+  !
+  integer, parameter :: make_p_plus_one = 0
+ !integer, parameter :: make_p_plus_one = 1
+  !
+  character(len=*), parameter :: pname = "get_cell_global_timestep_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( viscl(1:n_flxpts) )
+  allocate ( viscr(1:n_flxpts) )
+  allocate ( eigni(1:n_flxpts,1:2) )
+  allocate ( dsf(1:n_flxpts) )
+  allocate ( psq(1:n_flxpts,1:2) )
+  !
+  !$ACC DATA CREATE(viscl,viscr,eigni,dsf,psq) &
+  !$ACC&     PRESENT(facenrm,facejac,faceusp_array)
+  !
+  n1 = 1
+  n2 = n_flxpts
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,1),viscl)
+    call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,2),viscr)
+  else
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = n1,n2
+      viscl(n) = zero
+      viscr(n) = zero
+    end do
+  end if
+  !
+  call invs_eigenvalue_gpu(n1,n2,faceusp_array,facenrm,eigni,dsf)
+ !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
+ !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
+  !
+  dtmin = huge(zero)
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  do nf = 1,nface
+    !
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    !
+    left_cell  = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    left_geom  = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    right_geom  = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
+    !
+    lcl = cl(left_geom)
+    rcl = cl(right_geom)
+    !
+    !$ACC LOOP VECTOR
+    do kf = f1,f2
+      psq(kf,1) = lcl * real( (left_order +make_p_plus_one)**2 , kind=wp )
+      psq(kf,2) = rcl * real( (right_order+make_p_plus_one)**2 , kind=wp )
+    end do
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) REDUCTION(min:dtmin)
+  do kf = 1,n_bnd_flxpts
+    !
+    hl = psq(kf,1) * half * dsf(kf) / facejac(kf,1)
+    !
+    eigni_fp = eigni(kf,1)
+    eignv_fp = hl * viscl(kf)
+    !
+    dtl = CFL / (hl * (eigni_fp + eignv_fp))
+    !
+    dtmin = min(dtmin,dtl)
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) REDUCTION(min:dtmin)
+  do kf = n_bnd_flxpts+1,n_flxpts
+    !
+    ds = half * dsf(kf)
+    !
+    hl = ds * psq(kf,1) / facejac(kf,1)
+    hr = ds * psq(kf,2) / facejac(kf,2)
+    !
+    eigni_fp = max( eigni(kf,1) , eigni(kf,2) )
+    eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )
+    !
+    dtl = CFL / (max(hl,hr) * (eigni_fp + eignv_fp))
+    dtmin = min(dtmin,dtl)
+   !dtl = CFL / (hl * (eigni_fp + eignv_fp))
+   !dtr = CFL / (hr * (eigni_fp + eignv_fp))
+   !dtmin = min(dtmin,dtl,dtr)
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  do n = 1,n_solpts
+    dtsp(n) = dtmin
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( psq )
+  deallocate ( dsf )
+  deallocate ( eigni )
+  deallocate ( viscr )
+  deallocate ( viscl )
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_cell_global_timestep_gpu
+!
+!###############################################################################
+!
+subroutine get_cell_local_timestep_gpu(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,nface,ncell
+  use geovar, only : face,cell,n_flxpts
+  !
+  use ovar, only : CFL,governing_equations
+  !
+  use metrics_mod, only : facenrm,facejac
+  !
+  use flowvar, only : dtsp
+  use flowvar, only : faceusp_array
+  !
+  use gpu_mod, only : viscosity_cv_gpu
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,kf,nc,nf,f0,nfp,n1,n2
+  integer  :: host_cell,host_geom,host_order
+  integer  :: left_cell,left_geom,left_order
+  integer  :: right_cell,right_geom,right_order
+  real(wp) :: ds,dtc,eigni_fp,eignv_fp
+  real(wp) :: dtl,hl,psql
+  real(wp) :: dtr,hr,psqr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: viscl(:)
+  real(wp), allocatable :: viscr(:)
+  real(wp), allocatable :: dt_cell(:)
+  real(wp), allocatable :: eigni(:,:)
+  real(wp), allocatable :: dsf(:)
+  !
+  integer, parameter :: make_p_plus_one = 0
+ !integer, parameter :: make_p_plus_one = 1
+  !
+  character(len=*), parameter :: pname = "get_cell_local_timestep_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( viscl(1:n_flxpts) )
+  allocate ( viscr(1:n_flxpts) )
+  allocate ( dt_cell(1:ncell) )
+  allocate ( eigni(1:n_flxpts,1:2) )
+  allocate ( dsf(1:n_flxpts) )
+  !
+  !$ACC DATA CREATE(viscl,viscr,eigni,dt_cell,dsf) &
+  !$ACC&     PRESENT(facenrm,facejac,faceusp_array)
+  !
+  n1 = 1
+  n2 = n_flxpts
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,1),viscl)
+    call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,2),viscr)
+  else
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = n1,n2
+      viscl(n) = zero
+      viscr(n) = zero
+    end do
+  end if
+  !
+  call invs_eigenvalue_gpu(n1,n2,faceusp_array,facenrm,eigni,dsf)
+ !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,1),facenrm,eigni(:,1),dsf)
+ !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
+  !
+  dtmin = huge(zero)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  do nc = 1,ncell
+    dt_cell(nc) = dtmin
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  do nf = 1,nfbnd
+    !
+    left_cell = face(nf)%left%cell  ! left  cell on face
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    left_geom  = cell(left_cell)%geom  ! left cell geometry
+    left_order = cell(left_cell)%order ! left cell order
+    !
+    psql = half*cl(left_geom)*real( (left_order+make_p_plus_one)**2 , kind=wp )
+    !
+    dtl = dt_cell(left_cell)
+    !
+    !$ACC LOOP VECTOR REDUCTION(min:dtl)
+    do k = 1,nfp
+      !
+      kf = f0 + k
+      !
+      hl = dsf(kf) * psql / facejac(kf,1)
+      !
+      eigni_fp = eigni(kf,1)
+      eignv_fp = hl * viscl(kf)
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtl , CFL / (hl * (eigni_fp + eignv_fp) ) )
+      !
+    end do
+    !
+    dt_cell(left_cell) = dtl
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  do nf = nfbnd+1,nface
+    !
+    left_cell  = face(nf)%left%cell  ! left  cell on face
+    right_cell = face(nf)%right%cell ! right cell on face
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    left_geom  = cell(left_cell)%geom  ! left cell geometry
+    left_order = cell(left_cell)%order ! left cell order
+    !
+    right_geom  = cell(right_cell)%geom  ! right cell geometry
+    right_order = cell(right_cell)%order ! right cell order
+    !
+    psql = half * cl(left_geom) &
+                * real( (left_order +make_p_plus_one)**2 , kind=wp )
+    psqr = half * cl(right_geom) &
+                * real( (right_order+make_p_plus_one)**2 , kind=wp )
+    !
+    dtl = dt_cell(left_cell)
+    dtr = dt_cell(right_cell)
+    !
+    !$ACC LOOP VECTOR REDUCTION(min:dtl,dtr)
+    do k = 1,nfp
+      !
+      kf = f0 + k
+      !
+      ds = dsf(kf)
+      !
+      ! Left and right cell jacobians at the face point
+      !
+      hl = ds * psql / facejac(kf,1)
+      hr = ds * psqr / facejac(kf,2)
+      !
+      eigni_fp = max( eigni(kf,1) , eigni(kf,2) )
+      eignv_fp = max( hl * viscl(kf) , hr * viscr(kf) )
+      !
+      ! Compute the timestep for this flux point
+      !
+      dtl = min( dtl , CFL / (hl * (eigni_fp + eignv_fp)) )
+      dtr = min( dtr , CFL / (hr * (eigni_fp + eignv_fp)) )
+      !
+    end do
+    !
+    dt_cell(left_cell)  = dtl
+    dt_cell(right_cell) = dtr
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) REDUCTION(min:dtmin)
+  do nc = 1,ncell
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    dtc = dt_cell(nc)
+    dtmin = min(dtmin,dtc)
+    do n = n1,n2
+      dtsp(n) = dtc
+    end do
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( dsf )
+  deallocate ( eigni )
+  deallocate ( dt_cell )
+  deallocate ( viscr )
+  deallocate ( viscl )
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_cell_local_timestep_gpu
+!
+!###############################################################################
+!
+pure subroutine invs_eigenvalue_gpu(n1,n2,face_cv,facenrm,eigni,ds)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: eigni(:,:)
+  real(wp), intent(inout) :: ds(:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then
+    call invs_eigenvalue_gpu_3d(n1,n2,face_cv,facenrm,eigni,ds)
+  else if (nr == 2) then
+    call invs_eigenvalue_gpu_2d(n1,n2,face_cv,facenrm,eigni,ds)
+  else
+    call invs_eigenvalue_gpu_nd(n1,n2,face_cv,facenrm,eigni,ds)
+  end if
+  !
+end subroutine invs_eigenvalue_gpu
+!
+!###############################################################################
+!
+pure subroutine invs_eigenvalue_gpu_3d(n1,n2,face_cv,facenrm,eigni,ds)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: eigni(:,:)
+  real(wp), intent(inout) :: ds(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,rho,rho_inv,rhoe,pres
+  real(wp) :: velx,vely,velz,q2,vface,aspd
+  real(wp) :: rnx,rny,rnz,unx,uny,unz,dl
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds(n) = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    dl = one/ds(n)
+    unx = rnx*dl
+    uny = rny*dl
+    unz = rnz*dl
+#endif
+    !
+    ! Left side of face
+    !
+    rho = face_cv(n,nec,1)
+    !
+    rho_inv = one/rho
+    !
+    velx = face_cv(n,nmx,1)*rho_inv
+    vely = face_cv(n,nmy,1)*rho_inv
+    velz = face_cv(n,nmz,1)*rho_inv
+    rhoe = face_cv(n,nee,1)
+    !
+    q2 = velx*velx + vely*vely + velz*velz
+    !
+    pres = gm1*(rhoe - half*rho*q2)
+    !
+    aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+    !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    vface = unx*velx + uny*vely + unz*velz
+#else
+    vface = sqrt(q2)
+#endif
+    !
+    eigni(n,1) = abs(vface) + aspd
+    !
+    ! Right side of face
+    !
+    rho = face_cv(n,nec,2)
+    !
+    rho_inv = one/rho
+    !
+    velx = face_cv(n,nmx,2)*rho_inv
+    vely = face_cv(n,nmy,2)*rho_inv
+    velz = face_cv(n,nmz,2)*rho_inv
+    rhoe = face_cv(n,nee,2)
+    !
+    q2 = velx*velx + vely*vely + velz*velz
+    !
+    pres = gm1*(rhoe - half*rho*q2)
+    !
+    aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+    !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    vface = unx*velx + uny*vely + unz*velz
+#else
+    vface = sqrt(q2)
+#endif
+    !
+    eigni(n,2) = abs(vface) + aspd
+    !
+  end do
+  !
+  !$ACC END DATA
+  !
+end subroutine invs_eigenvalue_gpu_3d
+!
+!###############################################################################
+!
+pure subroutine invs_eigenvalue_gpu_2d(n1,n2,face_cv,facenrm,eigni,ds)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: eigni(:,:)
+  real(wp), intent(inout) :: ds(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,rho,rho_inv,rhoe,pres
+  real(wp) :: velx,vely,q2,vface,aspd
+  real(wp) :: rnx,rny,unx,uny,dl
+  !
+continue
+  !
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds(n) = sqrt(rnx*rnx + rny*rny)
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    dl = one/ds(n)
+    unx = rnx*dl
+    uny = rny*dl
+#endif
+    !
+    ! Left side of face
+    !
+    rho = face_cv(n,nec,1)
+    !
+    rho_inv = one/rho
+    !
+    velx = face_cv(n,nmx,1)*rho_inv
+    vely = face_cv(n,nmy,1)*rho_inv
+    rhoe = face_cv(n,nee,1)
+    !
+    q2 = velx*velx + vely*vely
+    !
+    pres = gm1*(rhoe - half*rho*q2)
+    !
+    aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+    !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    vface = unx*velx + uny*vely
+#else
+    vface = sqrt(q2)
+#endif
+    !
+    eigni(n,1) = abs(vface) + aspd
+    !
+    ! Right side of face
+    !
+    rho = face_cv(n,nec,2)
+    !
+    rho_inv = one/rho
+    !
+    velx = face_cv(n,nmx,2)*rho_inv
+    vely = face_cv(n,nmy,2)*rho_inv
+    rhoe = face_cv(n,nee,2)
+    !
+    q2 = velx*velx + vely*vely
+    !
+    pres = gm1*(rhoe - half*rho*q2)
+    !
+    aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+    !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+    vface = unx*velx + uny*vely
+#else
+    vface = sqrt(q2)
+#endif
+    !
+    eigni(n,2) = abs(vface) + aspd
+    !
+  end do
+  !
+  !$ACC END DATA
+  !
+end subroutine invs_eigenvalue_gpu_2d
+!
+!###############################################################################
+!
+pure subroutine invs_eigenvalue_gpu_nd(n1,n2,face_cv,facenrm,eigni,ds)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: eigni(:,:)
+  real(wp), intent(inout) :: ds(:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,rho,rho_inv,rhoe,pres
+  real(wp) :: velx,vely,velz,q2,vface,aspd
+  real(wp) :: rnx,rny,rnz,unx,uny,unz,dl
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds(n) = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      dl = one/ds(n)
+      unx = rnx*dl
+      uny = rny*dl
+      unz = rnz*dl
+#endif
+      !
+      ! Left side of face
+      !
+      rho = face_cv(n,nec,1)
+      !
+      rho_inv = one/rho
+      !
+      velx = face_cv(n,nmx,1)*rho_inv
+      vely = face_cv(n,nmy,1)*rho_inv
+      velz = face_cv(n,nmz,1)*rho_inv
+      rhoe = face_cv(n,nee,1)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      vface = unx*velx + uny*vely + unz*velz
+#else
+      vface = sqrt(q2)
+#endif
+      !
+      eigni(n,1) = abs(vface) + aspd
+      !
+      ! Right side of face
+      !
+      rho = face_cv(n,nec,2)
+      !
+      rho_inv = one/rho
+      !
+      velx = face_cv(n,nmx,2)*rho_inv
+      vely = face_cv(n,nmy,2)*rho_inv
+      velz = face_cv(n,nmz,2)*rho_inv
+      rhoe = face_cv(n,nee,2)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      vface = unx*velx + uny*vely + unz*velz
+#else
+      vface = sqrt(q2)
+#endif
+      !
+      eigni(n,2) = abs(vface) + aspd
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds(n) = sqrt(rnx*rnx + rny*rny)
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      dl = one/ds(n)
+      unx = rnx*dl
+      uny = rny*dl
+#endif
+      !
+      ! Left side of face
+      !
+      rho = face_cv(n,nec,1)
+      !
+      rho_inv = one/rho
+      !
+      velx = face_cv(n,nmx,1)*rho_inv
+      vely = face_cv(n,nmy,1)*rho_inv
+      rhoe = face_cv(n,nee,1)
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      vface = unx*velx + uny*vely
+#else
+      vface = sqrt(q2)
+#endif
+      !
+      eigni(n,1) = abs(vface) + aspd
+      !
+      ! Right side of face
+      !
+      rho = face_cv(n,nec,2)
+      !
+      rho_inv = one/rho
+      !
+      velx = face_cv(n,nmx,2)*rho_inv
+      vely = face_cv(n,nmy,2)*rho_inv
+      rhoe = face_cv(n,nee,2)
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+#ifdef USE_VN_FOR_INVS_EIGENVALUES
+      vface = unx*velx + uny*vely
+#else
+      vface = sqrt(q2)
+#endif
+      !
+      eigni(n,2) = abs(vface) + aspd
+      !
+    end do
+    !
+  else
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = n1,n2
+      !
+      ds(n) = abs(facenrm(1,n))
+      !
+      ! Left side of face
+      !
+      rho = face_cv(n,nec,1)
+      velx = face_cv(n,nmx,1)/rho
+      rhoe = face_cv(n,nee,1)
+      !
+      q2 = velx*velx
+      !
+      pres = gm1*(rhoe - half*rho*velx*velx)
+      !
+      aspd = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      eigni(n,1) = abs(velx) + aspd
+      !
+      ! Right side of face
+      !
+      rho = face_cv(n,nec,2)
+      velx = face_cv(n,nmx,2)/rho
+      rhoe = face_cv(n,nee,2)
+      !
+      q2 = velx*velx
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      eigni(n,2) = abs(velx) + aspd
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC END DATA
+  !
+end subroutine invs_eigenvalue_gpu_nd
+!
+!###############################################################################
+!
 subroutine get_cell_timestep(dtmin)
   !
   !.. Use Statements ..
@@ -244,7 +962,12 @@ subroutine get_cell_timestep(dtmin)
   !
   use metrics_mod, only : geofa,metrics_dt
   !
-  use flowvar, only : dtsp,faceusp
+  use flowvar, only : dtsp
+#ifdef USE_FACE_ARRAYS
+  use flowvar, only : faceusp_array
+#else
+  use flowvar, only : faceusp
+#endif
   !
   use interpolation_mod, only : interp
   !
@@ -255,7 +978,7 @@ subroutine get_cell_timestep(dtmin)
   integer  :: nf,kf,sf,m
   integer  :: l1,l2,npl,lcfp
   integer  :: r1,r2,npr,rcfp
-  integer  :: face_geom,face_order,nfp
+  integer  :: face_geom,face_order,nfp,f0
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
   integer  :: right_cell,right_geom,right_order
@@ -267,12 +990,6 @@ subroutine get_cell_timestep(dtmin)
   !.. Local Arrays ..
   real(wp) :: vl(1:nq)
   real(wp) :: vr(1:nq)
-  !
-#ifdef USE_FACE_FP_ARRAYS
-  !.. Local Allocatable Arrays ..
-  integer, allocatable :: left_fp_idx(:)
-  integer, allocatable :: right_fp_idx(:)
-#endif
   !
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
@@ -307,13 +1024,22 @@ continue
     !
     psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
+#ifdef USE_FACE_ARRAYS
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+#else
     nfp = geom_solpts(face_geom,face_order)
+#endif
     !
     do kf = 1,nfp
       !
       ! Get the primitive variables at this face point
       !
+#ifdef USE_FACE_ARRAYS
+      vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
+#else
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
+#endif
       !
       if (governing_equations == NavierStokes_Eqns) then
         mul = viscosity_pv_sp( vl(1:nq) )
@@ -386,14 +1112,24 @@ continue
     psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
     psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
     !
+#ifdef USE_FACE_ARRAYS
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+#else
     nfp = geom_solpts(face_geom,face_order)
+#endif
     !
     do kf = 1,nfp
       !
       ! Get the primitive variables at this face point
       !
+#ifdef USE_FACE_ARRAYS
+      vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
+      vr(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,rsf) )
+#else
       vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
       vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,rsf) )
+#endif
       !
       if (governing_equations == NavierStokes_Eqns) then
         mul = viscosity_pv_sp( vl(1:nq) )
@@ -525,12 +1261,6 @@ subroutine get_cell_timestep_old(dtmin)
   !.. Local Arrays ..
   real(wp) :: vl(1:nq),tlusp(1:maxSP,1:nq)
   real(wp) :: vr(1:nq),trusp(1:maxSP,1:nq)
-  !
-#ifdef USE_FACE_FP_ARRAYS
-  !.. Local Allocatable Arrays ..
-  integer, allocatable :: left_fp_idx(:)
-  integer, allocatable :: right_fp_idx(:)
-#endif
   !
   integer, parameter :: make_p_plus_one = 0
  !integer, parameter :: make_p_plus_one = 1
@@ -971,6 +1701,151 @@ continue
   end if
   !
 end subroutine old_get_point_timestep
+!
+!###############################################################################
+!
+subroutine check_tstar_for_TaylorGreen(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : dtsp
+  use ovar,    only : time,time_ref
+  use ovar,    only : write_TaylorGreen_8s_solution
+  use ovar,    only : write_TaylorGreen_full_solution
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer     :: n
+  real(wp)    :: tstar,new_tstar
+  logical(lk) :: reset_dtsp
+  !
+continue
+  !
+  reset_dtsp = fals
+  !
+  tstar = time*time_ref
+  new_tstar = tstar + dtmin*time_ref
+  !
+  if (tstar < eight .and. new_tstar >= eight) then
+    !
+    dtmin = (eight - tstar) / time_ref
+    write_TaylorGreen_8s_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < three .and. new_tstar >= three) then
+    !
+    dtmin = (three - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < five .and. new_tstar >= five) then
+    !
+    dtmin = (five - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < seven .and. new_tstar >= seven) then
+    !
+    dtmin = (seven - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < nine .and. new_tstar >= nine) then
+    !
+    dtmin = (nine - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < 11.0_wp .and. new_tstar >= 11.0_wp) then
+    !
+    dtmin = (11.0_wp - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  else if (tstar < 15.0_wp .and. new_tstar >= 15.0_wp) then
+    !
+    dtmin = (15.0_wp - tstar) / time_ref
+    write_TaylorGreen_full_solution = true
+    reset_dtsp = true
+    !
+  end if
+  !
+  if (reset_dtsp) then
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = 1,n_solpts
+      dtsp(n) = dtmin
+    end do
+  end if
+  !
+end subroutine check_tstar_for_TaylorGreen
+!
+!###############################################################################
+!
+subroutine check_final_time(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : dtsp
+  use ovar,    only : time,Final_Time,time_ref
+  use ovar,    only : this_is_final_timestep
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: new_time,chk_time
+  !
+continue
+  !
+  new_time = time + dtmin
+  chk_time = Final_Time/time_ref + eps9
+  !
+  if (new_time > chk_time) then
+    dtmin = Final_Time/time_ref - time
+    this_is_final_timestep = true
+  end if
+  !
+  if (this_is_final_timestep) then
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    do n = 1,n_solpts
+      dtsp(n) = dtmin
+    end do
+  end if
+  !
+end subroutine check_final_time
+!
+!###############################################################################
+!
+subroutine save_old_solution()
+  !
+  !.. Use Statements ..
+  use flowvar, only : usp,uoldsp
+  !
+  !.. Local Scalars ..
+  integer :: m,n,np
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "save_old_solution"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  np = size(uoldsp,dim=2)
+  !
+ !!$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  do n = 1,np
+    do m = 1,nq
+      uoldsp(m,n) = usp(m,n)
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine save_old_solution
 !
 !###############################################################################
 !
@@ -1756,6 +2631,175 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine update_time_ave
+!
+!###############################################################################
+!
+subroutine debug_timer(time_flag,message,processor,part_num,acc)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: processor
+  integer, optional, intent(in) :: part_num
+  integer, optional, intent(in) :: acc
+  !
+#ifdef PROFILE_ON
+  !.. Local Scalars ..
+  real(wp), save :: beg_wall_time
+  real(wp)       :: end_wall_time
+  real(wp)       :: wall_time
+  !
+  integer, save :: procedure_counter = 0
+  integer       :: i,hours,minutes,seconds,total_sec
+  integer       :: output_cpu
+  !
+  character(len=300) :: out_message
+  !
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(10)
+  real(wp), save :: accumulated_time(10)
+  real(wp), save :: accumulation_beg_time(10)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: leading_space = "                    "
+  !
+continue
+  !
+  output_cpu = 0
+  if (present(processor)) output_cpu = processor
+  !
+  if (time_flag == start_timer) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+    if (mypnum == output_cpu) then
+      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == stop_timer) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_wall_time
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
+    end if
+    !
+    ! Reset beg_wall_time in case this procedure is called twice
+    ! in a row with time_flag set to stop_timer
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+  else if (time_flag == reset_accumulated_time) then
+    !
+    if (present(acc)) then
+      accumulated_time(acc) = zero
+    end if
+    !
+  else if (time_flag == report_accumulated_time) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),accumulated_time(acc), &
+                     trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == start_accumulation) then
+    !
+    if (present(acc)) then
+      accumulation_beg_time(acc) = mpi_wtime()
+    end if
+    !
+  else if (time_flag == stop_accumulation) then
+    !
+    if (present(acc)) then
+      wall_time = mpi_wtime() - accumulation_beg_time(acc)
+      accumulated_time(acc) = accumulated_time(acc) + wall_time
+    end if
+    !
+  else if (time_flag == entering_procedure) then
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,3) leading_space(1:i),trim(adjustl(message))
+    end if
+    !
+    procedure_counter = procedure_counter + 1
+    !
+    beg_procedure_time(procedure_counter) = mpi_wtime()
+   !beg_procedure_time(procedure_counter) = dclock()
+   !call cpu_time( beg_procedure_time(procedure_counter) )
+    !
+  else if (time_flag == leaving_procedure) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
+    !
+    procedure_counter = max( 0 , procedure_counter-1 )
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
+    end if
+    !
+  end if
+  !
+  flush (iout)
+  !
+  ! Format Statements
+  !
+  1 format (a,"## Starting timer for: ",a)
+  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
+  3 format (a,"=> Entering procedure : ",a)
+  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
+  5 format (a)
+  6 format (a," for partition # ",i0)
+  !
+#endif
+  !
+end subroutine debug_timer
 !
 !###############################################################################
 !

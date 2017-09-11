@@ -438,6 +438,7 @@ module module_kind_types
                                           bc_symmetry, &
                                           bc_adiabatic_wall, &
                                           bc_isothermal_wall ]
+  !$ACC DECLARE COPYIN(bc_walls)
   !
   integer, parameter :: bc_heirarchy(1:17) = [ bc_isothermal_wall, &
                                                bc_adiabatic_wall, &

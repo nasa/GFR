@@ -1,12 +1,13 @@
 module module_bc
   !
 #include <mpi_defs.h>
+#define PROFILE_ON
   !
   ! Module to contain the procedures and variables related
   ! to the evaluating the boundary conditions for the flow.
   !
   !.. Use Statements ..
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
   use ovar,    only : gam
@@ -56,22 +57,39 @@ subroutine get_faceusp_bc
   ! to compute the boundary states based on the face boundary condition.
   !
   !.. Use Statements ..
+  use order_mod,    only : maxFP
   use geovar,       only : bface,nfbnd
+#ifdef USE_FACE_ARRAYS
+  use geovar,       only : face
+  use flowvar,      only : faceusp_array
+#else
+  use flowvar,      only : faceusp
+#endif
   use ovar,         only : output_bface_array
   use ovar,         only : bc_in,sub_inflow_method
   use metrics_mod,  only : geofa
-  use flowvar,      only : faceusp,facexyz
+  use flowvar,      only : facexyz
   !
  !use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,pf,bc_idx
+  integer :: nf,pf,bc_idx,n1,n2,nfp,p1,p2
   integer :: newton_failures
+  !
+  !.. Local Arrays ..
+  real(wp) :: hufp(1:nq,1:maxFP)
+  real(wp) :: gufp(1:nq,1:maxFP)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_faceusp_bc"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifdef USE_FACE_ARRAYS
+ !!$ACC UPDATE SELF(faceusp_array)
+#endif
   !
   newton_failures = 0
   !
@@ -85,6 +103,20 @@ continue
     !
     bc_idx = bface(6,nf)
     !
+#ifdef USE_FACE_ARRAYS
+    n1 = face(nf)%beg_fp
+    n2 = face(nf)%end_fp
+    nfp = n2-n1+1
+    if (bface(1,nf) /= bc_periodic) then
+      hufp(1:nq,1:nfp) = transpose(faceusp_array(n1:n2,1:nq,1))
+    end if
+#else
+    nfp = size(faceusp(nf)%v,dim=2)
+    if (bface(1,nf) /= bc_periodic) then
+      hufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
+    end if
+#endif
+    !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
@@ -94,20 +126,18 @@ continue
         !
         ! Free stream boundary condition
         !
-        call get_bc_freestream_solution(faceusp(nf)%v(:,:,2), &
+        call get_bc_freestream_solution(nfp,gufp, &
                                         bc_in(bc_idx)%cv)
         !
       case (bc_characteristic)
         !
         ! Characteristic boundary condition
         !
-       !call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
-       !                                    faceusp(nf)%v(:,:,2), &
+       !call get_bc_characteristic_solution(nfp,hufp,gufp, &
        !                                    geofa(nf)%v(:,:), &
        !                                    bc_in(bc_idx)%cv, &
        !                                    bc_in(bc_idx)%pv)
-        call get_bc_characteristic_solution(faceusp(nf)%v(:,:,1), &
-                                            faceusp(nf)%v(:,:,2), &
+        call get_bc_characteristic_solution(nfp,hufp,gufp, &
                                             geofa(nf)%v(:,:), &
                                             bc_in(bc_idx)%pv, &
                                             bc_in(bc_idx)%relax)
@@ -116,8 +146,7 @@ continue
         !
         ! Generic inflow boundary condition
         !
-        call get_bc_generic_inflow_solution(faceusp(nf)%v(:,:,1), &
-                                            faceusp(nf)%v(:,:,2), &
+        call get_bc_generic_inflow_solution(nfp,hufp,gufp, &
                                             geofa(nf)%v(:,:), &
                                             bc_in(bc_idx)%cv, &
                                             bc_in(bc_idx)%pv)
@@ -126,8 +155,7 @@ continue
         !
         ! Generic outflow boundary condition
         !
-        call get_bc_generic_outflow_solution(faceusp(nf)%v(:,:,1), &
-                                             faceusp(nf)%v(:,:,2), &
+        call get_bc_generic_outflow_solution(nfp,hufp,gufp, &
                                              geofa(nf)%v(:,:), &
                                              bc_in(bc_idx)%pv)
         !
@@ -135,8 +163,7 @@ continue
         !
         ! Generic freeflow boundary condition
         !
-        call get_bc_generic_freeflow_solution(faceusp(nf)%v(:,:,1), &
-                                              faceusp(nf)%v(:,:,2), &
+        call get_bc_generic_freeflow_solution(nfp,hufp,gufp, &
                                               geofa(nf)%v(:,:), &
                                               bc_in(bc_idx)%cv, &
                                               bc_in(bc_idx)%pv)
@@ -146,13 +173,11 @@ continue
         ! Subsonic inflow boundary condition
         !
         if (any(sub_inflow_method == [2,3,4])) then
-          call get_bc_sub_inflow_solution(faceusp(nf)%v(:,:,1), &
-                                          faceusp(nf)%v(:,:,2), &
+          call get_bc_sub_inflow_solution(nfp,hufp,gufp, &
                                           bc_in(bc_idx)%cv, &
                                           bc_in(bc_idx)%pv)
         else
-          call get_bc_sub_inflow_newton(faceusp(nf)%v(:,:,1), &
-                                        faceusp(nf)%v(:,:,2), &
+          call get_bc_sub_inflow_newton(nfp,hufp,gufp, &
                                         geofa(nf)%v(:,:), &
                                         bc_in(bc_idx)%pv, &
                                         newton_failures, &
@@ -163,8 +188,7 @@ continue
         !
         ! Subsonic outflow boundary condition
         !
-        call get_bc_sub_outflow_solution(faceusp(nf)%v(:,:,1), &
-                                         faceusp(nf)%v(:,:,2), &
+        call get_bc_sub_outflow_solution(nfp,hufp,gufp, &
                                          geofa(nf)%v(:,:), &
                                          bc_in(bc_idx)%pv)
         !
@@ -172,37 +196,33 @@ continue
         !
         ! Supersonic inflow boundary condition
         !
-        call get_bc_sup_inflow_solution(faceusp(nf)%v(:,:,2), &
+        call get_bc_sup_inflow_solution(nfp,gufp, &
                                         bc_in(bc_idx)%cv)
         !
       case (bc_sup_outflow)
         !
         ! Supersonic outflow boundary condition
         !
-        call get_bc_sup_outflow_solution(faceusp(nf)%v(:,:,1), &
-                                         faceusp(nf)%v(:,:,2))
+        call get_bc_sup_outflow_solution(nfp,hufp,gufp)
         !
       case (bc_slip_wall,bc_symmetry)
         !
         ! Slip wall / symmetry boundary condition
         !
-        call get_bc_slip_wall_solution(faceusp(nf)%v(:,:,1), &
-                                       faceusp(nf)%v(:,:,2), &
+        call get_bc_slip_wall_solution(nfp,hufp,gufp, &
                                        geofa(nf)%v(:,:))
         !
       case (bc_adiabatic_wall)
         !
         ! No-slip adiabatic wall
         !
-        call get_bc_adiabatic_wall_solution(faceusp(nf)%v(:,:,1), &
-                                            faceusp(nf)%v(:,:,2))
+        call get_bc_adiabatic_wall_solution(nfp,hufp,gufp)
         !
       case (bc_isothermal_wall)
         !
         ! No-slip isothermal wall
         !
-        call get_bc_isothermal_wall_solution(faceusp(nf)%v(:,:,1), &
-                                             faceusp(nf)%v(:,:,2), &
+        call get_bc_isothermal_wall_solution(nfp,hufp,gufp, &
                                              bc_in(bc_idx)%wall_temperature, &
                                              geofa(nf)%v(:,:))
         !
@@ -212,16 +232,24 @@ continue
         !
         pf = bface(5,nf) ! index of connecting periodic boundary face
         !
-        call get_bc_periodic_solution(faceusp(pf)%v(:,:,1), &
-                                      faceusp(nf)%v(:,:,2))
+#ifdef USE_FACE_ARRAYS
+        p1 = face(pf)%beg_fp
+        p2 = face(pf)%end_fp
+        hufp(1:nq,1:nfp) = transpose(faceusp_array(p1:p2,1:nq,1))
+#else
+        hufp(1:nq,1:nfp) = faceusp(pf)%v(1:nq,1:nfp,1)
+#endif
+        !
+        call get_bc_periodic_solution(nfp,hufp,gufp)
+       !call get_bc_periodic_solution(faceusp(pf)%v(:,:,1), &
+       !                              faceusp(nf)%v(:,:,2))
         !
       case (bc_mms_dirichlet)
         !
         ! Dirichlet boundary condition for MMS
         !
 #ifndef USE_ACC
-        call get_bc_mms_dirichlet_solution(faceusp(nf)%v(:,:,1), &
-                                           faceusp(nf)%v(:,:,2), &
+        call get_bc_mms_dirichlet_solution(nfp,hufp,gufp, &
                                            facexyz(nf)%v(:,:), &
                                            geofa(nf)%v(:,:))
 #endif
@@ -238,6 +266,12 @@ continue
        !call stop_recon(abort,pname,__LINE__,__FILE__)
         !
     end select
+    !
+#ifdef USE_FACE_ARRAYS
+    faceusp_array(n1:n2,1:nq,2) = transpose(gufp(1:nq,1:nfp))
+#else
+    faceusp(nf)%v(1:nq,1:nfp,2) = gufp(1:nq,1:nfp)
+#endif
     !
   end do
   !
@@ -258,6 +292,12 @@ continue
  !if (ncpu > 1) call wait_faceusp(faceusp)
   !
  !call exchange_bc_conflicts_usp(faceusp)
+  !
+#ifdef USE_FACE_ARRAYS
+ !!$ACC UPDATE DEVICE(faceusp_array)
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -283,14 +323,27 @@ subroutine get_facedusp_bc
   ! face boundary condition.
   !
   !.. Use Statements ..
-  use geovar,       only : bface,nfbnd
-  use flowvar,      only : faceusp,facedusp
+  use order_mod,    only : maxFP
+  use geovar,       only : nr,bface,nfbnd
   use metrics_mod,  only : geofa
+#ifdef USE_FACE_ARRAYS
+  use geovar,       only : face
+  use flowvar,      only : faceusp_array
+  use flowvar,      only : facedusp_array
+#else
+  use flowvar,      only : faceusp
+  use flowvar,      only : facedusp
+#endif
   !
  !use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
-  integer :: nf,pf
+  integer :: k,nf,pf,n1,n2,nfp,p1,p2
+  !
+  !.. Local Arrays ..
+  real(wp) :: hufp(1:nq,1:maxFP)
+  real(wp) :: hdufp(1:nr,1:nq,1:maxFP)
+  real(wp) :: gdufp(1:nr,1:nq,1:maxFP)
   !
   !.. Local Parameters ..
   integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
@@ -300,16 +353,47 @@ subroutine get_facedusp_bc
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
+#ifdef USE_FACE_ARRAYS
+ !!$ACC UPDATE SELF(facedusp_array)
+#endif
+  !
   ! Loop over the boundary faces and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
  !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
   do nf = 1,nfbnd
     !
+#ifdef USE_FACE_ARRAYS
+    n1 = face(nf)%beg_fp
+    n2 = face(nf)%end_fp
+    nfp = n2-n1+1
+    if (bface(1,nf) /= bc_periodic) then
+      do k = 1,nfp
+        hdufp(1:nr,1:nq,k) = facedusp_array(n1-1+k,1:nr,1:nq,1)
+      end do
+     !hdufp(1:nr,1:nq,1:nfp) = reshape( transpose( &
+     !              reshape( facedusp_array(n1:n2,1:nr,1:nq,1) , [nfp,nr*nq] ) &
+     !                                           ), [nr,nq,nfp] )
+    end if
+#else
+    nfp = size(facedusp(nf)%v,dim=3)
+    if (bface(1,nf) /= bc_periodic) then
+      hdufp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,1)
+    end if
+#endif
+    !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
     if (any(bface(1,nf) == bc_walls)) then
+      !
+#ifdef USE_FACE_ARRAYS
+      hufp(1:nq,1:nfp) = transpose(faceusp_array(n1:n2,1:nq,1))
+#else
+      hufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
+#endif
       !
       ! Wall boundary condition
       !
@@ -317,17 +401,13 @@ continue
         !
         ! No-slip adiabatic wall boundary conditions
         !
-        call get_bc_adiabatic_wall_gradient(faceusp(nf)%v(:,:,1), &
-                                            facedusp(nf)%v(:,:,:,1), &
-                                            facedusp(nf)%v(:,:,:,2))
+        call get_bc_adiabatic_wall_gradient(nfp,hufp,hdufp,gdufp)
         !
       else
         !
         ! Non-adiabatic wall boundary condition
         !
-        call get_bc_wall_gradient(faceusp(nf)%v(:,:,1), &
-                                  facedusp(nf)%v(:,:,:,1), &
-                                  facedusp(nf)%v(:,:,:,2))
+        call get_bc_wall_gradient(nfp,hufp,hdufp,gdufp)
         !
       end if
       !
@@ -335,8 +415,7 @@ continue
       !
       ! Slip wall / symmetry boundary condition
       !
-      call get_bc_slip_wall_gradient(facedusp(nf)%v(:,:,:,1), &
-                                     facedusp(nf)%v(:,:,:,2), &
+      call get_bc_slip_wall_gradient(nfp,hdufp,gdufp, &
                                      geofa(nf)%v(:,:))
       !
     else if (bface(1,nf) == bc_periodic) then
@@ -345,19 +424,32 @@ continue
       !
       pf = bface(5,nf) ! index of connecting periodic boundary face
       !
+#ifdef USE_FACE_ARRAYS
+      p1 = face(pf)%beg_fp
+      p2 = face(pf)%end_fp
+      do k = 1,nfp
+        hdufp(1:nr,1:nq,k) = facedusp_array(p1-1+k,1:nr,1:nq,1)
+      end do
+     !hdufp(1:nr,1:nq,1:nfp) = reshape( transpose( &
+     !              reshape( facedusp_array(p1:p2,1:nr,1:nq,1) , [nfp,nr*nq] ) &
+     !                                           ), [nr,nq,nfp] )
+#else
+      hdufp(1:nr,1:nq,1:nfp) = facedusp(pf)%v(1:nr,1:nq,1:nfp,1)
+#endif
+      !
       ! We just want to copy the gradients from face pf to face nf which is
       ! exactly what the subroutine get_bc_flowthrough_gradient does, so
       ! just use that instead of making a completely separate subroutine.
       !
-      call get_bc_periodic_gradient(facedusp(pf)%v(:,:,:,1), &
-                                    facedusp(nf)%v(:,:,:,2))
+      call get_bc_periodic_gradient(nfp,hdufp,gdufp)
+     !call get_bc_periodic_gradient(facedusp(pf)%v(:,:,:,1), &
+     !                              facedusp(nf)%v(:,:,:,2))
       !
     else if (all(bface(1,nf) /= local_bc_ignore)) then
       !
       ! General flow-through boundary conditions
       !
-      call get_bc_flowthrough_gradient(facedusp(nf)%v(:,:,:,1), &
-                                       facedusp(nf)%v(:,:,:,2))
+      call get_bc_flowthrough_gradient(nfp,hdufp,gdufp)
       !
    !else
    !  !
@@ -368,6 +460,14 @@ continue
    !  !
     end if
     !
+#ifdef USE_FACE_ARRAYS
+    do k = 1,nfp
+      facedusp_array(n1-1+k,1:nr,1:nq,2) = gdufp(1:nr,1:nq,k)
+    end do
+#else
+    facedusp(nf)%v(1:nr,1:nq,1:nfp,2) = gdufp(1:nr,1:nq,1:nfp)
+#endif
+    !
   end do
   !
   ! Now that we have finished getting the boundary conditions local to
@@ -377,6 +477,11 @@ continue
  !if (ncpu > 1) call wait_facedusp(facedusp)
   !
  !call exchange_bc_conflicts_dusp(facedusp)
+#ifdef USE_FACE_ARRAYS
+ !!$ACC UPDATE DEVICE(facedusp_array)
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
@@ -402,7 +507,7 @@ end subroutine get_facedusp_bc
 !###############################################################################
 !###############################################################################
 !
-subroutine get_bc_freestream_solution(gufp,cv_in)
+subroutine get_bc_freestream_solution(nfp,gufp,cv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -415,6 +520,7 @@ subroutine get_bc_freestream_solution(gufp,cv_in)
   ! CV_IN : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: cv_in(:)
   real(wp), intent(inout) :: gufp(:,:)
   !
@@ -423,7 +529,7 @@ subroutine get_bc_freestream_solution(gufp,cv_in)
   !
 continue
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Set all variables to free stream
     !
@@ -435,7 +541,7 @@ end subroutine get_bc_freestream_solution
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm,cv_in,pv_in)
+subroutine get_bc_characteristic_solution_old(nfp,hufp,gufp,fnrm,cv_in,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -451,6 +557,7 @@ subroutine get_bc_characteristic_solution_old(hufp,gufp,fnrm,cv_in,pv_in)
   ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp), intent(inout) :: gufp(:,:)
@@ -476,7 +583,7 @@ continue
   gm1 = gam - one
   gm1_inv = one / gm1
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Inward pointing unit normal at this flux point
     !
@@ -588,7 +695,7 @@ end subroutine get_bc_characteristic_solution_old
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,pv_in,relax)
+subroutine get_bc_characteristic_solution(nfp,hufp,gufp,fnrm,pv_in,relax)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -608,6 +715,7 @@ subroutine get_bc_characteristic_solution(hufp,gufp,fnrm,pv_in,relax)
   ! RELAX : Relaxation conditions for this boundary condition
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),           intent(in) :: fnrm(:,:)
   real(wp),           intent(in) :: hufp(:,:)
   real(wp),           intent(in) :: pv_in(:)
@@ -654,7 +762,7 @@ continue
   !
   ! Compute the boundary solution at each flux point
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Inward pointing unit normal at this flux point
     !
@@ -739,7 +847,7 @@ end subroutine get_bc_characteristic_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
+subroutine get_bc_generic_inflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -758,6 +866,7 @@ subroutine get_bc_generic_inflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
   ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: cv_in(:)
@@ -783,7 +892,7 @@ continue
   !
   gm1_inv = one / (gam - one)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Unit normal and tangent at this flux point
     !
@@ -849,7 +958,7 @@ end subroutine get_bc_generic_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm,pv_in)
+subroutine get_bc_generic_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -867,6 +976,7 @@ subroutine get_bc_generic_outflow_solution(hufp,gufp,fnrm,pv_in)
   ! PV_IN : Boundary condition flow variables in primitive form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: pv_in(:)
@@ -888,7 +998,7 @@ continue
   !
   gm1_inv = one / (gam - one)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Unit normal and tangent at this flux point
     !
@@ -947,7 +1057,7 @@ end subroutine get_bc_generic_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
+subroutine get_bc_generic_freeflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -967,6 +1077,7 @@ subroutine get_bc_generic_freeflow_solution(hufp,gufp,fnrm,cv_in,pv_in)
   ! PV_IN : Boundary condition flow variables in primitive    form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: cv_in(:)
@@ -992,7 +1103,7 @@ continue
   !
   gm1_inv = one / (gam - one)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Unit normal and tangent at this flux point
     !
@@ -1064,7 +1175,7 @@ end subroutine get_bc_generic_freeflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
+subroutine get_bc_sub_inflow_newton(nfp,hufp,gufp,fnrm,pv_in,ierr,nf)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1086,6 +1197,7 @@ subroutine get_bc_sub_inflow_newton(hufp,gufp,fnrm,pv_in,ierr,nf)
   use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: pv_in(:)
@@ -1146,7 +1258,7 @@ continue
   dir_cos(1) = one / sqrt(one + tan_aoa**2)
   dir_cos(2) = tan_aoa * dir_cos(1)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     convergence_reached = fals
     !
@@ -1262,7 +1374,7 @@ end subroutine get_bc_sub_inflow_newton
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_solution(hufp,gufp,cv_in,pv_in)
+subroutine get_bc_sub_inflow_solution(nfp,hufp,gufp,cv_in,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1285,6 +1397,7 @@ subroutine get_bc_sub_inflow_solution(hufp,gufp,cv_in,pv_in)
   use ovar, only : sub_inflow_method
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: cv_in(:)
   real(wp),    intent(in) :: pv_in(:)
@@ -1323,7 +1436,7 @@ continue
     !
     ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
     !
-    do k = 1,size(gufp,dim=2)
+    do k = 1,nfp
       !
       ! Set all variables but pressure to free stream
       !
@@ -1351,7 +1464,7 @@ continue
     b = two*gam*a
     c = half*gm1/gam
     !
-    do k = 1,size(gufp,dim=2)
+    do k = 1,nfp
       !
       velx2 = hufp(nmx,k)**2
       !
@@ -1364,7 +1477,7 @@ continue
     !
   else if (sub_inflow_method == 4) then
     !
-    do k = 1,size(gufp,dim=2)
+    do k = 1,nfp
       !
       ! Get the interior pressure
       !
@@ -1395,7 +1508,7 @@ end subroutine get_bc_sub_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm,pv_in)
+subroutine get_bc_sub_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1416,6 +1529,7 @@ subroutine get_bc_sub_outflow_solution(hufp,gufp,fnrm,pv_in)
   use ovar, only : ptotref_nd
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: pv_in(:)
@@ -1441,7 +1555,7 @@ continue
   !
   if (use_old_sub_outflow) then
     !
-    do k = 1,size(gufp,dim=2)
+    do k = 1,nfp
       !
       ! Extrapolate interior density and velocities to boundary
       !
@@ -1460,7 +1574,7 @@ continue
     !
   else
     !
-    do k = 1,size(gufp,dim=2)
+    do k = 1,nfp
       !
       ! Unit normal and tangent at this flux point
       !
@@ -1508,7 +1622,7 @@ end subroutine get_bc_sub_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sup_inflow_solution(gufp,cv_in)
+subroutine get_bc_sup_inflow_solution(nfp,gufp,cv_in)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1522,6 +1636,7 @@ subroutine get_bc_sup_inflow_solution(gufp,cv_in)
   ! CV_IN : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: cv_in(:)
   real(wp), intent(inout) :: gufp(:,:)
   !
@@ -1530,7 +1645,7 @@ subroutine get_bc_sup_inflow_solution(gufp,cv_in)
   !
 continue
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Set all variables to free stream
     !
@@ -1542,7 +1657,7 @@ end subroutine get_bc_sup_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sup_outflow_solution(hufp,gufp)
+subroutine get_bc_sup_outflow_solution(nfp,hufp,gufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1556,6 +1671,7 @@ subroutine get_bc_sup_outflow_solution(hufp,gufp)
   ! GUFP : Conservative variables at the ghost cell flux points
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp), intent(inout) :: gufp(:,:)
   !
@@ -1564,7 +1680,7 @@ subroutine get_bc_sup_outflow_solution(hufp,gufp)
   !
 continue
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Extrapolate all interior variables to the boundary
     !
@@ -1576,7 +1692,7 @@ end subroutine get_bc_sup_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
+subroutine get_bc_slip_wall_solution(nfp,hufp,gufp,fnrm)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1593,6 +1709,7 @@ subroutine get_bc_slip_wall_solution(hufp,gufp,fnrm)
   use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hufp(:,:)
   real(wp), intent(inout) :: gufp(:,:)
@@ -1609,7 +1726,7 @@ continue
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Unit normal at this flux point
     !
@@ -1643,7 +1760,7 @@ end subroutine get_bc_slip_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
+subroutine get_bc_adiabatic_wall_solution(nfp,hufp,gufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1659,6 +1776,7 @@ subroutine get_bc_adiabatic_wall_solution(hufp,gufp)
   use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp), intent(inout) :: gufp(:,:)
   !
@@ -1673,7 +1791,7 @@ continue
   !
   wall_solution_location = merge(zero,one,walls_are_exact)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Get the interior primitive variables
     !
@@ -1697,7 +1815,7 @@ end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
+subroutine get_bc_isothermal_wall_solution(nfp,hufp,gufp,wall_temperature,fnrm)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1716,6 +1834,7 @@ subroutine get_bc_isothermal_wall_solution(hufp,gufp,wall_temperature,fnrm)
   use ovar, only : aref
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: wall_temperature
   real(wp),    intent(in) :: fnrm(:,:)
@@ -1739,7 +1858,7 @@ continue
   wall_solution_location = merge(zero,one,walls_are_exact)
   uwall = 30.0_wp / aref
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     unrm(:) = unit_vector(fnrm(:,k))
     !
@@ -1773,7 +1892,7 @@ end subroutine get_bc_isothermal_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_periodic_solution(pufp,gufp)
+subroutine get_bc_periodic_solution(nfp,pufp,gufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1786,15 +1905,14 @@ subroutine get_bc_periodic_solution(pufp,gufp)
   ! GUFP : Conservative variables at the ghost    cell flux points
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp), intent(inout) :: pufp(:,:)
   real(wp), intent(inout) :: gufp(:,:)
   !
   !.. Local Scalars ..
-  integer :: k,nfp
+  integer :: k
   !
 continue
-  !
-  nfp = size(gufp,dim=2)
   !
   do k = 1,nfp
     !
@@ -1803,7 +1921,7 @@ continue
     ! within the matching periodic cell. Therefore just copy these
     ! values over.
     ! NOTE: We may need to reverse the copy order, i.e., 
-    !          gufp(:,k) = pufp(:,size(gufp,dim=2)+1-k)
+    !          gufp(:,k) = pufp(:,nfp+1-k)
     !
 #ifdef REVERSE_PERIODIC
     gufp(:,k) = pufp(:,nfp-k+1)
@@ -1818,7 +1936,7 @@ end subroutine get_bc_periodic_solution
 !
 !###############################################################################
 !
-subroutine get_bc_mms_dirichlet_solution(hufp,gufp,fxyz,fnrm)
+subroutine get_bc_mms_dirichlet_solution(nfp,hufp,gufp,fxyz,fnrm)
  !!$ACC ROUTINE SEQ
   !
   ! #########################################################
@@ -1840,6 +1958,7 @@ subroutine get_bc_mms_dirichlet_solution(hufp,gufp,fxyz,fnrm)
   use mms_mod, only : mms_solution_at_xyz
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: fxyz(:,:)
   real(wp),    intent(in) :: fnrm(:,:)
@@ -1860,7 +1979,7 @@ continue
   !
   gm1_inv = one / (gam - one)
   !
-  do k = 1,size(gufp,dim=2)
+  do k = 1,nfp
     !
     ! Get the 'freestream' conditions from the MMS solution
     !
@@ -1953,7 +2072,7 @@ end subroutine get_bc_mms_dirichlet_solution
 !###############################################################################
 !###############################################################################
 !
-subroutine get_bc_periodic_gradient(hdufp,gdufp)
+subroutine get_bc_periodic_gradient(nfp,hdufp,gdufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -1966,17 +2085,16 @@ subroutine get_bc_periodic_gradient(hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hdufp(:,:,:)
   real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: i,j,k,nfp
+  integer :: i,j,k
   !
 continue
   !
   ! Simply copy the interior gradients to the boundary flux points
-  !
-  nfp = size(gdufp,dim=3)
   !
  !!$ACC LOOP VECTOR COLLAPSE(3)
   do k = 1,nfp
@@ -1995,7 +2113,7 @@ end subroutine get_bc_periodic_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_flowthrough_gradient(hdufp,gdufp)
+subroutine get_bc_flowthrough_gradient(nfp,hdufp,gdufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -2008,6 +2126,7 @@ subroutine get_bc_flowthrough_gradient(hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hdufp(:,:,:)
   real(wp), intent(inout) :: gdufp(:,:,:)
   !
@@ -2019,7 +2138,7 @@ continue
   ! Simply copy the interior gradients to the boundary flux points
   !
  !!$ACC LOOP VECTOR COLLAPSE(3)
-  do k = 1,size(gdufp,dim=3)
+  do k = 1,nfp
     do j = 1,size(gdufp,dim=2)
       do i = 1,size(gdufp,dim=1)
         gdufp(i,j,k) = hdufp(i,j,k)
@@ -2031,7 +2150,7 @@ end subroutine get_bc_flowthrough_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
+subroutine get_bc_adiabatic_wall_gradient(nfp,hufp,hdufp,gdufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -2045,6 +2164,7 @@ subroutine get_bc_adiabatic_wall_gradient(hufp,hdufp,gdufp)
   ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: hdufp(:,:,:)
   real(wp), intent(inout) :: gdufp(:,:,:)
@@ -2058,7 +2178,7 @@ continue
   !
   nr = size(gdufp,dim=1)
   !
-  do k = 1,size(gdufp,dim=3)
+  do k = 1,nfp
     !
     ! Copy over the density gradients
     !
@@ -2101,7 +2221,7 @@ end subroutine get_bc_adiabatic_wall_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
+subroutine get_bc_wall_gradient(nfp,hufp,hdufp,gdufp)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -2118,12 +2238,13 @@ subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
   use ovar, only : rgasref_nd
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: hufp(:,:)
   real(wp),    intent(in) :: hdufp(:,:,:)
   real(wp), intent(inout) :: gdufp(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: np,nr,k,m,l
+  integer  :: nr,k,m,l
   real(wp) :: rho_inv,vel,pvar,cv_inv
   real(wp) :: a,b
  !real(wp) :: rho_inv2,pvar_over_rho
@@ -2134,7 +2255,6 @@ subroutine get_bc_wall_gradient(hufp,hdufp,gdufp)
 continue
   !
   nr = size(gdufp,dim=1)
-  np = size(gdufp,dim=3)
   !
   ! Precompute the inverse of specific heat at constant volume
   !
@@ -2142,7 +2262,7 @@ continue
   !
   ! Copy over the interior density gradient to the boundary flux points
   !
-  do k = 1,np
+  do k = 1,nfp
     do l = 1,nr
       gdufp(l,nec,k) = hdufp(l,nec,k)
     end do
@@ -2156,7 +2276,7 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  do k = 1,np
+  do k = 1,nfp
     !
     ! Compute the inverse of density
     !
@@ -2222,7 +2342,7 @@ end subroutine get_bc_wall_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_slip_wall_gradient(hdufp,gdufp,fnrm)
+subroutine get_bc_slip_wall_gradient(nfp,hdufp,gdufp,fnrm)
  !!$ACC ROUTINE SEQ
   !
   ! #####################################################
@@ -2239,6 +2359,7 @@ subroutine get_bc_slip_wall_gradient(hdufp,gdufp,fnrm)
   use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
+  integer,     intent(in) :: nfp
   real(wp),    intent(in) :: fnrm(:,:)
   real(wp),    intent(in) :: hdufp(:,:,:)
   real(wp), intent(inout) :: gdufp(:,:,:)
@@ -2257,7 +2378,7 @@ continue
   !
   nr = size(gdufp,dim=1)
   !
-  do k = 1,size(gdufp,dim=3)
+  do k = 1,nfp
     !
     ! Unit normal at this flux point
     !
@@ -2380,6 +2501,175 @@ continue
   3 format ('("bface.",i0.',i0,',".dat")')
   !
 end subroutine output_bface
+!
+!###############################################################################
+!
+subroutine debug_timer(time_flag,message,processor,part_num,acc)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  !
+  character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: processor
+  integer, optional, intent(in) :: part_num
+  integer, optional, intent(in) :: acc
+  !
+#ifdef PROFILE_ON
+  !.. Local Scalars ..
+  real(wp), save :: beg_wall_time
+  real(wp)       :: end_wall_time
+  real(wp)       :: wall_time
+  !
+  integer, save :: procedure_counter = 0
+  integer       :: i,hours,minutes,seconds,total_sec
+  integer       :: output_cpu
+  !
+  character(len=300) :: out_message
+  !
+  !.. Local Arrays ..
+  real(wp), save :: beg_procedure_time(10)
+  real(wp), save :: accumulated_time(10)
+  real(wp), save :: accumulation_beg_time(10)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: leading_space = "                    "
+  !
+continue
+  !
+  output_cpu = 0
+  if (present(processor)) output_cpu = processor
+  !
+  if (time_flag == start_timer) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+    if (mypnum == output_cpu) then
+      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == stop_timer) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_wall_time
+    !
+    total_sec = nint(wall_time)
+    !
+    hours   = total_sec / 3600
+    minutes = (total_sec - hours*3600) / 60
+    seconds = total_sec - hours*3600 - minutes*60
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
+    end if
+    !
+    ! Reset beg_wall_time in case this procedure is called twice
+    ! in a row with time_flag set to stop_timer
+    !
+    beg_wall_time = mpi_wtime()
+   !beg_wall_time = dclock()
+   !call cpu_time( beg_wall_time )
+    !
+  else if (time_flag == reset_accumulated_time) then
+    !
+    if (present(acc)) then
+      accumulated_time(acc) = zero
+    end if
+    !
+  else if (time_flag == report_accumulated_time) then
+    !
+    if (present(part_num)) then
+      write (out_message,6) message,part_num
+    else
+      write (out_message,5) message
+    end if
+    !
+    i = 3 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,2) leading_space(1:i),accumulated_time(acc), &
+                     trim(adjustl(out_message))
+    end if
+    !
+  else if (time_flag == start_accumulation) then
+    !
+    if (present(acc)) then
+      accumulation_beg_time(acc) = mpi_wtime()
+    end if
+    !
+  else if (time_flag == stop_accumulation) then
+    !
+    if (present(acc)) then
+      wall_time = mpi_wtime() - accumulation_beg_time(acc)
+      accumulated_time(acc) = accumulated_time(acc) + wall_time
+    end if
+    !
+  else if (time_flag == entering_procedure) then
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,3) leading_space(1:i),trim(adjustl(message))
+    end if
+    !
+    procedure_counter = procedure_counter + 1
+    !
+    beg_procedure_time(procedure_counter) = mpi_wtime()
+   !beg_procedure_time(procedure_counter) = dclock()
+   !call cpu_time( beg_procedure_time(procedure_counter) )
+    !
+  else if (time_flag == leaving_procedure) then
+    !
+    end_wall_time = mpi_wtime()
+   !end_wall_time = dclock()
+   !call cpu_time( end_wall_time )
+    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
+    !
+    procedure_counter = max( 0 , procedure_counter-1 )
+    !
+    i = 1 + procedure_counter*2
+    !
+    if (mypnum == output_cpu) then
+      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
+    end if
+    !
+  end if
+  !
+  flush (iout)
+  !
+  ! Format Statements
+  !
+  1 format (a,"## Starting timer for: ",a)
+  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
+  3 format (a,"=> Entering procedure : ",a)
+  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
+  5 format (a)
+  6 format (a," for partition # ",i0)
+  !
+#endif
+  !
+end subroutine debug_timer
 !
 !###############################################################################
 !

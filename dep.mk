@@ -46,6 +46,7 @@ $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
            $(OBJDIR)/eqn_idx_mod.o \
+           $(OBJDIR)/order_mod.o \
            $(OBJDIR)/geovar_mod.o \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/metrics.o \
@@ -155,24 +156,25 @@ $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
 
 $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/kind_types.o \
-         $(OBJDIR)/typesgen_mod.o \
          $(OBJDIR)/eqn_idx_mod.o \
          $(OBJDIR)/geovar_mod.o \
          $(OBJDIR)/order_mod.o \
          $(OBJDIR)/ovar_mod.o \
          $(OBJDIR)/flowvar_mod.o \
          $(OBJDIR)/metrics.o \
-         $(OBJDIR)/quadrature_mod.o \
          $(OBJDIR)/interpolation_mod.o \
          $(OBJDIR)/correction_mod.o \
          $(OBJDIR)/derivatives_mod.o \
-         $(OBJDIR)/projection_mod.o \
+         $(OBJDIR)/gpu_mod.o \
          $(FUNDIR)/upwind_fluxes.f90 \
          $(FUNDIR)/inviscid_fluxes.f90 \
          $(FUNDIR)/viscous_fluxes.f90 \
          $(FUNDIR)/grad_cv_to_grad_pv.f90 \
          $(FUNDIR)/viscosity.f90 \
          $(FUNDIR)/pressure.f90
+        #$(OBJDIR)/typesgen_mod.o \
+        #$(OBJDIR)/quadrature_mod.o \
+        #$(OBJDIR)/projection_mod.o \
         #$(OBJDIR)/bc_mod.o \
         #$(OBJDIR)/parallel.o \
 
@@ -187,6 +189,7 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/quadrature_mod.o \
             $(OBJDIR)/interpolation_mod.o \
+            $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/parallel.o \
             $(OBJDIR)/mms_mod.o \
             $(FUNDIR)/entropy.f90 \
@@ -205,6 +208,11 @@ $(OBJDIR)/gmsh_mod.o : gmsh_mod.f90 \
              $(OBJDIR)/order_mod.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
              $(FUNDIR)/last.f90
+
+$(OBJDIR)/gpu_mod.o : gpu_mod.f90 \
+            $(OBJDIR)/kind_types.o \
+            $(OBJDIR)/eqn_idx_mod.o \
+            $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/kind_types.o \
@@ -439,6 +447,7 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/limiters.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/interpolation_mod.o \
+             $(OBJDIR)/gpu_mod.o \
              $(FUNDIR)/usp2v.f90 \
              $(FUNDIR)/temperature.f90 \
              $(FUNDIR)/viscosity.f90

@@ -104,7 +104,8 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/postproc_mod.o \
         $(OBJDIR)/pbs_mod.o \
         $(OBJDIR)/cpu_info_mod.o \
-	$(OBJDIR)/averaging_mod.o
+	$(OBJDIR)/averaging_mod.o \
+	$(OBJDIR)/gpu_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
@@ -134,6 +135,9 @@ sandybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
 sandybridge: optimize
 
 .PHONY: westmere
+ifeq "$(COMPFAMILY)" "pgi"
+westmere: ADDFLAGS += -pg
+endif
 westmere: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 #westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 westmere: optimize
@@ -222,7 +226,7 @@ ifeq "$(COMPFAMILY)" "intel"
   FPPFLAG := -fpp
  #OPTFLAG := -ip -align array32byte
   OPTFLAG := -O2
-  DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check
+  DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check -g -traceback
   IPFLAG  := -ip
   IPOFLAG := -ipo
   TRACEFLAG := -traceback

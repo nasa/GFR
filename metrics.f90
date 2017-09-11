@@ -15,16 +15,23 @@ module metrics_mod
   public :: get_metrics
   public :: metrics_memory_usage
   !
-  type, public :: face_nrm
+  type, public :: face_nrm_t
    !real(wp) :: area
     real(wp), allocatable :: v(:,:)
   contains
     procedure, public :: area => compute_face_area
-  end type face_nrm
+  end type face_nrm_t
   !
   ! geofa : normal of the face at each of the solution points on the face
   !
-  type(face_nrm), public, save, allocatable :: geofa(:)
+  type(face_nrm_t), public, save, allocatable :: geofa(:)
+  !
+  ! facenrm : normal of the face at each of the flux points
+  !
+  real(wp), public, save, allocatable :: facenrm(:,:)
+  real(wp), public, save, allocatable :: facejac(:,:)
+  !
+  !$ACC DECLARE CREATE(facenrm,facejac)
   !
   logical(lk), parameter :: use_dJ = fals
   !
@@ -534,15 +541,16 @@ subroutine compute_face_normals
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
   use geovar,            only : ncell,cell
-  use geovar,            only : nface,face
+  use geovar,            only : nfbnd,nface,face,n_flxpts
   use geovar,            only : nr,xyz
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
   !.. Local Scalars ..
-  integer :: n,nc,nf,ncf,n1,n2,np
-  integer :: kf,lf,l,k,nfp,ndim
-  integer :: left_geom,left_order
+  integer :: n,nc,nf,ncf,f0,n1,n2,np
+  integer :: kf,lf,l,k,nfp,ndim,lcfp,rcfp
+  integer :: left_cell,left_geom,left_order
+  integer :: right_cell,right_geom,right_order
   integer :: face_geom,face_order
   integer :: inrm,ierr,npcount,nfpts
   character(len=200) :: array_name
@@ -758,6 +766,98 @@ continue
     !
   end do cell_loop
   !
+  ! Copy geofa into facenrm
+  !
+  allocate ( facenrm(1:nr,1:n_flxpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n = 0
+  do nf = 1,size(geofa)
+    do k = 1,size(geofa(nf)%v,dim=2)
+      n = n + 1
+      facenrm(1:nr,n) = geofa(nf)%v(1:nr,k)
+    end do
+  end do
+  !
+  ! Create the interpolated jacobians at the face points
+  !
+  allocate ( facejac(1:n_flxpts,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facejac",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Interpolate the jacobians from host cells
+  ! to the face points of boundary faces
+  !
+  do nf = 1,nfbnd
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    left_cell  = face(nf)%left%cell
+    left_geom  = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    do kf = 1,nfp
+      !
+      ! Interpolate the jacobian to the flux point for the left cell
+      !
+      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      !
+      facejac(f0+kf,1) = interp(left_geom,left_order)% &
+                                   toFace(face_order)% &
+                         dot( lcfp , metrics_dt(left_cell)%jac(:) )
+      !
+    end do
+    !
+  end do
+  !
+  ! Now do the interior faces
+  !
+  do nf = nfbnd+1,nface
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    left_cell  = face(nf)%left%cell
+    right_cell = face(nf)%right%cell
+    !
+    left_geom  = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    right_geom  = cell(right_cell)%geom
+    right_order = cell(right_cell)%order
+    !
+    do kf = 1,nfp
+      !
+      ! Interpolate the jacobian to the flux point for the left cell
+      !
+      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      !
+      facejac(f0+kf,1) = interp(left_geom,left_order)% &
+                                   toFace(face_order)% &
+                         dot( lcfp , metrics_dt(left_cell)%jac(:) )
+      !
+      ! Interpolate the jacobian to the flux point for the right cell
+      !
+      rcfp = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
+      !
+      facejac(f0+kf,2) = interp(right_geom,right_order)% &
+                                     toFace(face_order)% &
+                         dot( rcfp , metrics_dt(right_cell)%jac(:) )
+      !
+    end do
+    !
+  end do
+  !
+  !
+  !
   if (output_face_normals) then
     !
     do nf = 1,nface
@@ -825,7 +925,7 @@ pure function compute_face_area(this,geom,order) result(return_value)
   use quadrature_mod, only : std_elem
   !
   !.. Passed Argument from Invoking Object ..
-  class(face_nrm), intent(in) :: this
+  class(face_nrm_t), intent(in) :: this
   !
   !.. Formal Arguments ..
   integer, intent(in) :: geom

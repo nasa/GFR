@@ -711,8 +711,12 @@ continue
     !
   end if
   !
-  !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method)
+  !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
+  !$ACC&              LDG_beta,LDG_tau,visc_variables_to_ave, &
+  !$ACC&              invs_flux_method)
   !
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements

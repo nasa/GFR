@@ -85,6 +85,7 @@ program Euler_tri
   use time_mod, only : rupdate_TVD3_RK
   use time_mod, only : rupdate_TVD4_RK
   use time_mod, only : update_time_ave
+  use time_mod, only : save_old_solution
   !
   use flux_mod, only : interp_cv_to_flxpts
   use flux_mod, only : interp_dusp_to_flxpts
@@ -95,11 +96,16 @@ program Euler_tri
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
   use flux_mod, only : correct_gradients_br2
-  use flux_mod, only : new_flux_gradient_at_solpts
+  use flux_mod, only : flux_gradient_at_solpts
   use flux_mod, only : get_invs_common_fluxes_interior
   use flux_mod, only : get_visc_common_fluxes_interior
   use flux_mod, only : get_invs_common_fluxes_bc
   use flux_mod, only : get_visc_common_fluxes_bc
+  use flux_mod, only : get_invs_common_fluxes_interior_faces
+  use flux_mod, only : get_visc_common_fluxes_interior_faces
+  use flux_mod, only : get_invs_common_fluxes_bc_faces
+  use flux_mod, only : get_visc_common_fluxes_bc_faces
+  use flux_mod, only : list_of_wall_bcs
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
@@ -293,6 +299,7 @@ continue
   !
   call initialize_flow
   call memory_pause("initializing solution","initializing generic module")
+  list_of_wall_bcs = bc_walls(:) ! F2003 AUTO-REALLOCATION
   !
   ! Time average the list of restart files
   !
@@ -401,7 +408,7 @@ continue
     !
     ! Store a copy of the solution from the previous time step
     !
-    uoldsp(:,1:n_solpts) = usp(:,1:n_solpts)
+    call save_old_solution
     !
     ! Loop over the Runge-Kutta stages
     !
@@ -425,6 +432,7 @@ continue
         call discontinuous_gradient_at_solpts
       end if
       call get_faceusp_bc
+   !  call get_invs_common_fluxes_interior_faces
       call get_invs_common_fluxes_interior
       !
       if (ncpu > 1) call wait_faceusp(faceusp)
@@ -438,17 +446,20 @@ continue
         end if
         if (ncpu > 1) call exchange_facedusp(facedusp)
         call get_facedusp_bc
+   !    call get_visc_common_fluxes_interior_faces
         call get_visc_common_fluxes_interior
       end if
       !
+   !  call get_invs_common_fluxes_bc_faces
       call get_invs_common_fluxes_bc
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (ncpu > 1) call wait_facedusp(facedusp)
+   !    call get_visc_common_fluxes_bc_faces
         call get_visc_common_fluxes_bc
       end if
       !
-      call new_flux_gradient_at_solpts
+      call flux_gradient_at_solpts
 #else
       !
       call interp_cv_to_flxpts

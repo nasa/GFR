@@ -1,16 +1,250 @@
-pure subroutine roe_upwind_flux_gpu(rnrm,face_cv,return_value)
+pure subroutine roe_upwind_flux_gpu_3d(n1,n2,facenrm,face_cv,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: rnrm(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nfp,nr
-  real(wp) :: gm1,gp1
+  integer  :: n
+  real(wp) :: gm1,gp1,ds
+  real(wp) :: rl,presl,hl,q2l,ql,rql,betal
+  real(wp) :: rr,presr,hr,q2r,qr,rqr,betar
+  real(wp) :: rl_inv,vxl,vyl,vzl,el
+  real(wp) :: rr_inv,vxr,vyr,vzr,er
+  real(wp) :: vxtd,vytd,vztd
+  real(wp) :: unx,uny,unz
+  real(wp) :: rnx,rny,rnz
+  real(wp) :: dw1,hsr1,eta1,udw1
+  real(wp) :: dw4,hsr4,eta4,udw4
+  real(wp) :: rtd,htd,atd2,atd,q2td,qtd
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
+  !
+continue
+  !
+  gm1 = gam - one
+  gp1 = gam + one
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt(rnx*rnx + rny*rny + rnz*rnz)
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    rl = face_cv(n,nec,1)
+    rl_inv = one/rl
+    vxl = face_cv(n,nmx,1)*rl_inv
+    vyl = face_cv(n,nmy,1)*rl_inv
+    vzl = face_cv(n,nmz,1)*rl_inv
+    el = face_cv(n,nee,1)
+    q2l = vxl*vxl + vyl*vyl + vzl*vzl
+    presl = gm1*(el - half*rl*q2l)
+    !
+    rr = face_cv(n,nec,2)
+    rr_inv = one/rr
+    vxr = face_cv(n,nmx,2)*rr_inv
+    vyr = face_cv(n,nmy,2)*rr_inv
+    vzr = face_cv(n,nmz,2)*rr_inv
+    er = face_cv(n,nee,2)
+    q2r = vxr*vxr + vyr*vyr + vzr*vzr
+    presr = gm1*(er - half*rr*q2r)
+    !
+    hl = half*q2l + gam/gm1 * presl/rl
+    hr = half*q2r + gam/gm1 * presr/rr
+    ql = vxl*unx + vyl*uny + vzl*unz
+    qr = vxr*unx + vyr*uny + vzr*unz
+    !
+    !... square root averaging
+    rtd   = sqrt(rr*rl)
+    betal = rl / (rl+rtd)
+    betar = one - betal
+    vxtd  = betal*vxl + betar*vxr
+    vytd  = betal*vyl + betar*vyr
+    vztd  = betal*vzl + betar*vzr
+    htd   = betal*hl + betar*hr
+    q2td  = vxtd*vxtd + vytd*vytd + vztd*vztd
+    atd2  = max(gm1*(htd - half*q2td),zero)
+    atd   = sqrt(atd2)
+    qtd   = vxtd*unx + vytd*uny + vztd*unz
+    !
+    atd2nz = max(atd2,rndoff)
+    atdnz = max(atd,rndoff)
+    atd2rt = atd2 / atd2nz
+    atdrt = atd / atdnz
+    !
+    if (qtd >= zero) then
+      !
+      dw1  = half*((presr-presl)/atd2nz*atd2rt - (qr-ql)*rtd/atdnz*atdrt)
+      hsr1 = -one4*gp1*dw1*atd/rtd
+      eta1 = max(-abs(qtd-atd) + hsr1, zero)
+      udw1 = dw1*(min(qtd-atd,zero) - half*eta1)
+      rql  = rl*ql
+      !
+      return_value(n,nec) = ds*(    rql + udw1                           )
+      return_value(n,nmx) = ds*(vxl*rql + udw1*(vxtd-atd*unx) + presl*unx)
+      return_value(n,nmy) = ds*(vyl*rql + udw1*(vytd-atd*uny) + presl*uny)
+      return_value(n,nmz) = ds*(vzl*rql + udw1*(vztd-atd*unz) + presl*unz)
+      return_value(n,nee) = ds*( hl*rql + udw1*(  htd-atd*qtd)           )
+      !
+    else
+      !
+      dw4  = half*((presr-presl)/atd2nz*atd2rt + (qr-ql)*rtd/atdnz*atdrt)
+      hsr4 = one4*gp1*dw4*atd/rtd
+      eta4 = max(-abs(qtd+atd) + hsr4, zero)
+      udw4 = dw4*(max(qtd+atd,zero) + half*eta4)
+      rqr  = rr*qr
+      !
+      return_value(n,nec) = ds*(    rqr - udw4                           )
+      return_value(n,nmx) = ds*(vxr*rqr - udw4*(vxtd+atd*unx) + presr*unx)
+      return_value(n,nmy) = ds*(vyr*rqr - udw4*(vytd+atd*uny) + presr*uny)
+      return_value(n,nmz) = ds*(vzr*rqr - udw4*(vztd+atd*unz) + presr*unz)
+      return_value(n,nee) = ds*( hr*rqr - udw4*(  htd+atd*qtd)           )
+      !
+    end if
+    !
+  end do
+  !
+end subroutine roe_upwind_flux_gpu_3d
+!
+!###############################################################################
+!
+pure subroutine roe_upwind_flux_gpu_2d(n1,n2,facenrm,face_cv,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gp1,ds
+  real(wp) :: rl,presl,hl,q2l,ql,rql,betal
+  real(wp) :: rr,presr,hr,q2r,qr,rqr,betar
+  real(wp) :: rl_inv,vxl,vyl,el
+  real(wp) :: rr_inv,vxr,vyr,er
+  real(wp) :: vxtd,vytd
+  real(wp) :: unx,uny
+  real(wp) :: rnx,rny
+  real(wp) :: dw1,hsr1,eta1,udw1
+  real(wp) :: dw4,hsr4,eta4,udw4
+  real(wp) :: rtd,htd,atd2,atd,q2td,qtd
+  real(wp) :: atd2nz,atd2rt,atdnz,atdrt
+  !
+continue
+  !
+  gm1 = gam - one
+  gp1 = gam + one
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt(rnx*rnx + rny*rny)
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rl = face_cv(n,nec,1)
+    rl_inv = one/rl
+    vxl = face_cv(n,nmx,1)*rl_inv
+    vyl = face_cv(n,nmy,1)*rl_inv
+    el = face_cv(n,nee,1)
+    q2l = vxl*vxl + vyl*vyl
+    presl = gm1*(el - half*rl*q2l)
+    !
+    rr = face_cv(n,nec,2)
+    rr_inv = one/rr
+    vxr = face_cv(n,nmx,2)*rr_inv
+    vyr = face_cv(n,nmy,2)*rr_inv
+    er = face_cv(n,nee,2)
+    q2r = vxr*vxr + vyr*vyr
+    presr = gm1*(er - half*rr*q2r)
+    !
+    hl = half*q2l + gam/gm1 * presl/rl
+    hr = half*q2r + gam/gm1 * presr/rr
+    ql = vxl*unx + vyl*uny
+    qr = vxr*unx + vyr*uny
+    !
+    !... square root averaging
+    rtd   = sqrt(rr*rl)
+    betal = rl / (rl+rtd)
+    betar = one - betal
+    vxtd  = betal*vxl + betar*vxr
+    vytd  = betal*vyl + betar*vyr
+    htd   = betal*hl + betar*hr
+    q2td  = vxtd*vxtd + vytd*vytd
+    atd2  = max(gm1*(htd - half*q2td),zero)
+    atd   = sqrt(atd2)
+    qtd   = vxtd*unx + vytd*uny
+    !
+    atd2nz = max(atd2,rndoff)
+    atdnz = max(atd,rndoff)
+    atd2rt = atd2 / atd2nz
+    atdrt = atd / atdnz
+    !
+    if (qtd >= zero) then
+      !
+      dw1  = half*((presr-presl)/atd2nz*atd2rt - (qr-ql)*rtd/atdnz*atdrt)
+      hsr1 = -one4*gp1*dw1*atd/rtd
+      eta1 = max(-abs(qtd-atd) + hsr1, zero)
+      udw1 = dw1*(min(qtd-atd,zero) - half*eta1)
+      rql  = rl*ql
+      !
+      return_value(n,nec) = ds*(    rql + udw1                           )
+      return_value(n,nmx) = ds*(vxl*rql + udw1*(vxtd-atd*unx) + presl*unx)
+      return_value(n,nmy) = ds*(vyl*rql + udw1*(vytd-atd*uny) + presl*uny)
+      return_value(n,nee) = ds*( hl*rql + udw1*(  htd-atd*qtd)           )
+      !
+    else
+      !
+      dw4  = half*((presr-presl)/atd2nz*atd2rt + (qr-ql)*rtd/atdnz*atdrt)
+      hsr4 = one4*gp1*dw4*atd/rtd
+      eta4 = max(-abs(qtd+atd) + hsr4, zero)
+      udw4 = dw4*(max(qtd+atd,zero) + half*eta4)
+      rqr  = rr*qr
+      !
+      return_value(n,nec) = ds*(    rqr - udw4                           )
+      return_value(n,nmx) = ds*(vxr*rqr - udw4*(vxtd+atd*unx) + presr*unx)
+      return_value(n,nmy) = ds*(vyr*rqr - udw4*(vytd+atd*uny) + presr*uny)
+      return_value(n,nee) = ds*( hr*rqr - udw4*(  htd+atd*qtd)           )
+      !
+    end if
+    !
+  end do
+  !
+end subroutine roe_upwind_flux_gpu_2d
+!
+!###############################################################################
+!
+pure subroutine roe_upwind_flux_gpu_nd(n1,n2,facenrm,face_cv,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gp1,ds
   real(wp) :: rl,presl,hl,q2l,ql,rql,betal
   real(wp) :: rr,presr,hr,q2r,qr,rqr,betar
   real(wp) :: dw1,hsr1,eta1,udw1
@@ -19,21 +253,26 @@ pure subroutine roe_upwind_flux_gpu(rnrm,face_cv,return_value)
   real(wp) :: atd2nz,atd2rt,atdnz,atdrt
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm,vell,velr,veltd
-  real(wp), dimension(1:nq) :: cvl,cvr
+  real(wp), dimension(1:size(facenrm,dim=1)) :: unrm,rnrm
+  real(wp), dimension(1:size(facenrm,dim=1)) :: vell,velr,veltd
+  real(wp), dimension(1:nq) :: cvl,cvr,flx
   !
 continue
   !
-  nfp = size(rnrm,dim=1)
-  nr  = size(rnrm,dim=2)
+  nr = size(facenrm,dim=1)
   !
   gm1 = gam - one
   gp1 = gam + one
   !
-  do n = 1,nfp
+  !$ACC PARALLEL LOOP &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRIVATE(unrm,rnrm,vell,velr,veltd,cvl,cvr,flx) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
     !
-    unrm(1:nr) = rnrm(n,1:nr)
-    unrm(1:nr) = unrm(1:nr) / norm2(unrm(1:nr))
+    rnrm(1:nr) = facenrm(1:nr,n)
+    ds = norm2(rnrm(1:nr))
+    unrm(1:nr) = rnrm(1:nr) / ds
     cvl(1:nq) = face_cv(n,1:nq,1)
     cvr(1:nq) = face_cv(n,1:nq,2)
     !
@@ -75,9 +314,9 @@ continue
       udw1 = dw1*(min(qtd-atd,zero) - half*eta1)
       rql  = rl*ql
       !
-      return_value(n,nec)     =      rql + udw1
-      return_value(n,nmb:nme) = vell*rql + udw1*(veltd-atd*unrm) + presl*unrm
-      return_value(n,nee)     =   hl*rql + udw1*(  htd-atd*qtd)
+      flx(nec)     =      rql + udw1
+      flx(nmb:nme) = vell*rql + udw1*(veltd-atd*unrm) + presl*unrm
+      flx(nee)     =   hl*rql + udw1*(  htd-atd*qtd)
       !
     else
       !
@@ -87,161 +326,196 @@ continue
       udw4 = dw4*(max(qtd+atd,zero) + half*eta4)
       rqr  = rr*qr
       !
-      return_value(n,nec)     =      rqr - udw4
-      return_value(n,nmb:nme) = velr*rqr - udw4*(veltd+atd*unrm) + presr*unrm
-      return_value(n,nee)     =   hr*rqr - udw4*(  htd+atd*qtd)
+      flx(nec)     =      rqr - udw4
+      flx(nmb:nme) = velr*rqr - udw4*(veltd+atd*unrm) + presr*unrm
+      flx(nee)     =   hr*rqr - udw4*(  htd+atd*qtd)
       !
     end if
     !
+    return_value(n,1:nq) = flx(1:nq)*ds
+    !
   end do
   !
-end subroutine roe_upwind_flux_gpu
+end subroutine roe_upwind_flux_gpu_nd
 !
 !###############################################################################
 !
-pure subroutine hllc_upwind_flux_gpu(rnrm,face_cv,return_value)
+pure subroutine hllc_upwind_flux_gpu(n1,n2,facenrm,face_cv,return_value)
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: rnrm(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nfp,nr
+  real(wp) :: ds
   !
   !.. Local Arrays ..
-  real(wp) :: unrm(1:size(rnrm,dim=2))
+  real(wp) :: rnrm(1:size(facenrm,dim=1))
+  real(wp) :: unrm(1:size(facenrm,dim=1))
   real(wp) :: cvl(1:nq)
   real(wp) :: cvr(1:nq)
   real(wp) :: flx(1:nq)
   !
 continue
   !
-  nfp = size(rnrm,dim=1)
-  nr  = size(rnrm,dim=2)
+  nr = size(facenrm,dim=1)
   !
-  do n = 1,nfp
-    unrm(1:nr) = rnrm(n,1:nr)
-    unrm(1:nr) = unrm(1:nr) / norm2(unrm(1:nr))
+  !$ACC PARALLEL LOOP &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRIVATE(unrm,rnrm,cvl,cvr,flx) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    rnrm(1:nr) = facenrm(1:nr,n)
+    ds = norm2(rnrm(1:nr))
+    unrm(1:nr) = rnrm(1:nr) / ds
     cvl(1:nq) = face_cv(n,1:nq,1)
     cvr(1:nq) = face_cv(n,1:nq,2)
     call hllc_upwind_flux_sub(unrm,cvl,cvr,flx)
-    return_value(n,1:nq) = flx(1:nq)
+    return_value(n,1:nq) = flx(1:nq)*ds
   end do
   !
 end subroutine hllc_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine ldfss_upwind_flux_gpu(rnrm,face_cv,return_value)
+pure subroutine ldfss_upwind_flux_gpu(n1,n2,facenrm,face_cv,return_value)
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: rnrm(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nfp,nr
+  real(wp) :: ds
   !
   !.. Local Arrays ..
-  real(wp) :: unrm(1:size(rnrm,dim=2))
+  real(wp) :: rnrm(1:size(facenrm,dim=1))
+  real(wp) :: unrm(1:size(facenrm,dim=1))
   real(wp) :: cvl(1:nq)
   real(wp) :: cvr(1:nq)
   real(wp) :: flx(1:nq)
   !
 continue
   !
-  nfp = size(rnrm,dim=1)
-  nr  = size(rnrm,dim=2)
+  nr = size(facenrm,dim=1)
   !
-  do n = 1,nfp
-    unrm(1:nr) = rnrm(n,1:nr)
-    unrm(1:nr) = unrm(1:nr) / norm2(unrm(1:nr))
+  !$ACC PARALLEL LOOP &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRIVATE(unrm,rnrm,cvl,cvr,flx) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    rnrm(1:nr) = facenrm(1:nr,n)
+    ds = norm2(rnrm(1:nr))
+    unrm(1:nr) = rnrm(1:nr) / ds
     cvl(1:nq) = face_cv(n,1:nq,1)
     cvr(1:nq) = face_cv(n,1:nq,2)
     call ldfss_upwind_flux_sub(unrm,cvl,cvr,flx)
-    return_value(n,1:nq) = flx(1:nq)
+    return_value(n,1:nq) = flx(1:nq)*ds
   end do
   !
 end subroutine ldfss_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine ausm_plus_upwind_flux_gpu(rnrm,face_cv,return_value)
+pure subroutine ausm_plus_upwind_flux_gpu(n1,n2,facenrm,face_cv,return_value)
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: rnrm(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nfp,nr
+  real(wp) :: ds
   !
   !.. Local Arrays ..
-  real(wp) :: unrm(1:size(rnrm,dim=2))
+  real(wp) :: rnrm(1:size(facenrm,dim=1))
+  real(wp) :: unrm(1:size(facenrm,dim=1))
   real(wp) :: cvl(1:nq)
   real(wp) :: cvr(1:nq)
   real(wp) :: flx(1:nq)
   !
 continue
   !
-  nfp = size(rnrm,dim=1)
-  nr  = size(rnrm,dim=2)
+  nr = size(facenrm,dim=1)
   !
-  do n = 1,nfp
-    unrm(1:nr) = rnrm(n,1:nr)
-    unrm(1:nr) = unrm(1:nr) / norm2(unrm(1:nr))
+  !$ACC PARALLEL LOOP &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRIVATE(unrm,rnrm,cvl,cvr,flx) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  do n = n1,n2
+    rnrm(1:nr) = facenrm(1:nr,n)
+    ds = norm2(rnrm(1:nr))
+    unrm(1:nr) = rnrm(1:nr) / ds
     cvl(1:nq) = face_cv(n,1:nq,1)
     cvr(1:nq) = face_cv(n,1:nq,2)
     call ausm_plus_upwind_flux_sub(unrm,cvl,cvr,flx)
-    return_value(n,1:nq) = flx(1:nq)
+    return_value(n,1:nq) = flx(1:nq)*ds
   end do
   !
 end subroutine ausm_plus_upwind_flux_gpu
 !
 !###############################################################################
 !
-pure subroutine rotated_rhll_upwind_flux_gpu(rnrm,face_cv,return_value)
+pure subroutine rotated_rhll_upwind_flux_gpu(n1,n2,facenrm,face_cv,return_value)
   !
   !.. Formal Arguments ..
-  real(wp),    intent(in) :: rnrm(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: face_cv(:,:,:)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
   integer  :: n,nfp,nr
+  real(wp) :: ds
   !
   !.. Local Arrays ..
-  real(wp) :: unrm(1:size(rnrm,dim=2))
+  real(wp) :: rnrm(1:size(facenrm,dim=1))
+  real(wp) :: unrm(1:size(facenrm,dim=1))
   real(wp) :: cvl(1:nq)
   real(wp) :: cvr(1:nq)
   real(wp) :: flx(1:nq)
   !
 continue
   !
-  nfp = size(rnrm,dim=1)
-  nr  = size(rnrm,dim=2)
+  nr = size(facenrm,dim=1)
   !
   if (nr == 3) then
     !
-    do n = 1,nfp
-      unrm(1:3) = rnrm(n,1:3)
-      unrm(1:3) = unrm(1:3) / norm2(unrm(1:3))
+    !$ACC PARALLEL LOOP &
+    !$ACC&              VECTOR_LENGTH(32) &
+    !$ACC&              PRIVATE(unrm,rnrm,cvl,cvr,flx) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value)
+    do n = n1,n2
+      rnrm(1:3) = facenrm(1:3,n)
+      ds = norm2(rnrm(1:3))
+      unrm(1:3) = rnrm(1:3) / ds
       cvl(1:nq) = face_cv(n,1:nq,1)
       cvr(1:nq) = face_cv(n,1:nq,2)
       call rotated_rhll_upwind_flux_sub_3d(unrm,cvl,cvr,flx)
-      return_value(n,1:nq) = flx(1:nq)
+      return_value(n,1:nq) = flx(1:nq)*ds
     end do
     !
   else if (nr == 2) then
     !
-    do n = 1,nfp
-      unrm(1:2) = rnrm(n,1:2)
-      unrm(1:2) = unrm(1:2) / norm2(unrm(1:2))
+    !$ACC PARALLEL LOOP &
+    !$ACC&              VECTOR_LENGTH(32) &
+    !$ACC&              PRIVATE(unrm,rnrm,cvl,cvr,flx) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value)
+    do n = n1,n2
+      rnrm(1:2) = facenrm(1:2,n)
+      ds = norm2(rnrm(1:2))
+      unrm(1:2) = rnrm(1:2) / ds
       cvl(1:nq) = face_cv(n,1:nq,1)
       cvr(1:nq) = face_cv(n,1:nq,2)
       call rotated_rhll_upwind_flux_sub_2d(unrm,cvl,cvr,flx)
-      return_value(n,1:nq) = flx(1:nq)
+      return_value(n,1:nq) = flx(1:nq)*ds
     end do
     !
   end if

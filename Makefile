@@ -11,6 +11,7 @@
 OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
+FCADD += -DUSE_FACE_ARRAYS
 #FCADD += -DPROFILE_ON
 #FCADD += -DIGNORE_MPI_INFO
 
@@ -137,7 +138,7 @@ rebuild-san: rebuild-sandybridge
 westmere: BDIR := optimize_westmere
 westmere: EXEF := recon_westmere
 westmere: TRGT := westmere
-westmere: FCADD += -pg
+#westmere: FCADD += -pg
 westmere: build
 
 .PHONY: rebuild-westmere
@@ -168,6 +169,7 @@ merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
 #merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,maxregcount:96 -Minfo=accel
 #merope: FCADD += -Mnoidiom
 #merope: FCADD += -g
+#merope: FCADD += -Minfo=all,ftn
 merope: build
 
 .PHONY: rebuild-merope

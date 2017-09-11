@@ -528,14 +528,18 @@ subroutine jump_indicator(troubled_cell)
   use geovar, only : nr,ncell,cell,nface,face
   use order_mod, only : maxFP,geom_solpts
   use quadrature_mod, only : std_elem
+#ifdef USE_FACE_ARRAYS
+  use flowvar, only : faceusp_array
+#else
   use flowvar, only : faceusp
+#endif
   use metrics_mod, only : geofa
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(inout) :: troubled_cell(:)
   !
   !.. Local Scalars ..
-  integer :: nc,nf,k,nfp,ierr
+  integer :: nc,nf,k,nfp,f0,ierr
   integer :: left_geom,right_geom,face_geom
   integer :: left_cell,right_cell,face_order
   real(wp) :: ds,dsl,dsr,p_ave,p_diff,p_jump,psi0
@@ -582,7 +586,12 @@ continue
     face_geom = face(nf)%geom  ! geometry of face
     face_order = face(nf)%order ! order of face
     !
+#ifdef USE_FACE_ARRAYS
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+#else
     nfp = geom_solpts(face_geom,face_order) ! number of flux points on this face
+#endif
     !
     left_cell = face(nf)%left%cell ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
@@ -597,8 +606,15 @@ continue
     ! For all the flux points on the current face, extract the conservative
     ! conservative variables for the left and right cells from faceusp
     !
+#ifdef USE_FACE_ARRAYS
+    do k = 1,nfp
+      pl_fp(k) = pressure_cv_sp( faceusp_array(f0+k,1:nq,1) )
+      pr_fp(k) = pressure_cv_sp( faceusp_array(f0+k,1:nq,2) )
+    end do
+#else
     pl_fp(1:nfp) = pressure_cv( faceusp(nf)%v(1:nq,1:nfp,1) )
     pr_fp(1:nfp) = pressure_cv( faceusp(nf)%v(1:nq,1:nfp,2) )
+#endif
     !
     ! Correct the gradients of the conservative variables using the
     ! solution jumps at the interface and the correction function
