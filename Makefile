@@ -166,10 +166,18 @@ merope: TRGT := merope
 #merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35,keepgpu -Minfo=accel
 merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
 #merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo -Minfo=accel
-#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,maxregcount:96 -Minfo=accel
+#merope: FCADD += -ta=tesla:fma
+#merope: FCADD += -ta=tesla:maxregcount:128
 #merope: FCADD += -Mnoidiom
+#merope: FCADD += -pg
 #merope: FCADD += -g
-#merope: FCADD += -Minfo=all,ftn
+#merope: FCADD += -Minfo=all
+merope: FCADD += -Minfo=ccff,ftn
+#merope: FCADD += -Minfo=intensity
+#merope: FCADD += -Mcuda=lineinfo
+#merope: FCADD += -Mprof=ccff,dwarf
+#merope: FCADD += -Minstrument=functions
+#merope: FCADD += -Kieee
 merope: build
 
 .PHONY: rebuild-merope

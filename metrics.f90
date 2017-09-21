@@ -33,6 +33,16 @@ module metrics_mod
   !
   !$ACC DECLARE CREATE(facenrm,facejac)
   !
+  ! wtdjac : jacobian * quadrature weight at each solution point
+  !
+  real(wp), public, save, allocatable :: wtdjac(:)
+  !
+  ! jac : jacobian at each solution point
+  !
+  real(wp), public, save, allocatable :: jac(:)
+  !
+  !$ACC DECLARE CREATE(wtdjac,jac)
+  !
   logical(lk), parameter :: use_dJ = fals
   !
   !     For solution point 'n' of cell 'nc',
@@ -64,6 +74,9 @@ module metrics_mod
   end type metrics_t
   !
   type(metrics_t), public, save, allocatable :: metrics_dt(:)
+  !
+  real(wp), public, save, allocatable :: metrics_array(:,:,:)
+  !$ACC DECLARE CREATE(metrics_array)
   !
   !
   !
@@ -182,8 +195,6 @@ subroutine get_metrics()
   use geovar, only : ncell,cell,xyz
   use geovar, only : nnode,nfbnd,nface,n_solpts
   !
-  use derivatives_mod, only : deriv
-  !
   use quadrature_mod, only : std_elem
   !
   use ovar, only : local_volume,total_volume
@@ -260,6 +271,18 @@ continue
   allocate ( metrics_dt(1:ncell) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"metrics_dt",1,__LINE__,__FILE__,ierr,error_message)
   !
+  allocate ( wtdjac(1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"wtdjac",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( jac(1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"jac",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( metrics_array(1:n_solpts,1:nr,1:nr) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"metrics_array",1,__LINE__,__FILE__,ierr,error_message)
+  !
   local_volume = zero
   total_volume = zero
   !
@@ -304,6 +327,18 @@ continue
     !
     call metrics_dt(nc)%create_cell_metrics(txyz(1:np,1:nr), &
                                             this_geom,this_order,nc)
+    !
+    do k = 1,np
+      n = n1-1+k
+      jac(n) = metrics_dt(nc)%jac(k)
+      wtdjac(n) = metrics_dt(nc)%jac(k) &
+                * std_elem(this_geom,this_order)%wts(k)
+      do l = 1,nr
+        do i = 1,nr
+          metrics_array(n,i,l) = metrics_dt(nc)%met(k,i,l)
+        end do
+      end do
+    end do
     !
     ! Sum the product of the Jacobian and quadrature weight for each point
     ! in this cell to compute the volume of the current cell
@@ -540,19 +575,20 @@ subroutine compute_face_normals
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : ncell,cell
+  use geovar,            only : ncell,cell,fp
   use geovar,            only : nfbnd,nface,face,n_flxpts
   use geovar,            only : nr,xyz
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
   !
   !.. Local Scalars ..
-  integer :: n,nc,nf,ncf,f0,n1,n2,np
+  integer :: i,j,n,nc,nf,ncf,f0,n1,n2,np
   integer :: kf,lf,l,k,nfp,ndim,lcfp,rcfp
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
   integer :: face_geom,face_order
   integer :: inrm,ierr,npcount,nfpts
+  real(wp) :: a,val
   character(len=200) :: array_name
   !
   !.. Local Arrays ..
@@ -664,11 +700,22 @@ continue
         !
         do kf = 1,nfp
           !
-          lf = cell(nc)%face(ncf)%get_fp_idx(kf)
+          lf = cell(nc)%face(ncf)%fp_offset + fp%geord(face_geom,face_order)% &
+                                            rot(cell(nc)%face(ncf)%rotation)% &
+                                              pts(kf)
           !
-          xyz_face(kf,l) = interp(left_geom,left_order)% &
-                                     toFace(face_order)% &
-                           dot( lf , txyz(1:np,l) )
+          val = zero
+          do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(lf)+1, &
+                 interp(left_geom,left_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+            a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * txyz(j,l)
+            !
+          end do
+          !
+          xyz_face(kf,l) = val
           !
         end do
         !
@@ -703,9 +750,17 @@ continue
           end if
           !
           do l = 1,nr
-            dvec(l,kf) = deriv(face_geom,face_order)% &
-                                                d(n)% &
-                         dot( k , xyz_face(1:nfp,l) )
+            val = zero
+            do i = deriv(face_geom,face_order)%d(n)%row_ptr(k)+1, &
+                   deriv(face_geom,face_order)%d(n)%row_ptr(k+1)
+              !
+              j = deriv(face_geom,face_order)%d(n)%row_idx(i)
+              a = deriv(face_geom,face_order)%d(n)%row_val(i)
+              !
+              val = val + a * xyz_face(j,l)
+              !
+            end do
+            dvec(l,kf) = val
           end do
           !
         end do
@@ -805,11 +860,21 @@ continue
       !
       ! Interpolate the jacobian to the flux point for the left cell
       !
-      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      lcfp = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%left%rotation)% &
+                                       pts(kf)
       !
-      facejac(f0+kf,1) = interp(left_geom,left_order)% &
-                                   toFace(face_order)% &
-                         dot( lcfp , metrics_dt(left_cell)%jac(:) )
+      val = zero
+      do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(lcfp)+1, &
+             interp(left_geom,left_order)%toFace(face_order)%row_ptr(lcfp+1)
+        !
+        j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+        a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * metrics_dt(left_cell)%jac(j)
+        !
+      end do
+      facejac(f0+kf,1) = val
       !
     end do
     !
@@ -838,19 +903,39 @@ continue
       !
       ! Interpolate the jacobian to the flux point for the left cell
       !
-      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      lcfp = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%left%rotation)% &
+                                       pts(kf)
       !
-      facejac(f0+kf,1) = interp(left_geom,left_order)% &
-                                   toFace(face_order)% &
-                         dot( lcfp , metrics_dt(left_cell)%jac(:) )
+      val = zero
+      do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(lcfp)+1, &
+             interp(left_geom,left_order)%toFace(face_order)%row_ptr(lcfp+1)
+        !
+        j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+        a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * metrics_dt(left_cell)%jac(j)
+        !
+      end do
+      facejac(f0+kf,1) = val
       !
       ! Interpolate the jacobian to the flux point for the right cell
       !
-      rcfp = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
+      rcfp = face(nf)%right%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%right%rotation)% &
+                                        pts(kf)
       !
-      facejac(f0+kf,2) = interp(right_geom,right_order)% &
-                                     toFace(face_order)% &
-                         dot( rcfp , metrics_dt(right_cell)%jac(:) )
+      val = zero
+      do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(rcfp)+1, &
+             interp(right_geom,right_order)%toFace(face_order)%row_ptr(rcfp+1)
+        !
+        j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
+        a = interp(right_geom,right_order)%toFace(face_order)%row_val(i)
+        !
+        val = val + a * metrics_dt(right_cell)%jac(j)
+        !
+      end do
+      facejac(f0+kf,2) = val
       !
     end do
     !
@@ -966,7 +1051,8 @@ subroutine create_cell_metrics(this,txyz,geom,order,cell_idx)
   integer,  intent(in) :: cell_idx
   !
   !.. Local Scalars ..
-  integer :: n,np,ierr
+  integer  :: i,j,k,l,m,n,nr,np,ierr
+  real(wp) :: a,val
   character(len=50) :: array_name
   !
   !.. Local Parameters ..
@@ -975,11 +1061,34 @@ subroutine create_cell_metrics(this,txyz,geom,order,cell_idx)
 continue
   !
   np = size(txyz,dim=1)
+  nr = size(txyz,dim=2)
   !
   ! Compute the metrics for all points in this cell
   !
   ! USING F2003 AUTO-REALLOCATION
-  this%met = deriv(geom,order)%grad( txyz(:,:) )
+ !this%met = deriv(geom,order)%grad( txyz(:,:) )
+  allocate ( this%met(1:np,1:nr,1:nr) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  write (array_name,1) cell_idx,"met"
+  call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do l = 1,nr
+    do m = 1,nr
+      do k = 1,np
+        val = zero
+        do i = deriv(geom,order)%d(l)%row_ptr(k)+1, &
+               deriv(geom,order)%d(l)%row_ptr(k+1)
+          !
+          j = deriv(geom,order)%d(l)%row_idx(i)
+          a = deriv(geom,order)%d(l)%row_val(i)
+          !
+          val = val + a * txyz(j,m)
+          !
+        end do
+        this%met(k,m,l) = val
+      end do
+    end do
+  end do
  !do ref_dir = 1,nr
  !  do phys_dir = 1,nr
  !    metrics(phys_dir,ref_dir,n1:n2) = deriv(this_geom,this_order)% &
@@ -991,7 +1100,7 @@ continue
   ! Compute the Jacobian of the metrics tensor for each point in this cell
   !
   allocate ( this%jac(1:np) , source=zero , stat=ierr , errmsg=error_message )
-  write (array_name,1) cell_idx
+  write (array_name,1) cell_idx,"jac"
   call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   !
   do n = 1,np
@@ -1009,8 +1118,29 @@ continue
   ! points in this cell if the array is allocated
   !
   if (use_dJ) then
-    ! USING F2003 AUTO-REALLOCATION
-    this%dJ = deriv(geom,order)%grad( this%jac(:) )
+    !
+   !! USING F2003 AUTO-REALLOCATION
+   !this%dJ = deriv(geom,order)%grad( this%jac(:) )
+    allocate ( this%dJ(1:np,1:nr) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) cell_idx,"dJ"
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do l = 1,nr
+      do k = 1,np
+        val = zero
+        do i = deriv(geom,order)%d(l)%row_ptr(k)+1, &
+               deriv(geom,order)%d(l)%row_ptr(k+1)
+          !
+          j = deriv(geom,order)%d(l)%row_idx(i)
+          a = deriv(geom,order)%d(l)%row_val(i)
+          !
+          val = val + a * this%jac(j)
+          !
+        end do
+        this%dJ(k,l) = val
+      end do
+    end do
    !do ref_dir = 1,nr
    !  dJ(ref_dir,n1:n2) = deriv(this_geom,this_order)% &
    !                                       d(ref_dir)% &
@@ -1020,7 +1150,7 @@ continue
   !
   ! Format Statements
   !
-  1 format ("metrics_dt(",i0,")%jac")
+  1 format ("metrics_dt(",i0,")%",a)
   !
 end subroutine create_cell_metrics
 !

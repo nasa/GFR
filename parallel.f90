@@ -39,6 +39,7 @@ module parallel_mod
   public :: parallel_memory_usage
   public :: exch_connectivity
  !public :: exchange_modes
+  public :: move_cellmap_to_device
   !
   integer, save :: nr
   !
@@ -8663,6 +8664,35 @@ continue
   end if
   !
 end subroutine collect_global_solution
+!
+!###############################################################################
+!
+subroutine move_cellmap_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,m1,m2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_cellmap_to_device"
+  !
+continue
+  !
+  if (allocated(cell_map)) then
+    !$ACC ENTER DATA COPYIN(cell_map)
+    i1 = lbound(cell_map,dim=1)
+    i2 = ubound(cell_map,dim=1)
+    !$ACC ENTER DATA COPYIN(cell_map(i1:i2))
+    do i = i1,i2
+      if (allocated(cell_map(i)%loc_to_glb)) then
+        !$ACC ENTER DATA COPYIN(cell_map(i)%loc_to_glb)
+        m1 = lbound(cell_map(i)%loc_to_glb,dim=1)
+        m2 = ubound(cell_map(i)%loc_to_glb,dim=1)
+        !$ACC ENTER DATA COPYIN(cell_map(i)%loc_to_glb(m1:m2))
+      end if
+    end do
+  end if
+  !
+end subroutine move_cellmap_to_device
 !
 !###############################################################################
 !

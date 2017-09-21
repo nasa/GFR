@@ -1310,4 +1310,229 @@ end function get_solpts_hexa
 !
 !###############################################################################
 !
+subroutine move_mapping_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_mapping_to_device"
+  !
+continue
+  !
+  if (allocated(mapping)) then
+    !$ACC ENTER DATA COPYIN(mapping)
+    i1 = lbound(mapping,dim=1)
+    i2 = ubound(mapping,dim=1)
+    j1 = lbound(mapping,dim=2)
+    j2 = ubound(mapping,dim=2)
+    !$ACC ENTER DATA COPYIN(mapping(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(mapping(i,j)%MeshOrder)) then
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder)
+          k1 = lbound(mapping(i,j)%MeshOrder,dim=1)
+          k2 = ubound(mapping(i,j)%MeshOrder,dim=1)
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%mat)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%mat,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%mat,dim=1)
+              n1 = lbound(mapping(i,j)%MeshOrder(k)%mat,dim=2)
+              n2 = ubound(mapping(i,j)%MeshOrder(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_ptr)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%row_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_idx)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%row_idx,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_val)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%row_val,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_ptr)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%col_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_idx)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%col_idx,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%MeshOrder(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_val)
+              m1 = lbound(mapping(i,j)%MeshOrder(k)%col_val,dim=1)
+              m2 = ubound(mapping(i,j)%MeshOrder(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(mapping(i,j)%EdgeDefOrder)) then
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder)
+          k1 = lbound(mapping(i,j)%EdgeDefOrder,dim=1)
+          k2 = ubound(mapping(i,j)%EdgeDefOrder,dim=1)
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%mat)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=1)
+              n1 = lbound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=2)
+              n2 = ubound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_ptr)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_idx)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_idx,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_val)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_val,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_ptr)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_idx)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_idx,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_val)
+              m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_val,dim=1)
+              m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(mapping(i,j)%FaceDefOrder)) then
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder)
+          k1 = lbound(mapping(i,j)%FaceDefOrder,dim=1)
+          k2 = ubound(mapping(i,j)%FaceDefOrder,dim=1)
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%mat)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%mat,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%mat,dim=1)
+              n1 = lbound(mapping(i,j)%FaceDefOrder(k)%mat,dim=2)
+              n2 = ubound(mapping(i,j)%FaceDefOrder(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_ptr)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_idx)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_idx,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_val)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_val,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_ptr)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_ptr,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_idx)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_idx,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(mapping(i,j)%FaceDefOrder(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_val)
+              m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_val,dim=1)
+              m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_mapping_to_device
+!
+!###############################################################################
+!
 end module mappings_mod
+!
+!###############################################################################
+!

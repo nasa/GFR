@@ -78,7 +78,7 @@ subroutine compute_bnd_profiles
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
   use quadrature_mod,    only : std_elem
-  use geovar,            only : nr,bface,face,cell,xyz_nodes
+  use geovar,            only : nr,bface,face,cell,xyz_nodes,fp
   use geovar,            only : nodes_of_cell,nodes_of_cell_ptr
   use ovar,              only : machref,rhoref,aref,muref,tref
   use ovar,              only : cpref_nd,Pr
@@ -89,11 +89,11 @@ subroutine compute_bnd_profiles
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer :: i,k,l,m,n,nf,np,n1,n2,kf,kl
+  integer :: i,ii,j,k,l,m,n,nf,np,n1,n2,kf,kl
   integer :: host_cell,host_geom,host_order
   integer :: ndata,face_geom,face_order,nfp
   integer :: ioprf,ierr
-  real(wp) :: temp,visc,tauwall
+  real(wp) :: a,temp,visc,tauwall
   real(wp) :: cfmag,rex,utau,yplus,qdot
   real(wp) :: dynamic_pres,blasius_cf
   real(wp) :: uinf,eta_coef,vy_non_coef
@@ -117,11 +117,6 @@ subroutine compute_bnd_profiles
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
   real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdvsp
   real(wp), dimension(1:nr,1:nq,1:maxSP) :: dvsp
-  !
-#ifdef USE_FACE_FP_ARRAYS
-  !.. Local Allocatable Arrays ..
-  integer, allocatable :: left_fp_idx(:)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_bnd_profiles"
@@ -186,30 +181,17 @@ continue
                              ) &
                    )
       !
-     !dvsp(1:nr,1:nq,1:np) = grad_cv_to_grad_pv( usp(1:nq,n1:n2) , &
-     !                                           dusp(1,1:nq,n1:n2), &
-     !                                           dusp(2,1:nq,n1:n2))
-      !
       tusp(1:np,1:nq) = transpose( usp(1:nq,n1:n2) )
-      do k = 1,np
-        tdusp(k,1:nr,1:nq) = dusp(1:nr,1:nq,n1-1+k)
-     !  tdvsp(k,1:nr,1:nq) = dvsp(1:nr,1:nq,k)
-      end do
+      tdusp(1:np,1:nr,1:nq) = dusp(n1:n2,1:nr,1:nq)
       !
       ! Compute the profile quantities at each data point for this face
       !
-#ifdef USE_FACE_FP_ARRAYS
-      ! Using F2003 auto-reallocation
-      left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-#endif
       do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
-#ifdef USE_FACE_FP_ARRAYS
-        kl = left_fp_idx(k)
-#else
-        kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
+        kl = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%left%rotation)% &
+                                       pts(k)
         ! Index within qty_data for current flx-pt
         kf = ndata + k
         !
@@ -218,17 +200,19 @@ continue
         ! Interpolate the conservative variables from the interior sol-pts
         ! to the current flux point on face nf
         !
+        cvfp(1:nq) = zero
+        dcvdx(1:nr,1:nq) = zero
+        !
         do m = 1,nq
-          cvfp(m) = interp(host_geom,host_order)% &
-                              toFace(face_order)% &
-                    dot( kl , tusp(1:np,m) )
-          do l = 1,nr
-            dcvdx(l,m) = interp(host_geom,host_order)% &
-                                   toFace(face_order)% &
-                         dot( kl , tdusp(1:np,l,m) )
-          ! dpvdx(l,m) = interp(host_geom,host_order)% &
-          !                        toFace(face_order)% &
-          !              dot( kl , tdvsp(1:np,l,m) )
+          do ii = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+                  interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+            !
+            j = interp(host_geom,host_order)%toFace(face_order)%row_idx(ii)
+            a = interp(host_geom,host_order)%toFace(face_order)%row_val(ii)
+            !
+            cvfp(m) = cvfp(m) + a * tusp(j,m)
+            dcvdx(1:nr,m) = dcvdx(1:nr,m) + a * tdusp(j,1:nr,m)
+            !
           end do
         end do
         !
@@ -477,14 +461,14 @@ subroutine init_bnd_profile_structures
   !
   !.. Use Statements ..
   use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,nfbnd,nbfai,bface
+  use geovar,            only : nr,nfbnd,nbfai,bface,fp
   use geovar,            only : xyz,face,cell,pst_geom
   use ovar,              only : output_bnd_profiles
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer :: i,k,kl,kf,l,n,nf,np,n1,n2
+  integer :: i,j,k,kl,kf,l,m,n,nf,np,n1,n2
   integer :: nqty,ndata,nfbnd_nc,ierr
   integer :: min_grp,max_grp,nbcgrps
   integer :: group_id,num_group_faces
@@ -492,6 +476,7 @@ subroutine init_bnd_profile_structures
   integer :: host_cell,host_geom,host_order
   integer :: flow_qtys,wall_qtys,n_subcells
   integer :: iogrd
+  real(wp) :: a,val
   character(len=200) :: array_name
   !
   !.. Local Arrays ..
@@ -503,9 +488,6 @@ subroutine init_bnd_profile_structures
   integer, allocatable, dimension(:) :: bface_map
   integer, allocatable, dimension(:,:) :: bface_nc
   character(len=100), allocatable, dimension(:) :: flow_var
-#ifdef USE_FACE_FP_ARRAYS
-  integer, allocatable :: left_fp_idx(:)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
@@ -767,18 +749,12 @@ continue
       !
       txyz(1:np,1:nr) = transpose( xyz(1:nr,n1:n2) )
       !
-#ifdef USE_FACE_FP_ARRAYS
-      ! Using F2003 auto-reallocation
-      left_fp_idx = face(nf)%left%get_fp_idx(face_geom,face_order)
-#endif
       do k = 1,nfp
         !
         ! Index of flx-pt local to the current host cell
-#ifdef USE_FACE_FP_ARRAYS
-        kl = left_fp_idx(k)
-#else
-        kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-#endif
+        kl = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%left%rotation)% &
+                                       pts(k)
         ! Index within qty_data for current flx-pt
         kf = ndata + k
         !
@@ -786,9 +762,17 @@ continue
         ! current flux point on face nf
         !
         do l = 1,nr
-          bnd_prof(n)%qty(l)%qty_data(kf) = interp(host_geom,host_order)% &
-                                                      toFace(face_order)% &
-                                            dot( kl , txyz(1:np,l) )
+          val = zero
+          do m = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+                 interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+            !
+            j = interp(host_geom,host_order)%toFace(face_order)%row_idx(m)
+            a = interp(host_geom,host_order)%toFace(face_order)%row_val(m)
+            !
+            val = val + a * txyz(j,l)
+            !
+          end do
+          bnd_prof(n)%qty(l)%qty_data(kf) = val
         end do
         !
       end do

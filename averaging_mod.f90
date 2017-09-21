@@ -28,7 +28,7 @@ subroutine average_restart_files()
   use io_mod,      only : write_parallel_cgns
   !
   !.. Local Scalars ..
-  integer :: ierr,io,n
+  integer :: ierr,io,m,n,np,nq
   !
   character(len=150) :: fname
   character(len=150) :: text
@@ -106,7 +106,14 @@ continue
   !
   ! Initialize uavesp to zero
   !
-  uavesp(:,:) = zero
+  np = size(uavesp,dim=1)
+  nq = size(uavesp,dim=2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp)
+  do m = 1,nq
+    do n = 1,np
+      uavesp(n,m) = zero
+    end do
+  end do
   !
   do n = 2,size(restart_file_list)
     !

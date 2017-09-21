@@ -5,10 +5,13 @@ program Euler_tri
   use geovar, only : ncell,n_global_cell
   use geovar, only : nnode,n_global_node
   use geovar, only : nfbnd,n_global_fbnd
-  use geovar, only : n_solpts,n_global_solpts
+  use geovar, only : n_global_solpts
   use geovar, only : bface,xyz_nodes,nface
   use geovar, only : cell_geom,cell_order,global_cell_order
   use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : move_face_to_device
+  use geovar, only : move_cell_to_device
+  use geovar, only : move_fp_to_device
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -28,11 +31,11 @@ program Euler_tri
   use ovar, only : output_time_averaging,time_scaling_factor
   use ovar, only : time_average_restart_files,ave_start_time
   use ovar, only : Filtering_Interval,Limiting_Interval
+  use ovar, only : move_bcin_to_device
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
-  use flowvar, only : usp,uoldsp
   use flowvar, only : faceusp,facedusp
   !
   use quadrature_mod, only : solpts_edge
@@ -41,6 +44,7 @@ program Euler_tri
   use io_mod, only : write_final_error
   use io_mod, only : write_parallel_cgns
   use io_mod, only : write_residual_file
+  use io_mod, only : write_residual_file_gpu
   use io_mod, only : check_face_flux_point_orderings
   use io_mod, only : check_cell_flux_point_orderings
   use io_mod, only : TaylorGreen_8s_vorticity_solution
@@ -56,11 +60,14 @@ program Euler_tri
   use vandermonde_mod, only : init_vandermonde_matrices
   !
   use derivatives_mod, only : init_derivative_matrices
+  use derivatives_mod, only : move_deriv_to_device
   !
   use correction_mod, only : init_correction_matrices
+  use correction_mod, only : move_correct_to_device
   !
   use interpolation_mod, only : init_interpolation_matrices
   use interpolation_mod, only : init_outerpolation_matrices
+  use interpolation_mod, only : move_interp_to_device
   !
   use projection_mod, only : init_projection_matrices
   !
@@ -73,9 +80,12 @@ program Euler_tri
   !
   use generic_mod, only : init_generic_mod
   use generic_mod, only : write_iter_stats
+  use generic_mod, only : write_iter_stats_gpu
   use generic_mod, only : getmaxent
   use generic_mod, only : compute_residual_error
+  use generic_mod, only : compute_residual_error_gpu
   use generic_mod, only : compute_TaylorGreen_KEDR
+  use generic_mod, only : compute_TaylorGreen_KEDR_gpu
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
@@ -91,21 +101,18 @@ program Euler_tri
   use flux_mod, only : interp_dusp_to_flxpts
   use flux_mod, only : flux_gradient_at_solpts_visc
   use flux_mod, only : flux_gradient_at_solpts_visc_gpu
-  use flux_mod, only : flux_gradient_at_solpts_visc_gpu1
   use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
   use flux_mod, only : correct_gradients_br2
+  use flux_mod, only : correct_gradients_br2_gpu
   use flux_mod, only : flux_gradient_at_solpts
   use flux_mod, only : get_invs_common_fluxes_interior
   use flux_mod, only : get_visc_common_fluxes_interior
   use flux_mod, only : get_invs_common_fluxes_bc
   use flux_mod, only : get_visc_common_fluxes_bc
-  use flux_mod, only : get_invs_common_fluxes_interior_faces
-  use flux_mod, only : get_visc_common_fluxes_interior_faces
-  use flux_mod, only : get_invs_common_fluxes_bc_faces
-  use flux_mod, only : get_visc_common_fluxes_bc_faces
   use flux_mod, only : list_of_wall_bcs
+  use flux_mod, only : init_cbias_br2
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
@@ -113,6 +120,7 @@ program Euler_tri
   use parallel_mod, only : exchange_facedusp
   use parallel_mod, only : wait_faceusp
   use parallel_mod, only : wait_facedusp
+  use parallel_mod, only : move_cellmap_to_device
   !
   use module_limiters, only : initialize_limiters
   use module_limiters, only : compute_cell_ave
@@ -299,6 +307,7 @@ continue
   !
   call initialize_flow
   call memory_pause("initializing solution","initializing generic module")
+  call init_cbias_br2
   list_of_wall_bcs = bc_walls(:) ! F2003 AUTO-REALLOCATION
   !
   ! Time average the list of restart files
@@ -306,6 +315,15 @@ continue
   if (time_average_restart_files) then
     call average_restart_files
   end if
+  !
+  call move_face_to_device
+  call move_cell_to_device
+  call move_fp_to_device
+  call move_correct_to_device
+  call move_deriv_to_device
+  call move_interp_to_device
+  call move_cellmap_to_device
+  call move_bcin_to_device
   !
   ! If requested, dump the memory usage of the advanced data types from some of
   ! the modules
@@ -362,7 +380,8 @@ continue
                       "initial TGV KEDR evaluation")
     !
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR(0,zero)
+      call compute_TaylorGreen_KEDR_gpu(0,zero)
+     !call compute_TaylorGreen_KEDR(0,zero)
       if (dump_memory_usage) then
         call memory_pause("initial TGV KEDR evaluation","dumping memory usage")
       else
@@ -432,30 +451,27 @@ continue
         call discontinuous_gradient_at_solpts
       end if
       call get_faceusp_bc
-   !  call get_invs_common_fluxes_interior_faces
       call get_invs_common_fluxes_interior
       !
       if (ncpu > 1) call wait_faceusp(faceusp)
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (visc_flux_method == visc_flux_BR2) then
-          call correct_gradients_br2
+         !call correct_gradients_br2
+          call correct_gradients_br2_gpu
         else
           call correct_gradients_at_solpts
           call interp_dusp_to_flxpts
         end if
         if (ncpu > 1) call exchange_facedusp(facedusp)
         call get_facedusp_bc
-   !    call get_visc_common_fluxes_interior_faces
         call get_visc_common_fluxes_interior
       end if
       !
-   !  call get_invs_common_fluxes_bc_faces
       call get_invs_common_fluxes_bc
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (ncpu > 1) call wait_facedusp(facedusp)
-   !    call get_visc_common_fluxes_bc_faces
         call get_visc_common_fluxes_bc
       end if
       !
@@ -477,7 +493,8 @@ continue
         call discontinuous_gradient_at_solpts
         !
         if (visc_flux_method == visc_flux_BR2) then
-          call correct_gradients_br2
+         !call correct_gradients_br2
+          call correct_gradients_br2_gpu
         else if (visc_flux_method /= visc_flux_BR2) then
           call correct_gradients_at_solpts
           call interp_dusp_to_flxpts
@@ -492,8 +509,7 @@ continue
       end if
       !
      !call flux_gradient_at_solpts_visc(iter,nst)
-     !call flux_gradient_at_solpts_visc_gpu(iter,nst)
-      call flux_gradient_at_solpts_visc_gpu1(iter,nst)
+      call flux_gradient_at_solpts_visc_gpu(iter,nst)
       call correct_interface_flux_visc(iter,nst)
 #endif
       !
@@ -549,13 +565,15 @@ continue
       !
       ! Compute the residual error
       !
-      call compute_residual_error
+      call compute_residual_error_gpu
+     !call compute_residual_error
       !
       if (mod(iter,iter_out_interval) == 0 .or. this_is_final_timestep) then
         !
         ! Output the density residual error to stdout
         !
-        call write_iter_stats(walltime_expiring,exit_main_loop)
+        call write_iter_stats_gpu(walltime_expiring,exit_main_loop)
+       !call write_iter_stats(walltime_expiring,exit_main_loop)
         !
         ! Exit the main loop if the convergence criteria were met
         !
@@ -569,7 +587,8 @@ continue
         !
         call recon_cpu_time(1)
         !
-        if (mypnum == glb_root) call write_residual_file(0,itcur)
+        if (mypnum == glb_root) call write_residual_file_gpu(0,itcur)
+       !if (mypnum == glb_root) call write_residual_file(0,itcur)
         !
       end if
       !
@@ -787,7 +806,8 @@ continue
     ! different the kinetic energy dissipation rates
     !
     if (itestcase == Taylor_Green_Vortex .and. iter/=num_timesteps) then
-      call compute_TaylorGreen_KEDR(iter,dtmin)
+      call compute_TaylorGreen_KEDR_gpu(iter,dtmin)
+     !call compute_TaylorGreen_KEDR(iter,dtmin)
     end if
     !
 #ifdef PAUSE_BETWEEN_ITERATIONS
@@ -835,7 +855,8 @@ continue
   !
   if (num_timesteps > 0) then
     if (itestcase == Taylor_Green_Vortex) then
-      call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
+      call compute_TaylorGreen_KEDR_gpu(-completed_timesteps,dtmin)
+     !call compute_TaylorGreen_KEDR(-completed_timesteps,dtmin)
     end if
   end if
   !
@@ -849,7 +870,8 @@ continue
   !
   if (.not. ignore_errors) then
     !
-    call compute_residual_error
+    call compute_residual_error_gpu
+   !call compute_residual_error
     !
     ! Get min and max entropy value and location
     call getmaxent
@@ -866,7 +888,8 @@ continue
       call recon_cpu_time(-1)
       !
       call write_final_error
-      call write_residual_file(-1,itcur)
+      call write_residual_file_gpu(-1,itcur)
+     !call write_residual_file(-1,itcur)
       !
     end if
     !
@@ -930,6 +953,10 @@ contains
 !
 subroutine check_for_bad_number(line_num)
   !
+  !.. Use Statements ..
+  use eqn_idx, only : nq
+  use geovar,  only : n_solpts
+  use flowvar, only : usp,uoldsp
 #ifndef SPECIAL_FOR_GCC
   use, intrinsic :: ieee_exceptions, only : ieee_usual
   use, intrinsic :: ieee_exceptions, only : ieee_get_flag
@@ -939,6 +966,10 @@ subroutine check_for_bad_number(line_num)
   integer, intent(in) :: line_num
   !
 #ifndef SPECIAL_FOR_GCC
+  !
+  !.. Local Scalars ..
+  integer :: n,m
+  !
   !.. Local Arrays ..
   integer      :: bad_number_found(1:size(ieee_usual))
   logical(ldk) :: signaling_exceptions(1:size(ieee_usual))
@@ -967,7 +998,12 @@ continue
     ! usp so we can dump the solution and restart files before
     ! aborting the simulation
     !
-    usp(:,1:n_solpts) = uoldsp(:,1:n_solpts)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp)
+    do n = 1,n_solpts
+      do m = 1,nq
+        usp(m,n) = uoldsp(n,m)
+      end do
+    end do
     !
     if (continuous_output) then
       call new_write_parallel_cgns

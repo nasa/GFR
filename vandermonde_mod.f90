@@ -16,6 +16,8 @@ module vandermonde_mod
   public :: Vandermonde_Tria
   public :: vandermonde_memory_usage
   public :: Compute_Basis_Matrix
+  public :: move_vand_to_device
+  public :: move_monomials_to_device
   !
   !
   !
@@ -1028,6 +1030,280 @@ continue
   !
 #endif
 end subroutine vandermonde_memory_usage
+!
+!###############################################################################
+!
+subroutine move_vand_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_vand_to_device"
+  !
+continue
+  !
+  if (allocated(vand)) then
+    !$ACC ENTER DATA COPYIN(vand)
+    i1 = lbound(vand,dim=1)
+    i2 = ubound(vand,dim=1)
+    j1 = lbound(vand,dim=2)
+    j2 = ubound(vand,dim=2)
+    !$ACC ENTER DATA COPYIN(vand(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(vand(i,j)%nodal2modal%mat)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%mat)
+          m1 = lbound(vand(i,j)%nodal2modal%mat,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%mat,dim=1)
+          n1 = lbound(vand(i,j)%nodal2modal%mat,dim=2)
+          n2 = ubound(vand(i,j)%nodal2modal%mat,dim=2)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%mat(m1:m2,n1:n2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%row_ptr)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_ptr)
+          m1 = lbound(vand(i,j)%nodal2modal%row_ptr,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%row_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_ptr(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%row_idx)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_idx)
+          m1 = lbound(vand(i,j)%nodal2modal%row_idx,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%row_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_idx(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%row_val)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_val)
+          m1 = lbound(vand(i,j)%nodal2modal%row_val,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%row_val,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%row_val(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%col_ptr)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_ptr)
+          m1 = lbound(vand(i,j)%nodal2modal%col_ptr,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%col_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_ptr(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%col_idx)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_idx)
+          m1 = lbound(vand(i,j)%nodal2modal%col_idx,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%col_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_idx(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%nodal2modal%col_val)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_val)
+          m1 = lbound(vand(i,j)%nodal2modal%col_val,dim=1)
+          m2 = ubound(vand(i,j)%nodal2modal%col_val,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%nodal2modal%col_val(m1:m2))
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(vand(i,j)%modal2nodal%mat)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%mat)
+          m1 = lbound(vand(i,j)%modal2nodal%mat,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%mat,dim=1)
+          n1 = lbound(vand(i,j)%modal2nodal%mat,dim=2)
+          n2 = ubound(vand(i,j)%modal2nodal%mat,dim=2)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%mat(m1:m2,n1:n2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%row_ptr)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_ptr)
+          m1 = lbound(vand(i,j)%modal2nodal%row_ptr,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%row_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_ptr(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%row_idx)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_idx)
+          m1 = lbound(vand(i,j)%modal2nodal%row_idx,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%row_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_idx(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%row_val)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_val)
+          m1 = lbound(vand(i,j)%modal2nodal%row_val,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%row_val,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%row_val(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%col_ptr)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_ptr)
+          m1 = lbound(vand(i,j)%modal2nodal%col_ptr,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%col_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_ptr(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%col_idx)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_idx)
+          m1 = lbound(vand(i,j)%modal2nodal%col_idx,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%col_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_idx(m1:m2))
+        end if
+        !
+        if (allocated(vand(i,j)%modal2nodal%col_val)) then
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_val)
+          m1 = lbound(vand(i,j)%modal2nodal%col_val,dim=1)
+          m2 = ubound(vand(i,j)%modal2nodal%col_val,dim=1)
+          !$ACC ENTER DATA COPYIN(vand(i,j)%modal2nodal%col_val(m1:m2))
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_vand_to_device
+!
+!###############################################################################
+!
+subroutine move_monomials_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_monomials_to_device"
+  !
+continue
+  !
+  if (allocated(monomials)) then
+    !$ACC ENTER DATA COPYIN(monomials)
+    i1 = lbound(monomials,dim=1)
+    i2 = ubound(monomials,dim=1)
+    j1 = lbound(monomials,dim=2)
+    j2 = ubound(monomials,dim=2)
+    !$ACC ENTER DATA COPYIN(monomials(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal)
+        if (allocated(monomials(i,j)%nodal2modal%mat)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%mat)
+          m1 = lbound(monomials(i,j)%nodal2modal%mat,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%mat,dim=1)
+          n1 = lbound(monomials(i,j)%nodal2modal%mat,dim=2)
+          n2 = ubound(monomials(i,j)%nodal2modal%mat,dim=2)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%mat(m1:m2,n1:n2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%row_ptr)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_ptr)
+          m1 = lbound(monomials(i,j)%nodal2modal%row_ptr,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%row_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_ptr(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%row_idx)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_idx)
+          m1 = lbound(monomials(i,j)%nodal2modal%row_idx,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%row_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_idx(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%row_val)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_val)
+          m1 = lbound(monomials(i,j)%nodal2modal%row_val,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%row_val,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%row_val(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%col_ptr)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_ptr)
+          m1 = lbound(monomials(i,j)%nodal2modal%col_ptr,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%col_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_ptr(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%col_idx)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_idx)
+          m1 = lbound(monomials(i,j)%nodal2modal%col_idx,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%col_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_idx(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%nodal2modal%col_val)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_val)
+          m1 = lbound(monomials(i,j)%nodal2modal%col_val,dim=1)
+          m2 = ubound(monomials(i,j)%nodal2modal%col_val,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%nodal2modal%col_val(m1:m2))
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal)
+        if (allocated(monomials(i,j)%modal2nodal%mat)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%mat)
+          m1 = lbound(monomials(i,j)%modal2nodal%mat,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%mat,dim=1)
+          n1 = lbound(monomials(i,j)%modal2nodal%mat,dim=2)
+          n2 = ubound(monomials(i,j)%modal2nodal%mat,dim=2)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%mat(m1:m2,n1:n2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%row_ptr)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_ptr)
+          m1 = lbound(monomials(i,j)%modal2nodal%row_ptr,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%row_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_ptr(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%row_idx)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_idx)
+          m1 = lbound(monomials(i,j)%modal2nodal%row_idx,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%row_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_idx(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%row_val)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_val)
+          m1 = lbound(monomials(i,j)%modal2nodal%row_val,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%row_val,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%row_val(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%col_ptr)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_ptr)
+          m1 = lbound(monomials(i,j)%modal2nodal%col_ptr,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%col_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_ptr(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%col_idx)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_idx)
+          m1 = lbound(monomials(i,j)%modal2nodal%col_idx,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%col_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_idx(m1:m2))
+        end if
+        !
+        if (allocated(monomials(i,j)%modal2nodal%col_val)) then
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_val)
+          m1 = lbound(monomials(i,j)%modal2nodal%col_val,dim=1)
+          m2 = ubound(monomials(i,j)%modal2nodal%col_val,dim=1)
+          !$ACC ENTER DATA COPYIN(monomials(i,j)%modal2nodal%col_val(m1:m2))
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_monomials_to_device
 !
 !###############################################################################
 !

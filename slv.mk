@@ -115,23 +115,23 @@ O2-ip-opt: OPTIM = -O2 $(OPTFLAG) $(TARGET)
 O2-ip-opt: optimize
 
 .PHONY: O3-ipo-opt
-O3-ipo-opt: OPTIM = -O3 $(OPTFLAG) $(TARGET)
+O3-ipo-opt: OPTIM = $(OPTFLAG) $(TARGET)
 O3-ipo-opt: optimize
 
 .PHONY: broadwell
-broadwell: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(BROARCH)
+broadwell: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(BROARCH)
 broadwell: optimize
 
 .PHONY: haswell
-haswell: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(HASARCH)
+haswell: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(HASARCH)
 haswell: optimize
 
 .PHONY: ivybridge
-ivybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(IVYARCH)
+ivybridge: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(IVYARCH)
 ivybridge: optimize
 
 .PHONY: sandybridge
-sandybridge: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
+sandybridge: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
 sandybridge: optimize
 
 .PHONY: westmere
@@ -143,7 +143,7 @@ westmere: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 westmere: optimize
 
 .PHONY: merope
-merope: OPTIM = -O2 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+merope: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
 
 .PHONY: optimize
@@ -225,7 +225,7 @@ ifeq "$(COMPFAMILY)" "intel"
   BROARCH := CORE-AVX2
   FPPFLAG := -fpp
  #OPTFLAG := -ip -align array32byte
-  OPTFLAG := -O2
+  OPTFLAG := -O3
   DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check -g -traceback
   IPFLAG  := -ip
   IPOFLAG := -ipo

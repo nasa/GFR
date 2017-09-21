@@ -168,7 +168,8 @@ continue
     ! Read the restart solution file
     ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
     !
-    call read_solution_file(fname,int_header,real_header,usp)
+    call read_solution_file(fname,int_header,real_header,usp, &
+                            sol_is_transposed=fals)
     !
     ! Extract the required information from the header arrays
     !
@@ -183,7 +184,8 @@ continue
       !
       ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
       !
-      call read_solution_file(fname,int_header,real_header,uavesp,var_header)
+      call read_solution_file(fname,int_header,real_header,uavesp,var_header, &
+                              sol_is_transposed=true)
       !
       prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
       ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
@@ -234,7 +236,7 @@ end subroutine read_restart_file
 !###############################################################################
 !
 subroutine read_solution_file(file_name,int_header,real_header,solution, &
-                              var_header)
+                              var_header,sol_is_transposed)
   !
   !.. Use Statements ..
   use geovar, only : ncell,cell,n_solpts
@@ -249,10 +251,13 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
   !
   !.. Optional Arguments ..
   integer(wip), optional, allocatable, intent(out) :: var_header(:)
+  logical(lk),  optional,               intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
-  integer :: n1,n2,l1,l2,ierr
+  integer :: l0,l1,l2,m,n,np,n0,n1,n2,ierr
+  integer :: sol_nq
   integer :: restart_ip,restart_rp
+  logical(lk) :: flip_sol_indices
   !
   _MPI_FILE_TYPE_ :: file_handle
   _MPI_INFO_TYPE_ :: file_info
@@ -277,6 +282,11 @@ subroutine read_solution_file(file_name,int_header,real_header,solution, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  flip_sol_indices = fals
+  if (present(sol_is_transposed)) then
+    flip_sol_indices = sol_is_transposed
+  end if
   !
   !
   solution_errors = 0
@@ -354,8 +364,13 @@ continue
   restart_nq = int( int_header(1) , kind=kind(restart_nq) )
   !
   if (allocated(solution)) then
-    if (restart_nq /= size(solution,dim=1)) then
-      write (error_message,10) restart_nq,size(solution,dim=1)
+    if (flip_sol_indices) then
+      sol_nq = size(solution,dim=2)
+    else
+      sol_nq = size(solution,dim=1)
+    end if
+    if (restart_nq /= sol_nq) then
+      write (error_message,10) restart_nq,sol_nq
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
@@ -486,8 +501,13 @@ continue
     end if
     !
     if (.not. allocated(solution)) then
-      allocate ( solution(1:restart_nq,1:n_solpts) , source=zero , &
-                 stat=ierr , errmsg=error_message )
+      if (flip_sol_indices) then
+        allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+      else
+        allocate ( solution(1:restart_nq,1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+      end if
       call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
     end if
     !
@@ -591,12 +611,15 @@ continue
     !
     l1 = cell_input_data(this_cell)%input_beg_sp
     l2 = cell_input_data(this_cell)%input_end_sp
+    l0 = l1-1
     !
     inp_geom = cell_input_data(this_cell)%input_geom
     inp_order = cell_input_data(this_cell)%input_order
     !
     n1 = cell(this_cell)%beg_sp
     n2 = cell(this_cell)%end_sp
+    n0 = n1-1
+    np = n2-n0
     !
     this_geom = cell(this_cell)%geom
     this_order = cell(this_cell)%order
@@ -611,7 +634,20 @@ continue
       solution_errors = solution_errors + 1
     end if
     !
-    solution(:,n1:n2) = rst_sol(:,l1:l2)
+    if (flip_sol_indices) then
+      do n = 1,np
+        do m = 1,restart_nq
+          solution(n0+n,m) = rst_sol(m,l0+n)
+        end do
+      end do
+    else
+      do n = 1,np
+        do m = 1,restart_nq
+          solution(m,n0+n) = rst_sol(m,l0+n)
+        end do
+      end do
+    end if
+   !solution(:,n1:n2) = rst_sol(:,l1:l2)
     !
   end do
   !
@@ -1461,18 +1497,20 @@ continue
     involved_with_output = i_am_host_root
     timeave_comm = host_roots_comm
     call collect_restart_arrays(current_sol=uavesp, &
-                                output_sol=solution)
+                                output_sol=solution, &
+                                sol_is_transposed=true)
   else
     involved_with_output = true
     timeave_comm = MPI_COMM_WORLD
     call get_restart_arrays(current_sol=uavesp, &
-                            output_sol=solution)
+                            output_sol=solution, &
+                            sol_is_transposed=true)
   end if
   !
   ! Store the size information specific to the time averaged solution
   ! into the respective location within the int_header array
   !
-  int_header(1) = size(uavesp,dim=1)
+  int_header(1) = size(uavesp,dim=2)
   !
   ! Store the time data specific to the time averaged solution
   ! into the respective location within the real_header array
@@ -1533,7 +1571,8 @@ end subroutine write_time_averaged_solution
 !
 !###############################################################################
 !
-subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
+subroutine get_restart_arrays(current_sol,output_sol,ordered_geom, &
+                              sol_is_transposed)
   !
   !.. Use Statements ..
   use geovar,  only : ncell,cell,n_solpts
@@ -1544,10 +1583,12 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Optional Arguments ..
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
+  logical(lk), optional,                 intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
-  integer :: n,nc,np,n1,n2,l1,l2,ierr
+  integer :: k,l0,l1,l2,m,n,nc,np,nvar,n0,n1,n2,ierr
   integer :: this_geom,this_order
+  logical(lk) :: flip_sol_indices
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_restart_arrays"
@@ -1555,6 +1596,11 @@ subroutine get_restart_arrays(current_sol,output_sol,ordered_geom)
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  flip_sol_indices = fals
+  if (present(sol_is_transposed)) then
+    flip_sol_indices = sol_is_transposed
+  end if
   !
   if (present(ordered_geom)) then
     !
@@ -1580,9 +1626,13 @@ continue
   ! data for each processor. We also have to copy over the solution data
   ! in the same order that is expected by the MPI derived datatype.
   !
-  np = size(current_sol,dim=1)
+  if (flip_sol_indices) then
+    nvar = size(current_sol,dim=2)
+  else
+    nvar = size(current_sol,dim=1)
+  end if
   !
-  allocate ( output_sol(1:np,1:n_solpts) , source=zero , &
+  allocate ( output_sol(1:nvar,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_sol",1,__LINE__,__FILE__,ierr,error_message)
   ! 
@@ -1591,13 +1641,32 @@ continue
     !
     nc = cell_output_order(n)
     !
-    n1 = cell(nc)%beg_sp
-    n2 = cell(nc)%end_sp
+    n0 = cell(nc)%beg_sp-1
+    np = cell(nc)%end_sp-n0
+   !n1 = cell(nc)%beg_sp
+   !n2 = cell(nc)%end_sp
+   !n0 = n1-1
+   !np = n2-n0
     !
-    l1 = l2 + 1
-    l2 = l2 + n2-n1+1
+    l0 = l2
+    l2 = l2 + np
+   !l1 = l2 + 1
+   !l2 = l2 + n2-n1+1
     !
-    output_sol(1:np,l1:l2) = current_sol(1:np,n1:n2)
+    if (flip_sol_indices) then
+      do k = 1,np
+        do m = 1,nvar
+          output_sol(m,l0+k) = current_sol(n0+k,m)
+        end do
+      end do
+    else
+      do k = 1,np
+        do m = 1,nvar
+          output_sol(m,l0+k) = current_sol(m,n0+k)
+        end do
+      end do
+    end if
+   !output_sol(1:np,l1:l2) = current_sol(1:np,n1:n2)
     !
   end do
   !
@@ -1607,7 +1676,8 @@ end subroutine get_restart_arrays
 !
 !###############################################################################
 !
-subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
+subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom, &
+                                  sol_is_transposed)
   !
   !.. Use Statements ..
   use geovar,  only : ncell,cell,n_solpts
@@ -1618,9 +1688,11 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
   !
   !.. Optional Arguments ..
   integer(i4), optional, allocatable, intent(inout) :: ordered_geom(:)
+  logical(lk), optional,                 intent(in) :: sol_is_transposed
   !
   !.. Local Scalars ..
-  integer :: n1,nc,ierr,lcell,lpts
+  integer :: nvar,ierr,lcell,lpts
+  logical(lk) :: flip_sol_indices
   !
   !.. LOcal Allocatable Arrays ..
   integer(i4), allocatable :: local_og(:)
@@ -1635,6 +1707,11 @@ subroutine collect_restart_arrays(current_sol,output_sol,ordered_geom)
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  flip_sol_indices = fals
+  if (present(sol_is_transposed)) then
+    flip_sol_indices = sol_is_transposed
+  end if
   !
   ! #######
   ! ## 1 ##
@@ -1679,17 +1756,21 @@ continue
   ! ## 2 ##
   ! #######
   !
-  n1 = size(current_sol,dim=1)
+  if (flip_sol_indices) then
+    nvar = size(current_sol,dim=2)
+  else
+    nvar = size(current_sol,dim=1)
+  end if
   !
-  sol_counts = pts_counts * n1 ! F2003 AUTO-REALLOCATION
-  sol_displs = pts_displs * n1 ! F2003 AUTO-REALLOCATION
+  sol_counts = pts_counts * nvar ! F2003 AUTO-REALLOCATION
+  sol_displs = pts_displs * nvar ! F2003 AUTO-REALLOCATION
   !
   lpts = 1
   if (i_am_host_root) then
     lpts = sum(pts_counts)
   end if
   !
-  allocate ( output_sol(1:n1,1:lpts) , source=zero , &
+  allocate ( output_sol(1:nvar,1:lpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"output_sol",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -1697,7 +1778,13 @@ continue
   ! data for each processor. We also have to copy over the solution data
   ! in the same order that is expected by the MPI derived datatype.
   !
-  local_sol = current_sol(1:n1,1:n_solpts) ! F2003 AUTO-REALLOCATION
+  if (flip_sol_indices) then
+    ! F2003 AUTO-REALLOCATION
+    local_sol = transpose(current_sol(1:n_solpts,1:nvar))
+  else
+    ! F2003 AUTO-REALLOCATION
+    local_sol = current_sol(1:nvar,1:n_solpts)
+  end if
   !
   call mpi_gatherv(local_sol,size(local_sol,kind=int_mpi),mpi_flttyp, &
                    output_sol,sol_counts,sol_displs,mpi_flttyp, &
@@ -2506,7 +2593,7 @@ continue
     !
     if (allocated(uavesp)) then
       !
-      naq = size(uavesp,dim=1)
+      naq = size(uavesp,dim=2)
       call mpi_type_contiguous(int(naq,kind=int_mpi),mpi_flttyp, &
                                ave_block_type,mpierr)
       call mpi_type_commit(ave_block_type,mpierr)
@@ -2741,7 +2828,7 @@ continue
   !
   if (allocated(uavesp)) then
     !
-    naq = size(uavesp,dim=1)
+    naq = size(uavesp,dim=2)
     !
     ! Multiply the offsets and block lengths by naq to account for
     ! the number of time averaged quantities in the solution data

@@ -25,6 +25,7 @@ module io_mod
   public :: write_final_error
   public :: write_parallel_cgns
   public :: write_residual_file
+  public :: write_residual_file_gpu
   public :: check_face_flux_point_orderings
   public :: check_cell_flux_point_orderings
   public :: TaylorGreen_8s_vorticity_solution
@@ -4794,19 +4795,20 @@ subroutine check_face_flux_point_orderings()
   !.. Use Statements ..
   use order_mod, only : geom_solpts
   use geovar, only : ncell,cell
-  use geovar, only : nfbnd,nface,face
+  use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
   use flowvar, only : face_var
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,nfp,kf,kl,kr,l,ierr
-  integer :: l1,l2,r1,r2,npl,npr
+  integer :: i,j,nf,nfp,kf,kl,kr,l,ierr
+  integer :: l1,l2,r1,r2,npl,npr,pf
   integer :: face_geom,face_order
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
   integer :: lfile,rfile,dfile
+  real(wp) :: a,val
   character(len=25) :: face_string
   character(len=100) :: array_name
   !
@@ -4862,21 +4864,33 @@ continue
     !
     do kf = 1,nfp
       !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+      kl = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                        rot(face(nf)%left%rotation)% &
+                                     pts(kf)
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
       do l = 1,nr
-        face_xyz(nf)%v(l,kf,1) = interp(left_geom,left_order)% &
-                                           toFace(face_order)% &
-                                 dot( kl , xyz(l,l1:l2) )
+        val = zero
+        do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl)+1, &
+               interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl+1)
+          !
+          j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+          a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+          !
+          val = val + a * xyz(l,l1-1+j)
+          !
+        end do
+        face_xyz(nf)%v(l,kf,1) = val
       end do
       !
     end do
     !
     if (bface(1,nf) == bc_periodic) then
       !
-      right_cell = face(bface(5,nf))%left%cell
+      pf = bface(5,nf)
+      !
+      right_cell = face(pf)%left%cell
       !
       right_geom = cell(right_cell)%geom
       right_order = cell(right_cell)%order
@@ -4887,14 +4901,24 @@ continue
       !
       do kf = 1,nfp
         !
-        kr = face(bface(5,nf))%left%get_fp_idx(face_geom,face_order,kf)
+        kr = face(pf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(pf)%left%rotation)% &
+                                       pts(kf)
         !
         ! Interpolate the coordinates for this flux point for the right cell
         !
         do l = 1,nr
-          face_xyz(nf)%v(l,kf,2) = interp(right_geom,right_order)% &
-                                               toFace(face_order)% &
-                                   dot( kr , xyz(l,r1:r2) )
+          val = zero
+          do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1, &
+                 interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr+1)
+            !
+            j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
+            a = interp(right_geom,right_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * xyz(l,r1-1+j)
+            !
+          end do
+          face_xyz(nf)%v(l,kf,2) = val
         end do
         !
       end do
@@ -4937,23 +4961,43 @@ continue
     !
     do kf = 1,nfp
       !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
-      kr = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
+      kl = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                        rot(face(nf)%left%rotation)% &
+                                     pts(kf)
+      kr = face(nf)%right%fp_offset + fp%geord(face_geom,face_order)% &
+                                        rot(face(nf)%right%rotation)% &
+                                      pts(kf)
       !
       ! Interpolate the coordinates for this flux point for the left cell
       !
       do l = 1,nr
-        face_xyz(nf)%v(l,kf,1) = interp(left_geom,left_order)% &
-                                           toFace(face_order)% &
-                                 dot( kl , xyz(l,l1:l2) )
+        val = zero
+        do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl)+1, &
+               interp(left_geom,left_order)%toFace(face_order)%row_ptr(kl+1)
+          !
+          j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
+          a = interp(left_geom,left_order)%toFace(face_order)%row_val(i)
+          !
+          val = val + a * xyz(l,l1-1+j)
+          !
+        end do
+        face_xyz(nf)%v(l,kf,1) = val
       end do
       !
       ! Interpolate the coordinates for this flux point for the right cell
       !
       do l = 1,nr
-        face_xyz(nf)%v(l,kf,2) = interp(right_geom,right_order)% &
-                                             toFace(face_order)% &
-                                 dot( kr , xyz(l,r1:r2) )
+        val = zero
+        do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1, &
+               interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr+1)
+          !
+          j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
+          a = interp(right_geom,right_order)%toFace(face_order)%row_val(i)
+          !
+          val = val + a * xyz(l,r1-1+j)
+          !
+        end do
+        face_xyz(nf)%v(l,kf,2) = val
       end do
       !
     end do
@@ -5031,22 +5075,24 @@ subroutine check_cell_flux_point_orderings()
   !.. Use Statements ..
   use order_mod, only : maxSP,geom_solpts
   use geovar, only : ncell,cell
-  use geovar, only : nfbnd,nface,face
+  use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
   use flowvar, only : face_var
   use parallel_mod, only : exchange_faceusp,wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
+  integer :: i,j,nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
   integer :: this_geom,this_order
   integer :: face_geom,face_order
   integer :: lfile,rfile,dfile
+  real(wp) :: a
   character(len=25) :: face_string
   character(len=100) :: array_name
   !
   !.. Local Arrays ..
   real(wp) :: txyz(1:maxSP,1:nr)
+  real(wp) :: xyz_val(1:nr)
   !
   !.. Local Allocatable Arrays ..
   type(face_var), allocatable :: face_xyz(:)
@@ -5107,11 +5153,24 @@ continue
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
         !
-        face_xyz(nf)%v(1:nr,kf,sf) = interp(this_geom,this_order)% &
-                                               toFace(face_order)% &
-                                     dot_mat( lf , txyz(1:np,1:nr) )
+        xyz_val(1:nr) = zero
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          do l = 1,nr
+            xyz_val(l) = xyz_val(l) + a * txyz(j,l)
+          end do
+          !
+        end do
+        !
+        face_xyz(nf)%v(1:nr,kf,sf) = xyz_val(1:nr)
         !
       end do
       !
@@ -5260,7 +5319,7 @@ end subroutine write_final_error
 subroutine write_residual_file(iflag,icount)
   !
   use geovar,    only : nr,n_global_solpts
-  use ovar,      only : work_units,uverr,total_volume
+  use ovar,      only : work_units,uverr1,total_volume
   use ovar,      only : time,time_ref,time_scaling_factor
   use ovar,      only : output_time_averaging,ave_start_time
   use order_mod, only : p_order
@@ -5283,6 +5342,133 @@ subroutine write_residual_file(iflag,icount)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_residual_file"
+  character(len=*), parameter :: fname = "residual.dat"
+  character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
+ !logical(lk),      parameter :: write_work_units = true
+  logical(lk),      parameter :: write_work_units = fals
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Open the results file only if iflag is +1
+  !
+  if (.not. file_is_opened) then
+    !
+    open (newunit=iores,file=fname,status="replace",action="write", &
+                        iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    write (iores,1)
+    !
+    suffix = '",'
+    if (output_time_averaging) suffix = '<sub>ave</sub>",'
+   !if (output_time_averaging) suffix = "<sub>ave</sub>" // trim(suffix)
+    !
+    write (iores,2) "<greek>r</greek>" // trim(suffix)
+    do i = 1,nr
+      write (iores,3) "<greek>r</greek>" // uvw(i) // trim(suffix)
+    end do
+    write (iores,2) "Energy" // trim(suffix)
+    write (iores,2) "Entropy" // trim(suffix)
+    write (iores,2) "T" // trim(suffix)
+    do i = 1,nr
+      write (iores,2) uvw(i) // trim(suffix)
+    end do
+    write (iores,2) "p" // trim(suffix)
+    write (iores,2) "||V||" // trim(suffix)
+    if (write_work_units) then
+      write (iores,2) "Work units",'"'
+    else
+      write (iores,2) "Time",'"'
+    end if
+    !
+    write (iores,4) p_order, one/sqrt(real(n_global_solpts,kind=wp))
+    !
+    file_is_opened = true
+    !
+  end if
+  !
+  if (write_work_units) then
+    comp_cost = log10(merge(work_units,one,work_units > zero))
+  else
+    comp_cost = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      comp_cost = comp_cost - ave_start_time*time_ref*time_scaling_factor
+    end if
+  end if
+  !
+  ! L1 Norm
+ !u2(:) = merge( uverr1(:,1,1) , epsilon(zero)/two , uverr1(:,1,1)>zero )
+ !v2(:) = merge( uverr1(:,1,2) , epsilon(zero)/two , uverr1(:,1,2)>zero )
+  ! L2 Norm
+  u2(:) = merge( uverr1(:,2,1) , epsilon(zero)/total_volume , uverr1(:,2,1)>zero )
+  v2(:) = merge( uverr1(:,2,2) , epsilon(zero)/total_volume , uverr1(:,2,2)>zero )
+  ! Infinity Norm
+ !u2(:) = merge( uverr1(:,3,1) , epsilon(zero)/two , uverr1(:,3,1)>zero )
+ !v2(:) = merge( uverr1(:,3,2) , epsilon(zero)/two , uverr1(:,3,2)>zero )
+ !!
+ !u2(:) = uverr1(:,2,1)
+ !v2(:) = uverr1(:,2,2)
+ !!
+ !where (u2 <= zero) u2 = one
+ !where (v2 <= zero) v2 = one
+  !
+  write (iores,5) icount,(log10(u2(i)),i=1,nq+1), &
+                         (log10(v2(i)),i=1,nq+1), &
+                         comp_cost
+  flush (iores)
+  !
+  ! Close the results file only if iflag is -1
+  !
+  if (iflag == -1) then
+    close (iores,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES= "Timestep",')
+  2 format ('"',a,a)
+  3 format ('"',a,a,a)
+  4 format ('Zone T="Residual Error"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA h="',f10.6,'"')
+  5 format (i10,100(es17.9))
+ !5 format (i10,*(es17.9))
+  !
+end subroutine write_residual_file
+!
+!###############################################################################
+!
+subroutine write_residual_file_gpu(iflag,icount)
+  !
+  use geovar,    only : nr,n_global_solpts
+  use ovar,      only : work_units,uverr,total_volume
+  use ovar,      only : time,time_ref,time_scaling_factor
+  use ovar,      only : output_time_averaging,ave_start_time
+  use order_mod, only : p_order
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: iflag
+  integer, intent(in) :: icount
+  !
+  !.. Local Scalars ..
+  integer  :: i,ierr
+  real(wp) :: comp_cost
+  character(len=25) :: suffix
+  !
+  !.. Local Saved Scalars ..
+  integer,     save :: iores
+  logical(lk), save :: file_is_opened = fals
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nq+1) :: u2,v2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_residual_file_gpu"
   character(len=*), parameter :: fname = "residual.dat"
   character(len=*), parameter :: uvw(1:3) = ["u","v","w"]
  !logical(lk),      parameter :: write_work_units = true
@@ -5380,7 +5566,7 @@ continue
   5 format (i10,100(es17.9))
  !5 format (i10,*(es17.9))
   !
-end subroutine write_residual_file
+end subroutine write_residual_file_gpu
 !
 !###############################################################################
 !
@@ -6110,8 +6296,7 @@ continue
         !
         n = (m-nec)*nr + l
         !
-        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts), &
-                                                  dusp(:,:,1:n_solpts))
+        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts),dusp)
         !
         var(:) = real( interpolate_for_output(vartmp) , kind(var) )
         !
@@ -6145,7 +6330,14 @@ continue
     ! Copy the solution and gradients into interp_usp and interp_dusp
     !
     interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
-    interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
+    do n = 1,n_solpts
+      do m = 1,nq
+        do l = 1,nr
+          interp_dusp(l,m,n) = dusp(n,l,m)
+        end do
+      end do
+    end do
+   !interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
     !
     ! Count the total number of solution variables that will be written
     ! and allocate isvar_s accordingly
@@ -6402,7 +6594,6 @@ continue
           end if
         case ("Vorticity") ! Vorticity
          !vartmp = entropy_cv( interp_usp )
-         !vartmp = vorticity_cv( interp_usp )
           do m = 1,nr
             n = n + 1
             k = merge(m,3,nr==3)
@@ -6553,7 +6744,7 @@ subroutine write_parallel_cgns_time_ave_file()
   !
 continue
   !
-  naq = size(uavesp,dim=1)
+  naq = size(uavesp,dim=2)
   !
   call debug_timer(entering_procedure,pname)
 #ifdef PBS_ENV
@@ -6703,7 +6894,7 @@ continue
   !
   do n = 1,naq
     !
-    vartmp = uavesp(n,1:n_solpts) * var_dim(n) ! F2003 AUTO-REALLOCATION
+    vartmp = uavesp(1:n_solpts,n) * var_dim(n) ! F2003 AUTO-REALLOCATION
     !
     call cgns_write_field_parallel
     !
@@ -7536,7 +7727,7 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP
   use order_mod,         only : geom_solpts
-  use geovar,            only : face,cell,xyz
+  use geovar,            only : face,cell,xyz,fp
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp
   !
@@ -7546,9 +7737,10 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   real(CRT), dimension(:), intent(inout) :: z
   !
   !.. Local Scalars ..
-  integer :: nf,np,n1,n2,fp,f1,f2,k,kl
+  integer :: i,j,nf,np,n1,n2,nfp,f1,f2,k,kl
   integer :: this_face,face_geom,face_order
   integer :: host_cell,host_geom,host_order
+  real(wp) :: a
   !
   !.. Local Arrays ..
   real(wp), dimension(1:maxFP) :: face_y
@@ -7580,9 +7772,9 @@ continue
     n2 = cell(host_cell)%end_sp ! ending    index for sol-pts in host cell
     np = n2-n1+1                ! number of sol-pts in host cell
     !
-    fp = geom_solpts(face_geom,face_order) ! number of sol-pts on boundary face
+    nfp = geom_solpts(face_geom,face_order) ! number of sol-pts on boundary face
     f1 = f2 + 1                  ! beginning index for sol-pts on boundary face
-    f2 = f2 + fp                 ! ending    index for sol-pts on boundary face
+    f2 = f2 + nfp                 ! ending    index for sol-pts on boundary face
     !
     ! Create transpose of the xyz(2:3,n1:n2) to reduce cache misses
     !
@@ -7590,20 +7782,28 @@ continue
     !
     ! Compute the profile quantities at each data point for this face
     !
-    do k = 1,fp
+    do k = 1,nfp
       !
       ! Index of flx-pt local to the current host cell
       !
-      kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
+      kl = face(this_face)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                        rot(face(this_face)%left%rotation)% &
+                                            pts(k)
       !
       ! First interpolate to the face flux points
       !
-      face_y(k) = interp(host_geom,host_order)% &
-                            toFace(face_order)% &
-                  dot( kl , txyz(1:np,1) )
-      face_z(k) = interp(host_geom,host_order)% &
-                            toFace(face_order)% &
-                  dot( kl , txyz(1:np,2) )
+      face_y(k) = zero
+      face_z(k) = zero
+      do i = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+             interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+        !
+        j = interp(host_geom,host_order)%toFace(face_order)%row_idx(i)
+        a = interp(host_geom,host_order)%toFace(face_order)%row_val(i)
+        !
+        face_y(k) = face_y(k) + a * txyz(j,1)
+        face_z(k) = face_z(k) + a * txyz(j,2)
+        !
+      end do
       !
     end do
     !
@@ -7612,13 +7812,13 @@ continue
     !
     if (allocated(outerp(face_geom,face_order)%output)) then
       !
-      face_y(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:fp) )
-      face_z(1:fp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:fp) )
+      face_y(1:nfp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:nfp) )
+      face_z(1:nfp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:nfp) )
       !
     end if
     !
-    y(f1:f2) = real( face_y(1:fp) , kind=kind(y) )
-    z(f1:f2) = real( face_z(1:fp) , kind=kind(z) )
+    y(f1:f2) = real( face_y(1:nfp) , kind=kind(y) )
+    z(f1:f2) = real( face_z(1:nfp) , kind=kind(z) )
     !
   end do
   !
@@ -7633,7 +7833,7 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   !.. Use Statements ..
   use order_mod, only : maxSP,maxFP
   use order_mod, only : geom_solpts
-  use geovar, only : nr,face,cell
+  use geovar, only : nr,face,cell,fp
   use ovar, only : time_ref
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp
@@ -7644,9 +7844,10 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   real(CRT), dimension(:), intent(inout) :: vorticity
   !
   !.. Local Scalars ..
-  integer :: k,kl,l,m,nf,np,n1,n2,fp,f1,f2
+  integer :: i,j,k,kl,l,m,nf,np,n1,n2,nfp,f1,f2
   integer :: this_face,face_geom,face_order
   integer :: host_cell,host_geom,host_order
+  real(wp) :: a
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: vort_vec
@@ -7683,35 +7884,44 @@ continue
     n2 = cell(host_cell)%end_sp ! ending    index for sol-pts in host cell
     np = n2-n1+1                ! number of sol-pts in host cell
     !
-    fp = geom_solpts(face_geom,face_order) ! number of sol-pts on boundary face
+    nfp = geom_solpts(face_geom,face_order) ! number of sol-pts on boundary face
     f1 = f2 + 1                  ! beginning index for sol-pts on boundary face
-    f2 = f2 + fp                 ! ending    index for sol-pts on boundary face
+    f2 = f2 + nfp                 ! ending    index for sol-pts on boundary face
     !
     ! Create transpose of the xyz(2:3,n1:n2) to reduce cache misses
     !
     tusp(1:np,1:nq) = transpose( usp(1:nq,n1:n2) )
-    do k = 1,np
-      tdusp(k,1:nr,1:nq) = dusp(1:nr,1:nq,n1-1+k)
-    end do
+    tdusp(1:np,1:nr,1:nq) = dusp(n1:n2,1:nr,1:nq)
+   !do k = 1,np
+   !  tdusp(k,1:nr,1:nq) = dusp(1:nr,1:nq,n1-1+k)
+   !end do
     !
     ! Compute the profile quantities at each data point for this face
     !
-    do k = 1,fp
+    do k = 1,nfp
       !
       ! Index of flx-pt local to the current host cell
       !
-      kl = face(this_face)%left%get_fp_idx(face_geom,face_order,k)
+      kl = face(this_face)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                        rot(face(this_face)%left%rotation)% &
+                                            pts(k)
       !
       ! First interpolate to the face flux points
       !
       do m = 1,nq
-        cv_tmp(k,m) = interp(host_geom,host_order)% &
-                                toFace(face_order)% &
-                      dot( kl , tusp(1:np,m) )
-        do l = 1,nr
-          dcvdx_tmp(k,l,m) = interp(host_geom,host_order)% &
-                                       toFace(face_order)% &
-                             dot( kl , tdusp(1:np,l,m) )
+        cv_tmp(k,m) = zero
+        dcvdx_tmp(k,1:nr,m) = zero
+        do i = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+               interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+          !
+          j = interp(host_geom,host_order)%toFace(face_order)%row_idx(i)
+          a = interp(host_geom,host_order)%toFace(face_order)%row_val(i)
+          !
+          cv_tmp(k,m) = cv_tmp(k,m) + a * tusp(j,m)
+          do l = 1,nr
+            dcvdx_tmp(k,l,m) = dcvdx_tmp(k,l,m) + a * tdusp(j,l,m)
+          end do
+          !
         end do
       end do
       !
@@ -7723,21 +7933,21 @@ continue
     if (allocated(outerp(face_geom,face_order)%output)) then
       !
       do m = 1,nq
-        cvfp(m,1:fp) = outerp(face_geom,face_order)% &
+        cvfp(m,1:nfp) = outerp(face_geom,face_order)% &
                                              output% &
-                       mv_mult( cv_tmp(1:fp,m) )
+                       mv_mult( cv_tmp(1:nfp,m) )
         do l = 1,nr
-          dcvdx(l,m,1:fp) = outerp(face_geom,face_order)% &
+          dcvdx(l,m,1:nfp) = outerp(face_geom,face_order)% &
                                                   output% &
-                            mv_mult( dcvdx_tmp(1:fp,l,m) )
+                            mv_mult( dcvdx_tmp(1:nfp,l,m) )
         end do
       end do
       !
     else
       !
-      cvfp(1:nq,1:fp) = transpose( cv_tmp(1:fp,1:nq) )
+      cvfp(1:nq,1:nfp) = transpose( cv_tmp(1:nfp,1:nq) )
       !
-      do k = 1,fp
+      do k = 1,nfp
         do m = 1,nq
           do l = 1,nr
             dcvdx(l,m,k) = dcvdx_tmp(k,l,m)
@@ -7749,7 +7959,7 @@ continue
     !
     ! Finally, compute the magnitude of the vorticity vector at each face point
     !
-    do k = 1,fp
+    do k = 1,nfp
       !
       ! Compute the derivatives of the primitive variables
       !
@@ -7791,24 +8001,24 @@ pure function grad_of_selected_pv(ndr,npv,uu,dcvdx) result(return_value)
   real(wp), dimension(:,:,:), intent(in) :: dcvdx ! conservative var gradients
   !
   !.. Function Results ..
-  real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
+  real(wp), dimension(1:size(dcvdx,dim=1)) :: return_value
   !
   !.. Local Scalars ..
   integer :: nr,np,n
   real(wp) :: cv_inv,rho_inv,rho_inv2,q2
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(dcvdx,dim=2)) :: coef
+  real(wp), dimension(1:size(dcvdx,dim=3)) :: coef
   !
 continue
   !
-  nr = size(dcvdx,dim=1)
-  np = size(dcvdx,dim=3)
+  nr = size(dcvdx,dim=2)
+  np = size(dcvdx,dim=1)
   !
   if (npv == nec) then
     !
     do n = 1,np
-      return_value(n) = dcvdx(ndr,npv,n)
+      return_value(n) = dcvdx(n,ndr,npv)
     end do
     !
   else if (npv == nee) then
@@ -7826,7 +8036,7 @@ continue
       coef(nmb:nme) = -rho_inv2 * uu(nmb:nme,n)
       coef(nee)     =  rho_inv
       !
-      return_value(n) = cv_inv * dot( coef , dcvdx(ndr,1:nq,n) )
+      return_value(n) = cv_inv * dot( coef , dcvdx(n,ndr,1:nq) )
       !
     end do
     !
@@ -7837,8 +8047,8 @@ continue
       rho_inv = one/uu(nec,n)
       rho_inv2 = rho_inv*rho_inv
       !
-      return_value(n) = rho_inv  * dcvdx(ndr,npv,n) - &
-                        rho_inv2 * dcvdx(ndr,nec,n) * uu(npv,n)
+      return_value(n) = rho_inv  * dcvdx(n,ndr,npv) - &
+                        rho_inv2 * dcvdx(n,ndr,nec) * uu(npv,n)
       !
     end do
     !
@@ -8031,143 +8241,19 @@ end function interpolate_for_output_2d
 !
 !###############################################################################
 !
-pure function vorticity_cv(uu) result(return_value)
-  !
-  !.. Use Statements ..
-  use order_mod, only : maxpts
-  use geovar, only : nr,ncell,cell
-  use metrics_mod, only : metrics_dt
-  use derivatives_mod, only : deriv
-  !
-  real(wp), dimension(:,:), intent(in) :: uu
-  !
-  real(wp), dimension(1:size(uu,dim=2)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer :: n,n1,n2,np,k
-  integer :: this_geom,this_order
-  real(wp) :: dudr,duds,dvdr,dvds
-  real(wp) :: drdx,dsdx,drdy,dsdy
-  !
-  !.. Local Arrays ..
-  real(wp), dimension(1:nr,1:maxpts) :: vel
-  !
-continue
-  !
-  do n = 1,ncell
-    !
-    n1 = cell(n)%beg_sp ! beginning index for sol-pts in cell n
-    n2 = cell(n)%end_sp ! ending    index for sol-pts in cell n
-    np = n2-n1+1
-    !
-    this_geom = cell(n)%geom
-    this_order = cell(n)%order
-    !
-    do k = n1,n2
-      vel(1:nr,k-n1+1) = uu(nmb:nme,k)/uu(1,k)
-    end do
-    !
-    do k = n1,n2
-      !
-      dudr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(1,1:np) )
-      duds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(1,1:np) )
-      dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vel(2,1:np) )
-      dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vel(2,1:np) )
-      !
-      drdx = metrics_dt(n)%met(k,1,1) ! =  dyds/J
-      dsdx = metrics_dt(n)%met(k,2,1) ! = -dydr/J
-      drdy = metrics_dt(n)%met(k,1,2) ! = -dxds/J
-      dsdy = metrics_dt(n)%met(k,2,2) ! =  dxdr/J
-      !
-      ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
-      !
-      !         and using chain rule gives
-      !
-      ! 2D vorticity = ( (dr/dx)*(dv/dr) + (ds/dx)*(dv/ds) ) - 
-      !                ( (dr/dy)*(du/dr) + (ds/dy)*(du/ds) )
-      !
-      return_value(k) = (drdx*dvdr + dsdx*dvds) - &
-                        (drdy*dudr + dsdy*duds)
-      !                   
-    end do
-    !
-  end do
-  !
-end function vorticity_cv
-!
-!###############################################################################
-!
-pure function vorticity_pv(vv) result(return_value)
-  !
-  !.. Use Statements ..
-  use geovar, only : ncell,cell
-  use metrics_mod, only : metrics_dt
-  use derivatives_mod, only : deriv
-  !
-  real(wp), dimension(:,:), intent(in) :: vv
-  !
-  real(wp), dimension(1:size(vv,dim=2)) :: return_value
-  !
-  !.. Local Scalars ..
-  integer :: n,n1,n2,np,k
-  integer :: this_geom,this_order
-  real(wp) :: dudr,duds,dvdr,dvds
-  real(wp) :: drdx,dsdx,drdy,dsdy
-  !
-continue
-  !
-  do n = 1,ncell
-    !
-    n1 = cell(n)%beg_sp ! beginning index for sol-pts in cell n
-    n2 = cell(n)%end_sp ! ending    index for sol-pts in cell n
-    np = n2-n1+1
-    !
-    this_geom = cell(n)%geom
-    this_order = cell(n)%order
-    !
-    do k = n1,n2
-      !
-      dudr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(2,n1:n2) )
-      duds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(2,n1:n2) )
-      dvdr = deriv(this_geom,this_order)%d(1)%dot( k-n1+1 , vv(3,n1:n2) )
-      dvds = deriv(this_geom,this_order)%d(2)%dot( k-n1+1 , vv(3,n1:n2) )
-      !
-      drdx = metrics_dt(n)%met(k,1,1) ! =  dyds/J
-      dsdx = metrics_dt(n)%met(k,2,1) ! = -dydr/J
-      drdy = metrics_dt(n)%met(k,1,2) ! = -dxds/J
-      dsdy = metrics_dt(n)%met(k,2,2) ! =  dxdr/J
-      !
-      ! 2D vorticity = d/dx[v(r,s)] - d/dy[u(r,s)]
-      !
-      !         and using chain rule gives
-      !
-      ! 2D vorticity = ( (dr/dx)*(dv/dr) + (ds/dx)*(dv/ds) ) - 
-      !                ( (dr/dy)*(du/dr) + (ds/dy)*(du/ds) )
-      !
-      return_value(k) = (drdx*dvdr + dsdx*dvds) - &
-                        (drdy*dudr + dsdy*duds)
-      !                   
-    end do                
-    !
-  end do
-  !
-end function vorticity_pv
-!
-!###############################################################################
-!
-pure function vorticity_dusp(usp,dusp,dir) result(return_value)
+pure function vorticity_dusp(cv,dcvdx,dir) result(return_value)
   !
   integer,                    intent(in) :: dir
-  real(wp), dimension(:,:),   intent(in) :: usp
-  real(wp), dimension(:,:,:), intent(in) :: dusp
+  real(wp), dimension(:,:),   intent(in) :: cv
+  real(wp), dimension(:,:,:), intent(in) :: dcvdx
   !
-  real(wp), dimension(1:size(dusp,dim=3)) :: return_value
+  real(wp), dimension(1:size(dcvdx,dim=3)) :: return_value
   !
   !.. Local Scalars ..
   integer :: i,j,k,n1,n2
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(dusp,dim=1),1:size(dusp,dim=2)) :: dpvdx
+  real(wp), dimension(1:size(dcvdx,dim=1),1:size(dcvdx,dim=2)) :: dpvdx
   !
   !.. Local Parameters ..
   integer, parameter, dimension(3) :: idx = [2,3,1]
@@ -8175,14 +8261,14 @@ pure function vorticity_dusp(usp,dusp,dir) result(return_value)
   !
 continue
   !
-  n1 = size(dusp,dim=1)
-  n2 = size(dusp,dim=2)
+  n1 = size(dcvdx,dim=1)
+  n2 = size(dcvdx,dim=2)
   !
   i = idx(dir)
   j = jdx(dir)
   !
-  do k = 1,size(dusp,dim=3)
-    dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( usp(:,k) , dusp(:,:,k) )
+  do k = 1,size(dcvdx,dim=3)
+    dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( cv(:,k) , dcvdx(:,:,k) )
     return_value(k) = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
   end do
   !

@@ -21,6 +21,7 @@ module filter_mod
   public :: init_filter_matrices
   public :: filter_usp
   public :: filter_memory_usage
+  public :: move_filter_to_device
   !
   ! Module public arrays
   !
@@ -1438,6 +1439,212 @@ continue
   !
 #endif
 end subroutine filter_memory_usage
+!
+!###############################################################################
+!
+subroutine move_filter_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_filter_to_device"
+  !
+continue
+  !
+  if (allocated(filter)) then
+    !$ACC ENTER DATA COPYIN(filter)
+    i1 = lbound(filter,dim=1)
+    i2 = ubound(filter,dim=1)
+    j1 = lbound(filter,dim=2)
+    j2 = ubound(filter,dim=2)
+    !$ACC ENTER DATA COPYIN(filter(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(filter(i,j)%exponential)) then
+          !$ACC ENTER DATA COPYIN(filter(i,j)%exponential)
+          if (allocated(filter(i,j)%exponential%mat)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%mat)
+            m1 = lbound(filter(i,j)%exponential%mat,dim=1)
+            m2 = ubound(filter(i,j)%exponential%mat,dim=1)
+            n1 = lbound(filter(i,j)%exponential%mat,dim=2)
+            n2 = ubound(filter(i,j)%exponential%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_ptr)
+            m1 = lbound(filter(i,j)%exponential%row_ptr,dim=1)
+            m2 = ubound(filter(i,j)%exponential%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%row_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_idx)
+            m1 = lbound(filter(i,j)%exponential%row_idx,dim=1)
+            m2 = ubound(filter(i,j)%exponential%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%row_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_val)
+            m1 = lbound(filter(i,j)%exponential%row_val,dim=1)
+            m2 = ubound(filter(i,j)%exponential%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%row_val(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_ptr)
+            m1 = lbound(filter(i,j)%exponential%col_ptr,dim=1)
+            m2 = ubound(filter(i,j)%exponential%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%col_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_idx)
+            m1 = lbound(filter(i,j)%exponential%col_idx,dim=1)
+            m2 = ubound(filter(i,j)%exponential%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%exponential%col_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_val)
+            m1 = lbound(filter(i,j)%exponential%col_val,dim=1)
+            m2 = ubound(filter(i,j)%exponential%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%exponential%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(filter(i,j)%limiter)) then
+          !$ACC ENTER DATA COPYIN(filter(i,j)%limiter)
+          if (allocated(filter(i,j)%limiter%mat)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%mat)
+            m1 = lbound(filter(i,j)%limiter%mat,dim=1)
+            m2 = ubound(filter(i,j)%limiter%mat,dim=1)
+            n1 = lbound(filter(i,j)%limiter%mat,dim=2)
+            n2 = ubound(filter(i,j)%limiter%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_ptr)
+            m1 = lbound(filter(i,j)%limiter%row_ptr,dim=1)
+            m2 = ubound(filter(i,j)%limiter%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%row_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_idx)
+            m1 = lbound(filter(i,j)%limiter%row_idx,dim=1)
+            m2 = ubound(filter(i,j)%limiter%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%row_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_val)
+            m1 = lbound(filter(i,j)%limiter%row_val,dim=1)
+            m2 = ubound(filter(i,j)%limiter%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%row_val(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_ptr)
+            m1 = lbound(filter(i,j)%limiter%col_ptr,dim=1)
+            m2 = ubound(filter(i,j)%limiter%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%col_idx)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_idx)
+            m1 = lbound(filter(i,j)%limiter%col_idx,dim=1)
+            m2 = ubound(filter(i,j)%limiter%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(filter(i,j)%limiter%col_val)) then
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_val)
+            m1 = lbound(filter(i,j)%limiter%col_val,dim=1)
+            m2 = ubound(filter(i,j)%limiter%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(filter(i,j)%limiter%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(filter(i,j)%cutoff)) then
+          !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff)
+          k1 = lbound(filter(i,j)%cutoff,dim=1)
+          k2 = ubound(filter(i,j)%cutoff,dim=1)
+          !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(filter(i,j)%cutoff(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%mat)
+              m1 = lbound(filter(i,j)%cutoff(k)%mat,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%mat,dim=1)
+              n1 = lbound(filter(i,j)%cutoff(k)%mat,dim=2)
+              n2 = ubound(filter(i,j)%cutoff(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_ptr)
+              m1 = lbound(filter(i,j)%cutoff(k)%row_ptr,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_idx)
+              m1 = lbound(filter(i,j)%cutoff(k)%row_idx,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_val)
+              m1 = lbound(filter(i,j)%cutoff(k)%row_val,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_ptr)
+              m1 = lbound(filter(i,j)%cutoff(k)%col_ptr,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_idx)
+              m1 = lbound(filter(i,j)%cutoff(k)%col_idx,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(filter(i,j)%cutoff(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_val)
+              m1 = lbound(filter(i,j)%cutoff(k)%col_val,dim=1)
+              m2 = ubound(filter(i,j)%cutoff(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(filter(i,j)%cutoff(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_filter_to_device
 !
 !###############################################################################
 !

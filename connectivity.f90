@@ -56,7 +56,6 @@ subroutine get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
   !.. Use Statements ..
   use ovar,   only : continuous_output
   use geovar, only : nface,face,fp
- !use geovar, only : fp_bc
   !
   !.. Formal Arguments ..
   integer,  dimension(:,:), intent(in) :: bface
@@ -141,17 +140,9 @@ continue
   !
   nface = size(face)
   !
-  ! Create the fp_bc array
-  !
-  call memory_pause("finding the cells on each face", &
-                    "finding the BC for each face point")
- !call create_fp_bc(bface,face,fp_bc)
-  call create_fp_bc(bface,face)
- !!$ACC UPDATE DEVICE(fp_bc)
-  !
   ! Get the indices for the flux points for each cell
   !
-  call memory_pause("finding the BC for each face point", &
+  call memory_pause("finding the cells on each face", &
                     "finding the flux points of each cell")
   call create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
                                 cells_with_node_ptr,nodes_on_edge, &
@@ -2561,51 +2552,6 @@ continue
   return_value = 0
   !
 end function FluxPointRotation_Tria
-!
-!###############################################################################
-!
-!subroutine create_fp_bc(bface,face,fp_bc)
-subroutine create_fp_bc(bface,face)
-  !
-  !.. Use Statements ..
-  use geovar, only : face_t
-  use geovar, only : fp_bc
-  !
-  !.. Formal Arguments ..
-  integer,                 intent(in) :: bface(:,:)
-  type(face_t),            intent(in) :: face(:)
- !integer, allocatable, intent(inout) :: fp_bc(:)
-  !
-  !.. Local Scalars ..
-  integer :: k,nf,lfbnd,l_bnd_flxpts,ierr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "create_fp_bc"
-  !
-continue
-  !
-  lfbnd = size(bface,dim=2)
-  l_bnd_flxpts = face(lfbnd)%end_fp
-  !
-  if (allocated(fp_bc)) then
-    deallocate ( fp_bc , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"fp_bc",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-  !
-  allocate ( fp_bc(1:l_bnd_flxpts) , source=bc_unknown , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"fp_bc",1,__LINE__,__FILE__,ierr,error_message)
-  !
- !!$ACC ENTER DATA CREATE(fp_bc)
-  do nf = 1,lfbnd
-    do k = face(nf)%beg_fp,face(nf)%end_fp
-      fp_bc(k) = bface(1,nf)
-    end do
-  end do
- !!$ACC UPDATE DEVICE(fp_bc)
- !!$ACC ENTER DATA COPYIN(fp_bc)
-  !
-end subroutine create_fp_bc
 !
 !###############################################################################
 !

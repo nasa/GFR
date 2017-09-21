@@ -265,7 +265,12 @@ continue
   ! Initialize the solution at previous timestep array
   !
   if (allocated(uoldsp)) then
-    uoldsp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp)
+    do n = 1,n_solpts
+      do m = 1,nq
+        uoldsp(n,m) = usp(m,n)
+      end do
+    end do
   end if
   !
   ! Initialize the solution gradient array
@@ -760,14 +765,14 @@ subroutine initialize_dusp()
   !.. Use Statements ..
   use order_mod,  only : maxSP
   use geovar,  only : nr,ncell,cell
-  use metrics_mod,  only : metrics_dt
+  use metrics_mod,  only : metrics_array
   use derivatives_mod, only : deriv
   use flowvar, only : usp,dusp
   !
   !.. Local Scalars ..
-  integer :: k,l,m,n,nc,n1,n2,np
-  integer :: this_geom,this_order
-  integer :: i,i1,i2,i3
+  integer  :: i,j,k,l,ll,m,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: dudr
@@ -788,9 +793,8 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
-    n2 = cell(nc)%end_sp ! ending    index for solpts in cell nc
-    np = n2-n1+1 ! number of solution points in this cell
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
     !
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
@@ -799,7 +803,7 @@ continue
     !
     do k = 1,np
       do m = 1,nq
-        tusp(k,m) = usp(m,k+n1-1)
+        tusp(k,m) = usp(m,n0+k)
       end do
     end do
     !
@@ -807,12 +811,7 @@ continue
     !
     do k = 1,np
       !
-      n = k+n1-1 ! total index of solution point on current partition
-      !
-      i = this_order+1
-      i3 = (k-1)/(i*i) + 1
-      i2 = (k-1)/i - (i3-1)*i + 1
-      i1 = k - (i2-1)*i - (i3-1)*i*i
+      n = n0+k ! total index of solution point on current partition
       !
       do m = 1,nq
         !
@@ -820,16 +819,29 @@ continue
           !
           do l = 1,nr
             !
-            dudr(1) = deriv(this_geom,this_order)%d(1)% &
-                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,1,l) )
+            val = zero
+            do ll = 1,nr
+              do i = deriv(this_geom,this_order)%d(ll)%row_ptr(k)+1, &
+                     deriv(this_geom,this_order)%d(ll)%row_ptr(k+1)
+                !
+                j = deriv(this_geom,this_order)%d(ll)%row_idx(i)
+                a = deriv(this_geom,this_order)%d(ll)%row_val(i)
+                !
+                val = val + a*tusp(j,m)*metrics_array(n0+j,ll,l)
+                !
+              end do
+            end do
             !
-            dudr(2) = deriv(this_geom,this_order)%d(2)% &
-                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,2,l) )
+            dusp(n,l,m) = val
             !
-            dudr(3) = deriv(this_geom,this_order)%d(3)% &
-                      dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,3,l) )
-            !
-            dusp(l,m,n) = sum(dudr)!* jacobian(n)
+           !dudr(1) = deriv(this_geom,this_order)%d(1)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,1,l) )
+           !dudr(2) = deriv(this_geom,this_order)%d(2)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,2,l) )
+           !dudr(3) = deriv(this_geom,this_order)%d(3)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,3,l) )
+           !!
+           !dusp(n,l,m) = sum(dudr)!* jacobian(n)
             !
           end do
           !
@@ -837,12 +849,25 @@ continue
           !
           ! Compute the derivatives in r-s space
           !
-          dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
+          do l = 1,nr
+            val = zero
+            do i = deriv(this_geom,this_order)%d(l)%row_ptr(k)+1, &
+                   deriv(this_geom,this_order)%d(l)%row_ptr(k+1)
+              !
+              j = deriv(this_geom,this_order)%d(l)%row_idx(i)
+              a = deriv(this_geom,this_order)%d(l)%row_val(i)
+              !
+              val = val + a*tusp(j,m)
+              !
+            end do
+            dudr(l) = val
+          end do
+         !dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
           !
           ! Transform the derivatives back to x-y space
           !
           do l = 1,nr
-            dusp(l,m,n) = dot( dudr(1:nr) , metrics_dt(nc)%met(k,1:nr,l) )
+            dusp(n,l,m) = dot( dudr(1:nr) , metrics_array(n,1:nr,l) )
           end do
           !
         end if
@@ -862,16 +887,17 @@ end subroutine initialize_dusp
 subroutine get_face_and_edge_point_coordinates
   !
   use order_mod,         only : maxSP,geom_solpts
-  use geovar,            only : nr,cell,face,xyz
+  use geovar,            only : nr,cell,face,xyz,fp
   use flowvar,           only : edgexyz,facexyz
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
-  integer :: n,nc,ne,nf,np,n1,n2
-  integer :: k,kf,l,lf,ierr
-  integer :: this_geom,this_order
-  integer :: face_geom,face_order
-  integer :: edge_order
+  integer  :: n,nc,ne,nf,np,n1,n2
+  integer  :: i,j,k,kf,l,lf,ierr
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: edge_order
+  real(wp) :: val,a
   !
   !.. Local Arrays ..
   real(wp) :: txyz(1:maxSP,1:nr)
@@ -918,12 +944,22 @@ continue
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
-        lf = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
+        lf = face(nf)%left%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(face(nf)%left%rotation)% &
+                                       pts(kf)
         !
         do l = 1,nr
-          facexyz(nf)%v(l,kf) = interp(this_geom,this_order)% &
-                                          toFace(face_order)% &
-                                dot( lf , txyz(1:np,l) )
+          val = zero
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * txyz(j,l)
+            !
+          end do
+          facexyz(nf)%v(l,kf) = val
         end do
         !
       end do
@@ -990,12 +1026,21 @@ continue
         !
         do kf = 1,edge_order+1
           !
-          lf = cell(nc)%edge(n)%get_ep_idx(kf)
+          lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
+                                                  cell(nc)%edge(n)%rev_dir)
           !
           do l = 1,nr
-            edgexyz(ne)%v(l,kf) = interp(this_geom,this_order)% &
-                                            toEdge(edge_order)% &
-                                  dot(lf,txyz(1:np,l))
+            val = zero
+            do i = interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf)+1, &
+                   interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf+1)
+              !
+              j = interp(this_geom,this_order)%toEdge(edge_order)%row_idx(i)
+              a = interp(this_geom,this_order)%toEdge(edge_order)%row_val(i)
+              !
+              val = val + a * txyz(j,l)
+              !
+            end do
+            edgexyz(ne)%v(l,kf) = val
           end do
           !
         end do

@@ -2,7 +2,7 @@ module correction_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix
+  use generic_types_mod, only : matrix,matrix_gpu_t,create_matrix_sparsity
   !
   implicit none
   !
@@ -13,6 +13,7 @@ module correction_mod
   !
   public :: init_correction_matrices
   public :: correction_memory_usage
+  public :: move_correct_to_device
   !
   !
   !
@@ -33,7 +34,8 @@ module correction_mod
   !        this_order = cell(n)%order
   !        k = the flx-pt on a face of cell 'n' that is currently of interest
   !
-  type(matrix), public, save, target, allocatable :: correct(:,:)
+ !type(matrix), public, save, target, allocatable :: correct(:,:)
+  type(matrix_gpu_t), public, save, target, allocatable :: correct(:,:)
   !
 contains
 !
@@ -57,7 +59,8 @@ subroutine init_correction_matrices()
   character(len=200) :: array_name
   !
   !.. Local Pointers ..
-  type(matrix), pointer :: this_correct
+ !type(matrix), pointer :: this_correct
+  type(matrix_gpu_t), pointer :: this_correct
   real(wp), pointer, contiguous :: solpts(:,:)
   real(wp), pointer, contiguous :: cmat(:,:)
   !
@@ -189,7 +192,8 @@ continue
   !
   ! Check for sparsity within each of the correction matrices
   !
-  call correct%check_for_sparsity
+ !call correct%check_for_sparsity
+  call create_matrix_sparsity( correct )
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1377,6 +1381,85 @@ continue
   !
 #endif
 end subroutine correction_memory_usage
+!
+!###############################################################################
+!
+subroutine move_correct_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_correct_to_device"
+  !
+continue
+  !
+  if (allocated(correct)) then
+    !$ACC ENTER DATA COPYIN(correct)
+    i1 = lbound(correct,dim=1)
+    i2 = ubound(correct,dim=1)
+    j1 = lbound(correct,dim=2)
+    j2 = ubound(correct,dim=2)
+    !$ACC ENTER DATA COPYIN(correct(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        if (allocated(correct(i,j)%mat)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%mat)
+          m1 = lbound(correct(i,j)%mat,dim=1)
+          m2 = ubound(correct(i,j)%mat,dim=1)
+          n1 = lbound(correct(i,j)%mat,dim=2)
+          n2 = ubound(correct(i,j)%mat,dim=2)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%mat(m1:m2,n1:n2))
+        end if
+        !
+        if (allocated(correct(i,j)%row_ptr)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_ptr)
+          m1 = lbound(correct(i,j)%row_ptr,dim=1)
+          m2 = ubound(correct(i,j)%row_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_ptr(m1:m2))
+        end if
+        !
+        if (allocated(correct(i,j)%row_idx)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_idx)
+          m1 = lbound(correct(i,j)%row_idx,dim=1)
+          m2 = ubound(correct(i,j)%row_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_idx(m1:m2))
+        end if
+        !
+        if (allocated(correct(i,j)%row_val)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_val)
+          m1 = lbound(correct(i,j)%row_val,dim=1)
+          m2 = ubound(correct(i,j)%row_val,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%row_val(m1:m2))
+        end if
+        !
+        if (allocated(correct(i,j)%col_ptr)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_ptr)
+          m1 = lbound(correct(i,j)%col_ptr,dim=1)
+          m2 = ubound(correct(i,j)%col_ptr,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_ptr(m1:m2))
+        end if
+        !
+        if (allocated(correct(i,j)%col_idx)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_idx)
+          m1 = lbound(correct(i,j)%col_idx,dim=1)
+          m2 = ubound(correct(i,j)%col_idx,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_idx(m1:m2))
+        end if
+        !
+        if (allocated(correct(i,j)%col_val)) then
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_val)
+          m1 = lbound(correct(i,j)%col_val,dim=1)
+          m2 = ubound(correct(i,j)%col_val,dim=1)
+          !$ACC ENTER DATA COPYIN(correct(i,j)%col_val(m1:m2))
+        end if
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_correct_to_device
 !
 !###############################################################################
 !

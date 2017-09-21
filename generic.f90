@@ -11,9 +11,12 @@ module generic_mod
   !
   public :: init_generic_mod
   public :: write_iter_stats
+  public :: write_iter_stats_gpu
   public :: getmaxent
   public :: compute_residual_error
+  public :: compute_residual_error_gpu
   public :: compute_TaylorGreen_KEDR
+  public :: compute_TaylorGreen_KEDR_gpu
   public :: generic_memory_usage
   !
   character(len=100), save :: iter_out_fmt
@@ -23,6 +26,7 @@ module generic_mod
   integer,     save :: final_countdown = 0
   !
   real(wp), save :: rl2mx = -huge(zero)
+  real(wp), save :: rl2mx1 = -huge(zero)
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that
   !            contains the temporal evolution of various integrated
@@ -33,7 +37,1100 @@ module generic_mod
   real(wp), save, allocatable :: sum_kedr(:,:)
   real(wp), save              :: tgv_dimen(1:7) = zero
   !
+  !$ACC DECLARE CREATE(tgv_kedr,sum_kedr,tgv_dimen)
+  !
+  integer,  save              :: iotg1
+  real(wp), save, allocatable :: tgv_kedr1(:,:)
+  real(wp), save, allocatable :: sum_kedr1(:,:)
+  real(wp), save              :: tgv_dimen1(1:7) = zero
+  !
+  !$ACC DECLARE CREATE(tgv_kedr,sum_kedr,tgv_dimen)
+  !
 contains
+!
+!###############################################################################
+!
+subroutine compute_residual_error_gpu()
+  !
+  !.. Use Statements ..
+  use geovar,       only : nr,n_solpts,ncell,cell
+  use ovar,         only : total_volume,uverr
+  use parallel_mod, only : cell_map
+  !
+  !.. Local Scalars ..
+  integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3
+  real(wp) :: vol_inv
+  !
+  !.. Local Arrays ..
+ !real(wp), dimension(1:nq+1,1:5+nr,1:2)        :: error
+  real(wp), dimension(1:nq+1,1:5+nr,1:2,1:ncpu) :: all_error
+  !
+  ! error(1:nq+1,:,:) = error value for each flow equation + extra variable
+  ! error(:,1,:) = error for conserved variables [rho,rho(u,v,..),rhoe,entropy]
+  ! error(:,2,:) = error for primitive variables [rho,u,v,..,pressure,vel mag]
+  ! error(:,:,1) = L1    norm of total error for all solution points
+  ! error(:,:,2) = L2%   norm of total error for all solution points
+  ! error(:,:,3) = L-inf norm (max value) of error for all solution points
+  ! error(:,:,4) = ID of grid cell containing maximum value of error
+  ! error(:,:,5) = ID of solution point with maximum value of error
+  ! error(:,:,6) = x-coordinate of sol-pt with max value of error
+  ! error(:,:,7) = y-coordinate of sol-pt with max value of error (if 2D or 3D)
+  ! error(:,:,8) = z-coordinate of sol-pt with max value of error (if 3D
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: cell_for_sp(:)
+  real(wp), allocatable :: tunew(:,:)
+  real(wp), allocatable :: tuold(:,:)
+  real(wp), allocatable :: error(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_residual_error_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  l1 = 1
+  l2 = min(2,nr)
+  l3 = min(3,nr)
+  !
+  allocate ( error(1:nq+1,1:5+nr,1:2) )
+  allocate ( tunew(1:n_solpts,1:nq+1) )
+  allocate ( tuold(1:n_solpts,1:nq+1) )
+  allocate ( cell_for_sp(1:n_solpts) )
+  !$ACC DATA CREATE(error,tunew,tuold,cell_for_sp) &
+  !$ACC&     PRESENT(cell,uverr,cell_map)
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  do nc = 1,ncell
+    n1 = cell(nc)%beg_sp
+    n2 = cell(nc)%end_sp
+    !$ACC LOOP VECTOR
+    do n = n1,n2
+      cell_for_sp(n) = nc
+    end do
+  end do
+  !
+  call get_unew_solpts_gpu(tunew)
+  call get_uold_solpts_gpu(tuold)
+  !
+  call compute_error_gpu(tunew,tuold,error(:,:,1))
+  !
+  call get_vnew_solpts_gpu(tunew)
+  call get_vold_solpts_gpu(tuold)
+  !
+  call compute_error_gpu(tunew,tuold,error(:,:,2))
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  do l = 1,2
+    do m = 1,nq+1
+      n = nint(error(m,5,l))
+      nc = cell_for_sp(n)
+      k = n - cell(nc)%beg_sp + 1
+      error(m,4,l) = real(cell_map(mypnum+1)%loc_to_glb(nc),kind=wp)
+      error(m,5,l) = real(k,kind=wp)
+    end do
+  end do
+  !
+  ! Finish computing the various global norms for all variables
+  !
+  vol_inv = one/total_volume
+  !
+  if (ncpu > 1) then
+    !
+    ! Collect the error information from all processors
+    !
+    call mpi_allgather(error,    size(error,kind=int_mpi),mpi_flttyp, &
+                       all_error,size(error,kind=int_mpi),mpi_flttyp, &
+                       MPI_COMM_WORLD,mpierr)
+    !
+    ! Finish computing the various error norms across all processors
+    !
+    do l = 1,2
+      ! l : 1 => conserved variables + entropy
+      !     2 => primitive variables (temp,vel,pres) + velocity magnitude
+      do m = 1,nq+1
+        !
+        ! L1 norm for the current variable
+        uverr(m,1,l) =       sum(all_error(m,1,l,:)) * vol_inv
+        ! L2 norm for the current variable
+        uverr(m,2,l) = sqrt( sum(all_error(m,2,l,:)) * vol_inv )
+        ! Infinity norm for the current variable
+        uverr(m,3,l) = maxval(all_error(m,3,l,:))
+        !
+        ! Processor with max inf norm for the current variable
+        k = maxloc(all_error(m,3,l,:),dim=1)
+        ! ID of grid cell with max inf norm for the current variable
+        uverr(m,4,l) = all_error(m,4,l,k)
+        ! ID of sol point with max inf norm for the current variable
+        uverr(m,5,l) = all_error(m,5,l,k)
+        ! Coordinates of sol point with max inf norm for the current variable
+        uverr(m,5+l1,l) = all_error(m,5+l1,l,k)
+        uverr(m,5+l2,l) = all_error(m,5+l2,l,k)
+        uverr(m,5+l3,l) = all_error(m,5+l3,l,k)
+        !
+      end do
+      !
+    end do
+    !
+  else
+    !
+    ! Copy all the error values into the uverr array
+    !
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
+    do l = 1,size(error,dim=3)
+      do n = 1,size(error,dim=2)
+        do m = 1,size(error,dim=1)
+          uverr(m,n,l) = error(m,n,l)
+        end do
+      end do
+    end do
+    !
+    ! Finalize the L1 and L2 norms
+    !
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+    do l = 1,size(error,dim=3)
+      do m = 1,size(error,dim=1)
+        uverr(m,1,l) =       uverr(m,1,l) * vol_inv
+        uverr(m,2,l) = sqrt( uverr(m,2,l) * vol_inv )
+      end do
+    end do
+    !
+  end if
+  !$ACC UPDATE HOST(uverr)
+  !
+  !$ACC END DATA
+  deallocate ( cell_for_sp )
+  deallocate ( tuold )
+  deallocate ( tunew )
+  deallocate ( error )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_residual_error_gpu
+!
+!###############################################################################
+!
+subroutine compute_error_gpu(tunew,tuold,error)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr,n_solpts,xyz
+  use metrics_mod, only : wtdjac
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tunew(:,:)
+  real(wp),    intent(in) :: tuold(:,:)
+  real(wp), intent(inout) :: error(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,m,n,l1,l2,l3
+  real(wp) :: linf,lone,ltwo,new_val,old_val,linf_max
+  real(wp) :: lone_sum,ltwo_sum
+  !
+  !.. Local Allocatble Arrays ..
+  real(wp), allocatable :: linf_error(:)
+  !
+  ! error(1:nq+1,:,:) = error value for each flow equation + extra variable
+  ! error(:,1) = L1    norm of total error for all solution points
+  ! error(:,2) = L2%   norm of total error for all solution points
+  ! error(:,3) = L-inf norm (max value) of error for all solution points
+  ! error(:,4) = ID of grid cell containing maximum value of error
+  ! error(:,5) = ID of solution point with maximum value of error
+  ! error(:,6) = x-coordinate of sol-pt with max value of error
+  ! error(:,7) = y-coordinate of sol-pt with max value of error (if 2D or 3D)
+  ! error(:,8) = z-coordinate of sol-pt with max value of error (if 3D
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_error_gpu"
+  !
+continue
+  !
+  l1 = 1
+  l2 = min(2,nr)
+  l3 = min(3,nr)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( linf_error(1:n_solpts) )
+  !$ACC DATA CREATE(linf_error) &
+  !$ACC&     PRESENT(tunew,tuold,wtdjac,error)
+  !
+  do m = 1,nq+1
+    !
+    lone_sum = zero
+    ltwo_sum = zero
+    !
+    !$ACC PARALLEL LOOP REDUCTION(+:lone_sum,ltwo_sum)
+    do n = 1,n_solpts
+      !
+      new_val = tunew(n,m)
+      old_val = tuold(n,m)
+      !
+      linf = abs( new_val - old_val ) 
+      lone = linf*wtdjac(n)
+      ltwo = linf*lone
+      !
+      lone_sum = lone_sum + lone
+      ltwo_sum = ltwo_sum + ltwo
+      !
+      linf_error(n) = linf
+      !
+    end do
+    !
+    linf_max = -huge(zero)
+    do n = 1,n_solpts
+      if (linf_error(n) > linf_max) then
+        linf_max = linf_error(n)
+        k = n
+      end if
+    end do
+   !k = maxloc(linf_error(:),dim=1)
+    !
+    error(m,1) = lone_sum
+    error(m,2) = ltwo_sum
+    error(m,3) = linf_error(k)
+    error(m,5) = real(k,kind=wp)
+    error(m,5+l1) = xyz(l1,k)
+    error(m,5+l2) = xyz(l2,k)
+    error(m,5+l3) = xyz(l3,k)
+    !
+  end do
+  !
+  !$ACC END DATA
+  deallocate ( linf_error )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_error_gpu
+!
+!###############################################################################
+!
+subroutine get_unew_solpts_gpu(tunew)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : usp,uavesp
+  use ovar,    only : itestcase,pref_nd,gam
+  use ovar,    only : output_time_averaging
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: tunew(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
+  real(wp) :: gm1,gm1_over_pref_nd,pres
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_unew_solpts_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !    
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(tunew,uavesp)
+  !
+  if (output_time_averaging) then
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = uavesp(n,nec)
+        tunew(n,nmx) = uavesp(n,nmx)
+        tunew(n,nmy) = uavesp(n,nmy)
+        tunew(n,nmz) = uavesp(n,nmz)
+        tunew(n,nee) = uavesp(n,nee)
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = uavesp(n,nec)
+        tunew(n,nmx) = uavesp(n,nmx)
+        tunew(n,nmy) = uavesp(n,nmy)
+        tunew(n,nee) = uavesp(n,nee)
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = uavesp(n,nec)
+        tunew(n,nmx) = uavesp(n,nmx)
+        tunew(n,nee) = uavesp(n,nee)
+      end do
+    end if
+    !
+  else
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = usp(nec,n)
+        tunew(n,nmx) = usp(nmx,n)
+        tunew(n,nmy) = usp(nmy,n)
+        tunew(n,nmz) = usp(nmz,n)
+        tunew(n,nee) = usp(nee,n)
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = usp(nec,n)
+        tunew(n,nmx) = usp(nmx,n)
+        tunew(n,nmy) = usp(nmy,n)
+        tunew(n,nee) = usp(nee,n)
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tunew(n,nec) = usp(nec,n)
+        tunew(n,nmx) = usp(nmx,n)
+        tunew(n,nee) = usp(nee,n)
+      end do
+    end if
+    !
+  end if
+  !
+  if (itestcase == Inviscid_Gaussian_Bump) then
+    !
+    gm1_over_pref_nd = gm1 / pref_nd
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhov = tunew(n,nmy)
+        rhow = tunew(n,nmz)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+        !
+        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = pres / (rho**gam)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhov = tunew(n,nmy)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov
+        !
+        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = pres / (rho**gam)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou
+        !
+        pres = gm1_over_pref_nd * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = pres / (rho**gam)
+        !
+      end do
+    end if
+    !
+  else
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhov = tunew(n,nmy)
+        rhow = tunew(n,nmz)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhov = tunew(n,nmy)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tunew(n,nec)
+        rhou = tunew(n,nmx)
+        rhoe = tunew(n,nee)
+        !
+        rhoq2 = rhou*rhou
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tunew(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    end if
+    !
+  end if
+  !
+  !$ACC END DATA
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_unew_solpts_gpu
+!
+!###############################################################################
+!
+subroutine get_uold_solpts_gpu(tuold)
+  !
+  !.. Use Statements ..
+  use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
+  use ovar,    only : output_time_averaging,read_time_ave_restart
+  use ovar,    only : itcur,itrst,bc_in,itestcase,gam,mms_opt
+  use flowvar, only : usp,uoldsp,uavesp
+  use geovar,  only : n_solpts,xyz
+  use mms_mod, only : mms_solution_at_xyz
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: tuold(:,:)
+  !
+  !.. Local Scalars ..
+  integer     :: n,nr
+  real(wp)    :: a,b,gm1,pres,rhoq2
+  real(wp)    :: rho,rhou,rhov,rhow,rhoe
+  logical(lk) :: use_uavesp
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_offset(1:3,1:1)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_uold_solpts_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !    
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(tuold,uoldsp,uavesp,bc_in)
+  !
+  if (mms_opt /= 0) then
+    !
+    ! Evaluate the exact analytical MMS solution at the error points
+    !
+   !!$ACC PARALLEL LOOP GANG WORKER VECTOR &
+   !!$ACC&              NUM_GANGS(1) &
+   !!$ACC&              NUM_WORKERS(1) &
+   !!$ACC&              VECTOR_LENGTH(1)
+    do n = 1,n_solpts
+      tuold(n,1:nq) = mms_solution_at_xyz( xyz(1:nr,n), &
+                                           return_nondim=true, &
+                                           return_cv=true )
+    end do
+    !
+  else if (any(itestcase == Transport_Problems)) then
+    !
+    ! Evaluate the exact analytical solution to the vortex transport problem
+    !
+   !!$ACC PARALLEL LOOP GANG WORKER VECTOR &
+   !!$ACC&              NUM_GANGS(1) &
+   !!$ACC&              NUM_WORKERS(1) &
+   !!$ACC&              VECTOR_LENGTH(1)
+    do n = 1,n_solpts
+      xyz_offset(1:nr,1:1) = vortex_offset( xyz(1:nr,n:n) )
+      tuold(n,1:nq) = vortex_solution( xyz_offset(1:nr,1) )
+    end do
+    !
+  else if (itestcase == Freestream_Preservation) then
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tuold(n,nec) = bc_in(0)%cv(nec)
+        tuold(n,nmx) = bc_in(0)%cv(nmx)
+        tuold(n,nmy) = bc_in(0)%cv(nmy)
+        tuold(n,nmz) = bc_in(0)%cv(nmz)
+        tuold(n,nee) = bc_in(0)%cv(nee)
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tuold(n,nec) = bc_in(0)%cv(nec)
+        tuold(n,nmx) = bc_in(0)%cv(nmx)
+        tuold(n,nmy) = bc_in(0)%cv(nmy)
+        tuold(n,nee) = bc_in(0)%cv(nee)
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        tuold(n,nec) = bc_in(0)%cv(nec)
+        tuold(n,nmx) = bc_in(0)%cv(nmx)
+        tuold(n,nee) = bc_in(0)%cv(nee)
+      end do
+    end if
+    !
+  else
+    !
+    use_uavesp = fals
+    !
+    if (output_time_averaging) then
+      use_uavesp = true
+      if (any(saved_ave_time == [zero,ave_start_time]) .or. &
+          (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
+        use_uavesp = fals
+      end if
+    end if
+    !
+    if (use_uavesp) then
+      !
+      ! Compute uavesp at the previous averaging time
+      !
+      a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
+      b = one - a
+      !
+      if (nr == 3) then
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
+          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(nmy,n)
+          tuold(n,nmz) = b * uavesp(n,nmz) - a * usp(nmz,n)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+        end do
+      else if (nr == 2) then
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
+          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(nmy,n)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+        end do
+      else
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+        end do
+      end if
+      !
+    else
+      !
+      if (nr == 3) then
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = uoldsp(n,nec)
+          tuold(n,nmx) = uoldsp(n,nmx)
+          tuold(n,nmy) = uoldsp(n,nmy)
+          tuold(n,nmz) = uoldsp(n,nmz)
+          tuold(n,nee) = uoldsp(n,nee)
+        end do
+      else if (nr == 2) then
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = uoldsp(n,nec)
+          tuold(n,nmx) = uoldsp(n,nmx)
+          tuold(n,nmy) = uoldsp(n,nmy)
+          tuold(n,nee) = uoldsp(n,nee)
+        end do
+      else
+        !$ACC PARALLEL LOOP
+        do n = 1,n_solpts
+          tuold(n,nec) = uoldsp(n,nec)
+          tuold(n,nmx) = uoldsp(n,nmx)
+          tuold(n,nee) = uoldsp(n,nee)
+        end do
+      end if
+      !
+    end if
+    !
+  end if
+  !
+  if (itestcase == Inviscid_Gaussian_Bump) then
+    !
+    do n = 1,n_solpts
+      tuold(n,nq+1) = one
+    end do
+    !
+  else
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tuold(n,nec)
+        rhou = tuold(n,nmx)
+        rhov = tuold(n,nmy)
+        rhow = tuold(n,nmz)
+        rhoe = tuold(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tuold(n,nec)
+        rhou = tuold(n,nmx)
+        rhov = tuold(n,nmy)
+        rhoe = tuold(n,nee)
+        !
+        rhoq2 = rhou*rhou + rhov*rhov
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho  = tuold(n,nec)
+        rhou = tuold(n,nmx)
+        rhoe = tuold(n,nee)
+        !
+        rhoq2 = rhou*rhou
+        !
+        pres = gm1 * (rhoe - half*rhoq2/rho)
+        !
+        tuold(n,nq+1) = log(pres) - gam*log(rho)
+        !
+      end do
+    end if
+    !
+  end if
+  !
+  !$ACC END DATA
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_uold_solpts_gpu
+!
+!###############################################################################
+!
+subroutine get_vnew_solpts_gpu(tvnew)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : uavesp
+  use ovar,    only : gam,rgasref_nd
+  use ovar,    only : output_time_averaging
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: tvnew(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: velx,vely,velz,q2,rho,rho_inv
+  real(wp) :: rhoe,pres,temp,rgas_inv,gm1
+  !
+  real(wp) :: rhou,rhov,rhow,rhoq2,temp1,temp2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_vnew_solpts_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  gm1 = gam - one
+  !
+  !$ACC DATA PRESENT(tvnew,uavesp)
+  !
+  ! Get the primitive variables of the current solution at the error points
+  !
+  if (output_time_averaging) then
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        velx = uavesp(n,nq+nmx)
+        vely = uavesp(n,nq+nmy)
+        velz = uavesp(n,nq+nmz)
+        !
+        tvnew(n,nec) = uavesp(n,nq+nec)
+        tvnew(n,nmx) = velx
+        tvnew(n,nmy) = vely
+        tvnew(n,nmz) = velz
+        tvnew(n,nee) = uavesp(n,nq+nee)
+        tvnew(n,nq+1) = sqrt(velx*velx + vely*vely + velz*velz)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        velx = uavesp(n,nq+nmx)
+        vely = uavesp(n,nq+nmy)
+        !
+        tvnew(n,nec) = uavesp(n,nq+nec)
+        tvnew(n,nmx) = velx
+        tvnew(n,nmy) = vely
+        tvnew(n,nee) = uavesp(n,nq+nee)
+        tvnew(n,nq+1) = sqrt(velx*velx + vely*vely)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        velx = uavesp(n,nq+nmx)
+        !
+        tvnew(n,nec) = uavesp(n,nq+nec)
+        tvnew(n,nmx) = velx
+        tvnew(n,nee) = uavesp(n,nq+nee)
+        tvnew(n,nq+1) = sqrt(velx*velx)
+        !
+      end do
+    end if
+  else
+    !
+    rgas_inv = one/rgasref_nd
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvnew(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvnew(n,nmx)*rho_inv
+        vely = tvnew(n,nmy)*rho_inv
+        velz = tvnew(n,nmz)*rho_inv
+        rhoe = tvnew(n,nee)
+        !
+        q2 = velx*velx + vely*vely + velz*velz
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvnew(n,nec) = temp
+        tvnew(n,nmx) = velx
+        tvnew(n,nmy) = vely
+        tvnew(n,nmz) = velz
+        tvnew(n,nee) = pres
+        tvnew(n,nq+1) = sqrt(q2)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvnew(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvnew(n,nmx)*rho_inv
+        vely = tvnew(n,nmy)*rho_inv
+        rhoe = tvnew(n,nee)
+        !
+        q2 = velx*velx + vely*vely
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvnew(n,nec) = temp
+        tvnew(n,nmx) = velx
+        tvnew(n,nmy) = vely
+        tvnew(n,nee) = pres
+        tvnew(n,nq+1) = sqrt(q2)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvnew(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvnew(n,nmx)*rho_inv
+        rhoe = tvnew(n,nee)
+        !
+        q2 = velx*velx
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvnew(n,nec) = temp
+        tvnew(n,nmx) = velx
+        tvnew(n,nee) = pres
+        tvnew(n,nq+1) = sqrt(q2)
+        !
+      end do
+    end if
+  end if
+  !
+  !$ACC END DATA
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_vnew_solpts_gpu
+!
+!###############################################################################
+!
+subroutine get_vold_solpts_gpu(tvold)
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use flowvar, only : usp,uavesp
+  use ovar,    only : prev_ave_time,saved_ave_time,ave_start_time
+  use ovar,    only : output_time_averaging,read_time_ave_restart
+  use ovar,    only : itcur,itrst,gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: tvold(:,:)
+  !
+  !.. Local Scalars ..
+  integer     :: n,nr
+  real(wp)    :: a,b,velx,vely,velz,q2,rho,rho_inv
+  real(wp)    :: rhoe,pres,temp,rgas_inv,gm1
+  logical(lk) :: use_uavesp
+  !
+  real(wp) :: rhou,rhov,rhow,rhoq2,temp1,temp2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_vold_solpts_gpu"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  !$ACC DATA PRESENT(tvold,uavesp)
+  !
+  gm1 = gam - one
+  rgas_inv = one/rgasref_nd
+  !
+  ! Get the primitive variables of the current solution at the error points
+  !
+  use_uavesp = fals
+  !
+  if (output_time_averaging) then
+    use_uavesp = true
+    if (any(saved_ave_time == [zero,ave_start_time]) .or. &
+        (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
+      use_uavesp = fals
+    end if
+  end if
+  !
+  if (use_uavesp) then
+    !
+    ! Compute uavesp at the previous averaging time
+    !
+    a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
+    b = one - a
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = usp(nec,n)
+        !
+        rho_inv = one/rho
+        !
+        velx = usp(nmx,n)*rho_inv
+        vely = usp(nmy,n)*rho_inv
+        velz = usp(nmz,n)*rho_inv
+        rhoe = usp(nee,n)
+        !
+        q2 = velx*velx + vely*vely + velz*velz
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        velx = b * uavesp(n,nq+nmx) - a * velx
+        vely = b * uavesp(n,nq+nmy) - a * vely
+        velz = b * uavesp(n,nq+nmz) - a * velz
+        !
+        q2 = b * sqrt(velx*velx + vely*vely + velz*velz) - a * sqrt(q2)
+        !
+        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        tvold(n,nmx) = velx
+        tvold(n,nmy) = vely
+        tvold(n,nmz) = velz
+        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        tvold(n,nq+1) = q2
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = usp(nec,n)
+        !
+        rho_inv = one/rho
+        !
+        velx = usp(nmx,n)*rho_inv
+        vely = usp(nmy,n)*rho_inv
+        rhoe = usp(nee,n)
+        !
+        q2 = velx*velx + vely*vely
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        velx = b * uavesp(n,nq+nmx) - a * velx
+        vely = b * uavesp(n,nq+nmy) - a * vely
+        !
+        q2 = b * sqrt(velx*velx + vely*vely) - a * sqrt(q2)
+        !
+        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        tvold(n,nmx) = velx
+        tvold(n,nmy) = vely
+        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        tvold(n,nq+1) = q2
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = usp(nec,n)
+        !
+        rho_inv = one/rho
+        !
+        velx = usp(nmx,n)*rho_inv
+        rhoe = usp(nee,n)
+        !
+        q2 = velx*velx
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        velx = b * uavesp(n,nq+nmx) - a * velx
+        !
+        q2 = b * sqrt(velx*velx) - a * sqrt(q2)
+        !
+        tvold(n,nec) = b * uavesp(n,nq+nec) - a * temp
+        tvold(n,nmx) = velx
+        tvold(n,nee) = b * uavesp(n,nq+nee) - a * pres
+        tvold(n,nq+1) = q2
+        !
+      end do
+    end if
+    !
+  else
+    !
+    if (nr == 3) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvold(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvold(n,nmx)*rho_inv
+        vely = tvold(n,nmy)*rho_inv
+        velz = tvold(n,nmz)*rho_inv
+        rhoe = tvold(n,nee)
+        !
+        q2 = velx*velx + vely*vely + velz*velz
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvold(n,nec) = temp
+        tvold(n,nmx) = velx
+        tvold(n,nmy) = vely
+        tvold(n,nmz) = velz
+        tvold(n,nee) = pres
+        tvold(n,nq+1) = sqrt(q2)
+        !
+      end do
+    else if (nr == 2) then
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvold(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvold(n,nmx)*rho_inv
+        vely = tvold(n,nmy)*rho_inv
+        rhoe = tvold(n,nee)
+        !
+        q2 = velx*velx + vely*vely
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvold(n,nec) = temp
+        tvold(n,nmx) = velx
+        tvold(n,nmy) = vely
+        tvold(n,nee) = pres
+        tvold(n,nq+1) = sqrt(q2)
+        !
+      end do
+    else
+      !$ACC PARALLEL LOOP
+      do n = 1,n_solpts
+        !
+        rho = tvold(n,nec)
+        !
+        rho_inv = one/rho
+        !
+        velx = tvold(n,nmx)*rho_inv
+        rhoe = tvold(n,nee)
+        !
+        q2 = velx*velx
+        !
+        pres = gm1 * (rhoe - half*rho*q2)
+        temp = pres*rho_inv*rgas_inv
+        !
+        tvold(n,nec) = temp
+        tvold(n,nmx) = velx
+        tvold(n,nee) = pres
+        tvold(n,nq+1) = sqrt(q2)
+        !
+      end do
+    end if
+  end if
+  !
+  !$ACC END DATA
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_vold_solpts_gpu
 !
 !###############################################################################
 !
@@ -43,12 +1140,12 @@ subroutine compute_residual_error()
   use order_mod, only : maxEP
   use geovar,  only : nr,ncell,cell
   use ovar,    only : total_volume,itestcase
-  use ovar,    only : uverr
+  use ovar,    only : uverr1
   use parallel_mod, only : cell_map
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
-  integer  :: this_cell,n1,n2,np,k,m,n
+  integer  :: this_cell,n1,n2,np,k,m,n,l
   integer  :: this_geom,this_order,l1,l2,l3
   real(wp) :: sn,se
   !
@@ -129,12 +1226,13 @@ continue
       end if
       !
       ett(1:nq,1) = abs( unew(:,k) - uold(:,k) )
-      ett(nq+1,1) = sn - se
+      ett(nq+1,1) = abs(sn - se)
       !
       ! Error for primitive variables at the current solution point
       !
       ett(1:nq,2) = abs( vnew(:,k) - vold(:,k) )
-      ett(nq+1,2) = norm2( ett(nmb:nme,2) )
+     !ett(nq+1,2) = norm2( ett(nmb:nme,2) )
+      ett(nq+1,2) = abs( norm2(vnew(nmb:nme,k)) - norm2(vold(nmb:nme,k)) )
       !
       ! Now add the error for all variables at the current solution
       ! point to the running integral sum for the L1 and L2 error norms
@@ -176,29 +1274,29 @@ continue
     !     2 => primitive variables (temp,vel,pres) + velocity magnitude
     !
    !! L1 norm for the current set of variables
-   !uverr(:,1,n) =       sum(all_error(:,n,1,:),dim=2) / total_volume
+   !uverr1(:,1,n) =       sum(all_error(:,n,1,:),dim=2) / total_volume
    !! L2 norm for the current set of variables
-   !uverr(:,2,n) = sqrt( sum(all_error(:,n,2,:),dim=2) / total_volume )
+   !uverr1(:,2,n) = sqrt( sum(all_error(:,n,2,:),dim=2) / total_volume )
    !! Infinity norm for the current set of variables
-   !uverr(:,3,n) = maxval(all_error(:,n,3,:),dim=2)
+   !uverr1(:,3,n) = maxval(all_error(:,n,3,:),dim=2)
     !
     do m = 1,nq+1
       !
       ! L1 norm for the current variable
-      uverr(m,1,n) =       sum(all_error(m,n,1,:)) / total_volume
+      uverr1(m,1,n) =       sum(all_error(m,n,1,:)) / total_volume
       ! L2 norm for the current variable
-      uverr(m,2,n) = sqrt( sum(all_error(m,n,2,:)) / total_volume )
+      uverr1(m,2,n) = sqrt( sum(all_error(m,n,2,:)) / total_volume )
       ! Infinity norm for the current variable
-      uverr(m,3,n) = maxval(all_error(m,n,3,:))
+      uverr1(m,3,n) = maxval(all_error(m,n,3,:))
       !
       ! Processor with max inf norm for the current variable
       k = maxloc(all_error(m,n,3,:),dim=1)
       ! ID of grid cell with max inf norm for the current variable
-      uverr(m,4,n) = all_error(m,n,4,k)
+      uverr1(m,4,n) = all_error(m,n,4,k)
       ! ID of sol point with max inf norm for the current variable
-      uverr(m,5,n) = all_error(m,n,5,k)
+      uverr1(m,5,n) = all_error(m,n,5,k)
       ! Coordinates of sol point with max inf norm for the current variable
-      uverr(m,6:5+nr,n) = all_error(m,n,6:5+nr,k)
+      uverr1(m,6:5+nr,n) = all_error(m,n,6:5+nr,k)
       !
     end do
     !
@@ -215,7 +1313,7 @@ end subroutine compute_residual_error
 !
 !###############################################################################
 !
-subroutine write_iter_stats(walltime_expiring,exit_main_loop)
+subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   !
   !.. Use Statements ..
   use geovar,  only : global_pinc_ptr
@@ -241,7 +1339,7 @@ subroutine write_iter_stats(walltime_expiring,exit_main_loop)
   real(wp) :: rltwo
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "write_iter_stats"
+  character(len=*), parameter :: pname = "write_iter_stats_gpu"
   !
 continue
   !
@@ -275,7 +1373,7 @@ continue
     if (vortex_has_collapsed) then
       !
       ! Need to subtract from final_countdown the number of time steps
-      ! that have been completed since the last call to write_iter_stats
+      ! that have been completed since the last call to write_iter_stats_gpu
       !
       final_countdown = max(final_countdown - iter_out_interval,0)
       !
@@ -396,6 +1494,191 @@ continue
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
               "******************************************************",/)
   !
+end subroutine write_iter_stats_gpu
+!
+!###############################################################################
+!
+subroutine write_iter_stats(walltime_expiring,exit_main_loop)
+  !
+  !.. Use Statements ..
+  use geovar,  only : global_pinc_ptr
+  use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
+  use ovar,    only : convergence_reached,itestcase,Period_Timesteps
+  use ovar,    only : convergence_order_max_res,convergence_order_abs_res
+  use ovar,    only : uverr1,this_is_final_timestep,iter_out_interval
+  use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
+  !
+  use pbs_mod, only : pbs_remaining_walltime
+  !
+  !.. Formal Arguments ..
+  logical(lk), intent(inout) :: walltime_expiring
+  logical(lk), intent(  out) :: exit_main_loop
+  !
+  !.. Local Scalars ..
+  integer  :: hrs_left,min_left,sec_left
+  integer  :: nloc,kloc
+  real(wp) :: xentmax,yentmax
+  real(wp) :: entL2
+  real(wp) :: wall_time_left,out_time
+  real(wp) :: orders_converged,output_L2val
+  real(wp) :: rltwo
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_iter_stats"
+  !
+continue
+  !
+  exit_main_loop = fals
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Get the density and entropy residual stats from uverr1
+  !
+  rltwo = uverr1(nec,2,1)
+  entL2 = uverr1(nq+1,2,1)
+  !
+  nloc = nint( uverr1(nec,4,1) )
+  kloc = nint( uverr1(nec,5,1) )
+  !
+  ! Coordinates Location of the max inf norm for entropy
+  xentmax = uverr1(nq+1,6,1)
+  yentmax = uverr1(nq+1,7,1)
+  !
+  ! Maximum L2 norm of density for the current simulation
+  rl2mx1 = max( rltwo , rl2mx1 )
+  !
+  if (any(itestcase == Transport_Problems)) then
+    !
+    output_L2val = entL2
+    convergence_reached = fals
+    !
+    ! Check for a collapse of the vortex, or update the final
+    ! countdown if a collapse has already been detected
+    !
+    if (vortex_has_collapsed) then
+      !
+      ! Need to subtract from final_countdown the number of time steps
+      ! that have been completed since the last call to write_iter_stats
+      !
+      final_countdown = max(final_countdown - iter_out_interval,0)
+      !
+    else if (rltwo > zero) then
+      !
+      if (log10(rltwo) > Density_Maximum_Residual) then
+        Density_Maximum_Residual = log10(rltwo)
+      end if
+      if (Density_Maximum_Residual > -two) then
+        vortex_has_collapsed = true
+        final_countdown = 26*Period_Timesteps - mod(itcur,Period_Timesteps)
+      end if
+      !
+    end if
+    !
+  else
+    !
+    orders_converged = log10(max(rl2mx1,eps17)) - log10(max(rltwo,eps17))
+    output_L2val = orders_converged 
+    !
+    ! Check for convergence
+    !
+    if (itcur > minimum_timesteps) then
+      convergence_reached = (-orders_converged <= convergence_order_max_res) &
+                            .or. (log10(rltwo) <= convergence_order_abs_res)
+      if (itestcase == Taylor_Green_Vortex) then
+        convergence_reached = fals
+      end if
+    end if
+    !
+  end if
+  !
+  ! Output the results for the current time step
+  !
+  call pbs_remaining_walltime(walltime_expiring,wall_time_left)
+  !
+  if (mypnum == glb_root) then
+    !
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
+#ifdef PBS_ENV
+    !
+    sec_left = abs(nint(wall_time_left))
+    !
+    hrs_left = sec_left/3600
+    min_left = (sec_left - hrs_left*3600)/60
+    sec_left = sec_left - hrs_left*3600 - min_left*60
+    ! Make hrs_left negative if wall_time_left happens to be negative
+    hrs_left = sign(hrs_left,int(wall_time_left))
+    !
+   !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,out_time, &
+                              cfl,rltwo,output_L2val,nloc, &
+                              global_pinc_ptr(nloc)+kloc, &
+                              xentmax,yentmax, &
+                              hrs_left,min_left,sec_left
+    !
+#else
+    !
+   !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
+    write (iout,iter_out_fmt) itcur,d_t,out_time, &
+                              cfl,rltwo,output_L2val,nloc, &
+                              global_pinc_ptr(nloc)+kloc, &
+                              xentmax,yentmax
+    !
+    !
+#endif
+    !
+    if (convergence_reached) then
+      if (-orders_converged <= convergence_order_max_res) write (iout,3)
+      if (log10(rltwo) <= convergence_order_abs_res) write (iout,4)
+    end if
+    !
+    if (walltime_expiring) write (iout,2)
+    !
+    if (this_is_final_timestep) write (iout,5)
+    !
+  end if
+  !
+  ! If a vortex collapse has been detected and final_countdown has reached 0,
+  ! activate convergence_reached so that the main_loop can be exited when
+  ! we return from this subroutine to the main program.
+  !
+  if (vortex_has_collapsed .and. final_countdown==0) then
+    if (mypnum == glb_root) write (iout,6)
+    convergence_reached = true
+  end if
+  !
+  if (convergence_reached) exit_main_loop = true
+  if (this_is_final_timestep) exit_main_loop = true
+  if (walltime_expiring) exit_main_loop = true
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  2 format (/,"*******************************************************",/, &
+              " THE SIMULATION WALL TIME REQUESTED IS EXPIRING SOON!",/, &
+              " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
+              "*******************************************************",/)
+  3 format (/,"*******************************************************",/, &
+              " THE CONVERGENCE CRITERION FOR THE ORDERS OF",/, &
+              " MAGNITUDE REDUCTION OF THE RESIDUAL ERROR",/, &
+              " RELATIVE TO THE MAXIMUM RESIDUAL ERROR HAS BEEN MET!",/, &
+              "*******************************************************",/)
+  4 format (/,"*******************************************************",/, &
+              " THE CONVERGENCE CRITERION FOR THE ORDER OF MAGNITUDE",/, &
+              " REDUCTION OF THE ABSOLUTE RESIDUAL ERROR HAS BEEN MET!",/, &
+              "*******************************************************",/)
+  5 format (/,"*******************************************************",/, &
+              " THE SIMULATION HAS REACHED THE REQUESTED FINAL TIME!",/, &
+              "*******************************************************",/)
+  6 format (/,"******************************************************",/, &
+              " VORTEX HAS APPEARED TO COLLAPSE! THE SIMULATION WAS",/, &
+              " RUN ANOTHER 25 PERIODS PAST THE POINT OF COLLAPSE!",/, &
+              " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
+              "******************************************************",/)
+  !
 end subroutine write_iter_stats
 !
 !###############################################################################
@@ -405,7 +1688,7 @@ subroutine init_generic_mod
   !.. Use Statements ..
   use geovar, only : nr,n_global_cell,n_global_solpts
   use ovar,   only : itcur,num_timesteps,itestcase
-  use ovar,   only : uverr,output_time_averaging
+  use ovar,   only : uverr,uverr1,output_time_averaging
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -433,6 +1716,13 @@ continue
     allocate ( uverr(1:nq+1,1:5+nr,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uverr",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+  end if
+  !$ACC UPDATE DEVICE(uverr)
+  if (.not. allocated(uverr1)) then
+    allocate ( uverr1(1:nq+1,1:5+nr,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uverr1",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
   end if
   !
@@ -604,7 +1894,7 @@ subroutine collect_error_arrays(this_cell,unew,uold,wtdjac,xyz_err,vnew,vold)
   real(wp), optional, intent(inout) :: vold(:,:)
   !
   !.. Local Scalars ..
-  integer :: m,l,k,n1,n2,np,nep
+  integer :: k,l,m,n,n0,n1,n2,np,nep
   integer :: this_geom,this_order
   real(wp) :: a,b
   logical(lk) :: use_error_matrix
@@ -629,6 +1919,7 @@ continue
   n1 = cell(this_cell)%beg_sp
   n2 = cell(this_cell)%end_sp
   np = n2-n1+1
+  n0 = n1-1
   !
   ! Determine if we will be using the error matrix or not
   !
@@ -655,7 +1946,12 @@ continue
   ! Get the conserved variables of the current solution at the error points
   !
   if (output_time_averaging) then
-    ucurr(1:nq,1:np) = uavesp(1:nq,n1:n2)
+    do n = 1,np
+      do m = 1,nq
+        ucurr(m,n) = uavesp(n0+n,m)
+      end do
+    end do
+   !ucurr(1:nq,1:np) = uavesp(1:nq,n1:n2)
   else
     ucurr(1:nq,1:np) = usp(1:nq,n1:n2)
   end if
@@ -679,7 +1975,12 @@ continue
   if (present(vnew)) then
     !
     if (output_time_averaging) then
-      vcurr(1:nq,1:np) = uavesp(nq+1:2*nq,n1:n2)
+      do n = 1,np
+        do m = 1,nq
+          vcurr(m,n) = uavesp(n0+n,nq+m)
+        end do
+      end do
+     !vcurr(1:nq,1:np) = uavesp(nq+1:2*nq,n1:n2)
     else
       vcurr(1:nq,1:np) = usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
     end if
@@ -797,11 +2098,21 @@ continue
       ! Compute uavesp at the previous averaging time
       if (any(saved_ave_time == [zero,ave_start_time]) .or. &
           (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
-        uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+        do n = 1,np
+          do m = 1,nq
+            uprev(m,n) = uoldsp(n0+n,m)
+          end do
+        end do
+       !uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
       else
         a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
         b = one - a
-        uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
+        do n = 1,np
+          do m = 1,nq
+            uprev(m,n) = b * uavesp(n0+n,m) - a * usp(m,n)
+          end do
+        end do
+       !uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
        !if (any(uprev(nec,1:np) <= zero)) then
        !  uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
        !else if (any(pressure_cv(uprev(1:nq,1:np)) <= zero)) then
@@ -809,7 +2120,12 @@ continue
        !end if
       end if
     else
-      uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
+      do n = 1,np
+        do m = 1,nq
+          uprev(m,n) = uoldsp(n0+n,m)
+        end do
+      end do
+     !uprev(1:nq,1:np) = uoldsp(1:nq,n1:n2)
     end if
     !
     if (use_error_matrix) then
@@ -836,14 +2152,24 @@ continue
         ! Compute uavesp at the previous averaging time
         if (any(saved_ave_time == [zero,ave_start_time]) .or. &
             (.not. read_time_ave_restart .and. itcur-itrst < 100)) then
-          vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
+          do n = 1,np
+            vprev(1:nq,n) = usp2v_sp( uoldsp(n0+n,1:nq) , swap_t_for_rho=true )
+          end do
+         !vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
         else
           ! a and b were already computed above, no need to do it again
-          vprev(1:nq,1:np) = b * uavesp(nq+1:2*nq,n1:n2) - &
-                             a * usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
+          do n = 1,np
+            vprev(1:nq,n) = b * uavesp(n0+n,nq+1:2*nq) - &
+                            a * usp2v_sp( usp(1:nq,n0+n) , swap_t_for_rho=true )
+          end do
+         !vprev(1:nq,1:np) = b * uavesp(nq+1:2*nq,n1:n2) - &
+         !                   a * usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
         end if
       else
-        vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
+        do n = 1,np
+          vprev(1:nq,n) = usp2v_sp( uoldsp(n0+n,1:nq) , swap_t_for_rho=true )
+        end do
+       !vprev(1:nq,1:np) = usp2v( uoldsp(1:nq,n1:n2) , swap_t_for_rho=true )
       end if
       !
       if (use_error_matrix) then
@@ -871,6 +2197,445 @@ continue
  !call debug_timer(leaving_procedure,pname)
   !
 end subroutine collect_error_arrays
+!
+!###############################################################################
+!
+subroutine compute_TaylorGreen_KEDR_gpu(iter,dtmin)
+  !
+  !.. Use Statements ..
+  use order_mod, only : n_order
+  use geovar, only : nr,ncell,n_solpts
+  use ovar, only : muref_nd,total_volume
+  use ovar, only : time,time_ref
+  use ovar, only : VortexGrid_DOF
+  use ovar, only : iter_out_interval
+  use flowvar, only : usp,dusp
+  use quadrature_mod, only : std_elem
+  use metrics_mod, only : wtdjac
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  use gpu_mod, only : tusp2v_gpu
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: iter
+  real(wp), intent(in) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer :: k,n,nc,np,n0,tgv_idx
+  integer :: ierr,nmin,nmax,nbeg,nend
+  integer :: this_cell,this_geom,this_order
+  !
+  logical(lk) :: first_output,final_output
+  logical(lk) :: this_is_output_iter
+  !
+  real(wp) :: kem,kec,kep,dtm,dtp,vol_inv
+  real(wp) :: solution_time,muref_star
+  real(wp) :: sum_kedr_1,sum_kedr_2
+  real(wp) :: sum_kedr_3,sum_kedr_4
+  real(wp) :: rho,rho_inv,pres,q2,vort,div_vel
+  real(wp) :: a1,a2,a3,a4,a5,a6,strain
+  real(wp) :: velx,dudx,dvdx,dwdx,vortx
+  real(wp) :: vely,dudy,dvdy,dwdy,vorty
+  real(wp) :: velz,dudz,dvdz,dwdz,vortz
+  !
+  !.. Local Saved Scalars ..
+  logical(lk), save :: completed_first_output = fals
+  logical(lk), save :: needs_initialization = true
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: tusp(:,:)
+  real(wp), allocatable :: tvsp(:,:)
+  real(wp), allocatable :: tdpvdx(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_TaylorGreen_KEDR_gpu"
+  character(len=*), parameter :: fname = "TaylorGreen_KEDR.dat"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nmin = 1
+  nmax = iter_out_interval
+  !
+  ! Get the current index value for the kedr array
+  ! NOTE: tgv_idx will be zero if iter is 0, otherwise it will
+  !       take a value between 1 and iter_out_interval
+  !
+  tgv_idx = mod( abs(iter)-1 , nmax ) + 1
+  !
+  ! Create some logical variables to help readability
+  !
+  final_output = (iter < 0)
+  first_output = (iter == nmax) .or. &
+                 (final_output .and. .not. completed_first_output)
+  this_is_output_iter = ((tgv_idx == nmax .or. final_output) .and. (iter /= 0))
+  !
+  !####################################################
+  !####################################################
+  !####################################################
+  !##########                                ##########
+  !##########     INITIALIZATION SECTION     ##########
+  !##########                                ##########
+  !####################################################
+  !####################################################
+  !####################################################
+  !
+  ! If this is before the first iteration, initialize everything needed
+  ! for this subroutine
+  !
+  if (needs_initialization) then
+    !
+    ! Reset tgv_idx to 0 for the first time through this subroutine
+    !
+    tgv_idx = 0
+    !
+    ! NOTE: tgv_kedr(7,-1) will store the solution time for the last
+    !       output of the TGV results so initializing tgv_kedr to zero
+    !       is exactly what we need to start
+    !
+    allocate ( tgv_kedr(1:7,-1:nmax) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"tgv_kedr",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+    allocate ( sum_kedr(1:4,0:nmax) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sum_kedr",1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+    ! Initialize the array to adjust the nondimensionalization of the
+    ! integrated results
+    ! NOTE: The comments above each value indicate the reason for
+    !       the number of time_refs
+    !
+    ! Adjust the nondimensionalizatin of muref
+    !
+    muref_star = muref_nd / time_ref
+    !
+    ! two for square of velocity derivatives (from vorticity**2)
+    tgv_dimen(2) = muref_star / time_ref / time_ref
+    ! two for square of velocity derivatives (from strain**2)
+    tgv_dimen(3) = two * muref_star / time_ref / time_ref
+    ! two for pressure, one for velocity derivative
+    tgv_dimen(4) = -one / time_ref / time_ref / time_ref
+    ! two for velocity squared in kinetic energy term
+    tgv_dimen(5) = half / time_ref / time_ref
+    ! two for square of velocity derivatives (from vorticity**2)
+    tgv_dimen(6) = half / time_ref / time_ref
+    !
+    ! Set tgv_kedr(7,-1) to time the first time through
+    ! time will have the value zero for a new simulation or the
+    ! restart time if restarting a simulation
+    !
+    tgv_kedr(7,-1) = time * time_ref
+    !$ACC UPDATE DEVICE(tgv_kedr,sum_kedr,tgv_dimen)
+    !
+    ! Open the output file for the root process
+    !
+    if (mypnum == 0) then
+      !
+      nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
+      !
+      open (newunit=iotg,file=fname,status="replace",action="write", &
+            iostat=ierr,iomsg=error_message)
+      call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      write (iotg,1) n_order,nc*(n_order+1),n_order, &
+                     VortexGrid_DOF,nc*(n_order+1)
+      !
+    end if
+    !
+    ! Unset needs_initialization now that everything has been initialized
+    !
+    needs_initialization = fals
+    !
+  end if
+  !
+  allocate ( tusp(1:n_solpts,1:nq) )
+  allocate ( tvsp(1:n_solpts,1:nq) )
+  allocate ( tdpvdx(1:n_solpts,1:nr,1:nq) )
+  !
+  !$ACC DATA CREATE(tusp,tvsp,tdpvdx) &
+  !$ACC&     PRESENT(wtdjac)
+  !
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  do n = 1,n_solpts
+    tusp(n,nec) = usp(nec,n)
+    tusp(n,nmx) = usp(nmx,n)
+    tusp(n,nmy) = usp(nmy,n)
+    tusp(n,nmz) = usp(nmz,n)
+    tusp(n,nee) = usp(nee,n)
+  end do
+  !
+  call grad_cv_to_grad_pv_gpu(1,n_solpts,tusp,dusp,tdpvdx, &
+                              tusp_includes_rho_inv=fals)
+  !
+  call tusp2v_gpu(1,n_solpts,tusp,tvsp)
+  !
+  !######################################################
+  !######################################################
+  !######################################################
+  !##########                                  ##########
+  !##########     MAIN COMPUTATION SECTION     ##########
+  !##########                                  ##########
+  !######################################################
+  !######################################################
+  !######################################################
+  !
+  ! Loop over all the solution points to compute the
+  ! integrated quantities local to each processor
+  !
+  sum_kedr_1 = zero
+  sum_kedr_2 = zero
+  sum_kedr_3 = zero
+  sum_kedr_4 = zero
+  !
+  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_1,sum_kedr_2)
+  do n = 1,n_solpts
+    !
+    rho = tvsp(n,nec)
+    !
+    dudx = tdpvdx(n,1,nmx)
+    dudy = tdpvdx(n,2,nmx)
+    dudz = tdpvdx(n,3,nmx)
+    !
+    dvdx = tdpvdx(n,1,nmy)
+    dvdy = tdpvdx(n,2,nmy)
+    dvdz = tdpvdx(n,3,nmy)
+    !
+    dwdx = tdpvdx(n,1,nmz)
+    dwdy = tdpvdx(n,2,nmz)
+    dwdz = tdpvdx(n,3,nmz)
+    !
+    vortx = dwdy - dvdz
+    vorty = dudz - dwdx
+    vortz = dvdx - dudy
+    vort  = vortx*vortx + vorty*vorty + vortz*vortz 
+    !
+    a1 = dudy + dvdx
+    a2 = dudz + dwdx
+    a3 = dvdz + dwdy
+    !
+    a4 = dudx * (dudx - dvdy)
+    a5 = dvdy * (dvdy - dwdz)
+    a6 = dwdz * (dwdz - dudx)
+    !
+    strain = half*(a1*a1 + a2*a2 + a3*a3) + two3*(a4 + a5 + a6)
+    !
+    sum_kedr_1 = sum_kedr_1 + wtdjac(n)*rho*vort
+    sum_kedr_2 = sum_kedr_2 + wtdjac(n)*strain
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_3,sum_kedr_4)
+  do n = 1,n_solpts
+    !
+    rho  = tvsp(n,nec)
+    velx = tvsp(n,nmx)
+    vely = tvsp(n,nmy)
+    velz = tvsp(n,nmz)
+    pres = tvsp(n,nee)
+    !
+    q2 = velx*velx + vely*vely + velz*velz
+    !
+    dudx = tdpvdx(n,1,nmx)
+    dvdy = tdpvdx(n,2,nmy)
+    dwdz = tdpvdx(n,3,nmz)
+    !
+    div_vel = dudx + dvdy + dwdz
+    !
+    sum_kedr_3 = sum_kedr_3 + wtdjac(n)*pres*div_vel
+    sum_kedr_4 = sum_kedr_4 + wtdjac(n)*rho*q2
+    !
+  end do
+  !
+  sum_kedr(1,tgv_idx) = sum_kedr_1
+  sum_kedr(2,tgv_idx) = sum_kedr_2
+  sum_kedr(3,tgv_idx) = sum_kedr_3
+  sum_kedr(4,tgv_idx) = sum_kedr_4
+  !$ACC UPDATE SELF(sum_kedr)
+  !
+  !$ACC END DATA
+  deallocate ( tdpvdx )
+  deallocate ( tvsp )
+  deallocate ( tusp )
+  !
+  ! Store the current nondimensional time step
+  !
+  tgv_kedr(7,tgv_idx) = dtmin * time_ref
+  !$ACC UPDATE DEVICE(tgv_kedr,sum_kedr)
+  !
+  !#####################################################
+  !#####################################################
+  !#####################################################
+  !##########                                 ##########
+  !##########     INTERVAL OUTPUT SECTION     ##########
+  !##########                                 ##########
+  !#####################################################
+  !#####################################################
+  !#####################################################
+  !
+  ! If this is an iteration to output the results, collect the KEDR values
+  ! since the last output and dump the results to the Taylor-Green results file.
+  !
+  if (this_is_output_iter) then
+    !
+    ! Sum up the KEDR values across all the processors
+    !
+    if (ncpu > 1) then
+      !
+      call mpi_allreduce(MPI_IN_PLACE,sum_kedr,size(sum_kedr,kind=int_mpi), &
+                         mpi_flttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+      !
+      !$ACC UPDATE DEVICE(sum_kedr)
+    end if
+    !
+    ! If this this the first output interval, change nmin to 0 so that the
+    ! KEDR values for the initial conditions are also modified
+    !
+    if (first_output) nmin = 0
+    !
+    ! Finish computing the different KEDR
+    !
+    vol_inv = one/total_volume
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr,sum_kedr)
+    do n = nmin,nmax
+      tgv_kedr(2,n) = sum_kedr(1,n) * tgv_dimen(2) * vol_inv
+      tgv_kedr(3,n) = sum_kedr(2,n) * tgv_dimen(3) * vol_inv
+      tgv_kedr(4,n) = sum_kedr(3,n) * tgv_dimen(4) * vol_inv
+      tgv_kedr(5,n) = sum_kedr(4,n) * tgv_dimen(5) * vol_inv
+      tgv_kedr(6,n) = sum_kedr(1,n) * tgv_dimen(6) * vol_inv
+    end do
+    !
+    ! Compute the central difference of the KEDR to get its rate of change
+    ! over time
+    ! NOTE: The KEDR found by differencing the integrated kinetic energy is
+    !       actually given as KEDR(Ek) = -d/dt (Ek) so the differencing
+    !       equation below has been multiplied through by a -1.
+    !
+    nbeg = merge(     1     ,   0    , first_output )
+    nend = merge( tgv_idx-1 , nmax-1 , final_output )
+    !
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) PRESENT(tgv_kedr)
+    do n = nbeg,nend
+      !
+      kem = tgv_kedr(5,n-1)
+      kec = tgv_kedr(5,n)
+      kep = tgv_kedr(5,n+1)
+      !
+      dtm = tgv_kedr(7,n)
+      dtp = tgv_kedr(7,n+1)
+      !
+      tgv_kedr(1,n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
+      !
+    end do
+    !$ACC UPDATE SELF(tgv_kedr)
+    !
+    ! Do a one sided difference on the initial conditions if this is the
+    ! first output interval
+    !
+    if (first_output) then
+      tgv_kedr(1,0) = (tgv_kedr(5,0) - tgv_kedr(5,1)) / tgv_kedr(7,1)
+    end if
+    !
+    ! If this is the last output interval, do a one sided difference
+    ! on the final solution
+    !
+    if (final_output) then
+      n = tgv_idx
+      tgv_kedr(1,n) = (tgv_kedr(5,n-1) - tgv_kedr(5,n)) / tgv_kedr(7,n)
+    end if
+    !
+    ! Have the root processor output the Taylor-Green KEDR solutions
+    !
+    if (mypnum == 0) then
+      !
+      solution_time = tgv_kedr(7,-1)
+      do n = 0,nend
+        solution_time = solution_time + tgv_kedr(7,n)
+        write (iotg,2) solution_time, (tgv_kedr(k,n), k=1,size(tgv_kedr,dim=1))
+      end do
+      !
+      ! Perform a few final tasks if this is the final output
+      !
+      if (final_output) then
+        !
+        ! Output the last value of tgv_kedr
+        !
+        n = tgv_idx
+        solution_time = solution_time + tgv_kedr(7,n)
+        write (iotg,2) solution_time, (tgv_kedr(k,n), k=1,size(tgv_kedr,dim=1))
+        !
+        ! Close the Taylor-Green KEDR solution file
+        !
+        close (iotg,iostat=ierr,iomsg=error_message)
+        call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+        !
+      end if
+      !
+    else
+      !
+      solution_time = sum( tgv_kedr(7,-1:nend) )
+      !
+    end if
+    !
+    ! Peform some maintence on the tgv_kedr array before continuing
+    !
+    if (final_output) then
+      !
+      ! Deallocate tgv_kedr since it is no longer needed
+      !
+      deallocate ( tgv_kedr , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"tgv_kedr",2,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
+      !
+      deallocate ( sum_kedr , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"sum_kedr",2,__LINE__,__FILE__,ierr, &
+                       error_message,skip_alloc_pause)
+      !
+    else
+      !
+      ! Copy tgv_kedr(:,nmax-1:nmax) to tgv_kedr(:,-1:0) so they can
+      ! be used for the next output interval. Set tgv_kedr(7,-1) to
+      ! the last solution time that was output. Initialize all the other
+      ! values to zero.
+      !
+      tgv_kedr(:,-1) = [tgv_kedr(1:6,nmax-1),solution_time]
+      tgv_kedr(:,0)  = tgv_kedr(:,nmax)
+      tgv_kedr(:,1:nmax) = zero
+      sum_kedr = zero
+      !$ACC UPDATE DEVICE(tgv_kedr,sum_kedr)
+      !
+    end if
+    !
+    ! Set completed_first_output to true since
+    ! we have now completed at least one output
+    !
+    completed_first_output = true
+    !
+  end if
+  !
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ('VARIABLES = "t*"',/, &
+            '"<greek>e</greek>(E<sub>k</sub>)"',/, &
+            '"<greek>e</greek>(<greek>z</greek>)"',/, &
+            '"<greek>e</greek><sub>1</sub> (Deviatoric Strain Rate)"',/, &
+            '"<greek>e</greek><sub>3</sub> (Pressure Dialation)"',/, &
+            '"E<sub>k</sub>"',/, &
+            '"<greek>z</greek>"',/, &
+            '"<greek>D</greek>t*"',/, &
+            'ZONE T="P',i0,' - ',i0,'<sup>3</sup>"',/, &
+            'AUXDATA order="',i0,'"',/, &
+            'AUXDATA RDOF="',i0,'<sup>3</sup>"',/, &
+            'AUXDATA DOF="',i0,'<sup>3</sup>"')
+  2 format (100(es17.9))
+ !2 format (*(es17.9))
+  !
+end subroutine compute_TaylorGreen_KEDR_gpu
 !
 !###############################################################################
 !
@@ -943,19 +2708,6 @@ continue
                  (final_output .and. .not. completed_first_output)
   this_is_output_iter = ((tgv_idx == nmax .or. final_output) .and. (iter /= 0))
   !
-#ifdef DEBUG_ON
- !if (mypnum == 0) then
- !  if (first_output) then
- !    write (iout,13) "FIRST",iter,tgv_idx
- !  end if
- !  if (final_output) then
- !    write (iout,13) "FINAL",iter,tgv_idx
- !  end if
- !end if
- !13 format (/," THIS IS THE ",a," TGV-KEDR OUTPUT!",/, &
- !             "   niter=",i0,", tgv_idx=",i0,/)
-#endif
-  !
   !####################################################
   !####################################################
   !####################################################
@@ -979,14 +2731,14 @@ continue
     !       output of the TGV results so initializing tgv_kedr to zero
     !       is exactly what we need to start
     !
-    allocate ( tgv_kedr(1:7,-1:nmax) , source=zero , &
+    allocate ( tgv_kedr1(1:7,-1:nmax) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"tgv_kedr",1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,"tgv_kedr1",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
     !
-    allocate ( sum_kedr(1:4,0:nmax) , source=zero , &
+    allocate ( sum_kedr1(1:4,0:nmax) , source=zero , &
                stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sum_kedr",1,__LINE__,__FILE__,ierr, &
+    call alloc_error(pname,"sum_kedr1",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
     !
     ! Initialize the array to adjust the nondimensionalization of the
@@ -999,21 +2751,21 @@ continue
     muref_star = muref_nd / time_ref
     !
     ! two for square of velocity derivatives (from vorticity**2)
-    tgv_dimen(2) = muref_star / time_ref / time_ref
+    tgv_dimen1(2) = muref_star / time_ref / time_ref
     ! two for square of velocity derivatives (from strain**2)
-    tgv_dimen(3) = two * muref_star / time_ref / time_ref
+    tgv_dimen1(3) = two * muref_star / time_ref / time_ref
     ! two for pressure, one for velocity derivative
-    tgv_dimen(4) = -one / time_ref / time_ref / time_ref
+    tgv_dimen1(4) = -one / time_ref / time_ref / time_ref
     ! two for velocity squared in kinetic energy term
-    tgv_dimen(5) = half / time_ref / time_ref
+    tgv_dimen1(5) = half / time_ref / time_ref
     ! two for square of velocity derivatives (from vorticity**2)
-    tgv_dimen(6) = half / time_ref / time_ref
+    tgv_dimen1(6) = half / time_ref / time_ref
     !
     ! Set tgv_kedr(ndt,-1) to time the first time through
     ! time will have the value zero for a new simulation or the
     ! restart time if restarting a simulation
     !
-    tgv_kedr(ndt,-1) = time * time_ref
+    tgv_kedr1(ndt,-1) = time * time_ref
     !
     ! Open the output file for the root process
     !
@@ -1021,11 +2773,11 @@ continue
       !
       nc = nint( real(VortexGrid_DOF,kind=wp) / real(n_order+1,kind=wp) )
       !
-      open (newunit=iotg,file=fname,status="replace",action="write", &
+      open (newunit=iotg1,file=fname,status="replace",action="write", &
             iostat=ierr,iomsg=error_message)
       call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
       !
-      write (iotg,1) n_order,nc*(n_order+1),n_order, &
+      write (iotg1,1) n_order,nc*(n_order+1),n_order, &
                      VortexGrid_DOF,nc*(n_order+1)
       !
     end if
@@ -1048,7 +2800,7 @@ continue
   !
   ! Store the current nondimensional time step
   !
-  tgv_kedr(ndt,tgv_idx) = dtmin * time_ref
+  tgv_kedr1(ndt,tgv_idx) = dtmin * time_ref
   !
   ! Loop through the cells to compute the integrated
   ! quantities local to each processor
@@ -1083,7 +2835,7 @@ continue
         do l = 1,nr
           dcvdx(l,m,1:nep) = outerp(this_geom,this_order)% &
                                                     error% &
-                             mv_mult( dusp(l,m,n1:n2) )
+                             mv_mult( dusp(n1:n2,l,m) )
         end do
       end do
       !
@@ -1102,7 +2854,14 @@ continue
       ! NOTE: The vsp array will temporarily hold the conservative variables
       !
       vsp(1:nq,1:nep) = usp(1:nq,n1:n2)
-      dcvdx(1:nr,1:nq,1:nep) = dusp(1:nr,1:nq,n1:n2)
+      do n = 1,nep
+        do m = 1,nq
+          do l = 1,nr
+            dcvdx(l,m,n) = dusp(n1-1+n,l,m)
+          end do
+        end do
+      end do
+     !dcvdx(1:nr,1:nq,1:nep) = dusp(1:nr,1:nq,n1:n2)
       wtdjac(1:nep) = metrics_dt(this_cell)%jac * &
                       std_elem(this_geom,this_order)%wts
       !
@@ -1148,23 +2907,23 @@ continue
       ! 
       ! Theoretical KEDR based on the integrated enstrophy
       !
-      sum_kedr(1,tgv_idx) = sum_kedr(1,tgv_idx) + &
+      sum_kedr1(1,tgv_idx) = sum_kedr1(1,tgv_idx) + &
                             wtdjac(k)*vsp(nec,k)*selfdot( vort )
       !
       ! Contribution to theoretical KEDR from the deviatoric strain rate tensor
       !
-      sum_kedr(2,tgv_idx) = sum_kedr(2,tgv_idx) + &
+      sum_kedr1(2,tgv_idx) = sum_kedr1(2,tgv_idx) + &
                             wtdjac(k)*sum(strain*strain)
       !
       ! Contribution to theoretical KEDR from the pressure dialation term
       !
-      sum_kedr(3,tgv_idx) = sum_kedr(3,tgv_idx) + &
+      sum_kedr1(3,tgv_idx) = sum_kedr1(3,tgv_idx) + &
                             wtdjac(k)*vsp(nee,k)*div_vel
       !
       ! Integrated kinetic energy (later, it will
       ! be differenced in time to get KEDR)
       !
-      sum_kedr(4,tgv_idx) = sum_kedr(4,tgv_idx) + &
+      sum_kedr1(4,tgv_idx) = sum_kedr1(4,tgv_idx) + &
                             wtdjac(k)*vsp(nec,k)*selfdot( vsp(nmb:nme,k) )
       !
     end do
@@ -1188,19 +2947,9 @@ continue
     !
     ! Sum up the KEDR values across all the processors
     !
-#ifdef DEBUG_ON
-   !write (mypnum+20,*)
-   !write (mypnum+20,'("  iter = ",i0)') iter
-   !do n = lbound(sum_kedr,dim=2),ubound(sum_kedr,dim=2)
-   !  write (mypnum+20,15) n,(sum_kedr(k,n), &
-   !      k=lbound(sum_kedr,dim=1),ubound(sum_kedr,dim=1))
-   !end do
-   !15 format (2x,i3,*(2x,es14.6))
-#endif
-    !
     if (ncpu > 1) then
       !
-      call mpi_allreduce(MPI_IN_PLACE,sum_kedr,size(sum_kedr,kind=int_mpi), &
+      call mpi_allreduce(MPI_IN_PLACE,sum_kedr1,size(sum_kedr1,kind=int_mpi), &
                          mpi_flttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
       !
     end if
@@ -1210,32 +2959,22 @@ continue
     !
     if (first_output) nmin = 0
     !
-#ifdef DEBUG_ON
-   !write (mypnum+20,*)
-   !write (mypnum+20,14) nmin,nmax
-   !do n = lbound(sum_kedr,dim=2),ubound(sum_kedr,dim=2)
-   !  write (mypnum+20,15) n,(sum_kedr(k,n), &
-   !      k=lbound(sum_kedr,dim=1),ubound(sum_kedr,dim=1))
-   !end do
-   !14 format ("  nmin = ",i0,",  nmax = ",i0)
-#endif
-    !
     ! Finish computing the different KEDR
     !
-    tgv_kedr(2:5,nmin:nmax) = sum_kedr(1:4,nmin:nmax) / total_volume
+    tgv_kedr1(2:5,nmin:nmax) = sum_kedr1(1:4,nmin:nmax) / total_volume
     !
     ! Copy tgv_kedr(2) into tgv_kedr(6)
     !
-    tgv_kedr(6,nmin:nmax) = tgv_kedr(2,nmin:nmax)
+    tgv_kedr1(6,nmin:nmax) = tgv_kedr1(2,nmin:nmax)
     !
     ! Adjust the nondimensionalization for some of these KEDR values
     !
     do n = nmin,nmax
-      tgv_kedr(2,n) = tgv_kedr(2,n) * tgv_dimen(2)
-      tgv_kedr(3,n) = tgv_kedr(3,n) * tgv_dimen(3)
-      tgv_kedr(4,n) = tgv_kedr(4,n) * tgv_dimen(4)
-      tgv_kedr(5,n) = tgv_kedr(5,n) * tgv_dimen(5)
-      tgv_kedr(6,n) = tgv_kedr(6,n) * tgv_dimen(6)
+      tgv_kedr1(2,n) = tgv_kedr1(2,n) * tgv_dimen1(2)
+      tgv_kedr1(3,n) = tgv_kedr1(3,n) * tgv_dimen1(3)
+      tgv_kedr1(4,n) = tgv_kedr1(4,n) * tgv_dimen1(4)
+      tgv_kedr1(5,n) = tgv_kedr1(5,n) * tgv_dimen1(5)
+      tgv_kedr1(6,n) = tgv_kedr1(6,n) * tgv_dimen1(6)
     end do
     !
     ! Compute the central difference of the KEDR to get its rate of change
@@ -1249,27 +2988,14 @@ continue
     !
     do n = nbeg,nend
       !
-      kem = tgv_kedr(nke,n-1)
-      kec = tgv_kedr(nke,n)
-      kep = tgv_kedr(nke,n+1)
+      kem = tgv_kedr1(nke,n-1)
+      kec = tgv_kedr1(nke,n)
+      kep = tgv_kedr1(nke,n+1)
       !
-      dtm = tgv_kedr(ndt,n)
-      dtp = tgv_kedr(ndt,n+1)
+      dtm = tgv_kedr1(ndt,n)
+      dtp = tgv_kedr1(ndt,n+1)
       !
-#ifdef DEBUG_ON
-     !if (mypnum == 0) then
-     !  write (50,16) n,nbeg,nend
-     !  write (50,17) n-1,n,n+1,n,n-1,n+1,n
-     !  write (50,18) kem,kec,kep,dtm,dtp
-     !end if
-     !16 format ("  n=",i0,", nbeg=",i0,", nend=",i0)
-     !17 format (6x,"kedr(",i0")",9x,"kedr(",i0")",9x,"kedr(",i0")",9x, &
-     !           "dt(",i0,"-",i0,")",9x,"dt(",i0,"-",i0,")")
-     !18 format (*(2x,es14.6))
-     !write (iout,12) mypnum,n,nbeg,nend,kem,kec,kep,dtm,dtp
-     !12 format ("  cpu ",i0,": n=",i0,", nbeg=",i0,", nend=",i0,*(2x,es14.6))
-#endif
-      tgv_kedr(1,n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
+      tgv_kedr1(1,n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
       !
     end do
     !
@@ -1278,7 +3004,7 @@ continue
     !
     if (first_output) then
       n = 0
-      tgv_kedr(1,n) = (tgv_kedr(nke,n) - tgv_kedr(nke,n+1)) / tgv_kedr(ndt,n+1)
+      tgv_kedr1(1,n) = (tgv_kedr1(nke,n) - tgv_kedr1(nke,n+1)) / tgv_kedr1(ndt,n+1)
     end if
     !
     ! If this is the last output interval, do a one sided difference
@@ -1286,17 +3012,17 @@ continue
     !
     if (final_output) then
       n = tgv_idx
-      tgv_kedr(1,n) = (tgv_kedr(nke,n-1) - tgv_kedr(nke,n)) / tgv_kedr(ndt,n)
+      tgv_kedr1(1,n) = (tgv_kedr1(nke,n-1) - tgv_kedr1(nke,n)) / tgv_kedr1(ndt,n)
     end if
     !
     ! Have the root processor output the Taylor-Green KEDR solutions
     !
     if (mypnum == 0) then
       !
-      solution_time = tgv_kedr(ndt,-1)
+      solution_time = tgv_kedr1(ndt,-1)
       do n = 0,nend
-        solution_time = solution_time + tgv_kedr(ndt,n)
-        write (iotg,2) solution_time, (tgv_kedr(k,n), k=1,size(tgv_kedr,dim=1))
+        solution_time = solution_time + tgv_kedr1(ndt,n)
+        write (iotg1,2) solution_time, (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
       end do
       !
       ! Perform a few final tasks if this is the final output
@@ -1306,19 +3032,19 @@ continue
         ! Output the last value of tgv_kedr
         !
         n = tgv_idx
-        solution_time = solution_time + tgv_kedr(ndt,n)
-        write (iotg,2) solution_time, (tgv_kedr(k,n), k=1,size(tgv_kedr,dim=1))
+        solution_time = solution_time + tgv_kedr1(ndt,n)
+        write (iotg1,2) solution_time, (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
         !
         ! Close the Taylor-Green KEDR solution file
         !
-        close (iotg,iostat=ierr,iomsg=error_message)
+        close (iotg1,iostat=ierr,iomsg=error_message)
         call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
         !
       end if
       !
     else
       !
-      solution_time = sum( tgv_kedr(ndt,-1:nend) )
+      solution_time = sum( tgv_kedr1(ndt,-1:nend) )
       !
     end if
     !
@@ -1328,12 +3054,12 @@ continue
       !
       ! Deallocate tgv_kedr since it is no longer needed
       !
-      deallocate ( tgv_kedr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"tgv_kedr",2,__LINE__,__FILE__,ierr, &
+      deallocate ( tgv_kedr1 , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"tgv_kedr1",2,__LINE__,__FILE__,ierr, &
                        error_message,skip_alloc_pause)
       !
-      deallocate ( sum_kedr , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"sum_kedr",2,__LINE__,__FILE__,ierr, &
+      deallocate ( sum_kedr1 , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"sum_kedr1",2,__LINE__,__FILE__,ierr, &
                        error_message,skip_alloc_pause)
       !
     else
@@ -1343,14 +3069,10 @@ continue
       ! the last solution time that was output. Initialize all the other
       ! values to zero.
       !
-#ifdef DEBUG_ON
-     !write (iout,11) mypnum,solution_time
-     !11 format (2x,"cpu ",i0,": solution_time = ",es23.15)
-#endif
-      tgv_kedr(:,-1) = [tgv_kedr(1:6,nmax-1),solution_time]
-      tgv_kedr(:,0)  = tgv_kedr(:,nmax)
-      tgv_kedr(:,1:nmax) = zero
-      sum_kedr = zero
+      tgv_kedr1(:,-1) = [tgv_kedr1(1:6,nmax-1),solution_time]
+      tgv_kedr1(:,0)  = tgv_kedr1(:,nmax)
+      tgv_kedr1(:,1:nmax) = zero
+      sum_kedr1 = zero
       !
     end if
     !
@@ -1379,7 +3101,6 @@ continue
             'AUXDATA RDOF="',i0,'<sup>3</sup>"',/, &
             'AUXDATA DOF="',i0,'<sup>3</sup>"')
   2 format (100(es17.9))
- !2 format (*(es17.9))
   !
 end subroutine compute_TaylorGreen_KEDR
 !

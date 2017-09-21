@@ -66,6 +66,7 @@ module order_mod
   !
   integer, public, protected, save :: &
                               geom_solpts(Geom_Min:Geom_Max,Order_Min:Order_Max)
+  !$ACC DECLARE CREATE(geom_solpts)
   !
   ! Number of face/flux points for all geometries of orders 0 to max_order
   !
@@ -135,6 +136,8 @@ continue
  !  n_min_order = min( n_min_order , e_order )
  !  n_max_order = max( n_max_order , e_order )
  !end if
+  !
+  !$ACC UPDATE DEVICE(geom_solpts)
   !
 end subroutine initialize_geom_solpts
 !

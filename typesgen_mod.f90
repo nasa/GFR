@@ -8,6 +8,27 @@ module generic_types_mod
   !
   private
   !
+  public :: create_matrix_sparsity
+  !
+  ! matrix_gpu_t : derived type that stores a matrix quantity without the
+  !                type-bound procedures and procedure pointers found in
+  !                the matrix type.
+  !            Examples : interpolation matrix, derivative matrix, etc.
+  !
+  type, public :: matrix_gpu_t
+    !
+    real(wp), allocatable :: mat(:,:)
+    !
+    integer,  allocatable :: row_ptr(:)
+    integer,  allocatable :: row_idx(:)
+    real(wp), allocatable :: row_val(:)
+    !
+    integer,  allocatable :: col_ptr(:)
+    integer,  allocatable :: col_idx(:)
+    real(wp), allocatable :: col_val(:)
+    !
+  end type matrix_gpu_t
+  !
   ! matrix : derived type that stores a matrix quantity
   !            Examples : interpolation matrix, derivative matrix, etc.
   !
@@ -366,6 +387,93 @@ continue
   end if
   !
 end subroutine check_for_sparsity
+!
+!###############################################################################
+!
+elemental subroutine create_matrix_sparsity(this)
+  !
+  !.. Use Statements ..
+  use ovar, only : use_unrolled_dot_products
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(matrix_gpu_t), intent(inout) :: this
+  !
+  !.. Local Scalars ..
+  integer :: n,n1,n2,nsz_dim1,nsz_dim2,total_nz,ierr
+  !
+continue
+  !
+  if (allocated(this%mat)) then
+    !
+    nsz_dim1 = size(this%mat,dim=1)
+    nsz_dim2 = size(this%mat,dim=2)
+    !
+    total_nz = count(this%mat /= zero)
+    !
+    ! Convert the mat array into the sparse
+    ! arrays within the matrix derived-type
+    !
+    ! ######################################
+    ! ######################################
+    ! ######################################
+    ! #####                            #####
+    ! #####   Compressed Row Storage   #####
+    ! #####                            #####
+    ! ######################################
+    ! ######################################
+    ! ######################################
+    !
+    allocate ( this%row_ptr(1:nsz_dim2+1) , source=0 , stat=ierr )
+    allocate ( this%row_idx(1:total_nz) , stat=ierr )
+    allocate ( this%row_val(1:total_nz) , stat=ierr )
+    !
+    do n = 2,nsz_dim2+1
+      this%row_ptr(n) = this%row_ptr(n-1) + count(this%mat(:,n-1) /= zero)
+    end do
+    !
+    do n = 1,nsz_dim2
+      !
+      n1 = this%row_ptr(n)+1
+      n2 = this%row_ptr(n+1)
+      !
+      this%row_idx(n1:n2) = pack( intseq(1,nsz_dim1) , this%mat(:,n) /= zero )
+      !
+      this%row_val(n1:n2) = this%mat( this%row_idx(n1:n2) , n )
+      !
+    end do
+    !
+    ! #########################################
+    ! #########################################
+    ! #########################################
+    ! #####                               #####
+    ! #####   Compressed Column Storage   #####
+    ! #####                               #####
+    ! #########################################
+    ! #########################################
+    ! #########################################
+    !
+    allocate ( this%col_ptr(1:nsz_dim1+1) , source=0 , stat=ierr )
+    allocate ( this%col_idx(1:total_nz) , stat=ierr )
+    allocate ( this%col_val(1:total_nz) , stat=ierr )
+    !
+    do n = 2,nsz_dim1+1
+      this%col_ptr(n) = this%col_ptr(n-1) + count(this%mat(n-1,:) /= zero)
+    end do
+    !
+    do n = 1,nsz_dim1
+      !
+      n1 = this%col_ptr(n)+1
+      n2 = this%col_ptr(n+1)
+      !
+      this%col_idx(n1:n2) = pack( intseq(1,nsz_dim2) , this%mat(n,:) /= zero )
+      !
+      this%col_val(n1:n2) = this%mat( n , this%col_idx(n1:n2) )
+      !
+    end do
+    !
+  end if
+  !
+end subroutine create_matrix_sparsity
 !
 !###############################################################################
 !###############################################################################

@@ -108,8 +108,8 @@ continue
       !
       hc = -bfx / (metrics_dt(nc)%jac(n-n1+1)**jac_exp)
       !
-      residual(nmx,n) = residual(nmx,n) + add_or_subtract * hc
-      residual(nee,n) = residual(nee,n) + add_or_subtract * hc * vx 
+      residual(n,nmx) = residual(n,nmx) + add_or_subtract * hc
+      residual(n,nee) = residual(n,nee) + add_or_subtract * hc * vx 
       !
     end do
     !

@@ -14,6 +14,7 @@ module projection_mod
   public :: init_projection_matrices
   public :: project_to_porder
   public :: projection_memory_usage
+  public :: move_projct_to_device
   !
   !
   !
@@ -503,7 +504,7 @@ continue
   proj_order = p_order
   if (present(order)) proj_order = order
   !
-  nvar = size(array,dim=1)
+  nvar = size(array,dim=2)
   !
   do nc = 1,size(cell)
     !
@@ -518,9 +519,9 @@ continue
       !
       ! Store the transpose of usp for this cell to reduce cache misses
       !
-      do k = 1,np
-        do m = 1,nvar
-          tmp(k,m) = array(m,n1-1+k)
+      do m = 1,nvar
+        do k = 1,np
+          tmp(k,m) = array(n1-1+k,m)
         end do
       end do
       !
@@ -531,7 +532,7 @@ continue
         !
         n = k+n1-1 ! total index of solution point within array
         !
-        array(1:nvar,n) = projct(this_geom,this_order)% &
+        array(n,1:nvar) = projct(this_geom,this_order)% &
                                    limiter(proj_order)% &
                           dot_mat( k , tmp(1:np,1:nvar) )
        !do m = 1,nvar
@@ -824,6 +825,228 @@ continue
   !
 #endif
 end subroutine projection_memory_usage
+!
+!###############################################################################
+!
+subroutine move_projct_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_projct_to_device"
+  !
+continue
+  !
+  if (allocated(projct)) then
+    !$ACC ENTER DATA COPYIN(projct)
+    i1 = lbound(projct,dim=1)
+    i2 = ubound(projct,dim=1)
+    j1 = lbound(projct,dim=2)
+    j2 = ubound(projct,dim=2)
+    !$ACC ENTER DATA COPYIN(projct(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(projct(i,j)%limiter)) then
+          !$ACC ENTER DATA COPYIN(projct(i,j)%limiter)
+          k1 = lbound(projct(i,j)%limiter,dim=1)
+          k2 = ubound(projct(i,j)%limiter,dim=1)
+          !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(projct(i,j)%limiter(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%mat)
+              m1 = lbound(projct(i,j)%limiter(k)%mat,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%mat,dim=1)
+              n1 = lbound(projct(i,j)%limiter(k)%mat,dim=2)
+              n2 = ubound(projct(i,j)%limiter(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_ptr)
+              m1 = lbound(projct(i,j)%limiter(k)%row_ptr,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_idx)
+              m1 = lbound(projct(i,j)%limiter(k)%row_idx,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_val)
+              m1 = lbound(projct(i,j)%limiter(k)%row_val,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_ptr)
+              m1 = lbound(projct(i,j)%limiter(k)%col_ptr,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_idx)
+              m1 = lbound(projct(i,j)%limiter(k)%col_idx,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%limiter(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_val)
+              m1 = lbound(projct(i,j)%limiter(k)%col_val,dim=1)
+              m2 = ubound(projct(i,j)%limiter(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%limiter(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(projct(i,j)%CellOI)) then
+          !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI)
+          k1 = lbound(projct(i,j)%CellOI,dim=1)
+          k2 = ubound(projct(i,j)%CellOI,dim=1)
+          !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(projct(i,j)%CellOI(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%mat)
+              m1 = lbound(projct(i,j)%CellOI(k)%mat,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%mat,dim=1)
+              n1 = lbound(projct(i,j)%CellOI(k)%mat,dim=2)
+              n2 = ubound(projct(i,j)%CellOI(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_ptr)
+              m1 = lbound(projct(i,j)%CellOI(k)%row_ptr,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_idx)
+              m1 = lbound(projct(i,j)%CellOI(k)%row_idx,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_val)
+              m1 = lbound(projct(i,j)%CellOI(k)%row_val,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_ptr)
+              m1 = lbound(projct(i,j)%CellOI(k)%col_ptr,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_idx)
+              m1 = lbound(projct(i,j)%CellOI(k)%col_idx,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%CellOI(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_val)
+              m1 = lbound(projct(i,j)%CellOI(k)%col_val,dim=1)
+              m2 = ubound(projct(i,j)%CellOI(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%CellOI(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(projct(i,j)%FaceOI)) then
+          !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI)
+          k1 = lbound(projct(i,j)%FaceOI,dim=1)
+          k2 = ubound(projct(i,j)%FaceOI,dim=1)
+          !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%mat)
+              m1 = lbound(projct(i,j)%FaceOI(k)%mat,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%mat,dim=1)
+              n1 = lbound(projct(i,j)%FaceOI(k)%mat,dim=2)
+              n2 = ubound(projct(i,j)%FaceOI(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_ptr)
+              m1 = lbound(projct(i,j)%FaceOI(k)%row_ptr,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_idx)
+              m1 = lbound(projct(i,j)%FaceOI(k)%row_idx,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_val)
+              m1 = lbound(projct(i,j)%FaceOI(k)%row_val,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_ptr)
+              m1 = lbound(projct(i,j)%FaceOI(k)%col_ptr,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_idx)
+              m1 = lbound(projct(i,j)%FaceOI(k)%col_idx,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(projct(i,j)%FaceOI(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_val)
+              m1 = lbound(projct(i,j)%FaceOI(k)%col_val,dim=1)
+              m2 = ubound(projct(i,j)%FaceOI(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(projct(i,j)%FaceOI(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_projct_to_device
 !
 !###############################################################################
 !

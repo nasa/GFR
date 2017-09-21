@@ -24,6 +24,7 @@ module ovar
   public :: recon_cpu_time
   public :: ovar_memory_usage
   public :: adjust_cfl_cycles
+  public :: move_bcin_to_device
   !
   !
   !
@@ -275,6 +276,8 @@ module ovar
   real(wp), public, save :: betark(4,4)
   !
   real(wp), public, save, allocatable :: uverr(:,:,:)
+  real(wp), public, save, allocatable :: uverr1(:,:,:)
+  !$ACC DECLARE CREATE(uverr)
   !
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
   real(wp), public, save, dimension(1:5,1:2,1:5) :: vortex_error
@@ -362,6 +365,42 @@ module ovar
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               invs_flux_method)
 contains
+!
+!###############################################################################
+!
+subroutine move_bcin_to_device
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,m1,m2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_bcin_to_deviec"
+  !
+continue
+  !
+  if (allocated(bc_in)) then
+    !$ACC ENTER DATA COPYIN(bc_in)
+    i1 = lbound(bc_in,dim=1)
+    i2 = ubound(bc_in,dim=1)
+    !$ACC ENTER DATA COPYIN(bc_in(i1:i2))
+    do i = i1,i2
+      if (allocated(bc_in(i)%cv)) then
+        !$ACC ENTER DATA COPYIN(bc_in(i)%cv)
+        m1 = lbound(bc_in(i)%cv,dim=1)
+        m2 = ubound(bc_in(i)%cv,dim=1)
+        !$ACC ENTER DATA COPYIN(bc_in(i)%cv(m1:m2))
+      end if
+      if (allocated(bc_in(i)%pv)) then
+        !$ACC ENTER DATA COPYIN(bc_in(i)%pv)
+        m1 = lbound(bc_in(i)%pv,dim=1)
+        m2 = ubound(bc_in(i)%pv,dim=1)
+        !$ACC ENTER DATA COPYIN(bc_in(i)%pv(m1:m2))
+      end if
+      !$ACC ENTER DATA COPYIN(bc_in(i)%relax)
+    end do
+  end if
+  !
+end subroutine move_bcin_to_device
 !
 !###############################################################################
 !

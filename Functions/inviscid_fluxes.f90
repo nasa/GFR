@@ -1,227 +1,23 @@
-pure function normal_invs_flx_cv(uu,rnrm) result(return_value)
-  !
-  use geovar, only : nr
-  !
-  real(wp), dimension(1:nq), intent(in) :: uu
-  real(wp), dimension(1:nr), intent(in) :: rnrm
-  !
-  real(wp), dimension(1:nq) :: return_value
-  !
-  integer :: n
-  real(wp), dimension(1:nr) :: unrm
-  real(wp), dimension(1:nq) :: flx
-  !
-continue
-  !
-  unrm(:) = unit_vector( rnrm(:) )
-  !
-  return_value(:) = zero
-  !
-  do n = 1,nr
-    call invs_flx_cv(uu,n,flx)
-    return_value(1:nq) = return_value(1:nq) + unrm(n) * flx(1:nq)
-  end do
-  !
-end function normal_invs_flx_cv
-!
-!###############################################################################
-!
-pure function invs_face_flx_cv(uu,rnrm,cell_geom,cell_order,face) &
-                        result(return_value)
-  !
-  !.. Use Statements ..
-  use geovar,            only : face_of_cell_t
-  use interpolation_mod, only : interp
-  !
-  !.. Formal Arguments ..
-  integer,              intent(in) :: cell_geom
-  integer,              intent(in) :: cell_order
-  real(wp),             intent(in) :: uu(:,:)
-  real(wp),             intent(in) :: rnrm(:,:)
-  type(face_of_cell_t), intent(in) :: face
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:size(uu,dim=1),1:size(rnrm,dim=2))
-  !
-  !.. Local Scalars ..
-  integer :: k,kf,l,lf,m,face_order
-  !
-  !.. Local Arrays ..
-  real(wp) :: flxsp(1:size(uu,dim=2), &
-                    1:size(uu,dim=1), &
-                    1:size(rnrm,dim=1))
-  real(wp) :: vflx(1:size(rnrm,dim=1))
-  real(wp) :: unrm(1:size(rnrm,dim=1))
-  !
-continue
-  !
-  face_order = face%order
-  !
-  do k = 1,size(uu,dim=2)
-    flxsp(k,:,:) = invs_flx_vec_cv( uu(:,k) )
-  end do
-  !
-  do kf = 1,size(rnrm,dim=2)
-    !
-    lf = face%get_fp_idx(kf)
-    !
-    unrm(:) = unit_vector( rnrm(:,kf) )
-    !
-    do m = 1,size(uu,dim=1)
-      do l = 1,size(rnrm,dim=1)
-        vflx(l) = interp(cell_geom,cell_order)%toFace(face_order)% &
-                  dot( lf , flxsp(:,m,l) )
-      end do
-      !
-      return_value(m,kf) = dot( vflx(:) , unrm(:) )
-      !
-    end do
-    !
-  end do
-  !
-end function invs_face_flx_cv
-!
-!###############################################################################
-!
-pure function invs_flx_vec_cv(uu) result(return_value)
-  !
-  !.. Use Statements ..
-  use geovar, only : nr
-  !
-  real(wp), intent(in) :: uu(:)
-  !
-  real(wp) :: return_value(1:size(uu),1:nr)
-  !
-  integer :: l
-  real(wp) :: flx(1:nq)
-  !
-continue
-  !
-  do l = 1,nr
-    call invs_flx_cv(uu,l,flx)
-    return_value(1:nq,l) = flx(1:nq)
-   !return_value(:,l) = invs_flx_cv( uu(:) , l )
-  end do
-  !
-end function invs_flx_vec_cv
-!
-!###############################################################################
-!
-pure function invs_flx_cv1(uu) result(return_value) 
-  !
-  !.. Use Statements ..
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : turb_is_on
-  use ovar,   only : include_tke_in_energy
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(in) :: uu(:)
-  !
-  !.. Function Result ..
-  real(wp) :: return_value(1:nr,1:nq)
-  !
-  !.. Local Scalars ..
-  integer  :: l,m
-  real(wp) :: pres
-  !
-continue
-  !
-  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
-  !
-  return_value(1:nr,nec) = uu(nmb:nme)
-  !
-  do m = nmb,nme
-    do l = 1,nr
-      return_value(l,m) = uu(m)*uu(nec+l)/uu(nec)
-    end do
-    return_value(m-nec,m) = return_value(m-nec,m) + pres
-  end do
-  !
-  return_value(1:nr,nee) = (uu(nee) + pres) * uu(nmb:nme)/uu(nec)
-  !
-  if (turb_is_on) then
-    return_value(1:nr,ntk) = uu(ntk) * uu(nmb:nme)/uu(nec)
-    return_value(1:nr,ntl) = uu(ntl) * uu(nmb:nme)/uu(nec)
-    if (include_tke_in_energy) then
-      do l = 1,nr
-        return_value(l,nec+l) = return_value(l,nec+l) - (gam-one)*uu(ntk)
-        return_value(l,nee) = return_value(l,nee) - &
-                              (gam-one)*uu(ntk)*uu(nec+l)/uu(nec)
-      end do
-    end if
-  end if
-  !
-end function invs_flx_cv1
-!
-!###############################################################################
-!
-!pure function invs_flx_cv(uu,dir) result(return_value) 
-pure subroutine invs_flx_cv_sub(uu,dir,return_value,a) 
-  !$ACC ROUTINE SEQ
-  !
-  use ovar, only : gam
-  use ovar, only : turb_is_on
-  use ovar, only : include_tke_in_energy
-  !
-  integer,                   intent(in) :: dir
-  real(wp), dimension(1:nq), intent(in) :: uu
-  !
-  integer, intent(inout) :: a
-  real(wp), dimension(1:nq), intent(inout) :: return_value
-  !
-  integer :: meq
-  real(wp) :: pres,flxvel
-  !
-continue
-  !
- !a = 0
- !uu(1:nq) = zero
-  return_value(1:nq) = zero
-  !
-  meq = nec + dir
-  !
-  flxvel = uu(meq)/uu(nec)
-  !
-  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
-  !
-  return_value(nec) = uu(meq)
-  return_value(nmb:nme) = flxvel * uu(nmb:nme)
-  return_value(meq) = return_value(meq) + pres
-  return_value(nee) = flxvel * (uu(nee) + pres)
-  !
-  if (turb_is_on) then
-    return_value(ntk) = flxvel * uu(ntk)
-    return_value(ntl) = flxvel * uu(ntl)
-    if (include_tke_in_energy) then
-      return_value(meq) = return_value(meq) - (gam-one)*uu(ntk)
-      return_value(nee) = return_value(nee) - (gam-one)*uu(ntk)*flxvel
-    end if
-  end if
-  !
-end subroutine invs_flx_cv_sub
-!
-!###############################################################################
-!
 pure subroutine invs_flx_cv(uu,dir,return_value) 
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   use ovar, only : gam
   use ovar, only : turb_is_on
   use ovar, only : include_tke_in_energy
   !
-  integer,  value,           intent(in) :: dir
-  real(wp), dimension(1:nq), intent(in) :: uu
+  integer,  value,              intent(in) :: dir
+  real(wp), dimension(1:nq),    intent(in) :: uu
   !
   real(wp), dimension(1:nq), intent(inout) :: return_value
   !
-  integer :: meq
+  integer  :: n,meq
   real(wp) :: pres,flxvel
   !
 continue
   !
  !meq = 0
   return_value(1:nq) = zero
+ !return_value(:) = zero
   !
   meq = nec + dir
   !
@@ -243,7 +39,6 @@ continue
     end if
   end if
   !
-!end function invs_flx_cv
 end subroutine invs_flx_cv
 !
 !###############################################################################
@@ -290,7 +85,7 @@ continue
   !
   ! Continuity equation
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP
   do n = 1,np
     !
     rho = uu(n,nec)
@@ -330,7 +125,7 @@ continue
   ! Turbulence equations
   !
   if (turb_is_on) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = 1,np
       !
       rho_inv = one/uu(n,nec)
@@ -350,7 +145,7 @@ continue
       !
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+      !$ACC PARALLEL LOOP
       do n = 1,np
         !
         rho_inv = one/uu(n,nec)
@@ -411,7 +206,7 @@ continue
   !
   ! Continuity equation
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2)
   do l = 1,2
     do n = 1,np
       return_value(n,l,nec) = uu(n,nec+l)
@@ -420,7 +215,7 @@ continue
   !
   ! Momentum equations (without pressure flux)
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
+  !$ACC PARALLEL LOOP COLLAPSE(3)
   do m = nmb,nme
     do l = 1,2
       do n = 1,np
@@ -431,7 +226,7 @@ continue
   !
   ! Energy equation and pressure flux
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2)
   do l = 1,2
     do n = 1,np
       meq = nec + l
@@ -449,7 +244,7 @@ continue
   ! Turbulence equations
   !
   if (turb_is_on) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2)
     do l = 1,2
       do n = 1,np
         flxvel = uu(n,nec+l) / uu(n,nec)
@@ -458,7 +253,7 @@ continue
       end do
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+      !$ACC PARALLEL LOOP COLLAPSE(2)
       do l = 1,2
         do n = 1,np
           meq = nec + l
@@ -512,7 +307,7 @@ continue
   !
   ! Continuity equation
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2)
   do l = 1,nr
     do n = 1,np
       return_value(n,l,nec) = uu(n,nec+l)
@@ -521,7 +316,7 @@ continue
   !
   ! Momentum equations (without pressure flux)
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
+  !$ACC PARALLEL LOOP COLLAPSE(3)
   do m = nmb,nme
     do l = 1,nr
       do n = 1,np
@@ -532,7 +327,7 @@ continue
   !
   ! Energy equation and pressure flux
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2)
   do l = 1,nr
     do n = 1,np
       meq = nec + l
@@ -550,7 +345,7 @@ continue
   ! Turbulence equations
   !
   if (turb_is_on) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2)
     do l = 1,nr
       do n = 1,np
         flxvel = uu(n,nec+l) / uu(n,nec)
@@ -559,7 +354,7 @@ continue
       end do
     end do
     if (include_tke_in_energy) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+      !$ACC PARALLEL LOOP COLLAPSE(2)
       do l = 1,nr
         do n = 1,np
           meq = nec + l
@@ -733,8 +528,7 @@ continue
   !
   gm1 = gam - one
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
     !
     rho  = face_cv(n,nec,1)
@@ -756,6 +550,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
     do n = n1,n2
       rhok = face_cv(n,ntk,1)
       return_value(n,nmx) = return_value(n,nmx) - gm1*rhok*facenrm(1,n)
@@ -788,8 +583,7 @@ continue
   !
   gm1 = gam - one
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
     !
     rho  = face_cv(n,nec,1)
@@ -809,6 +603,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
     do n = n1,n2
       rhok = face_cv(n,ntk,1)
       return_value(n,nmx) = return_value(n,nmx) - gm1*rhok*facenrm(1,n)
@@ -834,71 +629,45 @@ pure subroutine invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n
-  real(wp) :: gm1,pres
+  integer  :: l,m,n
+  real(wp) :: gm1,pres,rhoq2
   !
 continue
   !
   gm1 = gam - one
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
     !
-    pres = gm1*(face_cv(n,nec,1) - &
-                half*selfdot(face_cv(n,nmb:nme,1))/face_cv(n,nec,1))
+    rhoq2 = zero
+    !$ACC LOOP SEQ
+    do m = nmb,nme
+      rhoq2 = rhoq2 + face_cv(n,m,1)*face_cv(n,m,1)
+    end do
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/face_cv(n,nec,1))
     !
     return_value(n,nec) = zero
-    return_value(n,nme:nmb) = facenrm(1:nr,n)*pres
+    !$ACC LOOP SEQ
+    do l = 1,nr
+      return_value(n,nec+l) = facenrm(l,n)*pres
+    end do
     return_value(n,nee) = zero
     !
   end do
   !
   if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value)
     do n = n1,n2
-      return_value(n,nmb:nme) = return_value(n,nmb:nme) - &
-                                gm1*face_cv(n,ntk,1)*facenrm(1:nr,n)
+      do l = 1,nr
+        return_value(n,nec+l) = return_value(n,nec+l) - &
+                                gm1*face_cv(n,ntk,1)*facenrm(l,n)
+      end do
     end do
   end if
   !
 end subroutine invs_wall_flx_gpu_nd
-!
-!###############################################################################
-!
-pure subroutine invs_wall_flx_sub(unrm,uu,return_value) 
-  !$ACC ROUTINE SEQ
-  !
-  use geovar, only : nr
-  use ovar,   only : gam
-  use ovar,   only : turb_is_on
-  use ovar,   only : include_tke_in_energy
-  !
-  real(wp), dimension(1:nr),    intent(in) :: unrm
-  real(wp), dimension(1:nq),    intent(in) :: uu
-  real(wp), dimension(1:nq), intent(inout) :: return_value
-  !
-  real(wp) :: pres
-  !
-continue
-  !
-  ! Initialize all fluxes to zero since only the pressure
-  ! part of the momentum fluxes is all that remains of the
-  ! interface fluxes at a wall boundary.
-  !
-  return_value(:) = zero
-  !
-  ! Get the interior pressure at the wall
-  ! NOTE: The interior velocity/momentum at the wall is NOT necessarily zero
-  !
-  pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
-  !
-  if (include_tke_in_energy) pres = pres - (gam-one)*uu(ntk)
-  !
-  ! All momentum fluxes are just the pressure normal to the wall
-  !
-  return_value(nmb:nme) = unrm * pres
-  !
-end subroutine invs_wall_flx_sub
 !
 !###############################################################################
 !

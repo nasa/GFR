@@ -25,13 +25,17 @@ module flowvar
   ! DUSP : gradient of primitive variables @SP
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp
+ !!$ACC DECLARE CREATE(usp)
   real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
+  !$ACC DECLARE CREATE(dusp)
   !
   ! UOLDSP   : conservative variables of previous time step @SP 
   ! RESIDUAL : RHS residual @SP for current time/RK step
   ! 
   real(wp), public, save, allocatable, dimension(:,:) :: uoldsp
+  !$ACC DECLARE CREATE(uoldsp)
   real(wp), public, save, allocatable, dimension(:,:) :: residual
+  !$ACC DECLARE CREATE(residual)
   !
   ! GLOBAL_USP : conservative variables @SP across all processors
   ! GLOBAL_VAR : arbitrary    variable  @SP across all processors
@@ -44,15 +48,19 @@ module flowvar
   !           needed for some RK methods
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp_sum
+  !$ACC DECLARE CREATE(usp_sum)
   real(wp), public, save, allocatable, dimension(:,:,:) :: rssprk
+  !$ACC DECLARE CREATE(rssprk)
   !
   ! DTSP : Time step for each solution point
   !
   real(wp), public, save, allocatable, dimension(:) :: dtsp
+  !$ACC DECLARE CREATE(dtsp)
   !
   ! UAVESP : time averaged variables at the solution points
   !
   real(wp), public, save, allocatable :: uavesp(:,:)
+  !$ACC DECLARE CREATE(dtsp)
   !
   ! TIME_AVE_VARIABLES : character identifier for variables included
   !                      in the time averaging
@@ -220,11 +228,13 @@ continue
   allocate ( usp(1:nq,1:n_totpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+ !!$ACC UPDATE DEVICE(usp)
   !
   !
-  allocate ( dusp(1:nr,1:nq,1:n_totpts) , source=zero , &
+  allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(dusp)
   !
   !
   ! If we are only time averaging restart files, we dont need any of
@@ -232,19 +242,22 @@ continue
   !
   if (time_average_restart_files) return
   !
-  allocate ( residual(1:nq,1:n_solpts) , source=zero , &
+  allocate ( residual(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"residual",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(residual)
   !
   !
   allocate ( dtsp(1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"dtsp",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(dtsp)
   !
   !
-  allocate ( uoldsp(1:nq,1:n_solpts) , source=zero , &
+  allocate ( uoldsp(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"uoldsp",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(uoldsp)
   !
   !
   ! Allocate the outer part of the face solution/flux arrays
@@ -465,16 +478,18 @@ continue
   else if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK]) ) then
     n = 1
     if (Runge_Kutta_Scheme == TVD4_RK) then
-      allocate ( usp_sum(1:nq,1:n_solpts) , source=zero , &
+      allocate ( usp_sum(1:n_solpts,1:nq) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"usp_sum",1,__LINE__,__FILE__,ierr,error_message)
+      !$ACC UPDATE DEVICE(usp_sum)
     end if
   end if
   !
   if (n /= 0) then
-    allocate ( rssprk(1:nq,1:n_solpts,1:n) , source=zero , &
+    allocate ( rssprk(1:n_solpts,1:nq,1:n) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(rssprk)
   end if
   !
   call debug_timer(leaving_procedure,pname)

@@ -98,11 +98,9 @@ continue
     if (Timestep_Type == Global_Cell_Timestep) then
       call get_cell_global_timestep_gpu(dtmin)
      !call get_cell_timestep(dtmin)
-     !call get_cell_timestep_old(dtmin)
     else if (Timestep_Type == Local_Cell_Timestep) then
       call get_cell_local_timestep_gpu(dtmin)
      !call get_cell_timestep(dtmin)
-     !call get_cell_timestep_old(dtmin)
     end if
     !
   else if (abs(Timestep_Type) == Point_Timestep) then
@@ -164,9 +162,13 @@ subroutine get_constant_timestep(dtmin)
   use ovar,    only : constant_dt,time_ref,Final_Time,time,CFL
   use ovar,    only : this_is_final_timestep
   use flowvar, only : dtsp
+  use geovar,  only : n_solpts
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer :: n
   !
 continue
   !
@@ -179,7 +181,10 @@ continue
     end if
   end if
   !
-  dtsp(:) = dtmin
+  !$ACC PARALLEL LOOP PRESENT(dtsp)
+  do n = 1,n_solpts
+    dtsp(n) = dtmin
+  end do
   !
 end subroutine get_constant_timestep
 !
@@ -234,7 +239,7 @@ continue
   allocate ( psq(1:n_flxpts,1:2) )
   !
   !$ACC DATA CREATE(viscl,viscr,eigni,dsf,psq) &
-  !$ACC&     PRESENT(facenrm,facejac,faceusp_array)
+  !$ACC&     PRESENT(facenrm,facejac,faceusp_array,face,cell,dtsp)
   !
   n1 = 1
   n2 = n_flxpts
@@ -243,7 +248,7 @@ continue
     call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,1),viscl)
     call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,2),viscr)
   else
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = n1,n2
       viscl(n) = zero
       viscr(n) = zero
@@ -257,7 +262,27 @@ continue
   dtmin = huge(zero)
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
-  do nf = 1,nface
+  do nf = 1,nfbnd
+    !
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    !
+    left_cell  = face(nf)%left%cell
+    left_geom  = cell(left_cell)%geom
+    left_order = cell(left_cell)%order
+    !
+    lcl = cl(left_geom)
+    !
+    !$ACC LOOP VECTOR
+    do kf = f1,f2
+      psq(kf,1) = lcl * real( (left_order+make_p_plus_one)**2 , kind=wp )
+      psq(kf,2) = lcl * real( (left_order+make_p_plus_one)**2 , kind=wp )
+    end do
+    !
+  end do
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  do nf = nfbnd+1,nface
     !
     f1 = face(nf)%beg_fp
     f2 = face(nf)%end_fp
@@ -282,7 +307,7 @@ continue
     !
   end do
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) REDUCTION(min:dtmin)
+  !$ACC PARALLEL LOOP REDUCTION(min:dtmin)
   do kf = 1,n_bnd_flxpts
     !
     hl = psq(kf,1) * half * dsf(kf) / facejac(kf,1)
@@ -296,7 +321,7 @@ continue
     !
   end do
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) REDUCTION(min:dtmin)
+  !$ACC PARALLEL LOOP REDUCTION(min:dtmin)
   do kf = n_bnd_flxpts+1,n_flxpts
     !
     ds = half * dsf(kf)
@@ -315,7 +340,7 @@ continue
     !
   end do
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP
   do n = 1,n_solpts
     dtsp(n) = dtmin
   end do
@@ -390,7 +415,7 @@ continue
   allocate ( dsf(1:n_flxpts) )
   !
   !$ACC DATA CREATE(viscl,viscr,eigni,dt_cell,dsf) &
-  !$ACC&     PRESENT(facenrm,facejac,faceusp_array)
+  !$ACC&     PRESENT(facenrm,facejac,faceusp_array,face,cell,dtsp)
   !
   n1 = 1
   n2 = n_flxpts
@@ -399,7 +424,7 @@ continue
     call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,1),viscl)
     call viscosity_cv_gpu(n1,n2,faceusp_array(:,:,2),viscr)
   else
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = n1,n2
       viscl(n) = zero
       viscr(n) = zero
@@ -411,7 +436,7 @@ continue
  !call invs_eigenvalue_gpu(n1,n2,faceusp_array(:,:,2),facenrm,eigni(:,2),dsf)
   !
   dtmin = huge(zero)
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP
   do nc = 1,ncell
     dt_cell(nc) = dtmin
   end do
@@ -584,7 +609,8 @@ continue
   !
   !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+ !!$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -680,7 +706,8 @@ continue
   !
   !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+ !!$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -775,7 +802,8 @@ continue
   !$ACC DATA PRESENT(face_cv,facenrm,eigni,ds)
   !
   if (nr == 3) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+   !!$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = n1,n2
       !
       rnx = facenrm(1,n)
@@ -842,7 +870,8 @@ continue
     end do
     !
   else if (nr == 2) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+   !!$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = n1,n2
       !
       rnx = facenrm(1,n)
@@ -905,7 +934,8 @@ continue
     end do
     !
   else
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+   !!$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP
     do n = n1,n2
       !
       ds(n) = abs(facenrm(1,n))
@@ -954,13 +984,13 @@ subroutine get_cell_timestep(dtmin)
   use order_mod, only : n_order,maxSP,geom_solpts
   !
   use geovar, only : nr,nfbnd,nface
-  use geovar, only : face,cell
+  use geovar, only : face,cell,fp
   !
   use ovar, only : gam,Timestep_Type,time_ref,Final_Time,time,CFL
   use ovar, only : governing_equations
   use ovar, only : this_is_final_timestep
   !
-  use metrics_mod, only : geofa,metrics_dt
+  use metrics_mod, only : geofa,metrics_dt,facejac
   !
   use flowvar, only : dtsp
 #ifdef USE_FACE_ARRAYS
@@ -969,15 +999,13 @@ subroutine get_cell_timestep(dtmin)
   use flowvar, only : faceusp
 #endif
   !
-  use interpolation_mod, only : interp
-  !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
   !
   !.. Local Scalars ..
   integer  :: nf,kf,sf,m
-  integer  :: l1,l2,npl,lcfp
-  integer  :: r1,r2,npr,rcfp
+  integer  :: l1,l2,npl
+  integer  :: r1,r2,npr
   integer  :: face_geom,face_order,nfp,f0
   integer  :: host_cell,host_geom,host_order
   integer  :: left_cell,left_geom,left_order
@@ -1024,8 +1052,8 @@ continue
     !
     psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
-#ifdef USE_FACE_ARRAYS
     f0 = face(nf)%beg_fp - 1
+#ifdef USE_FACE_ARRAYS
     nfp = face(nf)%end_fp - f0
 #else
     nfp = geom_solpts(face_geom,face_order)
@@ -1059,15 +1087,7 @@ continue
       al = max( gam*vl(nee)/vl(nec) , rndoff )
       if (use_sqrt) al = sqrt(al)
       !
-      ! Interpolate the jacobian to the flux point
-      !
-      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
-      !
-      jacl = interp(host_geom,host_order)% &
-                       toFace(face_order)% &
-             dot( lcfp , metrics_dt(host_cell)%jac(:) )
-      !
-      hl = half * dsl / jacl
+      hl = half * dsl / facejac(f0+kf,1)
       !
       eigni = abs(vell) + al
       eignv = psql * hl * mul
@@ -1112,8 +1132,8 @@ continue
     psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
     psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
     !
-#ifdef USE_FACE_ARRAYS
     f0 = face(nf)%beg_fp - 1
+#ifdef USE_FACE_ARRAYS
     nfp = face(nf)%end_fp - f0
 #else
     nfp = geom_solpts(face_geom,face_order)
@@ -1156,24 +1176,8 @@ continue
       ar = max( gam*vr(nee)/vr(nec) , rndoff )
       if (use_sqrt) ar = sqrt(ar)
       !
-      ! Interpolate the jacobian to the flux point for the left cell
-      !
-      lcfp = face(nf)%left%get_fp_idx(face_geom,face_order,kf)
-      !
-      jacl = interp(left_geom,left_order)% &
-                       toFace(face_order)% &
-             dot( lcfp , metrics_dt(left_cell)%jac(:) )
-      !
-      ! Interpolate the jacobian to the flux point for the right cell
-      !
-      rcfp = face(nf)%right%get_fp_idx(face_geom,face_order,kf)
-      !
-      jacr = interp(right_geom,right_order)% &
-                         toFace(face_order)% &
-             dot( rcfp , metrics_dt(right_cell)%jac(:) )
-      !
-      hl = half * dsl / jacl
-      hr = half * dsr / jacr
+      hl = half * dsl / facejac(f0+kf,1)
+      hr = half * dsr / facejac(f0+kf,2)
       !
       eigni = max( abs(vell) + al , abs(velr) + ar )
       eignv = max( psql * hl * mul , psqr * hr * mur )
@@ -1221,279 +1225,6 @@ continue
   end if
   !
 end subroutine get_cell_timestep
-!
-!###############################################################################
-!
-subroutine get_cell_timestep_old(dtmin)
-  !
-  !.. Use Statements ..
-  use order_mod, only : n_order,maxSP,geom_solpts
-  !
-  use geovar, only : nr,nfbnd,nface
-  use geovar, only : face,cell
-  !
-  use ovar, only : gam,Timestep_Type,time_ref,Final_Time,time,CFL
-  use ovar, only : governing_equations
-  use ovar, only : this_is_final_timestep
-  !
-  use metrics_mod, only : geofa,metrics_dt
-  !
-  use flowvar, only : dtsp,usp
-  !
-  use interpolation_mod, only : interp
-  !
-  !.. Formal Arguments ..
-  real(wp), intent(out) :: dtmin
-  !
-  !.. Local Scalars ..
-  integer  :: nf,k,m
-  integer  :: l1,l2,npl,kl
-  integer  :: r1,r2,npr,kr
-  integer  :: face_geom,face_order
-  integer  :: host_cell,host_geom,host_order
-  integer  :: left_cell,left_geom,left_order
-  integer  :: right_cell,right_geom,right_order
-  real(wp) :: ds,eigni,eignv,pp1sq
-  real(wp) :: dsl,vell,al,jacl,dtl,mul,hl
-  real(wp) :: dsr,velr,ar,jacr,dtr,mur,hr
-  real(wp) :: psql,psqr
-  !
-  !.. Local Arrays ..
-  real(wp) :: vl(1:nq),tlusp(1:maxSP,1:nq)
-  real(wp) :: vr(1:nq),trusp(1:maxSP,1:nq)
-  !
-  integer, parameter :: make_p_plus_one = 0
- !integer, parameter :: make_p_plus_one = 1
-  !
-  logical(lk), parameter :: use_sqrt = true
- !logical(lk), parameter :: use_sqrt = fals
-  !
-continue
-  !
-  mul = zero
-  mur = zero
-  !
-  dtmin = huge(zero)
-  dtsp(:) = dtmin
-  !
-  do nf = 1,nfbnd
-    !
-    host_cell = face(nf)%left%cell ! left cell on face
-    !
-    host_geom  = cell(host_cell)%geom  ! host cell geometry
-    host_order = cell(host_cell)%order ! host cell order
-    !
-    l1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in left cell
-    l2 = cell(host_cell)%end_sp ! ending    index for sol-pts in left cell
-    npl = l2-l1+1               ! number of solution points in left cell
-    !
-    face_geom = face(nf)%geom   ! geometry of the current face
-    face_order = face(nf)%order ! order    of the current face
-    !
-    psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
-    !
-    tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
-    !
-    !
-    do k = 1,geom_solpts(face_geom,face_order)
-      !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-      !
-      ! Interpolate the conservative variables to this flux point
-      vl(1:nq) = interp(host_geom,host_order)% &
-                           toFace(face_order)% &
-                 dot_mat( kl , tlusp(1:npl,1:nq) )
-     !do m = 1,nq
-     !  vl(m) = interp(host_geom,host_order)% &
-     !                    toFace(face_order)% &
-     !          dot( kl , tlusp(1:npl,m) )
-     !end do
-      ! Convert to primitive variables
-      vl(1:nq) = usp2v_sp( vl(1:nq) )
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_pv_sp( vl(1:nq) )
-      end if
-      !
-      ds = norm2( geofa(nf)%v(1:nr,k) )
-      dsl = ds * cl(host_geom) ! face length/area for left cell
-      !
-      ! Normal velocity at this flux point
-      !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
-      vell = selfdot( vl(nmb:nme) )
-      if (use_sqrt) vell = sqrt(vell)
-      !
-      ! Speed of sound at this face
-      !
-      al = max( gam*vl(nee)/vl(nec) , rndoff )
-      if (use_sqrt) al = sqrt(al)
-      !
-      ! Interpolate the jacobian to the flux point
-      !
-      jacl = interp(host_geom,host_order)% &
-                       toFace(face_order)% &
-             dot( kl , metrics_dt(host_cell)%jac(:) )
-      !
-      hl = half * dsl / jacl
-      !
-      eigni = abs(vell) + al
-      eignv = psql * hl * mul
-      !
-      ! Compute the timestep for this flux point
-      !
-      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv)) )
-      !
-      ! Store the minimum timestep for this cell in the location
-      ! of the first solution point for this cell
-      !
-      dtsp(l1:l2) = dtl
-      !
-      dtmin = min( dtmin , dtl )
-      !
-    end do
-    !
-  end do
-  !
-  do nf = nfbnd+1,nface
-    !
-    left_cell  = face(nf)%left%cell  ! left  cell on face
-    right_cell = face(nf)%right%cell ! right cell on face
-    !
-    left_geom  = cell(left_cell)%geom  ! left cell geometry
-    left_order = cell(left_cell)%order ! left cell order
-    !
-    l1 = cell(left_cell)%beg_sp ! beginning index for sol-pts in left  cell
-    l2 = cell(left_cell)%end_sp ! ending    index for sol-pts in left cell
-    npl = l2-l1+1               ! number of solution points in left  cell
-    !
-    right_geom  = cell(right_cell)%geom  ! right cell geometry
-    right_order = cell(right_cell)%order ! right cell order
-    !
-    r1 = cell(right_cell)%beg_sp ! beginning index for sol-pts in right cell
-    r2 = cell(right_cell)%end_sp ! ending    index for sol-pts in right cell
-    npr = r2-r1+1                ! number of solution points in right cell
-    !
-    face_geom = face(nf)%geom   ! geometry of the current face
-    face_order = face(nf)%order ! order    of the current face
-    !
-    psql = real( (left_order +make_p_plus_one)**2 , kind=wp )
-    psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
-    !
-    tlusp(1:npl,1:nq) = transpose( usp(1:nq,l1:l2) )
-    trusp(1:npr,1:nq) = transpose( usp(1:nq,r1:r2) )
-    !
-    !
-    do k = 1,geom_solpts(face_geom,face_order)
-      !
-      kl = face(nf)%left%get_fp_idx(face_geom,face_order,k)
-      kr = face(nf)%right%get_fp_idx(face_geom,face_order,k)
-      !
-      ! Interpolate the conservative variables to this flux point
-      vl(1:nq) = interp(left_geom,left_order)% &
-                           toFace(face_order)% &
-                 dot_mat( kl , tlusp(1:npl,1:nq) )
-      vr(1:nq) = interp(right_geom,right_order)% &
-                             toFace(face_order)% &
-                 dot_mat( kr , trusp(1:npr,1:nq) )
-     !do m = 1,nq
-     !  vl(m) = interp(left_geom,left_order)% &
-     !                    toFace(face_order)% &
-     !          dot( kl , tlusp(1:npl,m) )
-     !  vr(m) = interp(right_geom,right_order)% &
-     !                      toFace(face_order)% &
-     !          dot( kr , trusp(1:npr,m) )
-     !end do
-      ! Convert to primitive variables
-      vl(1:nq) = usp2v_sp( vl(1:nq) )
-      vr(1:nq) = usp2v_sp( vr(1:nq) )
-      !
-      if (governing_equations == NavierStokes_Eqns) then
-        mul = viscosity_pv_sp( vl(1:nq) )
-        mur = viscosity_pv_sp( vr(1:nq) )
-      end if
-      !
-      ds = norm2( geofa(nf)%v(1:nr,k) )
-      dsl = ds * cl(left_geom) ! face length/area for left  cell
-      dsr = ds * cl(right_geom) ! face length/area for right cell
-      !
-      ! Normal velocity at this flux point
-      !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
-     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,k)) )
-      vell = selfdot( vl(nmb:nme) )
-      if (use_sqrt) vell = sqrt(vell)
-      velr = selfdot( vr(nmb:nme) )
-      if (use_sqrt) velr = sqrt(velr)
-      !
-      ! Speed of sound at this face
-      !
-      al = max( gam*vl(nee)/vl(nec) , rndoff )
-      if (use_sqrt) al = sqrt(al)
-      ar = max( gam*vr(nee)/vr(nec) , rndoff )
-      if (use_sqrt) ar = sqrt(ar)
-      !
-      ! Interpolate the jacobian to the flux point for the left cell
-      !
-      jacl = interp(left_geom,left_order)% &
-                       toFace(face_order)% &
-             dot( kl , metrics_dt(left_cell)%jac(:) )
-      !
-      ! Interpolate the jacobian to the flux point for the right cell
-      !
-      jacr = interp(right_geom,right_order)% &
-                         toFace(face_order)% &
-             dot( kr , metrics_dt(right_cell)%jac(:) )
-      !
-      hl = half * dsl / jacl
-      hr = half * dsr / jacr
-      !
-      eigni = max( abs(vell) + al , abs(velr) + ar )
-      eignv = max( psql * hl * mul , psqr * hr * mur )
-      !
-      ! Compute the timestep for this flux point
-      !
-      dtl = min( dtsp(l1) , CFL / (psql * hl * (eigni + eignv) ) )
-      dtr = min( dtsp(r1) , CFL / (psqr * hr * (eigni + eignv) ) )
-      !
-      ! Store the minimum timestep for all solution points in both cells
-      !
-      dtsp(l1:l2) = dtl
-      dtsp(r1:r2) = dtr
-      !
-      dtmin = min( dtmin , dtl , dtr )
-      !
-    end do
-    !
-  end do
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-  end if
-  !
-  ! Limit the local timesteps if using a global timestepping
-  !
-  if (Timestep_Type == Global_Cell_Timestep) then
-    !
-    ! Set all time step sizes to the global minimum timestep
-    !
-    dtsp(:) = dtmin
-    !
-  end if
-  !
-  ! Make sure the timestep size doesnt make the final time exceed Final_Time
-  !
-  if (Final_Time > zero) then
-    if (time + dtmin > Final_Time/time_ref + eps9) then
-      dtsp(:) = Final_Time/time_ref - time
-      this_is_final_timestep = true
-    end if
-  end if
-  !
-end subroutine get_cell_timestep_old
 !
 !###############################################################################
 !
@@ -1773,7 +1504,7 @@ continue
   end if
   !
   if (reset_dtsp) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP PRESENT(dtsp)
     do n = 1,n_solpts
       dtsp(n) = dtmin
     end do
@@ -1809,7 +1540,7 @@ continue
   end if
   !
   if (this_is_final_timestep) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP PRESENT(dtsp)
     do n = 1,n_solpts
       dtsp(n) = dtmin
     end do
@@ -1834,12 +1565,12 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  np = size(uoldsp,dim=2)
+  np = size(uoldsp,dim=1)
   !
- !!$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+ !!$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp)
   do n = 1,np
     do m = 1,nq
-      uoldsp(m,n) = usp(m,n)
+      uoldsp(n,m) = usp(m,n)
     end do
   end do
   !
@@ -1858,6 +1589,7 @@ subroutine rresi
   use geovar,  only : n_solpts,ncell,cell
   use ovar,    only : itestcase
   use metrics_mod,  only : metrics_dt
+  use metrics_mod,  only : jac
   use flowvar, only : residual
   use projection_mod, only : project_to_porder
   !
@@ -1867,18 +1599,26 @@ subroutine rresi
   !
 continue
   !
-  !$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
-  do nc = 1,ncell
-    n1 = cell(nc)%beg_sp
-    n2 = cell(nc)%end_sp
-    !$ACC LOOP VECTOR
-    do n = n1,n2
-      jac_inv = one / metrics_dt(nc)%jac(n-n1+1)
-      do m = 1,nq
-        residual(m,n) = -residual(m,n) * jac_inv
-      end do
+  !$ACC PARALLEL LOOP &
+  !$ACC&              COLLAPSE(2) &
+  !$ACC&              PRESENT(jac,residual)
+  do m = 1,nq
+    do n = 1,n_solpts
+      residual(n,m) = -residual(n,m) / jac(n)
     end do
   end do
+ !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
+ !do nc = 1,ncell
+ !  n1 = cell(nc)%beg_sp
+ !  n2 = cell(nc)%end_sp
+ !  !$ACC LOOP VECTOR
+ !  do n = n1,n2
+ !    jac_inv = one / metrics_dt(nc)%jac(n-n1+1)
+ !    do m = 1,nq
+ !      residual(m,n) = -residual(m,n) * jac_inv
+ !    end do
+ !  end do
+ !end do
   !
   ! Zero out the residuals for all but the density
   ! equation if running the density transport test case
@@ -1927,7 +1667,11 @@ continue
   !
   ! Store the residual for this Runge-Kutta step in rssprk
   !
-  rssprk(:,:,nst) = residual(:,:)
+  do m = 1,nq
+    do n = 1,n_solpts
+      rssprk(n,m,nst) = residual(n,m)
+    end do
+  end do
   !
   ! Update usp
   !
@@ -1935,9 +1679,9 @@ continue
     do m = 1,nq
       temp = zero
       do nt = 1,nst
-        temp = temp + alphark(nt,nst,num_rk_stages)*rssprk(m,n,nt)
+        temp = temp + alphark(nt,nst,num_rk_stages)*rssprk(n,m,nt)
       end do
-      usp(m,n) = uoldsp(m,n) + dtsp(n)*temp
+      usp(m,n) = uoldsp(n,m) + dtsp(n)*temp
     end do
   end do
   !
@@ -1989,7 +1733,7 @@ subroutine rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,m
   !
   ! Carpenter-Kennedy 4th-order/5-stage Runge-Kutta coefficients
   !
@@ -2010,11 +1754,10 @@ subroutine rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
 continue
   !
   do n = 1,n_solpts
-    !
-    rssprk(:,n,1) = alfa(nst)*rssprk(:,n,1) + dtsp(n)*residual(:,n)
-    !
-    usp(:,n) = usp(:,n) + beta(nst)*rssprk(:,n,1)
-    !
+    do m = 1,nq
+      rssprk(n,m,1) = alfa(nst)*rssprk(n,m,1) + dtsp(n)*residual(n,m)
+      usp(m,n) = usp(m,n) + beta(nst)*rssprk(n,m,1)
+    end do
   end do
   !
   ! Apply the filter
@@ -2065,7 +1808,7 @@ subroutine rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer   :: n
+  integer   :: n,m
   !
   ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
   !
@@ -2075,11 +1818,11 @@ subroutine rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
 continue
   !
   do n = 1,n_solpts
-    !
-    usp(:,n) = beta(nst) * (alfa(nst)*uoldsp(:,n) + &
-                            usp(:,n) + &
-                            dtsp(n)*residual(:,n))
-    !
+    do m = 1,nq
+      usp(m,n) = beta(nst) * (alfa(nst)*uoldsp(n,m) + &
+                              usp(m,n) + &
+                              dtsp(n)*residual(n,m))
+    end do
   end do
   !
   ! Apply the filter
@@ -2139,12 +1882,13 @@ subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
   !
 continue
   !
-  !$ACC PARALLEL DO GANG WORKER VECTOR COLLAPSE(2)
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR COLLAPSE(2) &
+  !$ACC&              PRESENT(residual,dtsp,uoldsp)
   do n = 1,n_solpts
     do m = 1,nq
-      usp(m,n) = beta(nst) * (alfa(nst)*uoldsp(m,n) + &
+      usp(m,n) = beta(nst) * (alfa(nst)*uoldsp(n,m) + &
                               usp(m,n) + &
-                              dtsp(n)*residual(m,n))
+                              dtsp(n)*residual(n,m))
     end do
   end do
   !
@@ -2196,7 +1940,7 @@ subroutine rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer :: n
+  integer :: n,m
   !
   ! TVD 4th-order/5-stage Runge-Kutta Coefficients
   !
@@ -2227,15 +1971,17 @@ continue
   if (nst == 1) usp_sum(:,:) = zero
   !
   do n = 1,n_solpts
-    !
-    rssprk(:,n,1) = beta(1,nst)*rssprk(:,n,1) + beta(2,nst)*residual(:,n)
-    !
-    usp(:,n) = alfa(1,nst)* uoldsp(:,n) + &
-               alfa(2,nst)*    usp(:,n) + &
-               alfa(3,nst)*usp_sum(:,n) + dtsp(n)*rssprk(:,n,1)
-    !
-    usp_sum(:,n) = usp_sum(:,n) + gama(nst)*usp(:,n)
-    !
+    do m = 1,nq
+      !
+      rssprk(n,m,1) = beta(1,nst)*rssprk(n,m,1) + beta(2,nst)*residual(n,m)
+      !
+      usp(m,n) = alfa(1,nst)* uoldsp(n,m) + &
+                 alfa(2,nst)*    usp(m,n) + &
+                 alfa(3,nst)*usp_sum(n,m) + dtsp(n)*rssprk(n,m,1)
+      !
+      usp_sum(n,m) = usp_sum(n,m) + gama(nst)*usp(m,n)
+      !
+    end do
   end do
   !
   ! Apply the filter
@@ -2495,9 +2241,10 @@ continue
   !
   if (.not. allocated(uavesp)) then
     !
-    allocate ( uavesp(1:nvar,1:n_solpts) , source=zero , &
+    allocate ( uavesp(1:n_solpts,1:nvar) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"uavesp",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(uavesp)
     !
     ! Initialize the time-averaged variables to the initial/restart
     ! solution since they werent read from a time-averaged restart file.
@@ -2605,21 +2352,21 @@ continue
     ! First, update the time-averaged conservative variables
     !
     do m = 1,nq
-      uavesp(m,n) = a*uavesp(m,n) + b*usp(m,n)
+      uavesp(n,m) = a*uavesp(n,m) + b*usp(m,n)
     end do
     !
     ! Next, update the time-averaged primitive variables
     ! (with temperature instead of density)
     !
-    uavesp(nq+1,n) = a*uavesp(nq+1,n) + b*ave_var(nq+1)
+    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
     do m = 2,nq
-      uavesp(nq+m,n) = a*uavesp(nq+m,n) + b*ave_var(m)
+      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
     end do
     !
     ! Update the remaining time-averaged variables
     !
     do m = 2*nq+1,nvar
-      uavesp(m,n) = a*uavesp(m,n) + b*product( ave_var(time_ave_var(m)%idx) )
+      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
     end do
     !
   end do

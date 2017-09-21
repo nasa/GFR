@@ -2,7 +2,9 @@ module derivatives_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix
+  use generic_types_mod, only : matrix_cpu_t => matrix
+  use generic_types_mod, only : matrix => matrix_gpu_t
+  use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
   !
@@ -13,6 +15,8 @@ module derivatives_mod
   !
   public :: init_derivative_matrices
   public :: derivatives_memory_usage
+  public :: move_deriv_to_device
+  public :: move_dqmat_to_device
   !
   !
   !
@@ -20,8 +24,8 @@ module derivatives_mod
   !                       each local coordinate direction for a given
   !                       combination of cell geometry and cell order
   !
-  type, public :: derivative_matrices
-    type(matrix), allocatable :: d(:)
+  type, public :: derivative_matrices_t
+    type(matrix_cpu_t), allocatable :: d(:)
   contains
     private
     procedure :: grad_p1 => gradient_for_point_rank1
@@ -30,6 +34,10 @@ module derivatives_mod
     procedure :: grad_c2 => gradient_for_cell_rank2
     procedure, public  :: div => divergence_derivative_matrices
     generic,   public  :: grad => grad_p1,grad_p2,grad_c1,grad_c2
+  end type derivative_matrices_t
+  !
+  type, public :: derivative_matrices
+    type(matrix), allocatable :: d(:)
   end type derivative_matrices
   !
   ! deriv : derivative matrix for all combinations of cell geometry and 
@@ -65,8 +73,8 @@ contains
 pure function divergence_derivative_matrices(this,f) result(return_value)
   !
   !.. Formal Arguments ..
-  class(derivative_matrices), intent(in) :: this
-  real(wp),                   intent(in) :: f(:,:)
+  class(derivative_matrices_t), intent(in) :: this
+  real(wp),                     intent(in) :: f(:,:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(f,dim=1))
@@ -99,9 +107,9 @@ end function divergence_derivative_matrices
 pure function gradient_for_point_rank1(this,n,f) result(return_value)
   !
   !.. Formal Arguments ..
-  class(derivative_matrices), intent(in) :: this
-  integer,                    intent(in) :: n
-  real(wp),                   intent(in) :: f(:)
+  class(derivative_matrices_t), intent(in) :: this
+  integer,                      intent(in) :: n
+  real(wp),                     intent(in) :: f(:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(this%d))
@@ -124,9 +132,9 @@ end function gradient_for_point_rank1
 pure function gradient_for_point_rank2(this,n,f) result(return_value)
   !
   !.. Formal Arguments ..
-  class(derivative_matrices), intent(in) :: this
-  integer,                    intent(in) :: n
-  real(wp),                   intent(in) :: f(:,:)
+  class(derivative_matrices_t), intent(in) :: this
+  integer,                      intent(in) :: n
+  real(wp),                     intent(in) :: f(:,:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(this%d),1:size(f,dim=2))
@@ -151,8 +159,8 @@ end function gradient_for_point_rank2
 pure function gradient_for_cell_rank1(this,f) result(return_value)
   !
   !.. Formal Arguments ..
-  class(derivative_matrices), intent(in) :: this
-  real(wp),                   intent(in) :: f(:)
+  class(derivative_matrices_t), intent(in) :: this
+  real(wp),                     intent(in) :: f(:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(f,dim=1),1:size(this%d))
@@ -175,8 +183,8 @@ end function gradient_for_cell_rank1
 pure function gradient_for_cell_rank2(this,f) result(return_value)
   !
   !.. Formal Arguments ..
-  class(derivative_matrices), intent(in) :: this
-  real(wp),                   intent(in) :: f(:,:)
+  class(derivative_matrices_t), intent(in) :: this
+  real(wp),                     intent(in) :: f(:,:)
   !
   !.. Function Result ..
   real(wp) :: return_value(1:size(f,dim=1),1:size(f,dim=2),1:size(this%d))
@@ -330,7 +338,8 @@ continue
   do this_geom = gmin,gmax
     do this_order = omin,omax
       if (allocated(deriv(this_geom,this_order)%d)) then
-        call deriv(this_geom,this_order)%d%check_for_sparsity
+       !call deriv(this_geom,this_order)%d%check_for_sparsity
+        call create_matrix_sparsity( deriv(this_geom,this_order)%d )
       end if
     end do
   end do
@@ -1186,6 +1195,186 @@ continue
   !
 #endif
 end subroutine derivatives_memory_usage
+!
+!###############################################################################
+!
+subroutine move_deriv_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_deriv_to_device"
+  !
+continue
+  !
+  if (allocated(deriv)) then
+    !$ACC ENTER DATA COPYIN(deriv)
+    i1 = lbound(deriv,dim=1)
+    i2 = ubound(deriv,dim=1)
+    j1 = lbound(deriv,dim=2)
+    j2 = ubound(deriv,dim=2)
+    !$ACC ENTER DATA COPYIN(deriv(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        if (allocated(deriv(i,j)%d)) then
+          !$ACC ENTER DATA COPYIN(deriv(i,j)%d)
+          k1 = lbound(deriv(i,j)%d,dim=1)
+          k2 = ubound(deriv(i,j)%d,dim=1)
+          !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(deriv(i,j)%d(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%mat)
+              m1 = lbound(deriv(i,j)%d(k)%mat,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%mat,dim=1)
+              n1 = lbound(deriv(i,j)%d(k)%mat,dim=2)
+              n2 = ubound(deriv(i,j)%d(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_ptr)
+              m1 = lbound(deriv(i,j)%d(k)%row_ptr,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_idx)
+              m1 = lbound(deriv(i,j)%d(k)%row_idx,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_val)
+              m1 = lbound(deriv(i,j)%d(k)%row_val,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_ptr)
+              m1 = lbound(deriv(i,j)%d(k)%col_ptr,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_idx)
+              m1 = lbound(deriv(i,j)%d(k)%col_idx,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(deriv(i,j)%d(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_val)
+              m1 = lbound(deriv(i,j)%d(k)%col_val,dim=1)
+              m2 = ubound(deriv(i,j)%d(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(deriv(i,j)%d(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_deriv_to_device
+!
+!###############################################################################
+!
+subroutine move_dqmat_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_dqmat_to_device"
+  !
+continue
+  !
+  if (allocated(dqmat)) then
+    !$ACC ENTER DATA COPYIN(dqmat)
+    i1 = lbound(dqmat,dim=1)
+    i2 = ubound(dqmat,dim=1)
+    j1 = lbound(dqmat,dim=2)
+    j2 = ubound(dqmat,dim=2)
+    !$ACC ENTER DATA COPYIN(dqmat(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        if (allocated(dqmat(i,j)%d)) then
+          !$ACC ENTER DATA COPYIN(dqmat(i,j)%d)
+          k1 = lbound(dqmat(i,j)%d,dim=1)
+          k2 = ubound(dqmat(i,j)%d,dim=1)
+          !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(dqmat(i,j)%d(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%mat)
+              m1 = lbound(dqmat(i,j)%d(k)%mat,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%mat,dim=1)
+              n1 = lbound(dqmat(i,j)%d(k)%mat,dim=2)
+              n2 = ubound(dqmat(i,j)%d(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_ptr)
+              m1 = lbound(dqmat(i,j)%d(k)%row_ptr,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_idx)
+              m1 = lbound(dqmat(i,j)%d(k)%row_idx,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_val)
+              m1 = lbound(dqmat(i,j)%d(k)%row_val,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_ptr)
+              m1 = lbound(dqmat(i,j)%d(k)%col_ptr,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_idx)
+              m1 = lbound(dqmat(i,j)%d(k)%col_idx,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(dqmat(i,j)%d(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_val)
+              m1 = lbound(dqmat(i,j)%d(k)%col_val,dim=1)
+              m2 = ubound(dqmat(i,j)%d(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(dqmat(i,j)%d(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_dqmat_to_device
 !
 !###############################################################################
 !

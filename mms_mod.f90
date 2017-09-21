@@ -534,7 +534,7 @@ continue
       !
       hc = metrics_dt(nc)%jac(k)**jac_exp * hc / (rhoref * aref)
       !
-      residual(nec,n) = residual(nec,n) + add_or_subtract * hc
+      residual(n,nec) = residual(n,nec) + add_or_subtract * hc
 !
 ! #######################################################################
 ! ########################  X-momentum equation  ########################
@@ -648,7 +648,7 @@ continue
       !
       hc = metrics_dt(nc)%jac(k)**jac_exp * hc / (rhoref * aref**2)
       !
-      residual(nmx,n) = residual(nmx,n) + add_or_subtract * hc
+      residual(n,nmx) = residual(n,nmx) + add_or_subtract * hc
 !
 ! #######################################################################
 ! ########################  Y-momentum equation  ########################
@@ -766,7 +766,7 @@ continue
         !
         hc = metrics_dt(nc)%jac(k)**jac_exp * hc / (rhoref * aref**2)
         !
-        residual(nmy,n) = residual(nmy,n) + add_or_subtract * hc
+        residual(n,nmy) = residual(n,nmy) + add_or_subtract * hc
         !
       end if
 !
@@ -885,7 +885,7 @@ continue
         hc = metrics_dt(nc)%jac(k)**jac_exp * hc / (rhoref * aref**2)
         !
         if (nr == 3) then
-          residual(nmz,n) = residual(nmz,n) + add_or_subtract * hc
+          residual(n,nmz) = residual(n,nmz) + add_or_subtract * hc
         end if
         !
       end if
@@ -1666,7 +1666,7 @@ continue
       !
       hc = metrics_dt(nc)%jac(k)**jac_exp * hc / (rhoref * aref**3)
       !
-      residual(nee,n) = residual(nee,n) + add_or_subtract * hc
+      residual(n,nee) = residual(n,nee) + add_or_subtract * hc
       !
     end do
     !

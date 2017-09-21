@@ -702,6 +702,7 @@ module module_kind_types
   !      = 1.0 for everything else
   !
   real(wp), protected, save :: cl(Geom_Min:Geom_Max)
+  !$ACC DECLARE CREATE(cl)
   !
   ! General character variable for storing error messages
   !
@@ -1429,6 +1430,7 @@ continue
   ! triangle is based on the unit or biunit triangle
   !
   if (.not. tria_is_biunit) cl(Geom_Tria) = two
+  !$ACC UPDATE DEVICE(cl)
   !
  !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !

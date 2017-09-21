@@ -29,8 +29,7 @@ continue
   gm1 = gam - one
   gp1 = gam + one
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -149,8 +148,7 @@ continue
   gm1 = gam - one
   gp1 = gam + one
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facenrm,face_cv,return_value)
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -243,7 +241,7 @@ pure subroutine roe_upwind_flux_gpu_nd(n1,n2,facenrm,face_cv,return_value)
   real(wp), intent(inout) :: return_value(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer  :: l,n,nr
   real(wp) :: gm1,gp1,ds
   real(wp) :: rl,presl,hl,q2l,ql,rql,betal
   real(wp) :: rr,presr,hr,q2r,qr,rqr,betar
@@ -264,8 +262,7 @@ continue
   gm1 = gam - one
   gp1 = gam + one
   !
-  !$ACC PARALLEL LOOP &
-  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
   !$ACC&              PRIVATE(unrm,rnrm,vell,velr,veltd,cvl,cvr,flx) &
   !$ACC&              PRESENT(facenrm,face_cv,return_value)
   do n = n1,n2
@@ -288,6 +285,12 @@ continue
     !
     hl = half*q2l + gam/gm1 * presl/rl
     hr = half*q2r + gam/gm1 * presr/rr
+   !ql = zero
+   !qr = zero
+   !do l = 1,nr
+   !  ql = ql + vell(l)*unrm(l)
+   !  qr = qr + velr(l)*unrm(l)
+   !end do
     ql = dot_product(vell,unrm)
     qr = dot_product(velr,unrm)
     !
@@ -299,6 +302,10 @@ continue
     htd   = betal*hl + betar*hr
     atd2  = max(gm1*(htd - half*selfdot(veltd)),zero)
     atd   = sqrt(atd2)
+   !qtd = zero
+   !do l = 1,nr
+   !  qtd = qtd + veltd(l)*unrm(l)
+   !end do
     qtd   = dot_product(veltd,unrm)
     !
     atd2nz = max(atd2,rndoff)

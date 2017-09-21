@@ -947,7 +947,7 @@ continue
       !
       l = output_sol_pts(n)
       !
-      var(:,l) = compute_output_variables(usp(:,n),dusp(:,:,n))
+      var(:,l) = compute_output_variables(usp(:,n),dusp(n,:,:))
       !
     end do
     !
@@ -1063,105 +1063,123 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_face_solutions
-!                                                                                 
-!###############################################################################  
-!                                                                                 
-subroutine pp_interp_cv_to_flxpts()                                                  
-  !                                                                               
-  use order_mod,         only : maxSP,geom_solpts                                 
-  use geovar,            only : ncell,cell                                        
-  use interpolation_mod, only : interp                                            
-  use flowvar,           only : usp,faceusp                                       
-  !                                                                               
-  use parallel_mod,      only : exchange_faceusp                                  
-  !                                                                               
-  !.. Local Scalars ..                                                            
-  integer :: n,nc,n1,n2,np,k,m                                                    
-  integer :: nf,kf,lf,sf                                                          
-  integer :: this_geom,this_order                                                 
-  integer :: face_geom,face_order                                                 
-  !                                                                               
-  !.. Local Arrays ..                                                             
-  real(wp), dimension(1:maxSP,1:nq) :: tusp                                       
-  !                                                                               
-  !.. Local Parameters ..                                                         
-  character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts"                    
-  !                                                                               
-continue                                                                          
-  !                                                                               
-  ! Loop through each interior cell and interpolate the conserved                 
-  ! variables at the solution points to the flux points of each cell              
-  !                                                                               
-  do nc = 1,ncell                                                                 
-    !                                                                             
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell               
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell               
-    np = n2-n1+1         ! number of sol-pts in this cell                         
-    !                                                                             
-    this_geom = cell(nc)%geom   ! geometry type of this cell                      
-    this_order = cell(nc)%order ! solution order of this cell                     
-    !                                                                             
-    ! Create transpose of usp array to reduce cache misses                        
-    !                                                                             
-    do k = 1,np                                                                   
-      do m = 1,nq                                                                 
-        tusp(k,m) = usp(m,k+n1-1)                                                 
-      end do                                                                      
-    end do                                                                        
-    !                                                                             
-    ! Now interpolate the interior solution gradients to the flux points          
-    !                                                                             
-    ! Loop over the faces of this cell                                            
-    !                                                                             
-    do n = 1,size(cell(nc)%face)                                                  
-      !                                                                           
-      nf = cell(nc)%face(n)%idx  ! index of the current face                      
-      sf = cell(nc)%face(n)%side ! side of face that cell nc is on                
-      !                                                                           
-      face_geom = cell(nc)%face(n)%geom   ! geom  of current face                 
-      face_order = cell(nc)%face(n)%order ! order of current face                 
-      !                                                                           
-      do kf = 1,geom_solpts(face_geom,face_order)                                 
-        !                                                                         
-        ! kf: index of the flx-pt local to this face                              
-        ! lf: index of flx-pt within interp%mat                                   
-        lf = cell(nc)%face(n)%get_fp_idx(kf)                                      
-        !                                                                         
-        faceusp(nf)%v(1:nq,kf,sf) = interp(this_geom,this_order)% &               
-                                              toFace(face_order)% &               
-                                    dot_mat( lf , tusp(1:np,1:nq) )               
-        !                                                                         
-      end do                                                                      
-      !                                                                           
-    end do                                                                        
-    !                                                                             
-  end do                                                                          
-  !                                                                               
-  ! Exchange the left and right states for faces on communication boundaries      
-  !                                                                               
-  if (ncpu > 1) call exchange_faceusp(faceusp)                                    
-  !                                                                               
-end subroutine pp_interp_cv_to_flxpts                                                
-!                                                                                 
-!###############################################################################  
-!                                                                                 
-subroutine pp_interp_dusp_to_flxpts()                                                
-  !                                                                               
-  use order_mod,         only : maxSP,geom_solpts                                 
-  use geovar,            only : nr,ncell,cell                                     
-  use interpolation_mod, only : interp                                            
-  use flowvar,           only : dusp,facedusp                                     
-  !                                                                               
-  use parallel_mod,      only : exchange_facedusp                                 
-  !                                                                               
+!
+!###############################################################################
+!
+subroutine pp_interp_cv_to_flxpts()
+  !
+  use order_mod,         only : maxSP,geom_solpts
+  use geovar,            only : ncell,cell,fp
+  use interpolation_mod, only : interp
+  use flowvar,           only : usp,faceusp
+  !
+  use parallel_mod,      only : exchange_faceusp
+  !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2,np,k,l,m
+  integer :: i,j,n,nc,n1,n2,np,k,m
   integer :: nf,kf,lf,sf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
+  real(wp) :: a
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
+  real(wp) :: face_cv(1:nq)
+  real(wp) :: tusp(1:maxSP,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  do nc = 1,ncell
+    !
+    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
+    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    np = n2-n1+1         ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    !
+    ! Create transpose of usp array to reduce cache misses
+    !
+    do k = 1,np
+      do m = 1,nq
+        tusp(k,m) = usp(m,k+n1-1)
+      end do
+    end do
+    !
+    ! Now interpolate the interior solution gradients to the flux points
+    !
+    ! Loop over the faces of this cell
+    !
+    do n = 1,size(cell(nc)%face)
+      !
+      nf = cell(nc)%face(n)%idx  ! index of the current face
+      sf = cell(nc)%face(n)%side ! side of face that cell nc is on
+      !
+      face_geom = cell(nc)%face(n)%geom   ! geom  of current face
+      face_order = cell(nc)%face(n)%order ! order of current face
+      !
+      do kf = 1,geom_solpts(face_geom,face_order)
+        !
+        ! kf: index of the flx-pt local to this face
+        ! lf: index of flx-pt within interp%mat
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
+        !
+        face_cv(1:nq) = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          do m = 1,nq
+            face_cv(m) = face_cv(m) + a * tusp(j,m)
+          end do
+          !
+        end do
+        !
+        faceusp(nf)%v(1:nq,kf,sf) = face_cv(1:nq)
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+  ! Exchange the left and right states for faces on communication boundaries
+  !
+  if (ncpu > 1) call exchange_faceusp(faceusp)
+  !
+end subroutine pp_interp_cv_to_flxpts
+!
+!###############################################################################
+!
+subroutine pp_interp_dusp_to_flxpts()
+  !
+  use order_mod,         only : maxSP,geom_solpts
+  use geovar,            only : nr,ncell,cell,fp
+  use interpolation_mod, only : interp
+  use flowvar,           only : dusp,facedusp
+  !
+  use parallel_mod,      only : exchange_facedusp
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nc,n1,n2,np,k,l,m
+  integer :: nf,kf,lf,sf
+  integer :: this_geom,this_order
+  integer :: face_geom,face_order
+  real(wp) :: a
+  !
+  !.. Local Arrays ..
+  real(wp) :: face_dcvdx(1:nr,1:nq)
+  real(wp) :: tdusp(1:maxSP,1:nr,1:nq)
   !
 continue
   !
@@ -1177,12 +1195,12 @@ continue
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
     !
-    ! Create transpose of dusp array to reduce cache misses
+    ! Create local copy of dusp array for this cell to reduce cache misses
     !
-    do k = 1,np
-      do m = 1,nq
-        do l = 1,nr
-          tdusp(k,l,m) = dusp(l,m,k+n1-1)
+    do m = 1,nq
+      do l = 1,nr
+        do k = 1,np
+          tdusp(k,l,m) = dusp(n1-1+k,l,m)
         end do
       end do
     end do
@@ -1203,11 +1221,27 @@ continue
         !
         ! kf: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
         !
-        facedusp(nf)%v(1:nr,1:nq,kf,sf) = interp(this_geom,this_order)% &
-                                                    toFace(face_order)% &
-                                          dot_mat2( lf , tdusp(1:np,1:nr,1:nq) )
+        face_dcvdx(1:nr,1:nq) = zero
+        !
+        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+          !
+          do m = 1,nq
+            do l = 1,nr
+              face_dcvdx(l,m) = face_dcvdx(l,m) + a * tdusp(j,l,m)
+            end do
+          end do
+          !
+        end do
+        !
+        facedusp(nf)%v(1:nr,1:nq,kf,sf) = face_dcvdx(1:nr,1:nq)
         !
       end do
       !
@@ -1236,9 +1270,9 @@ subroutine get_edge_and_node_solutions
   use parallel_mod, only : exch_edge_and_node_solutions
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,np,k,l,m,n,ne,nn,kf,lf
+  integer :: i,j,nc,n1,n2,np,k,l,m,n,ne,nn,kf,lf
   integer :: this_geom,this_order,edge_order
-  real(wp) :: ave
+  real(wp) :: a,ave
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nq)              :: upt
@@ -1287,12 +1321,12 @@ continue
       end do
     end do
     !
-    ! Create transpose of the dusp array to reduce cache misses
+    ! Create local copy of dusp array for this cell to reduce cache misses
     !
-    do k = 1,np
-      do m = 1,nq
-        do l = 1,nr
-          tdusp(k,l,m) = dusp(l,m,k+n1-1)
+    do m = 1,nq
+      do l = 1,nr
+        do k = 1,np
+          tdusp(k,l,m) = dusp(n1-1+k,l,m)
         end do
       end do
     end do
@@ -1308,20 +1342,25 @@ continue
       !
       edge_pts: do kf = 1,edge_order+1
         !
-        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+        lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
+                                                cell(nc)%edge(n)%rev_dir)
         !
-        do m = 1,nq
-          do l = 1,nr
-            dupt(l,m) = interp(this_geom,this_order)% &
-                                  toEdge(edge_order)% &
-                        dot(lf,tdusp(1:np,l,m))
+        upt(1:nq) = zero
+        dupt(1:nr,1:nq) = zero
+        !
+        do i = interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf)+1, &
+               interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf+1)
+          !
+          j = interp(this_geom,this_order)%toEdge(edge_order)%row_idx(i)
+          a = interp(this_geom,this_order)%toEdge(edge_order)%row_val(i)
+          !
+          do m = 1,nq
+            upt(m) = upt(m) + a * tusp(j,m)
+            do l = 1,nr
+              dupt(l,m) = dupt(l,m) + a * tdusp(j,l,m)
+            end do
           end do
-        end do
-        !
-        do m = 1,nq
-          upt(m) = interp(this_geom,this_order)% &
-                             toEdge(edge_order)% &
-                   dot(lf,tusp(1:np,m))
+          !
         end do
         !
         edgeusp(ne)%v(1:nq,kf) = edgeusp(ne)%v(1:nq,kf) + ave*upt(1:nq)
@@ -1342,18 +1381,22 @@ continue
       ave = cell(nc)%node(n)%ave_coef
       lf  = n
       !
-      do m = 1,nq
-        do l = 1,nr
-          dupt(l,m) = interp(this_geom,this_order)% &
-                                            toNode% &
-                      dot(lf,tdusp(1:np,l,m))
-        end do
-      end do
+      upt(1:nq) = zero
+      dupt(1:nr,1:nq) = zero
       !
-      do m = 1,nq
-        upt(m) = interp(this_geom,this_order)% &
-                                       toNode% &
-                 dot(lf,tusp(1:np,m))
+      do i = interp(this_geom,this_order)%toNode%row_ptr(lf)+1, &
+             interp(this_geom,this_order)%toNode%row_ptr(lf+1)
+        !
+        j = interp(this_geom,this_order)%toNode%row_idx(i)
+        a = interp(this_geom,this_order)%toNode%row_val(i)
+        !
+        do m = 1,nq
+          upt(m) = upt(m) + a * tusp(j,m)
+          do l = 1,nr
+            dupt(l,m) = dupt(l,m) + a * tdusp(j,l,m)
+          end do
+        end do
+        !
       end do
       !
       nodeusp(nn)%v(1:nq) = nodeusp(nn)%v(1:nq) + ave*upt(1:nq)
@@ -1386,7 +1429,7 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   use order_mod, only : omax => n_max_order
   use order_mod, only : geom_solpts
   use geovar,    only : n_solpts,ncell,cell
-  use geovar,    only : pst_geom,nr
+  use geovar,    only : pst_geom,nr,fp
   use flowvar,   only : faceusp
   use flowvar,   only : edgeusp,edgedusp
   use flowvar,   only : nodeusp,nodedusp
@@ -1405,7 +1448,7 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   integer :: n,m,nc,ne,nf,nn,n1,n2,np
   integer :: this_geom,this_order
   integer :: face_geom,face_order
-  integer :: mxpt,my_pts_offset
+  integer :: mxpt,my_pts_offset,edge_order
   integer :: this_subcells,n_my_output_cells
   integer :: bad_indices,sf,kf,lf
   integer :: ifc,iec,inc,ierr,nop1,nop2
@@ -1700,7 +1743,9 @@ continue
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
         !
         faceusp(nf)%v(1,kf,sf) = real( cell_pts( face_pt(lf) ) , kind=wp )
         !
@@ -1716,9 +1761,12 @@ continue
       !
       if (edge_already_done(ne)) cycle pack_cell_edge_pts
       !
-      do kf = 1,cell(nc)%edge(n)%order+1
+      edge_order = cell(nc)%edge(n)%order
+      !
+      do kf = 1,edge_order+1
         !
-        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+        lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
+                                                cell(nc)%edge(n)%rev_dir )
         !
         edgeusp(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
         !
@@ -1846,7 +1894,9 @@ continue
       !
       do kf = 1,geom_solpts(face_geom,face_order)
         !
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
         !
         cell_pts( face_pt(lf) ) = nint( faceusp(nf)%v(1,kf,1) , &
                                         kind=kind(cell_pts) )
@@ -1860,10 +1910,12 @@ continue
     unpack_cell_edge_pts: do n = 1,size(cell(nc)%edge)
       !
       ne = cell(nc)%edge(n)%idx
+      edge_order = cell(nc)%edge(n)%order
       !
-      do kf = 1,cell(nc)%edge(n)%order+1
+      do kf = 1,edge_order+1
         !
-        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+        lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
+                                                cell(nc)%edge(n)%rev_dir)
         !
         cell_pts( edge_pt(lf) ) = nint( edgeusp(ne)%v(1,kf) , &
                                         kind=kind(cell_pts) )
@@ -2098,7 +2150,7 @@ continue
       !
       remaining_pts(:) = 0
       !
-      ! 
+      !
       if (mypnum == this_cpu) then
         ibeg = running_offset + 1
         iend = running_offset + loc_n_my_output_pts
@@ -2312,7 +2364,7 @@ continue
     !
     output_sol_pts(n1:n2) = cell_pts(1:nsp)
     !
-    ! Get the output point indices for the face points of this cell    
+    ! Get the output point indices for the face points of this cell
     !
     create_output_face_pts: do n = 1,size(cell(nc)%face)
       !
@@ -2351,7 +2403,9 @@ continue
       !
       do kf = 1,nfp
         !
-        lf = cell(nc)%face(n)%get_fp_idx(kf)
+        lf = cell(nc)%face(n)%fp_offset + fp%geord(face_geom,face_order)% &
+                                          rot(cell(nc)%face(n)%rotation)% &
+                                          pts(kf)
         !
         output_face_pts(ifc)%out_idx(kf) = cell_pts( face_pt(lf) )
         !
@@ -2364,7 +2418,7 @@ continue
       !
     end do create_output_face_pts
     !
-    ! Get the output point indices for the edge points of this cell    
+    ! Get the output point indices for the edge points of this cell
     !
     create_output_edge_pts: do n = 1,size(cell(nc)%edge)
       !
@@ -2389,7 +2443,8 @@ continue
       !
       ! Get the number of edge points for this edge
       !
-      nep = cell(nc)%edge(n)%order+1
+      edge_order = cell(nc)%edge(n)%order
+      nep = edge_order+1
       !
       ! Allocate the out_idx component of output_edge_pts for this edge
       !
@@ -2400,7 +2455,8 @@ continue
       !
       do kf = 1,nep
         !
-        lf = cell(nc)%edge(n)%get_ep_idx(kf)
+        lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
+                                                cell(nc)%edge(n)%rev_dir)
         !
         output_edge_pts(iec)%out_idx(kf) = cell_pts( edge_pt(lf) )
         !
@@ -2408,7 +2464,7 @@ continue
       !
     end do create_output_edge_pts
     !
-    ! Get the output point indices for the nodes of this cell    
+    ! Get the output point indices for the nodes of this cell
     !
     create_output_node_pts: do n = 1,size(cell(nc)%node)
       !
@@ -4109,11 +4165,11 @@ end subroutine find_cells_on_each_face
 !
 !###############################################################################
 !
-pure function vorticity_dusp(usp,dusp,dir) result(return_value)
+pure function vorticity_dusp(cv,dcvdx,dir) result(return_value)
   !
   integer,                  intent(in) :: dir
-  real(wp), dimension(:),   intent(in) :: usp
-  real(wp), dimension(:,:), intent(in) :: dusp
+  real(wp), dimension(:),   intent(in) :: cv
+  real(wp), dimension(:,:), intent(in) :: dcvdx
   !
   real(wp) :: return_value
   !
@@ -4121,7 +4177,7 @@ pure function vorticity_dusp(usp,dusp,dir) result(return_value)
   integer :: i,j,n1,n2
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:size(dusp,dim=1),1:size(dusp,dim=2)) :: dpvdx
+  real(wp), dimension(1:size(dcvdx,dim=1),1:size(dcvdx,dim=2)) :: dpvdx
   !
   !.. Local Parameters ..
   integer, parameter, dimension(3) :: idx = [2,3,1]
@@ -4129,13 +4185,13 @@ pure function vorticity_dusp(usp,dusp,dir) result(return_value)
   !
 continue
   !
-  n1 = size(dusp,dim=1)
-  n2 = size(dusp,dim=2)
+  n1 = size(dcvdx,dim=1)
+  n2 = size(dcvdx,dim=2)
   !
   i = idx(dir)
   j = jdx(dir)
   !
-  dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( usp(:) , dusp(:,:) )
+  dpvdx(1:n1,1:n2) =  grad_cv_to_grad_pv_sp( cv(:) , dcvdx(:,:) )
   return_value = dpvdx(i,nmb-1+j) - dpvdx(j,nmb-1+i)
   !
 end function vorticity_dusp

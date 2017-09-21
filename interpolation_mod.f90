@@ -2,7 +2,10 @@ module interpolation_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix
+  use generic_types_mod, only : outerp_matrix => matrix
+ !use generic_types_mod, only : interp_matrix => matrix
+  use generic_types_mod, only : interp_matrix => matrix_gpu_t
+  use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
   !
@@ -14,6 +17,8 @@ module interpolation_mod
   public :: init_interpolation_matrices
   public :: init_outerpolation_matrices
   public :: interpolation_memory_usage
+  public :: move_interp_to_device
+  public :: move_outerp_to_device
   !
   !
   !
@@ -23,10 +28,10 @@ module interpolation_mod
   !                        combination of cell geometry and cell order
   !
   type, public :: interpolation_matrix
-    type(matrix), allocatable :: toFace(:) ! interpolate to a face point
-    type(matrix), allocatable :: toCell(:) ! interpolate to a cell point
-    type(matrix), allocatable :: toEdge(:) ! interpolate to a edge point
-    type(matrix), allocatable :: toNode    ! interpolate to a node
+    type(interp_matrix), allocatable :: toFace(:) ! interpolate to a face point
+    type(interp_matrix), allocatable :: toCell(:) ! interpolate to a cell point
+    type(interp_matrix), allocatable :: toEdge(:) ! interpolate to a edge point
+    type(interp_matrix), allocatable :: toNode    ! interpolate to a node
   end type interpolation_matrix
   !
   ! interp : interpolation matrix for all combinations of cell geometry
@@ -59,13 +64,13 @@ module interpolation_mod
   type, public :: outerpolation_matrix
     ! output : Interpolation matrix from solution points to quadrature points
     !          used to output the solution for post-processing
-    type(matrix), allocatable :: output
+    type(outerp_matrix), allocatable :: output
     ! init : Interpolation matrix from solution points to quadrature points
     !        used to compute initial conditions
-    type(matrix), allocatable :: init
+    type(outerp_matrix), allocatable :: init
     ! error : Interpolation matrix from solution points to quadrature points
     !         used for error computations
-    type(matrix), allocatable :: error
+    type(outerp_matrix), allocatable :: error
     ! err_wts : Array containing the quadrature weights
     !           for the error computations
     real(wp), allocatable :: err_wts(:)
@@ -104,9 +109,9 @@ subroutine init_interpolation_matrices()
   !
   !.. Local Pointers ..
   type(interpolation_matrix), pointer :: this_interp
-  type(matrix), pointer :: this_face
-  type(matrix), pointer :: this_edge
-  type(matrix), pointer :: this_node
+  type(interp_matrix), pointer :: this_face
+  type(interp_matrix), pointer :: this_edge
+  type(interp_matrix), pointer :: this_node
   real(wp), pointer, contiguous :: solpts(:,:)
  !real(wp), pointer, contiguous :: flxpts(:,:)
   !
@@ -450,13 +455,16 @@ continue
   do this_geom = gmin,gmax
     do this_order = omin,omax
       if (allocated(interp(this_geom,this_order)%toFace)) then
-        call interp(this_geom,this_order)%toFace%check_for_sparsity
+       !call interp(this_geom,this_order)%toFace%check_for_sparsity
+        call create_matrix_sparsity( interp(this_geom,this_order)%toFace )
       end if
       if (allocated(interp(this_geom,this_order)%toEdge)) then
-        call interp(this_geom,this_order)%toEdge%check_for_sparsity
+       !call interp(this_geom,this_order)%toEdge%check_for_sparsity
+        call create_matrix_sparsity( interp(this_geom,this_order)%toEdge )
       end if
       if (allocated(interp(this_geom,this_order)%toNode)) then
-        call interp(this_geom,this_order)%toNode%check_for_sparsity
+       !call interp(this_geom,this_order)%toNode%check_for_sparsity
+        call create_matrix_sparsity( interp(this_geom,this_order)%toNode )
       end if
     end do
   end do
@@ -3231,6 +3239,482 @@ continue
   !
 #endif
 end subroutine interpolation_memory_usage
+!
+!###############################################################################
+!
+subroutine move_interp_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_interp_to_device"
+  !
+continue
+  !
+  if (allocated(interp)) then
+    !$ACC ENTER DATA COPYIN(interp)
+    i1 = lbound(interp,dim=1)
+    i2 = ubound(interp,dim=1)
+    j1 = lbound(interp,dim=2)
+    j2 = ubound(interp,dim=2)
+    !$ACC ENTER DATA COPYIN(interp(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(interp(i,j)%toFace)) then
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toFace)
+          k1 = lbound(interp(i,j)%toFace,dim=1)
+          k2 = ubound(interp(i,j)%toFace,dim=1)
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(interp(i,j)%toFace(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%mat)
+              m1 = lbound(interp(i,j)%toFace(k)%mat,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%mat,dim=1)
+              n1 = lbound(interp(i,j)%toFace(k)%mat,dim=2)
+              n2 = ubound(interp(i,j)%toFace(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_ptr)
+              m1 = lbound(interp(i,j)%toFace(k)%row_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_idx)
+              m1 = lbound(interp(i,j)%toFace(k)%row_idx,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_val)
+              m1 = lbound(interp(i,j)%toFace(k)%row_val,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_ptr)
+              m1 = lbound(interp(i,j)%toFace(k)%col_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_idx)
+              m1 = lbound(interp(i,j)%toFace(k)%col_idx,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toFace(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_val)
+              m1 = lbound(interp(i,j)%toFace(k)%col_val,dim=1)
+              m2 = ubound(interp(i,j)%toFace(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toFace(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(interp(i,j)%toCell)) then
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toCell)
+          k1 = lbound(interp(i,j)%toCell,dim=1)
+          k2 = ubound(interp(i,j)%toCell,dim=1)
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(interp(i,j)%toCell(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%mat)
+              m1 = lbound(interp(i,j)%toCell(k)%mat,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%mat,dim=1)
+              n1 = lbound(interp(i,j)%toCell(k)%mat,dim=2)
+              n2 = ubound(interp(i,j)%toCell(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_ptr)
+              m1 = lbound(interp(i,j)%toCell(k)%row_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_idx)
+              m1 = lbound(interp(i,j)%toCell(k)%row_idx,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_val)
+              m1 = lbound(interp(i,j)%toCell(k)%row_val,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_ptr)
+              m1 = lbound(interp(i,j)%toCell(k)%col_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_idx)
+              m1 = lbound(interp(i,j)%toCell(k)%col_idx,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toCell(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_val)
+              m1 = lbound(interp(i,j)%toCell(k)%col_val,dim=1)
+              m2 = ubound(interp(i,j)%toCell(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toCell(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(interp(i,j)%toEdge)) then
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge)
+          k1 = lbound(interp(i,j)%toEdge,dim=1)
+          k2 = ubound(interp(i,j)%toEdge,dim=1)
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k1:k2))
+          do k = k1,k2
+            !
+            if (allocated(interp(i,j)%toEdge(k)%mat)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%mat)
+              m1 = lbound(interp(i,j)%toEdge(k)%mat,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%mat,dim=1)
+              n1 = lbound(interp(i,j)%toEdge(k)%mat,dim=2)
+              n2 = ubound(interp(i,j)%toEdge(k)%mat,dim=2)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%mat(m1:m2,n1:n2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%row_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_ptr)
+              m1 = lbound(interp(i,j)%toEdge(k)%row_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%row_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%row_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_idx)
+              m1 = lbound(interp(i,j)%toEdge(k)%row_idx,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%row_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%row_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_val)
+              m1 = lbound(interp(i,j)%toEdge(k)%row_val,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%row_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%row_val(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%col_ptr)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_ptr)
+              m1 = lbound(interp(i,j)%toEdge(k)%col_ptr,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%col_ptr,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_ptr(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%col_idx)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_idx)
+              m1 = lbound(interp(i,j)%toEdge(k)%col_idx,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%col_idx,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_idx(m1:m2))
+            end if
+            !
+            if (allocated(interp(i,j)%toEdge(k)%col_val)) then
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_val)
+              m1 = lbound(interp(i,j)%toEdge(k)%col_val,dim=1)
+              m2 = ubound(interp(i,j)%toEdge(k)%col_val,dim=1)
+              !$ACC ENTER DATA COPYIN(interp(i,j)%toEdge(k)%col_val(m1:m2))
+            end if
+            !
+          end do
+          !
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(interp(i,j)%toNode)) then
+          !$ACC ENTER DATA COPYIN(interp(i,j)%toNode)
+          if (allocated(interp(i,j)%toNode%mat)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%mat)
+            m1 = lbound(interp(i,j)%toNode%mat,dim=1)
+            m2 = ubound(interp(i,j)%toNode%mat,dim=1)
+            n1 = lbound(interp(i,j)%toNode%mat,dim=2)
+            n2 = ubound(interp(i,j)%toNode%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_ptr)
+            m1 = lbound(interp(i,j)%toNode%row_ptr,dim=1)
+            m2 = ubound(interp(i,j)%toNode%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%row_idx)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_idx)
+            m1 = lbound(interp(i,j)%toNode%row_idx,dim=1)
+            m2 = ubound(interp(i,j)%toNode%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%row_val)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_val)
+            m1 = lbound(interp(i,j)%toNode%row_val,dim=1)
+            m2 = ubound(interp(i,j)%toNode%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%row_val(m1:m2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_ptr)
+            m1 = lbound(interp(i,j)%toNode%col_ptr,dim=1)
+            m2 = ubound(interp(i,j)%toNode%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%col_idx)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_idx)
+            m1 = lbound(interp(i,j)%toNode%col_idx,dim=1)
+            m2 = ubound(interp(i,j)%toNode%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(interp(i,j)%toNode%col_val)) then
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_val)
+            m1 = lbound(interp(i,j)%toNode%col_val,dim=1)
+            m2 = ubound(interp(i,j)%toNode%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(interp(i,j)%toNode%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_interp_to_device
+!
+!###############################################################################
+!
+subroutine move_outerp_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,m1,m2,n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_outerp_to_device"
+  !
+continue
+  !
+  if (allocated(outerp)) then
+    !$ACC ENTER DATA COPYIN(outerp)
+    i1 = lbound(outerp,dim=1)
+    i2 = ubound(outerp,dim=1)
+    j1 = lbound(outerp,dim=2)
+    j2 = ubound(outerp,dim=2)
+    !$ACC ENTER DATA COPYIN(outerp(i1:i2,j1:j2))
+    do j = j1,j2
+      do i = i1,i2
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(outerp(i,j)%output)) then
+          !$ACC ENTER DATA COPYIN(outerp(i,j)%output)
+          if (allocated(outerp(i,j)%output%mat)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%mat)
+            m1 = lbound(outerp(i,j)%output%mat,dim=1)
+            m2 = ubound(outerp(i,j)%output%mat,dim=1)
+            n1 = lbound(outerp(i,j)%output%mat,dim=2)
+            n2 = ubound(outerp(i,j)%output%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_ptr)
+            m1 = lbound(outerp(i,j)%output%row_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%output%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%row_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_idx)
+            m1 = lbound(outerp(i,j)%output%row_idx,dim=1)
+            m2 = ubound(outerp(i,j)%output%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%row_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_val)
+            m1 = lbound(outerp(i,j)%output%row_val,dim=1)
+            m2 = ubound(outerp(i,j)%output%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%row_val(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_ptr)
+            m1 = lbound(outerp(i,j)%output%col_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%output%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%col_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_idx)
+            m1 = lbound(outerp(i,j)%output%col_idx,dim=1)
+            m2 = ubound(outerp(i,j)%output%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%output%col_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_val)
+            m1 = lbound(outerp(i,j)%output%col_val,dim=1)
+            m2 = ubound(outerp(i,j)%output%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%output%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(outerp(i,j)%init)) then
+          !$ACC ENTER DATA COPYIN(outerp(i,j)%init)
+          if (allocated(outerp(i,j)%init%mat)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%mat)
+            m1 = lbound(outerp(i,j)%init%mat,dim=1)
+            m2 = ubound(outerp(i,j)%init%mat,dim=1)
+            n1 = lbound(outerp(i,j)%init%mat,dim=2)
+            n2 = ubound(outerp(i,j)%init%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_ptr)
+            m1 = lbound(outerp(i,j)%init%row_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%init%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%row_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_idx)
+            m1 = lbound(outerp(i,j)%init%row_idx,dim=1)
+            m2 = ubound(outerp(i,j)%init%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%row_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_val)
+            m1 = lbound(outerp(i,j)%init%row_val,dim=1)
+            m2 = ubound(outerp(i,j)%init%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%row_val(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_ptr)
+            m1 = lbound(outerp(i,j)%init%col_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%init%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%col_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_idx)
+            m1 = lbound(outerp(i,j)%init%col_idx,dim=1)
+            m2 = ubound(outerp(i,j)%init%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%init%col_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_val)
+            m1 = lbound(outerp(i,j)%init%col_val,dim=1)
+            m2 = ubound(outerp(i,j)%init%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%init%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+        if (allocated(outerp(i,j)%error)) then
+          !$ACC ENTER DATA COPYIN(outerp(i,j)%error)
+          if (allocated(outerp(i,j)%error%mat)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%mat)
+            m1 = lbound(outerp(i,j)%error%mat,dim=1)
+            m2 = ubound(outerp(i,j)%error%mat,dim=1)
+            n1 = lbound(outerp(i,j)%error%mat,dim=2)
+            n2 = ubound(outerp(i,j)%error%mat,dim=2)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%mat(m1:m2,n1:n2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%row_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_ptr)
+            m1 = lbound(outerp(i,j)%error%row_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%error%row_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%row_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_idx)
+            m1 = lbound(outerp(i,j)%error%row_idx,dim=1)
+            m2 = ubound(outerp(i,j)%error%row_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%row_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_val)
+            m1 = lbound(outerp(i,j)%error%row_val,dim=1)
+            m2 = ubound(outerp(i,j)%error%row_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%row_val(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%col_ptr)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_ptr)
+            m1 = lbound(outerp(i,j)%error%col_ptr,dim=1)
+            m2 = ubound(outerp(i,j)%error%col_ptr,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_ptr(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%col_idx)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_idx)
+            m1 = lbound(outerp(i,j)%error%col_idx,dim=1)
+            m2 = ubound(outerp(i,j)%error%col_idx,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_idx(m1:m2))
+          end if
+          !
+          if (allocated(outerp(i,j)%error%col_val)) then
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_val)
+            m1 = lbound(outerp(i,j)%error%col_val,dim=1)
+            m2 = ubound(outerp(i,j)%error%col_val,dim=1)
+            !$ACC ENTER DATA COPYIN(outerp(i,j)%error%col_val(m1:m2))
+          end if
+        end if
+        !
+        !---------------------------------------------------------------
+        !
+      end do
+    end do
+  end if
+  !
+end subroutine move_outerp_to_device
 !
 !###############################################################################
 !

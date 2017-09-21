@@ -9,6 +9,9 @@ module geovar
   private
   !
   public :: geovar_memory_usage
+  public :: move_cell_to_device
+  public :: move_face_to_device
+  public :: move_fp_to_device
   !
   !  c - cells
   !  v - vertices
@@ -158,9 +161,6 @@ module geovar
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
   !
-  integer, public, save, allocatable :: fp_bc(:)
-  !$ACC DECLARE CREATE(fp_bc)
-  !
   ! CONFLICT : A data type that provides the node and face indices for any
   !            boundary condition conflicts. A boundary condition conflict
   !            is where two adjacent boundary faces have non-matching / 
@@ -233,6 +233,7 @@ module geovar
   end type fp_t
   !
   type(fp_t), public, save, allocatable :: fp
+ !!$ACC DECLARE CREATE(fp)
   !
   ! CELL_ON_FACE_T : derived type to store the information about
   !                  a cell on one side of a given face
@@ -251,11 +252,11 @@ module geovar
     ! rotation : index giving the rotation of the flux points
     !            for the current element on this face
     integer :: rotation
-  contains
-    private
-    procedure :: get_fp_index => get_face_fp_index
-    procedure :: get_fp_indices => get_face_fp_indices
-    generic, public :: get_fp_idx => get_fp_index, get_fp_indices
+ !contains
+ !  private
+ !  procedure :: get_fp_index => get_face_fp_index
+ !  procedure :: get_fp_indices => get_face_fp_indices
+ !  generic, public :: get_fp_idx => get_fp_index, get_fp_indices
   end type cell_on_face_t
   !
   ! FACE_T : derived type to store information for each grid face
@@ -327,11 +328,11 @@ module geovar
     ! rotation : index giving the rotation of the flux points
     !            for the current face of this element
     integer :: rotation
-  contains
-    private
-    procedure :: get_fp_index => get_cell_fp_index
-    procedure :: get_fp_indices => get_cell_fp_indices
-    generic, public :: get_fp_idx => get_fp_index, get_fp_indices
+ !contains
+ !  private
+ !  procedure :: get_fp_index => get_cell_fp_index
+ !  procedure :: get_fp_indices => get_cell_fp_indices
+ !  generic, public :: get_fp_idx => get_fp_index, get_fp_indices
   end type face_of_cell_t
   !
   !
@@ -355,11 +356,11 @@ module geovar
     !  = true : edge point indices are in decreasing order and are given by
     !              intseq(order+1,rev_dir) = order+1,...,1
     logical(lk) :: rev_dir
-  contains
-    private
-    procedure :: get_ep_index
-    procedure :: get_ep_indices
-    generic, public :: get_ep_idx => get_ep_index, get_ep_indices
+ !contains
+ !  private
+ !  procedure :: get_ep_index
+ !  procedure :: get_ep_indices
+ !  generic, public :: get_ep_idx => get_ep_index, get_ep_indices
   end type edge_of_cell_t
   !
   !
@@ -460,6 +461,124 @@ module geovar
   !$ACC DECLARE CREATE(nr)
   !
 contains
+!
+!###############################################################################
+!###############################################################################
+!#########          PROCEDURES INVOLVING GPU DATA TRANSFERS            #########
+!###############################################################################
+!###############################################################################
+!
+subroutine move_cell_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: n,nc,np,ncf,nce,ncn
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_cell_to_device"
+  !
+continue
+  !
+  if (allocated(cell)) then
+    !$ACC ENTER DATA COPYIN(cell)
+    np = size(cell)
+    !$ACC ENTER DATA COPYIN(cell(1:np))
+    do nc = 1,np
+      if (allocated(cell(nc)%face)) then
+        !$ACC ENTER DATA COPYIN(cell(nc)%face)
+        ncf = size(cell(nc)%face)
+        !$ACC ENTER DATA COPYIN(cell(nc)%face(1:ncf))
+        do n = 1,ncf
+          !$ACC ENTER DATA COPYIN(cell(nc)%face(n))
+        end do
+      end if
+      if (allocated(cell(nc)%edge)) then
+        !$ACC ENTER DATA COPYIN(cell(nc)%edge)
+        nce = size(cell(nc)%edge)
+        !$ACC ENTER DATA COPYIN(cell(nc)%edge(1:nce))
+        do n = 1,nce
+          !$ACC ENTER DATA COPYIN(cell(nc)%edge(n))
+        end do
+      end if
+      if (allocated(cell(nc)%node)) then
+        !$ACC ENTER DATA COPYIN(cell(nc)%node)
+        ncn = size(cell(nc)%node)
+        !$ACC ENTER DATA COPYIN(cell(nc)%node(1:ncn))
+        do n = 1,ncn
+          !$ACC ENTER DATA COPYIN(cell(nc)%node(n))
+        end do
+      end if
+    end do
+  end if
+  !
+end subroutine move_cell_to_device
+!
+!###############################################################################
+!
+subroutine move_face_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: nf,np
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_face_to_device"
+  !
+continue
+  !
+  if (allocated(face)) then
+    np = size(face)
+    !$ACC ENTER DATA COPYIN(face)
+    !$ACC ENTER DATA COPYIN(face(1:np))
+    do nf = 1,np
+      !$ACC ENTER DATA COPYIN(face(nf)%left,face(nf)%right)
+    end do
+  end if
+  !
+end subroutine move_face_to_device
+!
+!###############################################################################
+!
+subroutine move_fp_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: i,i1,i2,j,j1,j2,k,k1,k2,l1,l2
+  integer :: this_geom,this_order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_fp_to_device"
+  !
+continue
+  !
+  if (allocated(fp)) then
+    !$ACC ENTER DATA COPYIN(fp)
+    if (allocated(fp%geord)) then
+      !$ACC ENTER DATA COPYIN(fp%geord)
+      i1 = lbound(fp%geord,dim=1)
+      i2 = ubound(fp%geord,dim=1)
+      j1 = lbound(fp%geord,dim=2)
+      j2 = ubound(fp%geord,dim=2)
+      !$ACC ENTER DATA COPYIN(fp%geord(i1:i2,j1:j2))
+      do j = j1,j2
+        do i = i1,i2
+          if (allocated(fp%geord(i,j)%rot)) then
+            !$ACC ENTER DATA COPYIN(fp%geord(i,j)%rot)
+            k1 = lbound(fp%geord(i,j)%rot,dim=1)
+            k2 = ubound(fp%geord(i,j)%rot,dim=1)
+            !$ACC ENTER DATA COPYIN(fp%geord(i,j)%rot(k1:k2))
+            do k = k1,k2
+              if (allocated(fp%geord(i,j)%rot(k)%pts)) then
+                !$ACC ENTER DATA COPYIN(fp%geord(i,j)%rot(k)%pts)
+                l1 = lbound(fp%geord(i,j)%rot(k)%pts,dim=1)
+                l2 = ubound(fp%geord(i,j)%rot(k)%pts,dim=1)
+                !$ACC ENTER DATA COPYIN(fp%geord(i,j)%rot(k)%pts(l1:l2))
+              end if
+            end do
+          end if
+        end do
+      end do
+    end if
+  end if
+  !
+end subroutine move_fp_to_device
 !
 !###############################################################################
 !###############################################################################
