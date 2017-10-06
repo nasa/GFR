@@ -25,7 +25,7 @@ module flowvar
   ! DUSP : gradient of primitive variables @SP
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp
- !!$ACC DECLARE CREATE(usp)
+  !$ACC DECLARE CREATE(usp)
   real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
   !$ACC DECLARE CREATE(dusp)
   !
@@ -60,7 +60,7 @@ module flowvar
   ! UAVESP : time averaged variables at the solution points
   !
   real(wp), public, save, allocatable :: uavesp(:,:)
-  !$ACC DECLARE CREATE(dtsp)
+  !$ACC DECLARE CREATE(uavesp)
   !
   ! TIME_AVE_VARIABLES : character identifier for variables included
   !                      in the time averaging
@@ -129,6 +129,10 @@ module flowvar
   real(wp), public, save, allocatable :: faceflx(:,:)
   !
   !$ACC DECLARE CREATE(faceusp_array,facedusp_array,faceflx)
+  !
+  real(wp), public, save, allocatable :: facexyz_array(:,:)
+  !
+  !$ACC DECLARE CREATE(facexyz_array)
   !
   !
   ! NE1D_T : Derived type containing a 1D array for storing edge/node
@@ -214,7 +218,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : time_average_restart_files
   !
   !.. Local Scalars ..
-  integer :: n,ne,nf,nn,nepts,nfpts
+  integer :: n,ne,nf,nn,nepts,nfp,nfpts
   integer :: face_geom,face_order,ierr
   character(len=200) :: array_name
   !
@@ -225,10 +229,10 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  allocate ( usp(1:nq,1:n_totpts) , source=zero , &
+  allocate ( usp(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
- !!$ACC UPDATE DEVICE(usp)
+  !$ACC UPDATE DEVICE(usp)
   !
   !
   allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
@@ -359,20 +363,32 @@ continue
     !
     !
     if (allocated(facexyz)) then
+      !
+      nfpts = 0
+      !
       do nf = 1,size(facexyz) ! could be nfbnd or nface
         !
         face_geom = face(nf)%geom
         face_order = face(nf)%order
         !
-        nfpts = geom_solpts(face_geom,face_order)
+        nfp = geom_solpts(face_geom,face_order)
+        nfpts = nfpts + nfp
         !
-        allocate ( facexyz(nf)%v(1:nr,1:nfpts) , source=zero , &
+        allocate ( facexyz(nf)%v(1:nr,1:nfp) , source=zero , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) "facexyz",nf
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
       end do
+      !
+      allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_array",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !
+      !$ACC UPDATE DEVICE(facexyz_array)
+      !
     end if
     !
     ! If using continuous output, allocate the nodeusp, nodedusp, edgeusp,

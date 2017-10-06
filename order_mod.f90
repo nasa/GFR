@@ -137,6 +137,7 @@ continue
  !  n_max_order = max( n_max_order , e_order )
  !end if
   !
+ !!$ACC ENTER DATA COPYIN(geom_solpts)
   !$ACC UPDATE DEVICE(geom_solpts)
   !
 end subroutine initialize_geom_solpts

@@ -1,6 +1,6 @@
 module generic_mod
   !
-#define PROFILE_ON
+!#define PROFILE_ON
   !
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq,ntk,ntl
@@ -44,8 +44,6 @@ module generic_mod
   real(wp), save, allocatable :: sum_kedr1(:,:)
   real(wp), save              :: tgv_dimen1(1:7) = zero
   !
-  !$ACC DECLARE CREATE(tgv_kedr,sum_kedr,tgv_dimen)
-  !
 contains
 !
 !###############################################################################
@@ -55,10 +53,11 @@ subroutine compute_residual_error_gpu()
   !.. Use Statements ..
   use geovar,       only : nr,n_solpts,ncell,cell
   use ovar,         only : total_volume,uverr
+  use ovar,         only : use_async_for_error
   use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
-  integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3
+  integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3,e1,e2,e3
   real(wp) :: vol_inv
   !
   !.. Local Arrays ..
@@ -94,14 +93,20 @@ continue
   l2 = min(2,nr)
   l3 = min(3,nr)
   !
-  allocate ( error(1:nq+1,1:5+nr,1:2) )
-  allocate ( tunew(1:n_solpts,1:nq+1) )
-  allocate ( tuold(1:n_solpts,1:nq+1) )
-  allocate ( cell_for_sp(1:n_solpts) )
-  !$ACC DATA CREATE(error,tunew,tuold,cell_for_sp) &
-  !$ACC&     PRESENT(cell,uverr,cell_map)
+  e1 = size(uverr,dim=1)
+  e2 = size(uverr,dim=2)
+  e3 = size(uverr,dim=3)
   !
-  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32)
+  allocate ( error(1:e1,1:e2,1:e3) , source=zero )
+  allocate ( tunew(1:n_solpts,1:nq+1) , source=zero )
+  allocate ( tuold(1:n_solpts,1:nq+1) , source=zero )
+  allocate ( cell_for_sp(1:n_solpts) , source=0 )
+  !
+  !$ACC DATA CREATE(error,tunew,tuold,cell_for_sp)
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,cell_for_sp)
   do nc = 1,ncell
     n1 = cell(nc)%beg_sp
     n2 = cell(nc)%end_sp
@@ -114,14 +119,24 @@ continue
   call get_unew_solpts_gpu(tunew)
   call get_uold_solpts_gpu(tuold)
   !
-  call compute_error_gpu(tunew,tuold,error(:,:,1))
+  if (use_async_for_error) then
+    call compute_error_gpu_async(tunew,tuold,error(:,:,1))
+  else
+    call compute_error_gpu(tunew,tuold,error(:,:,1))
+  end if
   !
   call get_vnew_solpts_gpu(tunew)
   call get_vold_solpts_gpu(tuold)
   !
-  call compute_error_gpu(tunew,tuold,error(:,:,2))
+  if (use_async_for_error) then
+    call compute_error_gpu_async(tunew,tuold,error(:,:,2))
+  else
+    call compute_error_gpu(tunew,tuold,error(:,:,2))
+  end if
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(cell,cell_map,error,cell_for_sp)
   do l = 1,2
     do m = 1,nq+1
       n = nint(error(m,5,l))
@@ -131,6 +146,20 @@ continue
       error(m,5,l) = real(k,kind=wp)
     end do
   end do
+  !
+  !$ACC UPDATE SELF(error)
+  !
+!#define DEBUG_WRITE_ITER_OUT
+#ifdef DEBUG_WRITE_ITER_OUT
+  do l = 1,size(error,dim=3)
+    do n = 1,size(error,dim=2)
+      do m = 1,size(error,dim=1)
+        write (*,101) m,n,l,error(m,n,l)
+      end do
+    end do
+  end do
+  write (*,*)
+#endif
   !
   ! Finish computing the various global norms for all variables
   !
@@ -177,10 +206,15 @@ continue
     !
     ! Copy all the error values into the uverr array
     !
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(3)
-    do l = 1,size(error,dim=3)
-      do n = 1,size(error,dim=2)
-        do m = 1,size(error,dim=1)
+    !$ACC PARALLEL LOOP COLLAPSE(3) &
+    !$ACC&              VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(uverr,error)
+    do l = 1,e3
+   !do l = 1,size(error,dim=3) ! DOESNT WORK
+      do n = 1,e2
+   !  do n = 1,size(error,dim=2) ! DOESNT WORK
+        do m = 1,e1
+   !    do m = 1,size(error,dim=1) ! DOESNT WORK
           uverr(m,n,l) = error(m,n,l)
         end do
       end do
@@ -188,22 +222,57 @@ continue
     !
     ! Finalize the L1 and L2 norms
     !
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) COLLAPSE(2)
-    do l = 1,size(error,dim=3)
-      do m = 1,size(error,dim=1)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(uverr)
+    do l = 1,e3
+   !do l = 1,size(uverr,dim=3) ! DOESNT WORK
+      do m = 1,e1
+     !  do m = 1,size(uverr,dim=1) ! DOESNT WORK
         uverr(m,1,l) =       uverr(m,1,l) * vol_inv
         uverr(m,2,l) = sqrt( uverr(m,2,l) * vol_inv )
       end do
     end do
     !
   end if
-  !$ACC UPDATE HOST(uverr)
+  !$ACC UPDATE SELF(uverr)
+#ifdef DEBUG_WRITE_ITER_OUT
+  !$ACC PARALLEL LOOP SEQ PRESENT(uverr)
+  do n = 1,size(uverr,dim=2)
+    !$ACC LOOP SEQ
+    do m = 1,size(uverr,dim=1)
+      write (*,*) m,n,uverr(m,n,1)
+    end do
+  end do
+  write (*,*)
+  !$ACC PARALLEL LOOP SEQ PRESENT(uverr)
+  do n = 1,size(uverr,dim=2)
+    !$ACC LOOP SEQ
+    do m = 1,size(uverr,dim=1)
+      write (*,*) m,n,uverr(m,n,2)
+    end do
+  end do
+#endif
   !
   !$ACC END DATA
   deallocate ( cell_for_sp )
   deallocate ( tuold )
   deallocate ( tunew )
   deallocate ( error )
+  !
+#ifdef DEBUG_WRITE_ITER_OUT
+  write (*,*)
+  do l = 1,size(uverr,dim=3)
+    do n = 1,size(uverr,dim=2)
+      do m = 1,size(uverr,dim=1)
+        write (*,100) m,n,l,uverr(m,n,l)
+      end do
+    end do
+  end do
+  write (*,*)
+  100 format ("uverr(",i0,",",i0,",",i0,") = ",es23.15)
+  101 format ("error(",i0,",",i0,",",i0,") = ",es23.15)
+#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -251,22 +320,22 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  allocate ( linf_error(1:n_solpts) )
-  !$ACC DATA CREATE(linf_error) &
-  !$ACC&     PRESENT(tunew,tuold,wtdjac,error)
+  allocate ( linf_error(1:n_solpts) , source=zero )
+  !$ACC DATA CREATE(linf_error)
   !
   do m = 1,nq+1
     !
     lone_sum = zero
     ltwo_sum = zero
     !
-    !$ACC PARALLEL LOOP REDUCTION(+:lone_sum,ltwo_sum)
+    !$ACC PARALLEL LOOP REDUCTION(+:lone_sum,ltwo_sum) &
+    !$ACC&              PRESENT(tunew,tuold,wtdjac,linf_error)
     do n = 1,n_solpts
       !
       new_val = tunew(n,m)
       old_val = tuold(n,m)
       !
-      linf = abs( new_val - old_val ) 
+      linf = abs( new_val - old_val )
       lone = linf*wtdjac(n)
       ltwo = linf*lone
       !
@@ -277,6 +346,8 @@ continue
       !
     end do
     !
+    !$ACC UPDATE SELF(linf_error)
+    !
     linf_max = -huge(zero)
     do n = 1,n_solpts
       if (linf_error(n) > linf_max) then
@@ -284,8 +355,13 @@ continue
         k = n
       end if
     end do
-   !k = maxloc(linf_error(:),dim=1)
+   !k = maxloc(linf_error(1:n_solpts),dim=1)
     !
+#ifdef DEBUG_WRITE_ITER_OUT
+    write (iout,100) "lone_sum = ",lone_sum
+    write (iout,100) "ltwo_sum = ",ltwo_sum
+    100 format (a,es16.8)
+#endif
     error(m,1) = lone_sum
     error(m,2) = ltwo_sum
     error(m,3) = linf_error(k)
@@ -296,12 +372,143 @@ continue
     !
   end do
   !
+  !$ACC UPDATE DEVICE(error)
+  !
   !$ACC END DATA
   deallocate ( linf_error )
   !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine compute_error_gpu
+!
+!###############################################################################
+!
+subroutine compute_error_gpu_async(tunew,tuold,error)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr,n_solpts,xyz
+  use metrics_mod, only : wtdjac
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tunew(:,:)
+  real(wp),    intent(in) :: tuold(:,:)
+  real(wp), intent(inout) :: error(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: k,m,n,l1,l2,l3
+  real(wp) :: lone,ltwo,linf_max
+  !
+  !.. Local Arrays ..
+  real(wp) :: lone_sum(1:nq+1)
+  real(wp) :: ltwo_sum(1:nq+1)
+  !
+  !.. Local Allocatble Arrays ..
+  real(wp), allocatable :: linf_error(:,:)
+  !
+  ! error(1:nq+1,:,:) = error value for each flow equation + extra variable
+  ! error(:,1) = L1    norm of total error for all solution points
+  ! error(:,2) = L2%   norm of total error for all solution points
+  ! error(:,3) = L-inf norm (max value) of error for all solution points
+  ! error(:,4) = ID of grid cell containing maximum value of error
+  ! error(:,5) = ID of solution point with maximum value of error
+  ! error(:,6) = x-coordinate of sol-pt with max value of error
+  ! error(:,7) = y-coordinate of sol-pt with max value of error (if 2D or 3D)
+  ! error(:,8) = z-coordinate of sol-pt with max value of error (if 3D
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_error_gpu_async"
+  !
+continue
+  !
+  l1 = 1
+  l2 = min(2,nr)
+  l3 = min(3,nr)
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( linf_error(1:n_solpts,1:nq+1) )
+  !$ACC DATA CREATE(linf_error,lone_sum,ltwo_sum)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(tunew,tuold,linf_error)
+  do m = 1,nq+1
+    do n = 1,n_solpts
+      linf_error(n,m) = abs( tunew(n,m) - tuold(n,m) ) 
+    end do
+  end do
+  !
+  !$ACC UPDATE SELF(linf_error)
+  !
+  !$ACC PARALLEL LOOP GANG ASYNC &
+  !$ACC&              NUM_GANGS(6) &
+  !$ACC&              VECTOR_LENGTH(512) &
+  !$ACC&              PRESENT(wtdjac,linf_error,lone_sum,ltwo_sum)
+  do m = 1,nq+1
+    !
+    lone = zero
+    ltwo = zero
+    !
+    !$ACC LOOP REDUCTION(+:lone,ltwo)
+    do n = 1,n_solpts
+     !lone = linf_error(n,m)*wtdjac(n)
+     !ltwo = linf_error(n,m)*lone
+     !lone_sum = lone_sum + lone
+     !ltwo_sum = ltwo_sum + ltwo
+      lone = lone + wtdjac(n)*linf_error(n,m)
+      ltwo = ltwo + wtdjac(n)*linf_error(n,m)*linf_error(n,m)
+    end do
+    !
+    lone_sum(m) = lone
+    ltwo_sum(m) = ltwo
+    !
+  end do
+  !
+  ! PERFORM THE FOLLOWING LOOP ON THE CPU WHILE THE
+  ! ABOVE LOOP IS DONE ON THE GPU
+  !
+  do m = 1,nq+1
+    !
+    linf_max = -huge(zero)
+    !
+    do n = 1,n_solpts
+      if (linf_error(n,m) > linf_max) then
+        linf_max = linf_error(n,m)
+        k = n
+      end if
+    end do
+   !k = maxloc(linf_error(:,m),dim=1)
+    !
+   !error(m,3) = linf_error(k,m)
+    error(m,3) = linf_max
+    error(m,5) = real(k,kind=wp)
+    error(m,5+l1) = xyz(l1,k)
+    error(m,5+l2) = xyz(l2,k)
+    error(m,5+l3) = xyz(l3,k)
+    !
+  end do
+  !
+  ! IF IT HASNT YET, WAIT FOR THE PREVIOUS GPU LOOP TO FINISH AND
+  ! COPY THE lone_sum AND ltwo_sum ARRAYS FROM THE GPU TO THE CPU
+  !
+  !$ACC UPDATE SELF(lone_sum,ltwo_sum) WAIT
+  !
+  ! SAVE THE L1 AND L2 SUMS INTO THE ERROR ARRAY
+  !
+  do m = 1,nq+1
+    error(m,1) = lone_sum(m)
+    error(m,2) = ltwo_sum(m)
+  end do
+  !
+  ! COPY THE ERROR ARRAY BACK TO THE GPU
+  !
+  !$ACC UPDATE DEVICE(error)
+  !
+  !$ACC END DATA
+  deallocate ( linf_error )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_error_gpu_async
 !
 !###############################################################################
 !
@@ -332,12 +539,10 @@ continue
   !    
   gm1 = gam - one
   !
-  !$ACC DATA PRESENT(tunew,uavesp)
-  !
   if (output_time_averaging) then
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = uavesp(n,nec)
         tunew(n,nmx) = uavesp(n,nmx)
@@ -346,7 +551,7 @@ continue
         tunew(n,nee) = uavesp(n,nee)
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = uavesp(n,nec)
         tunew(n,nmx) = uavesp(n,nmx)
@@ -354,7 +559,7 @@ continue
         tunew(n,nee) = uavesp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = uavesp(n,nec)
         tunew(n,nmx) = uavesp(n,nmx)
@@ -365,28 +570,28 @@ continue
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
       do n = 1,n_solpts
-        tunew(n,nec) = usp(nec,n)
-        tunew(n,nmx) = usp(nmx,n)
-        tunew(n,nmy) = usp(nmy,n)
-        tunew(n,nmz) = usp(nmz,n)
-        tunew(n,nee) = usp(nee,n)
+        tunew(n,nec) = usp(n,nec)
+        tunew(n,nmx) = usp(n,nmx)
+        tunew(n,nmy) = usp(n,nmy)
+        tunew(n,nmz) = usp(n,nmz)
+        tunew(n,nee) = usp(n,nee)
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
       do n = 1,n_solpts
-        tunew(n,nec) = usp(nec,n)
-        tunew(n,nmx) = usp(nmx,n)
-        tunew(n,nmy) = usp(nmy,n)
-        tunew(n,nee) = usp(nee,n)
+        tunew(n,nec) = usp(n,nec)
+        tunew(n,nmx) = usp(n,nmx)
+        tunew(n,nmy) = usp(n,nmy)
+        tunew(n,nee) = usp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
       do n = 1,n_solpts
-        tunew(n,nec) = usp(nec,n)
-        tunew(n,nmx) = usp(nmx,n)
-        tunew(n,nee) = usp(nee,n)
+        tunew(n,nec) = usp(n,nec)
+        tunew(n,nmx) = usp(n,nmx)
+        tunew(n,nee) = usp(n,nee)
       end do
     end if
     !
@@ -397,7 +602,7 @@ continue
     gm1_over_pref_nd = gm1 / pref_nd
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -414,7 +619,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -430,7 +635,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -449,7 +654,7 @@ continue
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -466,7 +671,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -482,7 +687,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tunew)
       do n = 1,n_solpts
         !
         rho  = tunew(n,nec)
@@ -499,8 +704,6 @@ continue
     end if
     !
   end if
-  !
-  !$ACC END DATA
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -516,7 +719,8 @@ subroutine get_uold_solpts_gpu(tuold)
   use ovar,    only : itcur,itrst,bc_in,itestcase,gam,mms_opt
   use flowvar, only : usp,uoldsp,uavesp
   use geovar,  only : n_solpts,xyz
-  use mms_mod, only : mms_solution_at_xyz
+  use mms_mod, only : mms_solution_at_xyz_gpu
+  use gpu_mod, only : vortex_solution_gpu
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: tuold(:,:)
@@ -526,9 +730,6 @@ subroutine get_uold_solpts_gpu(tuold)
   real(wp)    :: a,b,gm1,pres,rhoq2
   real(wp)    :: rho,rhou,rhov,rhow,rhoe
   logical(lk) :: use_uavesp
-  !
-  !.. Local Arrays ..
-  real(wp) :: xyz_offset(1:3,1:1)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_uold_solpts_gpu"
@@ -541,39 +742,24 @@ continue
   !    
   gm1 = gam - one
   !
-  !$ACC DATA PRESENT(tuold,uoldsp,uavesp,bc_in)
-  !
   if (mms_opt /= 0) then
     !
     ! Evaluate the exact analytical MMS solution at the error points
     !
-   !!$ACC PARALLEL LOOP GANG WORKER VECTOR &
-   !!$ACC&              NUM_GANGS(1) &
-   !!$ACC&              NUM_WORKERS(1) &
-   !!$ACC&              VECTOR_LENGTH(1)
-    do n = 1,n_solpts
-      tuold(n,1:nq) = mms_solution_at_xyz( xyz(1:nr,n), &
-                                           return_nondim=true, &
-                                           return_cv=true )
-    end do
+    call mms_solution_at_xyz_gpu(1,n_solpts,xyz,tuold, &
+                                 return_nondim=true, &
+                                 return_cv=true)
     !
   else if (any(itestcase == Transport_Problems)) then
     !
     ! Evaluate the exact analytical solution to the vortex transport problem
     !
-   !!$ACC PARALLEL LOOP GANG WORKER VECTOR &
-   !!$ACC&              NUM_GANGS(1) &
-   !!$ACC&              NUM_WORKERS(1) &
-   !!$ACC&              VECTOR_LENGTH(1)
-    do n = 1,n_solpts
-      xyz_offset(1:nr,1:1) = vortex_offset( xyz(1:nr,n:n) )
-      tuold(n,1:nq) = vortex_solution( xyz_offset(1:nr,1) )
-    end do
+    call vortex_solution_gpu(1,n_solpts,xyz,tuold)
     !
   else if (itestcase == Freestream_Preservation) then
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
       do n = 1,n_solpts
         tuold(n,nec) = bc_in(0)%cv(nec)
         tuold(n,nmx) = bc_in(0)%cv(nmx)
@@ -582,7 +768,7 @@ continue
         tuold(n,nee) = bc_in(0)%cv(nee)
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
       do n = 1,n_solpts
         tuold(n,nec) = bc_in(0)%cv(nec)
         tuold(n,nmx) = bc_in(0)%cv(nmx)
@@ -590,7 +776,7 @@ continue
         tuold(n,nee) = bc_in(0)%cv(nee)
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(bc_in,tuold)
       do n = 1,n_solpts
         tuold(n,nec) = bc_in(0)%cv(nec)
         tuold(n,nmx) = bc_in(0)%cv(nmx)
@@ -618,35 +804,35 @@ continue
       b = one - a
       !
       if (nr == 3) then
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
         do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
-          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(nmy,n)
-          tuold(n,nmz) = b * uavesp(n,nmz) - a * usp(nmz,n)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
+          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(n,nmy)
+          tuold(n,nmz) = b * uavesp(n,nmz) - a * usp(n,nmz)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
         end do
       else if (nr == 2) then
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
         do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
-          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(nmy,n)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
+          tuold(n,nmy) = b * uavesp(n,nmy) - a * usp(n,nmy)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
         end do
       else
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
         do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(nec,n)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(nmx,n)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(nee,n)
+          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
+          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
+          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
         end do
       end if
       !
     else
       !
       if (nr == 3) then
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = uoldsp(n,nec)
           tuold(n,nmx) = uoldsp(n,nmx)
@@ -655,7 +841,7 @@ continue
           tuold(n,nee) = uoldsp(n,nee)
         end do
       else if (nr == 2) then
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = uoldsp(n,nec)
           tuold(n,nmx) = uoldsp(n,nmx)
@@ -663,7 +849,7 @@ continue
           tuold(n,nee) = uoldsp(n,nee)
         end do
       else
-        !$ACC PARALLEL LOOP
+        !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = uoldsp(n,nec)
           tuold(n,nmx) = uoldsp(n,nmx)
@@ -677,6 +863,7 @@ continue
   !
   if (itestcase == Inviscid_Gaussian_Bump) then
     !
+    !$ACC PARALLEL LOOP PRESENT(tuold)
     do n = 1,n_solpts
       tuold(n,nq+1) = one
     end do
@@ -684,7 +871,7 @@ continue
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tuold)
       do n = 1,n_solpts
         !
         rho  = tuold(n,nec)
@@ -701,7 +888,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tuold)
       do n = 1,n_solpts
         !
         rho  = tuold(n,nec)
@@ -717,7 +904,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tuold)
       do n = 1,n_solpts
         !
         rho  = tuold(n,nec)
@@ -734,8 +921,6 @@ continue
     end if
     !
   end if
-  !
-  !$ACC END DATA
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -772,13 +957,11 @@ continue
   !
   gm1 = gam - one
   !
-  !$ACC DATA PRESENT(tvnew,uavesp)
-  !
   ! Get the primitive variables of the current solution at the error points
   !
   if (output_time_averaging) then
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
@@ -794,7 +977,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
@@ -808,7 +991,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(uavesp,tvnew)
       do n = 1,n_solpts
         !
         velx = uavesp(n,nq+nmx)
@@ -825,7 +1008,7 @@ continue
     rgas_inv = one/rgasref_nd
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvnew)
       do n = 1,n_solpts
         !
         rho = tvnew(n,nec)
@@ -851,7 +1034,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvnew)
       do n = 1,n_solpts
         !
         rho = tvnew(n,nec)
@@ -875,7 +1058,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvnew)
       do n = 1,n_solpts
         !
         rho = tvnew(n,nec)
@@ -898,8 +1081,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -936,8 +1117,6 @@ continue
   !
   nr = nme-nmb+1
   !
-  !$ACC DATA PRESENT(tvold,uavesp)
-  !
   gm1 = gam - one
   rgas_inv = one/rgasref_nd
   !
@@ -961,17 +1140,17 @@ continue
     b = one - a
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
       do n = 1,n_solpts
         !
-        rho = usp(nec,n)
+        rho = usp(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = usp(nmx,n)*rho_inv
-        vely = usp(nmy,n)*rho_inv
-        velz = usp(nmz,n)*rho_inv
-        rhoe = usp(nee,n)
+        velx = usp(n,nmx)*rho_inv
+        vely = usp(n,nmy)*rho_inv
+        velz = usp(n,nmz)*rho_inv
+        rhoe = usp(n,nee)
         !
         q2 = velx*velx + vely*vely + velz*velz
         !
@@ -993,16 +1172,16 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
       do n = 1,n_solpts
         !
-        rho = usp(nec,n)
+        rho = usp(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = usp(nmx,n)*rho_inv
-        vely = usp(nmy,n)*rho_inv
-        rhoe = usp(nee,n)
+        velx = usp(n,nmx)*rho_inv
+        vely = usp(n,nmy)*rho_inv
+        rhoe = usp(n,nee)
         !
         q2 = velx*velx + vely*vely
         !
@@ -1022,15 +1201,15 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
       do n = 1,n_solpts
         !
-        rho = usp(nec,n)
+        rho = usp(n,nec)
         !
         rho_inv = one/rho
         !
-        velx = usp(nmx,n)*rho_inv
-        rhoe = usp(nee,n)
+        velx = usp(n,nmx)*rho_inv
+        rhoe = usp(n,nee)
         !
         q2 = velx*velx
         !
@@ -1052,7 +1231,7 @@ continue
   else
     !
     if (nr == 3) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvold)
       do n = 1,n_solpts
         !
         rho = tvold(n,nec)
@@ -1078,7 +1257,7 @@ continue
         !
       end do
     else if (nr == 2) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvold)
       do n = 1,n_solpts
         !
         rho = tvold(n,nec)
@@ -1102,7 +1281,7 @@ continue
         !
       end do
     else
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(tvold)
       do n = 1,n_solpts
         !
         rho = tvold(n,nec)
@@ -1125,8 +1304,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1425,6 +1602,27 @@ continue
     sec_left = sec_left - hrs_left*3600 - min_left*60
     ! Make hrs_left negative if wall_time_left happens to be negative
     hrs_left = sign(hrs_left,int(wall_time_left))
+    !
+#ifdef DEBUG_WRITE_ITER_OUT
+    100 format (a,"'",a,"'")
+    101 format (a,i0)
+    102 format (a,es23.15)
+    write (*,100) "iter_out_fmt = ",trim(adjustl(iter_out_fmt))
+    write (*,101) "itcur = ",itcur
+    write (*,102) "d_t = ",d_t
+    write (*,102) "out_time = ",out_time
+    write (*,102) "cfl = ",cfl
+    write (*,102) "rltwo = ",rltwo
+    write (*,102) "output_L2val = ",output_L2val
+    write (*,101) "nloc = ",nloc
+    write (*,101) "kloc = ",kloc
+    write (*,101) "global_pinc_ptr(nloc) = ",global_pinc_ptr(nloc)
+    write (*,102) "xentmax = ",xentmax
+    write (*,102) "yentmax = ",yentmax
+    write (*,101) "hrs_left = ",hrs_left
+    write (*,101) "min_left = ",min_left
+    write (*,101) "sec_left = ",sec_left
+#endif
     !
    !write (iout,iter_out_fmt) itcur,d_t*time_ref,time*time_ref, &
     write (iout,iter_out_fmt) itcur,d_t,out_time, &
@@ -1953,7 +2151,12 @@ continue
     end do
    !ucurr(1:nq,1:np) = uavesp(1:nq,n1:n2)
   else
-    ucurr(1:nq,1:np) = usp(1:nq,n1:n2)
+    do n = 1,np
+      do m = 1,nq
+        ucurr(m,n) = usp(n0+n,m)
+      end do
+    end do
+   !ucurr(1:nq,1:np) = usp(1:nq,n1:n2)
   end if
   !
   if (use_error_matrix) then
@@ -1982,7 +2185,10 @@ continue
       end do
      !vcurr(1:nq,1:np) = uavesp(nq+1:2*nq,n1:n2)
     else
-      vcurr(1:nq,1:np) = usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
+      do n = 1,np
+        vcurr(1:nq,n) = usp2v_sp( usp(n0+n,1:nq) , swap_t_for_rho=true )
+      end do
+     !vcurr(1:nq,1:np) = usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
     end if
     !
     if (use_error_matrix) then
@@ -2109,7 +2315,7 @@ continue
         b = one - a
         do n = 1,np
           do m = 1,nq
-            uprev(m,n) = b * uavesp(n0+n,m) - a * usp(m,n)
+            uprev(m,n) = b * uavesp(n0+n,m) - a * usp(n0+n,m)
           end do
         end do
        !uprev(1:nq,1:np) = b * uavesp(1:nq,n1:n2) - a * usp(1:nq,n1:n2)
@@ -2160,7 +2366,7 @@ continue
           ! a and b were already computed above, no need to do it again
           do n = 1,np
             vprev(1:nq,n) = b * uavesp(n0+n,nq+1:2*nq) - &
-                            a * usp2v_sp( usp(1:nq,n0+n) , swap_t_for_rho=true )
+                            a * usp2v_sp( usp(n0+n,1:nq) , swap_t_for_rho=true )
           end do
          !vprev(1:nq,1:np) = b * uavesp(nq+1:2*nq,n1:n2) - &
          !                   a * usp2v( usp(1:nq,n1:n2) , swap_t_for_rho=true )
@@ -2242,7 +2448,6 @@ subroutine compute_TaylorGreen_KEDR_gpu(iter,dtmin)
   logical(lk), save :: needs_initialization = true
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tusp(:,:)
   real(wp), allocatable :: tvsp(:,:)
   real(wp), allocatable :: tdpvdx(:,:,:)
   !
@@ -2297,11 +2502,13 @@ continue
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"tgv_kedr",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+    !$ACC UPDATE DEVICE(tgv_kedr)
     !
     allocate ( sum_kedr(1:4,0:nmax) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"sum_kedr",1,__LINE__,__FILE__,ierr, &
                      error_message,skip_alloc_pause)
+    !$ACC UPDATE DEVICE(sum_kedr)
     !
     ! Initialize the array to adjust the nondimensionalization of the
     ! integrated results
@@ -2351,26 +2558,14 @@ continue
     !
   end if
   !
-  allocate ( tusp(1:n_solpts,1:nq) )
   allocate ( tvsp(1:n_solpts,1:nq) )
   allocate ( tdpvdx(1:n_solpts,1:nr,1:nq) )
   !
-  !$ACC DATA CREATE(tusp,tvsp,tdpvdx) &
-  !$ACC&     PRESENT(wtdjac)
+  !$ACC DATA CREATE(tvsp,tdpvdx)
   !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
-  do n = 1,n_solpts
-    tusp(n,nec) = usp(nec,n)
-    tusp(n,nmx) = usp(nmx,n)
-    tusp(n,nmy) = usp(nmy,n)
-    tusp(n,nmz) = usp(nmz,n)
-    tusp(n,nee) = usp(nee,n)
-  end do
+  call grad_cv_to_grad_pv_gpu(1,n_solpts,usp,dusp,tdpvdx)
   !
-  call grad_cv_to_grad_pv_gpu(1,n_solpts,tusp,dusp,tdpvdx, &
-                              tusp_includes_rho_inv=fals)
-  !
-  call tusp2v_gpu(1,n_solpts,tusp,tvsp)
+  call tusp2v_gpu(1,n_solpts,usp,tvsp)
   !
   !######################################################
   !######################################################
@@ -2390,7 +2585,8 @@ continue
   sum_kedr_3 = zero
   sum_kedr_4 = zero
   !
-  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_1,sum_kedr_2)
+  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_1,sum_kedr_2) &
+  !$ACC&              PRESENT(wtdjac,tvsp,tdpvdx)
   do n = 1,n_solpts
     !
     rho = tvsp(n,nec)
@@ -2427,7 +2623,8 @@ continue
     !
   end do
   !
-  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_3,sum_kedr_4)
+  !$ACC PARALLEL LOOP REDUCTION(+:sum_kedr_3,sum_kedr_4) &
+  !$ACC&              PRESENT(wtdjac,tvsp,tdpvdx)
   do n = 1,n_solpts
     !
     rho  = tvsp(n,nec)
@@ -2453,17 +2650,17 @@ continue
   sum_kedr(2,tgv_idx) = sum_kedr_2
   sum_kedr(3,tgv_idx) = sum_kedr_3
   sum_kedr(4,tgv_idx) = sum_kedr_4
-  !$ACC UPDATE SELF(sum_kedr)
+  !$ACC UPDATE DEVICE(sum_kedr)
+  !
   !
   !$ACC END DATA
   deallocate ( tdpvdx )
   deallocate ( tvsp )
-  deallocate ( tusp )
   !
   ! Store the current nondimensional time step
   !
   tgv_kedr(7,tgv_idx) = dtmin * time_ref
-  !$ACC UPDATE DEVICE(tgv_kedr,sum_kedr)
+  !$ACC UPDATE DEVICE(tgv_kedr)
   !
   !#####################################################
   !#####################################################
@@ -2828,7 +3025,7 @@ continue
       do m = 1,nq
         vsp(m,1:nep) = outerp(this_geom,this_order)% &
                                               error% &
-                       mv_mult( usp(m,n1:n2) )
+                       mv_mult( usp(n1:n2,m) )
       end do
       !
       do m = 1,nq
@@ -2853,14 +3050,15 @@ continue
       ! just copy these values into the local arrays.
       ! NOTE: The vsp array will temporarily hold the conservative variables
       !
-      vsp(1:nq,1:nep) = usp(1:nq,n1:n2)
       do n = 1,nep
         do m = 1,nq
+          vsp(m,n) = usp(n1-1+n,m)
           do l = 1,nr
             dcvdx(l,m,n) = dusp(n1-1+n,l,m)
           end do
         end do
       end do
+     !vsp(1:nq,1:nep) = usp(1:nq,n1:n2)
      !dcvdx(1:nr,1:nq,1:nep) = dusp(1:nr,1:nq,n1:n2)
       wtdjac(1:nep) = metrics_dt(this_cell)%jac * &
                       std_elem(this_geom,this_order)%wts

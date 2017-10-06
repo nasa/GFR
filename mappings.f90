@@ -124,6 +124,7 @@ continue
   allocate ( xyz(1:nr,1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(xyz)
   !
   ! Initialize the counting index to current
   ! storage location within the xyz array
@@ -295,6 +296,8 @@ continue
     deallocate ( mapping , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  !
+  !$ACC UPDATE DEVICE(xyz)
   !
   call debug_timer(leaving_procedure,pname)
   !

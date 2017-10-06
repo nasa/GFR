@@ -35,13 +35,15 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
 
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/kind_types.o \
+		  $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/geovar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/io.o \
-                  $(OBJDIR)/time_mod.o \
                   $(OBJDIR)/restart_mod.o \
-                  $(OBJDIR)/metrics.o
+                  $(OBJDIR)/metrics.o \
+		  $(FUNDIR)/temperature.f90 \
+		  $(FUNDIR)/usp2v.f90
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
@@ -51,11 +53,8 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/ovar_mod.o \
            $(OBJDIR)/metrics.o \
            $(OBJDIR)/flowvar_mod.o \
+           $(OBJDIR)/gpu_mod.o \
            $(OBJDIR)/mms_mod.o \
-           $(FUNDIR)/pressure.f90 \
-           $(FUNDIR)/temperature.f90 \
-           $(FUNDIR)/usp2v.f90 \
-           $(FUNDIR)/vsp2u.f90 \
                      mpi_defs.h
           #$(OBJDIR)/interpolation_mod.o \
           #$(OBJDIR)/parallel.o \
@@ -153,7 +152,6 @@ $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
                 $(OBJDIR)/ovar_mod.o \
                 $(OBJDIR)/order_mod.o
 
-
 $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/kind_types.o \
          $(OBJDIR)/eqn_idx_mod.o \
@@ -166,12 +164,9 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/correction_mod.o \
          $(OBJDIR)/derivatives_mod.o \
          $(OBJDIR)/gpu_mod.o \
-         $(FUNDIR)/upwind_fluxes.f90 \
-         $(FUNDIR)/inviscid_fluxes.f90 \
-         $(FUNDIR)/viscous_fluxes.f90 \
-         $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-         $(FUNDIR)/viscosity.f90 \
-         $(FUNDIR)/pressure.f90
+         $(OBJDIR)/invs_flux_mod.o \
+         $(OBJDIR)/visc_flux_mod.o \
+         $(OBJDIR)/upwind_flux_mod.o
         #$(OBJDIR)/typesgen_mod.o \
         #$(OBJDIR)/quadrature_mod.o \
         #$(OBJDIR)/projection_mod.o \
@@ -230,7 +225,6 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(OBJDIR)/projection_mod.o \
                $(OBJDIR)/interpolation_mod.o \
                $(OBJDIR)/derivatives_mod.o \
-               $(OBJDIR)/time_mod.o \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
@@ -244,6 +238,12 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/poly.o \
                       $(FUNDIR)/np2n.f90
+
+$(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
+         $(OBJDIR)/kind_types.o \
+         $(OBJDIR)/eqn_idx_mod.o \
+         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/kind_types.o \
@@ -342,6 +342,7 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
+	    $(OBJDIR)/gpu_mod.o \
             $(FUNDIR)/vsp2u.f90
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
@@ -450,8 +451,8 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/interpolation_mod.o \
              $(OBJDIR)/gpu_mod.o \
              $(FUNDIR)/usp2v.f90 \
-             $(FUNDIR)/temperature.f90 \
              $(FUNDIR)/viscosity.f90
+            #$(FUNDIR)/temperature.f90
 
 $(OBJDIR)/triangle.o : triangle.f90 \
              $(OBJDIR)/kind_types.o \
@@ -461,6 +462,12 @@ $(OBJDIR)/typesgen_mod.o : typesgen_mod.f90 \
                  $(OBJDIR)/kind_types.o \
                  $(OBJDIR)/ovar_mod.o
 
+$(OBJDIR)/upwind_flux_mod.o : upwind_flux_mod.f90 \
+         $(OBJDIR)/kind_types.o \
+         $(OBJDIR)/eqn_idx_mod.o \
+         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/ovar_mod.o
+
 $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/kind_types.o \
                     $(OBJDIR)/typesgen_mod.o \
@@ -469,4 +476,13 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(FUNDIR)/np2n.f90
+
+$(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
+         $(OBJDIR)/kind_types.o \
+         $(OBJDIR)/eqn_idx_mod.o \
+         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/ovar_mod.o \
+         $(OBJDIR)/gpu_mod.o \
+         $(FUNDIR)/grad_cv_to_grad_pv.f90 \
+         $(FUNDIR)/viscosity.f90
 

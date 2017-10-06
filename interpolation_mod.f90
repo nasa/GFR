@@ -2991,6 +2991,9 @@ subroutine interpolation_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+#ifndef DISABLE_DTIO
+  use generic_types_mod, only : matrix_memory_usage
+#endif
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -3040,7 +3043,7 @@ continue
           do k = lbound(interp(i,j)%toFace,dim=1), &
                  ubound(interp(i,j)%toFace,dim=1)
             !
-            array = interp(i,j)%toFace(k)%memory_usage()
+            array = matrix_memory_usage( interp(i,j)%toFace(k) )
             !
             write (array_name,4) "interp",Geom_Name(i),j,"toFace",k
             write (iou,2) array_name,array%get_units()
@@ -3064,7 +3067,7 @@ continue
           do k = lbound(interp(i,j)%toCell,dim=1), &
                  ubound(interp(i,j)%toCell,dim=1)
             !
-            array = interp(i,j)%toCell(k)%memory_usage()
+            array = matrix_memory_usage( interp(i,j)%toCell(k) )
             !
             write (array_name,4) "interp",Geom_Name(i),j,"toCell",k
             write (iou,2) array_name,array%get_units()
@@ -3088,7 +3091,7 @@ continue
           do k = lbound(interp(i,j)%toEdge,dim=1), &
                  ubound(interp(i,j)%toEdge,dim=1)
             !
-            array = interp(i,j)%toEdge(k)%memory_usage()
+            array = matrix_memory_usage( interp(i,j)%toEdge(k) )
             !
             write (array_name,4) "interp",Geom_Name(i),j,"toEdge",k
             write (iou,2) array_name,array%get_units()
@@ -3109,7 +3112,7 @@ continue
           !
           call dt%add(array)
           !
-          array = interp(i,j)%toNode%memory_usage()
+          array = matrix_memory_usage( interp(i,j)%toNode )
           !
           write (array_name,4) "interp",Geom_Name(i),j,"toNode%mat"
           write (iou,2) array_name,array%get_units()

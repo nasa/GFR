@@ -12,6 +12,7 @@ program Euler_tri
   use geovar, only : move_face_to_device
   use geovar, only : move_cell_to_device
   use geovar, only : move_fp_to_device
+  use geovar, only : move_bcgrps_to_device
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -36,7 +37,8 @@ program Euler_tri
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
-  use flowvar, only : faceusp,facedusp
+  use flowvar, only : faceusp,faceusp_array
+  use flowvar, only : facedusp,facedusp_array
   !
   use quadrature_mod, only : solpts_edge
   !
@@ -94,7 +96,6 @@ program Euler_tri
   use time_mod, only : rupdate_TVD2_RK
   use time_mod, only : rupdate_TVD3_RK
   use time_mod, only : rupdate_TVD4_RK
-  use time_mod, only : update_time_ave
   use time_mod, only : save_old_solution
   !
   use flux_mod, only : interp_cv_to_flxpts
@@ -104,6 +105,7 @@ program Euler_tri
   use flux_mod, only : correct_interface_flux_visc
   use flux_mod, only : discontinuous_gradient_at_solpts
   use flux_mod, only : correct_gradients_at_solpts
+  use flux_mod, only : correct_gradients_at_solpts_gpu
   use flux_mod, only : correct_gradients_br2
   use flux_mod, only : correct_gradients_br2_gpu
   use flux_mod, only : flux_gradient_at_solpts
@@ -111,8 +113,7 @@ program Euler_tri
   use flux_mod, only : get_visc_common_fluxes_interior
   use flux_mod, only : get_invs_common_fluxes_bc
   use flux_mod, only : get_visc_common_fluxes_bc
-  use flux_mod, only : list_of_wall_bcs
-  use flux_mod, only : init_cbias_br2
+  use flux_mod, only : init_cbias
   !
   use parallel_mod, only : partition_grid
   use parallel_mod, only : create_serial_cell_map
@@ -139,6 +140,8 @@ program Euler_tri
   !
   use cpu_info_mod, only : get_cpu_locality
   !
+  use averaging_mod, only : initialize_time_ave
+  use averaging_mod, only : update_time_ave
   use averaging_mod, only : average_restart_files
   !
   use, intrinsic :: iso_c_binding,   only : c_long
@@ -306,9 +309,11 @@ continue
   ! read in the restart values if restarting a simulation
   !
   call initialize_flow
+  if (output_time_averaging) then
+    call initialize_time_ave
+  end if
   call memory_pause("initializing solution","initializing generic module")
-  call init_cbias_br2
-  list_of_wall_bcs = bc_walls(:) ! F2003 AUTO-REALLOCATION
+  call init_cbias
   !
   ! Time average the list of restart files
   !
@@ -319,6 +324,7 @@ continue
   call move_face_to_device
   call move_cell_to_device
   call move_fp_to_device
+  call move_bcgrps_to_device
   call move_correct_to_device
   call move_deriv_to_device
   call move_interp_to_device
@@ -358,24 +364,28 @@ continue
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
+  call initialize_limiters
+  !
   ! Initialize the wall time
   !
   call recon_cpu_time(0)
   !
-  call initialize_limiters
-  !
   if (num_timesteps > 0) then
     !
-    call interp_cv_to_flxpts
+    call interp_cv_to_flxpts(0,0)   ! ; call check_for_bad_number(__LINE__)
     call memory_pause("initial interpolation of C.V. to flux points", &
                       "exchanging C.V. between communication faces")
-    if (ncpu > 1) call exchange_faceusp(faceusp)
+    if (ncpu > 1) then
+      call exchange_faceusp(faceusp)! ; call check_for_bad_number(__LINE__)
+    end if
     call memory_pause("exchanging C.V. between communication faces", &
                       "initial evaluation of boundary conditions")
-    call get_faceusp_bc
+    call get_faceusp_bc             ! ; call check_for_bad_number(__LINE__)
     call memory_pause("initial evaluation of boundary conditions", &
                       "waiting for C.V. exchanges to complete")
-    if (ncpu > 1) call wait_faceusp(faceusp)
+    if (ncpu > 1) then
+      call wait_faceusp(faceusp)    ! ; call check_for_bad_number(__LINE__)
+    end if
     call memory_pause("waiting for C.V. exchanges to complete", &
                       "initial TGV KEDR evaluation")
     !
@@ -418,6 +428,10 @@ continue
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","main iteration loop")
   !
+  ! Initialize the wall time
+  !
+  call recon_cpu_time(0)
+  !
   main_loop: do iter = 1, num_timesteps
     !
     ! Current iteration count including restart iterations
@@ -445,40 +459,53 @@ continue
       end if
 #define NEW_FLUX_REARRANGEMENT
 #ifdef NEW_FLUX_REARRANGEMENT
-      call interp_cv_to_flxpts
-      if (ncpu > 1) call exchange_faceusp(faceusp)
-      if (governing_equations == NavierStokes_Eqns) then
-        call discontinuous_gradient_at_solpts
-      end if
-      call get_faceusp_bc
-      call get_invs_common_fluxes_interior
+      call interp_cv_to_flxpts(iter,nst)             ! ; call check_for_bad_number(__LINE__)
       !
-      if (ncpu > 1) call wait_faceusp(faceusp)
+      if (ncpu > 1) then
+        call exchange_faceusp(faceusp)               ! ; call check_for_bad_number(__LINE__)
+      end if
+      !
+      if (governing_equations == NavierStokes_Eqns) then
+        call discontinuous_gradient_at_solpts        ! ; call check_for_bad_number(__LINE__)
+      end if
+      !
+      call get_faceusp_bc                            ! ; call check_for_bad_number(__LINE__)
+      !
+      call get_invs_common_fluxes_interior(iter,nst) ! ; call check_for_bad_number(__LINE__)
+      !
+      if (ncpu > 1) then
+        call wait_faceusp(faceusp)                   ! ; call check_for_bad_number(__LINE__)
+      end if
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (visc_flux_method == visc_flux_BR2) then
          !call correct_gradients_br2
-          call correct_gradients_br2_gpu
+          call correct_gradients_br2_gpu             ! ; call check_for_bad_number(__LINE__)
         else
-          call correct_gradients_at_solpts
-          call interp_dusp_to_flxpts
+          call correct_gradients_at_solpts_gpu       ! ; call check_for_bad_number(__LINE__)
+         !call correct_gradients_at_solpts           ! ; call check_for_bad_number(__LINE__)
+          call interp_dusp_to_flxpts                 ! ; call check_for_bad_number(__LINE__)
         end if
-        if (ncpu > 1) call exchange_facedusp(facedusp)
-        call get_facedusp_bc
-        call get_visc_common_fluxes_interior
+        if (ncpu > 1) then
+          call exchange_facedusp(facedusp)           ! ; call check_for_bad_number(__LINE__)
+        end if
+        call get_facedusp_bc                         ! ; call check_for_bad_number(__LINE__)
+        call get_visc_common_fluxes_interior         ! ; call check_for_bad_number(__LINE__)
       end if
       !
-      call get_invs_common_fluxes_bc
+      call get_invs_common_fluxes_bc                 ! ; call check_for_bad_number(__LINE__)
       !
       if (governing_equations == NavierStokes_Eqns) then
-        if (ncpu > 1) call wait_facedusp(facedusp)
-        call get_visc_common_fluxes_bc
+        if (ncpu > 1) then
+          call wait_facedusp(facedusp)               ! ; call check_for_bad_number(__LINE__)
+        end if
+        call get_visc_common_fluxes_bc               ! ; call check_for_bad_number(__LINE__)
       end if
       !
-      call flux_gradient_at_solpts
+      call flux_gradient_at_solpts(iter,nst)         ! ; call check_for_bad_number(__LINE__)
 #else
       !
-      call interp_cv_to_flxpts
+      call interp_cv_to_flxpts(iter,nst)
       !
       if (ncpu > 1) call exchange_faceusp(faceusp)
       !
@@ -515,17 +542,23 @@ continue
       !
       ! Compute the source terms for the method of manufactured solutions (MMS)
       !
-      if (mms_opt /= 0) call mms_src
+      if (mms_opt /= 0) then
+        call mms_src
+      end if
       !
       ! Compute the source terms for the channel flow
       !
-      if (itestcase == Channel_Flow) call channel_source
+      if (itestcase == Channel_Flow) then
+        call channel_source
+      end if
       !
       ! Compute the final residual for each solution point
       !
-      call rresi
+      call rresi(iter,nst)
       !
-      if (nst == 1) call get_dtsp(dtmin)
+      if (nst == 1) then
+        call get_dtsp(dtmin)
+      end if
       !
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
@@ -534,7 +567,7 @@ continue
       else if (Runge_Kutta_Scheme == TVD2_RK) then
         call rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD3_RK) then
-        call rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter)
+        call rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter,iter)
       else if (Runge_Kutta_Scheme == TVD4_RK) then
         call rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == CK4_RK) then
@@ -984,9 +1017,11 @@ continue
   !
   bad_number_found = merge(1,0,signaling_exceptions)
   !
+  if (ncpu > 1) then
   call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
                      size(bad_number_found,kind=int_mpi), &
                      mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+  end if
   !
   if (sum(bad_number_found) > 0) then
     !
@@ -998,10 +1033,10 @@ continue
     ! usp so we can dump the solution and restart files before
     ! aborting the simulation
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp)
-    do n = 1,n_solpts
-      do m = 1,nq
-        usp(m,n) = uoldsp(n,m)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
+    do m = 1,nq
+      do n = 1,n_solpts
+        usp(n,m) = uoldsp(n,m)
       end do
     end do
     !

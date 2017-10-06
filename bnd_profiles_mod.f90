@@ -181,7 +181,7 @@ continue
                              ) &
                    )
       !
-      tusp(1:np,1:nq) = transpose( usp(1:nq,n1:n2) )
+      tusp(1:np,1:nq) = usp(n1:n2,1:nq)
       tdusp(1:np,1:nr,1:nq) = dusp(n1:n2,1:nr,1:nq)
       !
       ! Compute the profile quantities at each data point for this face

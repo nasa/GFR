@@ -1315,6 +1315,9 @@ subroutine correction_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+#ifndef DISABLE_DTIO
+  use generic_types_mod, only : matrix_memory_usage
+#endif
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -1347,7 +1350,7 @@ continue
     do j = lbound(correct,dim=2),ubound(correct,dim=2)
       do i = lbound(correct,dim=1),ubound(correct,dim=1)
         !
-        array = correct(i,j)%memory_usage()
+        array = matrix_memory_usage( correct(i,j) )
         !
         write (array_name,4) "correct",Geom_Name(i),j
         write (iou,2) array_name,array%get_units()

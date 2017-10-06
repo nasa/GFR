@@ -5,7 +5,7 @@ pure function selfdot_SP(xyz) result(return_value)
 end function selfdot_SP
 !
 pure function selfdot_DP(xyz) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   real(DP), dimension(:), intent(in) :: xyz
   real(DP) :: return_value
   return_value = dot(xyz,xyz)
@@ -24,7 +24,7 @@ pure function rnorm2_SP(xyz) result(return_value)
 end function rnorm2_SP
 !
 pure function rnorm2_DP(xyz) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   real(DP), dimension(:), intent(in) :: xyz
   real(DP) :: return_value
   return_value = sqrt(selfdot(xyz))
@@ -47,7 +47,7 @@ pure function unit_vector_SP(xyz) result(return_value)
 end function unit_vector_SP
 !
 pure function unit_vector_DP(xyz) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   real(DP), dimension(:), intent(in) :: xyz
   real(DP), dimension(1:size(xyz)) :: return_value
   real(DP) :: grads,grdsnz,grdsrt

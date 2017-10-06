@@ -207,6 +207,8 @@ module ovar
   logical(lk),        public, save :: time_average_restart_files = fals
   character(len=150), public, save :: restart_list_file = ""
   !
+  logical(lk),        public, save :: use_async_for_error = fals
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -622,6 +624,7 @@ module input_namelist_mod
   use ovar,      only : time_ave_vel_is_axisymm
   use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
+  use ovar,      only : use_async_for_error
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -751,6 +754,8 @@ module input_namelist_mod
   namelist / input / output_time_averaging, time_ave_file, restart_list_file, &
                      time_average_restart_files, time_scaling_factor, &
                      time_ave_vel_is_axisymm
+  ! OPENACC INPUT OPTIONS
+  namelist / input / use_async_for_error
   !
   ! CFL ADJUSTMENT NAMELIST
   !

@@ -148,6 +148,10 @@ continue
                                 cells_with_node_ptr,nodes_on_edge, &
                                 cells_with_edge,cells_with_edge_ptr)
   !
+  ! Create the bc_grps derived type
+  !
+  call create_bc_grps(bface,face)
+  !
   ! If using the continuous output option, create the edge derived type array
   !
   if (continuous_output) then
@@ -2897,6 +2901,134 @@ continue
   12 format ("ERROR! Bad edges detected!")
   !
 end subroutine create_cell_derived_type
+!
+!###############################################################################
+!
+subroutine create_bc_grps(bface,face)
+  !
+  !.. Use Statements ..
+  use geovar, only : num_bc_grps,bc_grps
+  use geovar, only : face_t
+  use geovar, only : n_wall_flxpts
+  !
+  !.. Formal Arguments ..
+  integer,      intent(in) :: bface(:,:)
+  type(face_t), intent(in) :: face(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,k,n,nf,pf,p1,p2,lfbnd,ierr
+  integer :: bc_idx,bc_grp,periodic_pts
+  !
+  character(len=50) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_bc_grps"
+  !
+continue
+  !
+  periodic_pts = 0
+  !
+  lfbnd = size(bface,dim=2)
+  !
+  allocate ( bc_grps(1:num_bc_grps) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_grps",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n = 0
+  bc_idx = bc_unknown
+  bc_grp = bc_unknown
+  !
+  do nf = 1,lfbnd
+    !
+    if (bface(1,nf) == bc_periodic) then
+      periodic_pts = periodic_pts + face(nf)%end_fp - face(nf)%beg_fp + 1
+      cycle
+    end if
+    !
+    if (bface(5,nf) /= bc_grp .and. bface(6,nf) /= bc_idx) then
+      !
+      n = n + 1
+      !
+      bc_grp = bface(5,nf)
+      bc_idx = bface(6,nf)
+      !
+      bc_grps(n)%beg_fp = face(nf)%beg_fp
+      bc_grps(n)%bc_type = bface(1,nf)
+      bc_grps(n)%bc_idx = bc_idx
+      !
+    else
+      !
+      bc_grps(n)%end_fp = face(nf)%end_fp
+      !
+    end if
+    !
+  end do
+  !
+  if (periodic_pts > 0) then
+    !
+    n = n + 1
+    !
+    bc_grps(n)%beg_fp =  huge(0)
+    bc_grps(n)%end_fp = -huge(0)
+    bc_grps(n)%bc_type = bc_periodic
+    bc_grps(n)%bc_idx = 0
+    !
+    allocate ( bc_grps(n)%periodic_list(1:periodic_pts) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) n
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    i = 0
+    !
+    do nf = 1,lfbnd
+      !
+      if (bface(1,nf) /= bc_periodic) cycle
+      !
+      pf = bface(5,nf)
+      p1 = face(pf)%beg_fp
+      p2 = face(pf)%end_fp
+      !
+      bc_grps(n)%beg_fp = min(bc_grps(n)%beg_fp,p1)
+      bc_grps(n)%end_fp = max(bc_grps(n)%end_fp,p2)
+      !
+#ifdef REVERSE_PERIODIC
+      do k = p2,p1,-1
+#else
+      do k = p1,p2
+#endif
+        i = i + 1
+        bc_grps(n)%periodic_list(i) = k
+      end do
+      !
+    end do
+    !
+  end if
+  !
+  n_wall_flxpts = 0
+  do n = 1,size(bc_grps)
+    if (any(bc_grps(n)%bc_type == bc_walls)) then
+      n_wall_flxpts = bc_grps(n)%end_fp
+    end if
+  end do
+  !
+  write (iout,*)                                                                     
+  do n = 1,size(bc_grps)                                                             
+    write (iout,2) n,bc_grps(n)%beg_fp, &                                          
+                   n,bc_grps(n)%end_fp, &                                          
+                   n,bc_grps(n)%bc_type, &                                         
+                   n,bc_grps(n)%bc_idx, &                                          
+                   n,merge("   ","NOT",allocated(bc_grps(n)%periodic_list))        
+  end do                                                                             
+  !
+  ! Format Statements
+  !
+  1 format ("bc_grps(",i0,")%periodic_list")
+  2 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &                                 
+              "bc_grps(",i0,")%end_fp  = ",i0,/, &                                 
+              "bc_grps(",i0,")%bc_type = ",i0,/, &                                 
+              "bc_grps(",i0,")%bc_idx  = ",i0,/, &                                 
+              "bc_grps(",i0,")%periodic_list IS ",a," allocated")
+  !
+end subroutine create_bc_grps
 !
 !###############################################################################
 !

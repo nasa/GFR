@@ -11,6 +11,7 @@ module geovar
   public :: geovar_memory_usage
   public :: move_cell_to_device
   public :: move_face_to_device
+  public :: move_bcgrps_to_device
   public :: move_fp_to_device
   !
   !  c - cells
@@ -77,6 +78,7 @@ module geovar
   !
   real(wp), public, save, allocatable, dimension(:,:) :: xyz_nodes
   real(wp), public, save, allocatable, dimension(:,:) :: xyz
+  !$ACC DECLARE CREATE(xyz)
   !
   ! Grid size parameters for global grid
   !
@@ -160,6 +162,20 @@ module geovar
   !                            cell.
   !
   integer, public, save, allocatable, dimension(:,:) :: bface
+  !
+  integer, public, save :: num_bc_grps
+  !
+  type, public :: bc_grp_t
+    integer :: beg_fp
+    integer :: end_fp
+    integer :: bc_type
+    integer :: bc_idx
+    integer, allocatable :: periodic_list(:)
+  end type bc_grp_t
+  !
+  type(bc_grp_t), public, save, allocatable :: bc_grps(:)
+  !
+  !$ACC DECLARE CREATE(bc_grps)
   !
   ! CONFLICT : A data type that provides the node and face indices for any
   !            boundary condition conflicts. A boundary condition conflict
@@ -487,25 +503,25 @@ continue
         !$ACC ENTER DATA COPYIN(cell(nc)%face)
         ncf = size(cell(nc)%face)
         !$ACC ENTER DATA COPYIN(cell(nc)%face(1:ncf))
-        do n = 1,ncf
-          !$ACC ENTER DATA COPYIN(cell(nc)%face(n))
-        end do
+       !do n = 1,ncf
+       !  !$ACC ENTER DATA COPYIN(cell(nc)%face(n))
+       !end do
       end if
       if (allocated(cell(nc)%edge)) then
         !$ACC ENTER DATA COPYIN(cell(nc)%edge)
         nce = size(cell(nc)%edge)
         !$ACC ENTER DATA COPYIN(cell(nc)%edge(1:nce))
-        do n = 1,nce
-          !$ACC ENTER DATA COPYIN(cell(nc)%edge(n))
-        end do
+       !do n = 1,nce
+       !  !$ACC ENTER DATA COPYIN(cell(nc)%edge(n))
+       !end do
       end if
       if (allocated(cell(nc)%node)) then
         !$ACC ENTER DATA COPYIN(cell(nc)%node)
         ncn = size(cell(nc)%node)
         !$ACC ENTER DATA COPYIN(cell(nc)%node(1:ncn))
-        do n = 1,ncn
-          !$ACC ENTER DATA COPYIN(cell(nc)%node(n))
-        end do
+       !do n = 1,ncn
+       !  !$ACC ENTER DATA COPYIN(cell(nc)%node(n))
+       !end do
       end if
     end do
   end if
@@ -534,6 +550,33 @@ continue
   end if
   !
 end subroutine move_face_to_device
+!
+!###############################################################################
+!
+subroutine move_bcgrps_to_device()
+  !
+  !.. Local Scalars ..
+  integer :: n,ng,np
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "move_bcgrps_to_device"
+  !
+continue
+  !
+  if (allocated(bc_grps)) then
+    ng = size(bc_grps)
+    !$ACC ENTER DATA COPYIN(bc_grps)
+    !$ACC ENTER DATA COPYIN(bc_grps(1:ng))
+    do n = 1,ng
+      if (allocated(bc_grps(n)%periodic_list)) then
+        np = size(bc_grps(n)%periodic_list)
+        !$ACC ENTER DATA COPYIN(bc_grps(n)%periodic_list)
+        !$ACC ENTER DATA COPYIN(bc_grps(n)%periodic_list(1:np))
+      end if
+    end do
+  end if
+  !
+end subroutine move_bcgrps_to_device
 !
 !###############################################################################
 !

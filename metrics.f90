@@ -274,14 +274,17 @@ continue
   allocate ( wtdjac(1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"wtdjac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(wtdjac)
   !
   allocate ( jac(1:n_solpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"jac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(jac)
   !
   allocate ( metrics_array(1:n_solpts,1:nr,1:nr) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"metrics_array",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(metrics_array)
   !
   local_volume = zero
   total_volume = zero
@@ -393,6 +396,7 @@ continue
     end if
     !
   end do metrics_loop
+  !$ACC UPDATE DEVICE(jac,wtdjac,metrics_array)
   !
   jac_info(1) = real(min_jsp,kind=wp)
   jac_info(2) = real(min_jcl,kind=wp)
@@ -826,6 +830,7 @@ continue
   allocate ( facenrm(1:nr,1:n_flxpts) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facenrm",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(facenrm)
   !
   n = 0
   do nf = 1,size(geofa)
@@ -834,12 +839,14 @@ continue
       facenrm(1:nr,n) = geofa(nf)%v(1:nr,k)
     end do
   end do
+  !$ACC UPDATE DEVICE(facenrm)
   !
   ! Create the interpolated jacobians at the face points
   !
   allocate ( facejac(1:n_flxpts,1:2) , source=zero , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"facejac",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(facejac)
   !
   ! Interpolate the jacobians from host cells
   ! to the face points of boundary faces
@@ -940,6 +947,7 @@ continue
     end do
     !
   end do
+  !$ACC UPDATE DEVICE(facejac)
   !
   !
   !

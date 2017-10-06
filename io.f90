@@ -1289,6 +1289,11 @@ continue
     end if
   end if
   !
+  !
+  ! Reorder the boundary faces
+  !
+  call reorder_boundary_faces
+  !
   ! Check that all the nodes are in counter-clockwise
   ! ordering for each cell and adjust if needed
   !
@@ -1324,6 +1329,235 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_grid_file
+!
+!###############################################################################
+!
+subroutine reorder_boundary_faces()
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,nfbnd,bface
+  use geovar, only : num_bc_grps
+  use geovar, only : grid,grid_t
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,n,nc,nf,ngrps,ierr
+  integer :: min_grp,max_grp,min_bcin,max_bcin
+  !
+  logical(lk) :: contains_periodic_faces
+  logical(lk) :: errors_found
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk),  allocatable :: msk(:)
+  integer,      allocatable :: face_grps(:,:,:)
+  integer,      allocatable :: sorted_grps(:,:)
+  integer,      allocatable :: tmp_bface(:,:)
+  integer,      allocatable :: new2old(:)
+  integer,      allocatable :: old2new(:)
+  type(grid_t), allocatable :: tmp_grid
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "reorder_boundary_faces"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  contains_periodic_faces = fals
+  errors_found = fals
+  !
+  ! Find all the physical boundary faces
+  !
+  allocate ( msk(1:nfbnd) , source=fals , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nf = 1,nfbnd
+    if (bface(1,nf) /= bc_periodic .and. bface(1,nf) /= bc_cpu_bnd) then
+      msk(nf) = true
+    end if
+    if (bface(1,nf) == bc_periodic) then
+      contains_periodic_faces = true
+    end if
+  end do
+  !
+  ! Find the maximum BC group number
+  !
+  if (count(msk) == 0) then
+    min_grp = 1
+    max_grp = 0
+    min_bcin = 1
+    max_bcin = 0
+  else
+    min_grp = minval( bface(5,1:nfbnd) , mask=msk )
+    max_grp = maxval( bface(5,1:nfbnd) , mask=msk )
+    min_bcin = minval( bface(6,1:nfbnd) , mask=msk )
+    max_bcin = maxval( bface(6,1:nfbnd) , mask=msk )
+  end if
+  !
+  allocate ( face_grps(1:2,min_bcin:max_bcin,min_grp:max_grp) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  !
+  face_grps(1,:,:) = 0
+  face_grps(2,:,:) = bc_unknown
+  !
+  do nf = 1,nfbnd
+    !
+    if (.not. msk(nf)) cycle
+    !
+    j = bface(5,nf)
+    i = bface(6,nf)
+    !
+    face_grps(1,i,j) = face_grps(1,i,j) + 1
+    !
+    ! Make sure each BC group / BC flow conditions combo has the same BC type
+    !
+    if (face_grps(2,i,j) == bc_unknown) then
+      face_grps(2,i,j) = bface(1,nf)
+    else if (face_grps(2,i,j) /= bface(1,nf)) then
+      errors_found = true
+      if (mypnum == glb_root) then
+        write (iout,1) nf,bface(1,nf),i,j
+      end if
+    end if
+    !
+  end do
+  !
+  deallocate ( msk , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"msk",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  if (errors_found) then
+    write (error_message,2)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ngrps = count( face_grps(1,:,:) > 0 )
+  if (contains_periodic_faces) ngrps = ngrps + 1
+  !
+  num_bc_grps = ngrps
+  !
+  allocate ( sorted_grps(1:2,1:ngrps) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sorted_grps",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  n = 0
+  !
+  ! First, find all the wall boundary groups
+  !
+  do k = 1,size(bc_walls)
+    do j = lbound(face_grps,dim=3),ubound(face_grps,dim=3)
+      do i = lbound(face_grps,dim=2),ubound(face_grps,dim=2)
+        if (face_grps(2,i,j) == bc_walls(k)) then
+          n = n + 1
+          sorted_grps(1,n) = j
+          sorted_grps(2,n) = i
+          face_grps(2,i,j) = bc_unknown
+        end if
+      end do
+    end do
+  end do
+  !
+  ! Then find all the now-wall boundary groups
+  !
+  do j = lbound(face_grps,dim=3),ubound(face_grps,dim=3)
+    do i = lbound(face_grps,dim=2),ubound(face_grps,dim=2)
+      if (face_grps(2,i,j) /= bc_unknown) then
+        n = n + 1
+        sorted_grps(1,n) = j
+        sorted_grps(2,n) = i
+        face_grps(2,i,j) = bc_unknown
+      end if
+    end do
+  end do
+  !
+  deallocate ( face_grps , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_grps",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! new2old(nf) = the old face number for a  new face nf
+  ! old2new(nf) = the new face number for an old face nf
+  !
+  allocate ( new2old(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( old2new(1:nfbnd) , source=0 , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  i = 0
+  do n = 1,ngrps
+    !
+    if (n == ngrps .and. contains_periodic_faces) then
+      !
+      do nf = 1,nfbnd
+        if (bface(1,nf) == bc_periodic) then
+          i = i + 1
+          new2old(i) = nf
+          old2new(nf) = i
+        end if
+      end do
+      !
+    else
+      !
+      do nf = 1,nfbnd
+        if (bface(5,nf) == sorted_grps(1,n) .and. &
+            bface(6,nf) == sorted_grps(2,n)) then
+          i = i + 1
+          new2old(i) = nf
+          old2new(nf) = i
+        end if
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  deallocate ( sorted_grps , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sorted_grps",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  tmp_bface = bface ! F2003 AUTO-REALLOCATION
+  !
+  do nf = 1,nfbnd
+    !
+    tmp_bface(:,nf) = bface(:,new2old(nf))
+    !
+    if (tmp_bface(1,nf) == bc_periodic) then
+      tmp_bface(5,nf) = old2new( bface(5,new2old(nf)) )
+    end if
+    !
+  end do
+  !
+  call move_alloc( from=tmp_bface , to=bface )
+  !
+  deallocate ( new2old , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( old2new , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy all of grid into tmp_grid
+  !
+  tmp_grid = grid ! F2003 AUTO-REALLOCATION
+  !
+  nc = ncell
+  !
+  do nf = 1,nfbnd
+    !
+    nc = nc + 1
+    !
+    ! F2003 AUTO-REALLOCATION OF COMPONENT ARRAYS
+    tmp_grid%elem(nc) = grid%elem( bface(10,nf) )
+    !
+    bface(10,nf) = nc
+    !
+  end do
+  !
+  call move_alloc( from=tmp_grid , to=grid )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("bface(1,",i0,") = ",i0,"; bc_in(",i0,"); group # = ",i0)
+  2 format ("ERRORS DETECTED WHILE TRYING TO RESORT THE BOUNDARY FACES")
+  !   
+end subroutine reorder_boundary_faces
 !
 !###############################################################################
 !
@@ -6296,7 +6530,7 @@ continue
         !
         n = (m-nec)*nr + l
         !
-        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts),dusp)
+        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp,dusp)
         !
         var(:) = real( interpolate_for_output(vartmp) , kind(var) )
         !
@@ -6329,9 +6563,9 @@ continue
     !
     ! Copy the solution and gradients into interp_usp and interp_dusp
     !
-    interp_usp(1:nq,1:n_solpts) = usp(1:nq,1:n_solpts)
     do n = 1,n_solpts
       do m = 1,nq
+        interp_usp(m,n) = usp(n,m)
         do l = 1,nr
           interp_dusp(l,m,n) = dusp(n,l,m)
         end do
@@ -7844,7 +8078,7 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   real(CRT), dimension(:), intent(inout) :: vorticity
   !
   !.. Local Scalars ..
-  integer :: i,j,k,kl,l,m,nf,np,n1,n2,nfp,f1,f2
+  integer :: i,j,k,kl,l,m,nf,n0,nfp,f1,f2
   integer :: this_face,face_geom,face_order
   integer :: host_cell,host_geom,host_order
   real(wp) :: a
@@ -7854,10 +8088,8 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   real(wp), dimension(1:nr,1:nq) :: dpvdx
   real(wp), dimension(1:nq,1:maxFP) :: cvfp
   real(wp), dimension(1:maxFP,1:nq) :: cv_tmp
-  real(wp), dimension(1:maxSP,1:nq) :: tusp
   real(wp), dimension(1:nr,1:nq,1:maxFP) :: dcvdx
   real(wp), dimension(1:maxFP,1:nr,1:nq) :: dcvdx_tmp
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_vort_face_solution"
@@ -7880,21 +8112,11 @@ continue
     host_geom = cell(host_cell)%geom   ! host cell geometry type
     host_order = cell(host_cell)%order ! host cell solution order
     !
-    n1 = cell(host_cell)%beg_sp ! beginning index for sol-pts in host cell
-    n2 = cell(host_cell)%end_sp ! ending    index for sol-pts in host cell
-    np = n2-n1+1                ! number of sol-pts in host cell
+    n0 = cell(host_cell)%beg_sp-1 ! beginning index for sol-pts in host cell
     !
     nfp = geom_solpts(face_geom,face_order) ! number of sol-pts on boundary face
     f1 = f2 + 1                  ! beginning index for sol-pts on boundary face
     f2 = f2 + nfp                 ! ending    index for sol-pts on boundary face
-    !
-    ! Create transpose of the xyz(2:3,n1:n2) to reduce cache misses
-    !
-    tusp(1:np,1:nq) = transpose( usp(1:nq,n1:n2) )
-    tdusp(1:np,1:nr,1:nq) = dusp(n1:n2,1:nr,1:nq)
-   !do k = 1,np
-   !  tdusp(k,1:nr,1:nq) = dusp(1:nr,1:nq,n1-1+k)
-   !end do
     !
     ! Compute the profile quantities at each data point for this face
     !
@@ -7917,9 +8139,9 @@ continue
           j = interp(host_geom,host_order)%toFace(face_order)%row_idx(i)
           a = interp(host_geom,host_order)%toFace(face_order)%row_val(i)
           !
-          cv_tmp(k,m) = cv_tmp(k,m) + a * tusp(j,m)
+          cv_tmp(k,m) = cv_tmp(k,m) + a * usp(n0+j,m)
           do l = 1,nr
-            dcvdx_tmp(k,l,m) = dcvdx_tmp(k,l,m) + a * tdusp(j,l,m)
+            dcvdx_tmp(k,l,m) = dcvdx_tmp(k,l,m) + a * dusp(n0+j,l,m)
           end do
           !
         end do
@@ -8027,13 +8249,13 @@ continue
     !
     do n = 1,np
       !
-      rho_inv = one/uu(nec,n)
+      rho_inv = one/uu(n,nec)
       rho_inv2 = rho_inv*rho_inv
       !
-      q2 = dot( uu(nmb:nme,n) , uu(nmb:nme,n) )
+      q2 = dot( uu(n,nmb:nme) , uu(n,nmb:nme) )
       !
-      coef(nec)     = -rho_inv2 * (uu(nee,n) - rho_inv*q2)
-      coef(nmb:nme) = -rho_inv2 * uu(nmb:nme,n)
+      coef(nec)     = -rho_inv2 * (uu(n,nee) - rho_inv*q2)
+      coef(nmb:nme) = -rho_inv2 * uu(n,nmb:nme)
       coef(nee)     =  rho_inv
       !
       return_value(n) = cv_inv * dot( coef , dcvdx(n,ndr,1:nq) )
@@ -8044,11 +8266,11 @@ continue
     !
     do n = 1,np
       !
-      rho_inv = one/uu(nec,n)
+      rho_inv = one/uu(n,nec)
       rho_inv2 = rho_inv*rho_inv
       !
       return_value(n) = rho_inv  * dcvdx(n,ndr,npv) - &
-                        rho_inv2 * dcvdx(n,ndr,nec) * uu(npv,n)
+                        rho_inv2 * dcvdx(n,ndr,nec) * uu(n,npv)
       !
     end do
     !

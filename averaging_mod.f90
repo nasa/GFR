@@ -1,17 +1,393 @@
 module averaging_mod
   !
   use module_kind_types
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
   !
   implicit none
   !
   private
   !
+  public :: initialize_time_ave
+  public :: update_time_ave
   public :: average_restart_files
   !
   character(len=100), save, allocatable :: restart_file_list(:)
   real(wp), save, allocatable :: restart_times(:)
   !
+  real(wp), save, allocatable :: ave(:)
+  !
+  type :: time_ave_var_t
+    integer, allocatable :: idx(:)
+  end type time_ave_var_t
+  !
+  type(time_ave_var_t), save, allocatable :: time_ave_var(:)
+  !
 contains
+!
+!###############################################################################
+!
+subroutine initialize_time_ave()
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts
+  use ovar,    only : time,ave_start_time
+  use ovar,    only : time_ave_vel_is_axisymm
+  use flowvar, only : time_ave_variables
+  use flowvar, only : uavesp
+  !
+  !.. Local Scalars ..
+  integer :: l,m,nv,nvar,ierr
+  character(len=1)  :: ta_char,v1,v2,v3
+  character(len=30) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_time_ave"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate and create the time_ave_variables array if it hasnt already
+  ! been allocated; otherwise, count the number of time-averaged variables it
+  ! contains. This character array identifies which time-averaged variables
+  ! are computed and written to the time-averaged solution/restart files.
+  !
+  if (.not. allocated(time_ave_variables)) then
+    !
+    v1 = "x"
+    v2 = merge( "r" , "y" , time_ave_vel_is_axisymm )
+    v3 = merge( "f" , "z" , time_ave_vel_is_axisymm )
+    !
+    ! Since the time_ave_variables array isnt allocated, this means that a
+    ! time-averaged restart file wasnt read and the start time of the
+    ! time-averaging needs to be initialized to the current time
+    !
+    ave_start_time = time
+    !
+   !nvar = merge(23,11,nr==3)
+   !allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
+   !                 ierr,error_message)
+    !
+    if (nr == 3) then
+      !
+      ! First 5 are the conserved variables
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             "d" , "dx" , "dy" , "dz" , "e" ]
+      !
+      ! Next 5 are the primitive variables
+      ! (with temperature instead of density)
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , &
+                             "t" , "x" , "y" , "z" , "p" ]
+      !
+      ! Remaining are derived variables
+      !
+      ! ALL OF THE BELOW ASSIGNMENTS USE F2003 AUTO-REALLOCATION TO
+      ! APPEND A NEW ARRAY ELEMENT ONTO THE time_ave_variables ARRAY
+      ! FOR EACH ADDITIONAL TIME AVERAGED VARIABLE
+      !
+      if (time_ave_vel_is_axisymm) then
+        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                               time_ave_variables(:) , "d" // v2 ]
+        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                               time_ave_variables(:) , "d" // v3 ]
+        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                               time_ave_variables(:) , v2 ]
+        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                               time_ave_variables(:) , v3 ]
+      end if
+      !
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v1 // v1 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v2 // v2 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v3 // v3 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v1 // v2 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v1 // v3 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v2 // v3 ]
+      !
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v1 // "t" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v2 // "t" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , v3 // "t" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "dt" ]
+      !
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v1 // v1 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v2 // v2 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v3 // v3 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v1 // v2 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v1 // v3 ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v2 // v3 ]
+      !
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v1 // "t" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v2 // "t" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "d" // v3 // "t" ]
+      !
+      nvar = size(time_ave_variables)
+      !
+    else
+      !
+      ! First 4 are the conserved variables
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             "d" , "dx" , "dy" , "e" ]
+      !
+      ! Next 4 are the primitive variables
+      ! (with temperature instead of density)
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "t" , "x" , "y" , "p" ]
+      !
+      ! Remaining are derived variables
+      !
+      ! USING F2003 AUTO-REALLOCATION
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "xx" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "yy" ]
+      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
+                             time_ave_variables(:) , "xy" ]
+      !
+      nvar = size(time_ave_variables)
+      !
+    end if
+    !
+  else
+    !
+    nvar = size(time_ave_variables)
+    !
+  end if
+  !
+  if (allocated(time_ave_var)) then
+    deallocate ( time_ave_var , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"time_ave_var",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  allocate ( time_ave_var(1:nvar) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"time_ave_var",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do m = 1,size(time_ave_variables)
+    !
+    time_ave_variables(m) = trim(adjustl(time_ave_variables(m)))
+    !
+    nv = len_trim(time_ave_variables(m))
+    !
+    allocate ( time_ave_var(m)%idx(1:nv) , source=0 , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) m
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do l = 1,nv
+      !
+      ta_char = uppercase( time_ave_variables(m)(l:l) )
+      !
+      select case (ta_char)
+        case ("D")
+          time_ave_var(m)%idx(l) = nec
+        case ("X")
+          time_ave_var(m)%idx(l) = nmx
+        case ("Y")
+          time_ave_var(m)%idx(l) = nmy
+        case ("Z")
+          time_ave_var(m)%idx(l) = nmz
+        case ("E")
+          time_ave_var(m)%idx(l) = nee
+        case ("P")
+          time_ave_var(m)%idx(l) = nee
+        case ("T")
+          time_ave_var(m)%idx(l) = nq+1
+        case ("R")
+          time_ave_var(m)%idx(l) = nq+2
+        case ("F")
+          time_ave_var(m)%idx(l) = nq+3
+        case ("K")
+          time_ave_var(m)%idx(l) = ntk
+        case ("W")
+          time_ave_var(m)%idx(l) = ntl
+        case default
+          ! ??? Should probably produce an error message and abort
+          time_ave_var(m)%idx(l) = nec
+      end select
+    end do
+  end do
+  !
+  ! Allocate the local module array used for computing
+  ! the current update to the time-averaged variables.
+  !
+  if (allocated(ave)) then
+    deallocate ( ave , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ave",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( ave(1:nvar) , source=zero , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate and initialize the time-averaged variables
+  ! solution array if it hasnt already been allocated.
+  !
+  if (.not. allocated(uavesp)) then
+    !
+    allocate ( uavesp(1:n_solpts,1:nvar) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"uavesp",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(uavesp)
+    !
+    ! Initialize the time-averaged variables to the initial/restart
+    ! solution since they werent read from a time-averaged restart file.
+    !
+    call update_time_ave
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("time_ave_var(",i0,")%idx")
+  !
+end subroutine initialize_time_ave
+!
+!###############################################################################
+!
+subroutine update_time_ave()
+  !
+  !.. Use Statements ..
+  use geovar,  only : xyz,n_solpts
+  use flowvar, only : usp,uavesp
+  use ovar,    only : time,prev_ave_time
+  use ovar,    only : ave_start_time,saved_ave_time
+  !
+  !.. Local Scalars ..
+  integer  :: m,n,nvar
+  integer  :: nc1,nc2,nm1,nm2
+  real(wp) :: a,b,y,z,st,ct,theta
+  !
+  !.. Local Arrays ..
+  real(wp) :: time_val(1:2)
+  real(wp) :: ave_var(1:nq+3)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_time_ave"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (time == zero .or. time == ave_start_time) then
+    time_val(1) = zero
+    time_val(2) = one
+  else
+    time_val(1) = (prev_ave_time-ave_start_time) / (time-ave_start_time)
+    time_val(2) = one - time_val(1) ! to try and ensure that sum(time_val) = 1
+  end if
+  !
+  saved_ave_time = prev_ave_time
+  !
+  ! Broadcast the time_val array so hopefully all MPI processes
+  ! have the exact same values for the two averaging coefficients
+  ! (in case there might be roundoff differences between processes).
+  !
+  call mpi_bcast(time_val,size(time_val,kind=int_mpi),mpi_flttyp, &
+                 glb_root,MPI_COMM_WORLD,mpierr)
+  !
+  a = time_val(1)
+  b = time_val(2)
+  !
+  nvar = size(time_ave_var)
+  !
+  ! Adjust the coordinate and momentum indices for conversion to cylindrical
+  ! coordinates depending whether this is a 2D or 3D simulation
+  !
+  if (size(xyz,dim=1) == 2) then
+    nc1 = 1; nc2 = 2; nm1 = nmx; nm2 = nmy
+  else
+    nc1 = 2; nc2 = 3; nm1 = nmy; nm2 = nmz
+  end if
+  !
+  do n = 1,n_solpts
+    !
+    y = xyz(nc1,n)
+    z = xyz(nc2,n)
+    !
+    if (all([y,z] == zero)) then
+      !
+      st = zero
+      ct = zero
+      !
+    else
+      !
+      theta = atan2(z,y)
+      if (theta < zero) theta = theta + two*pi
+      !
+      st = sin(theta)
+      ct = cos(theta)
+      !
+    end if
+    !
+    ! Primitive variables
+    ave_var(1:nq) = usp2v_sp( usp(n,1:nq) )
+    !
+    ! Temperature
+    ave_var(nq+1) = temperature_pv_sp( ave_var(1:nq) )
+    !
+    ! Radial    instantaneous velocity
+    ave_var(nq+2) = st*ave_var(nm2) + ct*ave_var(nm1)
+    ! Azimuthal instantaneous velocity
+    ave_var(nq+3) = ct*ave_var(nm2) - st*ave_var(nm1)
+    !
+    ! First, update the time-averaged conservative variables
+    !
+    do m = 1,nq
+      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
+    end do
+    !
+    ! Next, update the time-averaged primitive variables
+    ! (with temperature instead of density)
+    !
+    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
+    do m = 2,nq
+      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
+    end do
+    !
+    ! Update the remaining time-averaged variables
+    !
+    do m = 2*nq+1,nvar
+      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
+    end do
+    !
+  end do
+  !
+  ! Update prev_ave_time to the current time
+  !
+  prev_ave_time = time
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_time_ave
 !
 !###############################################################################
 !
@@ -23,7 +399,6 @@ subroutine average_restart_files()
   use ovar,        only : ave_start_time,prev_ave_time
   use ovar,        only : time,itcur,tmrst,itrst
   use flowvar,     only : uavesp
-  use time_mod,    only : initialize_time_ave,update_time_ave
   use restart_mod, only : read_restart_file,write_restart_file
   use io_mod,      only : write_parallel_cgns
   !
@@ -288,6 +663,11 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine deallocate_solver_arrays
+!
+!###############################################################################
+!
+include "Functions/usp2v.f90"
+include "Functions/temperature.f90"
 !
 !###############################################################################
 !

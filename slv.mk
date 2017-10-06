@@ -105,7 +105,10 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/pbs_mod.o \
         $(OBJDIR)/cpu_info_mod.o \
 	$(OBJDIR)/averaging_mod.o \
-	$(OBJDIR)/gpu_mod.o
+	$(OBJDIR)/gpu_mod.o \
+	$(OBJDIR)/invs_flux_mod.o \
+	$(OBJDIR)/visc_flux_mod.o \
+	$(OBJDIR)/upwind_flux_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
@@ -145,6 +148,14 @@ westmere: optimize
 .PHONY: merope
 merope: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 merope: optimize
+
+.PHONY: gpu-mm
+gpu-mm: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+gpu-mm: optimize
+
+.PHONY: gpu
+gpu: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+gpu: optimize
 
 .PHONY: optimize
 optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)

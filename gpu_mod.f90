@@ -14,6 +14,11 @@ module gpu_mod
   public :: vsp2u_gpu
   public :: tvsp2u_gpu
   public :: grad_cv_to_grad_pv_gpu
+  public :: vortex_solution_gpu
+  !
+  interface tvsp2u_gpu
+    module procedure tvsp2u_gpu_rv, tvsp2u_gpu_inout
+  end interface tvsp2u_gpu
   !
 contains
 !
@@ -69,9 +74,7 @@ continue
   cv_inv = (gam-one)/rgasref_nd
   rhoaref_inv = one / rhoref / aref
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
     rho_inv = one/tusp(n,nec)
@@ -95,7 +98,7 @@ continue
   ! of the internal energy from the temperature
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       return_value(n) = return_value(n) - cv_inv*tusp(n,ntk)/tusp(n,nec)
     end do
@@ -103,14 +106,12 @@ continue
   !
   ! Compute the viscosity using Sutherlands law
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(return_value)
   do n = n1,n2
     tdim = return_value(n)*tref
     mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
     return_value(n) = mudim * rhoaref_inv
   end do
-  !
-  !$ACC END DATA
   !
 end subroutine viscosity_cv_gpu_3d
 !
@@ -140,9 +141,7 @@ continue
   cv_inv = (gam-one)/rgasref_nd
   rhoaref_inv = one / rhoref / aref
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
     rho_inv = one/tusp(n,nec)
@@ -165,7 +164,7 @@ continue
   ! of the internal energy from the temperature
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       return_value(n) = return_value(n) - cv_inv*tusp(n,ntk)/tusp(n,nec)
     end do
@@ -173,14 +172,12 @@ continue
   !
   ! Compute the viscosity using Sutherlands law
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(return_value)
   do n = n1,n2
     tdim = return_value(n)*tref
     mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
     return_value(n) = mudim * rhoaref_inv
   end do
-  !
-  !$ACC END DATA
   !
 end subroutine viscosity_cv_gpu_2d
 !
@@ -212,11 +209,9 @@ continue
   cv_inv = (gam-one)/rgasref_nd
   rhoaref_inv = one / rhoref / aref
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       !
       rho_inv = one/tusp(n,nec)
@@ -238,7 +233,7 @@ continue
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       !
       rho_inv = one/tusp(n,nec)
@@ -259,7 +254,7 @@ continue
     !
   else
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       !
       rho_inv = one/tusp(n,nec)
@@ -283,7 +278,7 @@ continue
   ! of the internal energy from the temperature
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       return_value(n) = return_value(n) - cv_inv*tusp(n,ntk)/tusp(n,nec)
     end do
@@ -291,14 +286,12 @@ continue
   !
   ! Compute the viscosity using Sutherlands law
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(return_value)
   do n = n1,n2
     tdim = return_value(n)*tref
     mudim = suth_c1 * tdim * sqrt(tdim) / (tdim + suth_sref)
     return_value(n) = mudim * rhoaref_inv
   end do
-  !
-  !$ACC END DATA
   !
 end subroutine viscosity_cv_gpu_nd
 !
@@ -356,9 +349,8 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(usp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(usp,return_value)
   do n = n1,n2
     !
     rho = usp(nec,n)
@@ -382,7 +374,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(usp,return_value)
     do n = n1,n2
       rho_inv = one/usp(nec,n)
       return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
@@ -393,7 +386,8 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+      !$ACC&              PRESENT(return_value)
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
@@ -401,8 +395,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine usp2v_gpu_3d
 !
@@ -431,9 +423,8 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(usp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(usp,return_value)
   do n = n1,n2
     !
     rho = usp(nec,n)
@@ -455,7 +446,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(usp,return_value)
     do n = n1,n2
       rho_inv = one/usp(nec,n)
       return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
@@ -466,7 +458,8 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+      !$ACC&              PRESENT(return_value)
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
@@ -474,8 +467,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine usp2v_gpu_2d
 !
@@ -504,9 +495,8 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(usp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(usp,return_value)
   do n = n1,n2
     !
     rhoq2 = zero
@@ -522,7 +512,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(usp,return_value)
     do n = n1,n2
       rho_inv = one/usp(nec,n)
       return_value(nee,n) = return_value(nee,n) - gm1*usp(ntk,n)
@@ -533,7 +524,8 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+      !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+      !$ACC&              PRESENT(return_value)
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
@@ -541,8 +533,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine usp2v_gpu_nd
 !
@@ -600,9 +590,7 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
     rho = tusp(n,nec)
@@ -626,7 +614,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       rho_inv = one/tusp(n,nec)
       return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
@@ -637,7 +625,7 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(return_value)
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
@@ -645,8 +633,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine tusp2v_gpu_3d
 !
@@ -675,9 +661,7 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
     rho = tusp(n,nec)
@@ -699,7 +683,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       rho_inv = one/tusp(n,nec)
       return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
@@ -710,7 +694,7 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(return_value)
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
@@ -718,8 +702,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine tusp2v_gpu_2d
 !
@@ -748,9 +730,7 @@ continue
   gm1 = gam - one
   rgasref_nd_inv = one/rgasref_nd
   !
-  !$ACC DATA PRESENT(tusp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
     rhoq2 = zero
@@ -766,7 +746,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       rho_inv = one/tusp(n,nec)
       return_value(n,nee) = return_value(n,nee) - gm1*tusp(n,ntk)
@@ -777,7 +757,7 @@ continue
   !
   if (present(swap_t_for_rho)) then
     if (swap_t_for_rho) then
-      !$ACC PARALLEL LOOP
+      !$ACC PARALLEL LOOP PRESENT(return_value)
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
@@ -785,8 +765,6 @@ continue
       end do
     end if
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine tusp2v_gpu_nd
 !
@@ -836,9 +814,8 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(vsp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(vsp,return_value)
   do n = n1,n2
     !
     rho = vsp(nec,n)
@@ -858,7 +835,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(vsp,return_value)
     do n = n1,n2
       rho = vsp(nec,n)
       tke = vsp(ntk,n)
@@ -868,8 +846,6 @@ continue
       return_value(nee,n) = return_value(nee,n) + rho*tke
     end do
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine vsp2u_gpu_3d
 !
@@ -893,9 +869,8 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(vsp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(vsp,return_value)
   do n = n1,n2
     !
     rho = vsp(nec,n)
@@ -913,7 +888,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(vsp,return_value)
     do n = n1,n2
       rho = vsp(nec,n)
       tke = vsp(ntk,n)
@@ -923,8 +899,6 @@ continue
       return_value(nee,n) = return_value(nee,n) + rho*tke
     end do
   end if
-  !
-  !$ACC END DATA
   !
 end subroutine vsp2u_gpu_2d
 !
@@ -948,9 +922,8 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(vsp,return_value)
-  !
-  !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+  !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(vsp,return_value)
   do n = n1,n2
     !
     rho = vsp(nec,n)
@@ -968,7 +941,8 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP VECTOR_LENGTH(32)
+    !$ACC PARALLEL LOOP VECTOR_LENGTH(32) &
+    !$ACC&              PRESENT(vsp,return_value)
     do n = n1,n2
       rho = vsp(nec,n)
       tke = vsp(ntk,n)
@@ -979,13 +953,11 @@ continue
     end do
   end if
   !
-  !$ACC END DATA
-  !
 end subroutine vsp2u_gpu_nd
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu(n1,n2,tvsp,return_value)
+pure subroutine tvsp2u_gpu_rv(n1,n2,tvsp,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -1000,18 +972,18 @@ continue
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call tvsp2u_gpu_3d(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_rv_3d(n1,n2,tvsp,return_value)
   else if (nr == 2) then
-    call tvsp2u_gpu_2d(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_rv_2d(n1,n2,tvsp,return_value)
   else
-    call tvsp2u_gpu_nd(n1,n2,tvsp,return_value)
+    call tvsp2u_gpu_rv_nd(n1,n2,tvsp,return_value)
   end if
   !
-end subroutine tvsp2u_gpu
+end subroutine tvsp2u_gpu_rv
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_3d(n1,n2,tvsp,return_value)
+pure subroutine tvsp2u_gpu_rv_3d(n1,n2,tvsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy
@@ -1029,9 +1001,7 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(tvsp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
   do n = n1,n2
     !
     rho = tvsp(n,nec)
@@ -1051,7 +1021,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
     do n = n1,n2
       rho = tvsp(n,nec)
       tke = tvsp(n,ntk)
@@ -1062,13 +1032,11 @@ continue
     end do
   end if
   !
-  !$ACC END DATA
-  !
-end subroutine tvsp2u_gpu_3d
+end subroutine tvsp2u_gpu_rv_3d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_2d(n1,n2,tvsp,return_value)
+pure subroutine tvsp2u_gpu_rv_2d(n1,n2,tvsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy
@@ -1086,9 +1054,7 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(tvsp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
   do n = n1,n2
     !
     rho = tvsp(n,nec)
@@ -1106,7 +1072,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
     do n = n1,n2
       rho = tvsp(n,nec)
       tke = tvsp(n,ntk)
@@ -1117,13 +1083,11 @@ continue
     end do
   end if
   !
-  !$ACC END DATA
-  !
-end subroutine tvsp2u_gpu_2d
+end subroutine tvsp2u_gpu_rv_2d
 !
 !###############################################################################
 !
-pure subroutine tvsp2u_gpu_nd(n1,n2,tvsp,return_value)
+pure subroutine tvsp2u_gpu_rv_nd(n1,n2,tvsp,return_value)
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy
@@ -1141,9 +1105,7 @@ continue
   !
   gm1_inv = one/(gam-one)
   !
-  !$ACC DATA PRESENT(tvsp,return_value)
-  !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
   do n = n1,n2
     !
     rho = tvsp(n,nec)
@@ -1161,7 +1123,7 @@ continue
   end do
   !
   if (include_tke_in_energy) then
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tvsp,return_value)
     do n = n1,n2
       rho = tvsp(n,nec)
       tke = tvsp(n,ntk)
@@ -1172,23 +1134,233 @@ continue
     end do
   end if
   !
-  !$ACC END DATA
-  !
-end subroutine tvsp2u_gpu_nd
+end subroutine tvsp2u_gpu_rv_nd
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,return_value, &
-                                       tusp_includes_rho_inv)
+pure subroutine tvsp2u_gpu_inout(n1,n2,tvsp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp), intent(inout) :: tvsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call tvsp2u_gpu_inout_3d(n1,n2,tvsp)
+  else if (nr == 2) then
+    call tvsp2u_gpu_inout_2d(n1,n2,tvsp)
+  else
+    call tvsp2u_gpu_inout_nd(n1,n2,tvsp)
+  end if
+  !
+end subroutine tvsp2u_gpu_inout
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_inout_3d(n1,n2,tvsp)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam, include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: tvsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,velz,pres,tke,tls
+  !
+continue
+  !
+  gm1_inv = one/(gam-one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tvsp)
+  do n = n1,n2
+    !
+    rho = tvsp(n,nec)
+    velx = tvsp(n,nmx)
+    vely = tvsp(n,nmy)
+    velz = tvsp(n,nmz)
+    pres = tvsp(n,nee)
+    !
+    q2 = velx*velx + vely*vely + velz*velz
+    !
+    tvsp(n,nec) = rho
+    tvsp(n,nmx) = rho*velx
+    tvsp(n,nmy) = rho*vely
+    tvsp(n,nmz) = rho*velz
+    tvsp(n,nee) = pres*gm1_inv + half*rho*q2
+    !
+  end do
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      rho  = tvsp(n,nec)
+      rhoe = tvsp(n,nee)
+      tke  = tvsp(n,ntk)
+      tls  = tvsp(n,ntl)
+      tvsp(n,ntk) = rho*tke
+      tvsp(n,ntl) = rho*tls
+      tvsp(n,nee) = rhoe + rho*tke
+    end do
+  end if
+  !
+end subroutine tvsp2u_gpu_inout_3d
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_inout_2d(n1,n2,tvsp)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam, include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: tvsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,pres,tke,tls
+  !
+continue
+  !
+  gm1_inv = one/(gam-one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tvsp)
+  do n = n1,n2
+    !
+    rho = tvsp(n,nec)
+    velx = tvsp(n,nmx)
+    vely = tvsp(n,nmy)
+    pres = tvsp(n,nee)
+    !
+    q2 = velx*velx + vely*vely
+    !
+    tvsp(n,nec) = rho
+    tvsp(n,nmx) = rho*velx
+    tvsp(n,nmy) = rho*vely
+    tvsp(n,nee) = pres*gm1_inv + half*rho*q2
+    !
+  end do
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      rho  = tvsp(n,nec)
+      rhoe = tvsp(n,nee)
+      tke  = tvsp(n,ntk)
+      tls  = tvsp(n,ntl)
+      tvsp(n,ntk) = rho*tke
+      tvsp(n,ntl) = rho*tls
+      tvsp(n,nee) = rhoe + rho*tke
+    end do
+  end if
+  !
+end subroutine tvsp2u_gpu_inout_2d
+!
+!###############################################################################
+!
+pure subroutine tvsp2u_gpu_inout_nd(n1,n2,tvsp)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam, include_tke_in_energy
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: tvsp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1_inv,q2,rho,rhoe,velx,vely,velz,pres,tke,tls
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  gm1_inv = one/(gam-one)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      !
+      rho = tvsp(n,nec)
+      velx = tvsp(n,nmx)
+      vely = tvsp(n,nmy)
+      velz = tvsp(n,nmz)
+      pres = tvsp(n,nee)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+     !tvsp(n,nec) = rho
+      tvsp(n,nmx) = rho*velx
+      tvsp(n,nmy) = rho*vely
+      tvsp(n,nmz) = rho*velz
+      tvsp(n,nee) = pres*gm1_inv + half*rho*q2
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      !
+      rho = tvsp(n,nec)
+      velx = tvsp(n,nmx)
+      vely = tvsp(n,nmy)
+      pres = tvsp(n,nee)
+      !
+      q2 = velx*velx + vely*vely
+      !
+     !tvsp(n,nec) = rho
+      tvsp(n,nmx) = rho*velx
+      tvsp(n,nmy) = rho*vely
+      tvsp(n,nee) = pres*gm1_inv + half*rho*q2
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      !
+      rho = tvsp(n,nec)
+      velx = tvsp(n,nmx)
+      pres = tvsp(n,nee)
+      !
+     !tvsp(n,nec) = rho
+      tvsp(n,nmx) = rho*velx
+      tvsp(n,nee) = pres*gm1_inv + half*rho*velx*velx
+      !
+    end do
+  end if
+  !
+  if (include_tke_in_energy) then
+    !$ACC PARALLEL LOOP PRESENT(tvsp)
+    do n = n1,n2
+      rho  = tvsp(n,nec)
+      rhoe = tvsp(n,nee)
+      tke  = tvsp(n,ntk)
+      tls  = tvsp(n,ntl)
+      tvsp(n,ntk) = rho*tke
+      tvsp(n,ntl) = rho*tls
+      tvsp(n,nee) = rhoe + rho*tke
+    end do
+  end if
+  !
+end subroutine tvsp2u_gpu_inout_nd
+!
+!###############################################################################
+!
+pure subroutine grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
-  !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: tusp_includes_rho_inv
   !
   !.. Local Scalars ..
   integer  :: nr
@@ -1198,22 +1370,18 @@ continue
   nr = size(tdcvdx,dim=2)
   !
   if (nr == 3) then
-    call grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value, &
-                                   tusp_includes_rho_inv)
+    call grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
   else if (nr == 2) then
-    call grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value, &
-                                   tusp_includes_rho_inv)
+    call grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
   else
-    call grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value, &
-                                   tusp_includes_rho_inv)
+    call grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
   end if
   !
 end subroutine grad_cv_to_grad_pv_gpu
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value, &
-                                          tusp_includes_rho_inv)
+pure subroutine grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -1222,88 +1390,59 @@ pure subroutine grad_cv_to_grad_pv_gpu_3d(n1,n2,tusp,tdcvdx,return_value, &
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: tusp_includes_rho_inv
-  !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: cv_inv,rho,rho_inv
-  real(wp) :: velx,vely,velz,etot
-  real(wp) :: drhodx,drhody,drhodz
-  !
-  logical(lk) :: tusp_needs_rho_inv
+  real(wp) :: cv_inv,rho_inv
+  real(wp) :: decdx,decdy,decdz
+  real(wp) :: rho2_inv,a
   !
 continue
   !
-  tusp_needs_rho_inv = true
-  if (present(tusp_includes_rho_inv)) then
-    tusp_needs_rho_inv = .not. tusp_includes_rho_inv
-  end if
-  !
-  !$ACC DATA PRESENT(tusp,tdcvdx,return_value)
-  !
   cv_inv = (gam - one) / rgasref_nd
-  !
-  ! Embed 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP
-    do n = n1,n2
-      rho_inv = one/tusp(n,nec)
-      tusp(n,nmx) = tusp(n,nmx)*rho_inv
-      tusp(n,nmy) = tusp(n,nmy)*rho_inv
-      tusp(n,nmz) = tusp(n,nmz)*rho_inv
-      tusp(n,nee) = tusp(n,nee)*rho_inv
-    end do
-  end if
-  !
-  ! Copy the density gradient
-  !
-  !$ACC PARALLEL LOOP
-  do n = n1,n2
-    return_value(n,1,nec) = tdcvdx(n,1,nec)
-    return_value(n,2,nec) = tdcvdx(n,2,nec)
-    return_value(n,3,nec) = tdcvdx(n,3,nec)
-  end do
   !
   ! Using the chain rule:
   !
-  ! 1. Compute the velocity gradients (nmx,nmy,nmz)
-  ! 2. Compute the total energy gradient and store in the
+  ! 1. Copy the density gradient
+  ! 2. Compute the velocity gradients (nmx,nmy,nmz)
+  ! 3. Compute the total energy gradient and store in the
   !    location for the temperature gradient (nee)
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
   do n = n1,n2
     !
-    rho_inv = one/tusp(n,nec)  ! tusp already includes 1/rho meaning:
-    velx = tusp(n,nmx)*rho_inv ! this is actually vx/rho
-    vely = tusp(n,nmy)*rho_inv ! this is actually vy/rho
-    velz = tusp(n,nmz)*rho_inv ! this is actually vz/rho
-    etot = tusp(n,nee)*rho_inv ! this is actually (total energy)/rho
+    rho_inv = one/tusp(n,nec)
     !
-    drhodx = tdcvdx(n,1,nec)
-    drhody = tdcvdx(n,2,nec)
-    drhodz = tdcvdx(n,3,nec)
+    decdx = tdcvdx(n,1,nec)
+    decdy = tdcvdx(n,2,nec)
+    decdz = tdcvdx(n,3,nec)
     !
-    return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) - drhodx*velx
-    return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) - drhody*velx
-    return_value(n,3,nmx) = rho_inv*tdcvdx(n,3,nmx) - drhodz*velx
+    return_value(n,1,nec) = decdx
+    return_value(n,2,nec) = decdy
+    return_value(n,3,nec) = decdz
     !
-    return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) - drhodx*vely
-    return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) - drhody*vely
-    return_value(n,3,nmy) = rho_inv*tdcvdx(n,3,nmy) - drhodz*vely
+    decdx = decdx*rho_inv*rho_inv
+    decdy = decdy*rho_inv*rho_inv
+    decdz = decdz*rho_inv*rho_inv
     !
-    return_value(n,1,nmz) = rho_inv*tdcvdx(n,1,nmz) - drhodx*velz
-    return_value(n,2,nmz) = rho_inv*tdcvdx(n,2,nmz) - drhody*velz
-    return_value(n,3,nmz) = rho_inv*tdcvdx(n,3,nmz) - drhodz*velz
+    return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) - decdx*tusp(n,nmx)
+    return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) - decdy*tusp(n,nmx)
+    return_value(n,3,nmx) = rho_inv*tdcvdx(n,3,nmx) - decdz*tusp(n,nmx)
     !
-    return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) - drhodx*etot
-    return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) - drhody*etot
-    return_value(n,3,nee) = rho_inv*tdcvdx(n,3,nee) - drhodz*etot
+    return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) - decdx*tusp(n,nmy)
+    return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) - decdy*tusp(n,nmy)
+    return_value(n,3,nmy) = rho_inv*tdcvdx(n,3,nmy) - decdz*tusp(n,nmy)
+    !
+    return_value(n,1,nmz) = rho_inv*tdcvdx(n,1,nmz) - decdx*tusp(n,nmz)
+    return_value(n,2,nmz) = rho_inv*tdcvdx(n,2,nmz) - decdy*tusp(n,nmz)
+    return_value(n,3,nmz) = rho_inv*tdcvdx(n,3,nmz) - decdz*tusp(n,nmz)
+    !
+    return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) - decdx*tusp(n,nee)
+    return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) - decdy*tusp(n,nee)
+    return_value(n,3,nee) = rho_inv*tdcvdx(n,3,nee) - decdz*tusp(n,nee)
     !
    !return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
    !                      rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
@@ -1315,60 +1454,43 @@ continue
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   ! 
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
-    velx = tusp(n,nmx)
-    vely = tusp(n,nmy)
-    velz = tusp(n,nmz)
+    rho_inv = one/tusp(n,nec)
     !
     return_value(n,1,nee) = return_value(n,1,nee) &
-                          - return_value(n,1,nmx)*velx &
-                          - return_value(n,1,nmy)*vely &
-                          - return_value(n,1,nmz)*velz
+                          - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
+                          - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv &
+                          - return_value(n,1,nmz)*tusp(n,nmz)*rho_inv
     !
     return_value(n,2,nee) = return_value(n,2,nee) &
-                          - return_value(n,2,nmx)*velx &
-                          - return_value(n,2,nmy)*vely &
-                          - return_value(n,2,nmz)*velz
+                          - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
+                          - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv &
+                          - return_value(n,2,nmz)*tusp(n,nmz)*rho_inv
     !
     return_value(n,3,nee) = return_value(n,3,nee) &
-                          - return_value(n,3,nmx)*velx &
-                          - return_value(n,3,nmy)*vely &
-                          - return_value(n,3,nmz)*velz
+                          - return_value(n,3,nmx)*tusp(n,nmx)*rho_inv &
+                          - return_value(n,3,nmy)*tusp(n,nmy)*rho_inv &
+                          - return_value(n,3,nmz)*tusp(n,nmz)*rho_inv
     !
   end do
   !
   ! Finish computing the temperature gradient by dividing through by
   ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(return_value)
   do n = n1,n2
     return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
     return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
     return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
   end do
   !
-  ! Remove the embedded 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP
-    do n = n1,n2
-      rho = tusp(n,nec)
-      tusp(n,nmx) = tusp(n,nmx)*rho
-      tusp(n,nmy) = tusp(n,nmy)*rho
-      tusp(n,nmz) = tusp(n,nmz)*rho
-      tusp(n,nee) = tusp(n,nee)*rho
-    end do
-  end if
-  !$ACC END DATA
-  !
 end subroutine grad_cv_to_grad_pv_gpu_3d
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value, &
-                                          tusp_includes_rho_inv)
+pure subroutine grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -1377,65 +1499,55 @@ pure subroutine grad_cv_to_grad_pv_gpu_2d(n1,n2,tusp,tdcvdx,return_value, &
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: tusp_includes_rho_inv
-  !
   !.. Local Scalars ..
-  integer  :: l,m,n
+  integer  :: n
   real(wp) :: cv_inv,rho_inv
-  !
-  logical(lk) :: tusp_needs_rho_inv
   !
 continue
   !
-  tusp_needs_rho_inv = true
-  if (present(tusp_includes_rho_inv)) then
-    tusp_needs_rho_inv = .not. tusp_includes_rho_inv
-  end if
-  !
-  !$ACC DATA PRESENT(tusp,tdcvdx,return_value)
-  !
   cv_inv = (gam - one) / rgasref_nd
-  !
-  ! Embed 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do m = nmb,nq
-      do n = n1,n2
-        tusp(n,m) = tusp(n,m)/tusp(n,nec)
-      end do
-    end do
-  end if
   !
   ! Copy the density gradient
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,2
-    do n = n1,n2
-      return_value(n,l,nec) = tdcvdx(n,l,nec)
-    end do
+  !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
+  do n = n1,n2
+    return_value(n,1,nec) = tdcvdx(n,1,nec)
+    return_value(n,2,nec) = tdcvdx(n,2,nec)
   end do
   !
   ! Using the chain rule:
   !
-  ! 1. Compute the velocity gradients (m = 2,nq-1)
+  ! 1. Compute the velocity gradients (nmx,nmy)
   ! 2. Compute the total energy gradient and store in the
-  !    location for the temperature gradient (m = nq)
+  !    location for the temperature gradient (nee)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(3)
-  do m = nmb,nq
-    do l = 1,2
-      do n = n1,n2
-        rho_inv = one/tusp(n,nec)
-        return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
-                              rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
-      end do
-    end do
+  !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+  do n = n1,n2
+    !
+    rho_inv = one/tusp(n,nec)
+    !
+    return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
+                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
+    return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
+                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
+    !
+    return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
+                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
+    return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
+                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
+    !
+    return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
+                          - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
+    return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
+                          - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
+    !
+   !return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
+   !                      rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
+    !
   end do
   !
   ! The location for the temperature gradient currently contains
@@ -1443,56 +1555,35 @@ continue
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   ! 
-  !
-#ifdef NOT_SURE_ABOUT_LOOP
-  do m = nmb,nme
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,2
-      do n = n1,n2
-        return_value(n,l,nee) = return_value(n,l,nee) &
-                              - return_value(n,l,m)*tusp(n,m)
-      end do
-    end do
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
+  do n = n1,n2
+    !
+    rho_inv = one/tusp(n,nec)
+    !
+    return_value(n,1,nee) = return_value(n,1,nee) &
+                          - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
+                          - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv
+    !
+    return_value(n,2,nee) = return_value(n,2,nee) &
+                          - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
+                          - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv
+    !
   end do
-#else
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,2
-    do n = n1,n2
-      return_value(n,l,nee) = return_value(n,l,nee) &
-                            - return_value(n,l,nmx)*tusp(n,nmx) &
-                            - return_value(n,l,nmy)*tusp(n,nmy)
-    end do
-  end do
-#endif
   !
   ! Finish computing the temperature gradient by dividing through by
   ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,2
-    do n = n1,n2
-      return_value(n,l,nee) = return_value(n,l,nee) * cv_inv
-    end do
+  !$ACC PARALLEL LOOP PRESENT(return_value)
+  do n = n1,n2
+    return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+    return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
   end do
-  !
-  ! Remove the embedded 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do m = nmb,nq
-      do n = n1,n2
-        tusp(n,m) = tusp(n,m)*tusp(n,nec)
-      end do
-    end do
-  end if
-  !$ACC END DATA
   !
 end subroutine grad_cv_to_grad_pv_gpu_2d
 !
 !###############################################################################
 !
-pure subroutine grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value, &
-                                          tusp_includes_rho_inv)
+pure subroutine grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -1501,51 +1592,41 @@ pure subroutine grad_cv_to_grad_pv_gpu_nd(n1,n2,tusp,tdcvdx,return_value, &
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
-  !.. Optional Arguments ..
-  logical(lk), optional, intent(in) :: tusp_includes_rho_inv
-  !
   !.. Local Scalars ..
-  integer  :: l,m,n,nr
+  integer  :: n,nr
   real(wp) :: cv_inv,rho_inv
   !
-  logical(lk) :: tusp_needs_rho_inv
-  !
 continue
-  !
-  tusp_needs_rho_inv = true
-  if (present(tusp_includes_rho_inv)) then
-    tusp_needs_rho_inv = .not. tusp_includes_rho_inv
-  end if
-  !
-  !$ACC DATA PRESENT(tusp,tdcvdx,return_value)
   !
   nr = size(tdcvdx,dim=2)
   !
   cv_inv = (gam - one) / rgasref_nd
   !
-  ! Embed 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do m = nmb,nq
-      do n = n1,n2
-        tusp(n,m) = tusp(n,m)/tusp(n,nec)
-      end do
-    end do
-  end if
-  !
   ! Copy the density gradient
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,nr
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
     do n = n1,n2
-      return_value(n,l,nec) = tdcvdx(n,l,nec)
+      return_value(n,1,nec) = tdcvdx(n,1,nec)
+      return_value(n,2,nec) = tdcvdx(n,2,nec)
+      return_value(n,3,nec) = tdcvdx(n,3,nec)
     end do
-  end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
+    do n = n1,n2
+      return_value(n,1,nec) = tdcvdx(n,1,nec)
+      return_value(n,2,nec) = tdcvdx(n,2,nec)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(tdcvdx,return_value)
+    do n = n1,n2
+      return_value(n,1,nec) = tdcvdx(n,1,nec)
+    end do
+  end if
   !
   ! Using the chain rule:
   !
@@ -1553,16 +1634,77 @@ continue
   ! 2. Compute the total energy gradient and store in the
   !    location for the temperature gradient (m = nq)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(3)
-  do m = nmb,nq
-    do l = 1,nr
-      do n = n1,n2
-        rho_inv = one/tusp(n,nec)
-        return_value(n,l,m) = rho_inv*tdcvdx(n,l,m) - &
-                              rho_inv*tdcvdx(n,l,nec)*tusp(n,m)
-      end do
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+    do n = n1,n2
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
+      return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
+      return_value(n,3,nmx) = rho_inv*tdcvdx(n,3,nmx) &
+                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmx)*rho_inv
+      !
+      return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
+      return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
+      return_value(n,3,nmy) = rho_inv*tdcvdx(n,3,nmy) &
+                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmy)*rho_inv
+      !
+      return_value(n,1,nmz) = rho_inv*tdcvdx(n,1,nmz) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmz)*rho_inv
+      return_value(n,2,nmz) = rho_inv*tdcvdx(n,2,nmz) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmz)*rho_inv
+      return_value(n,3,nmz) = rho_inv*tdcvdx(n,3,nmz) &
+                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nmz)*rho_inv
+      !
+      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
+      return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
+      return_value(n,3,nee) = rho_inv*tdcvdx(n,3,nee) &
+                            - rho_inv*tdcvdx(n,3,nec)*tusp(n,nee)*rho_inv
+      !
     end do
-  end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+    do n = n1,n2
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
+      return_value(n,2,nmx) = rho_inv*tdcvdx(n,2,nmx) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmx)*rho_inv
+      !
+      return_value(n,1,nmy) = rho_inv*tdcvdx(n,1,nmy) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmy)*rho_inv
+      return_value(n,2,nmy) = rho_inv*tdcvdx(n,2,nmy) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nmy)*rho_inv
+      !
+      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
+      return_value(n,2,nee) = rho_inv*tdcvdx(n,2,nee) &
+                            - rho_inv*tdcvdx(n,2,nec)*tusp(n,nee)*rho_inv
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(tusp,tdcvdx,return_value)
+    do n = n1,n2
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nmx) = rho_inv*tdcvdx(n,1,nmx) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nmx)*rho_inv
+      !
+      return_value(n,1,nee) = rho_inv*tdcvdx(n,1,nee) &
+                            - rho_inv*tdcvdx(n,1,nec)*tusp(n,nee)*rho_inv
+      !
+    end do
+  end if
   !
   ! The location for the temperature gradient currently contains
   ! the total energy gradient from the previous loop.
@@ -1570,68 +1712,236 @@ continue
   ! kinetic-energy-per-unit-mass from the total energy gradient.
   ! 
   !
-#ifdef NOT_SURE_ABOUT_LOOP
-  do m = nmb,nme
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,nr
-      do n = n1,n2
-        return_value(n,l,nee) = return_value(n,l,nee) &
-                              - return_value(n,l,m)*tusp(n,m)
-      end do
-    end do
-  end do
-#else
   if (nr == 3) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,3
-      do n = n1,n2
-        return_value(n,l,nee) = return_value(n,l,nee) &
-                              - return_value(n,l,nmx)*tusp(n,nmx) &
-                              - return_value(n,l,nmy)*tusp(n,nmy) &
-                              - return_value(n,l,nmz)*tusp(n,nmz)
-      end do
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
+    do n = n1,n2
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nee) = return_value(n,1,nee) &
+                            - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
+                            - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv &
+                            - return_value(n,1,nmz)*tusp(n,nmz)*rho_inv
+      !
+      return_value(n,2,nee) = return_value(n,2,nee) &
+                            - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
+                            - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv &
+                            - return_value(n,2,nmz)*tusp(n,nmz)*rho_inv
+      !
+      return_value(n,3,nee) = return_value(n,3,nee) &
+                            - return_value(n,3,nmx)*tusp(n,nmx)*rho_inv &
+                            - return_value(n,3,nmy)*tusp(n,nmy)*rho_inv &
+                            - return_value(n,3,nmz)*tusp(n,nmz)*rho_inv
+      !
     end do
   else if (nr == 2) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,2
-      do n = n1,n2
-        return_value(n,l,nee) = return_value(n,l,nee) &
-                              - return_value(n,l,nmx)*tusp(n,nmx) &
-                              - return_value(n,l,nmy)*tusp(n,nmy)
-      end do
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
+    do n = n1,n2
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nee) = return_value(n,1,nee) &
+                            - return_value(n,1,nmx)*tusp(n,nmx)*rho_inv &
+                            - return_value(n,1,nmy)*tusp(n,nmy)*rho_inv
+      !
+      return_value(n,2,nee) = return_value(n,2,nee) &
+                            - return_value(n,2,nmx)*tusp(n,nmx)*rho_inv &
+                            - return_value(n,2,nmy)*tusp(n,nmy)*rho_inv
+      !
     end do
   else
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
     do n = n1,n2
       return_value(n,1,nee) = return_value(n,1,nee) &
-                            - return_value(n,1,nmx)*tusp(n,nmx)
+                            - return_value(n,1,nmx)*tusp(n,nmx)/tusp(n,nec)
     end do
   end if
-#endif
   !
   ! Finish computing the temperature gradient by dividing through by
   ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,nr
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(return_value)
     do n = n1,n2
-      return_value(n,l,nee) = return_value(n,l,nee) * cv_inv
+      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+      return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
+      return_value(n,3,nee) = return_value(n,3,nee) * cv_inv
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(return_value)
+    do n = n1,n2
+      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+      return_value(n,2,nee) = return_value(n,2,nee) * cv_inv
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(return_value)
+    do n = n1,n2
+      return_value(n,1,nee) = return_value(n,1,nee) * cv_inv
+    end do
+  end if
+  !
+end subroutine grad_cv_to_grad_pv_gpu_nd
+!
+!###############################################################################
+!
+pure subroutine vortex_solution_gpu(n1,n2,xyz,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : velref,aref,uref,machref
+  use ovar, only : gam,rhoref,tref,pref,itestcase
+  use ovar, only : vortex_bigR,vortex_bigGam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: c0,c1,c2,c3,c4,c5,bigR,bigGam
+  real(wp) :: gm1,gm1_inv,gam_over_gm1
+  real(wp) :: rhoref_inv,aref_inv,rhoa2_inv,tref_inv
+  real(wp) :: vx_ref,vy_ref
+  real(wp) :: x,y,a,du,dv,dT,vx,vy,vz,temp,rho,pres
+  !
+  logical(lk) :: running_vortex_problem
+  !
+continue
+  !
+  nr = size(xyz,dim=1)
+  !
+  ! Some needed constants
+  !
+  running_vortex_problem = any(itestcase==Vortex_Problems)
+  !
+  c0 = deltafun( running_vortex_problem )
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  ! NOTE: Multiply by c0 because -> If doing density/entropy transport, make the
+  !       pressure constant everywhere and set it to the free-stream pressure 
+  gam_over_gm1 = gam*gm1_inv*c0
+  !
+  rhoref_inv = one/rhoref
+  aref_inv = one/aref
+  rhoa2_inv = rhoref_inv*aref_inv*aref_inv
+  tref_inv = one/tref
+  !
+  vx_ref = velref(1)
+  vy_ref = velref(2)
+  !
+  ! For density/entropy transport or Shu vortex -> bigR = 1;   bigGam = 5
+  ! For vortex          transport               -> bigR = 1.5; bigGam = 13.5
+  !
+  bigR   = merge(vortex_bigR,  one, running_vortex_problem)
+  bigGam = merge(vortex_bigGam,five,running_vortex_problem)
+  !
+  c1 = half/(bigR*bigR)
+  c2 = half*bigGam/pi
+  c3 = half*machref*machref*gm1*tref
+  c4 = uref/bigR
+  !
+  ! If doing density transport, make c5 = 0 to zero out pressure part of energy
+  !
+  c5 = gm1_inv * (one - deltafun(itestcase==Density_Transport))
+  !
+  !$ACC PARALLEL LOOP PRESENT(xyz,return_value)
+  do n = n1,n2
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    !
+    a = c2*exp((one - x*x - y*y)*c1)
+    !
+    du = -c4*a*y
+    dv =  c4*a*x
+    dT = -c3*a*a
+    !
+    ! Only add on the velocity pertubations if doing vortex transport
+    ! i.e., the velocity is constant if doing density/entropy transport
+    !
+    vx = vx_ref + du*c0
+    vy = vy_ref + dv*c0
+    temp = tref  + dT
+    !
+    rho  = rhoref  * (temp*tref_inv)**(gm1_inv)
+    pres = c5*pref * (temp*tref_inv)**(gam_over_gm1)
+    !
+    ! Evaluate the dimensional initial conditions using conserved variables
+    !
+    return_value(n,nec) = rho * rhoref_inv
+    return_value(n,nmx) = vx * aref_inv
+    return_value(n,nmy) = vy * aref_inv
+    return_value(n,nee) = pres * rhoa2_inv
+    !
+  end do
+  !
+  if (nr == 3) then
+    vz = velref(3)*aref_inv
+    !$ACC PARALLEL LOOP PRESENT(return_value)
+    do n = n1,n2
+      return_value(n,nmz) = vz
+    end do
+  end if
+  !
+  call tvsp2u_gpu(n1,n2,return_value)
+  !
+end subroutine vortex_solution_gpu
+!
+!###############################################################################
+!
+pure subroutine vortex_offset_gpu(xyz,return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : itcur,velref,aref
+  use ovar, only : Period_Timesteps,Period_Time
+  use ovar, only : Grid_Length,Grid_Min
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr,np,l,k
+  real(wp) :: delt_since_lastperiod
+  !
+  !.. Local Arrays ..
+  real(wp) :: del(1:size(xyz,dim=1))
+  !
+continue
+  !
+  nr = size(xyz,dim=1)
+  np = size(xyz,dim=2)
+  !
+  ! Compute the time that has elapsed since the start of the current period
+  !
+  delt_since_lastperiod = real(mod(itcur,Period_Timesteps),wp) &
+                        / real(Period_Timesteps,wp)
+  delt_since_lastperiod = delt_since_lastperiod * Period_Time
+  !
+  ! Find the x and y distances the vortex has
+  ! traveled since the start of the current period
+  !
+  do l = 1,nr
+    del(l) = deltafun(velref(l)>eps3) * (velref(l)/aref) * delt_since_lastperiod
+  end do
+  !
+  ! Now translate these into a periodic domain
+  ! with the grid lengths for each direction
+  !
+  do l = 1,nr
+    del(l) = mod(del(l),Grid_Length(l))
+  end do
+  !
+  do k = 1,np
+    do l = 1,nr
+      return_value(l,k) = xyz(l,k) - merge( del(l) , &
+                                            del(l) - Grid_Length(l) , &
+                                            xyz(l,k) - del(l) >= Grid_Min(l) )
     end do
   end do
   !
-  ! Remove the embedded 1/rho in the all variables except density
-  !
-  if (tusp_needs_rho_inv) then
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do m = nmb,nq
-      do n = n1,n2
-        tusp(n,m) = tusp(n,m)*tusp(n,nec)
-      end do
-    end do
-  end if
-  !$ACC END DATA
-  !
-end subroutine grad_cv_to_grad_pv_gpu_nd
+end subroutine vortex_offset_gpu
 !
 !###############################################################################
 !

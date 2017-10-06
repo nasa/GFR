@@ -1,5 +1,5 @@
 pure function vsp2u(vv) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: vv
@@ -21,7 +21,7 @@ end function vsp2u
 !###############################################################################
 !
 pure function vsp2u_sp(vv) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy

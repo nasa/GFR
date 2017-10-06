@@ -1,7 +1,7 @@
 module module_bc
   !
 #include <mpi_defs.h>
-#define PROFILE_ON
+!#define PROFILE_ON
   !
   ! Module to contain the procedures and variables related
   ! to the evaluating the boundary conditions for the flow.
@@ -10,7 +10,6 @@ module module_bc
   use module_kind_types, global_debug_timer => debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
-  use ovar,    only : gam
   !
   implicit none
   !
@@ -57,28 +56,17 @@ subroutine get_faceusp_bc
   ! to compute the boundary states based on the face boundary condition.
   !
   !.. Use Statements ..
-  use order_mod,    only : maxFP
-  use geovar,       only : bface,nfbnd
-#ifdef USE_FACE_ARRAYS
-  use geovar,       only : face
+  use metrics_mod,  only : facenrm
   use flowvar,      only : faceusp_array
-#else
-  use flowvar,      only : faceusp
-#endif
+  use flowvar,      only : facexyz_array
+  use geovar,       only : bc_grps
+  use ovar,         only : bc_in
   use ovar,         only : output_bface_array
-  use ovar,         only : bc_in,sub_inflow_method
-  use metrics_mod,  only : geofa
-  use flowvar,      only : facexyz
-  !
- !use parallel_mod, only : wait_faceusp
   !
   !.. Local Scalars ..
-  integer :: nf,pf,bc_idx,n1,n2,nfp,p1,p2
+  integer :: i,n1,n2
+  integer :: bc_idx,bc_type
   integer :: newton_failures
-  !
-  !.. Local Arrays ..
-  real(wp) :: hufp(1:nq,1:maxFP)
-  real(wp) :: gufp(1:nq,1:maxFP)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_faceusp_bc"
@@ -87,172 +75,124 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifdef USE_FACE_ARRAYS
- !!$ACC UPDATE SELF(faceusp_array)
-#endif
-  !
   newton_failures = 0
   !
   if (output_bface_array) call output_bface
   !
-  ! Loop over the boundary faces and compute the conservative variables
+  ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
- !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
-  do nf = 1,nfbnd
+  do i = 1,size(bc_grps)
     !
-    bc_idx = bface(6,nf)
+    n1 = bc_grps(i)%beg_fp
+    n2 = bc_grps(i)%end_fp
     !
-#ifdef USE_FACE_ARRAYS
-    n1 = face(nf)%beg_fp
-    n2 = face(nf)%end_fp
-    nfp = n2-n1+1
-    if (bface(1,nf) /= bc_periodic) then
-      hufp(1:nq,1:nfp) = transpose(faceusp_array(n1:n2,1:nq,1))
-    end if
-#else
-    nfp = size(faceusp(nf)%v,dim=2)
-    if (bface(1,nf) /= bc_periodic) then
-      hufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-    end if
-#endif
+    bc_type = bc_grps(i)%bc_type
+    bc_idx = bc_grps(i)%bc_idx
     !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
-    select case (bface(1,nf))
+    select case (bc_type)
       !
       case (bc_freestream)
         !
         ! Free stream boundary condition
         !
-        call get_bc_freestream_solution(nfp,gufp, &
+        call get_bc_freestream_solution(n1,n2,faceusp_array(:,:,2), &
                                         bc_in(bc_idx)%cv)
         !
       case (bc_characteristic)
         !
         ! Characteristic boundary condition
         !
-       !call get_bc_characteristic_solution(nfp,hufp,gufp, &
-       !                                    geofa(nf)%v(:,:), &
-       !                                    bc_in(bc_idx)%cv, &
-       !                                    bc_in(bc_idx)%pv)
-        call get_bc_characteristic_solution(nfp,hufp,gufp, &
-                                            geofa(nf)%v(:,:), &
-                                            bc_in(bc_idx)%pv, &
+        call get_bc_characteristic_solution(n1,n2,facenrm,faceusp_array, &
+                                            bc_in(bc_idx)%cv, &
                                             bc_in(bc_idx)%relax)
         !
       case (bc_generic_inflow)
         !
         ! Generic inflow boundary condition
         !
-        call get_bc_generic_inflow_solution(nfp,hufp,gufp, &
-                                            geofa(nf)%v(:,:), &
-                                            bc_in(bc_idx)%cv, &
+        call get_bc_generic_inflow_solution(n1,n2,facenrm,faceusp_array, &
                                             bc_in(bc_idx)%pv)
         !
       case (bc_generic_outflow)
         !
         ! Generic outflow boundary condition
         !
-        call get_bc_generic_outflow_solution(nfp,hufp,gufp, &
-                                             geofa(nf)%v(:,:), &
+        call get_bc_generic_outflow_solution(n1,n2,facenrm,faceusp_array, &
                                              bc_in(bc_idx)%pv)
         !
       case (bc_generic_freeflow)
         !
         ! Generic freeflow boundary condition
         !
-        call get_bc_generic_freeflow_solution(nfp,hufp,gufp, &
-                                              geofa(nf)%v(:,:), &
-                                              bc_in(bc_idx)%cv, &
-                                              bc_in(bc_idx)%pv)
+        call get_bc_generic_freeflow_solution(n1,n2,facenrm,faceusp_array, &
+                                              bc_in(bc_idx)%cv)
         !
       case (bc_sub_inflow)
         !
         ! Subsonic inflow boundary condition
         !
-        if (any(sub_inflow_method == [2,3,4])) then
-          call get_bc_sub_inflow_solution(nfp,hufp,gufp, &
-                                          bc_in(bc_idx)%cv, &
-                                          bc_in(bc_idx)%pv)
-        else
-          call get_bc_sub_inflow_newton(nfp,hufp,gufp, &
-                                        geofa(nf)%v(:,:), &
+        call get_bc_sub_inflow_solution(n1,n2,facenrm,faceusp_array, &
+                                        bc_in(bc_idx)%cv, &
                                         bc_in(bc_idx)%pv, &
-                                        newton_failures, &
-                                        nf)
-        end if
+                                        newton_failures)
         !
       case (bc_sub_outflow)
         !
         ! Subsonic outflow boundary condition
         !
-        call get_bc_sub_outflow_solution(nfp,hufp,gufp, &
-                                         geofa(nf)%v(:,:), &
+        call get_bc_sub_outflow_solution(n1,n2,facenrm,faceusp_array, &
                                          bc_in(bc_idx)%pv)
         !
       case (bc_sup_inflow)
         !
         ! Supersonic inflow boundary condition
         !
-        call get_bc_sup_inflow_solution(nfp,gufp, &
+        call get_bc_sup_inflow_solution(n1,n2,faceusp_array(:,:,2), &
                                         bc_in(bc_idx)%cv)
         !
       case (bc_sup_outflow)
         !
         ! Supersonic outflow boundary condition
         !
-        call get_bc_sup_outflow_solution(nfp,hufp,gufp)
+        call get_bc_sup_outflow_solution(n1,n2,faceusp_array)
         !
       case (bc_slip_wall,bc_symmetry)
         !
         ! Slip wall / symmetry boundary condition
         !
-        call get_bc_slip_wall_solution(nfp,hufp,gufp, &
-                                       geofa(nf)%v(:,:))
+        call get_bc_slip_wall_solution(n1,n2,facenrm,faceusp_array)
         !
       case (bc_adiabatic_wall)
         !
         ! No-slip adiabatic wall
         !
-        call get_bc_adiabatic_wall_solution(nfp,hufp,gufp)
+        call get_bc_adiabatic_wall_solution(n1,n2,faceusp_array)
         !
       case (bc_isothermal_wall)
         !
         ! No-slip isothermal wall
         !
-        call get_bc_isothermal_wall_solution(nfp,hufp,gufp, &
-                                             bc_in(bc_idx)%wall_temperature, &
-                                             geofa(nf)%v(:,:))
+        call get_bc_isothermal_wall_solution(n1,n2,facenrm,faceusp_array, &
+                                             bc_in(bc_idx)%wall_temperature)
         !
       case (bc_periodic)
         !
         ! Periodic boundary condition
         !
-        pf = bface(5,nf) ! index of connecting periodic boundary face
-        !
-#ifdef USE_FACE_ARRAYS
-        p1 = face(pf)%beg_fp
-        p2 = face(pf)%end_fp
-        hufp(1:nq,1:nfp) = transpose(faceusp_array(p1:p2,1:nq,1))
-#else
-        hufp(1:nq,1:nfp) = faceusp(pf)%v(1:nq,1:nfp,1)
-#endif
-        !
-        call get_bc_periodic_solution(nfp,hufp,gufp)
-       !call get_bc_periodic_solution(faceusp(pf)%v(:,:,1), &
-       !                              faceusp(nf)%v(:,:,2))
+        call get_bc_periodic_solution(n1,n2,faceusp_array, &
+                                      bc_grps(i)%periodic_list)
         !
       case (bc_mms_dirichlet)
         !
         ! Dirichlet boundary condition for MMS
         !
-#ifndef USE_ACC
-        call get_bc_mms_dirichlet_solution(nfp,hufp,gufp, &
-                                           facexyz(nf)%v(:,:), &
-                                           geofa(nf)%v(:,:))
-#endif
+        call get_bc_mms_dirichlet_solution(n1,n2,facenrm, &
+                                           facexyz_array, &
+                                           faceusp_array)
         !
       case (bc_cpu_bnd)
         !
@@ -262,40 +202,24 @@ continue
         !
         ! This shouldn't be here and is an unknown boundary condition
         !
-       !write (iout,1) bface(1,nf)
-       !call stop_recon(abort,pname,__LINE__,__FILE__)
+        write (iout,1) bc_type
+        call stop_recon(abort,pname,__LINE__,__FILE__)
         !
     end select
     !
-#ifdef USE_FACE_ARRAYS
-    faceusp_array(n1:n2,1:nq,2) = transpose(gufp(1:nq,1:nfp))
-#else
-    faceusp(nf)%v(1:nq,1:nfp,2) = gufp(1:nq,1:nfp)
-#endif
-    !
   end do
   !
- !if (ncpu > 1) then
- !  call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
- !                     mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
- !end if
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,newton_failures,1_int_mpi, &
+                       mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+  end if
   !
   if (newton_failures > 0) then
     write (error_message,2) newton_failures
     call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  ! Now that we have finished getting the boundary conditions local to
-  ! this cell, make sure that the communication of faceusp between
-  ! processors has completed before continuing onwards.
-  !
- !if (ncpu > 1) call wait_faceusp(faceusp)
-  !
  !call exchange_bc_conflicts_usp(faceusp)
-  !
-#ifdef USE_FACE_ARRAYS
- !!$ACC UPDATE DEVICE(faceusp_array)
-#endif
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -323,27 +247,13 @@ subroutine get_facedusp_bc
   ! face boundary condition.
   !
   !.. Use Statements ..
-  use order_mod,    only : maxFP
-  use geovar,       only : nr,bface,nfbnd
-  use metrics_mod,  only : geofa
-#ifdef USE_FACE_ARRAYS
-  use geovar,       only : face
+  use geovar,       only : bc_grps
+  use metrics_mod,  only : facenrm
   use flowvar,      only : faceusp_array
   use flowvar,      only : facedusp_array
-#else
-  use flowvar,      only : faceusp
-  use flowvar,      only : facedusp
-#endif
-  !
- !use parallel_mod, only : wait_facedusp
   !
   !.. Local Scalars ..
-  integer :: k,nf,pf,n1,n2,nfp,p1,p2
-  !
-  !.. Local Arrays ..
-  real(wp) :: hufp(1:nq,1:maxFP)
-  real(wp) :: hdufp(1:nr,1:nq,1:maxFP)
-  real(wp) :: gdufp(1:nr,1:nq,1:maxFP)
+  integer :: i,n1,n2,bc_type
   !
   !.. Local Parameters ..
   integer, parameter :: local_bc_ignore(1:3) = [ bc_cpu_bnd, &
@@ -355,140 +265,69 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#ifdef USE_FACE_ARRAYS
- !!$ACC UPDATE SELF(facedusp_array)
-#endif
-  !
-  ! Loop over the boundary faces and compute the conservative variables
+  ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
- !!$ACC PARALLEL DO GANG VECTOR_LENGTH(32)
-  do nf = 1,nfbnd
+  do i = 1,size(bc_grps)
     !
-#ifdef USE_FACE_ARRAYS
-    n1 = face(nf)%beg_fp
-    n2 = face(nf)%end_fp
-    nfp = n2-n1+1
-    if (bface(1,nf) /= bc_periodic) then
-      do k = 1,nfp
-        hdufp(1:nr,1:nq,k) = facedusp_array(n1-1+k,1:nr,1:nq,1)
-      end do
-     !hdufp(1:nr,1:nq,1:nfp) = reshape( transpose( &
-     !              reshape( facedusp_array(n1:n2,1:nr,1:nq,1) , [nfp,nr*nq] ) &
-     !                                           ), [nr,nq,nfp] )
-    end if
-#else
-    nfp = size(facedusp(nf)%v,dim=3)
-    if (bface(1,nf) /= bc_periodic) then
-      hdufp(1:nr,1:nq,1:nfp) = facedusp(nf)%v(1:nr,1:nq,1:nfp,1)
-    end if
-#endif
+    n1 = bc_grps(i)%beg_fp
+    n2 = bc_grps(i)%end_fp
+    !
+    bc_type = bc_grps(i)%bc_type
     !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
     !
-    if (any(bface(1,nf) == bc_walls)) then
-      !
-#ifdef USE_FACE_ARRAYS
-      hufp(1:nq,1:nfp) = transpose(faceusp_array(n1:n2,1:nq,1))
-#else
-      hufp(1:nq,1:nfp) = faceusp(nf)%v(1:nq,1:nfp,1)
-#endif
+    if (any(bc_type == bc_walls)) then
       !
       ! Wall boundary condition
       !
-      if (bface(1,nf) == bc_adiabatic_wall) then
+      if (bc_type == bc_adiabatic_wall) then
         !
         ! No-slip adiabatic wall boundary conditions
         !
-        call get_bc_adiabatic_wall_gradient(nfp,hufp,hdufp,gdufp)
+        call get_bc_adiabatic_wall_gradient(n1,n2, &
+                                            faceusp_array(:,:,1), &
+                                            facedusp_array)
+        !
+      else if (any(bc_type == [bc_slip_wall,bc_symmetry])) then
+        !
+        ! Slip wall / symmetry boundary condition
+        !
+        call get_bc_slip_wall_gradient(n1,n2,facenrm, &
+                                       faceusp_array(:,:,1), &
+                                       facedusp_array)
         !
       else
         !
         ! Non-adiabatic wall boundary condition
         !
-        call get_bc_wall_gradient(nfp,hufp,hdufp,gdufp)
+        call get_bc_wall_gradient(n1,n2, &
+                                  faceusp_array(:,:,1), &
+                                  facedusp_array)
         !
       end if
       !
-    else if (any(bface(1,nf) == [bc_slip_wall,bc_symmetry])) then
-      !
-      ! Slip wall / symmetry boundary condition
-      !
-      call get_bc_slip_wall_gradient(nfp,hdufp,gdufp, &
-                                     geofa(nf)%v(:,:))
-      !
-    else if (bface(1,nf) == bc_periodic) then
+    else if (bc_type == bc_periodic) then
       !
       ! Periodic boundary condition
       !
-      pf = bface(5,nf) ! index of connecting periodic boundary face
+      call get_bc_periodic_gradient(n1,n2,facedusp_array, &
+                                    bc_grps(i)%periodic_list)
       !
-#ifdef USE_FACE_ARRAYS
-      p1 = face(pf)%beg_fp
-      p2 = face(pf)%end_fp
-      do k = 1,nfp
-        hdufp(1:nr,1:nq,k) = facedusp_array(p1-1+k,1:nr,1:nq,1)
-      end do
-     !hdufp(1:nr,1:nq,1:nfp) = reshape( transpose( &
-     !              reshape( facedusp_array(p1:p2,1:nr,1:nq,1) , [nfp,nr*nq] ) &
-     !                                           ), [nr,nq,nfp] )
-#else
-      hdufp(1:nr,1:nq,1:nfp) = facedusp(pf)%v(1:nr,1:nq,1:nfp,1)
-#endif
-      !
-      ! We just want to copy the gradients from face pf to face nf which is
-      ! exactly what the subroutine get_bc_flowthrough_gradient does, so
-      ! just use that instead of making a completely separate subroutine.
-      !
-      call get_bc_periodic_gradient(nfp,hdufp,gdufp)
-     !call get_bc_periodic_gradient(facedusp(pf)%v(:,:,:,1), &
-     !                              facedusp(nf)%v(:,:,:,2))
-      !
-    else if (all(bface(1,nf) /= local_bc_ignore)) then
+    else if (all(bc_type /= local_bc_ignore)) then
       !
       ! General flow-through boundary conditions
       !
-      call get_bc_flowthrough_gradient(nfp,hdufp,gdufp)
+      call get_bc_flowthrough_gradient(n1,n2,facedusp_array)
       !
-   !else
-   !  !
-   !  ! This shouldn't be here and is an unknown boundary condition
-   !  !
-   !  write (iout,1) bface(1,nf)
-   !  call stop_recon(abort,pname,__LINE__,__FILE__)
-   !  !
     end if
-    !
-#ifdef USE_FACE_ARRAYS
-    do k = 1,nfp
-      facedusp_array(n1-1+k,1:nr,1:nq,2) = gdufp(1:nr,1:nq,k)
-    end do
-#else
-    facedusp(nf)%v(1:nr,1:nq,1:nfp,2) = gdufp(1:nr,1:nq,1:nfp)
-#endif
     !
   end do
   !
-  ! Now that we have finished getting the boundary conditions local to
-  ! this cell, make sure that the communication of facedusp between
-  ! processors has completed before continuing onwards.
-  !
- !if (ncpu > 1) call wait_facedusp(facedusp)
-  !
  !call exchange_bc_conflicts_dusp(facedusp)
-#ifdef USE_FACE_ARRAYS
- !!$ACC UPDATE DEVICE(facedusp_array)
-#endif
   !
   call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (/," ********************** ERROR! **********************",/, &
-              "  UNKNOWN BOUNDARY CONDITION IN SUB GET_FACEDUSP_BC!",/, &
-              "  BOUNDARY CONDITION VALUE IS: ",i0,/, &
-              " ********************** ERROR! **********************",/)
   !
 end subroutine get_facedusp_bc
 !
@@ -507,8 +346,7 @@ end subroutine get_facedusp_bc
 !###############################################################################
 !###############################################################################
 !
-subroutine get_bc_freestream_solution(nfp,gufp,cv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_freestream_solution(n1,n2,face_cv,cv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -516,229 +354,226 @@ subroutine get_bc_freestream_solution(nfp,gufp,cv_in)
   ! #####################################################
   ! #####################################################
   ! 
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
+  integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer :: nr
   !
 continue
   !
-  do k = 1,nfp
-    !
-    ! Set all variables to free stream
-    !
-    gufp(:,k) = cv_in(:)
-    !
-  end do
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_freestream_solution_3d(n1,n2,face_cv,cv_in)
+  else if (nr == 2) then
+    call get_bc_freestream_solution_2d(n1,n2,face_cv,cv_in)
+  else
+    call get_bc_freestream_solution_nd(n1,n2,face_cv,cv_in)
+  end if
   !
 end subroutine get_bc_freestream_solution
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution_old(nfp,hufp,gufp,fnrm,cv_in,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_freestream_solution_3d(n1,n2,face_cv,cv_in)
   !
   ! #####################################################
   ! #####################################################
-  ! ##  Characteristic boundary condition
+  ! ##  Free stream boundary condition
   ! #####################################################
   ! #####################################################
-  !
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
-  ! PV_IN : Boundary condition flow variables in primitive    form
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv_in(:)
-  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: rp,rm,utc,unc,ac,sc,rho,pres
-  real(wp) :: mach_int,gm1,gm1_inv
-  real(wp) :: aspd_int,vt_int,vn_int
-  real(wp) :: aspd_ext,vt_ext,vn_ext
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: rtan(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: n
   !
 continue
   !
-  ! Precompute gamma-1 and its inverse
+  ! Set all variables to free stream
   !
-  gm1 = gam - one
-  gm1_inv = one / gm1
-  !
-  do k = 1,nfp
-    !
-    ! Inward pointing unit normal at this flux point
-    !
-    rnrm(:) = -unit_vector( fnrm(:,k) )
-    !
-    ! Get the host cell primitive variables at this flux point
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the speed of sound in the host cell
-    !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
-    !
-    ! Compute the interior normal velocity at this flux point
-    !
-    vn_int = dot( rnrm , hvfp(nmb:nme) )
-    !
-    ! Apply boundary conditions based on the
-    ! normal Mach number to the boundary face
-    !
-    mach_int = vn_int/aspd_int
-    !
-    if (mach_int >= one) then ! Supersonic inflow
-      !
-      ! Set ghost cell flux point to free stream conditions
-      !
-      gufp(:,k) = cv_in(:)
-      !
-    else if (mach_int <= -one) then ! Supersonic outflow
-      !
-      ! Extrapolate interior to ghost cell flux point
-      !
-      gufp(:,k) = hufp(:,k)
-      !
-    else ! Subsonic inflow/outflow using Riemann invariants
-      !
-      ! Unit tangent at this flux point computed from unit normal
-      ! NOTE: Usually t = (tx,ty) = (ny,-nx) but we computed the inward
-      !       pointing unit normal, so here (tx,ty) = (-ny,nx).
-      !       
-      rtan(:) = [-rnrm(2),rnrm(1)]
-      !
-      ! Compute the exterior speed of sound
-      !
-      aspd_ext = sqrt( max( gam*pv_in(nee)/pv_in(nec) , rndoff ) )
-      !
-      ! Compute the exterior normal velocity at this flux point
-      !
-      vn_ext = dot( rnrm , pv_in(nmb:nme) )
-      !
-     !if (mach_int > zero) then ! this is an inflow boundary
-     !  !
-     !  rp = vn_ext + two*aspd_ext*gm1_inv
-     !  rm = vn_int - two*aspd_int*gm1_inv
-     !  unc = half*(rp+rm)
-     !  utc = dot( rtan , pv_in(nmb:nme) )
-     !  ac = one4*gm1*(rp-rm)
-     !  sc = pv_in(nee)/(pv_in(nec)**gam)
-     !  !
-     !else ! this is an outflow boundary
-     !  !
-     !  rp = -abs(vn_ext) + two*aspd_ext*gm1_inv
-     !  rm =      vn_int  - two*aspd_int*gm1_inv
-     !  unc = half*(rp+rm)
-     !  utc = dot( rtan , hvfp(nmb:nme) )
-     !  ac = one4*gm1*(rp-rm)
-     !  sc = hvfp(nee)/(hvfp(nec)**gam)
-     !  !
-     !end if
-      !
-      ! Compute the variables dependent on the interior flow direction
-      !
-      if (mach_int > zero) then
-        rp   = vn_ext
-        utc  = dot( rtan , pv_in(nmb:nme) )
-        rho  = pv_in(nec)
-        pres = pv_in(nee)
-      else
-        rp   = -abs(vn_ext)
-        utc  = dot( rtan , hvfp(nmb:nme) )
-        rho  = hvfp(nec)
-        pres = hvfp(nee)
-      end if
-      !
-      ! Compute the Riemann invariants
-      !
-      rp  = rp     + two*aspd_ext*gm1_inv
-      rm  = vn_int - two*aspd_int*gm1_inv
-      unc = half*(rp+rm)
-      ac  = one4*gm1*(rp-rm)
-      sc  = pres/(rho**gam)
-      !
-      ! Compute the density and pressure from the Riemann invariants
-      !
-      rho = ( (ac*ac) / (gam*sc) )**(gm1_inv)
-      pres = sc * (rho**gam)
-      !
-      ! Compute the conservative variables at the boundary flux points
-      !
-      gufp(nec,k) = rho
-      gufp(nmb:nme,k) = rho * (unc*rnrm(:) + utc*rtan(:))
-      gufp(nee,k) = pres*gm1_inv + half * selfdot( gufp(nmb:nme,k) ) / rho
-      !
-    end if
-    !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    face_cv(n,nec) = cv_in(nec)
+    face_cv(n,nmx) = cv_in(nmx)
+    face_cv(n,nmy) = cv_in(nmy)
+    face_cv(n,nmz) = cv_in(nmz)
+    face_cv(n,nee) = cv_in(nee)
   end do
   !
-end subroutine get_bc_characteristic_solution_old
+end subroutine get_bc_freestream_solution_3d
 !
 !###############################################################################
 !
-subroutine get_bc_characteristic_solution(nfp,hufp,gufp,fnrm,pv_in,relax)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_freestream_solution_2d(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Free stream boundary condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Set all variables to free stream
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    face_cv(n,nec) = cv_in(nec)
+    face_cv(n,nmx) = cv_in(nmx)
+    face_cv(n,nmy) = cv_in(nmy)
+    face_cv(n,nee) = cv_in(nee)
+  end do
+  !
+end subroutine get_bc_freestream_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_freestream_solution_nd(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Free stream boundary condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  !
+continue
+  !
+  ! Set all variables to free stream
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(face_cv,cv_in)
+  do m = 1,size(cv_in)
+    do n = n1,n2
+      face_cv(n,m) = cv_in(m)
+    end do
+  end do
+  !
+end subroutine get_bc_freestream_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_characteristic_solution(n1,n2,facenrm,face_cv, &
+                                               cv_in,relax)
   !
   ! #####################################################
   ! #####################################################
   ! ##  Characteristic boundary condition
   ! #####################################################
   ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  ! RELAX   : Boundary condition relaxation parameters
   !
   !.. Use Statements ..
   use ovar, only : relaxation_t
-  use ovar, only : itcur,time
-  !
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! PV_IN : Boundary condition flow variables in primitive    form
-  ! RELAX : Relaxation conditions for this boundary condition
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),           intent(in) :: fnrm(:,:)
-  real(wp),           intent(in) :: hufp(:,:)
-  real(wp),           intent(in) :: pv_in(:)
+  integer,            intent(in) :: n1,n2
+  real(wp),           intent(in) :: facenrm(:,:)
+  real(wp),           intent(in) :: cv_in(:)
   type(relaxation_t), intent(in) :: relax
-  real(wp),        intent(inout) :: gufp(:,:)
+  real(wp),        intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: rp,rm,unc,ac,sc,rho,pres,vel
-  real(wp) :: mach_int,mach_ext,gm1,gm1_inv
-  real(wp) :: aspd_int,vt_int,vn_int
-  real(wp) :: aspd_ext,vt_ext,vn_ext
-  real(wp) :: rlx,rlx_iter,rlx_time
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: rtan(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
-  real(wp) :: pv_in_rlx(1:size(pv_in))
+  integer :: nr
   !
   !.. Local Parameters ..
   logical(lk), parameter :: veln_is_int = true
  !logical(lk), parameter :: veln_is_int = fals
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_characteristic_solution_3d(n1,n2,facenrm,face_cv, &
+                                           cv_in,relax,veln_is_int)
+  else if (nr == 2) then
+    call get_bc_characteristic_solution_2d(n1,n2,facenrm,face_cv, &
+                                           cv_in,relax,veln_is_int)
+  else
+    call get_bc_characteristic_solution_nd(n1,n2,facenrm,face_cv, &
+                                           cv_in,relax,veln_is_int)
+  end if
+  !
+end subroutine get_bc_characteristic_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_characteristic_solution_3d(n1,n2,facenrm,face_cv, &
+                                                  cv_in,relax,veln_is_int)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Characteristic boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  ! RELAX   : Boundary condition relaxation parameters
+  !
+  !.. Use Statements ..
+  use ovar, only : relaxation_t
+  use ovar, only : itcur,time
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: n1,n2
+  real(wp),           intent(in) :: facenrm(:,:)
+  real(wp),           intent(in) :: cv_in(:)
+  type(relaxation_t), intent(in) :: relax
+  real(wp),        intent(inout) :: face_cv(:,:,:)
+  logical(lk),        intent(in) :: veln_is_int
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rlx,rlx_iter,rlx_time,gm1,gm1_inv
+  real(wp) :: rho,vx,vy,vz,vn,pres,sc,rp,rm,unc,ac,vel
+  real(wp) :: rho_int,rhou_int,rhov_int,rhow_int,rhoe_int
+  real(wp) :: rho_rlx,rhou_rlx,rhov_rlx,rhow_rlx,rhoe_rlx
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhow_ext,rhoe_ext
+  real(wp) :: rhoq2_int,pres_int,aspd_int,vn_int
+  real(wp) :: rhoq2_rlx,pres_rlx,aspd_rlx,vn_rlx
   !
 continue
   !
@@ -760,52 +595,75 @@ continue
   end if
   rlx = max( zero , min(relax%value,rlx_iter,rlx_time,one) )
   !
+  rho_ext = cv_in(nec)
+  rhou_ext = cv_in(nmx)
+  rhov_ext = cv_in(nmy)
+  rhow_ext = cv_in(nmz)
+  rhoe_ext = cv_in(nee)
+  !
   ! Compute the boundary solution at each flux point
   !
-  do k = 1,nfp
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
     !
-    ! Inward pointing unit normal at this flux point
+    ! Unit normal at this flux point
     !
-    rnrm(:) = unit_vector( fnrm(:,k) )
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
     !
-    ! Get the host cell primitive variables at this flux point
+    ! Get the host cell variables at this flux point
     !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
+    rho_int = face_cv(n,nec,1)
+    rhou_int = face_cv(n,nmx,1)
+    rhov_int = face_cv(n,nmy,1)
+    rhow_int = face_cv(n,nmz,1)
+    rhoe_int = face_cv(n,nee,1)
+    rhoq2_int = rhou_int*rhou_int + rhov_int*rhov_int + rhow_int*rhow_int
+    pres_int = gm1*(rhoe_int - half*rhoq2_int/rho_int)
     !
     ! Compute the relaxed inflow condition
     !
-    pv_in_rlx(:) = (one-rlx)*hvfp(:) + rlx*pv_in(:)
+    rho_rlx  = (one-rlx)*rho_int  + rlx*rho_ext
+    rhou_rlx = (one-rlx)*rhou_int + rlx*rhou_ext
+    rhov_rlx = (one-rlx)*rhov_int + rlx*rhov_ext
+    rhow_rlx = (one-rlx)*rhow_int + rlx*rhow_ext
+    rhoe_rlx = (one-rlx)*rhoe_int + rlx*rhoe_ext
+    rhoq2_rlx = rhou_rlx*rhou_rlx + rhov_rlx*rhov_rlx + rhow_rlx*rhow_rlx
+    pres_rlx = gm1*(rhoe_rlx - half*rhoq2_rlx/rho_rlx)
     !
     ! Compute the speed of sound in the host cell
     !
-    ! interior speed of sound 
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
-    ! exterior speed of sound 
-    aspd_ext = sqrt( max( gam*pv_in_rlx(nee)/pv_in_rlx(nec) , rndoff ) )
+    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
+    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
     !
-    ! Compute the interior normal velocity at this flux point
+    ! Compute the normal velocity at this flux point
     !
-    vn_int = dot( rnrm , hvfp(nmb:nme) )  ! interior normal velocity
-    vn_ext = dot( rnrm , pv_in_rlx(nmb:nme) ) ! exterior normal velocity
+    ! Interior normal velocity
+    vn_int = (rhou_int*unx + rhov_int*uny + rhow_int*unz) / rho_int
+    ! Exterior normal velocity
+    vn_rlx = (rhou_rlx*unx + rhov_rlx*uny + rhow_rlx*unz) / rho_rlx
     !
     ! Apply boundary conditions based on the
     ! normal Mach number to the boundary face
     !
     rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
-    rm = vn_ext - two*aspd_ext*gm1_inv ! Incoming Reimann invariant
+    rm = vn_rlx - two*aspd_rlx*gm1_inv ! Incoming Reimann invariant
     !
     ! Supersonic inflow boundary
-    !    Set R+ so that 0.5*(R+ + R-) = vn_ext
+    !    Set R+ so that 0.5*(R+ + R-) = vn_rlx
     !
-   !if (vn_ext/aspd_ext <= -one) then
-    if (vn_ext <= -aspd_ext) then
-      rp = vn_ext + two*aspd_ext*gm1_inv
+    if (vn_rlx <= -aspd_rlx) then
+      rp = vn_rlx + two*aspd_rlx*gm1_inv
     end if
     !
     ! Supersonic outflow boundary
     !    Set R- so that 0.5*(R+ + R-) = vn_int
     !
-   !if (vn_int/aspd_int >= one) then
     if (vn_int >= aspd_int) then
       rm = vn_int - two*aspd_int*gm1_inv
     end if
@@ -813,42 +671,573 @@ continue
     unc = half*(rp+rm)
     ac  = one4*gm1*(rp-rm)
     !
-    if (vn_int > zero) then ! outflow boundary
-     !sc = aspd_int**2 / (gam * (hvfp(nec)**gm1))
-      sc = hvfp(nee) / (hvfp(nec)**gam)
+    vel = merge( vn_int , unc , veln_is_int )
+    if (vel > zero) then ! outflow boundary
+      vx = rhou_int/rho_int
+      vy = rhov_int/rho_int
+      vz = rhow_int/rho_int
+      vn = vn_int
+      sc = pres_int / (rho_int**gam)
+     !gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
     else                 ! inflow boundary
-     !sc = aspd_ext**2 / (gam * (pv_in_rlx(nec)**gm1))
-      sc = pv_in_rlx(nee) / (pv_in_rlx(nec)**gam)
+      vx = rhou_rlx/rho_rlx
+      vy = rhov_rlx/rho_rlx
+      vz = rhow_rlx/rho_rlx
+      vn = vn_rlx
+      sc = pres_rlx / (rho_rlx**gam)
+     !gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_rlx)*rnrm(:)
     end if
     !
     rho = ( ac * ac / (gam*sc) )**gm1_inv
+    pres = sc * (rho**gam)
     !
-    ! Compute the primitive variables at the boundary flux points
-    !
-    gufp(nec,k) = rho
-    !
-    vel = merge( vn_int , unc , veln_is_int )
-    if (vel > zero) then ! outflow boundary
-      gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
-    else                 ! inflow boundary
-      gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_ext)*rnrm(:)
-    end if
-    !
-   !gufp(nee,k) = rho * ac * ac / gam
-    gufp(nee,k) = sc * (rho**gam)
-    !
-    ! Convert the primitive variables to conservative variables
-    !
-    gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*(vx + (unc - vn)*unx)
+    face_cv(n,nmy,2) = rho*(vy + (unc - vn)*uny)
+    face_cv(n,nmz,2) = rho*(vz + (unc - vn)*unz)
+    face_cv(n,nee,2) = pres*gm1_inv + half*rho*(vx*vx + vy*vy + vz*vz)
     !
   end do
   !
-end subroutine get_bc_characteristic_solution
+end subroutine get_bc_characteristic_solution_3d
 !
 !###############################################################################
 !
-subroutine get_bc_generic_inflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_characteristic_solution_2d(n1,n2,facenrm,face_cv, &
+                                                  cv_in,relax,veln_is_int)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Characteristic boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  ! RELAX   : Boundary condition relaxation parameters
+  !
+  !.. Use Statements ..
+  use ovar, only : relaxation_t
+  use ovar, only : itcur,time
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: n1,n2
+  real(wp),           intent(in) :: facenrm(:,:)
+  real(wp),           intent(in) :: cv_in(:)
+  type(relaxation_t), intent(in) :: relax
+  real(wp),        intent(inout) :: face_cv(:,:,:)
+  logical(lk),        intent(in) :: veln_is_int
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: rlx,rlx_iter,rlx_time,gm1,gm1_inv
+  real(wp) :: rho,vx,vy,vn,pres,sc,rp,rm,unc,ac,vel
+  real(wp) :: rho_int,rhou_int,rhov_int,rhoe_int
+  real(wp) :: rho_rlx,rhou_rlx,rhov_rlx,rhoe_rlx
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhoe_ext
+  real(wp) :: rhoq2_int,pres_int,aspd_int,vn_int
+  real(wp) :: rhoq2_rlx,pres_rlx,aspd_rlx,vn_rlx
+  !
+continue
+  !
+  ! Precompute gamma-1 and its inverse
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  !
+  ! Determine the relaxation coefficient
+  !
+  rlx = one
+  rlx_iter = one
+  rlx_time = one
+  if (relax%iter > 0) then
+    rlx_iter = max( one , real(itcur,kind=wp)/real(relax%iter,kind=wp) )
+  end if
+  if (relax%time > zero) then
+    rlx_time = max( one , time/relax%time )
+  end if
+  rlx = max( zero , min(relax%value,rlx_iter,rlx_time,one) )
+  !
+  rho_ext = cv_in(nec)
+  rhou_ext = cv_in(nmx)
+  rhov_ext = cv_in(nmy)
+  rhoe_ext = cv_in(nee)
+  !
+  ! Compute the boundary solution at each flux point
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    ! Get the host cell variables at this flux point
+    !
+    rho_int = face_cv(n,nec,1)
+    rhou_int = face_cv(n,nmx,1)
+    rhov_int = face_cv(n,nmy,1)
+    rhoe_int = face_cv(n,nee,1)
+    rhoq2_int = rhou_int*rhou_int + rhov_int*rhov_int
+    pres_int = gm1*(rhoe_int - half*rhoq2_int/rho_int)
+    !
+    ! Compute the relaxed inflow condition
+    !
+    rho_rlx  = (one-rlx)*rho_int  + rlx*rho_ext
+    rhou_rlx = (one-rlx)*rhou_int + rlx*rhou_ext
+    rhov_rlx = (one-rlx)*rhov_int + rlx*rhov_ext
+    rhoe_rlx = (one-rlx)*rhoe_int + rlx*rhoe_ext
+    rhoq2_rlx = rhou_rlx*rhou_rlx + rhov_rlx*rhov_rlx
+    pres_rlx = gm1*(rhoe_rlx - half*rhoq2_rlx/rho_rlx)
+    !
+    ! Compute the speed of sound in the host cell
+    !
+    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
+    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+    !
+    ! Compute the normal velocity at this flux point
+    !
+    vn_int = (rhou_int*unx + rhov_int*uny) / rho_int ! Interior normal velocity
+    vn_rlx = (rhou_rlx*unx + rhov_rlx*uny) / rho_rlx ! Exterior normal velocity
+    !
+    ! Apply boundary conditions based on the
+    ! normal Mach number to the boundary face
+    !
+    rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
+    rm = vn_rlx - two*aspd_rlx*gm1_inv ! Incoming Reimann invariant
+    !
+    ! Supersonic inflow boundary
+    !    Set R+ so that 0.5*(R+ + R-) = vn_rlx
+    !
+    if (vn_rlx <= -aspd_rlx) then
+      rp = vn_rlx + two*aspd_rlx*gm1_inv
+    end if
+    !
+    ! Supersonic outflow boundary
+    !    Set R- so that 0.5*(R+ + R-) = vn_int
+    !
+    if (vn_int >= aspd_int) then
+      rm = vn_int - two*aspd_int*gm1_inv
+    end if
+    !
+    unc = half*(rp+rm)
+    ac  = one4*gm1*(rp-rm)
+    !
+    vel = merge( vn_int , unc , veln_is_int )
+    if (vel > zero) then ! outflow boundary
+      vx = rhou_int/rho_int
+      vy = rhov_int/rho_int
+      vn = vn_int
+      sc = pres_int / (rho_int**gam)
+     !gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
+    else                 ! inflow boundary
+      vx = rhou_rlx/rho_rlx
+      vy = rhov_rlx/rho_rlx
+      vn = vn_rlx
+      sc = pres_rlx / (rho_rlx**gam)
+     !gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_rlx)*rnrm(:)
+    end if
+    !
+    rho = ( ac * ac / (gam*sc) )**gm1_inv
+    pres = sc * (rho**gam)
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*(vx + (unc - vn)*unx)
+    face_cv(n,nmy,2) = rho*(vy + (unc - vn)*uny)
+    face_cv(n,nee,2) = pres*gm1_inv + half*rho*(vx*vx + vy*vy)
+    !
+  end do
+  !
+end subroutine get_bc_characteristic_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_characteristic_solution_nd(n1,n2,facenrm,face_cv, &
+                                                  cv_in,relax,veln_is_int)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Characteristic boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  ! RELAX   : Boundary condition relaxation parameters
+  !
+  !.. Use Statements ..
+  use ovar, only : relaxation_t
+  use ovar, only : itcur,time
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,            intent(in) :: n1,n2
+  real(wp),           intent(in) :: facenrm(:,:)
+  real(wp),           intent(in) :: cv_in(:)
+  type(relaxation_t), intent(in) :: relax
+  real(wp),        intent(inout) :: face_cv(:,:,:)
+  logical(lk),        intent(in) :: veln_is_int
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rlx,rlx_iter,rlx_time,gm1,gm1_inv
+  real(wp) :: rho,vx,vy,vz,vn,pres,sc,rp,rm,unc,ac,vel
+  real(wp) :: rho_int,rhou_int,rhov_int,rhow_int,rhoe_int
+  real(wp) :: rho_rlx,rhou_rlx,rhov_rlx,rhow_rlx,rhoe_rlx
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhow_ext,rhoe_ext
+  real(wp) :: rhoq2_int,pres_int,aspd_int,vn_int
+  real(wp) :: rhoq2_rlx,pres_rlx,aspd_rlx,vn_rlx
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Precompute gamma-1 and its inverse
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  !
+  ! Determine the relaxation coefficient
+  !
+  rlx = one
+  rlx_iter = one
+  rlx_time = one
+  if (relax%iter > 0) then
+    rlx_iter = max( one , real(itcur,kind=wp)/real(relax%iter,kind=wp) )
+  end if
+  if (relax%time > zero) then
+    rlx_time = max( one , time/relax%time )
+  end if
+  rlx = max( zero , min(relax%value,rlx_iter,rlx_time,one) )
+  !
+  rho_ext = cv_in(nec)
+  if (nr == 3) then
+    rhou_ext = cv_in(nmx)
+    rhov_ext = cv_in(nmy)
+    rhow_ext = cv_in(nmz)
+  else if (nr == 2) then
+    rhou_ext = cv_in(nmx)
+    rhov_ext = cv_in(nmy)
+  else
+    rhou_ext = cv_in(nmx)
+  end if
+  rhoe_ext = cv_in(nee)
+  !
+  ! Compute the boundary solution at each flux point
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Get the host cell variables at this flux point
+      !
+      rho_int = face_cv(n,nec,1)
+      rhou_int = face_cv(n,nmx,1)
+      rhov_int = face_cv(n,nmy,1)
+      rhow_int = face_cv(n,nmz,1)
+      rhoe_int = face_cv(n,nee,1)
+      rhoq2_int = rhou_int*rhou_int + rhov_int*rhov_int + rhow_int*rhow_int
+      pres_int = gm1*(rhoe_int - half*rhoq2_int/rho_int)
+      !
+      ! Compute the relaxed inflow condition
+      !
+      rho_rlx  = (one-rlx)*rho_int  + rlx*rho_ext
+      rhou_rlx = (one-rlx)*rhou_int + rlx*rhou_ext
+      rhov_rlx = (one-rlx)*rhov_int + rlx*rhov_ext
+      rhow_rlx = (one-rlx)*rhow_int + rlx*rhow_ext
+      rhoe_rlx = (one-rlx)*rhoe_int + rlx*rhoe_ext
+      rhoq2_rlx = rhou_rlx*rhou_rlx + rhov_rlx*rhov_rlx + rhow_rlx*rhow_rlx
+      pres_rlx = gm1*(rhoe_rlx - half*rhoq2_rlx/rho_rlx)
+      !
+      ! Compute the speed of sound in the host cell
+      !
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      !
+      ! Compute the normal velocity at this flux point
+      !
+      ! Interior normal velocity
+      vn_int = (rhou_int*unx + rhov_int*uny + rhow_int*unz) / rho_int
+      ! Exterior normal velocity
+      vn_rlx = (rhou_rlx*unx + rhov_rlx*uny + rhow_rlx*unz) / rho_rlx
+      !
+      ! Apply boundary conditions based on the
+      ! normal Mach number to the boundary face
+      !
+      rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
+      rm = vn_rlx - two*aspd_rlx*gm1_inv ! Incoming Reimann invariant
+      !
+      ! Supersonic inflow boundary
+      !    Set R+ so that 0.5*(R+ + R-) = vn_rlx
+      !
+      if (vn_rlx <= -aspd_rlx) then
+        rp = vn_rlx + two*aspd_rlx*gm1_inv
+      end if
+      !
+      ! Supersonic outflow boundary
+      !    Set R- so that 0.5*(R+ + R-) = vn_int
+      !
+      if (vn_int >= aspd_int) then
+        rm = vn_int - two*aspd_int*gm1_inv
+      end if
+      !
+      unc = half*(rp+rm)
+      ac  = one4*gm1*(rp-rm)
+      !
+      vel = merge( vn_int , unc , veln_is_int )
+      if (vel > zero) then ! outflow boundary
+        vx = rhou_int/rho_int
+        vy = rhov_int/rho_int
+        vz = rhow_int/rho_int
+        vn = vn_int
+        sc = pres_int / (rho_int**gam)
+       !gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
+      else                 ! inflow boundary
+        vx = rhou_rlx/rho_rlx
+        vy = rhov_rlx/rho_rlx
+        vz = rhow_rlx/rho_rlx
+        vn = vn_rlx
+        sc = pres_rlx / (rho_rlx**gam)
+       !gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_rlx)*rnrm(:)
+      end if
+      !
+      rho = ( ac * ac / (gam*sc) )**gm1_inv
+      pres = sc * (rho**gam)
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(vx + (unc - vn)*unx)
+      face_cv(n,nmy,2) = rho*(vy + (unc - vn)*uny)
+      face_cv(n,nmz,2) = rho*(vz + (unc - vn)*unz)
+      face_cv(n,nee,2) = pres*gm1_inv + half*rho*(vx*vx + vy*vy + vz*vz)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      ! Get the host cell variables at this flux point
+      !
+      rho_int = face_cv(n,nec,1)
+      rhou_int = face_cv(n,nmx,1)
+      rhov_int = face_cv(n,nmy,1)
+      rhoe_int = face_cv(n,nee,1)
+      rhoq2_int = rhou_int*rhou_int + rhov_int*rhov_int
+      pres_int = gm1*(rhoe_int - half*rhoq2_int/rho_int)
+      !
+      ! Compute the relaxed inflow condition
+      !
+      rho_rlx  = (one-rlx)*rho_int  + rlx*rho_ext
+      rhou_rlx = (one-rlx)*rhou_int + rlx*rhou_ext
+      rhov_rlx = (one-rlx)*rhov_int + rlx*rhov_ext
+      rhoe_rlx = (one-rlx)*rhoe_int + rlx*rhoe_ext
+      rhoq2_rlx = rhou_rlx*rhou_rlx + rhov_rlx*rhov_rlx
+      pres_rlx = gm1*(rhoe_rlx - half*rhoq2_rlx/rho_rlx)
+      !
+      ! Compute the speed of sound in the host cell
+      !
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      !
+      ! Compute the normal velocity at this flux point
+      !
+      vn_int = (rhou_int*unx + rhov_int*uny) / rho_int ! Interior normal velocity
+      vn_rlx = (rhou_rlx*unx + rhov_rlx*uny) / rho_rlx ! Exterior normal velocity
+      !
+      ! Apply boundary conditions based on the
+      ! normal Mach number to the boundary face
+      !
+      rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
+      rm = vn_rlx - two*aspd_rlx*gm1_inv ! Incoming Reimann invariant
+      !
+      ! Supersonic inflow boundary
+      !    Set R+ so that 0.5*(R+ + R-) = vn_rlx
+      !
+      if (vn_rlx <= -aspd_rlx) then
+        rp = vn_rlx + two*aspd_rlx*gm1_inv
+      end if
+      !
+      ! Supersonic outflow boundary
+      !    Set R- so that 0.5*(R+ + R-) = vn_int
+      !
+      if (vn_int >= aspd_int) then
+        rm = vn_int - two*aspd_int*gm1_inv
+      end if
+      !
+      unc = half*(rp+rm)
+      ac  = one4*gm1*(rp-rm)
+      !
+      vel = merge( vn_int , unc , veln_is_int )
+      if (vel > zero) then ! outflow boundary
+        vx = rhou_int/rho_int
+        vy = rhov_int/rho_int
+        vn = vn_int
+        sc = pres_int / (rho_int**gam)
+       !gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
+      else                 ! inflow boundary
+        vx = rhou_rlx/rho_rlx
+        vy = rhov_rlx/rho_rlx
+        vn = vn_rlx
+        sc = pres_rlx / (rho_rlx**gam)
+       !gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_rlx)*rnrm(:)
+      end if
+      !
+      rho = ( ac * ac / (gam*sc) )**gm1_inv
+      pres = sc * (rho**gam)
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(vx + (unc - vn)*unx)
+      face_cv(n,nmy,2) = rho*(vy + (unc - vn)*uny)
+      face_cv(n,nee,2) = pres*gm1_inv + half*rho*(vx*vx + vy*vy)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      ! Get the host cell variables at this flux point
+      !
+      rho_int = face_cv(n,nec,1)
+      rhou_int = face_cv(n,nmx,1)
+      rhoe_int = face_cv(n,nee,1)
+      pres_int = gm1*(rhoe_int - half*rhou_int*rhou_int/rho_int)
+      !
+      ! Compute the relaxed inflow condition
+      !
+      rho_rlx  = (one-rlx)*rho_int  + rlx*rho_ext
+      rhou_rlx = (one-rlx)*rhou_int + rlx*rhou_ext
+      rhoe_rlx = (one-rlx)*rhoe_int + rlx*rhoe_ext
+      pres_rlx = gm1*(rhoe_rlx - half*rhou_rlx*rhou_rlx/rho_rlx)
+      !
+      ! Compute the speed of sound in the host cell
+      !
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      !
+      ! Compute the normal velocity at this flux point
+      !
+      vn_int = rhou_int*unx/rho_int ! Interior normal velocity
+      vn_rlx = rhou_rlx*unx/rho_rlx ! Exterior normal velocity
+      !
+      ! Apply boundary conditions based on the
+      ! normal Mach number to the boundary face
+      !
+      rp = vn_int + two*aspd_int*gm1_inv ! Outgoing Riemann invariant
+      rm = vn_rlx - two*aspd_rlx*gm1_inv ! Incoming Reimann invariant
+      !
+      ! Supersonic inflow boundary
+      !    Set R+ so that 0.5*(R+ + R-) = vn_rlx
+      !
+      if (vn_rlx <= -aspd_rlx) then
+        rp = vn_rlx + two*aspd_rlx*gm1_inv
+      end if
+      !
+      ! Supersonic outflow boundary
+      !    Set R- so that 0.5*(R+ + R-) = vn_int
+      !
+      if (vn_int >= aspd_int) then
+        rm = vn_int - two*aspd_int*gm1_inv
+      end if
+      !
+      unc = half*(rp+rm)
+      ac  = one4*gm1*(rp-rm)
+      !
+      vel = merge( vn_int , unc , veln_is_int )
+      if (vel > zero) then ! outflow boundary
+        vx = rhou_int/rho_int
+        vn = vn_int
+        sc = pres_int / (rho_int**gam)
+       !gufp(nmb:nme,k) = hvfp(nmb:nme) + (unc - vn_int)*rnrm(:)
+      else                 ! inflow boundary
+        vx = rhou_rlx/rho_rlx
+        vn = vn_rlx
+        sc = pres_rlx / (rho_rlx**gam)
+       !gufp(nmb:nme,k) = pv_in_rlx(nmb:nme) + (unc - vn_rlx)*rnrm(:)
+      end if
+      !
+      rho = ( ac * ac / (gam*sc) )**gm1_inv
+      pres = sc * (rho**gam)
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(vx + (unc - vn)*unx)
+      face_cv(n,nee,2) = pres*gm1_inv + half*rho*vx*vx
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_characteristic_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_inflow_solution(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic inflow boundary condition
+  ! ##    - Fix all variables to the inflow condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_generic_inflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
+  else if (nr == 2) then
+    call get_bc_generic_inflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+  else
+    call get_bc_generic_inflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+  end if
+  !
+end subroutine get_bc_generic_inflow_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_inflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -859,107 +1248,589 @@ subroutine get_bc_generic_inflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
-  ! PV_IN : Boundary condition flow variables in primitive    form
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: cv_in(:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k
-  real(wp) :: gm1_inv,ske_inf,mach_int,aspd_int
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,pres,mach
+  real(wp) :: rho_ext,vx_ext,vy_ext,vz_ext,pres_ext,q2_ext
+  real(wp) :: ske_ext,rhoe_ext,a2_ext,total_cond,p0_ext
   !
 continue
   !
-  nr = size(fnrm,dim=1)
-  !
-  ! Precompute the free stream specific kinetic energy
+  ! Precompute the reference specific kinetic energy
   ! and the inverse of gamma-1
   !
-  ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
+  gm1 = gam - one
+  gm1_inv = one/gm1
   !
-  gm1_inv = one / (gam - one)
+  rho_ext = pv_in(nec)
+  pres_ext = pv_in(nee)
   !
-  do k = 1,nfp
+  vx_ext = pv_in(nmx)
+  vy_ext = pv_in(nmy)
+  vz_ext = pv_in(nmz)
+  q2_ext = vx_ext*vx_ext + vy_ext*vy_ext + vz_ext*vz_ext
+  !
+  ske_ext = half*rho_ext*q2_ext
+  rhoe_ext = pres_ext*gm1_inv + ske_ext
+  !
+  a2_ext = max( gam*pres_ext/rho_ext , rndoff )
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
     !
-    ! Unit normal and tangent at this flux point
+    ! Unit normal at this flux point
     !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Get the host cell primitive variables at this flux point
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the speed of sound at this flux point
-    !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
     !
-    if (mach_int > -one .and. mach_int <= zero) then
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! Initialize the BC state to the reference conditions
+    !
+    rho = rho_ext
+    rhou = rho_ext*vx_ext
+    rhov = rho_ext*vy_ext
+    rhow = rho_ext*vz_ext
+    rhoe = rhoe_ext
+    !
+    ! If mach <= -one, do nothing because in that case we want to use the
+    ! the reference pressure for the boundary, so leave rhoe set to the
+    ! reference value.
+    !
+    ! NOTE: The following prescribed BCs are probably wrong if the normal
+    !       velocity indicates that this is an outflow instead of the
+    !       expected inflow. However, the precribed BCs should be correct
+    !       if the normal velocity indicates this is a subsonic inflow BC.
+    !
+    if (mach > -one) then
       !
       ! Subsonic inflow
       !
-      ! Set all variables to free stream
+      ! If the normal velocity from the interior says this is an outflow
+      ! boundary, set the ghost velocity to the magnitude of the reference
+      ! velocity multiplied by the unit normal
+      ! NOTE: q2 will be the same as q2_ext, and thus ske
+      !       will be the same as ske_ext
       !
-      gufp(:,k) = cv_in(:)
+      if (mach > zero) then
+        rhou = rho_ext*sqrt(q2_ext)*unx
+        rhov = rho_ext*sqrt(q2_ext)*uny
+        rhow = rho_ext*sqrt(q2_ext)*unz
+      end if
       !
-      ! Compute the total energy using interior pressure
-      ! and free stream specific kinetic energy
+      ! Set the boundary pressure to the interior pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
       !
-      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
+      ! If the normal velocity from the interior is supersonic, set the
+      ! boundary pressure to the reference total pressure. Otherwise, leave
+      ! the boundary pressure set to the interior value.
       !
-    else if (mach_int <= -one) then
+      if (mach >= one) then
+        pres = p0_ext
+      end if
       !
-      ! Supersonic inflow
-      !
-      ! Set all variables to free stream
-      !
-      gufp(:,k) = cv_in(:)
-      !
-    else
-      !
-      ! The normal velocity at this flux point seems to
-      ! indicate this should be an outflow boundary.
-      !
-      write (iout,1) mach_int,aspd_int,hvfp(nee),hvfp(nec), &
-                     hufp(nmx,k),hufp(nmy,k),hufp(nee,k), &
-                     rnrm(1),rnrm(2)
-      1 format ("Error with bc_generic_inflow boundary condition!",/, &
-                "   mach_int = ",es14.6,/, &
-                "   aspd_int = ",es14.6,/, &
-                "   pres_int = ",es14.6,/, &
-                "   dens_int = ",es14.6,/, &
-                "   momx_int = ",es14.6,/, &
-                "   momy_int = ",es14.6,/, &
-                "   enrg_int = ",es14.6,/, &
-                "         nx = ",es14.6,/, &
-                "         ny = ",es14.6)
+      rhoe = pres*gm1_inv + ske_ext
       !
     end if
     !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nmz,2) = rhow
+    face_cv(n,nee,2) = rhoe
+    !
   end do
   !
-end subroutine get_bc_generic_inflow_solution
+end subroutine get_bc_generic_inflow_solution_3d
 !
 !###############################################################################
 !
-subroutine get_bc_generic_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_generic_inflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic inflow boundary condition
+  ! ##    - Use subsonic or supersonic inflow boundary
+  ! ##      conditions based on the Mach number of the
+  ! ##      normal inflow velocity
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: rho,rhou,rhov,rhoe,rhoq2,pres,mach
+  real(wp) :: rho_ext,vx_ext,vy_ext,pres_ext,q2_ext
+  real(wp) :: ske_ext,rhoe_ext,a2_ext,total_cond,p0_ext
+  !
+continue
+  !
+  ! Precompute the reference specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  rho_ext = pv_in(nec)
+  pres_ext = pv_in(nee)
+  !
+  vx_ext = pv_in(nmx)
+  vy_ext = pv_in(nmy)
+  q2_ext = vx_ext*vx_ext + vy_ext*vy_ext
+  !
+  ske_ext = half*rho_ext*q2_ext
+  rhoe_ext = pres_ext*gm1_inv + ske_ext
+  !
+  a2_ext = max( gam*pres_ext/rho_ext , rndoff )
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoq2 = rhou*rhou + rhov*rhov
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! Initialize the BC state to the reference conditions
+    !
+    rho = rho_ext
+    rhou = rho_ext*vx_ext
+    rhov = rho_ext*vy_ext
+    rhoe = rhoe_ext
+    !
+    ! If mach <= -one, do nothing because in that case we want to use the
+    ! the reference pressure for the boundary, so leave rhoe set to the
+    ! reference value.
+    !
+    ! NOTE: The following prescribed BCs are probably wrong if the normal
+    !       velocity indicates that this is an outflow instead of the
+    !       expected inflow. However, the precribed BCs should be correct
+    !       if the normal velocity indicates this is a subsonic inflow BC.
+    !
+    if (mach > -one) then
+      !
+      ! Subsonic inflow
+      !
+      ! If the normal velocity from the interior says this is an outflow
+      ! boundary, set the ghost velocity to the magnitude of the reference
+      ! velocity multiplied by the unit normal
+      ! NOTE: q2 will be the same as q2_ext, and thus ske
+      !       will be the same as ske_ext
+      !
+      if (mach > zero) then
+        rhou = rho_ext*sqrt(q2_ext)*unx
+        rhov = rho_ext*sqrt(q2_ext)*uny
+      end if
+      !
+      ! Set the boundary pressure to the interior pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      ! If the normal velocity from the interior is supersonic, set the
+      ! boundary pressure to the reference total pressure. Otherwise, leave
+      ! the boundary pressure set to the interior value.
+      !
+      if (mach >= one) then
+        pres = p0_ext
+      end if
+      !
+      rhoe = pres*gm1_inv + ske_ext
+      !
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nee,2) = rhoe
+    !
+  end do
+  !
+end subroutine get_bc_generic_inflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_inflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic inflow boundary condition
+  ! ##    - Use subsonic or supersonic inflow boundary
+  ! ##      conditions based on the Mach number of the
+  ! ##      normal inflow velocity
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,pres,mach
+  real(wp) :: rho_ext,vx_ext,vy_ext,vz_ext,pres_ext,q2_ext
+  real(wp) :: ske_ext,rhoe_ext,a2_ext,total_cond,p0_ext
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Precompute the reference specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  rho_ext = pv_in(nec)
+  pres_ext = pv_in(nee)
+  !
+  if (nr == 3) then
+    vx_ext = pv_in(nmx)
+    vy_ext = pv_in(nmy)
+    vz_ext = pv_in(nmz)
+    q2_ext = vx_ext*vx_ext + vy_ext*vy_ext + vz_ext*vz_ext
+  else if (nr == 2) then
+    vx_ext = pv_in(nmx)
+    vy_ext = pv_in(nmy)
+    q2_ext = vx_ext*vx_ext + vy_ext*vy_ext
+  else
+    vx_ext = pv_in(nmx)
+    q2_ext = vx_ext*vx_ext
+  end if
+  !
+  ske_ext = half*rho_ext*q2_ext
+  rhoe_ext = pres_ext*gm1_inv + ske_ext
+  !
+  a2_ext = max( gam*pres_ext/rho_ext , rndoff )
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! Initialize the BC state to the reference conditions
+      !
+      rho = rho_ext
+      rhou = rho_ext*vx_ext
+      rhov = rho_ext*vy_ext
+      rhow = rho_ext*vz_ext
+      rhoe = rhoe_ext
+      !
+      ! If mach <= -one, do nothing because in that case we want to use the
+      ! the reference pressure for the boundary, so leave rhoe set to the
+      ! reference value.
+      !
+      ! NOTE: The following prescribed BCs are probably wrong if the normal
+      !       velocity indicates that this is an outflow instead of the
+      !       expected inflow. However, the precribed BCs should be correct
+      !       if the normal velocity indicates this is a subsonic inflow BC.
+      !
+      if (mach > -one) then
+        !
+        ! Subsonic inflow
+        !
+        ! If the normal velocity from the interior says this is an outflow
+        ! boundary, set the ghost velocity to the magnitude of the reference
+        ! velocity multiplied by the unit normal
+        ! NOTE: q2 will be the same as q2_ext, and thus ske
+        !       will be the same as ske_ext
+        !
+        if (mach > zero) then
+          rhou = rho_ext*sqrt(q2_ext)*unx
+          rhov = rho_ext*sqrt(q2_ext)*uny
+          rhow = rho_ext*sqrt(q2_ext)*unz
+        end if
+        !
+        ! Set the boundary pressure to the interior pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        ! If the normal velocity from the interior is supersonic, set the
+        ! boundary pressure to the reference total pressure. Otherwise, leave
+        ! the boundary pressure set to the interior value.
+        !
+        if (mach >= one) then
+          pres = p0_ext
+        end if
+        !
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nmz,2) = rhow
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoq2 = rhou*rhou + rhov*rhov
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! Initialize the BC state to the reference conditions
+      !
+      rho = rho_ext
+      rhou = rho_ext*vx_ext
+      rhov = rho_ext*vy_ext
+      rhoe = rhoe_ext
+      !
+      ! If mach <= -one, do nothing because in that case we want to use the
+      ! the reference pressure for the boundary, so leave rhoe set to the
+      ! reference value.
+      !
+      ! NOTE: The following prescribed BCs are probably wrong if the normal
+      !       velocity indicates that this is an outflow instead of the
+      !       expected inflow. However, the precribed BCs should be correct
+      !       if the normal velocity indicates this is a subsonic inflow BC.
+      !
+      if (mach > -one) then
+        !
+        ! Subsonic inflow
+        !
+        ! If the normal velocity from the interior says this is an outflow
+        ! boundary, set the ghost velocity to the magnitude of the reference
+        ! velocity multiplied by the unit normal
+        ! NOTE: q2 will be the same as q2_ext, and thus ske
+        !       will be the same as ske_ext
+        !
+        if (mach > zero) then
+          rhou = rho_ext*sqrt(q2_ext)*unx
+          rhov = rho_ext*sqrt(q2_ext)*uny
+        end if
+        !
+        ! Set the boundary pressure to the interior pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        ! If the normal velocity from the interior is supersonic, set the
+        ! boundary pressure to the reference total pressure. Otherwise, leave
+        ! the boundary pressure set to the interior value.
+        !
+        if (mach >= one) then
+          pres = p0_ext
+        end if
+        !
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      pres = gm1*(face_cv(n,nee,1) - half*rhou*rhou/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = rhou*unx / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! Initialize the BC state to the reference conditions
+      !
+      rho = rho_ext
+      rhou = rho_ext*vx_ext
+      rhoe = rhoe_ext
+      !
+      ! If mach <= -one, do nothing because in that case we want to use the
+      ! the reference pressure for the boundary, so leave rhoe set to the
+      ! reference value.
+      !
+      ! NOTE: The following prescribed BCs are probably wrong if the normal
+      !       velocity indicates that this is an outflow instead of the
+      !       expected inflow. However, the precribed BCs should be correct
+      !       if the normal velocity indicates this is a subsonic inflow BC.
+      !
+      if (mach > -one) then
+        !
+        ! Subsonic inflow
+        !
+        ! If the normal velocity from the interior says this is an outflow
+        ! boundary, set the ghost velocity to the magnitude of the reference
+        ! velocity multiplied by the unit normal
+        ! NOTE: q2 will be the same as q2_ext, and thus ske
+        !       will be the same as ske_ext
+        !
+        if (mach > zero) then
+          rhou = abs(rhou)*unx
+        end if
+        !
+        ! Set the boundary pressure to the interior pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        ! If the normal velocity from the interior is supersonic, set the
+        ! boundary pressure to the reference total pressure. Otherwise, leave
+        ! the boundary pressure set to the interior value.
+        !
+        if (mach >= one) then
+          pres = p0_ext
+        end if
+        !
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_generic_inflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_outflow_solution(n1,n2,facenrm,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -970,95 +1841,519 @@ subroutine get_bc_generic_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! PV_IN : Boundary condition flow variables in primitive form
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k
-  real(wp) :: gm1_inv,ske_int,mach_int,aspd_int
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: nr
   !
 continue
   !
-  nr = size(fnrm,dim=1)
+  nr = nme-nmb+1
   !
-  ! Precompute the inverse of gamma-1
-  !
-  gm1_inv = one / (gam - one)
-  !
-  do k = 1,nfp
-    !
-    ! Unit normal and tangent at this flux point
-    !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Now convert the current host cell flux point
-    ! conservative variables to primitive variables
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the speed of sound at this flux point
-    !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
-    !
-    ! Compute the Mach number of the normal velocity at this flux point
-    !
-    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
-    !
-    if (mach_int < one .and. mach_int >= zero) then
-      !
-      ! Subsonic outflow
-      !
-      ! Extrapolate interior density and velocities to boundary
-      !
-      gufp(:,k) = hufp(:,k)
-      !
-      ! Compute the interior specific kinetic energy
-      !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
-      !
-      ! Compute the total energy using free stream pressure
-      ! and interior specific kinetic energy
-      !
-      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
-      !
-    else if (mach_int >= one) then
-      !
-      ! Supersonic outflow
-      !
-      ! Extrapolate all interior variables to the boundary
-      !
-      gufp(1:nq,k) = hufp(1:nq,k)
-      !
-    else
-      !
-      ! The normal velocity at this flux point seems to
-      ! indicate this should be an inflow boundary.
-      !
-      write (iout,*) "Error with bc_generic_outflow boundary condition!"
-      !
-    end if
-    !
-  end do
+  if (nr == 3) then
+    call get_bc_generic_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
+  else if (nr == 2) then
+    call get_bc_generic_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+  else
+    call get_bc_generic_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+  end if
   !
 end subroutine get_bc_generic_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_generic_freeflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_generic_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic outflow boundary condition
+  ! ##    - Use subsonic or supersonic outflow boundary
+  ! ##      conditions based on the Mach number of the
+  ! ##      normal outflow velocity
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoq2,pres,mach
+  real(wp) :: pres_ext,q2_ext,a2_ext,p0_ext,total_cond
+  !
+continue
+  !
+  ! Precompute gamma-1 and its inverse
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  pres_ext = pv_in(nee)
+  a2_ext = max( gam*pres_ext/pv_in(nec) , rndoff )
+  q2_ext = pv_in(nmx)**2 + pv_in(nmy)**2 + pv_in(nmz)**2
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! the interior pressure to the boundary, so leave pres set to the interior
+    ! value.
+    !
+    if (mach < one) then
+      !
+      ! Subsonic outflow
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      ! NOTE: rhoq2 will remain the same
+      !
+      if (mach < zero) then
+        rhou = sqrt(rhoq2)*unx
+        rhov = sqrt(rhoq2)*uny
+        rhow = sqrt(rhoq2)*unz
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      pres = pres_ext
+      !
+      if (mach <= -one) then
+        pres = p0_ext
+      end if
+      !
+    end if
+    !
+    ! Compute the boundary condition state
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nmz,2) = rhow
+    face_cv(n,nee,2) = pres*gm1_inv + half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_generic_outflow_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic outflow boundary condition
+  ! ##    - Use subsonic or supersonic outflow boundary
+  ! ##      conditions based on the Mach number of the
+  ! ##      normal outflow velocity
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: rho,rhou,rhov,rhoq2,pres,mach
+  real(wp) :: pres_ext,q2_ext,a2_ext,p0_ext,total_cond
+  !
+continue
+  !
+  ! Precompute gamma-1 and its inverse
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  pres_ext = pv_in(nee)
+  a2_ext = max( gam*pres_ext/pv_in(nec) , rndoff )
+  q2_ext = pv_in(nmx)**2 + pv_in(nmy)**2
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoq2 = rhou*rhou + rhov*rhov
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! the interior pressure to the boundary, so leave pres set to the interior
+    ! value.
+    !
+    if (mach < one) then
+      !
+      ! Subsonic outflow
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      ! NOTE: rhoq2 will remain the same
+      !
+      if (mach < zero) then
+        rhou = sqrt(rhoq2)*unx
+        rhov = sqrt(rhoq2)*uny
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      pres = pres_ext
+      !
+      if (mach <= -one) then
+        pres = p0_ext
+      end if
+      !
+    end if
+    !
+    ! Compute the boundary condition state
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nee,2) = pres*gm1_inv + half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_generic_outflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic outflow boundary condition
+  ! ##    - Use subsonic or supersonic outflow boundary
+  ! ##      conditions based on the Mach number of the
+  ! ##      normal outflow velocity
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoq2,pres,mach
+  real(wp) :: pres_ext,q2_ext,a2_ext,p0_ext,total_cond
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Precompute gamma-1 and its inverse
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  pres_ext = pv_in(nee)
+  a2_ext = max( gam*pres_ext/pv_in(nec) , rndoff )
+  !
+  if (nr == 3) then
+    q2_ext = pv_in(nmx)**2 + pv_in(nmy)**2 + pv_in(nmz)**2
+  else if (nr == 2) then
+    q2_ext = pv_in(nmx)**2 + pv_in(nmy)**2
+  else
+    q2_ext = pv_in(nmx)**2
+  end if
+  !
+  total_cond = one + half*gm1*(q2_ext/a2_ext)
+  !
+  p0_ext = pres_ext * total_cond**(gam*gm1_inv)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! the interior pressure to the boundary, so leave pres set to the interior
+      ! value.
+      !
+      if (mach < one) then
+        !
+        ! Subsonic outflow
+        !
+        ! If the normal velocity from the interior says this is an inflow
+        ! boundary, set the ghost velocity to the magnitude of the interior
+        ! velocity multiplied by the unit normal
+        ! NOTE: rhoq2 will remain the same
+        !
+        if (mach < zero) then
+          rhou = sqrt(rhoq2)*unx
+          rhov = sqrt(rhoq2)*uny
+          rhow = sqrt(rhoq2)*unz
+        end if
+        !
+        ! Set the boundary pressure to the reference pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        pres = pres_ext
+        !
+        if (mach <= -one) then
+          pres = p0_ext
+        end if
+        !
+      end if
+      !
+      ! Compute the boundary condition state
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nmz,2) = rhow
+      face_cv(n,nee,2) = pres*gm1_inv + half*rhoq2/rho
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoq2 = rhou*rhou + rhov*rhov
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! the interior pressure to the boundary, so leave pres set to the interior
+      ! value.
+      !
+      if (mach < one) then
+        !
+        ! Subsonic outflow
+        !
+        ! If the normal velocity from the interior says this is an inflow
+        ! boundary, set the ghost velocity to the magnitude of the interior
+        ! velocity multiplied by the unit normal
+        ! NOTE: rhoq2 will remain the same
+        !
+        if (mach < zero) then
+          rhou = sqrt(rhoq2)*unx
+          rhov = sqrt(rhoq2)*uny
+        end if
+        !
+        ! Set the boundary pressure to the reference pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        pres = pres_ext
+        !
+        if (mach <= -one) then
+          pres = p0_ext
+        end if
+        !
+      end if
+      !
+      ! Compute the boundary condition state
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nee,2) = pres*gm1_inv + half*rhoq2/rho
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      pres = gm1*(face_cv(n,nee,1) - half*rhou*rhou/rho)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = rhou*unx / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! the interior pressure to the boundary, so leave pres set to the interior
+      ! value.
+      !
+      if (mach < one) then
+        !
+        ! Subsonic outflow
+        !
+        ! If the normal velocity from the interior says this is an inflow
+        ! boundary, set the ghost velocity to the magnitude of the interior
+        ! velocity multiplied by the unit normal
+        ! NOTE: rhoq2 will remain the same
+        !
+        if (mach < zero) then
+          rhou = abs(rhou)*unx
+        end if
+        !
+        ! Set the boundary pressure to the reference pressure if the normal
+        ! velocity from the interior is subsonic, otherwise set the boundary
+        ! pressure to the reference total pressure
+        !
+        pres = pres_ext
+        !
+        if (mach <= -one) then
+          pres = p0_ext
+        end if
+        !
+      end if
+      !
+      ! Compute the boundary condition state
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nee,2) = pres*gm1_inv + half*rhou*rhou/rho
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_generic_outflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_freeflow_solution(n1,n2,facenrm,face_cv,cv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -1070,113 +2365,597 @@ subroutine get_bc_generic_freeflow_solution(nfp,hufp,gufp,fnrm,cv_in,pv_in)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
-  ! PV_IN : Boundary condition flow variables in primitive    form
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: cv_in(:)
-  real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k
-  real(wp) :: gm1_inv,ske_inf,ske_int,mach_int,aspd_int
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: nr
   !
 continue
   !
-  nr = size(fnrm,dim=1)
+  nr = nme-nmb+1
   !
-  ! Precompute the free stream specific kinetic energy
-  ! and the inverse of gamma-1
-  !
-  ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
-  !
-  gm1_inv = one / (gam - one)
-  !
-  do k = 1,nfp
-    !
-    ! Unit normal and tangent at this flux point
-    !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Get the host cell primitive variables at this flux point
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the speed of sound at this flux point
-    !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
-    !
-    ! Compute the Mach number of the normal velocity at this flux point
-    !
-    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
-    !
-    if (mach_int >= one) then
-      !
-      ! Supersonic outflow
-      !
-      ! Extrapolate all interior variables to the boundary
-      !
-      gufp(1:nq,k) = hufp(1:nq,k)
-      !
-    else if (mach_int <= -one) then
-      !
-      ! Supersonic inflow
-      !
-      ! Set all variables to free stream
-      !
-      gufp(:,k) = cv_in(:)
-      !
-    else if (mach_int > -one .and. mach_int <= zero) then
-      !
-      ! Subsonic inflow
-      !
-      ! Set all variables but pressure to free stream
-      !
-      gufp(:,k) = cv_in(:)
-      !
-      ! Compute the total energy using interior pressure
-      ! and free stream specific kinetic energy
-      !
-      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
-      !
-    else if (mach_int < one .and. mach_int > zero) then
-      !
-      ! Subsonic outflow
-      !
-      ! Extrapolate interior density and velocities to boundary
-      !
-      gufp(:,k) = hufp(:,k)
-      !
-      ! Compute the interior specific kinetic energy
-      !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
-      !
-      ! Compute the total energy using free stream pressure
-      ! and interior specific kinetic energy
-      !
-      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
-      !
-    end if
-    !
-  end do
+  if (nr == 3) then
+    call get_bc_generic_freeflow_solution_3d(n1,n2,facenrm,face_cv,cv_in)
+  else if (nr == 2) then
+    call get_bc_generic_freeflow_solution_2d(n1,n2,facenrm,face_cv,cv_in)
+  else
+    call get_bc_generic_freeflow_solution_nd(n1,n2,facenrm,face_cv,cv_in)
+  end if
   !
 end subroutine get_bc_generic_freeflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_newton(nfp,hufp,gufp,fnrm,pv_in,ierr,nf)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_generic_freeflow_solution_3d(n1,n2,facenrm,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic freeflow boundary condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,pres,ske
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhow_ext,rhoe_ext
+  real(wp) :: rhoq2_ext,pres_ext,ske_ext,mach
+  !
+continue
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  ! Precompute the free stream specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  rho_ext = cv_in(nec)
+  rhou_ext = cv_in(nmx)
+  rhov_ext = cv_in(nmy)
+  rhow_ext = cv_in(nmz)
+  rhoq2_ext = rhou_ext**2 + rhov_ext**2 + rhow_ext**2
+  rhoe_ext = cv_in(nee)
+  !
+  ske_ext = half * rhoq2_ext / rho_ext
+  pres_ext = gm1*(rhoe_ext - ske_ext)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoe = face_cv(n,nee,1)
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    ske = half*rhoq2/rho
+    pres = gm1*(rhoe - ske)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! everything from the interior and we already have those values stored
+    ! in rho, rhou, rhov, rhow, and rhoe.
+    !
+    if (mach <= -one) then
+      !
+      rho = rho_ext
+      rhou = rhou_ext
+      rhov = rhov_ext
+      rhow = rhow_ext
+      rhoe = rhoe_ext
+      !
+    else if (mach > -one .and. mach <= zero) then
+      !
+      rho = rho_ext
+      rhou = rhou_ext
+      rhov = rhov_ext
+      rhow = rhow_ext
+      rhoe = pres*gm1_inv + ske_ext
+      !
+    else if (mach < one .and. mach > zero) then
+      !
+      rhoe = pres_ext*gm1_inv + ske
+      !
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nmz,2) = rhow
+    face_cv(n,nee,2) = rhoe
+    !
+  end do
+  !
+end subroutine get_bc_generic_freeflow_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_freeflow_solution_2d(n1,n2,facenrm,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic freeflow boundary condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: rho,rhou,rhov,rhoe,rhoq2,pres,ske
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhoe_ext
+  real(wp) :: rhoq2_ext,pres_ext,ske_ext,mach
+  !
+continue
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  ! Precompute the free stream specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  rho_ext = cv_in(nec)
+  rhou_ext = cv_in(nmx)
+  rhov_ext = cv_in(nmy)
+  rhoq2_ext = rhou_ext**2 + rhov_ext**2
+  rhoe_ext = cv_in(nee)
+  !
+  ske_ext = half * rhoq2_ext / rho_ext
+  pres_ext = gm1*(rhoe_ext - ske_ext)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoe = face_cv(n,nee,1)
+    rhoq2 = rhou*rhou + rhov*rhov
+    ske = half*rhoq2/rho
+    pres = gm1*(rhoe - ske)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! everything from the interior and we already have those values stored
+    ! in rho, rhou, rhov, rhow, and rhoe.
+    !
+    if (mach <= -one) then
+      !
+      rho = rho_ext
+      rhou = rhou_ext
+      rhov = rhov_ext
+      rhoe = rhoe_ext
+      !
+    else if (mach > -one .and. mach <= zero) then
+      !
+      rho = rho_ext
+      rhou = rhou_ext
+      rhov = rhov_ext
+      rhoe = pres*gm1_inv + ske_ext
+      !
+    else if (mach < one .and. mach > zero) then
+      !
+      rhoe = pres_ext*gm1_inv + ske
+      !
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nee,2) = rhoe
+    !
+  end do
+  !
+end subroutine get_bc_generic_freeflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_generic_freeflow_solution_nd(n1,n2,facenrm,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic freeflow boundary condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,pres,ske
+  real(wp) :: rho_ext,rhou_ext,rhov_ext,rhow_ext,rhoe_ext
+  real(wp) :: rhoq2_ext,pres_ext,ske_ext,mach
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  ! Precompute the free stream specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  rho_ext = cv_in(nec)
+  if (nr == 3) then
+    rhou_ext = cv_in(nmx)
+    rhov_ext = cv_in(nmy)
+    rhow_ext = cv_in(nmz)
+    rhoq2_ext = rhou_ext**2 + rhov_ext**2 + rhow_ext**2
+  else if (nr == 2) then
+    rhou_ext = cv_in(nmx)
+    rhov_ext = cv_in(nmy)
+    rhoq2_ext = rhou_ext**2 + rhov_ext**2
+  else
+    rhou_ext = cv_in(nmx)
+    rhoq2_ext = rhou_ext**2
+  end if
+  rhoe_ext = cv_in(nee)
+  !
+  ske_ext = half * rhoq2_ext / rho_ext
+  pres_ext = gm1*(rhoe_ext - ske_ext)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoe = face_cv(n,nee,1)
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      ske = half*rhoq2/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhov = rhov_ext
+        rhow = rhow_ext
+        rhoe = rhoe_ext
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhov = rhov_ext
+        rhow = rhow_ext
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        rhoe = pres_ext*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nmz,2) = rhow
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoe = face_cv(n,nee,1)
+      rhoq2 = rhou*rhou + rhov*rhov
+      ske = half*rhoq2/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhov = rhov_ext
+        rhoe = rhoe_ext
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhov = rhov_ext
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        rhoe = pres_ext*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhoe = face_cv(n,nee,1)
+      ske = half*rhou*rhou/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = rhou*unx / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhoe = rhoe_ext
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        rho = rho_ext
+        rhou = rhou_ext
+        rhoe = pres*gm1_inv + ske_ext
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        rhoe = pres_ext*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_generic_freeflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution(n1,n2,facenrm,face_cv,cv_in,pv_in, &
+                                           newton_failures)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  ! NEWTON_FAILURES : Number of failed convergences from Newton iterations
+  !
+  !.. Use Statements ..
+  use ovar,    only : sub_inflow_method
+  use gpu_mod, only : tvsp2u_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  integer,  intent(inout) :: newton_failures
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  newton_failures = 0
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (sub_inflow_method == 1) then
+    !
+    if (nr == 3) then
+      call get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
+    else if (nr == 2) then
+      call get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
+    else
+      call get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
+    end if
+    !
+    ! The Newton subsonic inflow boundary condition returns the BC states
+    ! in primitive variables. Convert these to conservative variables.
+    !
+    call tvsp2u_gpu(n1,n2,face_cv(:,:,2))
+    !
+  else if (sub_inflow_method == 3) then
+    !
+    if (nr == 3) then
+      call get_bc_sub_inflow_solution_v3_3d(n1,n2,face_cv,pv_in)
+    else if (nr == 2) then
+      call get_bc_sub_inflow_solution_v3_2d(n1,n2,face_cv,pv_in)
+    else
+      call get_bc_sub_inflow_solution_v3_nd(n1,n2,face_cv,pv_in)
+    end if
+    !
+  else if (sub_inflow_method == 4) then
+    !
+    if (nr == 3) then
+      call get_bc_sub_inflow_solution_v4_3d(n1,n2,face_cv,pv_in)
+    else if (nr == 2) then
+      call get_bc_sub_inflow_solution_v4_2d(n1,n2,face_cv,pv_in)
+    else
+      call get_bc_sub_inflow_solution_v4_nd(n1,n2,face_cv,pv_in)
+    end if
+    !
+  else
+    !
+    if (nr == 3) then
+      call get_bc_sub_inflow_solution_v2_3d(n1,n2,face_cv,cv_in)
+    else if (nr == 2) then
+      call get_bc_sub_inflow_solution_v2_2d(n1,n2,face_cv,cv_in)
+    else
+      call get_bc_sub_inflow_solution_v2_nd(n1,n2,face_cv,cv_in)
+    end if
+    !
+  end if
+  !
+end subroutine get_bc_sub_inflow_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
+                                            pv_in,newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -1187,28 +2966,28 @@ subroutine get_bc_sub_inflow_newton(nfp,hufp,gufp,fnrm,pv_in,ierr,nf)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! IERR  : count the number of failed convergences from Newton iterations
-  ! PV_IN : Boundary condition flow variables in primitive form
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  ! NEWTON_FAILURES : Number of failed convergences from Newton iterations
   !
   !.. Use Statements ..
-  use ovar, only : rgasref_nd
+  use ovar, only : gam,rgasref_nd
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
-  integer,  intent(inout) :: ierr
-  integer,     intent(in) :: nf
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  integer,  intent(inout) :: newton_failures
   !
   !.. Local Scalars ..
   integer  :: k,n
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: dir_cosx,dir_cosy,dir_cosz
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
   real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
-  real(wp) :: temp_int,aspd_int,veln_int
+  real(wp) :: aspd_int,veln_int
   real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
   real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp
   real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
@@ -1216,16 +2995,8 @@ subroutine get_bc_sub_inflow_newton(nfp,hufp,gufp,fnrm,pv_in,ierr,nf)
   !
   logical(lk) :: convergence_reached
   !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: dir_cos(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
-  !
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
-  character(len=*), parameter :: cvel(1:3) = ["x","y","z"]
-  !
-  real(wp) :: dtemp_save(1:newton_iter)
   !
 continue
   !
@@ -1239,11 +3010,14 @@ continue
   ! Compute the inflow conditions
   !
   aspd_ref = sqrt(gam*pv_in(nee)/pv_in(nec))
-  mach_ref = norm2(pv_in(nmb:nme))/aspd_ref
+  !
+  mach_ref = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                   pv_in(nmy)*pv_in(nmy) + &
+                   pv_in(nmz)*pv_in(nmz) ) / aspd_ref
   !
   total_cond = one + half*gm1*mach_ref*mach_ref
   !
-  temp_ref = temperature_pv_sp( pv_in(:) )
+  temp_ref = pv_in(nee)/pv_in(nec)/rgasref_nd
   ttot_ref = temp_ref * total_cond
   ptot_ref = pv_in(nee) * total_cond**gam_over_gm1
   !
@@ -1254,31 +3028,44 @@ continue
   aoa = atan2(pv_in(nmy),pv_in(nmx))
   tan_aoa = tan( aoa * degrees2radians )
   !
-  dir_cos(:) = zero
-  dir_cos(1) = one / sqrt(one + tan_aoa**2)
-  dir_cos(2) = tan_aoa * dir_cos(1)
+  dir_cosx = one / sqrt(one + tan_aoa**2)
+  dir_cosy = tan_aoa * dir_cosx
+  dir_cosz = zero
   !
-  do k = 1,nfp
-    !
-    convergence_reached = fals
+  newton_failures = 0
+  !
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+  !$ACC&              PRESENT(facenrm,face_cv) &
+  !$ACC&              REDUCTION(+:newton_failures)
+  do n = n1,n2
     !
     ! Unit normal at this flux point
     !
-    rnrm(:) = -unit_vector( fnrm(:,k) )
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = -rnx/ds
+    uny = -rny/ds
+    unz = -rnz/ds
     !
     ! Get the host cell primitive variables at this flux point
     !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    vz = face_cv(n,nmz,1)*rho_inv
+    q2 = vx*vx + vy*vy + vz*vz
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
     ! Normal velocity of the interior/host cell at this flux point
     !
-    veln_int = dot( hvfp(nmb:nme) , rnrm(:) ) 
-    !
-    temp_int = temperature_pv_sp( hvfp(:) )
+    veln_int = vx*unx + vy*uny + vz*unz
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*rgasref_nd*temp_int , rndoff ) )
+    aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
     !
     rminus = veln_int - (two*aspd_int/gm1)
     !
@@ -1286,17 +3073,17 @@ continue
     !
     aspd_ext = aspd_ref
     !
-    rafac = one / dot( dir_cos(:) , rnrm(:) )
+    rafac = one / (dir_cosx*unx + dir_cosy*uny + dir_cosz*unz)
     !
     veln_ext = rafac * (rminus + two*aspd_ext/gm1)
     !
     func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
     dfunc = -(one + veln_ext*rafac/aspd_ext)
     !
-    newton_iteration: do n = 1,newton_iter
+    convergence_reached = fals
+    newton_iteration: do k = 1,newton_iter
       !
       dtemp = func/dfunc
-      dtemp_save(n) = dtemp
       !
       if (abs(dtemp) < dterr) then
         convergence_reached = true
@@ -1316,66 +3103,56 @@ continue
     !
     pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
     !
-    gufp(nec,k) = pres_ext / (rgasref_nd * temp_ext)
-    gufp(nmb:nme,k) = veln_ext*dir_cos(:)
-    gufp(nee,k) = pres_ext
+    face_cv(n,nec,2) = pres_ext / temp_ext / rgasref_nd
+    face_cv(n,nmx,2) = veln_ext * dir_cosx
+    face_cv(n,nmy,2) = veln_ext * dir_cosy
+    face_cv(n,nmz,2) = veln_ext * dir_cosz
+    face_cv(n,nee,2) = pres_ext
     !
     ! Check to make sure the temperature converged
     !
     if (.not. convergence_reached) then
-      dtemp = func/dfunc
-      write (iout,1) "mypnum   = ",mypnum
-      write (iout,1) "nf       = ",nf
-      write (iout,1) "k        = ",k,          " "
-      write (iout,2) "aoa      = ",aoa
-      write (iout,2) "tan_aoa  = ",tan_aoa
-      write (iout,2) "dir_cos1 = ",dir_cos(1)
-      write (iout,2) "dir_cos2 = ",dir_cos(2), " "
-      write (iout,2) "dens_int = ",hvfp(nec)
-      do n = nmb,nme
-        write (iout,3) cvel(n-nmb+1),"int",hvfp(n)
-      end do
-      write (iout,2) "pres_int = ",hvfp(nee)
-      write (iout,2) "temp_int = ",temp_int
-      write (iout,2) "aspd_int = ",aspd_int
-      write (iout,2) "veln_int = ",veln_int,   " "
-      write (iout,2) "dterr    = ",dterr
-      write (iout,2) "func     = ",func
-      write (iout,2) "dfunc    = ",dfunc
-      write (iout,2) "dtemp    = ",dtemp,      " "
-      write (iout,2) "dens_ext = ",gufp(nec,k)
-      do n = nmb,nme
-        write (iout,3) cvel(n-nmb+1),"ext",gufp(n,k)
-      end do
-      write (iout,2) "pres_ext = ",pres_ext
-      write (iout,2) "temp_ext = ",temp_ext
-      write (iout,2) "aspd_ext = ",aspd_ext
-      write (iout,2) "veln_ext = ",veln_ext,   " "
-      do n = 1,size(dtemp_save)
-        if (n == 1) write (iout,4)
-        write (iout,5) n,dtemp_save(n)
-        if (n == size(dtemp_save)) write (iout,5) n+1,dtemp, " "
-      end do
-      1 format (1x,a,i0,:,/,a)
-      2 format (1x,a,es14.6,:,/,a)
-      3 format (1x,"vel",a1,"_",a3," = ",es14.6)
-      4 format (/,50("-"),/, &
-                  4x,"Values of dtemp for each Newton Iteration",/, &
-                  50("-"))
-      5 format (4x,i3,4x,es23.15,:,/,50("-"),a,/)
-      ierr = ierr + 1
+      newton_failures = newton_failures + 1
+     !dtemp = func/dfunc
+     !write (iout,1) "mypnum   = ",mypnum
+     !write (iout,1) "nf       = ",nf
+     !write (iout,1) "k        = ",k,          " "
+     !write (iout,2) "aoa      = ",aoa
+     !write (iout,2) "tan_aoa  = ",tan_aoa
+     !write (iout,2) "dir_cos1 = ",dir_cosx
+     !write (iout,2) "dir_cos2 = ",dir_cosy, " "
+     !write (iout,2) "dens_int = ",rho
+     !write (iout,2) "vx_int   = ",vx
+     !write (iout,2) "vy_int   = ",vy
+     !write (iout,2) "vz_int   = ",vz
+     !write (iout,2) "pres_int = ",pres
+     !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
+     !write (iout,2) "aspd_int = ",aspd_int
+     !write (iout,2) "veln_int = ",veln_int,   " "
+     !write (iout,2) "dterr    = ",dterr
+     !write (iout,2) "func     = ",func
+     !write (iout,2) "dfunc    = ",dfunc
+     !write (iout,2) "dtemp    = ",dtemp,      " "
+     !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
+     !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
+     !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
+     !write (iout,2) "vz_ext   = ",face_cv(n,nmz,2)
+     !write (iout,2) "pres_ext = ",pres_ext
+     !write (iout,2) "temp_ext = ",temp_ext
+     !write (iout,2) "aspd_ext = ",aspd_ext
+     !write (iout,2) "veln_ext = ",veln_ext,   " "
+     !1 format (1x,a,i0,:,/,a)
+     !2 format (1x,a,es14.6,:,/,a)
     end if
-    !
-    gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
     !
   end do
   !
-end subroutine get_bc_sub_inflow_newton
+end subroutine get_bc_sub_inflow_newton_3d
 !
 !###############################################################################
 !
-subroutine get_bc_sub_inflow_solution(nfp,hufp,gufp,cv_in,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
+                                            pv_in,newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -1386,30 +3163,37 @@ subroutine get_bc_sub_inflow_solution(nfp,hufp,gufp,cv_in,pv_in)
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
-  ! PV_IN : Boundary condition flow variables in primitive    form
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  ! NEWTON_FAILURES : Number of failed convergences from Newton iterations
   !
   !.. Use Statements ..
- !use ovar, only : ptotref_nd,ttotref_nd
-  use ovar, only : rgasref_nd
-  use ovar, only : sub_inflow_method
+  use ovar, only : gam,rgasref_nd
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: cv_in(:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  integer,  intent(inout) :: newton_failures
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: pres_int,ske_inf,gm1_inv
-  real(wp) :: gm1,rt,rhot,a,b,c,velx2
-  real(wp) :: rm,rmsq,aa,asq,gam_over_gm1
-  real(wp) :: p0_ext,t_ext,t0_ext
-  real(wp) :: aspd,mach,total_cond
+  integer  :: k,n
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: dir_cosx,dir_cosy
+  real(wp) :: rho,rho_inv,vx,vy,q2,pres
+  real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
+  real(wp) :: aspd_int,veln_int
+  real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
+  real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp
+  real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
+  real(wp) :: temp_ref,ttot_ref,ptot_ref,aoa
+  !
+  logical(lk) :: convergence_reached
+  !
+  !.. Local Parameters ..
+  integer, parameter :: newton_iter = 100
   !
 continue
   !
@@ -1417,99 +3201,1305 @@ continue
   ! and the inverse of gamma-1
   !
   gm1 = gam - one
-  gm1_inv = one / gm1
-  gam_over_gm1 = gam*gm1_inv
+  gam_over_gm1 = gam / gm1
+  gam_over_1mg = -gam_over_gm1
   !
-  t_ext = temperature_pv_sp(pv_in)
-  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
-  mach = norm2(pv_in(nmb:nme))/aspd
+  ! Compute the inflow conditions
   !
-  total_cond = one + half*gm1*mach*mach
+  aspd_ref = sqrt(gam*pv_in(nee)/pv_in(nec))
   !
-  t0_ext = t_ext*total_cond
-  p0_ext = pv_in(nee) * total_cond**gam_over_gm1
+  mach_ref = sqrt( pv_in(nmx)*pv_in(nmx) + pv_in(nmy)*pv_in(nmy) ) / aspd_ref
   !
-  if (sub_inflow_method == 2) then
-    !
-    ! Precompute the free stream specific kinetic energy
-    ! and the inverse of gamma-1
-    !
-    ske_inf = half * pv_in(nec) * selfdot( pv_in(nmb:nme) )
-    !
-    do k = 1,nfp
-      !
-      ! Set all variables but pressure to free stream
-      !
-      gufp(:,k) = cv_in(:)
-      !
-      ! Get the interior pressure
-      !
-      pres_int = pressure_cv_sp( hufp(:,k) )
-      !
-      ! Compute the total energy using interior pressure
-      ! and free stream specific kinetic energy
-      !
-      gufp(nee,k) = pres_int * gm1_inv + ske_inf
-      !
-    end do
-    !
-  else if (sub_inflow_method == 3) then
-    !
-   !rt = rgasref_nd*ttotref_nd
-    rt = rgasref_nd*t0_ext
-    !
-   !rhot = ptotref_nd/rt
-    rhot = p0_ext/rt
-    a = rt*gm1_inv
-    b = two*gam*a
-    c = half*gm1/gam
-    !
-    do k = 1,nfp
-      !
-      velx2 = hufp(nmx,k)**2
-      !
-      gufp(nec,k) = rhot * ( (one + velx2/(b-velx2))**(-gm1_inv) )
-      gufp(nmb:nme,k) = zero
-      gufp(nmx,k) = gufp(nec,k)*hufp(nmx,k)
-      gufp(nee,k) = gufp(nec,k) * (a + c*velx2)
-      !
-    end do
-    !
-  else if (sub_inflow_method == 4) then
-    !
-    do k = 1,nfp
-      !
-      ! Get the interior pressure
-      !
-      pres_int = pressure_cv_sp( hufp(:,k) )
-      !
-     !rmsq = ( (ptotref_nd/pres_int)**(gm1/gam) - one ) * two/gm1
-      rmsq = ( (p0_ext/pres_int)**(gm1/gam) - one ) * two/gm1
-      rm   = sqrt(rmsq)
-      !
-      asq = one / (one+half*gm1*rmsq)
-      aa = sqrt(asq)
-      !
-      ! Compute the total energy using interior pressure
-      ! and free stream specific kinetic energy
-      !
-      gufp(nec,k) = gam*pres_int/asq
-      gufp(nmb:nme,k) = zero
-      gufp(nmx,k) = aa*rm
-      gufp(nee,k) = pres_int
-      !
-      gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
-      !
-    end do
-    !
-  end if
+  total_cond = one + half*gm1*mach_ref*mach_ref
   !
-end subroutine get_bc_sub_inflow_solution
+  temp_ref = pv_in(nee)/pv_in(nec)/rgasref_nd
+  ttot_ref = temp_ref * total_cond
+  ptot_ref = pv_in(nee) * total_cond**gam_over_gm1
+  !
+  dterr = eps3*ttot_ref
+  !
+  ! Precompute the direction cosines
+  !
+  aoa = atan2(pv_in(nmy),pv_in(nmx))
+  tan_aoa = tan( aoa * degrees2radians )
+  !
+  dir_cosx = one / sqrt(one + tan_aoa**2)
+  dir_cosy = tan_aoa * dir_cosx
+  !
+  newton_failures = 0
+  !
+  !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+  !$ACC&              PRESENT(facenrm,face_cv) &
+  !$ACC&              REDUCTION(+:newton_failures)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = -rnx/ds
+    uny = -rny/ds
+    !
+    ! Get the host cell primitive variables at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    q2 = vx*vx + vy*vy
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+    !
+    ! Normal velocity of the interior/host cell at this flux point
+    !
+    veln_int = vx*unx + vy*uny
+    !
+    ! Compute the speed of sound at this flux point
+    !
+    aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
+    !
+    rminus = veln_int - (two*aspd_int/gm1)
+    !
+    temp_ext = temp_ref
+    !
+    aspd_ext = aspd_ref
+    !
+    rafac = one / (dir_cosx*unx + dir_cosy*uny)
+    !
+    veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+    !
+    func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+    dfunc = -(one + veln_ext*rafac/aspd_ext)
+    !
+    convergence_reached = fals
+    newton_iteration: do k = 1,newton_iter
+      !
+      dtemp = func/dfunc
+      !
+      if (abs(dtemp) < dterr) then
+        convergence_reached = true
+        exit newton_iteration
+      end if
+      !
+      temp_ext = temp_ext - dtemp
+      aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+      veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+      !
+      func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+      dfunc = -(one + veln_ext*rafac/aspd_ext)
+      !
+    end do newton_iteration
+    !
+    mach_ext = veln_ext / aspd_ext
+    !
+    pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+    !
+    face_cv(n,nec,2) = pres_ext / temp_ext / rgasref_nd
+    face_cv(n,nmx,2) = veln_ext * dir_cosx
+    face_cv(n,nmy,2) = veln_ext * dir_cosy
+    face_cv(n,nee,2) = pres_ext
+    !
+    ! Check to make sure the temperature converged
+    !
+    if (.not. convergence_reached) then
+      newton_failures = newton_failures + 1
+     !dtemp = func/dfunc
+     !write (iout,1) "mypnum   = ",mypnum
+     !write (iout,1) "nf       = ",nf
+     !write (iout,1) "k        = ",k,          " "
+     !write (iout,2) "aoa      = ",aoa
+     !write (iout,2) "tan_aoa  = ",tan_aoa
+     !write (iout,2) "dir_cos1 = ",dir_cosx
+     !write (iout,2) "dir_cos2 = ",dir_cosy, " "
+     !write (iout,2) "dens_int = ",rho
+     !write (iout,2) "vx_int   = ",vx
+     !write (iout,2) "vy_int   = ",vy
+     !write (iout,2) "pres_int = ",pres
+     !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
+     !write (iout,2) "aspd_int = ",aspd_int
+     !write (iout,2) "veln_int = ",veln_int,   " "
+     !write (iout,2) "dterr    = ",dterr
+     !write (iout,2) "func     = ",func
+     !write (iout,2) "dfunc    = ",dfunc
+     !write (iout,2) "dtemp    = ",dtemp,      " "
+     !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
+     !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
+     !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
+     !write (iout,2) "pres_ext = ",pres_ext
+     !write (iout,2) "temp_ext = ",temp_ext
+     !write (iout,2) "aspd_ext = ",aspd_ext
+     !write (iout,2) "veln_ext = ",veln_ext,   " "
+     !1 format (1x,a,i0,:,/,a)
+     !2 format (1x,a,es14.6,:,/,a)
+    end if
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_newton_2d
 !
 !###############################################################################
 !
-subroutine get_bc_sub_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
+                                            pv_in,newton_failures)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  ! NEWTON_FAILURES : Number of failed convergences from Newton iterations
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  integer,  intent(inout) :: newton_failures
+  !
+  !.. Local Scalars ..
+  integer  :: k,n,nr
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: dir_cosx,dir_cosy,dir_cosz
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
+  real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
+  real(wp) :: aspd_int,veln_int
+  real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
+  real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp
+  real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
+  real(wp) :: temp_ref,ttot_ref,ptot_ref,aoa
+  !
+  logical(lk) :: convergence_reached
+  !
+  !.. Local Parameters ..
+  integer, parameter :: newton_iter = 100
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Precompute the free stream specific kinetic energy
+  ! and the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gam_over_gm1 = gam / gm1
+  gam_over_1mg = -gam_over_gm1
+  !
+  ! Compute the inflow conditions
+  !
+  aspd_ref = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  if (nr == 3) then
+    mach_ref = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                     pv_in(nmy)*pv_in(nmy) + &
+                     pv_in(nmz)*pv_in(nmz) ) / aspd_ref
+  else if (nr == 2) then
+    mach_ref = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                     pv_in(nmy)*pv_in(nmy) ) / aspd_ref
+  else
+    mach_ref = abs( pv_in(nmx) ) / aspd_ref
+  end if
+  !
+  total_cond = one + half*gm1*mach_ref*mach_ref
+  !
+  temp_ref = pv_in(nee)/pv_in(nec)/rgasref_nd
+  ttot_ref = temp_ref * total_cond
+  ptot_ref = pv_in(nee) * total_cond**gam_over_gm1
+  !
+  dterr = eps3*ttot_ref
+  !
+  ! Precompute the direction cosines
+  !
+  aoa = atan2(pv_in(nmy),pv_in(nmx))
+  tan_aoa = tan( aoa * degrees2radians )
+  !
+  dir_cosx = one / sqrt(one + tan_aoa**2)
+  dir_cosy = tan_aoa * dir_cosx
+  dir_cosz = zero
+  !
+  newton_failures = 0
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+    !$ACC&              PRESENT(facenrm,face_cv) &
+    !$ACC&              REDUCTION(+:newton_failures)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = -rnx/ds
+      uny = -rny/ds
+      unz = -rnz/ds
+      !
+      ! Get the host cell primitive variables at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      q2 = vx*vx + vy*vy + vz*vz
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      !
+      ! Normal velocity of the interior/host cell at this flux point
+      !
+      veln_int = vx*unx + vy*uny + vz*unz
+      !
+      ! Compute the speed of sound at this flux point
+      !
+      aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      rminus = veln_int - (two*aspd_int/gm1)
+      !
+      temp_ext = temp_ref
+      !
+      aspd_ext = aspd_ref
+      !
+      rafac = one / (dir_cosx*unx + dir_cosy*uny + dir_cosz*unz)
+      !
+      veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+      !
+      func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+      dfunc = -(one + veln_ext*rafac/aspd_ext)
+      !
+      convergence_reached = fals
+      newton_iteration_3d: do k = 1,newton_iter
+        !
+        dtemp = func/dfunc
+        !
+        if (abs(dtemp) < dterr) then
+          convergence_reached = true
+          exit newton_iteration_3d
+        end if
+        !
+        temp_ext = temp_ext - dtemp
+        aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+        veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+        !
+        func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+        dfunc = -(one + veln_ext*rafac/aspd_ext)
+        !
+      end do newton_iteration_3d
+      !
+      mach_ext = veln_ext / aspd_ext
+      !
+      pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+      !
+      face_cv(n,nec,2) = pres_ext / temp_ext / rgasref_nd
+      face_cv(n,nmx,2) = veln_ext * dir_cosx
+      face_cv(n,nmy,2) = veln_ext * dir_cosy
+      face_cv(n,nmz,2) = veln_ext * dir_cosz
+      face_cv(n,nee,2) = pres_ext
+      !
+      ! Check to make sure the temperature converged
+      !
+      if (.not. convergence_reached) then
+        newton_failures = newton_failures + 1
+       !dtemp = func/dfunc
+       !write (iout,1) "mypnum   = ",mypnum
+       !write (iout,1) "nf       = ",nf
+       !write (iout,1) "k        = ",k,          " "
+       !write (iout,2) "aoa      = ",aoa
+       !write (iout,2) "tan_aoa  = ",tan_aoa
+       !write (iout,2) "dir_cos1 = ",dir_cosx
+       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
+       !write (iout,2) "dens_int = ",rho
+       !write (iout,2) "vx_int   = ",vx
+       !write (iout,2) "vy_int   = ",vy
+       !write (iout,2) "vz_int   = ",vz
+       !write (iout,2) "pres_int = ",pres
+       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
+       !write (iout,2) "aspd_int = ",aspd_int
+       !write (iout,2) "veln_int = ",veln_int,   " "
+       !write (iout,2) "dterr    = ",dterr
+       !write (iout,2) "func     = ",func
+       !write (iout,2) "dfunc    = ",dfunc
+       !write (iout,2) "dtemp    = ",dtemp,      " "
+       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
+       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
+       !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
+       !write (iout,2) "vz_ext   = ",face_cv(n,nmz,2)
+       !write (iout,2) "pres_ext = ",pres_ext
+       !write (iout,2) "temp_ext = ",temp_ext
+       !write (iout,2) "aspd_ext = ",aspd_ext
+       !write (iout,2) "veln_ext = ",veln_ext,   " "
+       !1 format (1x,a,i0,:,/,a)
+       !2 format (1x,a,es14.6,:,/,a)
+      end if
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+    !$ACC&              PRESENT(facenrm,face_cv) &
+    !$ACC&              REDUCTION(+:newton_failures)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = -rnx/ds
+      uny = -rny/ds
+      !
+      ! Get the host cell primitive variables at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      q2 = vx*vx + vy*vy
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      !
+      ! Normal velocity of the interior/host cell at this flux point
+      !
+      veln_int = vx*unx + vy*uny
+      !
+      ! Compute the speed of sound at this flux point
+      !
+      aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      rminus = veln_int - (two*aspd_int/gm1)
+      !
+      temp_ext = temp_ref
+      !
+      aspd_ext = aspd_ref
+      !
+      rafac = one / (dir_cosx*unx + dir_cosy*uny)
+      !
+      veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+      !
+      func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+      dfunc = -(one + veln_ext*rafac/aspd_ext)
+      !
+      convergence_reached = fals
+      newton_iteration_2d: do k = 1,newton_iter
+        !
+        dtemp = func/dfunc
+        !
+        if (abs(dtemp) < dterr) then
+          convergence_reached = true
+          exit newton_iteration_2d
+        end if
+        !
+        temp_ext = temp_ext - dtemp
+        aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+        veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+        !
+        func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+        dfunc = -(one + veln_ext*rafac/aspd_ext)
+        !
+      end do newton_iteration_2d
+      !
+      mach_ext = veln_ext / aspd_ext
+      !
+      pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+      !
+      face_cv(n,nec,2) = pres_ext / temp_ext / rgasref_nd
+      face_cv(n,nmx,2) = veln_ext * dir_cosx
+      face_cv(n,nmy,2) = veln_ext * dir_cosy
+      face_cv(n,nee,2) = pres_ext
+      !
+      ! Check to make sure the temperature converged
+      !
+      if (.not. convergence_reached) then
+        newton_failures = newton_failures + 1
+       !dtemp = func/dfunc
+       !write (iout,1) "mypnum   = ",mypnum
+       !write (iout,1) "nf       = ",nf
+       !write (iout,1) "k        = ",k,          " "
+       !write (iout,2) "aoa      = ",aoa
+       !write (iout,2) "tan_aoa  = ",tan_aoa
+       !write (iout,2) "dir_cos1 = ",dir_cosx
+       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
+       !write (iout,2) "dens_int = ",rho
+       !write (iout,2) "vx_int   = ",vx
+       !write (iout,2) "vy_int   = ",vy
+       !write (iout,2) "pres_int = ",pres
+       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
+       !write (iout,2) "aspd_int = ",aspd_int
+       !write (iout,2) "veln_int = ",veln_int,   " "
+       !write (iout,2) "dterr    = ",dterr
+       !write (iout,2) "func     = ",func
+       !write (iout,2) "dfunc    = ",dfunc
+       !write (iout,2) "dtemp    = ",dtemp,      " "
+       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
+       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
+       !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
+       !write (iout,2) "pres_ext = ",pres_ext
+       !write (iout,2) "temp_ext = ",temp_ext
+       !write (iout,2) "aspd_ext = ",aspd_ext
+       !write (iout,2) "veln_ext = ",veln_ext,   " "
+       !1 format (1x,a,i0,:,/,a)
+       !2 format (1x,a,es14.6,:,/,a)
+      end if
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP GANG WORKER VECTOR &
+    !$ACC&              PRESENT(facenrm,face_cv) &
+    !$ACC&              REDUCTION(+:newton_failures)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      ds = sqrt( rnx*rnx )
+      unx = -rnx/ds
+      !
+      ! Get the host cell primitive variables at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      q2 = vx*vx
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      !
+      ! Normal velocity of the interior/host cell at this flux point
+      !
+      veln_int = vx*unx
+      !
+      ! Compute the speed of sound at this flux point
+      !
+      aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
+      !
+      rminus = veln_int - (two*aspd_int/gm1)
+      !
+      temp_ext = temp_ref
+      !
+      aspd_ext = aspd_ref
+      !
+      rafac = one / (dir_cosx*unx)
+      !
+      veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+      !
+      func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+      dfunc = -(one + veln_ext*rafac/aspd_ext)
+      !
+      convergence_reached = fals
+      newton_iteration_1d: do k = 1,newton_iter
+        !
+        dtemp = func/dfunc
+        !
+        if (abs(dtemp) < dterr) then
+          convergence_reached = true
+          exit newton_iteration_1d
+        end if
+        !
+        temp_ext = temp_ext - dtemp
+        aspd_ext = sqrt( max( gam*rgasref_nd*temp_ext , rndoff ) )
+        veln_ext = rafac * (rminus + two*aspd_ext/gm1)
+        !
+        func = ttot_ref - temp_ext - half*gm1*veln_ext*veln_ext/(gam*rgasref_nd)
+        dfunc = -(one + veln_ext*rafac/aspd_ext)
+        !
+      end do newton_iteration_1d
+      !
+      mach_ext = veln_ext / aspd_ext
+      !
+      pres_ext = ptot_ref*(one + half*gm1*mach_ext*mach_ext)**gam_over_1mg
+      !
+      face_cv(n,nec,2) = pres_ext / temp_ext / rgasref_nd
+      face_cv(n,nmx,2) = veln_ext * dir_cosx
+      face_cv(n,nee,2) = pres_ext
+      !
+      ! Check to make sure the temperature converged
+      !
+      if (.not. convergence_reached) then
+        newton_failures = newton_failures + 1
+       !dtemp = func/dfunc
+       !write (iout,1) "mypnum   = ",mypnum
+       !write (iout,1) "nf       = ",nf
+       !write (iout,1) "k        = ",k,          " "
+       !write (iout,2) "aoa      = ",aoa
+       !write (iout,2) "tan_aoa  = ",tan_aoa
+       !write (iout,2) "dir_cos1 = ",dir_cosx
+       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
+       !write (iout,2) "dens_int = ",rho
+       !write (iout,2) "vx_int   = ",vx
+       !write (iout,2) "pres_int = ",pres
+       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
+       !write (iout,2) "aspd_int = ",aspd_int
+       !write (iout,2) "veln_int = ",veln_int,   " "
+       !write (iout,2) "dterr    = ",dterr
+       !write (iout,2) "func     = ",func
+       !write (iout,2) "dfunc    = ",dfunc
+       !write (iout,2) "dtemp    = ",dtemp,      " "
+       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
+       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
+       !write (iout,2) "pres_ext = ",pres_ext
+       !write (iout,2) "temp_ext = ",temp_ext
+       !write (iout,2) "aspd_ext = ",aspd_ext
+       !write (iout,2) "veln_ext = ",veln_ext,   " "
+       !1 format (1x,a,i0,:,/,a)
+       !2 format (1x,a,es14.6,:,/,a)
+      end if
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_inflow_newton_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v2_3d(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ske_ext,ske_int
+  real(wp) :: rho,rhou,rhov,rhow,rhoe
+  !
+continue
+  !
+  ! Precompute the free stream specific kinetic energy
+  !
+  ske_ext = half * ( cv_in(nmx)*cv_in(nmx) + &
+                     cv_in(nmy)*cv_in(nmy) + &
+                     cv_in(nmz)*cv_in(nmz) ) / cv_in(nec)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoe = face_cv(n,nee,1)
+    !
+    ske_int = half * (rhou*rhou + rhov*rhov + rhow*rhow) / rho
+    !
+    face_cv(n,nec,2) = cv_in(nec)
+    face_cv(n,nmx,2) = cv_in(nmx)
+    face_cv(n,nmy,2) = cv_in(nmy)
+    face_cv(n,nmz,2) = cv_in(nmz)
+    face_cv(n,nee,2) = rhoe - ske_int + ske_ext
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v2_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v2_2d(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ske_ext,ske_int
+  real(wp) :: rho,rhou,rhov,rhoe
+  !
+continue
+  !
+  ! Precompute the free stream specific kinetic energy
+  !
+  ske_ext = half * ( cv_in(nmx)*cv_in(nmx) + &
+                     cv_in(nmy)*cv_in(nmy) ) / cv_in(nec)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoe = face_cv(n,nee,1)
+    !
+    ske_int = half * (rhou*rhou + rhov*rhov) / rho
+    !
+    face_cv(n,nec,2) = cv_in(nec)
+    face_cv(n,nmx,2) = cv_in(nmx)
+    face_cv(n,nmy,2) = cv_in(nmy)
+    face_cv(n,nee,2) = rhoe - ske_int + ske_ext
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v2_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v2_nd(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: ske_ext,ske_int
+  real(wp) :: rho,rhou,rhov,rhow,rhoe
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !
+    ! Precompute the free stream specific kinetic energy
+    !
+    ske_ext = half * ( cv_in(nmx)*cv_in(nmx) + &
+                       cv_in(nmy)*cv_in(nmy) + &
+                       cv_in(nmz)*cv_in(nmz) ) / cv_in(nec)
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      ske_int = half * (rhou*rhou + rhov*rhov + rhow*rhow) / rho
+      !
+      face_cv(n,nec,2) = cv_in(nec)
+      face_cv(n,nmx,2) = cv_in(nmx)
+      face_cv(n,nmy,2) = cv_in(nmy)
+      face_cv(n,nmz,2) = cv_in(nmz)
+      face_cv(n,nee,2) = rhoe - ske_int + ske_ext
+      !
+    end do
+  else if (nr == 2) then
+    !
+    ! Precompute the free stream specific kinetic energy
+    !
+    ske_ext = half * ( cv_in(nmx)*cv_in(nmx) + &
+                       cv_in(nmy)*cv_in(nmy) ) / cv_in(nec)
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      ske_int = half * (rhou*rhou + rhov*rhov) / rho
+      !
+      face_cv(n,nec,2) = cv_in(nec)
+      face_cv(n,nmx,2) = cv_in(nmx)
+      face_cv(n,nmy,2) = cv_in(nmy)
+      face_cv(n,nee,2) = rhoe - ske_int + ske_ext
+      !
+    end do
+  else
+    !
+    ! Precompute the free stream specific kinetic energy
+    !
+    ske_ext = half * cv_in(nmx)*cv_in(nmx) / cv_in(nec)
+    !
+    !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      ske_int = half * rhou * rhou / rho
+      !
+      face_cv(n,nec,2) = cv_in(nec)
+      face_cv(n,nmx,2) = cv_in(nmx)
+      face_cv(n,nee,2) = rhoe - ske_int + ske_ext
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_inflow_solution_v2_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v3_3d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv,gam_over_gm1
+  real(wp) :: rho,vx,a,b,c
+  real(wp) :: p0_ext,t0_ext,rho0_ext
+  real(wp) :: aspd,mach,total_cond
+  !
+continue
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gam_over_gm1 = gam*gm1_inv
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+               pv_in(nmy)*pv_in(nmy) + &
+               pv_in(nmz)*pv_in(nmz) ) / aspd
+  !
+  total_cond = one + half*gm1*mach*mach
+  !
+  t0_ext = total_cond * (pv_in(nee)/pv_in(nec)/rgasref_nd)
+  p0_ext = pv_in(nee) * total_cond**gam_over_gm1
+  rho0_ext = p0_ext/(rgasref_nd*t0_ext)
+  !
+  a = gm1_inv*rgasref_nd*t0_ext
+  b = two*gam*a
+  c = half*gm1/gam
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    vx = face_cv(n,nmx,1)/face_cv(n,nec,1)
+    !
+    rho = rho0_ext * ( (one + vx*vx/(b-vx*vx))**(-gm1_inv) )
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*vx
+    face_cv(n,nmy,2) = zero
+    face_cv(n,nmz,2) = zero
+    face_cv(n,nee,2) = rho * (a + c*vx*vx)
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v3_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v3_2d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv,gam_over_gm1
+  real(wp) :: rho,vx,a,b,c
+  real(wp) :: p0_ext,t0_ext,rho0_ext
+  real(wp) :: aspd,mach,total_cond
+  !
+continue
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gam_over_gm1 = gam*gm1_inv
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  mach = sqrt( pv_in(nmx)*pv_in(nmx) + pv_in(nmy)*pv_in(nmy) ) / aspd
+  !
+  total_cond = one + half*gm1*mach*mach
+  !
+  t0_ext = total_cond * (pv_in(nee)/pv_in(nec)/rgasref_nd)
+  p0_ext = pv_in(nee) * total_cond**gam_over_gm1
+  rho0_ext = p0_ext/(rgasref_nd*t0_ext)
+  !
+  a = gm1_inv*rgasref_nd*t0_ext
+  b = two*gam*a
+  c = half*gm1/gam
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    vx = face_cv(n,nmx,1)/face_cv(n,nec,1)
+    !
+    rho = rho0_ext * ( (one + vx*vx/(b-vx*vx))**(-gm1_inv) )
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*vx
+    face_cv(n,nmy,2) = zero
+    face_cv(n,nee,2) = rho * (a + c*vx*vx)
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v3_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v3_nd(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv,gam_over_gm1
+  real(wp) :: rho,vx,a,b,c
+  real(wp) :: p0_ext,t0_ext,rho0_ext
+  real(wp) :: aspd,mach,total_cond
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gam_over_gm1 = gam*gm1_inv
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  if (nr == 3) then
+    mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                 pv_in(nmy)*pv_in(nmy) + &
+                 pv_in(nmz)*pv_in(nmz) ) / aspd
+  else if (nr == 2) then
+    mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                 pv_in(nmy)*pv_in(nmy) ) / aspd
+  else
+    mach = abs( pv_in(nmx) ) / aspd
+  end if
+  !
+  total_cond = one + half*gm1*mach*mach
+  !
+  t0_ext = total_cond * (pv_in(nee)/pv_in(nec)/rgasref_nd)
+  p0_ext = pv_in(nee) * total_cond**gam_over_gm1
+  rho0_ext = p0_ext/(rgasref_nd*t0_ext)
+  !
+  a = gm1_inv*rgasref_nd*t0_ext
+  b = two*gam*a
+  c = half*gm1/gam
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      vx = face_cv(n,nmx,1)/face_cv(n,nec,1)
+      !
+      rho = rho0_ext * ( (one + vx*vx/(b-vx*vx))**(-gm1_inv) )
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nmy,2) = zero
+      face_cv(n,nmz,2) = zero
+      face_cv(n,nee,2) = rho * (a + c*vx*vx)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      vx = face_cv(n,nmx,1)/face_cv(n,nec,1)
+      !
+      rho = rho0_ext * ( (one + vx*vx/(b-vx*vx))**(-gm1_inv) )
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nmy,2) = zero
+      face_cv(n,nee,2) = rho * (a + c*vx*vx)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      vx = face_cv(n,nmx,1)/face_cv(n,nec,1)
+      !
+      rho = rho0_ext * ( (one + vx*vx/(b-vx*vx))**(-gm1_inv) )
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nee,2) = rho * (a + c*vx*vx)
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_inflow_solution_v3_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v4_3d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rho,rhou,rhov,rhow,rhoq2,pres
+  real(wp) :: rho_ext,q2_ext,rhoe_ext,rmsq,asq
+  real(wp) :: gm1,gm1_inv,gm1og,aspd,mach,p0_ext
+  !
+continue
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gm1og = gm1 / gam
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+               pv_in(nmy)*pv_in(nmy) + &
+               pv_in(nmz)*pv_in(nmz) ) / aspd
+  !
+  p0_ext = pv_in(nee) * (one + half*gm1*mach*mach)**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+    !
+    rmsq = ( (p0_ext/pres)**gm1og - one ) * two * gm1_inv
+    !
+    asq = one / (one + half*gm1*rmsq)
+    !
+    rho_ext = gam*pres/asq
+    q2_ext = rmsq * asq
+    rhoe_ext = pres*gm1_inv + half*rho_ext*q2_ext
+    !
+    face_cv(n,nec,2) = rho_ext
+    face_cv(n,nmx,2) = rho_ext*sqrt(q2_ext)
+    face_cv(n,nmy,2) = zero
+    face_cv(n,nmz,2) = zero
+    face_cv(n,nee,2) = rhoe_ext
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v4_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v4_2d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rho,rhou,rhov,rhoq2,pres
+  real(wp) :: rho_ext,q2_ext,rhoe_ext,rmsq,asq
+  real(wp) :: gm1,gm1_inv,gm1og,aspd,mach,p0_ext
+  !
+continue
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gm1og = gm1 / gam
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  mach = sqrt( pv_in(nmx)*pv_in(nmx) + pv_in(nmy)*pv_in(nmy) ) / aspd
+  !
+  p0_ext = pv_in(nee) * (one + half*gm1*mach*mach)**(gam*gm1_inv)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+    !
+    rmsq = ( (p0_ext/pres)**gm1og - one ) * two * gm1_inv
+    !
+    asq = one / (one + half*gm1*rmsq)
+    !
+    rho_ext = gam*pres/asq
+    q2_ext = rmsq * asq
+    rhoe_ext = pres*gm1_inv + half*rho_ext*q2_ext
+    !
+    face_cv(n,nec,2) = rho_ext
+    face_cv(n,nmx,2) = rho_ext*sqrt(q2_ext)
+    face_cv(n,nmy,2) = zero
+    face_cv(n,nee,2) = rhoe_ext
+    !
+  end do
+  !
+end subroutine get_bc_sub_inflow_solution_v4_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_inflow_solution_v4_nd(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic inflow boundary condition
+  ! ##    - Fix density to free stream
+  ! ##    - Fix velocities to free stream
+  ! ##    - Extrapolate pressure
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: rho,rhou,rhov,rhow,rhoq2,pres
+  real(wp) :: rho_ext,q2_ext,rhoe_ext,rmsq,asq
+  real(wp) :: gm1,gm1_inv,gm1og,aspd,mach,p0_ext
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  ! Precompute various BC quantities
+  !
+  gm1 = gam - one
+  gm1_inv = one / gm1
+  gm1og = gm1 / gam
+  !
+  aspd = sqrt(gam*pv_in(nee)/pv_in(nec))
+  !
+  if (nr == 3) then
+    mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                 pv_in(nmy)*pv_in(nmy) + &
+                 pv_in(nmz)*pv_in(nmz) ) / aspd
+  else if (nr == 2) then
+    mach = sqrt( pv_in(nmx)*pv_in(nmx) + &
+                 pv_in(nmy)*pv_in(nmy) ) / aspd
+  else
+    mach = abs( pv_in(nmx) ) / aspd
+  end if
+  !
+  p0_ext = pv_in(nee) * (one + half*gm1*mach*mach)**(gam*gm1_inv)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      rmsq = ( (p0_ext/pres)**gm1og - one ) * two * gm1_inv
+      !
+      asq = one / (one + half*gm1*rmsq)
+      !
+      rho_ext = gam*pres/asq
+      q2_ext = rmsq * asq
+      rhoe_ext = pres*gm1_inv + half*rho_ext*q2_ext
+      !
+      face_cv(n,nec,2) = rho_ext
+      face_cv(n,nmx,2) = rho_ext*sqrt(q2_ext)
+      face_cv(n,nmy,2) = zero
+      face_cv(n,nmz,2) = zero
+      face_cv(n,nee,2) = rhoe_ext
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rhoq2/rho)
+      !
+      rmsq = ( (p0_ext/pres)**gm1og - one ) * two * gm1_inv
+      !
+      asq = one / (one + half*gm1*rmsq)
+      !
+      rho_ext = gam*pres/asq
+      q2_ext = rmsq * asq
+      rhoe_ext = pres*gm1_inv + half*rho_ext*q2_ext
+      !
+      face_cv(n,nec,2) = rho_ext
+      face_cv(n,nmx,2) = rho_ext*sqrt(q2_ext)
+      face_cv(n,nmy,2) = zero
+      face_cv(n,nee,2) = rhoe_ext
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rhou*rhou/rho)
+      !
+      rmsq = ( (p0_ext/pres)**gm1og - one ) * two * gm1_inv
+      !
+      asq = one / (one + half*gm1*rmsq)
+      !
+      rho_ext = gam*pres/asq
+      q2_ext = rmsq * asq
+      rhoe_ext = pres*gm1_inv + half*rho_ext*q2_ext
+      !
+      face_cv(n,nec,2) = rho_ext
+      face_cv(n,nmx,2) = rho_ext*sqrt(q2_ext)
+      face_cv(n,nee,2) = rhoe_ext
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_inflow_solution_v4_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution(n1,n2,facenrm,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -1520,28 +4510,18 @@ subroutine get_bc_sub_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
   ! #####################################################
   ! #####################################################
   ! 
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HUFP  : Conservative variables at the host  cell flux points
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! PV_IN : Boundary condition flow variables in primitive form
-  !
-  !.. Use Statements ..
-  use ovar, only : ptotref_nd
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
   real(wp),    intent(in) :: pv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: gm1_inv,ske_int,vn_int,aspd_int
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: nr
   !
   !.. Local Parameters ..
   logical(lk), parameter :: use_old_sub_outflow = fals
@@ -1549,116 +4529,734 @@ subroutine get_bc_sub_outflow_solution(nfp,hufp,gufp,fnrm,pv_in)
   !
 continue
   !
-  ! Precompute the inverse of gamma-1
-  !
-  gm1_inv = one / (gam - one)
+  nr = size(facenrm,dim=1)
   !
   if (use_old_sub_outflow) then
-    !
-    do k = 1,nfp
-      !
-      ! Extrapolate interior density and velocities to boundary
-      !
-      gufp(:,k) = hufp(:,k)
-      !
-      ! Compute the interior specific kinetic energy
-      !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
-      !
-      ! Compute the total energy using free stream pressure
-      ! and interior specific kinetic energy
-      !
-      gufp(nee,k) = pv_in(nee) * gm1_inv + ske_int
-      !
-    end do
-    !
+    if (nr == 3) then
+      call get_bc_sub_outflow_solution_old_3d(n1,n2,face_cv,pv_in)
+    else if (nr == 2) then
+      call get_bc_sub_outflow_solution_old_2d(n1,n2,face_cv,pv_in)
+    else
+      call get_bc_sub_outflow_solution_old_nd(n1,n2,face_cv,pv_in)
+    end if
   else
-    !
-    do k = 1,nfp
-      !
-      ! Unit normal and tangent at this flux point
-      !
-      rnrm(:) = unit_vector( fnrm(:,k) )
-      !
-      ! Now convert the current host cell flux point
-      ! conservative variables to primitive variables
-      !
-      hvfp(:) = usp2v_sp( hufp(:,k) )
-      !
-      vn_int = dot( rnrm(:) , hvfp(nmb:nme) )
-      aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
-      !
-      ! Extrapolate interior primitive variables to boundary
-      !
-      gufp(1:nq,k) = hvfp(1:nq)
-      !
-      ! If the normal velocity from the interior says this is an inflow
-      ! boundary, set the ghost velocity to the magnitude of the interior
-      ! velocity multiplied by the unit normal
-      !
-      if (vn_int < zero) then
-        gufp(nmb:nme,k) = norm2( hvfp(nmb:nme) ) * rnrm(:)
-      end if
-      !
-      ! Set the boundary pressure to the reference pressure if the normal
-      ! velocity from the interior is subsonic, otherwise set the boundary
-      ! pressure to the reference total pressure
-      !
-      if (abs(vn_int)/aspd_int >= one) then
-        gufp(nee,k) = ptotref_nd
-      else
-        gufp(nee,k) = pv_in(nee)
-      end if
-      !
-      ! Convert the primitive variables to conservative variables
-      !
-      gufp(1:nq,k) = vsp2u_sp( gufp(1:nq,k) )
-      !
-    end do
-    !
+    if (nr == 3) then
+      call get_bc_sub_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
+    else if (nr == 2) then
+      call get_bc_sub_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+    else
+      call get_bc_sub_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+    end if
   end if
   !
 end subroutine get_bc_sub_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sup_inflow_solution(nfp,gufp,cv_in)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_sub_outflow_solution_old_3d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1_inv,rho,rhou,rhov,rhow,rhoq2
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1_inv = one / (gam - one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,pv_in)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nmz,2) = rhow
+    face_cv(n,nee,2) = pv_in(nee)*gm1_inv + half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_sub_outflow_solution_old_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution_old_2d(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1_inv,rho,rhou,rhov,rhoq2
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1_inv = one / (gam - one)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,pv_in)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nee,2) = pv_in(nee)*gm1_inv + half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_sub_outflow_solution_old_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution_old_nd(n1,n2,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1_inv,rho,rhou,rhov,rhow,rhoq2
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1_inv = one / (gam - one)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv,pv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nmz,2) = rhow
+      face_cv(n,nee,2) = pv_in(nee)*gm1_inv + half*rhoq2/rho
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv,pv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nee,2) = pv_in(nee)*gm1_inv + half*rhoq2/rho
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv,pv_in)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nee,2) = pv_in(nee)*gm1_inv + half*rhou*rhou/rho
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_outflow_solution_old_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,ptotref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv,ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rho_inv,vx,vy,vz,vn,q2,pres,pres_ext,aspd
+  !
+continue
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,pv_in)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    vz = face_cv(n,nmz,1)*rho_inv
+    !
+    vn = vx*unx + vy*uny + vz*unz
+    q2 = vx*vx + vy*vy + vz*vz
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+    aspd = sqrt(max(gam*pres*rho_inv,rndoff))
+    !
+    ! If the normal velocity from the interior says this is an inflow
+    ! boundary, set the ghost velocity to the magnitude of the interior
+    ! velocity multiplied by the unit normal
+    ! NOTE: q2 will remain the same
+    !
+    if (vn < zero) then
+      vx = sqrt(q2)*unx
+      vy = sqrt(q2)*uny
+      vz = sqrt(q2)*unz
+    end if
+    !
+    ! Set the boundary pressure to the reference pressure if the normal
+    ! velocity from the interior is subsonic, otherwise set the boundary
+    ! pressure to the reference total pressure
+    !
+    pres_ext = pv_in(nee)
+    !
+    if (abs(vn)/aspd >= one) then
+      pres_ext = ptotref_nd
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*vx
+    face_cv(n,nmy,2) = rho*vy
+    face_cv(n,nmz,2) = rho*vz
+    face_cv(n,nee,2) = pres_ext*gm1_inv + half*rho*q2
+    !
+  end do
+  !
+end subroutine get_bc_sub_outflow_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,ptotref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv,ds,rnx,rny,unx,uny
+  real(wp) :: rho,rho_inv,vx,vy,vn,q2,pres,pres_ext,aspd
+  !
+continue
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,pv_in)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    !
+    vn = vx*unx + vy*uny
+    q2 = vx*vx + vy*vy
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+    aspd = sqrt(max(gam*pres*rho_inv,rndoff))
+    !
+    ! If the normal velocity from the interior says this is an inflow
+    ! boundary, set the ghost velocity to the magnitude of the interior
+    ! velocity multiplied by the unit normal
+    ! NOTE: q2 will remain the same
+    !
+    if (vn < zero) then
+      vx = sqrt(q2)*unx
+      vy = sqrt(q2)*uny
+    end if
+    !
+    ! Set the boundary pressure to the reference pressure if the normal
+    ! velocity from the interior is subsonic, otherwise set the boundary
+    ! pressure to the reference total pressure
+    !
+    pres_ext = pv_in(nee)
+    !
+    if (abs(vn)/aspd >= one) then
+      pres_ext = ptotref_nd
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*vx
+    face_cv(n,nmy,2) = rho*vy
+    face_cv(n,nee,2) = pres_ext*gm1_inv + half*rho*q2
+    !
+  end do
+  !
+end subroutine get_bc_sub_outflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sub_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Subsonic outflow boundary condition
+  ! ##    - Extrapolate density
+  ! ##    - Extrapolate velocities
+  ! ##    - Fix pressure to free stream
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! PV_IN   : Boundary condition flow variables in primitive form
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,ptotref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: pv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv,ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rho_inv,vx,vy,vz,vn,q2,pres,pres_ext,aspd
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  ! Precompute the inverse of gamma-1
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,pv_in)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      !
+      vn = vx*unx + vy*uny + vz*unz
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      aspd = sqrt(max(gam*pres*rho_inv,rndoff))
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      ! NOTE: q2 will remain the same
+      !
+      if (vn < zero) then
+        vx = sqrt(q2)*unx
+        vy = sqrt(q2)*uny
+        vz = sqrt(q2)*unz
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      pres_ext = pv_in(nee)
+      !
+      if (abs(vn)/aspd >= one) then
+        pres_ext = ptotref_nd
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nmy,2) = rho*vy
+      face_cv(n,nmz,2) = rho*vz
+      face_cv(n,nee,2) = pres_ext*gm1_inv + half*rho*q2
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,pv_in)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      !
+      vn = vx*unx + vy*uny
+      q2 = vx*vx + vy*vy
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      aspd = sqrt(max(gam*pres*rho_inv,rndoff))
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      ! NOTE: q2 will remain the same
+      !
+      if (vn < zero) then
+        vx = sqrt(q2)*unx
+        vy = sqrt(q2)*uny
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      pres_ext = pv_in(nee)
+      !
+      if (abs(vn)/aspd >= one) then
+        pres_ext = ptotref_nd
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nmy,2) = rho*vy
+      face_cv(n,nee,2) = pres_ext*gm1_inv + half*rho*q2
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,pv_in)
+    do n = n1,n2
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      !
+      vn = vx*unx
+      q2 = vx*vx
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      aspd = sqrt(max(gam*pres*rho_inv,rndoff))
+      !
+      ! If the normal velocity from the interior says this is an inflow
+      ! boundary, set the ghost velocity to the magnitude of the interior
+      ! velocity multiplied by the unit normal
+      ! NOTE: q2 will remain the same
+      !
+      if (vn < zero) then
+        vx = sqrt(q2)*unx
+      end if
+      !
+      ! Set the boundary pressure to the reference pressure if the normal
+      ! velocity from the interior is subsonic, otherwise set the boundary
+      ! pressure to the reference total pressure
+      !
+      pres_ext = pv_in(nee)
+      !
+      if (abs(vn)/aspd >= one) then
+        pres_ext = ptotref_nd
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*vx
+      face_cv(n,nee,2) = pres_ext*gm1_inv + half*rho*q2
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_sub_outflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_inflow_solution(n1,n2,face_cv,cv_in)
   !
   ! #####################################################
   ! #####################################################
   ! ##  Supersonic inflow boundary condition
-  ! ##    - Fix all variables to free stream
+  ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
   ! 
-  ! GUFP  : Conservative variables at the ghost cell flux points
-  ! CV_IN : Boundary condition flow variables in conservative form
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
+  integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: cv_in(:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp), intent(inout) :: face_cv(:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer :: nr
   !
 continue
   !
-  do k = 1,nfp
-    !
-    ! Set all variables to free stream
-    !
-    gufp(:,k) = cv_in(:)
-    !
-  end do
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_sup_inflow_solution_3d(n1,n2,face_cv,cv_in)
+  else if (nr == 2) then
+    call get_bc_sup_inflow_solution_2d(n1,n2,face_cv,cv_in)
+  else
+    call get_bc_sup_inflow_solution_nd(n1,n2,face_cv,cv_in)
+  end if
   !
 end subroutine get_bc_sup_inflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_sup_outflow_solution(nfp,hufp,gufp)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_sup_inflow_solution_3d(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic inflow boundary condition
+  ! ##    - Fix all variables to the inflow condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Set all variables to the inflow condition
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    face_cv(n,nec) = cv_in(nec)
+    face_cv(n,nmx) = cv_in(nmx)
+    face_cv(n,nmy) = cv_in(nmy)
+    face_cv(n,nmz) = cv_in(nmz)
+    face_cv(n,nee) = cv_in(nee)
+  end do
+  !
+end subroutine get_bc_sup_inflow_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_inflow_solution_2d(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic inflow boundary condition
+  ! ##    - Fix all variables to the inflow condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Set all variables to the inflow condition
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,cv_in)
+  do n = n1,n2
+    face_cv(n,nec) = cv_in(nec)
+    face_cv(n,nmx) = cv_in(nmx)
+    face_cv(n,nmy) = cv_in(nmy)
+    face_cv(n,nee) = cv_in(nee)
+  end do
+  !
+end subroutine get_bc_sup_inflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_inflow_solution_nd(n1,n2,face_cv,cv_in)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic inflow boundary condition
+  ! ##    - Fix all variables to the inflow condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the ghost cell flux points
+  ! CV_IN   : Boundary condition flow variables in conservative form
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: cv_in(:)
+  real(wp), intent(inout) :: face_cv(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  !
+continue
+  !
+  ! Set all variables to the inflow condition
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(face_cv,cv_in)
+  do m = 1,size(cv_in)
+    do n = n1,n2
+      face_cv(n,m) = cv_in(m)
+    end do
+  end do
+  !
+end subroutine get_bc_sup_inflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_outflow_solution(n1,n2,face_cv)
   !
   ! #####################################################
   ! #####################################################
@@ -1667,33 +5265,148 @@ subroutine get_bc_sup_outflow_solution(nfp,hufp,gufp)
   ! #####################################################
   ! #####################################################
   ! 
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
+  ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer :: nr
   !
 continue
   !
-  do k = 1,nfp
-    !
-    ! Extrapolate all interior variables to the boundary
-    !
-    gufp(1:nq,k) = hufp(1:nq,k)
-    !
-  end do
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_sup_outflow_solution_3d(n1,n2,face_cv)
+  else if (nr == 2) then
+    call get_bc_sup_outflow_solution_2d(n1,n2,face_cv)
+  else
+    call get_bc_sup_outflow_solution_nd(n1,n2,face_cv)
+  end if
   !
 end subroutine get_bc_sup_outflow_solution
 !
 !###############################################################################
 !
-subroutine get_bc_slip_wall_solution(nfp,hufp,gufp,fnrm)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_sup_outflow_solution_3d(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic outflow boundary condition
+  ! ##    - Extrapolate all variables
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    face_cv(n,nec,2) = face_cv(n,nec,1)
+    face_cv(n,nmx,2) = face_cv(n,nmx,1)
+    face_cv(n,nmy,2) = face_cv(n,nmy,1)
+    face_cv(n,nmz,2) = face_cv(n,nmz,1)
+    face_cv(n,nee,2) = face_cv(n,nee,1)
+  end do
+  !
+end subroutine get_bc_sup_outflow_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_outflow_solution_2d(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic outflow boundary condition
+  ! ##    - Extrapolate all variables
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    face_cv(n,nec,2) = face_cv(n,nec,1)
+    face_cv(n,nmx,2) = face_cv(n,nmx,1)
+    face_cv(n,nmy,2) = face_cv(n,nmy,1)
+    face_cv(n,nee,2) = face_cv(n,nee,1)
+  end do
+  !
+end subroutine get_bc_sup_outflow_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_sup_outflow_solution_nd(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Supersonic outflow boundary condition
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      face_cv(n,nec,2) = face_cv(n,nec,1)
+      face_cv(n,nmx,2) = face_cv(n,nmx,1)
+      face_cv(n,nmy,2) = face_cv(n,nmy,1)
+      face_cv(n,nmz,2) = face_cv(n,nmz,1)
+      face_cv(n,nee,2) = face_cv(n,nee,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      face_cv(n,nec,2) = face_cv(n,nec,1)
+      face_cv(n,nmx,2) = face_cv(n,nmx,1)
+      face_cv(n,nmy,2) = face_cv(n,nmy,1)
+      face_cv(n,nee,2) = face_cv(n,nee,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      face_cv(n,nec,2) = face_cv(n,nec,1)
+      face_cv(n,nmx,2) = face_cv(n,nmx,1)
+      face_cv(n,nee,2) = face_cv(n,nee,1)
+    end do
+  end if
+  !
+end subroutine get_bc_sup_outflow_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_solution(n1,n2,facenrm,face_cv)
   !
   ! #####################################################
   ! #####################################################
@@ -1701,67 +5414,269 @@ subroutine get_bc_slip_wall_solution(nfp,hufp,gufp,fnrm)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM : Face outward normal vector at the flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar, only : walls_are_exact
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: vn,wall_solution_location
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: nr
   !
 continue
   !
-  wall_solution_location = merge(zero,one,walls_are_exact)
+  nr = size(facenrm,dim=1)
   !
-  do k = 1,nfp
-    !
-    ! Unit normal at this flux point
-    !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Get the interior primitive variables
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the normal velocity at this boundary flux point
-    !
-    vn = dot( hvfp(nmb:nme) , rnrm )
-    !
-    ! For velocities, subtract (wall_solution_location+one) * (the wall
-    ! normal velocity) from the interior velocity to get the wall
-    ! boundary velocity.
-    !
-    hvfp(nmb:nme) = hvfp(nmb:nme) - (wall_solution_location+one)*vn*rnrm(:)
-    !
-    ! Convert the primitive variables to conservative.
-    ! This ensures that the interior density and pressure are
-    ! extrapolated to the boundary and the total energy at the
-    ! boundary is consistent with these two states and the
-    ! computed boundary velocity.
-    !
-    gufp(:,k) = vsp2u_sp( hvfp(:) )
-    !
-  end do
+  if (nr == 3) then
+    call get_bc_slip_wall_solution_3d(n1,n2,facenrm,face_cv)
+  else if (nr == 2) then
+    call get_bc_slip_wall_solution_2d(n1,n2,facenrm,face_cv)
+  else
+    call get_bc_slip_wall_solution_nd(n1,n2,facenrm,face_cv)
+  end if
   !
 end subroutine get_bc_slip_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_adiabatic_wall_solution(nfp,hufp,gufp)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_slip_wall_solution_3d(n1,n2,facenrm,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: rho,rho_inv,vx,vy,vz,vn,rhoe
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  velocity_const = merge(one,two,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    vz = face_cv(n,nmz,1)*rho_inv
+    rhoe = face_cv(n,nee,1)
+    !
+    vn = vx*unx + vy*uny + vz*unz
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*(vx - velocity_const*vn*unx)
+    face_cv(n,nmy,2) = rho*(vy - velocity_const*vn*uny)
+    face_cv(n,nmz,2) = rho*(vz - velocity_const*vn*unz)
+    face_cv(n,nee,2) = rhoe + energy_const*half*rho*vn*vn
+    !
+  end do
+  !
+end subroutine get_bc_slip_wall_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_solution_2d(n1,n2,facenrm,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: rho,rho_inv,vx,vy,vn,rhoe
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  velocity_const = merge(one,two,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    rhoe = face_cv(n,nee,1)
+    !
+    vn = vx*unx + vy*uny
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rho*(vx - velocity_const*vn*unx)
+    face_cv(n,nmy,2) = rho*(vy - velocity_const*vn*uny)
+    face_cv(n,nee,2) = rhoe + energy_const*half*rho*vn*vn
+    !
+  end do
+  !
+end subroutine get_bc_slip_wall_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_solution_nd(n1,n2,facenrm,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: rho,rho_inv,vx,vy,vz,vn,rhoe
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  velocity_const = merge(one,two,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      rhoe = face_cv(n,nee,1)
+      !
+      vn = vx*unx + vy*uny + vz*unz
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(vx - velocity_const*vn*unx)
+      face_cv(n,nmy,2) = rho*(vy - velocity_const*vn*uny)
+      face_cv(n,nmz,2) = rho*(vz - velocity_const*vn*unz)
+      face_cv(n,nee,2) = rhoe + energy_const*half*rho*vn*vn
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      rhoe = face_cv(n,nee,1)
+      !
+      vn = vx*unx + vy*uny
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(vx - velocity_const*vn*unx)
+      face_cv(n,nmy,2) = rho*(vy - velocity_const*vn*uny)
+      face_cv(n,nee,2) = rhoe + energy_const*half*rho*vn*vn
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      vx = face_cv(n,nmx,1)/rho
+      rhoe = face_cv(n,nee,1)
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rho*(one - velocity_const)*vx
+      face_cv(n,nee,2) = rhoe + energy_const*half*rho*vx*vx
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_slip_wall_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv)
   !
   ! #####################################################
   ! #####################################################
@@ -1769,54 +5684,217 @@ subroutine get_bc_adiabatic_wall_solution(nfp,hufp,gufp)
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  !
-  !.. Use Statements ..
-  use ovar, only : walls_are_exact
+  ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: wall_solution_location
-  !
-  !.. Local Arrays ..
-  real(wp) :: hvfp(1:size(gufp,dim=1))
+  integer :: nr
   !
 continue
   !
-  wall_solution_location = merge(zero,one,walls_are_exact)
+  nr = nme-nmb+1
   !
-  do k = 1,nfp
-    !
-    ! Get the interior primitive variables
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Apply the no-slip condition to the boundary velocities
-    !
-    hvfp(nmb:nme) = -hvfp(nmb:nme) * wall_solution_location
-    !
-    ! Convert the primitive variables to conservative.
-    ! This ensures that the interior density and pressure are
-    ! extrapolated to the boundary and the total energy at the
-    ! boundary is consistent with these two states and the
-    ! computed boundary velocity.
-    !
-    gufp(:,k) = vsp2u_sp( hvfp(:) )
-    !
-  end do
+  if (nr == 3) then
+    call get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv)
+  else if (nr == 2) then
+    call get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv)
+  else
+    call get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv)
+  end if
   !
 end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-subroutine get_bc_isothermal_wall_solution(nfp,hufp,gufp,wall_temperature,fnrm)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  velocity_const = merge(zero,-one,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    rho  = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoe = face_cv(n,nee,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou*velocity_const
+    face_cv(n,nmy,2) = rhov*velocity_const
+    face_cv(n,nmz,2) = rhow*velocity_const
+    face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_adiabatic_wall_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: rho,rhou,rhov,rhoe,rhoq2
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  velocity_const = merge(zero,-one,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    rho  = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoe = face_cv(n,nee,1)
+    !
+    rhoq2 = rhou*rhou + rhov*rhov
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou*velocity_const
+    face_cv(n,nmy,2) = rhov*velocity_const
+    face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+    !
+  end do
+  !
+end subroutine get_bc_adiabatic_wall_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
+  real(wp) :: velocity_const,energy_const
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  velocity_const = merge(zero,-one,walls_are_exact)
+  energy_const = merge(-one,zero,walls_are_exact)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho  = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou*velocity_const
+      face_cv(n,nmy,2) = rhov*velocity_const
+      face_cv(n,nmz,2) = rhow*velocity_const
+      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho  = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      rhoq2 = rhou*rhou + rhov*rhov
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou*velocity_const
+      face_cv(n,nmy,2) = rhov*velocity_const
+      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho  = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhoe = face_cv(n,nee,1)
+      !
+      rhoq2 = rhou*rhou
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou*velocity_const
+      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_adiabatic_wall_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_isothermal_wall_solution(n1,n2,facenrm,face_cv, &
+                                                wall_temperature)
   !
   ! #####################################################
   ! #####################################################
@@ -1824,30 +5902,74 @@ subroutine get_bc_isothermal_wall_solution(nfp,hufp,gufp,wall_temperature,fnrm)
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! GUFP : Conservative variables at the ghost cell flux points
-  ! WALL_TEMPERATURE :: isothermal wall temperature
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! WALL_TEMPERATURE : isothermal wall temperature
   !
   !.. Use Statements ..
-  use ovar, only : tref,rgasref_nd
-  use ovar, only : walls_are_exact
-  use ovar, only : aref
+  use gpu_mod, only : tvsp2u_gpu
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
+  integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: wall_temperature
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: k
-  real(wp) :: wall_solution_location
-  real(wp) :: uwall
+  integer :: nr
   !
-  !.. Local Arrays ..
-  real(wp) :: hvfp(1:size(gufp,dim=1))
-  real(wp) :: unrm(1:size(fnrm,dim=1))
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then
+    call get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
+                                            wall_temperature)
+  else if (nr == 2) then
+    call get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
+                                            wall_temperature)
+  else
+    call get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
+                                            wall_temperature)
+  end if
+  !
+  ! The above subroutines will return the boundary condition states as
+  ! primitive variables. These need to be converted to conservative variables.
+  !
+  call tvsp2u_gpu(n1,n2,face_cv(:,:,2))
+  !
+end subroutine get_bc_isothermal_wall_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
+                                                   wall_temperature)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip isothermal wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! WALL_TEMPERATURE : isothermal wall temperature
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,aref,rgasref_nd
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: wall_temperature
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,rtw_inv,rnx,rny,rnz,uny
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
+  real(wp) :: velocity_const,wall_velocity
   !
   !.. Local Parameters ..
  !logical(lk), parameter :: use_moving_wall = fals
@@ -1855,45 +5977,301 @@ subroutine get_bc_isothermal_wall_solution(nfp,hufp,gufp,wall_temperature,fnrm)
   !
 continue
   !
-  wall_solution_location = merge(zero,one,walls_are_exact)
-  uwall = 30.0_wp / aref
+  velocity_const = merge(zero,-one,walls_are_exact)
   !
-  do k = 1,nfp
+  gm1 = gam - one
+  rtw_inv = one / rgasref_nd / wall_temperature
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
     !
-    unrm(:) = unit_vector(fnrm(:,k))
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    vz = face_cv(n,nmz,1)*rho_inv
     !
-    ! Get the interior primitive variables
+    q2 = vx*vx + vy*vy + vz*vz
     !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
-    ! Apply the no-slip condition to the boundary velocities
-    !
-    hvfp(nmb:nme) = -hvfp(nmb:nme) * wall_solution_location
-    if (use_moving_wall) then
-      if ( unrm(2) > half ) hvfp(nmb) = uwall
-    end if
-    !
-    ! Keeping the wall pressure constant, compute the wall
-    ! density using the isothermal wall temperature.
-    !
-    hvfp(nec) = hvfp(nee) / rgasref_nd / wall_temperature
-    !
-    ! Convert the primitive variables to conservative.
-    ! This ensures that the total energy at the boundary is
-    ! consistent with the extrapolated internal pressure, the
-    ! isothermal wall temperature, and the computed boundary
-    ! velocity.
-    !
-    gufp(:,k) = vsp2u_sp( hvfp(:) )
+    face_cv(n,nec,2) = pres * rtw_inv
+    face_cv(n,nmx,2) = vx * velocity_const
+    face_cv(n,nmy,2) = vy * velocity_const
+    face_cv(n,nmz,2) = vz * velocity_const
+    face_cv(n,nee,2) = pres
     !
   end do
   !
-end subroutine get_bc_isothermal_wall_solution
+  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
+  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
+  !
+  if (use_moving_wall) then
+    !
+    wall_velocity = 30.0_wp / aref
+    !
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      uny = rny / sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      !
+      if (uny > half) then
+        face_cv(n,nmy,2) = wall_velocity
+      end if
+      !
+    end do
+    !
+  end if
+  !
+end subroutine get_bc_isothermal_wall_solution_3d
 !
 !###############################################################################
 !
-subroutine get_bc_periodic_solution(nfp,pufp,gufp)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
+                                                   wall_temperature)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip isothermal wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! WALL_TEMPERATURE : isothermal wall temperature
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,aref,rgasref_nd
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: wall_temperature
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,rtw_inv,rnx,rny,uny
+  real(wp) :: rho,rho_inv,vx,vy,q2,pres
+  real(wp) :: velocity_const,wall_velocity
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: use_moving_wall = fals
+  logical(lk), parameter :: use_moving_wall = true
+  !
+continue
+  !
+  velocity_const = merge(zero,-one,walls_are_exact)
+  !
+  gm1 = gam - one
+  rtw_inv = one / rgasref_nd / wall_temperature
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv)
+  do n = n1,n2
+    !
+    rho = face_cv(n,nec,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    !
+    q2 = vx*vx + vy*vy
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+    !
+    face_cv(n,nec,2) = pres * rtw_inv
+    face_cv(n,nmx,2) = vx * velocity_const
+    face_cv(n,nmy,2) = vy * velocity_const
+    face_cv(n,nee,2) = pres
+    !
+  end do
+  !
+  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
+  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
+  !
+  if (use_moving_wall) then
+    !
+    wall_velocity = 30.0_wp / aref
+    !
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      uny = rny / sqrt( rnx*rnx + rny*rny )
+      !
+      if (uny > half) then
+        face_cv(n,nmy,2) = wall_velocity
+      end if
+      !
+    end do
+    !
+  end if
+  !
+end subroutine get_bc_isothermal_wall_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
+                                                   wall_temperature)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip isothermal wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  ! WALL_TEMPERATURE : isothermal wall temperature
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,aref,rgasref_nd
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: wall_temperature
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,rtw_inv,rnx,rny,rnz,uny,zcoef
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
+  real(wp) :: velocity_const,wall_velocity
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: use_moving_wall = fals
+  logical(lk), parameter :: use_moving_wall = true
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  velocity_const = merge(zero,-one,walls_are_exact)
+  !
+  gm1 = gam - one
+  rtw_inv = one / rgasref_nd / wall_temperature
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
+      !
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      !
+      face_cv(n,nec,2) = pres * rtw_inv
+      face_cv(n,nmx,2) = vx * velocity_const
+      face_cv(n,nmy,2) = vy * velocity_const
+      face_cv(n,nmz,2) = vz * velocity_const
+      face_cv(n,nee,2) = pres
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      !
+      q2 = vx*vx + vy*vy
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
+      !
+      face_cv(n,nec,2) = pres * rtw_inv
+      face_cv(n,nmx,2) = vx * velocity_const
+      face_cv(n,nmy,2) = vy * velocity_const
+      face_cv(n,nee,2) = pres
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_cv)
+    do n = n1,n2
+      !
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*vx*vx)
+      !
+      face_cv(n,nec,2) = pres * rtw_inv
+      face_cv(n,nmx,2) = vx * velocity_const
+      face_cv(n,nee,2) = pres
+      !
+    end do
+  end if
+  !
+  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
+  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
+  !
+  if (use_moving_wall) then
+    !
+    wall_velocity = 30.0_wp / aref
+    zcoef = merge(one,zero,nr==3)
+    !
+    if (nr > 1) then
+      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+      do n = n1,n2
+        !
+        rnx = facenrm(1,n)
+        rny = facenrm(2,n)
+        rnz = facenrm(nr,n)
+        uny = rny / sqrt( rnx*rnx + rny*rny + zcoef*rnz*rnz )
+        !
+        if (uny > half) then
+          face_cv(n,nmy,2) = wall_velocity
+        end if
+        !
+      end do
+    end if
+    !
+  end if
+  !
+end subroutine get_bc_isothermal_wall_solution_nd
+!
+!###############################################################################
+!
+
+pure subroutine get_bc_periodic_solution(n1,n2,face_cv,periodic_list)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_periodic_solution_3d(n1,n2,face_cv,periodic_list)
+  else if (nr == 2) then
+    call get_bc_periodic_solution_2d(n1,n2,face_cv,periodic_list)
+  else
+    call get_bc_periodic_solution_nd(n1,n2,face_cv,periodic_list)
+  end if
+  !
+end subroutine get_bc_periodic_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_periodic_solution_3d(n1,n2,face_cv,periodic_list)
   !
   ! #####################################################
   ! #####################################################
@@ -1905,39 +6283,160 @@ subroutine get_bc_periodic_solution(nfp,pufp,gufp)
   ! GUFP : Conservative variables at the ghost    cell flux points
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp), intent(inout) :: pufp(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer :: k
+  integer :: n
   !
 continue
   !
-  do k = 1,nfp
-    !
-    ! The conservative variables at this boundary flux point correspond
-    ! to the conservative variables at the interior boundary flux points
-    ! within the matching periodic cell. Therefore just copy these
-    ! values over.
-    ! NOTE: We may need to reverse the copy order, i.e., 
-    !          gufp(:,k) = pufp(:,nfp+1-k)
-    !
+  ! NOTE: We may need to reverse the copy order, i.e., 
+  !          gufp(:,k) = pufp(:,nfp+1-k)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
+  do n = n1,n2
+    face_cv(n,nec,2) =  face_cv(periodic_list(n),nec,1)
+    face_cv(n,nmx,2) =  face_cv(periodic_list(n),nmx,1)
+    face_cv(n,nmy,2) =  face_cv(periodic_list(n),nmy,1)
 #ifdef REVERSE_PERIODIC
-    gufp(:,k) = pufp(:,nfp-k+1)
-    gufp(nme,k) = -pufp(nme,k)
+    face_cv(n,nmz,2) = -face_cv(periodic_list(n),nmz,1)
 #else
-    gufp(:,k) = pufp(:,k)
+    face_cv(n,nmz,2) =  face_cv(periodic_list(n),nmz,1)
 #endif
-    !
+    face_cv(n,nee,2) =  face_cv(periodic_list(n),nee,1)
   end do
   !
-end subroutine get_bc_periodic_solution
+end subroutine get_bc_periodic_solution_3d
 !
 !###############################################################################
 !
-subroutine get_bc_mms_dirichlet_solution(nfp,hufp,gufp,fxyz,fnrm)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_periodic_solution_2d(n1,n2,face_cv,periodic_list)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Periodic boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! PUFP : Conservative variables at the periodic cell flux points
+  ! GUFP : Conservative variables at the ghost    cell flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! NOTE: We may need to reverse the copy order, i.e., 
+  !          gufp(:,k) = pufp(:,nfp+1-k)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
+  do n = n1,n2
+    face_cv(n,nec,2) =  face_cv(periodic_list(n),nec,1)
+    face_cv(n,nmx,2) =  face_cv(periodic_list(n),nmx,1)
+#ifdef REVERSE_PERIODIC
+    face_cv(n,nmy,2) = -face_cv(periodic_list(n),nmy,1)
+#else
+    face_cv(n,nmy,2) =  face_cv(periodic_list(n),nmy,1)
+#endif
+    face_cv(n,nee,2) =  face_cv(periodic_list(n),nee,1)
+  end do
+  !
+end subroutine get_bc_periodic_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_periodic_solution_nd(n1,n2,face_cv,periodic_list)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Periodic boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! PUFP : Conservative variables at the periodic cell flux points
+  ! GUFP : Conservative variables at the ghost    cell flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,m
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(face_cv,periodic_list)
+  do m = 1,size(face_cv,dim=2)
+    do n = n1,n2
+      face_cv(n,m,2) = face_cv(periodic_list(n),m,1)
+    end do
+  end do
+#ifdef REVERSE_PERIODIC
+  !
+  ! NOTE: We may need to reverse the copy order, i.e., 
+  !          gufp(:,k) = pufp(:,nfp+1-k)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
+  do n = n1,n2
+    face_cv(n,nme,2) = -face_cv(periodic_list(n),nme,1)
+  end do
+#endif
+  !
+end subroutine get_bc_periodic_solution_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,face_cv)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Generic freeflow boundary condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #####################################################
+  ! #####################################################
+  ! 
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACEXYZ : XYZ coordinates for all the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    call get_bc_mms_dirichlet_solution_3d(n1,n2,facenrm,facexyz,face_cv)
+  else if (nr == 2) then
+    call get_bc_mms_dirichlet_solution_2d(n1,n2,facenrm,facexyz,face_cv)
+  else
+    call get_bc_mms_dirichlet_solution_nd(n1,n2,facenrm,facexyz,face_cv)
+  end if
+  !
+end subroutine get_bc_mms_dirichlet_solution
+!
+!###############################################################################
+!
+pure subroutine get_bc_mms_dirichlet_solution_3d(n1,n2,facenrm,facexyz,face_cv)
   !
   ! #########################################################
   ! #########################################################
@@ -1949,113 +6448,539 @@ subroutine get_bc_mms_dirichlet_solution(nfp,hufp,gufp,fxyz,fnrm)
   ! #########################################################
   ! #########################################################
   !
-  ! GUFP : Conservative variables at the ghost cell flux points
-  ! HUFP : Conservative variables at the host  cell flux points
-  ! FXYZ : Coordinates of the flux points
-  ! FNRM : Face outward normal vector at the flux points
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACEXYZ : XYZ coordinates for all the flux points
+  ! FACE_CV : Conservative variables at the flux points
   !
   !.. Use Statements ..
-  use mms_mod, only : mms_solution_at_xyz
+  use ovar,    only : gam
+  use mms_mod, only : mms_solution_at_xyz_gpu
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: fxyz(:,:)
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp), intent(inout) :: gufp(:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k
-  real(wp) :: gm1_inv,ske_inf,ske_int,mach_int,aspd_int
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
-  real(wp) :: hvfp(1:size(gufp,dim=1))
-  real(wp) :: mms_sol(1:size(gufp,dim=1))
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,ske,pres,mach
+  real(wp) :: rho_mms,rhou_mms,rhov_mms,rhow_mms,rhoe_mms
+  real(wp) :: rhoq2_mms,ske_mms,pres_mms
   !
 continue
   !
-  nr = size(fnrm,dim=1)
+  gm1 = gam - one
+  gm1_inv = one/gm1
   !
-  gm1_inv = one / (gam - one)
+  call mms_solution_at_xyz_gpu(n1,n2,facexyz,face_cv(:,:,2), &
+                               return_nondim=true, &
+                               return_cv=true)
   !
-  do k = 1,nfp
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
     !
-    ! Get the 'freestream' conditions from the MMS solution
+    ! Unit normal at this flux point
     !
-    mms_sol(1:nq) = mms_solution_at_xyz( fxyz(:,k) , &
-                                         return_nondim=true , &
-                                         return_cv=true )
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
     !
-    ! Unit normal and tangent at this flux point
-    !
-    rnrm(:) = unit_vector( fnrm(:,k) )
-    !
-    ! Get the host cell primitive variables at this flux point
-    !
-    hvfp(:) = usp2v_sp( hufp(:,k) )
-    !
-    ! Compute the speed of sound at this flux point
-    !
-    aspd_int = sqrt( max( gam*hvfp(nee)/hvfp(nec) , rndoff ) )
+    rho_mms = face_cv(n,nec,2)
+    rhou_mms = face_cv(n,nmx,2)
+    rhov_mms = face_cv(n,nmy,2)
+    rhow_mms = face_cv(n,nmz,2)
+    rhoe_mms = face_cv(n,nee,2)
+    rhoq2_mms = rhou_mms*rhou_mms + rhov_mms*rhov_mms + rhow_mms*rhow_mms
+    ske_mms = half*rhoq2_mms/rho_mms
+    pres_mms = gm1*(rhoe_mms - ske_mms)
     !
     ! Compute the Mach number of the normal velocity at this flux point
     !
-    mach_int = dot( hvfp(nmb:nme) , rnrm(1:nr) ) / aspd_int
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhow = face_cv(n,nmz,1)
+    rhoe = face_cv(n,nee,1)
+    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    ske = half*rhoq2/rho
+    pres = gm1*(rhoe - ske)
     !
-    if (mach_int >= one) then
-      !
-      ! Supersonic outflow
-      !
-      ! Extrapolate all interior variables to the boundary
-      !
-      gufp(1:nq,k) = hufp(1:nq,k)
-      !
-    else if (mach_int <= -one) then
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! everything from the interior and we already have those values stored
+    ! in rho, rhou, rhov, rhow, and rhoe.
+    !
+    if (mach <= -one) then
       !
       ! Supersonic inflow
       !
       ! Set all variables to free stream
       !
-      gufp(:,k) = mms_sol(1:nq)
+      rho = rho_mms
+      rhou = rhou_mms
+      rhov = rhov_mms
+      rhow = rhow_mms
+      rhoe = rhoe_mms
       !
-    else if (mach_int > -one .and. mach_int <= zero) then
+    else if (mach > -one .and. mach <= zero) then
       !
       ! Subsonic inflow
       !
       ! Set all variables but pressure to free stream
       !
-      gufp(:,k) = mms_sol(:)
+      rho = rho_mms
+      rhou = rhou_mms
+      rhov = rhov_mms
+      rhow = rhow_mms
+      rhoe = pres*gm1_inv + ske_mms
       !
-      ! Compute the total energy using interior pressure
-      ! and free stream specific kinetic energy
-      !
-      ske_inf = half * selfdot( mms_sol(nmb:nme) ) / mms_sol(nec)
-      !
-      gufp(nee,k) = hvfp(nee) * gm1_inv + ske_inf
-      !
-    else if (mach_int < one .and. mach_int > zero) then
+    else if (mach < one .and. mach > zero) then
       !
       ! Subsonic outflow
       !
       ! Extrapolate interior density and velocities to boundary
-      !
-      gufp(:,k) = hufp(:,k)
-      !
-      ! Compute the interior specific kinetic energy
-      !
-      ske_int = half * selfdot( hufp(nmb:nme,k) ) / hufp(nec,k)
-      !
       ! Compute the total energy using free stream pressure
       ! and interior specific kinetic energy
       !
-      gufp(nee,k) = pressure_cv_sp( mms_sol(1:nq) ) * gm1_inv + ske_int
+      rhoe = pres_mms*gm1_inv + ske
       !
     end if
     !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nmz,2) = rhow
+    face_cv(n,nee,2) = rhoe
+    !
   end do
   !
-end subroutine get_bc_mms_dirichlet_solution
+end subroutine get_bc_mms_dirichlet_solution_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_mms_dirichlet_solution_2d(n1,n2,facenrm,facexyz,face_cv)
+  !
+  ! #########################################################
+  ! #########################################################
+  ! ##  MMS Dirichlet (generic freeflow) Boundary Condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #########################################################
+  ! #########################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACEXYZ : XYZ coordinates for all the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar,    only : gam
+  use mms_mod, only : mms_solution_at_xyz_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: rho,rhou,rhov,rhoe,rhoq2,ske,pres,mach
+  real(wp) :: rho_mms,rhou_mms,rhov_mms,rhoe_mms
+  real(wp) :: rhoq2_mms,ske_mms,pres_mms
+  !
+continue
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  call mms_solution_at_xyz_gpu(n1,n2,facexyz,face_cv(:,:,2), &
+                               return_nondim=true, &
+                               return_cv=true)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+  do n = n1,n2
+    !
+    ! Unit normal at this flux point
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    rho_mms = face_cv(n,nec,2)
+    rhou_mms = face_cv(n,nmx,2)
+    rhov_mms = face_cv(n,nmy,2)
+    rhoe_mms = face_cv(n,nee,2)
+    rhoq2_mms = rhou_mms*rhou_mms + rhov_mms*rhov_mms
+    ske_mms = half*rhoq2_mms/rho_mms
+    pres_mms = gm1*(rhoe_mms - ske_mms)
+    !
+    ! Compute the Mach number of the normal velocity at this flux point
+    !
+    rho = face_cv(n,nec,1)
+    rhou = face_cv(n,nmx,1)
+    rhov = face_cv(n,nmy,1)
+    rhoe = face_cv(n,nee,1)
+    rhoq2 = rhou*rhou + rhov*rhov
+    ske = half*rhoq2/rho
+    pres = gm1*(rhoe - ske)
+    !
+    ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+    !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+    !       instead of just vn.
+    !
+    mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+    !
+    ! If mach >= one, do nothing because in that case we want to extrapolate
+    ! everything from the interior and we already have those values stored
+    ! in rho, rhou, rhov, rhow, and rhoe.
+    !
+    if (mach <= -one) then
+      !
+      ! Supersonic inflow
+      !
+      ! Set all variables to free stream
+      !
+      rho = rho_mms
+      rhou = rhou_mms
+      rhov = rhov_mms
+      rhoe = rhoe_mms
+      !
+    else if (mach > -one .and. mach <= zero) then
+      !
+      ! Subsonic inflow
+      !
+      ! Set all variables but pressure to free stream
+      !
+      rho = rho_mms
+      rhou = rhou_mms
+      rhov = rhov_mms
+      rhoe = pres*gm1_inv + ske_mms
+      !
+    else if (mach < one .and. mach > zero) then
+      !
+      ! Subsonic outflow
+      !
+      ! Extrapolate interior density and velocities to boundary
+      ! Compute the total energy using free stream pressure
+      ! and interior specific kinetic energy
+      !
+      rhoe = pres_mms*gm1_inv + ske
+      !
+    end if
+    !
+    face_cv(n,nec,2) = rho
+    face_cv(n,nmx,2) = rhou
+    face_cv(n,nmy,2) = rhov
+    face_cv(n,nee,2) = rhoe
+    !
+  end do
+  !
+end subroutine get_bc_mms_dirichlet_solution_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_mms_dirichlet_solution_nd(n1,n2,facenrm,facexyz,face_cv)
+  !
+  ! #########################################################
+  ! #########################################################
+  ! ##  MMS Dirichlet (generic freeflow) Boundary Condition
+  ! ##    - At each flux point, use the normal velocity
+  ! ##      Mach number to determine if it is an inflow
+  ! ##      or outflow boundary condition and whether
+  ! ##      it is subsonic or supersonic.
+  ! #########################################################
+  ! #########################################################
+  !
+  ! FACENRM : Face outward normal vector at the flux points
+  ! FACEXYZ : XYZ coordinates for all the flux points
+  ! FACE_CV : Conservative variables at the flux points
+  !
+  !.. Use Statements ..
+  use ovar,    only : gam
+  use mms_mod, only : mms_solution_at_xyz_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: facexyz(:,:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: gm1,gm1_inv
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2,ske,pres,mach
+  real(wp) :: rho_mms,rhou_mms,rhov_mms,rhow_mms,rhoe_mms
+  real(wp) :: rhoq2_mms,ske_mms,pres_mms
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  gm1 = gam - one
+  gm1_inv = one/gm1
+  !
+  call mms_solution_at_xyz_gpu(n1,n2,facexyz,face_cv(:,:,2), &
+                               return_nondim=true, &
+                               return_cv=true)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      rho_mms = face_cv(n,nec,2)
+      rhou_mms = face_cv(n,nmx,2)
+      rhov_mms = face_cv(n,nmy,2)
+      rhow_mms = face_cv(n,nmz,2)
+      rhoe_mms = face_cv(n,nee,2)
+      rhoq2_mms = rhou_mms*rhou_mms + rhov_mms*rhov_mms + rhow_mms*rhow_mms
+      ske_mms = half*rhoq2_mms/rho_mms
+      pres_mms = gm1*(rhoe_mms - ske_mms)
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhow = face_cv(n,nmz,1)
+      rhoe = face_cv(n,nee,1)
+      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      ske = half*rhoq2/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny + rhow*unz) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        ! Supersonic inflow
+        !
+        ! Set all variables to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhov = rhov_mms
+        rhow = rhow_mms
+        rhoe = rhoe_mms
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        ! Subsonic inflow
+        !
+        ! Set all variables but pressure to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhov = rhov_mms
+        rhow = rhow_mms
+        rhoe = pres*gm1_inv + ske_mms
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        ! Subsonic outflow
+        !
+        ! Extrapolate interior density and velocities to boundary
+        ! Compute the total energy using free stream pressure
+        ! and interior specific kinetic energy
+        !
+        rhoe = pres_mms*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nmz,2) = rhow
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      rho_mms = face_cv(n,nec,2)
+      rhou_mms = face_cv(n,nmx,2)
+      rhov_mms = face_cv(n,nmy,2)
+      rhoe_mms = face_cv(n,nee,2)
+      rhoq2_mms = rhou_mms*rhou_mms + rhov_mms*rhov_mms
+      ske_mms = half*rhoq2_mms/rho_mms
+      pres_mms = gm1*(rhoe_mms - ske_mms)
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhov = face_cv(n,nmy,1)
+      rhoe = face_cv(n,nee,1)
+      rhoq2 = rhou*rhou + rhov*rhov
+      ske = half*rhoq2/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = (rhou*unx + rhov*uny) / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        ! Supersonic inflow
+        !
+        ! Set all variables to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhov = rhov_mms
+        rhoe = rhoe_mms
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        ! Subsonic inflow
+        !
+        ! Set all variables but pressure to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhov = rhov_mms
+        rhoe = pres*gm1_inv + ske_mms
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        ! Subsonic outflow
+        !
+        ! Extrapolate interior density and velocities to boundary
+        ! Compute the total energy using free stream pressure
+        ! and interior specific kinetic energy
+        !
+        rhoe = pres_mms*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nmy,2) = rhov
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
+    do n = n1,n2
+      !
+      ! Unit normal at this flux point
+      !
+      unx = facenrm(1,n)/abs(facenrm(1,n))
+      !
+      rho_mms = face_cv(n,nec,2)
+      rhou_mms = face_cv(n,nmx,2)
+      rhoe_mms = face_cv(n,nee,2)
+      ske_mms = half*rhou_mms*rhou_mms/rho_mms
+      pres_mms = gm1*(rhoe_mms - ske_mms)
+      !
+      ! Compute the Mach number of the normal velocity at this flux point
+      !
+      rho = face_cv(n,nec,1)
+      rhou = face_cv(n,nmx,1)
+      rhoe = face_cv(n,nee,1)
+      ske = half*rhou*rhou/rho
+      pres = gm1*(rhoe - ske)
+      !
+      ! NOTE: The speed of sound (denominator) is gam*pres*rho instead of
+      !       gam*pres/rho because the normal velocity (numerator) is rho*vn
+      !       instead of just vn.
+      !
+      mach = rhou*unx / sqrt( max(gam*pres*rho,rndoff) )
+      !
+      ! If mach >= one, do nothing because in that case we want to extrapolate
+      ! everything from the interior and we already have those values stored
+      ! in rho, rhou, rhov, rhow, and rhoe.
+      !
+      if (mach <= -one) then
+        !
+        ! Supersonic inflow
+        !
+        ! Set all variables to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhoe = rhoe_mms
+        !
+      else if (mach > -one .and. mach <= zero) then
+        !
+        ! Subsonic inflow
+        !
+        ! Set all variables but pressure to free stream
+        !
+        rho = rho_mms
+        rhou = rhou_mms
+        rhoe = pres*gm1_inv + ske_mms
+        !
+      else if (mach < one .and. mach > zero) then
+        !
+        ! Subsonic outflow
+        !
+        ! Extrapolate interior density and velocities to boundary
+        ! Compute the total energy using free stream pressure
+        ! and interior specific kinetic energy
+        !
+        rhoe = pres_mms*gm1_inv + ske
+        !
+      end if
+      !
+      face_cv(n,nec,2) = rho
+      face_cv(n,nmx,2) = rhou
+      face_cv(n,nee,2) = rhoe
+      !
+    end do
+  end if
+  !
+end subroutine get_bc_mms_dirichlet_solution_nd
 !
 !###############################################################################
 !###############################################################################
@@ -2072,86 +6997,267 @@ end subroutine get_bc_mms_dirichlet_solution
 !###############################################################################
 !###############################################################################
 !
-subroutine get_bc_periodic_gradient(nfp,hdufp,gdufp)
- !!$ACC ROUTINE SEQ
-  !
-  ! #####################################################
-  ! #####################################################
-  ! ##  General flow-through boundary conditions
-  ! #####################################################
-  ! #####################################################
-  ! 
-  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
-  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+pure subroutine get_bc_periodic_gradient(n1,n2,face_dcvdx,periodic_list)
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hdufp(:,:,:)
-  real(wp), intent(inout) :: gdufp(:,:,:)
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
-  integer :: i,j,k
+  integer :: nr
   !
 continue
   !
-  ! Simply copy the interior gradients to the boundary flux points
+  nr = size(face_dcvdx,dim=2)
   !
- !!$ACC LOOP VECTOR COLLAPSE(3)
-  do k = 1,nfp
-    do j = 1,size(gdufp,dim=2)
-      do i = 1,size(gdufp,dim=1)
-#ifdef REVERSE_PERIODIC
-        gdufp(i,j,k) = hdufp(i,j,nfp-k+1)
-#else
-        gdufp(i,j,k) = hdufp(i,j,k)
-#endif
-      end do
-    end do
-  end do
+  if (nr == 3) then
+    call get_bc_periodic_gradient_3d(n1,n2,face_dcvdx,periodic_list)
+  else if (nr == 2) then
+    call get_bc_periodic_gradient_2d(n1,n2,face_dcvdx,periodic_list)
+  else
+    call get_bc_periodic_gradient_nd(n1,n2,face_dcvdx,periodic_list)
+  end if
   !
 end subroutine get_bc_periodic_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_flowthrough_gradient(nfp,hdufp,gdufp)
- !!$ACC ROUTINE SEQ
-  !
-  ! #####################################################
-  ! #####################################################
-  ! ##  General flow-through boundary conditions
-  ! #####################################################
-  ! #####################################################
-  ! 
-  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
-  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+pure subroutine get_bc_periodic_gradient_3d(n1,n2,face_dcvdx,periodic_list)
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hdufp(:,:,:)
-  real(wp), intent(inout) :: gdufp(:,:,:)
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
-  integer :: i,j,k
+  integer :: n
   !
 continue
   !
   ! Simply copy the interior gradients to the boundary flux points
   !
- !!$ACC LOOP VECTOR COLLAPSE(3)
-  do k = 1,nfp
-    do j = 1,size(gdufp,dim=2)
-      do i = 1,size(gdufp,dim=1)
-        gdufp(i,j,k) = hdufp(i,j,k)
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list)
+  do n = n1,n2
+    !
+    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n),1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n),2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(periodic_list(n),3,nec,1)
+    !
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n),1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n),2,nmx,1)
+    face_dcvdx(n,3,nmx,2) = face_dcvdx(periodic_list(n),3,nmx,1)
+    !
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n),1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n),2,nmy,1)
+    face_dcvdx(n,3,nmy,2) = face_dcvdx(periodic_list(n),3,nmy,1)
+    !
+    face_dcvdx(n,1,nmz,2) = face_dcvdx(periodic_list(n),1,nmz,1)
+    face_dcvdx(n,2,nmz,2) = face_dcvdx(periodic_list(n),2,nmz,1)
+    face_dcvdx(n,3,nmz,2) = face_dcvdx(periodic_list(n),3,nmz,1)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n),1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n),2,nee,1)
+    face_dcvdx(n,3,nee,2) = face_dcvdx(periodic_list(n),3,nee,1)
+    !
+  end do
+  !
+end subroutine get_bc_periodic_gradient_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_periodic_gradient_2d(n1,n2,face_dcvdx,periodic_list)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list)
+  do n = n1,n2
+    !
+    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n),1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n),2,nec,1)
+    !
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n),1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n),2,nmx,1)
+    !
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n),1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n),2,nmy,1)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n),1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n),2,nee,1)
+    !
+  end do
+  !
+end subroutine get_bc_periodic_gradient_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_periodic_gradient_nd(n1,n2,face_dcvdx,periodic_list)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,m,l
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(3) &
+  !$ACC&              PRESENT(face_dcvdx,periodic_list)
+  do m = 1,size(face_dcvdx,dim=3)
+    do l = 1,size(face_dcvdx,dim=2)
+      do n = n1,n2
+        face_dcvdx(n,l,m,2) = face_dcvdx(periodic_list(n),l,m,1)
       end do
     end do
   end do
+  !
+end subroutine get_bc_periodic_gradient_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_flowthrough_gradient(n1,n2,face_dcvdx)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(face_dcvdx,dim=2)
+  !
+  if (nr == 3) then
+    call get_bc_flowthrough_gradient_3d(n1,n2,face_dcvdx)
+  else if (nr == 2) then
+    call get_bc_flowthrough_gradient_2d(n1,n2,face_dcvdx)
+  else
+    call get_bc_flowthrough_gradient_nd(n1,n2,face_dcvdx)
+  end if
   !
 end subroutine get_bc_flowthrough_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_adiabatic_wall_gradient(nfp,hufp,hdufp,gdufp)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_flowthrough_gradient_3d(n1,n2,face_dcvdx)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    !
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
+    !
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(n,1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(n,2,nmx,1)
+    face_dcvdx(n,3,nmx,2) = face_dcvdx(n,3,nmx,1)
+    !
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(n,1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(n,2,nmy,1)
+    face_dcvdx(n,3,nmy,2) = face_dcvdx(n,3,nmy,1)
+    !
+    face_dcvdx(n,1,nmz,2) = face_dcvdx(n,1,nmz,1)
+    face_dcvdx(n,2,nmz,2) = face_dcvdx(n,2,nmz,1)
+    face_dcvdx(n,3,nmz,2) = face_dcvdx(n,3,nmz,1)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,1)
+    face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,1)
+    !
+  end do
+  !
+end subroutine get_bc_flowthrough_gradient_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_flowthrough_gradient_2d(n1,n2,face_dcvdx)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    !
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    !
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(n,1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(n,2,nmx,1)
+    !
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(n,1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(n,2,nmy,1)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,1)
+    !
+  end do
+  !
+end subroutine get_bc_flowthrough_gradient_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_flowthrough_gradient_nd(n1,n2,face_dcvdx)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,m,l
+  !
+continue
+  !
+  ! Simply copy the interior gradients to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(3) &
+  !$ACC&              PRESENT(face_dcvdx)
+  do m = 1,size(face_dcvdx,dim=3)
+    do l = 1,size(face_dcvdx,dim=2)
+      do n = n1,n2
+        face_dcvdx(n,l,m,2) = face_dcvdx(n,l,m,1)
+      end do
+    end do
+  end do
+  !
+end subroutine get_bc_flowthrough_gradient_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_gradient(n1,n2,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -2159,113 +7265,62 @@ subroutine get_bc_adiabatic_wall_gradient(nfp,hufp,hdufp,gdufp)
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP  : Conservative variables at the host cell flux points
-  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
-  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: hdufp(:,:,:)
-  real(wp), intent(inout) :: gdufp(:,:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k,m,l
-  real(wp) :: rho_inv,vel
- !real(wp) :: rho_inv2,vel_over_rho
+  integer :: nr
   !
 continue
   !
-  nr = size(gdufp,dim=1)
+  nr = size(face_dcvdx,dim=2)
   !
-  do k = 1,nfp
-    !
-    ! Copy over the density gradients
-    !
-    gdufp(1:nr,nec,k) = hdufp(1:nr,nec,k)
-    !
-    ! Convert the momentum gradients to velocity gradients
-    !
-    rho_inv = one/hufp(nec,k)
-    !
-    do m = nmb,nme
-      vel = rho_inv * hufp(m,k)
-      do l = 1,nr
-        gdufp(l,m,k) = hdufp(l,m,k) - vel*hdufp(l,nec,k)
-        gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
-      end do
-    end do
-    !
-    ! Another algorithm to compute the velocity gradients. Unsure if
-    ! performing the above subtraction step first before multiplying
-    ! through by rho_inv could cause any precision errors.
-    !
-   !rho_inv = one/hufp(nec,k)
-   !rho_inv2 = rho_inv*rho_inv
-   !!
-   !do m = nmb,nme
-   !  vel_over_rho = rho_inv2 * hufp(m,k)
-   !  do l = 1,nr
-   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - vel_over_rho*hdufp(l,nec,k)
-   !  end do
-   !end do
-    !
-    ! Finally, since this is an adiabatic wall boundary,
-    ! set the temperature gradients to zero.
-    !
-    gdufp(1:nr,nq,k) = zero
-    !
-  end do
+  if (nr == 3) then
+    call get_bc_adiabatic_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
+  else if (nr == 2) then
+    call get_bc_adiabatic_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
+  else
+    call get_bc_adiabatic_wall_gradient_nd(n1,n2,face_cv,face_dcvdx)
+  end if
   !
 end subroutine get_bc_adiabatic_wall_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_wall_gradient(nfp,hufp,hdufp,gdufp)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_adiabatic_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
-  ! ##  Non-adiabatic wall
+  ! ##  No-slip adiabatic wall
   ! #####################################################
   ! #####################################################
   !
-  ! HUFP  : Conservative variables at the host cell flux points
-  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
-  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
-  !
-  !.. Use Statements ..
-  use ovar, only : rgasref_nd
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: hufp(:,:)
-  real(wp),    intent(in) :: hdufp(:,:,:)
-  real(wp), intent(inout) :: gdufp(:,:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k,m,l
-  real(wp) :: rho_inv,vel,pvar,cv_inv
-  real(wp) :: a,b
- !real(wp) :: rho_inv2,pvar_over_rho
-  !
-  !.. Local Arrays ..
-  real(wp) :: dtdx(1:size(gdufp,dim=1))
+  integer  :: n
+  real(wp) :: r_inv
   !
 continue
   !
-  nr = size(gdufp,dim=1)
-  !
-  ! Precompute the inverse of specific heat at constant volume
-  !
-  cv_inv = (gam - one) / rgasref_nd
-  !
   ! Copy over the interior density gradient to the boundary flux points
   !
-  do k = 1,nfp
-    do l = 1,nr
-      gdufp(l,nec,k) = hdufp(l,nec,k)
-    end do
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
   end do
   !
   ! We will also copy the other conservative variable gradients from
@@ -2276,74 +7331,750 @@ continue
   ! This means pre-converting the conservative variable gradients to
   ! primitive variable gradients.
   !
-  do k = 1,nfp
+  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
     !
-    ! Compute the inverse of density
+    r_inv = one/face_cv(n,nec)
     !
-    rho_inv = one/hufp(nec,k)
+    face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,3,nmx,2) = r_inv*face_dcvdx(n,3,nmx,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmx)*r_inv
     !
-    ! Using the chain rule:
+    face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,3,nmy,2) = r_inv*face_dcvdx(n,3,nmy,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmy)*r_inv
     !
-    ! 1. Compute the velocity gradients (m = 2,nq-1)
-    ! 2. Compute the total energy gradient and store in the
-    !    location for the temperature gradient (m = nq)
-    !
-    do m = nmb,nq
-      pvar = rho_inv * hufp(m,k)
-      do l = 1,nr
-        gdufp(l,m,k) = hdufp(l,m,k) - pvar*hdufp(l,nec,k)
-        gdufp(l,m,k) = rho_inv * gdufp(l,m,k)
-      end do
-    end do
-   !!
-   !! Another algorithm to compute the velocity gradients. Unsure if
-   !! performing the above subtraction step first before multiplying
-   !! through by rho_inv could cause any precision errors.
-   !!
-   !rho_inv = one/hufp(nec,k)
-   !rho_inv2 = rho_inv*rho_inv
-   !!
-   !do m = nmb,nq
-   !  pvar_over_rho = rho_inv2 * hufp(m,k)
-   !  do l = 1,nr
-   !    gdufp(l,m,k) = rho_inv*hdufp(l,m,k) - pvar_over_rho*hdufp(l,nec,k)
-   !  end do
-   !end do
-    !
-    ! The location for the temperature gradient currently contains
-    ! the total energy gradient from the previous loop.
-    ! Now use the velocity gradients to subtract the gradient of
-    ! kinetic-energy-per-unit-mass from the total energy gradient.
-    ! 
-   !dtdx(1:nr) = gdufp(1:nr,nq,k)
-   !do m = nmb,nme
-   !  vel = rho_inv * hufp(m,k)
-   !  do l = 1,nr
-   !    dtdx(l) = dtdx(l) - vel * gdufp(l,m,k)
-   !  end do
-   !end do
-   !!
-   !! Finish computing the temperature gradient by dividing through by
-   !! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
-   !!
-   !gdufp(1:nr,nq,k) = dtdx(1:nr) * cv_inv
-    !
-    do l = 1,nr
-      a = rho_inv * selfdot( hufp(nmb:nme,k) ) * hdufp(l,nec,k)
-      b = dot( hufp(nmb:nme,k) , hdufp(l,nmb:nme,k) )
-      gdufp(l,nq,k) = gdufp(l,nq,k) + rho_inv*rho_inv*(a-b)
-      gdufp(l,nq,k) = gdufp(l,nq,k) * cv_inv
-    end do
-    !
+    face_dcvdx(n,1,nmz,2) = r_inv*face_dcvdx(n,1,nmz,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,2,nmz,2) = r_inv*face_dcvdx(n,2,nmz,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,3,nmz,2) = r_inv*face_dcvdx(n,3,nmz,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmz)*r_inv
     !
   end do
+  !
+  ! Finally, since this is an adiabatic wall boundary,
+  ! set the temperature gradients to zero.
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nee,2) = zero
+    face_dcvdx(n,2,nee,2) = zero
+    face_dcvdx(n,3,nee,2) = zero
+  end do
+  !
+end subroutine get_bc_adiabatic_wall_gradient_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: r_inv
+  !
+continue
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+  end do
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+    !
+    face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+    !
+  end do
+  !
+  ! Finally, since this is an adiabatic wall boundary,
+  ! set the temperature gradients to zero.
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nee,2) = zero
+    face_dcvdx(n,2,nee,2) = zero
+  end do
+  !
+end subroutine get_bc_adiabatic_wall_gradient_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_adiabatic_wall_gradient_nd(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  No-slip adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: r_inv
+  !
+continue
+  !
+  nr = size(face_dcvdx,dim=2)
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+      face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+      face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+      face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    end do
+  end if
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the chain rule,convert the momentum gradients to velocity gradients
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,3,nmx,2) = r_inv*face_dcvdx(n,3,nmx,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmx)*r_inv
+      !
+      face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,3,nmy,2) = r_inv*face_dcvdx(n,3,nmy,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmy)*r_inv
+      !
+      face_dcvdx(n,1,nmz,2) = r_inv*face_dcvdx(n,1,nmz,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmz)*r_inv
+      face_dcvdx(n,2,nmz,2) = r_inv*face_dcvdx(n,2,nmz,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmz)*r_inv
+      face_dcvdx(n,3,nmz,2) = r_inv*face_dcvdx(n,3,nmz,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmz)*r_inv
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+      !
+      face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      !
+    end do
+  end if
+  !
+  ! Finally, since this is an adiabatic wall boundary,
+  ! set the temperature gradients to zero.
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = zero
+      face_dcvdx(n,2,nee,2) = zero
+      face_dcvdx(n,3,nee,2) = zero
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = zero
+      face_dcvdx(n,2,nee,2) = zero
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = zero
+    end do
+  end if
+  !
+end subroutine get_bc_adiabatic_wall_gradient_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_wall_gradient(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Non-adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(face_dcvdx,dim=2)
+  !
+  if (nr == 3) then
+    call get_bc_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
+  else if (nr == 2) then
+    call get_bc_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
+  else
+    call get_bc_wall_gradient_nd(n1,n2,face_cv,face_dcvdx)
+  end if
   !
 end subroutine get_bc_wall_gradient
 !
 !###############################################################################
 !
-subroutine get_bc_slip_wall_gradient(nfp,hdufp,gdufp,fnrm)
- !!$ACC ROUTINE SEQ
+pure subroutine get_bc_wall_gradient_3d(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Non-adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r_inv,cv_inv
+  !
+continue
+  !
+  ! Precompute the inverse of specific heat at constant volume
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
+  end do
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the chain rule:
+  !
+  ! 1. Compute the velocity gradients (m = 2,nq-1)
+  ! 2. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (m = nq)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,3,nmx,2) = r_inv*face_dcvdx(n,3,nmx,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmx)*r_inv
+    !
+    face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,3,nmy,2) = r_inv*face_dcvdx(n,3,nmy,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmy)*r_inv
+    !
+    face_dcvdx(n,1,nmz,2) = r_inv*face_dcvdx(n,1,nmz,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,2,nmz,2) = r_inv*face_dcvdx(n,2,nmz,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmz)*r_inv
+    face_dcvdx(n,3,nmz,2) = r_inv*face_dcvdx(n,3,nmz,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+    face_dcvdx(n,2,nee,2) = r_inv*face_dcvdx(n,2,nee,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nee)*r_inv
+    face_dcvdx(n,3,nee,2) = r_inv*face_dcvdx(n,3,nee,1) &
+                          - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nee)*r_inv
+    !
+  end do
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  ! 
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                          - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,1,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,1,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) &
+                          - face_dcvdx(n,2,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,2,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,2,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+    face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) &
+                          - face_dcvdx(n,3,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,3,nmy,2)*face_cv(n,nmy)*r_inv &
+                          - face_dcvdx(n,3,nmz,2)*face_cv(n,nmz)*r_inv
+    !
+  end do
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) * cv_inv
+    face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) * cv_inv
+  end do
+  !
+end subroutine get_bc_wall_gradient_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_wall_gradient_2d(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Non-adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: r_inv,cv_inv
+  !
+continue
+  !
+  ! Precompute the inverse of specific heat at constant volume
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+  end do
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the chain rule:
+  !
+  ! 1. Compute the velocity gradients (m = 2,nq-1)
+  ! 2. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (m = nq)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+    face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+    !
+    face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+    face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+    !
+    face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                          - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+    face_dcvdx(n,2,nee,2) = r_inv*face_dcvdx(n,2,nee,1) &
+                          - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nee)*r_inv
+    !
+  end do
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  ! 
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+  do n = n1,n2
+    !
+    r_inv = one/face_cv(n,nec)
+    !
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                          - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,1,nmy,2)*face_cv(n,nmy)*r_inv
+    !
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) &
+                          - face_dcvdx(n,2,nmx,2)*face_cv(n,nmx)*r_inv &
+                          - face_dcvdx(n,2,nmy,2)*face_cv(n,nmy)*r_inv
+    !
+  end do
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+  do n = n1,n2
+    face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+    face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) * cv_inv
+  end do
+  !
+end subroutine get_bc_wall_gradient_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_wall_gradient_nd(n1,n2,face_cv,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Non-adiabatic wall
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACE_CV    : Conservative variables at the host cell flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: r_inv,cv_inv
+  !
+continue
+  !
+  nr = size(face_dcvdx,dim=2)
+  !
+  ! Precompute the inverse of specific heat at constant volume
+  !
+  cv_inv = (gam - one) / rgasref_nd
+  !
+  ! Copy over the interior density gradient to the boundary flux points
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+      face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+      face_dcvdx(n,3,nec,2) = face_dcvdx(n,3,nec,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+      face_dcvdx(n,2,nec,2) = face_dcvdx(n,2,nec,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec,2) = face_dcvdx(n,1,nec,1)
+    end do
+  end if
+  !
+  ! We will also copy the other conservative variable gradients from
+  ! the interior cell to the boundary flux points. However, since
+  ! we treat the viscous fluxes for wall boundaries differently from
+  ! the flow-through boundaries, we need to ensure that the wall
+  ! gradients are in the right form for the wall viscous flux function.
+  ! This means pre-converting the conservative variable gradients to
+  ! primitive variable gradients.
+  !
+  ! Using the chain rule:
+  !
+  ! 1. Compute the velocity gradients (m = 2,nq-1)
+  ! 2. Compute the total energy gradient and store in the
+  !    location for the temperature gradient (m = nq)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,3,nmx,2) = r_inv*face_dcvdx(n,3,nmx,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmx)*r_inv
+      !
+      face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,3,nmy,2) = r_inv*face_dcvdx(n,3,nmy,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmy)*r_inv
+      !
+      face_dcvdx(n,1,nmz,2) = r_inv*face_dcvdx(n,1,nmz,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmz)*r_inv
+      face_dcvdx(n,2,nmz,2) = r_inv*face_dcvdx(n,2,nmz,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmz)*r_inv
+      face_dcvdx(n,3,nmz,2) = r_inv*face_dcvdx(n,3,nmz,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nmz)*r_inv
+      !
+      face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+      face_dcvdx(n,2,nee,2) = r_inv*face_dcvdx(n,2,nee,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nee)*r_inv
+      face_dcvdx(n,3,nee,2) = r_inv*face_dcvdx(n,3,nee,1) &
+                            - r_inv*face_dcvdx(n,3,nec,1)*face_cv(n,nee)*r_inv
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      face_dcvdx(n,2,nmx,2) = r_inv*face_dcvdx(n,2,nmx,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmx)*r_inv
+      !
+      face_dcvdx(n,1,nmy,2) = r_inv*face_dcvdx(n,1,nmy,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmy)*r_inv
+      face_dcvdx(n,2,nmy,2) = r_inv*face_dcvdx(n,2,nmy,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nmy)*r_inv
+      !
+      face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+      face_dcvdx(n,2,nee,2) = r_inv*face_dcvdx(n,2,nee,1) &
+                            - r_inv*face_dcvdx(n,2,nec,1)*face_cv(n,nee)*r_inv
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nmx,2) = r_inv*face_dcvdx(n,1,nmx,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nmx)*r_inv
+      !
+      face_dcvdx(n,1,nee,2) = r_inv*face_dcvdx(n,1,nee,1) &
+                            - r_inv*face_dcvdx(n,1,nec,1)*face_cv(n,nee)*r_inv
+      !
+    end do
+  end if
+  !
+  ! The location for the temperature gradient currently contains
+  ! the total energy gradient from the previous loop.
+  ! Now use the velocity gradients to subtract the gradient of
+  ! kinetic-energy-per-unit-mass from the total energy gradient.
+  ! 
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                            - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv &
+                            - face_dcvdx(n,1,nmy,2)*face_cv(n,nmy)*r_inv &
+                            - face_dcvdx(n,1,nmz,2)*face_cv(n,nmz)*r_inv
+      !
+      face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) &
+                            - face_dcvdx(n,2,nmx,2)*face_cv(n,nmx)*r_inv &
+                            - face_dcvdx(n,2,nmy,2)*face_cv(n,nmy)*r_inv &
+                            - face_dcvdx(n,2,nmz,2)*face_cv(n,nmz)*r_inv
+      !
+      face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) &
+                            - face_dcvdx(n,3,nmx,2)*face_cv(n,nmx)*r_inv &
+                            - face_dcvdx(n,3,nmy,2)*face_cv(n,nmy)*r_inv &
+                            - face_dcvdx(n,3,nmz,2)*face_cv(n,nmz)*r_inv
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      !
+      r_inv = one/face_cv(n,nec)
+      !
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                            - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv &
+                            - face_dcvdx(n,1,nmy,2)*face_cv(n,nmy)*r_inv
+      !
+      face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) &
+                            - face_dcvdx(n,2,nmx,2)*face_cv(n,nmx)*r_inv &
+                            - face_dcvdx(n,2,nmy,2)*face_cv(n,nmy)*r_inv
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
+    do n = n1,n2
+      r_inv = one/face_cv(n,nec)
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) &
+                            - face_dcvdx(n,1,nmx,2)*face_cv(n,nmx)*r_inv
+    end do
+  end if
+  !
+  ! Finish computing the temperature gradient by dividing through by
+  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+      face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) * cv_inv
+      face_dcvdx(n,3,nee,2) = face_dcvdx(n,3,nee,2) * cv_inv
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+      face_dcvdx(n,2,nee,2) = face_dcvdx(n,2,nee,2) * cv_inv
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nee,2) = face_dcvdx(n,1,nee,2) * cv_inv
+    end do
+  end if
+  !
+end subroutine get_bc_wall_gradient_nd
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_gradient(n1,n2,facenrm,face_cv,face_dcvdx)
   !
   ! #####################################################
   ! #####################################################
@@ -2351,52 +8082,301 @@ subroutine get_bc_slip_wall_gradient(nfp,hdufp,gdufp,fnrm)
   ! #####################################################
   ! #####################################################
   !
-  ! FNRM  : Face outward normal vector at the flux points
-  ! HDUFP : Gradients of the conservative variables at the host  cell flux pts
-  ! GDUFP : Gradients of the conservative variables at the ghost cell flux pts
+  ! FACENRM    : Face outward normal vector at the flux points
+  ! FACE_CV    : Conservative variables at the flux points
+  ! FACE_DCVDX : Gradients of the conservative variables at the flux pts
+  !
+  !.. Use Statements ..
+  use gpu_mod, only : grad_cv_to_grad_pv_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr,np
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: dpvdx(:,:,:)
+  !
+continue
+  !
+  np = size(face_dcvdx,dim=1)
+  nr = size(face_dcvdx,dim=2)
+  !
+  allocate ( dpvdx(1:np,1:nr,1:nq) )
+  !$ACC DATA CREATE(dpvdx)
+  !
+  ! Convert the interior host cell conservative gradients to primitive
+  !
+  call grad_cv_to_grad_pv_gpu(n1,n2,face_cv,face_dcvdx(:,:,:,1),dpvdx)
+  !
+  ! Get the primitive variable gradients at the ghost cell flux points
+  !
+  if (nr == 3) then
+    call get_bc_slip_wall_gradient_3d(n1,n2,facenrm,dpvdx,face_dcvdx(:,:,:,2))
+  else if (nr == 2) then
+    call get_bc_slip_wall_gradient_2d(n1,n2,facenrm,dpvdx,face_dcvdx(:,:,:,2))
+  else
+    call get_bc_slip_wall_gradient_nd(n1,n2,facenrm,dpvdx,face_dcvdx(:,:,:,2))
+  end if
+  !
+  !$ACC END DATA
+  deallocate ( dpvdx )
+  !
+end subroutine get_bc_slip_wall_gradient
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_gradient_3d(n1,n2,facenrm,dpvdx,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM    : Face outward normal vector at the flux points
+  ! DPVDX      : Gradients of the primitive variables at the host  cell flux pts
+  ! FACE_DCVDX : Gradients of the primitive variables at the ghost cell flux pts
   !
   !.. Use Statements ..
   use ovar, only : walls_are_exact
   !
   !.. Formal Arguments ..
-  integer,     intent(in) :: nfp
-  real(wp),    intent(in) :: fnrm(:,:)
-  real(wp),    intent(in) :: hdufp(:,:,:)
-  real(wp), intent(inout) :: gdufp(:,:,:)
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: dpvdx(:,:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: nr,k,m,l
-  real(wp) :: wall_solution_location,reflect_const
-  !
-  !.. Local Arrays ..
-  real(wp) :: rnrm(1:size(fnrm,dim=1))
+  integer  :: n
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: drdn,dudn,dvdn,dwdn,dtdn
+  real(wp) :: reflect_const
   !
 continue
   !
-  wall_solution_location = merge(zero,one,walls_are_exact)
-  reflect_const = wall_solution_location + one
+  reflect_const = merge(one,two,walls_are_exact)
   !
-  nr = size(gdufp,dim=1)
-  !
-  do k = 1,nfp
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_dcvdx,dpvdx)
+  do n = n1,n2
     !
-    ! Unit normal at this flux point
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    rnz = facenrm(3,n)
+    ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+    unx = rnx/ds
+    uny = rny/ds
+    unz = rnz/ds
     !
-    rnrm(:) = unit_vector( fnrm(:,k) )
+    drdn = dpvdx(n,1,nec)*unx + dpvdx(n,2,nec)*uny + dpvdx(n,3,nec)*unz
+    dudn = dpvdx(n,1,nmx)*unx + dpvdx(n,2,nmx)*uny + dpvdx(n,3,nmx)*unz
+    dvdn = dpvdx(n,1,nmy)*unx + dpvdx(n,2,nmy)*uny + dpvdx(n,3,nmy)*unz
+    dwdn = dpvdx(n,1,nmz)*unx + dpvdx(n,2,nmz)*uny + dpvdx(n,3,nmz)*unz
+    dtdn = dpvdx(n,1,nee)*unx + dpvdx(n,2,nee)*uny + dpvdx(n,3,nee)*unz
     !
-    ! Set the boundary gradient vector to the reflection of the
-    ! interior gradient vector about the boundary face unit normal
+    face_dcvdx(n,1,nec) = dpvdx(n,1,nec) - reflect_const*unx*drdn
+    face_dcvdx(n,2,nec) = dpvdx(n,2,nec) - reflect_const*uny*drdn
+    face_dcvdx(n,3,nec) = dpvdx(n,3,nec) - reflect_const*unz*drdn
     !
-    do m = 1,nq
-      do l = 1,nr
-        gdufp(l,m,k) = hdufp(l,m,k) - &
-                       reflect_const*rnrm(l)*dot( hdufp(1:nr,m,k) , rnrm(1:nr) )
-      end do
-    end do
+    face_dcvdx(n,1,nmx) = dpvdx(n,1,nmx) - reflect_const*unx*dudn
+    face_dcvdx(n,2,nmx) = dpvdx(n,2,nmx) - reflect_const*uny*dudn
+    face_dcvdx(n,3,nmx) = dpvdx(n,3,nmx) - reflect_const*unz*dudn
+    !
+    face_dcvdx(n,1,nmy) = dpvdx(n,1,nmy) - reflect_const*unx*dvdn
+    face_dcvdx(n,2,nmy) = dpvdx(n,2,nmy) - reflect_const*uny*dvdn
+    face_dcvdx(n,3,nmy) = dpvdx(n,3,nmy) - reflect_const*unz*dvdn
+    !
+    face_dcvdx(n,1,nmz) = dpvdx(n,1,nmz) - reflect_const*unx*dwdn
+    face_dcvdx(n,2,nmz) = dpvdx(n,2,nmz) - reflect_const*uny*dwdn
+    face_dcvdx(n,3,nmz) = dpvdx(n,3,nmz) - reflect_const*unz*dwdn
+    !
+    face_dcvdx(n,1,nee) = dpvdx(n,1,nee) - reflect_const*unx*dtdn
+    face_dcvdx(n,2,nee) = dpvdx(n,2,nee) - reflect_const*uny*dtdn
+    face_dcvdx(n,3,nee) = dpvdx(n,3,nee) - reflect_const*unz*dtdn
     !
   end do
   !
-end subroutine get_bc_slip_wall_gradient
+end subroutine get_bc_slip_wall_gradient_3d
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_gradient_2d(n1,n2,facenrm,dpvdx,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM    : Face outward normal vector at the flux points
+  ! DPVDX      : Gradients of the primitive variables at the host  cell flux pts
+  ! FACE_DCVDX : Gradients of the primitive variables at the ghost cell flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: dpvdx(:,:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: ds,rnx,rny,unx,uny
+  real(wp) :: drdn,dudn,dvdn,dtdn
+  real(wp) :: reflect_const
+  !
+continue
+  !
+  reflect_const = merge(one,two,walls_are_exact)
+  !
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_dcvdx,dpvdx)
+  do n = n1,n2
+    !
+    rnx = facenrm(1,n)
+    rny = facenrm(2,n)
+    ds = sqrt( rnx*rnx + rny*rny )
+    unx = rnx/ds
+    uny = rny/ds
+    !
+    drdn = dpvdx(n,1,nec)*unx + dpvdx(n,2,nec)*uny
+    dudn = dpvdx(n,1,nmx)*unx + dpvdx(n,2,nmx)*uny
+    dvdn = dpvdx(n,1,nmy)*unx + dpvdx(n,2,nmy)*uny
+    dtdn = dpvdx(n,1,nee)*unx + dpvdx(n,2,nee)*uny
+    !
+    face_dcvdx(n,1,nec) = dpvdx(n,1,nec) - reflect_const*unx*drdn
+    face_dcvdx(n,2,nec) = dpvdx(n,2,nec) - reflect_const*uny*drdn
+    !
+    face_dcvdx(n,1,nmx) = dpvdx(n,1,nmx) - reflect_const*unx*dudn
+    face_dcvdx(n,2,nmx) = dpvdx(n,2,nmx) - reflect_const*uny*dudn
+    !
+    face_dcvdx(n,1,nmy) = dpvdx(n,1,nmy) - reflect_const*unx*dvdn
+    face_dcvdx(n,2,nmy) = dpvdx(n,2,nmy) - reflect_const*uny*dvdn
+    !
+    face_dcvdx(n,1,nee) = dpvdx(n,1,nee) - reflect_const*unx*dtdn
+    face_dcvdx(n,2,nee) = dpvdx(n,2,nee) - reflect_const*uny*dtdn
+    !
+  end do
+  !
+end subroutine get_bc_slip_wall_gradient_2d
+!
+!###############################################################################
+!
+pure subroutine get_bc_slip_wall_gradient_nd(n1,n2,facenrm,dpvdx,face_dcvdx)
+  !
+  ! #####################################################
+  ! #####################################################
+  ! ##  Slip wall / symmetry boundary condition
+  ! #####################################################
+  ! #####################################################
+  !
+  ! FACENRM    : Face outward normal vector at the flux points
+  ! DPVDX      : Gradients of the primitive variables at the host  cell flux pts
+  ! FACE_DCVDX : Gradients of the primitive variables at the ghost cell flux pts
+  !
+  !.. Use Statements ..
+  use ovar, only : walls_are_exact
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: dpvdx(:,:,:)
+  real(wp), intent(inout) :: face_dcvdx(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: ds,rnx,rny,rnz,unx,uny,unz
+  real(wp) :: drdn,dudn,dvdn,dwdn,dtdn
+  real(wp) :: reflect_const
+  !
+continue
+  !
+  reflect_const = merge(one,two,walls_are_exact)
+  !
+  nr = size(face_dcvdx,dim=2)
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_dcvdx,dpvdx)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      rnz = facenrm(3,n)
+      ds = sqrt( rnx*rnx + rny*rny + rnz*rnz )
+      unx = rnx/ds
+      uny = rny/ds
+      unz = rnz/ds
+      !
+      drdn = dpvdx(n,1,nec)*unx + dpvdx(n,2,nec)*uny + dpvdx(n,3,nec)*unz
+      dudn = dpvdx(n,1,nmx)*unx + dpvdx(n,2,nmx)*uny + dpvdx(n,3,nmx)*unz
+      dvdn = dpvdx(n,1,nmy)*unx + dpvdx(n,2,nmy)*uny + dpvdx(n,3,nmy)*unz
+      dwdn = dpvdx(n,1,nmz)*unx + dpvdx(n,2,nmz)*uny + dpvdx(n,3,nmz)*unz
+      dtdn = dpvdx(n,1,nee)*unx + dpvdx(n,2,nee)*uny + dpvdx(n,3,nee)*unz
+      !
+      face_dcvdx(n,1,nec) = dpvdx(n,1,nec) - reflect_const*unx*drdn
+      face_dcvdx(n,2,nec) = dpvdx(n,2,nec) - reflect_const*uny*drdn
+      face_dcvdx(n,3,nec) = dpvdx(n,3,nec) - reflect_const*unz*drdn
+      !
+      face_dcvdx(n,1,nmx) = dpvdx(n,1,nmx) - reflect_const*unx*dudn
+      face_dcvdx(n,2,nmx) = dpvdx(n,2,nmx) - reflect_const*uny*dudn
+      face_dcvdx(n,3,nmx) = dpvdx(n,3,nmx) - reflect_const*unz*dudn
+      !
+      face_dcvdx(n,1,nmy) = dpvdx(n,1,nmy) - reflect_const*unx*dvdn
+      face_dcvdx(n,2,nmy) = dpvdx(n,2,nmy) - reflect_const*uny*dvdn
+      face_dcvdx(n,3,nmy) = dpvdx(n,3,nmy) - reflect_const*unz*dvdn
+      !
+      face_dcvdx(n,1,nmz) = dpvdx(n,1,nmz) - reflect_const*unx*dwdn
+      face_dcvdx(n,2,nmz) = dpvdx(n,2,nmz) - reflect_const*uny*dwdn
+      face_dcvdx(n,3,nmz) = dpvdx(n,3,nmz) - reflect_const*unz*dwdn
+      !
+      face_dcvdx(n,1,nee) = dpvdx(n,1,nee) - reflect_const*unx*dtdn
+      face_dcvdx(n,2,nee) = dpvdx(n,2,nee) - reflect_const*uny*dtdn
+      face_dcvdx(n,3,nee) = dpvdx(n,3,nee) - reflect_const*unz*dtdn
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_dcvdx,dpvdx)
+    do n = n1,n2
+      !
+      rnx = facenrm(1,n)
+      rny = facenrm(2,n)
+      ds = sqrt( rnx*rnx + rny*rny )
+      unx = rnx/ds
+      uny = rny/ds
+      !
+      drdn = dpvdx(n,1,nec)*unx + dpvdx(n,2,nec)*uny
+      dudn = dpvdx(n,1,nmx)*unx + dpvdx(n,2,nmx)*uny
+      dvdn = dpvdx(n,1,nmy)*unx + dpvdx(n,2,nmy)*uny
+      dtdn = dpvdx(n,1,nee)*unx + dpvdx(n,2,nee)*uny
+      !
+      face_dcvdx(n,1,nec) = dpvdx(n,1,nec) - reflect_const*unx*drdn
+      face_dcvdx(n,2,nec) = dpvdx(n,2,nec) - reflect_const*uny*drdn
+      !
+      face_dcvdx(n,1,nmx) = dpvdx(n,1,nmx) - reflect_const*unx*dudn
+      face_dcvdx(n,2,nmx) = dpvdx(n,2,nmx) - reflect_const*uny*dudn
+      !
+      face_dcvdx(n,1,nmy) = dpvdx(n,1,nmy) - reflect_const*unx*dvdn
+      face_dcvdx(n,2,nmy) = dpvdx(n,2,nmy) - reflect_const*uny*dvdn
+      !
+      face_dcvdx(n,1,nee) = dpvdx(n,1,nee) - reflect_const*unx*dtdn
+      face_dcvdx(n,2,nee) = dpvdx(n,2,nee) - reflect_const*uny*dtdn
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(face_dcvdx,dpvdx)
+    do n = n1,n2
+      face_dcvdx(n,1,nec) = (one - reflect_const)*dpvdx(n,1,nec)
+      face_dcvdx(n,1,nmx) = (one - reflect_const)*dpvdx(n,1,nmx)
+      face_dcvdx(n,1,nee) = (one - reflect_const)*dpvdx(n,1,nee)
+    end do
+  end if
+  !
+end subroutine get_bc_slip_wall_gradient_nd
 !
 !###############################################################################
 !
@@ -2670,13 +8650,6 @@ continue
 #endif
   !
 end subroutine debug_timer
-!
-!###############################################################################
-!
-include "Functions/temperature.f90"
-include "Functions/pressure.f90"
-include "Functions/usp2v.f90"
-include "Functions/vsp2u.f90"
 !
 !###############################################################################
 !

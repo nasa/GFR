@@ -397,10 +397,10 @@ continue
     this_geom = cell(n)%geom
     this_order = cell(n)%order
     !
-    do m = 1,size(usp,dim=1)
-      usp(m,n1:n2) = filter(this_geom,this_order)% &
+    do m = 1,size(usp,dim=2)
+      usp(n1:n2,m) = filter(this_geom,this_order)% &
                                       exponential% &
-                     mv_mult( usp(m,n1:n2) )
+                     mv_mult( usp(n1:n2,m) )
     end do
     !
   end do

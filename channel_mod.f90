@@ -45,7 +45,7 @@ pure function channel_initialization( xyz ) result(return_value)
   real(wp), dimension(:,:), intent(in) :: xyz
   !
   !.. Function Result ..
-  real(wp), dimension(1:nq,1:size(xyz,dim=2)) :: return_value
+  real(wp), dimension(1:size(xyz,dim=2),1:nq) :: return_value
   !
   !.. Local Scalars ..
   integer :: k,np
@@ -60,7 +60,7 @@ continue
   else
     !
     do k = 1,np
-      return_value(:,k) = bc_in(0)%cv(:)
+      return_value(k,:) = bc_in(0)%cv(:)
     end do
     !
   end if
@@ -104,7 +104,7 @@ continue
     !
     do n = n1,n2
       !
-      vx = usp(nmx,n) / usp(nec,n)
+      vx = usp(n,nmx) / usp(n,nec)
       !
       hc = -bfx / (metrics_dt(nc)%jac(n-n1+1)**jac_exp)
       !

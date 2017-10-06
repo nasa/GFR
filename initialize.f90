@@ -36,7 +36,7 @@ subroutine initialize_flow()
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
-  use ovar, only : output_time_averaging
+ !use ovar, only : output_time_averaging
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
@@ -50,7 +50,7 @@ subroutine initialize_flow()
   !
   use interpolation_mod, only : outerp
   !
-  use time_mod, only : initialize_time_ave
+ !use averaging_mod, only : initialize_time_ave
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,np,l,l1,l2,m
@@ -165,7 +165,7 @@ continue
         ! The init component of outerp is not associated so just compute
         ! the initial conditions at the solution points
         !
-        usp(1:nq,n1:n2) = initial_conditions( xyz(1:nr,n1:n2) , init_cond )
+        usp(n1:n2,1:nq) = initial_conditions( xyz(1:nr,n1:n2) , init_cond )
         !
       else
         !
@@ -208,13 +208,13 @@ continue
         !
         ! Evaluate the initial conditions at the initialization points
         !
-        usp(1:nq,n1:n2) = initial_conditions( xyz_init(1:nr,1:np) , init_cond )
+        usp(n1:n2,1:nq) = initial_conditions( xyz_init(1:nr,1:np) , init_cond )
         !
         ! Interpolate the initial conditions from the initialization points
         ! to the solution points
         !
         do m = 1,nq
-          usp(m,n1:n2) = matmul( init2numer , usp(m,n1:n2) )
+          usp(n1:n2,m) = matmul( init2numer , usp(n1:n2,m) )
         end do
         !
         ! Disassociate all local pointers before continuing
@@ -247,9 +247,9 @@ continue
   ! Initialize the time-averaging information if outputting
   ! time-averaged variables to solution/restart files
   !
-  if (output_time_averaging) then
-    call initialize_time_ave
-  end if
+ !if (output_time_averaging) then
+ !  call initialize_time_ave
+ !end if
   !
   ! Initialize the CFL cycles
   !
@@ -264,11 +264,12 @@ continue
   !
   ! Initialize the solution at previous timestep array
   !
+  !$ACC UPDATE DEVICE(usp)
   if (allocated(uoldsp)) then
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp)
-    do n = 1,n_solpts
-      do m = 1,nq
-        uoldsp(n,m) = usp(m,n)
+    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
+    do m = 1,nq
+      do n = 1,n_solpts
+        uoldsp(n,m) = usp(n,m)
       end do
     end do
   end if
@@ -396,7 +397,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   integer,  intent(in) :: init_cond
   !
   !.. Function Result ..
-  real(wp), dimension(1:nq,1:size(xyz,dim=2)) :: return_value
+  real(wp), dimension(1:size(xyz,dim=2),1:nq) :: return_value
   !
   !.. Local Scalars ..
   integer  :: k,np,ierr
@@ -412,7 +413,7 @@ continue
   if (any(itestcase == Transport_Problems)) then
     !
     do k = 1,np
-      return_value(:,k) = vortex_solution( xyz(:,k) )
+      return_value(k,:) = vortex_solution( xyz(:,k) )
     end do
     !
   else if (itestcase == Taylor_Green_Vortex) then
@@ -425,7 +426,7 @@ continue
     end if
     !
     do k = 1,np
-      return_value(:,k) = taylor_green_initialization( adj_xyz(:,k) )
+      return_value(k,:) = taylor_green_initialization( adj_xyz(:,k) )
     end do
     !
   else if (itestcase == Channel_Flow) then
@@ -435,7 +436,7 @@ continue
   else if (mms_opt /= 0) then
     !
     do k = 1,np
-      return_value(:,k) = mms_init * mms_solution_at_xyz( xyz(:,k) , &
+      return_value(k,:) = mms_init * mms_solution_at_xyz( xyz(:,k) , &
                                                           return_nondim=true, &
                                                           return_cv=true )
     end do
@@ -445,7 +446,7 @@ continue
     if (init_cond == 2) then
       !
       do k = 1,np
-        return_value(:,k) = jet_profile2(xyz(1,k),bc_in(0)%pv(:))
+        return_value(k,:) = jet_profile2(xyz(1,k),bc_in(0)%pv(:))
       end do
       !
     else if (init_cond /= 0) then
@@ -462,7 +463,7 @@ continue
         !
         r0 = smc000_interior_wall_radius(xyz(1,k))
         r = norm2(xyz(2:,k))
-        return_value(:,k) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
+        return_value(k,:) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
                                         bc_in(init_cond)%pv(:))
         !
       end do
@@ -470,7 +471,7 @@ continue
     else
       !
       do k = 1,np
-        return_value(:,k) = bc_in(init_cond)%cv(:)
+        return_value(k,:) = bc_in(init_cond)%cv(:)
       end do
       !
     end if
@@ -478,13 +479,13 @@ continue
   else if (itestcase == Infinite_Cylinder) then
     !
     do k = 1,np
-      return_value(:,k) = initialize_cylinder(xyz(:,k),bc_in(0)%pv(:))
+      return_value(k,:) = initialize_cylinder(xyz(:,k),bc_in(0)%pv(:))
     end do
     !
   else
     !
     do k = 1,np
-      return_value(:,k) = bc_in(init_cond)%cv(:)
+      return_value(k,:) = bc_in(init_cond)%cv(:)
     end do
     !
   end if
@@ -776,7 +777,6 @@ subroutine initialize_dusp()
   !
   !.. Local Arrays ..
   real(wp), dimension(1:nr) :: dudr
-  real(wp), dimension(1:maxSP,1:nq) :: tusp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
@@ -799,14 +799,6 @@ continue
     this_geom = cell(nc)%geom
     this_order = cell(nc)%order
     !
-    ! Store the transpose of usp for this cell to reduce cache misses
-    !
-    do k = 1,np
-      do m = 1,nq
-        tusp(k,m) = usp(m,n0+k)
-      end do
-    end do
-    !
     ! Compute the gradient of the conservative variables at each solution point
     !
     do k = 1,np
@@ -827,7 +819,7 @@ continue
                 j = deriv(this_geom,this_order)%d(ll)%row_idx(i)
                 a = deriv(this_geom,this_order)%d(ll)%row_val(i)
                 !
-                val = val + a*tusp(j,m)*metrics_array(n0+j,ll,l)
+                val = val + a*usp(n0+j,m)*metrics_array(n0+j,ll,l)
                 !
               end do
             end do
@@ -857,7 +849,7 @@ continue
               j = deriv(this_geom,this_order)%d(l)%row_idx(i)
               a = deriv(this_geom,this_order)%d(l)%row_val(i)
               !
-              val = val + a*tusp(j,m)
+              val = val + a*usp(n0+j,m)
               !
             end do
             dudr(l) = val
@@ -889,10 +881,11 @@ subroutine get_face_and_edge_point_coordinates
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,cell,face,xyz,fp
   use flowvar,           only : edgexyz,facexyz
+  use flowvar,           only : facexyz_array
   use interpolation_mod, only : interp
   !
   !.. Local Scalars ..
-  integer  :: n,nc,ne,nf,np,n1,n2
+  integer  :: n,nc,ne,nf,np,n1,n2,f0
   integer  :: i,j,k,kf,l,lf,ierr
   integer  :: this_geom,this_order
   integer  :: face_geom,face_order
@@ -921,6 +914,7 @@ continue
       !
       face_geom = face(nf)%geom
       face_order = face(nf)%order
+      f0 = face(nf)%beg_fp-1
       !
       nc = face(nf)%left%cell
       !
@@ -960,11 +954,14 @@ continue
             !
           end do
           facexyz(nf)%v(l,kf) = val
+          facexyz_array(l,f0+kf) = val
         end do
         !
       end do
       !
     end do
+    !
+    !$ACC UPDATE DEVICE(facexyz_array)
     !
   end if
   !

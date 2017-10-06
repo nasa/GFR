@@ -169,7 +169,7 @@ continue
     ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
     !
     call read_solution_file(fname,int_header,real_header,usp, &
-                            sol_is_transposed=fals)
+                            sol_is_transposed=true)
     !
     ! Extract the required information from the header arrays
     !
@@ -779,6 +779,8 @@ continue
   close (iorst,iostat=ierr,iomsg=error_message)
   call io_error(pname,file_name,2,__LINE__,__FILE__,ierr,error_message)
   !
+  global_usp = transpose(global_usp) ! F2003 AUTO-REALLOCATION
+  !
   ! Copy the solution data from only those cells
   ! that are local to this processor into solution
   ! NOTE: For a serial job, cell_map(mypnum+1)%loc_to_glb = [1,ncell]
@@ -797,7 +799,7 @@ continue
     !
     ! Copy the solution data from the global_usp array for this cell
     !
-    solution(:,n1:n2) = global_usp(:,gp+1:gp+np)
+    solution(n1:n2,:) = global_usp(gp+1:gp+np,:)
     !
   end do
   !
@@ -870,7 +872,7 @@ continue
     end if
     !
     if (mypnum == glb_root) then
-      allocate ( global_usp(1:nq,1:n_global_totpts) , source=zero , &
+      allocate ( global_usp(1:n_global_totpts,1:nq) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"global_usp",1,__LINE__,__FILE__,ierr, &
                        error_message)
@@ -883,6 +885,7 @@ continue
     ! Only use the root partition to output the restart file
     !
     if (mypnum == glb_root) then
+      global_usp = transpose(global_usp) ! F2003 AUTO-REALLOCATION
       call write_restart_old_format(fname,global_usp)
     end if
     !
@@ -960,13 +963,15 @@ continue
       restart_comm = host_roots_comm
       call collect_restart_arrays(current_sol=usp, &
                                   output_sol=solution, &
-                                  ordered_geom=ordered_geom)
+                                  ordered_geom=ordered_geom, &
+                                  sol_is_transposed=true)
     else
       involved_with_output = true
       restart_comm = MPI_COMM_WORLD
       call get_restart_arrays(current_sol=usp, &
                               output_sol=solution, &
-                              ordered_geom=ordered_geom)
+                              ordered_geom=ordered_geom, &
+                              sol_is_transposed=true)
     end if
     !
     ! Store the size information for the simulation into the int_header array

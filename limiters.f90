@@ -133,7 +133,7 @@ continue
     const_mode(1:np) = vand(this_geom,this_order)%nodal2modal%mat(1,1:np)
     !
     do m = 1,nq
-      cell_ave_sol(m,nc) = half * dot( const_mode(1:np) , usp(m,n1:n2) )
+      cell_ave_sol(m,nc) = half * dot( const_mode(1:np) , usp(n1:n2,m) )
     end do
     !
   end do
@@ -175,7 +175,7 @@ continue
     !
     do m = 1,nq
       umodes(n1:n2,m) = &
-        vand(this_geom,this_order)%nodal2modal%mv_mult( usp(m,n1:n2) )
+        vand(this_geom,this_order)%nodal2modal%mv_mult( usp(n1:n2,m) )
     end do
     !
   end do
@@ -270,13 +270,11 @@ continue
       !
       ! Store a copy of usp for this cell because the individual
       ! solutions at the solution points within the cell will be
-      ! altered during the projection computation. While we are
-      ! doing this, store the copy as its transpose to reduce
-      ! cache misses.
+      ! altered during the projection computation.
       !
       do k = 1,np
         do m = 1,nq
-          tusp(k,m) = usp(m,n1-1+k)
+          tusp(k,m) = usp(n1-1+k,m)
         end do
       end do
       !
@@ -285,14 +283,14 @@ continue
       !
       if (Limiter_Filter_Option /= 0) then
         do m = 1,nq
-          usp(m,n1:n2) = filter(this_geom,this_order)% &
+          usp(n1:n2,m) = filter(this_geom,this_order)% &
                                               limiter% &
                          mv_mult( tusp(1:np,m) )
         end do
         troubled_cell(nc) = fals ! only filter once
       else
         do m = 1,nq
-          usp(m,n1:n2) = projct(this_geom,this_order)% &
+          usp(n1:n2,m) = projct(this_geom,this_order)% &
                                   limiter(proj_order)% &
                          vm_mult( tusp(1:np,m) )
         end do
@@ -415,7 +413,7 @@ continue
     !
     ! Copy u, the degree-P polynomial solution of density at the solution points
     !
-    rho_p(1:np) = usp(nec,n1:n2)
+    rho_p(1:np) = usp(n1:n2,nec)
     !         
     ! Compute u_hat, the degree-(P-1) polynomial solution
     ! of density at the solution points
@@ -484,7 +482,7 @@ continue
           !
           do k = 1,np
             do m = 1,nq
-              tusp(k,m) = usp(m,n1-1+k)
+              tusp(k,m) = usp(n1-1+k,m)
             end do
           end do
           !
@@ -492,7 +490,7 @@ continue
           ! at each solution point of this cell
           !
           do m = 1,nq
-            usp(m,n1:n2) = projct(this_geom,this_order)% &
+            usp(n1:n2,m) = projct(this_geom,this_order)% &
                                     limiter(lmtr_order)% &
                            vm_mult( tusp(1:np,m) )
           end do
@@ -700,7 +698,6 @@ subroutine identify_troubled_cells(dropped_orders,there_are_no_troubles)
   !
   !.. Use Statements ..
   use geovar,  only : ncell,cell
-  use flowvar, only : usp
   use ovar,    only : Limiter_Option
   use order_mod, only : p_order,n_order
   !

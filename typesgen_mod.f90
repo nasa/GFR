@@ -171,6 +171,13 @@ module generic_types_mod
     !
   end interface
   !
+#ifndef DISABLE_DTIO
+  public :: matrix_memory_usage
+  interface matrix_memory_usage
+    module procedure memory_usage, memory_usage_gpu
+  end interface matrix_memory_usage
+#endif
+  !
 contains
 !
 !###############################################################################
@@ -2105,6 +2112,72 @@ continue
   !
 #endif
 end function memory_usage
+!
+!###############################################################################
+!
+pure function memory_usage_gpu(this) result(return_value)
+  !
+  !.. Use Statements ..
+  use module_memory
+  !
+  !.. Formal Arguments ..
+  class(matrix_gpu_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  type(memory) :: return_value
+  !
+  !.. Local Scalars ..
+  type(memory) :: array
+  !
+#ifndef DISABLE_DTIO
+continue
+  !
+  call return_value%reset
+  !
+  if (allocated(this%mat)) then
+    call array%set( storage_size(this%mat,kind=inttype) , &
+                    size(this%mat,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_ptr)) then
+    call array%set( storage_size(this%row_ptr,kind=inttype) , &
+                    size(this%row_ptr,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_idx)) then
+    call array%set( storage_size(this%row_idx,kind=inttype) , &
+                    size(this%row_idx,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%row_val)) then
+    call array%set( storage_size(this%row_val,kind=inttype) , &
+                    size(this%row_val,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_ptr)) then
+    call array%set( storage_size(this%col_ptr,kind=inttype) , &
+                    size(this%col_ptr,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_idx)) then
+    call array%set( storage_size(this%col_idx,kind=inttype) , &
+                    size(this%col_idx,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+  if (allocated(this%col_val)) then
+    call array%set( storage_size(this%col_val,kind=inttype) , &
+                    size(this%col_val,kind=inttype) )
+    call return_value%add(array)
+  end if
+  !
+#endif
+end function memory_usage_gpu
 !
 !###############################################################################
 !

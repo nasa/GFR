@@ -947,7 +947,7 @@ continue
       !
       l = output_sol_pts(n)
       !
-      var(:,l) = compute_output_variables(usp(:,n),dusp(n,:,:))
+      var(:,l) = compute_output_variables(usp(n,:),dusp(n,:,:))
       !
     end do
     !
@@ -1076,7 +1076,7 @@ subroutine pp_interp_cv_to_flxpts()
   use parallel_mod,      only : exchange_faceusp
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nc,n1,n2,np,k,m
+  integer :: i,j,n,nc,n0,k,m
   integer :: nf,kf,lf,sf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
@@ -1084,7 +1084,6 @@ subroutine pp_interp_cv_to_flxpts()
   !
   !.. Local Arrays ..
   real(wp) :: face_cv(1:nq)
-  real(wp) :: tusp(1:maxSP,1:nq)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "pp_interp_cv_to_flxpts"
@@ -1096,20 +1095,10 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1         ! number of sol-pts in this cell
+    n0 = cell(nc)%beg_sp-1 ! beginning index of sol-pts for this cell
     !
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
-    !
-    ! Create transpose of usp array to reduce cache misses
-    !
-    do k = 1,np
-      do m = 1,nq
-        tusp(k,m) = usp(m,k+n1-1)
-      end do
-    end do
     !
     ! Now interpolate the interior solution gradients to the flux points
     !
@@ -1140,7 +1129,7 @@ continue
           a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
           !
           do m = 1,nq
-            face_cv(m) = face_cv(m) + a * tusp(j,m)
+            face_cv(m) = face_cv(m) + a * usp(n0+j,m)
           end do
           !
         end do
@@ -1171,7 +1160,7 @@ subroutine pp_interp_dusp_to_flxpts()
   use parallel_mod,      only : exchange_facedusp
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nc,n1,n2,np,k,l,m
+  integer :: i,j,n,nc,n0,k,l,m
   integer :: nf,kf,lf,sf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
@@ -1179,7 +1168,6 @@ subroutine pp_interp_dusp_to_flxpts()
   !
   !.. Local Arrays ..
   real(wp) :: face_dcvdx(1:nr,1:nq)
-  real(wp) :: tdusp(1:maxSP,1:nr,1:nq)
   !
 continue
   !
@@ -1188,22 +1176,10 @@ continue
   !
   do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1               ! number of sol-pts in this cell
+    n0 = cell(nc)%beg_sp-1 ! beginning index of sol-pts for this cell
     !
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
-    !
-    ! Create local copy of dusp array for this cell to reduce cache misses
-    !
-    do m = 1,nq
-      do l = 1,nr
-        do k = 1,np
-          tdusp(k,l,m) = dusp(n1-1+k,l,m)
-        end do
-      end do
-    end do
     !
     ! Now interpolate the interior solution gradients to the flux points
     !
@@ -1235,7 +1211,7 @@ continue
           !
           do m = 1,nq
             do l = 1,nr
-              face_dcvdx(l,m) = face_dcvdx(l,m) + a * tdusp(j,l,m)
+              face_dcvdx(l,m) = face_dcvdx(l,m) + a * dusp(n0+j,l,m)
             end do
           end do
           !
@@ -1270,15 +1246,13 @@ subroutine get_edge_and_node_solutions
   use parallel_mod, only : exch_edge_and_node_solutions
   !
   !.. Local Scalars ..
-  integer :: i,j,nc,n1,n2,np,k,l,m,n,ne,nn,kf,lf
+  integer :: i,j,nc,n0,k,l,m,n,ne,nn,kf,lf
   integer :: this_geom,this_order,edge_order
   real(wp) :: a,ave
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nq)              :: upt
-  real(wp), dimension(1:nr,1:nq)         :: dupt
-  real(wp), dimension(1:maxSP,1:nq)      :: tusp
-  real(wp), dimension(1:maxSP,1:nr,1:nq) :: tdusp
+  real(wp), dimension(1:nq)      :: upt
+  real(wp), dimension(1:nr,1:nq) :: dupt
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_edge_and_node_solutions"
@@ -1306,30 +1280,10 @@ continue
   !
   cell_loop: do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1         ! number of sol-pts in this cell
+    n0 = cell(nc)%beg_sp-1 ! beginning index of sol-pts for this cell
     !
     this_geom = cell(nc)%geom   ! geometry type of this cell
     this_order = cell(nc)%order ! solution order of this cell
-    !
-    ! Create transpose of the usp array to reduce cache misses
-    !
-    do k = 1,np
-      do m = 1,nq
-        tusp(k,m) = usp(m,k+n1-1)
-      end do
-    end do
-    !
-    ! Create local copy of dusp array for this cell to reduce cache misses
-    !
-    do m = 1,nq
-      do l = 1,nr
-        do k = 1,np
-          tdusp(k,l,m) = dusp(n1-1+k,l,m)
-        end do
-      end do
-    end do
     !
     ! Interpolate the solution and gradients to the edge points
     ! of the cell and add to the edgeusp and edgedusp arrays
@@ -1355,9 +1309,9 @@ continue
           a = interp(this_geom,this_order)%toEdge(edge_order)%row_val(i)
           !
           do m = 1,nq
-            upt(m) = upt(m) + a * tusp(j,m)
+            upt(m) = upt(m) + a * usp(n0+j,m)
             do l = 1,nr
-              dupt(l,m) = dupt(l,m) + a * tdusp(j,l,m)
+              dupt(l,m) = dupt(l,m) + a * dusp(n0+j,l,m)
             end do
           end do
           !
@@ -1391,9 +1345,9 @@ continue
         a = interp(this_geom,this_order)%toNode%row_val(i)
         !
         do m = 1,nq
-          upt(m) = upt(m) + a * tusp(j,m)
+          upt(m) = upt(m) + a * usp(n0+j,m)
           do l = 1,nr
-            dupt(l,m) = dupt(l,m) + a * tdusp(j,l,m)
+            dupt(l,m) = dupt(l,m) + a * dusp(n0+j,l,m)
           end do
         end do
         !

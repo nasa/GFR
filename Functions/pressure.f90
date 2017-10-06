@@ -1,5 +1,5 @@
 pure function pressure_cv(uu) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy
@@ -37,7 +37,7 @@ end function pressure_cv
 !###############################################################################
 !
 pure function pressure_cv_sp(uu) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : gam, include_tke_in_energy

@@ -1,3 +1,22 @@
+module visc_flux_mod
+  !
+  !.. Use Statements ..
+  use module_kind_types
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  !
+  implicit none
+  !
+  private
+  !
+  public :: visc_flx_cv_gpu
+  public :: visc_wall_flx_gpu
+  public :: visc_flx_cv
+  public :: visc_wall_flx_cv
+  public :: common_vflx_ave_fluxes_gpu
+  public :: common_vflx_ave_sol_and_grad_gpu
+  public :: common_visc_flx_cv
+  !
+contains
 !
 !###############################################################################
 !###############################################################################
@@ -9,6 +28,33 @@
 !###############################################################################
 !###############################################################################
 !
+pure subroutine visc_flx_cv_gpu(n1,n2,tusp,tdcvdx,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: tusp(:,:)
+  real(wp),    intent(in) :: tdcvdx(:,:,:)
+  real(wp), intent(inout) :: return_value(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(return_value,dim=2)
+  !
+  if (nr == 3) then
+    call visc_flx_cv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
+  else if (nr == 2) then
+    call visc_flx_cv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
+  else
+    call visc_flx_cv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
+  end if
+  !
+end subroutine visc_flx_cv_gpu
+!
+!###############################################################################
+!
 pure subroutine visc_flx_cv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
   !
   !.. Use Statements ..
@@ -18,21 +64,19 @@ pure subroutine visc_flx_cv_gpu_3d(n1,n2,tusp,tdcvdx,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: l,m,n,np
+  integer  :: n,np
   real(wp) :: cv_inv,cpPr,mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy,dudz
   real(wp) :: dvdx,dvdy,dvdz
   real(wp) :: dwdx,dwdy,dwdz
-  real(wp) :: velx,vely,velz
   real(wp) :: tauxx,tauyy,tauzz
   real(wp) :: tauxy,tauxz,tauyz
-  real(wp) :: dtdx,dtdy,dtdz
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: visc(:)
@@ -47,36 +91,19 @@ continue
   !
   allocate ( visc(1:np) )
   allocate ( tdpvdx(1:np,1:3,1:nq) )
-  !$ACC DATA CREATE(visc,tdpvdx) &
-  !$ACC&     PRESENT(tusp,tdcvdx,return_value)
-  ! 
+  !
+  !$ACC DATA CREATE(visc,tdpvdx)
+  !
   ! Compute the molecular viscosity
   !
   call viscosity_cv_gpu(n1,n2,tusp,visc)
   !
-  ! NOTE: EMBED 1/RHO IN ALL OTHER VARIABLES
+  ! Compute the gradients of the primitive variables
   !
-  !$ACC PARALLEL LOOP
+  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value,visc,tdpvdx)
   do n = n1,n2
-    rho_inv = one/tusp(n,nec)
-    tusp(n,nmx) = tusp(n,nmx)*rho_inv
-    tusp(n,nmy) = tusp(n,nmy)*rho_inv
-    tusp(n,nmz) = tusp(n,nmz)*rho_inv
-    tusp(n,nee) = tusp(n,nee)*rho_inv
-  end do
-  !
-  ! Get the gradients of the primitive variables using the 
-  ! gradients of the conservative variables and the product rule
-  !
-  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx, &
-                              tusp_includes_rho_inv=true)
-  !
-  !$ACC PARALLEL LOOP
-  do n = n1,n2
-    !
-    velx = tusp(n,nmx)
-    vely = tusp(n,nmy)
-    velz = tusp(n,nmz)
     !
     mvsc = visc(n)
     mcdt = mvsc*cpPr
@@ -92,10 +119,6 @@ continue
     dwdx = mvsc * tdpvdx(n,1,nmz)
     dwdy = mvsc * tdpvdx(n,2,nmz)
     dwdz = mvsc * tdpvdx(n,3,nmz)
-    !
-    dtdx = mcdt * tdpvdx(n,1,nee)
-    dtdy = mcdt * tdpvdx(n,2,nee)
-    dtdz = mcdt * tdpvdx(n,3,nee)
     !
     ave_ext_rate = two3 * (dudx + dvdy + dwdz)
     !
@@ -129,9 +152,19 @@ continue
     !
     ! Energy Equation
     !
-    return_value(n,1,nee) = dtdx + velx*tauxx + vely*tauxy + velz*tauxz
-    return_value(n,2,nee) = dtdy + velx*tauxy + vely*tauyy + velz*tauyz
-    return_value(n,3,nee) = dtdz + velx*tauxz + vely*tauyz + velz*tauzz
+    rho_inv = one/tusp(n,nec)
+    !
+    return_value(n,1,nee) = mcdt*tdpvdx(n,1,nee) + rho_inv*tusp(n,nmx)*tauxx &
+                                                 + rho_inv*tusp(n,nmy)*tauxy &
+                                                 + rho_inv*tusp(n,nmz)*tauxz
+    !
+    return_value(n,2,nee) = mcdt*tdpvdx(n,2,nee) + rho_inv*tusp(n,nmx)*tauxy &
+                                                 + rho_inv*tusp(n,nmy)*tauyy &
+                                                 + rho_inv*tusp(n,nmz)*tauyz
+    !
+    return_value(n,3,nee) = mcdt*tdpvdx(n,3,nee) + rho_inv*tusp(n,nmx)*tauxz &
+                                                 + rho_inv*tusp(n,nmy)*tauyz &
+                                                 + rho_inv*tusp(n,nmz)*tauzz
     !
   end do
   !
@@ -152,19 +185,17 @@ pure subroutine visc_flx_cv_gpu_2d(n1,n2,tusp,tdcvdx,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: l,m,n,np
+  integer  :: n,np
   real(wp) :: cv_inv,cpPr,mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy
   real(wp) :: dvdx,dvdy
-  real(wp) :: velx,vely
   real(wp) :: tauxx,tauyy,tauxy
-  real(wp) :: dtdx,dtdy
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: visc(:)
@@ -178,35 +209,20 @@ continue
   cpPr = cpref_nd/Pr
   !
   allocate ( visc(1:np) )
-  allocate ( tdpvdx(1:np,1:3,1:nq) )
-  !$ACC DATA CREATE(visc,tdpvdx) &
-  !$ACC&     PRESENT(tusp,tdcvdx,return_value)
-  ! 
+  allocate ( tdpvdx(1:np,1:2,1:nq) )
+  !
+  !$ACC DATA CREATE(visc,tdpvdx)
+  !
   ! Compute the molecular viscosity
   !
   call viscosity_cv_gpu(n1,n2,tusp,visc)
   !
-  ! NOTE: EMBED 1/RHO IN ALL OTHER VARIABLES
+  ! Compute the gradients of the primitive variables
   !
-  !$ACC PARALLEL LOOP
+  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tusp,return_value,visc,tdpvdx)
   do n = n1,n2
-    rho_inv = one/tusp(n,nec)
-    tusp(n,nmx) = tusp(n,nmx)*rho_inv
-    tusp(n,nmy) = tusp(n,nmy)*rho_inv
-    tusp(n,nee) = tusp(n,nee)*rho_inv
-  end do
-  !
-  ! Get the gradients of the primitive variables using the 
-  ! gradients of the conservative variables and the product rule
-  !
-  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx, &
-                              tusp_includes_rho_inv=true)
-  !
-  !$ACC PARALLEL LOOP
-  do n = n1,n2
-    !
-    velx = tusp(n,nmx)
-    vely = tusp(n,nmy)
     !
     mvsc = visc(n)
     mcdt = mvsc*cpPr
@@ -216,9 +232,6 @@ continue
     !
     dvdx = mvsc * tdpvdx(n,1,nmy)
     dvdy = mvsc * tdpvdx(n,2,nmy)
-    !
-    dtdx = mcdt * tdpvdx(n,1,nee)
-    dtdy = mcdt * tdpvdx(n,2,nee)
     !
     ave_ext_rate = two3 * (dudx + dvdy)
     !
@@ -241,8 +254,13 @@ continue
     !
     ! Energy Equation
     !
-    return_value(n,1,nee) = dtdx + velx*tauxx + vely*tauxy
-    return_value(n,2,nee) = dtdy + velx*tauxy + vely*tauyy
+    rho_inv = one/tusp(n,nec)
+    !
+    return_value(n,1,nee) = mcdt*tdpvdx(n,1,nee) + rho_inv*tusp(n,nmx)*tauxx &
+                                                 + rho_inv*tusp(n,nmy)*tauxy
+    !
+    return_value(n,2,nee) = mcdt*tdpvdx(n,2,nee) + rho_inv*tusp(n,nmx)*tauxy &
+                                                 + rho_inv*tusp(n,nmy)*tauyy
     !
   end do
   !
@@ -263,17 +281,19 @@ pure subroutine visc_flx_cv_gpu_nd(n1,n2,tusp,tdcvdx,return_value)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
-  real(wp), intent(inout) :: tusp(:,:)
+  real(wp),    intent(in) :: tusp(:,:)
   real(wp),    intent(in) :: tdcvdx(:,:,:)
   real(wp), intent(inout) :: return_value(:,:,:)
   !
   !.. Local Scalars ..
-  integer  :: l,m,n,np,nr
-  real(wp) :: cv_inv,cpPr,mvsc
+  integer  :: n,np,nr
+  real(wp) :: cv_inv,cpPr,mvsc,mcdt
   real(wp) :: rho_inv,ave_ext_rate
   real(wp) :: dudx,dudy,dudz
   real(wp) :: dvdx,dvdy,dvdz
   real(wp) :: dwdx,dwdy,dwdz
+  real(wp) :: tauxx,tauyy,tauzz
+  real(wp) :: tauxy,tauxz,tauyz
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: visc(:)
@@ -289,45 +309,26 @@ continue
   !
   allocate ( visc(1:np) )
   allocate ( tdpvdx(1:np,1:nr,1:nq) )
-  !$ACC DATA CREATE(visc,tdpvdx) &
-  !$ACC&     PRESENT(tusp,tdcvdx,return_value)
-  ! 
+  !
+  !$ACC DATA CREATE(visc,tdpvdx)
+  !
   ! Compute the molecular viscosity
   !
   call viscosity_cv_gpu(n1,n2,tusp,visc)
   !
-  ! NOTE: EMBED 1/RHO IN ALL OTHER VARIABLES
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = nmb,nq
-    do n = n1,n2
-      tusp(n,m) = tusp(n,m)/tusp(n,nec)
-    end do
-  end do
-  !
-  ! Get the gradients of the primitive variables using the 
+  ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
-  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx, &
-                              tusp_includes_rho_inv=true)
+  call grad_cv_to_grad_pv_gpu(n1,n2,tusp,tdcvdx,tdpvdx)
   !
   ! Density flux is zero
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do l = 1,nr
-    do n = n1,n2
-      return_value(n,l,nec) = zero
-    end do
-  end do
-  !
-  ! Momentum equations
-  !
   if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value,visc,tdpvdx)
     do n = n1,n2
       !
       mvsc = visc(n)
+      mcdt = mvsc*cpPr
       !
       dudx = mvsc * tdpvdx(n,1,nmx)
       dudy = mvsc * tdpvdx(n,2,nmx)
@@ -343,26 +344,57 @@ continue
       !
       ave_ext_rate = two3 * (dudx + dvdy + dwdz)
       !
-      return_value(n,1,nmx) = dudx + dudx - ave_ext_rate
-      return_value(n,2,nmx) = dvdx + dudy
-      return_value(n,3,nmx) = dwdx + dudz
+      tauxx = dudx + dudx - ave_ext_rate
+      tauyy = dvdy + dvdy - ave_ext_rate
+      tauzz = dwdz + dwdz - ave_ext_rate
       !
-      return_value(n,1,nmy) = dudy + dvdx
-      return_value(n,2,nmy) = dvdy + dvdy - ave_ext_rate
-      return_value(n,3,nmy) = dwdy + dvdz
+      tauxy = dvdx + dudy
+      tauxz = dwdx + dudz
+      tauyz = dwdy + dvdz
       !
-      return_value(n,1,nmz) = dudz + dwdx
-      return_value(n,2,nmz) = dvdz + dwdy
-      return_value(n,3,nmz) = dwdz + dwdz - ave_ext_rate
+      ! Density flux is zero
+      !
+      return_value(n,1,nec) = zero
+      return_value(n,2,nec) = zero
+      return_value(n,3,nec) = zero
+      !
+      ! Momentum equations
+      !
+      return_value(n,1,nmx) = tauxx
+      return_value(n,2,nmx) = tauxy
+      return_value(n,3,nmx) = tauxz
+      !
+      return_value(n,1,nmy) = tauxy
+      return_value(n,2,nmy) = tauyy
+      return_value(n,3,nmy) = tauyz
+      !
+      return_value(n,1,nmz) = tauxz
+      return_value(n,2,nmz) = tauyz
+      return_value(n,3,nmz) = tauzz
+      !
+      ! Energy Equation
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nee) = mcdt*tdpvdx(n,1,nee) + rho_inv*tusp(n,nmx)*tauxx &
+                                                   + rho_inv*tusp(n,nmy)*tauxy &
+                                                   + rho_inv*tusp(n,nmz)*tauxz
+      !
+      return_value(n,2,nee) = mcdt*tdpvdx(n,2,nee) + rho_inv*tusp(n,nmx)*tauxy &
+                                                   + rho_inv*tusp(n,nmy)*tauyy &
+                                                   + rho_inv*tusp(n,nmz)*tauyz
+      !
+      return_value(n,3,nee) = mcdt*tdpvdx(n,3,nee) + rho_inv*tusp(n,nmx)*tauxz &
+                                                   + rho_inv*tusp(n,nmy)*tauyz &
+                                                   + rho_inv*tusp(n,nmz)*tauzz
       !
     end do
-    !
   else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value,visc,tdpvdx)
     do n = n1,n2
       !
       mvsc = visc(n)
+      mcdt = mvsc*cpPr
       !
       dudx = mvsc * tdpvdx(n,1,nmx)
       dudy = mvsc * tdpvdx(n,2,nmx)
@@ -372,58 +404,54 @@ continue
       !
       ave_ext_rate = two3 * (dudx + dvdy)
       !
-      return_value(n,1,nmx) = dudx + dudx - ave_ext_rate
-      return_value(n,2,nmx) = dvdx + dudy
+      tauxx = dudx + dudx - ave_ext_rate
+      tauyy = dvdy + dvdy - ave_ext_rate
+      tauxy = dvdx + dudy
       !
-      return_value(n,1,nmy) = dudy + dvdx
-      return_value(n,2,nmy) = dvdy + dvdy - ave_ext_rate
+      ! Density flux is zero
+      !
+      return_value(n,1,nec) = zero
+      return_value(n,2,nec) = zero
+      !
+      ! Momentum equations
+      !
+      return_value(n,1,nmx) = tauxx
+      return_value(n,2,nmx) = tauxy
+      !
+      return_value(n,1,nmy) = tauxy
+      return_value(n,2,nmy) = tauyy
+      !
+      ! Energy Equation
+      !
+      rho_inv = one/tusp(n,nec)
+      !
+      return_value(n,1,nee) = mcdt*tdpvdx(n,1,nee) + rho_inv*tusp(n,nmx)*tauxx &
+                                                   + rho_inv*tusp(n,nmy)*tauxy
+      !
+      return_value(n,2,nee) = mcdt*tdpvdx(n,2,nee) + rho_inv*tusp(n,nmx)*tauxy &
+                                                   + rho_inv*tusp(n,nmy)*tauyy
       !
     end do
-    !
   else
-    !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(tusp,return_value,visc,tdpvdx)
     do n = n1,n2
-      return_value(n,1,nmx) = two * two3 * visc(n) * tdpvdx(n,1,nmx)
+      !
+      tauxx = two * two3 * visc(n) * tdpvdx(n,1,nmx)
+      !
+      ! Density flux is zero
+      !
+      return_value(n,1,nec) = zero
+      !
+      ! Momentum equation
+      !
+      return_value(n,1,nmx) = tauxx
+      !
+      ! Energy Equation
+      !
+      return_value(n,1,nee) = cpPr*visc(n)*tdpvdx(n,1,nee) &
+                            + tauxx*tusp(n,nmx)/tusp(n,nec)
+      !
     end do
-    !
-  end if
-  !
-  ! Energy Equation
-  !
-  if (nr == 3) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,3
-      do n = n1,n2
-        return_value(n,l,nee) = cpPr*visc(n)*tdpvdx(n,l,nee) &
-                              + tusp(n,nmx)*return_value(n,l,nmx) &
-                              + tusp(n,nmy)*return_value(n,l,nmy) &
-                              + tusp(n,nmz)*return_value(n,l,nmz)
-      end do
-    end do
-    !
-  else if (nr == 2) then
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,2
-      do n = n1,n2
-        return_value(n,l,nee) = cpPr*visc(n)*tdpvdx(n,l,nee) &
-                              + tusp(n,nmx)*return_value(n,l,nmx) &
-                              + tusp(n,nmy)*return_value(n,l,nmy)
-      end do
-    end do
-    !
-  else
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
-    do l = 1,nr
-      do n = n1,n2
-        return_value(n,l,nee) = cpPr*visc(n)*tdpvdx(n,l,nee) &
-                              + tusp(n,nmx)*return_value(n,l,nmx)
-      end do
-    end do
-    !
   end if
   !
   !$ACC END DATA
@@ -434,7 +462,7 @@ end subroutine visc_flx_cv_gpu_nd
 !
 !###############################################################################
 !
-pure function visc_flx_cv1(uu,dcvdx) result(return_value) 
+pure function visc_flx_cv1(uu,dcvdx) result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -463,7 +491,7 @@ continue
   !
   return_value(1:nr,1:nq) = zero
   !
-  ! Get the gradients of the primitive variables using the 
+  ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
   dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp(uu,dcvdx)
@@ -516,9 +544,9 @@ end function visc_flx_cv1
 !
 !###############################################################################
 !
-!pure function visc_flx_cv(uu,dcvdx) result(return_value) 
+!pure function visc_flx_cv(uu,dcvdx) result(return_value)
 pure subroutine visc_flx_cv(uu,dcvdx,return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -548,7 +576,7 @@ continue
  !i = 0
   return_value(1:nq,1:nr) = zero
   !
-  ! Get the gradients of the primitive variables using the 
+  ! Get the gradients of the primitive variables using the
   ! gradients of the conservative variables and the product rule
   !
  !dpvdx(1:nr,1:nq) = grad_cv_to_grad_pv_sp_sub(uu,dcvdx)
@@ -621,7 +649,7 @@ pure function normal_visc_flx_cv(rnrm,uu,dcvdx) result(return_value)
   integer :: l
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr)         :: unrm
+  real(wp), dimension(1:nr)      :: unrm
   real(wp), dimension(1:nq,1:nr) :: vflx
   !
 continue
@@ -637,6 +665,43 @@ continue
   end do
   !
 end function normal_visc_flx_cv
+!
+!###############################################################################
+!
+pure subroutine visc_wall_flx_gpu(n1,n2,facenrm,face_cv,face_dcvdx,return_value)
+  !
+  ! UNRM  : Outward pointing unit normal to the wall
+  !         boundary face for current flux point
+  ! UWALL : Conservative variables exact solution at the wall
+  ! DPVDX : Prescribed wall gradients of the primitive variables at the
+  !         current flux point on the wall boundary face. Most gradients
+  !         are extrapolated from the interior cell flux point on the
+  !         boundary except for certain special cases, e.g., an adiabatic
+  !         wall where dT/dx = dT/dy = 0.
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_dcvdx(:,:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then
+    call visc_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,face_dcvdx,return_value)
+  else if (nr == 2) then
+    call visc_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,face_dcvdx,return_value)
+  else
+    call visc_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,face_dcvdx,return_value)
+  end if
+  !
+end subroutine visc_wall_flx_gpu
 !
 !###############################################################################
 !
@@ -682,8 +747,7 @@ continue
   !
   allocate ( visc(1:np) )
   !
-  !$ACC DATA CREATE(visc) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(visc)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -700,7 +764,7 @@ continue
   !
   call viscosity_cv_gpu(n1,n2,face_cv(:,:,2),visc)
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_dcvdx,return_value,visc)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -812,8 +876,7 @@ continue
   !
   allocate ( visc(1:np) )
   !
-  !$ACC DATA CREATE(visc) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(visc)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -830,7 +893,7 @@ continue
   !
   call viscosity_cv_gpu(n1,n2,face_cv(:,:,2),visc)
   !
-  !$ACC PARALLEL LOOP
+  !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_dcvdx,return_value,visc)
   do n = n1,n2
     !
     rnx = facenrm(1,n)
@@ -928,8 +991,7 @@ continue
   !
   allocate ( visc(1:np) )
   !
-  !$ACC DATA CREATE(visc) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(visc)
   !
   ! For slip wall: all gradients /= zero
   !                uwall /= zero
@@ -948,7 +1010,7 @@ continue
   !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_dcvdx,return_value,visc)
     do n = n1,n2
       !
       rnx = facenrm(1,n)
@@ -1014,7 +1076,7 @@ continue
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_dcvdx,return_value,visc)
     do n = n1,n2
       !
       rnx = facenrm(1,n)
@@ -1064,7 +1126,7 @@ continue
     !
   else
     !
-    !$ACC PARALLEL LOOP
+    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv,face_dcvdx,return_value,visc)
     do n = n1,n2
       !
       rnx = facenrm(1,n)
@@ -1104,8 +1166,8 @@ end subroutine visc_wall_flx_gpu_nd
 !
 !###############################################################################
 !
-pure subroutine visc_wall_flx_sub(unrm,uwall,dpvdx,return_value) 
-  !$ACC ROUTINE SEQ
+pure subroutine visc_wall_flx_sub(unrm,uwall,dpvdx,return_value)
+! !$ACC ROUTINE SEQ
   !
   ! UNRM  : Outward pointing unit normal to the wall
   !         boundary face for current flux point
@@ -1206,7 +1268,7 @@ end subroutine visc_wall_flx_sub
 !
 !###############################################################################
 !
-pure function visc_wall_flx_cv(unrm,uwall,dpvdx) result(return_value) 
+pure function visc_wall_flx_cv(unrm,uwall,dpvdx) result(return_value)
   !
   ! UNRM  : Outward pointing unit normal to the wall
   !         boundary face for current flux point
@@ -1309,6 +1371,38 @@ end function visc_wall_flx_cv
 !
 !###############################################################################
 !
+pure subroutine common_vflx_ave_fluxes_gpu(n1,n2,facenrm,face_cv, &
+                                           face_dcvdx,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_dcvdx(:,:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then
+    call common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv, &
+                                       face_dcvdx,return_value)
+  else if (nr == 2) then
+    call common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv, &
+                                       face_dcvdx,return_value)
+  else
+    call common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv, &
+                                       face_dcvdx,return_value)
+  end if
+  !
+end subroutine common_vflx_ave_fluxes_gpu
+!
+!###############################################################################
+!
 pure subroutine common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv, &
                                               face_dcvdx,return_value)
   !
@@ -1333,7 +1427,6 @@ pure subroutine common_vflx_ave_fluxes_gpu_3d(n1,n2,facenrm,face_cv, &
   real(wp) :: vflx_x,vflx_y,vflx_z
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tusp(:,:)
   real(wp), allocatable :: lvflx(:,:,:)
   real(wp), allocatable :: rvflx(:,:,:)
   !
@@ -1341,36 +1434,23 @@ continue
   !
   np = size(face_dcvdx,dim=1)
   !
-  allocate ( tusp(1:np,1:nq) )
   allocate ( lvflx(1:np,1:3,1:nq) )
   allocate ( rvflx(1:np,1:3,1:nq) )
   !
-  !$ACC DATA CREATE(tusp,lvflx,rvflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(lvflx,rvflx)
   !
   ! Get the left viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,1)
-    end do
-  end do
-  call visc_flx_cv_gpu_3d(n1,n2,tusp,face_dcvdx(:,:,:,1),lvflx)
+  call visc_flx_cv_gpu_3d(n1,n2,face_cv(:,:,1),face_dcvdx(:,:,:,1),lvflx)
   !
   ! Get the right viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,2)
-    end do
-  end do
-  call visc_flx_cv_gpu_3d(n1,n2,tusp,face_dcvdx(:,:,:,2),rvflx)
+  call visc_flx_cv_gpu_3d(n1,n2,face_cv(:,:,2),face_dcvdx(:,:,:,2),rvflx)
   !
   ! Use the LDG method to compute the common viscous flux vector
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -1432,7 +1512,6 @@ continue
   !$ACC END DATA
   deallocate ( rvflx )
   deallocate ( lvflx )
-  deallocate ( tusp )
   !
 end subroutine common_vflx_ave_fluxes_gpu_3d
 !
@@ -1462,7 +1541,6 @@ pure subroutine common_vflx_ave_fluxes_gpu_2d(n1,n2,facenrm,face_cv, &
   real(wp) :: vflx_x,vflx_y
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tusp(:,:)
   real(wp), allocatable :: lvflx(:,:,:)
   real(wp), allocatable :: rvflx(:,:,:)
   !
@@ -1470,36 +1548,23 @@ continue
   !
   np = size(face_dcvdx,dim=1)
   !
-  allocate ( tusp(1:np,1:nq) )
   allocate ( lvflx(1:np,1:2,1:nq) )
   allocate ( rvflx(1:np,1:2,1:nq) )
   !
-  !$ACC DATA CREATE(tusp,lvflx,rvflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(lvflx,rvflx)
   !
   ! Get the left viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,1)
-    end do
-  end do
-  call visc_flx_cv_gpu_2d(n1,n2,tusp,face_dcvdx(:,:,:,1),lvflx)
+  call visc_flx_cv_gpu_2d(n1,n2,face_cv(:,:,1),face_dcvdx(:,:,:,1),lvflx)
   !
   ! Get the right viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,2)
-    end do
-  end do
-  call visc_flx_cv_gpu_2d(n1,n2,tusp,face_dcvdx(:,:,:,2),rvflx)
+  call visc_flx_cv_gpu_2d(n1,n2,face_cv(:,:,2),face_dcvdx(:,:,:,2),rvflx)
   !
   ! Use the LDG method to compute the common viscous flux vector
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -1555,7 +1620,6 @@ continue
   !$ACC END DATA
   deallocate ( rvflx )
   deallocate ( lvflx )
-  deallocate ( tusp )
   !
 end subroutine common_vflx_ave_fluxes_gpu_2d
 !
@@ -1585,7 +1649,6 @@ pure subroutine common_vflx_ave_fluxes_gpu_nd(n1,n2,facenrm,face_cv, &
   real(wp) :: vflx_x,vflx_y,vflx_z
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: tusp(:,:)
   real(wp), allocatable :: lvflx(:,:,:)
   real(wp), allocatable :: rvflx(:,:,:)
   !
@@ -1594,38 +1657,25 @@ continue
   np = size(face_dcvdx,dim=1)
   nr = size(face_dcvdx,dim=2)
   !
-  allocate ( tusp(1:np,1:nq) )
   allocate ( lvflx(1:np,1:nr,1:nq) )
   allocate ( rvflx(1:np,1:nr,1:nq) )
   !
-  !$ACC DATA CREATE(tusp,lvflx,rvflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(lvflx,rvflx)
   !
   ! Get the left viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,1)
-    end do
-  end do
-  call visc_flx_cv_gpu_nd(n1,n2,tusp,face_dcvdx(:,:,:,1),lvflx)
+  call visc_flx_cv_gpu_nd(n1,n2,face_cv(:,:,1),face_dcvdx(:,:,:,1),lvflx)
   !
   ! Get the right viscous fluxes
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
-  do m = 1,nq
-    do n = n1,n2
-      tusp(n,m) = face_cv(n,m,2)
-    end do
-  end do
-  call visc_flx_cv_gpu_nd(n1,n2,tusp,face_dcvdx(:,:,:,2),rvflx)
+  call visc_flx_cv_gpu_nd(n1,n2,face_cv(:,:,2),face_dcvdx(:,:,:,2),rvflx)
   !
   ! Use the LDG method to compute the common viscous flux vector
   !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -1686,7 +1736,8 @@ continue
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -1741,7 +1792,8 @@ continue
     !
   else
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,return_value,lvflx,rvflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -1751,12 +1803,8 @@ continue
         rcv = face_cv(n,m,2)
         !
         lfx = lvflx(n,1,m)
-        lfy = lvflx(n,2,m)
-        lfz = lvflx(n,3,m)
         !
         rfx = rvflx(n,1,m)
-        rfy = rvflx(n,2,m)
-        rfz = rvflx(n,3,m)
         !
         ! Compute the common averaging terms by applying the
         ! averaging operator {{.}} to the viscous flux vectors
@@ -1795,9 +1843,40 @@ continue
   !$ACC END DATA
   deallocate ( rvflx )
   deallocate ( lvflx )
-  deallocate ( tusp )
   !
 end subroutine common_vflx_ave_fluxes_gpu_nd
+!
+!###############################################################################
+!
+pure subroutine common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm,face_cv, &
+                                                 face_dcvdx,return_value)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: facenrm(:,:)
+  real(wp),    intent(in) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: face_dcvdx(:,:,:,:)
+  real(wp), intent(inout) :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+continue
+  !
+  nr = size(facenrm,dim=1)
+  !
+  if (nr == 3) then
+    call common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,face_cv, &
+                                             face_dcvdx,return_value)
+  else if (nr == 2) then
+    call common_vflx_ave_sol_and_grad_gpu_2d(n1,n2,facenrm,face_cv, &
+                                             face_dcvdx,return_value)
+  else
+    call common_vflx_ave_sol_and_grad_gpu_nd(n1,n2,facenrm,face_cv, &
+                                             face_dcvdx,return_value)
+  end if
+  !
+end subroutine common_vflx_ave_sol_and_grad_gpu
 !
 !###############################################################################
 !
@@ -1828,16 +1907,17 @@ pure subroutine common_vflx_ave_sol_and_grad_gpu_3d(n1,n2,facenrm,face_cv, &
   !
 continue
   !
+  !
   np = size(face_dcvdx,dim=1)
   !
   allocate ( com_cv(1:np,1:nq) )
   allocate ( com_dcvdx(1:np,1:3,1:nq) )
   allocate ( com_vflx(1:np,1:3,1:nq) )
   !
-  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -1897,7 +1977,8 @@ continue
   ! Subtract the common viscous fluxes from the common
   ! inviscid fluxes already stored within return_value
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,return_value,com_vflx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -1957,10 +2038,10 @@ continue
   allocate ( com_dcvdx(1:np,1:2,1:nq) )
   allocate ( com_vflx(1:np,1:2,1:nq) )
   !
-  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx)
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -2014,7 +2095,8 @@ continue
   ! Subtract the common viscous fluxes from the common
   ! inviscid fluxes already stored within return_value
   !
-  !$ACC PARALLEL LOOP COLLAPSE(2)
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(facenrm,return_value,com_vflx)
   do m = 1,nq
     do n = n1,n2
       !
@@ -2074,12 +2156,12 @@ continue
   allocate ( com_dcvdx(1:np,1:nr,1:nq) )
   allocate ( com_vflx(1:np,1:nr,1:nq) )
   !
-  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx) &
-  !$ACC&     PRESENT(facenrm,face_cv,face_dcvdx,return_value)
+  !$ACC DATA CREATE(com_cv,com_dcvdx,com_vflx)
   !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2133,7 +2215,8 @@ continue
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2181,7 +2264,8 @@ continue
     !
   else
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,face_cv,face_dcvdx,com_cv,com_dcvdx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2230,7 +2314,8 @@ continue
   !
   if (nr == 3) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2251,7 +2336,8 @@ continue
     !
   else if (nr == 2) then
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2270,7 +2356,8 @@ continue
     !
   else
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2)
+    !$ACC PARALLEL LOOP COLLAPSE(2) &
+    !$ACC&              PRESENT(facenrm,return_value,com_vflx)
     do m = 1,nq
       do n = n1,n2
         !
@@ -2296,7 +2383,7 @@ end subroutine common_vflx_ave_sol_and_grad_gpu_nd
 !###############################################################################
 !
 pure subroutine common_visc_flx_sub(unrm,ul,duldx,ur,durdx,return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -2568,3 +2655,9 @@ end function common_visc_flx_cv
 !
 !###############################################################################
 !
+include "Functions/grad_cv_to_grad_pv.f90"
+include "Functions/viscosity.f90"
+!
+!###############################################################################
+!
+end module visc_flux_mod

@@ -44,7 +44,7 @@ end function viscosity_cv
 !###############################################################################
 !
 pure function viscosity_cv_sp(uu) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : tref,rhoref,aref

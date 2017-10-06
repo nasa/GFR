@@ -8575,7 +8575,7 @@ subroutine collect_global_solution
   use flowvar, only : usp,global_usp
   !
   !.. Local Scalars ..
-  integer :: i,icpu,n,n1,n2,ierr
+  integer :: i,icpu,n,ierr
   !
   !.. Local Arrays ..
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
@@ -8591,23 +8591,18 @@ continue
   !
   if (ncpu > 1) then
     !
-    n1 = size(usp,dim=1)
-    n2 = size(usp,dim=2)
-    !
-    allocate ( sp_r8(1:n1,1:n2) , source=real(usp,kind=r8) , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sp_r8",1,__LINE__,__FILE__,ierr,error_message)
+    sp_r8 = real( transpose(usp) , kind=r8 ) ! F2003 AUTO-REALLOCATION
     !
     ! Collect the global usp array on the root processor
     !
-    n = size(sp_r8(:,1:n_solpts))
+    n = size(sp_r8)
     !
     if (mypnum /= 0) then
       !
       ! Have all the non-root processors send their
       ! local solutions to the root processor.
       !
-      call mpi_send(sp_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi, &
+      call mpi_send(sp_r8,n,mpi_flttyp,0_int_mpi, &
                     mypnum,MPI_COMM_WORLD,mpierr)
       !
     else
@@ -8617,17 +8612,12 @@ continue
       ! no need for the other processors to also have a copy of the global
       ! solution.
       !
-      n1 = size(global_usp,dim=1)
-      n2 = size(global_usp,dim=2)
-      !
-      allocate ( global_r8(1:n1,1:n2) , source=0.0_r8 , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"global_r8",1,__LINE__,__FILE__,ierr,error_message)
+      global_r8 = real( transpose(global_usp) , kind=r8 ) ! F2003 AUTO-REALLOC
       !
       ! Have the root processor send its own solution to itself so
       ! it gets put in the right location within the global array.
       !
-      call mpi_sendrecv(sp_r8(:,1:n_solpts),n,mpi_flttyp,0_int_mpi,n, &
+      call mpi_sendrecv(sp_r8,n,mpi_flttyp,0_int_mpi,n, &
                         global_r8,1_int_mpi,recv_sol(1),0_int_mpi,n, &
                         MPI_COMM_WORLD,istat(1),mpierr)
       !
@@ -8645,7 +8635,7 @@ continue
       !
       ! Convert the global_r8 array to working precision
       !
-      global_usp(:,:) = real( global_r8(:,:) , kind=wp )
+      global_usp(:,:) = real( transpose(global_r8(:,:)) , kind=wp )
       !
       ! Deallocate the global_r8 array
       !

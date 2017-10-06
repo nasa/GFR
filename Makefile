@@ -46,6 +46,8 @@ recon_ivybridge: ivybridge
 recon_sandybridge: sandybridge
 recon_westmere: westmere
 recon_merope: merope
+recon_gpu_mm: gpu-mm
+recon_gpu: gpu
 
 # BROADWELL (Essentially the same as Haswell)
 
@@ -138,7 +140,6 @@ rebuild-san: rebuild-sandybridge
 westmere: BDIR := optimize_westmere
 westmere: EXEF := recon_westmere
 westmere: TRGT := westmere
-#westmere: FCADD += -pg
 westmere: build
 
 .PHONY: rebuild-westmere
@@ -159,32 +160,13 @@ rebuild-wes: rebuild-westmere
 merope: BDIR := optimize_merope
 merope: EXEF := recon_merope
 merope: TRGT := merope
-#merope: FCADD += -DPROFILE_ON
-#merope: FCADD += -acc -Minfo=accel
-#merope: FCADD += -acc -ta=tesla:ptxinfo -Minfo=accel
-#merope: FCADD += -acc -ta=tesla:deepcopy,ptxinfo -Minfo=accel
-#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35,keepgpu -Minfo=accel
-merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
-#merope: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo -Minfo=accel
-#merope: FCADD += -ta=tesla:fma
-#merope: FCADD += -ta=tesla:maxregcount:128
-#merope: FCADD += -Mnoidiom
 #merope: FCADD += -pg
-#merope: FCADD += -g
-#merope: FCADD += -Minfo=all
-merope: FCADD += -Minfo=ccff,ftn
-#merope: FCADD += -Minfo=intensity
-#merope: FCADD += -Mcuda=lineinfo
-#merope: FCADD += -Mprof=ccff,dwarf
-#merope: FCADD += -Minstrument=functions
-#merope: FCADD += -Kieee
 merope: build
 
 .PHONY: rebuild-merope
 rebuild-merope: BDIR := optimize_merope
 rebuild-merope: EXEF := recon_merope
 rebuild-merope: TRGT := merope
-rebuild-merope: FCADD += -DPROFILE_ON
 rebuild-merope: clean-build
 rebuild-merope: build
 
@@ -192,6 +174,75 @@ rebuild-merope: build
 mer: merope
 .PHONY: rebuild-mer
 rebuild-mer: rebuild-merope
+
+# GPU COMMON FLAGS
+
+#FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
+#GPUFLAG = -acc -ta=tesla:nollvm,cc35,ptxinfo -Minfo=accel
+GPUFLAG = -acc -ta=tesla:cc35,ptxinfo -Minfo=accel
+#GPUADD += -Minfo=all
+GPUADD += -Minfo=ccff,ftn
+
+# GPU WITH MANAGED MEMORY
+
+.PHONY: gpu-mm
+gpu-mm: BDIR := gpu_mm
+gpu-mm: EXEF := recon_gpu_mm
+gpu-mm: TRGT := gpu-mm
+gpu-mm: GPUADD += -ta=tesla:managed
+#gpu-mm: GPUADD += -ta=tesla:fma
+#gpu-mm: GPUADD += -ta=tesla:keepgpu
+#gpu-mm: GPUADD += -ta=tesla:deepcopy
+#gpu-mm: GPUADD += -ta=tesla:maxregcount:128
+#gpu-mm: GPUADD += -Mnoidiom
+#gpu-mm: GPUADD += -pg
+#gpu-mm: GPUADD += -g
+#gpu-mm: GPUADD += -Minfo=intensity
+#gpu-mm: GPUADD += -Mcuda=lineinfo
+#gpu-mm: GPUADD += -Mprof=ccff,dwarf
+#gpu-mm: GPUADD += -Minstrument=functions
+#gpu-mm: GPUADD += -Kieee
+gpu-mm: FCADD += $(GPUFLAG) $(GPUADD)
+gpu: FCADD += -DDISABLE_FOR_GPU
+gpu-mm: build
+
+.PHONY: rebuild-gpu-mm
+rebuild-gpu-mm: BDIR := gpu_mm
+rebuild-gpu-mm: EXEF := recon_gpu_mm
+rebuild-gpu-mm: TRGT := gpu-mm
+rebuild-gpu-mm: clean-build
+rebuild-gpu-mm: build
+
+# GPU
+
+.PHONY: gpu
+gpu: BDIR := gpu
+gpu: EXEF := recon_gpu
+gpu: TRGT := gpu
+#gpu: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
+#gpu: GPUADD += -ta=tesla:nollvm
+#gpu: GPUADD += -ta=tesla:fma
+#gpu: GPUADD += -ta=tesla:keepgpu
+#gpu: GPUADD += -ta=tesla:deepcopy
+#gpu: GPUADD += -ta=tesla:maxregcount:128
+#gpu: GPUADD += -Mnoidiom
+#gpu: GPUADD += -pg
+#gpu: GPUADD += -g
+#gpu: GPUADD += -Minfo=intensity
+#gpu: GPUADD += -Mcuda=lineinfo
+#gpu: GPUADD += -Mprof=ccff,dwarf
+#gpu: GPUADD += -Minstrument=functions
+#gpu: GPUADD += -Kieee
+gpu: FCADD += $(GPUFLAG) $(GPUADD)
+gpu: FCADD += -DDISABLE_FOR_GPU
+gpu: build
+
+.PHONY: rebuild-gpu
+rebuild-gpu: BDIR := gpu
+rebuild-gpu: EXEF := recon_gpu
+rebuild-gpu: TRGT := gpu
+rebuild-gpu: clean-build
+rebuild-gpu: build
 
 
 # CHECK AGAINST FORTRAN STANDARDS WITH ONLY COMPILER WARNINGS
@@ -357,5 +408,9 @@ clean:
 	               "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_haswell" \
 	               "BUILDDIR=optimize_haswell" clean
+	make -f slv.mk "EXECUTABLE=recon_gpu_mm" \
+	               "BUILDDIR=gpu_mm" clean
+	make -f slv.mk "EXECUTABLE=recon_gpu" \
+	               "BUILDDIR=gpu" clean
 	if [ -L recon_broadwell ] ; then /bin/rm -f recon_broadwell ; fi
 

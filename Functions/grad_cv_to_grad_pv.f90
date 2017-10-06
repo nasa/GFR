@@ -27,8 +27,6 @@
 !    tusp_needs_rho_inv = .not. tusp_includes_rho_inv
 !  end if
 !  !
-!  !$ACC DATA PRESENT(tusp,tdcvdx,return_value)
-!  !
 !  np = size(tdcvdx,dim=1)
 !  nr = size(tdcvdx,dim=2)
 !  !
@@ -37,7 +35,8 @@
 !  ! Embed 1/rho in the all variables except density
 !  !
 !  if (tusp_needs_rho_inv) then
-!    !$ACC PARALLEL LOOP COLLAPSE(2)
+!    !$ACC PARALLEL LOOP COLLAPSE(2) &
+!    !$ACC&              PRESENT(tusp)
 !    do m = nmb,nq
 !      do n = 1,np
 !        tusp(n,m) = tusp(n,m)/tusp(n,nec)
@@ -47,7 +46,8 @@
 !  !
 !  ! Copy the density gradient
 !  !
-!  !$ACC PARALLEL LOOP COLLAPSE(2)
+!  !$ACC PARALLEL LOOP COLLAPSE(2) &
+!  !$ACC&              PRESENT(tdcvdx,return_value)
 !  do l = 1,nr
 !    do n = 1,np
 !      return_value(n,l,nec) = tdcvdx(n,l,nec)
@@ -60,7 +60,8 @@
 !  ! 2. Compute the total energy gradient and store in the
 !  !    location for the temperature gradient (m = nq)
 !  !
-!  !$ACC PARALLEL LOOP COLLAPSE(3)
+!  !$ACC PARALLEL LOOP COLLAPSE(3) &
+!  !$ACC&              PRESENT(tusp,tdcvdx,return_value)
 !  do m = nmb,nq
 !    do l = 1,nr
 !     !dpvdx(l,m) = rho_inv*dcvdx(l,m) - rho_inv*var(m)*dcvdx(l,nec)
@@ -80,7 +81,8 @@
 !  !
 !#ifdef NOT_SURE_ABOUT_LOOP
 !  do m = nmb,nme
-!    !$ACC PARALLEL LOOP COLLAPSE(2)
+!    !$ACC PARALLEL LOOP COLLAPSE(2) &
+!    !$ACC&              PRESENT(tusp,return_value)
 !    do l = 1,nr
 !     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
 !      do n = 1,np
@@ -91,7 +93,8 @@
 !  end do
 !#else
 !  if (nr == 3) then
-!    !$ACC PARALLEL LOOP COLLAPSE(2)
+!    !$ACC PARALLEL LOOP COLLAPSE(2) &
+!    !$ACC&              PRESENT(tusp,return_value)
 !    do l = 1,3
 !     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
 !      do n = 1,np
@@ -102,7 +105,8 @@
 !      end do
 !    end do
 !  else if (nr == 2) then
-!    !$ACC PARALLEL LOOP COLLAPSE(2)
+!    !$ACC PARALLEL LOOP COLLAPSE(2) &
+!    !$ACC&              PRESENT(tusp,return_value)
 !    do l = 1,2
 !     !dpvdx(l,nee) = dpvdx(l,nee) - var(m)*dpvdx(l,m)
 !      do n = 1,np
@@ -112,7 +116,7 @@
 !      end do
 !    end do
 !  else
-!    !$ACC PARALLEL LOOP
+!    !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
 !    do n = 1,np
 !      return_value(n,1,nee) = return_value(n,1,nee) &
 !                            - return_value(n,1,nmx)*tusp(n,nmx)
@@ -124,7 +128,8 @@
 !  ! the specific-heat-at-constant-volume, i.e. cv = Rgas/(gamma-1)
 !  !
 ! !dpvdx(1:nr,nee) = dpvdx(1:nr,nee) * cv_inv
-!  !$ACC PARALLEL LOOP COLLAPSE(2)
+!  !$ACC PARALLEL LOOP COLLAPSE(2) &
+!  !$ACC&              PRESENT(return_value)
 !  do l = 1,nr
 !    do n = 1,np
 !      return_value(n,l,nee) = return_value(n,l,nee) * cv_inv
@@ -134,14 +139,14 @@
 !  ! Remove the embedded 1/rho in the all variables except density
 !  !
 !  if (tusp_needs_rho_inv) then
-!    !$ACC PARALLEL LOOP COLLAPSE(2)
+!    !$ACC PARALLEL LOOP COLLAPSE(2) &
+!    !$ACC&              PRESENT(tusp)
 !    do m = nmb,nq
 !      do n = 1,np
 !        tusp(n,m) = tusp(n,m)*tusp(n,nec)
 !      end do
 !    end do
 !  end if
-!  !$ACC END DATA
 !  !
 !! rho_inv = one/rusp(nec)
 !! !
@@ -184,7 +189,6 @@
 !!###############################################################################
 !!
 pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
-  !$ACC ROUTINE SEQ
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -270,7 +274,6 @@ end function grad_cv_to_grad_pv
 !###############################################################################
 !
 pure function grad_cv_to_grad_pv_sp(rusp,dcvdx) result(return_value)
-  !$ACC ROUTINE SEQ
   !
   ! This routine computes the discontinuous gradient at each solution point
   !
@@ -337,7 +340,6 @@ end function grad_cv_to_grad_pv_sp
 !###############################################################################
 !
 pure subroutine grad_cv_to_grad_pv_sp_sub(rusp,dcvdx,return_value)
-  !$ACC ROUTINE SEQ
   !
   ! This routine computes the discontinuous gradient at each solution point
   !

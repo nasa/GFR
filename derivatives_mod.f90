@@ -1071,6 +1071,9 @@ subroutine derivatives_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+#ifndef DISABLE_DTIO
+  use generic_types_mod, only : matrix_memory_usage
+#endif
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -1113,7 +1116,7 @@ continue
           !
           do k = lbound(deriv(i,j)%d,dim=1),ubound(deriv(i,j)%d,dim=1)
             !
-            array = deriv(i,j)%d(k)%memory_usage()
+            array = matrix_memory_usage( deriv(i,j)%d(k) )
             !
             write (array_name,4) "deriv",Geom_Name(i),j,k
             write (iou,2) array_name,array%get_units()
@@ -1157,7 +1160,7 @@ continue
           !
           do k = lbound(dqmat(i,j)%d,dim=1),ubound(dqmat(i,j)%d,dim=1)
             !
-            array = dqmat(i,j)%d(k)%memory_usage()
+            array = matrix_memory_usage( dqmat(i,j)%d(k) )
             !
             write (array_name,4) "dqmat",Geom_Name(i),j,k
             write (iou,2) array_name,array%get_units()

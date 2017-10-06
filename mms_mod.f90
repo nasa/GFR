@@ -15,6 +15,7 @@ module mms_mod
   public :: mms_src
   public :: initialize_mms
   public :: mms_solution_at_xyz
+  public :: mms_solution_at_xyz_gpu
   !
   !
   !.. Local Module Variables ..
@@ -29,10 +30,23 @@ module mms_mod
   real(wp), save :: avx,avy,avz,avxy,avxz,avyz
   real(wp), save :: awx,awy,awz,awxy,awxz,awyz
   !
+  !$ACC DECLARE CREATE(dens0,densx,densy,densz,densxy,densxz,densyz)
+  !$ACC DECLARE CREATE(pres0,presx,presy,presz,presxy,presxz,presyz)
+  !$ACC DECLARE CREATE(uvel0,uvelx,uvely,uvelz,uvelxy,uvelxz,uvelyz)
+  !$ACC DECLARE CREATE(vvel0,vvelx,vvely,vvelz,vvelxy,vvelxz,vvelyz)
+  !$ACC DECLARE CREATE(wvel0,wvelx,wvely,wvelz,wvelxy,wvelxz,wvelyz)
+  !$ACC DECLARE CREATE(adx,ady,adz,adxy,adxz,adyz)
+  !$ACC DECLARE CREATE(apx,apy,apz,apxy,apxz,apyz)
+  !$ACC DECLARE CREATE(aux,auy,auz,auxy,auxz,auyz)
+  !$ACC DECLARE CREATE(avx,avy,avz,avxy,avxz,avyz)
+  !$ACC DECLARE CREATE(awx,awy,awz,awxy,awxz,awyz)
+  !
   real(wp), save :: rmu = zero
   real(wp), save :: L = one
   real(wp), save :: R
   real(wp), save :: gm1
+  !
+  !$ACC DECLARE CREATE(rmu,L,R,gm1)
   !
 contains
 !
@@ -333,6 +347,18 @@ continue
     !
   end if
   !
+  !$ACC UPDATE DEVICE(dens0,densx,densy,densz,densxy,densxz,densyz)
+  !$ACC UPDATE DEVICE(pres0,presx,presy,presz,presxy,presxz,presyz)
+  !$ACC UPDATE DEVICE(uvel0,uvelx,uvely,uvelz,uvelxy,uvelxz,uvelyz)
+  !$ACC UPDATE DEVICE(vvel0,vvelx,vvely,vvelz,vvelxy,vvelxz,vvelyz)
+  !$ACC UPDATE DEVICE(wvel0,wvelx,wvely,wvelz,wvelxy,wvelxz,wvelyz)
+  !$ACC UPDATE DEVICE(adx,ady,adz,adxy,adxz,adyz)
+  !$ACC UPDATE DEVICE(apx,apy,apz,apxy,apxz,apyz)
+  !$ACC UPDATE DEVICE(aux,auy,auz,auxy,auxz,auyz)
+  !$ACC UPDATE DEVICE(avx,avy,avz,avxy,avxz,avyz)
+  !$ACC UPDATE DEVICE(awx,awy,awz,awxy,awxz,awyz)
+  !$ACC UPDATE DEVICE(rmu,L,R,gm1)
+  !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine initialize_mms
@@ -351,8 +377,8 @@ pure function mms_solution_at_xyz(xyz,return_nondim,return_cv) &
   real(wp), dimension(:), intent(in) :: xyz
   !
   !.. Optional Arguments ..
-  logical(lk), optional,      intent(in) :: return_nondim
-  logical(lk), optional,      intent(in) :: return_cv
+  logical(lk), optional, intent(in) :: return_nondim
+  logical(lk), optional, intent(in) :: return_cv
   !
   !.. Function Result ..
   real(wp), dimension(1:nq) :: return_value
@@ -423,6 +449,298 @@ continue
   end if
   !
 end function mms_solution_at_xyz
+!
+!###############################################################################
+!
+pure subroutine mms_solution_at_xyz_gpu(n1,n2,xyz,pv,return_nondim,return_cv)
+  !
+  ! Function to evaluate the exact MMS solution at a set of coordinates
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: return_nondim
+  logical(lk), optional, intent(in) :: return_cv
+  !
+  !.. Local Scalars ..
+  integer  :: nr
+  !
+continue
+  !
+  nr = size(xyz,dim=1)
+  !
+  if (nr == 3) then
+    call mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
+  else if (nr == 2) then
+    call mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
+  else
+    call mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
+  end if
+  !
+end subroutine mms_solution_at_xyz_gpu
+!
+!###############################################################################
+!
+pure subroutine mms_solution_at_xyz_gpu_3d(n1,n2,xyz,pv,return_nondim,return_cv)
+  !
+  ! Function to evaluate the exact MMS solution at a set of coordinates
+  !
+  !.. Use Statements ..
+  use ovar,    only : rhoref,aref
+  use gpu_mod, only : tvsp2u_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: return_nondim
+  logical(lk), optional, intent(in) :: return_cv
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,y,z
+  real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP PRESENT(xyz,pv)
+  do n = n1,n2
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    z = xyz(3,n)
+    !
+    pv(n,nec) = dens0 + densx*sin((adx*pi*x)/L) &
+              + densy*cos((ady*pi*y)/L) &
+              + densz*sin((adz*pi*z)/L) &
+              + densxy*cos((adxy*pi*x*y)/L**2) &
+              + densxz*sin((adxz*pi*x*z)/L**2) &
+              + densyz*cos((adyz*pi*y*z)/L**2)
+    !
+    pv(n,nmx) = uvel0 + uvelx*sin((aux*pi*x)/L) &
+              + uvely*cos((auy*pi*y)/L) &
+              + uvelz*cos((auz*pi*z)/L) &
+              + uvelxy*cos((auxy*pi*x*y)/L**2) &
+              + uvelxz*sin((auxz*pi*x*z)/L**2) &
+              + uvelyz*sin((auyz*pi*y*z)/L**2)
+    !
+    pv(n,nmy) = vvel0 + vvelx*cos((avx*pi*x)/L) &
+              + vvely*sin((avy*pi*y)/L) &
+              + vvelz*sin((avz*pi*z)/L) &
+              + vvelxy*cos((avxy*pi*x*y)/L**2) &
+              + vvelxz*cos((avxz*pi*x*z)/L**2) &
+              + vvelyz*sin((avyz*pi*y*z)/L**2)
+    !
+    pv(n,nmz) = wvel0 + wvelx*sin((awx*pi*x)/L) &
+              + wvely*sin((awy*pi*y)/L) &
+              + wvelz*cos((awz*pi*z)/L) &
+              + wvelxy*sin((awxy*pi*x*y)/L**2) &
+              + wvelxz*sin((awxz*pi*x*z)/L**2) &
+              + wvelyz*cos((awyz*pi*y*z)/L**2)
+    !
+    pv(n,nee) = pres0 + presx*cos((apx*pi*x)/L) &
+              + presy*sin((apy*pi*y)/L) &
+              + presz*cos((apz*pi*z)/L) &
+              + presxy*sin((apxy*pi*x*y)/L**2) &
+              + presxz*cos((apxz*pi*x*z)/L**2) &
+              + presyz*cos((apyz*pi*y*z)/L**2)
+    !
+  end do
+  !
+  if (present(return_nondim)) then
+    if (return_nondim) then
+      rhoref_inv = one/rhoref
+      aref_inv = one/aref
+      rhoa2_inv = rhoref_inv*aref_inv*aref_inv
+      !$ACC PARALLEL LOOP PRESENT(PV)
+      do n = n1,n2
+        pv(n,nec) = pv(n,nec) * rhoref_inv
+        pv(n,nmx) = pv(n,nmx) * aref_inv
+        pv(n,nmy) = pv(n,nmy) * aref_inv
+        pv(n,nmz) = pv(n,nmz) * aref_inv
+        pv(n,nee) = pv(n,nee) * rhoa2_inv
+      end do
+    end if
+  end if
+  !
+  if (present(return_cv)) then
+    if (return_cv) then
+      call tvsp2u_gpu(n1,n2,pv)
+    end if
+  end if
+  !
+end subroutine mms_solution_at_xyz_gpu_3d
+!
+!###############################################################################
+!
+pure subroutine mms_solution_at_xyz_gpu_2d(n1,n2,xyz,pv,return_nondim,return_cv)
+  !
+  ! Function to evaluate the exact MMS solution at a set of coordinates
+  !
+  !.. Use Statements ..
+  use ovar,    only : rhoref,aref
+  use gpu_mod, only : tvsp2u_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: return_nondim
+  logical(lk), optional, intent(in) :: return_cv
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,y,z
+  real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+continue
+  !
+  z = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(xyz,pv)
+  do n = n1,n2
+    !
+    x = xyz(1,n)
+    y = xyz(2,n)
+    !
+    pv(n,nec) = dens0 + densx*sin((adx*pi*x)/L) &
+              + densy*cos((ady*pi*y)/L) &
+              + densz*sin((adz*pi*z)/L) &
+              + densxy*cos((adxy*pi*x*y)/L**2) &
+              + densxz*sin((adxz*pi*x*z)/L**2) &
+              + densyz*cos((adyz*pi*y*z)/L**2)
+    !
+    pv(n,nmx) = uvel0 + uvelx*sin((aux*pi*x)/L) &
+              + uvely*cos((auy*pi*y)/L) &
+              + uvelz*cos((auz*pi*z)/L) &
+              + uvelxy*cos((auxy*pi*x*y)/L**2) &
+              + uvelxz*sin((auxz*pi*x*z)/L**2) &
+              + uvelyz*sin((auyz*pi*y*z)/L**2)
+    !
+    pv(n,nmy) = vvel0 + vvelx*cos((avx*pi*x)/L) &
+              + vvely*sin((avy*pi*y)/L) &
+              + vvelz*sin((avz*pi*z)/L) &
+              + vvelxy*cos((avxy*pi*x*y)/L**2) &
+              + vvelxz*cos((avxz*pi*x*z)/L**2) &
+              + vvelyz*sin((avyz*pi*y*z)/L**2)
+    !
+    pv(n,nee) = pres0 + presx*cos((apx*pi*x)/L) &
+              + presy*sin((apy*pi*y)/L) &
+              + presz*cos((apz*pi*z)/L) &
+              + presxy*sin((apxy*pi*x*y)/L**2) &
+              + presxz*cos((apxz*pi*x*z)/L**2) &
+              + presyz*cos((apyz*pi*y*z)/L**2)
+    !
+  end do
+  !
+  if (present(return_nondim)) then
+    if (return_nondim) then
+      rhoref_inv = one/rhoref
+      aref_inv = one/aref
+      rhoa2_inv = rhoref_inv*aref_inv*aref_inv
+      !$ACC PARALLEL LOOP PRESENT(PV)
+      do n = n1,n2
+        pv(n,nec) = pv(n,nec) * rhoref_inv
+        pv(n,nmx) = pv(n,nmx) * aref_inv
+        pv(n,nmy) = pv(n,nmy) * aref_inv
+        pv(n,nee) = pv(n,nee) * rhoa2_inv
+      end do
+    end if
+  end if
+  !
+  if (present(return_cv)) then
+    if (return_cv) then
+      call tvsp2u_gpu(n1,n2,pv)
+    end if
+  end if
+  !
+end subroutine mms_solution_at_xyz_gpu_2d
+!
+!###############################################################################
+!
+pure subroutine mms_solution_at_xyz_gpu_1d(n1,n2,xyz,pv,return_nondim,return_cv)
+  !
+  ! Function to evaluate the exact MMS solution at a set of coordinates
+  !
+  !.. Use Statements ..
+  use ovar,    only : rhoref,aref
+  use gpu_mod, only : tvsp2u_gpu
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: n1,n2
+  real(wp),    intent(in) :: xyz(:,:)
+  real(wp), intent(inout) :: pv(:,:)
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: return_nondim
+  logical(lk), optional, intent(in) :: return_cv
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: x,y,z
+  real(wp) :: rhoref_inv,aref_inv,rhoa2_inv
+  !
+continue
+  !
+  z = zero
+  y = zero
+  !
+  !$ACC PARALLEL LOOP PRESENT(xyz,pv)
+  do n = n1,n2
+    !
+    x = xyz(1,n)
+    !
+    pv(n,nec) = dens0 + densx*sin((adx*pi*x)/L) &
+              + densy*cos((ady*pi*y)/L) &
+              + densz*sin((adz*pi*z)/L) &
+              + densxy*cos((adxy*pi*x*y)/L**2) &
+              + densxz*sin((adxz*pi*x*z)/L**2) &
+              + densyz*cos((adyz*pi*y*z)/L**2)
+    !
+    pv(n,nmx) = uvel0 + uvelx*sin((aux*pi*x)/L) &
+              + uvely*cos((auy*pi*y)/L) &
+              + uvelz*cos((auz*pi*z)/L) &
+              + uvelxy*cos((auxy*pi*x*y)/L**2) &
+              + uvelxz*sin((auxz*pi*x*z)/L**2) &
+              + uvelyz*sin((auyz*pi*y*z)/L**2)
+    !
+    pv(n,nee) = pres0 + presx*cos((apx*pi*x)/L) &
+              + presy*sin((apy*pi*y)/L) &
+              + presz*cos((apz*pi*z)/L) &
+              + presxy*sin((apxy*pi*x*y)/L**2) &
+              + presxz*cos((apxz*pi*x*z)/L**2) &
+              + presyz*cos((apyz*pi*y*z)/L**2)
+    !
+  end do
+  !
+  if (present(return_nondim)) then
+    if (return_nondim) then
+      rhoref_inv = one/rhoref
+      aref_inv = one/aref
+      rhoa2_inv = rhoref_inv*aref_inv*aref_inv
+      !$ACC PARALLEL LOOP PRESENT(PV)
+      do n = n1,n2
+        pv(n,nec) = pv(n,nec) * rhoref_inv
+        pv(n,nmx) = pv(n,nmx) * aref_inv
+        pv(n,nee) = pv(n,nee) * rhoa2_inv
+      end do
+    end if
+  end if
+  !
+  if (present(return_cv)) then
+    if (return_cv) then
+      call tvsp2u_gpu(n1,n2,pv)
+    end if
+  end if
+  !
+end subroutine mms_solution_at_xyz_gpu_1d
 !
 !###############################################################################
 !

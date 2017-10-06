@@ -363,6 +363,7 @@ module module_kind_types
   real(wp), parameter :: eps1  = 1.0e-01_wp
   real(wp), parameter :: eps2  = 1.0e-02_wp
   real(wp), parameter :: eps3  = 1.0e-03_wp
+  real(wp), parameter :: eps4  = 1.0e-04_wp
   real(wp), parameter :: eps6  = 1.0e-06_wp
   real(wp), parameter :: eps7  = 1.0e-07_wp
   real(wp), parameter :: eps9  = 1.0e-09_wp

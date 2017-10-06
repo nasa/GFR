@@ -1,5 +1,5 @@
 pure function usp2v(uu,swap_t_for_rho) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : rgasref_nd
@@ -33,7 +33,7 @@ end function usp2v
 !###############################################################################
 !
 pure function usp2v_sp(uu,swap_t_for_rho) result(return_value)
-  !$ACC ROUTINE SEQ
+! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
   use ovar, only : gam, rgasref_nd, include_tke_in_energy
