@@ -1,0 +1,33 @@
+&input
+
+GRID_FORMAT = 2     ! Gmsh file format
+GRIDFILE = "../grid_files/bump.P3.msh"
+
+ALL_ORDERS = 3 ! P4 solution, 5th order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+ERROR_ORDER = 6
+
+GOVERNING_EQUATIONS = 1   ! Euler equations
+NUM_TIMESTEPS = 1000000
+TIMESTEP_TYPE = 1         ! Global CFL condition
+CFL = 1.0
+FINAL_TIME = 50.0
+
+! Flow reference conditions:
+MACHREF = 0.5
+GAM = 1.4
+TREF = 300.0       ! K
+PREF = 100000.0    ! Pa
+
+!Timing information:
+RESTART_INTERVAL = 10000000
+OUTPUT_INTERVAL = 100000
+RESULTS_INTERVAL = 100
+ITER_OUT_INTERVAL = 100
+
+CONVERGENCE_ORDER_MAX_RES = -15.0
+CONVERGENCE_ORDER_ABS_RES = -10.0
+
+ITESTCASE = 3 ! Inviscid Bump
+
+/

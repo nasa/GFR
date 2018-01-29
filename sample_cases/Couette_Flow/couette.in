@@ -1,0 +1,50 @@
+&INPUT
+
+GRID_FORMAT    = 3   ! Plot3D file format
+GRIDFILE       = "../grid_files/couette.grd"
+PLOT3D_BCSFILE = "../grid_files/couette.bcs.grd"
+
+ALL_ORDERS = 2 ! P2 solution, 3rd order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+
+GOVERNING_EQUATIONS = 2  ! Navier-Stokes equations
+NUM_TIMESTEPS = 1000000
+FINAL_TIME = 100.0
+TIMESTEP_TYPE = 1 ! Global CFL condition
+CFL_BEG = 0.1
+CFL_END = 0.4
+CFL_CYCLES = 1000
+CFL = 0.1
+
+!Flow reference conditions:
+MACHREF = 0.2014712737961417
+GAM = 1.4
+RHOREF = 1.1597335475725683     ! kg/(m^3)
+PREF = 100000.0                 ! Pa [kg/(m*s^2)]
+TREF = -1.0
+REYREF = 200.0
+RGASREF = 287.1428571428571429  ! m^2/(K*s^2)
+
+SUTH_MUREF = 0.417              ! Pa*s [kg/(m*s)]
+SUTH_TREF = 300.0               ! K
+SUTH_SREF = 0.0                 ! K
+
+!Timing information:
+RESTART_INTERVAL = 10000
+OUTPUT_INTERVAL = 10000
+RESULTS_INTERVAL = 100
+ITER_OUT_INTERVAL = 100
+
+CONVERGENCE_ORDER_ABS_RES = -10.0
+CONVERGENCE_ORDER_MAX_RES = -10.0
+
+ITESTCASE = 1  ! initialize to free stream
+
+BC_INPUT(1)%NAME      = "TOP_WALL"
+BC_INPUT(1)%WALL_TEMP = 300.0    ! K
+BC_INPUT(1)%VX        = 30.0     ! m/s
+
+BC_INPUT(2)%NAME      = "BOT_WALL"
+BC_INPUT(2)%WALL_TEMP = 300.0    ! K
+
+/
