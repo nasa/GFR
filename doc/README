@@ -1,0 +1,226 @@
+#
+# NOTE: The instructions provided here are given in a tcsh-style command syntax
+#
+################################################################################
+################################################################################
+###                        FOR USERS RUNNING ON NAS
+################################################################################
+################################################################################
+
+# Send an email to seth.c.spiegel@nasa.gov providing you NAS username, and I will
+# provide you with access to a directory of environment module files and a directory
+# of prebuilt libraries for all dependencies. Once you have access to these directories,
+# you only need to run the following command:
+
+module use /u/sspiegel/gfr/modulefiles
+
+# Plus one of the following:
+
+#
+# If using the Intel compilers
+#
+
+module load gfr/intel
+
+#
+# NOTE: module load gfr/intel is almost equivalent to:
+#
+
+module load /nasa/modulefiles/pkgsrc/sles12/pkgsrc/2016Q4
+module load /nasa/modulefiles/sles12/comp-intel/2016.2.181
+module load /nasa/modulefiles/sles12/mpi-sgi/mpt.2.15r20
+module load /u/sspiegel/gfr/modulefiles/intel-libs/metis/5.1.0-32bit
+module load /nasa/modulefiles/sles12/szip/2.1.1
+module load /u/sspiegel/gfr/modulefiles/intel-libs/hdf5/1.8.18
+module load /u/sspiegel/gfr/modulefiles/intel-libs/cgns/3.3.0-32bit-hdf5-1.8
+
+#
+# If using the GNU compilers
+#
+
+module load gfr/gcc
+
+#
+# NOTE: module load gfr/gcc is almost equivalent to:
+#
+
+module load /nasa/modulefiles/pkgsrc/sles12/pkgsrc/2016Q4
+module load /nasa/modulefiles/pkgsrc/sles12/gcc/4.9.4
+module load /nasa/modulefiles/sles12/mpi-sgi/mpt.2.15r20
+module load /u/sspiegel/gfr/modulefiles/gcc4-libs/metis/5.1.0-32bit
+module load /nasa/modulefiles/sles12/szip/2.1.1
+module load /u/sspiegel/gfr/modulefiles/gcc4-libs/hdf5/1.8.18
+module load /u/sspiegel/gfr/modulefiles/gcc4-libs/cgns/3.3.0-32bit-hdf5-1.8
+
+#
+# If using the PGI compilers
+#
+
+module load gfr/pgi
+
+#
+# NOTE: module load gfr/pgi is almost equivalent to:
+#
+
+module load /nasa/modulefiles/pkgsrc/sles12/pkgsrc/2016Q4
+module load /nasa/modulefiles/sles12/comp-pgi/17.1
+module load /nasa/modulefiles/sles12/mpi-sgi/mpt.2.15r20
+module load /u/sspiegel/gfr/modulefiles/pgi-libs/metis/5.1.0-32bit
+module load /nasa/modulefiles/sles12/szip/2.1.1
+module load /u/sspiegel/gfr/modulefiles/pgi-libs/hdf5/1.8.18
+module load /u/sspiegel/gfr/modulefiles/pgi-libs/cgns/3.3.0-32bit-hdf5-1.8
+
+
+################################################################################
+################################################################################
+###                          FOR ALL OTHER USERS
+################################################################################
+################################################################################
+#
+# Library Dependencies
+# 
+# MPI
+# METIS 5.1.0
+# Parallel HDF5 1.8.19 (with or without Zlib and/or Szip) 
+# Parallel CGNS 3.3.0 (3.3.1 has bug with shared library)
+# 
+# Compilers
+# 
+# GCC 4.4.7 or newer
+# Compiling GFR using Intel Compilers => Intel 2016 or newer
+# Compiling GFR using GNU   Compilers => gfortran 4.7.4 or newer
+# Compiling GFR using PGI   Compilers => PGI 16.0 or newer
+# 
+################################################################################
+# 
+# Create a new directory to build GFR and its dependencies.
+# =========================================================
+
+set gfrdir = [path to new GFR build]/gfr
+cd ${gfrdir}
+mkdir -p build/{bin,include,lib,share,mpi,hdf5,cgns}
+
+################################################################################
+# 
+# Building METIS
+# ======================
+
+wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz
+tar -xzvf metis-5.1.0.tar.gz
+cp -rp metis-5.1.0 build/metis
+cd ${gfrdir}/build/metis
+make cc=gcc prefix=${gfrdir}/build config
+make
+make install
+
+################################################################################
+# 
+# Building MPI
+# ======================
+# 
+# ------------------------------------------------
+#  Set the Fortran compiler
+#    If using GCC   => set FCOMP = gfortran
+#    If using Intel => set FCOMP = ifort
+#    If using PGI   => set FCOMP = pgfortran
+# ------------------------------------------------
+
+wget http://www.mpich.org/static/downloads/3.2/mpich-3.2.tar.gz
+tar -xzvf mpich-3.2.tar.gz
+cd ${gfrdir}/build/mpi
+env CC=gcc FC=${FCOMP} ${gfrdir}/mpich-3.2/configure --prefix=${gfrdir}/build --enable-fortran=all
+make
+make install
+
+setenv PATH ${gfrdir}/build/bin:${PATH}
+
+################################################################################
+# 
+# Building Parallel HDF5
+# ======================
+
+wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.19/src/hdf5-1.8.19.tar.gz
+tar -xzvf hdf5-1.8.19.tar.gz
+cd ${gfrdir}/build/hdf5
+env CC=mpicc ${gfrdir}/hdf5-1.8.19/configure --prefix=${gfrdir}/build --enable-parallel
+make
+make install
+
+################################################################################
+# 
+# Building Parallel CGNS
+# ======================
+
+wget https://github.com/CGNS/CGNS/archive/v3.3.0.tar.gz
+mv v3.3.0.tar.gz CGNS-3.3.0.tar.gz
+tar -xzvf CGNS-3.3.0.tar.gz
+cd ${gfrdir}/build/cgns
+cmake -D CGNS_ENABLE_FORTRAN:BOOL=ON \
+      -D CGNS_ENABLE_HDF5:BOOL=ON \
+      -D CGNS_ENABLE_PARALLEL:BOOL=ON \
+      -D CMAKE_C_COMPILER:STRING=mpicc \
+      -D CMAKE_Fortran_COMPILER:STRING=mpif90 \
+      -D CMAKE_INSTALL_PREFIX:PATH=${gfrdir}/build \
+      -D HDF5_IS_PARALLEL:BOOL=ON \
+      -D HDF5_NEED_MPI:BOOL=ON \
+  ${gfrdir}/CGNS-3.3.0
+make
+make install
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+# 
+# Building GFR
+# ======================
+
+cd ${gfrdir}/build
+tar -xzvf [path to GFR tarball]/gfr.tgz
+cd gfr
+make
+
+################################################################################
+
+1. Set the compiler to use by changing the variable COMPFAMILY in system_variables.mk.
+
+2. Set the variable EXEDIR in system_variables.mk to the directory in which to
+   copy built executables. Default is $PWD/bin.
+
+3. Running `make` will build the executables 'debug_gfr' and 'gfr' in the working
+   directory and copy. This is equivalent to running `make debug` and `make O2`.
+   These two executables are:
+     debug_gfr : executable with debug checks, full debugging symbols, and
+                 timing information for solver subroutines written to stdout.
+           gfr : executable using optimization level -O2
+
+4. Other make options: (all of these options can be appended with `rebuild-`,
+   i.e. `make rebuild-O2`, to perform a `make clean` of the respective
+   objects/ and modules/ directories before building.
+
+   COMMAND             EXECUTABLE-NAME   OPTIMIZATION-LEVEL   TARGET-ARCHITECTURE
+   `make O2`           gfr                   -O2              none-specified
+   `make O3`           gfr                   -O3              none-specified
+   `make O2-host`      gfr                   -O2              host CPU
+   `make O3-host`      gfr                   -O3              host CPU
+   `make westmere`     gfr_westmere          -O2              Nehalem/Westmere (SSE4.2)
+   `make merope`       gfr_merope            -O3              Nehalem/Westmere (SSE4.2)
+   `make sandybridge`  gfr_sandybridge       -O2              Sandy Bridge     (AVX)
+   `make ivybridge`    gfr_ivybridge         -O2              Ivy Bridge       (AVX-I)
+   `make haswell`      gfr_haswell           -O2              Haswell          (AVX2)
+   `make broadwell`    gfr_broadwell         -O2              Haswell (Broadwell for GCC)
+
+5. To run the code: 
+     If using an input file     named 'gfr.in': [executable name]
+     If using an input file NOT named 'gfr.in': [executable name] [input file name]
+
+   For example:
+
+   `cd run_dir`
+   `../bin/gfr_pgi p3_48.in`
+
+6. If you are using GCC 4.8.5 or older, make sure to change the definitions for
+   the architecture flags (WESARCH, SANARCH, IVYARCH, HASARCH, BROARCH) towards
+   the end of slv.mk.
+
