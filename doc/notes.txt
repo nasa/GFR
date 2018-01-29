@@ -1,0 +1,499 @@
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################        BUGS NEEDING TO BE FIXED OR         ##################
+##################     NEW FEATURES WITH HIGHER PRIORITY      ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* For time averaging file, there only needs to be a single file that is updated
+  with the most up-to-date time averaged values.  However, since this will
+  probably need to be output in parallel, alternate between two different output
+  files, (e.g., "time_ave.a.dat" and "time_ave.b.dat" so that all of the
+  previous results aren't lost if there is an error writing the newest values.
+
+* Create a way to monitor the convergence of the time averaged quantities.
+  Possibly replace the variables sent to standard output with the global
+  integrated L2-norm of the difference between the newest and previous
+  time-averaged values.
+
+* Improve the speed of the current partitioning algorithm. In order to prevent
+  using up all memory on all nodes, the root processor does all the partitioning
+  tasks by itself and sends each localized partition to the respective MPI
+  process. This takes the root process 0.15-0.25 seconds per
+  partition, but this small amount becomes significant when using large numbers
+  of processes (> 5000). For example, using 300 Broadwell nodes means 8400
+  processes, resulting in the partitioning portion of the pre-processor taking
+  20-30 minutes alone. The previous method was very quick (< 1 minute), but
+  required all processes to perform the same global partitioning tasks as all
+  other processes only diverging once it came to localizing their own partition.
+    - Look into a hybrid method between the current and previous methods. Have
+      the root processes local to each node do the same global partitioning
+      tasks, localize the partitions which are local to their respective
+      node, and finally send these localized partitions to the respective
+      processes on the same node. This way, only one process per node consumes
+      up the memory necessary for partitioning, preventing any nodes from
+      hanging caused by running out of memory.
+        a) We will probably need to create a new identifier, maybe GLOBAL_ROOT,
+           that corresponds to the global root process. We can then create a set
+           of processes under LOCAL_ROOT for all the root processes on each
+           node.
+        b) We will probably need to create new MPI groups/communicators to
+           collect/group all processes on each individual node.
+        c) An MPI communicator will probably need to be created for all
+           processes under LOCAL_ROOT, and this communicator will need to be
+           used with the CGNS module so all of these processes read in their own
+           copy of the CGNS grid file.
+    - Look into possibly using ParMETIS. I am not sure if using ParMETIS can
+      prevent all processes from having to consume large amounts of memory for
+      the global grid before they can create their own localized partitions.
+
+* Add a way to modify a simulation that is already running.
+    - Change the CFL number, including ramping for an input number of time
+      steps.
+    - If a simulation starts without or from a newer restart file, add a way to
+      "plant" a better restart file that is read in to replace the current
+      simulation data.
+
+* Add PDE-based artificial viscosity based on thesis of Barter (MIT). This will
+  require adding another equation to the system to solve for the artificial
+  viscosity state variable.
+
+* Finish work on the restart module to include option of storing the monomial
+  modal coefficients in the restart file instead of the flow variables at the
+  solution points. This way the simulation could be restarted with different
+  solution points, solution orders, etc.
+
+* Restructure the flux procedures to combine matrix operations in the same way
+  that PyFR and the Stanford group does it. Primarily, the discontinuous part
+  of the correction should be separated from the common part so that it can be
+  included with the other local-to-cell based operations.  For example, the
+  discontinuous part of the flux correction can be combined with the operator
+  for computing the gradient of the discontinuous flux. Using their notation:
+      M0 => the matrix that interpolates a value from the solution points to the
+            flux points
+      M4 => the derivative matrices
+      M6 => the correction matrix
+    the discontinuous part of the correction (M6*M0) can be combined with
+    gradient operator as
+      M4 - M6*M0
+
+* Really need to work on improving the memory footprint of the code through
+  partitioning.  The cell_geom and cell_order arrays could be converted into
+  a very compact array since both of these arrays generally hold the same value
+  for all the interior cell in the grid. A possible compact version:
+    cell_geom(1) = geometry of the majority of the cells
+    cell_geom(2) = number of cells that have a geometry other than cell_geom(1)
+    cell_geom(...) = some list of the geometries for the non-majority cells
+  After the code returns from partitioning, the memory should be distributed
+  pretty evenly across processors, EXCEPT FOR THE grid DERIVED TYPE THAT
+  CONTAINS THE HIGH-ORDER CURVED BOUNDARY NODE COORDINATES AND ELEMENT
+  CONNECTIVITIES.
+
+* In order to get unstructured elements (tria, tetr, pyra, pris) working sooner
+  than later, copy the quadrature look-up tables from PyFR and use these look-up
+  tables for now.  This will limit the maximum order of these element types but
+  we can deal with that at another time.
+
+* Create utility to import an arbitrary Plot3D grid (including its BCS and CUT
+  files) and convert it to a single block unstructured CGNS or Gmsh grid file,
+  based on a "constraints" file which contains:
+    - coarsening strides for each direction of each block
+    - "keeper" parameters which are certain planes of a block that should not
+      be skipped by the coarsening strides (think of a 2D wedge where we dont
+      want to skip the index that is the leading edge of the wedge)
+    - any other possible operations to convert the Plot3D grid into one that
+      is more friendly for high-order methods
+
+* Update to the latest version of CGNS.
+
+* For using Plot3D restart files (channel flow), figure out how to project
+  restart solution into polynomial spaces within each cell.
+   - Use Lagrange polynomial to create very high-order solution for entire
+     computational domain.
+   - Sample very high-order solution at quadrature points within each cell and
+     project quadrature solution to solution polynomial space within each cell.
+   - Possibly do something with creating derivatives of restart solution using
+     Lagrange polynomial or large FD stencil.
+
+* The new continuous_output capability is now working in serial for a 3D grid
+  with only hexahedra elements, but just barely and still needs to be thoroughly
+  tested.
+   - The solution along the grid boundaries is not correct. These solutions
+     should only have contributions from the boundary face solutions and needs
+     to incorporate logic based on the BC heirarchy similar to bc_conflicts.
+   - Need to extend this capability to 2D grids/flows.
+      a) This will require deactivating everything relating to edges since
+         the edges are actually faces in 2D.
+   - Needs to be tested and debugged for running in parallel.
+
+* Make a correct fix to computing the time step size using the correct
+  (n_order)**(-2) instead of the incorrect (n_order+1)**(-nr). Currently
+  having to use a large CFL to work around this bug.
+
+* Look into bug where the TGV problem is giving different KEDR values for
+  different numbers of processors when using a filter. Found using a P6 solution
+  with 64^3 DoF with both filters using 6 cores on lab workstation vs 120 cores
+  on 6 ivy bridge nodes on Pleiades.
+  BE CAREFUL, THIS MIGHT NOT BE LIMITED TO JUST WHEN USING THE FILTER!
+
+* Fix the way integrated quantities are handled for output at the intervals
+  specified in the input file. Currently these quantities are computed only
+  at the said intervals and not in between because of they require costly
+  mpi collective operations each time they are computed. Change this so that
+  the local values of the quantities are computed and locally stored on each
+  processor for each iteration. Once the code reaches the specified interval,
+  combine the local values to get the global quantities and then have the root
+  processor output the collected values to the output file.
+
+* Add a way to input specific solution times or iterations at which to dump
+  a solution file during a simulation.
+
+* Look for ways to fix the discontinuity artifacts in the CGNS solution file
+   - Use the correction procedure to reconstruct a continuous solution of
+     degree P+1
+   - Use the correction procedure to reconstruct a continuous derivative of
+     degree P+1
+   - Will a reconstructed continuous function still remain continuous when it
+     is interpolated to the Lobatto points if the correction was applied to
+     the Gauss points.
+
+* Fix output from write_final_error for 3D. It currently has some hard-wired
+  formatting with the assumption that the simulation is in 2D.
+
+* There is a bug in the computed value of "OrdersDrop" that is printed to the
+  terminal during the simulation. It seems to be dependent on its own maximum
+  value of the error and not on the maximum over the whole simulation.
+   - For example:
+       a) Running the 2D flat plate case and outputting the error information
+          after every time step gives an "OrdersDrop" of 2.5 after 10000 time
+          steps.
+       b) Running the 2D flat plate case and outputting the error information
+          after every 100 time steps gives an "OrdersDrop" of 1.1 after 10000
+          time steps.
+
+* Fix bugs with dumping solution file using the DUMP_SOLUTION temporary file.
+   - An MPI error is encountered saying "Attempting to use an MPI routine
+     after finalizing MPICH" when trying to finalize MPI and stop the program.
+     This only happens if a solution dump was performed.
+   - The code seems to encounter a slowdown each time it writes a new solution
+     to the reopened CGNS file after a solution dump was performed. A possible
+     fix could be to traverse to the most recent solution node after reopening
+     the CGNS file before writing a new solution node to the file.
+
+* The subroutine find_bc_conflicts needs to be extended to 3D.
+
+* The subroutine get_point_timestep needs to be extended to 3D.
+
+* Bug with function reformat string: If a constant string is sent in to
+  input_string and the length of the input string is greater than 50 (or the
+  value of the optional argument line_length if present), the function will
+  crash since the added new line characters will try to increase the length
+  of the string with constant length.
+
+* IMPORTANT MEMORY RAMIFICATIONS: Eliminate the cell(:)%face(:)%cell_idx and
+  face(:)%left/right%flxpts arrays and replace them with a scalar integer
+  index that points to a set of arrays giving the point indices for the
+  face rotation.
+   - POSSIBLE SOLUTION: A possible solution is to replace these arrays entirely
+     with a single scalar integer that gives the face rotation, from which the
+     order of the face/flux point indices can be found.
+     REASONING: The order of these face/flux point indices is ***I THINK***
+     limited to 1 of 8 possibilities for quad faces (see subroutine
+     RotateFluxPoints_Quad in connectivity.f90) and a yet unknown but finite
+     number of possibilities for triangle faces. If we were to simply store
+     an integer value of in the range [1-8], we should be able to back out
+     the rotation of the face/flux point indices. To prevent having to perform
+     the rotation everytime the indices are used, we could very easily and
+     cheaply store the 8 rotations as use these rotation arrays when we are
+     using the indices. HOWEVER, we will need to store the 8 different
+     rotations for each of the face orders that exist in the simulation.
+
+* In subroutine compute_bnd_profiles, I am pretty sure the value jacfp is not
+  computed correctly.  It appears that jacfp is supposed to be the value of
+  the metrics Jacobian at the flux point on the boundary face, as it is used
+  to integrate the the drag coefficient for each boundary face. Currently, jacfp
+  is computed as norm2( 0.5*(facenode_coord1-facenode_coord2) ) so the value of
+  jacfp is the same for all flux points on the boundary face. This needs to be
+  computed using the actual metrics or by interpolating the Jacobian function
+  from the interior solution points to the flux points on the face.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################             CLEAN-UP TO-DO LIST            ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Ghost cells are now really ghost faces, so there are some code sections (such
+  as error checks, logic branches, global variables, etc.) that are no longer
+  necessary or valid. For example, the variable n_totnod is probably no longer
+  needed since ghost nodes are no longer needed/created to create the node
+  connectivity for each of the ghost cells.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################       OPTIMIZATION IDEAS / TO-DO LIST      ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Add timing/profiling mechanism for I/O tasks.
+
+* Need to perform an analysis on the unrolled versions of the matrix type-bound
+  procedure pointers on NAS using a large scale problem (e.g., TGV 256^3) to
+  determine which unrolled versions are better and if we should create unrolled
+  versions for even larger P than the current limit of P4.
+    - Create "unrolled" versions of the sparse dot product and matrix multiply
+      functions that are assigned to the procedure pointers contained in the
+      matrix derived type. This could improve performance when using lower orders
+      (e.g., P <= 4). This will probably require making a lot of very specific
+      versions of these functions, i.e. one each for P1, P2, P3, etc.
+
+* Need to figure out way to optimize the matrix sparsity stuff for use with
+  Lobatto solution points.
+
+* Look at possibly changing correction operations to loop over the cells
+  instead of looping over the faces.
+   - Loop over all the faces and compute the common flux from the values stored
+     in faceusp and facedusp, then compute the flux jumps using this common
+     flux and the values stored in faceflx.  Overwrite faceflx with the new
+     flux jumps.
+   - Loop through the cells and update the residuals for all the solution
+     points in the cell using a matrix operation with the correction matrices
+     and the flux jumps.
+
+* A few tasks remain to complete the rework of the restart module.
+   - Need to work with NAS personnel (or a least sporadically check NAS
+     documentation) to find the best MPI_FILE_INFO hints for the restart
+     subroutines optimize the MPI I/O for the Lustre file system.
+
+* Possibly add geom and order components to the cell_on_face_t derived type.
+  This is another duplicate of information that could be found elsewhere but
+  having it in this location might help performance due to data locality.
+
+* Profile 3D to try and find any code that can be optimized.
+
+* IMPORTANT MEMORY RAMIFICATIONS: Look into the possibility of removing either
+  the cell(:)%face(:)%cell_idx or face(:)%left/right%flxpts arrays because they
+  are copies of each other.
+   - These derived type components consume large amounts of memory because they
+     are allocatable arrays and the additional meta-data stored for each array
+     adds up to significant amounts of memory when summed over all the cells or
+     faces.
+   - If the cell_idx array is removed, the left/right components of face_t
+     will probably have to be changed to face(:)%side(1/2) because the value
+     of 1 or 2 stored in cell(:)%face(:)%side doesnt point us to the flxpts
+     component of the face array without the use of costly conditional
+     statements.
+   - The flxpts array could be removed since the value stored in
+     face(:)%left/right%cell_face points us to the correct array element of
+     cell(:)%face. 
+   - However, Im hesitant to make any changes because Im not sure of its affect
+     on performance since the code will have to jump deep into a specific part
+     of the cell(:) array while using the face(:) array.  The current setup
+     consumes additional memory but it adds the benefit of the either the flxpts
+     or cell_idx arrays being quicker to load from memory depending on whether
+     we are using the face(:) or cell(:) arrays, respectively.
+
+* Create complimentary variables to maxpts such as maxSP and maxFP so that
+  temporary storage can be minimized if we know a temporary array is only used
+  for solution, flux or quadrature points.
+   - Replace maxpts with maxSP, maxFP, maxQP, and maxGP where applicable
+
+* If using Lobatto points, look into a way of eliminating the use of the
+  interpolation matrices to compute values at the flux points. Even though the
+  interpolation matrices have the value one at each collocated solution/flux
+  point and are zero everywhere else, it can be assumed that at compile time
+  the compiler cant recognize this fact and properly optimize the dot product
+  operations used with these matrices to get these solution/flux point values.
+
+* Look at making the default logical use 1 Byte instead of the 4 Bytes it
+  currently defaults to.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################             OUTPUT TO-DO LIST              ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* The new continuous output option is going to be nasty for unstructured cell
+  geometries. A possible idea to simplify the stupidness of it would be to use
+  the same structured geometry type output and subdivide the unstructured
+  geometries into quads or hexes, e.g. a triangle can be turned into three
+  quadrilaterals. However, this adds some new complications since the
+  information for the face, edge, and node points for the parts of the new quad
+  cells that used to be the interior of the triangle does not exist. This path
+  could end up just as nasty if not worse, so be forewarned.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################             GENERAL TO-DO LIST             ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Need to allow the error quadrature points to possibly be of higher order than
+  the solution points.
+   - The outerp(:,:)%error matrices are currently hard-wired with the assumption
+     that they are the same order.
+   - This assumption may cause errors when computing the integrated dissipation
+     rates for the Taylor-Green vortex problem due to insufficient quadrature.
+
+* Figure out way to add the mycpu.c and cpu_info_mod.f90 files so that the
+  code works for both NAS and on a local machine that doesnt have the
+  sched_getcpu function available.
+
+* Finish the subroutine check_quality_of_partitioning so it checks that all
+  the partitions created by METIS are contiguous.
+
+* Add code to save a solution from 100 iterations prior (or some other number
+  provided as an input variable) and if an error is detected, try to restart
+  from this saved solution with some changes to the time step size and/or
+  method.
+   - This requires adding code to detect floating-point exceptions.
+   - Additional tests to ensure realizability could also help with robustness.
+
+* Finish the code getting the rotation of the flux points between two cells on
+  a face (used for creating the flxpts component of the face array).
+    - Need to finish pyramid and prism sections of GetFaceNodes_for_QuadFace
+    - Need to finish creating GetFaceNodes_for_TriaFace
+       - Could this be combined with GetFaceNodes_for_QuadFace?
+    - Need to create RotateFluxPoint_Tria
+
+* Timestepping procedures need to be fine tuned with the new datatypes.
+
+* When computing the correction to the flux, need to add code that accounts for
+  the case of a face that is of higher order than the cell so that the correction
+  is applied to the proper solution points.
+   - This is also needed when computing the gradient corrections.
+   - Requires finishing the creation of the projct matrices so that the higher
+     order face solution/flux/gradient can be projected down to the lower
+     order face/flux points of the attached cell.
+
+* Do the interp(:,:)%toCell(:)%mat matrices need to be created or can it wait
+   - This is needed if over-integration is to be used
+
+* Do we need to finish creating the projct matrices in projection_mod.f90
+   - This is needed if over-integration, alternative initialization points, the
+     projection limiter, or cells with varying solution orders are to be used
+
+* Need to finish creating the dqmat array
+   - This is needed if over-integration is to be used
+
+* Finish tetr/pyra/pris filter functions
+
+* Create functions that given an input of the number of solution points for a
+  geometry type, it returns the number of flux points for that geometry type.
+   
+* Create functions that given an input of the number of solution points for a
+  geometry type, it returns the solution order.
+   - The functions have been created, they just need to be applied throughout
+     the code. More specifically, the use of the function np2n needs to be
+     replaced with these newly created functions.
+
+* Need to redefine standard triangle element to the biunit triangle defined by
+  the nodes (-1,-1)-(+1,-1)-(-1,+1) instead of the unit triangle defined by
+  the nodes (0,0)-(+1,0)-(0,+1).
+   - This applies to tets, pyramids, and prisms as well through their triangle
+     faces and any tensor products used to create their mappings.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################       FEATURES THAT NEED TO BE ADDED       ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Need to add additional correction functions besides just the DG correction
+  function.
+
+* Need to look into finishing the limiting and over-integration parts of the
+  code. Really need to figure out how to mark troubled cells so that these
+  stabilization methods are efficient. Look into entropy bounding like what
+  the Stanford DG group is working on. Also look into Carpenters entropy DG
+  formulation as another means of stabilization.
+
+* Finish code in plot3d module that allows for unformatted plot3d files of
+  of arbitrary endianess using stream access.
+
+* Implement the rotated flux functions
+
+* Need to finish the grid metrics
+   - Need to figure out the metrics for curved boundaries/cells
+
+* Finish installing turbulence equations
+   - Need to add turbulence source terms
+   - Need to add turbulence part of converting between derivatives of primitive
+     variables and derivatives of conservative variables
+   - Need to add output of turbulence variables
+   - Need to add turbulence equations to upwind fluxes
+   - Need to add turbulence equations to boundary conditions
+   - Need to add turbulence equations to viscous fluxes
+
+* Replace namelist input file with character based input file.
+   - Add input file to specify which variables are output to the solution file.
+
+* Try to get MMS working.
+   - Seems like we might have to use profile files like VULCAN does.
+
+################################################################################
+################################################################################
+################################################################################
+##################                                            ##################
+##################         FUTURE DEVELOPMENTAL IDEAS         ##################
+##################                                            ##################
+################################################################################
+################################################################################
+################################################################################
+
+* Look into recursive h-refinement within each cell for visualization
+   - See Gmsh paper
+
+* Look into the hyperbolic form of the Navier-Stokes equations
+
+* Look at advanced partitioning techniques. An example would be:
+   1. Use METIS to partition the grid to the number of MPI processes
+   2. Create a dual graph with each vertex representing a partition with
+       a) vwgt giving the number of solution points in each partition
+       b) vsize giving the total number of flux points along the boundary
+          of each partition
+       c) adjwgt giving the number of flux points between two partitions
+       d) tpwgts weighting for using different node types (haswell vs ivy bridge)
+   3. Use METIS to partition the partitions so that each node gets a number
+      of MPI partitions that corresponds to the number of cores within the
+      node.
+   4. Possibly do this a second time to group MPI partitions to the CPUs
+      on each node.
+
+* Look into possibly initializing all arrays that are based on the matrix
+  datatype in one subroutine together within one loop to "simplify" things.
+
+* Look into using enumerator types for defined constants in kind_types.f90.
+
+* Look into futher generalizing the nodal/face/cell orderings created in
+  kind_types.f90 to allow for easier changes if any need to be made.
+   - Will need to adjust the order of the faces within correct and
+     interp(:)%toFace as well. For example, look at InterpToFace_Hexa and
+     CorrectionMatrix_Hexa.
+

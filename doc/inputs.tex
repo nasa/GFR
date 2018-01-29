@@ -1,0 +1,1695 @@
+
+%\documentclass[]{aiaa-tc}% insert '[draft]' option to show overfull boxes
+%\documentclass[10pt,letterpaper]{article}% 
+%                 insert '[draft]' option to show overfull boxes
+
+\documentclass[letterpaper,10pt]{article}
+\usepackage[paper=letterpaper,landscape,centering]{geometry}
+%\usepackage[paper=letterpaper,centering]{geometry}
+
+\usepackage{amsmath}
+%\usepackage{amsfonts}
+%\usepackage[mathscr]{eucal}
+\usepackage{longtable}
+\usepackage{tabularx}
+% \usepackage{threeparttable}% tables with footnotes
+\usepackage{booktabs}
+ \usepackage[x11names]{xcolor}
+ \usepackage{graphics}
+%\usepackage{graphicx}
+% %
+% \usepackage{listings}
+% \usepackage{multirow}
+%%\usepackage{array}
+%%\usepackage{xifthen}
+% \usepackage{mathtools}
+% \usepackage{siunitx}
+\usepackage{printlen}
+\usepackage{calc}
+\usepackage{url}
+%
+
+\DeclareMathAlphabet{\mathsc}{OT1}{cmr}{m}{sc}
+
+%%\setlength{\paperwidth}{614.295pt}
+%%\setlength{\paperheight}{794.96999pt}
+%\addtolength{\textwidth}{0.5in}
+%%\setlength{\textheight}{556.47656pt}
+\setlength{\hoffset}{-0.5in}
+\setlength{\voffset}{-0.5in}
+
+\setlength{\textwidth}{\paperwidth-2in-2.0\hoffset}
+%\setlength{\textwidth}{\paperwidth}
+%\addtolength{\textwidth}{\hoffset}
+%\addtolength{\textwidth}{\hoffset}
+
+\setlength{\textheight}{\paperheight-2in-2.0\voffset}
+%\setlength{\textheight}{\paperheight}
+%\addtolength{\textheight}{\voffset}
+%\addtolength{\textheight}{\voffset}
+
+\setlength{\oddsidemargin}{0pt}
+\setlength{\evensidemargin}{0pt}
+%\setlength{\topmargin}{9.97672pt}
+\setlength{\topmargin}{0pt}
+\setlength{\headheight}{0pt}
+\setlength{\headsep}{0pt}
+\setlength{\topskip}{0pt}
+\setlength{\footskip}{20pt}
+\setlength{\marginparwidth}{0pt}
+\setlength{\marginparsep}{0pt}
+\setlength{\marginparpush}{0pt}
+\setlength{\columnsep}{0pt}
+
+%
+ \newcommand{\slbsc}{basic}
+ \newcommand{\sladv}{advanced}
+ \newcommand{\slxpt}{expert}
+ \newcommand{\slxtl}{experimental}
+ \newcommand{\sldev}{developer}
+ \newcommand{\slnwk}{not working}
+ \newcommand{\slspc}{special case}
+ \newcommand{\slutl}{utility}
+%
+ \newcommand{\typint}{integer}
+ \newcommand{\typflt}{integer}
+ \newcommand{\typlog}{integer}
+ \newcommand{\tc}[1][150]{character(len=#1)}
+ \newcommand{\typebc}{bc\_input\_t}
+%
+ \newcommand{\tru}{.TRUE.}
+ \newcommand{\fls}{.FALSE.}
+%
+ \newcommand{\minorline}{\hline}
+%\newcommand{\groupline}[1]{\multicolumn{5}{|c|}{#1}\\\hline}
+ \newcommand{\groupline}[1]{}
+% \newcommand{\p}[1]{\ensuremath{\mathcal{P}#1}}
+% \newcommand{\dof}{DoF}
+% \newcommand{\tstar}{\ensuremath{t^{*}}}
+% \newcommand{\kedrz}{\ensuremath{\epsilon(\zeta)}}
+
+\newcommand{\headersize}[1]{\large\textbf{#1}}
+
+\newlength{\colAwidth}
+\newlength{\colBwidth}
+\newlength{\colCwidth}
+\newlength{\colDwidth}
+\newlength{\colEwidth}
+
+\setlength{\colAwidth}{\maxof{\widthof{\headersize{Input Variable}}}
+                             {\widthof{interpolate\_before\_output\_variable}}}
+\setlength{\colBwidth}{\maxof{\widthof{\headersize{Type}}}
+                             {\widthof{\tc}}}
+\setlength{\colCwidth}{\maxof{\widthof{\headersize{Default Value}}}
+                             {\widthof{\fls}}}
+\setlength{\colDwidth}{\maxof{\widthof{\headersize{Skill Level}}}
+                             {\widthof{experimental}}}
+\setlength{\colEwidth}
+          {\textwidth-\colAwidth-\colBwidth-\colCwidth-\colDwidth-62.4pt}
+%\setlength{\colEwidth}{\textwidth-\colAwidth-\colBwidth-\colCwidth-\colDwidth}
+
+ \newcommand{\descriptionbegin}{}
+ \newcommand{\descriptionend}{\\ \minorline}
+
+ \newcommand{\thatis}{i.e.,~}
+ \newcommand{\forexample}{e.g.,~}
+
+%\definecolor{orange}{
+ \newcommand{\p}[2][]{\ensuremath{\mathcal{P}_{\textsl{#2}}#1}}
+ \newcommand{\WARNING}{\textcolor{red}{\textbf{WARNING: }}}
+ \newcommand{\NOTE}{\newline \textcolor{OrangeRed3}{\textbf{NOTE: }}}
+ \newcommand{\NoNewlineNOTE}{\textcolor{OrangeRed3}{\textbf{NOTE: }}}
+%\newcommand{\NOTE}{\newline\fcolorbox{white}{yellow}{NOTE:}}
+ \newcommand{\EXAMPLE}{\newline \textcolor{blue}{\textbf{EXAMPLE: }}}
+
+ \newcommand{\eql}{\ensuremath{=\!\!\;=}}
+
+%\newcommand{\descriptionbegin}
+%           {\begin{minipage}[t]{\linewidth}\begin{flushleft}}
+%\newcommand{\descriptionend}{\end{flushleft}\end{minipage} \\ \minorline}
+
+\begin{document}
+
+ \setlength{\abovedisplayskip}{4pt}
+ \setlength{\belowdisplayskip}{4pt}
+
+%\begin{center}
+   %\begin{tabular}{ | p{0.2\textwidth}
+   %\begin{longtable}{ | p{0.265\textwidth}
+   %                   | p{0.145\textwidth}
+   %                   | p{0.1\textwidth}
+   %\begin{longtable}{ | l | c | c | c | p{0.45\textwidth} | }
+    \begin{longtable}{ | l | c | c | c | p{\colEwidth} | }
+   %\begin{longtable}{ | l | c | c | X | }
+   %\begin{tabularx}{\textwidth}{ | l | c | c | X | }
+    \hline
+    \rule{0pt}{5mm}
+    \headersize{Input Variable} &
+    \headersize{Type} &
+    \headersize{Default Value} &
+    \headersize{Skill Level} &
+    \headersize{Description} \\ \hline
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{GRID INFORMATION}
+    %===========================================================================
+    grid\_format          & \typint & -1    & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the format of the input grid file.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    -1 & Internally generated grid (automatically set for certain test cases) \\
+    1 & Gambit Neutral \\
+    2 & Gmsh \\
+    3 & Plot3D \\
+    4 & CGNS
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    gridfile              & \tc     & `` '' & \slbsc &
+    \descriptionbegin
+    File path to the input grid file relative to the current directory.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_cutfile       & \tc     & `` '' & \slbsc &
+    \descriptionbegin
+    File path to the input file that specifies the cut conditions for a
+    multiblock Plot3D grid file.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_bcsfile       & \tc     & `` '' & \slbsc &
+    \descriptionbegin
+    File path to the input file that specifies the boundary conditions for a
+    Plot3D grid file.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    grid\_scaling\_factor & \typflt & 1.0   & \slbsc &
+    \descriptionbegin
+    Multiplication factor ($> 0.0$) to scale the grid coordinates to the
+    desired length units. For example, use a value of 0.0254 to convert a grid
+    containing coordinates in inches to meters.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{PLOT3D COARSENING OPTIONS}
+    %===========================================================================
+    plot3d\_i\_stride          & \typint & -1 & \sladv &
+    \descriptionbegin
+    If $> 0$, applies a coarsening stride to the \textit{\textbf{i}}-direction
+    of all Plot3D blocks. 
+    \NOTE This overrides the \textit{\textbf{i}}-direction coarsening
+    stride given by \textsl{plot3d\_all\_strides}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_j\_stride          & \typint & -1 & \sladv &
+    \descriptionbegin
+    If $> 0$, applies a coarsening stride to the \textit{\textbf{j}}-direction
+    of all Plot3D blocks. 
+    \NOTE This overrides the \textit{\textbf{j}}-direction coarsening
+    stride given by \textsl{plot3d\_all\_strides}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_k\_stride          & \typint & -1 & \sladv &
+    \descriptionbegin
+    If $> 0$, applies a coarsening stride to the \textit{\textbf{k}}-direction
+    of all Plot3D blocks. 
+    \NOTE This overrides the \textit{\textbf{k}}-direction coarsening
+    stride given by \textsl{plot3d\_all\_strides}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_all\_strides       & \typint & -1 & \sladv &
+    \descriptionbegin
+    Applies a coarsening stride to all \textit{\textbf{i}}, \textit{\textbf{j}},
+    \textit{\textbf{k}} directions of all Plot3D blocks. 
+    \NOTE The coarsening stride for any given direction can be
+    overridden by specifying the coarsening stride for that direction.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    plot3d\_agglomerate\_order & \typint & -1 & \slbsc &
+    \descriptionbegin
+    If $> 0$, agglomerates linear Plot3D cells into high-order grid cells of
+    this order. 
+    \NOTE For all blocks, the number of cells in each direction must be
+    divisible by this order.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{BASE FR OPTIONS}
+    %===========================================================================
+    solution\_order      & \typint & 3 & \slbsc &
+    \descriptionbegin
+    Specifies the degree of the polynomial space, \p{S}, to use for the 
+    solution. 
+    \NOTE The order-of-accuracy is approximately \p[+1]{S}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    flux\_divergence     & \typint & 1 & \slnwk &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the method to use for computing the divergence of the fluxes. \\
+    \begin{tabular}{ @{} r @{ = } p{0.85\linewidth} @{} }
+    \ensuremath{\qquad1} & using Lagrange polynomials \\
+    \ensuremath{\qquad2} & using chain rule \\
+    \ensuremath{\qquad3} & using chain rule with Jacobians
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    correction\_function & \typint & 1 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the correction function to use.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & \textsl{g}\textsubscript{DG} correction function (recovers nodal DG
+    method) \\
+    2 & \textsl{g}\textsubscript{2} correction function \\
+    3 & \textsl{g}\textsubscript{Ga} correction function
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS}
+    %===========================================================================
+    loc\_solution\_pts & \typint & 1 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the solution points used for tensor products.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    loc\_flux\_pts     & \typint & 1 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the flux points on cell faces.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    loc\_triangle\_pts & \typint & 2 & \sldev &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the solution points used for triangles.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Hesthaven-Warburton $\alpha$-optimized nodes \\
+    2 & Barycentric Lobatto nodes
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LOCATION OF INITIALIZATION POINTS}
+    %===========================================================================
+    loc\_init\_pts & \typint & 0 & \slxpt &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Nodal points used for initializing the flow, after which the initial
+    solution is projected to the solution points.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \NOTE Any other values besides these will result in
+    $\textsl{loc\_init\_pts}=\textsl{loc\_solution\_pts}$.
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{RUNGE-KUTTA OPTIONS}
+    %===========================================================================
+    Runge\_Kutta\_Scheme & \typint & 3 & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies which Runge-Kutta method to use.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Classic $n$-stage RK method \\
+    2 & 2-stage/2\textsuperscript{nd}-order SSP-RK method \\
+    3 & 3-stage/3\textsuperscript{rd}-order SSP-RK method \\
+    4 & 5-stage/4\textsuperscript{th}-order SSP-RK method \\
+    5 & 5-stage/4\textsuperscript{th}-order Carpenter-Kennedy low storage RK
+    method
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    num\_rk\_stages      & \typint & 3 & \slbsc &
+    \descriptionbegin
+    Gives the number of Runge-Kutta stages if using the classic RK method
+    $\left(\textsl{Runge\_Kutta\_Scheme} = 1\right)$.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{COMMON FLUX OPTIONS}
+    %===========================================================================
+    invs\_flux\_method       & \typint & 1 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the approximate Riemann solver used to compute the common inviscid
+    fluxes at the interfaces.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Roe flux with entropy fix \\
+    2 & HLLC flux \\
+    3 & LDFSS flux \\
+    4 & Rotated-Roe-HLL flux
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    visc\_flux\_method       & \typint & 2 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the method used to compute the common viscous fluxes at the
+    interfaces.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Bassi-Rebay 1 (BR1) (\WARNING high chances of stability issues) \\
+    2 & Bassi-Rebay 2 (BR2) \\
+    3 & Local DG (LDG) (smaller CFL limit than BR2)
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    visc\_variables\_to\_ave & \typint & 1 & \slxpt &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Determines which variables are averaged to the interfaces when computing the
+    common viscous fluxes.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Average the interface fluxes. Compute the common viscous flux by
+    averaging the left and right viscous interface fluxes which are computed
+    using the left and right interface solutions and gradients. \\
+    2 & Average the interface solutions and gradients. Compute common solutions
+    and gradients by averaging the left and right interface solutions and
+    gradients, and then use the common interface values to compute the common
+    viscous flux.
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{TIME STEPPING INFORMATION}
+    %===========================================================================
+    num\_timesteps     & \typint & 25000  & \slbsc &
+    \descriptionbegin
+    Number of time steps for the simulation.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Final\_Time        & \typflt & 10.0   & \slbsc &
+    \descriptionbegin
+    Stop when the time within the simulation reaches this value.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    constant\_dt       & \typflt & 1.0e-6 & \slbsc &
+    \descriptionbegin
+    Size of the time step that is used when \textsl{Timestep\_Type} is set to a
+    constant global time step.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Timestep\_Type     & \typint & 1      & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Type of time stepping to use for the simulation.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    0 & Constant global time step. \\
+    1 & global time step from minimum computed cell time step. \\
+    -1 & local time stepping within each cell from computed cell time step. \\
+    2 & global time step from minimum computed solution point time step.
+    (EXPERIMENTAL) \\
+    -2 & local time stepping at each solution point from compute solution point
+    time step. (EXPERIMENTAL)
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    minimum\_timesteps & \typint & 100    & \slbsc &
+    \descriptionbegin
+    The minimum number of time steps to complete before checking whether any of
+    the convergence criteria have been met. 
+    \NOTE When initializing a simulation to a uniform flow, the very
+    small changes that occur during the first few time steps can trigger a false
+    positive convergence check if this is set to a small number, \forexample
+    $\leq5$.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CFL CONTROL VARIABLES}
+    %===========================================================================
+    CFL         & \typflt & 0.1 & \slbsc &
+    \descriptionbegin
+    Analogous to the CFL condition, this is used to scale the time step size to
+    get a maximum stable time step. The maximum value this can be while also
+    keeping a simulation stable is very dependent on the simulation\slash
+    flow-conditions and input settings, and experimentation is generally
+    required to find a good value. A lower value is more likely to keep a
+    simulation stable, but it will require more time steps to reach either
+    convergence or a given simulation time. Typical values are
+    $0.1\leq\textsl{CFL}\leq2$, but past experience has found simulations that
+    were stable with values up to 7.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    CFL\_Beg    & \typflt & 0.1 & \slbsc &
+    \descriptionbegin
+    Beginning \textsl{CFL} value to use with the linear CFL ramping that is
+    active when $\textsl{CFL\_Cycles}>2$.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    CFL\_End    & \typflt & 0.1 & \slbsc &
+    \descriptionbegin
+    Ending \textsl{CFL} value to use with the linear CFL ramping that is active
+    when $\textsl{CFL\_Cycles}>2$.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    CFL\_Cycles & \typint & 1   & \slbsc &
+    \descriptionbegin
+    The number of time steps used to linearly ramp up the value of \textsl{CFL},
+    starting at \textsl{CFL\_Beg} and ending at \textsl{CFL\_End}.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{OVER-INTEGRATION OPTIONS}
+    %===========================================================================
+    projection\_order    & \typint & 3 & \sladv &
+    \descriptionbegin
+    Specifies the degree of the polynomial space, \p{P}, to project the residual
+    onto when using over-integration by residual projection. The residual will
+    be computed as a polynomial of degree \p{S} and projected down to a
+    polynomial of degree \p{P}. This can potentially improve stability if
+    aliasing errors are suspected of destabilizing a simulation. 
+    \NOTE This is only used when
+    $\textsl{projection\_order}<\textsl{solution\_order}$. 
+    \NOTE Using this means the order-of-accuracy of the simulation is
+    now approximately \p[+1]{P} instead of \p[+1]{S}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    quadrature\_order    & \typint & 3 & \slnwk &
+    \descriptionbegin
+    Specifies the degree of the quadrature polynomial space, \p{Q}, to use when
+    using over-integration by over-sampling at the quadrature points. Certain
+    operations during a given residual evaluation (\forexample evaluating the
+    common\slash upwind interface fluxes) produce either polynomials that are
+    not within the solution polynomial space or functions that are not
+    polynomials at all. These functions are over-sampled at the quadrature
+    points to produce approximations of these functions as polynomials of degree
+    \p{Q}, which are in turn projected down to polynomials of degree \p{S}
+    before adding their respective contribution to the residual. This can
+    potentially improve stability if aliasing errors are suspected of
+    destabilizing a simulation.
+    \NOTE $\textsl{quadrature\_order}\geq\textsl{solution\_order}$
+    \NOTE This is only used when
+    \[\textrm{or}\qquad \begin{array}{l}
+        \textsl{quadrature\_order}>\textsl{solution\_order} \\
+        \textsl{loc\_quadrature\_pts}\neq\textsl{loc\_solution\_pts}
+    \end{array}\]
+    \NoNewlineNOTE Unlike over-integration by residual projection, the
+    order-of-accuracy of the simulation remains \p[+1]{S}.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    loc\_quadrature\_pts & \typint & 1 & \slnwk &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the quadrature points used for over-integration by
+    over-sampling at the quadrature points.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{ERROR-INTEGRATION OPTIONS}
+    %===========================================================================
+    error\_order    & \typint & -3 & \sladv &
+    \descriptionbegin
+    Specifies the degree of the polynomial space to use when computing
+    integrated error quantities, \forexample the $L^2$-norm of the residual.
+    \NOTE $\textsl{error\_order}\geq\textsl{solution\_order}$
+    \NOTE This is only used when
+    \[\textrm{or}\qquad \begin{array}{l}
+        \textsl{error\_order}>\textsl{solution\_order} \\
+        \textsl{loc\_error\_pts}\neq\textsl{loc\_solution\_pts}
+    \end{array}\]
+    \descriptionend
+    %---------------------------------------------------------------------------
+    loc\_error\_pts & \typint & 1  & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the error points used for computing integrated
+    error quantities. 
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \NOTE Any other values besides these will result in
+    $\textsl{loc\_error\_pts}=\textsl{loc\_solution\_pts}$.
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{FORCE GLOBAL ORDER AND SOLUTION POINTS}
+    %===========================================================================
+    all\_orders & \typint & -3 & \slbsc &
+    \descriptionbegin
+    If $> 0$, sets \textsl{solution\_order}, \textsl{projection\_order}, and
+    \textsl{quadrature\_order} all to this value.
+    \NOTE This overrides the values given for these three input
+    parameters.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    all\_points & \typint & -1 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Sets \textsl{loc\_solution\_pts}, \textsl{loc\_flux\_pts}, and
+    \textsl{loc\_quadrature\_pts} all to this value.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \NOTE This overrides the values given for the three mentioned input
+    parameters. It is only used if equal to one of the above values; otherwise,
+    the three mentioned input parameters are unchanged.
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{PARALLEL OPTIONS}
+    %===========================================================================
+    metis\_option & \typint & 3 & \slxpt &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the METIS partitioning algorithm to use for partitioning the
+    global grid.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Create non-weighted partitions based on a multilevel recursive bisection
+    while minimizing the edge cut. \\
+    2 & Create non-weighted partitions based on a multilevel $k$-way algorithm
+    while minimizing the edge cut. \\
+    3 & Create non-weighted partitions based on a multilevel $k$-way algorithm
+    while minimizing the total communication volume. \\
+    4 & Create weighted partitions based on a multilevel $k$-way algorithm
+    while minimizing the total communication volume (weighting is not yet
+    implemented so this is currently the same as option 3).
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS}
+    %===========================================================================
+    mms\_opt              & \typint & 0    & \slxtl &
+    \descriptionbegin
+    Specifies the method of manufactured solutions (MMS) problem to use.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    mms\_init             & \typflt & 0.1  & \slxtl &
+    \descriptionbegin
+    Initializes the solution to $[\textsl{mms\_init} \times (\textrm{exact MMS
+    solution})]$.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    mms\_output\_solution & \typlog & \fls & \slxtl &
+    \descriptionbegin
+    Logical flag to completely skip the solver and just output the exact MMS
+    solution.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{INITIALIZATION / TEST CASE}
+    %===========================================================================
+    itestcase & \typint & 9 & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the test-case\slash problem to solve, primarily affecting the
+    initialization of the simulation.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.845\linewidth} @{} }
+    1 & Generic flow, initialize to reference conditions. \\
+    2 & Channel flow (not working). \\
+    4 & Laminar subsonic boundary layer, initialize to
+        \newline reference conditions. \\
+    5 & Diagonally propagating Shu version of the isentropic
+        \newline Euler vortex. \\
+    -5 & Stationary Shu version of the isentropic Euler vortex. \\
+    6 & Isentropic Euler vortex with propagation direction
+        \newline determined by \textsl{alpha\_aoaref}. \\
+    -6 & Isentropic Euler vortex propagating only in the
+        \newline $y$-direction. \\
+    7 & Advection of a density profile using the linear
+        \newline advection equation. \\
+    8 & Advection of an entropy profile using the linear
+        \newline advection equation. \\
+    9 & Taylor-Green vortex problem. \\
+    10 & Special initialization function for SMC000 nozzle
+         \newline jet case. \\
+    11 & Double Mach reflection (not working). \\
+    12 & Infinite cylinder. \\
+    13 & Freestream preservation
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    \groupline{RESTART OPTIONS}
+    %===========================================================================
+    load\_restart\_file                & \typlog & \fls        & \slbsc &
+    \descriptionbegin
+    Logical flag used to indicate whether or not to read in a restart file.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    restart\_interval                  & \typint & 0           & \slbsc &
+    \descriptionbegin
+    Number of time steps between writing restart files. \NOTE A restart
+    file is always written after completing the last time step.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    use\_old\_restart\_format          & \typlog & \fls        & \sldev &
+    \descriptionbegin
+    Logical flag to indicate that the restart file is in an older format used by
+    an early conceptual version of GFR. \newline This should NEVER be used!
+    \descriptionend
+    %---------------------------------------------------------------------------
+    restart\_file                      & \tc     & ``out.rst'' & \slbsc &
+    \descriptionbegin
+    File path to the solution restart file that will be read if \newline
+    \textsl{load\_restart\_file} is true.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    restart\_output\_uses\_host\_roots & \typlog & \tru        & \slxpt &
+    \descriptionbegin
+    Logical flag that indicates whether all MPI processes are involved in
+    writing to the restart file or if only the root processes on each host node
+    write to the restart file.
+    \NOTE This is only applicable for parallel simulations run across
+    multiple physical computers, \forexample multiple nodes on the Pleiades
+    supercomputer.
+    \NOTE Only change this if you encounter MPI errors that occur when
+    trying to write restart files. Changing this to false will most likely
+    result in higher I\slash O file contention and possibly increased memory
+    usage.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{STATISTICAL OUTPUT OPTIONS}
+    %===========================================================================
+    iter\_out\_interval & \typint & 1 & \slbsc &
+    \descriptionbegin
+    Number of time steps between writing time-stepping and residual\slash
+    convergence statistics to standard output. \NOTE When running the
+    Taylor-Green vortex problem, this is also used as the interval for writing
+    integrated kinetic energy dissipation rate (KEDR) statistics to the file
+    ``TaylorGreen\_KEDR.dat''.
+    \NOTE If $= 0$, $\qquad\;\;\textsl{iter\_out\_interval} = 1$ 
+    \setlength{\abovedisplayskip}{-8pt}
+    \setlength{\parindent}{\widthof{NOTE: }}
+    \newline \indent else if $< 0$, \[\qquad\qquad\qquad
+    \textsl{iter\_out\_interval} =
+    \frac{\textsl{num\_timesteps}}{\left|\textsl{iter\_out\_interval}\right|}\]
+    \setlength{\parindent}{0pt}
+    \setlength{\abovedisplayskip}{4pt}
+    \descriptionend
+    %---------------------------------------------------------------------------
+    results\_interval   & \typint & 0 & \slbsc &
+    \descriptionbegin
+    Number of time steps between writing residual\slash convergence statistics
+    for all conserved and primitive variables to the file ``results.dat''.
+    \setlength{\abovedisplayskip}{-8pt}
+    \setlength{\belowdisplayskip}{0pt}
+    \NOTE If $= 0$, \[\qquad\qquad\;\;\;\;\textsl{results\_interval} =
+    \frac{\textsl{num\_timesteps}}{500}\]
+    \setlength{\belowdisplayskip}{4pt}
+    \setlength{\parindent}{\widthof{NOTE: }}
+    \newline \indent else if $< 0$, \[\qquad\qquad\qquad
+    \textsl{results\_interval} =
+    \frac{\textsl{num\_timesteps}}{\left|\textsl{results\_interval}\right|}\]
+    \setlength{\parindent}{0pt}
+    \setlength{\abovedisplayskip}{4pt}
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{SOLUTION OUTPUT OPTIONS}
+    %===========================================================================
+    output\_dir        & \tc     & ``.'' & \slbsc &
+    \descriptionbegin
+    File path to the directory used for writing output files. \NOTE If
+    one is available, it is recommended that the output directory be located on
+    a Lustre file system in order to get the best I\slash O performance
+    possible.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    output\_interval   & \typint & -5    & \slbsc &
+    \descriptionbegin
+    Number of time steps between writing CGNS solution files.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    continuous\_output & \typlog & \fls  & \slxtl &
+    \descriptionbegin
+    Logical flag to enable\slash disable the post-processor that attempts to
+    create a smooth, continuous solution across all cells before writing it to
+    the CGNS solution file.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    output\_order      & \typint & -3    & \sladv &
+    \descriptionbegin
+    Specifies the degree of the polynomial space used to represent the solution
+    in the CGNS solution files. This simply allows the ability to over-sample
+    the solution polynomial which provides a smoother solution within each cells
+    when visualizing the solution.  \NOTE This is only used if
+    $\textsl{output\_order}>\textsl{solution\_order}$.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    loc\_output\_pts   & \typint & 0     & \slxpt &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the location of the nodal points within the grid cells when
+    writing the solution to the CGNS solution files.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    0 & Equi-distant nodes \\
+    1 & Legendre-Gauss nodes \\
+    2 & Legendre-Gauss-Lobatto nodes
+    \end{tabular}
+    \NoNewlineNOTE Using Legendre-Gauss nodes for the CGNS solution files will
+    result in empty space between all grid cells because there is no
+    connectivity information between cells.
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{GOVERNING EQUATIONS}
+    %===========================================================================
+    governing\_equations & \typint & 2 & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the governing equations to use.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Euler equations \\
+    2 & Navier-Stokes equations
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    turbulence\_model    & \typint & 0 & \slnwk &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the turbulence model to use.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    0 & Laminar\slash Implicit LES \\
+    1 & 1998 $k$-$\omega$ (not working) \\
+    -1 & 2006 $k$-$\omega$ (not working)
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{NONDIMENSIONAL REFERENCE CONDITIONS}
+    %===========================================================================
+    machref & \typflt & 0.4  & \slbsc &
+    \descriptionbegin
+    Reference Mach number.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    reyref  & \typflt & -1.0 & \slbsc &
+    \descriptionbegin
+    Reference Reynolds number (default evaluates to 8.7319e+6).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    gam     & \typflt & 1.4  & \slbsc &
+    \descriptionbegin
+    Reference $\gamma$ (ratio of specific heats).
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{TOTAL REFERENCE CONDITIONS}
+    %===========================================================================
+    ptotref       & \typflt & -1.0 & \slnwk &
+    \descriptionbegin
+    Reference total pressure (units of Pa).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    ttotref       & \typflt & -1.0 & \slnwk &
+    \descriptionbegin
+    Reference total temperature (units of Kelvin).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    ptot2p\_ratio & \typflt & -1.0 & \slnwk &
+    \descriptionbegin
+    Ratio of reference total pressure to reference static pressure.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{REFERENCE CONDITIONS}
+    %===========================================================================
+    rhoref  & \typflt & -1.0     & \slbsc &
+    \descriptionbegin
+    Reference static density (default evaluates to 1.160833
+    $\frac{\textrm{kg}}{\textrm{m}^3}$).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    tref    & \typflt & 300.0    & \slbsc &
+    \descriptionbegin
+    Reference static temperature (units of Kelvin).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    pref    & \typflt & 100000.0 & \slbsc &
+    \descriptionbegin
+    Reference static pressure (units of Pa).
+    \descriptionend
+    %---------------------------------------------------------------------------
+    rgasref & \typflt & 287.15   & \slbsc &
+    \descriptionbegin
+    Reference gas constant (units of
+    $\frac{\textrm{m}^2}{\textrm{s}^2\textrm{K}}$).
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{REFERENCE TURBULENCE CONDITIONS}
+    %===========================================================================
+    tinref & \typflt & 0.0    & \slnwk &
+    \descriptionbegin
+    Reference turbulence intensity. (not working)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    tvrref & \typflt & 1.0e-6 & \slnwk &
+    \descriptionbegin
+    Reference ratio of eddy viscosity to molecular viscosity. (not working)
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{REFERENCE ANGLES OF ATTACK}
+    %===========================================================================
+    alpha\_aoaref & \typflt & 0.0 & \slbsc &
+    \descriptionbegin
+    Reference angle of attack in the $x$-$y$ plane.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    beta\_aoaref  & \typflt & 0.0 & \slbsc &
+    \descriptionbegin
+    Reference angle of attack in the $x$-$z$ plane.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LAMINAR AND TURBULENT PRANDTL NUMBERS}
+    %===========================================================================
+    Pr  & \typflt & 0.72 & \slbsc &
+    \descriptionbegin
+    Laminar Prandtl number.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Prt & \typflt & 0.72 & \slnwk &
+    \descriptionbegin
+    Turbulent Prandtl number. (not working)
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{SUTHERLANDS LAW COEFFICIENTS}
+    %===========================================================================
+    suth\_muref & \typflt & 1.716e-5 & \slbsc &
+    \descriptionbegin
+    Constant $\mu_0$ in Sutherland's law.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    suth\_Tref  & \typflt & 273.0    & \slbsc &
+    \descriptionbegin
+    Constant $T_0$ in Sutherland's law.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    suth\_Sref  & \typflt & 110.4    & \slbsc &
+    \descriptionbegin
+    Constant $S$ in Sutherland's law.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{FILTER OPTIONS}
+    %===========================================================================
+    Filter\_Option & \typint & 0    & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the type of standard filter to use for stabilization.
+    \begin{tabular}{ @{\quad} r @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
+    $= 0$ & The standard filter is not used. \\
+    \multicolumn{2}{ @{} l @{} }{\textbf{For Structured Elements}} \\
+    $= 1$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Use a tensor product of the 1D exponential filter which amounts to the
+    1D filter being applied separately for each direction where \newline
+    $N=\textsl{solution\_order}\qquad$ for 1D, 2D, and 3D
+    \end{flushleft}\end{minipage} \\
+    $= 2$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Use a true tensor product of the 1D exponential filter where \newline
+    $N = 2 \times \textsl{solution\_order}\qquad$ for 2D \newline
+    $N = 3 \times \textsl{solution\_order}\qquad$ for 3D
+    \end{flushleft}\end{minipage} \\
+    \multicolumn{2}{ @{} l @{} }{\textbf{For Unstructured Elements}} \\
+    $\neq0$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Use the exponential filter where \newline
+    $N=\textsl{solution\_order}\qquad$ for 1D, 2D, and 3D
+    \end{flushleft}\end{minipage} \\
+    \end{tabular} \newline
+    \newline \newline
+    The exponential filter is defined as: \newline \newline
+    \begin{tabular}{ @{\quad} r @{ = } p{0.85\linewidth} @{} }
+    $N_c$ & filter cutoff and must have a value  $\;0 \leq N_c \leq N$ \\
+    $\eta_c$ & $\dfrac{\textrm{real}(N_c)}{\textrm{real}(N)}$
+    \end{tabular} \newline \newline \newline
+    \setlength{\parindent}{12pt}
+    $\texttt{filter\_diagonal}(0\!:\!N) = 0.0$ \newline \newline
+    $\texttt{do}\;i = N_c , N$ \newline
+    \indent $\eta = \dfrac{\texttt{real}(i)}{\texttt{real}(N)}$ \newline
+    \indent $\texttt{filter\_diagonal}(i) = (1.0 - \varepsilon)
+    \exp\left[ -\alpha \left(\dfrac{\eta - \eta_c}{1.0 -
+    \eta_c}\right)^{\textstyle{s}}
+    \right]$ \newline
+    $\texttt{end do}$ \newline
+    \setlength{\parindent}{0pt}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    Filter\_etac   & \typflt & 0.0  & \sladv &
+    \descriptionbegin
+    Modal cutoff ($\eta_c$) for the standard filter, below which the lower modes
+    are left untouched. \NOTE The value of \textsl{Filter\_etac} must be between
+    0 and 1.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Filter\_Order  & \typint & 16   & \sladv &
+    \descriptionbegin
+    Order ($s$) of the exponential filter.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Filter\_Alpha  & \typflt & 36.0 & \sladv &
+    \descriptionbegin
+    Maximum damping parameter ($\alpha$) for the standard parameter.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Filter\_eps    & \typflt & 0.0  & \sladv &
+    \descriptionbegin
+    Leading damping parameter ($\varepsilon$) for the standard filter.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LIMITER FILTER OPTIONS}
+    %===========================================================================
+    Limiter\_Filter\_Option & \typint & 0    & \sladv &
+    \descriptionbegin
+    The details for this are the same as for \textsl{Filter\_Option}, but this
+    is a second filter that is only used as a limiter on any cells that have
+    been marked as a troubled cell.
+    \NOTE The idea is you can use \textsl{Filter\_Option} as a very weak filter
+    that is constantly being applied regardless of whether or not the solution
+    is oscillatory within the cell, and you can use
+    \textsl{Limiter\_Filter\_Option} as a stronger filter that is only applied
+    to cells that have been marked as a troubled cell to prevent the oscillatory
+    solutions in these cells from causing the simulation to diverge.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Limiter\_Filter\_etac   & \typflt & 0.0  & \sladv &
+    \descriptionbegin
+    Same as \textsl{Filter\_etac} but for the limiter filter.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Limiter\_Filter\_Order  & \typint & 16   & \sladv &
+    \descriptionbegin
+    Same as \textsl{Filter\_Order} but for the limiter filter.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Limiter\_Filter\_Alpha  & \typflt & 36.0 & \sladv &
+    \descriptionbegin
+    Same as \textsl{Filter\_Alpha} but for the limiter filter.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    Limiter\_Filter\_eps    & \typflt & 0.0  & \sladv &
+    \descriptionbegin
+    Same as \textsl{Filter\_eps} but for the limiter filter.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LIMITER OPTIONS}
+    %===========================================================================
+    Limiter\_Option & \typint & 0 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the type of limiter to use.
+    \begin{tabular}{ @{\quad} l @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
+    $= 0$ & Do not use a limiter. \\
+    $= -1$ & Use the resolution indicator to identify troubled cells. For any
+    troubled cells, project the solution down to a order that is dynamically
+    chosen by the value of the resolution indicator; cells with higher indicator
+    values will be projected to lower orders, whereas cells with lower indicator
+    values will be projected down only an order or two from the solution order.
+    \\
+    $= 1$ & Use the resolution indicator to identify troubled cells. The
+    resolution indicator is based on the integral of the (P-1)-order solution
+    density divided by the (P)-order solution density.\\
+    $= 2$ & Use the jump indicator to identify troubled cells. The jump
+    indicator is based on the pressure difference with neighboring cells for all
+    the faces of a cell. \\
+    \end{tabular}
+    \newline \newline
+    If $\textsl{Limiter\_Filter\_Option} = 0$, the limiting will be performed by
+    projecting the solution in each troubled cell down by one order, after which
+    all troubled cells will be rechecked to see if they are still troubled. If
+    any are still troubled the solution in those cells will be projected down
+    another order, and this loop continues until there are no more troubled
+    cells or the remaining troubled cells have been reduced to P1 solutions.
+    \newline \newline
+    If $\textsl{Limiter\_Filter\_Option} \neq 0$, the limiter filter will be
+    applied once to all troubled cells.
+    \newline
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CONTROL OVER FREQUENCY OF FILTERING/LIMITING}
+    %===========================================================================
+    Filtering\_Interval & \typint & 0 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the frequency to apply the standard filter.
+    \begin{tabular}{ @{\quad} r @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
+    $= 0$ & Apply the standard filter after each Runge-Kutta stage. \\
+   %$> 0$ & Apply the standard filter after the last Runge-Kutta stage of every
+   %$\textsl{Filtering\_Interval}^{\;\textrm{th}}$ time step. \\
+    $> 0$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
+            Apply the standard filter after the last Runge-Kutta stage if
+            \newline $\textrm{mod} \left( \textsl{Filtering\_Interval},
+            \textsl{current\_time\_step} \right) \eql 0$.
+            \end{flushleft}\end{minipage} \\
+    $< 0$ & The standard filter will NOT be applied even if \newline
+    $\textsl{Filter\_Option}\neq0$
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    Limiting\_Interval  & \typint & 0 & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies the frequency to apply the limiter.
+    \begin{tabular}{ @{\quad} r @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
+    $= 0$ & Apply the limiter after each Runge-Kutta stage. \\
+    $> 0$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
+            Apply the limiter after the last Runge-Kutta stage if
+            \newline $\textrm{mod} \left( \textsl{Limiting\_Interval},
+            \textsl{current\_time\_step} \right) \eql 0$.
+            \end{flushleft}\end{minipage} \\
+    $< 0$ & The limiter will NOT be applied even if \newline
+    $\textsl{Limiter\_Option}\neq0$
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{ISENTROPIC VORTEX CONSTANTS}
+    %===========================================================================
+    vortex\_bigR     & \typflt & 1.0  & \slspc &
+    \descriptionbegin
+    Constant used for the isentropic Euler vortex problem.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    vortex\_bigGam   & \typflt & 5.0  & \slspc &
+    \descriptionbegin
+    Constant used for the isentropic Euler vortex problem.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    VortexGrid\_Lref & \typflt & 10.0 & \slspc &
+    \descriptionbegin
+    Reference length for the grid domain, \thatis the grid is a square with
+    bounds of
+    $\left[-\textsl{VortexGrid\_Lref},+\textsl{VortexGrid\_Lref}\right]$ in both
+    the $x$- and $y$-directions.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{TAYLOR-GREEN VORTEX CONSTANTS}
+    %===========================================================================
+    VortexGrid\_DOF              & \typint & 48   & \slspc &
+    \descriptionbegin
+    Number of solution points \slash degrees-of-freedom (DoF) in each direction
+    to use for the isentropic Euler vortex and Taylor-Green vortex problems.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    VortexGrid\_random\_perturb  & \typlog & \fls & \slspc &
+    \descriptionbegin
+    Logical flag for applying a random perturbation to all the interior grid
+    nodes for the isentropic Euler vortex and Taylor-Green vortex problems.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    VortexGrid\_perturb\_percent & \typint & 30   & \slspc &
+    \descriptionbegin
+    Percent of the uniform grid cell length to perturb the interior grid nodes
+    if \textsl{VortexGrid\_random\_perturb} is true.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CHANNEL FLOW PARAMETERS}
+    %===========================================================================
+    channel\_body\_force & \typflt & 0.0   & \slnwk &
+    \descriptionbegin
+    Body force used to drive the channel flow problem. (not working)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    channel\_init\_file  & \tc     & `` '' & \slnwk &
+    \descriptionbegin
+    File path to the file used to initialize the solution for the channel flow
+    problem. (not working)
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{OPTIONS FOR MODIFYING BC ALGORITHMS}
+    %===========================================================================
+    walls\_are\_exact   & \typlog & \tru & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Logical flag that determines if the solution on wall boundary conditions are
+    treated as either the exact flow conditions or the ghost state that equals
+    the exact flow conditions when averaged with the interior state.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.75\linewidth} @{} }
+    .TRUE. & The wall boundary solution is the exact wall boundary condition,
+    \forexample $\left[ u_{\textrm{wall}}, v_{\textrm{wall}}, w_{\textrm{wall}}
+    \right] = 0$ for a no-slip wall. \\
+    .FALSE. & The average of the wall boundary solution \newline
+    and the interior solution on the boundary face \newline
+    recovers the exact wall boundary condition, \newline
+    \forexample $\left[ u_{\textrm{wall}}, v_{\textrm{wall}}, w_{\textrm{wall}}
+    \right] = -\left[ u_{\textrm{wall}}, v_{\textrm{wall}}, w_{\textrm{wall}}
+    \right]$ \newline for a no-slip wall.
+    \end{tabular}
+    \NoNewlineNOTE Hartmann (2014) reports that using exact wall boundary
+    conditions seems to be more accurate on coarse grids and for lower values of
+    \textsl{solution\_order}, whereas using the averaging method seems to be a
+    little more stable. Details can be found at \newline 
+    {\small \url{http://elib.dlr.de/90967/1/hartmann_leicht_VKI_LS_2014-3.pdf}}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    sub\_inflow\_method & \typint & 1    & \sladv &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Specifies which subsonic inflow boundary condition algorithm to use.
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.85\linewidth} @{} }
+    1 & Hold the total pressure and total temperature constant at the inflow,
+    use the outgoing characteristic from the interior to perform a Newton
+    iteration to get the static temperature, speed of sound, and normal velocity
+    magnitude for the exterior state. \\
+    2 & Use the inflow static density and velocity, and the interior static
+    pressure. \\
+    3 & Hold the inflow total pressure and total temperature constant, and use
+    the interior velocity. \\
+    4 & Hold the inflow total pressure and total temperature constant, and use
+    the interior static pressure.
+    \end{tabular}
+    \NoNewlineNOTE It is highly recommended to use option 1.
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    use\_bc\_conflicts  & \typlog & \tru & \slspc &
+    \descriptionbegin
+    Logical flag for determining whether or not to overwrite boundary solutions
+    in adjacent cells if co-located solution points have different boundary
+    conditions. \NOTE This is only relevant if using
+    Legendre-Gauss-Lobatto points for solution points.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CGNS OUTPUT OPTIONS}
+    %===========================================================================
+    cgns\_use\_queue                      & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag enabling/disabling the CGNS queuing system when writing parallel CGNS
+    solution files. \NOTE This is only applicable if using a version of
+    the CGNS library older than 3.3.0, \forexample 3.2.1.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    interpolate\_before\_output\_variable & \typlog & \tru & \sldev &
+    \descriptionbegin
+    Flag determining whether the solution variables are computed before or after
+    interpolating to the output points.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    convert\_restart\_to\_cgns            & \typlog & \fls & \slutl &
+    \descriptionbegin
+    Flag used to read in a restart file and immediately write a CGNS solution
+    file, bypassing the solver entirely.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    completely\_disable\_cgns             & \typlog & \fls & \sladv &
+    \descriptionbegin
+    Flag used to completely disable CGNS solutions from being output at the
+    output interval.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CONVERGENCE CRITERIA}
+    %===========================================================================
+    convergence\_order\_abs\_res & \typflt & -16.0 & \sladv &
+    \descriptionbegin
+    This is the convergence goal for the orders of magnitude of the absolute
+    residual.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    convergence\_order\_max\_res & \typflt & -16.0 & \sladv &
+    \descriptionbegin
+    This is the convergence goal for the orders of magnitude reduction of the
+    residual relative to the maximum value of the residual during the
+    simulation.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{PROFILE PARALLEL IO}
+    %===========================================================================
+    profile\_io\_all     & \typlog & \fls & \sldev &
+    \descriptionbegin
+    If true, sets both \textsl{profile\_io\_cgns} and
+    \textsl{profile\_io\_restart} to true.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    profile\_io\_cgns    & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag to activate some simple timers that time how long it takes to write
+    each CGNS solution file, and output the results to standard output.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    profile\_io\_restart & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag to activate some simple timers that time how long it takes to write
+    each restart or time-averaged restart file, and output the results to
+    standard output.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{OPTIONS TO OUTPUT BOUNDARY PROFILE}
+    %===========================================================================
+    output\_bnd\_profiles & \typlog & \fls & \slxtl &
+    \descriptionbegin
+    Flag used to output the solution profiles on certain boundary faces (highly
+    experimental).
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{CONTROL DOT\_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE}
+    %===========================================================================
+    use\_unrolled\_dot\_products & \typlog & \tru & \sldev &
+    \descriptionbegin
+    Flag for enabling/disabling the manually unrolled dot product functions.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{LUSTRE FILE SYSTEM STRIPING PARAMETERS}
+    %===========================================================================
+    lustre\_stripe\_count & \typint & 64     & \slxpt &
+    \descriptionbegin
+    Specifies the approximate number of stripes to use when writing a CGNS
+    solution file or a restart file. \NOTE This is only used if
+    \textsl{output\_dir} is on a Lustre file system. \NOTE The code
+    will take this value and find the closest integer value satisfying:
+    $\quad \textrm{mod} \left( \textsl{ncpu} , \textsl{lustre\_stripe\_count}
+    \right) \eql 0$
+    \descriptionend
+    %---------------------------------------------------------------------------
+    lustre\_stripe\_size  & \tc[10] & ``4m'' & \slxpt &
+    \descriptionbegin
+    Specifies the number of bytes to store on each stripe before moving to the
+    next stripe. \NOTE This is only used if \textsl{output\_dir} is on
+    a Lustre file system. \NOTE The value of \textsl{lustre\_stripe\_size}
+    must be a multiple of 65,536 bytes (64 KB), and the suffixes `k', `m', or
+    `g' can be used to specify units of KB, MB, or GB, respectively.
+    \EXAMPLE $\quad\textrm{``4m''} \Rightarrow 4~\textrm{MB} \Rightarrow
+    4,194,304~\textrm{bytes}$
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{TIME AVERAGING}
+    %===========================================================================
+    output\_time\_averaging     & \typlog & \fls        & \slbsc &
+    \descriptionbegin
+    Logical flag that enables\slash disables the accumulation of time-averaged
+    flow variables. If enabled, time-averaged restart and CGNS solution files
+    will be written whenever the standard restart and CGNS solution files are
+    written.  \NOTE In order to save disk space, the name of the time-averaged
+    restart file will switch between
+    \setlength{\parindent}{20pt}\newline\indent
+    ``\textsl{output\_dir}\slash{Restart\_files}\slash{out.1.ave}''
+    \newline and \newline\indent
+    ``\textsl{output\_dir}\slash{Restart\_files}\slash{out.2.ave}''.
+    \newline After successfully writing a new time-averaged restart file, a
+    symbolic link \newline\indent
+    ``\textsl{output\_dir}\slash{Restart\_files}\slash{out.current.ave}'' 
+    \newline will be created that points to the latest time-averaged restart
+    file.    
+    \setlength{\parindent}{0pt}
+    \descriptionend
+    %---------------------------------------------------------------------------
+    time\_ave\_file             & \tc     & ``out.ave'' & \slbsc &
+    \descriptionbegin
+    File path to the time-averaged solution restart file that will be read in if
+    \textsl{load\_restart\_file} and \textsl{output\_time\_averaging} are both
+    true. The code will add the accumulation of time-averaged flow variables
+    from the new running simulation to the time-averaged flow variables of the
+    previous simulation from which the new simulation restarted.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    time\_scaling\_factor       & \typflt & 1.0         & \slbsc &
+    \descriptionbegin
+    This is a scaling factor that is used to scale the value of the running time
+    within the simulation that is written to standard output and the results
+    file. This scaling has no affect on a simulation besides the cosmetic
+    scaling of these values when they are output.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    time\_ave\_vel\_is\_axisymm & \typlog & \fls        & \sladv &
+    \descriptionbegin
+    Logical flag that determines what velocity components to compute for the
+    time-averaged flow variables. If true, the grid is assumed to be
+    axisymmetric about the $x$-axis and the time-averaged velocity components
+    are: the velocity in the streamwise direction ($v_x$), the velocity in the
+    radial direction ($v_r$), and the azimuthal velocity ($v_\theta$). If false,
+    the Cartesian coordinate velocities ($v_x$, $v_y$, $v_z$) are the
+    time-averaged velocity components.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{UTILITY TO TIME AVERAGE EXISTING RESTART FILES}
+    %===========================================================================
+    time\_average\_restart\_files & \typlog & \fls  & \slutl &
+    \descriptionbegin
+    Logical flag to run a utility that creates a time-averaged solution from a
+    list of existing restart files given in the file specified by the
+    \textsl{restart\_list\_file} input parameter. This utility will finish by
+    writing out a time-averaged restart file and a time-averaged CGNS solution
+    file. This utility does not execute anything within the solver.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    restart\_list\_file           & \tc     & `` '' & \slutl &
+    \descriptionbegin
+    File path to a simple ASCII file that contains a list of file paths to
+    existing restart files that will be used to create a time-averaged solution.
+    This is only used if the input flag \textsl{time\_average\_restart\_files}
+    is true.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{MEMORY USAGE}
+    %===========================================================================
+    dump\_memory\_usage & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag used to profile the memory usage of GFR.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{DUMP FLUX INFORMATION FOR DEBUGGING}
+    %===========================================================================
+    dump\_fluxes                    & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag used to output the fluxes computed in the solver.
+    \descriptionend
+    %---------------------------------------------------------------------------
+    check\_flux\_point\_coordinates & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag used to output some files to check that co-located face quantities
+    are consistent in terms of interpolation between two cells sharing a face.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR}
+    %===========================================================================
+    postproc\_debug\_grid & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag used to activate using an internally created grid that is useful for
+    debugging the post-processor used for the \textsl{continuous\_output} input
+    flag.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT}
+    %===========================================================================
+    output\_plot3d\_to\_tecplot & \typlog & \fls & \slutl &
+    \descriptionbegin
+    Flag to output a Tecplot file of the input Plot3D grid file after reading
+    it.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{OPTION TO OUTPUT BOUNDARY CONDITIONS TO TECPLOT FILE}
+    %===========================================================================
+    output\_bface\_array & \typlog & \fls & \sldev &
+    \descriptionbegin
+    Flag to have each MPI process output the contents of its own local bface
+    array to the text file ``bface.[MPI process \#].dat''. The bface array
+    contains the boundary conditions and connectivity information for each
+    boundary face.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \groupline{INPUT BOUNDARY CONDITIONS}
+    %===========================================================================
+    bc\_input(1:20)              & \typebc &       & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    Derived type to specify boundary conditions.\newline
+    An iterative loop will go through the specified flow conditions and try to
+    compute the remaining unspecified flow conditions. \newline
+    \NOTE A run-time error will occur if either of the following conditions are
+    true: \newline \newline
+    \begin{tabular}{ @{\qquad} r @{) } p{0.85\linewidth} @{} }
+    A & The flow conditions are over-specified and inconsistent \\
+    B & The flow conditions are under-specified and it is unable to compute the
+    remaining unspecified flow conditions.
+    \end{tabular} \newline \newline
+    \EXAMPLE An example of a well defined boundary condition using bc\_input:
+    \newline \newline
+    \begin{tabular}{ @{\qquad} l @{ = } l @{} }
+    bc\_input(1)\%name & ``INFLOWSUBSONIC'' \\
+    bc\_input(1)\%set\_bc\_value & 2 ! Subsonic Inflow BC \\
+    bc\_input(1)\%p\_static & 101325.0 \\
+    bc\_input(1)\%p\_total & 121286.025 \\
+    bc\_input(1)\%t\_total & 293.15
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %---------------------------------------------------------------------------
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    bc\_input(1)\%name           & \tc[32] & `` '' & \slbsc &
+    \descriptionbegin
+    Character string that matches the name of a boundary group in the grid file.
+    \NOTE Case (upper\slash lower-case) does NOT matter.
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    bc\_input(1)\%set\_bc\_value & \typint & -9999 & \slbsc &
+    \begin{minipage}[t]{\linewidth}\begin{flushleft}
+    This overrides the boundary condition type specified in the grid file, using
+    this boundary condition type for the boundary group given by
+    \textsl{bc\_input(1)\%name}. Valid values for boundary condition types are:
+    \begin{tabular}{ @{\qquad} r @{ = } p{0.845\linewidth} @{} }
+    1 & Generic inflow, subsonic or supersonic  \\
+    2 & Subsonic inflow \\
+    3 & Supersonic inflow \\
+    11 & Generic outflow, subsonic or supersonic \\
+    12 & subsonic outflow \\
+    13 & supersonic outflow \\
+    21 & Characteristic inflow\slash outflow based on
+         \newline incoming\slash outgoing Riemann invariants,
+         \newline can be subsonic or supersonic \\
+    22 & Generic inflow\slash outflow, subsonic or supersonic \\
+    23 & Fixed to freestream\slash reference flow conditions \\
+    24 & Fixed flow conditions (equivalent to supersonic inflow) \\
+    50 & Slip wall \\
+    52 & Adiabatic no-slip wall \\
+    53 & Isothermal no-slip wall \\
+    80 & Symmetry boundary condition (equivalent to slip wall)
+    \end{tabular}
+    \end{flushleft}\end{minipage} \\ \minorline
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    bc\_input(1)\%t\_static      & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Static temperature (units of Kelvin)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%p\_static      & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Static pressure (units of Pa)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%rho\_static    & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Static density (units of $\frac{\textrm{kg}}{\textrm{m}^3}$)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%mach           & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Mach number (dimensionless)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%vx             & \typflt & 0.0   & \slbsc &
+    \descriptionbegin
+    Velocity in the $x$ coordinate direction (units of m/s)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%vy             & \typflt & 0.0   & \slbsc &
+    \descriptionbegin
+    Velocity in the $y$ coordinate direction (units of m/s)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%vz             & \typflt & 0.0   & \slbsc &
+    \descriptionbegin
+    Velocity in the $z$ coordinate direction (units of m/s)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%t\_total       & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Total temperature (units of Kelvin)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%p\_total       & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Total pressure (units of Pa)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%rho\_total     & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Total density (units of $\frac{\textrm{kg}}{\textrm{m}^3}$)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%alpha\_aoa     & \typflt & 0.0   & \slbsc &
+    \descriptionbegin
+    Angle of attack with respect to the $x$-$y$ plane (dimensionless)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%beta\_aoa      & \typflt & 0.0   & \slbsc &
+    \descriptionbegin
+    Angle of attack with respect to the $x$-$z$ plane (dimensionless)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%wall\_temp     & \typflt & -1.0  & \slbsc &
+    \descriptionbegin
+    Temperature for isothermal wall (units of Kelvin)
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    bc\_input(1)\%relax\%value   & \typflt & 1.0   & \slxtl &
+    \descriptionbegin
+    Relaxation value to limit the difference between the interior and exterior
+    states ($0.0 < \textrm{bc\_input(1)\%relax\%value} \leq 1.0$)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%relax\%time    & \typflt & 0.0   & \slxtl &
+    \descriptionbegin
+    Solution time to end relaxation ($> 0.0$)
+    \descriptionend
+    %---------------------------------------------------------------------------
+    bc\_input(1)\%relax\%iter    & \typint & 0     & \slxtl &
+    \descriptionbegin
+    Time step to end relaxation ($> 0$)
+    \descriptionend
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+   %Monday & 11C & 22C & A clear day with lots of sunshine.  
+   %However, the strong breeze will bring down the temperatures. \\ \hline
+   %Tuesday & 9C & 19C & Cloudy with rain, across many northern regions.
+   %Clear spells across most of Scotland and Northern Ireland, 
+   %but rain reaching the far northwest. \\ \hline
+   %Wednesday & 10C & 21C & Rain will still linger for the morning. 
+   %Conditions will improve by early afternoon and continue 
+   %throughout the evening. \\
+    \hline
+%   \end{tabularx}
+    \end{longtable}
+%   \end{tabular}
+%\end{center}
+
+%\input{vortex}
+%
+%\newpage
+%
+%\input{taylorgreen}
+
+\end{document}
