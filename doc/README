@@ -7,7 +7,7 @@
 ################################################################################
 ################################################################################
 
-# Send an email to seth.c.spiegel@nasa.gov providing you NAS username, and I will
+# Send an email to seth.c.spiegel@nasa.gov providing your NAS username, and I will
 # provide you with access to a directory of environment module files and a directory
 # of prebuilt libraries for all dependencies. Once you have access to these directories,
 # you only need to run the following command:
