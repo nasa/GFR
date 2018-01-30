@@ -1663,7 +1663,7 @@ continue
         !
         iterate_bc_conditions: do ii = 1,5
           !
-          mach_is_set = ( abs(mach) < five*five )
+          mach_is_set = ( abs(mach) < five*five .and. mach > zero )
           vel_is_set  = ( norm2(vel) > zero )
           !
           call igl(r,p,t,static_is_set,n)
