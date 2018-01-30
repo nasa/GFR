@@ -30,7 +30,7 @@ continue
       return_value(1) = nodes(2)
       return_value(2) = nodes(1)
       return_value(5) = nodes(3)
-    end if    
+    end if
     !
   else if (geom == Geom_Pris) then
     !

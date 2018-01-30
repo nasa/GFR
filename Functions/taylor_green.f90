@@ -44,7 +44,7 @@ continue
   !
   ! Compute initial pressure
   !
-  pres = pref + rhoref*uref*uref/sixteen * (cos(two*x) + cos(two*y)) & 
+  pres = pref + rhoref*uref*uref/sixteen * (cos(two*x) + cos(two*y)) &
                                          * (cos(two*z) + two)
   !
   ! Compute density assuming constant temperature

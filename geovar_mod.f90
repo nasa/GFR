@@ -179,7 +179,7 @@ module geovar
   !
   ! CONFLICT : A data type that provides the node and face indices for any
   !            boundary condition conflicts. A boundary condition conflict
-  !            is where two adjacent boundary faces have non-matching / 
+  !            is where two adjacent boundary faces have non-matching /
   !            conflicting boundary conditions. These conflicts are located
   !            at a single node for a 2D grid and along an edge for a 3D grid.
   !            NOTE: This data type might need to be tweaked for 3D. The whole
@@ -208,9 +208,9 @@ module geovar
     logical(lk) :: is_local
     ! not_my_conflict :  true if processor has no involvement with conflict
     logical(lk) :: not_my_conflict
-    ! master : 
+    ! master :
     type(point) :: master
-    ! slave : 
+    ! slave :
     type(point), allocatable, dimension(:) :: slave
   end type conflict
   !
@@ -228,7 +228,7 @@ module geovar
   !
   !
   !
-  ! GEOM_CONN : 
+  ! GEOM_CONN :
   !
   type, public :: geom_conn
     integer, allocatable, dimension(:,:) :: connectivity
@@ -1103,7 +1103,7 @@ continue
     write (iou,7) "grid"
     !
   end if
-                   
+
   !
   ! Memory usage for the pst_geom array of type geom_conn
   !

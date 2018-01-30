@@ -77,7 +77,7 @@
 !  ! the total energy gradient from the previous loop.
 !  ! Now use the velocity gradients to subtract the gradient of
 !  ! kinetic-energy-per-unit-mass from the total energy gradient.
-!  ! 
+!  !
 !  !
 !#ifdef NOT_SURE_ABOUT_LOOP
 !  do m = nmb,nme
@@ -172,7 +172,7 @@
 !! ! the total energy gradient from the previous loop.
 !! ! Now use the velocity gradients to subtract the gradient of
 !! ! kinetic-energy-per-unit-mass from the total energy gradient.
-!! ! 
+!! !
 !! do m = nmb,nme
 !!   do l = 1,nr
 !!     return_value(l,nee) = return_value(l,nee) - var(m)*return_value(l,m)
@@ -185,9 +185,9 @@
 !! return_value(1:nr,nee) = return_value(1:nr,nee) * cv_inv
 !! !
 !end subroutine grad_cv_to_grad_pv_gpu
-!!
-!!###############################################################################
-!!
+!
+!###############################################################################
+!
 pure function grad_cv_to_grad_pv(rusp,dcdx,dcdy) result(return_value)
   !
   ! This routine computes the discontinuous gradient at each solution point
@@ -246,7 +246,7 @@ continue
     ! the total energy gradient from the previous loop.
     ! Now use the velocity gradients to subtract the gradient of
     ! kinetic-energy-per-unit-mass from the total energy gradient.
-    ! 
+    !
     do m = nmb,nme
       dpdx(nee,k) = dpdx(nee,k) - rho_inv*rusp(m,k)*dpdx(m,k)
       dpdy(nee,k) = dpdy(nee,k) - rho_inv*rusp(m,k)*dpdy(m,k)
@@ -323,7 +323,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   do m = nmb,nme
     do l = 1,nr
       return_value(l,nee) = return_value(l,nee) - var(m)*return_value(l,m)
@@ -389,7 +389,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   do m = nmb,nme
     do l = 1,nr
       return_value(l,nee) = return_value(l,nee) - var(m)*return_value(l,m)

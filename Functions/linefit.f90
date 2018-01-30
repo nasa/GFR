@@ -72,7 +72,7 @@ subroutine lfit(n,x,y,s,a,b,ea,eb,x2)
  eb=0.d0
  do i=1,n
     db=(x(i)*w-wx)/((wxx*w-wx**2)*s(i)**2)
-    da=(1.d0/s(i)**2-db*wx)/w   
+    da=(1.d0/s(i)**2-db*wx)/w
     ea=ea+(da*s(i))**2
     eb=eb+(db*s(i))**2
  end do

@@ -130,7 +130,7 @@ module metrics_mod
   ! wsp  : quadrature weights
   ! xiSP : xi coordinates of the edge solution points
   !        !! xisp and xisp1d seemed to be duplicates
-  ! xiCE : 
+  ! xiCE :
   !
   ! Hesthaven and Warburton equivalencies
   ! wsp = weights
@@ -143,7 +143,7 @@ module metrics_mod
   ! XYSPxi  : d_(x,y)/d_xi  of the cell solution points, i.e. d_x/d_xi, d_y/d_xi
   ! XYSPet  : d_(x,y)/d_eta of the cell solution points
   ! XYeSP   : x,y coordinates of the edge solution points !! not used
-  ! XYeSPxi : d_(x,y)/d_xi of the edge solution points 
+  ! XYeSPxi : d_(x,y)/d_xi of the edge solution points
   !
   ! Hesthaven and Warburton equivalencies
   ! XYSP(1,:,:)   = x
@@ -697,7 +697,7 @@ continue
       !
       nfp = geom_solpts(face_geom,face_order)
       !
-      ! Interpolate the coordinates of the solution points to get the 
+      ! Interpolate the coordinates of the solution points to get the
       ! coordinates of the flux points on the current face.
       !
       do l = 1,nr
@@ -709,7 +709,7 @@ continue
                                               pts(kf)
           !
           val = zero
-          do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(lf)+1, &
+          do i = interp(left_geom,left_order)%toFace(face_order)%row_ptr(lf)+1,&
                  interp(left_geom,left_order)%toFace(face_order)%row_ptr(lf+1)
             !
             j = interp(left_geom,left_order)%toFace(face_order)%row_idx(i)
@@ -933,7 +933,7 @@ continue
                                         pts(kf)
       !
       val = zero
-      do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(rcfp)+1, &
+      do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(rcfp)+1,&
              interp(right_geom,right_order)%toFace(face_order)%row_ptr(rcfp+1)
         !
         j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)

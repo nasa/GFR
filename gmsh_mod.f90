@@ -3091,7 +3091,7 @@ continue
       return_value%order = 5
       return_value%geom = Geom_Hexa
       return_value%elem_type = elem_type
-    case (95) 
+    case (95)
      !return_value = prop_t(npts=343, &
      !                      order=6, &
      !                      geom=Geom_Hexa, &

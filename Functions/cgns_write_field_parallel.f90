@@ -18,7 +18,7 @@
     where (is_nan(var)) var = zero
     where (.not. is_finite(var))
       var = merge(-1.0e+10_CRT,1.0e+10_CRT,is_negative(var))
-     !where (is_negative(var)) 
+     !where (is_negative(var))
      !  var = -1.0e+10_CRT
      !else where
      !  var =  1.0e+10_CRT

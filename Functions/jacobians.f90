@@ -22,7 +22,7 @@ continue
   ! z component of these arrays will not be overwritten and will
   ! remain zero. These z=zero components will make the vector
   ! returned by the cross_product function below to be in only
-  ! the k direction. 
+  ! the k direction.
   !
   d1 = zero
   d2 = zero
@@ -88,7 +88,7 @@ continue
   ! z component of these arrays will not be overwritten and will
   ! remain zero. These z=zero components will make the vector
   ! returned by the cross_product function below to be in only
-  ! the k direction. 
+  ! the k direction.
   !
   d1 = zero
   d2 = zero
@@ -154,7 +154,7 @@ continue
   ! z component of these arrays will not be overwritten and will
   ! remain zero. These z=zero components will make the vector
   ! returned by the cross_product function below to be in only
-  ! the k direction. 
+  ! the k direction.
   !
   d1 = zero
   d2 = zero

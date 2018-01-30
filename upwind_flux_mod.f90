@@ -900,7 +900,7 @@ pure function ausm_plus_upwind_flux(unrm,pvl,pvr) result(return_value)
   real(wp), dimension(1:nr) :: vell,velr
   !
   !.. Local Parameters ..
-  real(wp), parameter :: amco2m = 1.0e-4_wp         
+  real(wp), parameter :: amco2m = 1.0e-4_wp
   real(wp), parameter :: alphax = 0.1875_wp
   real(wp), parameter :: betax  = 0.125_wp
   !
@@ -1069,8 +1069,8 @@ continue
   fR(4) = rhoR*vnR *  HR
   !
   ! Define n1 and n2, and compute alpha1 and alpha2: (4.2) in original paper.
-  ! (NB: n1 and n2 may need to be frozen at some point during 
-  !      a steady calculation to fully make it converge. For time-accurate 
+  ! (NB: n1 and n2 may need to be frozen at some point during
+  !      a steady calculation to fully make it converge. For time-accurate
   !      calculation, this is fine.)
   ! NB: For a boundary face, set (nx2,ny2)=(nx,ny), (nx1,ny1)=(-ny,nx).
   !
@@ -1080,11 +1080,11 @@ continue
     nx1 = (vxR-vxL)/abs_dq
     ny1 = (vyR-vyL)/abs_dq
   else
-    nx1 = -ny 
+    nx1 = -ny
     ny1 =  nx
   endif
   !
-  alpha1 = nx * nx1 + ny * ny1 
+  alpha1 = nx * nx1 + ny * ny1
   !
   ! To make alpha1 always positive.
   !
@@ -1127,7 +1127,7 @@ continue
   vtL = vxL*nx1 + vyL*ny1
   vtR = vxR*nx1 + vyR*ny1
   !
-  drho = rhoR - rhoL 
+  drho = rhoR - rhoL
   dp =   presR - presL
   dvn =  vnR - vnL
   dvt =  vtR - vtL
@@ -1172,7 +1172,7 @@ continue
   tx = nx1
   ty = ny1
   !
-  Rv(1,1) = one    
+  Rv(1,1) = one
   Rv(2,1) = vx - a*nx2
   Rv(3,1) = vy - a*ny2
   Rv(4,1) =  H - vn*a
@@ -1184,7 +1184,7 @@ continue
   !
   Rv(1,3) = one
   Rv(2,3) = vx
-  Rv(3,3) = vy 
+  Rv(3,3) = vy
   Rv(4,3) = half*(vx*vx+vy*vy)
   !
   Rv(1,4) = one
@@ -1292,8 +1292,8 @@ continue
   !
   ! ----------------------------------------------------------------------------
   ! Define n1 and n2, and compute alpha1 and alpha2: (4.2) in original paper.
-  ! NOTE: n1 and n2 may need to be frozen at some point during 
-  !       a steady calculation to fully make it converge. For time-accurate 
+  ! NOTE: n1 and n2 may need to be frozen at some point during
+  !       a steady calculation to fully make it converge. For time-accurate
   !       calculation, it is not necessary.
   ! NOTE: For a boundary face, you may want to set (nx2,ny2,nz2)=(nx,ny,nz),
   !       (nx1,ny1)=tangent vector, i.e., use the Roe flux.
@@ -1486,7 +1486,7 @@ continue
   !       vectors are not required. And thats why there are only 4 vectors here.
   !
   ! Left-moving acoustic wave
-  R(1,1) = one    
+  R(1,1) = one
   R(2,1) = u - a*nx2
   R(3,1) = v - a*ny2
   R(4,1) = w - a*nz2
@@ -1495,7 +1495,7 @@ continue
   ! Entropy wave
   R(1,2) = one
   R(2,2) = u
-  R(3,2) = v 
+  R(3,2) = v
   R(4,2) = w
   R(5,2) = half*(u*u + v*v + w*w)
   !
@@ -2515,7 +2515,7 @@ pure subroutine ausm_plus_upwind_flux_gpu_nd(n1,n2,facenrm,face_cv,return_value)
   real(wp), dimension(1:size(facenrm,dim=1)) :: vell,velr
   !
   !.. Local Parameters ..
-  real(wp), parameter :: amco2m = 1.0e-4_wp         
+  real(wp), parameter :: amco2m = 1.0e-4_wp
   real(wp), parameter :: alphax = 0.1875_wp
   real(wp), parameter :: betax  = 0.125_wp
   !
@@ -2700,13 +2700,14 @@ continue
     h0r = ar*ar/gm1 + half*q2r
     vnr = vxr*unx + vyr*uny + vzr*unz
     !
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! Define n1 and n2, and compute alpha1 and alpha2: (4.2) in original paper.
-    ! NOTE: n1 and n2 may need to be frozen at some point during 
-    !       a steady calculation to fully make it converge. For time-accurate 
+    ! NOTE: n1 and n2 may need to be frozen at some point during
+    !       a steady calculation to fully make it converge. For time-accurate
     !       calculation, it is not necessary.
-    ! NOTE: For a boundary face, you may want to set (nx2,ny2,nz2)=(unx,uny,unz),
-    !       (nx1,ny1)=tangent vector, i.e., use the Roe flux.
+    ! NOTE: For a boundary face, you may want to set
+    !         (nx2,ny2,nz2)=(unx,uny,unz),  (nx1,ny1)=tangent vector,
+    !       i.e., use the Roe flux.
     !
     abs_dq = sqrt( (vxr-vxl)**2 + (vyr-vyl)**2 + (vzr-vzl)**2 )
     !
@@ -2771,7 +2772,7 @@ continue
     ! NOTE: There are infinitely many choices for this vector.
     !       The best choice may be discovered in future.
     ! Here, we employ the formula (4.4) in the paper:
-    !     (nx2,ny2,nz2) = (n1xn)xn1 / |(n1xn)xn1|    ('x' is the vector product.)
+    !     (nx2,ny2,nz2) = (n1xn)xn1 / |(n1xn)xn1|   ('x' is the vector product.)
     !
     ! (tempx,tempy,tempz) = n1xn
     tempx = ny1*unz - nz1*uny
@@ -2798,7 +2799,7 @@ continue
     nz2 = temp * nz2
     alpha2 = temp * alpha2
     !
-    ! ----------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! Now we are going to compute the Roe flux with n2
     ! as the normal with modified wave speeds (5.12).
     !
@@ -2870,7 +2871,7 @@ continue
     !
     ! Harten's Entropy Fix JCP(1983), 49, pp357-393: only for the
     ! nonlinear fields.
-    ! NOTE: It avoids vanishing wave speeds by making a parabolic fit near ws = 0.
+    ! NOTE: Avoids vanishing wave speeds by making a parabolic fit near ws = 0.
     !
     if ( ws1 < one5 ) then
       ws1 = half * ( ws1*ws1/one5 + one5 )
@@ -2894,10 +2895,10 @@ continue
     !
     ! Right Eigenvectors:
     ! NOTE: Two shear wave components are combined into one, so that tangent
-    !       vectors are not required. And thats why there are only 4 vectors here.
+    !       vectors are not required, thats why there are only 4 vectors here.
     !
     ! Left-moving acoustic wave
-    r1_ec = one    
+    r1_ec = one
     r1_mx = u - a*nx2
     r1_my = v - a*ny2
     r1_mz = w - a*nz2
@@ -2906,7 +2907,7 @@ continue
     ! Entropy wave
     r2_ec = one
     r2_mx = u
-    r2_my = v 
+    r2_my = v
     r2_mz = w
     r2_ee = half*(u*u + v*v + w*w)
     !
@@ -3052,8 +3053,8 @@ continue
     vnr = vxr*unx + vyr*uny
     !
     ! Define n1 and n2, and compute alpha1 and alpha2: (4.2) in original paper.
-    ! (NB: n1 and n2 may need to be frozen at some point during 
-    !      a steady calculation to fully make it converge. For time-accurate 
+    ! (NB: n1 and n2 may need to be frozen at some point during
+    !      a steady calculation to fully make it converge. For time-accurate
     !      calculation, this is fine.)
     ! NB: For a boundary face, set (nx2,ny2)=(unx,uny), (nx1,ny1)=(-uny,unx).
     !
@@ -3063,11 +3064,11 @@ continue
       nx1 = (vxr-vxl)/abs_dq
       ny1 = (vyr-vyl)/abs_dq
     else
-      nx1 = -uny 
+      nx1 = -uny
       ny1 =  unx
     endif
     !
-    alpha1 = unx * nx1 + uny * ny1 
+    alpha1 = unx * nx1 + uny * ny1
     !
     ! To make alpha1 always positive.
     !
@@ -3110,7 +3111,7 @@ continue
     vtl = vxl*nx1 + vyl*ny1
     vtr = vxr*nx1 + vyr*ny1
     !
-    drho = rr - rl 
+    drho = rr - rl
     dp =   presr - presl
     dvn =  vnr - vnl
     dvt =  vtr - vtl
@@ -3157,7 +3158,7 @@ continue
     !
     ! Right Eigenvectors: with n2 as normal and n1 as tangent.
     !
-    r1_ec = one    
+    r1_ec = one
     r1_mx = vx - a*nx2
     r1_my = vy - a*ny2
     r1_ee =  H - vn*a
@@ -3169,7 +3170,7 @@ continue
     !
     r3_ec = one
     r3_mx = vx
-    r3_my = vy 
+    r3_my = vy
     r3_ee = half*(vx*vx+vy*vy)
     !
     r4_ec = one

@@ -71,7 +71,7 @@ continue
   pres = pref  * (temp/tref)**(gam/gm1)
   !
   ! If doing density/entropy transport, make the pressure
-  ! constant everywhere and set it to the free-stream pressure 
+  ! constant everywhere and set it to the free-stream pressure
   !
   pres = merge(pres,pref,any(itestcase==Vortex_Problems))
   !

@@ -161,7 +161,7 @@ continue
     call cgp_queue_flush_f(cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_queue_flush_f", &
                     cgierr,__LINE__,__FILE__)
-  end if 
+  end if
 #endif
   !
 end subroutine flush_cgns_queue

@@ -51,7 +51,7 @@ continue
    !write (*,3) "n",n
     !
     ! Location of last space character on interval 1:n
-    ! 
+    !
     last_space = scan(strng(1:n)," ",back=true)
    !write (*,3) "last_space",last_space
     !

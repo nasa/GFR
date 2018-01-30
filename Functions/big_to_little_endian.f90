@@ -1,6 +1,6 @@
 elemental function big_to_little_endian_i2(n) result(return_value)
   !
-  ! Function to convert a big_endian i_2 (32 bit) integer 
+  ! Function to convert a big_endian i_2 (32 bit) integer
   !               to a little_endian i_2 (32 bit) integer
   !
   use iso_fortran_env, only : i2 => int16
@@ -27,7 +27,7 @@ end function big_to_little_endian_i2
 !
 elemental function big_to_little_endian_i4(n) result(return_value)
   !
-  ! Function to convert a big_endian i_4 (32 bit) integer 
+  ! Function to convert a big_endian i_4 (32 bit) integer
   !               to a little_endian i_4 (32 bit) integer
   !
   implicit none
@@ -52,7 +52,7 @@ end function big_to_little_endian_i4
 !
 elemental function big_to_little_endian_i8(m) result(return_value)
   !
-  ! Function to convert a big_endian i_8 (64 bit) integer 
+  ! Function to convert a big_endian i_8 (64 bit) integer
   !               to a little_endian i_8 (64 bit) integer
   !
   implicit none
@@ -77,7 +77,7 @@ end function big_to_little_endian_i8
 !
 elemental function big_to_little_endian_r4(s) result(return_value)
   !
-  ! Function to convert a big_endian r_4 (32 bit) real 
+  ! Function to convert a big_endian r_4 (32 bit) real
   !               to a little_endian r_4 (32 bit) real
   !
   implicit none
@@ -109,7 +109,7 @@ end function big_to_little_endian_r4
 !
 elemental function big_to_little_endian_r8(d) result(return_value)
   !
-  ! Function to convert a big_endian r_8 (64 bit) real 
+  ! Function to convert a big_endian r_8 (64 bit) real
   !               to a little_endian r_8 (64 bit) real
   !
   implicit none

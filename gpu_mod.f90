@@ -391,7 +391,7 @@ continue
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho 
+        return_value(nec,n) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -463,7 +463,7 @@ continue
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho 
+        return_value(nec,n) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -529,7 +529,7 @@ continue
       do n = n1,n2
         rho = return_value(nec,n)
         pres = return_value(nee,n)
-        return_value(nec,n) = pres * rgasref_nd_inv / rho 
+        return_value(nec,n) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -629,7 +629,7 @@ continue
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho 
+        return_value(n,nec) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -698,7 +698,7 @@ continue
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho 
+        return_value(n,nec) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -761,7 +761,7 @@ continue
       do n = n1,n2
         rho = return_value(n,nec)
         pres = return_value(n,nee)
-        return_value(n,nec) = pres * rgasref_nd_inv / rho 
+        return_value(n,nec) = pres * rgasref_nd_inv / rho
       end do
     end if
   end if
@@ -1453,7 +1453,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
@@ -1554,7 +1554,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
   do n = n1,n2
     !
@@ -1710,7 +1710,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP PRESENT(tusp,return_value)
@@ -1819,7 +1819,7 @@ continue
   gm1 = gam - one
   gm1_inv = one/gm1
   ! NOTE: Multiply by c0 because -> If doing density/entropy transport, make the
-  !       pressure constant everywhere and set it to the free-stream pressure 
+  !       pressure constant everywhere and set it to the free-stream pressure
   gam_over_gm1 = gam*gm1_inv*c0
   !
   rhoref_inv = one/rhoref

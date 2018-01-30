@@ -45,7 +45,7 @@ module eqn_idx
   !
   !$ACC DECLARE CREATE(nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq)
   !
-  ! NGOV : Equation control parameters 
+  ! NGOV : Equation control parameters
   !
   !        NOTE: THIS IS COPIED FROM VULCAN MOST IS NOT USED
   !
