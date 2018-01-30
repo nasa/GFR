@@ -2,7 +2,8 @@ module correction_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix,matrix_gpu_t,create_matrix_sparsity
+  use generic_types_mod, only : matrix => matrix_gpu_t
+  use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
   !
@@ -17,7 +18,7 @@ module correction_mod
   !
   !
   !
-  ! correct : correction matrix for all combinations of cell geometry and 
+  ! correct : correction matrix for all combinations of cell geometry and
   !           and cell order that are possible in the current simulation
   !
   !     For cell 'n' :
@@ -34,8 +35,7 @@ module correction_mod
   !        this_order = cell(n)%order
   !        k = the flx-pt on a face of cell 'n' that is currently of interest
   !
- !type(matrix), public, save, target, allocatable :: correct(:,:)
-  type(matrix_gpu_t), public, save, target, allocatable :: correct(:,:)
+  type(matrix), public, save, target, allocatable :: correct(:,:)
   !
 contains
 !
@@ -60,9 +60,11 @@ subroutine init_correction_matrices()
   !
   !.. Local Pointers ..
  !type(matrix), pointer :: this_correct
-  type(matrix_gpu_t), pointer :: this_correct
-  real(wp), pointer, contiguous :: solpts(:,:)
-  real(wp), pointer, contiguous :: cmat(:,:)
+  type(matrix), pointer :: this_correct
+ !real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: cmat(:,:)
+  real(wp), pointer :: solpts(:,:)
+  real(wp), pointer :: cmat(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
@@ -206,7 +208,10 @@ end subroutine init_correction_matrices
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Edge(xi,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Edge(xi,eval_deriv) result(return_value)
   !
   !.. Use Statements ..
   use ovar, only : correction_function
@@ -384,7 +389,10 @@ end function CorrectionMatrix_Edge
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Quad_DG(pts1d,wts1d,eval_deriv) &
                                 result(return_value)
   !
   !.. Use Statements ..
@@ -485,7 +493,10 @@ end function CorrectionMatrix_Quad_DG
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Quad(xi,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Quad(xi,eval_deriv) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi
@@ -581,7 +592,10 @@ end function CorrectionMatrix_Quad
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Tria(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -672,7 +686,11 @@ continue
   !
   ! Compute the inverse mass matrix along an edge
   !
+#ifdef SPECIAL_FOR_INTEL
+  mmat1D_qp = invert_matrix_lapack95( matmul( vedge_qp , transpose(vedge_qp) ) )
+#else
   mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+#endif
   !
   ! Face 1
   !
@@ -709,7 +727,10 @@ end function CorrectionMatrix_Tria
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Tetr(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -800,7 +821,11 @@ continue
   !
   ! Compute the inverse mass matrix along an edge
   !
+#ifdef SPECIAL_FOR_INTEL
+  mmat1D_qp = invert_matrix_lapack95( matmul( vedge_qp , transpose(vedge_qp) ) )
+#else
   mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+#endif
   !
   ! Face 1
   !
@@ -837,7 +862,10 @@ end function CorrectionMatrix_Tetr
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Pyra(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -928,7 +956,11 @@ continue
   !
   ! Compute the inverse mass matrix along an edge
   !
+#ifdef SPECIAL_FOR_INTEL
+  mmat1D_qp = invert_matrix_lapack95( matmul( vedge_qp , transpose(vedge_qp) ) )
+#else
   mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+#endif
   !
   ! Face 1
   !
@@ -965,7 +997,10 @@ end function CorrectionMatrix_Pyra
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Pris(rs,eval_deriv) result(return_value)
   !
   ! RS : r and s coordinates for the standard
   !      triangle element on the interval [-1,1]
@@ -1056,7 +1091,11 @@ continue
   !
   ! Compute the inverse mass matrix along an edge
   !
+#ifdef SPECIAL_FOR_INTEL
+  mmat1D_qp = invert_matrix_lapack95( matmul( vedge_qp , transpose(vedge_qp) ) )
+#else
   mmat1D_qp = invert_matrix( matmul( vedge_qp , transpose(vedge_qp) ) )
+#endif
   !
   ! Face 1
   !
@@ -1093,7 +1132,10 @@ end function CorrectionMatrix_Pris
 !
 !###############################################################################
 !
-pure function CorrectionMatrix_Hexa(xi,eval_deriv) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function CorrectionMatrix_Hexa(xi,eval_deriv) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: xi

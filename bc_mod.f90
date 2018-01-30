@@ -47,7 +47,7 @@ contains
 !
 !###############################################################################
 !
-subroutine get_faceusp_bc
+subroutine get_faceusp_bc(exit_error)
   !
   ! Routine to compute the conservative variables at the boundary flux points
   ! and store the results in the faceusp array. This should be called after
@@ -60,8 +60,11 @@ subroutine get_faceusp_bc
   use flowvar,      only : faceusp_array
   use flowvar,      only : facexyz_array
   use geovar,       only : bc_grps
-  use ovar,         only : bc_in
+  use ovar,         only : bc_in,itcur
   use ovar,         only : output_bface_array
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(out) :: exit_error
   !
   !.. Local Scalars ..
   integer :: i,n1,n2
@@ -76,6 +79,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   newton_failures = 0
+  if (present(exit_error)) exit_error = 0
   !
   if (output_bface_array) call output_bface
   !
@@ -89,6 +93,31 @@ continue
     !
     bc_type = bc_grps(i)%bc_type
     bc_idx = bc_grps(i)%bc_idx
+!#define DEBUG_BC_GROUPS
+#ifdef DEBUG_BC_GROUPS
+    write (mypnum+500,100) i,n1,i,n2,i,bc_type, &
+                           trim(adjustl(bc_integer_to_string(bc_type))), &
+                           i,bc_idx, &
+          bc_idx,bc_idx, &
+          lbound(bc_in(bc_idx)%cv,dim=1),ubound(bc_in(bc_idx)%cv,dim=1), &
+          bc_idx,bc_idx, &
+          lbound(bc_in(bc_idx)%pv,dim=1),ubound(bc_in(bc_idx)%pv,dim=1), &
+          lbound(facenrm,dim=1),ubound(facenrm,dim=1), &
+          lbound(facenrm,dim=2),ubound(facenrm,dim=2), &
+          lbound(faceusp_array,dim=1),ubound(faceusp_array,dim=1), &
+          lbound(faceusp_array,dim=2),ubound(faceusp_array,dim=2), &
+          lbound(faceusp_array,dim=3),ubound(faceusp_array,dim=3)
+    flush (mypnum+500)
+  100 format (/,"In get_faceusp_bc:",/, &
+                "bc_grps(",i0,")%beg_fp  = ",i0,/, &
+                "bc_grps(",i0,")%end_fp  = ",i0,/, &
+                "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
+                "bc_grps(",i0,")%bc_idx  = ",i0,/, &
+                "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
+                "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
+                "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
+         "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")")
+#endif
     !
     ! Compute the solution at the boundary flux points
     ! based on the specified boundary condition
@@ -215,8 +244,12 @@ continue
   end if
   !
   if (newton_failures > 0) then
-    write (error_message,2) newton_failures
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    if (present(exit_error)) then
+      exit_error = newton_failures
+    else
+      write (error_message,2) newton_failures
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
   end if
   !
  !call exchange_bc_conflicts_usp(faceusp)
@@ -353,7 +386,7 @@ pure subroutine get_bc_freestream_solution(n1,n2,face_cv,cv_in)
   ! ##  Free stream boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -388,7 +421,7 @@ pure subroutine get_bc_freestream_solution_3d(n1,n2,face_cv,cv_in)
   ! ##  Free stream boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -424,7 +457,7 @@ pure subroutine get_bc_freestream_solution_2d(n1,n2,face_cv,cv_in)
   ! ##  Free stream boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -459,7 +492,7 @@ pure subroutine get_bc_freestream_solution_nd(n1,n2,face_cv,cv_in)
   ! ##  Free stream boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -495,7 +528,7 @@ pure subroutine get_bc_characteristic_solution(n1,n2,facenrm,face_cv, &
   ! ##  Characteristic boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
@@ -638,8 +671,8 @@ continue
     !
     ! Compute the speed of sound in the host cell
     !
-    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
-    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound
+    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound
     !
     ! Compute the normal velocity at this flux point
     !
@@ -799,8 +832,8 @@ continue
     !
     ! Compute the speed of sound in the host cell
     !
-    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
-    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+    aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound
+    aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound
     !
     ! Compute the normal velocity at this flux point
     !
@@ -970,8 +1003,8 @@ continue
       !
       ! Compute the speed of sound in the host cell
       !
-      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
-      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound
       !
       ! Compute the normal velocity at this flux point
       !
@@ -1062,13 +1095,13 @@ continue
       !
       ! Compute the speed of sound in the host cell
       !
-      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
-      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound
       !
       ! Compute the normal velocity at this flux point
       !
-      vn_int = (rhou_int*unx + rhov_int*uny) / rho_int ! Interior normal velocity
-      vn_rlx = (rhou_rlx*unx + rhov_rlx*uny) / rho_rlx ! Exterior normal velocity
+      vn_int = (rhou_int*unx + rhov_int*uny) / rho_int ! Int. normal velocity
+      vn_rlx = (rhou_rlx*unx + rhov_rlx*uny) / rho_rlx ! Ext. normal velocity
       !
       ! Apply boundary conditions based on the
       ! normal Mach number to the boundary face
@@ -1141,8 +1174,8 @@ continue
       !
       ! Compute the speed of sound in the host cell
       !
-      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound 
-      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound 
+      aspd_int = sqrt( max(gam*pres_int/rho_int,rndoff) ) ! Int. speed of sound
+      aspd_rlx = sqrt( max(gam*pres_rlx/rho_rlx,rndoff) ) ! Ext. speed of sound
       !
       ! Compute the normal velocity at this flux point
       !
@@ -1207,7 +1240,7 @@ pure subroutine get_bc_generic_inflow_solution(n1,n2,facenrm,face_cv,pv_in)
   ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1247,7 +1280,7 @@ pure subroutine get_bc_generic_inflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal inflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1393,7 +1426,7 @@ pure subroutine get_bc_generic_inflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal inflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1532,7 +1565,7 @@ pure subroutine get_bc_generic_inflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal inflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1840,7 +1873,7 @@ pure subroutine get_bc_generic_outflow_solution(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal outflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1880,7 +1913,7 @@ pure subroutine get_bc_generic_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal outflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -1999,7 +2032,7 @@ pure subroutine get_bc_generic_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal outflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -2113,7 +2146,7 @@ pure subroutine get_bc_generic_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
   ! ##      normal outflow velocity
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -2364,7 +2397,7 @@ pure subroutine get_bc_generic_freeflow_solution(n1,n2,facenrm,face_cv,cv_in)
   ! ##      it is subsonic or supersonic.
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
@@ -2405,7 +2438,7 @@ pure subroutine get_bc_generic_freeflow_solution_3d(n1,n2,facenrm,face_cv,cv_in)
   ! ##      it is subsonic or supersonic.
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
@@ -2524,7 +2557,7 @@ pure subroutine get_bc_generic_freeflow_solution_2d(n1,n2,facenrm,face_cv,cv_in)
   ! ##      it is subsonic or supersonic.
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
@@ -2636,7 +2669,7 @@ pure subroutine get_bc_generic_freeflow_solution_nd(n1,n2,facenrm,face_cv,cv_in)
   ! ##      it is subsonic or supersonic.
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
@@ -2864,8 +2897,9 @@ end subroutine get_bc_generic_freeflow_solution_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_sub_inflow_solution(n1,n2,facenrm,face_cv,cv_in,pv_in, &
-                                           newton_failures)
+!pure &
+subroutine get_bc_sub_inflow_solution(n1,n2,facenrm,face_cv,cv_in,pv_in, &
+                                      newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -2954,8 +2988,9 @@ end subroutine get_bc_sub_inflow_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
-                                            pv_in,newton_failures)
+!pure &
+subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -2973,6 +3008,9 @@ pure subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd
+#ifndef DISABLE_FOR_GPU
+  use geovar, only : face
+#endif
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -2987,9 +3025,9 @@ pure subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
   real(wp) :: dir_cosx,dir_cosy,dir_cosz
   real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
   real(wp) :: gm1,gam_over_1mg,tan_aoa,dterr
-  real(wp) :: aspd_int,veln_int
+  real(wp) :: temp_int,aspd_int,veln_int
   real(wp) :: pres_ext,temp_ext,aspd_ext,mach_ext
-  real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp
+  real(wp) :: rminus,rafac,veln_ext,func,dfunc,dtemp,dtemp0
   real(wp) :: gam_over_gm1,aspd_ref,mach_ref,total_cond
   real(wp) :: temp_ref,ttot_ref,ptot_ref,aoa
   !
@@ -2998,7 +3036,20 @@ pure subroutine get_bc_sub_inflow_newton_3d(n1,n2,facenrm,face_cv, &
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
   !
+#ifndef DISABLE_FOR_GPU
+  integer :: i,nf,io,ierr
+  real(wp) :: rc,tc
+  character(len=100) :: fname
+  logical(lk) :: file_is_opened
+  real(wp) :: dtemp_save(1:6,1:newton_iter)
+  real(wp) :: xyz_fp(1:3)
+#endif
+  !
 continue
+  !
+#ifndef DISABLE_FOR_GPU
+  file_is_opened = fals
+#endif
   !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
@@ -3026,7 +3077,7 @@ continue
   ! Precompute the direction cosines
   !
   aoa = atan2(pv_in(nmy),pv_in(nmx))
-  tan_aoa = tan( aoa * degrees2radians )
+  tan_aoa = tan( aoa )
   !
   dir_cosx = one / sqrt(one + tan_aoa**2)
   dir_cosy = tan_aoa * dir_cosx
@@ -3059,13 +3110,16 @@ continue
     q2 = vx*vx + vy*vy + vz*vz
     pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
+    temp_int = pres*rho_inv/rgasref_nd
+    !
     ! Normal velocity of the interior/host cell at this flux point
     !
     veln_int = vx*unx + vy*uny + vz*unz
     !
     ! Compute the speed of sound at this flux point
     !
-    aspd_int = sqrt( max( gam*pres/rho , rndoff ) )
+   !aspd_int = sqrt( max( gam*pres*rho_inv , rndoff ) )
+    aspd_int = sqrt( max( gam*rgasref_nd*temp_int , rndoff ) )
     !
     rminus = veln_int - (two*aspd_int/gm1)
     !
@@ -3084,8 +3138,20 @@ continue
     newton_iteration: do k = 1,newton_iter
       !
       dtemp = func/dfunc
+      if (k == 1) then
+        dtemp0 = dtemp
+      end if
+#ifndef DISABLE_FOR_GPU
+      dtemp_save(1,k) = dtemp
+      dtemp_save(2,k) = func
+      dtemp_save(3,k) = dfunc
+      dtemp_save(4,k) = temp_ext
+      dtemp_save(5,k) = aspd_ext
+      dtemp_save(6,k) = veln_ext
+#endif
       !
-      if (abs(dtemp) < dterr) then
+      if (abs(dtemp) < dterr .or. &
+          (abs(dtemp) < ten*dterr .and. abs(dtemp0)/abs(dtemp) < eps1) ) then
         convergence_reached = true
         exit newton_iteration
       end if
@@ -3113,46 +3179,172 @@ continue
     !
     if (.not. convergence_reached) then
       newton_failures = newton_failures + 1
-     !dtemp = func/dfunc
-     !write (iout,1) "mypnum   = ",mypnum
-     !write (iout,1) "nf       = ",nf
-     !write (iout,1) "k        = ",k,          " "
-     !write (iout,2) "aoa      = ",aoa
-     !write (iout,2) "tan_aoa  = ",tan_aoa
-     !write (iout,2) "dir_cos1 = ",dir_cosx
-     !write (iout,2) "dir_cos2 = ",dir_cosy, " "
-     !write (iout,2) "dens_int = ",rho
-     !write (iout,2) "vx_int   = ",vx
-     !write (iout,2) "vy_int   = ",vy
-     !write (iout,2) "vz_int   = ",vz
-     !write (iout,2) "pres_int = ",pres
-     !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
-     !write (iout,2) "aspd_int = ",aspd_int
-     !write (iout,2) "veln_int = ",veln_int,   " "
-     !write (iout,2) "dterr    = ",dterr
-     !write (iout,2) "func     = ",func
-     !write (iout,2) "dfunc    = ",dfunc
-     !write (iout,2) "dtemp    = ",dtemp,      " "
-     !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
-     !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
-     !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
-     !write (iout,2) "vz_ext   = ",face_cv(n,nmz,2)
-     !write (iout,2) "pres_ext = ",pres_ext
-     !write (iout,2) "temp_ext = ",temp_ext
-     !write (iout,2) "aspd_ext = ",aspd_ext
-     !write (iout,2) "veln_ext = ",veln_ext,   " "
-     !1 format (1x,a,i0,:,/,a)
-     !2 format (1x,a,es14.6,:,/,a)
+#ifndef DISABLE_FOR_GPU
+      dtemp = func/dfunc
+      find_face_loop: do k = 1,size(face)
+        if (n <= face(k)%end_fp) then
+          nf = k
+          exit find_face_loop
+        end if
+      end do find_face_loop
+      k = n - face(nf)%beg_fp + 1
+      if (.not. file_is_opened) then
+        write (fname,5) mypnum
+        open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                         action="write",form="formatted",iostat=ierr)
+        file_is_opened = true
+      end if
+      call get_xyz_for_face_point_3d(nf,k,xyz_fp)
+      rc = sqrt(xyz_fp(2)*xyz_fp(2) + xyz_fp(3)*xyz_fp(3))
+      tc = atan2(xyz_fp(2),xyz_fp(3)) * radians2degrees
+      write (io,1) "mypnum   = ",mypnum
+      write (io,1) "glb_fp   = ",n
+      write (io,1) "nf       = ",nf
+      write (io,1) "loc_fp   = ",k
+      write (io,2) "X        = ",xyz_fp(1)
+      write (io,2) "Y        = ",xyz_fp(2)
+      write (io,2) "Z        = ",xyz_fp(3)
+      write (io,2) "R        = ",rc
+      write (io,2) "Theta    = ",tc,         " "
+      write (io,2) "aoa      = ",aoa
+      write (io,2) "tan_aoa  = ",tan_aoa
+      write (io,2) "dir_cos1 = ",dir_cosx
+      write (io,2) "dir_cos2 = ",dir_cosy
+      write (io,2) "dir_cos3 = ",dir_cosz
+      write (io,2) "rafac    = ",rafac,      " "
+      write (io,2) "dens_int = ",rho
+      write (io,2) "vx_int   = ",vx
+      write (io,2) "vy_int   = ",vy
+      write (io,2) "vz_int   = ",vz
+      write (io,2) "pres_int = ",pres
+      write (io,2) "temp_int = ",temp_int
+     !write (io,2) "temp_int = ",pres/rho/rgasref_nd
+      write (io,2) "aspd_int = ",aspd_int
+      write (io,2) "veln_int = ",veln_int
+      write (io,2) "rminus   = ",rminus,     " "
+      write (io,2) "dterr    = ",dterr
+      write (io,2) "func     = ",func
+      write (io,2) "dfunc    = ",dfunc
+      write (io,2) "dtemp    = ",dtemp,      " "
+      write (io,2) "dens_ext = ",face_cv(n,nec,2)
+      write (io,2) "vx_ext   = ",face_cv(n,nmx,2)
+      write (io,2) "vy_ext   = ",face_cv(n,nmy,2)
+      write (io,2) "vz_ext   = ",face_cv(n,nmz,2)
+      write (io,2) "pres_ext = ",pres_ext
+      write (io,2) "temp_ext = ",temp_ext
+      write (io,2) "aspd_ext = ",aspd_ext
+      write (io,2) "veln_ext = ",veln_ext,   " "
+      do k = 1,size(dtemp_save,dim=2)
+        if (k == 1) write (io,3)
+        write (io,4) k,(dtemp_save(i,k), i=1,size(dtemp_save,dim=1))
+        if (k == size(dtemp_save,dim=2)) then
+          write (io,4) k+1,dtemp,func,dfunc,temp_ext,aspd_ext,veln_ext," "
+        end if
+      end do
+      flush (io)
+#endif
     end if
     !
   end do
+  !
+#ifndef DISABLE_FOR_GPU
+  if (file_is_opened) then
+    flush (io)
+    close (io,iostat=ierr)
+  end if
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (a,i0,:,/,a)
+  2 format (a,es14.6,:,/,a)
+  3 format (/,101("-"),/, &
+              4x,"VALUES AFFECTED BY EACH NEWTON ITERATION",/, &
+              101("-"),/, &
+              1x,"Iter",7x,"dtemp",11x,"func",12x,"dfunc", &
+              9x,"temp_ext",8x,"aspd_ext",8x,"veln_ext",/, &
+              101("-"))
+  4 format (2x,i3,6(2x,es14.6),:,/,101("-"),a,/)
+  5 format ("newton_bc_errors.CPU-",i0,".log")
   !
 end subroutine get_bc_sub_inflow_newton_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
-                                            pv_in,newton_failures)
+pure &
+subroutine get_xyz_for_face_point_3d(nf,kf,xyz_fp)
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxSP
+  use geovar,            only : cell,face,fp,xyz
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf
+  integer,     intent(in) :: kf
+  real(wp), intent(inout) :: xyz_fp(1:3)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,lf,nc,np,n0
+  integer  :: this_geom,this_order
+  integer  :: face_geom,face_order
+  integer  :: fp_offset,rotation
+  real(wp) :: a
+  !
+  !.. Local Arrays ..
+  real(wp) :: txyz(1:maxSP,1:3)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_xyz_for_face_point_3d"
+  !
+continue
+  !
+  nc = face(nf)%left%cell
+  !
+  this_geom = cell(nc)%geom
+  this_order = cell(nc)%order
+  !
+  n0 = cell(nc)%beg_sp - 1
+  np = cell(nc)%end_sp - n0
+  !
+  do k = 1,np
+    txyz(k,1) = xyz(1,n0+k)
+    txyz(k,2) = xyz(2,n0+k)
+    txyz(k,3) = xyz(3,n0+k)
+  end do
+  !
+  face_geom = face(nf)%geom
+  face_order = face(nf)%order
+  !
+  fp_offset = face(nf)%left%fp_offset
+  rotation  = face(nf)%left%rotation
+  !
+  lf = fp_offset + fp%geord(face_geom,face_order)% &
+                                    rot(rotation)% &
+                   pts(kf)
+  !
+  xyz_fp(:) = zero
+  !
+  do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+         interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+    !
+    j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+    a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+    !
+    xyz_fp(1) = xyz_fp(1) + a * txyz(j,1)
+    xyz_fp(2) = xyz_fp(2) + a * txyz(j,2)
+    xyz_fp(3) = xyz_fp(3) + a * txyz(j,3)
+    !
+  end do
+  !         
+
+end subroutine get_xyz_for_face_point_3d
+!
+!###############################################################################
+!
+!pure &
+subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -3170,6 +3362,9 @@ pure subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd
+#ifndef DISABLE_FOR_GPU
+  use geovar, only : face
+#endif
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -3195,7 +3390,18 @@ pure subroutine get_bc_sub_inflow_newton_2d(n1,n2,facenrm,face_cv, &
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
   !
+#ifndef DISABLE_FOR_GPU
+  integer :: nf,io,ierr
+  character(len=100) :: fname
+  logical(lk) :: file_is_opened
+  real(wp) :: dtemp_save(1:newton_iter)
+#endif
+  !
 continue
+  !
+#ifndef DISABLE_FOR_GPU
+  file_is_opened = fals
+#endif
   !
   ! Precompute the free stream specific kinetic energy
   ! and the inverse of gamma-1
@@ -3221,7 +3427,7 @@ continue
   ! Precompute the direction cosines
   !
   aoa = atan2(pv_in(nmy),pv_in(nmx))
-  tan_aoa = tan( aoa * degrees2radians )
+  tan_aoa = tan( aoa )
   !
   dir_cosx = one / sqrt(one + tan_aoa**2)
   dir_cosy = tan_aoa * dir_cosx
@@ -3275,6 +3481,9 @@ continue
     newton_iteration: do k = 1,newton_iter
       !
       dtemp = func/dfunc
+#ifndef DISABLE_FOR_GPU
+      dtemp_save(k) = dtemp
+#endif
       !
       if (abs(dtemp) < dterr) then
         convergence_reached = true
@@ -3303,44 +3512,82 @@ continue
     !
     if (.not. convergence_reached) then
       newton_failures = newton_failures + 1
-     !dtemp = func/dfunc
-     !write (iout,1) "mypnum   = ",mypnum
-     !write (iout,1) "nf       = ",nf
-     !write (iout,1) "k        = ",k,          " "
-     !write (iout,2) "aoa      = ",aoa
-     !write (iout,2) "tan_aoa  = ",tan_aoa
-     !write (iout,2) "dir_cos1 = ",dir_cosx
-     !write (iout,2) "dir_cos2 = ",dir_cosy, " "
-     !write (iout,2) "dens_int = ",rho
-     !write (iout,2) "vx_int   = ",vx
-     !write (iout,2) "vy_int   = ",vy
-     !write (iout,2) "pres_int = ",pres
-     !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
-     !write (iout,2) "aspd_int = ",aspd_int
-     !write (iout,2) "veln_int = ",veln_int,   " "
-     !write (iout,2) "dterr    = ",dterr
-     !write (iout,2) "func     = ",func
-     !write (iout,2) "dfunc    = ",dfunc
-     !write (iout,2) "dtemp    = ",dtemp,      " "
-     !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
-     !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
-     !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
-     !write (iout,2) "pres_ext = ",pres_ext
-     !write (iout,2) "temp_ext = ",temp_ext
-     !write (iout,2) "aspd_ext = ",aspd_ext
-     !write (iout,2) "veln_ext = ",veln_ext,   " "
-     !1 format (1x,a,i0,:,/,a)
-     !2 format (1x,a,es14.6,:,/,a)
+#ifndef DISABLE_FOR_GPU
+      dtemp = func/dfunc
+      find_face_loop: do k = 1,size(face)
+        if (n <= face(k)%end_fp) then
+          nf = k
+          exit find_face_loop
+        end if
+      end do find_face_loop
+      k = n - face(nf)%beg_fp + 1
+      if (.not. file_is_opened) then
+        write (fname,5) mypnum
+        open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                         action="write",form="formatted",iostat=ierr)
+        file_is_opened = true
+      end if
+      write (io,1) "mypnum   = ",mypnum
+      write (io,1) "glb_fp   = ",n
+      write (io,1) "nf       = ",nf
+      write (io,1) "loc_fp   = ",k,          " "
+      write (io,2) "aoa      = ",aoa
+      write (io,2) "tan_aoa  = ",tan_aoa
+      write (io,2) "dir_cos1 = ",dir_cosx
+      write (io,2) "dir_cos2 = ",dir_cosy, " "
+      write (io,2) "dens_int = ",rho
+      write (io,2) "vx_int   = ",vx
+      write (io,2) "vy_int   = ",vy
+      write (io,2) "pres_int = ",pres
+      write (io,2) "temp_int = ",pres/rho/rgasref_nd
+      write (io,2) "aspd_int = ",aspd_int
+      write (io,2) "veln_int = ",veln_int,   " "
+      write (io,2) "dterr    = ",dterr
+      write (io,2) "func     = ",func
+      write (io,2) "dfunc    = ",dfunc
+      write (io,2) "dtemp    = ",dtemp,      " "
+      write (io,2) "dens_ext = ",face_cv(n,nec,2)
+      write (io,2) "vx_ext   = ",face_cv(n,nmx,2)
+      write (io,2) "vy_ext   = ",face_cv(n,nmy,2)
+      write (io,2) "pres_ext = ",pres_ext
+      write (io,2) "temp_ext = ",temp_ext
+      write (io,2) "aspd_ext = ",aspd_ext
+      write (io,2) "veln_ext = ",veln_ext,   " "
+      do k = 1,size(dtemp_save)
+        if (k == 1) write (io,3)
+        write (io,4) k,dtemp_save(k)
+        if (k == size(dtemp_save)) write (io,4) k+1,dtemp, " "
+      end do
+      flush (io)
+#endif
     end if
     !
   end do
+  !
+#ifndef DISABLE_FOR_GPU
+  if (file_is_opened) then
+    flush (io)
+    close (io,iostat=ierr)
+  end if
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (a,i0,:,/,a)
+  2 format (a,es14.6,:,/,a)
+  3 format (/,50("-"),/, &
+              4x,"Values of dtemp for each Newton Iteration",/, &
+              50("-"))
+  4 format (4x,i3,4x,es23.15,:,/,50("-"),a,/)
+  5 format ("newton_bc_errors.CPU-",i0,".log")
   !
 end subroutine get_bc_sub_inflow_newton_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
-                                            pv_in,newton_failures)
+!pure &
+subroutine get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
+                                       pv_in,newton_failures)
   !
   ! #####################################################
   ! #####################################################
@@ -3358,6 +3605,9 @@ pure subroutine get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
   !
   !.. Use Statements ..
   use ovar, only : gam,rgasref_nd
+#ifndef DISABLE_FOR_GPU
+  use geovar, only : face
+#endif
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
@@ -3383,7 +3633,18 @@ pure subroutine get_bc_sub_inflow_newton_nd(n1,n2,facenrm,face_cv, &
   !.. Local Parameters ..
   integer, parameter :: newton_iter = 100
   !
+#ifndef DISABLE_FOR_GPU
+  integer :: nf,io,ierr
+  character(len=100) :: fname
+  logical(lk) :: file_is_opened
+  real(wp) :: dtemp_save(1:newton_iter)
+#endif
+  !
 continue
+  !
+#ifndef DISABLE_FOR_GPU
+  file_is_opened = fals
+#endif
   !
   nr = size(facenrm,dim=1)
   !
@@ -3420,7 +3681,7 @@ continue
   ! Precompute the direction cosines
   !
   aoa = atan2(pv_in(nmy),pv_in(nmx))
-  tan_aoa = tan( aoa * degrees2radians )
+  tan_aoa = tan( aoa )
   !
   dir_cosx = one / sqrt(one + tan_aoa**2)
   dir_cosy = tan_aoa * dir_cosx
@@ -3479,6 +3740,9 @@ continue
       newton_iteration_3d: do k = 1,newton_iter
         !
         dtemp = func/dfunc
+#ifndef DISABLE_FOR_GPU
+        dtemp_save(k) = dtemp
+#endif
         !
         if (abs(dtemp) < dterr) then
           convergence_reached = true
@@ -3508,36 +3772,56 @@ continue
       !
       if (.not. convergence_reached) then
         newton_failures = newton_failures + 1
-       !dtemp = func/dfunc
-       !write (iout,1) "mypnum   = ",mypnum
-       !write (iout,1) "nf       = ",nf
-       !write (iout,1) "k        = ",k,          " "
-       !write (iout,2) "aoa      = ",aoa
-       !write (iout,2) "tan_aoa  = ",tan_aoa
-       !write (iout,2) "dir_cos1 = ",dir_cosx
-       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
-       !write (iout,2) "dens_int = ",rho
-       !write (iout,2) "vx_int   = ",vx
-       !write (iout,2) "vy_int   = ",vy
-       !write (iout,2) "vz_int   = ",vz
-       !write (iout,2) "pres_int = ",pres
-       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
-       !write (iout,2) "aspd_int = ",aspd_int
-       !write (iout,2) "veln_int = ",veln_int,   " "
-       !write (iout,2) "dterr    = ",dterr
-       !write (iout,2) "func     = ",func
-       !write (iout,2) "dfunc    = ",dfunc
-       !write (iout,2) "dtemp    = ",dtemp,      " "
-       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
-       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
-       !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
-       !write (iout,2) "vz_ext   = ",face_cv(n,nmz,2)
-       !write (iout,2) "pres_ext = ",pres_ext
-       !write (iout,2) "temp_ext = ",temp_ext
-       !write (iout,2) "aspd_ext = ",aspd_ext
-       !write (iout,2) "veln_ext = ",veln_ext,   " "
-       !1 format (1x,a,i0,:,/,a)
-       !2 format (1x,a,es14.6,:,/,a)
+#ifndef DISABLE_FOR_GPU
+        dtemp = func/dfunc
+        find_face_loop_3d: do k = 1,size(face)
+          if (n <= face(k)%end_fp) then
+            nf = k
+            exit find_face_loop_3d
+          end if
+        end do find_face_loop_3d
+        k = n - face(nf)%beg_fp + 1
+        if (.not. file_is_opened) then
+          write (fname,5) mypnum
+          open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                           action="write",form="formatted",iostat=ierr)
+          file_is_opened = true
+        end if
+        write (io,1) "mypnum   = ",mypnum
+        write (io,1) "glb_fp   = ",n
+        write (io,1) "nf       = ",nf
+        write (io,1) "loc_fp   = ",k,          " "
+        write (io,2) "aoa      = ",aoa
+        write (io,2) "tan_aoa  = ",tan_aoa
+        write (io,2) "dir_cos1 = ",dir_cosx
+        write (io,2) "dir_cos2 = ",dir_cosy, " "
+        write (io,2) "dens_int = ",rho
+        write (io,2) "vx_int   = ",vx
+        write (io,2) "vy_int   = ",vy
+        write (io,2) "vz_int   = ",vz
+        write (io,2) "pres_int = ",pres
+        write (io,2) "temp_int = ",pres/rho/rgasref_nd
+        write (io,2) "aspd_int = ",aspd_int
+        write (io,2) "veln_int = ",veln_int,   " "
+        write (io,2) "dterr    = ",dterr
+        write (io,2) "func     = ",func
+        write (io,2) "dfunc    = ",dfunc
+        write (io,2) "dtemp    = ",dtemp,      " "
+        write (io,2) "dens_ext = ",face_cv(n,nec,2)
+        write (io,2) "vx_ext   = ",face_cv(n,nmx,2)
+        write (io,2) "vy_ext   = ",face_cv(n,nmy,2)
+        write (io,2) "vz_ext   = ",face_cv(n,nmz,2)
+        write (io,2) "pres_ext = ",pres_ext
+        write (io,2) "temp_ext = ",temp_ext
+        write (io,2) "aspd_ext = ",aspd_ext
+        write (io,2) "veln_ext = ",veln_ext,   " "
+        do k = 1,size(dtemp_save)
+          if (k == 1) write (io,3)
+          write (io,4) k,dtemp_save(k)
+          if (k == size(dtemp_save)) write (io,4) k+1,dtemp, " "
+        end do
+        flush (io)
+#endif
       end if
       !
     end do
@@ -3589,6 +3873,9 @@ continue
       newton_iteration_2d: do k = 1,newton_iter
         !
         dtemp = func/dfunc
+#ifndef DISABLE_FOR_GPU
+        dtemp_save(k) = dtemp
+#endif
         !
         if (abs(dtemp) < dterr) then
           convergence_reached = true
@@ -3617,34 +3904,54 @@ continue
       !
       if (.not. convergence_reached) then
         newton_failures = newton_failures + 1
-       !dtemp = func/dfunc
-       !write (iout,1) "mypnum   = ",mypnum
-       !write (iout,1) "nf       = ",nf
-       !write (iout,1) "k        = ",k,          " "
-       !write (iout,2) "aoa      = ",aoa
-       !write (iout,2) "tan_aoa  = ",tan_aoa
-       !write (iout,2) "dir_cos1 = ",dir_cosx
-       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
-       !write (iout,2) "dens_int = ",rho
-       !write (iout,2) "vx_int   = ",vx
-       !write (iout,2) "vy_int   = ",vy
-       !write (iout,2) "pres_int = ",pres
-       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
-       !write (iout,2) "aspd_int = ",aspd_int
-       !write (iout,2) "veln_int = ",veln_int,   " "
-       !write (iout,2) "dterr    = ",dterr
-       !write (iout,2) "func     = ",func
-       !write (iout,2) "dfunc    = ",dfunc
-       !write (iout,2) "dtemp    = ",dtemp,      " "
-       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
-       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
-       !write (iout,2) "vy_ext   = ",face_cv(n,nmy,2)
-       !write (iout,2) "pres_ext = ",pres_ext
-       !write (iout,2) "temp_ext = ",temp_ext
-       !write (iout,2) "aspd_ext = ",aspd_ext
-       !write (iout,2) "veln_ext = ",veln_ext,   " "
-       !1 format (1x,a,i0,:,/,a)
-       !2 format (1x,a,es14.6,:,/,a)
+#ifndef DISABLE_FOR_GPU
+        dtemp = func/dfunc
+        find_face_loop_2d: do k = 1,size(face)
+          if (n <= face(k)%end_fp) then
+            nf = k
+            exit find_face_loop_2d
+          end if
+        end do find_face_loop_2d
+        k = n - face(nf)%beg_fp + 1
+        if (.not. file_is_opened) then
+          write (fname,5) mypnum
+          open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                           action="write",form="formatted",iostat=ierr)
+          file_is_opened = true
+        end if
+        write (io,1) "mypnum   = ",mypnum
+        write (io,1) "glb_fp   = ",n
+        write (io,1) "nf       = ",nf
+        write (io,1) "loc_fp   = ",k,          " "
+        write (io,2) "aoa      = ",aoa
+        write (io,2) "tan_aoa  = ",tan_aoa
+        write (io,2) "dir_cos1 = ",dir_cosx
+        write (io,2) "dir_cos2 = ",dir_cosy, " "
+        write (io,2) "dens_int = ",rho
+        write (io,2) "vx_int   = ",vx
+        write (io,2) "vy_int   = ",vy
+        write (io,2) "pres_int = ",pres
+        write (io,2) "temp_int = ",pres/rho/rgasref_nd
+        write (io,2) "aspd_int = ",aspd_int
+        write (io,2) "veln_int = ",veln_int,   " "
+        write (io,2) "dterr    = ",dterr
+        write (io,2) "func     = ",func
+        write (io,2) "dfunc    = ",dfunc
+        write (io,2) "dtemp    = ",dtemp,      " "
+        write (io,2) "dens_ext = ",face_cv(n,nec,2)
+        write (io,2) "vx_ext   = ",face_cv(n,nmx,2)
+        write (io,2) "vy_ext   = ",face_cv(n,nmy,2)
+        write (io,2) "pres_ext = ",pres_ext
+        write (io,2) "temp_ext = ",temp_ext
+        write (io,2) "aspd_ext = ",aspd_ext
+        write (io,2) "veln_ext = ",veln_ext,   " "
+        do k = 1,size(dtemp_save)
+          if (k == 1) write (io,3)
+          write (io,4) k,dtemp_save(k)
+          if (k == size(dtemp_save)) write (io,4) k+1,dtemp, " "
+        end do
+        flush (io)
+#endif
       end if
       !
     end do
@@ -3693,6 +4000,9 @@ continue
       newton_iteration_1d: do k = 1,newton_iter
         !
         dtemp = func/dfunc
+#ifndef DISABLE_FOR_GPU
+        dtemp_save(k) = dtemp
+#endif
         !
         if (abs(dtemp) < dterr) then
           convergence_reached = true
@@ -3720,36 +4030,73 @@ continue
       !
       if (.not. convergence_reached) then
         newton_failures = newton_failures + 1
-       !dtemp = func/dfunc
-       !write (iout,1) "mypnum   = ",mypnum
-       !write (iout,1) "nf       = ",nf
-       !write (iout,1) "k        = ",k,          " "
-       !write (iout,2) "aoa      = ",aoa
-       !write (iout,2) "tan_aoa  = ",tan_aoa
-       !write (iout,2) "dir_cos1 = ",dir_cosx
-       !write (iout,2) "dir_cos2 = ",dir_cosy, " "
-       !write (iout,2) "dens_int = ",rho
-       !write (iout,2) "vx_int   = ",vx
-       !write (iout,2) "pres_int = ",pres
-       !write (iout,2) "temp_int = ",pres/rho/rgasref_nd
-       !write (iout,2) "aspd_int = ",aspd_int
-       !write (iout,2) "veln_int = ",veln_int,   " "
-       !write (iout,2) "dterr    = ",dterr
-       !write (iout,2) "func     = ",func
-       !write (iout,2) "dfunc    = ",dfunc
-       !write (iout,2) "dtemp    = ",dtemp,      " "
-       !write (iout,2) "dens_ext = ",face_cv(n,nec,2)
-       !write (iout,2) "vx_ext   = ",face_cv(n,nmx,2)
-       !write (iout,2) "pres_ext = ",pres_ext
-       !write (iout,2) "temp_ext = ",temp_ext
-       !write (iout,2) "aspd_ext = ",aspd_ext
-       !write (iout,2) "veln_ext = ",veln_ext,   " "
-       !1 format (1x,a,i0,:,/,a)
-       !2 format (1x,a,es14.6,:,/,a)
+#ifndef DISABLE_FOR_GPU
+        dtemp = func/dfunc
+        find_face_loop_1d: do k = 1,size(face)
+          if (n <= face(k)%end_fp) then
+            nf = k
+            exit find_face_loop_1d
+          end if
+        end do find_face_loop_1d
+        k = n - face(nf)%beg_fp + 1
+        if (.not. file_is_opened) then
+          write (fname,5) mypnum
+          open (newunit=io,file=trim(adjustl(fname)),status="replace", &
+                           action="write",form="formatted",iostat=ierr)
+          file_is_opened = true
+        end if
+        write (io,1) "mypnum   = ",mypnum
+        write (io,1) "glb_fp   = ",n
+        write (io,1) "nf       = ",nf
+        write (io,1) "loc_fp   = ",k,          " "
+        write (io,2) "aoa      = ",aoa
+        write (io,2) "tan_aoa  = ",tan_aoa
+        write (io,2) "dir_cos1 = ",dir_cosx
+        write (io,2) "dir_cos2 = ",dir_cosy, " "
+        write (io,2) "dens_int = ",rho
+        write (io,2) "vx_int   = ",vx
+        write (io,2) "pres_int = ",pres
+        write (io,2) "temp_int = ",pres/rho/rgasref_nd
+        write (io,2) "aspd_int = ",aspd_int
+        write (io,2) "veln_int = ",veln_int,   " "
+        write (io,2) "dterr    = ",dterr
+        write (io,2) "func     = ",func
+        write (io,2) "dfunc    = ",dfunc
+        write (io,2) "dtemp    = ",dtemp,      " "
+        write (io,2) "dens_ext = ",face_cv(n,nec,2)
+        write (io,2) "vx_ext   = ",face_cv(n,nmx,2)
+        write (io,2) "pres_ext = ",pres_ext
+        write (io,2) "temp_ext = ",temp_ext
+        write (io,2) "aspd_ext = ",aspd_ext
+        write (io,2) "veln_ext = ",veln_ext,   " "
+        do k = 1,size(dtemp_save)
+          if (k == 1) write (io,3)
+          write (io,4) k,dtemp_save(k)
+          if (k == size(dtemp_save)) write (io,4) k+1,dtemp, " "
+        end do
+        flush (io)
+#endif
       end if
       !
     end do
   end if
+  !
+#ifndef DISABLE_FOR_GPU
+  if (file_is_opened) then
+    flush (io)
+    close (io,iostat=ierr)
+  end if
+#endif
+  !
+  ! Format Statements
+  !
+  1 format (a,i0,:,/,a)
+  2 format (a,es14.6,:,/,a)
+  3 format (/,50("-"),/, &
+              4x,"Values of dtemp for each Newton Iteration",/, &
+              50("-"))
+  4 format (4x,i3,4x,es23.15,:,/,50("-"),a,/)
+  5 format ("newton_bc_errors.CPU-",i0,".log")
   !
 end subroutine get_bc_sub_inflow_newton_nd
 !
@@ -4509,7 +4856,7 @@ pure subroutine get_bc_sub_outflow_solution(n1,n2,facenrm,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -4563,7 +4910,7 @@ pure subroutine get_bc_sub_outflow_solution_old_3d(n1,n2,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
   !
@@ -4619,7 +4966,7 @@ pure subroutine get_bc_sub_outflow_solution_old_2d(n1,n2,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
   !
@@ -4673,7 +5020,7 @@ pure subroutine get_bc_sub_outflow_solution_old_nd(n1,n2,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
   !
@@ -4759,7 +5106,7 @@ pure subroutine get_bc_sub_outflow_solution_3d(n1,n2,facenrm,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -4851,7 +5198,7 @@ pure subroutine get_bc_sub_outflow_solution_2d(n1,n2,facenrm,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -4938,7 +5285,7 @@ pure subroutine get_bc_sub_outflow_solution_nd(n1,n2,facenrm,face_cv,pv_in)
   ! ##    - Fix pressure to free stream
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! PV_IN   : Boundary condition flow variables in primitive form
@@ -5119,7 +5466,7 @@ pure subroutine get_bc_sup_inflow_solution(n1,n2,face_cv,cv_in)
   ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -5155,7 +5502,7 @@ pure subroutine get_bc_sup_inflow_solution_3d(n1,n2,face_cv,cv_in)
   ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -5192,7 +5539,7 @@ pure subroutine get_bc_sup_inflow_solution_2d(n1,n2,face_cv,cv_in)
   ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -5228,7 +5575,7 @@ pure subroutine get_bc_sup_inflow_solution_nd(n1,n2,face_cv,cv_in)
   ! ##    - Fix all variables to the inflow condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the ghost cell flux points
   ! CV_IN   : Boundary condition flow variables in conservative form
   !
@@ -5264,7 +5611,7 @@ pure subroutine get_bc_sup_outflow_solution(n1,n2,face_cv)
   ! ##    - Extrapolate all variables
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
@@ -5298,7 +5645,7 @@ pure subroutine get_bc_sup_outflow_solution_3d(n1,n2,face_cv)
   ! ##    - Extrapolate all variables
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
@@ -5331,7 +5678,7 @@ pure subroutine get_bc_sup_outflow_solution_2d(n1,n2,face_cv)
   ! ##    - Extrapolate all variables
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
@@ -5362,7 +5709,7 @@ pure subroutine get_bc_sup_outflow_solution_nd(n1,n2,face_cv)
   ! ##  Supersonic outflow boundary condition
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Formal Arguments ..
@@ -6292,7 +6639,7 @@ pure subroutine get_bc_periodic_solution_3d(n1,n2,face_cv,periodic_list)
   !
 continue
   !
-  ! NOTE: We may need to reverse the copy order, i.e., 
+  ! NOTE: We may need to reverse the copy order, i.e.,
   !          gufp(:,k) = pufp(:,nfp+1-k)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
@@ -6333,7 +6680,7 @@ pure subroutine get_bc_periodic_solution_2d(n1,n2,face_cv,periodic_list)
   !
 continue
   !
-  ! NOTE: We may need to reverse the copy order, i.e., 
+  ! NOTE: We may need to reverse the copy order, i.e.,
   !          gufp(:,k) = pufp(:,nfp+1-k)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
@@ -6382,7 +6729,7 @@ continue
   end do
 #ifdef REVERSE_PERIODIC
   !
-  ! NOTE: We may need to reverse the copy order, i.e., 
+  ! NOTE: We may need to reverse the copy order, i.e.,
   !          gufp(:,k) = pufp(:,nfp+1-k)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
@@ -6406,7 +6753,7 @@ pure subroutine get_bc_mms_dirichlet_solution(n1,n2,facenrm,facexyz,face_cv)
   ! ##      it is subsonic or supersonic.
   ! #####################################################
   ! #####################################################
-  ! 
+  !
   ! FACENRM : Face outward normal vector at the flux points
   ! FACEXYZ : XYZ coordinates for all the flux points
   ! FACE_CV : Conservative variables at the flux points
@@ -7711,7 +8058,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
   do n = n1,n2
@@ -7826,7 +8173,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
   do n = n1,n2
@@ -7999,7 +8346,7 @@ continue
   ! the total energy gradient from the previous loop.
   ! Now use the velocity gradients to subtract the gradient of
   ! kinetic-energy-per-unit-mass from the total energy gradient.
-  ! 
+  !
   !
   if (nr == 3) then
     !$ACC PARALLEL LOOP PRESENT(face_dcvdx,face_cv)
@@ -8419,11 +8766,11 @@ continue
     end do check_bface_size
   end do
   !
-  ! Primary write of the format statement which has an unlimited 
+  ! Primary write of the format statement which has an unlimited
   ! '*' repetition multiplier on the last quantity to allow for
   ! an arbitrarily large number of values contained in intlen.
   ! The ":" within the part that is unlimitedly repeated serves
-  ! to terminate the format statement at that point preventing 
+  ! to terminate the format statement at that point preventing
   ! it from going back and adding on an extra ',3x,i' at the end.
   !
   write (write_format,1) (intlen(i),i=1,size(intlen))
@@ -8484,172 +8831,7 @@ end subroutine output_bface
 !
 !###############################################################################
 !
-subroutine debug_timer(time_flag,message,processor,part_num,acc)
-  !
-  !.. Formal Arguments ..
-  integer,          intent(in) :: time_flag
-  !
-  character(len=*), intent(in) :: message
-  !
-  !.. Optional Arguments ..
-  integer, optional, intent(in) :: processor
-  integer, optional, intent(in) :: part_num
-  integer, optional, intent(in) :: acc
-  !
-#ifdef PROFILE_ON
-  !.. Local Scalars ..
-  real(wp), save :: beg_wall_time
-  real(wp)       :: end_wall_time
-  real(wp)       :: wall_time
-  !
-  integer, save :: procedure_counter = 0
-  integer       :: i,hours,minutes,seconds,total_sec
-  integer       :: output_cpu
-  !
-  character(len=300) :: out_message
-  !
-  !.. Local Arrays ..
-  real(wp), save :: beg_procedure_time(10)
-  real(wp), save :: accumulated_time(10)
-  real(wp), save :: accumulation_beg_time(10)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: leading_space = "                    "
-  !
-continue
-  !
-  output_cpu = 0
-  if (present(processor)) output_cpu = processor
-  !
-  if (time_flag == start_timer) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-    if (mypnum == output_cpu) then
-      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == stop_timer) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_wall_time
-    !
-    total_sec = nint(wall_time)
-    !
-    hours   = total_sec / 3600
-    minutes = (total_sec - hours*3600) / 60
-    seconds = total_sec - hours*3600 - minutes*60
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
-    end if
-    !
-    ! Reset beg_wall_time in case this procedure is called twice
-    ! in a row with time_flag set to stop_timer
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-  else if (time_flag == reset_accumulated_time) then
-    !
-    if (present(acc)) then
-      accumulated_time(acc) = zero
-    end if
-    !
-  else if (time_flag == report_accumulated_time) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),accumulated_time(acc), &
-                     trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == start_accumulation) then
-    !
-    if (present(acc)) then
-      accumulation_beg_time(acc) = mpi_wtime()
-    end if
-    !
-  else if (time_flag == stop_accumulation) then
-    !
-    if (present(acc)) then
-      wall_time = mpi_wtime() - accumulation_beg_time(acc)
-      accumulated_time(acc) = accumulated_time(acc) + wall_time
-    end if
-    !
-  else if (time_flag == entering_procedure) then
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,3) leading_space(1:i),trim(adjustl(message))
-    end if
-    !
-    procedure_counter = procedure_counter + 1
-    !
-    beg_procedure_time(procedure_counter) = mpi_wtime()
-   !beg_procedure_time(procedure_counter) = dclock()
-   !call cpu_time( beg_procedure_time(procedure_counter) )
-    !
-  else if (time_flag == leaving_procedure) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
-    !
-    procedure_counter = max( 0 , procedure_counter-1 )
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
-    end if
-    !
-  end if
-  !
-  flush (iout)
-  !
-  ! Format Statements
-  !
-  1 format (a,"## Starting timer for: ",a)
-  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
-  3 format (a,"=> Entering procedure : ",a)
-  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
-  5 format (a)
-  6 format (a," for partition # ",i0)
-  !
-#endif
-  !
-end subroutine debug_timer
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

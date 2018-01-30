@@ -1,3 +1,144 @@
+pure function invert_matrix_lapack95_SP(a) result(return_value)
+  !
+  !.. Use Statements ..
+#ifdef SPECIAL_FOR_INTEL
+  use lapack95, only : getrf,getri
+#endif
+  !
+  !.. Function Precision
+  integer, parameter :: lp = sp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: a(:,:)
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(a,dim=1),1:size(a,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Arrays ..
+  integer :: ipiv(1:size(a,dim=1))
+  !
+continue
+  !
+  ! Initialize the inverse matrix result to the original input matrix
+  !
+  return_value(:,:) = a(:,:)
+  !
+  ! getrf computes an LU factorization of a general M-by-N matrix a
+  ! using partial pivoting with row interchanges.
+  !
+#ifdef SPECIAL_FOR_INTEL
+  call getrf(return_value,ipiv,ierr)
+  !
+  ! getri computes the inverse of a matrix using
+  ! the LU factorization computed by getrf.
+  !
+  call getri(return_value,ipiv,ierr)
+#else
+  return_value(:,:) = invert_matrix( return_value )
+#endif
+  !
+end function invert_matrix_lapack95_SP
+!
+!###############################################################################
+!
+pure function invert_matrix_lapack95_DP(a) result(return_value)
+  !
+  !.. Use Statements ..
+#ifdef SPECIAL_FOR_INTEL
+  use lapack95, only : getrf,getri
+#endif
+  !
+  !.. Function Precision
+  integer, parameter :: lp = dp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: a(:,:)
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(a,dim=1),1:size(a,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Arrays ..
+  integer :: ipiv(1:size(a,dim=1))
+  !
+continue
+  !
+  ! Initialize the inverse matrix result to the original input matrix
+  !
+  return_value(:,:) = a(:,:)
+  !
+  ! getrf computes an LU factorization of a general M-by-N matrix a
+  ! using partial pivoting with row interchanges.
+  !
+#ifdef SPECIAL_FOR_INTEL
+  call getrf(return_value,ipiv,ierr)
+  !
+  ! getri computes the inverse of a matrix using
+  ! the LU factorization computed by getrf.
+  !
+  call getri(return_value,ipiv,ierr)
+#else
+  return_value(:,:) = invert_matrix( return_value )
+#endif
+  !
+end function invert_matrix_lapack95_DP
+!
+!###############################################################################
+!
+pure function invert_matrix_lapack95_QP(a) result(return_value)
+  !
+  !.. Use Statements ..
+#ifdef SPECIAL_FOR_INTEL
+  use lapack95, only : getrf,getri
+#endif
+  !
+  !.. Function Precision
+  integer, parameter :: lp = qp
+  !
+  !.. Formal Arguments ..
+  real(lp), intent(in) :: a(:,:)
+  !
+  !.. Function Result ..
+  real(lp) :: return_value(1:size(a,dim=1),1:size(a,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  !
+  !.. Local Arrays ..
+  real(dp) :: mat_inv(1:size(a,dim=1),1:size(a,dim=2))
+  integer  :: ipiv(1:size(a,dim=1))
+  !
+continue
+  !
+  ! Initialize the inverse matrix result to the original input matrix
+  !
+  mat_inv(:,:) = chop( a(:,:) )
+  !
+  ! getrf computes an LU factorization of a general M-by-N matrix a
+  ! using partial pivoting with row interchanges.
+  !
+#ifdef SPECIAL_FOR_INTEL
+  call getrf(mat_inv,ipiv,ierr)
+  !
+  ! getri computes the inverse of a matrix using
+  ! the LU factorization computed by getrf.
+  !
+  call getri(mat_inv,ipiv,ierr)
+#else
+  mat_inv(:,:) = invert_matrix( mat_inv )
+#endif
+  !
+  return_value(:,:) = real( mat_inv(:,:) , kind=lp )
+  !
+end function invert_matrix_lapack95_QP
+!
+!###############################################################################
+!
 pure function invert_matrix_SP(a) result(return_value)
   !
   integer, parameter :: lp = sp

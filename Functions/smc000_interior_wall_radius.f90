@@ -68,7 +68,7 @@ end function smc000_interior_wall_radius
 !
 !###############################################################################
 !
-pure function point_is_in_nozzle_interior(xyz) result(return_value)
+pure function point_is_in_smc000_nozzle(xyz) result(return_value)
   !
   ! NOTE: This function assumes the incoming xyz is in meters
   !       since all the parameter coordinates are in meters.
@@ -107,7 +107,7 @@ continue
     !
   end if
   !
-end function point_is_in_nozzle_interior
+end function point_is_in_smc000_nozzle
 !
 !###############################################################################
 !

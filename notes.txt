@@ -10,6 +10,15 @@
 ################################################################################
 ################################################################################
 
+* Potential bug reading a multi-block Plot3D grid with K indices set to 1.  The
+  Plot3D reader will set nr to 2 after reading the gridfile header before
+  actually reading the grid coordinates.  It then reads the coordinates as
+     read(io,*) ((xyz(l,i+offset), i=1,npts),l=1,nr)
+  If the Plot3D specifies a K index for blocks (whether or not it is 1), the
+  grid file is supposed to Z coordinates for each block.  Thus, the above read
+  statement will erroneously read in the Z coordinates for the first block as
+  the X coordinates for the second block, and so on.
+
 * For time averaging file, there only needs to be a single file that is updated
   with the most up-to-date time averaged values.  However, since this will
   probably need to be output in parallel, alternate between two different output

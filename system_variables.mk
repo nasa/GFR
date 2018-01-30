@@ -4,8 +4,8 @@
 ###########################################################
 
 # MPI compiler wrappers for Fortran and C
-FC := mpiifort
-CC := mpiicc
+FC := mpif08
+CC := gcc
 
 # Compiler family/brand
 #COMPFAMILY := gcc
@@ -13,7 +13,7 @@ CC := mpiicc
  COMPFAMILY := intel
 
 # Directory to put Executables
-EXEDIR := $(HOME)/bin
+EXEDIR := $(HOME)/bin/$(COMPFAMILY)
 
 # Paths to install directories of required libraries
 # not including lib or include sub-directories, e.g.,
@@ -40,7 +40,7 @@ METISFPP := -DMETIS_5
 # Enable/Disable code accessing the PBS environment
 #     PBSFPP := -DPBS_ENV  => Enable  code for PBS environment
 #     PBSFPP :=            => Disable code for PBS environment
-PBSFPP :=
+PBSFPP := -DPBS_ENV
 
 # Select which version of the CGNS library to use
 #     CGNSFPP := -DCGNS_3_3  => CGNS 3.3.x
@@ -51,6 +51,7 @@ CGNSFPP := -DCGNS_3_3
 #     MPIFPP := -DUSE_MPI_F08  => USE MPI_F08
 #     MPIFPP :=                => USE MPI
 MPIFPP := -DUSE_MPI_F08
+#MPIFPP := 
 
 # Select whether to link to the Intel Math Libraries
 #     MKLFPP := -DUSE_INTEL_MKL  => Do     link to Intel MKL

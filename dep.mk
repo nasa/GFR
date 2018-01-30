@@ -35,15 +35,15 @@ $(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
 
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/kind_types.o \
-		  $(OBJDIR)/eqn_idx_mod.o \
+                  $(OBJDIR)/eqn_idx_mod.o \
                   $(OBJDIR)/geovar_mod.o \
                   $(OBJDIR)/ovar_mod.o \
                   $(OBJDIR)/flowvar_mod.o \
                   $(OBJDIR)/io.o \
                   $(OBJDIR)/restart_mod.o \
                   $(OBJDIR)/metrics.o \
-		  $(FUNDIR)/temperature.f90 \
-		  $(FUNDIR)/usp2v.f90
+                  $(FUNDIR)/temperature.f90 \
+                  $(FUNDIR)/usp2v.f90
 
 $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/kind_types.o \
@@ -55,9 +55,8 @@ $(OBJDIR)/bc_mod.o : bc_mod.f90 \
            $(OBJDIR)/flowvar_mod.o \
            $(OBJDIR)/gpu_mod.o \
            $(OBJDIR)/mms_mod.o \
+           $(FUNDIR)/debug_timer.f90 \
                      mpi_defs.h
-          #$(OBJDIR)/interpolation_mod.o \
-          #$(OBJDIR)/parallel.o \
 
 $(OBJDIR)/bnd_profiles_mod.o : bnd_profiles_mod.f90 \
                      $(OBJDIR)/kind_types.o \
@@ -84,7 +83,8 @@ $(OBJDIR)/cgns_mod.o : cgns_mod.f90 \
              $(OBJDIR)/connectivity.o \
              $(FUNDIR)/bc_string_to_integer.f90 \
              $(FUNDIR)/smc000_interior_wall_radius.f90 \
-             $(FUNDIR)/last.f90
+             $(FUNDIR)/last.f90 \
+             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/cgnstypes_mod.o : cgnstypes_mod.f90 \
                   $(OBJDIR)/kind_types.o
@@ -116,8 +116,7 @@ $(OBJDIR)/correction_mod.o : correction_mod.f90 \
 
 $(OBJDIR)/cpu_info_mod.o : cpu_info_mod.f90 \
                  $(OBJDIR)/kind_types.o \
-                 $(OBJDIR)/ovar_mod.o \
-                 $(OBJDIR)/mycpu.o
+                 $(OBJDIR)/ovar_mod.o
 
 $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/kind_types.o \
@@ -128,6 +127,7 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
                     $(OBJDIR)/vandermonde_mod.o \
+                    $(FUNDIR)/check_for_bad_number.f90 \
                     $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
@@ -143,7 +143,8 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
-               $(FUNDIR)/solpts2order.f90
+               $(FUNDIR)/solpts2order.f90 \
+               $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/flowvar_mod.o : flowvar_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -166,12 +167,9 @@ $(OBJDIR)/flux.o : flux.f90 \
          $(OBJDIR)/gpu_mod.o \
          $(OBJDIR)/invs_flux_mod.o \
          $(OBJDIR)/visc_flux_mod.o \
-         $(OBJDIR)/upwind_flux_mod.o
-        #$(OBJDIR)/typesgen_mod.o \
-        #$(OBJDIR)/quadrature_mod.o \
-        #$(OBJDIR)/projection_mod.o \
-        #$(OBJDIR)/bc_mod.o \
-        #$(OBJDIR)/parallel.o \
+         $(OBJDIR)/upwind_flux_mod.o \
+         $(FUNDIR)/debug_timer.f90 \
+	 $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/kind_types.o \
@@ -187,12 +185,13 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/gpu_mod.o \
             $(OBJDIR)/parallel.o \
             $(OBJDIR)/mms_mod.o \
-	    $(OBJDIR)/gpu_mod.o \
+            $(OBJDIR)/gpu_mod.o \
             $(FUNDIR)/entropy.f90 \
             $(FUNDIR)/pressure.f90 \
             $(FUNDIR)/vortex.f90 \
             $(FUNDIR)/grad_cv_to_grad_pv.f90 \
-            $(FUNDIR)/usp2v.f90
+            $(FUNDIR)/usp2v.f90 \
+            $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/geovar_mod.o : geovar_mod.f90 \
                $(OBJDIR)/kind_types.o
@@ -228,6 +227,7 @@ $(OBJDIR)/initialize.o : initialize.f90 \
                $(FUNDIR)/vortex.f90 \
                $(FUNDIR)/taylor_green.f90 \
                $(FUNDIR)/smc000_interior_wall_radius.f90 \
+               $(FUNDIR)/arn2_interior_wall_radius.f90 \
                $(FUNDIR)/usp2v.f90 \
                $(FUNDIR)/viscosity.f90
 
@@ -275,6 +275,7 @@ $(OBJDIR)/io.o : io.f90 \
        $(FUNDIR)/cell_vol.f90 \
        $(FUNDIR)/grad_cv_to_grad_pv.f90 \
        $(FUNDIR)/bc_string_to_integer.f90 \
+       $(FUNDIR)/check_for_bad_number.f90 \
        $(FUNDIR)/cgns_write_field_parallel.f90 \
                  mpi_defs.h
 
@@ -304,6 +305,7 @@ $(OBJDIR)/kind_types.o : kind_types.f90 \
                $(FUNDIR)/rotate.f90 \
                $(FUNDIR)/rotate_2d.f90 \
                $(FUNDIR)/uppercase.f90 \
+               $(FUNDIR)/debug_timer.f90 \
                          mpi_defs.h
 
 $(OBJDIR)/limiters.o : limiters.f90 \
@@ -315,7 +317,8 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
              $(OBJDIR)/parallel.o \
-             $(FUNDIR)/pressure.f90
+             $(FUNDIR)/pressure.f90 \
+             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/kind_types.o \
@@ -342,7 +345,7 @@ $(OBJDIR)/mms_mod.o : mms_mod.f90 \
             $(OBJDIR)/ovar_mod.o \
             $(OBJDIR)/flowvar_mod.o \
             $(OBJDIR)/metrics.o \
-	    $(OBJDIR)/gpu_mod.o \
+            $(OBJDIR)/gpu_mod.o \
             $(FUNDIR)/vsp2u.f90
 
 $(OBJDIR)/mycpu.o : $(FUNDIR)/mycpu.c
@@ -369,10 +372,13 @@ $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/plot3d_mod.o \
              $(FUNDIR)/cell_solpts.f90 \
              $(FUNDIR)/last.f90 \
+             $(FUNDIR)/debug_timer.f90 \
                        mpi_defs.h
 
 $(OBJDIR)/pbs_mod.o : pbs_mod.f90 \
             $(OBJDIR)/kind_types.o
+
+$(OBJDIR)/pbs_time_left.o : $(FUNDIR)/pbs_time_left.c
 
 $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/kind_types.o \
@@ -381,9 +387,11 @@ $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/order_mod.o \
                $(FUNDIR)/bc_string_to_integer.f90 \
                $(FUNDIR)/last.f90
+#              $(FUNDIR)/check_for_bad_number.f90 \
 
 $(OBJDIR)/poly.o : poly.f90 \
-         $(OBJDIR)/kind_types.o
+         $(OBJDIR)/kind_types.o \
+         $(FUNDIR)/check_for_bad_number.f90
 
 $(OBJDIR)/postproc_mod.o : postproc_mod.f90 \
                  $(OBJDIR)/kind_types.o \
@@ -415,7 +423,8 @@ $(OBJDIR)/projection_mod.o : projection_mod.f90 \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/quadrature_mod.o \
                    $(OBJDIR)/vandermonde_mod.o \
-                   $(OBJDIR)/interpolation_mod.o
+                   $(OBJDIR)/interpolation_mod.o \
+                   $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/kind_types.o \
@@ -424,7 +433,9 @@ $(OBJDIR)/quadrature_mod.o : quadrature_mod.f90 \
                    $(OBJDIR)/ovar_mod.o \
                    $(OBJDIR)/poly.o \
                    $(OBJDIR)/triangle.o \
-                   $(FUNDIR)/np2n.f90
+                   $(FUNDIR)/np2n.f90 \
+                   $(FUNDIR)/check_for_bad_number.f90 \
+                   $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -451,8 +462,8 @@ $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/interpolation_mod.o \
              $(OBJDIR)/gpu_mod.o \
              $(FUNDIR)/usp2v.f90 \
-             $(FUNDIR)/viscosity.f90
-            #$(FUNDIR)/temperature.f90
+             $(FUNDIR)/viscosity.f90 \
+             $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/triangle.o : triangle.f90 \
              $(OBJDIR)/kind_types.o \

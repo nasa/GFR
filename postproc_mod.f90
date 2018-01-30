@@ -780,7 +780,7 @@ subroutine collect_coordinates_for_output(var)
   !.. Use Statements ..
   use geovar,  only : nfbnd,ncell,cell
   use geovar,  only : xyz,xyz_nodes
-  use flowvar, only : edgexyz,facexyz
+  use flowvar, only : edgexyz_dt,facexyz_dt
   use flowvar, only : face_xyz
   use ovar,    only : mms_opt
   !
@@ -837,8 +837,8 @@ continue
       !
       l = output_face_pts(nf)%out_idx(k)
       !
-      write (170,4) k,l,(facexyz(face_idx)%v(n,k), n=1,size(var,dim=1))
-      var(:,l) = facexyz(face_idx)%v(:,k)
+      write (170,4) k,l,(facexyz_dt(face_idx)%v(n,k), n=1,size(var,dim=1))
+      var(:,l) = facexyz_dt(face_idx)%v(:,k)
       !
     end do
     !
@@ -855,8 +855,8 @@ continue
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
-      write (170,6) k,l,(edgexyz(edge_idx)%v(n,k), n=1,size(var,dim=1))
-      var(:,l) = edgexyz(edge_idx)%v(:,k)
+      write (170,6) k,l,(edgexyz_dt(edge_idx)%v(n,k), n=1,size(var,dim=1))
+      var(:,l) = edgexyz_dt(edge_idx)%v(:,k)
       !
     end do
     !
@@ -878,8 +878,8 @@ continue
   !
   ! Deallocate edgexyz since it is no longer needed
   !
-  deallocate ( edgexyz , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"edgexyz",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   !
   ! Deallocate or shrink facexyz depending on if MMS is enabled
   !
@@ -888,19 +888,19 @@ continue
     ! MMS is enabled, so shrink facexyz to only the boundary faces because the
     ! coordinates for the face points on the interior faces are no longer needed
     !
-    allocate ( temp_facexyz(1:nfbnd) , source=facexyz(1:nfbnd) , &
+    allocate ( temp_facexyz(1:nfbnd) , source=facexyz_dt(1:nfbnd) , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"temp_facexyz",1,__LINE__,__FILE__,ierr, &
                      error_message)
-    call move_alloc( from=temp_facexyz , to=facexyz )
+    call move_alloc( from=temp_facexyz , to=facexyz_dt )
     !
   else
     !
-    ! MMS is not enabled, so deallocate facexyz
+    ! MMS is not enabled, so deallocate facexyz_dt
     ! entirely since it is no longer needed
     !
-    deallocate ( facexyz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__,ierr,error_message)
+    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
     !
   end if
   !
@@ -915,9 +915,9 @@ subroutine collect_solution_for_output(var)
   !.. Use Statements ..
   use geovar,  only : ncell,cell
   use flowvar, only : usp,dusp
-  use flowvar, only : faceusp,facedusp
-  use flowvar, only : nodeusp,nodedusp
-  use flowvar, only : edgeusp,edgedusp
+  use flowvar, only : faceusp_dt,facedusp_dt
+  use flowvar, only : nodeusp_dt,nodedusp_dt
+  use flowvar, only : edgeusp_dt,edgedusp_dt
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(out) :: var
@@ -963,8 +963,8 @@ continue
       !
       l = output_face_pts(nf)%out_idx(k)
       !
-      var(:,l) = compute_output_variables(faceusp(face_idx)%v(:,k,1), &
-                                         facedusp(face_idx)%v(:,:,k,1))
+      var(:,l) = compute_output_variables(faceusp_dt(face_idx)%v(:,k,1), &
+                                         facedusp_dt(face_idx)%v(:,:,k,1))
       !
     end do
     !
@@ -980,8 +980,8 @@ continue
       !
       l = output_edge_pts(ne)%out_idx(k)
       !
-      var(:,l) = compute_output_variables(edgeusp(edge_idx)%v(:,k), &
-                                         edgedusp(edge_idx)%v(:,:,k))
+      var(:,l) = compute_output_variables(edgeusp_dt(edge_idx)%v(:,k), &
+                                         edgedusp_dt(edge_idx)%v(:,:,k))
       !
     end do
     !
@@ -995,8 +995,8 @@ continue
     !
     l = output_node_pts(nn)%out_idx
     !
-    var(:,l) = compute_output_variables(nodeusp(node_idx)%v(:), &
-                                       nodedusp(node_idx)%v(:,:))
+    var(:,l) = compute_output_variables(nodeusp_dt(node_idx)%v(:), &
+                                       nodedusp_dt(node_idx)%v(:,:))
     !
   end do node_loop
   !
@@ -1010,7 +1010,7 @@ subroutine get_face_solutions
   !
   !.. Use Statements ..
   use geovar,    only : nfbnd,nface
-  use flowvar,   only : faceusp,facedusp
+  use flowvar,   only : faceusp_dt,facedusp_dt
   !
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
@@ -1026,11 +1026,11 @@ continue
   call debug_timer(entering_procedure,pname)
   !
 #ifdef SPECIAL_FOR_PGI
-  call faceusp%zero_face_var
-  call facedusp%zero_face_vec
+  call faceusp_dt%zero_face_var
+  call facedusp_dt%zero_face_vec
 #else
-  call faceusp%zero
-  call facedusp%zero
+  call faceusp_dt%zero
+  call facedusp_dt%zero
 #endif
   !
   call pp_interp_cv_to_flxpts
@@ -1038,11 +1038,11 @@ continue
   call get_faceusp_bc
   !
   do nf = 1,nfbnd
-    faceusp(nf)%v(:,:,1) = faceusp(nf)%v(:,:,2)
+    faceusp_dt(nf)%v(:,:,1) = faceusp_dt(nf)%v(:,:,2)
   end do
   !
   do nf = nfbnd+1,nface
-    faceusp(nf)%v(:,:,1) = half * (faceusp(nf)%v(:,:,1) + faceusp(nf)%v(:,:,2))
+    faceusp_dt(nf)%v(:,:,1) = half * (faceusp_dt(nf)%v(:,:,1) + faceusp_dt(nf)%v(:,:,2))
   end do
   !
   !
@@ -1052,12 +1052,12 @@ continue
   call get_facedusp_bc
   !
   do nf = 1,nfbnd
-    facedusp(nf)%v(:,:,:,1) = facedusp(nf)%v(:,:,:,2)
+    facedusp_dt(nf)%v(:,:,:,1) = facedusp_dt(nf)%v(:,:,:,2)
   end do
   !
   do nf = nfbnd+1,nface
-    facedusp(nf)%v(:,:,:,1) = half * (facedusp(nf)%v(:,:,:,1) + &
-                                      facedusp(nf)%v(:,:,:,2))
+    facedusp_dt(nf)%v(:,:,:,1) = half * (facedusp_dt(nf)%v(:,:,:,1) + &
+                                      facedusp_dt(nf)%v(:,:,:,2))
   end do
   !
   call debug_timer(leaving_procedure,pname)
@@ -1071,9 +1071,9 @@ subroutine pp_interp_cv_to_flxpts()
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : usp,faceusp
+  use flowvar,           only : usp,faceusp_dt
   !
-  use parallel_mod,      only : exchange_faceusp
+  use parallel_mod,      only : exchange_faceusp_dt
   !
   !.. Local Scalars ..
   integer :: i,j,n,nc,n0,k,m
@@ -1134,7 +1134,7 @@ continue
           !
         end do
         !
-        faceusp(nf)%v(1:nq,kf,sf) = face_cv(1:nq)
+        faceusp_dt(nf)%v(1:nq,kf,sf) = face_cv(1:nq)
         !
       end do
       !
@@ -1144,7 +1144,7 @@ continue
   !
   ! Exchange the left and right states for faces on communication boundaries
   !
-  if (ncpu > 1) call exchange_faceusp(faceusp)
+  if (ncpu > 1) call exchange_faceusp_dt(faceusp_dt)
   !
 end subroutine pp_interp_cv_to_flxpts
 !
@@ -1155,9 +1155,9 @@ subroutine pp_interp_dusp_to_flxpts()
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,ncell,cell,fp
   use interpolation_mod, only : interp
-  use flowvar,           only : dusp,facedusp
+  use flowvar,           only : dusp,facedusp_dt
   !
-  use parallel_mod,      only : exchange_facedusp
+  use parallel_mod,      only : exchange_facedusp_dt
   !
   !.. Local Scalars ..
   integer :: i,j,n,nc,n0,k,l,m
@@ -1217,7 +1217,7 @@ continue
           !
         end do
         !
-        facedusp(nf)%v(1:nr,1:nq,kf,sf) = face_dcvdx(1:nr,1:nq)
+        facedusp_dt(nf)%v(1:nr,1:nq,kf,sf) = face_dcvdx(1:nr,1:nq)
         !
       end do
       !
@@ -1227,7 +1227,7 @@ continue
   !
   ! Exchange the left and right states for faces on communication boundaries
   !
-  if (ncpu > 1) call exchange_facedusp(facedusp)
+  if (ncpu > 1) call exchange_facedusp_dt(facedusp_dt)
   !
 end subroutine pp_interp_dusp_to_flxpts
 !
@@ -1239,8 +1239,8 @@ subroutine get_edge_and_node_solutions
   use order_mod,  only : maxSP
   use geovar,     only : nr,ncell,cell
   use flowvar,    only : usp,dusp
-  use flowvar,    only : edgeusp,edgedusp
-  use flowvar,    only : nodeusp,nodedusp
+  use flowvar,    only : edgeusp_dt,edgedusp_dt
+  use flowvar,    only : nodeusp_dt,nodedusp_dt
   use interpolation_mod, only : interp
   !
   use parallel_mod, only : exch_edge_and_node_solutions
@@ -1264,15 +1264,15 @@ continue
   ! Zero out the nodeusp, nodedusp, edgeusp, and edgedusp arrays
   !
 #ifdef SPECIAL_FOR_PGI
-  call nodeusp%zero_ne1d_t
-  call nodedusp%zero_ne2d_t
-  call edgeusp%zero_ne2d_t
-  call edgedusp%zero_ne3d_t
+  call nodeusp_dt%zero_ne1d_t
+  call nodedusp_dt%zero_ne2d_t
+  call edgeusp_dt%zero_ne2d_t
+  call edgedusp_dt%zero_ne3d_t
 #else
-  call nodeusp%zero
-  call nodedusp%zero
-  call edgeusp%zero
-  call edgedusp%zero
+  call nodeusp_dt%zero
+  call nodedusp_dt%zero
+  call edgeusp_dt%zero
+  call edgedusp_dt%zero
 #endif
   !
   ! Loop over all the cells on the current processor and compute the
@@ -1317,9 +1317,9 @@ continue
           !
         end do
         !
-        edgeusp(ne)%v(1:nq,kf) = edgeusp(ne)%v(1:nq,kf) + ave*upt(1:nq)
+        edgeusp_dt(ne)%v(1:nq,kf) = edgeusp_dt(ne)%v(1:nq,kf) + ave*upt(1:nq)
         !
-        edgedusp(ne)%v(1:nr,1:nq,kf) = edgedusp(ne)%v(1:nr,1:nq,kf) + &
+        edgedusp_dt(ne)%v(1:nr,1:nq,kf) = edgedusp_dt(ne)%v(1:nr,1:nq,kf) + &
                                        ave*dupt(1:nr,1:nq)
         !
       end do edge_pts
@@ -1353,9 +1353,9 @@ continue
         !
       end do
       !
-      nodeusp(nn)%v(1:nq) = nodeusp(nn)%v(1:nq) + ave*upt(1:nq)
+      nodeusp_dt(nn)%v(1:nq) = nodeusp_dt(nn)%v(1:nq) + ave*upt(1:nq)
       !
-      nodedusp(nn)%v(1:nr,1:nq) = nodedusp(nn)%v(1:nr,1:nq) + &
+      nodedusp_dt(nn)%v(1:nr,1:nq) = nodedusp_dt(nn)%v(1:nr,1:nq) + &
                                   ave*dupt(1:nr,1:nq)
       !
     end do cell_nodes
@@ -1365,7 +1365,7 @@ continue
   !
   !
   if (ncpu > 1) then
-    call exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
+    call exch_edge_and_node_solutions(nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -1384,9 +1384,9 @@ subroutine create_cell_subconnectivity(my_cells_beg,my_cells_end,ipelem)
   use order_mod, only : geom_solpts
   use geovar,    only : n_solpts,ncell,cell
   use geovar,    only : pst_geom,nr,fp
-  use flowvar,   only : faceusp
-  use flowvar,   only : edgeusp,edgedusp
-  use flowvar,   only : nodeusp,nodedusp
+  use flowvar,   only : faceusp_dt
+  use flowvar,   only : edgeusp_dt,edgedusp_dt
+  use flowvar,   only : nodeusp_dt,nodedusp_dt
   use ovar,      only : postproc_debug_grid
   !
   use parallel_mod, only : exch_connectivity
@@ -1567,13 +1567,13 @@ continue
   !
   ! Allocate the arrays to mark nodes and edges that have already been completed
   !
-  nn = size(nodeusp)
+  nn = size(nodeusp_dt)
   allocate ( node_already_done(1:nn) , source=fals , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"node_already_done",1,__LINE__,__FILE__,ierr, &
                    error_message)
   !
-  ne = size(edgeusp)
+  ne = size(edgeusp_dt)
   allocate ( edge_already_done(1:ne) , source=fals , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"edge_already_done",1,__LINE__,__FILE__,ierr, &
@@ -1598,17 +1598,17 @@ continue
   ! before we start storing point indices in these arrays
   !
 #ifdef SPECIAL_FOR_PGI
-  call nodeusp%zero_ne1d_t
-  call nodedusp%zero_ne2d_t
-  call edgeusp%zero_ne2d_t
-  call edgedusp%zero_ne3d_t
-  call faceusp%zero_face_var
+  call nodeusp_dt%zero_ne1d_t
+  call nodedusp_dt%zero_ne2d_t
+  call edgeusp_dt%zero_ne2d_t
+  call edgedusp_dt%zero_ne3d_t
+  call faceusp_dt%zero_face_var
 #else
-  call nodeusp%zero
-  call nodedusp%zero
-  call edgeusp%zero
-  call edgedusp%zero
-  call faceusp%zero
+  call nodeusp_dt%zero
+  call nodedusp_dt%zero
+  call edgeusp_dt%zero
+  call edgedusp_dt%zero
+  call faceusp_dt%zero
 #endif
   !
   !###########################################################################
@@ -1701,7 +1701,7 @@ continue
                                           rot(cell(nc)%face(n)%rotation)% &
                                           pts(kf)
         !
-        faceusp(nf)%v(1,kf,sf) = real( cell_pts( face_pt(lf) ) , kind=wp )
+        faceusp_dt(nf)%v(1,kf,sf) = real( cell_pts( face_pt(lf) ) , kind=wp )
         !
       end do
       !
@@ -1722,7 +1722,7 @@ continue
         lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
                                                 cell(nc)%edge(n)%rev_dir )
         !
-        edgeusp(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
+        edgeusp_dt(ne)%v(1,kf) = real( cell_pts( edge_pt(lf) ) , kind=wp )
         !
       end do
       !
@@ -1740,7 +1740,7 @@ continue
       !
       lf = n
       !
-      nodeusp(nn)%v(1) = real( cell_pts( node_pt(lf) ) , kind=wp )
+      nodeusp_dt(nn)%v(1) = real( cell_pts( node_pt(lf) ) , kind=wp )
       !
       node_already_done(nn) = true
       !
@@ -1781,7 +1781,7 @@ continue
   !###########################################################################
   !
   if (ncpu > 1) then
-    call exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
+    call exch_connectivity(nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt,faceusp_dt)
   end if
   !
   !##########################################################################
@@ -1852,7 +1852,7 @@ continue
                                           rot(cell(nc)%face(n)%rotation)% &
                                           pts(kf)
         !
-        cell_pts( face_pt(lf) ) = nint( faceusp(nf)%v(1,kf,1) , &
+        cell_pts( face_pt(lf) ) = nint( faceusp_dt(nf)%v(1,kf,1) , &
                                         kind=kind(cell_pts) )
         !
       end do
@@ -1871,7 +1871,7 @@ continue
         lf = cell(nc)%edge(n)%ep_offset + merge( edge_order+2-kf , kf , &
                                                 cell(nc)%edge(n)%rev_dir)
         !
-        cell_pts( edge_pt(lf) ) = nint( edgeusp(ne)%v(1,kf) , &
+        cell_pts( edge_pt(lf) ) = nint( edgeusp_dt(ne)%v(1,kf) , &
                                         kind=kind(cell_pts) )
         !
       end do
@@ -1886,7 +1886,7 @@ continue
       !
       lf = n
       !
-      cell_pts( node_pt(lf) ) = nint( nodeusp(nn)%v(1) , kind=kind(cell_pts) )
+      cell_pts( node_pt(lf) ) = nint( nodeusp_dt(nn)%v(1) , kind=kind(cell_pts) )
       !
     end do unpack_cell_node_pts
     !
@@ -1910,15 +1910,15 @@ continue
   !#############################################################################
   !#############################################################################
   !
-  nf = size(faceusp)
+  nf = size(faceusp_dt)
   allocate ( my_faces(1:nf) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"my_faces",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ne = size(edgeusp)
+  ne = size(edgeusp_dt)
   allocate ( my_edges(1:ne) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"my_edges",1,__LINE__,__FILE__,ierr,error_message)
   !
-  nn = size(nodeusp)
+  nn = size(nodeusp_dt)
   allocate ( my_nodes(1:nn) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"my_nodes",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -1926,10 +1926,10 @@ continue
   !
   ! Find the face points for which this processor is responsible
   !
-  find_my_faces: do nf = 1,size(faceusp)
+  find_my_faces: do nf = 1,size(faceusp_dt)
     !
-    n = size(faceusp(nf)%v,dim=2)
-    m = count(faceusp(nf)%v(1,:,1) > zero)
+    n = size(faceusp_dt(nf)%v,dim=2)
+    m = count(faceusp_dt(nf)%v(1,:,1) > zero)
     !
     if (n == m) then
       !
@@ -1948,10 +1948,10 @@ continue
   !
   ! Find the edge points for which this processor is responsible
   !
-  find_my_edges: do ne = 1,size(edgeusp)
+  find_my_edges: do ne = 1,size(edgeusp_dt)
     !
-    n = size(edgeusp(ne)%v,dim=2)
-    m = count(edgeusp(ne)%v(1,:) > zero)
+    n = size(edgeusp_dt(ne)%v,dim=2)
+    m = count(edgeusp_dt(ne)%v(1,:) > zero)
     !
     if (n == m) then
       !
@@ -1970,9 +1970,9 @@ continue
   !
   ! Find the node points for which this processor is responsible
   !
-  find_my_nodes: do nn = 1,size(nodeusp)
+  find_my_nodes: do nn = 1,size(nodeusp_dt)
     !
-    if (nodeusp(nn)%v(1) > zero) then
+    if (nodeusp_dt(nn)%v(1) > zero) then
       my_nodes(nn) = true
     end if
     !
@@ -2193,9 +2193,9 @@ continue
     nsp = (omin+1)**3
     nfp = (omin+1)**2
     nep = (omin+1)
-    loc_n_my_output_pts = ncell*nsp + size(faceusp)*nfp + &
-                                      size(edgeusp)*nep + &
-                                      size(nodeusp)
+    loc_n_my_output_pts = ncell*nsp + size(faceusp_dt)*nfp + &
+                                      size(edgeusp_dt)*nep + &
+                                      size(nodeusp_dt)
     write (iout,40) loc_n_my_output_pts
     ! debug_unit = 163
     call write_cell_points(debug_unit,omin+1,cell_points_ptr,cell_points)

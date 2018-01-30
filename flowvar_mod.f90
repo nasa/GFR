@@ -29,9 +29,9 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
   !$ACC DECLARE CREATE(dusp)
   !
-  ! UOLDSP   : conservative variables of previous time step @SP 
+  ! UOLDSP   : conservative variables of previous time step @SP
   ! RESIDUAL : RHS residual @SP for current time/RK step
-  ! 
+  !
   real(wp), public, save, allocatable, dimension(:,:) :: uoldsp
   !$ACC DECLARE CREATE(uoldsp)
   real(wp), public, save, allocatable, dimension(:,:) :: residual
@@ -43,12 +43,12 @@ module flowvar
   real(wp), public, save, allocatable, dimension(:,:) :: global_usp
   real(wp), public, save, allocatable, dimension(:)   :: global_var
   !
-  ! USP_SUM : auxilary array needed for SSP-RK4 method
-  ! RSSPRK  : auxilary array containing old residuals,
-  !           needed for some RK methods
+  ! RK_SUM : auxilary array needed for SSP-RK4 method
+  ! RSSPRK : auxilary array containing old residuals,
+  !          needed for some RK methods
   !
-  real(wp), public, save, allocatable, dimension(:,:)   :: usp_sum
-  !$ACC DECLARE CREATE(usp_sum)
+  real(wp), public, save, allocatable, dimension(:,:)   :: rk_sum
+  !$ACC DECLARE CREATE(rk_sum)
   real(wp), public, save, allocatable, dimension(:,:,:) :: rssprk
   !$ACC DECLARE CREATE(rssprk)
   !
@@ -114,12 +114,12 @@ module flowvar
   ! facedusp(1:nface)%v(1:nr,1:nq,1:n_sp1de,1:2)
   ! facexyz(1:nface)%v(1:nr,1:n_sp1de)
   !
-  type(face_var), public, save, allocatable, dimension(:) :: faceusp
-  type(face_vec), public, save, allocatable, dimension(:) :: facedusp
-  type(face_xyz), public, save, allocatable, dimension(:) :: facexyz
+  type(face_var), public, save, allocatable, dimension(:) :: faceusp_dt
+  type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
+  type(face_xyz), public, save, allocatable, dimension(:) :: facexyz_dt
   !
-  ! FACEUSP_ARRAY  : conservative variables at the interface flux points
-  ! FACEDUSP_ARRAY : conservative variable gradients at the interface flux points
+  ! FACEUSP_ARRAY  : conservative variables at the interface flx-pts
+  ! FACEDUSP_ARRAY : conservative variable gradients at the interface flx-pts
   !
   real(wp), public, save, allocatable :: faceusp_array(:,:,:)
   real(wp), public, save, allocatable :: facedusp_array(:,:,:,:)
@@ -177,27 +177,27 @@ module flowvar
   ! NODEUSP  : conservative variables at the nodes
   !                nodeusp(1:nnode)%v(1:nq)
   !
-  type(ne1d_t), public, save, allocatable, dimension(:) :: nodeusp
+  type(ne1d_t), public, save, allocatable, dimension(:) :: nodeusp_dt
   !
   ! NODEDUSP : conservative variable gradients at the nodes
   !                nodedusp(1:nnode)%v(1:nr,1:nq)
   !
-  type(ne2d_t), public, save, allocatable, dimension(:) :: nodedusp
+  type(ne2d_t), public, save, allocatable, dimension(:) :: nodedusp_dt
   !
   ! EDGEUSP  : conservative variables at the edge points
   !                edgeusp(1:nedge)%v(1:nq,1:n_sp1de)
   !
-  type(ne2d_t), public, save, allocatable, dimension(:) :: edgeusp
+  type(ne2d_t), public, save, allocatable, dimension(:) :: edgeusp_dt
   !
   ! EDGEDUSP : conservative variable gradients at the edge points
   !                edgedusp(1:nedge)%v(1:nr,1:nq,1:n_sp1de)
   !
-  type(ne3d_t), public, save, allocatable, dimension(:) :: edgedusp
+  type(ne3d_t), public, save, allocatable, dimension(:) :: edgedusp_dt
   !
   ! EDGEXYZ : conservative variable gradients at the edge points
   !               edgexyz(1:nedge)%v(1:nr,1:n_sp1de)
   !
-  type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz
+  type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz_dt
   !
   !
 contains
@@ -242,7 +242,7 @@ continue
   !
   !
   ! If we are only time averaging restart files, we dont need any of
-  ! these other arrays so 
+  ! these other arrays so
   !
   if (time_average_restart_files) return
   !
@@ -268,11 +268,13 @@ continue
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
-    allocate ( faceusp(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",1,__LINE__,__FILE__,ierr,error_message)
-    !
-    allocate ( facedusp(1:nface) , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp",1,__LINE__,__FILE__,ierr,error_message)
+!#ifndef USE_FACE_ARRAY
+!    allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+!    !
+!    allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+!    call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+!#endif
     !
     ! If using the continuous output option or MMS, allocate the facexyz array
     !
@@ -281,16 +283,16 @@ continue
       ! If using continuous output, facexyz needs to be defined
       ! for both interior and boundary faces
       !
-      allocate ( facexyz(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
     else if (mms_opt /= 0) then
       !
       ! If using MMS but not using continuous output, facexyz only needs
       ! to be defined for the boundary faces
       !
-      allocate ( facexyz(1:nfbnd) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
     end if
     !
@@ -304,7 +306,7 @@ continue
     !##########################################################################
     !##########################################################################
     !
-    if (allocated(faceusp)) then
+    if (allocated(faceusp_dt)) then
       do nf = 1,nface
         !
         face_geom = face(nf)%geom
@@ -312,16 +314,16 @@ continue
         !
         nfpts = geom_solpts(face_geom,face_order)
         !
-        allocate ( faceusp(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
+        allocate ( faceusp_dt(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "faceusp",nf
+        write (array_name,1) "faceusp_dt",nf
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
       end do
     end if
     !
-    if (allocated(facedusp)) then
+    if (allocated(facedusp_dt)) then
       do nf = 1,nface
         !
         face_geom = face(nf)%geom
@@ -329,9 +331,9 @@ continue
         !
         nfpts = geom_solpts(face_geom,face_order)
         !
-        allocate ( facedusp(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
+        allocate ( facedusp_dt(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "facedusp",nf
+        write (array_name,1) "facedusp_dt",nf
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
@@ -347,7 +349,7 @@ continue
                      ierr,error_message)
     !$ACC UPDATE DEVICE(faceflx)
     !
-#ifdef USE_FACE_ARRAYS
+!!!#ifdef USE_FACE_ARRAYS
     allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
@@ -359,14 +361,14 @@ continue
                      ierr,error_message)
     !
     !$ACC UPDATE DEVICE(faceusp_array,facedusp_array)
-#endif
+!!!#endif
     !
     !
-    if (allocated(facexyz)) then
+    if (allocated(facexyz_dt)) then
       !
       nfpts = 0
       !
-      do nf = 1,size(facexyz) ! could be nfbnd or nface
+      do nf = 1,size(facexyz_dt) ! could be nfbnd or nface
         !
         face_geom = face(nf)%geom
         face_order = face(nf)%order
@@ -374,9 +376,9 @@ continue
         nfp = geom_solpts(face_geom,face_order)
         nfpts = nfpts + nfp
         !
-        allocate ( facexyz(nf)%v(1:nr,1:nfp) , source=zero , &
+        allocate ( facexyz_dt(nf)%v(1:nr,1:nfp) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "facexyz",nf
+        write (array_name,1) "facexyz_dt",nf
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
@@ -406,42 +408,42 @@ continue
       !
       ! Allocate the nodeusp array and its data components
       !
-      allocate ( nodeusp(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodeusp",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( nodeusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
       do nn = 1,nnode
-        allocate ( nodeusp(nn)%v(1:nq) , source=zero , &
+        allocate ( nodeusp_dt(nn)%v(1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "nodeusp",nn
+        write (array_name,1) "nodeusp_dt",nn
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
       end do
       !
       ! Allocate the nodedusp array and its data components
       !
-      allocate ( nodedusp(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodedusp",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( nodedusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
       do nn = 1,nnode
-        allocate ( nodedusp(nn)%v(1:nr,1:nq) , source=zero , &
+        allocate ( nodedusp_dt(nn)%v(1:nr,1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "nodedusp",nn
+        write (array_name,1) "nodedusp_dt",nn
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
       end do
       !
       ! Allocate the edgeusp array and its data components
       !
-      allocate ( edgeusp(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgeusp",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( edgeusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
         !
-        allocate ( edgeusp(ne)%v(1:nq,1:nepts) , source=zero , &
+        allocate ( edgeusp_dt(ne)%v(1:nq,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgeusp",ne
+        write (array_name,1) "edgeusp_dt",ne
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
@@ -449,16 +451,16 @@ continue
       !
       ! Allocate the edgedusp array and its data components
       !
-      allocate ( edgedusp(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgedusp",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( edgedusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
         !
-        allocate ( edgedusp(ne)%v(1:nr,1:nq,1:nepts) , source=zero , &
+        allocate ( edgedusp_dt(ne)%v(1:nr,1:nq,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgedusp",ne
+        write (array_name,1) "edgedusp_dt",ne
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
@@ -466,16 +468,16 @@ continue
       !
       ! Allocate the edgexyz array and its data components
       !
-      allocate ( edgexyz(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgexyz",1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( edgexyz_dt(1:nedge) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
       !
       do ne = 1,nedge
         !
         nepts = geom_solpts(Geom_Edge,edge(ne)%order)
         !
-        allocate ( edgexyz(ne)%v(1:nr,1:nepts) , source=zero , &
+        allocate ( edgexyz_dt(ne)%v(1:nr,1:nepts) , source=zero , &
                    stat=ierr , errmsg=error_message )
-        write (array_name,1) "edgexyz",ne
+        write (array_name,1) "edgexyz_dt",ne
         call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                          error_message,skip_alloc_pause)
         !
@@ -487,25 +489,18 @@ continue
   !
   ! Allocate the storage for the Runge-Kutta methods
   !
-  n = 0
-  !
   if (Runge_Kutta_Scheme == Classic_RK) then
-    n = num_rk_stages
-  else if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK]) ) then
-    n = 1
-    if (Runge_Kutta_Scheme == TVD4_RK) then
-      allocate ( usp_sum(1:n_solpts,1:nq) , source=zero , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"usp_sum",1,__LINE__,__FILE__,ierr,error_message)
-      !$ACC UPDATE DEVICE(usp_sum)
-    end if
-  end if
-  !
-  if (n /= 0) then
-    allocate ( rssprk(1:n_solpts,1:nq,1:n) , source=zero , &
+    allocate ( rssprk(1:n_solpts,1:nq,1:num_rk_stages) , source=zero , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"rssprk",1,__LINE__,__FILE__,ierr,error_message)
     !$ACC UPDATE DEVICE(rssprk)
+  end if
+  !
+  if ( any(Runge_Kutta_Scheme == [CK4_RK,TVD4_RK]) ) then
+    allocate ( rk_sum(1:n_solpts,1:nq) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rk_sum",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(rk_sum)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -615,314 +610,314 @@ continue
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(faceusp)) then
+  if (allocated(faceusp_dt)) then
     !
-    call array%set( storage_size(faceusp,kind=inttype) )
+    call array%set( storage_size(faceusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(face_var)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(faceusp,kind=inttype) , &
-                            size(faceusp,kind=inttype) )
+    call array%set( storage_size(faceusp_dt,kind=inttype) , &
+                            size(faceusp_dt,kind=inttype) )
     !
-    write (array_name,5) "faceusp(:)"
+    write (array_name,5) "faceusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(faceusp,dim=1),ubound(faceusp,dim=1)
+    do i = lbound(faceusp_dt,dim=1),ubound(faceusp_dt,dim=1)
       !
-      call array%add( storage_size(faceusp(i)%v,kind=inttype) , &
-                              size(faceusp(i)%v,kind=inttype) )
+      call array%add( storage_size(faceusp_dt(i)%v,kind=inttype) , &
+                              size(faceusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "faceusp(:)%v"
+    write (array_name,5) "faceusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "faceusp"
+    write (array_name,5) "faceusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "faceusp"
+    write (iou,7) "faceusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(facedusp)) then
+  if (allocated(facedusp_dt)) then
     !
-    call array%set( storage_size(facedusp,kind=inttype) )
+    call array%set( storage_size(facedusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(face_vec)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(facedusp,kind=inttype) , &
-                            size(facedusp,kind=inttype) )
+    call array%set( storage_size(facedusp_dt,kind=inttype) , &
+                            size(facedusp_dt,kind=inttype) )
     !
-    write (array_name,5) "facedusp(:)"
+    write (array_name,5) "facedusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(facedusp,dim=1),ubound(facedusp,dim=1)
+    do i = lbound(facedusp_dt,dim=1),ubound(facedusp_dt,dim=1)
       !
-      call array%add( storage_size(facedusp(i)%v,kind=inttype) , &
-                              size(facedusp(i)%v,kind=inttype) )
+      call array%add( storage_size(facedusp_dt(i)%v,kind=inttype) , &
+                              size(facedusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "facedusp(:)%v"
+    write (array_name,5) "facedusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "facedusp"
+    write (array_name,5) "facedusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "facedusp"
+    write (iou,7) "facedusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(facexyz)) then
+  if (allocated(facexyz_dt)) then
     !
-    call array%set( storage_size(facexyz,kind=inttype) )
+    call array%set( storage_size(facexyz_dt,kind=inttype) )
     !
     write (array_name,5) "type(face_xyz)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(facexyz,kind=inttype) , &
-                            size(facexyz,kind=inttype) )
+    call array%set( storage_size(facexyz_dt,kind=inttype) , &
+                            size(facexyz_dt,kind=inttype) )
     !
-    write (array_name,5) "facexyz(:)"
+    write (array_name,5) "facexyz_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(facexyz,dim=1),ubound(facexyz,dim=1)
+    do i = lbound(facexyz_dt,dim=1),ubound(facexyz_dt,dim=1)
       !
-      call array%add( storage_size(facexyz(i)%v,kind=inttype) , &
-                              size(facexyz(i)%v,kind=inttype) )
+      call array%add( storage_size(facexyz_dt(i)%v,kind=inttype) , &
+                              size(facexyz_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "facexyz(:)%v"
+    write (array_name,5) "facexyz_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "facexyz"
+    write (array_name,5) "facexyz_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "facexyz"
+    write (iou,7) "facexyz_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(edgeusp)) then
+  if (allocated(edgeusp_dt)) then
     !
-    call array%set( storage_size(edgeusp,kind=inttype) )
+    call array%set( storage_size(edgeusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(ne2d_t)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(edgeusp,kind=inttype) , &
-                            size(edgeusp,kind=inttype) )
+    call array%set( storage_size(edgeusp_dt,kind=inttype) , &
+                            size(edgeusp_dt,kind=inttype) )
     !
-    write (array_name,5) "edgeusp(:)"
+    write (array_name,5) "edgeusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(edgeusp,dim=1),ubound(edgeusp,dim=1)
+    do i = lbound(edgeusp_dt,dim=1),ubound(edgeusp_dt,dim=1)
       !
-      call array%add( storage_size(edgeusp(i)%v,kind=inttype) , &
-                              size(edgeusp(i)%v,kind=inttype) )
+      call array%add( storage_size(edgeusp_dt(i)%v,kind=inttype) , &
+                              size(edgeusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "edgeusp(:)%v"
+    write (array_name,5) "edgeusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "edgeusp"
+    write (array_name,5) "edgeusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "edgeusp"
+    write (iou,7) "edgeusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(edgedusp)) then
+  if (allocated(edgedusp_dt)) then
     !
-    call array%set( storage_size(edgedusp,kind=inttype) )
+    call array%set( storage_size(edgedusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(ne3d_t)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(edgedusp,kind=inttype) , &
-                            size(edgedusp,kind=inttype) )
+    call array%set( storage_size(edgedusp_dt,kind=inttype) , &
+                            size(edgedusp_dt,kind=inttype) )
     !
-    write (array_name,5) "edgedusp(:)"
+    write (array_name,5) "edgedusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(edgedusp,dim=1),ubound(edgedusp,dim=1)
+    do i = lbound(edgedusp_dt,dim=1),ubound(edgedusp_dt,dim=1)
       !
-      call array%add( storage_size(edgedusp(i)%v,kind=inttype) , &
-                              size(edgedusp(i)%v,kind=inttype) )
+      call array%add( storage_size(edgedusp_dt(i)%v,kind=inttype) , &
+                              size(edgedusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "edgedusp(:)%v"
+    write (array_name,5) "edgedusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "edgedusp"
+    write (array_name,5) "edgedusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "edgedusp"
+    write (iou,7) "edgedusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(edgexyz)) then
+  if (allocated(edgexyz_dt)) then
     !
-    call array%set( storage_size(edgexyz,kind=inttype) )
+    call array%set( storage_size(edgexyz_dt,kind=inttype) )
     !
     write (array_name,5) "type(ne2d_t)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(edgexyz,kind=inttype) , &
-                            size(edgexyz,kind=inttype) )
+    call array%set( storage_size(edgexyz_dt,kind=inttype) , &
+                            size(edgexyz_dt,kind=inttype) )
     !
-    write (array_name,5) "edgexyz(:)"
+    write (array_name,5) "edgexyz_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(edgexyz,dim=1),ubound(edgexyz,dim=1)
+    do i = lbound(edgexyz_dt,dim=1),ubound(edgexyz_dt,dim=1)
       !
-      call array%add( storage_size(edgexyz(i)%v,kind=inttype) , &
-                              size(edgexyz(i)%v,kind=inttype) )
+      call array%add( storage_size(edgexyz_dt(i)%v,kind=inttype) , &
+                              size(edgexyz_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "edgexyz(:)%v"
+    write (array_name,5) "edgexyz_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "edgexyz"
+    write (array_name,5) "edgexyz_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "edgexyz"
+    write (iou,7) "edgexyz_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(nodeusp)) then
+  if (allocated(nodeusp_dt)) then
     !
-    call array%set( storage_size(nodeusp,kind=inttype) )
+    call array%set( storage_size(nodeusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(ne1d_t)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(nodeusp,kind=inttype) , &
-                            size(nodeusp,kind=inttype) )
+    call array%set( storage_size(nodeusp_dt,kind=inttype) , &
+                            size(nodeusp_dt,kind=inttype) )
     !
-    write (array_name,5) "nodeusp(:)"
+    write (array_name,5) "nodeusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(nodeusp,dim=1),ubound(nodeusp,dim=1)
+    do i = lbound(nodeusp_dt,dim=1),ubound(nodeusp_dt,dim=1)
       !
-      call array%add( storage_size(nodeusp(i)%v,kind=inttype) , &
-                              size(nodeusp(i)%v,kind=inttype) )
+      call array%add( storage_size(nodeusp_dt(i)%v,kind=inttype) , &
+                              size(nodeusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "nodeusp(:)%v"
+    write (array_name,5) "nodeusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "nodeusp"
+    write (array_name,5) "nodeusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "nodeusp"
+    write (iou,7) "nodeusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
   !
-  if (allocated(nodedusp)) then
+  if (allocated(nodedusp_dt)) then
     !
-    call array%set( storage_size(nodedusp,kind=inttype) )
+    call array%set( storage_size(nodedusp_dt,kind=inttype) )
     !
     write (array_name,5) "type(ne2d_t)"
     write (iou,6) array_name,array%get_units()
     !
-    call array%set( storage_size(nodedusp,kind=inttype) , &
-                            size(nodedusp,kind=inttype) )
+    call array%set( storage_size(nodedusp_dt,kind=inttype) , &
+                            size(nodedusp_dt,kind=inttype) )
     !
-    write (array_name,5) "nodedusp(:)"
+    write (array_name,5) "nodedusp_dt(:)"
     write (iou,6) array_name,array%get_units()
     !
     call dt%set(array)
     !
     call array%reset
     !
-    do i = lbound(nodedusp,dim=1),ubound(nodedusp,dim=1)
+    do i = lbound(nodedusp_dt,dim=1),ubound(nodedusp_dt,dim=1)
       !
-      call array%add( storage_size(nodedusp(i)%v,kind=inttype) , &
-                              size(nodedusp(i)%v,kind=inttype) )
+      call array%add( storage_size(nodedusp_dt(i)%v,kind=inttype) , &
+                              size(nodedusp_dt(i)%v,kind=inttype) )
       !
     end do
     !
-    write (array_name,5) "nodedusp(:)%v"
+    write (array_name,5) "nodedusp_dt(:)%v"
     write (iou,6) array_name,array%get_units()
     !
     call dt%add(array)
     !
     call total%add(dt)
-    write (array_name,5) "nodedusp"
+    write (array_name,5) "nodedusp_dt"
     write (iou,2) array_name,dt%get_units()
     !
   else
-    write (iou,7) "nodedusp"
+    write (iou,7) "nodedusp_dt"
   end if
   !
   !-----------------------------------------------------------------------------
@@ -981,14 +976,14 @@ continue
   else
     write (iou,7) "global_var"
   end if
-  if (allocated(usp_sum)) then
-    call array%set( storage_size(usp_sum,kind=inttype) , &
-                            size(usp_sum,kind=inttype) )
+  if (allocated(rk_sum)) then
+    call array%set( storage_size(rk_sum,kind=inttype) , &
+                            size(rk_sum,kind=inttype) )
     call total%add(array)
-    write (array_name,5) "usp_sum"
+    write (array_name,5) "rk_sum"
     write (iou,2) array_name,array%get_units()
   else
-    write (iou,7) "usp_sum"
+    write (iou,7) "rk_sum"
   end if
   if (allocated(rssprk)) then
     call array%set( storage_size(rssprk,kind=inttype) , &

@@ -351,8 +351,9 @@ module ovar
   type, public :: bc_in_t
     real(wp), allocatable :: cv(:)
     real(wp), allocatable :: pv(:)
-    real(wp) :: wall_temperature
+    real(wp) :: wall_temperature = -one
     type(relaxation_t) :: relax
+    integer :: bc_input_idx
   end type bc_in_t
   !
   type(bc_in_t), public, save, allocatable :: bc_in(:)

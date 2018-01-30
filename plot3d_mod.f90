@@ -1,5 +1,9 @@
 module module_plot3d
   !
+#ifdef DEBUG_ON
+!!!#define DEBUG_CUTS
+#endif
+  !
   !.. Use Statements ..
   use module_kind_types
   use ovar, only : output_plot3d_to_tecplot
@@ -85,6 +89,10 @@ module module_plot3d
   !
   type(boundary_condition), save, allocatable, dimension(:) :: bcs_info
   type(cut_pair), save, allocatable, dimension(:) :: cut_info
+  !
+  interface map1dto3d
+    module procedure map1dto3d_known_block,map1dto3d_unknown_block
+  end interface map1dto3d
   !
 contains
 !
@@ -1888,6 +1896,7 @@ continue
   !
   ! Count the total number of cells across all blocks in this grid
   !
+  call debug_timer(start_timer,"Count cells in all blocks")
   l = 0
   lcell = 0
   lnode = 0
@@ -1934,6 +1943,7 @@ continue
   end do
   !
   ncell = lcell
+  call debug_timer(stop_timer,"Count cells in all blocks")
   !
  !write (iout,'(a," = ",i0)') "lcell",lcell
  !write (iout,'(a," = ",i0)') "tcell",tcell
@@ -1942,6 +1952,7 @@ continue
   !
   ! Count the total number of boundary faces across all blocks in this grid
   !
+  call debug_timer(start_timer,"Counting boundary faces across all blocks")
   lfbnd = 0
   do nb = 1,size(bcs_info)
     !
@@ -1984,6 +1995,7 @@ continue
     !
   end do
  !write (iout,'(a," = ",i0)') "lfbnd",lfbnd
+  call debug_timer(stop_timer,"Counting boundary faces across all blocks")
   !
   ! If an error was found with the strides, abort the simulation
   !
@@ -2012,6 +2024,7 @@ continue
   allocate ( ipc(1:cell_pts) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ipc",1,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(start_timer,"Creating grid%elem(1:ncell)")
   nc = 0
   !
   do iblk = 1,size(ijkpts,dim=2)
@@ -2038,11 +2051,18 @@ continue
               k = kc + kp
               jp3_loop: do jp = 0,stride
                 j = jc + jp
-                ip3_loop: do ip = 0,stride
-                  i = ic + ip
+                i = ic
+                np = np + 1
+                ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+                ip3_loop: do ip = 1,stride
                   np = np + 1
-                  ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+                  ipc(np) = ipc(np-1) + 1
                 end do ip3_loop
+               !ip3_loop: do ip = 0,stride
+               !  i = ic + ip
+               !  np = np + 1
+               !  ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+               !end do ip3_loop
               end do jp3_loop
             end do kp3_loop
           else if (nr == 2) then
@@ -2070,6 +2090,7 @@ continue
     end do kc_loop
     !
   end do
+  call debug_timer(stop_timer,"Creating grid%elem(1:ncell)")
   !
  !do nc = 1,lcell
  !  n1 = size(grid%elem(nc)%nodes)
@@ -2083,6 +2104,7 @@ continue
   !#############################################################################
   !#############################################################################
   !
+  call debug_timer(start_timer,"Creating nodes_of_cell")
   allocate ( nodes_of_cell_ptr(1:lcell+1) , source=0 , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"nodes_of_cell_ptr",1,__LINE__,__FILE__, &
@@ -2102,6 +2124,7 @@ continue
     n2 = nodes_of_cell_ptr(nc+1)
     nodes_of_cell(n1:n2) = grid%elem(nc)%nodes(:)
   end do
+  call debug_timer(stop_timer,"Creating nodes_of_cell")
   !
  !do nc = 1,size(nodes_of_cell_ptr)-1
  !  n1 = nodes_of_cell_ptr(nc)+1
@@ -2114,6 +2137,7 @@ continue
   !#############################################################################
   !#############################################################################
   !
+  call debug_timer(start_timer,"Creating cells_with_node")
  !allocate ( cells_with_node_ptr(1:lnode+1) , source=0 , &
   allocate ( cells_with_node_ptr(1:tnode+1) , source=0 , &
              stat=ierr , errmsg=error_message )
@@ -2153,6 +2177,7 @@ continue
     cells_with_node_ptr(n) = cells_with_node_ptr(n-1)
   end do
   cells_with_node_ptr(1) = 0
+  call debug_timer(stop_timer,"Creating cells_with_node")
   !
  !do nc = 1,size(cells_with_node_ptr)-1
  !  n1 = cells_with_node_ptr(nc)+1
@@ -2189,6 +2214,7 @@ continue
   allocate ( lpoin(1:tnode) , source=0 , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"lpoin",1,__LINE__,__FILE__,ierr,error_message)
   !
+  call debug_timer(start_timer,"Creating grid%elem(ncell+1:ncell+nfbnd)")
   nc = lcell
   !
   do nb = 1,size(bcs_info)
@@ -2349,6 +2375,7 @@ continue
     ! End of loop over the boundary faces
     !
   end do
+  call debug_timer(stop_timer,"Creating grid%elem(ncell+1:ncell+nfbnd)")
   !
  !do nc = lcell+1,size(grid%elem)
  !  nf = nc-lcell
@@ -2441,11 +2468,14 @@ continue
   nbc = -1
   find_nbc: do
     read (iobcs,1,iostat=ierr,iomsg=error_message) text
+    text = trim(adjustl(text))
     if (ierr < 0) then
       exit find_nbc
     else if (ierr > 0) then
       call io_error(pname,trim(adjustl(bcsfile)),-1,__LINE__,__FILE__, &
                     ierr,error_message)
+    else if (text(1:1) == "!" .or. len_trim(text) == 0) then
+      cycle find_nbc
     else
       nbc = nbc + 1
     end if
@@ -2464,14 +2494,34 @@ continue
   !
   rewind (iobcs)
   !
-  read (iobcs,1,iostat=ierr,iomsg=error_message) text
+  skip_header: do
+    read (iobcs,1,iostat=ierr,iomsg=error_message) text
+    text = trim(adjustl(text))
+    if (text(1:1) == "!" .or. len_trim(text) == 0) then
+      cycle skip_header
+    else
+      exit skip_header
+    end if
+  end do skip_header
+ !!
+ !read (iobcs,1,iostat=ierr,iomsg=error_message) text
   !
   ! Now actually read the boundary condition information
   ! contained in the BC file
   !
   do nb = 1,nbc
     !
-    read (iobcs,1,iostat=ierr) text
+    read_bcs: do
+      read (iobcs,1,iostat=ierr) text
+      text = trim(adjustl(text))
+      if (text(1:1) == "!" .or. len_trim(text) == 0) then
+        cycle read_bcs
+      else
+        exit read_bcs
+      end if
+    end do read_bcs
+   !!
+   !read (iobcs,1,iostat=ierr) text
     !
     call parse_list(text,clist,list_min_size=11)
     !
@@ -2679,11 +2729,14 @@ continue
   ncut = -1
   find_ncut: do
     read (iocut,1,iostat=ierr,iomsg=error_message) text
+    text = trim(adjustl(text))
     if (ierr < 0) then
       exit find_ncut
     else if (ierr > 0) then
       call io_error(pname,trim(adjustl(cutfile)),-1,__LINE__,__FILE__, &
                     ierr,error_message)
+    else if (text(1:1) == "!" .or. len_trim(text) == 0) then
+      cycle find_ncut
     else
       ncut = ncut + 1
     end if
@@ -2706,7 +2759,17 @@ continue
   !
   rewind (iocut)
   !
-  read (iocut,1,iostat=ierr,iomsg=error_message) text
+  skip_header: do
+    read (iocut,1,iostat=ierr) text
+    text = trim(adjustl(text))
+    if (text(1:1) == "!" .or. len_trim(text) == 0) then
+      cycle skip_header
+    else
+      exit skip_header
+    end if
+  end do skip_header
+ !!
+ !read (iocut,1,iostat=ierr,iomsg=error_message) text
   !
   ! Now actually read the cut condition information
   ! contained in the cut file
@@ -2715,7 +2778,17 @@ continue
     !
     side_of_cut_loop: do m = 1,2
       !
-      read (iocut,1,iostat=ierr) text
+      read_cut: do
+        read (iocut,1,iostat=ierr) text
+        text = trim(adjustl(text))
+        if (text(1:1) == "!" .or. len_trim(text) == 0) then
+          cycle read_cut
+        else
+          exit read_cut
+        end if
+      end do read_cut
+     !!
+     !read (iocut,1,iostat=ierr) text
       !
       call parse_list(text,clist,list_min_size=10)
       !
@@ -3045,21 +3118,22 @@ subroutine remove_duplicate_nodes()
   use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
   !
   !.. Local Scalars ..
-  integer :: ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
+  integer :: i,ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
   integer :: new_pt,old_pt,duplicate_node,l
   integer :: lpts_new,lpts_old
   logical(lk) :: first_line_not_output
+  logical(lk) :: output_info
  !real(wp) :: diff
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:3) :: old_xyz
-  real(wp), dimension(1:3) :: new_xyz
+  integer  :: ijk1(1:4),ijk2(1:4),ijk3(1:4)
+  real(wp) :: old_xyz(1:3),new_xyz(1:3)
   !
   !.. Local Allocatable Arrays ..
-  integer,  allocatable, dimension(:)   :: lpoin
-  integer,  allocatable, dimension(:)   :: new2old
-  integer,  allocatable, dimension(:)   :: old2new
-  real(wp), allocatable, dimension(:,:) :: temp_xyz
+  integer,  allocatable :: lpoin(:)
+  integer,  allocatable :: new2old(:)
+  integer,  allocatable :: old2new(:)
+  real(wp), allocatable :: temp_xyz(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "remove_duplicate_nodes"
@@ -3069,12 +3143,18 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   first_line_not_output = true
+  output_info = fals
   !
   ! Save the old number of grid nodes lpts_old
   !
   lpts_old = size(xyz_nodes,dim=2)
   !
   ! Initialize lpoin
+  ! lpoin is defined as:
+  !    lpoin(ip) > 0  =>  ip is a keeper point
+  !    lpoin(ip) < 0  =>  ip is a duplicate point to be removed
+  !                       and abs(lpoin(ip)) is the keeper point for
+  !                       this duplicate.
   !
   lpoin = intseq(1,lpts_old) ! USING F2003 AUTO-REALLOCATION
   !
@@ -3097,13 +3177,70 @@ continue
       ip1 = cut_info(n)%nodes(1,ipcut)
       ip2 = cut_info(n)%nodes(2,ipcut)
       !
+#ifdef DEBUG_CUTS
+      if (any(n == [7,8,9])) then
+        ijk1 = map1dto3d(ip1,1)
+        ijk2 = map1dto3d(ip2,1)
+       !if ( (ijk1(3) ==   1 .and. ijk2(3) == 193) .or. &
+       !     (ijk1(3) == 193 .and. ijk2(3) ==   1) ) then
+       !  output_info = true
+        if (n == 7) then
+          if (ijk1(1) == 157 .and. ijk2(1) == 157) then
+            if (ijk1(3) == 1 .and. ijk2(3) == 193) then
+              output_info = true
+            end if
+          end if
+        else if (n == 8) then
+          if (ijk1(1) == 157 .and. ijk2(1) == 1) then
+            if (any(ijk1(3) == [1,193]) .and. ijk1(3) == ijk2(3)) then
+              output_info = true
+            end if
+          end if
+        else if (n == 9) then
+          if (ijk1(1) == 1 .and. ijk2(1) == 1) then
+            if (ijk1(3) == 1 .and. ijk2(3) == 193) then
+              if (ijk1(2) >= 133 .and. ijk1(2) == ijk2(2)) then
+                output_info =true
+              end if
+            end if
+          end if
+        end if
+      end if
+#endif
+      !
+      if (output_info) then
+        if (lpoin(ip2) > 0) then
+          write (iout,200) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                                 (ijk2(i),i=1,4),ip2,lpoin(ip2)
+          write (120+n,202) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                                  (ijk2(i),i=1,4),ip2,lpoin(ip2)
+        else
+          ip3 = -lpoin(ip2)
+          ijk3 = map1dto3d(ip3,1)
+          write (iout,200) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                                 (ijk2(i),i=1,4),ip2,lpoin(ip2), &
+                                 (ijk3(i),i=1,4),ip3,lpoin(ip3)
+          write (120+n,202) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                                  (ijk2(i),i=1,4),ip2,lpoin(ip2), &
+                                  (ijk3(i),i=1,4),ip3,lpoin(ip3)
+        end if
+      end if
+      !
       ! Point to the adjacent point
       !
       if (lpoin(ip2) > 0) then
         !
         if (lpoin(ip1) > 0) then
-          lpoin(ip2) = -ip1
+          ! ip2 is a duplicate of ip1 so keep which ever one
+          ! is higher and have the other point to it
+          if (ip2 > ip1) then
+            lpoin(ip2) = -ip1
+          else
+            lpoin(ip1) = -ip2
+          end if
         else
+          ! ip1 has already been marked as a duplicate
+          ! and already points to a keeper
           lpoin(ip2) = lpoin(ip1)
         end if
         !
@@ -3112,24 +3249,29 @@ continue
         ! Remove the point connected by more than 4 cells
         !
         ip3 = -lpoin(ip2)
-        if ( ip3 == ip1) then
+        if (ip3 == ip1) then
           if (lpoin(ip1) > 0) then
-            lpoin(ip2) =-ip1
+            lpoin(ip2) = -ip1
           else
             lpoin(ip2) = lpoin(ip1)
           end if
-        else if ( ip3 > ip1) then
+        else if (ip3 > ip1) then
           if (lpoin(ip1) > 0) then
-            lpoin(ip3) =-ip1
-            lpoin(ip2) =-ip1
-          else
-            lpoin(ip3) = lpoin(ip1)
-            lpoin(ip2) = lpoin(ip1)
+            lpoin(ip3) = -ip1
+            lpoin(ip2) = -ip1
+          else ! lpoin(ip1) < 0
+           !if (lpoin(ip3) > 0) then
+           !  lpoin(ip1) = -ip3
+           !  lpoin(ip2) = -ip3
+           !else
+              lpoin(ip3) = lpoin(ip1)
+              lpoin(ip2) = lpoin(ip1)
+           !end if
           end if
         else
           if (lpoin(ip3) > 0) then
-            lpoin(ip1) =-ip3
-            lpoin(ip2) =-ip3
+            lpoin(ip1) = -ip3
+            lpoin(ip2) = -ip3
           else
             lpoin(ip1) = lpoin(ip3)
             lpoin(ip2) = lpoin(ip3)
@@ -3138,9 +3280,40 @@ continue
         !
       end if
       !
+      if (output_info) then
+        ip3 = abs(lpoin(ip2))
+        ijk3 = map1dto3d(ip3,1)
+        write (iout,201) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                               (ijk2(i),i=1,4),ip2,lpoin(ip2), &
+                               (ijk3(i),i=1,4),ip3,lpoin(ip3)
+        write (120+n,203) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
+                                (ijk2(i),i=1,4),ip2,lpoin(ip2), &
+                                (ijk3(i),i=1,4),ip3,lpoin(ip3)
+        flush (iout)
+        flush (120+n)
+      end if
+      !
+      output_info = fals
+      !
     end do
     !
   end do
+  200 format (/,"      Before (ipcut=",i0,") :",/, &
+                "  ip1 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
+                "  ip2 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,:,/, &
+                "  ip3 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0)
+  201 format (  "       After (ipcut=",i0,") :",/, &
+                "  ip1 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
+                "  ip2 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
+                "  ip3 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0)
+  202 format (/,"Before (ipcut=",i0,") =>",/, &
+                " ip1 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
+                " ip2 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,:,/, &
+                " ip3 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9)
+  203 format (  " After (ipcut=",i0,") =>",/, &
+                " ip1 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
+                " ip2 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
+                " ip3 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9)
   !
   ! new2old(ip) = the old point number for a new point ip
   ! old2new(ip) = the new point number for a old point ip
@@ -3192,7 +3365,16 @@ continue
       ipn1 = old2new(ip1)
       ipn2 = old2new(ip2)
       !
-      if (ipn1 /= ipn2) then
+      if (any([ipn1,ipn2] == 0)) then
+        if (first_line_not_output) then
+          if (mypnum == glb_root) write (iout,2)
+          first_line_not_output = fals
+        end if
+        if (mypnum == glb_root) then
+          write (iout,8) 1,n,ipcut,map1dto3d(ip1,1),ipn1
+          write (iout,8) 2,n,ipcut,map1dto3d(ip2,1),ipn2
+        end if
+      else if (ipn1 /= ipn2) then
         if (first_line_not_output) then
           if (mypnum == glb_root) write (iout,2)
           first_line_not_output = fals
@@ -3254,6 +3436,22 @@ continue
   !
   call move_alloc( from=temp_xyz , to=xyz_nodes )
   !
+#ifdef DEBUG_CUTS
+  if (mypnum == glb_root) then
+    do new_pt = 1,lpts_new
+      write (2000,200) new_pt,new2old(new_pt)
+    end do
+    200 format ("new_point ",i8," -> old_point ",i8)
+    flush (2000)
+    do old_pt = 1,lpts_old
+      write (2001,201) old_pt,old2new(old_pt)
+    end do
+    201 format ("old_point ",i8," -> new_point ",i8)
+    flush (2001)
+  end if
+  call mpi_barrier(host_roots_comm,mpierr)
+#endif
+  !
   ! Deallocate new2old
   !
   deallocate ( new2old , stat=ierr , errmsg=error_message )
@@ -3264,6 +3462,27 @@ continue
  !call create_nodes_of_cells(old2new)
   !
   ! Fix all the node information in the grid derived type
+#ifdef DEBUG_CUTS
+  if (mypnum == glb_root) then
+    do nc = 1,size(grid%elem)
+      if (allocated(grid%elem(nc)%nodes)) then
+        write (1000+mypnum,100) nc,(grid%elem(nc)%nodes(n), &
+                                    n=1,size(grid%elem(nc)%nodes))
+        write (1002+mypnum,102) nc,(map1dto3d(grid%elem(nc)%nodes(n),1), &
+                                    n=1,size(grid%elem(nc)%nodes))
+      else
+        write (1000+mypnum,101) nc
+        write (1002+mypnum,101) nc
+      end if
+    end do
+    flush (1000+mypnum)
+    flush (1002+mypnum)
+  end if
+  call mpi_barrier(host_roots_comm,mpierr)
+  100 format (1x,i6," : ",8i9)
+  101 format (1x,i6," : NOT ALLOCATED")
+  102 format (1x,i6," :",8(2x,3i4," (",i1,")"))
+#endif
   !
   do nc = 1,size(grid%elem)
     if (allocated(grid%elem(nc)%nodes)) then
@@ -3306,6 +3525,8 @@ continue
               "   n, ipcut, ip1, ip2, ipn1, ipn2")
   3 format (4i10)
   4 format (i8,i10,6e14.6)
+  8 format ("Zero found on side ",i1," of cut:", &
+            2x,i4,i8,2x,3i5," (",i0,") => ",i0)
   9 format (i4,i8, 4i12)
   !
 end subroutine remove_duplicate_nodes
@@ -3316,7 +3537,7 @@ subroutine reorder_plot3d_nodes
   !
   !.. Use Statements ..
   use geovar, only : ncell,nnode,xyz_nodes,grid
-  use geovar, only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar, only : nodes_of_cell
   !
   !.. Local Scalars ..
   integer :: n,nc,lpts,ierr
@@ -3338,6 +3559,23 @@ continue
   !
   allocate ( msk(1:lpts) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
+  !
+#ifdef DEBUG_CUTS
+  if (mypnum == glb_root) then
+    do nc = 1,size(grid%elem)
+      if (allocated(grid%elem(nc)%nodes)) then
+        write (1001+mypnum,100) nc,(grid%elem(nc)%nodes(n), &
+                                    n=1,size(grid%elem(nc)%nodes))
+      else
+        write (1001+mypnum,101) nc
+      end if
+    end do
+    flush (1001+mypnum)
+  end if
+  call mpi_barrier(host_roots_comm,mpierr)
+  100 format (1x,i6," : ",8i9)
+  101 format (1x,i6," : NOT ALLOCATED")
+#endif
   !
   do nc = 1,ncell
     msk( grid%elem(nc)%nodes(:) ) = true
@@ -5598,7 +5836,7 @@ end function map3dto1d
 !
 !###############################################################################
 !
-pure function map1dto3d(ijk1d,n,offset_type) result(return_value)
+pure function map1dto3d_known_block(ijk1d,n,offset_type) result(return_value)
   !
   ! Map 2D-i,j or 3D-i,j,k structured indices into 1D array space
   !
@@ -5657,7 +5895,81 @@ continue
   !
   return_value = [i,j,k]
   !
-end function map1dto3d
+end function map1dto3d_known_block
+!
+!###############################################################################
+!
+pure function map1dto3d_unknown_block(ijk1d,offset_type) result(return_value)
+  !
+  ! Map 2D-i,j or 3D-i,j,k structured indices into 1D array space
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: ijk1d ! 1D value of i,j,k indices
+  integer, intent(in) :: offset_type
+  !
+  !.. Function Result ..
+  integer, dimension(1:4) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: blk_offset,ipts,jpts,numer,denom,i,j,k,l,m,n
+  !
+continue
+  !
+  m = offset_type
+  if (all(offset_type /= [1,2])) m = 1
+  !
+  ! Find which block this point is in
+  n = size(offset,dim=2)
+  do l = 1,size(offset,dim=2)-1
+    if (ijk1d < offset(m,l+1)) then
+      n = l
+      exit
+    end if
+  end do
+  !
+  ! offset_type determines whether we are offsetting or not,
+  ! and if we are, whether the offset is for nodes or cells
+  !     = 1 : offset for nodes
+  !     = 2 : offset for cells
+  !     = anything else : no offset
+  !
+  if (any(offset_type == [1,2])) then
+    blk_offset = offset(offset_type,n)
+  else
+    blk_offset = 1
+  end if
+  !
+  ! If we are offsetting for cells, we need to adjust the number of points
+  ! in each direction to reflect the number of cells in each direction
+  !
+  ipts = ijkpts(1,n)
+  jpts = ijkpts(2,n)
+  if (offset_type == 2) then
+    ipts = ipts - 1
+    jpts = jpts - 1
+  end if
+  !
+  ! k-index
+  !
+  numer = ijk1d - blk_offset + ipts*jpts
+  denom = ipts*jpts
+  k = floor( real(numer,kind=wp) / real(denom,kind=wp) )
+  !
+  ! j-index
+  !
+  numer = ijk1d - blk_offset + ipts*jpts*(1-k) + ipts
+  denom = ipts
+  j = floor( real(numer,kind=wp) / real(denom,kind=wp) )
+  !
+  ! i-index
+  !
+  i = ijk1d - blk_offset + ipts*jpts*(1-k) + ipts*(1-j) + 1
+  !
+  ! Put the i,j,k values in the function result
+  !
+  return_value = [i,j,k,n]
+  !
+end function map1dto3d_unknown_block
 !
 !###############################################################################
 !

@@ -86,10 +86,10 @@ subroutine compute_bnd_profiles
   use metrics_mod,       only : geofa
   use flowvar,           only : usp,dusp
   use interpolation_mod, only : interp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Local Scalars ..
-  integer :: i,ii,j,k,l,m,n,nf,np,n1,n2,kf,kl
+  integer :: i,j,k,l,m,n,nf,np,n1,n2,kf,kl
   integer :: host_cell,host_geom,host_order
   integer :: ndata,face_geom,face_order,nfp
   integer :: ioprf,ierr
@@ -204,11 +204,11 @@ continue
         dcvdx(1:nr,1:nq) = zero
         !
         do m = 1,nq
-          do ii = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
-                  interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
+          do l = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1,&
+                 interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
             !
-            j = interp(host_geom,host_order)%toFace(face_order)%row_idx(ii)
-            a = interp(host_geom,host_order)%toFace(face_order)%row_val(ii)
+            j = interp(host_geom,host_order)%toFace(face_order)%row_idx(l)
+            a = interp(host_geom,host_order)%toFace(face_order)%row_val(l)
             !
             cvfp(m) = cvfp(m) + a * tusp(j,m)
             dcvdx(1:nr,m) = dcvdx(1:nr,m) + a * tdusp(j,1:nr,m)
@@ -380,9 +380,8 @@ continue
         n2 = ndata + nfp
         !
         do m = 1,size(bnd_prof(n)%qty)
-          bnd_prof(n)%qty(m)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
-                                                                     output% &
-                                 mv_mult( bnd_prof(n)%qty(m)%qty_data(n1:n2) )
+          call outerp_mv_mult( outerp(face_geom,face_order)%output , &
+                               bnd_prof(n)%qty(m)%qty_data(n1:n2) )
         end do
         !
       end if
@@ -465,7 +464,7 @@ subroutine init_bnd_profile_structures
   use geovar,            only : xyz,face,cell,pst_geom
   use ovar,              only : output_bnd_profiles
   use interpolation_mod, only : interp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Local Scalars ..
   integer :: i,j,k,kl,kf,l,m,n,nf,np,n1,n2
@@ -763,7 +762,7 @@ continue
         !
         do l = 1,nr
           val = zero
-          do m = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1, &
+          do m = interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl)+1,&
                  interp(host_geom,host_order)%toFace(face_order)%row_ptr(kl+1)
             !
             j = interp(host_geom,host_order)%toFace(face_order)%row_idx(m)
@@ -898,9 +897,8 @@ continue
           n2 = ndata + nfp
           !
           do l = 1,nr
-            bnd_prof(n)%qty(l)%qty_data(n1:n2) = outerp(face_geom,face_order)% &
-                                                                       output% &
-                                 mv_mult( bnd_prof(n)%qty(l)%qty_data(n1:n2) )
+            call outerp_mv_mult( outerp(face_geom,face_order)%output , &
+                                 bnd_prof(n)%qty(l)%qty_data(n1:n2) )
           end do
           !
         end if

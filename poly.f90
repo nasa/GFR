@@ -1,5 +1,7 @@
 module polynomial_mod
   !
+!!!#define DISABLE_PURE
+  !
   ! Module that contains various functions and routines
   ! related to Jacobi, Legendre, and other polynomials
   !
@@ -50,132 +52,132 @@ module polynomial_mod
   public :: eval_DLagrangeDx
   !
   interface JacobiGL
-    module procedure JacobiGL_DP, & 
+    module procedure JacobiGL_DP, &
                      JacobiGL_QP
   end interface JacobiGL
   !
   interface eval_jacobi_poly
-    module procedure eval_jacobi_poly_DP, & 
+    module procedure eval_jacobi_poly_DP, &
                      eval_jacobi_poly_QP
   end interface eval_jacobi_poly
   !
   interface eval_legendre_poly
-    module procedure eval_legendre_poly_DP, & 
+    module procedure eval_legendre_poly_DP, &
                      eval_legendre_poly_QP
   end interface eval_legendre_poly
   !
   interface eval_chebyshev_poly
-    module procedure eval_chebyshev_poly_DP, & 
+    module procedure eval_chebyshev_poly_DP, &
                      eval_chebyshev_poly_QP
   end interface eval_chebyshev_poly
   !
   interface eval_normalized_jacobi_poly
-    module procedure eval_normalized_jacobi_poly_DP, & 
+    module procedure eval_normalized_jacobi_poly_DP, &
                      eval_normalized_jacobi_poly_QP
   end interface eval_normalized_jacobi_poly
   !
   interface normalized_jacobi_poly
-    module procedure normalized_jacobi_poly_DP, & 
+    module procedure normalized_jacobi_poly_DP, &
                      normalized_jacobi_poly_QP
   end interface normalized_jacobi_poly
   !
   interface grad_normalized_jacobi_poly
-    module procedure grad_normalized_jacobi_poly_DP, & 
+    module procedure grad_normalized_jacobi_poly_DP, &
                      grad_normalized_jacobi_poly_QP
   end interface grad_normalized_jacobi_poly
   !
   interface nodes_jacobi_gauss
-    module procedure nodes_jacobi_gauss_DP, & 
+    module procedure nodes_jacobi_gauss_DP, &
                      nodes_jacobi_gauss_QP
   end interface nodes_jacobi_gauss
   !
   interface nodes_legendre_gauss
-    module procedure nodes_legendre_gauss_DP, & 
+    module procedure nodes_legendre_gauss_DP, &
                      nodes_legendre_gauss_QP
   end interface nodes_legendre_gauss
   !
   interface nodes_right_radau
-    module procedure nodes_right_radau_DP, & 
+    module procedure nodes_right_radau_DP, &
                      nodes_right_radau_QP
   end interface nodes_right_radau
   !
   interface nodes_chebyshev_gauss
-    module procedure nodes_chebyshev_gauss_DP, & 
+    module procedure nodes_chebyshev_gauss_DP, &
                      nodes_chebyshev_gauss_QP
   end interface nodes_chebyshev_gauss
   !
   interface nodes_jacobi_gauss_lobatto
-    module procedure nodes_jacobi_gauss_lobatto_DP, & 
+    module procedure nodes_jacobi_gauss_lobatto_DP, &
                      nodes_jacobi_gauss_lobatto_QP
   end interface nodes_jacobi_gauss_lobatto
   !
   interface nodes_legendre_gauss_lobatto
-    module procedure nodes_legendre_gauss_lobatto_DP, & 
+    module procedure nodes_legendre_gauss_lobatto_DP, &
                      nodes_legendre_gauss_lobatto_QP
   end interface nodes_legendre_gauss_lobatto
   !
   interface nodes_chebyshev_gauss_lobatto
-    module procedure nodes_chebyshev_gauss_lobatto_DP, & 
+    module procedure nodes_chebyshev_gauss_lobatto_DP, &
                      nodes_chebyshev_gauss_lobatto_QP
   end interface nodes_chebyshev_gauss_lobatto
   !
   interface weights_jacobi_gauss
-    module procedure weights_jacobi_gauss_DP, & 
+    module procedure weights_jacobi_gauss_DP, &
                      weights_jacobi_gauss_QP
   end interface weights_jacobi_gauss
   !
   interface weights_legendre_gauss
-    module procedure weights_legendre_gauss_DP, & 
+    module procedure weights_legendre_gauss_DP, &
                      weights_legendre_gauss_QP
   end interface weights_legendre_gauss
   !
   interface weights_right_radau
-    module procedure weights_right_radau_DP, & 
+    module procedure weights_right_radau_DP, &
                      weights_right_radau_QP
   end interface weights_right_radau
   !
   interface weights_chebyshev_gauss
-    module procedure weights_chebyshev_gauss_DP, & 
+    module procedure weights_chebyshev_gauss_DP, &
                      weights_chebyshev_gauss_QP
   end interface weights_chebyshev_gauss
   !
   interface weights_jacobi_gauss_lobatto
-    module procedure weights_jacobi_gauss_lobatto_DP, & 
+    module procedure weights_jacobi_gauss_lobatto_DP, &
                      weights_jacobi_gauss_lobatto_QP
   end interface weights_jacobi_gauss_lobatto
   !
   interface weights_legendre_gauss_lobatto
-    module procedure weights_legendre_gauss_lobatto_DP, & 
+    module procedure weights_legendre_gauss_lobatto_DP, &
                      weights_legendre_gauss_lobatto_QP
   end interface weights_legendre_gauss_lobatto
   !
   interface weights_chebyshev_gauss_lobatto
-    module procedure weights_chebyshev_gauss_lobatto_DP, & 
+    module procedure weights_chebyshev_gauss_lobatto_DP, &
                      weights_chebyshev_gauss_lobatto_QP
   end interface weights_chebyshev_gauss_lobatto
   !
   interface weights_dgbook_jacobi_gauss_lobatto
-    module procedure weights_dgbook_jacobi_gauss_lobatto_DP, & 
+    module procedure weights_dgbook_jacobi_gauss_lobatto_DP, &
                      weights_dgbook_jacobi_gauss_lobatto_QP
   end interface weights_dgbook_jacobi_gauss_lobatto
   !
   interface derivative_matrix_legendre_gauss
-    module procedure derivative_matrix_legendre_gauss_DP, & 
+    module procedure derivative_matrix_legendre_gauss_DP, &
                      derivative_matrix_legendre_gauss_QP
   end interface derivative_matrix_legendre_gauss
   !
   interface derivative_matrix_legendre_gauss_lobatto
-    module procedure derivative_matrix_legendre_gauss_lobatto_DP, & 
+    module procedure derivative_matrix_legendre_gauss_lobatto_DP, &
                      derivative_matrix_legendre_gauss_lobatto_QP
   end interface derivative_matrix_legendre_gauss_lobatto
   !
   interface derivative_matrix_jacobi_gauss_lobatto
-    module procedure derivative_matrix_jacobi_gauss_lobatto_DP, & 
+    module procedure derivative_matrix_jacobi_gauss_lobatto_DP, &
                      derivative_matrix_jacobi_gauss_lobatto_QP
   end interface derivative_matrix_jacobi_gauss_lobatto
   !
   interface derivative_matrix_chebyshev_gauss_lobatto
-    module procedure derivative_matrix_chebyshev_gauss_lobatto_DP, & 
+    module procedure derivative_matrix_chebyshev_gauss_lobatto_DP, &
                      derivative_matrix_chebyshev_gauss_lobatto_QP
   end interface derivative_matrix_chebyshev_gauss_lobatto
   !
@@ -190,12 +192,12 @@ module polynomial_mod
   end interface log_gammafun
   !
   interface coefrr
-    module procedure coefrr_DP, & 
+    module procedure coefrr_DP, &
                      coefrr_QP
   end interface coefrr
   !
   interface coefle
-    module procedure coefle_DP, & 
+    module procedure coefle_DP, &
                      coefle_QP
   end interface coefle
   !
@@ -251,7 +253,10 @@ contains
 !###############################################################################
 !###############################################################################
 !
-pure subroutine legendre_gauss_quadrature(xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine legendre_gauss_quadrature(xi,weights)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: xi(:)
@@ -284,7 +289,10 @@ end subroutine legendre_gauss_quadrature
 !
 !###############################################################################
 !
-pure subroutine legendre_gauss_lobatto_quadrature(xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine legendre_gauss_lobatto_quadrature(xi,weights)
   !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: xi(:)
@@ -297,7 +305,7 @@ pure subroutine legendre_gauss_lobatto_quadrature(xi,weights)
   !
   !.. Local Arrays ..
   real(qp) :: pts_qp(1:size(xi))
-  real(qp) :: wts_qp(1:size(xi)) 
+  real(qp) :: wts_qp(1:size(xi))
   real(qp) :: val_qp(1:size(xi))
   !
 continue
@@ -330,7 +338,10 @@ end subroutine legendre_gauss_lobatto_quadrature
 !###############################################################################
 !###############################################################################
 !
-pure subroutine JacobiGL_DP(alpha,beta,n,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine JacobiGL_DP(alpha,beta,n,xi,weights)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -361,7 +372,10 @@ end subroutine JacobiGL_DP
 !
 !###############################################################################
 !
-pure subroutine JacobiGL_QP(alpha,beta,n,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine JacobiGL_QP(alpha,beta,n,xi,weights)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -392,7 +406,10 @@ end subroutine JacobiGL_QP
 !
 !###############################################################################
 !
-pure subroutine eval_jacobi_poly_DP(n,alpha,beta,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_jacobi_poly_DP(n,alpha,beta,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -468,7 +485,10 @@ end subroutine eval_jacobi_poly_DP
 !
 !###############################################################################
 !
-pure subroutine eval_jacobi_poly_QP(n,alpha,beta,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_jacobi_poly_QP(n,alpha,beta,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -544,7 +564,10 @@ end subroutine eval_jacobi_poly_QP
 !
 !###############################################################################
 !
-pure subroutine eval_legendre_poly_DP(n,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_legendre_poly_DP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -573,7 +596,10 @@ end subroutine eval_legendre_poly_DP
 !
 !###############################################################################
 !
-pure subroutine eval_legendre_poly_QP(n,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_legendre_poly_QP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -602,7 +628,10 @@ end subroutine eval_legendre_poly_QP
 !
 !###############################################################################
 !
-pure subroutine eval_chebyshev_poly_DP(n,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_chebyshev_poly_DP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -664,7 +693,10 @@ end subroutine eval_chebyshev_poly_DP
 !
 !###############################################################################
 !
-pure subroutine eval_chebyshev_poly_QP(n,x,y,dy,d2y)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_chebyshev_poly_QP(n,x,y,dy,d2y)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -726,7 +758,10 @@ end subroutine eval_chebyshev_poly_QP
 !
 !###############################################################################
 !
-pure subroutine eval_normalized_jacobi_poly_DP(n,alpha,beta,x,y,dy)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_normalized_jacobi_poly_DP(n,alpha,beta,x,y,dy)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -762,7 +797,10 @@ end subroutine eval_normalized_jacobi_poly_DP
 !
 !###############################################################################
 !
-pure subroutine eval_normalized_jacobi_poly_QP(n,alpha,beta,x,y,dy)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine eval_normalized_jacobi_poly_QP(n,alpha,beta,x,y,dy)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -798,7 +836,10 @@ end subroutine eval_normalized_jacobi_poly_QP
 !
 !###############################################################################
 !
-pure function normalized_jacobi_poly_DP(N,alpha,beta,x) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function normalized_jacobi_poly_DP(N,alpha,beta,x) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -873,7 +914,10 @@ end function normalized_jacobi_poly_DP
 !
 !###############################################################################
 !
-pure function normalized_jacobi_poly_QP(N,alpha,beta,x) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function normalized_jacobi_poly_QP(N,alpha,beta,x) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -948,7 +992,10 @@ end function normalized_jacobi_poly_QP
 !
 !###############################################################################
 !
-pure function grad_normalized_jacobi_poly_DP(n,alpha,beta,x) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function grad_normalized_jacobi_poly_DP(n,alpha,beta,x) &
                                       result(return_value)
   !
   !.. Function Precision ..
@@ -991,7 +1038,10 @@ end function grad_normalized_jacobi_poly_DP
 !
 !###############################################################################
 !
-pure function grad_normalized_jacobi_poly_QP(n,alpha,beta,x) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function grad_normalized_jacobi_poly_QP(n,alpha,beta,x) &
                                       result(return_value)
   !
   !.. Function Precision ..
@@ -1034,7 +1084,10 @@ end function grad_normalized_jacobi_poly_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_jacobi_gauss_DP(n,alpha,beta,xi,dxi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_jacobi_gauss_DP(n,alpha,beta,xi,dxi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1099,7 +1152,10 @@ end subroutine nodes_jacobi_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_jacobi_gauss_QP(n,alpha,beta,xi,dxi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_jacobi_gauss_QP(n,alpha,beta,xi,dxi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1164,7 +1220,10 @@ end subroutine nodes_jacobi_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_legendre_gauss_DP(n,xi,dxi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_legendre_gauss_DP(n,xi,dxi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1183,12 +1242,18 @@ pure subroutine nodes_legendre_gauss_DP(n,xi,dxi)
 continue
   !
   call nodes_jacobi_gauss(n,zero,zero,xi,dxi)
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
 end subroutine nodes_legendre_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_legendre_gauss_QP(n,xi,dxi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_legendre_gauss_QP(n,xi,dxi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1207,12 +1272,18 @@ pure subroutine nodes_legendre_gauss_QP(n,xi,dxi)
 continue
   !
   call nodes_jacobi_gauss(n,zero,zero,xi,dxi)
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
 end subroutine nodes_legendre_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_right_radau_DP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_right_radau_DP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1275,7 +1346,10 @@ end subroutine nodes_right_radau_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_right_radau_QP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_right_radau_QP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1338,7 +1412,10 @@ end subroutine nodes_right_radau_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_chebyshev_gauss_DP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_chebyshev_gauss_DP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1367,7 +1444,10 @@ end subroutine nodes_chebyshev_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_chebyshev_gauss_QP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_chebyshev_gauss_QP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1396,7 +1476,10 @@ end subroutine nodes_chebyshev_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,vn)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,vn)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1477,7 +1560,10 @@ end subroutine nodes_jacobi_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,vn)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,vn)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1558,7 +1644,10 @@ end subroutine nodes_jacobi_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_legendre_gauss_lobatto_DP(n,xi,vn)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_legendre_gauss_lobatto_DP(n,xi,vn)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1627,7 +1716,10 @@ end subroutine nodes_legendre_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_legendre_gauss_lobatto_QP(n,xi,vn)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_legendre_gauss_lobatto_QP(n,xi,vn)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1696,7 +1788,10 @@ end subroutine nodes_legendre_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine nodes_chebyshev_gauss_lobatto_DP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_chebyshev_gauss_lobatto_DP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -1738,7 +1833,10 @@ end subroutine nodes_chebyshev_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine nodes_chebyshev_gauss_lobatto_QP(n,xi)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine nodes_chebyshev_gauss_lobatto_QP(n,xi)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -1780,7 +1878,10 @@ end subroutine nodes_chebyshev_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine weights_jacobi_gauss_DP(n,alpha,beta,xi,dy,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_jacobi_gauss_DP(n,alpha,beta,xi,dy,weights)
   !
   !***************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS FORMULA
@@ -1835,7 +1936,10 @@ end subroutine weights_jacobi_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine weights_jacobi_gauss_QP(n,alpha,beta,xi,dy,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_jacobi_gauss_QP(n,alpha,beta,xi,dy,weights)
   !
   !***************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS FORMULA
@@ -1890,7 +1994,10 @@ end subroutine weights_jacobi_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine weights_legendre_gauss_DP(n,xi,dy,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_legendre_gauss_DP(n,xi,dy,weights)
   !
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS FORMULA
@@ -1912,6 +2019,10 @@ pure subroutine weights_legendre_gauss_DP(n,xi,dy,weights)
   !.. Local Scalars ..
   integer :: i
   !
+  !.. Local Arrays ..
+  real(lp) :: dy2_inv(1:n)
+  real(lp) :: dy2(1:n)
+  !
   !.. Local Constants ..
   real(lp), parameter :: one = 1.0_lp
   real(lp), parameter :: two = 2.0_lp
@@ -1921,14 +2032,58 @@ continue
   weights(:) = two
   !
   do i = 1,n
-    weights(i) = two / ((one - xi(i)*xi(i)) * dy(i) * dy(i))
+    dy2(i) = dy(i)*dy(i)
   end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,n
+    dy2_inv(i) = one / dy2(i)
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,n
+    weights(i) = two * dy2_inv(i) / (one - xi(i)*xi(i))
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+! do i = 1,n
+!   weights(i) = two / ((one - (xi(i)**2)) * (dy(i)**2) )
+!#ifdef DISABLE_PURE
+!   if (mypnum == glb_root) then
+!     write (3000+mypnum,100) i, xi(i), dy(i), &
+!                      one-xi(i)*xi(i), &
+!                     (one-xi(i)*xi(i))*dy(i)*dy(i), &
+!                     weights(i)
+!     100 format ("i = ",i0," ; xi = ",es14.6," ; dy = ",es14.6, &
+!                 " ; 1-xi*xi = ",es14.6," ; (1-xi*xi)*dy*dy = ",es14.6, &
+!                 " ; weight = ",es14.6)
+!     flush (3000+mypnum)
+!   end if
+!#endif
+! end do
+!#ifdef DISABLE_PURE
+! if (mypnum == glb_root) then
+!   write (3000+mypnum,*)
+!   flush (3000+mypnum)
+! end if
+! call mpi_barrier(MPI_COMM_WORLD,mpierr)
+! call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 end subroutine weights_legendre_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine weights_legendre_gauss_QP(n,xi,dy,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_legendre_gauss_QP(n,xi,dy,weights)
   !
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS FORMULA
@@ -1950,6 +2105,10 @@ pure subroutine weights_legendre_gauss_QP(n,xi,dy,weights)
   !.. Local Scalars ..
   integer :: i
   !
+  !.. Local Arrays ..
+  real(lp) :: dy2_inv(1:n)
+  real(lp) :: dy2(1:n)
+  !
   !.. Local Constants ..
   real(lp), parameter :: one = 1.0_lp
   real(lp), parameter :: two = 2.0_lp
@@ -1959,14 +2118,58 @@ continue
   weights(:) = two
   !
   do i = 1,n
-    weights(i) = two / ((one - xi(i)*xi(i)) * dy(i) * dy(i))
+    dy2(i) = dy(i)*dy(i)
   end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,n
+    dy2_inv(i) = one / dy2(i)
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,n
+    weights(i) = two * dy2_inv(i) / (one - xi(i)*xi(i))
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+! do i = 1,n
+!   weights(i) = two / ((one - xi(i)*xi(i)) * dy(i) * dy(i))
+!#ifdef DISABLE_PURE
+!   if (mypnum == glb_root) then
+!     write (4000+mypnum,100) i, xi(i), dy(i), &
+!                      one-xi(i)*xi(i), &
+!                     (one-xi(i)*xi(i))*dy(i)*dy(i), &
+!                     weights(i)
+!     100 format ("i = ",i0," ; xi = ",es14.6," ; dy = ",es14.6, &
+!                 " ; 1-xi*xi = ",es14.6," ; (1-xi*xi)*dy*dy = ",es14.6, &
+!                 " ; weight = ",es14.6)
+!     flush (4000+mypnum)
+!   end if
+!#endif
+! end do
+!#ifdef DISABLE_PURE
+! if (mypnum == glb_root) then
+!   write (4000+mypnum,*)
+!   flush (4000+mypnum)
+! end if
+! call mpi_barrier(MPI_COMM_WORLD,mpierr)
+! call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 end subroutine weights_legendre_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine weights_right_radau_DP(n,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_right_radau_DP(n,xi,weights)
   !
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
@@ -2011,7 +2214,10 @@ end subroutine weights_right_radau_DP
 !
 !###############################################################################
 !
-pure subroutine weights_right_radau_QP(n,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_right_radau_QP(n,xi,weights)
   !
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
@@ -2056,7 +2262,10 @@ end subroutine weights_right_radau_QP
 !
 !###############################################################################
 !
-pure subroutine weights_chebyshev_gauss_DP(n,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_chebyshev_gauss_DP(n,weights)
   !
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS FORMULA
@@ -2089,7 +2298,10 @@ end subroutine weights_chebyshev_gauss_DP
 !
 !###############################################################################
 !
-pure subroutine weights_chebyshev_gauss_QP(n,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_chebyshev_gauss_QP(n,weights)
   !
   !****************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS FORMULA
@@ -2122,7 +2334,10 @@ end subroutine weights_chebyshev_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine weights_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
   !
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
@@ -2209,7 +2424,10 @@ end subroutine weights_jacobi_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine weights_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
@@ -2296,7 +2514,10 @@ end subroutine weights_jacobi_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine weights_legendre_gauss_lobatto_DP(n,vn,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_legendre_gauss_lobatto_DP(n,vn,weights)
   !
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
@@ -2337,7 +2558,10 @@ end subroutine weights_legendre_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine weights_legendre_gauss_lobatto_QP(n,vn,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_legendre_gauss_lobatto_QP(n,vn,weights)
   !
   !**********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE LEGENDRE GAUSS-LOBATTO FORMULA
@@ -2378,7 +2602,10 @@ end subroutine weights_legendre_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine weights_chebyshev_gauss_lobatto_DP(n,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_chebyshev_gauss_lobatto_DP(n,weights)
   !
   !***********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS-LOBATTO FORMULA
@@ -2417,7 +2644,10 @@ end subroutine weights_chebyshev_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine weights_chebyshev_gauss_lobatto_QP(n,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_chebyshev_gauss_lobatto_QP(n,weights)
   !
   !***********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE CHEBYSHEV GAUSS-LOBATTO FORMULA
@@ -2456,7 +2686,10 @@ end subroutine weights_chebyshev_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine weights_dgbook_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_dgbook_jacobi_gauss_lobatto_DP(n,alpha,beta,xi,weights)
   !
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
@@ -2542,7 +2775,10 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine weights_dgbook_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine weights_dgbook_jacobi_gauss_lobatto_QP(n,alpha,beta,xi,weights)
   !
   !********************************************************************
   !   COMPUTES THE WEIGHTS RELATIVE TO THE JACOBI GAUSS-LOBATTO FORMULA
@@ -2628,7 +2864,10 @@ end subroutine weights_dgbook_jacobi_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure function derivative_matrix_legendre_gauss_DP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function derivative_matrix_legendre_gauss_DP(n,a) result(return_value)
   !
   !*************************************************************
   !*************************************************************
@@ -2655,11 +2894,13 @@ pure function derivative_matrix_legendre_gauss_DP(n,a) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,np
-  real(lp) :: vi,zi,vj,zj
   !
   !.. Local Arrays ..
   real(lp), dimension(1:n+1) :: cs ! VECTOR OF THE ZEROES
   real(lp), dimension(1:n+1) :: dz ! LEGENDRE DERIVATIVES AT THE ZEROES
+  !
+  real(lp), dimension(1:n+1,1:n+1) :: val
+  real(lp), dimension(1:n+1,1:n+1) :: val_inv
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -2679,24 +2920,61 @@ continue
   call nodes_legendre_gauss(np,cs,dz)
   !
   do i = 1,np
-    vi = dz(i)
-    zi = cs(i)
     do j = 1,np
       if (i /= j) then
-        vj = dz(j)
-        zj = cs(j)
-        return_value(i,j) = vi/(vj*(zi-zj))
+        val(i,j) = dz(j)*(cs(i)-cs(j))
       else
-        return_value(i,i) = zi/(one-zi*zi)
+        val(i,j) = one-cs(i)*cs(i)
       end if
     end do
   end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,np
+    do j = 1,np
+      val_inv(i,j) = one / val(i,j)
+    end do
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,np
+    do j = 1,np
+      if (i /= j) then
+        return_value(i,j) = dz(i) * val_inv(i,j)
+      else
+        return_value(i,j) = cs(i) * val_inv(i,j)
+      end if
+    end do
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+ !do i = 1,np
+ !  do j = 1,np
+ !    if (i /= j) then
+ !      return_value(i,j) = dz(i)/(dz(j)*(cs(i)-cs(j)))
+ !    else
+ !      return_value(i,j) = cs(i)/(one-cs(i)*cs(i))
+ !    end if
+ !  end do
+ !end do
+!#ifdef DISABLE_PURE
+ !call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 end function derivative_matrix_legendre_gauss_DP
 !
 !###############################################################################
 !
-pure function derivative_matrix_legendre_gauss_QP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function derivative_matrix_legendre_gauss_QP(n,a) result(return_value)
   !
   !*************************************************************
   !*************************************************************
@@ -2723,11 +3001,13 @@ pure function derivative_matrix_legendre_gauss_QP(n,a) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: i,j,np
-  real(lp) :: vi,zi,vj,zj
   !
   !.. Local Arrays ..
   real(lp), dimension(1:n+1) :: cs ! VECTOR OF THE ZEROES
   real(lp), dimension(1:n+1) :: dz ! LEGENDRE DERIVATIVES AT THE ZEROES
+  !
+  real(lp), dimension(1:n+1,1:n+1) :: val
+  real(lp), dimension(1:n+1,1:n+1) :: val_inv
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -2747,144 +3027,61 @@ continue
   call nodes_legendre_gauss(np,cs,dz)
   !
   do i = 1,np
-    vi = dz(i)
-    zi = cs(i)
     do j = 1,np
       if (i /= j) then
-        vj = dz(j)
-        zj = cs(j)
-        return_value(i,j) = vi/(vj*(zi-zj))
+        val(i,j) = dz(j)*(cs(i)-cs(j))
       else
-        return_value(i,i) = zi/(one-zi*zi)
+        val(i,j) = one-cs(i)*cs(i)
       end if
     end do
   end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,np
+    do j = 1,np
+      val_inv(i,j) = one / val(i,j)
+    end do
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+  do i = 1,np
+    do j = 1,np
+      if (i /= j) then
+        return_value(i,j) = dz(i) * val_inv(i,j)
+      else
+        return_value(i,j) = cs(i) * val_inv(i,j)
+      end if
+    end do
+  end do
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
+  !
+ !do i = 1,np
+ !  do j = 1,np
+ !    if (i /= j) then
+ !      return_value(i,j) = dz(i)/(dz(j)*(cs(i)-cs(j)))
+ !    else
+ !      return_value(i,j) = cs(i)/(one-cs(i)*cs(i))
+ !    end if
+ !  end do
+ !end do
+!#ifdef DISABLE_PURE
+ !call check_for_bad_number(__LINE__,__FILE__)
+!#endif
   !
 end function derivative_matrix_legendre_gauss_QP
 !
 !###############################################################################
 !
-pure subroutine old_derivative_matrix_legendre_gauss_DP(n,cs,dz,dma)
-  !
-  !*************************************************************
-  !*************************************************************
-  !********************                       ******************
-  !********************     NOT IN MANUAL     ******************
-  !********************                       ******************
-  !*************************************************************
-  !*************************************************************
-  !
-  !***********************************************************************
-  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
-  !  LEGENDRE GAUSS NODES
-  !  N   = NUMBER OF LEGENDRE GAUSS NODES
-  !  CS  = VECTOR OF THE ZEROES, CS(I), I=1,N
-  !  DZ  = LEGENDRE DERIVATIVES AT THE ZEROES, DZ(I), I=1,N
-  !  DMA = DERIVATIVE MATRIX, DMA(I,J), I=1,N  J=1,N
-  !***********************************************************************
-  !
-  !.. Function Precision ..
-  integer, parameter :: lp = dp
-  !
-  !.. Formal Arguments ..
-  integer,                       intent(in) :: n
-  real(lp), dimension(1:n),      intent(in) :: cs
-  real(lp), dimension(1:n),      intent(in) :: dz
-  real(lp), dimension(1:n,1:n), intent(out) :: dma
-  !
-  !.. Local Scalars ..
-  integer  :: i,j
-  real(lp) :: vi,zi,vj,zj
-  !
-  !.. Local Constants ..
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  dma(1,1) = zero
-  !
-  if (n <= 1) return
-  !
-  do i = 1,n
-    vi = dz(i)
-    zi = cs(i)
-    do j = 1,n
-      if (i /= j) then
-        vj = dz(j)
-        zj = cs(j)
-        dma(i,j) = vi/(vj*(zi-zj))
-      else
-        dma(i,i) = zi/(one-zi*zi)
-      end if
-    end do
-  end do
-  !
-end subroutine old_derivative_matrix_legendre_gauss_DP
-!
-!###############################################################################
-!
-pure subroutine old_derivative_matrix_legendre_gauss_QP(n,cs,dz,dma)
-  !
-  !*************************************************************
-  !*************************************************************
-  !********************                       ******************
-  !********************     NOT IN MANUAL     ******************
-  !********************                       ******************
-  !*************************************************************
-  !*************************************************************
-  !
-  !***********************************************************************
-  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
-  !  LEGENDRE GAUSS NODES
-  !  N   = NUMBER OF LEGENDRE GAUSS NODES
-  !  CS  = VECTOR OF THE ZEROES, CS(I), I=1,N
-  !  DZ  = LEGENDRE DERIVATIVES AT THE ZEROES, DZ(I), I=1,N
-  !  DMA = DERIVATIVE MATRIX, DMA(I,J), I=1,N  J=1,N
-  !***********************************************************************
-  !
-  !.. Function Precision ..
-  integer, parameter :: lp = local_qp
-  !
-  !.. Formal Arguments ..
-  integer,                       intent(in) :: n
-  real(lp), dimension(1:n),      intent(in) :: cs
-  real(lp), dimension(1:n),      intent(in) :: dz
-  real(lp), dimension(1:n,1:n), intent(out) :: dma
-  !
-  !.. Local Scalars ..
-  integer  :: i,j
-  real(lp) :: vi,zi,vj,zj
-  !
-  !.. Local Constants ..
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  dma(1,1) = zero
-  !
-  if (n <= 1) return
-  !
-  do i = 1,n
-    vi = dz(i)
-    zi = cs(i)
-    do j = 1,n
-      if (i /= j) then
-        vj = dz(j)
-        zj = cs(j)
-        dma(i,j) = vi/(vj*(zi-zj))
-      else
-        dma(i,i) = zi/(one-zi*zi)
-      end if
-    end do
-  end do
-  !
-end subroutine old_derivative_matrix_legendre_gauss_QP
-!
-!###############################################################################
-!
-pure function derivative_matrix_legendre_gauss_lobatto_DP(n,a) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function derivative_matrix_legendre_gauss_lobatto_DP(n,a) &
                                                    result(return_value)
   !
   !***********************************************************************
@@ -2904,7 +3101,7 @@ pure function derivative_matrix_legendre_gauss_lobatto_DP(n,a) &
   !
   !.. Local Scalars ..
   integer  :: i,j,np
-  real(lp) :: ei,ej,vi,vj,dn,c
+  real(lp) :: dn,c
   !
   !.. Local Arrays ..
   real(lp), dimension(1:n+1) :: et ! VECTOR OF THE NODES
@@ -2926,15 +3123,11 @@ continue
   call nodes_legendre_gauss_lobatto(n,et,vn)
   !
   do i = 1,np
-    vi = vn(i)
-    ei = et(i)
     do j = 1,np
       if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        return_value(i,j) = vi/(vj*(ei-ej))
+        return_value(i,j) = vn(i)/(vn(j)*(et(i)-et(j)))
       else
-        return_value(i,i) = zero
+        return_value(i,j) = zero
       end if
     end do
   end do
@@ -2950,7 +3143,10 @@ end function derivative_matrix_legendre_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure function derivative_matrix_legendre_gauss_lobatto_QP(n,a) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function derivative_matrix_legendre_gauss_lobatto_QP(n,a) &
                                                    result(return_value)
   !
   !***********************************************************************
@@ -2970,7 +3166,7 @@ pure function derivative_matrix_legendre_gauss_lobatto_QP(n,a) &
   !
   !.. Local Scalars ..
   integer  :: i,j,np
-  real(lp) :: ei,ej,vi,vj,dn,c
+  real(lp) :: dn,c
   !
   !.. Local Arrays ..
   real(lp), dimension(1:n+1) :: et ! VECTOR OF THE NODES
@@ -2992,15 +3188,11 @@ continue
   call nodes_legendre_gauss_lobatto(n,et,vn)
   !
   do i = 1,np
-    vi = vn(i)
-    ei = et(i)
     do j = 1,np
       if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        return_value(i,j) = vi/(vj*(ei-ej))
+        return_value(i,j) = vn(i)/(vn(j)*(et(i)-et(j)))
       else
-        return_value(i,i) = zero
+        return_value(i,j) = zero
       end if
     end do
   end do
@@ -3016,119 +3208,10 @@ end function derivative_matrix_legendre_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine old_derivative_matrix_legendre_gauss_lobatto_DP(n,et,vn,dma)
-  !
-  !***********************************************************************
-  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
-  !  LEGENDRE GAUSS-LOBATTO NODES
-  !  N   = NUMBER OF LEGENDRE GAUSS-LOBATTO NODES
-  !  ET  = VECTOR OF THE NODES, ET(I), I=1,N
-  !  VN  = VALUES OF THE LEGENDRE POLYNOMIAL AT THE NODES, VN(I), I=1,N
-  !  DMA = DERIVATIVE MATRIX, DMA(I,J), I=1,N  J=1,N
-  !***********************************************************************
-  !
-  !.. Function Precision ..
-  integer, parameter :: lp = dp
-  !
-  !.. Formal Arguments ..
-  integer,                       intent(in) :: n
-  real(lp), dimension(1:n),      intent(in) :: et
-  real(lp), dimension(1:n),      intent(in) :: vn
-  real(lp), dimension(1:n,1:n), intent(out) :: dma
-  !
-  !.. Local Scalars ..
-  integer  :: i,j
-  real(lp) :: ei,ej,vi,vj,dn,c
-  !
-  !.. Local Constants ..
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one4 = 0.25_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  do i = 1,n
-    vi = vn(i)
-    ei = et(i)
-    do j = 1,n
-      if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        dma(i,j) = vi/(vj*(ei-ej))
-      else
-        dma(i,i) = zero
-      end if
-    end do
-  end do
-  !
-  if (n > 1) then
-    dn = real(n-1,kind=lp)
-    c  = one4*dn*(dn+one)
-    dma(1,1) = -c
-    dma(n,n) = c
-  end if
-  !
-end subroutine old_derivative_matrix_legendre_gauss_lobatto_DP
-!
-!###############################################################################
-!
-pure subroutine old_derivative_matrix_legendre_gauss_lobatto_QP(n,et,vn,dma)
-  !
-  !***********************************************************************
-  !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
-  !  LEGENDRE GAUSS-LOBATTO NODES
-  !  N   = NUMBER OF LEGENDRE GAUSS-LOBATTO NODES
-  !  ET  = VECTOR OF THE NODES, ET(I), I=1,N
-  !  VN  = VALUES OF THE LEGENDRE POLYNOMIAL AT THE NODES, VN(I), I=1,N
-  !  DMA = DERIVATIVE MATRIX, DMA(I,J), I=1,N  J=1,N
-  !***********************************************************************
-  !
-  !.. Function Precision ..
-  integer, parameter :: lp = local_qp
-  !
-  !.. Formal Arguments ..
-  integer,                       intent(in) :: n
-  real(lp), dimension(1:n),      intent(in) :: et
-  real(lp), dimension(1:n),      intent(in) :: vn
-  real(lp), dimension(1:n,1:n), intent(out) :: dma
-  !
-  !.. Local Scalars ..
-  integer  :: i,j
-  real(lp) :: ei,ej,vi,vj,dn,c
-  !
-  !.. Local Constants ..
-  real(lp), parameter :: zero = 0.0_lp
-  real(lp), parameter :: one4 = 0.25_lp
-  real(lp), parameter :: one  = 1.0_lp
-  !
-continue
-  !
-  do i = 1,n
-    vi = vn(i)
-    ei = et(i)
-    do j = 1,n
-      if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        dma(i,j) = vi/(vj*(ei-ej))
-      else
-        dma(i,i) = zero
-      end if
-    end do
-  end do
-  !
-  if (n > 1) then
-    dn = real(n-1,kind=lp)
-    c  = one4*dn*(dn+one)
-    dma(1,1) = -c
-    dma(n,n) = c
-  end if
-  !
-end subroutine old_derivative_matrix_legendre_gauss_lobatto_QP
-!
-!###############################################################################
-!
-pure subroutine derivative_matrix_jacobi_gauss_lobatto_DP(n,alpha,beta, &
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine derivative_matrix_jacobi_gauss_lobatto_DP(n,alpha,beta, &
                                                           et,vn,dma)
   !
   !***********************************************************************
@@ -3155,8 +3238,8 @@ pure subroutine derivative_matrix_jacobi_gauss_lobatto_DP(n,alpha,beta, &
   !
   !.. Local Scalars ..
   integer  :: i,j
-  real(lp) :: a1,b1,ab,dn,ei,ej
-  real(lp) :: c1,c2,c3,c4,vi,vj
+  real(lp) :: a1,b1,ab,dn
+  real(lp) :: c1,c2,c3,c4
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -3184,24 +3267,18 @@ continue
   c3 = vn(1)/b1
   c4 = vn(n)/a1
   do j = 2,n-1
-    vj = vn(j)
-    ej = et(j)
-    dma(1,j) = -c3/(vj*(one+ej))
-    dma(n,j) = c4/(vj*(one-ej))
-    dma(j,1) = vj/(c3*(one+ej))
-    dma(j,n) = -vj/(c4*(one-ej))
+    dma(1,j) = -c3/(vn(j)*(one+et(j)))
+    dma(n,j) = c4/(vn(j)*(one-et(j)))
+    dma(j,1) = vn(j)/(c3*(one+et(j)))
+    dma(j,n) = -vn(j)/(c4*(one-et(j)))
   end do
   !
   do i = 2,n-1
-    vi = vn(i)
-    ei = et(i)
     do j = 2,n-1
       if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        dma(i,j) = vi/(vj*(ei-ej))
+        dma(i,j) = vn(i)/(vn(j)*(et(i)-et(j)))
       else
-        dma(i,i) = half*(ab*ei+alpha-beta)/(one-ei*ei)
+        dma(i,j) = half*(ab*et(i)+alpha-beta)/(one-et(i)*et(i))
       end if
     end do
   end do
@@ -3210,7 +3287,10 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta, &
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta, &
                                                           et,vn,dma)
   !
   !***********************************************************************
@@ -3237,8 +3317,8 @@ pure subroutine derivative_matrix_jacobi_gauss_lobatto_QP(n,alpha,beta, &
   !
   !.. Local Scalars ..
   integer  :: i,j
-  real(lp) :: a1,b1,ab,dn,ei,ej
-  real(lp) :: c1,c2,c3,c4,vi,vj
+  real(lp) :: a1,b1,ab,dn
+  real(lp) :: c1,c2,c3,c4
   !
   !.. Local Constants ..
   real(lp), parameter :: zero = 0.0_lp
@@ -3266,24 +3346,18 @@ continue
   c3 = vn(1)/b1
   c4 = vn(n)/a1
   do j = 2,n-1
-    vj = vn(j)
-    ej = et(j)
-    dma(1,j) = -c3/(vj*(one+ej))
-    dma(n,j) = c4/(vj*(one-ej))
-    dma(j,1) = vj/(c3*(one+ej))
-    dma(j,n) = -vj/(c4*(one-ej))
+    dma(1,j) = -c3/(vn(j)*(one+et(j)))
+    dma(n,j) = c4/(vn(j)*(one-et(j)))
+    dma(j,1) = vn(j)/(c3*(one+et(j)))
+    dma(j,n) = -vn(j)/(c4*(one-et(j)))
   end do
   !
   do i = 2,n-1
-    vi = vn(i)
-    ei = et(i)
     do j = 2,n-1
       if (i /= j) then
-        vj = vn(j)
-        ej = et(j)
-        dma(i,j) = vi/(vj*(ei-ej))
+        dma(i,j) = vn(i)/(vn(j)*(et(i)-et(j)))
       else
-        dma(i,i) = half*(ab*ei+alpha-beta)/(one-ei*ei)
+        dma(i,j) = half*(ab*et(i)+alpha-beta)/(one-et(i)*et(i))
       end if
     end do
   end do
@@ -3292,7 +3366,10 @@ end subroutine derivative_matrix_jacobi_gauss_lobatto_QP
 !
 !###############################################################################
 !
-pure subroutine derivative_matrix_chebyshev_gauss_lobatto_DP(n,et,dma)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine derivative_matrix_chebyshev_gauss_lobatto_DP(n,et,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -3312,7 +3389,7 @@ pure subroutine derivative_matrix_chebyshev_gauss_lobatto_DP(n,et,dma)
   !
   !.. Local Scalars ..
   integer  :: i,j
-  real(lp) :: dn,cn,ej,ei
+  real(lp) :: dn,cn
   real(lp) :: sn,sgni,sgnj
   !
   !.. Local Constants ..
@@ -3338,24 +3415,21 @@ continue
   !
   sgnj = -one
   do j = 2,n-1
-    ej = et(j)
-    dma(1,j) = -two*sgnj/(one+ej)
-    dma(n,j) = two*sgnj*sn/(one-ej)
-    dma(j,1) = half*sgnj/(one+ej)
-    dma(j,n) = -half*sgnj*sn/(one-ej)
+    dma(1,j) = -two*sgnj/(one+et(j))
+    dma(n,j) = two*sgnj*sn/(one-et(j))
+    dma(j,1) = half*sgnj/(one+et(j))
+    dma(j,n) = -half*sgnj*sn/(one-et(j))
     sgnj = -sgnj
   end do
   !
   sgni = -one
   do i = 2,n-1
-    ei = et(i)
     sgnj = -one
     do j = 2,n-1
       if (i /= j) then
-        ej = et(j)
-        dma(i,j) = sgni*sgnj/(ei-ej)
+        dma(i,j) = sgni*sgnj/(et(i)-et(j))
       else
-        dma(i,i) = -half*ei/(one-ei*ei)
+        dma(i,j) = -half*et(i)/(one-et(i)*et(i))
       end if
       sgnj = -sgnj
     end do
@@ -3366,7 +3440,10 @@ end subroutine derivative_matrix_chebyshev_gauss_lobatto_DP
 !
 !###############################################################################
 !
-pure subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
+#ifndef DISABLE_PURE
+pure &
+#endif
+subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
   !
   !***********************************************************************
   !  COMPUTES THE ENTRIES OF THE DERIVATIVE MATRIX RELATIVE TO THE
@@ -3386,7 +3463,7 @@ pure subroutine derivative_matrix_chebyshev_gauss_lobatto_QP(n,et,dma)
   !
   !.. Local Scalars ..
   integer  :: i,j
-  real(lp) :: dn,cn,ej,ei
+  real(lp) :: dn,cn
   real(lp) :: sn,sgni,sgnj
   !
   !.. Local Constants ..
@@ -3412,24 +3489,21 @@ continue
   !
   sgnj = -one
   do j = 2,n-1
-    ej = et(j)
-    dma(1,j) = -two*sgnj/(one+ej)
-    dma(n,j) = two*sgnj*sn/(one-ej)
-    dma(j,1) = half*sgnj/(one+ej)
-    dma(j,n) = -half*sgnj*sn/(one-ej)
+    dma(1,j) = -two*sgnj/(one+et(j))
+    dma(n,j) = two*sgnj*sn/(one-et(j))
+    dma(j,1) = half*sgnj/(one+et(j))
+    dma(j,n) = -half*sgnj*sn/(one-et(j))
     sgnj = -sgnj
   end do
   !
   sgni = -one
   do i = 2,n-1
-    ei = et(i)
     sgnj = -one
     do j = 2,n-1
       if (i /= j) then
-        ej = et(j)
-        dma(i,j) = sgni*sgnj/(ei-ej)
+        dma(i,j) = sgni*sgnj/(et(i)-et(j))
       else
-        dma(i,i) = -half*ei/(one-ei*ei)
+        dma(i,j) = -half*et(i)/(one-et(i)*et(i))
       end if
       sgnj = -sgnj
     end do
@@ -3584,7 +3658,7 @@ end function gammafun_QP
 !
 elemental function log_gammafun_DP(x) result(return_value)
   !
-  !.. Function Precision .. 
+  !.. Function Precision ..
   integer, parameter :: lp = dp
   !
   !.. Formal Arguments ..
@@ -3603,7 +3677,7 @@ end function log_gammafun_DP
 !
 elemental function log_gammafun_QP(x) result(return_value)
   !
-  !.. Function Precision .. 
+  !.. Function Precision ..
   integer, parameter :: lp = local_qp
   !
   !.. Formal Arguments ..
@@ -3620,7 +3694,10 @@ end function log_gammafun_QP
 !
 !###############################################################################
 !
-pure function coefrr_DP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function coefrr_DP(n,a) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -3664,7 +3741,10 @@ end function coefrr_DP
 !
 !###############################################################################
 !
-pure function coefrr_QP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function coefrr_QP(n,a) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -3708,7 +3788,10 @@ end function coefrr_QP
 !
 !###############################################################################
 !
-pure function coefle_DP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function coefle_DP(n,a) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = dp
@@ -3752,7 +3835,10 @@ end function coefle_DP
 !
 !###############################################################################
 !
-pure function coefle_QP(n,a) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function coefle_QP(n,a) result(return_value)
   !
   !.. Function Precision ..
   integer, parameter :: lp = local_qp
@@ -3796,7 +3882,10 @@ end function coefle_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly_DP(ijk,xyz,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly_DP(ijk,xyz,xi) result(return_value)
   !
   ! Get the value of a tensor product of Lagrange polynomials
   ! of arbitrary dimension
@@ -3833,7 +3922,10 @@ end function eval_LagrangePoly_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly_QP(ijk,xyz,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly_QP(ijk,xyz,xi) result(return_value)
   !
   ! Get the value of a tensor product of Lagrange polynomials
   ! of arbitrary dimension
@@ -3870,7 +3962,10 @@ end function eval_LagrangePoly_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly1D_DP(k,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly1D_DP(k,x,xi) result(return_value)
   !
   ! Get the value of the 1D Lagrange polynomial at point x
   !
@@ -3912,7 +4007,10 @@ end function eval_LagrangePoly1D_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly1D_QP(k,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly1D_QP(k,x,xi) result(return_value)
   !
   ! Get the value of the 1D Lagrange polynomial at point x
   !
@@ -3954,7 +4052,10 @@ end function eval_LagrangePoly1D_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly1D_arrays_DP(x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly1D_arrays_DP(x,xi) result(return_value)
   !
   ! Get the values of the 1D Lagrange polynomials at point x
   !
@@ -3996,7 +4097,10 @@ end function eval_LagrangePoly1D_arrays_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly1D_arrays_QP(x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly1D_arrays_QP(x,xi) result(return_value)
   !
   ! Get the values of the 1D Lagrange polynomials at point x
   !
@@ -4038,7 +4142,10 @@ end function eval_LagrangePoly1D_arrays_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly2D_arrays_DP(ij,xy,xi,eta) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly2D_arrays_DP(ij,xy,xi,eta) result(return_value)
   !
   ! Get value of the 2D Lagrange polynomial at point x,y
   !
@@ -4077,7 +4184,10 @@ end function eval_LagrangePoly2D_arrays_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly2D_arrays_QP(ij,xy,xi,eta) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly2D_arrays_QP(ij,xy,xi,eta) result(return_value)
   !
   ! Get value of the 2D Lagrange polynomial at point x,y
   !
@@ -4116,7 +4226,10 @@ end function eval_LagrangePoly2D_arrays_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly2D_DP(k,l,x,y,xi,eta) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly2D_DP(k,l,x,y,xi,eta) result(return_value)
   !
   ! Get value of the 2D Lagrange polynomial at point x,y
   !
@@ -4156,7 +4269,10 @@ end function eval_LagrangePoly2D_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly2D_QP(k,l,x,y,xi,eta) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly2D_QP(k,l,x,y,xi,eta) result(return_value)
   !
   ! Get value of the 2D Lagrange polynomial at point x,y
   !
@@ -4196,7 +4312,10 @@ end function eval_LagrangePoly2D_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly3D_arrays_DP(ijk,xyz,xi,eta,zeta) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly3D_arrays_DP(ijk,xyz,xi,eta,zeta) &
                                      result(return_value)
   !
   ! Get value of the 3D Lagrange polynomial at point x,y,z
@@ -4217,7 +4336,7 @@ pure function eval_LagrangePoly3D_arrays_DP(ijk,xyz,xi,eta,zeta) &
   ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
   ! The 3D Lagrange polynomial corresponds to a function that
   ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
-  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
@@ -4243,7 +4362,10 @@ end function eval_LagrangePoly3D_arrays_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly3D_arrays_QP(ijk,xyz,xi,eta,zeta) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly3D_arrays_QP(ijk,xyz,xi,eta,zeta) &
                                      result(return_value)
   !
   ! Get value of the 3D Lagrange polynomial at point x,y,z
@@ -4264,7 +4386,7 @@ pure function eval_LagrangePoly3D_arrays_QP(ijk,xyz,xi,eta,zeta) &
   ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
   ! The 3D Lagrange polynomial corresponds to a function that
   ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
-  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
@@ -4290,7 +4412,10 @@ end function eval_LagrangePoly3D_arrays_QP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly3D_DP(i,j,k,x,y,z,xi,eta,zeta) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly3D_DP(i,j,k,x,y,z,xi,eta,zeta) &
                               result(return_value)
   !
   ! Get value of the 3D Lagrange polynomial at point x,y,z
@@ -4311,7 +4436,7 @@ pure function eval_LagrangePoly3D_DP(i,j,k,x,y,z,xi,eta,zeta) &
   ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
   ! The 3D Lagrange polynomial corresponds to a function that
   ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
-  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
@@ -4337,7 +4462,10 @@ end function eval_LagrangePoly3D_DP
 !
 !###############################################################################
 !
-pure function eval_LagrangePoly3D_QP(i,j,k,x,y,z,xi,eta,zeta) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_LagrangePoly3D_QP(i,j,k,x,y,z,xi,eta,zeta) &
                               result(return_value)
   !
   ! Get value of the 3D Lagrange polynomial at point x,y,z
@@ -4358,7 +4486,7 @@ pure function eval_LagrangePoly3D_QP(i,j,k,x,y,z,xi,eta,zeta) &
   ! This evaluates the 3D Lagrange polynomial at the location x,y,z.
   ! The 3D Lagrange polynomial corresponds to a function that
   ! is zero at all iterpolation points [xi(a),eta(b),zeta(c)] for
-  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at 
+  ! [a=1,size(xi);b=1,size(eta),c=1,size(zeta)] except at
   ! [xi(i),eta(j),zeta(k)] where the function is equal to 1.
   !
   !.. Function Precision ..
@@ -4384,7 +4512,10 @@ end function eval_LagrangePoly3D_QP
 !
 !###############################################################################
 !
-pure function eval_D2LagrangeDx2_DP(m,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_D2LagrangeDx2_DP(m,x,xi) result(return_value)
   !
   ! Get value of second derivative of
   ! m-th Lagrange polynomial at point x.
@@ -4400,7 +4531,7 @@ pure function eval_D2LagrangeDx2_DP(m,x,xi) result(return_value)
   !
   ! m  : index where the value at xi(m) is 1
   ! X  : x location at which to evaluate the second
-  !      derivative of the m-th Lagrange polynomial 
+  !      derivative of the m-th Lagrange polynomial
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
@@ -4452,7 +4583,10 @@ end function eval_D2LagrangeDx2_DP
 !
 !###############################################################################
 !
-pure function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
   !
   ! Get value of second derivative of
   ! m-th Lagrange polynomial at point x.
@@ -4468,7 +4602,7 @@ pure function eval_D2LagrangeDx2_QP(m,x,xi) result(return_value)
   !
   ! m  : index where the value at xi(m) is 1
   ! X  : x location at which to evaluate the second
-  !      derivative of the m-th Lagrange polynomial 
+  !      derivative of the m-th Lagrange polynomial
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
@@ -4520,7 +4654,10 @@ end function eval_D2LagrangeDx2_QP
 !
 !###############################################################################
 !
-pure function eval_DLagrangeDx_DP(m,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_DLagrangeDx_DP(m,x,xi) result(return_value)
   !
   ! Get the value of the derivative of the
   ! m-th Lagrange polynomial at the point x.
@@ -4535,7 +4672,7 @@ pure function eval_DLagrangeDx_DP(m,x,xi) result(return_value)
   !
   ! m  : index where the value at xi(m) is 1
   ! X  : x location at which to evaluate the derivative
-  !      of the m-th Lagrange polynomial 
+  !      of the m-th Lagrange polynomial
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
@@ -4583,7 +4720,10 @@ end function eval_DLagrangeDx_DP
 !
 !###############################################################################
 !
-pure function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
   !
   ! Get the value of the derivative of the
   ! m-th Lagrange polynomial at the point x.
@@ -4598,7 +4738,7 @@ pure function eval_DLagrangeDx_QP(m,x,xi) result(return_value)
   !
   ! m  : index where the value at xi(m) is 1
   ! X  : x location at which to evaluate the derivative
-  !      of the m-th Lagrange polynomial 
+  !      of the m-th Lagrange polynomial
   ! XI : array of all the interpolation points
   !
   !.. Function Precision ..
@@ -4643,6 +4783,10 @@ continue
   end if
   !
 end function eval_DLagrangeDx_QP
+!
+!###############################################################################
+!
+#include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################
 !

@@ -544,9 +544,9 @@ subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
   use geovar,      only : face,grid
-  use flowvar,     only : faceusp,facedusp,faceflx,facexyz
-  use flowvar,     only : residual,dtsp,uoldsp,usp_sum,rssprk
-  use flowvar,     only : nodeusp,nodedusp,edgeusp,edgedusp,edgexyz
+  use flowvar,     only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
+  use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
+  use flowvar,     only : nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt,edgexyz_dt
   use flowvar,     only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa
   !
@@ -570,14 +570,14 @@ continue
     call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(faceusp)) then
-    deallocate ( faceusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(faceusp_dt)) then
+    deallocate ( faceusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facedusp)) then
-    deallocate ( facedusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(facedusp_dt)) then
+    deallocate ( facedusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(faceflx)) then
@@ -585,9 +585,9 @@ continue
     call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facexyz)) then
-    deallocate ( facexyz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(facexyz_dt)) then
+    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(residual)) then
@@ -605,9 +605,9 @@ continue
     call alloc_error(pname,"uoldsp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(usp_sum)) then
-    deallocate ( usp_sum , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"usp_sum",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(rk_sum)) then
+    deallocate ( rk_sum , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"rk_sum",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(rssprk)) then
@@ -615,29 +615,29 @@ continue
     call alloc_error(pname,"rssprk",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(nodeusp)) then
-    deallocate ( nodeusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"nodeusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(nodeusp_dt)) then
+    deallocate ( nodeusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(nodedusp)) then
-    deallocate ( nodedusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"nodedusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(nodedusp_dt)) then
+    deallocate ( nodedusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"nodedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(edgeusp)) then
-    deallocate ( edgeusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgeusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(edgeusp_dt)) then
+    deallocate ( edgeusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edgeusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(edgedusp)) then
-    deallocate ( edgedusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgedusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(edgedusp_dt)) then
+    deallocate ( edgedusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edgedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(edgexyz)) then
-    deallocate ( edgexyz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"edgexyz",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(edgexyz_dt)) then
+    deallocate ( edgexyz_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"edgexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(global_usp)) then

@@ -1,7 +1,10 @@
 module derivatives_mod
   !
+#define PROFILE_ON
+  !
   !.. Use Statements ..
-  use module_kind_types
+  use module_kind_types, global_debug_timer => debug_timer
+  !
   use generic_types_mod, only : matrix_cpu_t => matrix
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
@@ -40,7 +43,7 @@ module derivatives_mod
     type(matrix), allocatable :: d(:)
   end type derivative_matrices
   !
-  ! deriv : derivative matrix for all combinations of cell geometry and 
+  ! deriv : derivative matrix for all combinations of cell geometry and
   !        and cell order that are possible in the current simulation
   !
   !     For cell 'n' :
@@ -70,7 +73,10 @@ contains
 !
 !###############################################################################
 !
-pure function divergence_derivative_matrices(this,f) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function divergence_derivative_matrices(this,f) result(return_value)
   !
   !.. Formal Arguments ..
   class(derivative_matrices_t), intent(in) :: this
@@ -104,7 +110,10 @@ end function divergence_derivative_matrices
 !
 !###############################################################################
 !
-pure function gradient_for_point_rank1(this,n,f) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function gradient_for_point_rank1(this,n,f) result(return_value)
   !
   !.. Formal Arguments ..
   class(derivative_matrices_t), intent(in) :: this
@@ -129,7 +138,10 @@ end function gradient_for_point_rank1
 !
 !###############################################################################
 !
-pure function gradient_for_point_rank2(this,n,f) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function gradient_for_point_rank2(this,n,f) result(return_value)
   !
   !.. Formal Arguments ..
   class(derivative_matrices_t), intent(in) :: this
@@ -156,7 +168,10 @@ end function gradient_for_point_rank2
 !
 !###############################################################################
 !
-pure function gradient_for_cell_rank1(this,f) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function gradient_for_cell_rank1(this,f) result(return_value)
   !
   !.. Formal Arguments ..
   class(derivative_matrices_t), intent(in) :: this
@@ -180,7 +195,10 @@ end function gradient_for_cell_rank1
 !
 !###############################################################################
 !
-pure function gradient_for_cell_rank2(this,f) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function gradient_for_cell_rank2(this,f) result(return_value)
   !
   !.. Formal Arguments ..
   class(derivative_matrices_t), intent(in) :: this
@@ -221,11 +239,14 @@ subroutine init_derivative_matrices()
   integer :: this_geom,this_order,ndim
   integer :: n,n1,n2,i
   character(len=200) :: array_name
+  character(len=300) :: timer_message
   !
   !.. Local Pointers ..
   type(derivative_matrices), pointer :: this_dmat
-  real(wp), pointer, contiguous :: solpts(:,:)
-  real(wp), pointer, contiguous :: d1_mat(:,:)
+ !real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: d1_mat(:,:)
+  real(wp), pointer :: solpts(:,:)
+  real(wp), pointer :: d1_mat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_derivative_matrices"
@@ -250,6 +271,7 @@ continue
   allocate ( deriv(gmin:gmax,omin:omax) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"deriv",1,__LINE__,__FILE__,ierr,error_message)
   !
+  call check_for_bad_number(__LINE__,__FILE__)
   geom_loop: do this_geom = gmin,gmax
     !
     if (.not. geom_is_used(this_geom)) cycle geom_loop
@@ -261,6 +283,9 @@ continue
     ndim = geom_dimen(this_geom)
     !
     order_loop: do this_order = omin,omax
+      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
+      100 format ("Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
       !
       ! Assign local pointer as alias to simplify the code
       !
@@ -328,6 +353,8 @@ continue
       if (associated(this_dmat)) this_dmat => null()
       if (associated(solpts   )) solpts    => null()
       if (associated(d1_mat   )) d1_mat    => null()
+      call debug_timer(stop_timer,timer_message)
+      call check_for_bad_number(__LINE__,__FILE__)
       !
     end do order_loop
     !
@@ -338,8 +365,13 @@ continue
   do this_geom = gmin,gmax
     do this_order = omin,omax
       if (allocated(deriv(this_geom,this_order)%d)) then
+        write (timer_message,101) trim(adjustl(Geom_Name(this_geom))),this_order
+        101 format ("Sparsity check:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
        !call deriv(this_geom,this_order)%d%check_for_sparsity
         call create_matrix_sparsity( deriv(this_geom,this_order)%d )
+        call debug_timer(stop_timer,timer_message)
+        call check_for_bad_number(__LINE__,__FILE__)
       end if
     end do
   end do
@@ -355,7 +387,10 @@ end subroutine init_derivative_matrices
 !
 !###############################################################################
 !
-pure function Dmatrix_Edge(n,location) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Edge(n,location) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : derivative_matrix_legendre_gauss
@@ -369,7 +404,7 @@ pure function Dmatrix_Edge(n,location) result(return_value)
   type(matrix), allocatable :: return_value(:)
   !
   !.. Local Scalars ..
-  integer :: nsp,ierr
+  integer :: nsp,ierr,i,j
   !
   !.. Local Arrays ..
   real(qp), dimension(1:n+1,1:n+1) :: dmat_qp
@@ -385,6 +420,9 @@ continue
   ! Allocate each individual derivative matrix within return_value
   !
   allocate ( return_value(1)%mat(1:nsp,1:nsp) , source=zero , stat=ierr )
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
   ! Compute the derivative matrix using quad precision
   !
@@ -395,18 +433,27 @@ continue
       ! Derivative matrix for Legendre Gauss solution points
       !
       dmat_qp = derivative_matrix_legendre_gauss(n,qzero)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
     case (Legendre_Gauss_Lobatto)
       !
       ! Derivative matrix for Legendre Gauss Lobatto solution points
       !
       dmat_qp = derivative_matrix_legendre_gauss_lobatto(n,qzero)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
     case default
       !
       ! Default to Legendre Gauss solution points
       !
       dmat_qp = derivative_matrix_legendre_gauss(n,qzero)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
   end select
   !
@@ -419,17 +466,26 @@ continue
   ! We need to transpose this derivative matrix to make its use more efficient
   !
   dmat_qp = transpose( dmat_qp )
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
   ! Use the chop function to copy dmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value(1)%mat = chop( dmat_qp )
+  return_value(1)%mat(:,:) = chop( dmat_qp )
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
 end function Dmatrix_Edge
 !
 !###############################################################################
 !
-pure function Dmatrix_Quad(d1_mat) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Quad(d1_mat) result(return_value)
   !
   ! Create the derivative matrices for quad elements.
   !
@@ -510,7 +566,10 @@ end function Dmatrix_Quad
 !
 !###############################################################################
 !
-pure function Dmatrix_Tria(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Tria(rs) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
@@ -589,7 +648,10 @@ end function Dmatrix_Tria
 !
 !###############################################################################
 !
-pure function Dmatrix_Tetr(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Tetr(rs) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
@@ -670,7 +732,10 @@ end function Dmatrix_Tetr
 !
 !###############################################################################
 !
-pure function Dmatrix_Pyra(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Pyra(rs) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
@@ -751,7 +816,10 @@ end function Dmatrix_Pyra
 !
 !###############################################################################
 !
-pure function Dmatrix_Pris(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Pris(rs) result(return_value)
   !
   !.. Use Statements ..
   use vandermonde_mod, only : vand
@@ -832,7 +900,10 @@ end function Dmatrix_Pris
 !
 !###############################################################################
 !
-pure function Dmatrix_Hexa(d1_mat) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Dmatrix_Hexa(d1_mat) result(return_value)
   !
   ! Create the derivative matrices for hexahedral elements.
   !
@@ -938,7 +1009,10 @@ end function Dmatrix_Hexa
 !
 !###############################################################################
 !
-pure function GradVandermonde_Edge(xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function GradVandermonde_Edge(xi) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -969,7 +1043,10 @@ end function GradVandermonde_Edge
 !
 !###############################################################################
 !
-pure function GradVandermonde_Tria(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function GradVandermonde_Tria(rs) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -1382,6 +1459,8 @@ end subroutine move_dqmat_to_device
 !###############################################################################
 !
 include "Functions/np2n.f90"
+#include "Functions/check_for_bad_number.f90"
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

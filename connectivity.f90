@@ -1129,7 +1129,7 @@ continue
     !
     ! Coordinates of nodes defining left cell
     !
-    xyz_cell(1:nr,1:ncnods) = xyz_nodes(1:nr,nodes_of_cell(n1:n2)) 
+    xyz_cell(1:nr,1:ncnods) = xyz_nodes(1:nr,nodes_of_cell(n1:n2))
     !
     ! Coordinates of the center of the left cell
     !
@@ -1293,7 +1293,7 @@ continue
     ! data. Since MPI requires these displacement length offsets to zero, this
     ! optional flag is used to make sure the indices of the flux point start at
     ! 0 instead of 1 as is the default. Additionally, the MPI offsets are for
-    ! each face so the flux point indices will always be in the range of 
+    ! each face so the flux point indices will always be in the range of
     ! [0:nfp-1]. For the left cell, the indices will be exactly [0:nfp-1], but
     ! the indices for the right cell will depend on the side of the right cell
     ! on the interface and the rotation of the right cell relative to the left
@@ -1368,7 +1368,7 @@ continue
       ! For the left cell, the starting index is the sum of all face points
       ! for all faces up to the current face + 1. The '+1' is why face_pts
       ! is initialized to 1. We need to use face_order when computing the
-      ! number of flux points for each cell face before the current one. 
+      ! number of flux points for each cell face before the current one.
       ! This is the index needed because this is used to get the correct
       ! location in the interp%toFace(face_order)%mat and correct%mat arrays.
       ! These arrays are set up with the indexing within mat assuming that
@@ -1436,7 +1436,7 @@ continue
         ! For the right cell, the starting index is the sum of all face points
         ! for all faces up to the current face + 1. The '+1' is why face_pts
         ! is initialized to 1. We need to use face_order when computing the
-        ! number of flux points for each cell face before the current one. 
+        ! number of flux points for each cell face before the current one.
         ! This is the index needed because this is used to get the correct
         ! location in the interp%toFace(face_order)%mat and correct%mat arrays.
         ! These arrays are set up with the indexing within mat assuming that
@@ -1556,7 +1556,7 @@ continue
   ! ###########
   call debug_timer(start_timer,"section 8")
   !
-  ! Now that we have finished creating the face array, use it to find the 
+  ! Now that we have finished creating the face array, use it to find the
   ! the maximum interpolation order required for each combination of
   ! cell geometry and cell order.
   !
@@ -1635,7 +1635,7 @@ continue
   !
   ! Get the nodes of the left cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
-  !       used as offset values, 
+  !       used as offset values,
   !       i.e. they range from [0:size(left_cell_nodes)-1] and we want them
   !              to range from [1:size(left_cell_nodes)].
   !
@@ -1657,13 +1657,13 @@ continue
       ! face, we need to flip the second and fourth indices. This is because the
       ! vectors 'a' and 'b' for 'Y' faces dont follow the standard rotation of a
       ! right-handed coordinate system like the 'X' and 'Z' face do. To further
-      ! illustrate: 
+      ! illustrate:
       !               For a 'Z' face:   a -> 'X'   and   b -> 'Y'
       !               For a 'X' face:   a -> 'Y'   and   b -> 'Z'
       !
       !               However,
       !   ##CORRECT## For a 'Y' face:   a -> 'X'   and   b -> 'Z' ##CORRECT##
-      !               instead of 
+      !               instead of
       ! ##INCORRECT## For a 'Y' face:   a -> 'Z'   and   b -> 'X' ##INCORRECT##
       !
       ! since we want 'a' to correspond to the lowest coordinate direction on
@@ -1700,7 +1700,7 @@ continue
   !
   ! Get the nodes of the right cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
-  !       used as offset values, 
+  !       used as offset values,
   !       i.e. they range from [0:size(right_cell_nodes)-1] and we want them
   !              to range from [1:size(right_cell_nodes)].
   !
@@ -1729,13 +1729,13 @@ continue
       ! Y-max face, we need to flip the second and fourth indices. This is
       ! because the vectors 'a' and 'b' for 'Y' faces dont follow the standard
       ! rotation of a right-handed coordinate system like the 'X' and 'Z' face
-      ! do. To further illustrate: 
+      ! do. To further illustrate:
       !               For a 'Z' face:   a -> 'X'   and   b -> 'Y'
       !               For a 'X' face:   a -> 'Y'   and   b -> 'Z'
       !
       !               However,
       !   ##CORRECT## For a 'Y' face:   a -> 'X'   and   b -> 'Z' ##CORRECT##
-      !               instead of 
+      !               instead of
       ! ##INCORRECT## For a 'Y' face:   a -> 'Z'   and   b -> 'X' ##INCORRECT##
       !
       ! since we want 'a' to correspond to the lowest coordinate direction on
@@ -1841,7 +1841,7 @@ continue
   !
   ! Get the nodes of the left cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
-  !       used as offset values, 
+  !       used as offset values,
   !       i.e. they range from [0:size(left_cell_nodes)-1] and we want them
   !              to range from [1:size(left_cell_nodes)].
   !
@@ -1874,7 +1874,7 @@ continue
   !
   ! Get the nodes of the right cell that are on the interface.
   ! NOTE: We have to add one because the values stored in side_nodes are
-  !       used as offset values, 
+  !       used as offset values,
   !       i.e. they range from [0:size(right_cell_nodes)-1] and we want them
   !              to range from [1:size(right_cell_nodes)].
   !
@@ -1889,7 +1889,7 @@ continue
     case (Geom_Tria)
       !
       ! The right cell can be a 2D triangle if this is for a boundary face. For
-      ! a triangular face, the face indices are always 
+      ! a triangular face, the face indices are always
       !
     case (Geom_Tetr)
       !
@@ -1956,7 +1956,7 @@ continue
     !
     ! Therefore, the flux point indices for the right cell are the exact same
     ! as those for the left cell.
-    ! 
+    !
     return_value = 1
    !return_value = intseq(0,nep-1)
     !
@@ -2021,7 +2021,7 @@ continue
     !
     ! Therefore, the flux point indices for the right cell are the exact same
     ! as those for the left cell.
-    ! 
+    !
     return_value = intseq(0,nep-1)
     !
   else if (all( ab_left == ab_right(rotation(:,2)) )) then
@@ -2087,7 +2087,7 @@ continue
   ! following orientation:
   !
   !                   (a_left) A
-  !                            | 
+  !                            |
   !                            |
   !                            -----> (b_left)
   !
@@ -2104,7 +2104,7 @@ continue
     !                b_left corresponds to +b_right
     !
     ! ################    (a_right) A
-    ! ## ROTATION 1 ##              | 
+    ! ## ROTATION 1 ##              |
     ! ################              |
     !                               -----> (b_right)
     !
@@ -2184,7 +2184,7 @@ continue
     !                b_left corresponds to +a_right
     !
     ! ################    (b_right) A
-    ! ## ROTATION 5 ##              | 
+    ! ## ROTATION 5 ##              |
     ! ################              |
     !                               -----> (a_right)
     !
@@ -2327,7 +2327,7 @@ continue
   ! following orientation:
   !
   !                   (a_left) A
-  !                            | 
+  !                            |
   !                            |
   !                            -----> (b_left)
   !
@@ -2344,7 +2344,7 @@ continue
     !                b_left corresponds to +b_right
     !
     ! ################    (a_right) A
-    ! ## ROTATION 1 ##              | 
+    ! ## ROTATION 1 ##              |
     ! ################              |
     !                               -----> (b_right)
     !
@@ -2420,7 +2420,7 @@ continue
     !                b_left corresponds to +a_right
     !
     ! ################    (b_right) A
-    ! ## ROTATION 5 ##              | 
+    ! ## ROTATION 5 ##              |
     ! ################              |
     !                               -----> (a_right)
     !
@@ -2648,7 +2648,7 @@ continue
   !
   ! Go through the cells and allocate the face, edge, and node parts of cell.
   ! While we are doing this, store the geometry, solution order, first solution
-  ! point, and last solution point of each cell within the cell array. 
+  ! point, and last solution point of each cell within the cell array.
   !
   iend = 0
   !
@@ -2692,7 +2692,7 @@ continue
     !
   end do
   !
-  ! Loop through the faces and create the flx-pt information for each 
+  ! Loop through the faces and create the flx-pt information for each
   ! cell attached to the face.
   !
   ! Start with only the boundary faces
@@ -2770,7 +2770,7 @@ continue
     return
   end if
   !
-  ! Loop through the edges and create the edg-pt information for each 
+  ! Loop through the edges and create the edg-pt information for each
   ! cell attached to the edge
   !
   nedge = size(nodes_on_edge,dim=2)
@@ -2907,7 +2907,7 @@ end subroutine create_cell_derived_type
 subroutine create_bc_grps(bface,face)
   !
   !.. Use Statements ..
-  use geovar, only : num_bc_grps,bc_grps
+  use geovar, only : num_bc_grps,bc_grps,bc_grp_t
   use geovar, only : face_t
   use geovar, only : n_wall_flxpts
   !
@@ -2917,9 +2917,12 @@ subroutine create_bc_grps(bface,face)
   !
   !.. Local Scalars ..
   integer :: i,k,n,nf,pf,p1,p2,lfbnd,ierr
-  integer :: bc_idx,bc_grp,periodic_pts
+  integer :: bc_idx,bc_grp,periodic_pts,ngrps
   !
   character(len=50) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  type(bc_grp_t), allocatable :: tmp_bc_grps(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_bc_grps"
@@ -2930,16 +2933,52 @@ continue
   !
   lfbnd = size(bface,dim=2)
   !
+  if (mypnum == glb_root) then
+    write (iout,*) "num_bc_grps = ",num_bc_grps
+    flush (iout)
+  end if
+  !
   allocate ( bc_grps(1:num_bc_grps) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"bc_grps",1,__LINE__,__FILE__,ierr,error_message)
   !
+!#define DEBUG_BC_GROUPS
+#ifdef DEBUG_BC_GROUPS
+  p1 = count(bface(1,:) == bc_cpu_bnd)
+  p2 = count(bface(1,:) == bc_periodic)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  do i = 0,ncpu-1
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == i) then
+      if (p1 > 0 .or. p2 > 0) then
+        write (iout,*)
+        write (iout,*) "For CPU # ",mypnum
+        if (p1 > 0) then
+          write (iout,*) "number of communication BC = ",p1
+        end if
+        if (p2 > 0) then
+          write (iout,*) "number of periodic      BC = ",p2
+        end if
+        write (iout,*)
+        flush (iout)
+      end if
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+  end do
+  if (mypnum == glb_root) write (iout,*)
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+#endif
   n = 0
   bc_idx = bc_unknown
   bc_grp = bc_unknown
   !
   do nf = 1,lfbnd
     !
-    if (bface(1,nf) == bc_periodic) then
+    if (bface(1,nf) == bc_cpu_bnd) then
+      cycle
+    else if (bface(1,nf) == bc_periodic) then
       periodic_pts = periodic_pts + face(nf)%end_fp - face(nf)%beg_fp + 1
       cycle
     end if
@@ -2952,16 +2991,26 @@ continue
       bc_idx = bface(6,nf)
       !
       bc_grps(n)%beg_fp = face(nf)%beg_fp
+      bc_grps(n)%end_fp = face(nf)%end_fp
       bc_grps(n)%bc_type = bface(1,nf)
       bc_grps(n)%bc_idx = bc_idx
       !
     else
+      !
+      ! This keeps incrementing end_fp until a new BC group is found
       !
       bc_grps(n)%end_fp = face(nf)%end_fp
       !
     end if
     !
   end do
+  !
+ !do nf = 1,lfbnd
+ !  write (mypnum+100,100) nf,bface(1,nf),bface(5,nf), &
+ !                         face(bface(5,nf))%beg_fp, &
+ !                         face(bface(5,nf))%end_fp
+ !end do
+  100 format (i5,i4,i4,i6,i6)
   !
   if (periodic_pts > 0) then
     !
@@ -3003,30 +3052,87 @@ continue
     !
   end if
   !
+  ngrps = n
+  !
   n_wall_flxpts = 0
-  do n = 1,size(bc_grps)
-    if (any(bc_grps(n)%bc_type == bc_walls)) then
-      n_wall_flxpts = bc_grps(n)%end_fp
+  do i = 1,size(bc_grps)
+    if (any(bc_grps(i)%bc_type == bc_walls)) then
+      n_wall_flxpts = bc_grps(i)%end_fp
     end if
   end do
   !
-  write (iout,*)                                                                     
-  do n = 1,size(bc_grps)                                                             
-    write (iout,2) n,bc_grps(n)%beg_fp, &                                          
-                   n,bc_grps(n)%end_fp, &                                          
-                   n,bc_grps(n)%bc_type, &                                         
-                   n,bc_grps(n)%bc_idx, &                                          
-                   n,merge("   ","NOT",allocated(bc_grps(n)%periodic_list))        
-  end do                                                                             
+  allocate ( tmp_bc_grps(1:ngrps) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_bc_grps",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do n = 1,ngrps
+    tmp_bc_grps(n) = bc_grps(n)
+  end do
+  !
+  call move_alloc( from=tmp_bc_grps , to=bc_grps )
+  !
+  flush (iout)
+#ifdef DEBUG_BC_GROUPS
+  if (allocated(bc_grps)) then
+    if (size(bc_grps) >= 1) then
+      do n = 1,size(bc_grps)
+        write (mypnum+500,2) n,bc_grps(n)%beg_fp, &
+                       n,bc_grps(n)%end_fp, &
+                       n,bc_grps(n)%bc_type, &
+         trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
+                       n,bc_grps(n)%bc_idx
+        if (allocated(bc_grps(n)%periodic_list)) then
+          write (mypnum+500,3) n
+        end if
+        flush (mypnum+500)
+      end do
+    else
+     !write (mypnum+500,102)
+     !102 format ("bc_grps is allocated with a size of 0")
+    end if
+  else
+   !write (mypnum+500,101)
+   !101 format ("bc_grps is not allocated")
+  end if
+ !flush (mypnum+500)
+  !
+  flush (iout)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  do i = 0,ncpu-1
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == i .and. allocated(bc_grps)) then
+      if (size(bc_grps) >= 1) then
+        write (iout,*)
+        write (iout,*) "For CPU # ",mypnum
+        do n = 1,size(bc_grps)
+          write (iout,2) n,bc_grps(n)%beg_fp, &
+                         n,bc_grps(n)%end_fp, &
+                         n,bc_grps(n)%bc_type, &
+         trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
+                         n,bc_grps(n)%bc_idx
+          if (allocated(bc_grps(n)%periodic_list)) then
+            write (iout,3) n
+          end if
+        end do
+        flush (iout)
+      end if
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    flush (iout)
+  end do
+  if (mypnum == glb_root) write (iout,*)
+  flush (iout)
+#endif
   !
   ! Format Statements
   !
   1 format ("bc_grps(",i0,")%periodic_list")
-  2 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &                                 
-              "bc_grps(",i0,")%end_fp  = ",i0,/, &                                 
-              "bc_grps(",i0,")%bc_type = ",i0,/, &                                 
-              "bc_grps(",i0,")%bc_idx  = ",i0,/, &                                 
-              "bc_grps(",i0,")%periodic_list IS ",a," allocated")
+  2 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &
+              "bc_grps(",i0,")%end_fp  = ",i0,/, &
+              "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
+              "bc_grps(",i0,")%bc_idx  = ",i0)
+  3 format ("bc_grps(",i0,")%periodic_list IS allocated")
   !
 end subroutine create_bc_grps
 !

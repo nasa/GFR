@@ -2,9 +2,7 @@ module interpolation_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : outerp_matrix => matrix
- !use generic_types_mod, only : interp_matrix => matrix
-  use generic_types_mod, only : interp_matrix => matrix_gpu_t
+  use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
@@ -19,6 +17,7 @@ module interpolation_mod
   public :: interpolation_memory_usage
   public :: move_interp_to_device
   public :: move_outerp_to_device
+  public :: outerp_mv_mult
   !
   !
   !
@@ -28,10 +27,10 @@ module interpolation_mod
   !                        combination of cell geometry and cell order
   !
   type, public :: interpolation_matrix
-    type(interp_matrix), allocatable :: toFace(:) ! interpolate to a face point
-    type(interp_matrix), allocatable :: toCell(:) ! interpolate to a cell point
-    type(interp_matrix), allocatable :: toEdge(:) ! interpolate to a edge point
-    type(interp_matrix), allocatable :: toNode    ! interpolate to a node
+    type(matrix), allocatable :: toFace(:) ! interpolate to a face point
+    type(matrix), allocatable :: toCell(:) ! interpolate to a cell point
+    type(matrix), allocatable :: toEdge(:) ! interpolate to a edge point
+    type(matrix), allocatable :: toNode    ! interpolate to a node
   end type interpolation_matrix
   !
   ! interp : interpolation matrix for all combinations of cell geometry
@@ -60,17 +59,17 @@ module interpolation_mod
   !                        (short for "interpolation for output") which
   !                        interpolate the cell solution to specific quadrature
   !                        points.
-  !                        
+  !
   type, public :: outerpolation_matrix
     ! output : Interpolation matrix from solution points to quadrature points
     !          used to output the solution for post-processing
-    type(outerp_matrix), allocatable :: output
+    type(matrix), allocatable :: output
     ! init : Interpolation matrix from solution points to quadrature points
     !        used to compute initial conditions
-    type(outerp_matrix), allocatable :: init
+    type(matrix), allocatable :: init
     ! error : Interpolation matrix from solution points to quadrature points
     !         used for error computations
-    type(outerp_matrix), allocatable :: error
+    type(matrix), allocatable :: error
     ! err_wts : Array containing the quadrature weights
     !           for the error computations
     real(wp), allocatable :: err_wts(:)
@@ -84,7 +83,92 @@ module interpolation_mod
   !
   type(outerpolation_matrix), public, save, target, allocatable :: outerp(:,:)
   !
+  interface outerp_mv_mult
+    module procedure outerp_mv_mult_with_rv, &
+                     outerp_mv_mult_in_place
+  end interface outerp_mv_mult
+  !
 contains
+!
+!###############################################################################
+!
+pure subroutine outerp_mv_mult_with_rv(outerp_mat,vector,return_value)
+  !
+  !.. Formal Arguments ..
+  type(matrix), intent(in) :: outerp_mat
+  real(wp),     intent(in) :: vector(:)
+  real(wp),  intent(inout) :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "outerp_mv_mult_with_rv"
+  !
+continue
+  !
+  do n = 1,size(return_value)
+    !
+    val = zero
+    !
+    do i = outerp_mat%col_ptr(n)+1, &
+           outerp_mat%col_ptr(n+1)
+      !
+      k = outerp_mat%col_idx(i)
+      a = outerp_mat%col_val(i)
+      !
+      val = val + a * vector(k)
+      !
+    end do
+    !
+    return_value(n) = val
+    !
+  end do
+  !
+end subroutine outerp_mv_mult_with_rv
+!
+!###############################################################################
+!
+pure subroutine outerp_mv_mult_in_place(outerp_mat,vector)
+  !
+  !.. Formal Arguments ..
+  type(matrix), intent(in) :: outerp_mat
+  real(wp),  intent(inout) :: vector(:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n
+  real(wp) :: a,val
+  !
+  !.. Local Arrays ..
+  real(wp) :: tmp(1:size(outerp_mat%mat,dim=1))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "outerp_mv_mult_in_place"
+  !
+continue
+  !
+  do n = 1,size(outerp_mat%mat,dim=1)
+    !
+    val = zero
+    !
+    do i = outerp_mat%col_ptr(n)+1, &
+           outerp_mat%col_ptr(n+1)
+      !
+      k = outerp_mat%col_idx(i)
+      a = outerp_mat%col_val(i)
+      !
+      val = val + a * vector(k)
+      !
+    end do
+    !
+    tmp(n) = val
+    !
+  end do
+  !
+  vector(:) = tmp(:)
+  !
+end subroutine outerp_mv_mult_in_place
 !
 !###############################################################################
 !
@@ -109,11 +193,13 @@ subroutine init_interpolation_matrices()
   !
   !.. Local Pointers ..
   type(interpolation_matrix), pointer :: this_interp
-  type(interp_matrix), pointer :: this_face
-  type(interp_matrix), pointer :: this_edge
-  type(interp_matrix), pointer :: this_node
-  real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: flxpts(:,:)
+  type(matrix), pointer :: this_face
+  type(matrix), pointer :: this_edge
+  type(matrix), pointer :: this_node
+ !real(wp), pointer, contiguous :: solpts(:,:)
+!!real(wp), pointer, contiguous :: flxpts(:,:)
+  real(wp), pointer :: solpts(:,:)
+! real(wp), pointer :: flxpts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
@@ -208,7 +294,7 @@ continue
         select case (this_geom)
           case (Geom_Edge)
             !
-            edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(this_geom,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(this_geom,this_order)%pts
             !
             this_face%mat = InterpToFace_Edge( edgpts )
@@ -222,9 +308,9 @@ continue
             !
           case (Geom_Quad)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
            !flxpts => face_elem(Geom_Edge,face_order)%pts
             !
             this_face%mat = InterpToFace_Quad( edgpts , flxpts )
@@ -250,9 +336,9 @@ continue
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            flxpts = face_elem(Geom_Edge,face_order)%pts(1,:) ! F03 AUTO-REALLOC
            !flxpts => face_elem(Geom_Edge,face_order)%pts
             !
             this_face%mat = InterpToFace_Hexa( edgpts , flxpts )
@@ -330,9 +416,9 @@ continue
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(Geom_Edge,this_order)%pts
-            flxpts = face_elem(Geom_Edge,edge_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            flxpts = face_elem(Geom_Edge,edge_order)%pts(1,:) ! F03 AUTO-REALLOC
            !flxpts => face_elem(Geom_Edge,edge_order)%pts
             !
             this_edge%mat = InterpToEdge_Hexa( edgpts , flxpts )
@@ -397,7 +483,7 @@ continue
             !
           case (Geom_Quad)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(Geom_Edge,this_order)%pts
             !
             this_node%mat = InterpToNode_Quad( edgpts )
@@ -423,7 +509,7 @@ continue
             !
           case (Geom_Hexa)
             !
-            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F2003 AUTO-REALLOC
+            edgpts = std_elem(Geom_Edge,this_order)%pts(1,:) ! F03 AUTO-REALLOC
            !solpts => std_elem(Geom_Edge,this_order)%pts
             !
             this_node%mat = InterpToNode_Hexa( edgpts )
@@ -506,9 +592,12 @@ subroutine init_outerpolation_matrices()
   !
   !.. Local Pointers ..
   type(outerpolation_matrix), pointer :: this_outerp
-  real(wp), pointer, contiguous :: imat(:,:)
-  real(wp), pointer, contiguous :: omat(:,:)
-  real(wp), pointer, contiguous :: emat(:,:)
+ !real(wp), pointer, contiguous :: imat(:,:)
+ !real(wp), pointer, contiguous :: omat(:,:)
+ !real(wp), pointer, contiguous :: emat(:,:)
+  real(wp), pointer :: imat(:,:)
+  real(wp), pointer :: omat(:,:)
+  real(wp), pointer :: emat(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: pts(:)
@@ -834,13 +923,13 @@ continue
   do this_geom = gmin,gmax
     do this_order = omin,omax
       if (allocated(outerp(this_geom,this_order)%init)) then
-        call outerp(this_geom,this_order)%init%check_for_sparsity
+        call create_matrix_sparsity( outerp(this_geom,this_order)%init )
       end if
       if (allocated(outerp(this_geom,this_order)%output)) then
-        call outerp(this_geom,this_order)%output%check_for_sparsity
+        call create_matrix_sparsity( outerp(this_geom,this_order)%output )
       end if
       if (allocated(outerp(this_geom,this_order)%error)) then
-        call outerp(this_geom,this_order)%error%check_for_sparsity
+        call create_matrix_sparsity( outerp(this_geom,this_order)%error )
       end if
     end do
   end do
@@ -886,7 +975,8 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   real(wp) :: return_value(1:npts,1:opts)
   !
   !.. Local Pointers ..
-  real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: solpts(:,:)
+  real(wp), pointer :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
@@ -1011,7 +1101,10 @@ end function InterpWeights
 !
 !###############################################################################
 !
-pure function generic_interpolation_matrix(basis,newbasis,wmat) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function generic_interpolation_matrix(basis,newbasis,wmat) &
                                     result(return_value)
   !
   !.. Formal Arguments ..
@@ -1043,7 +1136,11 @@ continue
   pmat_qp = matmul( basisT_qp , basis_qp )
   pmat_qp = chop( pmat_qp , pmat_qp )
   !
+#ifdef SPECIAL_FOR_INTEL
+  pmat_qp = invert_matrix_lapack95( pmat_qp )
+#else
   pmat_qp = invert_matrix( pmat_qp )
+#endif
   pmat_qp = chop( pmat_qp , pmat_qp )
   !
   tmat_qp = matmul( pmat_qp , basisT_qp )
@@ -1061,7 +1158,10 @@ end function generic_interpolation_matrix
 !
 !###############################################################################
 !
-pure function InterpToFace_Edge(xi) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Edge(xi) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1099,7 +1199,10 @@ end function InterpToFace_Edge
 !
 !###############################################################################
 !
-pure function InterpToCell_Edge(xi,xi_interp) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToCell_Edge(xi,xi_interp) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1148,7 +1251,10 @@ end function InterpToCell_Edge
 !
 !###############################################################################
 !
-pure function InterpToNode_Quad(xi_sp) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Quad(xi_sp) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1218,7 +1324,10 @@ end function InterpToNode_Quad
 !
 !###############################################################################
 !
-pure function InterpToFace_Quad(xi_sp,xi_fp) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Quad(xi_sp,xi_fp) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1313,7 +1422,7 @@ continue
   do n = 1,nfp
     !
     nf = n + 3*nfp
-    ! 
+    !
     xy_qp(2) = flxpts_qp(nfp+1-n)
     !
     do j = 1,nsp
@@ -1333,7 +1442,10 @@ end function InterpToFace_Quad
 !
 !###############################################################################
 !
-pure function InterpToCell_Quad(xi_old,xi_new) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToCell_Quad(xi_old,xi_new) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1402,7 +1514,10 @@ end function InterpToCell_Quad
 !
 !###############################################################################
 !
-pure function InterpWeights_Quad(wts) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpWeights_Quad(wts) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: wts
@@ -1446,7 +1561,10 @@ end function InterpWeights_Quad
 !
 !###############################################################################
 !
-pure function InterpToNode_Tria(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Tria(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1480,7 +1598,10 @@ end function InterpToNode_Tria
 !
 !###############################################################################
 !
-pure function InterpToFace_Tria(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Tria(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1533,7 +1654,10 @@ end function InterpToFace_Tria
 !
 !###############################################################################
 !
-pure function InterpToNode_Tetr(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Tetr(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1587,7 +1711,10 @@ end function InterpToNode_Tetr
 !
 !###############################################################################
 !
-pure function InterpToEdge_Tetr(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToEdge_Tetr(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1627,7 +1754,10 @@ end function InterpToEdge_Tetr
 !
 !###############################################################################
 !
-pure function InterpToFace_Tetr(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Tetr(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1667,7 +1797,10 @@ end function InterpToFace_Tetr
 !
 !###############################################################################
 !
-pure function InterpToNode_Pyra(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Pyra(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1704,7 +1837,10 @@ end function InterpToNode_Pyra
 !
 !###############################################################################
 !
-pure function InterpToEdge_Pyra(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToEdge_Pyra(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1744,7 +1880,10 @@ end function InterpToEdge_Pyra
 !
 !###############################################################################
 !
-pure function InterpToFace_Pyra(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Pyra(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1784,7 +1923,10 @@ end function InterpToFace_Pyra
 !
 !###############################################################################
 !
-pure function InterpToNode_Pris(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Pris(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1821,7 +1963,10 @@ end function InterpToNode_Pris
 !
 !###############################################################################
 !
-pure function InterpToEdge_Pris(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToEdge_Pris(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1861,7 +2006,10 @@ end function InterpToEdge_Pris
 !
 !###############################################################################
 !
-pure function InterpToFace_Pris(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Pris(rs) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1901,7 +2049,10 @@ end function InterpToFace_Pris
 !
 !###############################################################################
 !
-pure function InterpToNode_Hexa(xi_sp) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToNode_Hexa(xi_sp) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -1990,7 +2141,10 @@ end function InterpToNode_Hexa
 !
 !###############################################################################
 !
-pure function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToEdge_Hexa(xi_sp,xi_ep) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -2544,7 +2698,10 @@ end function InterpToEdge_Hexa
 !
 !###############################################################################
 !
-pure function InterpToFace_Hexa(xi_sp,xi_fp) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToFace_Hexa(xi_sp,xi_fp) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -2864,7 +3021,10 @@ end function InterpToFace_Hexa
 !
 !###############################################################################
 !
-pure function InterpToCell_Hexa(xi_old,xi_new) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpToCell_Hexa(xi_old,xi_new) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : eval_LagrangePoly
@@ -2941,7 +3101,10 @@ end function InterpToCell_Hexa
 !
 !###############################################################################
 !
-pure function InterpWeights_Hexa(wts) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function InterpWeights_Hexa(wts) result(return_value)
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: wts
@@ -3157,7 +3320,7 @@ continue
           !
           call dt%add(array)
           !
-          array = outerp(i,j)%init%memory_usage()
+          array = matrix_memory_usage( outerp(i,j)%init )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"init%mat"
           write (iou,2) array_name,array%get_units()
@@ -3175,7 +3338,7 @@ continue
           !
           call dt%add(array)
           !
-          array = outerp(i,j)%output%memory_usage()
+          array = matrix_memory_usage( outerp(i,j)%output )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"output%mat"
           write (iou,2) array_name,array%get_units()
@@ -3193,7 +3356,7 @@ continue
           !
           call dt%add(array)
           !
-          array = outerp(i,j)%error%memory_usage()
+          array = matrix_memory_usage( outerp(i,j)%error )
           !
           write (array_name,4) "outerp",Geom_Name(i),j,"error%mat"
           write (iou,2) array_name,array%get_units()

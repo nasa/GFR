@@ -1,8 +1,12 @@
 module vandermonde_mod
   !
+#define PROFILE_ON
+  !
   !.. Use Statements ..
-  use module_kind_types
-  use generic_types_mod, only : matrix
+  use module_kind_types, global_debug_timer => debug_timer
+  !
+  use generic_types_mod, only : matrix => matrix_gpu_t
+  use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
   !
@@ -39,7 +43,7 @@ module vandermonde_mod
     type(matrix) :: modal2nodal
   end type vandermonde_matrix
   !
-  ! vand : projection matrix for all combinations of cell geometry and 
+  ! vand : projection matrix for all combinations of cell geometry and
   !        and cell order that are possible in the current simulation
   !
   !     For cell 'n' :
@@ -69,7 +73,7 @@ module vandermonde_mod
   !             the nodal coefficients and the monomial modal coefficients.
   !
   type(vandermonde_matrix), public, save, target, allocatable :: monomials(:,:)
-  !             
+  !
   !
 contains
 !
@@ -88,12 +92,16 @@ subroutine init_vandermonde_matrices()
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_geom,this_order,npts
   character(len=200) :: array_name
+  character(len=300) :: timer_message
   !
   !.. Local Pointers ..
   type(vandermonde_matrix), pointer :: this_vand
- !real(wp), pointer, contiguous :: solpts(:,:)
-  real(wp), pointer, contiguous :: vmat(:,:)
-  real(wp), pointer, contiguous :: vmat_inv(:,:)
+!!real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: vmat(:,:)
+ !real(wp), pointer, contiguous :: vmat_inv(:,:)
+! real(wp), pointer :: solpts(:,:)
+  real(wp), pointer :: vmat(:,:)
+  real(wp), pointer :: vmat_inv(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_vandermonde_matrices"
@@ -156,11 +164,19 @@ continue
       !
       ! Compute the Vandermonde matrix
       !
+      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
+      100 format ("modal2nodal Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
       vmat(:,:) = Compute_Basis_Matrix(this_geom,this_order)
+      call debug_timer(stop_timer,timer_message)
       !
       ! Compute the inverse of the Vandermonde matrix that was just computed
       !
+      write (timer_message,101) trim(adjustl(Geom_Name(this_geom))),this_order
+      101 format ("nodal2modal Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
       vmat_inv(:,:) = Vandermonde_Inverse( vmat )
+      call debug_timer(stop_timer,timer_message)
       !
       ! Remove all associations of the local pointers before continuing
       !
@@ -172,12 +188,30 @@ continue
     !
   end do geom_loop
   !
-  call vand%modal2nodal%check_for_sparsity
-  call vand%nodal2modal%check_for_sparsity
+  do this_geom = gmin,gmax
+    do this_order = omin,omax
+      if (allocated(vand(this_geom,this_order)%modal2nodal%mat)) then
+        write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),this_order
+        200 format ("Sparsity check modal2nodal:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( vand(this_geom,this_order)%modal2nodal )
+        call debug_timer(stop_timer,timer_message)
+      end if
+      if (allocated(vand(this_geom,this_order)%nodal2modal%mat)) then
+        write (timer_message,201) trim(adjustl(Geom_Name(this_geom))),this_order
+        201 format ("Sparsity check nodal2modal:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( vand(this_geom,this_order)%nodal2modal )
+        call debug_timer(stop_timer,timer_message)
+      end if
+    end do
+  end do
+ !call create_matrix_sparsity( vand%modal2nodal )
+ !call create_matrix_sparsity( vand%nodal2modal )
  !do this_geom = gmin,gmax
  !  do this_order = omin,omax
- !    call vand(this_geom,this_order)%modal2nodal%check_for_sparsity
- !    call vand(this_geom,this_order)%nodal2modal%check_for_sparsity
+ !    call create_matrix_sparsity( vand(this_geom,this_order)%modal2nodal )
+ !    call create_matrix_sparsity( vand(this_geom,this_order)%nodal2modal )
  !  end do
  !end do
   !
@@ -214,7 +248,8 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   integer :: npts,nmodes,ierr
   !
   !.. Local Pointers ..
-  real(wp), pointer, contiguous :: solpts(:,:)
+ !real(wp), pointer, contiguous :: solpts(:,:)
+  real(wp), pointer :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
@@ -337,7 +372,12 @@ end function Compute_Basis_Matrix
 !
 !###############################################################################
 !
-pure function Vandermonde_Inverse(vand_mat) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Inverse(vand_mat) result(return_value)
+  !
+  use lapack95, only : getrf,getri
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: vand_mat(:,:)
@@ -350,6 +390,8 @@ pure function Vandermonde_Inverse(vand_mat) result(return_value)
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: vmat_inv_qp(:,:)
+  real(wp), allocatable :: vmat_inv(:,:)
+  integer,  allocatable :: ipiv(:)
   !
 continue
   !
@@ -361,29 +403,50 @@ continue
   !
   allocate ( return_value(1:n1,1:n2) , source=zero , stat=ierr )
   !
-  ! Create the Vandermonde matrix and its inverse using quad precision
-  !
-  allocate ( vmat_inv_qp(1:n1,1:n2) , source=qzero , stat=ierr )
-  !
   ! Convert the Vandermonde matrix to quad precision and temporarily
   ! store in the array for the inverse Vandermonde matrix
   !
-  vmat_inv_qp = real( vand_mat , kind=qp )
+  vmat_inv = vand_mat ! USING F2003 AUTO-REALLOCATION
   !
   ! Compute the inverse of the Vandermonde matrix
   !
-  vmat_inv_qp = invert_matrix( vmat_inv_qp )
+#ifdef SPECIAL_FOR_INTEL
+  vmat_inv(:,:) = invert_matrix_lapack95( vmat_inv )
+#else
+ !vmat_inv(:,:) = invert_matrix( vmat_inv_qp )
+  vmat_inv(:,:) = invert_matrix90( vmat_inv )
+#endif
   !
   ! Use the chop function to copy vmat_inv_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
   !
-  return_value = chop( vmat_inv_qp ) 
+  return_value(:,:) = chop( vmat_inv )
+  !
+! allocate ( vmat_inv_qp(1:n1,1:n2) , source=qzero , stat=ierr )
+! !
+! ! Convert the Vandermonde matrix to quad precision and temporarily
+! ! store in the array for the inverse Vandermonde matrix
+! !
+! vmat_inv_qp(:,:) = real( vand_mat , kind=qp )
+! !
+! ! Compute the inverse of the Vandermonde matrix
+! !
+!!vmat_inv_qp(:,:) = invert_matrix( vmat_inv_qp )
+! vmat_inv_qp(:,:) = invert_matrix90( vmat_inv_qp )
+! !
+! ! Use the chop function to copy vmat_inv_qp into return_value while also
+! ! setting any values that are less than working machine epsilon to zero.
+! !
+! return_value(:,:) = chop( vmat_inv_qp )
   !
 end function Vandermonde_Inverse
 !
 !###############################################################################
 !
-pure function Vandermonde_Edge(xi,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Edge(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -444,7 +507,10 @@ end function Vandermonde_Edge
 !
 !###############################################################################
 !
-pure function Vandermonde_Quad(xi,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Quad(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -527,7 +593,10 @@ end function Vandermonde_Quad
 !
 !###############################################################################
 !
-pure function Vandermonde_Tria(rs,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Tria(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -609,7 +678,10 @@ end function Vandermonde_Tria
 !
 !###############################################################################
 !
-pure function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Tetr(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -713,7 +785,10 @@ end function Vandermonde_Tetr
 !
 !###############################################################################
 !
-pure function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Pyra(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -748,7 +823,10 @@ end function Vandermonde_Pyra
 !
 !###############################################################################
 !
-pure function Vandermonde_Pris(rs,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Pris(rs,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -783,7 +861,10 @@ end function Vandermonde_Pris
 !
 !###############################################################################
 !
-pure function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
   !
   !.. Use Statements ..
   use polynomial_mod, only : normalized_jacobi_poly
@@ -804,6 +885,7 @@ pure function Vandermonde_Hexa(xi,number_of_modes) result(return_value)
   !
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: vmat_qp(:,:)
+  real(qp), allocatable :: vnjp_qp(:,:)
   !
 continue
   !
@@ -828,6 +910,16 @@ continue
   !
   allocate ( vmat_qp(1:nqq,1:nsq) , source=qzero , stat=ierr )
   !
+  allocate ( vnjp_qp(0:nso,1:nqp) , source=qzero , stat=ierr )
+  !
+  do n = 1,nqp
+    do m = 0,nso
+      x = real( xi(n) , kind=qp )
+      vnjp_qp(m,n) = normalized_jacobi_poly(m,qzero,qzero,x)
+    end do
+  end do
+  !
+  n = 0
   do nk = 1,nqp
     do nj = 1,nqp
       do ni = 1,nqp
@@ -835,25 +927,25 @@ continue
         ! n is the 1D index of the solution point at
         ! which each basis function is being evaluated
         !
-        n = nqp*nqp*(nk-1) + nqp*(nj-1) + ni
+       !n = nqp*nqp*(nk-1) + nqp*(nj-1) + ni
+        n = n + 1
         !
-        x = real( xi(ni) , kind=qp )
-        y = real( xi(nj) , kind=qp )
-        z = real( xi(nk) , kind=qp )
-        !
+        m = 0
         do mk = 0,nso
           do mj = 0,nso
             do mi = 0,nso
               !
               ! m is the index of the current basis function being evaluated
               !
-              m = nsp*nsp*mk + nsp*mj + mi + 1
+             !m = nsp*nsp*mk + nsp*mj + mi + 1
+             !!
+             !hx = vnjp_qp(mi,ni)
+             !hy = vnjp_qp(mj,nj)
+             !hz = vnjp_qp(mk,nk)
+             !vmat_qp(n,m) = hx*hy*hz
               !
-              hx = normalized_jacobi_poly(mi,qzero,qzero,x)
-              hy = normalized_jacobi_poly(mj,qzero,qzero,y)
-              hz = normalized_jacobi_poly(mk,qzero,qzero,z)
-              !
-              vmat_qp(n,m) = hx*hy*hz
+              m = m + 1
+              vmat_qp(n,m) = vnjp_qp(mi,ni)*vnjp_qp(mj,nj)*vnjp_qp(mk,nk)
               !
             end do
           end do
@@ -862,6 +954,41 @@ continue
       end do
     end do
   end do
+  !
+! do nk = 1,nqp
+!   do nj = 1,nqp
+!     do ni = 1,nqp
+!       !
+!       ! n is the 1D index of the solution point at
+!       ! which each basis function is being evaluated
+!       !
+!       n = nqp*nqp*(nk-1) + nqp*(nj-1) + ni
+!       !
+!       x = real( xi(ni) , kind=qp )
+!       y = real( xi(nj) , kind=qp )
+!       z = real( xi(nk) , kind=qp )
+!       !
+!       do mk = 0,nso
+!         do mj = 0,nso
+!           do mi = 0,nso
+!             !
+!             ! m is the index of the current basis function being evaluated
+!             !
+!             m = nsp*nsp*mk + nsp*mj + mi + 1
+!             !
+!             hx = normalized_jacobi_poly(mi,qzero,qzero,x)
+!             hy = normalized_jacobi_poly(mj,qzero,qzero,y)
+!             hz = normalized_jacobi_poly(mk,qzero,qzero,z)
+!             !
+!             vmat_qp(n,m) = hx*hy*hz
+!             !
+!           end do
+!         end do
+!       end do
+!       !
+!     end do
+!   end do
+! end do
   !
   ! Use the chop function to copy vmat_qp into return_value while also
   ! setting any values that are less than working machine epsilon to zero.
@@ -876,6 +1003,9 @@ subroutine vandermonde_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+#ifndef DISABLE_DTIO
+  use generic_types_mod, only : matrix_memory_usage
+#endif
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -917,7 +1047,7 @@ continue
           !
           call dt%add(array)
           !
-          array = vand(i,j)%nodal2modal%memory_usage()
+          array = matrix_memory_usage( vand(i,j)%nodal2modal )
           !
           write (array_name,4) "vand",Geom_Name(i),j,"nodal2modal%mat"
           write (iou,2) array_name,array%get_units()
@@ -935,7 +1065,7 @@ continue
           !
           call dt%add(array)
           !
-          array = vand(i,j)%modal2nodal%memory_usage()
+          array = matrix_memory_usage( vand(i,j)%modal2nodal )
           !
           write (array_name,4) "vand",Geom_Name(i),j,"modal2nodal%mat"
           write (iou,2) array_name,array%get_units()
@@ -976,7 +1106,7 @@ continue
           !
           call dt%add(array)
           !
-          array = monomials(i,j)%nodal2modal%memory_usage()
+          array = matrix_memory_usage( monomials(i,j)%nodal2modal )
           !
           write (array_name,4) "monomials",Geom_Name(i),j,"nodal2modal%mat"
           write (iou,2) array_name,array%get_units()
@@ -994,7 +1124,7 @@ continue
           !
           call dt%add(array)
           !
-          array = monomials(i,j)%modal2nodal%memory_usage()
+          array = matrix_memory_usage( monomials(i,j)%modal2nodal )
           !
           write (array_name,4) "monomials",Geom_Name(i),j,"modal2nodal%mat"
           write (iou,2) array_name,array%get_units()
@@ -1309,6 +1439,7 @@ end subroutine move_monomials_to_device
 !
 include "Functions/np2n.f90"
 include "Functions/cell_solpts.f90"
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

@@ -1,9 +1,9 @@
 #
 #
 
-#MAKE = make -j 16
+ MAKE = make -j 16
 #MAKE = make -j 4
- MAKE = make
+#MAKE = make
 #MAKE = make --debug
 
 #MAKEOPT = -B
@@ -11,12 +11,13 @@
 OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
-FCADD += -DUSE_FACE_ARRAYS
+FCADD += -DDISABLE_PURE
+#FCADD += -DUSE_FACE_ARRAYS
 #FCADD += -DPROFILE_ON
 #FCADD += -DIGNORE_MPI_INFO
 
-debug: FCADD += -DPROFILE_ON
-rebuild-debug: FCADD += -DPROFILE_ON
+#debug: FCADD += -DPROFILE_ON
+#rebuild-debug: FCADD += -DPROFILE_ON
 
 .PHONY: all
 all: debug_recon
@@ -27,6 +28,7 @@ all-nodes: recon_westmere
 all-nodes: recon_sandybridge
 all-nodes: recon_ivybridge
 all-nodes: recon_broadwell
+all-nodes: recon_skylake
 
 .PHONY: rebuild
 rebuild: rebuild-debug
@@ -40,6 +42,7 @@ rebuild-optimize: rebuild-O3-ipo-opt
 debug_recon: debug
 recon: optimize
 
+recon_skylake: skylake
 recon_broadwell: broadwell
 recon_haswell: haswell
 recon_ivybridge: ivybridge
@@ -48,6 +51,26 @@ recon_westmere: westmere
 recon_merope: merope
 recon_gpu_mm: gpu-mm
 recon_gpu: gpu
+
+# SKYLAKE
+
+.PHONY: skylake
+skylake: BDIR := optimize_skylake
+skylake: EXEF := recon_skylake
+skylake: TRGT := skylake
+skylake: build
+
+.PHONY: rebuild-skylake
+rebuild-skylake: BDIR := optimize_skylake
+rebuild-skylake: EXEF := recon_skylake
+rebuild-skylake: TRGT := skylake
+rebuild-skylake: clean-build
+rebuild-skylake: build
+
+.PHONY: sky
+sky: skylake
+.PHONY: rebuild-sky
+rebuild-sky: rebuild-skylake
 
 # BROADWELL (Essentially the same as Haswell)
 
@@ -203,7 +226,7 @@ gpu-mm: GPUADD += -ta=tesla:managed
 #gpu-mm: GPUADD += -Minstrument=functions
 #gpu-mm: GPUADD += -Kieee
 gpu-mm: FCADD += $(GPUFLAG) $(GPUADD)
-gpu: FCADD += -DDISABLE_FOR_GPU
+gpu-mm: FCADD += -DDISABLE_FOR_GPU
 gpu-mm: build
 
 .PHONY: rebuild-gpu-mm
@@ -227,9 +250,9 @@ gpu: TRGT := gpu
 #gpu: GPUADD += -ta=tesla:maxregcount:128
 #gpu: GPUADD += -Mnoidiom
 #gpu: GPUADD += -pg
-#gpu: GPUADD += -g
+gpu: GPUADD += -g
 #gpu: GPUADD += -Minfo=intensity
-#gpu: GPUADD += -Mcuda=lineinfo
+gpu: GPUADD += -ta=tesla:lineinfo
 #gpu: GPUADD += -Mprof=ccff,dwarf
 #gpu: GPUADD += -Minstrument=functions
 #gpu: GPUADD += -Kieee
@@ -408,6 +431,8 @@ clean:
 	               "BUILDDIR=optimize_ivybridge" clean
 	make -f slv.mk "EXECUTABLE=recon_haswell" \
 	               "BUILDDIR=optimize_haswell" clean
+	make -f slv.mk "EXECUTABLE=recon_skylake" \
+	               "BUILDDIR=optimize_skylake" clean
 	make -f slv.mk "EXECUTABLE=recon_gpu_mm" \
 	               "BUILDDIR=gpu_mm" clean
 	make -f slv.mk "EXECUTABLE=recon_gpu" \

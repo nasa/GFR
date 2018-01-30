@@ -25,7 +25,7 @@ module triangle_mod
   interface Warpfactor
     module procedure Warpfactor_DP, &
                      Warpfactor_QP
-  end interface Warpfactor 
+  end interface Warpfactor
   !
   interface Nodes2D
     module procedure Nodes2D_DP, &
@@ -51,7 +51,10 @@ contains
 !
 !###############################################################################
 !
-pure function EquiTriNodes2D_DP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function EquiTriNodes2D_DP(N,val) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -102,7 +105,10 @@ end function EquiTriNodes2D_DP
 !
 !###############################################################################
 !
-pure function EquiTriNodes2D_QP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function EquiTriNodes2D_QP(N,val) result(return_value)
   !
   integer, parameter :: lp = local_qp
   !
@@ -153,7 +159,10 @@ end function EquiTriNodes2D_QP
 !
 !###############################################################################
 !
-pure function Warpfactor_DP(N,r) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Warpfactor_DP(N,r) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
@@ -217,7 +226,11 @@ continue
   ! Compute the Lagrange polynomials based on equidistant nodes
   ! solving the equation in the middle of page 47
   !
+#ifdef SPECIAL_FOR_INTEL
+  Lmat = matmul(invert_matrix_lapack95(V_EQD),Pmat)
+#else
   Lmat = matmul(invert_matrix(V_EQD),Pmat)
+#endif
   !
   ! Compute warp factor, Eq 6.7 on page 175
   !
@@ -235,7 +248,10 @@ end function Warpfactor_DP
 !
 !###############################################################################
 !
-pure function Warpfactor_QP(N,r) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Warpfactor_QP(N,r) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   use polynomial_mod, only : JacobiP => normalized_jacobi_poly
@@ -299,7 +315,11 @@ continue
   ! Compute the Lagrange polynomials based on equidistant nodes
   ! solving the equation in the middle of page 47
   !
+#ifdef SPECIAL_FOR_INTEL
+  Lmat = matmul(invert_matrix_lapack95(V_EQD),Pmat)
+#else
   Lmat = matmul(invert_matrix(V_EQD),Pmat)
+#endif
   !
   ! Compute warp factor, Eq 6.7 on page 175
   !
@@ -317,7 +337,10 @@ end function Warpfactor_QP
 !
 !###############################################################################
 !
-pure function Nodes2D_DP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Nodes2D_DP(N,val) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -384,7 +407,10 @@ end function Nodes2D_DP
 !
 !###############################################################################
 !
-pure function Nodes2D_QP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function Nodes2D_QP(N,val) result(return_value)
   !
   integer, parameter :: lp = local_qp
   !
@@ -451,7 +477,10 @@ end function Nodes2D_QP
 !
 !###############################################################################
 !
-pure function xytors_DP(xy) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function xytors_DP(xy) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -482,7 +511,10 @@ end function xytors_DP
 !
 !###############################################################################
 !
-pure function xytors_QP(xy) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function xytors_QP(xy) result(return_value)
   !
   integer, parameter :: lp = local_qp
   !
@@ -513,7 +545,10 @@ end function xytors_QP
 !
 !###############################################################################
 !
-pure function TriNodes2D_DG_DP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_DG_DP(N,val) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -539,7 +574,10 @@ end function TriNodes2D_DG_DP
 !
 !###############################################################################
 !
-pure function TriNodes2D_DG_QP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_DG_QP(N,val) result(return_value)
   !
   integer, parameter :: lp = local_qp
   !
@@ -565,7 +603,10 @@ end function TriNodes2D_DG_QP
 !
 !###############################################################################
 !
-pure function TriNodes2D_HT_DP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_HT_DP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
@@ -630,7 +671,10 @@ end function TriNodes2D_HT_DP
 !
 !###############################################################################
 !
-pure function TriNodes2D_HT_QP(N,val) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function TriNodes2D_HT_QP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !

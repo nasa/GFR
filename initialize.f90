@@ -12,6 +12,7 @@ module initialization_mod
   !
   public :: initialize_flow
   public :: initialize_reference
+  public :: create_bc_in
   !
 contains
 !
@@ -22,7 +23,7 @@ subroutine initialize_flow()
   ! Routine to initialize the flow
   !
   !.. Use Statements ..
-  use generic_types_mod, only : matrix
+  use generic_types_mod, only : matrix => matrix_gpu_t
   !
   use geovar, only : nr,n_solpts,ncell,cell,xyz,grid
   !
@@ -65,8 +66,10 @@ subroutine initialize_flow()
   type(matrix), allocatable, target :: outerp_inv(:,:)
   !
   !.. Local Pointers ..
-  real(wp), pointer, contiguous :: numer2init(:,:)
-  real(wp), pointer, contiguous :: init2numer(:,:)
+ !real(wp), pointer, contiguous :: numer2init(:,:)
+ !real(wp), pointer, contiguous :: init2numer(:,:)
+  real(wp), pointer :: numer2init(:,:)
+  real(wp), pointer :: init2numer(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_flow"
@@ -74,10 +77,10 @@ subroutine initialize_flow()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Initialize the bc_in array
-  !
-  call create_bc_in
+ !!
+ !! Initialize the bc_in array
+ !!
+ !call create_bc_in
   !
   ! Initialize all local pointers to disassociated
   !
@@ -111,7 +114,9 @@ continue
   else
     !
     if (itestcase == Nozzle_Jet) then
-      call find_elem_for_initial_jet_profile
+      call find_elem_for_initial_jet_profile(point_is_in_smc000_nozzle)
+    else if (itestcase == -Nozzle_Jet) then
+      call find_elem_for_initial_jet_profile(point_is_in_arn2_nozzle)
     end if
     !
     allocate ( xyz_init(1:nr,1:maxpts) , source=zero , &
@@ -192,7 +197,11 @@ continue
           call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
                            error_message)
           !
+#ifdef SPECIAL_FOR_INTEL
+          outerp_inv(this_geom,this_order)%mat = invert_matrix_lapack95(numer2init)
+#else
           outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
+#endif
           !
         end if
         !
@@ -229,7 +238,7 @@ continue
     ! Project the initial solution from the
     ! initialization points to the solution points
     !
-   !call project_to_porder(cell,usp)
+   !call project_to_porder(usp)
     !
     ! Initialize the iteration counter, time step, and elapsed time
     !
@@ -278,9 +287,13 @@ continue
   !
   call initialize_dusp
   !
+  ! Output the boundary conditions
+  !
+  call write_bc_conditions
+  !
   ! Output the free-stream conditions
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     if (all(itestcase /= [Density_Transport,Entropy_Transport])) then
       !
       write (iout,10) rhoref,pref,tref,machref,aref,velref(1)
@@ -401,7 +414,7 @@ function initial_conditions(xyz,init_cond) result(return_value)
   !
   !.. Local Scalars ..
   integer  :: k,np,ierr
-  real(wp) :: div,dl,r,r0
+  real(wp) :: div,dl,r,r0,nozzle_len
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: adj_xyz(:,:)
@@ -441,12 +454,38 @@ continue
                                                           return_cv=true )
     end do
     !
-  else if (itestcase == Nozzle_Jet) then
+  else if (abs(itestcase) == Nozzle_Jet) then
     !
     if (init_cond == 2) then
       !
+      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
+      !
       do k = 1,np
-        return_value(k,:) = jet_profile2(xyz(1,k),bc_in(0)%pv(:))
+        return_value(k,:) = jet_profile2(nozzle_len,xyz(1,k),bc_in(0)%pv(:))
+      end do
+      !
+    else if (init_cond == 3) then
+      !
+      nozzle_len = merge(9.875_wp,7.74_wp,itestcase > 0)
+      !
+      if (itestcase == Nozzle_Jet) then
+        div = eps1*smc000_interior_wall_radius(one)
+      else if (itestcase == -Nozzle_Jet) then
+        div = eps1*arn2_interior_wall_radius(one)
+      end if
+      !
+      do k = 1,np
+        !
+        if (itestcase == Nozzle_Jet) then
+          r0 = smc000_interior_wall_radius(xyz(1,k))
+        else if (itestcase == -Nozzle_Jet) then
+          r0 = arn2_interior_wall_radius(xyz(1,k))
+        end if
+        r = norm2(xyz(2:,k))
+        return_value(k,:) = jet_profile3(nozzle_len,xyz(1,k),r,r0,div, &
+                                         bc_in(1)%pv(:), &
+                                         bc_in(0)%pv(:))
+        !
       end do
       !
     else if (init_cond /= 0) then
@@ -457,11 +496,19 @@ continue
       !       greater than 0.0 into the function smc000_interior_wall_radius
       !       should return the radius of the nozzle at the lip.
       !
-      div = eps1*smc000_interior_wall_radius(one)
+      if (itestcase == Nozzle_Jet) then
+        div = eps1*smc000_interior_wall_radius(one)
+      else if (itestcase == -Nozzle_Jet) then
+        div = eps1*arn2_interior_wall_radius(one)
+      end if
       !
       do k = 1,np
         !
-        r0 = smc000_interior_wall_radius(xyz(1,k))
+        if (itestcase == Nozzle_Jet) then
+          r0 = smc000_interior_wall_radius(xyz(1,k))
+        else if (itestcase == -Nozzle_Jet) then
+          r0 = arn2_interior_wall_radius(xyz(1,k))
+        end if
         r = norm2(xyz(2:,k))
         return_value(k,:) = jet_profile(r,r0,div,bc_in(0)%pv(:), &
                                         bc_in(init_cond)%pv(:))
@@ -556,13 +603,71 @@ end function jet_profile
 !
 !###############################################################################
 !
-pure function jet_profile2(x,fs_pv) result(return_value)
+pure function jet_profile3(nozzle_len,x,r,r0,div,bc_pv,fs_pv) &
+                    result(return_value)
   !
   !.. Use Statements ..
   use geovar, only : nr
   use ovar,   only : gam,grid_scaling_factor
   !
   !.. Formal Arguments ..
+  real(wp), intent(in) :: nozzle_len
+  real(wp), intent(in) :: x
+  real(wp), intent(in) :: r
+  real(wp), intent(in) :: r0
+  real(wp), intent(in) :: div
+  real(wp), intent(in) :: bc_pv(:)
+  real(wp), intent(in) :: fs_pv(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(fs_pv))
+  !
+  !.. Local Scalars ..
+  real(wp) :: xbeg,func,xfunc,rfunc
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  !
+continue
+  !
+  ! Initialize to the free-stream primitive variables
+  !
+  return_value(:) = fs_pv(:)
+  !
+  ! If within the nozzle, initialize the velocity mach number to
+  ! a minimum of 0.05 at the inflow plane and use the error function
+  ! to smoothly transition this to the free-stream mach number within
+  ! the interior of the nozzle.
+  !
+  if (x < zero) then
+    !
+    xbeg = nozzle_len*grid_scaling_factor
+    !
+    rfunc = half * (one - erf((r-r0)/div))
+    xfunc = half * (one + erf((ten/xbeg)*abs(x)-seven))
+    func = rfunc * xfunc
+    !
+    return_value(nec) = func*bc_pv(nec) + (one-func)*fs_pv(nec)
+    return_value(nmx) = func*bc_pv(nmx) + (one-func)*fs_pv(nmx)
+    return_value(nmx+1:nme) = zero
+    return_value(nee) = fs_pv(nee)
+    !
+  end if
+  !
+  return_value(:) = vsp2u_sp( return_value(:) )
+  !
+end function jet_profile3
+!
+!###############################################################################
+!
+pure function jet_profile2(nozzle_len,x,fs_pv) result(return_value)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  use ovar,   only : gam,grid_scaling_factor
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: nozzle_len
   real(wp), intent(in) :: x
   real(wp), intent(in) :: fs_pv(:)
   !
@@ -574,9 +679,6 @@ pure function jet_profile2(x,fs_pv) result(return_value)
   !
   !.. Local Arrays ..
   real(wp) :: vel(1:nr)
-  !
-  !.. Local Parameters ..
-  real(wp), parameter :: nozzle_len = 9.875_wp
   !
 continue
   !
@@ -598,11 +700,19 @@ continue
       !
       xbeg = nozzle_len*grid_scaling_factor
       !
-      func = half * (one - erf((ten/xbeg)*abs(x)-seven))
-      !
       vel(:) = 0.05_wp * aspd * unit_vector( fs_pv(nmb:nme) )
       !
-      return_value(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
+      if (x <= -xbeg) then
+        !
+        return_value(nmb:nme) = vel(:)
+        !
+      else
+        !
+        func = half * (one - erf((ten/xbeg)*abs(x)-seven))
+        !
+        return_value(nmb:nme) = func*fs_pv(nmb:nme) + (one-func)*vel(:)
+        !
+      end if
       !
     end if
     !
@@ -614,10 +724,19 @@ end function jet_profile2
 !
 !###############################################################################
 !
-subroutine find_elem_for_initial_jet_profile
+subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   !
   !.. Use Statements ..
   use geovar, only : grid
+  !
+  !.. Dummy Function Interface ..
+  interface
+    function point_is_in_nozzle_interior(xyz) result(return_value)
+      import :: wp,lk
+      real(wp), intent(in) :: xyz(:)
+      logical(lk) :: return_value
+    end function point_is_in_nozzle_interior
+  end interface
   !
   !.. Local Scalars ..
   integer :: l,n,init
@@ -633,6 +752,7 @@ subroutine find_elem_for_initial_jet_profile
   !
  !integer, parameter :: init_val = 1 ! radial error function profile
   integer, parameter :: init_val = 2 ! inflow mach number limiter
+ !integer, parameter :: init_val = 3 ! options 1 and 2 combined
   !
 continue
   !
@@ -647,9 +767,13 @@ continue
       do l = 1,size(grid%xyz,dim=1)
         xyz_ave(l) = sum(grid%xyz(l,pts(:))) / real(size(pts),kind=wp)
       end do
-      ! 
+      !
       if (xyz_ave(1) > zero) then
-        init = init_val
+        if (any(init_val == [2,3])) then
+          init = 0
+        else
+          init = init_val
+        end if
       else
         init = merge(init_val,0,point_is_in_nozzle_interior(xyz_ave))
       end if
@@ -660,7 +784,7 @@ continue
         grid%elem(n)%tags(2) = init
       end if
       !
-    end if 
+    end if
     !
   end do
   !
@@ -880,7 +1004,7 @@ subroutine get_face_and_edge_point_coordinates
   !
   use order_mod,         only : maxSP,geom_solpts
   use geovar,            only : nr,cell,face,xyz,fp
-  use flowvar,           only : edgexyz,facexyz
+  use flowvar,           only : edgexyz_dt,facexyz_dt
   use flowvar,           only : facexyz_array
   use interpolation_mod, only : interp
   !
@@ -908,9 +1032,9 @@ continue
   ! Only do this if facexyz is allocated which means that either
   ! the continuous output option or MMS is being used
   !
-  if (allocated(facexyz)) then
+  if (allocated(facexyz_dt)) then
     !
-    do nf = 1,size(facexyz)
+    do nf = 1,size(facexyz_dt)
       !
       face_geom = face(nf)%geom
       face_order = face(nf)%order
@@ -944,7 +1068,7 @@ continue
         !
         do l = 1,nr
           val = zero
-          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1,&
                  interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
             !
             j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
@@ -953,7 +1077,7 @@ continue
             val = val + a * txyz(j,l)
             !
           end do
-          facexyz(nf)%v(l,kf) = val
+          facexyz_dt(nf)%v(l,kf) = val
           facexyz_array(l,f0+kf) = val
         end do
         !
@@ -968,19 +1092,19 @@ continue
   ! Only do this if edgexyz is allocated which means
   ! that the continuous output option is being used
   !
-  if (allocated(edgexyz)) then
+  if (allocated(edgexyz_dt)) then
     !
     ! Initialize edgexyz to zero
     !
 #ifdef SPECIAL_FOR_PGI
-    call edgexyz%zero_ne2d_t
+    call edgexyz_dt%zero_ne2d_t
 #else
-    call edgexyz%zero
+    call edgexyz_dt%zero
 #endif
     !
     ! Allocate the mask array to mark which edges have been finished
     !
-    allocate ( msk(1:size(edgexyz)) , source=fals , &
+    allocate ( msk(1:size(edgexyz_dt)) , source=fals , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
     !
@@ -1028,8 +1152,10 @@ continue
           !
           do l = 1,nr
             val = zero
-            do i = interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf)+1, &
-                   interp(this_geom,this_order)%toEdge(edge_order)%row_ptr(lf+1)
+            do i = interp(this_geom,this_order)% &
+                             toEdge(edge_order)%row_ptr(lf)+1, &
+                   interp(this_geom,this_order)% &
+                             toEdge(edge_order)%row_ptr(lf+1)
               !
               j = interp(this_geom,this_order)%toEdge(edge_order)%row_idx(i)
               a = interp(this_geom,this_order)%toEdge(edge_order)%row_val(i)
@@ -1037,7 +1163,7 @@ continue
               val = val + a * txyz(j,l)
               !
             end do
-            edgexyz(ne)%v(l,kf) = val
+            edgexyz_dt(ne)%v(l,kf) = val
           end do
           !
         end do
@@ -1513,9 +1639,13 @@ continue
     !
     n = bc_list(i)
     !
+    ! Save the index within bc_input for this bc_in
+    !
+    bc_in(i)%bc_input_idx = n
+    !
     if ( bc_input(n)%has_default_flow_conditions() ) then
       !
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         write (iout,2) i,trim(adjustl(bc_input(n)%name)), &
           trim(adjustl(bc_integer_to_string(bc_input(n)%set_bc_value)))
       end if
@@ -1532,7 +1662,7 @@ continue
       mach_is_set = fals
       vel_is_set = fals
       !
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         write (iout,3) i,trim(adjustl(bc_input(n)%name))
       end if
       !
@@ -1625,7 +1755,7 @@ continue
         bc_in(i)%pv = pv(:) ! Using F2003 auto-reallocation
         bc_in(i)%cv = cv(:) ! Using F2003 auto-reallocation
         !
-        if (mypnum == 0) then
+        if (mypnum == glb_root) then
           !
           r = bc_in(i)%pv(nec)*rhoref
           p = bc_in(i)%pv(nee)*rhoa2
@@ -1692,17 +1822,17 @@ continue
       !
     end do bface_loop
     !
-    call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
-                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+   !call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
+   !                   MPI_SUM,MPI_COMM_WORLD,mpierr)
     !
-    if (mypnum == 0) then
+    if (mypnum == glb_root) then
       write (iout,6) ii
     end if
     !
   end do
   !
   if (ncpu > 1) then
-    if (mypnum == 0) flush (iout)
+    if (mypnum == glb_root) flush (iout)
     call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
   !
@@ -1712,24 +1842,161 @@ continue
   2 format (/," Setting boundary condition for BC # ",i0," - '",a,"'",/, &
               "    to ",a)
   3 format (/," Flow conditions for BC # ",i0," - '",a,"'")
-  4 format (4x,"Static Density        = ",es14.6,/, &
-            4x,"X-velocity            = ",es14.6,:,/, &
-            4x,"Y-velocity            = ",es14.6,:,/, &
-            4x,"Z-velocity            = ",es14.6)
-  5 format (4x,"Static Pressure       = ",es14.6,/, &
-            4x,"Static Temperature    = ",es14.6,/, &
+  4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
+            4x,"X-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Z-velocity            = ",es14.6," m/s")
+  5 format (4x,"Static Pressure       = ",es14.6," N/m^2",/, &
+            4x,"Static Temperature    = ",es14.6," K",/, &
             4x,"Mach Number           = ",es14.6,/, &
-            4x,"Speed of Sound        = ",es14.6,/, &
-            4x,"Total Density         = ",es14.6,/, &
-            4x,"Total Pressure        = ",es14.6,/, &
-            4x,"Total Temperature     = ",es14.6,/, &
-            4x,"Alpha Angle of Attack = ",es14.6,/, &
-            4x,"Beta  Angle of Attack = ",es14.6,/, &
-            4x,"Viscosity             = ",es14.6,/, &
+            4x,"Speed of Sound        = ",es14.6," m/s",/, &
+            4x,"Total Density         = ",es14.6," kg/m^3",/, &
+            4x,"Total Pressure        = ",es14.6," N/m^2",/, &
+            4x,"Total Temperature     = ",es14.6," K",/, &
+            4x,"Alpha Angle of Attack = ",es14.6," degrees",/, &
+            4x,"Beta  Angle of Attack = ",es14.6," degrees",/, &
+            4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
             4x,"Reynolds #            = ",es14.6,/)
   6 format (4x,"Number of boundary faces for this BC = ",i0)
   !
 end subroutine create_bc_in
+!
+!###############################################################################
+!
+subroutine write_bc_conditions
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,bface
+  use ovar,   only : bc_input,bc_in
+  use ovar,   only : tmin,tmax,tref,rgasref
+  use ovar,   only : rhoref,aref,gam
+  !
+  !.. Local Scalars ..
+  integer     :: i,ii,nf
+  real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
+  real(wp)    :: alpha,beta,rhoa2,total_cond
+  real(wp)    :: gm1,gam_over_gm1,one_over_gm1
+  !
+  !.. Local Arrays ..
+  real(wp) :: vel(1:nr)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_bc_in"
+  !
+continue
+  !
+  rhoa2 = rhoref * aref * aref
+  gm1 = gam - one
+  one_over_gm1 = one / gm1
+  gam_over_gm1 = gam*one_over_gm1
+  !
+  ! Output all the boundary conditions
+  !
+  do i = lbound(bc_in,dim=1),ubound(bc_in,dim=1)
+    !
+    if (mypnum == glb_root) then
+      !
+      if (i == 0) then
+        write (iout,1)
+      else
+        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name))
+      end if
+      !
+      if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
+           (bc_in(i)%wall_temperature*tref <= tmax) ) then
+        !
+        write (iout,3) bc_in(i)%wall_temperature*tref
+        !
+      else
+        !
+        r = bc_in(i)%pv(nec)*rhoref
+        p = bc_in(i)%pv(nee)*rhoa2
+        t = temperature_pv_sp(bc_in(i)%pv)*tref
+        !
+        vel(1:nr) = bc_in(i)%pv(nmb:nme)*aref
+        !
+        aspd = sqrt(gam*rgasref*t)
+        mach = aref*norm2(bc_in(i)%pv(nmb:nme)) / aspd
+        !
+        total_cond = one + half*gm1*mach*mach
+        !
+        r0 = r * total_cond**one_over_gm1
+        p0 = p * total_cond**gam_over_gm1
+        t0 = t * total_cond
+        !
+        alpha = zero
+        beta = zero
+        if (nr >= 2) then
+          alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
+          if (nr == 3) then
+            beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+          end if
+        end if
+        alpha = alpha * radians2degrees
+        beta = beta * radians2degrees
+        !
+        visc = viscosity_pv_sp( [r,vel,p] )
+        !
+        reyn = norm2(vel)*r/visc
+        !
+        write (iout,4) r,(vel(ii),ii=1,nr)
+        write (iout,5) p,t,mach,aspd,r0,p0,t0,alpha,beta,visc,reyn
+        !
+      end if
+      !
+      flush (iout)
+      !
+    end if
+    !
+    ii = 0
+    bface_loop: do nf = 1,size(bface,dim=2)
+      !
+      if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) cycle bface_loop
+      !
+      if (bface(6,nf) == i) then
+        ii = ii + 1
+      end if
+      !
+    end do bface_loop
+    !
+    call mpi_allreduce(MPI_IN_PLACE,ii,1_int_mpi,mpi_inttyp, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+    !
+    if (mypnum == glb_root) then
+      write (iout,6) ii
+      flush (iout)
+    end if
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    if (mypnum == glb_root) flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  ! Format Statements
+  !
+  1 format (/," Flow conditions for BC # 0 - Reference/Freestream BCs")
+  2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
+  3 format (4x,"Wall Temperature      = ",es14.6," K",/)
+  4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
+            4x,"X-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Z-velocity            = ",es14.6," m/s")
+  5 format (4x,"Static Pressure       = ",es14.6," N/m^2",/, &
+            4x,"Static Temperature    = ",es14.6," K",/, &
+            4x,"Mach Number           = ",es14.6,/, &
+            4x,"Speed of Sound        = ",es14.6," m/s",/, &
+            4x,"Total Density         = ",es14.6," kg/m^3",/, &
+            4x,"Total Pressure        = ",es14.6," N/m^2",/, &
+            4x,"Total Temperature     = ",es14.6," K",/, &
+            4x,"Alpha Angle of Attack = ",es14.6," degrees",/, &
+            4x,"Beta  Angle of Attack = ",es14.6," degrees",/, &
+            4x,"Viscosity             = ",es14.6," kg/(m*s)",/, &
+            4x,"Reynolds #            = ",es14.6,/)
+  6 format (4x,"Number of boundary faces for this BC = ",i0)
+  !
+end subroutine write_bc_conditions
 !
 !###############################################################################
 !
@@ -1823,7 +2090,7 @@ continue
   !
   gm1 = gam - one
   one_over_gm1 = one / gm1
-  gam_over_gm1 = gam / gm1  
+  gam_over_gm1 = gam / gm1
   !
   r = pv(nec)
   vel(:) = pv(nmb:nme)
@@ -1847,7 +2114,7 @@ continue
   !
   if (bc%t_static > zero) then
     if (abs(bc%t_static - t) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,1) bc%t_static,t
       end if
@@ -1859,7 +2126,7 @@ continue
   !
   if (bc%p_static > zero) then
     if (abs(bc%p_static - p) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,2) bc%p_static,p
       end if
@@ -1871,7 +2138,7 @@ continue
   !
   if (bc%rho_static > zero) then
     if (abs(bc%rho_static - r) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,3) bc%rho_static,r
       end if
@@ -1883,7 +2150,7 @@ continue
   !
   if (bc%t_total > zero) then
     if (abs(bc%t_total - t0) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,4) bc%t_total,t0
       end if
@@ -1895,7 +2162,7 @@ continue
   !
   if (bc%p_total > zero) then
     if (abs(bc%p_total - p0) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,5) bc%p_total,p0
       end if
@@ -1907,7 +2174,7 @@ continue
   !
   if (bc%rho_total > zero) then
     if (abs(bc%rho_total - r0) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,6) bc%rho_total,r0
       end if
@@ -1919,7 +2186,7 @@ continue
   !
   if (bc%mach > zero) then
     if (abs(bc%mach - mach) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,7) bc%mach,mach
       end if
@@ -1931,7 +2198,7 @@ continue
   !
   if (bc%alpha_aoa /= zero) then
     if (abs(bc%alpha_aoa - alpha) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,8) bc%alpha_aoa,alpha
       end if
@@ -1943,7 +2210,7 @@ continue
   !
   if (bc%beta_aoa /= zero) then
     if (abs(bc%beta_aoa - beta) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,9) bc%beta_aoa,beta
       end if
@@ -1957,14 +2224,14 @@ continue
   !
   if (bc_vel > zero) then
     if (abs(bc_vel - vmag) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,10) bc_vel,vmag
       end if
       errors_found = true
     end if
     if (abs(bc%vx - vel(1)) > err_tol) then
-      if (mypnum == 0) then
+      if (mypnum == glb_root) then
         if (.not.errors_found) write (iout,100) n
         write (iout,11) bc%vx,vel(1)
       end if
@@ -1972,7 +2239,7 @@ continue
     end if
     if (size(vel) >= 2) then
       if (abs(bc%vy - vel(2)) > err_tol) then
-        if (mypnum == 0) then
+        if (mypnum == glb_root) then
           if (.not.errors_found) write (iout,100) n
           write (iout,12) bc%vy,vel(2)
         end if
@@ -1981,7 +2248,7 @@ continue
     end if
     if (size(vel) == 3) then
       if (abs(bc%vz - vel(3)) > err_tol) then
-        if (mypnum == 0) then
+        if (mypnum == glb_root) then
           if (.not.errors_found) write (iout,100) n
           write (iout,13) bc%vz,vel(3)
         end if
@@ -1998,29 +2265,29 @@ continue
   !
   1   format (5x,"Input       static temperature = ",es14.6,/, &
               5x,"Computed    static temperature = ",es14.6)
-  2   format (5x,"Input          static pressure = ",es14.6,/, & 
+  2   format (5x,"Input          static pressure = ",es14.6,/, &
               5x,"Computed       static pressure = ",es14.6)
-  3   format (5x,"Input           static density = ",es14.6,/, & 
+  3   format (5x,"Input           static density = ",es14.6,/, &
               5x,"Computed        static density = ",es14.6)
-  4   format (5x,"Input        total temperature = ",es14.6,/, & 
+  4   format (5x,"Input        total temperature = ",es14.6,/, &
               5x,"Computed     total temperature = ",es14.6)
-  5   format (5x,"Input           total pressure = ",es14.6,/, & 
+  5   format (5x,"Input           total pressure = ",es14.6,/, &
               5x,"Computed        total pressure = ",es14.6)
-  6   format (5x,"Input            total density = ",es14.6,/, & 
+  6   format (5x,"Input            total density = ",es14.6,/, &
               5x,"Computed         total density = ",es14.6)
-  7   format (5x,"Input              Mach number = ",es14.6,/, & 
+  7   format (5x,"Input              Mach number = ",es14.6,/, &
               5x,"Computed           Mach number = ",es14.6)
-  8   format (5x,"Input    alpha angle of attack = ",es14.6,/, & 
+  8   format (5x,"Input    alpha angle of attack = ",es14.6,/, &
               5x,"Computed alpha angle of attack = ",es14.6)
-  9   format (5x,"Input    beta  angle of attack = ",es14.6,/, & 
+  9   format (5x,"Input    beta  angle of attack = ",es14.6,/, &
               5x,"Computed beta  angle of attack = ",es14.6)
-  10  format (5x,"Input       velocity magnitude = ",es14.6,/, & 
+  10  format (5x,"Input       velocity magnitude = ",es14.6,/, &
               5x,"Computed    velocity magnitude = ",es14.6)
-  11  format (5x,"Input               x-velocity = ",es14.6,/, & 
+  11  format (5x,"Input               x-velocity = ",es14.6,/, &
               5x,"Computed            x-velocity = ",es14.6)
-  12  format (5x,"Input               y-velocity = ",es14.6,/, & 
+  12  format (5x,"Input               y-velocity = ",es14.6,/, &
               5x,"Computed            y-velocity = ",es14.6)
-  13  format (5x,"Input               z-velocity = ",es14.6,/, & 
+  13  format (5x,"Input               z-velocity = ",es14.6,/, &
               5x,"Computed            z-velocity = ",es14.6)
   100 format (/,3x,"An error was found checking the final ", &
                    "flow conditions for BC # ",i0," !!!",/)
@@ -2353,6 +2620,7 @@ include "Functions/vsp2u.f90"
 include "Functions/viscosity.f90"
 include "Functions/temperature.f90"
 include "Functions/smc000_interior_wall_radius.f90"
+include "Functions/arn2_interior_wall_radius.f90"
 !
 !###############################################################################
 !

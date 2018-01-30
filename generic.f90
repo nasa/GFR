@@ -433,7 +433,7 @@ continue
   !$ACC&              PRESENT(tunew,tuold,linf_error)
   do m = 1,nq+1
     do n = 1,n_solpts
-      linf_error(n,m) = abs( tunew(n,m) - tuold(n,m) ) 
+      linf_error(n,m) = abs( tunew(n,m) - tuold(n,m) )
     end do
   end do
   !
@@ -536,7 +536,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !    
+  !
   gm1 = gam - one
   !
   if (output_time_averaging) then
@@ -739,7 +739,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
-  !    
+  !
   gm1 = gam - one
   !
   if (mms_opt /= 0) then
@@ -1569,7 +1569,7 @@ continue
   else
     !
     orders_converged = log10(max(rl2mx,eps17)) - log10(max(rltwo,eps17))
-    output_L2val = orders_converged 
+    output_L2val = orders_converged
     !
     ! Check for convergence
     !
@@ -1775,7 +1775,7 @@ continue
   else
     !
     orders_converged = log10(max(rl2mx1,eps17)) - log10(max(rltwo,eps17))
-    output_L2val = orders_converged 
+    output_L2val = orders_converged
     !
     ! Check for convergence
     !
@@ -1943,7 +1943,7 @@ continue
   ! running in the PBS environment
   !
 #ifdef PBS_ENV
-  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ',1x,i3,2(":",i2.2)'
+  iter_out_fmt = iter_out_fmt(1:len_trim(iter_out_fmt)) // ',1x,i0,2(":",i2.2)'
 #endif
   !
   ! Put the last ')' onto iter_out_fmt
@@ -2006,7 +2006,7 @@ continue
   !
   1 format (i0)
   2 format (/,"  After Pre-Processor and Initializations =>", &
-              "  Wall Time Remaining = ",i3,2(":",i2.2))
+              "  Wall Time Remaining = ",i0,2(":",i2.2))
   100 format ("(1x,i",i0,",5es12.4,2x,i",i0,",2x,i",i0,",2es9.1")
   101 format ("(1x,i",i0,",8es12.4")
   200 format ("(/,",i0,"x,'iter',5x,'d_t',8x,'Time',6x,'L2-Density',2x,", &
@@ -2075,9 +2075,9 @@ subroutine collect_error_arrays(this_cell,unew,uold,wtdjac,xyz_err,vnew,vold)
   use ovar,              only : prev_ave_time,saved_ave_time,ave_start_time
   use ovar,              only : output_time_averaging
   use flowvar,           only : usp,uoldsp,uavesp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   use quadrature_mod,    only : std_elem
-  use metrics_mod,       only : metrics_dt
+  use metrics_mod,       only : jac
   use mms_mod,           only : mms_solution_at_xyz
   !
   !.. Formal Arguments ..
@@ -2162,9 +2162,8 @@ continue
   if (use_error_matrix) then
     !
     do m = 1,nq
-      unew(m,1:nep) = outerp(this_geom,this_order)% &
-                                             error% &
-                      mv_mult( ucurr(m,1:np) )
+      call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                           ucurr(m,1:np) , unew(m,1:nep) )
     end do
     !
   else
@@ -2194,9 +2193,8 @@ continue
     if (use_error_matrix) then
       !
       do m = 1,nq
-        vnew(m,1:nep) = outerp(this_geom,this_order)% &
-                                               error% &
-                        mv_mult( vcurr(m,1:np) )
+        call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                             vcurr(m,1:np) , vnew(m,1:nep) )
       end do
       !
     else
@@ -2216,16 +2214,14 @@ continue
   !
   if (use_error_matrix) then
     !
-    wtdjac(1:nep) = outerp(this_geom,this_order)% &
-                                           error% &
-                    mv_mult( metrics_dt(this_cell)%jac(:) )
+    call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                         jac(n1:n2) , wtdjac(1:nep) )
     !
     wtdjac(1:nep) = wtdjac(1:nep) * outerp(this_geom,this_order)%err_wts
     !
   else
     !
-    wtdjac(1:nep) = metrics_dt(this_cell)%jac(:) * &
-                    std_elem(this_geom,this_order)%wts
+    wtdjac(1:nep) = jac(n1:n2) * std_elem(this_geom,this_order)%wts
     !
   end if
   !
@@ -2238,9 +2234,8 @@ continue
   if (use_error_matrix) then
     !
     do l = 1,nr
-      xyz_err(l,1:nep) = outerp(this_geom,this_order)% &
-                                                error% &
-                         mv_mult( xyz(l,n1:n2) )
+      call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                           xyz(l,n1:n2) , xyz_err(l,1:nep) )
     end do
     !
   else
@@ -2339,9 +2334,8 @@ continue
       ! Get the solution from the previous time step at the error points
       !
       do m = 1,nq
-        uold(m,1:nep) = outerp(this_geom,this_order)% &
-                                               error% &
-                        mv_mult( uprev(m,1:np) )
+        call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                             uprev(m,1:np) , uold(m,1:nep) )
       end do
       !
     else
@@ -2383,9 +2377,8 @@ continue
         ! Get the solution from the previous time step at the error points
         !
         do m = 1,nq
-          vold(m,1:nep) = outerp(this_geom,this_order)% &
-                                                 error% &
-                          mv_mult( vprev(m,1:np) )
+          call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                               vprev(m,1:np) , vold(m,1:nep) )
         end do
         !
       else
@@ -2606,7 +2599,7 @@ continue
     vortx = dwdy - dvdz
     vorty = dudz - dwdx
     vortz = dvdx - dudy
-    vort  = vortx*vortx + vorty*vorty + vortz*vortz 
+    vort  = vortx*vortx + vorty*vorty + vortz*vortz
     !
     a1 = dudy + dvdx
     a2 = dudz + dwdx
@@ -2846,9 +2839,9 @@ subroutine compute_TaylorGreen_KEDR(iter,dtmin)
   use ovar, only : VortexGrid_DOF
   use ovar, only : iter_out_interval
   use flowvar, only : usp,dusp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   use quadrature_mod, only : std_elem
-  use metrics_mod, only : metrics_dt
+  use metrics_mod, only : jac
   !
   !.. Formal Arguments ..
   integer,  intent(in) :: iter
@@ -3023,22 +3016,19 @@ continue
       !
       ! NOTE: The vsp array will temporarily hold the conservative variables
       do m = 1,nq
-        vsp(m,1:nep) = outerp(this_geom,this_order)% &
-                                              error% &
-                       mv_mult( usp(n1:n2,m) )
+        call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                             usp(n1:n2,m) , vsp(m,1:nep) )
       end do
       !
       do m = 1,nq
         do l = 1,nr
-          dcvdx(l,m,1:nep) = outerp(this_geom,this_order)% &
-                                                    error% &
-                             mv_mult( dusp(n1:n2,l,m) )
+          call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                               dusp(n1:n2,l,m) , dcvdx(l,m,1:nep) )
         end do
       end do
       !
-      wtdjac(1:nep) = outerp(this_geom,this_order)% &
-                                             error% &
-                      mv_mult( metrics_dt(this_cell)%jac(:) )
+      call outerp_mv_mult( outerp(this_geom,this_order)%error , &
+                           jac(n1:n2) , wtdjac(1:nep) )
       !
       wtdjac(1:nep) = wtdjac(1:nep) * outerp(this_geom,this_order)%err_wts
       !
@@ -3060,8 +3050,7 @@ continue
       end do
      !vsp(1:nq,1:nep) = usp(1:nq,n1:n2)
      !dcvdx(1:nr,1:nq,1:nep) = dusp(1:nr,1:nq,n1:n2)
-      wtdjac(1:nep) = metrics_dt(this_cell)%jac * &
-                      std_elem(this_geom,this_order)%wts
+      wtdjac(1:nep) = jac(n1:n2) * std_elem(this_geom,this_order)%wts
       !
     end if
     !
@@ -3078,7 +3067,7 @@ continue
     !
     vsp(1:nq,1:nep) = usp2v( vsp(1:nq,1:nep) )
     !
-    ! Loop through the solution points of the current 
+    ! Loop through the solution points of the current
     !
     do k = 1,nep
       !
@@ -3102,7 +3091,7 @@ continue
       vort(3) = dpvdx(1,nmy,k) - dpvdx(2,nmx,k) ! dv/dx - du/dy
       !
       ! Compute the different kinetic energy dissipation rates (KEDR)
-      ! 
+      !
       ! Theoretical KEDR based on the integrated enstrophy
       !
       sum_kedr1(1,tgv_idx) = sum_kedr1(1,tgv_idx) + &
@@ -3193,7 +3182,8 @@ continue
       dtm = tgv_kedr1(ndt,n)
       dtp = tgv_kedr1(ndt,n+1)
       !
-      tgv_kedr1(1,n) =  ( (dtm/dtp)*(kec-kep) + (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
+      tgv_kedr1(1,n) =  ( (dtm/dtp)*(kec-kep) + &
+                          (dtp/dtm)*(kem-kec) ) / (dtm+dtp)
       !
     end do
     !
@@ -3202,7 +3192,7 @@ continue
     !
     if (first_output) then
       n = 0
-      tgv_kedr1(1,n) = (tgv_kedr1(nke,n) - tgv_kedr1(nke,n+1)) / tgv_kedr1(ndt,n+1)
+      tgv_kedr1(1,n) = (tgv_kedr1(nke,n)-tgv_kedr1(nke,n+1))/tgv_kedr1(ndt,n+1)
     end if
     !
     ! If this is the last output interval, do a one sided difference
@@ -3210,7 +3200,7 @@ continue
     !
     if (final_output) then
       n = tgv_idx
-      tgv_kedr1(1,n) = (tgv_kedr1(nke,n-1) - tgv_kedr1(nke,n)) / tgv_kedr1(ndt,n)
+      tgv_kedr1(1,n) = (tgv_kedr1(nke,n-1)-tgv_kedr1(nke,n)) / tgv_kedr1(ndt,n)
     end if
     !
     ! Have the root processor output the Taylor-Green KEDR solutions
@@ -3220,7 +3210,8 @@ continue
       solution_time = tgv_kedr1(ndt,-1)
       do n = 0,nend
         solution_time = solution_time + tgv_kedr1(ndt,n)
-        write (iotg1,2) solution_time, (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
+        write (iotg1,2) solution_time, &
+                        (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
       end do
       !
       ! Perform a few final tasks if this is the final output
@@ -3231,7 +3222,8 @@ continue
         !
         n = tgv_idx
         solution_time = solution_time + tgv_kedr1(ndt,n)
-        write (iotg1,2) solution_time, (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
+        write (iotg1,2) solution_time, &
+                        (tgv_kedr1(k,n), k=1,size(tgv_kedr1,dim=1))
         !
         ! Close the Taylor-Green KEDR solution file
         !
@@ -3363,172 +3355,7 @@ end subroutine generic_memory_usage
 !
 !###############################################################################
 !
-subroutine debug_timer(time_flag,message,processor,part_num,acc)
-  !
-  !.. Formal Arguments ..
-  integer,          intent(in) :: time_flag
-  !
-  character(len=*), intent(in) :: message
-  !
-  !.. Optional Arguments ..
-  integer, optional, intent(in) :: processor
-  integer, optional, intent(in) :: part_num
-  integer, optional, intent(in) :: acc
-  !
-#ifdef PROFILE_ON
-  !.. Local Scalars ..
-  real(wp), save :: beg_wall_time
-  real(wp)       :: end_wall_time
-  real(wp)       :: wall_time
-  !
-  integer, save :: procedure_counter = 0
-  integer       :: i,hours,minutes,seconds,total_sec
-  integer       :: output_cpu
-  !
-  character(len=300) :: out_message
-  !
-  !.. Local Arrays ..
-  real(wp), save :: beg_procedure_time(10)
-  real(wp), save :: accumulated_time(10)
-  real(wp), save :: accumulation_beg_time(10)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: leading_space = "                    "
-  !
-continue
-  !
-  output_cpu = 0
-  if (present(processor)) output_cpu = processor
-  !
-  if (time_flag == start_timer) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-    if (mypnum == output_cpu) then
-      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == stop_timer) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_wall_time
-    !
-    total_sec = nint(wall_time)
-    !
-    hours   = total_sec / 3600
-    minutes = (total_sec - hours*3600) / 60
-    seconds = total_sec - hours*3600 - minutes*60
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
-    end if
-    !
-    ! Reset beg_wall_time in case this procedure is called twice
-    ! in a row with time_flag set to stop_timer
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-  else if (time_flag == reset_accumulated_time) then
-    !
-    if (present(acc)) then
-      accumulated_time(acc) = zero
-    end if
-    !
-  else if (time_flag == report_accumulated_time) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),accumulated_time(acc), &
-                     trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == start_accumulation) then
-    !
-    if (present(acc)) then
-      accumulation_beg_time(acc) = mpi_wtime()
-    end if
-    !
-  else if (time_flag == stop_accumulation) then
-    !
-    if (present(acc)) then
-      wall_time = mpi_wtime() - accumulation_beg_time(acc)
-      accumulated_time(acc) = accumulated_time(acc) + wall_time
-    end if
-    !
-  else if (time_flag == entering_procedure) then
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,3) leading_space(1:i),trim(adjustl(message))
-    end if
-    !
-    procedure_counter = procedure_counter + 1
-    !
-    beg_procedure_time(procedure_counter) = mpi_wtime()
-   !beg_procedure_time(procedure_counter) = dclock()
-   !call cpu_time( beg_procedure_time(procedure_counter) )
-    !
-  else if (time_flag == leaving_procedure) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
-    !
-    procedure_counter = max( 0 , procedure_counter-1 )
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
-    end if
-    !
-  end if
-  !
-  flush (iout)
-  !
-  ! Format Statements
-  !
-  1 format (a,"## Starting timer for: ",a)
-  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
-  3 format (a,"=> Entering procedure : ",a)
-  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
-  5 format (a)
-  6 format (a," for partition # ",i0)
-  !
-#endif
-  !
-end subroutine debug_timer
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

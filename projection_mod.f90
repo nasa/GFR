@@ -1,8 +1,12 @@
 module projection_mod
   !
+#define PROFILE_ON
+  !
   !.. Use Statements ..
-  use module_kind_types
-  use generic_types_mod, only : matrix
+  use module_kind_types, global_debug_timer => debug_timer
+  !
+  use generic_types_mod, only : matrix => matrix_gpu_t
+  use generic_types_mod, only : create_matrix_sparsity
   !
   implicit none
   !
@@ -99,6 +103,16 @@ module projection_mod
   integer, save :: current_proj_order
   integer, save :: iu = 21
   !
+  !
+  ! #########################################
+  ! #####   MODULE GENERIC INTERFACES   #####
+  ! #########################################
+  !
+  interface project_to_porder
+    module procedure project_to_porder_vector, &
+                     project_to_porder_array
+  end interface project_to_porder
+  !
 contains
 !
 !###############################################################################
@@ -114,6 +128,8 @@ subroutine init_projection_matrices()
   use quadrature_mod,  only : std_elem,face_elem
   use vandermonde_mod, only : vand
   use vandermonde_mod, only : Compute_Basis_Matrix
+  use ovar,            only : Limiter_Option
+  use ovar,            only : Limiter_Filter_Option
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
@@ -124,6 +140,7 @@ subroutine init_projection_matrices()
   integer :: lmtr_omin,lmtr_omax
   !
   character(len=200) :: array_name
+  character(len=300) :: timer_message
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: bmat(:,:)
@@ -132,7 +149,8 @@ subroutine init_projection_matrices()
   !.. Local Pointers ..
   type(matrix),            pointer :: proj
   type(projection_matrix), pointer :: this_projct
-  real(wp), contiguous,    pointer :: pmat(:,:)
+ !real(wp), contiguous,    pointer :: pmat(:,:)
+  real(wp),                pointer :: pmat(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_projection_matrices"
@@ -202,6 +220,11 @@ continue
       ! and compute the corresponding projection matrices
       !
       cell_qdtr_order_loop: do cq_order = qdtr_omin,qdtr_omax
+        write (timer_message,100) trim(adjustl(Geom_Name(this_geom))), &
+                                  elem_order,cq_order
+        100 format ("CellOI Geometry = ",a,"  ;  Order = ",i0, &
+                    "  ;  cq_order = ",i0)
+        call debug_timer(start_timer,timer_message)
         !
         current_proj_order = cq_order
         !
@@ -256,6 +279,7 @@ continue
           deallocate ( bmat , stat=ierr , errmsg=error_message )
           call alloc_error(pname,"bmat",2,__LINE__,__FILE__,ierr,error_message)
         end if
+        call debug_timer(stop_timer,timer_message)
         !
       end do cell_qdtr_order_loop
       !
@@ -286,6 +310,11 @@ continue
         ! and compute the corresponding projection matrices
         !
         face_qdtr_order_loop: do fq_order = qdtr_omin,qdtr_omax
+          write (timer_message,101) trim(adjustl(Geom_Name(this_geom))), &
+                                    elem_order,fq_order
+          101 format ("FaceOI Geometry = ",a,"  ;  Order = ",i0, &
+                      "  ;  fq_order = ",i0)
+          call debug_timer(start_timer,timer_message)
           !
           current_proj_order = fq_order
           !
@@ -360,6 +389,7 @@ continue
             call alloc_error(pname,"vmat",2,__LINE__,__FILE__,ierr, &
                              error_message)
           end if
+          call debug_timer(stop_timer,timer_message)
           !
         end do face_qdtr_order_loop
         !
@@ -375,6 +405,14 @@ continue
       ! order for this combination of cell geometry and cell order
       !
       lmtr_omin = 0
+      if (Limiter_Option == 0) then
+        lmtr_omin = elem_order-1
+      else if (Limiter_Option >= 1) then
+        if (Limiter_Filter_Option /= 0) then
+          lmtr_omin = elem_order-1
+        end if
+      end if
+      !
       lmtr_omax = elem_order-1
       !
       ! Allocate the projct%limiter component of projct
@@ -388,6 +426,11 @@ continue
       ! and compute the corresponding projection matrices
       !
       cell_order_loop: do lmtr_order = lmtr_omin,lmtr_omax
+        write (timer_message,102) trim(adjustl(Geom_Name(this_geom))), &
+                                  elem_order,lmtr_order
+        102 format ("Projection Limiter Basis Geometry = ",a,"  ;  Order = ",i0, &
+                    "  ;  lmtr_order = ",i0)
+        call debug_timer(start_timer,timer_message)
         !
         current_proj_order = lmtr_order
         !
@@ -406,6 +449,12 @@ continue
         !
         bmat(:,:) = Compute_Basis_Matrix(this_geom,elem_order, &
                                          basis_order=lmtr_order)
+        call debug_timer(stop_timer,timer_message)
+        write (timer_message,103) trim(adjustl(Geom_Name(this_geom))), &
+                                  elem_order,lmtr_order
+        103 format ("Projection Limiter Matrix Geometry = ",a,"  ;  Order = ",i0, &
+                    "  ;  lmtr_order = ",i0)
+        call debug_timer(start_timer,timer_message)
         !
         ! Assign local pointer as alias to simplify the code
         !
@@ -432,6 +481,7 @@ continue
         pmat(:,:) = Compute_Projection_Matrix( &
                         basis=bmat, &
                         weights=std_elem(this_geom,elem_order)%wts)
+        call debug_timer(stop_timer,timer_message)
         !
         if (associated(pmat)) pmat => null()
         if (associated(proj)) proj => null()
@@ -457,13 +507,25 @@ continue
   do this_geom = gmin,gmax
     do elem_order = omin,omax
       if (allocated(projct(this_geom,elem_order)%CellOI)) then
-        call projct(this_geom,elem_order)%CellOI%check_for_sparsity
+        write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),elem_order
+        200 format ("CellOI sparsity check:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( projct(this_geom,elem_order)%CellOI )
+        call debug_timer(stop_timer,timer_message)
       end if
       if (allocated(projct(this_geom,elem_order)%FaceOI)) then
-        call projct(this_geom,elem_order)%FaceOI%check_for_sparsity
+        write (timer_message,201) trim(adjustl(Geom_Name(this_geom))),elem_order
+        201 format ("FaceOI sparsity check:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( projct(this_geom,elem_order)%FaceOI )
+        call debug_timer(stop_timer,timer_message)
       end if
       if (allocated(projct(this_geom,elem_order)%limiter)) then
-        call projct(this_geom,elem_order)%limiter%check_for_sparsity
+        write (timer_message,202) trim(adjustl(Geom_Name(this_geom))),elem_order
+        202 format ("Limiter sparsity check:  Geometry = ",a,"  ;  Order = ",i0)
+        call debug_timer(start_timer,timer_message)
+        call create_matrix_sparsity( projct(this_geom,elem_order)%limiter )
+        call debug_timer(stop_timer,timer_message)
       end if
     end do
   end do
@@ -478,68 +540,78 @@ end subroutine init_projection_matrices
 !
 !###############################################################################
 !
-subroutine project_to_porder(cell,array,order)
-  !
-  !... calculates d(utd)/dt
+subroutine project_to_porder_vector(vector,proj_order)
   !
   !.. Use Statements ..
-  use order_mod,  only : maxpts,p_order
-  use geovar,     only : cell_t
+  use order_mod,  only : maxSP,p_order
+  use geovar,     only : ncell,cell
   !
   !.. Formal Arguments ..
-  type(cell_t), dimension(:),    intent(in) :: cell
-  real(wp),   dimension(:,:), intent(inout) :: array
-  integer,          optional,    intent(in) :: order
+  real(wp), intent(inout) :: vector(:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: proj_order
   !
   !.. Local Scalars ..
-  integer :: k,m,n,nc,n1,n2,np,nvar
-  integer :: this_geom,this_order,proj_order
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order,order
+  real(wp) :: a,val
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:maxpts,1:maxpts) :: pmat
-  real(wp), dimension(1:maxpts,1:size(array,dim=1)) :: tmp
+  real(wp) :: old_vector(1:maxSP)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_vector"
   !
 continue
   !
-  proj_order = p_order
-  if (present(order)) proj_order = order
+  call debug_timer(entering_procedure,pname)
   !
-  nvar = size(array,dim=2)
+  order = p_order
+  if (present(proj_order)) then
+    order = proj_order
+  end if
   !
-  do nc = 1,size(cell)
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(vector,cell,projct) &
+  !$ACC&              PRIVATE(old_vector)
+  do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index for solpts in cell nc
-    n2 = cell(nc)%end_sp ! ending    index for solpts in cell nc
-    np = n2-n1+1 ! number of solution points in this cell
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
     !
-    this_geom = cell(nc)%geom
-    this_order = cell(nc)%order
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
     !
-    if (proj_order < this_order) then
+    if (order < this_order) then
       !
-      ! Store the transpose of usp for this cell to reduce cache misses
+      ! Save the current, pre-projection section of vector
+      ! for this cell into the temporary array old_vector.
       !
-      do m = 1,nvar
-        do k = 1,np
-          tmp(k,m) = array(n1-1+k,m)
-        end do
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        old_vector(n) = vector(n0+n)
       end do
       !
-      ! Project the solution down to proj_order
-      ! at each solution point of this cell
+      ! Project the vector down to order at each solution point of this cell
       !
-      do k = 1,np
+      !$ACC LOOP VECTOR
+      do n = 1,np
         !
-        n = k+n1-1 ! total index of solution point within array
+        val = zero
         !
-        array(n,1:nvar) = projct(this_geom,this_order)% &
-                                   limiter(proj_order)% &
-                          dot_mat( k , tmp(1:np,1:nvar) )
-       !do m = 1,nvar
-       !  array(m,n) = projct(this_geom,this_order)% &
-       !                        limiter(proj_order)% &
-       !               dot( k , tmp(1:np,m) )
-       !end do
+        do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+               projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+          !
+          k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+          a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+          !
+          val = val + a * old_vector(k)
+          !
+        end do
+        !
+        vector(n0+n) = val
         !
       end do
       !
@@ -547,7 +619,391 @@ continue
     !
   end do
   !
-end subroutine project_to_porder
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine project_to_porder_vector
+!
+!###############################################################################
+!
+subroutine project_to_porder_array(array,proj_order)
+  !
+  !.. Use Statements ..
+  use order_mod, only : p_order
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: array(:,:)
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: proj_order
+  !
+  !.. Local Scalars ..
+  integer :: nvar,order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_array"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nvar = size(array,dim=2)
+  !
+  order = p_order
+  if (present(proj_order)) then
+    order = proj_order
+  end if
+  !
+  if (nvar == 5) then      ! Probably 3D solution or residual
+    call project_to_porder_5v(array,order)
+  else if (nvar == 4) then ! Probably 2D solution or residual
+    call project_to_porder_4v(array,order)
+  else if (nvar == 3) then ! Probably 1D solution or residual
+    call project_to_porder_3v(array,order)
+  else
+    call project_to_porder_nv(array,order)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine project_to_porder_array
+!
+!###############################################################################
+!
+subroutine project_to_porder_5v(array,order)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar,    only : ncell,cell
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: order
+  real(wp), intent(inout) :: array(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,var_1,var_2,var_3,var_4,var_5
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_array(1:maxSP,1:5)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_5v"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(array,cell,projct) &
+  !$ACC&              PRIVATE(old_array)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    if (order < this_order) then
+      !
+      ! Save the current, pre-projection section of array
+      ! for this cell into the temporary array old_array.
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        old_array(n,1) = array(n0+n,1)
+        old_array(n,2) = array(n0+n,2)
+        old_array(n,3) = array(n0+n,3)
+        old_array(n,4) = array(n0+n,4)
+        old_array(n,5) = array(n0+n,5)
+      end do
+      !
+      ! Project the variables to order at each solution point of this cell
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        var_1 = zero
+        var_2 = zero
+        var_3 = zero
+        var_4 = zero
+        var_5 = zero
+        !
+        do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+               projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+          !
+          k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+          a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+          !
+          var_1 = var_1 + a * old_array(k,1)
+          var_2 = var_2 + a * old_array(k,2)
+          var_3 = var_3 + a * old_array(k,3)
+          var_4 = var_4 + a * old_array(k,4)
+          var_5 = var_5 + a * old_array(k,5)
+          !
+        end do
+        !
+        array(n0+n,1) = var_1
+        array(n0+n,2) = var_2
+        array(n0+n,3) = var_3
+        array(n0+n,4) = var_4
+        array(n0+n,5) = var_5
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+end subroutine project_to_porder_5v
+!
+!###############################################################################
+!
+subroutine project_to_porder_4v(array,order)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar,    only : ncell,cell
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: order
+  real(wp), intent(inout) :: array(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,var_1,var_2,var_3,var_4
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_array(1:maxSP,1:4)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_4v"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(array,cell,projct) &
+  !$ACC&              PRIVATE(old_array)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    if (order < this_order) then
+      !
+      ! Save the current, pre-projection section of array
+      ! for this cell into the temporary array old_array.
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        old_array(n,1) = array(n0+n,1)
+        old_array(n,2) = array(n0+n,2)
+        old_array(n,3) = array(n0+n,3)
+        old_array(n,4) = array(n0+n,4)
+      end do
+      !
+      ! Project the variables to order at each solution point of this cell
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        var_1 = zero
+        var_2 = zero
+        var_3 = zero
+        var_4 = zero
+        !
+        do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+               projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+          !
+          k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+          a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+          !
+          var_1 = var_1 + a * old_array(k,1)
+          var_2 = var_2 + a * old_array(k,2)
+          var_3 = var_3 + a * old_array(k,3)
+          var_4 = var_4 + a * old_array(k,4)
+          !
+        end do
+        !
+        array(n0+n,1) = var_1
+        array(n0+n,2) = var_2
+        array(n0+n,3) = var_3
+        array(n0+n,4) = var_4
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+end subroutine project_to_porder_4v
+!
+!###############################################################################
+!
+subroutine project_to_porder_3v(array,order)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar,    only : ncell,cell
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: order
+  real(wp), intent(inout) :: array(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,var_1,var_2,var_3
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_array(1:maxSP,1:3)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_3v"
+  !
+continue
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(array,cell,projct) &
+  !$ACC&              PRIVATE(old_array)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    if (order < this_order) then
+      !
+      ! Save the current, pre-projection section of array
+      ! for this cell into the temporary array old_array.
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        old_array(n,1) = array(n0+n,1)
+        old_array(n,2) = array(n0+n,2)
+        old_array(n,3) = array(n0+n,3)
+      end do
+      !
+      ! Project the variables to order at each solution point of this cell
+      !
+      !$ACC LOOP VECTOR
+      do n = 1,np
+        !
+        var_1 = zero
+        var_2 = zero
+        var_3 = zero
+        !
+        do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+               projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+          !
+          k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+          a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+          !
+          var_1 = var_1 + a * old_array(k,1)
+          var_2 = var_2 + a * old_array(k,2)
+          var_3 = var_3 + a * old_array(k,3)
+          !
+        end do
+        !
+        array(n0+n,1) = var_1
+        array(n0+n,2) = var_2
+        array(n0+n,3) = var_3
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+end subroutine project_to_porder_3v
+!
+!###############################################################################
+!
+subroutine project_to_porder_nv(array,order)
+  !
+  !.. Use Statements ..
+  use order_mod, only : maxSP
+  use geovar,    only : ncell,cell
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: order
+  real(wp), intent(inout) :: array(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,m,n,nc,np,n0,nvar
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
+  !
+  !.. Local Arrays ..
+  real(wp) :: old_array(1:maxSP,1:size(array,dim=2))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_to_porder_nv"
+  !
+continue
+  !
+  nvar = size(array,dim=2)
+  !
+  !$ACC PARALLEL LOOP GANG &
+  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              PRESENT(array,cell,projct) &
+  !$ACC&              PRIVATE(old_array)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1  ! offset index for sol-pts in this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts in this cell
+    !
+    this_geom = cell(nc)%geom   ! geometry of this cell
+    this_order = cell(nc)%order ! order of this cell
+    !
+    if (order < this_order) then
+      !
+      ! Save the current, pre-projection section of array
+      ! for this cell into the temporary array old_array.
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do m = 1,nvar
+        do n = 1,np
+          old_array(n,m) = array(n0+n,m)
+        end do
+      end do
+      !
+      ! Project the variables to order at each solution point of this cell
+      !
+      !$ACC LOOP VECTOR COLLAPSE(2)
+      do m = 1,nvar
+        do n = 1,np
+          !
+          val = zero
+          !
+          do i = projct(this_geom,this_order)%limiter(order)%row_ptr(n)+1, &
+                 projct(this_geom,this_order)%limiter(order)%row_ptr(n+1)
+            !
+            k = projct(this_geom,this_order)%limiter(order)%row_idx(i)
+            a = projct(this_geom,this_order)%limiter(order)%row_val(i)
+            !
+            val = val + a * old_array(k,m)
+            !
+          end do
+          !
+          array(n0+n,m) = val
+          !
+        end do
+      end do
+      !
+    end if
+    !
+  end do
+  !
+end subroutine project_to_porder_nv
 !
 !###############################################################################
 !
@@ -556,6 +1012,11 @@ end subroutine project_to_porder
 pure &
 #endif
 function Compute_Projection_Matrix(basis,weights,vand) result(return_value)
+  !
+#ifdef SPECIAL_FOR_INTEL
+  !.. Use Statements ..
+  use blas95, only : gemm
+#endif
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: basis(:,:)
@@ -581,6 +1042,7 @@ function Compute_Projection_Matrix(basis,weights,vand) result(return_value)
   !.. Local Allocatable Arrays ..
   real(qp), allocatable :: pmat(:,:)
   real(qp), allocatable :: vmat(:,:)
+  real(qp), allocatable :: tmp(:,:)
   !
 continue
   !
@@ -614,7 +1076,11 @@ continue
   !
   ! bTxWxb = transpose(basis) x diag(weights) x basis
   !
+#ifdef SPECIAL_FOR_INTEL
+  call gemm( bTxW , bmat , bTxWxb )
+#else
   bTxWxb = matmul( bTxW , bmat )
+#endif
   !
   ! Make sure all values in bTxWxb that are less than
   ! epsilon for working precision are set to zero
@@ -628,7 +1094,11 @@ continue
   ! Get the inverse of bTxWxb
   ! bTxWxb = inverse( transpose(basis) x diag(weights) x basis )
   !
+#ifdef SPECIAL_FOR_INTEL
+  bTxWxb = invert_matrix_lapack95( bTxWxb )
+#else
   bTxWxb = invert_matrix( bTxWxb )
+#endif
   !
   ! Make sure all values in bTxWxb that are less than
   ! epsilon for working precision are set to zero
@@ -651,13 +1121,27 @@ continue
                ((vand(i,j),i=1,size(vand,dim=1)),j=1,size(vand,dim=2))
 #endif
     !
+#ifdef SPECIAL_FOR_INTEL
+    allocate ( tmp(1:size(bTxWxb,dim=1),1:size(bTxW,dim=2)) , source=qzero )
+    allocate ( pmat(1:size(vmat,dim=1),1:size(bTxW,dim=2)) , source=qzero )
+    call gemm( bTxWxb , bTxW , tmp )
+    call gemm( vmat , tmp , pmat )
+#else
     pmat = matmul( vmat , matmul( bTxWxb , bTxW ) ) ! F2003 AUTO-REALLOCATION
+#endif
     !
   else
     !
     ! pmat = basis x bTxWxb x bTxW
     !
+#ifdef SPECIAL_FOR_INTEL
+    allocate ( tmp(1:size(bTxWxb,dim=1),1:size(bTxW,dim=2)) , source=qzero )
+    allocate ( pmat(1:size(bmat,dim=1),1:size(bTxW,dim=2)) , source=qzero )
+    call gemm( bTxWxb , bTxW , tmp )
+    call gemm( bmat , tmp , pmat )
+#else
     pmat = matmul( bmat , matmul( bTxWxb , bTxW ) ) ! F2003 AUTO-REALLOCATION
+#endif
     !
   end if
   !
@@ -675,7 +1159,7 @@ continue
   !        second dimension (or rows) of the projection matrix is used for
   !        dot products with solution vectors.  This reduces the number of
   !        cache misses whenever the projection matrix is used.
-  ! 
+  !
   return_value = chop( transpose( pmat ) ) ! USING F2003 AUTO-REALLOCATION
 #ifdef ENABLE_PROJECTION_OUTPUT
   write (iu,2) "return_value",&
@@ -696,6 +1180,9 @@ subroutine projection_memory_usage(iunit)
   !
   !.. Use Statements ..
   use module_memory
+#ifndef DISABLE_DTIO
+  use generic_types_mod, only : matrix_memory_usage
+#endif
   !
   !.. Formal Arguments ..
   integer, optional, intent(in) :: iunit
@@ -739,7 +1226,7 @@ continue
           do k = lbound(projct(i,j)%CellOI,dim=1), &
                  ubound(projct(i,j)%CellOI,dim=1)
             !
-            array = projct(i,j)%CellOI(k)%memory_usage()
+            array = matrix_memory_usage( projct(i,j)%CellOI(k) )
             !
             write (array_name,4) Geom_Name(i),j,"CellOI",k
             write (iou,2) array_name,array%get_units()
@@ -763,7 +1250,7 @@ continue
           do k = lbound(projct(i,j)%FaceOI,dim=1), &
                  ubound(projct(i,j)%FaceOI,dim=1)
             !
-            array = projct(i,j)%FaceOI(k)%memory_usage()
+            array = matrix_memory_usage( projct(i,j)%FaceOI(k) )
             !
             write (array_name,4) Geom_Name(i),j,"FaceOI",k
             write (iou,2) array_name,array%get_units()
@@ -787,7 +1274,7 @@ continue
           do k = lbound(projct(i,j)%limiter,dim=1), &
                  ubound(projct(i,j)%limiter,dim=1)
             !
-            array = projct(i,j)%limiter(k)%memory_usage()
+            array = matrix_memory_usage( projct(i,j)%limiter(k) )
             !
             write (array_name,4) Geom_Name(i),j,"limiter",k
             write (iou,2) array_name,array%get_units()
@@ -1047,6 +1534,10 @@ continue
   end if
   !
 end subroutine move_projct_to_device
+!
+!###############################################################################
+!
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

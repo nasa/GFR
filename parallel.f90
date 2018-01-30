@@ -31,10 +31,10 @@ module parallel_mod
  !public :: collect_global_solpts
   public :: collect_global_solution
  !public :: collect_global_variable
-  public :: wait_faceusp
-  public :: exchange_faceusp
-  public :: wait_facedusp
-  public :: exchange_facedusp
+  public :: wait_faceusp,wait_faceusp_dt
+  public :: exchange_faceusp,exchange_faceusp_dt
+  public :: wait_facedusp,wait_facedusp_dt
+  public :: exchange_facedusp,exchange_facedusp_dt
   public :: exch_edge_and_node_solutions
   public :: parallel_memory_usage
   public :: exch_connectivity
@@ -141,7 +141,7 @@ module parallel_mod
   ! CELL_MAP : mappings between local and global cell indices
   !            NOTE: I believe this mapping array is the only one needed outside
   !                  this module. For example, it is needed for initializing the
-  !                  local solution from the global solution that is read in 
+  !                  local solution from the global solution that is read in
   !                  from the restart file.
   !
   type(map_t), public, save, allocatable :: cell_map(:)
@@ -265,7 +265,7 @@ module parallel_mod
   !
   ! EXCH_NEUSP : Array containing the information for all the communication
   !              pairs that need to exchange edge and node solutions
-  !              
+  !
   type(exch_data_t), save, allocatable :: exch_neusp(:)
   !
   !
@@ -484,7 +484,7 @@ continue
   !
   ! Output the partition grid to a tecplot file
   !
- !if (mypnum == 0) then
+ !if (mypnum == glb_root) then
  !  call output_partitions(mypnum,nodes_of_cell,nodes_of_cell_ptr, &
  !                         xyz_nodes,epart)
  !end if
@@ -592,7 +592,7 @@ continue
                      error_message)
   end if
   !
-  ! Have the root processor broadcast the flx, face_rotation 
+  ! Have the root processor broadcast the flx, face_rotation
   ! and the mapping arrays
   !
  !if (use_mpi_pack) then
@@ -1318,7 +1318,7 @@ continue
                                         make_bnd_faces_negative=true)
   !
   ! Find the cells surrounding each cell which
-  ! defines the dual graph of the nodal grid 
+  ! defines the dual graph of the nodal grid
   !
   call find_cells_surrounding_each_cell(bface,cell_geom, &
                                         nodes_of_cell,nodes_of_cell_ptr, &
@@ -1488,7 +1488,7 @@ continue
   !############################################################
   !############################################################
   ! We need to figure out the computational difference between
-  ! triangle and quad cells and populate vwgt accordingly 
+  ! triangle and quad cells and populate vwgt accordingly
   !############################################################
   !############################################################
   !
@@ -2271,8 +2271,11 @@ subroutine find_partition_boundaries(epart,bface,face,cell_geom,cell_order)
   !.. Local Allocatable Arrays ..
   logical(lk),  allocatable :: msk(:)
   type(face_t), allocatable :: temp_face(:)
+  integer,      allocatable :: temp_bface(:,:)
   integer,      allocatable :: temp_geom(:)
   integer,      allocatable :: temp_order(:)
+  integer,      allocatable :: new2old(:)
+  integer,      allocatable :: old2new(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "find_partition_boundaries"
@@ -2314,14 +2317,67 @@ continue
   !
   ! Reallocate bface to make room for new partition boundary faces
   !
-  call reallocate(bface,new_size2=new_lfbnd)
+  allocate ( new2old(1:new_lfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",1,__LINE__,__FILE__,ierr,error_message)
+  allocate ( old2new(1:new_lfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",1,__LINE__,__FILE__,ierr,error_message)
   !
-  ! Replace bface(10,nf) with the location within the face array to extract data
-  ! and set the responsible partition to the partition for the host cell
+  i = 0
+  do nf = 1,lfbnd
+    if (bface(1,nf) == bc_periodic) then
+      if (epart(bface(2,nf)) /= epart(bface(6,nf))) then
+        cycle
+      end if
+    end if
+    i = i + 1
+    new2old(i) = nf
+    old2new(nf) = i
+  end do
+  do nf = 1,lfbnd
+    if (bface(1,nf) == bc_periodic) then
+      if (epart(bface(2,nf)) /= epart(bface(6,nf))) then
+        i = i + 1
+        new2old(i) = nf
+        old2new(nf) = i
+      end if
+    end if
+  end do
+  !
+  ! Allocate a new temporary bface array with enough room for the new partition
+  ! boundary faces, and copy over the old bface array using the new ordering
+  ! we just found.
+  !
+  allocate ( temp_bface(1:size(bface,dim=1),1:new_lfbnd) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"temp_bface",1,__LINE__,__FILE__,ierr,error_message)
   !
   do nf = 1,lfbnd
-    bface(10,nf) = nf
+    temp_bface(:,nf) = bface(:,new2old(nf))
+    if (temp_bface(1,nf) == bc_periodic) then
+      temp_bface(5,nf) = old2new( bface(5,new2old(nf)) )
+    end if
+    temp_bface(10,nf) = new2old(nf)
   end do
+  !
+  call move_alloc( from=temp_bface , to=bface )
+  !
+  deallocate ( new2old , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"new2old",2,__LINE__,__FILE__,ierr,error_message)
+  deallocate ( old2new , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"old2new",2,__LINE__,__FILE__,ierr,error_message)
+! !
+! ! Reallocate bface to make room for new partition boundary faces
+! !
+! call reallocate(bface,new_size2=new_lfbnd)
+! !
+! ! Replace bface(10,nf) with the location within the face array to extract data
+! ! and set the responsible partition to the partition for the host cell
+! !
+! do nf = 1,lfbnd
+!   bface(10,nf) = nf
+! end do
   !
   ! Collect and add the new boundary faces to bface
   !
@@ -2397,7 +2453,7 @@ continue
       ! face used to be the right cell when this partition boundary previously
       ! was an interior face. Therefore, we need to flip the left and right
       ! cells on the boundary face in order to make the right cell the host
-      ! cell for this boundary face. We also need to reverse the 
+      ! cell for this boundary face. We also need to reverse the
       ! rotation/ordering of the face nodes so that the nodes of the
       ! ghost cell are defined such that the normal of the face points
       ! outside the grid domain.
@@ -2477,7 +2533,7 @@ continue
   ! #######
   ! ## 5 ##
   ! #######
-  ! 
+  !
   ! Since we have all the information here, we need to make an addition to
   ! the bface array for periodic boundary faces. For the periodic boundary
   ! face 'nf' (with host cell 'nc') which is linked to another periodic
@@ -2496,6 +2552,12 @@ continue
       bface(7,nf) = epart(bface(2,nf))-1
     end if
   end do
+  !
+  ! Now we need to reorder the boundary faces so that any periodic boundary
+  ! faces that are now communication boundary faces are grouped together with
+  ! the other communication boundary faces.
+  !
+
   !
   ! ##########################################################################
   ! ##########################################################################
@@ -2842,7 +2904,7 @@ subroutine create_node_map(npart,epart,node,cells_with_node, &
   integer :: i,j,n,nn,n1,n2,ierr
   integer :: this_part,loc_node,glb_node
   integer :: gnode,node_div,init_node
-  character(len=200) :: array_name 
+  character(len=200) :: array_name
   !
   !.. Local Arrays ..
   integer     :: node_count(1:npart)
@@ -3053,7 +3115,7 @@ subroutine create_edge_map(npart,epart,edge,cells_with_edge, &
   integer :: i,j,n,ne,n1,n2,ierr
   integer :: this_part,loc_edge,glb_edge
   integer :: gedge,edge_div,init_edge
-  character(len=200) :: array_name 
+  character(len=200) :: array_name
   !
   !.. Local Arrays ..
   integer     :: edge_count(1:npart)
@@ -3132,7 +3194,7 @@ continue
   ! also exists on a different partition
   ! NOTE: The cpu component of the edge array should only be allocated
   !       if the global edge exists on multiple partitions
-  ! 
+  !
   if (allocated(edge)) then
     !
     do this_part = 1,size(edge_map)
@@ -3142,7 +3204,7 @@ continue
         glb_edge = edge_map(this_part)%loc_to_glb(loc_edge)
         !
         if (.not. allocated(edge(glb_edge)%cpu)) cycle local_edges
-        ! 
+        !
         do n = 1,size(edge(glb_edge)%cpu)
           if (this_part == edge(glb_edge)%cpu(n)%partition) then
             edge(glb_edge)%cpu(n)%loc_edge = loc_edge
@@ -4209,7 +4271,6 @@ continue
     write (iout,11) "cell_geom",size(cell_geom), &
                     minval(cell_geom,dim=1),maxval(cell_geom),"recv"
 #endif
-                            
     !
   end if
   !
@@ -4487,8 +4548,8 @@ continue
     !
     ! Localize the ghost cell for this face
     ! NOTE: Since ghost cells are actually faces of an interior cell they are
-    !       one dimensions lower that the interior cells, 
-    !          e.g. 2D tria/quad face for a 3D grid or 
+    !       one dimensions lower that the interior cells,
+    !          e.g. 2D tria/quad face for a 3D grid or
     !               1D edge face for a 2D grid
     !       each ghost cell is uniquely defined so the ghost cell index is just
     !        (the number of interior cells) + (index of current boundary face)
@@ -4710,7 +4771,7 @@ continue
     nodes_of_cell_ptr(loc_ghost_cell+1) = nfnods
   end do
   !
-  ! Reshuffle nodes_of_cell_ptr to make the pointer cumulative 
+  ! Reshuffle nodes_of_cell_ptr to make the pointer cumulative
   !
   do loc_cell = 2,size(nodes_of_cell_ptr)
     nodes_of_cell_ptr(loc_cell) = nodes_of_cell_ptr(loc_cell) + &
@@ -5351,7 +5412,7 @@ continue
         !
         ! Check if this conflict is local to only one partition.
         ! NOTE: We first check bc_conflict(n)%is_local to see if it is true
-        !       before checking if the master and slave processors are the 
+        !       before checking if the master and slave processors are the
         !       same. This way, if we already determined that this conflict
         !       is not local, we dont have to worry about the following
         !       logical assignment overwriting the value in is_local with
@@ -5602,7 +5663,7 @@ continue
 end subroutine create_global_collective_datatypes
 !
 !###############################################################################
-! 
+!
 subroutine create_face_nonblocking_datatypes(bface,face_map,flx,face_rotation)
 !subroutine create_face_nonblocking_datatypes(bface,face,face_map, &
 !                                             flx,face_rotation)
@@ -6149,7 +6210,7 @@ continue
   5 format (" CPU ",i0," -> CPU ",i0," :: Sending   - ",3i6)
   6 format (" CPU ",i0," <- CPU ",i0," :: Receiving - ",3i6)
   7 format (2x,i6,": Sending - ",i0,4x,2f12.4,/, &
-            "        Receiving - ",i0,4x,2f12.4)  
+            "        Receiving - ",i0,4x,2f12.4)
   100 format ("comm_pts(",i0,")%",a)
   !
 end subroutine create_face_nonblocking_datatypes
@@ -6459,7 +6520,7 @@ continue
     if (allocated(node(glb_node)%cpu)) then
       !
       ! Check to see if this node is on multiple partitions which
-      ! identifies that this node is on a communication boundary 
+      ! identifies that this node is on a communication boundary
       !
       if (size(node(glb_node)%cpu) > 1) then
         !
@@ -6480,7 +6541,7 @@ continue
         !                           |
         !               Partition A | This partition
         !                           |
-        !                    
+        !
         if (any(node(glb_node)%cpu%partition == my_part)) then
           n = n + 1
         end if
@@ -6564,7 +6625,7 @@ continue
             bnd_edges(n)%idx = loc_edge
             !
             rd = real( sum( edge(glb_edge)%cpu(:)%num_cells ) , kind=wp )
-            rn = real( edge(glb_edge)%cpu(i)%num_cells , kind=wp ) 
+            rn = real( edge(glb_edge)%cpu(i)%num_cells , kind=wp )
             !
             bnd_edges(n)%ave_correction = rn / rd
             bnd_edges(n)%my_responsibility = &
@@ -7379,34 +7440,82 @@ end subroutine create_node_and_edge_datatypes
 !
 !###############################################################################
 !
-subroutine exchange_faceusp(faceusp)
+subroutine exchange_faceusp()
   !
   !.. Use Statements ..
-  use geovar,  only : bface
-  use flowvar, only : face_var
-  !
-  !.. Formal Arguments ..
-  type(face_var), dimension(:), intent(in) :: faceusp
+!!!#define DEBUG_SEND_FACEUSP
+#ifdef DEBUG_SEND_FACEUSP
+  use geovar,  only : n_bnd_flxpts
+#endif
+  use geovar,  only : bface,face
+  use flowvar, only : faceusp_array
   !
   !.. Local Scalars..
-  integer :: n,nf,nsz,ibeg,iend
+  integer :: i,k,m,n,nf,nfp,f0,ibeg,nvar
   !
   integer(int_mpi) :: send_cpu
   integer(int_mpi) :: recv_cpu
   integer(int_mpi) :: mesg_tag
   _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+#ifdef DEBUG_SEND_FACEUSP
+  integer :: j
+  real(wp), allocatable :: tmp_faceusp(:,:,:)
+#endif
   !
 continue
   !
-  iend = 0
+#ifdef DEBUG_SEND_FACEUSP
+  do j = 1,2
+    fusp_send_buffer(:) = real(zero,kind=r8)
+    if (j == 1) then
+      tmp_faceusp = faceusp_array ! F2003 AUTO-REALLOCATION
+      i = 0
+      do nf = 1,size(faceusp_array,dim=3)
+        do m = 1,size(faceusp_array,dim=2)
+          do k = 1,n_bnd_flxpts
+            i = i + 1
+            faceusp_array(k,m,nf) = real(i,kind=wp)
+          end do
+        end do
+      end do
+    else
+      call move_alloc( from=tmp_faceusp , to=faceusp_array )
+    end if
+#endif
+  nvar = size(faceusp_array,dim=2)
+  !
+  ibeg = 0
   do nf = 1,size(bface,dim=2)
+    !
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz = size(faceusp(nf)%v(:,:,1))
-    ibeg = iend + 1
-    iend = iend + nsz
-    fusp_send_buffer(ibeg:iend) = &
-                 reshape( real(faceusp(nf)%v(:,:,1),kind=r8) , [nsz] )
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    i = ibeg
+    do k = 1,nfp
+      do m = 1,nvar
+        i = i + 1
+        fusp_send_buffer(i) = real( faceusp_array(f0+k,m,1) , kind=r8 )
+      end do
+    end do
+    !
+    ibeg = ibeg + nfp*nvar
+    !
   end do
+#ifdef DEBUG_SEND_FACEUSP
+    if (j == 1) then
+      do i = 1,size(fusp_send_buffer)
+        write (mypnum+1000,*) i,nint(fusp_send_buffer(i))
+      end do
+      flush (mypnum+1000)
+    end if
+  end do
+#endif
+!!!#define DEBUG_RECV_FACEUSP
+#ifdef DEBUG_RECV_FACEUSP
+  fusp_send_buffer(:) = real( intseq(1,size(fusp_send_buffer)) , kind=r8 )
+#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -7445,14 +7554,665 @@ end subroutine exchange_faceusp
 !
 !###############################################################################
 !
-subroutine wait_faceusp(faceusp)
+subroutine wait_faceusp()
+  !
+  !.. Use Statements ..
+  use geovar,  only : bface,face
+  use flowvar, only : faceusp_array
+  !
+  !.. Local Scalars ..
+  integer :: i,k,m,nf,nfp,f0,ibeg,nvar
+  !
+  !.. Local Allocatable Arrays ..
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
+  !
+continue
+  !
+  nvar = size(faceusp_array,dim=2)
+  !
+  ! Wait for all faceusp sends and receives to complete
+  !
+  fstat = reshape(fusp_istat,[size(fusp_istat)]) ! F2003 AUTO-REALLOCATION
+  call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst,fstat,mpierr)
+#ifdef DEBUG_RECV_FACEUSP
+  do i = 1,size(fusp_recv_buffer)
+    write (mypnum+5000,*) i,nint(fusp_recv_buffer(i))
+  end do
+  flush (mypnum+5000)
+#endif
+  !
+  ! Update the right states for only the communication boundary faces
+  !
+  ibeg = 0
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    i = ibeg
+    do k = 1,nfp
+      do m = 1,nvar
+        i = i + 1
+        faceusp_array(f0+k,m,2) = real( fusp_recv_buffer(i) , kind=wp )
+      end do
+    end do
+    !
+    ibeg = ibeg + nfp*nvar
+    !
+  end do
+  !
+  ! If using Lobatto points, exchange any BC conflicts that might exist
+  !
+  call exchange_bc_conflicts_usp
+  !
+end subroutine wait_faceusp
+!
+!###############################################################################
+!
+subroutine exchange_bc_conflicts_usp(override)
+  !
+  !.. Use Statements ..
+  use geovar,  only : bc_conflict,face
+  use ovar,    only : loc_flux_pts
+  use ovar,    only : use_bc_conflicts
+  use flowvar, only : faceusp_array
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: override
+  !
+  !.. Local Scalars ..
+  integer :: i,m,n,nf,km,ks,nfm,nfs,f0m,f0s
+  integer(int_mpi) :: itag,send_cpu,recv_cpu
+  !
+  !.. Local Arrays ..
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
+  real(r8) :: exch_send(1:nq)
+  real(r8) :: exch_recv(1:nq)
+  !
+continue
+  !
+  ! We have finished computing the gradients on the non-communication
+  ! boundary faces and the communication of all other gradients between
+  ! processors of adjacent partitions has completed. Now we have to
+  ! correct any flux points on boundary faces that have conflicting
+  ! boundary conditions.
+  !
+  ! This only needs to be done if we are using flux points that include
+  ! the end points of the face (e.g., Lobatto) so skip all of this and
+  ! return if we are not using a quadrature with flux points at the
+  ! end points UNLESS override is present. If override is present, only
+  ! exit return_loop if it is true. If it is not true, we dont care
+  ! that it is present and we only care if we are using Lobatto points.
+  !
+  return_loop: do i = 1,1
+    !
+    if (use_bc_conflicts) then
+      !
+      if (present(override)) then
+        if (override) exit return_loop
+      end if
+      !
+      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
+      !
+    end if
+    !
+    ! Return if we have reached this point
+    !
+    return
+    !
+  end do return_loop
+  !
+  ! Now go through and exchange faceusp at bc conflicts
+  !
+  do n = 1,size(bc_conflict)
+    !
+    ! Continue to the next bc_conflict if this processor
+    ! has zero involvment with this conflict.
+    !
+    if (bc_conflict(n)%not_my_conflict) cycle
+    !
+    ! Overwrite the boundary gradient depending on if this conflict
+    ! is local or needs to be sent to another processor via MPI.
+    !
+    if (bc_conflict(n)%is_local) then
+      !
+      ! This conflict is local to this processor so just
+      ! overwrite the boundary gradient in the slave flux points
+      ! with the boundary gradient in the master flux point.
+      !
+      nfm = bc_conflict(n)%master%face
+      f0m = face(nfm)%beg_fp - 1
+      km = f0m + bc_conflict(n)%master%flux_point
+      !
+      do i = 1,size(bc_conflict(n)%slave)
+        !
+        nfs = bc_conflict(n)%slave(i)%face
+        f0s = face(nfs)%beg_fp - 1
+        ks = f0s + bc_conflict(n)%slave(i)%flux_point
+        !
+        do m = 1,nq
+          faceusp_array(ks,m,2) = faceusp_array(km,m,2)
+        end do
+        !
+      end do
+      !
+    else
+      !
+      ! This conflict is on a partition boundary so we need to
+      ! use MPI to exchange the boundary gradients.
+      !
+      send_cpu = bc_conflict(n)%master%cpu
+      !
+      if (mypnum == send_cpu) then
+        !
+        nfm = bc_conflict(n)%master%face
+        f0m = face(nfm)%beg_fp - 1
+        km = f0m + bc_conflict(n)%master%flux_point
+        !
+        do m = 1,nq
+          exch_send(m) = real(faceusp_array(km,m,2),kind=r8)
+        end do
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          ! Off-chance that we have multiple slaves on a conflict
+          ! but some are local and some need MPI communication
+          !
+          if (mypnum == recv_cpu) then
+            !
+            nfs = bc_conflict(n)%slave(i)%face
+            f0s = face(nfs)%beg_fp - 1
+            ks = f0s + bc_conflict(n)%slave(i)%flux_point
+            !
+            do m = 1,nq
+              faceusp_array(ks,m,2) = real(exch_send(m),kind=wp)
+            end do
+            !
+          else
+            !
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
+                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
+            !
+          end if
+          !
+        end do
+        !
+      else
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          if (mypnum == recv_cpu) then
+            !
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
+                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
+            !
+            nfs = bc_conflict(n)%slave(i)%face
+            f0s = face(nfs)%beg_fp - 1
+            ks = f0s + bc_conflict(n)%slave(i)%flux_point
+            !
+            do m = 1,nq
+              faceusp_array(ks,m,2) = real(exch_recv(m),kind=wp)
+            end do
+            !
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine exchange_bc_conflicts_usp
+!
+!###############################################################################
+!
+subroutine exchange_facedusp()
+  !
+  !.. Use Statements ..
+#ifdef DEBUG_SEND_FACEUSP
+  use geovar,  only : n_bnd_flxpts
+#endif
+  use geovar,  only : bface,face
+  use flowvar, only : facedusp_array
+  !
+  !.. Local Scalars..
+  integer :: i,k,l,m,n,nf,nfp,f0,ibeg,nvar,ndim
+  !
+  integer(int_mpi) :: send_cpu
+  integer(int_mpi) :: recv_cpu
+  integer(int_mpi) :: mesg_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+#ifdef DEBUG_SEND_FACEUSP
+  integer :: j
+  real(wp), allocatable :: tmp_facedusp(:,:,:,:)
+#endif
+  !
+continue
+  !
+#ifdef DEBUG_SEND_FACEUSP
+  do j = 1,2
+    fdusp_send_buffer(:) = real(zero,kind=r8)
+    if (j == 1) then
+      tmp_facedusp = facedusp_array ! F2003 AUTO-REALLOCATION
+      i = 0
+      do nf = 1,size(facedusp_array,dim=4)
+        do m = 1,size(facedusp_array,dim=3)
+          do l = 1,size(facedusp_array,dim=2)
+            do k = 1,n_bnd_flxpts
+              i = i + 1
+              facedusp_array(k,l,m,nf) = real(i,kind=wp)
+            end do
+          end do
+        end do
+      end do
+    else
+      call move_alloc( from=tmp_facedusp , to=facedusp_array )
+    end if
+#endif
+  ndim = size(facedusp_array,dim=2)
+  nvar = size(facedusp_array,dim=3)
+  !
+  ibeg = 0
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    i = ibeg
+    do k = 1,nfp
+      do m = 1,nvar
+        do l = 1,ndim
+          i = i + 1
+          fdusp_send_buffer(i) = real( facedusp_array(f0+k,l,m,1) , kind=r8 )
+        end do
+      end do
+    end do
+    !
+    ibeg = ibeg + nfp*nvar*ndim
+    !
+  end do
+#ifdef DEBUG_SEND_FACEUSP
+    if (j == 1) then
+      do i = 1,size(fdusp_send_buffer)
+        write (mypnum+2000,*) i,nint(fdusp_send_buffer(i))
+      end do
+      flush (mypnum+2000)
+    end if
+  end do
+#endif
+#ifdef DEBUG_RECV_FACEUSP
+  fdusp_send_buffer(:) = real( intseq(1,size(fdusp_send_buffer)) , kind=r8 )
+#endif
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    !
+    ! Process sending this message
+    send_cpu   = exch_fdusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fdusp(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fdusp(n)%recv_datatype
+    !
+    call mpi_irecv(fdusp_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fdusp_rqst(n),mpierr)
+    !
+  end do
+  !
+  ! Send out the adjacent cells
+  !
+  do n = 1,ncomm
+    !
+    ! Process receiving this message
+    recv_cpu   = exch_fdusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fdusp(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fdusp(n)%send_datatype
+    !
+    call mpi_isend(fdusp_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fdusp_rqst(n+ncomm),mpierr)
+    !
+  end do
+  !
+end subroutine exchange_facedusp
+!
+!###############################################################################
+!
+subroutine wait_facedusp()
+  !
+  !.. Use Statements ..
+  use geovar,  only : bface,face
+  use flowvar, only : facedusp_array
+  !
+  !.. Local Scalars ..
+  integer :: i,k,l,m,nf,nfp,f0,ibeg,iend,nvar,ndim
+  !
+  !.. Local Allocatable Arrays ..
+  _MPI_STATUS_TYPE_, allocatable :: fstat(:)
+  !
+continue
+  !
+  ndim = size(facedusp_array,dim=2)
+  nvar = size(facedusp_array,dim=3)
+  !
+  ! Wait for all facedusp sends and receives to complete
+  !
+  fstat = reshape(fdusp_istat,[size(fdusp_istat)]) ! F2003 AUTO-REALLOCATION
+  call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst,fstat,mpierr)
+#ifdef DEBUG_RECV_FACEUSP
+  do i = 1,size(fdusp_recv_buffer)
+    write (mypnum+6000,*) i,nint(fdusp_recv_buffer(i))
+  end do
+  flush (mypnum+6000)
+  call stop_recon(stop_mpi,"wait_facedusp",__LINE__,__FILE__)
+#endif
+  !
+  ! Update the right states for only the communication boundary faces
+  !
+  ibeg = 0
+  do nf = 1,size(bface,dim=2)
+    !
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    i = ibeg
+    do k = 1,nfp
+      do m = 1,nvar
+        do l = 1,ndim
+          i = i + 1
+          facedusp_array(f0+k,l,m,2) = real( fdusp_recv_buffer(i) , kind=wp )
+        end do
+      end do
+    end do
+    !
+    ibeg = ibeg + nfp*nvar*ndim
+    !
+  end do
+  !
+  ! If using Lobatto points, exchange any BC conflicts that might exist
+  !
+  call exchange_bc_conflicts_dusp
+  !
+end subroutine wait_facedusp
+!
+!###############################################################################
+!
+subroutine exchange_bc_conflicts_dusp(override)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,bc_conflict,face
+  use ovar,    only : loc_flux_pts
+  use ovar,    only : use_bc_conflicts
+  use flowvar, only : facedusp_array
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: override
+  !
+  !.. Local Scalars ..
+  integer :: i,l,m,n,nf,km,ks,nfm,nfs,f0m,f0s
+  integer(int_mpi) :: itag,send_cpu,recv_cpu
+  !
+  !.. Local Arrays ..
+  _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
+  real(r8) :: exch_send(1:nr,1:nq)
+  real(r8) :: exch_recv(1:nr,1:nq)
+  !
+continue
+  !
+  ! We have finished computing the gradients on the non-communication
+  ! boundary faces and the communication of all other gradients between
+  ! processors of adjacent partitions has completed. Now we have to
+  ! correct any flux points on boundary faces that have conflicting
+  ! boundary conditions.
+  !
+  ! This only needs to be done if we are using flux points that include
+  ! the end points of the face (e.g., Lobatto) so skip all of this and
+  ! return if we are not using a quadrature with flux points at the
+  ! end points UNLESS override is present. If override is present, only
+  ! exit return_loop if it is true. If it is not true, we dont care
+  ! that it is present and we only care if we are using Lobatto points.
+  !
+  return_loop: do i = 1,1
+    !
+    if (use_bc_conflicts) then
+      !
+      if (present(override)) then
+        if (override) exit return_loop
+      end if
+      !
+      if (any(loc_flux_pts == Gauss_Lobatto)) exit return_loop
+      !
+    end if
+    !
+    ! Return if we have reached this point
+    !
+    return
+    !
+  end do return_loop
+  !
+  ! Now go through and exchange facedusp at bc conflicts
+  !
+  do n = 1,size(bc_conflict)
+    !
+    ! Continue to the next bc_conflict if this processor
+    ! has zero involvment with this conflict.
+    !
+    if (bc_conflict(n)%not_my_conflict) cycle
+    !
+    ! Overwrite the boundary gradient depending on if this conflict
+    ! is local or needs to be sent to another processor via MPI.
+    !
+    if (bc_conflict(n)%is_local) then
+      !
+      ! This conflict is local to this processor so just
+      ! overwrite the boundary gradient in the slave flux points
+      ! with the boundary gradient in the master flux point.
+      !
+      nfm = bc_conflict(n)%master%face
+      f0m = face(nfm)%beg_fp - 1
+      km = f0m + bc_conflict(n)%master%flux_point
+      !
+      do i = 1,size(bc_conflict(n)%slave)
+        !
+        nfs = bc_conflict(n)%slave(i)%face
+        f0s = face(nfs)%beg_fp - 1
+        ks = f0s + bc_conflict(n)%slave(i)%flux_point
+        !
+        do m = 1,nq
+          do l = 1,nr
+            facedusp_array(ks,l,m,2) = facedusp_array(km,l,m,2)
+          end do
+        end do
+        !
+      end do
+      !
+    else
+      !
+      ! This conflict is on a partition boundary so we need to
+      ! use MPI to exchange the boundary gradients.
+      !
+      send_cpu = bc_conflict(n)%master%cpu
+      !
+      if (mypnum == send_cpu) then
+        !
+        nfm = bc_conflict(n)%master%face
+        f0m = face(nfm)%beg_fp - 1
+        km = f0m + bc_conflict(n)%master%flux_point
+        !
+        do m = 1,nq
+          do l = 1,nr
+            exch_send(l,m) = real(facedusp_array(km,l,m,2),kind=r8)
+          end do
+        end do
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          ! Off-chance that we have multiple slaves on a conflict
+          ! but some are local and some need MPI communication
+          !
+          if (mypnum == recv_cpu) then
+            !
+            nfs = bc_conflict(n)%slave(i)%face
+            f0s = face(nfs)%beg_fp - 1
+            ks = f0s + bc_conflict(n)%slave(i)%flux_point
+            !
+            do m = 1,nq
+              do l = 1,nr
+                facedusp_array(ks,l,m,2) = real(exch_send(l,m),kind=wp)
+              end do
+            end do
+            !
+          else
+            !
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_send(exch_send,size(exch_send,kind=int_mpi),mpi_flttyp, &
+                          recv_cpu,itag,MPI_COMM_WORLD,mpierr)
+            !
+          end if
+          !
+        end do
+        !
+      else
+        !
+        do i = 1,size(bc_conflict(n)%slave)
+          !
+          recv_cpu = bc_conflict(n)%slave(i)%cpu
+          !
+          if (mypnum == recv_cpu) then
+            !
+            itag = int( (send_cpu+n+1)*i + (recv_cpu+i+1)*n , kind=int_mpi )
+            call mpi_recv(exch_recv,size(exch_recv,kind=int_mpi),mpi_flttyp, &
+                          send_cpu,itag,MPI_COMM_WORLD,istat(1),mpierr)
+            !
+            nfs = bc_conflict(n)%slave(i)%face
+            f0s = face(nfs)%beg_fp - 1
+            ks = f0s + bc_conflict(n)%slave(i)%flux_point
+            !
+            do m = 1,nq
+              do l = 1,nr
+                facedusp_array(ks,l,m,2) = real(exch_recv(l,m),kind=wp)
+              end do
+            end do
+            !
+          end if
+          !
+        end do
+        !
+      end if
+      !
+    end if
+    !
+  end do
+  !
+end subroutine exchange_bc_conflicts_dusp
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+! OLD DERIVED-TYPE-BASED FACE, EDGE, AND NODE COMMUNICATION ROUTINES
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+subroutine exchange_faceusp_dt(faceusp_dt)
   !
   !.. Use Statements ..
   use geovar,  only : bface
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  type(face_var), dimension(:), intent(inout) :: faceusp
+  type(face_var), dimension(:), intent(in) :: faceusp_dt
+  !
+  !.. Local Scalars..
+  integer :: n,nf,nsz,ibeg,iend
+  !
+  integer(int_mpi) :: send_cpu
+  integer(int_mpi) :: recv_cpu
+  integer(int_mpi) :: mesg_tag
+  _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
+  !
+continue
+  !
+  iend = 0
+  do nf = 1,size(bface,dim=2)
+    if (bface(1,nf) /= bc_cpu_bnd) cycle
+    nsz = size(faceusp_dt(nf)%v(:,:,1))
+    ibeg = iend + 1
+    iend = iend + nsz
+    fusp_send_buffer(ibeg:iend) = &
+                 reshape( real(faceusp_dt(nf)%v(:,:,1),kind=r8) , [nsz] )
+  end do
+  !
+  ! Initialize all the receives so each process
+  ! is ready once the send is posted
+  !
+  do n = 1,ncomm
+    !
+    ! Process sending this message
+    send_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%recv_tag
+    ! MPI user-defined datatype for receive
+    recv_dtype = exch_fusp(n)%recv_datatype
+    !
+    call mpi_irecv(fusp_recv_buffer,1_int_mpi,recv_dtype,send_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fusp_rqst(n),mpierr)
+    !
+  end do
+  !
+  ! Send out the face flux point solution variables to the adjacent processes
+  !
+  do n = 1,ncomm
+    !
+    ! Process receiving this message
+    recv_cpu   = exch_fusp(n)%adj_cpu
+    ! Message tag
+    mesg_tag   = exch_fusp(n)%send_tag
+    ! MPI user-defined datatype for send
+    send_dtype = exch_fusp(n)%send_datatype
+    !
+    call mpi_isend(fusp_send_buffer,1_int_mpi,send_dtype,recv_cpu,mesg_tag, &
+                   MPI_COMM_WORLD,fusp_rqst(n+ncomm),mpierr)
+    !
+  end do
+  !
+end subroutine exchange_faceusp_dt
+!
+!###############################################################################
+!
+subroutine wait_faceusp_dt(faceusp_dt)
+  !
+  !.. Use Statements ..
+  use geovar,  only : bface
+  use flowvar, only : face_var
+  !
+  !.. Formal Arguments ..
+  type(face_var), dimension(:), intent(inout) :: faceusp_dt
   !
   !.. Local Scalars ..
   integer :: ibeg,iend,nf
@@ -7477,23 +8237,23 @@ continue
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz(1) = size(faceusp(nf)%v,dim=1)
-    nsz(2) = size(faceusp(nf)%v,dim=2)
+    nsz(1) = size(faceusp_dt(nf)%v,dim=1)
+    nsz(2) = size(faceusp_dt(nf)%v,dim=2)
     ibeg = iend + 1
     iend = iend + product(nsz)
-    faceusp(nf)%v(:,:,2) = &
+    faceusp_dt(nf)%v(:,:,2) = &
                  reshape( real(fusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
   end do
   !
   ! If using Lobatto points, exchange any BC conflicts that might exist
   !
-  call exchange_bc_conflicts_usp(faceusp)
+  call exchange_bc_conflicts_usp_dt(faceusp_dt)
   !
-end subroutine wait_faceusp
+end subroutine wait_faceusp_dt
 !
 !###############################################################################
 !
-subroutine exchange_bc_conflicts_usp(faceusp,override)
+subroutine exchange_bc_conflicts_usp_dt(faceusp_dt,override)
   !
   !.. Use Statements ..
   use geovar,  only : bc_conflict
@@ -7502,7 +8262,7 @@ subroutine exchange_bc_conflicts_usp(faceusp,override)
   use flowvar, only : face_var
   !
   !.. Formal Arguments ..
-  type(face_var), intent(inout) :: faceusp(:)
+  type(face_var), intent(inout) :: faceusp_dt(:)
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -7555,7 +8315,7 @@ continue
     !
     ! Continue to the next bc_conflict if this processor
     ! has zero involvment with this conflict.
-    ! 
+    !
     if (bc_conflict(n)%not_my_conflict) cycle
     !
     ! Overwrite the boundary gradient depending on if this conflict
@@ -7575,7 +8335,7 @@ continue
         ks = bc_conflict(n)%slave(i)%flux_point
         nfs = bc_conflict(n)%slave(i)%face
         !
-        faceusp(nfs)%v(:,ks,2) = faceusp(nfm)%v(:,km,2)
+        faceusp_dt(nfs)%v(:,ks,2) = faceusp_dt(nfm)%v(:,km,2)
         !
       end do
       !
@@ -7591,7 +8351,7 @@ continue
         km = bc_conflict(n)%master%flux_point
         nfm = bc_conflict(n)%master%face
         !
-        exch_send = real(faceusp(nfm)%v(:,km,2),kind=r8)
+        exch_send = real(faceusp_dt(nfm)%v(:,km,2),kind=r8)
         !
         do i = 1,size(bc_conflict(n)%slave)
           !
@@ -7605,7 +8365,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            faceusp(nfs)%v(:,ks,2) = real(exch_send,kind=wp)
+            faceusp_dt(nfs)%v(:,ks,2) = real(exch_send,kind=wp)
             !
           else
             !
@@ -7632,7 +8392,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            faceusp(nfs)%v(:,ks,2) = real(exch_recv,kind=wp)
+            faceusp_dt(nfs)%v(:,ks,2) = real(exch_recv,kind=wp)
             !
           end if
           !
@@ -7644,18 +8404,18 @@ continue
     !
   end do
   !
-end subroutine exchange_bc_conflicts_usp
+end subroutine exchange_bc_conflicts_usp_dt
 !
 !###############################################################################
 !
-subroutine exchange_facedusp(facedusp)
+subroutine exchange_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
   use geovar,  only : bface
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  type(face_vec), dimension(:), intent(in) :: facedusp
+  type(face_vec), dimension(:), intent(in) :: facedusp_dt
   !
   !.. Local Scalars..
   integer :: n,nf,nsz,ibeg,iend
@@ -7670,11 +8430,11 @@ continue
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz = size(facedusp(nf)%v(:,:,:,1))
+    nsz = size(facedusp_dt(nf)%v(:,:,:,1))
     ibeg = iend + 1
     iend = iend + nsz
     fdusp_send_buffer(ibeg:iend) = &
-                 reshape( real(facedusp(nf)%v(:,:,:,1),kind=r8) , [nsz] )
+                 reshape( real(facedusp_dt(nf)%v(:,:,:,1),kind=r8) , [nsz] )
   end do
   !
   ! Initialize all the receives so each process
@@ -7710,18 +8470,18 @@ continue
     !
   end do
   !
-end subroutine exchange_facedusp
+end subroutine exchange_facedusp_dt
 !
 !###############################################################################
 !
-subroutine wait_facedusp(facedusp)
+subroutine wait_facedusp_dt(facedusp_dt)
   !
   !.. Use Statements ..
   use geovar,  only : bface
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  type(face_vec), dimension(:), intent(inout) :: facedusp
+  type(face_vec), dimension(:), intent(inout) :: facedusp_dt
   !
   !.. Local Scalars ..
   integer :: ibeg,iend,nf
@@ -7746,24 +8506,24 @@ continue
   iend = 0
   do nf = 1,size(bface,dim=2)
     if (bface(1,nf) /= bc_cpu_bnd) cycle
-    nsz(1) = size(facedusp(nf)%v,dim=1)
-    nsz(2) = size(facedusp(nf)%v,dim=2)
-    nsz(3) = size(facedusp(nf)%v,dim=3)
+    nsz(1) = size(facedusp_dt(nf)%v,dim=1)
+    nsz(2) = size(facedusp_dt(nf)%v,dim=2)
+    nsz(3) = size(facedusp_dt(nf)%v,dim=3)
     ibeg = iend + 1
     iend = iend + product(nsz)
-    facedusp(nf)%v(:,:,:,2) = &
+    facedusp_dt(nf)%v(:,:,:,2) = &
                  reshape( real(fdusp_recv_buffer(ibeg:iend),kind=wp) , nsz )
   end do
   !
   ! If using Lobatto points, exchange any BC conflicts that might exist
   !
-  call exchange_bc_conflicts_dusp(facedusp)
+  call exchange_bc_conflicts_dusp_dt(facedusp_dt)
   !
-end subroutine wait_facedusp
+end subroutine wait_facedusp_dt
 !
 !###############################################################################
 !
-subroutine exchange_bc_conflicts_dusp(facedusp,override)
+subroutine exchange_bc_conflicts_dusp_dt(facedusp_dt,override)
   !
   !.. Use Statements ..
   use geovar,  only : nr,bc_conflict
@@ -7772,7 +8532,7 @@ subroutine exchange_bc_conflicts_dusp(facedusp,override)
   use flowvar, only : face_vec
   !
   !.. Formal Arguments ..
-  type(face_vec), intent(inout) :: facedusp(:)
+  type(face_vec), intent(inout) :: facedusp_dt(:)
   !
   !.. Optional Arguments ..
   logical(lk), optional, intent(in) :: override
@@ -7825,7 +8585,7 @@ continue
     !
     ! Continue to the next bc_conflict if this processor
     ! has zero involvment with this conflict.
-    ! 
+    !
     if (bc_conflict(n)%not_my_conflict) cycle
     !
     ! Overwrite the boundary gradient depending on if this conflict
@@ -7845,7 +8605,7 @@ continue
         ks = bc_conflict(n)%slave(i)%flux_point
         nfs = bc_conflict(n)%slave(i)%face
         !
-        facedusp(nfs)%v(:,:,ks,2) = facedusp(nfm)%v(:,:,km,2)
+        facedusp_dt(nfs)%v(:,:,ks,2) = facedusp_dt(nfm)%v(:,:,km,2)
         !
       end do
       !
@@ -7861,7 +8621,7 @@ continue
         km = bc_conflict(n)%master%flux_point
         nfm = bc_conflict(n)%master%face
         !
-        exch_send = real(facedusp(nfm)%v(:,:,km,2),kind=r8)
+        exch_send = real(facedusp_dt(nfm)%v(:,:,km,2),kind=r8)
         !
         do i = 1,size(bc_conflict(n)%slave)
           !
@@ -7875,7 +8635,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            facedusp(nfs)%v(:,:,ks,2) = real(exch_send,kind=wp)
+            facedusp_dt(nfs)%v(:,:,ks,2) = real(exch_send,kind=wp)
             !
           else
             !
@@ -7902,7 +8662,7 @@ continue
             ks = bc_conflict(n)%slave(i)%flux_point
             nfs = bc_conflict(n)%slave(i)%face
             !
-            facedusp(nfs)%v(:,:,ks,2) = real(exch_recv,kind=wp)
+            facedusp_dt(nfs)%v(:,:,ks,2) = real(exch_recv,kind=wp)
             !
           end if
           !
@@ -7914,20 +8674,21 @@ continue
     !
   end do
   !
-end subroutine exchange_bc_conflicts_dusp
+end subroutine exchange_bc_conflicts_dusp_dt
 !
 !###############################################################################
 !
-subroutine exch_edge_and_node_solutions(nodeusp,nodedusp,edgeusp,edgedusp)
+subroutine exch_edge_and_node_solutions(nodeusp_dt,nodedusp_dt, &
+                                        edgeusp_dt,edgedusp_dt)
   !
   !.. Use Statements ..
   use flowvar, only : ne1d_t,ne2d_t,ne3d_t
   !
   !.. Formal Arguments ..
-  type(ne1d_t), dimension(:), intent(inout) :: nodeusp
-  type(ne2d_t), dimension(:), intent(inout) :: nodedusp
-  type(ne2d_t), dimension(:), intent(inout) :: edgeusp
-  type(ne3d_t), dimension(:), intent(inout) :: edgedusp
+  type(ne1d_t), dimension(:), intent(inout) :: nodeusp_dt
+  type(ne2d_t), dimension(:), intent(inout) :: nodedusp_dt
+  type(ne2d_t), dimension(:), intent(inout) :: edgeusp_dt
+  type(ne3d_t), dimension(:), intent(inout) :: edgedusp_dt
   !
   !.. Local Scalars..
   integer  :: n,n1,n2,n3,nsz
@@ -7970,7 +8731,7 @@ continue
   !       it would be equivalent to send_buffer(1:nr+1,1:nq,:) where
   !       send_buffer(1,1:nq,:) are the conserved solution variables and
   !       send_buffer(2:nr+1,1:nq,:) are the solution gradients
-  !       
+  !
   pack_nodes: do i = 1,size(bnd_nodes)
     !
     n = bnd_nodes(i)%idx
@@ -7986,23 +8747,23 @@ continue
     !
     ave_correction = bnd_nodes(i)%ave_correction
     !
-    nodeusp(n)%v(:)    = ave_correction * nodeusp(n)%v(:)
-    nodedusp(n)%v(:,:) = ave_correction * nodedusp(n)%v(:,:)
+    nodeusp_dt(n)%v(:)    = ave_correction * nodeusp_dt(n)%v(:)
+    nodedusp_dt(n)%v(:,:) = ave_correction * nodedusp_dt(n)%v(:,:)
     !
     ! Pack the conserved solution variables for this node point
     !
-    nsz = size(nodeusp(n)%v(:))
+    nsz = size(nodeusp_dt(n)%v(:))
     ibeg = iend + 1
     iend = iend + nsz
-    send_buffer(ibeg:iend) = reshape( real(nodeusp(n)%v(:),kind=r8) , [nsz] )
+    send_buffer(ibeg:iend) = reshape( real(nodeusp_dt(n)%v(:),kind=r8) , [nsz] )
     !
     ! Pack the solution gradients for this node point
     !
-    nsz = size(nodedusp(n)%v(:,:))
+    nsz = size(nodedusp_dt(n)%v(:,:))
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = &
-                 reshape( real(nodedusp(n)%v(:,:),kind=r8) , [nsz] )
+                 reshape( real(nodedusp_dt(n)%v(:,:),kind=r8) , [nsz] )
     !
   end do pack_nodes
   !
@@ -8027,23 +8788,24 @@ continue
     !
     ave_correction = bnd_edges(i)%ave_correction
     !
-    edgeusp(n)%v(:,:)    = ave_correction * edgeusp(n)%v(:,:)
-    edgedusp(n)%v(:,:,:) = ave_correction * edgedusp(n)%v(:,:,:)
+    edgeusp_dt(n)%v(:,:)    = ave_correction * edgeusp_dt(n)%v(:,:)
+    edgedusp_dt(n)%v(:,:,:) = ave_correction * edgedusp_dt(n)%v(:,:,:)
     !
     ! Pack the conserved solution variables for these edge points
     !
-    nsz = size(edgeusp(n)%v(:,:))
+    nsz = size(edgeusp_dt(n)%v(:,:))
     ibeg = iend + 1
     iend = iend + nsz
-    send_buffer(ibeg:iend) = reshape( real(edgeusp(n)%v(:,:),kind=r8) , [nsz] )
+    send_buffer(ibeg:iend) = reshape( real(edgeusp_dt(n)%v(:,:),kind=r8) , &
+                                      [nsz] )
     !
     ! Pack the solution gradients for these edge points
     !
-    nsz = size(edgedusp(n)%v(:,:,:))
+    nsz = size(edgedusp_dt(n)%v(:,:,:))
     ibeg = iend + 1
     iend = iend + nsz
     send_buffer(ibeg:iend) = &
-                 reshape( real(edgedusp(n)%v(:,:,:),kind=r8) , [nsz] )
+                 reshape( real(edgedusp_dt(n)%v(:,:,:),kind=r8) , [nsz] )
     !
   end do pack_edges
   !
@@ -8090,20 +8852,20 @@ continue
         ! Unpack the conserved solution variables for this node point
         ! and add them to the local node values
         !
-        n1 = size(nodeusp(n)%v,dim=1)
+        n1 = size(nodeusp_dt(n)%v,dim=1)
         ibeg = iend + 1
         iend = iend + n1
-        nodeusp(n)%v(:) = nodeusp(n)%v(:) + &
+        nodeusp_dt(n)%v(:) = nodeusp_dt(n)%v(:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1] )
         !
         ! Unpack the solution gradients for this node point
         ! and add them to the local node values
         !
-        n1 = size(nodedusp(n)%v,dim=1)
-        n2 = size(nodedusp(n)%v,dim=2)
+        n1 = size(nodedusp_dt(n)%v,dim=1)
+        n2 = size(nodedusp_dt(n)%v,dim=2)
         ibeg = iend + 1
         iend = iend + n1*n2
-        nodedusp(n)%v(:,:) = nodedusp(n)%v(:,:) + &
+        nodedusp_dt(n)%v(:,:) = nodedusp_dt(n)%v(:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2] )
         !
       end do unpack_nodes
@@ -8117,22 +8879,22 @@ continue
         ! Unpack the conserved solution variables for these edge points
         ! and add them to the local edge values
         !
-        n1 = size(edgeusp(n)%v,dim=1)
-        n2 = size(edgeusp(n)%v,dim=2)
+        n1 = size(edgeusp_dt(n)%v,dim=1)
+        n2 = size(edgeusp_dt(n)%v,dim=2)
         ibeg = iend + 1
         iend = iend + n1*n2
-        edgeusp(n)%v(:,:) = edgeusp(n)%v(:,:) + &
+        edgeusp_dt(n)%v(:,:) = edgeusp_dt(n)%v(:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2] )
         !
         ! Unpack the solution gradients for these edge points
         ! and add them to the local edge values
         !
-        n1 = size(edgedusp(n)%v,dim=1)
-        n2 = size(edgedusp(n)%v,dim=2)
-        n3 = size(edgedusp(n)%v,dim=3)
+        n1 = size(edgedusp_dt(n)%v,dim=1)
+        n2 = size(edgedusp_dt(n)%v,dim=2)
+        n3 = size(edgedusp_dt(n)%v,dim=3)
         ibeg = iend + 1
         iend = iend + n1*n2*n3
-        edgedusp(n)%v(:,:,:) = edgedusp(n)%v(:,:,:) + &
+        edgedusp_dt(n)%v(:,:,:) = edgedusp_dt(n)%v(:,:,:) + &
                    reshape( real(recv_buffer(ibeg:iend),kind=wp) , [n1,n2,n3] )
         !
       end do unpack_edges
@@ -8166,17 +8928,18 @@ end subroutine exch_edge_and_node_solutions
 !
 !###############################################################################
 !
-subroutine exch_connectivity(nodeusp,nodedusp,edgeusp,edgedusp,faceusp)
+subroutine exch_connectivity(nodeusp_dt,nodedusp_dt, &
+                             edgeusp_dt,edgedusp_dt,faceusp_dt)
   !
   !.. Use Statements ..
   use flowvar, only : ne1d_t,ne2d_t,ne3d_t,face_var
   !
   !.. Formal Arguments ..
-  type(ne1d_t),   dimension(:), intent(inout) :: nodeusp
-  type(ne2d_t),   dimension(:), intent(inout) :: nodedusp
-  type(ne2d_t),   dimension(:), intent(inout) :: edgeusp
-  type(ne3d_t),   dimension(:), intent(inout) :: edgedusp
-  type(face_var), dimension(:), intent(inout) :: faceusp
+  type(ne1d_t),   dimension(:), intent(inout) :: nodeusp_dt
+  type(ne2d_t),   dimension(:), intent(inout) :: nodedusp_dt
+  type(ne2d_t),   dimension(:), intent(inout) :: edgeusp_dt
+  type(ne3d_t),   dimension(:), intent(inout) :: edgedusp_dt
+  type(face_var), dimension(:), intent(inout) :: faceusp_dt
   !
   !.. Local Scalars..
   integer  :: n,n1,n2,k
@@ -8240,19 +9003,19 @@ continue
   !
   ! 1.1.1) Gather and pack up the node points for
   !        the nodes on boundary partitions
-  !       
+  !
   pack_nodes: do i = 1,size(bnd_nodes)
     !
     n = bnd_nodes(i)%idx
     !
     ibeg = iend + 1
-    iend = iend + size(nodeusp(n)%v(:))
+    iend = iend + size(nodeusp_dt(n)%v(:))
     !
     ! Make the index for the node point negative if this partition
     ! is responsible for the point index of this node
     !
     if (bnd_nodes(i)%my_responsibility) then
-      send_buffer(ibeg) = real( -nodeusp(n)%v(1) , kind=kind(send_buffer) )
+      send_buffer(ibeg) = real( -nodeusp_dt(n)%v(1) , kind=kind(send_buffer) )
     end if
     !
     ! There is no information to pack up from the nodedusp array, but we do
@@ -8261,7 +9024,7 @@ continue
     ! in send_buffer
     !
     ibeg = iend + 1
-    iend = iend + size(nodedusp(n)%v)
+    iend = iend + size(nodedusp_dt(n)%v)
     !
   end do pack_nodes
   !
@@ -8272,8 +9035,8 @@ continue
     !
     n = bnd_edges(i)%idx
     !
-    n1 = size(edgeusp(n)%v,dim=1)
-    n2 = size(edgeusp(n)%v,dim=2)
+    n1 = size(edgeusp_dt(n)%v,dim=1)
+    n2 = size(edgeusp_dt(n)%v,dim=2)
     !
     do k = 1,n2
       !
@@ -8284,7 +9047,8 @@ continue
       ! is responsible for the point indices of this edge
       !
       if (bnd_edges(i)%my_responsibility) then
-        send_buffer(ibeg) = real( -edgeusp(n)%v(1,k) , kind=kind(send_buffer) )
+        send_buffer(ibeg) = real( -edgeusp_dt(n)%v(1,k) , &
+                                  kind=kind(send_buffer) )
       end if
       !
     end do
@@ -8295,7 +9059,7 @@ continue
     ! correct location in send_buffer
     !
     ibeg = iend + 1
-    iend = iend + size(edgedusp(n)%v)
+    iend = iend + size(edgedusp_dt(n)%v)
     !
   end do pack_edges
   !
@@ -8350,7 +9114,7 @@ continue
         ! Unpack the node point index for this node
         !
         ibeg = iend + 1
-        iend = iend + size(nodeusp(n)%v)
+        iend = iend + size(nodeusp_dt(n)%v)
         !
         ! If the value of recv_buffer(ibeg) is negative, the adjacent
         ! partition is responsible for the point index of this node
@@ -8361,8 +9125,8 @@ continue
         !       solution variables for this node point.
         !
         if (recv_buffer(ibeg) < real(zero,kind=kind(recv_buffer))) then
-          nodeusp(n)%v(1) = real( recv_buffer(ibeg) , &
-                                  kind=kind(nodeusp(n)%v) )
+          nodeusp_dt(n)%v(1) = real( recv_buffer(ibeg) , &
+                                  kind=kind(nodeusp_dt(n)%v) )
         end if
         !
         ! We dont need to unpack anything for nodedusp, but we do need
@@ -8371,7 +9135,7 @@ continue
         ! recv_buffer
         !
         ibeg = iend + 1
-        iend = iend + size(nodedusp(n)%v)
+        iend = iend + size(nodedusp_dt(n)%v)
         !
       end do unpack_nodes
       !
@@ -8383,8 +9147,8 @@ continue
         !
         ! Unpack the edge point indices for these edge points
         !
-        n1 = size(edgeusp(n)%v,dim=1)
-        n2 = size(edgeusp(n)%v,dim=2)
+        n1 = size(edgeusp_dt(n)%v,dim=1)
+        n2 = size(edgeusp_dt(n)%v,dim=2)
         !
         do k = 1,n2
           !
@@ -8400,8 +9164,8 @@ continue
           !       solution variables for this edge point.
           !
           if (recv_buffer(ibeg) < real(zero,kind=kind(recv_buffer))) then
-            edgeusp(n)%v(1,k) = real( recv_buffer(ibeg) , &
-                                      kind=kind(edgeusp(n)%v) )
+            edgeusp_dt(n)%v(1,k) = real( recv_buffer(ibeg) , &
+                                      kind=kind(edgeusp_dt(n)%v) )
           end if
           !
         end do
@@ -8412,7 +9176,7 @@ continue
         ! location in recv_buffer
         !
         ibeg = iend + 1
-        iend = iend + size(edgedusp(n)%v)
+        iend = iend + size(edgedusp_dt(n)%v)
         !
       end do unpack_edges
       !
@@ -8466,8 +9230,8 @@ continue
     !
     n = bnd_faces(i)%idx
     !
-    n1 = size(faceusp(n)%v,dim=1)
-    n2 = size(faceusp(n)%v,dim=2)
+    n1 = size(faceusp_dt(n)%v,dim=1)
+    n2 = size(faceusp_dt(n)%v,dim=2)
     !
     do k = 1,n2
       !
@@ -8478,7 +9242,7 @@ continue
       ! is responsible for the point indices of this face
       !
       if (bnd_faces(i)%my_responsibility) then
-        fusp_send_buffer(ibeg) = real( -faceusp(n)%v(1,k,1) , &
+        fusp_send_buffer(ibeg) = real( -faceusp_dt(n)%v(1,k,1) , &
                                        kind=kind(fusp_send_buffer) )
       end if
       !
@@ -8534,8 +9298,8 @@ continue
     !
     n = bnd_faces(i)%idx
     !
-    n1 = size(faceusp(n)%v,dim=1)
-    n2 = size(faceusp(n)%v,dim=2)
+    n1 = size(faceusp_dt(n)%v,dim=1)
+    n2 = size(faceusp_dt(n)%v,dim=2)
     !
     do k = 1,n2
       !
@@ -8551,8 +9315,8 @@ continue
       !       solution variables for this face point.
       !
       if (fusp_recv_buffer(ibeg) < real(zero,kind=kind(fusp_recv_buffer))) then
-        faceusp(n)%v(1,k,1) = real( fusp_recv_buffer(ibeg) , &
-                                    kind=kind(faceusp(n)%v) )
+        faceusp_dt(n)%v(1,k,1) = real( fusp_recv_buffer(ibeg) , &
+                                    kind=kind(faceusp_dt(n)%v) )
       end if
       !
     end do
@@ -8809,7 +9573,7 @@ continue
       !
     end do
     !
-  end if 
+  end if
   !
   open (iot,file=trim(fname),status="replace",action="write", &
         iostat=ierr,iomsg=error_message)
@@ -8826,7 +9590,7 @@ continue
     write (iot,12) (xyz_nodes(n,i),i=1,np)
   end do
   !
-  ! Cell partition 
+  ! Cell partition
   !
   if (present(epart)) write (iot,13) (epart(i),i=1,nc)
   !
@@ -9827,172 +10591,7 @@ end function sum_map_sizes
 !
 !###############################################################################
 !
-subroutine debug_timer(time_flag,message,processor,part_num,acc)
-  !
-  !.. Formal Arguments ..
-  integer,          intent(in) :: time_flag
-  !
-  character(len=*), intent(in) :: message
-  !
-  !.. Optional Arguments ..
-  integer, optional, intent(in) :: processor
-  integer, optional, intent(in) :: part_num
-  integer, optional, intent(in) :: acc
-  !
-#ifdef PROFILE_ON
-  !.. Local Scalars ..
-  real(wp), save :: beg_wall_time
-  real(wp)       :: end_wall_time
-  real(wp)       :: wall_time
-  !
-  integer, save :: procedure_counter = 0
-  integer       :: i,hours,minutes,seconds,total_sec
-  integer       :: output_cpu
-  !
-  character(len=300) :: out_message
-  !
-  !.. Local Arrays ..
-  real(wp), save :: beg_procedure_time(10)
-  real(wp), save :: accumulated_time(10)
-  real(wp), save :: accumulation_beg_time(10)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: leading_space = "                    "
-  !
-continue
-  !
-  output_cpu = 0
-  if (present(processor)) output_cpu = processor
-  !
-  if (time_flag == start_timer) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-    if (mypnum == output_cpu) then
-      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == stop_timer) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_wall_time
-    !
-    total_sec = nint(wall_time)
-    !
-    hours   = total_sec / 3600
-    minutes = (total_sec - hours*3600) / 60
-    seconds = total_sec - hours*3600 - minutes*60
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
-    end if
-    !
-    ! Reset beg_wall_time in case this procedure is called twice
-    ! in a row with time_flag set to stop_timer
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-  else if (time_flag == reset_accumulated_time) then
-    !
-    if (present(acc)) then
-      accumulated_time(acc) = zero
-    end if
-    !
-  else if (time_flag == report_accumulated_time) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),accumulated_time(acc), &
-                     trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == start_accumulation) then
-    !
-    if (present(acc)) then
-      accumulation_beg_time(acc) = mpi_wtime()
-    end if
-    !
-  else if (time_flag == stop_accumulation) then
-    !
-    if (present(acc)) then
-      wall_time = mpi_wtime() - accumulation_beg_time(acc)
-      accumulated_time(acc) = accumulated_time(acc) + wall_time
-    end if
-    !
-  else if (time_flag == entering_procedure) then
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,3) leading_space(1:i),trim(adjustl(message))
-    end if
-    !
-    procedure_counter = procedure_counter + 1
-    !
-    beg_procedure_time(procedure_counter) = mpi_wtime()
-   !beg_procedure_time(procedure_counter) = dclock()
-   !call cpu_time( beg_procedure_time(procedure_counter) )
-    !
-  else if (time_flag == leaving_procedure) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
-    !
-    procedure_counter = max( 0 , procedure_counter-1 )
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
-    end if
-    !
-  end if
-  !
-  flush (iout)
-  !
-  ! Format Statements
-  !
-  1 format (a,"## Starting timer for: ",a)
-  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
-  3 format (a,"=> Entering procedure : ",a)
-  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
-  5 format (a)
-  6 format (a," for partition # ",i0)
-  !
-#endif
-  !
-end subroutine debug_timer
+#include "Functions/debug_timer.f90"
 !
 !##############################################################################
 !

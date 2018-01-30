@@ -1,6 +1,9 @@
 module quadrature_mod
   !
-  use module_kind_types
+#define PROFILE_ON
+!!!#define DISABLE_PURE
+  !
+  use module_kind_types, global_debug_timer => debug_timer
   !
   implicit none
   !
@@ -34,7 +37,7 @@ module quadrature_mod
   !                                            within the standard region of the
   !                                            current element geometry.
   !
-  !  std_elem(this_geom,this_order)%wts(k) : 
+  !  std_elem(this_geom,this_order)%wts(k) :
   !                       The quadrature weight of the solution point 'k' within
   !                       the standard region of the current element geometry.
   !
@@ -42,7 +45,8 @@ module quadrature_mod
   !
   ! solpts_edge : pointer to the 'n_order' 1D edge solution points
   !
-  real(wp), public, protected, pointer, contiguous :: solpts_edge(:) => null()
+ !real(wp), public, protected, pointer, contiguous :: solpts_edge(:) => null()
+  real(wp), public, protected, pointer :: solpts_edge(:) => null()
   !
   ! face_elem : Array giving the location of the flux points and their
   !             respective quadrature weights for all combinations of cell
@@ -52,12 +56,12 @@ module quadrature_mod
   !  For a given face geometry, this_geom,
   !              and its order, this_order :
   !
-  !  face_elem(this_geom,this_order)%pts(l,k) : 
+  !  face_elem(this_geom,this_order)%pts(l,k) :
   !                       The location of the flux point 'k' in the direction
   !                       'l' of the local coordinate system within the
   !                       standard region of the current face geometry.
   !
-  !  face_elem(this_geom,this_order)%wts(k) : 
+  !  face_elem(this_geom,this_order)%wts(k) :
   !                       The quadrature weight of the flux point 'k' within
   !                       the standard region of the current face geometry.
   !
@@ -185,6 +189,7 @@ subroutine init_geom_quadrature_rules()
   integer :: n,npts,ndim,ierr
   integer :: this_geom,this_order
   character(len=100) :: array_name
+  character(len=300) :: timer_message
   !
   !.. Local Pointers ..
   type(element_type), pointer :: this_elem
@@ -213,16 +218,21 @@ continue
   ! Loop through all the possible orders and get the quadrature rules
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
   ! We need to do this before all other geometry types because the
-  ! remaining geometries are dependent on these quadrature rules. 
+  ! remaining geometries are dependent on these quadrature rules.
   ! NOTE: The pts array within the type element_type is only needed for these
   !       two geometries (maybe tetrahedra as well) so they will be the only
   !       ones in which this array will be allocated and created.
+  !
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   this_geom = Geom_Edge
   !
   basic_geom_loop: do n = 1,2
     !
     basic_order_loop: do this_order = n_min_order,n_max_order
+      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
+      100 format ("Geometry = ",a,"  ;  Order = ",i0)
+      call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
@@ -263,6 +273,8 @@ continue
       ! Disassociate this_elem before continuing to the next loop combo
       !
       if (associated(this_elem)) this_elem => null()
+      call debug_timer(stop_timer,timer_message)
+      call check_for_bad_number(__LINE__,__FILE__)
       !
     end do basic_order_loop
     !
@@ -298,6 +310,8 @@ continue
       if (any(this_geom == [Geom_Edge,Geom_Tria])) cycle geom_loop
       if (all(this_geom /= Geom_Valid)) cycle geom_loop
       !
+      write (timer_message,100) trim(adjustl(Geom_Name(this_geom))),this_order
+      call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to std_elem(this_geom,this_order)
       ! to simplify the remaining code in this loop and make it more legible
@@ -372,6 +386,8 @@ continue
       ! continuing to the next geometry
       !
       if (associated(this_elem)) this_elem => null()
+      call debug_timer(stop_timer,timer_message)
+      call check_for_bad_number(__LINE__,__FILE__)
       !
     end do geom_loop
     !
@@ -414,6 +430,7 @@ subroutine init_face_quadrature_rules()
   logical(lk) :: there_are_quad_faces
   logical(lk) :: there_are_tria_faces
   character(len=100) :: array_name
+  character(len=300) :: timer_message
   !
   !.. Local Pointers ..
   type(element_type), pointer :: this_elem
@@ -452,7 +469,12 @@ continue
   !
   ! Loop through all the possible orders and get the edge quadrature rules.
   !
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
   edge_loop: do this_order = n_min_order,n_max_order
+    write (timer_message,100) trim(adjustl(Geom_Name(Geom_Edge))),this_order
+    100 format ("Geometry = ",a,"  ;  Order = ",i0)
+    call debug_timer(start_timer,timer_message)
     !
     ! Assign the pointer 'this_elem' to face_elem(Geom_Edge,this_order)
     ! to simplify the remaining code in this loop and make it more legible
@@ -488,6 +510,8 @@ continue
     ! Disassociate this_elem before continuing to the next loop combo
     !
     if (associated(this_elem)) this_elem => null()
+    call debug_timer(stop_timer,timer_message)
+    call check_for_bad_number(__LINE__,__FILE__)
     !
   end do edge_loop
   !
@@ -497,6 +521,8 @@ continue
   if (there_are_tria_faces) then
     !
     tria_loop: do this_order = n_min_order,n_max_order
+      write (timer_message,100) trim(adjustl(Geom_Name(Geom_Tria))),this_order
+      call debug_timer(start_timer,timer_message)
       !
       ! Assign the pointer 'this_elem' to face_elem(Geom_Tria,this_order)
       ! to simplify the remaining code in this loop and make it more legible
@@ -533,6 +559,8 @@ continue
       ! Disassociate this_elem before continuing to the next loop combo
       !
       if (associated(this_elem)) this_elem => null()
+      call debug_timer(stop_timer,timer_message)
+      call check_for_bad_number(__LINE__,__FILE__)
       !
     end do tria_loop
     !
@@ -544,6 +572,8 @@ continue
   if (there_are_quad_faces) then
     !
     quad_loop: do this_order = n_min_order,n_max_order
+      write (timer_message,100) trim(adjustl(Geom_Name(Geom_Quad))),this_order
+      call debug_timer(start_timer,timer_message)
       !
       ! Assign a pointer to the edge element of the face_elem array in order
       ! to simplify the remaining code in this loop and make it more legible.
@@ -586,6 +616,8 @@ continue
       !
       if (associated(this_elem)) this_elem => null()
       if (associated(edge_elem)) edge_elem => null()
+      call debug_timer(stop_timer,timer_message)
+      call check_for_bad_number(__LINE__,__FILE__)
       !
     end do quad_loop
     !
@@ -599,7 +631,10 @@ end subroutine init_face_quadrature_rules
 !
 !###############################################################################
 !
-pure function get_quadrature_wts(this_geom,this_order) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_quadrature_wts(this_geom,this_order) result(return_value)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: this_geom
@@ -624,7 +659,10 @@ end function get_quadrature_wts
 !
 !###############################################################################
 !
-pure function get_edge_quadrature(n,location) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_edge_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
   use polynomial_mod, only : nodes_legendre_gauss
@@ -652,6 +690,9 @@ continue
   allocate ( wts(1:npts) , source=qzero , stat=ierr )
   allocate ( val_at_pts(1:npts) , source=qzero , stat=ierr )
   !
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   select case (location)
     !
     case (Legendre_Gauss)
@@ -659,21 +700,39 @@ continue
       ! Edge quadrature using Legendre Gauss nodes
       !
       call nodes_legendre_gauss(npts,pts,val_at_pts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       call weights_legendre_gauss(npts,pts,val_at_pts,wts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
     case (Legendre_Gauss_Lobatto)
       !
       ! Edge quadrature using Legendre Gauss Lobatto nodes
       !
       call nodes_legendre_gauss_lobatto(n,pts,val_at_pts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       call weights_legendre_gauss_lobatto(n,val_at_pts,wts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
     case default
       !
       ! Default to Legendre Gauss points
       !
       call nodes_legendre_gauss(npts,pts,val_at_pts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       call weights_legendre_gauss(npts,pts,val_at_pts,wts)
+#ifdef DISABLE_PURE
+      call check_for_bad_number(__LINE__,__FILE__)
+#endif
       !
   end select
   !
@@ -687,12 +746,18 @@ continue
   !
   deallocate ( pts , stat=ierr )
   deallocate ( wts , stat=ierr )
+#ifdef DISABLE_PURE
+  call check_for_bad_number(__LINE__,__FILE__)
+#endif
   !
 end function get_edge_quadrature
 !
 !###############################################################################
 !
-pure function get_tria_quadrature(n,location) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tria_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
   use triangle_mod,   only : TriNodes2D_DG
@@ -757,7 +822,10 @@ end function get_tria_quadrature
 !
 !###############################################################################
 !
-pure function get_quad_quadrature(edge_elem) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_quad_quadrature(edge_elem) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
@@ -819,7 +887,10 @@ end function get_quad_quadrature
 !
 !###############################################################################
 !
-pure function get_tetr_quadrature(n) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_tetr_quadrature(n) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
@@ -841,7 +912,10 @@ end function get_tetr_quadrature
 !
 !###############################################################################
 !
-pure function get_pyra_quadrature(n) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pyra_quadrature(n) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
@@ -863,7 +937,10 @@ end function get_pyra_quadrature
 !
 !###############################################################################
 !
-pure function get_pris_quadrature(n) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_pris_quadrature(n) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
@@ -885,7 +962,10 @@ end function get_pris_quadrature
 !
 !###############################################################################
 !
-pure function get_hexa_quadrature(edge_elem) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_hexa_quadrature(edge_elem) result(return_value)
   !
   use order_mod, only : geom_solpts
   !
@@ -953,7 +1033,10 @@ end function get_hexa_quadrature
 !
 !###############################################################################
 !
-pure function get_triangle_weights_at_solpts_DP(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_triangle_weights_at_solpts_DP(rs) result(return_value)
   !
   ! NOTE : This seems to fail for large n_order (>15)
   !
@@ -1003,7 +1086,11 @@ continue
   !
   ! Now get the inverse of this matrix for use later
   !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
   V = invert_matrix(V)
+#endif
   !
   ! Get the Gauss quadrature points on the interval [-1,1] and
   ! the corresponding weights necessary to perform the integration
@@ -1074,7 +1161,10 @@ end function get_triangle_weights_at_solpts_DP
 !
 !###############################################################################
 !
-pure function get_triangle_weights_at_solpts_QP(rs) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_triangle_weights_at_solpts_QP(rs) result(return_value)
   !
   ! NOTE : This seems to fail for large n_order (>15)
   !
@@ -1124,7 +1214,11 @@ continue
   !
   ! Now get the inverse of this matrix for use later
   !
+#ifdef SPECIAL_FOR_INTEL
+  V = invert_matrix_lapack95(V)
+#else
   V = invert_matrix(V)
+#endif
   !
   ! Get the Gauss quadrature points on the interval [-1,1] and
   ! the corresponding weights necessary to perform the integration
@@ -1382,7 +1476,7 @@ continue
   ! Loop through all the possible orders and get the quadrature rules
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
   ! We need to do this before all other geometry types because the
-  ! remaining geometries are dependent on these quadrature rules. 
+  ! remaining geometries are dependent on these quadrature rules.
   ! NOTE: The pts array within the type element_type is only needed for these
   !       two geometries (maybe tetrahedra as well) so they will be the only
   !       ones in which this array will be allocated and created.
@@ -1597,7 +1691,10 @@ continue
   !
   !#############################################################################
   !
-  pure function get_edge_points(n,nloc) result(return_value)
+#ifndef DISABLE_PURE
+  pure &
+#endif
+  function get_edge_points(n,nloc) result(return_value)
     !
     use order_mod,      only : geom_solpts
     use polynomial_mod, only : nodes_legendre_gauss
@@ -1677,7 +1774,10 @@ continue
   !
   !#############################################################################
   !
-  pure function get_quad_points(edge) result(return_value)
+#ifndef DISABLE_PURE
+  pure &
+#endif
+  function get_quad_points(edge) result(return_value)
     !
     use order_mod, only : geom_solpts
     !
@@ -1727,7 +1827,10 @@ continue
   !
   !#############################################################################
   !
-  pure function get_hexa_points(edge) result(return_value)
+#ifndef DISABLE_PURE
+  pure &
+#endif
+  function get_hexa_points(edge) result(return_value)
     !
     use order_mod, only : geom_solpts
     !
@@ -1965,6 +2068,8 @@ end subroutine dump_solpts
 !###############################################################################
 !
 include "Functions/np2n.f90"
+#include "Functions/check_for_bad_number.f90"
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

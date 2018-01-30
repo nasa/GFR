@@ -2,7 +2,7 @@ module mappings_mod
   !
   !.. Global Use Statements ..
   use module_kind_types
-  use generic_types_mod, only : matrix
+  use generic_types_mod, only : matrix => matrix_gpu_t
   !
   implicit none
   !
@@ -66,8 +66,10 @@ subroutine get_solution_points()
   !
   !.. Local Pointers ..
   type(matrix), pointer             :: this_map
-  real(wp),     pointer, contiguous :: edge_pts(:)
-  real(wp),     pointer, contiguous :: tria_pts(:,:)
+ !real(wp),     pointer, contiguous :: edge_pts(:)
+ !real(wp),     pointer, contiguous :: tria_pts(:,:)
+  real(wp),     pointer :: edge_pts(:)
+  real(wp),     pointer :: tria_pts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: elem_xyz(:,:)
@@ -97,7 +99,7 @@ continue
   nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
   !
   ! Allocate the mapping array and the component
-  ! arrays MeshOrder, EdgeDefOrder, and FaceDefOrder 
+  ! arrays MeshOrder, EdgeDefOrder, and FaceDefOrder
   !
   call create_mapping_array(cell_geom,cell_order,grid)
   !
@@ -269,17 +271,13 @@ continue
       if (associated(edge_pts)) edge_pts => null()
       if (associated(tria_pts)) tria_pts => null()
       !
-      ! Check the newly made matrix for sparsity
-      !
-      call this_map%check_for_sparsity
-      !
     end if
     !
     ! Now use the mapping matrix to map the coordinates of the points for the
     ! element provided by the grid file to the coordinates of the solution
     ! points for the cell
     !
-    xyz(1:nr,n1:n2) = this_map%mm_mult( elem_xyz(:,:) )
+    xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
     !
     if (associated(this_map)) this_map => null()
     !
@@ -464,7 +462,10 @@ end subroutine create_mapping_array
 !
 !###############################################################################
 !
-pure function map_edge_to_solpts(mp,np,xi,mesh_order) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_edge_to_solpts(mp,np,xi,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -514,7 +515,10 @@ end function map_edge_to_solpts
 !
 !###############################################################################
 !
-pure function map_tria_to_solpts(mp,np,rs,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_tria_to_solpts(mp,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -577,7 +581,10 @@ end function map_tria_to_solpts
 !
 !###############################################################################
 !
-pure function map_quad_to_solpts(mp,np,xi,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_quad_to_solpts(mp,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -701,7 +708,10 @@ end function map_quad_to_solpts
 !
 !###############################################################################
 !
-pure function map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -753,7 +763,10 @@ end function map_tetr_to_solpts
 !
 !###############################################################################
 !
-pure function map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -806,7 +819,10 @@ end function map_pyra_to_solpts
 !
 !###############################################################################
 !
-pure function map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -896,7 +912,10 @@ end function map_pris_to_solpts
 !
 !###############################################################################
 !
-pure function map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
+#ifndef DISABLE_PURE
+pure &
+#endif
+function map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1060,7 +1079,10 @@ end function map_hexa_to_solpts
 !###############################################################################
 !###############################################################################
 !
-pure function get_solpts_edge(xi,xy) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_edge(xi,xy) result(return_value)
   !
   real(wp), dimension(:),   intent(in) :: xi
   real(wp), dimension(:,:), intent(in) :: xy
@@ -1085,7 +1107,10 @@ end function get_solpts_edge
 !
 !###############################################################################
 !
-pure function get_solpts_tria(rs,xy) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_tria(rs,xy) result(return_value)
   !
   real(wp), dimension(:,:), intent(in) :: rs
   real(wp), dimension(:,:), intent(in) :: xy
@@ -1119,7 +1144,10 @@ end function get_solpts_tria
 !
 !###############################################################################
 !
-pure function get_solpts_quad(xi,xy) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_quad(xi,xy) result(return_value)
   !
   real(wp), dimension(:),   intent(in) :: xi
   real(wp), dimension(:,:), intent(in) :: xy
@@ -1157,7 +1185,10 @@ end function get_solpts_quad
 !
 !###############################################################################
 !
-pure function get_solpts_tetr(rs,xyz) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_tetr(rs,xyz) result(return_value)
   !
   real(wp), dimension(:,:), intent(in) :: rs
   real(wp), dimension(:,:), intent(in) :: xyz
@@ -1180,7 +1211,10 @@ end function get_solpts_tetr
 !
 !###############################################################################
 !
-pure function get_solpts_pyra(xi,rs,xyz) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_pyra(xi,rs,xyz) result(return_value)
   !
   real(wp), dimension(:),   intent(in) :: xi
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1204,7 +1238,10 @@ end function get_solpts_pyra
 !
 !###############################################################################
 !
-pure function get_solpts_pris(xi,rs,xyz) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_pris(xi,rs,xyz) result(return_value)
   !
   real(wp), dimension(:),   intent(in) :: xi
   real(wp), dimension(:,:), intent(in) :: rs
@@ -1264,7 +1301,10 @@ end function get_solpts_pris
 !
 !###############################################################################
 !
-pure function get_solpts_hexa(xi,xyz) result(return_value)
+#ifndef DISABLE_PURE
+pure &
+#endif
+function get_solpts_hexa(xi,xyz) result(return_value)
   !
   real(wp), dimension(:),   intent(in) :: xi
   real(wp), dimension(:,:), intent(in) :: xyz
@@ -1348,7 +1388,7 @@ continue
               m2 = ubound(mapping(i,j)%MeshOrder(k)%mat,dim=1)
               n1 = lbound(mapping(i,j)%MeshOrder(k)%mat,dim=2)
               n2 = ubound(mapping(i,j)%MeshOrder(k)%mat,dim=2)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%mat(m1:m2,n1:n2))
+             !$ACC ENTER DATA COPYIN(mapping(i,j)%MeshOrder(k)%mat(m1:m2,n1:n2))
             end if
             !
             if (allocated(mapping(i,j)%MeshOrder(k)%row_ptr)) then
@@ -1412,49 +1452,49 @@ continue
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=1)
               n1 = lbound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=2)
               n2 = ubound(mapping(i,j)%EdgeDefOrder(k)%mat,dim=2)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%mat(m1:m2,n1:n2))
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%mat(m1:m2,n1:n2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_ptr)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_ptr)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_ptr,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_ptr,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_ptr(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_ptr(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_idx)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_idx)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_idx,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_idx,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_idx(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_idx(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%row_val)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_val)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%row_val,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%row_val,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_val(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%row_val(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_ptr)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_ptr)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_ptr,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_ptr,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_ptr(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_ptr(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_idx)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_idx)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_idx,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_idx,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_idx(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_idx(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%EdgeDefOrder(k)%col_val)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_val)
               m1 = lbound(mapping(i,j)%EdgeDefOrder(k)%col_val,dim=1)
               m2 = ubound(mapping(i,j)%EdgeDefOrder(k)%col_val,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_val(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%EdgeDefOrder(k)%col_val(m1:m2))
             end if
             !
           end do
@@ -1476,49 +1516,49 @@ continue
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%mat,dim=1)
               n1 = lbound(mapping(i,j)%FaceDefOrder(k)%mat,dim=2)
               n2 = ubound(mapping(i,j)%FaceDefOrder(k)%mat,dim=2)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%mat(m1:m2,n1:n2))
+          !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%mat(m1:m2,n1:n2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%row_ptr)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_ptr)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_ptr,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_ptr,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_ptr(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_ptr(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%row_idx)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_idx)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_idx,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_idx,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_idx(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_idx(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%row_val)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_val)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%row_val,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%row_val,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_val(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%row_val(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%col_ptr)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_ptr)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_ptr,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_ptr,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_ptr(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_ptr(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%col_idx)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_idx)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_idx,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_idx,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_idx(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_idx(m1:m2))
             end if
             !
             if (allocated(mapping(i,j)%FaceDefOrder(k)%col_val)) then
               !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_val)
               m1 = lbound(mapping(i,j)%FaceDefOrder(k)%col_val,dim=1)
               m2 = ubound(mapping(i,j)%FaceDefOrder(k)%col_val,dim=1)
-              !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_val(m1:m2))
+            !$ACC ENTER DATA COPYIN(mapping(i,j)%FaceDefOrder(k)%col_val(m1:m2))
             end if
             !
           end do

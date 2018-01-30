@@ -28,6 +28,7 @@ module io_mod
   public :: write_residual_file_gpu
   public :: check_face_flux_point_orderings
   public :: check_cell_flux_point_orderings
+  public :: test_communication
   public :: TaylorGreen_8s_vorticity_solution
   !
   ! ###########################
@@ -162,8 +163,10 @@ continue
     end if
     !
   end do one_pass_loop
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   call read_nml_input_file(input_fname)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -201,7 +204,7 @@ continue
   !
   if (file_exists) then
     !
-    ! Try opening the input file name 
+    ! Try opening the input file name
     !
     open (newunit=inpt,file=input_fname,status="old",action="read", &
                        form="formatted",iostat=ierr,iomsg=error_message)
@@ -238,8 +241,8 @@ continue
   !
   ! Format statements
   !
-  10 format (/," Error checking the format of the input file '",a,"'!",/, &
-               " IO Error = ",i0,/)
+  10 format (" Error checking the format of the input file '",a,"'!", &
+             " IO Error = ",i0)
   !
 end subroutine check_input_file
 !
@@ -263,10 +266,6 @@ subroutine read_nml_input_file(input_fname)
   !
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
-  !
-  use eqn_idx, only : create_equation_indices
-  !
-  use initialization_mod, only : initialize_reference
   !
   use channel_mod, only : read_channel_init_file
   !
@@ -312,11 +311,13 @@ continue
   ! Check the lustre striping parameters
   !
   call check_lustre_striping
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Check the output directory
   !
   output_dir = trim(adjustl(output_dir))
   call check_output_dir
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Check for the CGNS output directory
   ! NOTE: This will be done later in the post-processor
@@ -325,11 +326,13 @@ continue
   !
   if (.not. continuous_output) then
     call check_cgns_dir
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   ! Check the restart output directory
   !
   call check_restart_dir
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Adjust the name of the grid file
   !
@@ -402,18 +405,18 @@ continue
   use_qdtr_face_pts = using_quadrature .and. dflux_opt==project_derivatives
   !
   call initialize_geom_solpts(use_qdtr_face_pts)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Now that we have the name of the grid file and the location
   ! of the flux and solution points, read in the grid file
   !
   call read_grid_file
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   call init_geom_quadrature_rules
+  call check_for_bad_number(__LINE__,__FILE__)
   call init_face_quadrature_rules
-  !
-  ! Create the equation indices now that we know the dimension of the grid
-  !
-  call create_equation_indices(nr)
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Make sure the number of RK stages is correct for some RK types
   !
@@ -465,7 +468,7 @@ continue
     end if
     !
     ! If mms_output_solution is true, set the MMS initialization factor
-    ! to one and set the number of time steps and final time to zero 
+    ! to one and set the number of time steps and final time to zero
     !
     if (mms_output_solution) then
       mms_init = one
@@ -477,11 +480,8 @@ continue
   !
   if (itestcase == Channel_Flow) then
     call read_channel_init_file
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
-  !
-  ! Initialize the reference conditions
-  !
-  call initialize_reference
   !
   ! Compute periodic information for the transport problems
   !
@@ -1254,7 +1254,7 @@ subroutine read_grid_file()
   use ovar,           only : use_bc_conflicts
   use ovar,           only : itestcase,VortexGrid_DOF
   use ovar,           only : postproc_debug_grid
-  !        
+  !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_grid_file"
   !
@@ -1281,6 +1281,7 @@ continue
     call read_cgns_gridfile( gridfile )
   else if (grid_format == Plot3D_Format) then
     call read_plot3d_gridfile( gridfile , plot3d_cutfile , plot3d_bcsfile )
+    call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
   if (.not. allocated(grid)) then
@@ -1293,18 +1294,21 @@ continue
   ! Reorder the boundary faces
   !
   call reorder_boundary_faces
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Check that all the nodes are in counter-clockwise
   ! ordering for each cell and adjust if needed
   !
   call memory_pause("reading grid file","checking the node orderings")
   call check_node_ordering
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Adjust the grid coordinates and nodes_of_cell
   ! connectivity to account for ghost cells
   !
   call memory_pause("checking the node orderings","adjusting for ghost cells")
   call adjust_for_ghost_cells
+  call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Find any grid nodes on the boundaries that separate two boundary
   ! faces with non-matching boundary conditions
@@ -1313,6 +1317,7 @@ continue
     call memory_pause("adjusting for ghost cells", &
                       "finding boundary condition conflicts")
     call find_bc_conflicts
+    call check_for_bad_number(__LINE__,__FILE__)
     call memory_pause("finding boundary condition conflicts", &
                       "finding valid geometries")
   else
@@ -1323,6 +1328,7 @@ continue
   ! the current simulation
   !
   call find_valid_geometries
+  call check_for_bad_number(__LINE__,__FILE__)
   call memory_pause("finding valid geometries", &
                     "finish processing the remainder of the input file")
   !
@@ -1335,9 +1341,14 @@ end subroutine read_grid_file
 subroutine reorder_boundary_faces()
   !
   !.. Use Statements ..
-  use geovar, only : ncell,nfbnd,bface
+  use geovar, only : nr,ncell,nfbnd,bface
   use geovar, only : num_bc_grps
   use geovar, only : grid,grid_t
+  !
+  use initialization_mod, only : initialize_reference
+  use initialization_mod, only : create_bc_in
+  !
+  use eqn_idx, only : create_equation_indices
   !
   !.. Local Scalars ..
   integer :: i,j,k,n,nc,nf,ngrps,ierr
@@ -1361,6 +1372,21 @@ subroutine reorder_boundary_faces()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Create the equation indices now that we know the dimension of the grid
+  !
+  call create_equation_indices(nr)
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Initialize the reference conditions
+  !
+  call initialize_reference
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! First, initialize the bc_in array
+  ! NOTE: This will also fill bface(6,:) with the correct value
+  !
+  call create_bc_in
   !
   contains_periodic_faces = fals
   errors_found = fals
@@ -1433,6 +1459,18 @@ continue
   if (contains_periodic_faces) ngrps = ngrps + 1
   !
   num_bc_grps = ngrps
+  !
+  flush (iout)
+  if (mypnum == glb_root) then
+    write (iout,100) pname,min_grp,max_grp,min_bcin,max_bcin,num_bc_grps
+    100 format (/,2x,"In procedure ",a," : ",/, &
+                  6x,"   min_grp  = ",i0,/, &
+                  6x,"   max_grp  = ",i0,/, &
+                  6x,"   min_bcin = ",i0,/, &
+                  6x,"   max_bcin = ",i0,/, &
+                  6x,"num_bc_grps = ",i0,/)
+  end if
+  flush (iout)
   !
   allocate ( sorted_grps(1:2,1:ngrps) , source=0 , &
              stat=ierr , errmsg=error_message )
@@ -1533,22 +1571,26 @@ continue
   !
   ! Copy all of grid into tmp_grid
   !
-  tmp_grid = grid ! F2003 AUTO-REALLOCATION
-  !
-  nc = ncell
-  !
-  do nf = 1,nfbnd
+  if (i_am_host_root) then
     !
-    nc = nc + 1
+    tmp_grid = grid ! F2003 AUTO-REALLOCATION
     !
-    ! F2003 AUTO-REALLOCATION OF COMPONENT ARRAYS
-    tmp_grid%elem(nc) = grid%elem( bface(10,nf) )
+    nc = ncell
     !
-    bface(10,nf) = nc
+    do nf = 1,nfbnd
+      !
+      nc = nc + 1
+      !
+      ! F2003 AUTO-REALLOCATION OF COMPONENT ARRAYS
+      tmp_grid%elem(nc) = grid%elem( bface(10,nf) )
+      !
+      bface(10,nf) = nc
+      !
+    end do
     !
-  end do
-  !
-  call move_alloc( from=tmp_grid , to=grid )
+    call move_alloc( from=tmp_grid , to=grid )
+    !
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1556,7 +1598,7 @@ continue
   !
   1 format ("bface(1,",i0,") = ",i0,"; bc_in(",i0,"); group # = ",i0)
   2 format ("ERRORS DETECTED WHILE TRYING TO RESORT THE BOUNDARY FACES")
-  !   
+  !
 end subroutine reorder_boundary_faces
 !
 !###############################################################################
@@ -2115,7 +2157,7 @@ continue
       bface( 9,nf_max) = bface(4,nf_min)
       bface(10,nf_max) = ncell + nf_max
       !
-      ! Adjust boundary conditions for stationary vortex or 
+      ! Adjust boundary conditions for stationary vortex or
       ! vortex propagation in only the vertical direction
       !
       if (any(itestcase == [-Shu_Vortex,-Vortex_Transport])) then
@@ -2874,7 +2916,7 @@ continue
           !
           lpoin( original_noc(n1 + Xmin3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -2910,7 +2952,7 @@ continue
           !
           lpoin( original_noc(n1 + Xmax3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -2992,7 +3034,7 @@ continue
           !
           lpoin( original_noc(n1 + Ymin3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -3028,7 +3070,7 @@ continue
           !
           lpoin( original_noc(n1 + Ymax3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -3110,7 +3152,7 @@ continue
           !
           lpoin( original_noc(n1 + Zmin3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -3146,7 +3188,7 @@ continue
           !
           lpoin( original_noc(n1 + Zmax3D) ) = 1
           !
-          ! Extract the nodes of this cell in the new randomized order 
+          ! Extract the nodes of this cell in the new randomized order
           !
           cell_nodes(1:8) = nodes_of_cell(n1:n2)
           !
@@ -3712,7 +3754,7 @@ continue
      !                ip(n),op(n),node_order(n,rotation(nc))+1
       write (iotec,4) (nint(xyz_nodes(l,ip(n))), l=1,size(xyz_nodes,dim=1)), &
                       n, ip(n), rev_rot(n)
-      !               
+      !
     end do
     !
    !write (iotec,5) (node_order(n,rotation(nc))+1, n=1,8)
@@ -3937,7 +3979,7 @@ end subroutine check_node_ordering
 subroutine adjust_for_ghost_cells()
   !
   ! Routine to make some adjustments to the data from the grid file
-  ! to account for ghost cells and new nodes associated with them 
+  ! to account for ghost cells and new nodes associated with them
   !
   !.. Use Statements ..
   use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
@@ -4090,7 +4132,7 @@ continue
     !       switch_index = nfnods (i.e. 3) for a triangular boundary face
     !       switch_index = 3               for a quadrilateral boundary face
     ! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
-    !                  a 1D host cell which is the correct value if the 
+    !                  a 1D host cell which is the correct value if the
     !                  rest of the code is ever set up to run 1D.
     !
     switch_index = min( nfnods , 3 )
@@ -4225,7 +4267,7 @@ end subroutine save_global_grid
 subroutine adjust_for_same_dimension_ghost_cells()
   !
   ! Routine to make some adjustments to the data from the grid file
-  ! to account for ghost cells and new nodes associated with them 
+  ! to account for ghost cells and new nodes associated with them
   !
   !.. Use Statements ..
   use geovar, only : nr,ncell,nfbnd,nnode,n_totcel,n_totnod
@@ -4387,7 +4429,7 @@ continue
    !!       switch_index = nfnods (i.e. 3) for a triangular boundary face
    !!       switch_index = 3               for a quadrilateral boundary face
    !! ADDITIONAL NOTE: switch_index also evaluates to nfnods (i.e. 1) for
-   !!                  a 1D host cell which is the correct value if the 
+   !!                  a 1D host cell which is the correct value if the
    !!                  rest of the code is ever set up to run 1D.
    !!
    !switch_index = min( nfnods , 3 )
@@ -4651,7 +4693,7 @@ continue
       ! Find the distances between the two corresponding nodes of
       ! the two boundary faces. The two boundary faces should now be
       ! parallel to each other but with opposite outward unit normals
-      ! and therefore the distances should be equal. 
+      ! and therefore the distances should be equal.
       !
      !ds1(:) = xyz_nodes(:,ni1) - periodic_nodes(:,1+mod(periodic_side,pcnods))
      !ds2(:) = xyz_nodes(:,ni2) - periodic_nodes(:,periodic_side)
@@ -5032,16 +5074,18 @@ subroutine check_face_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
-  use flowvar, only : face_var
+  use flowvar, only : face_var,faceusp_array
   use parallel_mod, only : exchange_faceusp,wait_faceusp
+  use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
   !.. Local Scalars ..
   integer :: i,j,nf,nfp,kf,kl,kr,l,ierr
-  integer :: l1,l2,r1,r2,npl,npr,pf
+  integer :: l1,l2,r1,r2,npl,npr,pf,f0,ntfp
   integer :: face_geom,face_order
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
-  integer :: lfile,rfile,dfile
+  integer :: l1file,r1file,d1file
+  integer :: l2file,r2file,d2file
   real(wp) :: a,val
   character(len=25) :: face_string
   character(len=100) :: array_name
@@ -5051,21 +5095,24 @@ subroutine check_face_flux_point_orderings()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_face_flux_point_orderings"
- !integer, parameter :: lfile = 161
- !integer, parameter :: rfile = 162
- !integer, parameter :: dfile = 163
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  lfile = 101 + mypnum
-  rfile = 201 + mypnum
-  dfile = 301 + mypnum
+  l1file = 1101 + mypnum
+  r1file = 1201 + mypnum
+  d1file = 1301 + mypnum
+  l2file = 2101 + mypnum
+  r2file = 2201 + mypnum
+  d2file = 2301 + mypnum
   !
-  write (lfile,*)
-  write (rfile,*)
-  write (dfile,*)
+  write (l1file,*)
+  write (r1file,*)
+  write (d1file,*)
+  write (l2file,*)
+  write (r2file,*)
+  write (d2file,*)
   !
   allocate ( face_xyz(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",1,__LINE__,__FILE__,ierr,error_message)
@@ -5079,6 +5126,11 @@ continue
     write (array_name,'("face_xyz(",i0,")%v")') nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   end do
+  !
+  ntfp = face(nface)%end_fp
+  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
   !
   do nf = 1,nfbnd
     !
@@ -5143,8 +5195,10 @@ continue
         !
         do l = 1,nr
           val = zero
-          do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1, &
-                 interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr+1)
+          do i = interp(right_geom,right_order)% &
+                             toFace(face_order)%row_ptr(kr)+1, &
+                 interp(right_geom,right_order)% &
+                             toFace(face_order)%row_ptr(kr+1)
             !
             j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
             a = interp(right_geom,right_order)%toFace(face_order)%row_val(i)
@@ -5222,7 +5276,7 @@ continue
       !
       do l = 1,nr
         val = zero
-        do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1, &
+        do i = interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr)+1,&
                interp(right_geom,right_order)%toFace(face_order)%row_ptr(kr+1)
           !
           j = interp(right_geom,right_order)%toFace(face_order)%row_idx(i)
@@ -5238,9 +5292,34 @@ continue
     !
   end do
   !
+  faceusp_array(:,:,:) = zero
+  !
+  do nf = 1,nface
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do i = 1,2
+      do kf = 1,nfp
+        do l = 1,nr
+     !    write (iout,100) mypnum,nf,f0,kf,l,i
+     !    100 format ("CPU # ",i0," : ",i5,i5,i3,i2,i2)
+     !    flush (iout)
+          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
+        end do
+      end do
+    end do
+    !
+  end do
+  !
   if (ncpu > 1) then
-    call exchange_faceusp(face_xyz)
-    call wait_faceusp(face_xyz)
+    !
+    call exchange_faceusp_dt(face_xyz)
+    call wait_faceusp_dt(face_xyz)
+    !
+    call exchange_faceusp
+    call wait_faceusp
+    !
   end if
   !
   do nf = 1,nface
@@ -5248,7 +5327,8 @@ continue
     face_geom = face(nf)%geom
     face_order = face(nf)%order
     !
-    nfp = geom_solpts(face_geom,face_order)
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
     !
     face_string = ""
     if (nf < nfbnd) then
@@ -5261,20 +5341,29 @@ continue
       end if
     end if
     !
-    write (lfile,12) nf-nfbnd,trim(adjustl(face_string))
-    write (rfile,12) nf-nfbnd,trim(adjustl(face_string))
-    write (dfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (l1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (l2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d2file,12) nf-nfbnd,trim(adjustl(face_string))
     !
     do kf = 1,nfp
       !
-      write (lfile,11) (face_xyz(nf)%v(l,kf,1),l=1,nr)
+      write (l1file,11) (face_xyz(nf)%v(l,kf,1),l=1,nq)
+      write (l2file,11) (faceusp_array(f0+kf,l,1),l=1,nq)
       !
-      write (rfile,11) (face_xyz(nf)%v(l,kf,2),l=1,nr)
+      write (r1file,11) (face_xyz(nf)%v(l,kf,2),l=1,nq)
+      write (r2file,11) (faceusp_array(f0+kf,l,2),l=1,nq)
       !
-      write (dfile,11) (abs( face_xyz(nf)%v(l,kf,2) - &
-                             face_xyz(nf)%v(l,kf,1)) , l=1,nr), &
+      write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
+                              face_xyz(nf)%v(l,kf,1)) , l=1,nr), &
                         norm2( face_xyz(nf)%v(1:nr,kf,2) - &
                                face_xyz(nf)%v(1:nr,kf,1) )
+      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
+                              faceusp_array(f0+kf,l,1)) , l=1,nr), &
+                        norm2( faceusp_array(f0+kf,1:nr,2) - &
+                               faceusp_array(f0+kf,1:nr,1) )
       !
     end do
     !
@@ -5282,6 +5371,9 @@ continue
   !
   deallocate ( face_xyz , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5312,14 +5404,16 @@ subroutine check_cell_flux_point_orderings()
   use geovar, only : nfbnd,nface,face,fp
   use geovar, only : nr,xyz,bface
   use interpolation_mod, only : interp
-  use flowvar, only : face_var
+  use flowvar, only : face_var,faceusp_array
   use parallel_mod, only : exchange_faceusp,wait_faceusp
+  use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
   !
   !.. Local Scalars ..
   integer :: i,j,nf,nc,np,n1,n2,l,n,sf,kf,lf,pf,nfp,ierr
   integer :: this_geom,this_order
-  integer :: face_geom,face_order
-  integer :: lfile,rfile,dfile
+  integer :: face_geom,face_order,f0,ntfp
+  integer :: l1file,r1file,d1file
+  integer :: l2file,r2file,d2file
   real(wp) :: a
   character(len=25) :: face_string
   character(len=100) :: array_name
@@ -5333,21 +5427,24 @@ subroutine check_cell_flux_point_orderings()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "check_cell_flux_point_orderings"
- !integer, parameter :: lfile = 261
- !integer, parameter :: rfile = 262
- !integer, parameter :: dfile = 263
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  lfile = 401 + mypnum
-  rfile = 501 + mypnum
-  dfile = 601 + mypnum
+  l1file = 1401 + mypnum
+  r1file = 1501 + mypnum
+  d1file = 1601 + mypnum
+  l2file = 2401 + mypnum
+  r2file = 2501 + mypnum
+  d2file = 2601 + mypnum
   !
-  write (lfile,*)
-  write (rfile,*)
-  write (dfile,*)
+  write (l1file,*)
+  write (r1file,*)
+  write (d1file,*)
+  write (l2file,*)
+  write (r2file,*)
+  write (d2file,*)
   !
   allocate ( face_xyz(1:nface) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"face_xyz",1,__LINE__,__FILE__,ierr,error_message)
@@ -5361,6 +5458,11 @@ continue
     write (array_name,'("face_xyz(",i0,")%v")') nf
     call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
   end do
+  !
+  ntfp = face(nface)%end_fp
+  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
   !
   do nc = 1,ncell
     !
@@ -5414,26 +5516,58 @@ continue
   !
   do nf = 1,nfbnd
     !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
     if (bface(1,nf) == bc_periodic) then
       !
       pf = bface(5,nf)
       !
-      face_geom = face(nf)%geom
-      face_order = face(nf)%order
+      do kf = 1,nfp
+        do l = 1,nr
+          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,kf,1)
+        end do
+      end do
       !
-      nfp = geom_solpts(face_geom,face_order)
+    else if (bface(1,nf) /= bc_cpu_bnd) then
       !
       do kf = 1,nfp
-        face_xyz(nf)%v(1:nr,kf,2) = face_xyz(pf)%v(1:nr,kf,1)
+        do l = 1,nr
+          face_xyz(nf)%v(l,kf,2) = face_xyz(nf)%v(l,kf,1)
+        end do
       end do
       !
     end if
     !
   end do
   !
+  faceusp_array(:,:,:) = zero
+  !
+  do nf = 1,nface
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do i = 1,2
+      do kf = 1,nfp
+        do l = 1,nr
+          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
+        end do
+      end do
+    end do
+    !
+  end do
+  !
   if (ncpu > 1) then
-    call exchange_faceusp(face_xyz)
-    call wait_faceusp(face_xyz)
+    !
+    call exchange_faceusp_dt(face_xyz)
+    call wait_faceusp_dt(face_xyz)
+    !
+    call exchange_faceusp
+    call wait_faceusp
+    !
   end if
   !
   do nf = 1,nface
@@ -5441,10 +5575,11 @@ continue
     face_geom = face(nf)%geom
     face_order = face(nf)%order
     !
-    nfp = geom_solpts(face_geom,face_order)
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
     !
     face_string = ""
-    if (nf < nfbnd) then
+    if (nf <= nfbnd) then
       if (bface(1,nf) == bc_periodic) then
         face_string = "(periodic face)"
       else if (bface(1,nf) == bc_cpu_bnd) then
@@ -5454,24 +5589,39 @@ continue
       end if
     end if
     !
-    write (lfile,12) nf-nfbnd,trim(adjustl(face_string))
-    write (rfile,12) nf-nfbnd,trim(adjustl(face_string))
-    write (dfile,12) nf-nfbnd,trim(adjustl(face_string))
+    write (l1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (l2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d2file,12) nf-nfbnd,trim(adjustl(face_string))
     !
     do kf = 1,nfp
       !
-      write (lfile,11) (face_xyz(nf)%v(l,kf,1),l=1,nr)
+      write (l1file,11) (face_xyz(nf)%v(l,kf,1),l=1,nq)
+      write (l2file,11) (faceusp_array(f0+kf,l,1),l=1,nq)
       !
-      write (rfile,11) (face_xyz(nf)%v(l,kf,2),l=1,nr)
+      write (r1file,11) (face_xyz(nf)%v(l,kf,2),l=1,nq)
+      write (r2file,11) (faceusp_array(f0+kf,l,2),l=1,nq)
       !
-      write (dfile,11) (abs( face_xyz(nf)%v(l,kf,2) - &
-                             face_xyz(nf)%v(l,kf,1) ) , l=1,nr), &
+      write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
+                              face_xyz(nf)%v(l,kf,1) ) , l=1,nr), &
                        norm2( face_xyz(nf)%v(1:nr,kf,2) - &
                               face_xyz(nf)%v(1:nr,kf,1) )
+      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
+                              faceusp_array(f0+kf,l,1) ) , l=1,nr), &
+                       norm2( faceusp_array(f0+kf,1:nr,2) - &
+                              faceusp_array(f0+kf,1:nr,1) )
       !
     end do
     !
   end do
+  !
+  deallocate ( face_xyz , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -5491,6 +5641,198 @@ continue
  12 format ("FACE ",i0,4x,a)
   !
 end subroutine check_cell_flux_point_orderings
+!
+!###############################################################################
+!
+subroutine test_communication()
+  !
+  !.. Use Statements ..
+  use geovar, only : nfbnd,nface,face,bface
+  use flowvar, only : face_var,faceusp_array
+  use parallel_mod, only : exchange_faceusp,wait_faceusp
+  use parallel_mod, only : exchange_faceusp_dt,wait_faceusp_dt
+  !
+  !.. Local Scalars ..
+  integer :: i,nf,l,kf,pf,nfp,f0,ntfp,ierr
+  integer :: l1file,r1file,d1file
+  integer :: l2file,r2file,d2file
+  character(len=25) :: face_string
+  character(len=100) :: array_name
+  !
+  !.. Local Allocatable Arrays ..
+  type(face_var), allocatable :: face_xyz(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "test_communication"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  l1file = 1701 + mypnum
+  r1file = 1801 + mypnum
+  d1file = 1901 + mypnum
+  l2file = 2701 + mypnum
+  r2file = 2801 + mypnum
+  d2file = 2901 + mypnum
+  !
+  write (l1file,*)
+  write (r1file,*)
+  write (d1file,*)
+  write (l2file,*)
+  write (r2file,*)
+  write (d2file,*)
+  !
+  allocate ( face_xyz(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nf = 1,nface
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    allocate ( face_xyz(nf)%v(1:nq,1:nfp,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,'("face_xyz(",i0,")%v")') nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+  end do
+  !
+  ntfp = face(nface)%end_fp
+  allocate ( faceusp_array(1:ntfp,1:nq,1:2) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  i = 0
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do kf = 1,nfp
+      do l = 1,nq
+        i = i + 1
+        face_xyz(nf)%v(l,kf,1) = real(i,kind=wp)
+      end do
+    end do
+    !
+  end do
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    if (bface(1,nf) == bc_periodic) then
+      !
+      pf = bface(5,nf)
+      !
+      do kf = 1,nfp
+        do l = 1,nq
+          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,kf,1)
+        end do
+      end do
+      !
+    else if (bface(1,nf) /= bc_cpu_bnd) then
+      !
+      do kf = 1,nfp
+        do l = 1,nq
+          face_xyz(nf)%v(l,kf,2) = face_xyz(nf)%v(l,kf,1)
+        end do
+      end do
+      !
+    endif
+    !
+  end do
+  !
+  faceusp_array(:,:,:) = zero
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    do i = 1,2
+      do kf = 1,nfp
+        do l = 1,nq
+          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+  if (ncpu > 1) then
+    !
+    call exchange_faceusp_dt(face_xyz)
+    call wait_faceusp_dt(face_xyz)
+    !
+    call exchange_faceusp
+    call wait_faceusp
+    !
+  end if
+  !
+  do nf = 1,nfbnd
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    if (bface(1,nf) == bc_periodic) then
+      face_string = "(periodic face)"
+    else if (bface(1,nf) == bc_cpu_bnd) then
+      face_string = "(cpu boundary)"
+    else
+      face_string = "(non-communication BC)"
+    end if
+    !
+    write (l1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d1file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (l2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (r2file,12) nf-nfbnd,trim(adjustl(face_string))
+    write (d2file,12) nf-nfbnd,trim(adjustl(face_string))
+    !
+    do kf = 1,nfp
+      !
+      write (l1file,13) (nint(face_xyz(nf)%v(l,kf,1)),l=1,nq)
+      write (l2file,13) (nint(faceusp_array(f0+kf,l,1)),l=1,nq)
+      !
+      write (r1file,13) (nint(face_xyz(nf)%v(l,kf,2)),l=1,nq)
+      write (r2file,13) (nint(faceusp_array(f0+kf,l,2)),l=1,nq)
+      !
+      write (d1file,11) (abs( face_xyz(nf)%v(l,kf,2) - &
+                              face_xyz(nf)%v(l,kf,1) ) , l=1,nq), &
+                       norm2( face_xyz(nf)%v(1:nq,kf,2) - &
+                              face_xyz(nf)%v(1:nq,kf,1) )
+      write (d2file,11) (abs( faceusp_array(f0+kf,l,2) - &
+                              faceusp_array(f0+kf,l,1) ) , l=1,nq), &
+                       norm2( faceusp_array(f0+kf,1:nq,2) - &
+                              faceusp_array(f0+kf,1:nq,1) )
+      !
+    end do
+    !
+  end do
+  !
+  deallocate ( face_xyz , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"face_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  deallocate ( faceusp_array , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"faceusp_array",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+ !1 format (i4,*(es23.15))
+  1 format (i4,100(es12.4))
+ !1 format (i4,*(es12.4))
+  2 format (/,"#######################################################",/, &
+              "#################  CELL ",i0,"  ###########################",/, &
+              "#######################################################",/)
+ 11 format (1x,100(es12.4))
+!11 format (1x,*(es12.4))
+ 12 format ("FACE ",i0,4x,a)
+ 13 format (1x,100(i6))
+  !
+end subroutine test_communication
 !
 !###############################################################################
 !
@@ -5564,7 +5906,7 @@ subroutine write_residual_file(iflag,icount)
   !
   !.. Local Scalars ..
   integer  :: i,ierr
-  real(wp) :: comp_cost
+  real(wp) :: comp_cost,small_num
   character(len=25) :: suffix
   !
   !.. Local Saved Scalars ..
@@ -5632,12 +5974,14 @@ continue
     end if
   end if
   !
+  small_num = epsilon(zero)/total_volume
+  !
   ! L1 Norm
  !u2(:) = merge( uverr1(:,1,1) , epsilon(zero)/two , uverr1(:,1,1)>zero )
  !v2(:) = merge( uverr1(:,1,2) , epsilon(zero)/two , uverr1(:,1,2)>zero )
   ! L2 Norm
-  u2(:) = merge( uverr1(:,2,1) , epsilon(zero)/total_volume , uverr1(:,2,1)>zero )
-  v2(:) = merge( uverr1(:,2,2) , epsilon(zero)/total_volume , uverr1(:,2,2)>zero )
+  u2(:) = merge( uverr1(:,2,1) , small_num , uverr1(:,2,1)>zero )
+  v2(:) = merge( uverr1(:,2,2) , small_num , uverr1(:,2,2)>zero )
   ! Infinity Norm
  !u2(:) = merge( uverr1(:,3,1) , epsilon(zero)/two , uverr1(:,3,1)>zero )
  !v2(:) = merge( uverr1(:,3,2) , epsilon(zero)/two , uverr1(:,3,2)>zero )
@@ -5863,7 +6207,7 @@ continue
   write (tname,'("FlowSolution",i0)') cgns_zone_counter
  !write (sol_file,'("solution.",i0,".cgns")') cgns_zone_counter
   if (iflag == -3) then
-    write (sol_file,cgnsfile_fmt) itcur-1,".NaN"
+    write (sol_file,cgnsfile_fmt) max(0,itcur-1),".NaN"
   else
     write (sol_file,cgnsfile_fmt) itcur,""
   end if
@@ -7073,31 +7417,31 @@ continue
         case ("D")
           varname = trim(adjustl(varname)) // trim(vmult) // "Rho"
           var_dim(n) = var_dim(n) * rhoref
-        case ("X") 
+        case ("X")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vx"
           var_dim(n) = var_dim(n) * aref
-        case ("Y") 
+        case ("Y")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vy"
           var_dim(n) = var_dim(n) * aref
-        case ("Z") 
+        case ("Z")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vz"
           var_dim(n) = var_dim(n) * aref
-        case ("E") 
+        case ("E")
           varname = trim(adjustl(varname)) // trim(vmult) // "E"
           var_dim(n) = var_dim(n) * rhoref * aref * aref
-        case ("P") 
+        case ("P")
           varname = trim(adjustl(varname)) // trim(vmult) // "P"
           var_dim(n) = var_dim(n) * rhoref * aref * aref
-        case ("T") 
+        case ("T")
           varname = trim(adjustl(varname)) // trim(vmult) // "T"
           var_dim(n) = var_dim(n) * tref
-        case ("R") 
+        case ("R")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vr"
           var_dim(n) = var_dim(n) * aref
-        case ("F") 
+        case ("F")
           varname = trim(adjustl(varname)) // trim(vmult) // "Vf"
           var_dim(n) = var_dim(n) * aref
-        case ("K") 
+        case ("K")
           varname = trim(adjustl(varname)) // trim(vmult) // "TKE"
           var_dim(n) = var_dim(n) * tkeref
         case ("W")
@@ -7722,7 +8066,7 @@ continue
   LPI = Lref * PI
   half_LPI = half * LPI
   !
-  ! Compute the average cell height and then use that to get a small 
+  ! Compute the average cell height and then use that to get a small
   ! percentage of the cell height to use a limit to identify boundary
   ! faces within the grid region of interest
   !
@@ -7759,7 +8103,7 @@ continue
       !       ip that is returned is zero because this will cause the xyz_nodes
       !       array to go out-of-bounds so cycle the inner loop if this
       !       situation arrises.
-      !       
+      !
       ip = face(nf)%nodes(n)
       !
       if (ip == 0) cycle bface_node_loop
@@ -7963,7 +8307,7 @@ subroutine get_vort_face_coordinates(my_vort_faces,y,z)
   use order_mod,         only : geom_solpts
   use geovar,            only : face,cell,xyz,fp
   use interpolation_mod, only : interp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Formal Arguments ..
   integer,   dimension(:),    intent(in) :: my_vort_faces
@@ -8046,8 +8390,8 @@ continue
     !
     if (allocated(outerp(face_geom,face_order)%output)) then
       !
-      face_y(1:nfp) = outerp(face_geom,face_order)%output%mv_mult( face_y(1:nfp) )
-      face_z(1:nfp) = outerp(face_geom,face_order)%output%mv_mult( face_z(1:nfp) )
+      call outerp_mv_mult( outerp(face_geom,face_order)%output , face_y(1:nfp) )
+      call outerp_mv_mult( outerp(face_geom,face_order)%output , face_z(1:nfp) )
       !
     end if
     !
@@ -8070,7 +8414,7 @@ subroutine get_vort_face_solution(my_vort_faces,vorticity)
   use geovar, only : nr,face,cell,fp
   use ovar, only : time_ref
   use interpolation_mod, only : interp
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   use flowvar, only : usp,dusp
   !
   !.. Formal Arguments ..
@@ -8155,13 +8499,11 @@ continue
     if (allocated(outerp(face_geom,face_order)%output)) then
       !
       do m = 1,nq
-        cvfp(m,1:nfp) = outerp(face_geom,face_order)% &
-                                             output% &
-                       mv_mult( cv_tmp(1:nfp,m) )
+        call outerp_mv_mult( outerp(face_geom,face_order)%output , &
+                             cv_tmp(1:nfp,m) , cvfp(m,1:nfp) )
         do l = 1,nr
-          dcvdx(l,m,1:nfp) = outerp(face_geom,face_order)% &
-                                                  output% &
-                            mv_mult( dcvdx_tmp(1:nfp,l,m) )
+          call outerp_mv_mult( outerp(face_geom,face_order)%output , &
+                               dcvdx_tmp(1:nfp,l,m) , dcvdx(l,m,1:nfp) )
         end do
       end do
       !
@@ -8197,7 +8539,7 @@ continue
       ! Compute the magnitude of the vorticity vector
       ! NOTE: Dont forget to adjust the nondimensionalization of the
       !       vorticity by dividing through by time_ref to get vorticity*
-      !        
+      !
       vorticity(f1-1+k) = real( norm2(vort_vec) / time_ref , &
                                 kind=kind(vorticity) )
       !
@@ -8291,7 +8633,7 @@ pure function interpolate_for_output_1d(array) result(return_value)
   use geovar,  only : global_cell_geom
   use geovar,  only : global_cell_order
   !
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: array
@@ -8303,7 +8645,7 @@ pure function interpolate_for_output_1d(array) result(return_value)
   integer :: nc,n1,n2,np,n
   integer :: this_geom,this_order
   !
-continue 
+continue
   !
   ! Interpolate the data depending on if we are working on
   ! a local or global data array.
@@ -8320,9 +8662,8 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
-        return_value(n1:n2) = outerp(this_geom,this_order)% &
-                                                    output% &
-                              mv_mult( array(n1:n2) )
+        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                             array(n1:n2) , return_value(n1:n2) )
       else
         return_value(n1:n2) = array(n1:n2)
       end if
@@ -8341,9 +8682,8 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
-        return_value(n1:n2) = outerp(this_geom,this_order)% &
-                                                    output% &
-                              mv_mult( array(n1:n2) )
+        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                             array(n1:n2) , return_value(n1:n2) )
       else
         return_value(n1:n2) = array(n1:n2)
       end if
@@ -8357,7 +8697,7 @@ continue
     end do
     !
   end if
-  ! 
+  !
 end function interpolate_for_output_1d
 !
 !###############################################################################
@@ -8373,7 +8713,7 @@ pure function interpolate_for_output_2d(array) result(return_value)
   use geovar,  only : global_cell_geom
   use geovar,  only : global_cell_order
   !
-  use interpolation_mod, only : outerp
+  use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: array
@@ -8385,7 +8725,7 @@ pure function interpolate_for_output_2d(array) result(return_value)
   integer :: nc,n1,n2,np,n,npts,nvar,m
   integer :: this_geom,this_order
   !
-continue 
+continue
   !
   nvar = size(array,dim=1)
   npts = size(array,dim=2)
@@ -8406,9 +8746,8 @@ continue
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
-          return_value(m,n1:n2) = outerp(this_geom,this_order)% &
-                                                        output% &
-                                  mv_mult( array(m,n1:n2) )
+          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                               array(m,n1:n2) , return_value(m,n1:n2) )
         end do
       else
         do n = n1,n2
@@ -8433,9 +8772,8 @@ continue
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
         do m = 1,nvar
-          return_value(m,n1:n2) = outerp(this_geom,this_order)% &
-                                                        output% &
-                                  mv_mult( array(m,n1:n2) )
+          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                               array(m,n1:n2) , return_value(m,n1:n2) )
         end do
       else
         do n = n1,n2
@@ -8458,7 +8796,7 @@ continue
     end do
     !
   end if
-  ! 
+  !
 end function interpolate_for_output_2d
 !
 !###############################################################################
@@ -8508,6 +8846,7 @@ include "Functions/mach_number.f90"
 include "Functions/cell_vol.f90"
 include "Functions/bc_string_to_integer.f90"
 include "Functions/grad_cv_to_grad_pv.f90"
+#include "Functions/check_for_bad_number.f90"
 !
 !###############################################################################
 !

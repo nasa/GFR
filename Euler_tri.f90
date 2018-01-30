@@ -37,9 +37,6 @@ program Euler_tri
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
-  use flowvar, only : faceusp,faceusp_array
-  use flowvar, only : facedusp,facedusp_array
-  !
   use quadrature_mod, only : solpts_edge
   !
   use io_mod, only : read_input_file
@@ -47,6 +44,7 @@ program Euler_tri
   use io_mod, only : write_parallel_cgns
   use io_mod, only : write_residual_file
   use io_mod, only : write_residual_file_gpu
+  use io_mod, only : test_communication
   use io_mod, only : check_face_flux_point_orderings
   use io_mod, only : check_cell_flux_point_orderings
   use io_mod, only : TaylorGreen_8s_vorticity_solution
@@ -60,6 +58,8 @@ program Euler_tri
   use metrics_mod, only : get_metrics
   !
   use vandermonde_mod, only : init_vandermonde_matrices
+  use vandermonde_mod, only : move_vand_to_device
+  use vandermonde_mod, only : move_monomials_to_device
   !
   use derivatives_mod, only : init_derivative_matrices
   use derivatives_mod, only : move_deriv_to_device
@@ -70,10 +70,13 @@ program Euler_tri
   use interpolation_mod, only : init_interpolation_matrices
   use interpolation_mod, only : init_outerpolation_matrices
   use interpolation_mod, only : move_interp_to_device
+  use interpolation_mod, only : move_outerp_to_device
   !
   use projection_mod, only : init_projection_matrices
+  use projection_mod, only : move_projct_to_device
   !
   use filter_mod, only : init_filter_matrices
+  use filter_mod, only : move_filter_to_device
   !
   use initialization_mod, only : initialize_flow
   !
@@ -91,11 +94,11 @@ program Euler_tri
   !
   use time_mod, only : get_dtsp
   use time_mod, only : rresi
-  use time_mod, only : rupdate_Classic_RK
-  use time_mod, only : rupdate_CK4_RK
-  use time_mod, only : rupdate_TVD2_RK
-  use time_mod, only : rupdate_TVD3_RK
-  use time_mod, only : rupdate_TVD4_RK
+  use time_mod, only : update_Classic_RK
+  use time_mod, only : update_CK_RK4
+  use time_mod, only : update_TVD_RK2
+  use time_mod, only : update_TVD_RK3
+  use time_mod, only : update_TVD_RK4
   use time_mod, only : save_old_solution
   !
   use flux_mod, only : interp_cv_to_flxpts
@@ -124,7 +127,6 @@ program Euler_tri
   use parallel_mod, only : move_cellmap_to_device
   !
   use module_limiters, only : initialize_limiters
-  use module_limiters, only : compute_cell_ave
   !
   use mms_mod, only : mms_src
   use mms_mod, only : initialize_mms
@@ -152,12 +154,14 @@ program Euler_tri
   !
   integer  :: iter,nst,i,ierr,k,npart
   integer  :: completed_timesteps
+  integer  :: newton_failures
   real(wp) :: dtmin,out_time
   !
   character(len=50) :: memfile
   !
   integer :: CGNS_action
   !
+  logical(lk)  :: completed_initial_cgns_output
   logical(lk)  :: exit_main_loop
   logical(lk)  :: walltime_expiring
   logical(ldk) :: request_stop
@@ -172,42 +176,46 @@ program Euler_tri
  !logical(lk), parameter :: ignore_errors = true
   logical(lk), parameter :: ignore_errors = fals
   !
-  character(len=300) :: overflow_error = ""
-  character(len=300) :: divide_by_zero_error = ""
-  character(len=300) :: invalid_error = ""
-  !
   real(wp) :: cfl_tmp(1:4)
   !
 continue
   !
+  call check_for_bad_number(__LINE__)
   request_restart = .false.
   request_solution = .false.
+  completed_initial_cgns_output = fals
   !
   ! Initialize the overall MPI session
   !
   call initialize_mpi_environment
+  call check_for_bad_number(__LINE__)
   !
   call get_cpu_locality
+  call check_for_bad_number(__LINE__)
   !
   ! Initialize the wall time
   !
   call recon_cpu_time(0)
+  call check_for_bad_number(__LINE__)
   !
   ! Get the number of seconds allowed for this simulation
   !
   call pbs_remaining_walltime(walltime_expiring)
+  call check_for_bad_number(__LINE__)
   !
   ! Initialize all the random constants that must be initialized at run time
   !
   call initialize_runtime_parameters
   call memory_pause("base initializations","reading input and grid files")
+  call check_for_bad_number(__LINE__)
   !
   ! Read in the input file
   !
   call read_input_file
   call memory_pause("reading input and grid files","partitioning the grid")
+  call check_for_bad_number(__LINE__)
   !
-  ! Partition the grid if using more than one processor. 
+  ! Partition the grid if using more than one processor.
   ! Upon entry:  These arrays define the global grid
   ! Upon return: These arrays define the partition local
   !              to the respective processor along with
@@ -221,11 +229,13 @@ continue
     call create_serial_cell_map(ncell)
     call memory_pause("getting serial cell map","getting the solution points")
   end if
+  call check_for_bad_number(__LINE__)
   !
   ! Get the coordinates of the solution points within each grid cell
   !
   call get_solution_points
   call memory_pause("getting the solution points","getting grid connectivity")
+  call check_for_bad_number(__LINE__)
   !
   ! Get the grid connectivity and metrics
   !
@@ -233,6 +243,7 @@ continue
                              nodes_of_cell,nodes_of_cell_ptr)
   call memory_pause("getting grid connectivity", &
                     "initializing vandermonde matrices")
+  call check_for_bad_number(__LINE__)
   !
   ! Compute the remaining quadrature information
   ! (Vandermonde matrix, stiffness matrix, LIFT / correction function, etc.)
@@ -241,46 +252,56 @@ continue
   call init_vandermonde_matrices
   call memory_pause("initializing vandermonde matrices", &
                     "initializing derivative matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_derivative_matrices
   call memory_pause("initializing derivative matrices", &
                     "initializing correction matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_correction_matrices
   call memory_pause("initializing correction matrices", &
                     "initializing interpolation matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_interpolation_matrices
   call memory_pause("initializing interpolation matrices", &
                     "initializing outerpolation matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_outerpolation_matrices
   call memory_pause("initializing outerpolation matrices", &
                     "initializing projection matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_projection_matrices
   call memory_pause("initializing projection matrices", &
                     "initializing filter matrices")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_filter_matrices
   call memory_pause("initializing filter matrices", &
                     "initializing boundary profile stuff")
+  call check_for_bad_number(__LINE__)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call init_bnd_profile_structures
   call memory_pause("initializing boundary profile stuff", &
                     "initializing metrics")
+  call check_for_bad_number(__LINE__)
   !
   ! Get the grid metrics
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   call get_metrics
   call memory_pause("initializing metrics","initializing solution")
+  call check_for_bad_number(__LINE__)
   !
   ! Uncomment the call to check_flux_point_orderings if you
   ! suspect that there is an error between the orderings of
   ! the flux points from the two cells on an interface
   !
   if (check_flux_point_coordinates) then
+    call test_communication
     call check_face_flux_point_orderings
     call check_cell_flux_point_orderings
   end if
@@ -301,7 +322,7 @@ continue
     call report_memory_usage(n=1,request_stop=fals)
   end if
   !
-  ! Initialize the MMS module if it is being used. 
+  ! Initialize the MMS module if it is being used.
   !
   if (mms_opt /= 0) call initialize_mms
   !
@@ -312,6 +333,7 @@ continue
   if (output_time_averaging) then
     call initialize_time_ave
   end if
+  call check_for_bad_number(__LINE__)
   call memory_pause("initializing solution","initializing generic module")
   call init_cbias
   !
@@ -328,6 +350,11 @@ continue
   call move_correct_to_device
   call move_deriv_to_device
   call move_interp_to_device
+  call move_outerp_to_device
+  call move_filter_to_device
+  call move_projct_to_device
+  call move_vand_to_device
+  call move_monomials_to_device
   call move_cellmap_to_device
   call move_bcin_to_device
   !
@@ -355,6 +382,7 @@ continue
       call memory_pause("initializing generic module","main iteration loop")
     end if
   end if
+  call check_for_bad_number(__LINE__)
   !
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -365,6 +393,7 @@ continue
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !
   call initialize_limiters
+  call check_for_bad_number(__LINE__)
   !
   ! Initialize the wall time
   !
@@ -372,22 +401,32 @@ continue
   !
   if (num_timesteps > 0) then
     !
-    call interp_cv_to_flxpts(0,0)   ! ; call check_for_bad_number(__LINE__)
+    call interp_cv_to_flxpts(0,0) ! ; call check_for_bad_number(__LINE__)
     call memory_pause("initial interpolation of C.V. to flux points", &
                       "exchanging C.V. between communication faces")
+    call check_for_bad_number(__LINE__)
     if (ncpu > 1) then
-      call exchange_faceusp(faceusp)! ; call check_for_bad_number(__LINE__)
+      call exchange_faceusp       ! ; call check_for_bad_number(__LINE__)
+#define IMMEDIATE_WAIT_FOR_MPI
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+      call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+#endif
     end if
     call memory_pause("exchanging C.V. between communication faces", &
                       "initial evaluation of boundary conditions")
-    call get_faceusp_bc             ! ; call check_for_bad_number(__LINE__)
+    call check_for_bad_number(__LINE__)
+    call get_faceusp_bc(newton_failures) ! ; call check_for_bad_number(__LINE__)
     call memory_pause("initial evaluation of boundary conditions", &
                       "waiting for C.V. exchanges to complete")
+    call check_for_bad_number(__LINE__,newton_failures)
     if (ncpu > 1) then
-      call wait_faceusp(faceusp)    ! ; call check_for_bad_number(__LINE__)
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+      call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+#endif
     end if
     call memory_pause("waiting for C.V. exchanges to complete", &
                       "initial TGV KEDR evaluation")
+    call check_for_bad_number(__LINE__)
     !
     if (itestcase == Taylor_Green_Vortex) then
       call compute_TaylorGreen_KEDR_gpu(0,zero)
@@ -398,6 +437,7 @@ continue
         call memory_pause("initial TGV KEDR evaluation", &
                           "writing initial CGNS file")
       end if
+      call check_for_bad_number(__LINE__)
     end if
     !
   end if
@@ -425,8 +465,10 @@ continue
   else
     call write_parallel_cgns(open_CGNS)
   end if
+  completed_initial_cgns_output = true
   CGNS_action = add_to_CGNS
   call memory_pause("writing initial CGNS file","main iteration loop")
+  call check_for_bad_number(__LINE__)
   !
   ! Initialize the wall time
   !
@@ -459,59 +501,83 @@ continue
       end if
 #define NEW_FLUX_REARRANGEMENT
 #ifdef NEW_FLUX_REARRANGEMENT
-      call interp_cv_to_flxpts(iter,nst)             ! ; call check_for_bad_number(__LINE__)
+      call interp_cv_to_flxpts(iter,nst)   ! call check_for_bad_number(__LINE__)
       !
       if (ncpu > 1) then
-        call exchange_faceusp(faceusp)               ! ; call check_for_bad_number(__LINE__)
+        call exchange_faceusp              ! call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+#endif
       end if
       !
       if (governing_equations == NavierStokes_Eqns) then
-        call discontinuous_gradient_at_solpts        ! ; call check_for_bad_number(__LINE__)
+        call discontinuous_gradient_at_solpts
+                                           ! call check_for_bad_number(__LINE__)
       end if
       !
-      call get_faceusp_bc                            ! ; call check_for_bad_number(__LINE__)
+      call get_faceusp_bc(newton_failures) ! call check_for_bad_number(__LINE__)
+      call check_for_bad_number(__LINE__,newton_failures)
       !
-      call get_invs_common_fluxes_interior(iter,nst) ! ; call check_for_bad_number(__LINE__)
+      call get_invs_common_fluxes_interior(iter,nst)
+                                           ! call check_for_bad_number(__LINE__)
       !
       if (ncpu > 1) then
-        call wait_faceusp(faceusp)                   ! ; call check_for_bad_number(__LINE__)
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+        call wait_faceusp                  ! call check_for_bad_number(__LINE__)
+#endif
       end if
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (visc_flux_method == visc_flux_BR2) then
          !call correct_gradients_br2
-          call correct_gradients_br2_gpu             ! ; call check_for_bad_number(__LINE__)
+          call correct_gradients_br2_gpu   ! call check_for_bad_number(__LINE__)
         else
-          call correct_gradients_at_solpts_gpu       ! ; call check_for_bad_number(__LINE__)
-         !call correct_gradients_at_solpts           ! ; call check_for_bad_number(__LINE__)
-          call interp_dusp_to_flxpts                 ! ; call check_for_bad_number(__LINE__)
+          call correct_gradients_at_solpts_gpu
+                                           ! call check_for_bad_number(__LINE__)
+         !call correct_gradients_at_solpts ! call check_for_bad_number(__LINE__)
+          call interp_dusp_to_flxpts       ! call check_for_bad_number(__LINE__)
         end if
         if (ncpu > 1) then
-          call exchange_facedusp(facedusp)           ! ; call check_for_bad_number(__LINE__)
+          call exchange_facedusp           ! call check_for_bad_number(__LINE__)
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
+#endif
         end if
-        call get_facedusp_bc                         ! ; call check_for_bad_number(__LINE__)
-        call get_visc_common_fluxes_interior         ! ; call check_for_bad_number(__LINE__)
+        call get_facedusp_bc               ! call check_for_bad_number(__LINE__)
+        call get_visc_common_fluxes_interior
+                                           ! call check_for_bad_number(__LINE__)
       end if
       !
-      call get_invs_common_fluxes_bc                 ! ; call check_for_bad_number(__LINE__)
+      call get_invs_common_fluxes_bc       ! call check_for_bad_number(__LINE__)
       !
       if (governing_equations == NavierStokes_Eqns) then
         if (ncpu > 1) then
-          call wait_facedusp(facedusp)               ! ; call check_for_bad_number(__LINE__)
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+          call wait_facedusp               ! call check_for_bad_number(__LINE__)
+#endif
         end if
-        call get_visc_common_fluxes_bc               ! ; call check_for_bad_number(__LINE__)
+        call get_visc_common_fluxes_bc     ! call check_for_bad_number(__LINE__)
       end if
       !
-      call flux_gradient_at_solpts(iter,nst)         ! ; call check_for_bad_number(__LINE__)
+      call flux_gradient_at_solpts(iter,nst)
+                                           ! call check_for_bad_number(__LINE__)
 #else
       !
       call interp_cv_to_flxpts(iter,nst)
       !
-      if (ncpu > 1) call exchange_faceusp(faceusp)
+      if (ncpu > 1) then
+        call exchange_faceusp
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+        call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
+#endif
+      end if
       !
-      call get_faceusp_bc
+      call get_faceusp_bc(newton_failures)
+      call check_for_bad_number(__LINE__,newton_failures)
       !
-      if (ncpu > 1) call wait_faceusp(faceusp)
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+      if (ncpu > 1) call wait_faceusp
+#endif
       !
      !if (nst == 1) call get_dtsp(dtmin)
       !
@@ -527,11 +593,18 @@ continue
           call interp_dusp_to_flxpts
         end if
         !
-        if (ncpu > 1) call exchange_facedusp(facedusp)
+        if (ncpu > 1) then
+          call exchange_facedusp
+#ifdef IMMEDIATE_WAIT_FOR_MPI
+          call wait_facedusp           ! ; call check_for_bad_number(__LINE__)
+#endif
+        end if
         !
         call get_facedusp_bc
         !
-        if (ncpu > 1) call wait_facedusp(facedusp)
+#ifndef IMMEDIATE_WAIT_FOR_MPI
+        if (ncpu > 1) call wait_facedusp
+#endif
         !
       end if
       !
@@ -563,15 +636,15 @@ continue
       ! Store residual in rssprk(:,:,nst) and update the solutions in usp
       !
       if (Runge_Kutta_Scheme == Classic_RK) then
-        call rupdate_Classic_RK(nst,Apply_Filter,Apply_Limiter)
+        call update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD2_RK) then
-        call rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
+        call update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == TVD3_RK) then
-        call rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter,iter)
+        call update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
       else if (Runge_Kutta_Scheme == TVD4_RK) then
-        call rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
+        call update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
       else if (Runge_Kutta_Scheme == CK4_RK) then
-        call rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
+        call update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
       end if
       !
     end do rk_loop
@@ -984,7 +1057,7 @@ contains
 !
 !###############################################################################
 !
-subroutine check_for_bad_number(line_num)
+subroutine check_for_bad_number(line_num,newton_failures)
   !
   !.. Use Statements ..
   use eqn_idx, only : nq
@@ -998,10 +1071,20 @@ subroutine check_for_bad_number(line_num)
   !.. Formal Arguments ..
   integer, intent(in) :: line_num
   !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: newton_failures
+  !
 #ifndef SPECIAL_FOR_GCC
   !
   !.. Local Scalars ..
   integer :: n,m
+  !
+  logical(lk) :: error_found
+  !
+  character(len=300) :: overflow_error
+  character(len=300) :: divide_by_zero_error
+  character(len=300) :: invalid_error
+  character(len=300) :: newton_error
   !
   !.. Local Arrays ..
   integer      :: bad_number_found(1:size(ieee_usual))
@@ -1010,6 +1093,13 @@ subroutine check_for_bad_number(line_num)
   character(len=*), parameter :: pname = "check_for_bad_number"
   !
 continue
+  !
+  error_found = fals
+  !
+  overflow_error = ""
+  divide_by_zero_error = ""
+  invalid_error = ""
+  newton_error = ""
   !
   ! First check to make sure that no floating-point exceptions are signaling
   !
@@ -1023,38 +1113,56 @@ continue
                      mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
+  if (present(newton_failures)) then
+    if (newton_failures > 0) then
+      error_found = true
+      write (newton_error,104) newton_failures
+    end if
+  end if
+  !
   if (sum(bad_number_found) > 0) then
+    error_found = true
+    if (bad_number_found(1) > 0) write (overflow_error,101)
+    if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
+    if (bad_number_found(3) > 0) write (invalid_error,103)
+  end if
+  !
+  if (error_found) then
     !
-    ! A floating-point exception was detected. Dump solution and restart
-    ! files for the solution at the previous time step and abort the
-    ! simulation
+    ! A floating-point exception was detected or the subsonic inflow
+    ! Newton iteration failed. Dump solution and restart files for the
+    ! solution at the previous time step and abort the simulation.
     !
     ! Copy the solution from the previous time step back into
     ! usp so we can dump the solution and restart files before
     ! aborting the simulation
     !
-    !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
-    do m = 1,nq
-      do n = 1,n_solpts
-        usp(n,m) = uoldsp(n,m)
-      end do
-    end do
-    !
-    if (continuous_output) then
-      call new_write_parallel_cgns
-    else
-      call write_parallel_cgns(-3)
+    if (completed_initial_cgns_output) then
+      if (allocated(usp) .and. allocated(uoldsp)) then
+        !
+        !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uoldsp,usp)
+        do m = 1,nq
+          do n = 1,n_solpts
+            usp(n,m) = uoldsp(n,m)
+          end do
+        end do
+        !
+        if (continuous_output) then
+          call new_write_parallel_cgns
+        else
+          call write_parallel_cgns(-3)
+        end if
+        !
+        call write_restart_file(-2)
+        !
+      end if
     end if
     !
-    call write_restart_file(-2)
-    !
-    if (bad_number_found(1) > 0) write (overflow_error,101)
-    if (bad_number_found(2) > 0) write (divide_by_zero_error,102)
-    if (bad_number_found(3) > 0) write (invalid_error,103)
     write (error_message,100) itcur, &
-                              trim(overflow_error), &
-                              trim(divide_by_zero_error), &
-                              trim(invalid_error)
+                              trim(adjustl(overflow_error)), &
+                              trim(adjustl(divide_by_zero_error)), &
+                              trim(adjustl(invalid_error)), &
+                              trim(adjustl(newton_error))
     !
     call stop_recon(stop_mpi,pname,line_num,__FILE__,error_message)
     !
@@ -1064,11 +1172,14 @@ continue
               "DETECTED AFTER UPDATING THE SOLUTION AFTER ", &
               "TIME STEP # ",i0," !!! DUMPING SOLUTION AND ", &
               "RESTART FILES FOR THE PREVIOUS TIME STEP!!!", &
-              3(2x,a,:))
+              4(2x,a,:))
   !
   101 format ("OVERFLOW EXCEPTION DETECTED!!!")
   102 format ("DIVIDE-BY-ZERO EXCEPTION DETECTED!!!")
   103 format ("INVALID NUMBER (NaN) EXCEPTION DETECTED!!!")
+  104 format (" FAILURES WERE DETECTED USING NEWTON'S METHOD", &
+              " TO COMPUTE THE SUBSONIC INFLOW TEMPERATURE!", &
+              "       newton_failures = ",i0)
 #endif
   !
 end subroutine check_for_bad_number

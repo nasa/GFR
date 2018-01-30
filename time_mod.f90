@@ -11,57 +11,55 @@ module time_mod
   !
   public :: get_dtsp
   public :: rresi
-  public :: rupdate_Classic_RK
-  public :: rupdate_CK4_RK
-  public :: rupdate_TVD2_RK
-  public :: rupdate_TVD3_RK
-  public :: rupdate_TVD4_RK
- !public :: update_time_ave
- !public :: initialize_time_ave
+  public :: update_Classic_RK
+  public :: update_CK_RK4
+  public :: update_TVD_RK2
+  public :: update_TVD_RK3
+  public :: update_TVD_RK4
   public :: save_old_solution
   !
-  real(wp), parameter :: o = zero
-  !
-  ! Classic N stage Runge-Kutta coefficients
-  !
-  real(wp), parameter, dimension(4,4,4) :: &
-  alphaRK = reshape( &
-                        ! 1-Stage Coefficients
-       (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
-                        ! 2-Stage Coefficients
-         HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
-                        ! 3-Stage Coefficients
-         ONE3,o,o,o,o,TWO3,o,o,ONE4,o,THREE4,o, o  , o  , o  , o  ,   &
-                        ! 4-Stage Coefficients
-         HALF,o,o,o,o,HALF,o,o, o  ,o, ONE  ,o,ONE6,ONE3,ONE3,ONE6/), &
-       (/4,4,4/) )
-  !
-  ! TVD 4th-order/5-stage Runge-Kutta coefficients
-  !
-  real(wp), parameter, dimension(1:2,1:5) :: &
-    betaRK_TVD = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
-                             0.00000000000000_wp,0.36841059262959_wp, &
-                             0.00000000000000_wp,0.25189177424738_wp, &
-                             0.00000000000000_wp,0.54497475021237_wp, &
-                             0.08460416338212_wp,0.22600748319395_wp  /), &
-                          (/2,5/) )
-  !
-  real(wp), parameter, dimension(1:3,1:5) :: &
-    alphaRK_TVD = reshape( &
-         (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
-            0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
-            0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
-            0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
-            0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
-         (/3,5/) )
-  !
-  real(wp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_wp, &
-                                                          0.51723167208978_wp, &
-                                                          0.12759831133288_wp, &
-                                                          0.00000000000000_wp, &
-                                                          0.00000000000000_wp /)
-  !
-  character(len=100), save :: iter_out_fmt
+ !real(wp), parameter :: o = zero
+ !!
+ !! Classic N stage Runge-Kutta coefficients
+ !!
+ !real(wp), parameter, dimension(4,4,4) :: &
+ !alphaRK = reshape( &
+ !                      ! 1-Stage Coefficients
+ !     (/ONE ,o,o,o,o, o  ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
+ !                      ! 2-Stage Coefficients
+ !       HALF,o,o,o,o,ONE ,o,o, o  ,o,  o   ,o, o  , o  , o  , o  ,   &
+ !                      ! 3-Stage Coefficients
+ !       ONE3,o,o,o,o,TWO3,o,o,ONE4,o,THREE4,o, o  , o  , o  , o  ,   &
+ !                      ! 4-Stage Coefficients
+ !       HALF,o,o,o,o,HALF,o,o, o  ,o, ONE  ,o,ONE6,ONE3,ONE3,ONE6/), &
+ !     (/4,4,4/) )
+ !!
+ !! TVD 4th-order/5-stage Runge-Kutta coefficients
+ !!
+ !real(wp), parameter, dimension(1:2,1:5) :: &
+ !  betaRK_TVD = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
+ !                           0.00000000000000_wp,0.36841059262959_wp, &
+ !                           0.00000000000000_wp,0.25189177424738_wp, &
+ !                           0.00000000000000_wp,0.54497475021237_wp, &
+ !                           0.08460416338212_wp,0.22600748319395_wp  /), &
+ !                        (/2,5/) )
+ !!
+ !real(wp), parameter, dimension(1:3,1:5) :: &
+ !  alphaRK_TVD = reshape( &
+ !       (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
+ !          0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
+ !          0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
+ !          0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
+ !          0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
+ !       (/3,5/) )
+ !!
+ !real(wp), parameter, dimension(1:5) :: gammaRK_TVD = (/ 0.00000000000000_wp, &
+ !                                                        0.51723167208978_wp, &
+ !                                                        0.12759831133288_wp, &
+ !                                                        0.00000000000000_wp, &
+ !                                                        0.00000000000000_wp /)
+ !!
+ !character(len=100), save :: iter_out_fmt
  !!
  !real(wp), save, allocatable :: ave(:)
  !!
@@ -994,11 +992,7 @@ subroutine get_cell_timestep(dtmin)
   use metrics_mod, only : geofa,metrics_dt,facejac
   !
   use flowvar, only : dtsp
-#ifdef USE_FACE_ARRAYS
   use flowvar, only : faceusp_array
-#else
-  use flowvar, only : faceusp
-#endif
   !
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
@@ -1054,21 +1048,13 @@ continue
     psql = real( (host_order+make_p_plus_one)**2 , kind=wp )
     !
     f0 = face(nf)%beg_fp - 1
-#ifdef USE_FACE_ARRAYS
     nfp = face(nf)%end_fp - f0
-#else
-    nfp = geom_solpts(face_geom,face_order)
-#endif
     !
     do kf = 1,nfp
       !
       ! Get the primitive variables at this face point
       !
-#ifdef USE_FACE_ARRAYS
       vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
-#else
-      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
-#endif
       !
       if (governing_equations == NavierStokes_Eqns) then
         mul = viscosity_pv_sp( vl(1:nq) )
@@ -1134,23 +1120,14 @@ continue
     psqr = real( (right_order+make_p_plus_one)**2 , kind=wp )
     !
     f0 = face(nf)%beg_fp - 1
-#ifdef USE_FACE_ARRAYS
     nfp = face(nf)%end_fp - f0
-#else
-    nfp = geom_solpts(face_geom,face_order)
-#endif
     !
     do kf = 1,nfp
       !
       ! Get the primitive variables at this face point
       !
-#ifdef USE_FACE_ARRAYS
       vl(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,lsf) )
       vr(1:nq) = usp2v_sp( faceusp_array(f0+kf,1:nq,rsf) )
-#else
-      vl(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,lsf) )
-      vr(1:nq) = usp2v_sp( faceusp(nf)%v(1:nq,kf,rsf) )
-#endif
       !
       if (governing_equations == NavierStokes_Eqns) then
         mul = viscosity_pv_sp( vl(1:nq) )
@@ -1632,7 +1609,12 @@ subroutine rresi(iter,nst)
   integer  :: io,m,n,nr
   real(wp) :: jac_inv
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "rresi"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   nr = nme-nmb+1
   !
@@ -1701,25 +1683,20 @@ continue
   end if
   !
   if (p_order < n_order) then
-    call project_to_porder(cell,residual)
+    call project_to_porder(residual)
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine rresi
 !
 !###############################################################################
 !
-subroutine rupdate_Classic_RK(nst,Apply_Filter,Apply_Limiter)
-  !
-  ! First, store d(utd)/dt for runge kutta time
-  ! stepping then update usp
+subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
-  use geovar,  only : n_solpts
-  use ovar,    only : num_rk_stages
-  use ovar,    only : Limiter_Option
-  use ovar,    only : Filter_Option
-  use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
-  use filter_mod, only : filter_usp
+  use ovar,            only : Limiter_Option,Filter_Option
+  use filter_mod,      only : filter_usp
   use module_limiters, only : resolution_indicator
   use module_limiters, only : limit_by_projecting
   !
@@ -1728,31 +1705,12 @@ subroutine rupdate_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
-  !.. Local Scalars ..
-  integer   :: n,m,nt
-  real(wp) :: temp
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "stabilize_usp"
   !
 continue
   !
-  ! Store the residual for this Runge-Kutta step in rssprk
-  !
-  do m = 1,nq
-    do n = 1,n_solpts
-      rssprk(n,m,nst) = residual(n,m)
-    end do
-  end do
-  !
-  ! Update usp
-  !
-  do m = 1,nq
-    do n = 1,n_solpts
-      temp = zero
-      do nt = 1,nst
-        temp = temp + alphark(nt,nst,num_rk_stages)*rssprk(n,m,nt)
-      end do
-      usp(n,m) = uoldsp(n,m) + dtsp(n)*temp
-    end do
-  end do
+  call debug_timer(entering_procedure,pname)
   !
   ! Apply the filter
   !
@@ -1782,159 +1740,634 @@ continue
     end if
   end if
   !
-end subroutine rupdate_Classic_RK
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine stabilize_usp
 !
 !###############################################################################
 !
-subroutine rupdate_CK4_RK(nst,Apply_Filter,Apply_Limiter)
+subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : Limiter_Option,Filter_Option
-  use flowvar, only : rssprk,residual,usp,dtsp
-  use filter_mod, only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
+  use flowvar, only : rk_sum,residual,usp,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
-  !.. Local Scalars ..
-  integer :: n,m
-  !
-  ! Carpenter-Kennedy 4th-order/5-stage Runge-Kutta coefficients
-  !
-  real(wp), parameter, dimension(1:5) :: &
-             alfa = (/                                   0.0_wp, &
-                        -567301805773.0_wp/ 1357537059087.0_wp, &
-                       -2404267990393.0_wp/ 2016746695238.0_wp, &
-                       -3550918686646.0_wp/ 2091501179385.0_wp, &
-                       -1275806237668.0_wp/  842570457699.0_wp  /)
-
-  real(wp), parameter, dimension(1:5) :: &
-             beta = (/  1432997174477.0_wp/ 9575080441755.0_wp, &
-                        5161836677717.0_wp/13612068292357.0_wp, &
-                        1720146321549.0_wp/ 2090206949498.0_wp, &
-                        3134564353537.0_wp/ 4481467310338.0_wp, &
-                        2277821191437.0_wp/14882151754819.0_wp  /)
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_CK_RK4"
   !
 continue
   !
-  do m = 1,nq
-    do n = 1,n_solpts
-      rssprk(n,m,1) = alfa(nst)*rssprk(n,m,1) + dtsp(n)*residual(n,m)
-      usp(n,m) = usp(n,m) + beta(nst)*rssprk(n,m,1)
-    end do
-  end do
+  call debug_timer(entering_procedure,pname)
   !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
-#endif
-      call filter_usp
-    end if
+  if (nst == 1) then
+    call update_CK_RK4_S1(n_solpts,dtsp,residual,usp,rk_sum)
+  else if (nst == 2) then
+    call update_CK_RK4_S2(n_solpts,dtsp,residual,usp,rk_sum)
+  else if (nst == 2) then
+    call update_CK_RK4_S3(n_solpts,dtsp,residual,usp,rk_sum)
+  else if (nst == 2) then
+    call update_CK_RK4_S4(n_solpts,dtsp,residual,usp,rk_sum)
+  else if (nst == 2) then
+    call update_CK_RK4_S5(n_solpts,dtsp,residual,usp,rk_sum)
   end if
   !
-  ! Apply the limiter
+  ! Apply filtering or limiting to stabilize the solution
   !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
-#endif
-      if (Limiter_Option == -1) then
-        call resolution_indicator(apply_projection=true)
-      else if (Limiter_Option >= 1) then
-        call limit_by_projecting
-      end if
-    end if
-  end if
+  call stabilize_usp(nst,Apply_Filter,Apply_Limiter)
   !
-end subroutine rupdate_CK4_RK
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_CK_RK4
 !
 !###############################################################################
 !
-subroutine rupdate_TVD2_RK(nst,Apply_Filter,Apply_Limiter)
+pure subroutine update_CK_RK4_S1(np,dtsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S1"
+  !
+  real(wp), parameter :: b = 1432997174477.0_wp / 9575080441755.0_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = dtsp(n)*residual(n,nec)
+      sum_mx = dtsp(n)*residual(n,nmx)
+      sum_my = dtsp(n)*residual(n,nmy)
+      sum_mz = dtsp(n)*residual(n,nmz)
+      sum_ee = dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nmz) = usp(n,nmz) + b*sum_mz
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nmz) = sum_mz
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = dtsp(n)*residual(n,nec)
+      sum_mx = dtsp(n)*residual(n,nmx)
+      sum_my = dtsp(n)*residual(n,nmy)
+      sum_ee = dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = dtsp(n)*residual(n,nec)
+      sum_mx = dtsp(n)*residual(n,nmx)
+      sum_ee = dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  end if
+  !
+end subroutine update_CK_RK4_S1
+!
+!###############################################################################
+!
+pure subroutine update_CK_RK4_S2(np,dtsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S2"
+  !
+  real(wp), parameter :: a = -567301805773.0_wp / 1357537059087.0_wp
+  real(wp), parameter :: b = 5161836677717.0_wp / 13612068292357.0_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_mz = a*rk_sum(n,nmz) + dtsp(n)*residual(n,nmz)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nmz) = usp(n,nmz) + b*sum_mz
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nmz) = sum_mz
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  end if
+  !
+end subroutine update_CK_RK4_S2
+!
+!###############################################################################
+!
+pure subroutine update_CK_RK4_S3(np,dtsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S3"
+  !
+  real(wp), parameter :: a = -2404267990393.0_wp / 2016746695238.0_wp
+  real(wp), parameter :: b = 1720146321549.0_wp / 2090206949498.0_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_mz = a*rk_sum(n,nmz) + dtsp(n)*residual(n,nmz)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nmz) = usp(n,nmz) + b*sum_mz
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nmz) = sum_mz
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  end if
+  !
+end subroutine update_CK_RK4_S3
+!
+!###############################################################################
+!
+pure subroutine update_CK_RK4_S4(np,dtsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S4"
+  !
+  real(wp), parameter :: a = -3550918686646.0_wp / 2091501179385.0_wp
+  real(wp), parameter :: b = 3134564353537.0_wp / 4481467310338.0_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_mz = a*rk_sum(n,nmz) + dtsp(n)*residual(n,nmz)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nmz) = usp(n,nmz) + b*sum_mz
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nmz) = sum_mz
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  end if
+  !
+end subroutine update_CK_RK4_S4
+!
+!###############################################################################
+!
+pure subroutine update_CK_RK4_S5(np,dtsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: sum_ec,sum_mx,sum_my,sum_mz,sum_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S5"
+  !
+  real(wp), parameter :: a = -1275806237668.0_wp / 842570457699.0_wp
+  real(wp), parameter :: b = 2277821191437.0_wp / 14882151754819.0_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_mz = a*rk_sum(n,nmz) + dtsp(n)*residual(n,nmz)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nmz) = usp(n,nmz) + b*sum_mz
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nmz) = sum_mz
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_my = a*rk_sum(n,nmy) + dtsp(n)*residual(n,nmy)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nmy) = usp(n,nmy) + b*sum_my
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nmy) = sum_my
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,rk_sum,dtsp,residual)
+    do n = 1,np
+      !
+      sum_ec = a*rk_sum(n,nec) + dtsp(n)*residual(n,nec)
+      sum_mx = a*rk_sum(n,nmx) + dtsp(n)*residual(n,nmx)
+      sum_ee = a*rk_sum(n,nee) + dtsp(n)*residual(n,nee)
+      !
+      usp(n,nec) = usp(n,nec) + b*sum_ec
+      usp(n,nmx) = usp(n,nmx) + b*sum_mx
+      usp(n,nee) = usp(n,nee) + b*sum_ee
+      !
+      rk_sum(n,nec) = sum_ec
+      rk_sum(n,nmx) = sum_mx
+      rk_sum(n,nee) = sum_ee
+      !
+    end do
+  end if
+  !
+end subroutine update_CK_RK4_S5
+!
+!###############################################################################
+!
+subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
-  use filter_mod, only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
   logical(lk), intent(in) :: Apply_Filter
   logical(lk), intent(in) :: Apply_Limiter
   !
-  !.. Local Scalars ..
-  integer   :: n,m
-  !
-  ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
-  !
-  real(wp), parameter, dimension(1:2) :: alfa = (/ zero,one  /)
-  real(wp), parameter, dimension(1:2) :: beta = (/ one ,half /)
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK2"
   !
 continue
   !
-  do m = 1,nq
-    do n = 1,n_solpts
-      usp(n,m) = beta(nst) * (alfa(nst)*uoldsp(n,m) + &
-                              usp(n,m) + &
-                              dtsp(n)*residual(n,m))
-    end do
-  end do
+  call debug_timer(entering_procedure,pname)
   !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
-#endif
-      call filter_usp
-    end if
+  if (nst == 1) then
+    call update_TVD_RK2_S1(n_solpts,dtsp,residual,usp)
+  else
+    call update_TVD_RK2_S2(n_solpts,dtsp,uoldsp,residual,usp)
   end if
   !
-  ! Apply the limiter
+  ! Apply filtering or limiting to stabilize the solution
   !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
-#endif
-      if (Limiter_Option == -1) then
-        call resolution_indicator(apply_projection=true)
-      else if (Limiter_Option >= 1) then
-        call limit_by_projecting
-      end if
-    end if
-  end if
+  call stabilize_usp(nst,Apply_Filter,Apply_Limiter)
   !
-end subroutine rupdate_TVD2_RK
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_TVD_RK2
 !
 !###############################################################################
 !
-subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter,iter)
+pure subroutine update_TVD_RK2_S1(np,dtsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK2_S1"
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = usp(n,nmy) + dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = usp(n,nmz) + dtsp(n)*residual(n,nmz)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = usp(n,nmy) + dtsp(n)*residual(n,nmy)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
+    end do
+  end if
+  !
+end subroutine update_TVD_RK2_S1
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK2_S2(np,dtsp,uoldsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK2_S2"
+  !
+  real(wp), parameter :: a = half
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a * ( uoldsp(n,nec) + usp(n,nec) + dtsp(n)*residual(n,nec) )
+      usp(n,nmx) = a * ( uoldsp(n,nmx) + usp(n,nmx) + dtsp(n)*residual(n,nmx) )
+      usp(n,nmy) = a * ( uoldsp(n,nmy) + usp(n,nmy) + dtsp(n)*residual(n,nmy) )
+      usp(n,nmz) = a * ( uoldsp(n,nmz) + usp(n,nmz) + dtsp(n)*residual(n,nmz) )
+      usp(n,nee) = a * ( uoldsp(n,nee) + usp(n,nee) + dtsp(n)*residual(n,nee) )
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a * ( uoldsp(n,nec) + usp(n,nec) + dtsp(n)*residual(n,nec) )
+      usp(n,nmx) = a * ( uoldsp(n,nmx) + usp(n,nmx) + dtsp(n)*residual(n,nmx) )
+      usp(n,nmy) = a * ( uoldsp(n,nmy) + usp(n,nmy) + dtsp(n)*residual(n,nmy) )
+      usp(n,nee) = a * ( uoldsp(n,nee) + usp(n,nee) + dtsp(n)*residual(n,nee) )
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a * ( uoldsp(n,nec) + usp(n,nec) + dtsp(n)*residual(n,nec) )
+      usp(n,nmx) = a * ( uoldsp(n,nmx) + usp(n,nmx) + dtsp(n)*residual(n,nmx) )
+      usp(n,nee) = a * ( uoldsp(n,nee) + usp(n,nee) + dtsp(n)*residual(n,nee) )
+    end do
+  end if
+  !
+end subroutine update_TVD_RK2_S2
+!
+!###############################################################################
+!
+subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : Limiter_Option,Filter_Option
   use flowvar, only : residual,usp,uoldsp,dtsp
-  use filter_mod, only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst,iter
@@ -1942,107 +2375,190 @@ subroutine rupdate_TVD3_RK(nst,Apply_Filter,Apply_Limiter,iter)
   logical(lk), intent(in) :: Apply_Limiter
   !
   !.. Local Scalars ..
-  integer  :: n,nr
-  real(wp) :: ac,bc
+  integer :: n
   !
-  ! TVD 2nd-order/2-stage Runge-Kutta Coefficients
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK3"
   !
-  real(wp), parameter, dimension(1:3) :: alfa = (/ zero,three,half /)
-  real(wp), parameter, dimension(1:3) :: beta = (/ one ,one4 ,two3 /)
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nst == 1) then
+    call update_TVD_RK3_S1(n_solpts,dtsp,residual,usp)
+  else if (nst == 2) then
+    call update_TVD_RK3_S2(n_solpts,dtsp,uoldsp,residual,usp)
+  else if (nst == 3) then
+    call update_TVD_RK3_S3(n_solpts,dtsp,uoldsp,residual,usp)
+  end if
+  !
+  ! Apply filtering or limiting to stabilize the solution
+  !
+  call stabilize_usp(nst,Apply_Filter,Apply_Limiter)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_TVD_RK3
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK3_S1(np,dtsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK3_S1"
   !
 continue
   !
   nr = nme-nmb+1
   !
-  bc = beta(nst)
-  ac = alfa(nst)*bc
-  !
- !call write_array(100,iter,nst,usp)
- !call write_array(300,iter,nst,uoldsp)
- !call write_array(500,iter,nst,residual)
- !call write_array(700,iter,nst,dtsp)
-  !
   if (nr == 3) then
-    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
-    do n = 1,n_solpts
-      usp(n,nec) = ac*uoldsp(n,nec) + bc*usp(n,nec) + bc*dtsp(n)*residual(n,nec)
-      usp(n,nmx) = ac*uoldsp(n,nmx) + bc*usp(n,nmx) + bc*dtsp(n)*residual(n,nmx)
-      usp(n,nmy) = ac*uoldsp(n,nmy) + bc*usp(n,nmy) + bc*dtsp(n)*residual(n,nmy)
-      usp(n,nmz) = ac*uoldsp(n,nmz) + bc*usp(n,nmz) + bc*dtsp(n)*residual(n,nmz)
-      usp(n,nee) = ac*uoldsp(n,nee) + bc*usp(n,nee) + bc*dtsp(n)*residual(n,nee)
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = usp(n,nmy) + dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = usp(n,nmz) + dtsp(n)*residual(n,nmz)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
     end do
   else if (nr == 2) then
-    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
-    do n = 1,n_solpts
-      usp(n,nec) = ac*uoldsp(n,nec) + bc*usp(n,nec) + bc*dtsp(n)*residual(n,nec)
-      usp(n,nmx) = ac*uoldsp(n,nmx) + bc*usp(n,nmx) + bc*dtsp(n)*residual(n,nmx)
-      usp(n,nmy) = ac*uoldsp(n,nmy) + bc*usp(n,nmy) + bc*dtsp(n)*residual(n,nmy)
-      usp(n,nee) = ac*uoldsp(n,nee) + bc*usp(n,nee) + bc*dtsp(n)*residual(n,nee)
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = usp(n,nmy) + dtsp(n)*residual(n,nmy)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
     end do
   else
-    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
-    do n = 1,n_solpts
-      usp(n,nec) = ac*uoldsp(n,nec) + bc*usp(n,nec) + bc*dtsp(n)*residual(n,nec)
-      usp(n,nmx) = ac*uoldsp(n,nmx) + bc*usp(n,nmx) + bc*dtsp(n)*residual(n,nmx)
-      usp(n,nee) = ac*uoldsp(n,nee) + bc*usp(n,nee) + bc*dtsp(n)*residual(n,nee)
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,usp)
+    do n = 1,np
+      usp(n,nec) = usp(n,nec) + dtsp(n)*residual(n,nec)
+      usp(n,nmx) = usp(n,nmx) + dtsp(n)*residual(n,nmx)
+      usp(n,nee) = usp(n,nee) + dtsp(n)*residual(n,nee)
     end do
   end if
- !!$ACC PARALLEL LOOP GANG WORKER VECTOR COLLAPSE(2) &
- !!$ACC&              PRESENT(residual,dtsp,uoldsp,usp)
- !do m = 1,nq
- !  do n = 1,n_solpts
- !    usp(n,m) = beta(nst) * (alfa(nst)*uoldsp(n,m) + &
- !                            usp(n,m) + &
- !                            dtsp(n)*residual(n,m))
- !  end do
- !end do
   !
- !call write_array(200,iter,nst,usp)
- !call write_array(400,iter,nst,uoldsp)
- !call write_array(600,iter,nst,residual)
- !call write_array(800,iter,nst,dtsp)
-  !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
-#endif
-      call filter_usp
-    end if
-  end if
-  !
-  ! Apply the limiter
-  !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
-#endif
-      if (Limiter_Option == -1) then
-        call resolution_indicator(apply_projection=true)
-      else if (Limiter_Option >= 1) then
-        call limit_by_projecting
-      end if
-    end if
-  end if
-  !
-end subroutine rupdate_TVD3_RK
+end subroutine update_TVD_RK3_S1
 !
 !###############################################################################
 !
-subroutine rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
+pure subroutine update_TVD_RK3_S2(np,dtsp,uoldsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK3_S2"
+  !
+  real(wp), parameter :: a = three4
+  real(wp), parameter :: b = one4
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + b*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + b*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + b*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  end if
+  !
+end subroutine update_TVD_RK3_S2
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK3_S3(np,dtsp,uoldsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK3_S3"
+  !
+  real(wp), parameter :: a = one3
+  real(wp), parameter :: b = two3
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + b*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + b*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + b*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(residual,dtsp,uoldsp,usp)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + b*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + b*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + b*dtsp(n)*residual(n,nee)
+    end do
+  end if
+  !
+end subroutine update_TVD_RK3_S3
+!
+!###############################################################################
+!
+subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
   use geovar,  only : n_solpts
-  use ovar,    only : Limiter_Option,Filter_Option
-  use flowvar, only : rssprk,residual,usp,uoldsp,usp_sum,dtsp
-  use filter_mod, only : filter_usp
-  use module_limiters, only : resolution_indicator
-  use module_limiters, only : limit_by_projecting
+  use flowvar, only : rssprk,residual,usp,uoldsp,rk_sum,dtsp
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2052,445 +2568,974 @@ subroutine rupdate_TVD4_RK(nst,Apply_Filter,Apply_Limiter)
   !.. Local Scalars ..
   integer :: n,m
   !
-  ! TVD 4th-order/5-stage Runge-Kutta Coefficients
-  !
-  real(wp), parameter, dimension(1:2,1:5) :: &
-    beta = reshape( (/ 0.00000000000000_wp,0.39175222700395_wp, &
-                       0.00000000000000_wp,0.36841059262959_wp, &
-                       0.00000000000000_wp,0.25189177424738_wp, &
-                       0.00000000000000_wp,0.54497475021237_wp, &
-                       0.08460416338212_wp,0.22600748319395_wp  /), &
-                    (/2,5/) )
-  !
-  real(wp), parameter, dimension(1:3,1:5) :: &
-    alfa = reshape( (/ 1.00000000000000_wp,0.00000000000000_wp,0.0_wp, &
-                       0.44437049406734_wp,0.55562950593266_wp,0.0_wp, &
-                       0.62010185138540_wp,0.37989814861460_wp,0.0_wp, &
-                       0.17807995410773_wp,0.82192004589227_wp,0.0_wp, &
-                       0.00683325884039_wp,0.34833675773694_wp,1.0_wp  /), &
-                    (/3,5/) )
-  !
-  real(wp), parameter, dimension(1:5) :: gama = (/ 0.00000000000000_wp, &
-                                                    0.51723167208978_wp, &
-                                                    0.12759831133288_wp, &
-                                                    0.00000000000000_wp, &
-                                                    0.00000000000000_wp  /)
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4"
   !
 continue
   !
-  if (nst == 1) usp_sum(:,:) = zero
+  call debug_timer(entering_procedure,pname)
   !
-  do m = 1,nq
-    do n = 1,n_solpts
-      !
-      rssprk(n,m,1) = beta(1,nst)*rssprk(n,m,1) + beta(2,nst)*residual(n,m)
-      !
-      usp(n,m) = alfa(1,nst)* uoldsp(n,m) + &
-                 alfa(2,nst)*    usp(n,m) + &
-                 alfa(3,nst)*usp_sum(n,m) + dtsp(n)*rssprk(n,m,1)
-      !
-      usp_sum(n,m) = usp_sum(n,m) + gama(nst)*usp(n,m)
-      !
-    end do
-  end do
-  !
-  ! Apply the filter
-  !
-  if (Filter_Option > 0) then
-    if (Apply_Filter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
-#endif
-      call filter_usp
-    end if
+  if (nst == 1) then
+    call update_TVD_RK4_S1(n_solpts,dtsp,uoldsp,residual,usp)
+  else if (nst == 2) then
+    call update_TVD_RK4_S2(n_solpts,dtsp,uoldsp,residual,usp)
+  else if (nst == 3) then
+    call update_TVD_RK4_S3(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
+  else if (nst == 4) then
+    call update_TVD_RK4_S4(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
+  else if (nst == 5) then
+    call update_TVD_RK4_S5(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
   end if
   !
-  ! Apply the limiter
+  ! Apply filtering or limiting to stabilize the solution
   !
-  if (Limiter_Option /= 0) then
-    if (Apply_Limiter) then
-#ifdef PROFILE_ON
-      if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
-#endif
-      if (Limiter_Option == -1) then
-        call resolution_indicator(apply_projection=true)
-      else if (Limiter_Option >= 1) then
-        call limit_by_projecting
-      end if
-    end if
-  end if
+  call stabilize_usp(nst,Apply_Filter,Apply_Limiter)
   !
-end subroutine rupdate_TVD4_RK
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_TVD_RK4
 !
 !###############################################################################
 !
-!subroutine initialize_time_ave()
-!  !
-!  !.. Use Statements ..
-!  use geovar,  only : nr,n_solpts
-!  use ovar,    only : time,ave_start_time
-!  use ovar,    only : time_ave_vel_is_axisymm
-!  use flowvar, only : time_ave_variables
-!  use flowvar, only : uavesp
-!  !
-!  !.. Local Scalars ..
-!  integer :: l,m,nv,nvar,ierr
-!  character(len=1)  :: ta_char,v1,v2,v3
-!  character(len=30) :: array_name
-!  !
-!  !.. Local Parameters ..
-!  character(len=*), parameter :: pname = "initialize_time_ave"
-!  !
-!continue
-!  !
-!  call debug_timer(entering_procedure,pname)
-!  !
-!  ! Allocate and create the time_ave_variables array if it hasnt already
-!  ! been allocated; otherwise, count the number of time-averaged variables it
-!  ! contains. This character array identifies which time-averaged variables
-!  ! are computed and written to the time-averaged solution/restart files.
-!  !
-!  if (.not. allocated(time_ave_variables)) then
-!    !
-!    v1 = "x"
-!    v2 = merge( "r" , "y" , time_ave_vel_is_axisymm )
-!    v3 = merge( "f" , "z" , time_ave_vel_is_axisymm )
-!    !
-!    ! Since the time_ave_variables array isnt allocated, this means that a
-!    ! time-averaged restart file wasnt read and the start time of the
-!    ! time-averaging needs to be initialized to the current time
-!    !
-!    ave_start_time = time
-!    !
-!   !nvar = merge(23,11,nr==3)
-!   !allocate ( time_ave_variables(1:nvar) , stat=ierr , errmsg=error_message )
-!   !call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
-!   !                 ierr,error_message)
-!    !
-!    if (nr == 3) then
-!      !
-!      ! First 5 are the conserved variables
-!      !
-!      ! USING F2003 AUTO-REALLOCATION
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             "d" , "dx" , "dy" , "dz" , "e" ]
-!      !
-!      ! Next 5 are the primitive variables
-!      ! (with temperature instead of density)
-!      !
-!      ! USING F2003 AUTO-REALLOCATION
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , &
-!                             "t" , "x" , "y" , "z" , "p" ]
-!      !
-!      ! Remaining are derived variables
-!      !
-!      ! ALL OF THE BELOW ASSIGNMENTS USE F2003 AUTO-REALLOCATION TO
-!      ! APPEND A NEW ARRAY ELEMENT ONTO THE time_ave_variables ARRAY
-!      ! FOR EACH ADDITIONAL TIME AVERAGED VARIABLE
-!      !
-!      if (time_ave_vel_is_axisymm) then
-!        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                               time_ave_variables(:) , "d" // v2 ]
-!        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                               time_ave_variables(:) , "d" // v3 ]
-!        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                               time_ave_variables(:) , v2 ]
-!        time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                               time_ave_variables(:) , v3 ]
-!      end if
-!      !
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v1 // v1 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v2 // v2 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v3 // v3 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v1 // v2 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v1 // v3 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v2 // v3 ]
-!      !
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v1 // "t" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v2 // "t" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , v3 // "t" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "dt" ]
-!      !
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v1 // v1 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v2 // v2 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v3 // v3 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v1 // v2 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v1 // v3 ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v2 // v3 ]
-!      !
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v1 // "t" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v2 // "t" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "d" // v3 // "t" ]
-!      !
-!      nvar = size(time_ave_variables)
-!      !
-!    else
-!      !
-!      ! First 4 are the conserved variables
-!      !
-!      ! USING F2003 AUTO-REALLOCATION
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             "d" , "dx" , "dy" , "e" ]
-!      !
-!      ! Next 4 are the primitive variables
-!      ! (with temperature instead of density)
-!      !
-!      ! USING F2003 AUTO-REALLOCATION
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "t" , "x" , "y" , "p" ]
-!      !
-!      ! Remaining are derived variables
-!      !
-!      ! USING F2003 AUTO-REALLOCATION
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "xx" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "yy" ]
-!      time_ave_variables = [ character(len=len(time_ave_variables)) :: &
-!                             time_ave_variables(:) , "xy" ]
-!      !
-!      nvar = size(time_ave_variables)
-!      !
-!    end if
-!    !
-!  else
-!    !
-!    nvar = size(time_ave_variables)
-!    !
-!  end if
-!  !
-!  if (allocated(time_ave_var)) then
-!    deallocate ( time_ave_var , stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"time_ave_var",2,__LINE__,__FILE__, &
-!                     ierr,error_message)
-!  end if
-!  !
-!  allocate ( time_ave_var(1:nvar) , stat=ierr , errmsg=error_message )
-!  call alloc_error(pname,"time_ave_var",1,__LINE__,__FILE__,ierr,error_message)
-!  !
-!  do m = 1,size(time_ave_variables)
-!    !
-!    time_ave_variables(m) = trim(adjustl(time_ave_variables(m)))
-!    !
-!    nv = len_trim(time_ave_variables(m))
-!    !
-!    allocate ( time_ave_var(m)%idx(1:nv) , source=0 , &
-!               stat=ierr , errmsg=error_message )
-!    write (array_name,1) m
-!    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
-!    !
-!    do l = 1,nv
-!      !
-!      ta_char = uppercase( time_ave_variables(m)(l:l) )
-!      !
-!      select case (ta_char)
-!        case ("D")
-!          time_ave_var(m)%idx(l) = nec
-!        case ("X")
-!          time_ave_var(m)%idx(l) = nmx
-!        case ("Y")
-!          time_ave_var(m)%idx(l) = nmy
-!        case ("Z")
-!          time_ave_var(m)%idx(l) = nmz
-!        case ("E")
-!          time_ave_var(m)%idx(l) = nee
-!        case ("P")
-!          time_ave_var(m)%idx(l) = nee
-!        case ("T")
-!          time_ave_var(m)%idx(l) = nq+1
-!        case ("R")
-!          time_ave_var(m)%idx(l) = nq+2
-!        case ("F")
-!          time_ave_var(m)%idx(l) = nq+3
-!        case ("K")
-!          time_ave_var(m)%idx(l) = ntk
-!        case ("W")
-!          time_ave_var(m)%idx(l) = ntl
-!        case default
-!          ! ??? Should probably produce an error message and abort
-!          time_ave_var(m)%idx(l) = nec
-!      end select
-!    end do
-!  end do
-!  !
-!  ! Allocate the local module array used for computing
-!  ! the current update to the time-averaged variables.
-!  !
-!  if (allocated(ave)) then
-!    deallocate ( ave , stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"ave",2,__LINE__,__FILE__,ierr,error_message)
-!  end if
-!  !
-!  allocate ( ave(1:nvar) , source=zero , stat=ierr , errmsg=error_message )
-!  call alloc_error(pname,"ave",1,__LINE__,__FILE__,ierr,error_message)
-!  !
-!  ! Allocate and initialize the time-averaged variables
-!  ! solution array if it hasnt already been allocated.
-!  !
-!  if (.not. allocated(uavesp)) then
-!    !
-!    allocate ( uavesp(1:n_solpts,1:nvar) , source=zero , &
-!               stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"uavesp",1,__LINE__,__FILE__,ierr,error_message)
-!    !$ACC UPDATE DEVICE(uavesp)
-!    !
-!    ! Initialize the time-averaged variables to the initial/restart
-!    ! solution since they werent read from a time-averaged restart file.
-!    !
-!    call update_time_ave
-!    !
-!  end if
-!  !
-!  call debug_timer(leaving_procedure,pname)
-!  !
-!  ! Format Statements
-!  !
-!  1 format ("time_ave_var(",i0,")%idx")
-!  !
-!end subroutine initialize_time_ave
-!!
-!!###############################################################################
-!!
-!subroutine update_time_ave()
-!  !
-!  !.. Use Statements ..
-!  use geovar,  only : xyz,n_solpts
-!  use flowvar, only : usp,uavesp
-!  use ovar,    only : time,prev_ave_time
-!  use ovar,    only : ave_start_time,saved_ave_time
-!  !
-!  !.. Local Scalars ..
-!  integer  :: m,n,nvar
-!  integer  :: nc1,nc2,nm1,nm2
-!  real(wp) :: a,b,y,z,st,ct,theta
-!  !
-!  !.. Local Arrays ..
-!  real(wp) :: time_val(1:2)
-!  real(wp) :: ave_var(1:nq+3)
-!  !
-!  !.. Local Parameters ..
-!  character(len=*), parameter :: pname = "update_time_ave"
-!  !
-!continue
-!  !
-!  call debug_timer(entering_procedure,pname)
-!  !
-!  if (time == zero .or. time == ave_start_time) then
-!    time_val(1) = zero
-!    time_val(2) = one
-!  else
-!    time_val(1) = (prev_ave_time-ave_start_time) / (time-ave_start_time)
-!    time_val(2) = one - time_val(1) ! to try and ensure that sum(time_val) = 1
-!  end if
-!  !
-!  saved_ave_time = prev_ave_time
-!  !
-!  ! Broadcast the time_val array so hopefully all MPI processes
-!  ! have the exact same values for the two averaging coefficients
-!  ! (in case there might be roundoff differences between processes).
-!  !
-!  call mpi_bcast(time_val,size(time_val,kind=int_mpi),mpi_flttyp, &
-!                 glb_root,MPI_COMM_WORLD,mpierr)
-!  !
-!  a = time_val(1)
-!  b = time_val(2)
-!  !
-!  nvar = size(time_ave_var)
-!  !
-!  ! Adjust the coordinate and momentum indices for conversion to cylindrical
-!  ! coordinates depending whether this is a 2D or 3D simulation
-!  !
-!  if (size(xyz,dim=1) == 2) then
-!    nc1 = 1; nc2 = 2; nm1 = nmx; nm2 = nmy
-!  else
-!    nc1 = 2; nc2 = 3; nm1 = nmy; nm2 = nmz
-!  end if
-!  !
-!  do n = 1,n_solpts
-!    !
-!    y = xyz(nc1,n)
-!    z = xyz(nc2,n)
-!    !
-!    if (all([y,z] == zero)) then
-!      !
-!      st = zero
-!      ct = zero
-!      !
-!    else
-!      !
-!      theta = atan2(z,y)
-!      if (theta < zero) theta = theta + two*pi
-!      !
-!      st = sin(theta)
-!      ct = cos(theta)
-!      !
-!    end if
-!    !
-!    ! Primitive variables
-!    ave_var(1:nq) = usp2v_sp( usp(n,1:nq) )
-!    !
-!    ! Temperature
-!    ave_var(nq+1) = temperature_pv_sp( ave_var(1:nq) )
-!    !
-!    ! Radial    instantaneous velocity
-!    ave_var(nq+2) = st*ave_var(nm2) + ct*ave_var(nm1)
-!    ! Azimuthal instantaneous velocity
-!    ave_var(nq+3) = ct*ave_var(nm2) - st*ave_var(nm1)
-!    !
-!    ! First, update the time-averaged conservative variables
-!    !
-!    do m = 1,nq
-!      uavesp(n,m) = a*uavesp(n,m) + b*usp(n,m)
-!    end do
-!    !
-!    ! Next, update the time-averaged primitive variables
-!    ! (with temperature instead of density)
-!    !
-!    uavesp(n,nq+1) = a*uavesp(n,nq+1) + b*ave_var(nq+1)
-!    do m = 2,nq
-!      uavesp(n,nq+m) = a*uavesp(n,nq+m) + b*ave_var(m)
-!    end do
-!    !
-!    ! Update the remaining time-averaged variables
-!    !
-!    do m = 2*nq+1,nvar
-!      uavesp(n,m) = a*uavesp(n,m) + b*product( ave_var(time_ave_var(m)%idx) )
-!    end do
-!    !
-!  end do
-!  !
-!  ! Update prev_ave_time to the current time
-!  !
-!  prev_ave_time = time
-!  !
-!  call debug_timer(leaving_procedure,pname)
-!  !
-!end subroutine update_time_ave
-!!
-!!###############################################################################
-!!
+pure subroutine update_TVD_RK4_S1(np,dtsp,uoldsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S1"
+  !
+  real(wp), parameter :: c = 0.39175222700395_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = uoldsp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = uoldsp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = uoldsp(n,nmz) + c*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = uoldsp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = uoldsp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = uoldsp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = uoldsp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = uoldsp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = uoldsp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  end if
+  !
+end subroutine update_TVD_RK4_S1
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK4_S2(np,dtsp,uoldsp,residual,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S2"
+  !
+  real(wp), parameter :: a = 0.44437049406734_wp
+  real(wp), parameter :: b = 0.55562950593266_wp
+  real(wp), parameter :: c  = 0.36841059262959_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + c*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual)
+    do n = 1,np
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+    end do
+  end if
+  !
+end subroutine update_TVD_RK4_S2
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK4_S3(np,dtsp,uoldsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: stage2_ec,stage2_mx,stage2_my,stage2_mz,stage2_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S3"
+  !
+  real(wp), parameter :: a = 0.62010185138540_wp
+  real(wp), parameter :: b = 0.37989814861460_wp
+  real(wp), parameter :: c = 0.25189177424738_wp
+  real(wp), parameter :: d = 0.51723167208978_wp
+  real(wp), parameter :: e = 0.12759831133288_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      stage2_ec = usp(n,nec)
+      stage2_mx = usp(n,nmx)
+      stage2_my = usp(n,nmy)
+      stage2_mz = usp(n,nmz)
+      stage2_ee = usp(n,nee)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + c*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = d*stage2_ec + e*usp(n,nec)
+      rk_sum(n,nmx) = d*stage2_mx + e*usp(n,nmx)
+      rk_sum(n,nmy) = d*stage2_my + e*usp(n,nmy)
+      rk_sum(n,nmz) = d*stage2_mz + e*usp(n,nmz)
+      rk_sum(n,nee) = d*stage2_ee + e*usp(n,nee)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      stage2_ec = usp(n,nec)
+      stage2_mx = usp(n,nmx)
+      stage2_my = usp(n,nmy)
+      stage2_ee = usp(n,nee)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = d*stage2_ec + e*usp(n,nec)
+      rk_sum(n,nmx) = d*stage2_mx + e*usp(n,nmx)
+      rk_sum(n,nmy) = d*stage2_my + e*usp(n,nmy)
+      rk_sum(n,nee) = d*stage2_ee + e*usp(n,nee)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      stage2_ec = usp(n,nec)
+      stage2_mx = usp(n,nmx)
+      stage2_ee = usp(n,nee)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = d*stage2_ec + e*usp(n,nec)
+      rk_sum(n,nmx) = d*stage2_mx + e*usp(n,nmx)
+      rk_sum(n,nee) = d*stage2_ee + e*usp(n,nee)
+      !
+    end do
+  end if
+  !
+end subroutine update_TVD_RK4_S3
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK4_S4(np,dtsp,uoldsp,residual,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: residual(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  real(wp), intent(inout) :: rk_sum(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S4"
+  !
+  real(wp), parameter :: a = 0.17807995410773_wp
+  real(wp), parameter :: b = 0.82192004589227_wp
+  real(wp), parameter :: c = 0.54497475021237_wp
+  real(wp), parameter :: d = 0.08460416338212_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + c*dtsp(n)*residual(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = rk_sum(n,nec) + d*dtsp(n)*residual(n,nec)
+      rk_sum(n,nmx) = rk_sum(n,nmx) + d*dtsp(n)*residual(n,nmx)
+      rk_sum(n,nmy) = rk_sum(n,nmy) + d*dtsp(n)*residual(n,nmy)
+      rk_sum(n,nmz) = rk_sum(n,nmz) + d*dtsp(n)*residual(n,nmz)
+      rk_sum(n,nee) = rk_sum(n,nee) + d*dtsp(n)*residual(n,nee)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*dtsp(n)*residual(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = rk_sum(n,nec) + d*dtsp(n)*residual(n,nec)
+      rk_sum(n,nmx) = rk_sum(n,nmx) + d*dtsp(n)*residual(n,nmx)
+      rk_sum(n,nmy) = rk_sum(n,nmy) + d*dtsp(n)*residual(n,nmy)
+      rk_sum(n,nee) = rk_sum(n,nee) + d*dtsp(n)*residual(n,nee)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,residual,rk_sum)
+    do n = 1,np
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*dtsp(n)*residual(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*dtsp(n)*residual(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*dtsp(n)*residual(n,nee)
+      !
+      rk_sum(n,nec) = rk_sum(n,nec) + d*dtsp(n)*residual(n,nec)
+      rk_sum(n,nmx) = rk_sum(n,nmx) + d*dtsp(n)*residual(n,nmx)
+      rk_sum(n,nee) = rk_sum(n,nee) + d*dtsp(n)*residual(n,nee)
+      !
+    end do
+  end if
+  !
+end subroutine update_TVD_RK4_S4
+!
+!###############################################################################
+!
+pure subroutine update_TVD_RK4_S5(np,dtsp,uoldsp,res,usp,rk_sum)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: res(:,:)
+  real(wp),    intent(in) :: rk_sum(:,:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: c
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_TVD_RK4_S5"
+  !
+  real(wp), parameter :: a = 0.00683325884039_wp
+  real(wp), parameter :: b = 0.34833675773694_wp
+  real(wp), parameter :: d = 0.22600748319395_wp
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,res,rk_sum)
+    do n = 1,np
+      !
+      c = d*dtsp(n)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*res(n,nec) + rk_sum(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*res(n,nmx) + rk_sum(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*res(n,nmy) + rk_sum(n,nmy)
+      usp(n,nmz) = a*uoldsp(n,nmz) + b*usp(n,nmz) + c*res(n,nmz) + rk_sum(n,nmz)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*res(n,nee) + rk_sum(n,nee)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,res,rk_sum)
+    do n = 1,np
+      !
+      c = d*dtsp(n)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*res(n,nec) + rk_sum(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*res(n,nmx) + rk_sum(n,nmx)
+      usp(n,nmy) = a*uoldsp(n,nmy) + b*usp(n,nmy) + c*res(n,nmy) + rk_sum(n,nmy)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*res(n,nee) + rk_sum(n,nee)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,dtsp,res,rk_sum)
+    do n = 1,np
+      !
+      c = d*dtsp(n)
+      !
+      usp(n,nec) = a*uoldsp(n,nec) + b*usp(n,nec) + c*res(n,nec) + rk_sum(n,nec)
+      usp(n,nmx) = a*uoldsp(n,nmx) + b*usp(n,nmx) + c*res(n,nmx) + rk_sum(n,nmx)
+      usp(n,nee) = a*uoldsp(n,nee) + b*usp(n,nee) + c*res(n,nee) + rk_sum(n,nee)
+      !
+    end do
+  end if
+  !
+end subroutine update_TVD_RK4_S5
+!
+!###############################################################################
+!
+subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
+  !
+  ! First, store d(utd)/dt for runge kutta time
+  ! stepping then update usp
+  !
+  !.. Use Statements ..
+  use geovar,  only : n_solpts
+  use ovar,    only : num_rk_stages
+  use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nst
+  logical(lk), intent(in) :: Apply_Filter
+  logical(lk), intent(in) :: Apply_Limiter
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "update_Classic_RK"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = nme-nmb+1
+  !
+  ! Store the residual for this Runge-Kutta step in rssprk
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(residual,rssprk)
+    do n = 1,n_solpts
+      rssprk(n,nec,nst) = residual(n,nec)
+      rssprk(n,nmx,nst) = residual(n,nmx)
+      rssprk(n,nmy,nst) = residual(n,nmy)
+      rssprk(n,nmz,nst) = residual(n,nmz)
+      rssprk(n,nee,nst) = residual(n,nee)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(residual,rssprk)
+    do n = 1,n_solpts
+      rssprk(n,nec,nst) = residual(n,nec)
+      rssprk(n,nmx,nst) = residual(n,nmx)
+      rssprk(n,nmy,nst) = residual(n,nmy)
+      rssprk(n,nee,nst) = residual(n,nee)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(residual,rssprk)
+    do n = 1,n_solpts
+      rssprk(n,nec,nst) = residual(n,nec)
+      rssprk(n,nmx,nst) = residual(n,nmx)
+      rssprk(n,nee,nst) = residual(n,nee)
+    end do
+  end if
+  !
+  ! Update usp
+  !
+  if (num_rk_stages == 1) then
+    call update_Classic_RK1_S1(n_solpts,uoldsp,rssprk,dtsp,usp)
+  else if (num_rk_stages == 2) then
+    if (nst == 1) then
+      call update_Classic_RK2_S1(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 2) then
+      call update_Classic_RK2_S2(n_solpts,uoldsp,rssprk,dtsp,usp)
+    end if
+  else if (num_rk_stages == 3) then
+    if (nst == 1) then
+      call update_Classic_RK3_S1(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 2) then
+      call update_Classic_RK3_S2(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 3) then
+      call update_Classic_RK3_S3(n_solpts,uoldsp,rssprk,dtsp,usp)
+    end if
+  else if (num_rk_stages == 3) then
+    if (nst == 1) then
+      call update_Classic_RK4_S1(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 2) then
+      call update_Classic_RK4_S2(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 3) then
+      call update_Classic_RK4_S3(n_solpts,uoldsp,rssprk,dtsp,usp)
+    else if (nst == 4) then
+      call update_Classic_RK4_S4(n_solpts,uoldsp,rssprk,dtsp,usp)
+    end if
+  end if
+  !
+  ! Apply filtering or limiting to stabilize the solution
+  !
+  call stabilize_usp(nst,Apply_Filter,Apply_Limiter)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine update_Classic_RK
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK1_S1(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,1)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,1)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK1_S1
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK2_S1(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK2_S1
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK2_S2(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,2)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,2)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,2)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,2)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK2_S2
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK3_S1(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + one3*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + one3*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + one3*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nmz) = uoldsp(n,nmz) + one3*dtsp(n)*rssprk(n,nmz,1)
+      usp(n,nee) = uoldsp(n,nee) + one3*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + one3*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + one3*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + one3*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nee) = uoldsp(n,nee) + one3*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + one3*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + one3*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nee) = uoldsp(n,nee) + one3*dtsp(n)*rssprk(n,nee,1)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK3_S1
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK3_S2(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + two3*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + two3*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + two3*dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nmz) = uoldsp(n,nmz) + two3*dtsp(n)*rssprk(n,nmz,2)
+      usp(n,nee) = uoldsp(n,nee) + two3*dtsp(n)*rssprk(n,nee,2)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + two3*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + two3*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + two3*dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nee) = uoldsp(n,nee) + two3*dtsp(n)*rssprk(n,nee,2)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + two3*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + two3*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nee) = uoldsp(n,nee) + two3*dtsp(n)*rssprk(n,nee,2)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK3_S2
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK3_S3(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: c1,c2
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one4*dtsp(n)
+      c2 = three4*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,3)
+      usp(n,nmy) = uoldsp(n,nmy) + c1*rssprk(n,nmy,1) + c2*rssprk(n,nmy,3)
+      usp(n,nmz) = uoldsp(n,nmz) + c1*rssprk(n,nmz,1) + c2*rssprk(n,nmz,3)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,3)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one4*dtsp(n)
+      c2 = three4*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,3)
+      usp(n,nmy) = uoldsp(n,nmy) + c1*rssprk(n,nmy,1) + c2*rssprk(n,nmy,3)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,3)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one4*dtsp(n)
+      c2 = three4*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,3)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,3)
+      !
+    end do
+  end if
+  !
+end subroutine update_Classic_RK3_S3
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK4_S1(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,1)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,1)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,1)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK4_S1
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK4_S2(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nmz) = uoldsp(n,nmz) + half*dtsp(n)*rssprk(n,nmz,2)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,2)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nmy) = uoldsp(n,nmy) + half*dtsp(n)*rssprk(n,nmy,2)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,2)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + half*dtsp(n)*rssprk(n,nec,2)
+      usp(n,nmx) = uoldsp(n,nmx) + half*dtsp(n)*rssprk(n,nmx,2)
+      usp(n,nee) = uoldsp(n,nee) + half*dtsp(n)*rssprk(n,nee,2)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK4_S2
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK4_S3(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: n,nr
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,3)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,3)
+      usp(n,nmz) = uoldsp(n,nmz) + dtsp(n)*rssprk(n,nmz,3)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,3)
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,3)
+      usp(n,nmy) = uoldsp(n,nmy) + dtsp(n)*rssprk(n,nmy,3)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,3)
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      usp(n,nec) = uoldsp(n,nec) + dtsp(n)*rssprk(n,nec,3)
+      usp(n,nmx) = uoldsp(n,nmx) + dtsp(n)*rssprk(n,nmx,3)
+      usp(n,nee) = uoldsp(n,nee) + dtsp(n)*rssprk(n,nee,3)
+    end do
+  end if
+  !
+end subroutine update_Classic_RK4_S3
+!
+!###############################################################################
+!
+pure subroutine update_Classic_RK4_S4(np,uoldsp,rssprk,dtsp,usp)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  real(wp),    intent(in) :: uoldsp(:,:)
+  real(wp),    intent(in) :: rssprk(:,:,:)
+  real(wp),    intent(in) :: dtsp(:)
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr
+  real(wp) :: c1,c2
+  !
+continue
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one6*dtsp(n)
+      c2 = one3*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,2) &
+                                 + c2*rssprk(n,nec,3) + c1*rssprk(n,nec,4)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,2) &
+                                 + c2*rssprk(n,nmx,3) + c1*rssprk(n,nmx,4)
+      usp(n,nmy) = uoldsp(n,nmy) + c1*rssprk(n,nmy,1) + c2*rssprk(n,nmy,2) &
+                                 + c2*rssprk(n,nmy,3) + c1*rssprk(n,nmy,4)
+      usp(n,nmz) = uoldsp(n,nmz) + c1*rssprk(n,nmz,1) + c2*rssprk(n,nmz,2) &
+                                 + c2*rssprk(n,nmz,3) + c1*rssprk(n,nmz,4)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,2) &
+                                 + c2*rssprk(n,nee,3) + c1*rssprk(n,nee,4)
+      !
+    end do
+  else if (nr == 2) then
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one6*dtsp(n)
+      c2 = one3*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,2) &
+                                 + c2*rssprk(n,nec,3) + c1*rssprk(n,nec,4)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,2) &
+                                 + c2*rssprk(n,nmx,3) + c1*rssprk(n,nmx,4)
+      usp(n,nmy) = uoldsp(n,nmy) + c1*rssprk(n,nmy,1) + c2*rssprk(n,nmy,2) &
+                                 + c2*rssprk(n,nmy,3) + c1*rssprk(n,nmy,4)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,2) &
+                                 + c2*rssprk(n,nee,3) + c1*rssprk(n,nee,4)
+      !
+    end do
+  else
+    !$ACC PARALLEL LOOP PRESENT(usp,uoldsp,rssprk,dtsp)
+    do n = 1,np
+      !
+      c1 = one6*dtsp(n)
+      c2 = one3*dtsp(n)
+      !
+      usp(n,nec) = uoldsp(n,nec) + c1*rssprk(n,nec,1) + c2*rssprk(n,nec,2) &
+                                 + c2*rssprk(n,nec,3) + c1*rssprk(n,nec,4)
+      usp(n,nmx) = uoldsp(n,nmx) + c1*rssprk(n,nmx,1) + c2*rssprk(n,nmx,2) &
+                                 + c2*rssprk(n,nmx,3) + c1*rssprk(n,nmx,4)
+      usp(n,nee) = uoldsp(n,nee) + c1*rssprk(n,nee,1) + c2*rssprk(n,nee,2) &
+                                 + c2*rssprk(n,nee,3) + c1*rssprk(n,nee,4)
+      !
+    end do
+  end if
+  !
+end subroutine update_Classic_RK4_S4
+!
+!###############################################################################
+!
 subroutine write_1d_array(io_start,iter,nst,array)
   !
   !.. Formal Arguments ..
@@ -2561,172 +3606,7 @@ end subroutine write_3d_array
 !
 !###############################################################################
 !
-subroutine debug_timer(time_flag,message,processor,part_num,acc)
-  !
-  !.. Formal Arguments ..
-  integer,          intent(in) :: time_flag
-  !
-  character(len=*), intent(in) :: message
-  !
-  !.. Optional Arguments ..
-  integer, optional, intent(in) :: processor
-  integer, optional, intent(in) :: part_num
-  integer, optional, intent(in) :: acc
-  !
-#ifdef PROFILE_ON
-  !.. Local Scalars ..
-  real(wp), save :: beg_wall_time
-  real(wp)       :: end_wall_time
-  real(wp)       :: wall_time
-  !
-  integer, save :: procedure_counter = 0
-  integer       :: i,hours,minutes,seconds,total_sec
-  integer       :: output_cpu
-  !
-  character(len=300) :: out_message
-  !
-  !.. Local Arrays ..
-  real(wp), save :: beg_procedure_time(10)
-  real(wp), save :: accumulated_time(10)
-  real(wp), save :: accumulation_beg_time(10)
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: leading_space = "                    "
-  !
-continue
-  !
-  output_cpu = 0
-  if (present(processor)) output_cpu = processor
-  !
-  if (time_flag == start_timer) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-    if (mypnum == output_cpu) then
-      write (iout,1) leading_space(1:i),trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == stop_timer) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_wall_time
-    !
-    total_sec = nint(wall_time)
-    !
-    hours   = total_sec / 3600
-    minutes = (total_sec - hours*3600) / 60
-    seconds = total_sec - hours*3600 - minutes*60
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
-    end if
-    !
-    ! Reset beg_wall_time in case this procedure is called twice
-    ! in a row with time_flag set to stop_timer
-    !
-    beg_wall_time = mpi_wtime()
-   !beg_wall_time = dclock()
-   !call cpu_time( beg_wall_time )
-    !
-  else if (time_flag == reset_accumulated_time) then
-    !
-    if (present(acc)) then
-      accumulated_time(acc) = zero
-    end if
-    !
-  else if (time_flag == report_accumulated_time) then
-    !
-    if (present(part_num)) then
-      write (out_message,6) message,part_num
-    else
-      write (out_message,5) message
-    end if
-    !
-    i = 3 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,2) leading_space(1:i),accumulated_time(acc), &
-                     trim(adjustl(out_message))
-    end if
-    !
-  else if (time_flag == start_accumulation) then
-    !
-    if (present(acc)) then
-      accumulation_beg_time(acc) = mpi_wtime()
-    end if
-    !
-  else if (time_flag == stop_accumulation) then
-    !
-    if (present(acc)) then
-      wall_time = mpi_wtime() - accumulation_beg_time(acc)
-      accumulated_time(acc) = accumulated_time(acc) + wall_time
-    end if
-    !
-  else if (time_flag == entering_procedure) then
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,3) leading_space(1:i),trim(adjustl(message))
-    end if
-    !
-    procedure_counter = procedure_counter + 1
-    !
-    beg_procedure_time(procedure_counter) = mpi_wtime()
-   !beg_procedure_time(procedure_counter) = dclock()
-   !call cpu_time( beg_procedure_time(procedure_counter) )
-    !
-  else if (time_flag == leaving_procedure) then
-    !
-    end_wall_time = mpi_wtime()
-   !end_wall_time = dclock()
-   !call cpu_time( end_wall_time )
-    wall_time = end_wall_time - beg_procedure_time(procedure_counter)
-    !
-    procedure_counter = max( 0 , procedure_counter-1 )
-    !
-    i = 1 + procedure_counter*2
-    !
-    if (mypnum == output_cpu) then
-      write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
-    end if
-    !
-  end if
-  !
-  flush (iout)
-  !
-  ! Format Statements
-  !
-  1 format (a,"## Starting timer for: ",a)
-  2 format (a,"     -- TIME WAS",f12.6," seconds for ",a)
-  3 format (a,"=> Entering procedure : ",a)
-  4 format (a," <= Leaving procedure : ",a,"   after",f12.6," seconds")
-  5 format (a)
-  6 format (a," for partition # ",i0)
-  !
-#endif
-  !
-end subroutine debug_timer
+#include "Functions/debug_timer.f90"
 !
 !###############################################################################
 !

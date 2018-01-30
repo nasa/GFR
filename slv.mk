@@ -17,7 +17,7 @@ MOD = $(MODFLAG) $(MODDIR)
 FSFXFLG = .f90
 
 CSFXFLG = .c
-CFLAG = -O3
+#CFLAG = -O3
 #CFLAG += -g
 
 HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
@@ -29,22 +29,26 @@ ifdef SZIPDIR
 endif
 
 ifdef MKLFPP
-  MKLFLAG := -mkl
+  MKLFLAG := -mkl=sequential
   MKLINC  := -I$(MKLROOT)/include/intel64/lp64 -I$(MKLROOT)/include
   MKLLIB  := -lmkl_blas95_lp64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential
 endif
+BLASLIB := $(MKLROOT)/lib/intel64/libmkl_blas95_lp64.a
+LAPACKLIB := $(MKLROOT)/lib/intel64/libmkl_lapack95_lp64.a
+
 
 ifdef PBSFPP
  #PBSDIR := -L/u/scicon/tools/lib 
  #PBSLIB := -lpbs_time_left
-  ifneq "$(COMPFAMILY)" "intel"
-    INTELVER := 2016.2.181
-    INTELDIR := /nasa/intel/Compiler/$(INTELVER)
-   #PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
-   #PBSLIB += -lirc
-  endif
+ #ifneq "$(COMPFAMILY)" "intel"
+ #  INTELVER := 2016.2.181
+ #  INTELDIR := /nasa/intel/Compiler/$(INTELVER)
+ # #PBSDIR += -L$(INTELDIR)/compilers_and_libraries/linux/lib/intel64_lin
+ # #PBSLIB += -lirc
+ #endif
   TARGET = $(AUTOTARGETARCH)
 endif
+
 
 TARGET ?= $(HOSTARCH)
 
@@ -56,6 +60,9 @@ LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR))
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
 FLIB = $(foreach i,$(LIBDIR),-L$(i)/lib) $(PBSDIR) $(OTHERLIBDIR)
 FLIB += $(MKLLIB) $(METISLIB) $(CGNSLIB) $(HDF5LIB) $(SZIPLIB) $(PBSLIB) $(OTHERLIB)
+ifeq "$(COMPFAMILY)" "intel"
+  FLIB += $(LAPACKLIB) $(BLASLIB)
+endif
 
 FCBASE = $(REALLOCFLAG)
 #FCBASE += $(TRACEFLAG)
@@ -63,7 +70,8 @@ FCBASE = $(REALLOCFLAG)
 
 ADDFLAGS = $(MKLFLAG) $(MOD) $(FINC) $(FCADD) $(CMPFLAGS)
 
-COBJS := $(OBJDIR)/mycpu.o
+COBJS := $(OBJDIR)/mycpu.o \
+         $(OBJDIR)/pbs_time_left.o
 
 OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/Euler_tri.o \
@@ -121,27 +129,31 @@ O2-ip-opt: optimize
 O3-ipo-opt: OPTIM = $(OPTFLAG) $(TARGET)
 O3-ipo-opt: optimize
 
+.PHONY: skylake
+skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
+skylake: optimize
+
 .PHONY: broadwell
-broadwell: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(BROARCH)
+broadwell: OPTIM = $(OPTFLAG) $(BROOPT)
 broadwell: optimize
 
 .PHONY: haswell
-haswell: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(HASARCH)
+haswell: OPTIM = $(OPTFLAG) $(HASOPT)
 haswell: optimize
 
 .PHONY: ivybridge
-ivybridge: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(IVYARCH)
+ivybridge: OPTIM = $(OPTFLAG) $(IVYOPT)
 ivybridge: optimize
 
 .PHONY: sandybridge
-sandybridge: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(SANARCH)
+sandybridge: OPTIM = $(OPTFLAG) $(SANOPT)
 sandybridge: optimize
 
 .PHONY: westmere
 ifeq "$(COMPFAMILY)" "pgi"
-westmere: ADDFLAGS += -pg
+#westmere: ADDFLAGS += -pg
 endif
-westmere: OPTIM = $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
+westmere: OPTIM = $(OPTFLAG) $(WESOPT)
 #westmere: OPTIM = -O3 $(OPTFLAG) $(ARCHFLAG)$(WESARCH)
 westmere: optimize
 
@@ -159,13 +171,14 @@ gpu: optimize
 
 .PHONY: optimize
 optimize: FCFLAG = $(FCBASE) $(OPTIM) $(ADDFLAGS)
+optimize: CFLAG = -O3
 optimize: all
 
 .PHONY: debug
-debug: FPP += -DDEBUG_ON
+debug: FPP += -DDEBUG_ON -DDISABLE_QP
 debug: FCFLAG = $(FCBASE) $(DBGFLAG) $(ADDFLAGS)
+debug: CFLAG = -O0 -g
 debug: all
-
 
 .PHONY: deplist
 deplist: FCBASE += -gen-dep=deplist.txt
@@ -226,6 +239,9 @@ dump-variables:
 # Unique definitions for each compiler
 ifeq "$(COMPFAMILY)" "intel"
   # Intel flags
+ #FPSTACK := -fp-stack-check
+  FPE     := -fpe0 -fpe-all=0 -fp-stack-check
+ #FPEALL  := -fpe-all=0
   MODFLAG := -module
   ARCHFLAG := -x
   TUNEFLAG := -ax
@@ -234,16 +250,28 @@ ifeq "$(COMPFAMILY)" "intel"
   IVYARCH := CORE-AVX-I
   HASARCH := CORE-AVX2
   BROARCH := CORE-AVX2
+  SKYARCH := CORE-AVX512
+  WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
+  SANOPT  := $(ARCHFLAG)$(SANARCH) $(ALIGN32)
+  IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
+  HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
+  BROOPT  := $(ARCHFLAG)$(BROARCH) $(ALIGN32)
+  SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64)
+ #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE)
+ #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE) -qopt-zmm-usage=high
   FPPFLAG := -fpp
- #OPTFLAG := -ip -align array32byte
-  OPTFLAG := -O3
-  DBGFLAG := -check all -debug all -ftrapuv -fp-stack-check -g -traceback
   IPFLAG  := -ip
   IPOFLAG := -ipo
+  ALIGN32 := -align array32byte
+  ALIGN64 := -align array64byte
+  OPTFLAG := -traceback -g -O3 $(IPFLAG)
+  DBGFLAG := -check all -debug all -ftrapuv $(FPE) -g -traceback
   TRACEFLAG := -traceback
   REALLOCFLAG := -assume realloc_lhs
-  CMPFLAGS := -DSPECIAL_FOR_INTEL
-  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(HASARCH),$(IVYARCH)
+ #CMPFLAGS := -DSPECIAL_FOR_INTEL
+  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -mkl=sequential
+ #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
+  AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
 else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
@@ -255,6 +283,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   IVYARCH := ivybridge
   HASARCH := haswell
   BROARCH := broadwell
+  SKYARCH := broadwell
   FPPFLAG := -cpp
   OPTFLAG := -O2
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
@@ -263,7 +292,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC
   EXTOBJS  := $(METISDIR)/include/metis.o
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
-  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH)
+  AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH)
   HOSTARCH := $(ARCHFLAG)native
 else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
@@ -275,6 +304,7 @@ else ifeq "$(COMPFAMILY)" "pgi"
   IVYARCH := sandybridge
   HASARCH := haswell
   BROARCH := haswell
+  SKYARCH := haswell
   FPPFLAG := -Mpreprocess
   OPTFLAG := -O2
  #OPTFLAG := -O3 -fast -Mipa=fast,inline
