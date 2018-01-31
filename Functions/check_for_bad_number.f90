@@ -92,7 +92,8 @@ continue
       signaling_cpus = pack( intseq(0,ncpu-1) , (bad_numbers_found(2,:) > 0) )
       if (ncpu > 1) then
         write (divide_by_zero_fmt,202) size(signaling_cpus)-1
-        write (divide_by_zero_error,divide_by_zero_fmt) size(signaling_cpus),ncpu, &
+        write (divide_by_zero_error,divide_by_zero_fmt) &
+                  size(signaling_cpus),ncpu, &
                   (signaling_cpus(n), n=1,size(signaling_cpus))
       else
         write (divide_by_zero_error,102)

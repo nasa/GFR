@@ -2337,18 +2337,18 @@ subroutine create_restart_link(fname)
   !
   !.. C Function Interfaces ..
   interface
-    integer(c_int) function unlink(link_file) &                                     
-                               bind(c,name="unlink")                                
-      use iso_c_binding, only : c_int,c_char                                        
-      implicit none
-      character(kind=c_char), dimension(*), intent(in) :: link_file                 
-    end function unlink
-    integer(c_int) function symlink(existing_file,link_file) &                      
-                               bind(c,name="symlink")                               
+    integer(c_int) function unlink(link_file) &
+                               bind(c,name="unlink")
       use iso_c_binding, only : c_int,c_char
-      implicit none                                                                 
-      character(kind=c_char), dimension(*), intent(in) :: existing_file             
-      character(kind=c_char), dimension(*), intent(in) :: link_file                 
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: link_file
+    end function unlink
+    integer(c_int) function symlink(existing_file,link_file) &
+                               bind(c,name="symlink")
+      use iso_c_binding, only : c_int,c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: existing_file
+      character(kind=c_char), dimension(*), intent(in) :: link_file
     end function symlink
   end interface
   !

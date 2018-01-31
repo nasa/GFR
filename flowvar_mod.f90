@@ -273,7 +273,8 @@ continue
 !    call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__,ierr,error_message)
 !    !
 !    allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+!    call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__, &
+!                     ierr,error_message)
 !#endif
     !
     ! If using the continuous output option or MMS, allocate the facexyz array
@@ -284,7 +285,8 @@ continue
       ! for both interior and boundary faces
       !
       allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
     else if (mms_opt /= 0) then
       !
@@ -292,7 +294,8 @@ continue
       ! to be defined for the boundary faces
       !
       allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
     end if
     !
@@ -409,7 +412,8 @@ continue
       ! Allocate the nodeusp array and its data components
       !
       allocate ( nodeusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
       do nn = 1,nnode
         allocate ( nodeusp_dt(nn)%v(1:nq) , source=zero , &
@@ -422,7 +426,8 @@ continue
       ! Allocate the nodedusp array and its data components
       !
       allocate ( nodedusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
       do nn = 1,nnode
         allocate ( nodedusp_dt(nn)%v(1:nr,1:nq) , source=zero , &
@@ -435,7 +440,8 @@ continue
       ! Allocate the edgeusp array and its data components
       !
       allocate ( edgeusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
       do ne = 1,nedge
         !
@@ -452,7 +458,8 @@ continue
       ! Allocate the edgedusp array and its data components
       !
       allocate ( edgedusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
       do ne = 1,nedge
         !
@@ -469,7 +476,8 @@ continue
       ! Allocate the edgexyz array and its data components
       !
       allocate ( edgexyz_dt(1:nedge) , stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+      call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__, &
+                       ierr,error_message)
       !
       do ne = 1,nedge
         !

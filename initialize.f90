@@ -198,7 +198,8 @@ continue
                            error_message)
           !
 #ifdef SPECIAL_FOR_INTEL
-          outerp_inv(this_geom,this_order)%mat = invert_matrix_lapack95(numer2init)
+          outerp_inv(this_geom,this_order)%mat = &
+                                        invert_matrix_lapack95(numer2init)
 #else
           outerp_inv(this_geom,this_order)%mat = invert_matrix(numer2init)
 #endif

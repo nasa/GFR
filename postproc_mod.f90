@@ -1042,7 +1042,8 @@ continue
   end do
   !
   do nf = nfbnd+1,nface
-    faceusp_dt(nf)%v(:,:,1) = half * (faceusp_dt(nf)%v(:,:,1) + faceusp_dt(nf)%v(:,:,2))
+    faceusp_dt(nf)%v(:,:,1) = half * (faceusp_dt(nf)%v(:,:,1) + &
+                                      faceusp_dt(nf)%v(:,:,2))
   end do
   !
   !
@@ -1365,7 +1366,8 @@ continue
   !
   !
   if (ncpu > 1) then
-    call exch_edge_and_node_solutions(nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt)
+    call exch_edge_and_node_solutions(nodeusp_dt,nodedusp_dt, &
+                                      edgeusp_dt,edgedusp_dt)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -1781,7 +1783,8 @@ continue
   !###########################################################################
   !
   if (ncpu > 1) then
-    call exch_connectivity(nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt,faceusp_dt)
+    call exch_connectivity(nodeusp_dt,nodedusp_dt, &
+                           edgeusp_dt,edgedusp_dt,faceusp_dt)
   end if
   !
   !##########################################################################
@@ -1886,7 +1889,7 @@ continue
       !
       lf = n
       !
-      cell_pts( node_pt(lf) ) = nint( nodeusp_dt(nn)%v(1) , kind=kind(cell_pts) )
+      cell_pts( node_pt(lf) ) = nint( nodeusp_dt(nn)%v(1), kind=kind(cell_pts) )
       !
     end do unpack_cell_node_pts
     !

@@ -428,7 +428,8 @@ continue
       cell_order_loop: do lmtr_order = lmtr_omin,lmtr_omax
         write (timer_message,102) trim(adjustl(Geom_Name(this_geom))), &
                                   elem_order,lmtr_order
-        102 format ("Projection Limiter Basis Geometry = ",a,"  ;  Order = ",i0, &
+        102 format ("Projection Limiter Basis Geometry = ",a, &
+                    "  ;  Order = ",i0, &
                     "  ;  lmtr_order = ",i0)
         call debug_timer(start_timer,timer_message)
         !
@@ -452,7 +453,8 @@ continue
         call debug_timer(stop_timer,timer_message)
         write (timer_message,103) trim(adjustl(Geom_Name(this_geom))), &
                                   elem_order,lmtr_order
-        103 format ("Projection Limiter Matrix Geometry = ",a,"  ;  Order = ",i0, &
+        103 format ("Projection Limiter Matrix Geometry = ",a, &
+                    "  ;  Order = ",i0, &
                     "  ;  lmtr_order = ",i0)
         call debug_timer(start_timer,timer_message)
         !

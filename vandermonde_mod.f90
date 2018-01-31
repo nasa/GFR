@@ -192,14 +192,16 @@ continue
     do this_order = omin,omax
       if (allocated(vand(this_geom,this_order)%modal2nodal%mat)) then
         write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),this_order
-        200 format ("Sparsity check modal2nodal:  Geometry = ",a,"  ;  Order = ",i0)
+        200 format ("Sparsity check modal2nodal:  Geometry = ",a, &
+                    "  ;  Order = ",i0)
         call debug_timer(start_timer,timer_message)
         call create_matrix_sparsity( vand(this_geom,this_order)%modal2nodal )
         call debug_timer(stop_timer,timer_message)
       end if
       if (allocated(vand(this_geom,this_order)%nodal2modal%mat)) then
         write (timer_message,201) trim(adjustl(Geom_Name(this_geom))),this_order
-        201 format ("Sparsity check nodal2modal:  Geometry = ",a,"  ;  Order = ",i0)
+        201 format ("Sparsity check nodal2modal:  Geometry = ",a, &
+                    "  ;  Order = ",i0)
         call debug_timer(start_timer,timer_message)
         call create_matrix_sparsity( vand(this_geom,this_order)%nodal2modal )
         call debug_timer(stop_timer,timer_message)

@@ -3336,8 +3336,7 @@ continue
     xyz_fp(3) = xyz_fp(3) + a * txyz(j,3)
     !
   end do
-  !         
-
+  !
 end subroutine get_xyz_for_face_point_3d
 !
 !###############################################################################

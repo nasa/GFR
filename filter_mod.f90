@@ -143,7 +143,8 @@ continue
         allocate ( filter(this_geom,this_order)%exponential , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"exponential"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
         !
         ! Assign local pointers as aliases to simplify the code
         !
@@ -154,7 +155,8 @@ continue
         allocate ( filt%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"exponential%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
         !
         ! Assign local pointers as aliases to simplify the code
         !
@@ -221,7 +223,8 @@ continue
         allocate ( filter(this_geom,this_order)%limiter , &
                    stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"limiter"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
         !
         ! Assign local pointers as aliases to simplify the code
         !
@@ -232,7 +235,8 @@ continue
         allocate ( filt%mat(1:npts,1:npts) , &
                    source=zero , stat=ierr , errmsg=error_message )
         write (array_name,1) Geom_Name(this_geom),this_order,"limiter%mat"
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__, &
+                         ierr,error_message)
         !
         ! Assign local pointers as aliases to simplify the code
         !
@@ -348,9 +352,10 @@ continue
             !
           case (Geom_Hexa)
             !
-            fmat = FilterMatrix_Hexa( vand(this_geom,this_order)%modal2nodal%mat , &
-                                      vand(this_geom,this_order)%nodal2modal%mat , &
-                                      cutoff_order )
+            fmat = FilterMatrix_Hexa( &
+                                 vand(this_geom,this_order)%modal2nodal%mat , &
+                                 vand(this_geom,this_order)%nodal2modal%mat , &
+                                 cutoff_order )
             !
           case default
             !
@@ -1587,7 +1592,9 @@ continue
           !
           l = np*np*k + np*j + i + 1
           !
-          filt_diag_qp(l) = filter_1D_qp(i+1)*filter_1D_qp(j+1)*filter_1D_qp(k+1)
+          filt_diag_qp(l) = filter_1D_qp(i+1) * &
+                            filter_1D_qp(j+1) * &
+                            filter_1D_qp(k+1)
           !
         end do
       end do
@@ -1614,7 +1621,8 @@ continue
             if (rd_qp == qzero) then
               filt_diag_qp(l) = feps_qp
             else
-              filt_diag_qp(l) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
+              filt_diag_qp(l) = feps_qp * &
+                                exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
             end if
             !
           end if
