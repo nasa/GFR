@@ -7462,7 +7462,12 @@ subroutine exchange_faceusp()
   real(wp), allocatable :: tmp_faceusp(:,:,:)
 #endif
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exchange_faceusp"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
 #ifdef DEBUG_SEND_FACEUSP
   do j = 1,2
@@ -7550,6 +7555,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine exchange_faceusp
 !
 !###############################################################################
@@ -7566,7 +7573,12 @@ subroutine wait_faceusp()
   !.. Local Allocatable Arrays ..
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exchange_faceusp"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   nvar = size(faceusp_array,dim=2)
   !
@@ -7607,6 +7619,8 @@ continue
   !
   call exchange_bc_conflicts_usp
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine wait_faceusp
 !
 !###############################################################################
@@ -7630,6 +7644,9 @@ subroutine exchange_bc_conflicts_usp(override)
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   real(r8) :: exch_send(1:nq)
   real(r8) :: exch_recv(1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "wait_faceusp"
   !
 continue
   !
@@ -7663,6 +7680,8 @@ continue
     return
     !
   end do return_loop
+    !
+    call debug_timer(entering_procedure,pname)
   !
   ! Now go through and exchange faceusp at bc conflicts
   !
@@ -7772,6 +7791,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine exchange_bc_conflicts_usp
 !
 !###############################################################################
@@ -7797,7 +7818,12 @@ subroutine exchange_facedusp()
   real(wp), allocatable :: tmp_facedusp(:,:,:,:)
 #endif
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exchange_facedusp"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
 #ifdef DEBUG_SEND_FACEUSP
   do j = 1,2
@@ -7889,6 +7915,8 @@ continue
     !
   end do
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine exchange_facedusp
 !
 !###############################################################################
@@ -7905,7 +7933,12 @@ subroutine wait_facedusp()
   !.. Local Allocatable Arrays ..
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "wait_facedusp"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ndim = size(facedusp_array,dim=2)
   nvar = size(facedusp_array,dim=3)
@@ -7950,6 +7983,8 @@ continue
   !
   call exchange_bc_conflicts_dusp
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine wait_facedusp
 !
 !###############################################################################
@@ -7973,6 +8008,9 @@ subroutine exchange_bc_conflicts_dusp(override)
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   real(r8) :: exch_send(1:nr,1:nq)
   real(r8) :: exch_recv(1:nr,1:nq)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "exchange_bc_conflicts_dusp"
   !
 continue
   !
@@ -8006,6 +8044,8 @@ continue
     return
     !
   end do return_loop
+  !
+  call debug_timer(entering_procedure,pname)
   !
   ! Now go through and exchange facedusp at bc conflicts
   !
@@ -8122,6 +8162,8 @@ continue
     end if
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine exchange_bc_conflicts_dusp
 !
