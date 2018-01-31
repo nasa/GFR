@@ -128,7 +128,8 @@ $(OBJDIR)/derivatives_mod.o : derivatives_mod.f90 \
                     $(OBJDIR)/poly.o \
                     $(OBJDIR)/vandermonde_mod.o \
                     $(FUNDIR)/check_for_bad_number.f90 \
-                    $(FUNDIR)/np2n.f90
+                    $(FUNDIR)/np2n.f90 \
+		    $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/eqn_idx_mod.o : eqn_idx_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -316,6 +317,7 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
+	     $(OBJDIR)/filter_mod.o \
              $(OBJDIR)/parallel.o \
              $(FUNDIR)/pressure.f90 \
              $(FUNDIR)/debug_timer.f90
@@ -486,7 +488,8 @@ $(OBJDIR)/vandermonde_mod.o : vandermonde_mod.f90 \
                     $(OBJDIR)/geovar_mod.o \
                     $(OBJDIR)/quadrature_mod.o \
                     $(OBJDIR)/poly.o \
-                    $(FUNDIR)/np2n.f90
+                    $(FUNDIR)/np2n.f90 \
+		    $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/visc_flux_mod.o : visc_flux_mod.f90 \
          $(OBJDIR)/kind_types.o \
