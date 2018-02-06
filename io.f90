@@ -346,6 +346,16 @@ continue
     profile_io_cgns = true
   end if
   !
+  ! Allow for the use of the variable all_orders to make
+  ! n_order, p_order, and q_order all the same value without
+  ! having to explicitly specify each one individually.
+  !
+  if (all_orders >= 0) then
+    solution_order = all_orders
+    projection_order = all_orders
+    quadrature_order = all_orders
+  end if
+  !
   ! Set the order variables using the input parameters
   !
   n_order = solution_order
@@ -353,16 +363,6 @@ continue
   q_order = quadrature_order
   o_order = output_order
   e_order = error_order
-  !
-  ! Allow for the use of the variable all_orders to make
-  ! n_order, p_order, and q_order all the same value without
-  ! having to explicitly specify each one individually.
-  !
-  if (all_orders >= 0) then
-    n_order = all_orders
-    p_order = all_orders
-    q_order = all_orders
-  end if
   !
   ! Allow for the use of the variable all_points to make
   ! loc_solution_pts, loc_flux_pts, and loc_quadrature_pts all the same value
