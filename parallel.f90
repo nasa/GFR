@@ -6189,11 +6189,11 @@ continue
   !
   do i = 1,ncomm
     !
-    exch_fusp(i)%send_tag = mypnum
-    exch_fusp(i)%recv_tag = exch_fusp(i)%adj_cpu
+    exch_fusp(i)%send_tag = exch_fusp(i)%adj_cpu
+    exch_fusp(i)%recv_tag = mypnum
     !
-    exch_fdusp(i)%send_tag = mypnum!+ tag_ub
-    exch_fdusp(i)%recv_tag = exch_fdusp(i)%adj_cpu!+ tag_ub
+    exch_fdusp(i)%send_tag = exch_fdusp(i)%adj_cpu + ncpu!+ tag_ub
+    exch_fdusp(i)%recv_tag = mypnum + ncpu!+ tag_ub
     !
   end do
   !
