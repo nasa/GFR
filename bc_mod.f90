@@ -8729,7 +8729,7 @@ end subroutine get_bc_slip_wall_gradient_nd
 subroutine output_bface
   !
   !.. Use Statements ..
-  use geovar, only : bface
+  use geovar, only : bface,face
   !
   !.. Local Scalars ..
   integer :: i,n,maxint,myio,ierr
@@ -8738,7 +8738,8 @@ subroutine output_bface
   character(len=100) :: my_file
   !
   !.. Local Arrays ..
-  integer :: intlen(1:size(bface,dim=1)+1)
+  integer :: intlen(1:size(bface,dim=1)+3)
+  integer :: temp_bface(1:size(bface,dim=1)+2,1:size(bface,dim=2))
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "output_bface"
@@ -8747,13 +8748,21 @@ continue
   !
   myio = 1456 + mypnum
   !
+  do n = 1,size(bface,dim=2)
+    do i = 1,size(bface,dim=1)
+      temp_bface(i,n) = bface(i,n)
+    end do
+    temp_bface(size(bface,dim=1)+1,n) = face(n)%beg_fp
+    temp_bface(size(bface,dim=1)+2,n) = face(n)%end_fp
+  end do
+  !
   ! Get the maximum length of the string containing the name of the BC types
   !
-  intlen(1) = maxval( len_trim( bc_integer_to_string(bface(1,:)) ) )
+  intlen(1) = maxval( len_trim( bc_integer_to_string(temp_bface(1,:)) ) )
   !
   do i = 1,size(intlen)-1
     n = 1
-    maxint = maxval(bface(i,:))
+    maxint = maxval(temp_bface(i,:))
     check_bface_size: do
       if (maxint/(10**n) == 0) then
         intlen(i+1) = n+1
@@ -8806,10 +8815,10 @@ continue
   !
   ! Output the bface array
   !
-  do n = 1,size(bface,dim=2)
+  do n = 1,size(temp_bface,dim=2)
     write (myio,fmt=trim(write_format)) &
-                               trim(bc_integer_to_string(bface(1,n))), &
-                                   (bface(i,n),i=1,size(bface,dim=1))
+                               trim(bc_integer_to_string(temp_bface(1,n))), &
+                                   (temp_bface(i,n),i=1,size(temp_bface,dim=1))
   end do
   !
   ! Close the output file
