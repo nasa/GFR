@@ -62,14 +62,21 @@ subroutine get_faceusp_bc(exit_error)
   use geovar,       only : bc_grps
   use ovar,         only : bc_in,itcur
   use ovar,         only : output_bface_array
+!#define DEBUG_BC_GROUPS
+#ifdef DEBUG_BC_GROUPS
+  use geovar,       only : n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
+#endif
   !
   !.. Optional Arguments ..
   integer, optional, intent(out) :: exit_error
   !
   !.. Local Scalars ..
-  integer :: i,n1,n2
+  integer :: i,j,n,m,n1,n2
   integer :: bc_idx,bc_type
   integer :: newton_failures
+  !
+  !.. Local Saved Variables ..
+  logical(lk), save :: first_output = true
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_faceusp_bc"
@@ -81,11 +88,24 @@ continue
   newton_failures = 0
   if (present(exit_error)) exit_error = 0
   !
-  if (output_bface_array) call output_bface
+  if (first_output) then
+    if (output_bface_array) call output_bface
+  end if
   !
   ! Loop over the boundary face groups and compute the conservative variables
   ! at the boundary flux points based on the face boundary condition.
   !
+#ifdef DEBUG_BC_GROUPS
+  if (first_output) then
+    write (mypnum+500,101) n_wall_flxpts,n_bnd_flxpts,n_flxpts,n_solpts
+    101 format (/,"In get_faceusp_bc:",//, &
+                  "n_wall_flxpts = ",i0,/, &
+                  " n_bnd_flxpts = ",i0,/, &
+                  "     n_flxpts = ",i0,/, &
+                  "     n_solpts = ",i0,/)
+    flush (mypnum+500)
+  end if
+#endif
   do i = 1,size(bc_grps)
     !
     n1 = bc_grps(i)%beg_fp
@@ -93,30 +113,34 @@ continue
     !
     bc_type = bc_grps(i)%bc_type
     bc_idx = bc_grps(i)%bc_idx
-!#define DEBUG_BC_GROUPS
 #ifdef DEBUG_BC_GROUPS
-    write (mypnum+500,100) i,n1,i,n2,i,bc_type, &
-                           trim(adjustl(bc_integer_to_string(bc_type))), &
-                           i,bc_idx, &
-          bc_idx,bc_idx, &
-          lbound(bc_in(bc_idx)%cv,dim=1),ubound(bc_in(bc_idx)%cv,dim=1), &
-          bc_idx,bc_idx, &
-          lbound(bc_in(bc_idx)%pv,dim=1),ubound(bc_in(bc_idx)%pv,dim=1), &
-          lbound(facenrm,dim=1),ubound(facenrm,dim=1), &
-          lbound(facenrm,dim=2),ubound(facenrm,dim=2), &
-          lbound(faceusp_array,dim=1),ubound(faceusp_array,dim=1), &
-          lbound(faceusp_array,dim=2),ubound(faceusp_array,dim=2), &
-          lbound(faceusp_array,dim=3),ubound(faceusp_array,dim=3)
-    flush (mypnum+500)
-  100 format (/,"In get_faceusp_bc:",/, &
-                "bc_grps(",i0,")%beg_fp  = ",i0,/, &
-                "bc_grps(",i0,")%end_fp  = ",i0,/, &
-                "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
-                "bc_grps(",i0,")%bc_idx  = ",i0,/, &
-                "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
-                "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
-                "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
-         "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")")
+    if (first_output) then
+      write (mypnum+500,100) i,n1,i,n2,i,bc_type, &
+                             trim(adjustl(bc_integer_to_string(bc_type))), &
+                             i,bc_idx, &
+            bc_idx,bc_idx, &
+            lbound(bc_in(bc_idx)%cv,dim=1),ubound(bc_in(bc_idx)%cv,dim=1), &
+            bc_idx,bc_idx, &
+            lbound(bc_in(bc_idx)%pv,dim=1),ubound(bc_in(bc_idx)%pv,dim=1), &
+            lbound(facenrm,dim=1),ubound(facenrm,dim=1), &
+            lbound(facenrm,dim=2),ubound(facenrm,dim=2), &
+            lbound(faceusp_array,dim=1),ubound(faceusp_array,dim=1), &
+            lbound(faceusp_array,dim=2),ubound(faceusp_array,dim=2), &
+            lbound(faceusp_array,dim=3),ubound(faceusp_array,dim=3), &
+            bc_idx,(bc_in(bc_idx)%cv(j),j=1,nq), &
+            bc_idx,(bc_in(bc_idx)%pv(j),j=1,nq)
+      flush (mypnum+500)
+      100 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &
+                    "bc_grps(",i0,")%end_fp  = ",i0,/, &
+                    "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
+                    "bc_grps(",i0,")%bc_idx  = ",i0,/, &
+                    "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
+                    "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
+                    "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
+             "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")",/, &
+             "bc_in(",i0,")%cv = ",5es14.6,/, &
+             "bc_in(",i0,")%pv = ",5es14.6)
+    end if
 #endif
     !
     ! Compute the solution at the boundary flux points
@@ -251,6 +275,12 @@ continue
       call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
+  !
+  first_output = fals
+  !
+#ifdef DEBUG_BC_GROUPS
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"after debugging bc_groups")
+#endif
   !
  !call exchange_bc_conflicts_usp(faceusp)
   !
