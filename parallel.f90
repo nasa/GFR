@@ -1650,14 +1650,14 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  passes_inspection = true
+  passes_inspection = .true.
   !
   ! Check that all processors got part of the global grid
   !
   do n = 1,npart
     if (any(epart == n)) cycle
     write (iout,100) n
-    passes_inspection = fals
+    passes_inspection = .false.
    !call stop_recon(abort,pname,__LINE__,__FILE__)
   end do
   !
