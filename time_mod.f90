@@ -345,6 +345,13 @@ continue
     !
   end do
   !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+  end if
+  !
  !!$ACC UPDATE SELF(dtmin)
   !
   !$ACC PARALLEL LOOP PRESENT(dtsp)
@@ -358,13 +365,6 @@ continue
   deallocate ( eigni )
   deallocate ( viscr )
   deallocate ( viscl )
-  !
-  ! Get the minimum timestep across all processors
-  !
-  if (ncpu > 1) then
-    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
-                       MPI_MIN,MPI_COMM_WORLD,mpierr)
-  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
