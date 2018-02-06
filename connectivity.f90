@@ -2983,7 +2983,7 @@ continue
       cycle
     end if
     !
-    if (bface(5,nf) /= bc_grp .and. bface(6,nf) /= bc_idx) then
+    if (bface(5,nf) /= bc_grp .or. bface(6,nf) /= bc_idx) then
       !
       n = n + 1
       !
