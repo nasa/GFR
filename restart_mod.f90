@@ -747,12 +747,11 @@ end subroutine read_solution_file
 subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,cell
+  use geovar,       only : ncell,cell,cell_map
   use geovar,       only : n_global_totpts
   use geovar,       only : global_pinc_ptr
   use ovar,         only : itrst,tmrst,dtrst
   use flowvar,      only : global_usp
-  use parallel_mod, only : cell_map
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: file_name
@@ -2407,10 +2406,9 @@ end subroutine create_restart_link
 subroutine get_host_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,  only : ncell,cell,n_solpts
+  use geovar,  only : ncell,cell,n_solpts,cell_map
   use geovar,  only : global_pinc_ptr
   use flowvar, only : uavesp
-  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,naq,l1,l2,ierr
@@ -2875,10 +2873,9 @@ end subroutine get_host_output_mpi_datatypes
 subroutine get_output_mpi_datatypes()
   !
   !.. Use Statement ..
-  use geovar,  only : ncell,cell
+  use geovar,  only : ncell,cell,cell_map
   use geovar,  only : global_pinc_ptr
   use flowvar, only : uavesp
-  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2,naq,ierr
@@ -3107,8 +3104,8 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
                                    num_pts,ordered_geom,cell_input_data)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell ! ncell is recomputed after cell_map is created
-  use parallel_mod, only : cell_map
+  use geovar, only : ncell ! ncell is recomputed after cell_map is created
+  use geovar, only : cell_map
   !
   !.. Formal Arguments ..
   integer(wip),                     intent(in) :: restart_nq

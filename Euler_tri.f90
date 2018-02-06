@@ -13,6 +13,7 @@ program Euler_tri
   use geovar, only : move_cell_to_device
   use geovar, only : move_fp_to_device
   use geovar, only : move_bcgrps_to_device
+  use geovar, only : move_cellmap_to_device
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -124,7 +125,6 @@ program Euler_tri
   use parallel_mod, only : exchange_facedusp
   use parallel_mod, only : wait_faceusp
   use parallel_mod, only : wait_facedusp
-  use parallel_mod, only : move_cellmap_to_device
   !
   use module_limiters, only : initialize_limiters
   !

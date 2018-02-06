@@ -184,7 +184,6 @@ $(OBJDIR)/generic.o : generic.f90 \
             $(OBJDIR)/quadrature_mod.o \
             $(OBJDIR)/interpolation_mod.o \
             $(OBJDIR)/gpu_mod.o \
-            $(OBJDIR)/parallel.o \
             $(OBJDIR)/mms_mod.o \
             $(OBJDIR)/gpu_mod.o \
             $(FUNDIR)/entropy.f90 \
@@ -318,7 +317,6 @@ $(OBJDIR)/limiters.o : limiters.f90 \
              $(OBJDIR)/vandermonde_mod.o \
              $(OBJDIR)/projection_mod.o \
 	     $(OBJDIR)/filter_mod.o \
-             $(OBJDIR)/parallel.o \
              $(FUNDIR)/pressure.f90 \
              $(FUNDIR)/debug_timer.f90
 
@@ -327,7 +325,6 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/quadrature_mod.o \
-             $(OBJDIR)/parallel.o \
              $(OBJDIR)/typesgen_mod.o \
              $(OBJDIR)/poly.o
 

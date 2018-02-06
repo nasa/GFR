@@ -12,6 +12,7 @@ module parallel_mod
   use eqn_idx, only : nq
   use geovar,  only : face_t
   use geovar,  only : fp_t
+  use geovar,  only : map_t,cell_map
   !
 #ifdef METIS_5
   use metis5
@@ -39,7 +40,6 @@ module parallel_mod
   public :: parallel_memory_usage
   public :: exch_connectivity
  !public :: exchange_modes
-  public :: move_cellmap_to_device
   !
   integer, save :: nr
   !
@@ -123,28 +123,6 @@ module parallel_mod
   !                   that is responsible for the face point indices
   !
   type(bnd_data_t), save, allocatable, dimension(:) :: bnd_faces
-  !
-  !
-  !
-  ! ##########################################################
-  ! #####   MAPPING DERIVED TYPE AND ASSOCIATED ARRAYS   #####
-  ! ##########################################################
-  !
-  ! MAP_T : derived type to store mappings between local and global
-  !         indices for cells, faces, and nodes
-  !
-  type :: map_t
-    ! loc_to_glb : local index to global index mapping array
-    integer, allocatable :: loc_to_glb(:)
-  end type map_t
-  !
-  ! CELL_MAP : mappings between local and global cell indices
-  !            NOTE: I believe this mapping array is the only one needed outside
-  !                  this module. For example, it is needed for initializing the
-  !                  local solution from the global solution that is read in
-  !                  from the restart file.
-  !
-  type(map_t), public, save, allocatable :: cell_map(:)
   !
   !
   !
@@ -9471,35 +9449,6 @@ end subroutine collect_global_solution
 !
 !###############################################################################
 !
-subroutine move_cellmap_to_device()
-  !
-  !.. Local Scalars ..
-  integer :: i,i1,i2,m1,m2
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "move_cellmap_to_device"
-  !
-continue
-  !
-  if (allocated(cell_map)) then
-    !$ACC ENTER DATA COPYIN(cell_map)
-    i1 = lbound(cell_map,dim=1)
-    i2 = ubound(cell_map,dim=1)
-    !$ACC ENTER DATA COPYIN(cell_map(i1:i2))
-    do i = i1,i2
-      if (allocated(cell_map(i)%loc_to_glb)) then
-        !$ACC ENTER DATA COPYIN(cell_map(i)%loc_to_glb)
-        m1 = lbound(cell_map(i)%loc_to_glb,dim=1)
-        m2 = ubound(cell_map(i)%loc_to_glb,dim=1)
-        !$ACC ENTER DATA COPYIN(cell_map(i)%loc_to_glb(m1:m2))
-      end if
-    end do
-  end if
-  !
-end subroutine move_cellmap_to_device
-!
-!###############################################################################
-!
 subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   !
   !.. Formal Arguments ..
@@ -9777,31 +9726,6 @@ continue
   else
     !
     write (iou,7) "bnd_faces"
-    !
-  end if
-  !
-  !-----------------------------------------------------------------------------
-  !
-  if (allocated(cell_map)) then
-    !
-    call dt%set( storage_size(cell_map,kind=inttype) , &
-                         size(cell_map,kind=inttype) )
-    !
-    do i = lbound(cell_map,dim=1),ubound(cell_map,dim=1)
-      if (allocated(cell_map(i)%loc_to_glb)) then
-        call dt%add( storage_size(cell_map(i)%loc_to_glb,kind=inttype) , &
-                             size(cell_map(i)%loc_to_glb,kind=inttype) )
-      end if
-      !
-    end do
-    !
-    call total%add(dt)
-    write (array_name,5) "cell_map"
-    write (iou,2) array_name,dt%get_units()
-    !
-  else
-    !
-    write (iou,7) "cell_map"
     !
   end if
   !

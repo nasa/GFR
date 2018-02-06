@@ -7554,12 +7554,12 @@ end subroutine write_parallel_cgns_time_ave_file
 subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   !
   !.. Use Statements ..
-  use geovar,       only : ncell,n_global_cell,cell
-  use geovar,       only : pst_geom
-  use geovar,       only : global_cell_geom
-  use geovar,       only : global_cell_order
-  use parallel_mod, only : cell_map
-  use order_mod,    only : geom_solpts
+  use geovar,    only : ncell,n_global_cell,cell
+  use geovar,    only : pst_geom
+  use geovar,    only : global_cell_geom
+  use geovar,    only : global_cell_order
+  use geovar,    only : cell_map
+  use order_mod, only : geom_solpts
   !
   !.. Formal Arguments ..
   integer(CST),              intent(inout) :: my_cells_beg

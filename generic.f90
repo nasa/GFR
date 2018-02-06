@@ -51,10 +51,9 @@ contains
 subroutine compute_residual_error_gpu()
   !
   !.. Use Statements ..
-  use geovar,       only : nr,n_solpts,ncell,cell
+  use geovar,       only : nr,n_solpts,ncell,cell,cell_map
   use ovar,         only : total_volume,uverr
   use ovar,         only : use_async_for_error
-  use parallel_mod, only : cell_map
   !
   !.. Local Scalars ..
   integer  :: k,l,m,n,nc,n1,n2,l1,l2,l3,e1,e2,e3
@@ -1315,10 +1314,9 @@ subroutine compute_residual_error()
   !
   !.. Use Statements ..
   use order_mod, only : maxEP
-  use geovar,  only : nr,ncell,cell
+  use geovar,  only : nr,ncell,cell,cell_map
   use ovar,    only : total_volume,itestcase
   use ovar,    only : uverr1
-  use parallel_mod, only : cell_map
   use interpolation_mod, only : outerp
   !
   !.. Local Scalars ..
