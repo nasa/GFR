@@ -774,6 +774,73 @@ end subroutine partition_grid
 !
 !###############################################################################
 !
+subroutine partition_into_quarters(nodes_of_cell,nodes_of_cell_ptr, &
+                                   xyz_nodes,epart)
+  !
+  !.. Formal Arguments ..
+  integer,    intent(in) :: nodes_of_cell(:)
+  integer,    intent(in) :: nodes_of_cell_ptr(:)
+  real(wp),   intent(in) :: xyz_nodes(:,:)
+  integer, intent(inout) :: epart(:)
+  !
+  !.. Local Scalars ..
+  integer  :: nc,n1,n2
+  real(wp) :: y_ave,z_ave,tc
+  logical(ldk) :: passes_inspection
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "partition_into_quarters"
+  !
+  real(wp), parameter :: forty5  = 45.0_wp
+  real(wp), parameter :: one35   = 135.0_wp
+  real(wp), parameter :: one80   = 180.0_wp
+  real(wp), parameter :: two25   = 225.0_wp
+  real(wp), parameter :: three15 = 315.0_wp
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  do nc = 1,size(epart)
+    !
+    n1 = nodes_of_cell_ptr(nc)+1
+    n2 = nodes_of_cell_ptr(nc+1)
+    !
+    y_ave = sum( xyz_nodes(2,nodes_of_cell(n1:n2)) ) / eight
+    z_ave = sum( xyz_nodes(3,nodes_of_cell(n1:n2)) ) / eight
+    !
+    tc = atan2(y_ave,z_ave) * radians2degrees + one80
+    !
+    if (tc > forty5 .and. tc < one35) then
+      epart(nc) = 1
+    else if (tc > one35 .and. tc < two25) then
+      epart(nc) = 2
+    else if (tc > two25 .and. tc < three15) then
+      epart(nc) = 3
+    else
+      epart(nc) = 4
+    end if
+    !
+  end do
+  !
+  call check_quality_of_partitioning(4,epart,passes_inspection)
+  !
+  if (.not. passes_inspection) then
+    write (error_message,1000)
+    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format statements
+  !
+  1000 format (" Partitioning into quarters failed to distribute the", &
+               " grid cells across the all available processors.")
+  !
+end subroutine partition_into_quarters
+!
+!###############################################################################
+!
 subroutine partition_using_metis_4(metis_option_requested,npart, &
                                    cell_geom,cell_order, &
                                    xadj,adjncy,epart)
