@@ -5872,7 +5872,7 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
   31 format (/,'itestcase = ',i0,/, &
-               'flux_divergence  =',i0,//, &
+               'flux_divergence  = ',i0,//, &
                'Order of solution polynomial = ',i10,/, &
                'Number of grid cells         = ',i10,/, &
                'Number of solution points    = ',i10,//, &
