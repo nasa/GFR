@@ -7443,10 +7443,6 @@ end subroutine create_node_and_edge_datatypes
 subroutine exchange_faceusp()
   !
   !.. Use Statements ..
-!!!#define DEBUG_SEND_FACEUSP
-#ifdef DEBUG_SEND_FACEUSP
-  use geovar,  only : n_bnd_flxpts
-#endif
   use geovar,  only : bface,face
   use flowvar, only : faceusp_array
   !
@@ -7457,36 +7453,16 @@ subroutine exchange_faceusp()
   integer(int_mpi) :: recv_cpu
   integer(int_mpi) :: mesg_tag
   _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
-#ifdef DEBUG_SEND_FACEUSP
-  integer :: j
-  real(wp), allocatable :: tmp_faceusp(:,:,:)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "exchange_faceusp"
   !
 continue
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
-  !
-#ifdef DEBUG_SEND_FACEUSP
-  do j = 1,2
-    fusp_send_buffer(:) = real(zero,kind=r8)
-    if (j == 1) then
-      tmp_faceusp = faceusp_array ! F2003 AUTO-REALLOCATION
-      i = 0
-      do nf = 1,size(faceusp_array,dim=3)
-        do m = 1,size(faceusp_array,dim=2)
-          do k = 1,n_bnd_flxpts
-            i = i + 1
-            faceusp_array(k,m,nf) = real(i,kind=wp)
-          end do
-        end do
-      end do
-    else
-      call move_alloc( from=tmp_faceusp , to=faceusp_array )
-    end if
 #endif
+  !
   nvar = size(faceusp_array,dim=2)
   !
   ibeg = 0
@@ -7508,19 +7484,6 @@ continue
     ibeg = ibeg + nfp*nvar
     !
   end do
-#ifdef DEBUG_SEND_FACEUSP
-    if (j == 1) then
-      do i = 1,size(fusp_send_buffer)
-        write (mypnum+1000,*) i,nint(fusp_send_buffer(i))
-      end do
-      flush (mypnum+1000)
-    end if
-  end do
-#endif
-!!!#define DEBUG_RECV_FACEUSP
-#ifdef DEBUG_RECV_FACEUSP
-  fusp_send_buffer(:) = real( intseq(1,size(fusp_send_buffer)) , kind=r8 )
-#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -7555,7 +7518,9 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine exchange_faceusp
 !
@@ -7574,11 +7539,13 @@ subroutine wait_faceusp()
   _MPI_STATUS_TYPE_, allocatable :: fstat(:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "exchange_faceusp"
+  character(len=*), parameter :: pname = "wait_faceusp"
   !
 continue
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
+#endif
   !
   nvar = size(faceusp_array,dim=2)
   !
@@ -7586,12 +7553,10 @@ continue
   !
   fstat = reshape(fusp_istat,[size(fusp_istat)]) ! F2003 AUTO-REALLOCATION
   call mpi_waitall(size(fusp_rqst,kind=int_mpi),fusp_rqst,fstat,mpierr)
-#ifdef DEBUG_RECV_FACEUSP
-  do i = 1,size(fusp_recv_buffer)
-    write (mypnum+5000,*) i,nint(fusp_recv_buffer(i))
-  end do
-  flush (mypnum+5000)
-#endif
+  !
+  deallocate ( fstat )
+  !
+ !call mpi_f_sync_reg(fusp_recv_buffer)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -7619,7 +7584,9 @@ continue
   !
   call exchange_bc_conflicts_usp
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine wait_faceusp
 !
@@ -7646,7 +7613,7 @@ subroutine exchange_bc_conflicts_usp(override)
   real(r8) :: exch_recv(1:nq)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "wait_faceusp"
+  character(len=*), parameter :: pname = "exchange_bc_conflicts_usp"
   !
 continue
   !
@@ -7681,7 +7648,9 @@ continue
     !
   end do return_loop
     !
+#ifdef DEBUG_ON
     call debug_timer(entering_procedure,pname)
+#endif
   !
   ! Now go through and exchange faceusp at bc conflicts
   !
@@ -7791,7 +7760,9 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine exchange_bc_conflicts_usp
 !
@@ -7800,9 +7771,6 @@ end subroutine exchange_bc_conflicts_usp
 subroutine exchange_facedusp()
   !
   !.. Use Statements ..
-#ifdef DEBUG_SEND_FACEUSP
-  use geovar,  only : n_bnd_flxpts
-#endif
   use geovar,  only : bface,face
   use flowvar, only : facedusp_array
   !
@@ -7813,38 +7781,16 @@ subroutine exchange_facedusp()
   integer(int_mpi) :: recv_cpu
   integer(int_mpi) :: mesg_tag
   _MPI_DATA_TYPE_ :: send_dtype,recv_dtype
-#ifdef DEBUG_SEND_FACEUSP
-  integer :: j
-  real(wp), allocatable :: tmp_facedusp(:,:,:,:)
-#endif
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "exchange_facedusp"
   !
 continue
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
-  !
-#ifdef DEBUG_SEND_FACEUSP
-  do j = 1,2
-    fdusp_send_buffer(:) = real(zero,kind=r8)
-    if (j == 1) then
-      tmp_facedusp = facedusp_array ! F2003 AUTO-REALLOCATION
-      i = 0
-      do nf = 1,size(facedusp_array,dim=4)
-        do m = 1,size(facedusp_array,dim=3)
-          do l = 1,size(facedusp_array,dim=2)
-            do k = 1,n_bnd_flxpts
-              i = i + 1
-              facedusp_array(k,l,m,nf) = real(i,kind=wp)
-            end do
-          end do
-        end do
-      end do
-    else
-      call move_alloc( from=tmp_facedusp , to=facedusp_array )
-    end if
 #endif
+  !
   ndim = size(facedusp_array,dim=2)
   nvar = size(facedusp_array,dim=3)
   !
@@ -7869,18 +7815,6 @@ continue
     ibeg = ibeg + nfp*nvar*ndim
     !
   end do
-#ifdef DEBUG_SEND_FACEUSP
-    if (j == 1) then
-      do i = 1,size(fdusp_send_buffer)
-        write (mypnum+2000,*) i,nint(fdusp_send_buffer(i))
-      end do
-      flush (mypnum+2000)
-    end if
-  end do
-#endif
-#ifdef DEBUG_RECV_FACEUSP
-  fdusp_send_buffer(:) = real( intseq(1,size(fdusp_send_buffer)) , kind=r8 )
-#endif
   !
   ! Initialize all the receives so each process
   ! is ready once the send is posted
@@ -7915,7 +7849,9 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine exchange_facedusp
 !
@@ -7938,7 +7874,9 @@ subroutine wait_facedusp()
   !
 continue
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
+#endif
   !
   ndim = size(facedusp_array,dim=2)
   nvar = size(facedusp_array,dim=3)
@@ -7947,13 +7885,10 @@ continue
   !
   fstat = reshape(fdusp_istat,[size(fdusp_istat)]) ! F2003 AUTO-REALLOCATION
   call mpi_waitall(size(fdusp_rqst,kind=int_mpi),fdusp_rqst,fstat,mpierr)
-#ifdef DEBUG_RECV_FACEUSP
-  do i = 1,size(fdusp_recv_buffer)
-    write (mypnum+6000,*) i,nint(fdusp_recv_buffer(i))
-  end do
-  flush (mypnum+6000)
-  call stop_recon(stop_mpi,"wait_facedusp",__LINE__,__FILE__)
-#endif
+  !
+  deallocate ( fstat )
+  !
+ !call mpi_f_sync_reg(fdusp_recv_buffer)
   !
   ! Update the right states for only the communication boundary faces
   !
@@ -7983,7 +7918,9 @@ continue
   !
   call exchange_bc_conflicts_dusp
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine wait_facedusp
 !
@@ -8045,7 +7982,9 @@ continue
     !
   end do return_loop
   !
+#ifdef DEBUG_ON
   call debug_timer(entering_procedure,pname)
+#endif
   !
   ! Now go through and exchange facedusp at bc conflicts
   !
@@ -8163,7 +8102,9 @@ continue
     !
   end do
   !
+#ifdef DEBUG_ON
   call debug_timer(leaving_procedure,pname)
+#endif
   !
 end subroutine exchange_bc_conflicts_dusp
 !
