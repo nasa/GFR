@@ -13,11 +13,11 @@ ARCH = $(shell uname -m)
 
 FCADD += -DDISABLE_PURE
 #FCADD += -DUSE_FACE_ARRAYS
-FCADD += -DPROFILE_ON
+#FCADD += -DPROFILE_ON
 #FCADD += -DIGNORE_MPI_INFO
 
-#debug: FCADD += -DPROFILE_ON
-#rebuild-debug: FCADD += -DPROFILE_ON
+debug: FCADD += -DPROFILE_ON
+rebuild-debug: FCADD += -DPROFILE_ON
 
 .PHONY: all
 all: debug_recon
