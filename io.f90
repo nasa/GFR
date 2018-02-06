@@ -7204,6 +7204,12 @@ continue
             vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
           end do
           call cgns_write_field_parallel
+        case ("Partition")
+          n = n + 1
+          do nc = 1,ncell
+            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = mypnum+1
+          end do
+          call cgns_write_field_parallel
         case default
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
