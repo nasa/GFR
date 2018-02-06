@@ -1343,6 +1343,234 @@ end subroutine flux_gradient_at_solpts
 !
 !###############################################################################
 !
+subroutine transform_fluxes(tfluxes,rfluxes)
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tfluxes(:,:,:)
+  real(wp), intent(inout) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "transform_fluxes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  nr = size(tfluxes,dim=2)
+  !
+  if (nr == 3) then
+    call transform_fluxes_3d(tfluxes,rfluxes)
+  else if (nr == 2) then
+    call transform_fluxes_2d(tfluxes,rfluxes)
+  else
+    call transform_fluxes_nd(tfluxes,rfluxes)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine transform_fluxes
+!
+!###############################################################################
+!
+subroutine transform_fluxes_3d(tfluxes,rfluxes)
+  !
+  !.. Use Statements ..
+  use metrics_mod, only : metrics_array,jac
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tfluxes(:,:,:)
+  real(wp), intent(inout) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,np
+  real(wp) :: d1dx,d2dx,d3dx
+  real(wp) :: d1dy,d2dy,d3dy
+  real(wp) :: d1dz,d2dz,d3dz
+  real(wp) :: xflx,yflx,zflx
+  real(wp) :: jacobian
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "transform_fluxes_3d"
+  !
+continue
+  !
+  np = size(tfluxes,dim=1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tfluxes,rfluxes,jac,metrics_array)
+  do n = 1,np
+    !
+    jacobian = jac(n)
+    !
+    d1dx = metrics_array(n,1,1)*jacobian
+    d2dx = metrics_array(n,2,1)*jacobian
+    d3dx = metrics_array(n,3,1)*jacobian
+    !
+    d1dy = metrics_array(n,1,2)*jacobian
+    d2dy = metrics_array(n,2,2)*jacobian
+    d3dy = metrics_array(n,3,2)*jacobian
+    !
+    d1dz = metrics_array(n,1,3)*jacobian
+    d2dz = metrics_array(n,2,3)*jacobian
+    d3dz = metrics_array(n,3,3)*jacobian
+    !
+    xflx = tfluxes(n,1,nec)
+    yflx = tfluxes(n,2,nec)
+    zflx = tfluxes(n,3,nec)
+    !
+    rfluxes(n,1,nec) = xflx*d1dx + yflx*d1dy + zflx*d1dz
+    rfluxes(n,2,nec) = xflx*d2dx + yflx*d2dy + zflx*d2dz
+    rfluxes(n,3,nec) = xflx*d3dx + yflx*d3dy + zflx*d3dz
+    !
+    xflx = tfluxes(n,1,nmx)
+    yflx = tfluxes(n,2,nmx)
+    zflx = tfluxes(n,3,nmx)
+    !
+    rfluxes(n,1,nmx) = xflx*d1dx + yflx*d1dy + zflx*d1dz
+    rfluxes(n,2,nmx) = xflx*d2dx + yflx*d2dy + zflx*d2dz
+    rfluxes(n,3,nmx) = xflx*d3dx + yflx*d3dy + zflx*d3dz
+    !
+    xflx = tfluxes(n,1,nmy)
+    yflx = tfluxes(n,2,nmy)
+    zflx = tfluxes(n,3,nmy)
+    !
+    rfluxes(n,1,nmy) = xflx*d1dx + yflx*d1dy + zflx*d1dz
+    rfluxes(n,2,nmy) = xflx*d2dx + yflx*d2dy + zflx*d2dz
+    rfluxes(n,3,nmy) = xflx*d3dx + yflx*d3dy + zflx*d3dz
+    !
+    xflx = tfluxes(n,1,nmz)
+    yflx = tfluxes(n,2,nmz)
+    zflx = tfluxes(n,3,nmz)
+    !
+    rfluxes(n,1,nmz) = xflx*d1dx + yflx*d1dy + zflx*d1dz
+    rfluxes(n,2,nmz) = xflx*d2dx + yflx*d2dy + zflx*d2dz
+    rfluxes(n,3,nmz) = xflx*d3dx + yflx*d3dy + zflx*d3dz
+    !
+    xflx = tfluxes(n,1,nee)
+    yflx = tfluxes(n,2,nee)
+    zflx = tfluxes(n,3,nee)
+    !
+    rfluxes(n,1,nee) = xflx*d1dx + yflx*d1dy + zflx*d1dz
+    rfluxes(n,2,nee) = xflx*d2dx + yflx*d2dy + zflx*d2dz
+    rfluxes(n,3,nee) = xflx*d3dx + yflx*d3dy + zflx*d3dz
+    !
+  end do
+  !
+end subroutine transform_fluxes_3d
+!
+!###############################################################################
+!
+subroutine transform_fluxes_2d(tfluxes,rfluxes)
+  !
+  !.. Use Statements ..
+  use metrics_mod, only : metrics_array,jac
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tfluxes(:,:,:)
+  real(wp), intent(inout) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,np
+  real(wp) :: d1dx,d2dx,d3dx
+  real(wp) :: d1dy,d2dy,d3dy
+  real(wp) :: d1dz,d2dz,d3dz
+  real(wp) :: xflx,yflx,zflx
+  real(wp) :: jacobian
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "transform_fluxes_2d"
+  !
+continue
+  !
+  np = size(tfluxes,dim=1)
+  !
+  !$ACC PARALLEL LOOP PRESENT(tfluxes,rfluxes,jac,metrics_array)
+  do n = 1,np
+    !
+    jacobian = jac(n)
+    !
+    d1dx = metrics_array(n,1,1)*jacobian
+    d2dx = metrics_array(n,2,1)*jacobian
+    !
+    d1dy = metrics_array(n,1,2)*jacobian
+    d2dy = metrics_array(n,2,2)*jacobian
+    !
+    xflx = tfluxes(n,1,nec)
+    yflx = tfluxes(n,2,nec)
+    !
+    rfluxes(n,1,nec) = xflx*d1dx + yflx*d1dy
+    rfluxes(n,2,nec) = xflx*d2dx + yflx*d2dy
+    !
+    xflx = tfluxes(n,1,nmx)
+    yflx = tfluxes(n,2,nmx)
+    !
+    rfluxes(n,1,nmx) = xflx*d1dx + yflx*d1dy
+    rfluxes(n,2,nmx) = xflx*d2dx + yflx*d2dy
+    !
+    xflx = tfluxes(n,1,nmy)
+    yflx = tfluxes(n,2,nmy)
+    !
+    rfluxes(n,1,nmy) = xflx*d1dx + yflx*d1dy
+    rfluxes(n,2,nmy) = xflx*d2dx + yflx*d2dy
+    !
+    xflx = tfluxes(n,1,nmz)
+    yflx = tfluxes(n,2,nmz)
+    !
+    rfluxes(n,1,nmz) = xflx*d1dx + yflx*d1dy
+    rfluxes(n,2,nmz) = xflx*d2dx + yflx*d2dy
+    !
+    xflx = tfluxes(n,1,nee)
+    yflx = tfluxes(n,2,nee)
+    !
+    rfluxes(n,1,nee) = xflx*d1dx + yflx*d1dy
+    rfluxes(n,2,nee) = xflx*d2dx + yflx*d2dy
+    !
+  end do
+  !
+end subroutine transform_fluxes_2d
+!
+!###############################################################################
+!
+subroutine transform_fluxes_nd(tfluxes,rfluxes)
+  !
+  !.. Use Statements ..
+  use metrics_mod, only : metrics_array,jac
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: tfluxes(:,:,:)
+  real(wp), intent(inout) :: rfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,k,l,m,np,nr
+  real(wp) :: val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "transform_fluxes_nd"
+  !
+continue
+  !
+  np = size(tfluxes,dim=1)
+  nr = size(tfluxes,dim=2)
+  !
+  !$ACC LOOP VECTOR COLLAPSE(3)
+  do m = 1,nq
+    do l = 1,nr
+      do k = 1,np
+        val = zero
+        do i = 1,nr
+          val = val + tfluxes(k,i,m)*metrics_array(k,l,i)
+        end do
+        rfluxes(k,l,m) = val * jac(k)
+      end do
+    end do
+  end do
+  !
+end subroutine transform_fluxes_nd
+!
+!###############################################################################
+!
 subroutine compute_flux_divergence(rfluxes,iter,nst)
   !
   !... this subroutine get derivative of fluxes (no interaction)
@@ -1493,53 +1721,6 @@ continue
  !call write_array(100,iter,nst,residual)
   !
 end subroutine compute_flux_divergence_3d
-!
-!###############################################################################
-!
-subroutine write_2d_array(io_start,iter,nst,array)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: io_start,iter,nst
-  real(wp), intent(in) :: array(:,:)
-  !
-  !.. Local Scalars ..
-  integer :: io,n,m
-  !
-continue
-  !
-  !$ACC UPDATE SELF(array)
-  io = io_start + 10*(iter-1) + nst
-  do n = 1,size(array,dim=1)
-    write (io,100) (array(n,m), m=1,size(array,dim=2))
-  end do
-  100 format (5es16.8)
-  !$ACC UPDATE DEVICE(array)
-  !
-end subroutine write_2d_array
-!
-!###############################################################################
-!
-subroutine write_3d_array(io_start,iter,nst,array)
-  !
-  !.. Formal Arguments ..
-  integer,  intent(in) :: io_start,iter,nst
-  real(wp), intent(in) :: array(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer :: io,n,m,l
-  !
-continue
-  !
-  !$ACC UPDATE SELF(array)
-  io = io_start + 10*(iter-1) + nst
-  do n = 1,size(array,dim=1)
-    write (io,100) ((array(n,l,m), l=1,size(array,dim=2)), &
-                                   m=1,size(array,dim=3))
-  end do
-  100 format (15es11.3)
-  !$ACC UPDATE DEVICE(array)
-  !
-end subroutine write_3d_array
 !
 !###############################################################################
 !
@@ -2202,234 +2383,6 @@ continue
   end do
   !
 end subroutine add_flux_correction_nd
-!
-!###############################################################################
-!
-subroutine transform_fluxes(tfluxes,rfluxes)
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: tfluxes(:,:,:)
-  real(wp), intent(inout) :: rfluxes(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer :: nr
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "transform_fluxes"
-  !
-continue
-  !
-  call debug_timer(entering_procedure,pname)
-  !
-  nr = size(tfluxes,dim=2)
-  !
-  if (nr == 3) then
-    call transform_fluxes_3d(tfluxes,rfluxes)
-  else if (nr == 2) then
-    call transform_fluxes_2d(tfluxes,rfluxes)
-  else
-    call transform_fluxes_nd(tfluxes,rfluxes)
-  end if
-  !
-  call debug_timer(leaving_procedure,pname)
-  !
-end subroutine transform_fluxes
-!
-!###############################################################################
-!
-subroutine transform_fluxes_3d(tfluxes,rfluxes)
-  !
-  !.. Use Statements ..
-  use metrics_mod, only : metrics_array,jac
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: tfluxes(:,:,:)
-  real(wp), intent(inout) :: rfluxes(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n,np
-  real(wp) :: d1dx,d2dx,d3dx
-  real(wp) :: d1dy,d2dy,d3dy
-  real(wp) :: d1dz,d2dz,d3dz
-  real(wp) :: xflx,yflx,zflx
-  real(wp) :: jacobian
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "transform_fluxes_3d"
-  !
-continue
-  !
-  np = size(tfluxes,dim=1)
-  !
-  !$ACC PARALLEL LOOP PRESENT(tfluxes,rfluxes,jac,metrics_array)
-  do n = 1,np
-    !
-    jacobian = jac(n)
-    !
-    d1dx = metrics_array(n,1,1)*jacobian
-    d2dx = metrics_array(n,2,1)*jacobian
-    d3dx = metrics_array(n,3,1)*jacobian
-    !
-    d1dy = metrics_array(n,1,2)*jacobian
-    d2dy = metrics_array(n,2,2)*jacobian
-    d3dy = metrics_array(n,3,2)*jacobian
-    !
-    d1dz = metrics_array(n,1,3)*jacobian
-    d2dz = metrics_array(n,2,3)*jacobian
-    d3dz = metrics_array(n,3,3)*jacobian
-    !
-    xflx = tfluxes(n,1,nec)
-    yflx = tfluxes(n,2,nec)
-    zflx = tfluxes(n,3,nec)
-    !
-    rfluxes(n,1,nec) = xflx*d1dx + yflx*d1dy + zflx*d1dz
-    rfluxes(n,2,nec) = xflx*d2dx + yflx*d2dy + zflx*d2dz
-    rfluxes(n,3,nec) = xflx*d3dx + yflx*d3dy + zflx*d3dz
-    !
-    xflx = tfluxes(n,1,nmx)
-    yflx = tfluxes(n,2,nmx)
-    zflx = tfluxes(n,3,nmx)
-    !
-    rfluxes(n,1,nmx) = xflx*d1dx + yflx*d1dy + zflx*d1dz
-    rfluxes(n,2,nmx) = xflx*d2dx + yflx*d2dy + zflx*d2dz
-    rfluxes(n,3,nmx) = xflx*d3dx + yflx*d3dy + zflx*d3dz
-    !
-    xflx = tfluxes(n,1,nmy)
-    yflx = tfluxes(n,2,nmy)
-    zflx = tfluxes(n,3,nmy)
-    !
-    rfluxes(n,1,nmy) = xflx*d1dx + yflx*d1dy + zflx*d1dz
-    rfluxes(n,2,nmy) = xflx*d2dx + yflx*d2dy + zflx*d2dz
-    rfluxes(n,3,nmy) = xflx*d3dx + yflx*d3dy + zflx*d3dz
-    !
-    xflx = tfluxes(n,1,nmz)
-    yflx = tfluxes(n,2,nmz)
-    zflx = tfluxes(n,3,nmz)
-    !
-    rfluxes(n,1,nmz) = xflx*d1dx + yflx*d1dy + zflx*d1dz
-    rfluxes(n,2,nmz) = xflx*d2dx + yflx*d2dy + zflx*d2dz
-    rfluxes(n,3,nmz) = xflx*d3dx + yflx*d3dy + zflx*d3dz
-    !
-    xflx = tfluxes(n,1,nee)
-    yflx = tfluxes(n,2,nee)
-    zflx = tfluxes(n,3,nee)
-    !
-    rfluxes(n,1,nee) = xflx*d1dx + yflx*d1dy + zflx*d1dz
-    rfluxes(n,2,nee) = xflx*d2dx + yflx*d2dy + zflx*d2dz
-    rfluxes(n,3,nee) = xflx*d3dx + yflx*d3dy + zflx*d3dz
-    !
-  end do
-  !
-end subroutine transform_fluxes_3d
-!
-!###############################################################################
-!
-subroutine transform_fluxes_2d(tfluxes,rfluxes)
-  !
-  !.. Use Statements ..
-  use metrics_mod, only : metrics_array,jac
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: tfluxes(:,:,:)
-  real(wp), intent(inout) :: rfluxes(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: n,np
-  real(wp) :: d1dx,d2dx,d3dx
-  real(wp) :: d1dy,d2dy,d3dy
-  real(wp) :: d1dz,d2dz,d3dz
-  real(wp) :: xflx,yflx,zflx
-  real(wp) :: jacobian
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "transform_fluxes_2d"
-  !
-continue
-  !
-  np = size(tfluxes,dim=1)
-  !
-  !$ACC PARALLEL LOOP PRESENT(tfluxes,rfluxes,jac,metrics_array)
-  do n = 1,np
-    !
-    jacobian = jac(n)
-    !
-    d1dx = metrics_array(n,1,1)*jacobian
-    d2dx = metrics_array(n,2,1)*jacobian
-    !
-    d1dy = metrics_array(n,1,2)*jacobian
-    d2dy = metrics_array(n,2,2)*jacobian
-    !
-    xflx = tfluxes(n,1,nec)
-    yflx = tfluxes(n,2,nec)
-    !
-    rfluxes(n,1,nec) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nec) = xflx*d2dx + yflx*d2dy
-    !
-    xflx = tfluxes(n,1,nmx)
-    yflx = tfluxes(n,2,nmx)
-    !
-    rfluxes(n,1,nmx) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nmx) = xflx*d2dx + yflx*d2dy
-    !
-    xflx = tfluxes(n,1,nmy)
-    yflx = tfluxes(n,2,nmy)
-    !
-    rfluxes(n,1,nmy) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nmy) = xflx*d2dx + yflx*d2dy
-    !
-    xflx = tfluxes(n,1,nmz)
-    yflx = tfluxes(n,2,nmz)
-    !
-    rfluxes(n,1,nmz) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nmz) = xflx*d2dx + yflx*d2dy
-    !
-    xflx = tfluxes(n,1,nee)
-    yflx = tfluxes(n,2,nee)
-    !
-    rfluxes(n,1,nee) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nee) = xflx*d2dx + yflx*d2dy
-    !
-  end do
-  !
-end subroutine transform_fluxes_2d
-!
-!###############################################################################
-!
-subroutine transform_fluxes_nd(tfluxes,rfluxes)
-  !
-  !.. Use Statements ..
-  use metrics_mod, only : metrics_array,jac
-  !
-  !.. Formal Arguments ..
-  real(wp),    intent(in) :: tfluxes(:,:,:)
-  real(wp), intent(inout) :: rfluxes(:,:,:)
-  !
-  !.. Local Scalars ..
-  integer  :: i,k,l,m,np,nr
-  real(wp) :: val
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "transform_fluxes_nd"
-  !
-continue
-  !
-  np = size(tfluxes,dim=1)
-  nr = size(tfluxes,dim=2)
-  !
-  !$ACC LOOP VECTOR COLLAPSE(3)
-  do m = 1,nq
-    do l = 1,nr
-      do k = 1,np
-        val = zero
-        do i = 1,nr
-          val = val + tfluxes(k,i,m)*metrics_array(k,l,i)
-        end do
-        rfluxes(k,l,m) = val * jac(k)
-      end do
-    end do
-  end do
-  !
-end subroutine transform_fluxes_nd
 !
 !###############################################################################
 !
@@ -6200,6 +6153,53 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine correct_gradients_at_solpts
+!
+!###############################################################################
+!
+subroutine write_2d_array(io_start,iter,nst,array)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: io_start,iter,nst
+  real(wp), intent(in) :: array(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: io,n,m
+  !
+continue
+  !
+  !$ACC UPDATE SELF(array)
+  io = io_start + 10*(iter-1) + nst
+  do n = 1,size(array,dim=1)
+    write (io,100) (array(n,m), m=1,size(array,dim=2))
+  end do
+  100 format (5es16.8)
+  !$ACC UPDATE DEVICE(array)
+  !
+end subroutine write_2d_array
+!
+!###############################################################################
+!
+subroutine write_3d_array(io_start,iter,nst,array)
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: io_start,iter,nst
+  real(wp), intent(in) :: array(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: io,n,m,l
+  !
+continue
+  !
+  !$ACC UPDATE SELF(array)
+  io = io_start + 10*(iter-1) + nst
+  do n = 1,size(array,dim=1)
+    write (io,100) ((array(n,l,m), l=1,size(array,dim=2)), &
+                                   m=1,size(array,dim=3))
+  end do
+  100 format (15es11.3)
+  !$ACC UPDATE DEVICE(array)
+  !
+end subroutine write_3d_array
 !
 !###############################################################################
 !###############################################################################
