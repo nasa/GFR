@@ -32,8 +32,8 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc)
   !
 continue
   !
- !output_cpu = 0
-  output_cpu = mypnum
+  output_cpu = 0
+ !output_cpu = mypnum
   if (present(processor)) output_cpu = processor
   !
   if (time_flag == start_timer) then
