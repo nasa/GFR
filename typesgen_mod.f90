@@ -834,6 +834,7 @@ continue
   do n = 1,size(array,dim=2)
 #ifdef USE_INTEL_MKL
     return_value(n) = doti( this%row_val(n1:n2) , &
+                            this%row_idx(n1:n2) , &
                             array( this%row_idx(n1:n2) , n ) )
 #else
     return_value(n) = dot( this%row_val(n1:n2) , &
@@ -1255,10 +1256,11 @@ continue
     do n = 1,size(array,dim=2)
 #ifdef USE_INTEL_MKL
       return_value(n,m) = doti( this%row_val(n1:n2) , &
-                              array( this%row_idx(n1:n2) , n,m ) )
+                                this%row_idx(n1:n2) , &
+                                array( this%row_idx(n1:n2) , n,m ) )
 #else
       return_value(n,m) = dot( this%row_val(n1:n2) , &
-                             array( this%row_idx(n1:n2) , n,m ) )
+                               array( this%row_idx(n1:n2) , n,m ) )
 #endif
     end do
   end do
