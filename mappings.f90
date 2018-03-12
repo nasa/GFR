@@ -3,10 +3,16 @@ module mappings_mod
   !.. Global Use Statements ..
   use module_kind_types
   use generic_types_mod, only : matrix => matrix_gpu_t
+  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
   !
   implicit none
   !
   private
+  !
+#ifdef DEBUG_ON
+!!!#define TIME_PARAMETRIC_MAPPING
+!!!#define OUTPUT_GRID_MAPPINGS
+#endif
   !
   !
   ! ##################################
@@ -14,6 +20,7 @@ module mappings_mod
   ! ##################################
   !
   public :: get_solution_points
+  public :: mapping
   !
   type :: mapping_matrices_t
     integer :: min_order = 1
@@ -34,11 +41,82 @@ module mappings_mod
   logical(lk), parameter :: edge_defined_uses_endpts = fals
  !logical(lk), parameter :: edge_defined_uses_endpts = true
   !
+  ! Generic interfaces
+  !
+  interface map_edge_to_solpts
+    module procedure equidistant_map_edge_to_solpts, &
+                     parametric_map_edge_to_solpts
+  end interface
+  !
+  interface map_tria_to_solpts
+    module procedure equidistant_map_tria_to_solpts
+  end interface
+  !
+  interface map_quad_to_solpts
+    module procedure equidistant_map_quad_to_solpts, &
+                     parametric_map_quad_to_solpts
+  end interface
+  !
+  interface map_tetr_to_solpts
+    module procedure equidistant_map_tetr_to_solpts
+  end interface
+  !
+  interface map_pyra_to_solpts
+    module procedure equidistant_map_pyra_to_solpts
+  end interface
+  !
+  interface map_pris_to_solpts
+    module procedure equidistant_map_pris_to_solpts
+  end interface
+  !
+  interface map_hexa_to_solpts
+    module procedure equidistant_map_hexa_to_solpts, &
+                     parametric_map_hexa_to_solpts
+  end interface
+  !
 contains
 !
 !###############################################################################
 !
-subroutine get_solution_points()
+subroutine get_solution_points
+  !
+  !.. Use Statements ..
+  use ovar, only : grid_format
+  use ovar, only : parametric_agglomeration
+  use ovar, only : plot3d_agglomerate_order
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_solution_points"
+  !
+continue
+  !
+  if (grid_format == Plot3D_Format .and. &
+      plot3d_agglomerate_order > 0 .and. &
+      parametric_agglomeration /= 0) then
+    !
+    if (parametric_agglomeration == Axisymmetric_Parameterization) then
+      write (error_message,1)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+    call parametrically_corrected_mapping
+    !
+  else
+    !
+    call assume_equidistant_mapping
+    !
+  end if
+  !
+  ! Format Statements
+  !
+  1 format ("Axisymmetric parameterization to correct mappings for ", &
+            "Plot3D agglomerated elements is not yet supported.")
+  !
+end subroutine get_solution_points
+!
+!###############################################################################
+!
+subroutine parametrically_corrected_mapping()
   !
   use geovar,         only : grid
   use geovar,         only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
@@ -51,37 +129,364 @@ subroutine get_solution_points()
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
   !
+  use ovar,           only : rhoref,aref
+  !
+  use flowvar,        only : usp
+  !
   use quadrature_mod, only : std_elem
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,mp,p1,p2,ierr
+  integer :: l,n,n0,n1,n2,np,mp,p1,p2,ierr,io,io1,io2
+  integer :: this_cell,mesh_order
+  integer :: this_geom,this_order
+  logical(lk) :: grid_sol_is_available
+  real(wp) :: rhoref_inv,rhoa_inv,rhoa2_inv
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Pointers ..
+  real(wp), pointer :: edge_pts(:)
+  !
+  !.. Local Allocatable Scalars ..
+  type(matrix), allocatable :: this_map
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: elem_xyz(:,:)
+  real(wp), allocatable :: elem_sol(:,:)
+  real(wp), allocatable :: elem_usp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "parametrically_corrected_mapping"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(reset_accumulated_time,"parametric initialization",acc=1)
+  call debug_timer(reset_accumulated_time,"create comp_coord",acc=2)
+  call debug_timer(reset_accumulated_time,"rescale comp_coord",acc=3)
+  call debug_timer(reset_accumulated_time,"create mapping matrix",acc=4)
+  call debug_timer(reset_accumulated_time,"chopping mapping matrix",acc=5)
+#endif
+  !
+  rhoref_inv = one / rhoref
+  rhoa_inv = rhoref_inv / aref
+  rhoa2_inv = rhoa_inv / aref
+  !
+  ! Initialize the local pointers
+  !
+  edge_pts => null()
+  !
+  ! We need to reset various grid size parameters in case partitioning
+  ! was done for use with multiple processors. If only using with a
+  ! single processor, this should just give the values we already have.
+  !
+  nfbnd = size(bface,dim=2)
+  n_totcel = size(nodes_of_cell_ptr) - 1
+  ncell = minval(bface(10,:)) - 1
+  n_totnod = size(xyz_nodes,dim=2)
+  nnode = maxval(nodes_of_cell(1:nodes_of_cell_ptr(ncell+1)))
+  !
+  ! Get the total number of interior solution points
+  !
+  n_solpts = 0
+  do n = 1,ncell
+    n_solpts = n_solpts + geom_solpts( cell_geom(n) , cell_order(n) )
+  end do
+  !
+  ! Get the total number of interior plus ghost cell solution points
+  !
+  n_totpts = n_solpts
+  do n = ncell+1,n_totcel
+    n_totpts = n_totpts + geom_solpts( cell_geom(n) , cell_order(n) )
+  end do
+  !
+  ! Now calculate the coordinates of the solution points within each cell
+  !
+  allocate ( xyz(1:nr,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !$ACC UPDATE DEVICE(xyz)
+  !
+  ! Determine whether grid%sol is available
+  !
+  grid_sol_is_available = fals
+  if (allocated(grid)) then
+    if (allocated(grid%sol)) then
+      grid_sol_is_available = true
+      allocate ( usp(1:n_solpts,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+      !$ACC UPDATE DEVICE(usp)
+    end if
+  end if
+  !
+  ! Initialize the counting index to current
+  ! storage location within the xyz array
+  !
+  n2 = 0
+  !
+  ! Loop over all the cells local to this processor and map the coordinates
+  ! of the points defining each element that were given by the grid file to
+  ! the coordinates of the solution points within each cell
+  !
+#ifdef OUTPUT_GRID_MAPPINGS
+  open (newunit=io,file="xyz.dat",status="replace",action="write",iostat=ierr)
+  open (newunit=io1,file="xyz.x",status="replace",action="write",iostat=ierr)
+  open (newunit=io2,file="grid.x",status="replace",action="write",iostat=ierr)
+  !
+  write (io1,*) ncell
+  write (io2,*) ncell
+  do this_cell = 1,ncell
+    this_order = cell_order(this_cell)
+    write (io1,'(3i6)') this_order+1,this_order+1,this_order+1
+    write (io2,'(3i6)') this_order+1,this_order+1,this_order+1
+  end do
+#endif
+  !
+  do this_cell = 1,ncell
+    !
+    this_geom = cell_geom(this_cell)
+    this_order = cell_order(this_cell)
+    !
+    np = geom_solpts(this_geom,this_order) ! number of solution points
+    !
+    n0 = n2
+    n1 = n2 + 1
+    n2 = n2 + np
+    !
+    ! Using parametric equations to compute custom mappings for each
+    ! cell assumes that high-order mesh information is available in
+    ! grid%elem(:)%pts, so always use that information instead of
+    ! nodes_of_cell_ptr and nodes_of_cell.
+    !
+    mesh_order = grid%elem(this_cell)%prop%order
+    !
+    ! Using F2003 auto-reallocation
+    elem_xyz = grid%xyz(1:nr, grid%elem(this_cell)%pts(:) )
+    !
+    ! Deallocate this_map and then reallocate it to remove the custom
+    ! mapping information it contains for the previous grid cell
+    !
+    if (allocated(this_map)) then
+      deallocate ( this_map , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"this_map",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    allocate ( this_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"this_map",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Create the custom mapping matrix for this cell
+    !
+    mp = size(elem_xyz,dim=2)
+    !
+    ! Allocate the mat component of this_map
+    !
+    allocate ( this_map%mat(1:mp,1:np) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    edge_pts => std_elem(Geom_Edge,this_order)%pts(1,:)
+    !
+    ! This parametric mapping should only be used with Plot3D grids,
+    ! so we only need to worry about structured grid elements.
+    !
+    select case (this_geom)
+      !
+      case (Geom_Edge)
+        !
+        this_map%mat = map_edge_to_solpts(np,edge_pts,elem_xyz)
+        !
+      case (Geom_Quad)
+        !
+        this_map%mat = map_quad_to_solpts(np,edge_pts,elem_xyz,mesh_order)
+        !
+      case (Geom_Hexa)
+        !
+        this_map%mat = map_hexa_to_solpts(np,edge_pts,elem_xyz,mesh_order)
+        !
+      case default
+        !
+        write (iout,2) this_cell,cell_geom(this_cell)
+        call stop_recon(abort,pname,__LINE__,__FILE__)
+        !
+    end select
+    !
+    if (associated(edge_pts)) edge_pts => null()
+    !
+    ! Now use the mapping matrix to map the coordinates of the points for the
+    ! element provided by the grid file to the coordinates of the solution
+    ! points for the cell
+    !
+    xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
+    !
+#ifdef OUTPUT_GRID_MAPPINGS
+    write (io,100) this_cell
+    do n = n1,n2
+      write (io,101) n,(xyz(l,n),l=1,nr)
+    end do
+    100 format (/," Cell # ",i0)
+    101 format (i8,3x,3es23.15)
+    !
+    do l = 1,nr
+      write (io1,102) (xyz(l,n),n=n1,n2)
+      write (io2,102) (elem_xyz(l,n),n=1,size(elem_xyz,dim=2))
+    end do
+    102 format (5es18.10)
+#endif
+    !
+    if (grid_sol_is_available) then
+      ! USING F2003 AUTO-REALLOCATION
+      elem_sol = grid%sol(1:nq, grid%elem(this_cell)%pts(:) )
+      ! USING F2003 AUTO-REALLOCATION
+      elem_usp = matmul( elem_sol(:,:), this_map%mat(:,:) )
+      !
+      ! Copy the transposed solution back into usp
+      ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
+      ! NOTE: grid%sol is expected to be dimensional and in metric units,
+      !       and thus elem_sol and elem_usp should also be dimensional and
+      !       in metrics units. While we are copying the transpose of elem_usp
+      !       into usp, nondimensionalize the flow variables.
+      !
+      if (nr == 3) then
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+          usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      else if (nr == 2) then
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      else
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      end if
+     !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
+      !
+    end if
+    !
+  end do
+  !
+#ifdef OUTPUT_GRID_MAPPINGS
+  close (io)
+  close (io1)
+  close (io2)
+#endif
+  !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(elem_xyz)) then
+    deallocate ( elem_xyz , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_sol)) then
+    deallocate ( elem_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_sol",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_usp)) then
+    deallocate ( elem_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(mapping)) then
+    deallocate ( mapping , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  !$ACC UPDATE DEVICE(xyz)
+  if (grid_sol_is_available) then
+    !$ACC UPDATE DEVICE(usp)
+  end if
+  !
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(report_accumulated_time,"parametric initialization",acc=1)
+  call debug_timer(report_accumulated_time,"create comp_coord",acc=2)
+  call debug_timer(report_accumulated_time,"rescale comp_coord",acc=3)
+  call debug_timer(report_accumulated_time,"create mapping matrix",acc=4)
+  call debug_timer(report_accumulated_time,"chopping mapping matrix",acc=5)
+#endif
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format ("this_map => mapping(",a,",",i0,")%",a,"(",i0,")%mat")
+  2 format (" ERROR: Invalid cell geometry!",/, &
+            "        Cell = ",i0,/, &
+            "        Geom = ",i0,/)
+  3 format ("ERROR: ",a," cells are currently not supported!")
+  4 format (" std_elem(",a,",",i0,")%",a,1x,a," contiguous")
+  !
+end subroutine parametrically_corrected_mapping
+!
+!###############################################################################
+!
+subroutine assume_equidistant_mapping()
+  !
+  use geovar,         only : grid
+  use geovar,         only : nr,nfbnd,ncell,nnode,n_totcel,n_totnod
+  use geovar,         only : n_solpts,n_totpts
+  use geovar,         only : nodes_of_cell_ptr,nodes_of_cell
+  use geovar,         only : bface,xyz_nodes,xyz
+  use geovar,         only : cell_geom,cell_order
+  !
+  use order_mod,      only : geom_solpts
+  use order_mod,      only : n_min_geom,n_max_geom
+  use order_mod,      only : n_min_order,n_max_order
+  !
+  use ovar,           only : rhoref,aref
+  !
+  use flowvar,        only : usp
+  !
+  use quadrature_mod, only : std_elem
+  !
+  !.. Local Scalars ..
+  integer :: l,n,n0,n1,n2,np,mp,p1,p2,ierr,io,io1,io2
   integer :: this_cell,mesh_order
   integer :: this_geom,this_order
   logical(lk) :: use_nodes_of_cell
   logical(lk) :: check_grid_for_pts
+  logical(lk) :: grid_sol_is_available
+  real(wp) :: rhoref_inv,rhoa_inv,rhoa2_inv
   !
   type(geom_family_t) :: elem_family
   !
   character(len=200) :: array_name
   !
   !.. Local Pointers ..
-  type(matrix), pointer             :: this_map
+  type(matrix), pointer :: this_map
  !real(wp),     pointer, contiguous :: edge_pts(:)
- !real(wp),     pointer, contiguous :: tria_pts(:,:)
   real(wp),     pointer :: edge_pts(:)
+ !real(wp),     pointer, contiguous :: tria_pts(:,:)
   real(wp),     pointer :: tria_pts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: elem_xyz(:,:)
+  real(wp), allocatable :: elem_sol(:,:)
+  real(wp), allocatable :: elem_usp(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_solution_points"
+  character(len=*), parameter :: pname = "assume_equidistant_mapping"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
   !
   check_grid_for_pts = fals
+  !
+  rhoref_inv = one / rhoref
+  rhoa_inv = rhoref_inv / aref
+  rhoa2_inv = rhoa_inv / aref
   !
   ! Initialize the local pointers
   !
@@ -128,6 +533,19 @@ continue
   call alloc_error(pname,"xyz",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(xyz)
   !
+  ! Determine whether grid%sol is available
+  !
+  grid_sol_is_available = fals
+  if (allocated(grid)) then
+    if (allocated(grid%sol)) then
+      grid_sol_is_available = true
+      allocate ( usp(1:n_solpts,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+      !$ACC UPDATE DEVICE(usp)
+    end if
+  end if
+  !
   ! Initialize the counting index to current
   ! storage location within the xyz array
   !
@@ -137,6 +555,20 @@ continue
   ! of the points defining each element that were given by the grid file to
   ! the coordinates of the solution points within each cell
   !
+#ifdef OUTPUT_GRID_MAPPINGS
+  open (newunit=io,file="xyz.dat",status="replace",action="write",iostat=ierr)
+  open (newunit=io1,file="xyz.x",status="replace",action="write",iostat=ierr)
+  open (newunit=io2,file="grid.x",status="replace",action="write",iostat=ierr)
+  !
+  write (io1,*) ncell
+  write (io2,*) ncell
+  do this_cell = 1,ncell
+    this_order = cell_order(this_cell)
+    write (io1,'(3i6)') this_order+1,this_order+1,this_order+1
+    write (io2,'(3i6)') this_order+1,this_order+1,this_order+1
+  end do
+#endif
+  !
   do this_cell = 1,ncell
     !
     this_geom = cell_geom(this_cell)
@@ -144,6 +576,7 @@ continue
     !
     np = geom_solpts(this_geom,this_order) ! number of solution points
     !
+    n0 = n2
     n1 = n2 + 1
     n2 = n2 + np
     !
@@ -279,9 +712,69 @@ continue
     !
     xyz(1:nr,n1:n2) = matmul( elem_xyz(:,:) , this_map%mat(:,:) )
     !
+#ifdef OUTPUT_GRID_MAPPINGS
+    write (io,100) this_cell
+    do n = n1,n2
+      write (io,101) n,(xyz(l,n),l=1,nr)
+    end do
+    100 format (/," Cell # ",i0)
+    101 format (i8,3x,3es23.15)
+    !
+    do l = 1,nr
+      write (io1,102) (xyz(l,n),n=n1,n2)
+      write (io2,102) (elem_xyz(l,n),n=1,size(elem_xyz,dim=2))
+    end do
+    102 format (5es18.10)
+#endif
+    !
+    if (grid_sol_is_available) then
+      ! USING F2003 AUTO-REALLOCATION
+      elem_sol = grid%sol(1:nq, grid%elem(this_cell)%pts(:) )
+      ! USING F2003 AUTO-REALLOCATION
+      elem_usp = matmul( elem_sol(:,:), this_map%mat(:,:) )
+      !
+      ! Copy the transposed solution back into usp
+      ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
+      ! NOTE: grid%sol is expected to be dimensional and in metric units,
+      !       and thus elem_sol and elem_usp should also be dimensional and
+      !       in metrics units. While we are copying the transpose of elem_usp
+      !       into usp, nondimensionalize the flow variables.
+      !
+      if (nr == 3) then
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+          usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      else if (nr == 2) then
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      else
+        do n = 1,np
+          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+        end do
+      end if
+     !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
+      !
+    end if
+    !
     if (associated(this_map)) this_map => null()
     !
   end do
+  !
+#ifdef OUTPUT_GRID_MAPPINGS
+  close (io)
+  close (io1)
+  close (io2)
+#endif
   !
   ! Deallocate the local arrays before leaving
   !
@@ -290,12 +783,25 @@ continue
     call alloc_error(pname,"elem_xyz",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (allocated(elem_sol)) then
+    deallocate ( elem_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_sol",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(elem_usp)) then
+    deallocate ( elem_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (allocated(mapping)) then
     deallocate ( mapping , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   !$ACC UPDATE DEVICE(xyz)
+  if (grid_sol_is_available) then
+    !$ACC UPDATE DEVICE(usp)
+  end if
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -308,7 +814,7 @@ continue
   3 format ("ERROR: ",a," cells are currently not supported!")
   4 format (" std_elem(",a,",",i0,")%",a,1x,a," contiguous")
   !
-end subroutine get_solution_points
+end subroutine assume_equidistant_mapping
 !
 !###############################################################################
 !
@@ -465,7 +971,7 @@ end subroutine create_mapping_array
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_edge_to_solpts(mp,np,xi,mesh_order) &
+function equidistant_map_edge_to_solpts(mp,np,xi,mesh_order) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -511,14 +1017,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_edge_to_solpts
+end function equidistant_map_edge_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_tria_to_solpts(mp,np,rs,mesh_order,family) &
+function equidistant_map_tria_to_solpts(mp,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -577,14 +1083,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_tria_to_solpts
+end function equidistant_map_tria_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_quad_to_solpts(mp,np,xi,mesh_order,family) &
+function equidistant_map_quad_to_solpts(mp,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -704,14 +1210,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_quad_to_solpts
+end function equidistant_map_quad_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
+function equidistant_map_tetr_to_solpts(mp,np,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -759,14 +1265,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_tetr_to_solpts
+end function equidistant_map_tetr_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
+function equidistant_map_pyra_to_solpts(mp,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -815,14 +1321,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_pyra_to_solpts
+end function equidistant_map_pyra_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
+function equidistant_map_pris_to_solpts(mp,np,xi,rs,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -908,14 +1414,14 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_pris_to_solpts
+end function equidistant_map_pris_to_solpts
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
+function equidistant_map_hexa_to_solpts(mp,np,xi,mesh_order,family) &
                           result(return_value)
   !
   !.. Use Statements ..
@@ -1065,7 +1571,419 @@ continue
   !
   return_value = chop( map_qp )
   !
-end function map_hexa_to_solpts
+end function equidistant_map_hexa_to_solpts
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+! CUSTOM MAPPINGS USING PARAMETERIZED EQUATIONS TO CORRECT PLOT3D AGGLOMERATIONS
+!
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function parametric_map_edge_to_solpts(np,xi,elem_xyz) &
+                          result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  use ovar,           only : parametric_agglomeration
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: np
+  real(wp), intent(in) :: xi(:)
+  real(wp), intent(in) :: elem_xyz(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(elem_xyz,dim=2),1:np)
+  !
+  !.. Local Scalars ..
+  integer  :: i,mi,ni,xpts,gpts
+  real(qp) :: arc_len
+  !
+  !.. Local Arrays ..
+  real(qp) :: xi_qp(1:size(xi))
+  real(qp) :: gp_qp(1:size(elem_xyz,dim=2))
+  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  !
+continue
+  !
+  xpts = size(xi_qp)
+  gpts = size(gp_qp)
+  !
+  return_value(:,:) = zero
+  !
+  xi_qp(:) = real(xi(:),kind=qp)
+  !
+  if (parametric_agglomeration == Cartesian_Parameterization) then
+    !
+    gp_qp(:) = real(elem_xyz(1,:),kind=qp)
+    !
+    arc_len = abs(gp_qp(gpts) - gp_qp(1))
+    !
+    if (gp_qp(gpts) > gp_qp(1)) then
+      gp_qp(:) = (gp_qp(:) - gp_qp(1)) / arc_len
+    else
+      gp_qp(:) = (gp_qp(:) - gp_qp(gpts)) / arc_len
+    end if
+    !
+    gp_qp(:) = qtwo*gp_qp(:) - qone
+    !
+  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+    !
+  end if
+  !
+  do mi = 1,xpts
+    do ni = 1,gpts
+      map_qp(ni,mi) = eval_LagrangePoly([ni],[xi_qp(mi)],gp_qp)
+    end do
+  end do
+  !
+  ! Use the chop function to copy map_qp into return_value while also
+  ! setting any values that are less that working machine epsilon to zero.
+  !
+  return_value = chop( map_qp )
+  !
+end function parametric_map_edge_to_solpts
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+pure &
+#endif
+function parametric_map_quad_to_solpts(np,xi,elem_xyz,mesh_order) &
+                          result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly2D
+  use ovar,           only : parametric_agglomeration
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: np
+  real(wp), intent(in) :: xi(:)
+  real(wp), intent(in) :: elem_xyz(:,:)
+  integer,  intent(in) :: mesh_order
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(elem_xyz,dim=2),1:np)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,l,m,mi,mj,n,ni,nj,xpts,gpts
+  real(qp) :: arc_len
+  !
+  !.. Local Arrays ..
+  real(qp) :: xy_qp(1:2)
+  real(qp) :: xi_qp(1:size(xi))
+  real(qp) :: gp_qp(1:mesh_order+1)
+  real(qp) :: comp_coord(1:mesh_order+1,1:2,1:size(elem_xyz,dim=2))
+  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  !
+continue
+  !
+  xpts = size(xi_qp)
+  gpts = mesh_order+1
+  !
+  return_value(:,:) = zero
+  !
+  xi_qp(:) = real(xi(:),kind=qp)
+  !
+  if (parametric_agglomeration == Cartesian_Parameterization) then
+    !
+    do mj = 1,gpts
+      do mi = 1,gpts
+        !
+        m = (mj-1)*gpts + mi
+        !
+        do n = 1,gpts
+          !
+          ni = (mj-1)*gpts + n
+          nj = ( n-1)*gpts + mi
+          !
+          ! Save the 1D x coordinates
+          comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=qp)
+          ! Save the 1D y coordinates
+          comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=qp)
+          !
+        end do
+        !
+      end do
+    end do
+    !
+    ! Rescale the 1D coordinates so they are on the interval [-1,+1]
+    !
+    do n = 1,size(comp_coord,dim=3)
+      do l = 1,size(comp_coord,dim=2)
+        !
+        gp_qp(1:gpts) = comp_coord(1:gpts,l,n)
+        !
+        arc_len = abs(gp_qp(gpts) - gp_qp(1))
+        !
+        if (gp_qp(gpts) > gp_qp(1)) then
+          gp_qp(:) = (gp_qp(:) - gp_qp(1)) / arc_len
+        else
+          gp_qp(:) = (gp_qp(:) - gp_qp(gpts)) / arc_len
+        end if
+        !
+        comp_coord(1:gpts,l,n) = qtwo*gp_qp(1:gpts) - qone
+        !
+      end do
+    end do
+    !
+  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+    !
+  end if
+  !
+  ! Create the mapping for this element
+  !
+  do mj = 1,xpts
+    !
+    xy_qp(2) = xi_qp(mj)
+    !
+    do mi = 1,xpts
+      !
+      xy_qp(1) = xi_qp(mi)
+      !
+      m = (mj-1)*xpts + mi
+      !
+      do nj = 1,gpts
+        do ni = 1,gpts
+          !
+          n = (nj-1)*gpts + ni
+          !
+          map_qp(n,m) = eval_LagrangePoly2D([ni,nj],xy_qp, &
+                                            comp_coord(1:gpts,1,n), &
+                                            comp_coord(1:gpts,2,n))
+          !
+        end do
+      end do
+      !
+    end do
+  end do
+  !
+  ! Use the chop function to copy map_qp into return_value while also
+  ! setting any values that are less that working machine epsilon to zero.
+  !
+  return_value = chop( map_qp )
+  !
+end function parametric_map_quad_to_solpts
+!
+!###############################################################################
+!
+#ifndef DISABLE_PURE
+#ifndef TIME_PARAMETRIC_MAPPING
+pure &
+#endif
+#endif
+function parametric_map_hexa_to_solpts(np,xi,elem_xyz,mesh_order) &
+                          result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly1D
+  use polynomial_mod, only : eval_LagrangePoly3D
+  use ovar,           only : parametric_agglomeration
+  !
+  !.. Formal Arguments ..
+  integer,  intent(in) :: np
+  real(wp), intent(in) :: xi(:)
+  real(wp), intent(in) :: elem_xyz(:,:)
+  integer,  intent(in) :: mesh_order
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(elem_xyz,dim=2),1:np)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,m,mi,mj,mk,n,ni,nj,nk,xpts,gpts
+  real(qp) :: arc_len,x1,x2,x3,rndoff_qp,d1,d2,d3
+  !
+  !.. Local Arrays ..
+  integer  :: imask(1:mesh_order+1)
+  real(qp) :: xy_qp(1:3)
+  real(qp) :: xi_qp(1:size(xi))
+  real(qp) :: gp_qp(1:mesh_order+1)
+  real(qp) :: x1_pts(1:mesh_order+1)
+  real(qp) :: x2_pts(1:mesh_order+1)
+  real(qp) :: x3_pts(1:mesh_order+1)
+  real(qp) :: comp_coord(1:mesh_order+1,1:3,1:size(elem_xyz,dim=2))
+  real(qp) :: lp_qp(1:size(xi),1:3)
+  real(qp) :: map_qp(1:size(elem_xyz,dim=2),1:np)
+  !
+continue
+  !
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(start_accumulation,"parametric initialization",acc=1)
+#endif
+  rndoff_qp = real(rndoff,kind=qp)
+  xpts = size(xi_qp)
+  gpts = mesh_order+1
+  imask(:) = intseq(1,mesh_order+1)
+  !
+  return_value(:,:) = zero
+  !
+  xi_qp(:) = real(xi(:),kind=qp)
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(stop_accumulation,"parametric initialization",acc=1)
+#endif
+  !
+  if (parametric_agglomeration == Cartesian_Parameterization) then
+    !
+#ifdef TIME_PARAMETRIC_MAPPING
+    call debug_timer(start_accumulation,"create comp_coord",acc=2)
+#endif
+    do mk = 1,gpts
+      do mj = 1,gpts
+        do mi = 1,gpts
+          !
+          m = (mk-1)*gpts*gpts + (mj-1)*gpts + mi
+          !
+          do n = 1,gpts
+            !
+            ni = (mk-1)*gpts*gpts + (mj-1)*gpts + n
+            nj = (mk-1)*gpts*gpts + ( n-1)*gpts + mi
+            nk = ( n-1)*gpts*gpts + (mj-1)*gpts + mi
+            !
+            ! Save the 1D x coordinates
+            comp_coord(n,1,m) = real(elem_xyz(1,ni),kind=qp)
+            ! Save the 1D y coordinates
+            comp_coord(n,2,m) = real(elem_xyz(2,nj),kind=qp)
+            ! Save the 1D z coordinates
+            comp_coord(n,3,m) = real(elem_xyz(3,nk),kind=qp)
+            !
+          end do
+          !
+        end do
+      end do
+    end do
+#ifdef TIME_PARAMETRIC_MAPPING
+    call debug_timer(stop_accumulation,"create comp_coord",acc=2)
+#endif
+    !
+    ! Rescale the 1D coordinates so they are on the interval [-1,+1]
+    !
+#ifdef TIME_PARAMETRIC_MAPPING
+    call debug_timer(start_accumulation,"rescale comp_coord",acc=3)
+#endif
+    do n = 1,size(comp_coord,dim=3)
+      do l = 1,size(comp_coord,dim=2)
+        !
+        gp_qp(1:gpts) = comp_coord(1:gpts,l,n)
+        !
+        arc_len = abs(gp_qp(gpts) - gp_qp(1))
+        !
+        if (gp_qp(gpts) > gp_qp(1)) then
+          gp_qp(:) = (gp_qp(:) - gp_qp(1)) / arc_len
+        else
+          gp_qp(:) = (gp_qp(:) - gp_qp(gpts)) / arc_len
+        end if
+        !
+        comp_coord(1:gpts,l,n) = qtwo*gp_qp(1:gpts) - qone
+        !
+      end do
+    end do
+#ifdef TIME_PARAMETRIC_MAPPING
+    call debug_timer(stop_accumulation,"rescale comp_coord",acc=3)
+#endif
+    !
+  else if (parametric_agglomeration == Axisymmetric_Parameterization) then
+    !
+  end if
+  !
+  ! Create the mapping for this element
+  !
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(start_accumulation,"create mapping matrix",acc=4)
+#endif
+  do nk = 1,gpts
+    do nj = 1,gpts
+      do ni = 1,gpts
+        !
+        n = (nk-1)*gpts*gpts + (nj-1)*gpts + ni
+        !
+        x1_pts(1:gpts) = comp_coord(1:gpts,1,n)
+        x2_pts(1:gpts) = comp_coord(1:gpts,2,n)
+        x3_pts(1:gpts) = comp_coord(1:gpts,3,n)
+        !
+       !d1 = qone
+       !d2 = qone
+       !d3 = qone
+       !do l = 1,gpts
+       !  if (l /= ni) d1 = d1 * (x1_pts(ni) - x1_pts(l))
+       !  if (l /= nj) d2 = d2 * (x2_pts(nj) - x2_pts(l))
+       !  if (l /= nk) d3 = d3 * (x3_pts(nk) - x3_pts(l))
+       !end do
+       !d1 = qone / d1
+       !d2 = qone / d2
+       !d3 = qone / d3
+        !
+        d1 = qone / product( x1_pts(ni) - x1_pts , imask /= ni )
+        d2 = qone / product( x2_pts(nj) - x2_pts , imask /= nj )
+        d3 = qone / product( x3_pts(nk) - x3_pts , imask /= nk )
+        !
+       !lp_qp(:,1) = d1
+       !lp_qp(:,2) = d2
+       !lp_qp(:,3) = d3
+       !do m = 1,xpts
+       !  do l = 1,gpts
+       !    if (l /= ni) lp_qp(m,1) = lp_qp(m,1) * (xi_qp(m) - x1_pts(l))
+       !    if (l /= nj) lp_qp(m,2) = lp_qp(m,2) * (xi_qp(m) - x2_pts(l))
+       !    if (l /= nk) lp_qp(m,3) = lp_qp(m,3) * (xi_qp(m) - x3_pts(l))
+       !  end do
+       !end do
+        do m = 1,xpts
+          lp_qp(m,1) = product(  xi_qp(m) - x1_pts , imask /= ni ) * d1
+          lp_qp(m,2) = product(  xi_qp(m) - x2_pts , imask /= nj ) * d2
+          lp_qp(m,3) = product(  xi_qp(m) - x3_pts , imask /= nk ) * d3
+        end do
+        !
+        do mk = 1,xpts
+          do mj = 1,xpts
+            do mi = 1,xpts
+              !
+              m = (mk-1)*xpts*xpts + (mj-1)*xpts + mi
+              !
+              x1 = lp_qp(mi,1)
+              x2 = lp_qp(mj,2)
+              x3 = lp_qp(mk,3)
+              !
+              map_qp(n,m) = x1*x2*x3
+              !
+             !map_qp(n,m) = eval_LagrangePoly3D([ni,nj,nk],xy_qp, &
+             !                                  x1_pts,x2_pts,x3_pts)
+              !
+            end do
+          end do
+        end do
+        !
+      end do
+    end do
+  end do
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(stop_accumulation,"create mapping matrix",acc=4)
+#endif
+  !
+  ! Use the chop function to copy map_qp into return_value while also
+  ! setting any values that are less that working machine epsilon to zero.
+  !
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(start_accumulation,"chopping mapping matrix",acc=5)
+#endif
+  do m = 1,size(return_value,dim=2)
+    do n = 1,size(return_value,dim=1)
+      if (abs(map_qp(n,m)) > rndoff_qp) then
+        return_value(n,m) = real(map_qp(n,m),kind=wp)
+      end if
+    end do
+  end do
+ !return_value = chop( map_qp )
+#ifdef TIME_PARAMETRIC_MAPPING
+  call debug_timer(stop_accumulation,"chopping mapping matrix",acc=5)
+#endif
+  !
+end function parametric_map_hexa_to_solpts
 !
 !###############################################################################
 !###############################################################################
