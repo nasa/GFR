@@ -37,10 +37,13 @@ subroutine initialize_flow()
   use ovar, only : pref_nd,velref_nd,muref_nd
   use ovar, only : rgasref_nd,cpref_nd
   use ovar, only : adjust_cfl_cycles
+  use ovar, only : solution_file, solution_format
  !use ovar, only : output_time_averaging
   !
   use flowvar, only : usp,uoldsp
   use flowvar, only : allocate_flowvar_arrays
+  !
+ !use mappings_mod, only : mapping
   !
   use order_mod, only : maxpts
   !
@@ -54,18 +57,23 @@ subroutine initialize_flow()
  !use averaging_mod, only : initialize_time_ave
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2,np,l,l1,l2,m
+  integer :: n,n0,n1,n2,np,l,l1,l2,m
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_geom,this_order
-  integer :: init_cond
-  real(wp) :: rhoa2
+  integer :: init_cond,this_cell
+  integer :: mesh_order
+  real(wp) :: rhoa,rhoa2,rhoref_inv,rhoa_inv,rhoa2_inv
+  logical(lk) :: grid_sol_is_available
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
+ !real(wp), allocatable :: elem_usp(:,:)
+ !real(wp), allocatable :: elem_sol(:,:)
   real(wp), allocatable :: xyz_init(:,:)
   type(matrix), allocatable, target :: outerp_inv(:,:)
   !
   !.. Local Pointers ..
+  type(matrix), pointer :: this_map
  !real(wp), pointer, contiguous :: numer2init(:,:)
  !real(wp), pointer, contiguous :: init2numer(:,:)
   real(wp), pointer :: numer2init(:,:)
@@ -77,6 +85,7 @@ subroutine initialize_flow()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
  !!
  !! Initialize the bc_in array
  !!
@@ -86,18 +95,48 @@ continue
   !
   numer2init => null()
   init2numer => null()
+  this_map => null()
   !
   ! Some constants from the free-stream conditions
   !
-  rhoa2 = rhoref * aref * aref
+  rhoa = rhoref * aref
+  rhoa2 = rhoa * aref
+  !
+  rhoref_inv = one / rhoref
+  rhoa_inv = one / rhoa
+  rhoa2_inv = one / rhoa2
   !
   ! Allocate the arrays within the module flowvar
   !
   call allocate_flowvar_arrays
   !
-  ! Check for a restart job, otherwise initialize usp
+  ! Initialize the iteration counter, time step, and elapsed time
+  ! Overwrite with restart file values later, if available.
   !
-  if (load_restart_file) then
+  d_t   = constant_dt
+  itcur = 0
+  time  = zero
+  !
+  ! Check whether grid%sol has been read in.
+  !
+  grid_sol_is_available = fals
+  if (allocated(grid)) then
+    if (allocated(grid%sol)) grid_sol_is_available = true
+  end if
+  !
+  ! Check for using a restart file to initialize the solution
+  !
+  if (len_trim(solution_file) > 0 .and. solution_format == Restart_Format) then
+    !
+    ! Read in usp from the restart file
+    !
+    call read_restart_file(solution_file)
+    !
+    ! Do not initialize the iteration counter, time step,
+    ! and elapsed time to that in the restart file.
+    ! Use the default values from above.
+    !
+  else if (load_restart_file) then
     !
     ! Read in usp and the current iteration, time step,
     ! and elapsed time from the restart file
@@ -111,7 +150,102 @@ continue
     itcur = itrst
     time  = tmrst
     !
+  else if (grid_sol_is_available) then
+    !
+    ! THIS SECTION OF CODE WAS MOVED INTO MAPPINGS_MOD SO DO NOTHING!
+    !
+   !! A solution was read in with the grid file.
+   !! Map it to the proper points, similar to get_solution_points().
+   !!
+   !if ( .not. allocated(mapping) ) then
+   !  write (error_message,101)
+   !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !end if
+   !!
+   !do this_cell = 1,ncell
+   !  !
+   !  this_geom = cell(this_cell)%geom
+   !  this_order = cell(this_cell)%order
+   !  !
+   !  n0 = cell(this_cell)%beg_sp - 1
+   !  np = cell(this_cell)%end_sp - n0
+   !  !
+   !  mesh_order = grid%elem(this_cell)%prop%order
+   !  !
+   !  ! USING F2003 AUTO-REALLOCATION
+   !  elem_sol = grid%sol(1:nq, grid%elem(this_cell)%pts(:) )
+   !  !
+   !  ! Assign a local pointer to the mapping
+   !  ! matrix as an alias to simplify the code
+   !  !
+   !  if (grid%elem(this_cell)%prop%family == Edge_Defined) then
+   !    this_map => mapping(this_geom,this_order)%EdgeDefOrder(mesh_order)
+   !  else if (grid%elem(this_cell)%prop%family == Face_Defined) then
+   !    this_map => mapping(this_geom,this_order)%FaceDefOrder(mesh_order)
+   !  else
+   !    this_map => mapping(this_geom,this_order)%MeshOrder(mesh_order)
+   !  end if
+   !  !
+   !  ! Perform the mapping.
+   !  !
+   !  ! USING F2003 AUTO-REALLOCATION
+   !  elem_usp = matmul( elem_sol(:,:) , this_map%mat(:,:) )
+   !  !
+   !  ! Copy the transposed solution back into usp
+   !  ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
+   !  ! NOTE: grid%sol is expected to be dimensional and in metric units, 
+   !  !       and thus elem_sol and elem_usp should also be dimensional and
+   !  !       in metrics units. While we are copying the transpose of elem_usp
+   !  !       into usp, nondimensionalize the flow variables.
+   !  !
+   !  if (nr == 3) then
+   !    do n = 1,np
+   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+   !      usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+   !      usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
+   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+   !    end do
+   !  else if (nr == 2) then
+   !    do n = 1,np
+   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+   !      usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
+   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+   !    end do
+   !  else
+   !    do n = 1,np
+   !      usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
+   !      usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
+   !      usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
+   !    end do
+   !  end if
+   ! !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
+   !  !
+   !  if (associated(this_map)) this_map => null()
+   !  !
+   !end do
+   !!
+   !! Done with the mapping array.
+   !!
+   !deallocate( mapping , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"mapping",2,__LINE__,__FILE__,ierr,error_message)
+   !!
+   !! Deallocate the local arrays
+   !!
+   !if (allocated(elem_sol)) then
+   !  deallocate ( elem_sol , stat=ierr , errmsg=error_message )
+   !  call alloc_error(pname,"elem_sol",2,__LINE__,__FILE__,ierr,error_message)
+   !end if
+   !!
+   !if (allocated(elem_usp)) then
+   !  deallocate ( elem_usp , stat=ierr , errmsg=error_message )
+   !  call alloc_error(pname,"elem_usp",2,__LINE__,__FILE__,ierr,error_message)
+   !end if
+    !
   else
+    !
+    ! Initialize the solution based on the input parameter itestcase
     !
     if (itestcase == Nozzle_Jet) then
       call find_elem_for_initial_jet_profile(point_is_in_smc000_nozzle)
@@ -125,7 +259,7 @@ continue
     !
     ! Allocate the local array that stores the inverse of the matrix used for
     ! interpolating from the solution points to the initialization points.
-    ! NOTE: This is array is used so that we only invert the matrix once for a
+    ! NOTE: This array is used so that we only invert the matrix once for a
     !       given cell geometry/order combination.  We dont want to keep
     !       inverting the same matrix over and over for cells with the same
     !       geometry/order combination.
@@ -240,12 +374,6 @@ continue
     ! initialization points to the solution points
     !
    !call project_to_porder(usp)
-    !
-    ! Initialize the iteration counter, time step, and elapsed time
-    !
-    d_t   = constant_dt
-    itcur = 0
-    time  = zero
     !
   end if
   !
@@ -389,6 +517,10 @@ continue
              " Beta  A.o.Attack = ",es14.6," degrees"/, &
              " Gamma            = ",es14.6,/, &
              " Gas Constant     = ",es14.6,/)
+  !
+  101 format (/, &
+     " Internal Error:  The mapping array is not allocated.",/, &
+     "                  Please contact a developer to fix this.")
   !
 end subroutine initialize_flow
 !
