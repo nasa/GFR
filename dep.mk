@@ -322,8 +322,10 @@ $(OBJDIR)/limiters.o : limiters.f90 \
 
 $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/kind_types.o \
+	     $(OBJDIR)/eqn_idx_mod.o \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/order_mod.o \
+	     $(OBJDIR)/flowvar_mod.o \
              $(OBJDIR)/quadrature_mod.o \
              $(OBJDIR)/typesgen_mod.o \
              $(OBJDIR)/poly.o
@@ -384,9 +386,13 @@ $(OBJDIR)/plot3d_mod.o : plot3d_mod.f90 \
                $(OBJDIR)/geovar_mod.o \
                $(OBJDIR)/ovar_mod.o \
                $(OBJDIR)/order_mod.o \
+               $(OBJDIR)/plot3dio_mod.o \
                $(FUNDIR)/bc_string_to_integer.f90 \
                $(FUNDIR)/last.f90
 #              $(FUNDIR)/check_for_bad_number.f90 \
+
+$(OBJDIR)/plot3dio_mod.o : plot3dio_mod.f90 \
+                 $(OBJDIR)/kind_types.o
 
 $(OBJDIR)/poly.o : poly.f90 \
          $(OBJDIR)/kind_types.o \

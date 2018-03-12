@@ -116,7 +116,8 @@ OBJS := $(OBJDIR)/kind_types.o \
 	$(OBJDIR)/gpu_mod.o \
 	$(OBJDIR)/invs_flux_mod.o \
 	$(OBJDIR)/visc_flux_mod.o \
-	$(OBJDIR)/upwind_flux_mod.o
+	$(OBJDIR)/upwind_flux_mod.o \
+	$(OBJDIR)/plot3dio_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
