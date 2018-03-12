@@ -1,9 +1,5 @@
 module module_plot3d
   !
-#ifdef DEBUG_ON
-!!!#define DEBUG_CUTS
-#endif
-  !
   !.. Use Statements ..
   use module_kind_types
   use ovar, only : output_plot3d_to_tecplot
@@ -39,12 +35,6 @@ module module_plot3d
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
-  !
-  logical(lk), save :: is_multiblock
-  logical(lk), save :: is_formatted
-  logical(lk), save :: is_dbl_precision
-  logical(lk), save :: blk_header_is_dbl_precision
-  logical(lk), save :: is_big_endian
   !
   integer, save :: nblk
   integer, save :: nbc
@@ -98,7 +88,7 @@ contains
 !
 !###############################################################################
 !
-subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
+subroutine read_plot3d_gridfile ( gridfile , solfile , cutfile , bcsfile )
   !
   !.. Use Statements ..
   use geovar, only : grid
@@ -106,7 +96,8 @@ subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   ! This routine reads in a multi-block grid in plot3d
   ! format and converts it to an unstructured grid.
   !
-  ! GRIDFILE    : Gives the name of the Plot3D grid file to use
+  ! GRIDFILE    : Gives the name of the Plot3D grid     file to use
+  ! SOLFILE     : Gives the name of the Plot3D solution file to use
   ! BCSFILE     : Gives the name of the file that specifies the boundary
   !               conditions for block boundaries
   ! CUTFILE     : Gives the name of the file that specifies the cut conditions
@@ -134,12 +125,15 @@ subroutine read_plot3d_gridfile ( gridfile , cutfile , bcsfile )
   !
   !.. Formal Arguments ..
   character(len=*),    intent(in) :: gridfile
+  character(len=*),    intent(in) :: solfile
   character(len=*), intent(inout) :: cutfile
   character(len=*), intent(inout) :: bcsfile
   !
   !.. Local Scalars ..
-  integer :: ierr,itest
-  integer :: iotst
+  integer :: ierr
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: sol_nodes(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_plot3d_gridfile"
@@ -163,64 +157,9 @@ continue
     allocate ( grid , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid",1,__LINE__,__FILE__,ierr,error_message)
     !
-    ! Default the Plot3D grid file to unformatted
+    ! Read the Plot3D grid/solution files in what ever format they have
     !
-    is_formatted = fals
-    !
-    ! Reading a multi-block grid in Plot3d format
-    !
-    ! Check to see if the Plot3D grid file can be
-    ! opened and read as a formatted file.
-    !
-    open (newunit=iotst,file=gridfile,form="formatted",status="old", &
-                        action="read",position="rewind",iostat=ierr, &
-                        iomsg=error_message)
-    call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
-                  ierr,error_message)
-    !
-    ! Try to read the grid file as a formatted file.
-    ! Mark the grid file as formated if this succeeds.
-    !
-    read (iotst,*,iostat=ierr) itest
-    if (ierr == 0) then
-      is_formatted = true
-    end if
-    !
-    close (iotst,iostat=ierr,iomsg=error_message)
-    call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
-                  ierr,error_message)
-    !
-    ! If the Plot3D grid file could not be read as a formatted file,
-    ! check to see if it can be opened and read as an unformatted file.
-    !
-    if (.not.is_formatted) then
-      !
-      open (newunit=iotst,file=gridfile,form="unformatted",status="old", &
-                          action="read",position="rewind",iostat=ierr, &
-                          iomsg=error_message)
-      call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
-                    ierr,error_message)
-      !
-      ! Try to read the grid file as an unformatted file. If this fails,
-      ! something is wrong so throw an error and stop execution.
-      !
-      read (iotst,iostat=ierr,iomsg=error_message) itest
-      if (ierr == 0) then
-        is_formatted = fals
-      else
-        call io_error(pname,trim(adjustl(gridfile)),4,__LINE__,__FILE__, &
-                      ierr,error_message)
-      end if
-      !
-      close (iotst,iostat=ierr,iomsg=error_message)
-      call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
-                    ierr,error_message)
-      !
-    end if
-    !
-    ! Now read the Plot3D grid file in what ever format was determined
-    !
-    call readplot3d(gridfile)
+    call readplot3d(gridfile,solfile,sol_nodes)
     !
     ! Reading the boundary condition information
     !
@@ -252,13 +191,13 @@ continue
     ! Go through the cut boundaries and remove all duplicate nodes.
     ! This shouldnt do anything if there are no cut boundaries.
     !
-    call remove_duplicate_nodes
+    call remove_duplicate_nodes(sol_nodes)
     !
     ! Reorder the grid points so that the corners of all the grid cells
     ! are first followed by any high-order cell points existing due
     ! to cell agglomeration.
     !
-    call reorder_plot3d_nodes
+    call reorder_plot3d_nodes(sol_nodes)
     !
     ! Get the boundary face information
     !
@@ -279,7 +218,7 @@ continue
   end if
   !
  !if (mypnum == glb_root) then
- !  call create_grid_dt
+ !  call create_grid_dt(sol_nodes)
  !end if
  !!
  !call root_broadcasts_grid_dt
@@ -313,13 +252,462 @@ continue
     call alloc_error(pname,"offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
+  if (allocated(sol_nodes)) then
+    deallocate ( sol_nodes , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_nodes",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_plot3d_gridfile
 !
 !###############################################################################
 !
-subroutine readplot3d(gridfile)
+subroutine readplot3d(gridfile,solfile,sol_nodes)
+  !
+  ! This sub reads a multi-block grid in Plot3d format
+  !
+  !     ijkpts(1,iblk) : number of points in the x-direction for iblk
+  !     ijkpts(2,iblk) : number of points in the y-direction for iblk
+  !     ijkpts(3,iblk) : number of points in the z-direction for iblk
+  !
+  !.. Use Statements ..
+  use geovar, only : nr,xyz_nodes
+  use geovar, only : grid
+  use geovar, only : ncell,nnode
+  use ovar,   only : plot3d_agglomerate_order
+  use ovar,   only : plot3d_all_strides
+  use ovar,   only : plot3d_i_stride
+  use ovar,   only : plot3d_j_stride
+  use ovar,   only : plot3d_k_stride
+  use ovar,   only : grid_scaling_factor
+  use ovar,   only : itestcase
+  !
+  use plot3dio_mod, only : type_plot3dinfo
+  use plot3dio_mod, only : plot3dio_read
+  use plot3dio_mod, only : plot3dio_ijk_matches
+  !
+  !.. Formal Arguments ..
+  character(len=*),         intent(in) :: gridfile
+  character(len=*),         intent(in) :: solfile
+  real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,l,n,iblk,ierr,cpos,recl_max
+  integer :: noff,npts,nnode_new,ncell_new
+  integer :: ibeg,iend,jbeg,jend,kbeg,kend
+  integer :: nvar,ndim
+  character(len=100) :: read_message
+  !
+  type(type_plot3dinfo) :: plot3dinfo_xyz
+  type(type_plot3dinfo) :: plot3dinfo_sol
+  !
+  !.. Local Arrays ..
+  integer, dimension(1:3) :: strides
+  !
+  !.. Local Allocatable Arrays ..
+  integer,  allocatable :: nxyz_var(:)
+  integer,  allocatable :: nsol_var(:)
+  integer,  allocatable :: iblank_nodes(:)
+  integer,  allocatable :: ijk_sol(:,:)
+  real(wp), allocatable :: temp_xyz(:,:)
+  real(wp), allocatable :: temp_sol(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "readplot3d"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Set all the coarsening strides to -1 to prevent coarsening
+  ! if agglomerating cells to create high-order curved cells.
+  !
+  if (plot3d_agglomerate_order > 0) then
+    plot3d_all_strides = -1
+    plot3d_i_stride = -1
+    plot3d_j_stride = -1
+    plot3d_k_stride = -1
+  end if
+  !
+  strides(:) = max(1,plot3d_all_strides)
+  !
+  if (plot3d_i_stride > 0) strides(1) = plot3d_i_stride
+  if (plot3d_j_stride > 0) strides(2) = plot3d_j_stride
+  if (plot3d_k_stride > 0) strides(3) = plot3d_k_stride
+  !
+  ! Extract the name of the folder that the grid file resides within.
+  !
+  cpos = scan( gridfile(1:len_trim(gridfile)), '/' , back=true )
+  grid_folder = gridfile(1:cpos)
+  grid_folder = trim(adjustl(grid_folder))
+  !
+  ! Read the Plot3D grid/solution files in whatever format they are in
+  ! and make sure they match in size.
+  !
+  read_message = 'Reading plot3d grid file '//trim(gridfile)
+  call debug_timer(start_timer,read_message)
+  call plot3dio_read(file=gridfile,type='XYZ', &
+                     ijk=ijkpts,nvar=nxyz_var, &
+                     iblank=iblank_nodes,data=xyz_nodes, &
+                     iostat=ierr,iomsg=error_message, &
+                     plot3dinfo=plot3dinfo_xyz)
+  call debug_timer(stop_timer,read_message)
+  if ( ierr == 0 ) then
+    !
+    ! Grid read successfully.  Determine 2d/3d and set nr accordingly.
+    !
+    if ( all( ijkpts(3,:) == 1 ) ) then
+      nr = 2
+      !
+      ! Discard any z values and adjust size of xyz_nodes.
+      !
+      if ( size(xyz_nodes,dim=1) == 3 ) then
+        ndim  = size(ijkpts,dim=1)
+        nblk  = size(ijkpts,dim=2)
+        nnode = sum( product( ijkpts(1:ndim,1:nblk) , dim=1 ) )
+        call move_alloc( from=xyz_nodes , to=temp_xyz )
+        allocate( xyz_nodes(1:nr,1:nnode), stat=ierr, errmsg=error_message)
+        call alloc_error(pname,"xyz_nodes",1,__LINE__,__FILE__,ierr, &
+                         error_message)
+        xyz_nodes(1:nr,1:nnode) = temp_xyz(1:nr,1:nnode)
+        deallocate( temp_xyz, stat=ierr, errmsg=error_message )
+        call alloc_error(pname,"temp_xyz",2,__LINE__,__FILE__,ierr, &
+                         error_message)
+      end if
+    else
+      nr = 3
+    end if
+    !
+    ! For interpolation, the source and destination grids must both
+    ! be 2d/3d.  Check if grid%xyz was already set for other grid
+    ! and that dimension matches.  Otherwise fail with error.
+    !
+    if ( allocated( grid ) ) then
+      if ( allocated( grid%xyz ) ) then
+        if ( nr /= size( grid%xyz , dim=1 ) ) then
+          if (mypnum == glb_root) then
+            write(iout,*) &
+            'ERROR:  For interpolation, both grids must be 2d or 3d.'
+            call stop_recon(abort,pname,__LINE__,__FILE__)
+          end if
+          ! Have all the host roots call mpi_barrier here so that the
+          ! MPI processes that arent the global root do not continue
+          ! past this point before the global root has a chance to
+          ! call mpi_abort within the above conditional.
+          call mpi_barrier(host_roots_comm,mpierr)
+        end if
+      end if
+    end if
+    !
+    ! Read solution file, if provided.
+    !
+    if (len_trim(solfile) > 0) then
+      read_message = 'Reading plot3d solution file '//trim(solfile)
+      call debug_timer(start_timer,read_message)
+      call plot3dio_read(file=solfile,type='SOL', &
+                         ijk=ijk_sol,nvar=nsol_var, &
+                         data=sol_nodes, &
+                         iostat=ierr,iomsg=error_message, &
+                         plot3dinfo=plot3dinfo_sol)
+      call debug_timer(stop_timer,read_message)
+      if ( ierr == 0 ) then
+        ! Solution read successfully.
+        ! Check whether ijk values match.
+        call plot3dio_ijk_matches(ijk_xyz=ijkpts, ijk_sol=ijk_sol, &
+                                  iostat=ierr, iomsg=error_message)
+        if ( ierr == 0 ) then
+          ! ijk values match.
+          ! Check whether solution has 2 more variables than grid.
+          if ( any( nsol_var - nxyz_var /= 2 ) ) then
+            ierr = 1 
+            error_message = 'Number of variables in Plot3d solution ' // &
+                            'file do not correspond to grid file.'
+          else
+            ! Grid and solution dimensions match.
+            !
+            ! For 2d, elimiate z-momentum from solution.
+            if ( nr == 2 .and. size(sol_nodes,dim=1) == 5 ) then
+              ndim  = size(ijkpts,dim=1)
+              nblk  = size(ijkpts,dim=2)
+              nnode = sum( product( ijkpts(1:ndim,1:nblk) , dim=1 ) )
+              call move_alloc( from=sol_nodes , to=temp_sol )
+              allocate( sol_nodes(1:nr+2,1:nnode), stat=ierr, &
+                        errmsg=error_message )
+              call alloc_error(pname,"sol_nodes",1,__LINE__,__FILE__,ierr, &
+                               error_message)
+              sol_nodes(1:nr+1,1:nnode) = temp_sol(1:nr+1,1:nnode)
+              sol_nodes(  nr+2,1:nnode) = temp_sol(     5,1:nnode)
+              deallocate( temp_sol, stat=ierr, errmsg=error_message )
+              call alloc_error(pname,"temp_sol",2,__LINE__,__FILE__,ierr, &
+                               error_message)
+            end if
+          end if
+        end if
+      end if
+    end if
+  end if
+  !
+  ! If using Jims Plot3D solution file for initialization, convert the
+  ! solution variables from Imperial units to Metric units.
+  !
+  if (allocated(sol_nodes)) then
+    if (itestcase == -Channel_Flow) then
+      do n = 1,size(sol_nodes,dim=2)
+        sol_nodes(1,n) = sol_nodes(1,n) * 515.379_wp  ! (slug/ft^3) to (kg/m^3)
+        sol_nodes(2,n) = sol_nodes(2,n) * 157.0875_wp ! (slug/ft^3)*(ft/s)
+        sol_nodes(3,n) = sol_nodes(3,n) * 157.0875_wp !   TO
+        sol_nodes(4,n) = sol_nodes(4,n) * 157.0875_wp ! (kg/m^3)*(m/s)
+        sol_nodes(5,n) = sol_nodes(5,n) * 47.88_wp    ! (lbf/ft^2) to (N/m^2)
+      end do
+      itestcase = Channel_Flow
+    end if
+  end if
+  !
+  ! Handle any errors from the Plot3D grid/solution read process.
+  !
+  if ( ierr /= 0 ) then
+    if (mypnum == glb_root) then
+      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    end if
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
+  end if
+  !
+  ! Get the total number of blocks, nodes and cells
+  !
+  nr    = size(xyz_nodes,dim=1)
+  nvar  = size(sol_nodes,dim=1)
+  nblk  = size(ijkpts,dim=2)
+  nnode = sum( product( ijkpts(1:nr,1:nblk) , dim=1 ) )
+  ncell = sum( product( ijkpts(1:nr,1:nblk)-1 , dim=1 ) )
+  !
+  if (mypnum == glb_root) then
+    !
+    ! For formatted files, it is difficult to distinguish precision.
+    ! The Plot3d reader reads them as double to preserve accuracy,
+    ! but then we copy it into an array with wp precision.
+    !
+    write (iout,*)
+    write (iout,1) " Finished reading the Plot3D grid file"
+    write (iout,1) "   Multiblock = "//trim(plot3dinfo_xyz%mgrid)
+    write (iout,1) "   Dimension  = "//trim(plot3dinfo_xyz%dim)
+    write (iout,1) "   Blanking   = "//trim(plot3dinfo_xyz%blank)
+    write (iout,1) "   Format     = "//trim(plot3dinfo_xyz%form)
+    write (iout,1) "   Precision  = "//trim(plot3dinfo_xyz%rprec)
+    write (iout,1) "   Endian     = "//trim(plot3dinfo_xyz%convert)
+    write (iout,2) "   Number of blocks = ",nblk
+    write (iout,2) "   Number of nodes  = ",nnode
+    write (iout,2) "   Number of cells  = ",ncell
+    do iblk = 1,nblk
+      write (iout,3) iblk,(ijkpts(l,iblk),l=1,3)
+    end do
+    write (iout,1)
+    !
+  end if
+  !
+  ! Sequence the Plot3d grid/solution.
+  ! First, check that the requested plot3d node stride is acceptable
+  !
+  l = 0
+  do iblk = 1,nblk
+    do i = 1,nr
+      if (mod(ijkpts(i,iblk)-1,strides(i)) /= 0) then
+        if (mypnum == glb_root) then
+          if (l == 0) write (iout,4)
+          write (iout,5) iblk,i
+        end if
+        l = 1
+      end if
+    end do
+  end do
+  !
+  ! If an error was found with the strides, only have the global root
+  ! call stop_recon with an abort flag. We cant use the stop_mpi flag
+  ! here because only the host roots will call this routine, and the
+  ! stop_mpi flag requires all processes to call stop_recon together,
+  ! which would result in the program hanging within stop_recon. We
+  ! only want the global root to call it with abort, to make sure that
+  ! the error statements in the above loop are written to iout. If some
+  ! other host root calls stop_recon with the abort flag, there isnt a
+  ! guarantee that those error statements will be written before the
+  ! call to mpi_abort.
+  !
+  if (l == 1) then
+    if (mypnum == glb_root) then
+      call stop_recon(abort,pname,__LINE__,__FILE__)
+    end if
+    ! Have all the host roots call mpi_barrier here so that the MPI processes
+    ! that arent the global root do not continue past this point before the
+    ! global root has a chance to call mpi_abort within the above conditional.
+    call mpi_barrier(host_roots_comm,mpierr)
+  end if
+  !
+  ! Allocate the node and cell offset array
+  !
+  allocate ( offset(1:2,1:nblk) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"offset",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the offset arrays for each block
+  !
+  offset(1,1) = 1 ! node offset
+  offset(2,1) = 1 ! cell offset
+  !
+  do iblk = 2,nblk
+    !
+    offset(1,iblk) = offset(1,iblk-1) + product( ijkpts(1:nr,iblk-1) )
+    offset(2,iblk) = offset(2,iblk-1) + product( ijkpts(1:nr,iblk-1)-1 )
+    !
+  end do
+  !
+  !
+  ! Apply the grid scaling factor to the coordinates of the grid nodes
+  !
+  do n = 1,size(xyz_nodes,dim=2)
+    do i = 1,size(xyz_nodes,dim=1)
+      xyz_nodes(i,n) = grid_scaling_factor*xyz_nodes(i,n)
+    end do
+  end do
+  !
+  ! Coarsen the grid nodes if any of the coarsening strides are larger than 1
+  !
+  if (any(strides > 1)) then
+    !
+    nnode_new = 0
+    do iblk = 1,size(ijkpts,dim=2)
+      npts = 1
+      do l = 1,size(ijkpts,dim=1)
+        npts = npts * ( (ijkpts(l,iblk)-1)/strides(l) + 1 )
+      end do
+      nnode_new = nnode_new + npts
+    end do
+    !
+    allocate ( temp_xyz(1:nr,1:nnode_new) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    if (len_trim(solfile) > 0) then
+      allocate ( temp_sol(1:nvar,1:nnode_new) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"temp_sol",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    n = 0
+    !
+    do iblk = 1,size(ijkpts,dim=2)
+      !
+      noff = offset(1,iblk)-1
+      !
+      ibeg = 1
+      jbeg = 1
+      kbeg = 1
+      !
+      iend = max( ibeg , ijkpts(1,iblk) )
+      jend = max( jbeg , ijkpts(2,iblk) )
+      kend = max( kbeg , ijkpts(3,iblk) )
+      !
+      do k = kbeg,kend,strides(3)
+        do j = jbeg,jend,strides(2)
+          do i = ibeg,iend,strides(1)
+            !
+            l = map3dto1d( [i,j,k] , iblk , 1 )
+            n = n + 1
+            !
+            temp_xyz(1:nr,n) = xyz_nodes(1:nr,l+noff)
+            if ( allocated(temp_sol) ) then
+              temp_sol(1:nvar,n) = sol_nodes(1:nvar,l+noff)
+            end if
+            !
+          end do
+        end do
+      end do
+      !
+    end do
+    !
+    npts = n
+    !
+    do iblk = 1,size(ijkpts,dim=2)
+      do l = 1,size(ijkpts,dim=1)
+        ijkpts(l,iblk) = (ijkpts(l,iblk)-1) / strides(l) + 1
+      end do
+    end do
+    !
+    nnode_new = sum( product( ijkpts(1:nr,1:nblk)   , dim=1 ) )
+    ncell_new = sum( product( ijkpts(1:nr,1:nblk)-1 , dim=1 ) )
+    !
+    if (npts /= nnode_new) then
+      if (mypnum == glb_root) then
+        write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
+        write (iout,*) " npts      = ",npts
+        write (iout,*) " nnode_new = ",nnode_new
+        call stop_recon(abort,pname,__LINE__,__FILE__)
+      end if
+      ! Have all the host roots call mpi_barrier here so that the MPI processes
+      ! that arent the global root do not continue past this point before the
+      ! global root has a chance to call mpi_abort within the above conditional.
+      call mpi_barrier(host_roots_comm,mpierr)
+    end if
+    !
+    offset(1,1) = 1 ! node offset
+    offset(2,1) = 1 ! cell offset
+    !
+    do iblk = 2,nblk
+      !
+      offset(1,iblk) = offset(1,iblk-1) + product( ijkpts(1:nr,iblk-1) )
+      offset(2,iblk) = offset(2,iblk-1) + product( ijkpts(1:nr,iblk-1)-1 )
+      !
+    end do
+    !
+    if (mypnum == glb_root) then
+      !
+      write (iout,*)
+      write (iout,1) " AFTER COARSENING USING STRIDES OF"
+      write (iout,2) "     Stride in I-direction = ",strides(1)
+      write (iout,2) "     Stride in J-direction = ",strides(2)
+      write (iout,2) "     Stride in K-direction = ",strides(3)
+      write (iout,*)
+      write (iout,2) "   Number of blocks = ",nblk
+      write (iout,2) "   Number of nodes  = ",nnode_new
+      write (iout,2) "   Number of cells  = ",ncell_new
+      do iblk = 1,nblk
+        write (iout,3) iblk,(ijkpts(l,iblk),l=1,3)
+      end do
+      !
+    end if
+    !
+    call move_alloc( from=temp_xyz , to=xyz_nodes )
+    if ( allocated(temp_sol) ) then
+      call move_alloc( from=temp_sol , to=sol_nodes )
+    end if
+    !
+    nnode = nnode_new
+    ncell = ncell_new
+    !
+  end if
+  !
+ !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !                "multiblock testing in readplot3d")
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (a)
+  2 format (a,i0)
+  3 format ("   Block #",i0," dimensions: ",i0,2(" x ",i0))
+  4 format (/," ERROR TRYING TO USE COARSENING STRIDES WITH PLOT3D!!!",/, &
+              " THE NUMBER OF GRID CELLS MUST BE EVENLY",/, &
+              " DIVISIBLE BY THE COARSENING STRIDES!!!",/)
+  5 format (3x,"Cells not evenly divisible in block ",i0," for direction ",i0)
+  !
+end subroutine readplot3d
+!
+!###############################################################################
+!
+subroutine readplot3d_old(gridfile,solfile)
   !
   ! This sub reads a multi-block grid in Plot3d format
   !
@@ -338,15 +726,29 @@ subroutine readplot3d(gridfile)
   use ovar,   only : plot3d_k_stride
   use ovar,   only : grid_scaling_factor
   !
+  use plot3dio_mod, only : type_plot3dinfo
+  use plot3dio_mod, only : plot3dio_read
+  use plot3dio_mod, only : plot3dio_ijk_matches
+  !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: gridfile
+  character(len=*), intent(in) :: solfile
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,n,iblk,ierr,cpos,recl_max
   integer :: noff,npts,nnode_new,ncell_new
   integer :: ibeg,iend,jbeg,jend,kbeg,kend
-  integer :: iogrd
+  integer :: iogrd,iotst,itest
   character(len=100) :: read_message
+  !
+  logical(lk) :: is_multiblock
+  logical(lk) :: is_formatted
+  logical(lk) :: is_dbl_precision
+  logical(lk) :: blk_header_is_dbl_precision
+  logical(lk) :: is_big_endian
+  !
+  type(type_plot3dinfo) :: plot3dinfo_xyz
+  type(type_plot3dinfo) :: plot3dinfo_sol
   !
   !.. Local Arrays ..
   integer, dimension(1:3) :: strides
@@ -354,13 +756,69 @@ subroutine readplot3d(gridfile)
   !.. Local Allocatable Arrays ..
   real(r4), allocatable, dimension(:,:) :: r4_nodes
   real(wp), allocatable, dimension(:,:) :: temp_xyz
+  real(wp), allocatable, dimension(:,:) :: temp_sol
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "readplot3d"
+  character(len=*), parameter :: pname = "readplot3d_old"
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  ! Default the Plot3D grid file to unformatted
+  !
+  is_formatted = fals
+  !
+  ! Reading a multi-block grid in Plot3d format
+  !
+  ! Check to see if the Plot3D grid file can be
+  ! opened and read as a formatted file.
+  !
+  open (newunit=iotst,file=gridfile,form="formatted",status="old", &
+                      action="read",position="rewind",iostat=ierr, &
+                      iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                ierr,error_message)
+  !
+  ! Try to read the grid file as a formatted file.
+  ! Mark the grid file as formated if this succeeds.
+  !
+  read (iotst,*,iostat=ierr) itest
+  if (ierr == 0) then
+    is_formatted = true
+  end if
+  !
+  close (iotst,iostat=ierr,iomsg=error_message)
+  call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                ierr,error_message)
+  !
+  ! If the Plot3D grid file could not be read as a formatted file,
+  ! check to see if it can be opened and read as an unformatted file.
+  !
+  if (.not.is_formatted) then
+    !
+    open (newunit=iotst,file=gridfile,form="unformatted",status="old", &
+                        action="read",position="rewind",iostat=ierr, &
+                        iomsg=error_message)
+    call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
+                  ierr,error_message)
+    !
+    ! Try to read the grid file as an unformatted file. If this fails,
+    ! something is wrong so throw an error and stop execution.
+    !
+    read (iotst,iostat=ierr,iomsg=error_message) itest
+    if (ierr == 0) then
+      is_formatted = fals
+    else
+      call io_error(pname,trim(adjustl(gridfile)),4,__LINE__,__FILE__, &
+                    ierr,error_message)
+    end if
+    !
+    close (iotst,iostat=ierr,iomsg=error_message)
+    call io_error(pname,trim(adjustl(gridfile)),2,__LINE__,__FILE__, &
+                  ierr,error_message)
+    !
+  end if
   !
   ! Set all the coarsening strides to -1 to prevent coarsening
   ! if agglomerating cells to create high-order curved cells.
@@ -402,9 +860,9 @@ continue
   ! If this is a multiblock file, read in the number of blocks
   !
   if (is_formatted) then
-    call read_p3d_formatted_header(iogrd,gridfile)
+    call read_p3d_formatted_header(iogrd,gridfile,is_multiblock)
   else
-    call read_p3d_unformatted_header(iogrd,gridfile)
+    call read_p3d_unformatted_header(iogrd,gridfile,is_multiblock)
   end if
   !
   ! Check that the requested plot3d node stride is acceptable
@@ -744,11 +1202,11 @@ continue
   11 format ("Reading 64-bit unformatted coordinates for block # ",i0)
   12 format ("Reading 32-bit unformatted coordinates for block # ",i0)
   !
-end subroutine readplot3d
+end subroutine readplot3d_old
 !
 !###############################################################################
 !
-subroutine read_p3d_formatted_header(iogrd,gridfile)
+subroutine read_p3d_formatted_header(iogrd,gridfile,is_multiblock)
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -756,6 +1214,7 @@ subroutine read_p3d_formatted_header(iogrd,gridfile)
   !.. Formal Arguments ..
   integer,          intent(in) :: iogrd
   character(len=*), intent(in) :: gridfile
+  logical(lk),     intent(out) :: is_multiblock
   !
   !.. Local Scalars ..
   integer :: ierr,num_val,n,l,lines
@@ -970,7 +1429,7 @@ end subroutine read_p3d_formatted_header
 !
 !###############################################################################
 !
-subroutine read_p3d_unformatted_header(iogrd,gridfile)
+subroutine read_p3d_unformatted_header(iogrd,gridfile,is_multiblock)
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -978,6 +1437,7 @@ subroutine read_p3d_unformatted_header(iogrd,gridfile)
   !.. Formal Arguments ..
   integer,          intent(in) :: iogrd
   character(len=*), intent(in) :: gridfile
+  logical(lk),     intent(out) :: is_multiblock
   !
   !.. Local Scalars ..
   integer :: int_rec1,int_rec2
@@ -1142,7 +1602,10 @@ end subroutine read_p3d_unformatted_header
 !
 !###############################################################################
 !
-!subroutine read_p3d_unformatted_header_generic_endian(iogrd,gridfile)
+!subroutine read_p3d_unformatted_header_generic_endian(iogrd,gridfile, &
+!                                                      is_multiblock, &
+!                                                      is_big_endian, &
+!                                                      blk_header_is_dbl_prec)
 !  !
 !  !.. Use Statements ..
 !  use geovar, only : nr
@@ -1150,6 +1613,9 @@ end subroutine read_p3d_unformatted_header
 !  !.. Formal Arguments ..
 !  integer,          intent(in) :: iogrd
 !  character(len=*), intent(in) :: gridfile
+!  logical(lk),   intent(inout) :: is_multiblock
+!  logical(lk),   intent(inout) :: is_big_endian
+!  logical(lk),   intent(inout) :: blk_header_is_dbl_prec
 !  !
 !  !.. Local Scalars ..
 !  integer :: int_rec1,int_rec2
@@ -1172,7 +1638,8 @@ end subroutine read_p3d_unformatted_header
 !  !
 !  ! Determine the structure of the unformatted Plot3D file
 !  !
-!  call determine_unformatted_structure(gridfile)
+!  call determine_unformatted_structure(gridfile,is_multiblock,is_big_endian, &
+!                                       blk_header_is_dbl_prec)
 !  !
 !  ! Open the grid file and read the header
 !  !
@@ -1189,7 +1656,7 @@ end subroutine read_p3d_unformatted_header
 !  !
 !  if (is_multiblock) then
 !    !
-!    if (blk_header_is_dbl_precision) then
+!    if (blk_header_is_dbl_prec) then
 !      !
 !      ! Read the opening record marker
 !      !
@@ -1298,7 +1765,7 @@ end subroutine read_p3d_unformatted_header
 !               stat=ierr , errmsg=error_message )
 !    call alloc_error(pname,"ijkpts",1,__LINE__,__FILE__,ierr,error_message)
 !    !
-!    if (blk_header_is_dbl_precision) then
+!    if (blk_header_is_dbl_prec) then
 !      !
 !      ! Allocate ijkpts_i8 and initialize to 1 node in each direction
 !      !
@@ -1609,9 +2076,14 @@ end subroutine read_p3d_unformatted_header
 !
 !###############################################################################
 !
-!!subroutine determine_unformatted_structure(gridfile)
+!!subroutine determine_unformatted_structure(gridfile,is_multiblock, &
+!!                                           is_big_endian, &
+!!                                           blk_header_is_dbl_precision)
 !!  !
 !!  character(len=*), intent(in) :: gridfile
+!!  logical(lk),   intent(inout) :: is_multiblock
+!!  logical(lk),   intent(inout) :: is_big_endian
+!!  logical(lk),   intent(inout) :: blk_header_is_dbl_precision
 !!  !
 !!  !.. Local Scalars ..
 !!  integer :: iogrd,n,ierr
@@ -1652,6 +2124,8 @@ end subroutine read_p3d_unformatted_header
 !!  ! NOTE: Use a single count do-loop so we can exit
 !!  !       once we find the matching record header.
 !!  ! NOTE: The record headers should match regardless of the files endianess.
+!!  !
+!!  blk_header_is_dbl_precision = fals
 !!  !
 !!  i4_header_test: do n = 1,1
 !!    !
@@ -1804,6 +2278,7 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  ! Determine the endianess of the file
 !!  !
+!!  is_big_endian = fals
 !!  if (blk_header_is_dbl_precision) then
 !!    !
 !!    if (rec_header_i8/ncount_i8 == 8) then
@@ -2051,6 +2526,13 @@ continue
               k = kc + kp
               jp3_loop: do jp = 0,stride
                 j = jc + jp
+#ifdef USE_MAP3DTO1D_FOR_EACH_IP
+                ip3_loop: do ip = 0,stride
+                  i = ic + ip
+                  np = np + 1
+                  ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
+                end do ip3_loop
+#else
                 i = ic
                 np = np + 1
                 ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
@@ -2058,11 +2540,7 @@ continue
                   np = np + 1
                   ipc(np) = ipc(np-1) + 1
                 end do ip3_loop
-               !ip3_loop: do ip = 0,stride
-               !  i = ic + ip
-               !  np = np + 1
-               !  ipc(np) = map3dto1d( [i,j,k] , iblk , 1 )
-               !end do ip3_loop
+#endif
               end do jp3_loop
             end do kp3_loop
           else if (nr == 2) then
@@ -2419,7 +2897,8 @@ end subroutine create_plot3d_grid_cells
 !
 subroutine readbcsinfo( bcsfile )
   !
-  ! This subs reads boundary conditions information by vulcan input file
+  ! This subs reads boundary conditions information by vulcan input file.
+  ! Blank lines and comment lines with '!' in first column are skipped.
   !
   !.. Use Statements ..
   use geovar, only : nr,nfbnd
@@ -2487,7 +2966,7 @@ continue
   call alloc_error(pname,"bcs_info",1,__LINE__,__FILE__,ierr,error_message)
   !
   allocate ( bc_names(1:nbc) , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"bcs_info",1,__LINE__,__FILE__,ierr,error_message)
+  call alloc_error(pname,"bcs_names",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Rewind back to the beginning of the BC file and
   ! skip/read the header line.
@@ -2658,6 +3137,39 @@ continue
   close (iobcs,iostat=ierr,iomsg=error_message)
   call io_error(pname,trim(adjustl(bcsfile)),2,__LINE__,__FILE__, &
                 ierr,error_message)
+ !!
+ !! Condense the bc_names so there are no duplicates.
+ !! NOTE: This should probably only happen for Plot3D grid files since there
+ !!       could be multiple block boundaries that are part of the same BC
+ !!       group.
+ !!
+ !if (size(bc_names) >= 1) then
+ !  !
+ !  temp_bc_names = bc_names(:) ! F2003 AUTO-REALLOCATION
+ !  !
+ !  n = 0
+ !  do nb = 1,size(temp_bc_names)
+ !    !
+ !    this_name = temp_bc_names(nb)
+ !    !
+ !    if (len_trim(this_name) == 0) cycle
+ !    !
+ !    n = n + 1
+ !    !
+ !    do ib = nb+1,size(temp_bc_names)
+ !      if (temp_bc_names(ib) == this_name) then
+ !        temp_bc_names(ib) == ""
+ !      end if
+ !    end do
+ !    !
+ !  end do
+ !  !
+ !  allocate ( bc_names_grp(1:n) , source=0 , stat=ierr )
+ !  n = 0
+ !  do nb = 1,size(temp_bc_names)
+ !    if (len_trim(temp_bc_names(nb)) /= 0) then
+ !      n = n + 1
+ !      bc_names_grp(
   !
   ! Deallocate clist if it is still allocated
   !
@@ -2682,7 +3194,8 @@ end subroutine readbcsinfo
 !
 subroutine readcutinfo( cutfile )
   !
-  ! This subs reads cuts information by vulcan input file
+  ! This subs reads cuts information by vulcan input file.
+  ! Blank lines and comment lines with '!' in first column are skipped.
   !
   !.. Use Statements ..
   use geovar, only : nr
@@ -3112,27 +3625,30 @@ end subroutine findcutpoints
 !
 !###############################################################################
 !
-subroutine remove_duplicate_nodes()
+subroutine remove_duplicate_nodes(sol_nodes)
   !
   !.. Use Statements ..
   use geovar, only : ncell,xyz_nodes,grid,nodes_of_cell
   !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
+  !
   !.. Local Scalars ..
-  integer :: i,ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
+  integer :: ip,ipcut,ip1,ip2,ip3,n,nc,ib1,ib2,ipn1,ipn2,ierr
   integer :: new_pt,old_pt,duplicate_node,l
   integer :: lpts_new,lpts_old
   logical(lk) :: first_line_not_output
-  logical(lk) :: output_info
  !real(wp) :: diff
   !
   !.. Local Arrays ..
-  integer  :: ijk1(1:4),ijk2(1:4),ijk3(1:4)
-  real(wp) :: old_xyz(1:3),new_xyz(1:3)
+  real(wp) :: old_xyz(1:3)
+  real(wp) :: new_xyz(1:3)
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: lpoin(:)
   integer,  allocatable :: new2old(:)
   integer,  allocatable :: old2new(:)
+  real(wp), allocatable :: temp_sol(:,:)
   real(wp), allocatable :: temp_xyz(:,:)
   !
   !.. Local Parameters ..
@@ -3143,7 +3659,6 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   first_line_not_output = true
-  output_info = fals
   !
   ! Save the old number of grid nodes lpts_old
   !
@@ -3176,55 +3691,6 @@ continue
       !
       ip1 = cut_info(n)%nodes(1,ipcut)
       ip2 = cut_info(n)%nodes(2,ipcut)
-      !
-#ifdef DEBUG_CUTS
-      if (any(n == [7,8,9])) then
-        ijk1 = map1dto3d(ip1,1)
-        ijk2 = map1dto3d(ip2,1)
-       !if ( (ijk1(3) ==   1 .and. ijk2(3) == 193) .or. &
-       !     (ijk1(3) == 193 .and. ijk2(3) ==   1) ) then
-       !  output_info = true
-        if (n == 7) then
-          if (ijk1(1) == 157 .and. ijk2(1) == 157) then
-            if (ijk1(3) == 1 .and. ijk2(3) == 193) then
-              output_info = true
-            end if
-          end if
-        else if (n == 8) then
-          if (ijk1(1) == 157 .and. ijk2(1) == 1) then
-            if (any(ijk1(3) == [1,193]) .and. ijk1(3) == ijk2(3)) then
-              output_info = true
-            end if
-          end if
-        else if (n == 9) then
-          if (ijk1(1) == 1 .and. ijk2(1) == 1) then
-            if (ijk1(3) == 1 .and. ijk2(3) == 193) then
-              if (ijk1(2) >= 133 .and. ijk1(2) == ijk2(2)) then
-                output_info =true
-              end if
-            end if
-          end if
-        end if
-      end if
-#endif
-      !
-      if (output_info) then
-        if (lpoin(ip2) > 0) then
-          write (iout,200) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                                 (ijk2(i),i=1,4),ip2,lpoin(ip2)
-          write (120+n,202) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                                  (ijk2(i),i=1,4),ip2,lpoin(ip2)
-        else
-          ip3 = -lpoin(ip2)
-          ijk3 = map1dto3d(ip3,1)
-          write (iout,200) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                                 (ijk2(i),i=1,4),ip2,lpoin(ip2), &
-                                 (ijk3(i),i=1,4),ip3,lpoin(ip3)
-          write (120+n,202) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                                  (ijk2(i),i=1,4),ip2,lpoin(ip2), &
-                                  (ijk3(i),i=1,4),ip3,lpoin(ip3)
-        end if
-      end if
       !
       ! Point to the adjacent point
       !
@@ -3280,40 +3746,9 @@ continue
         !
       end if
       !
-      if (output_info) then
-        ip3 = abs(lpoin(ip2))
-        ijk3 = map1dto3d(ip3,1)
-        write (iout,201) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                               (ijk2(i),i=1,4),ip2,lpoin(ip2), &
-                               (ijk3(i),i=1,4),ip3,lpoin(ip3)
-        write (120+n,203) ipcut,(ijk1(i),i=1,4),ip1,lpoin(ip1), &
-                                (ijk2(i),i=1,4),ip2,lpoin(ip2), &
-                                (ijk3(i),i=1,4),ip3,lpoin(ip3)
-        flush (iout)
-        flush (120+n)
-      end if
-      !
-      output_info = fals
-      !
     end do
     !
   end do
-  200 format (/,"      Before (ipcut=",i0,") :",/, &
-                "  ip1 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
-                "  ip2 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,:,/, &
-                "  ip3 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0)
-  201 format (  "       After (ipcut=",i0,") :",/, &
-                "  ip1 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
-                "  ip2 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0,/, &
-                "  ip3 [",3i4," (",i1,") ] : lpoin(",i8,") = ",i0)
-  202 format (/,"Before (ipcut=",i0,") =>",/, &
-                " ip1 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
-                " ip2 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,:,/, &
-                " ip3 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9)
-  203 format (  " After (ipcut=",i0,") =>",/, &
-                " ip1 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
-                " ip2 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9,/, &
-                " ip3 (",3(i3,","),i1,") : lpoin(",i8,") = ",i9)
   !
   ! new2old(ip) = the old point number for a new point ip
   ! old2new(ip) = the new point number for a old point ip
@@ -3416,6 +3851,9 @@ continue
   ! Allocate the temporary nodal array
   !
   temp_xyz = xyz_nodes(:,new2old(:)) ! F2003 AUTO-REALLOCATION
+  if (allocated(sol_nodes)) then
+    temp_sol = sol_nodes(:,new2old(:)) ! F2003 AUTO-REALLOCATION
+  end if
  !allocate( temp_xyz(1:size(xyz_nodes,dim=1),1:lpts_new) , source=zero , &
  !          stat=ierr , errmsg=error_message )
  !call alloc_error(pname,"temp_xyz",1,__LINE__,__FILE__,ierr,error_message)
@@ -3435,22 +3873,9 @@ continue
   !     3. Deallocates temp_xyz
   !
   call move_alloc( from=temp_xyz , to=xyz_nodes )
-  !
-#ifdef DEBUG_CUTS
-  if (mypnum == glb_root) then
-    do new_pt = 1,lpts_new
-      write (2000,200) new_pt,new2old(new_pt)
-    end do
-    200 format ("new_point ",i8," -> old_point ",i8)
-    flush (2000)
-    do old_pt = 1,lpts_old
-      write (2001,201) old_pt,old2new(old_pt)
-    end do
-    201 format ("old_point ",i8," -> new_point ",i8)
-    flush (2001)
+  if (allocated(temp_sol)) then
+    call move_alloc( from=temp_sol , to=sol_nodes )
   end if
-  call mpi_barrier(host_roots_comm,mpierr)
-#endif
   !
   ! Deallocate new2old
   !
@@ -3462,27 +3887,6 @@ continue
  !call create_nodes_of_cells(old2new)
   !
   ! Fix all the node information in the grid derived type
-#ifdef DEBUG_CUTS
-  if (mypnum == glb_root) then
-    do nc = 1,size(grid%elem)
-      if (allocated(grid%elem(nc)%nodes)) then
-        write (1000+mypnum,100) nc,(grid%elem(nc)%nodes(n), &
-                                    n=1,size(grid%elem(nc)%nodes))
-        write (1002+mypnum,102) nc,(map1dto3d(grid%elem(nc)%nodes(n),1), &
-                                    n=1,size(grid%elem(nc)%nodes))
-      else
-        write (1000+mypnum,101) nc
-        write (1002+mypnum,101) nc
-      end if
-    end do
-    flush (1000+mypnum)
-    flush (1002+mypnum)
-  end if
-  call mpi_barrier(host_roots_comm,mpierr)
-  100 format (1x,i6," : ",8i9)
-  101 format (1x,i6," : NOT ALLOCATED")
-  102 format (1x,i6," :",8(2x,3i4," (",i1,")"))
-#endif
   !
   do nc = 1,size(grid%elem)
     if (allocated(grid%elem(nc)%nodes)) then
@@ -3533,11 +3937,14 @@ end subroutine remove_duplicate_nodes
 !
 !###############################################################################
 !
-subroutine reorder_plot3d_nodes
+subroutine reorder_plot3d_nodes(sol_nodes)
   !
   !.. Use Statements ..
   use geovar, only : ncell,nnode,xyz_nodes,grid
   use geovar, only : nodes_of_cell
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
   !
   !.. Local Scalars ..
   integer :: n,nc,lpts,ierr
@@ -3546,6 +3953,7 @@ subroutine reorder_plot3d_nodes
   logical(lk), allocatable :: msk(:)
   integer,     allocatable :: new2old(:)
   integer,     allocatable :: old2new(:)
+  real(wp),    allocatable :: temp_sol(:,:)
   real(wp),    allocatable :: temp_xyz(:,:)
   !
   !.. Local Parameters ..
@@ -3559,23 +3967,6 @@ continue
   !
   allocate ( msk(1:lpts) , source=fals , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
-  !
-#ifdef DEBUG_CUTS
-  if (mypnum == glb_root) then
-    do nc = 1,size(grid%elem)
-      if (allocated(grid%elem(nc)%nodes)) then
-        write (1001+mypnum,100) nc,(grid%elem(nc)%nodes(n), &
-                                    n=1,size(grid%elem(nc)%nodes))
-      else
-        write (1001+mypnum,101) nc
-      end if
-    end do
-    flush (1001+mypnum)
-  end if
-  call mpi_barrier(host_roots_comm,mpierr)
-  100 format (1x,i6," : ",8i9)
-  101 format (1x,i6," : NOT ALLOCATED")
-#endif
   !
   do nc = 1,ncell
     msk( grid%elem(nc)%nodes(:) ) = true
@@ -3599,12 +3990,16 @@ continue
   old2new( new2old(:) ) = intseq(1,size(new2old))
   !
   call move_alloc( from=xyz_nodes , to=temp_xyz )
-  !
   xyz_nodes = temp_xyz(:,new2old(1:nnode))
-  !
   temp_xyz(:,:) = temp_xyz(:,new2old(:))
-  !
   call move_alloc( from=temp_xyz , to=grid%xyz )
+  !
+  if ( allocated(sol_nodes) ) then
+    call move_alloc( from=sol_nodes , to=temp_sol )
+    sol_nodes = temp_sol(:,new2old(1:nnode))
+    temp_sol(:,:) = temp_sol(:,new2old(:))
+    call move_alloc( from=temp_sol , to=grid%sol )
+  end if
   !
   ! Deallocate new2old
   !
@@ -3959,6 +4354,10 @@ continue
     !
     location = bcs_info(nb)%bc%loc
     !
+    if (bcs_info(nb)%bc_type == bc_periodic) then
+      plot3d_has_periodic_faces = true
+    end if
+    !
     bface( 1,nf) = bcs_info(nb)%bc_type
     bface( 2,nf) = host_cell
     bface( 3,nf) = grid%elem(host_cell)%prop%geom
@@ -4194,7 +4593,7 @@ end subroutine match_plot3d_periodic_boundaries
 !
 !###############################################################################
 !
-subroutine create_grid_dt()
+subroutine create_grid_dt(sol_nodes)
   !
   !.. Use Statements ..
   use geovar, only : grid
@@ -4202,6 +4601,9 @@ subroutine create_grid_dt()
   use geovar, only : nfbnd,bface
   use geovar, only : nodes_of_cell,nodes_of_cell_ptr
   use geovar, only : nr,xyz_nodes
+  !
+  !.. Formal Arguments ..
+  real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
   !
   !.. Local Scalars ..
   integer :: nc,nf,n1,n2,ierr
@@ -4230,6 +4632,9 @@ continue
   end if
   !
   grid%xyz = xyz_nodes(:,:) ! F2003 AUTO-REALLOCATION
+  if (allocated(sol_nodes)) then
+    grid%sol = sol_nodes(:,:) ! F2003 AUTO-REALLOCATION
+  end if
   !
   allocate ( grid%elem(1:ncell+nfbnd) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"grid%elem",1,__LINE__,__FILE__,ierr,error_message)
@@ -4434,11 +4839,12 @@ subroutine root_broadcasts_grid_dt()
   integer(INT_MPI) :: n
   !
   !.. Local Arrays ..
-  integer :: array_sizes(1:4)
+  integer :: array_sizes(1:6)
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: grid_elem(:)
   real(wp), allocatable :: grid_xyz(:,:)
+  real(wp), allocatable :: grid_sol(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "root_broadcasts_grid_dt"
@@ -4450,7 +4856,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   ! Have the global root process copy the information in the grid derived type
-  ! to the grid_xyz and grid_elem arrays, and save the necessary size
+  ! to the grid_xyz, grid_sol, and grid_elem arrays, and save the necessary size
   ! information into the array_sizes array.
   !
 #ifdef DEBUG_HOST_HANG
@@ -4466,12 +4872,18 @@ continue
   102 format (a," : size=",i0,",   storage_size=",i0)
   if (mypnum == glb_root) then
     !
-    call root_packs_grid_dt(grid_elem,grid_xyz,grid)
+    array_sizes(:) = 0
+    !
+    call root_packs_grid_dt(grid_elem,grid_xyz,grid_sol,grid)
     !
     array_sizes(1) = size(grid_elem)
     array_sizes(2) = size(grid_xyz,dim=1)
     array_sizes(3) = size(grid_xyz,dim=2)
     array_sizes(4) = size(grid%elem)
+    if (allocated(grid_sol)) then
+      array_sizes(5) = size(grid_sol,dim=1)
+      array_sizes(6) = size(grid_sol,dim=2)
+    end if
     !
   end if
 #ifdef DEBUG_HOST_HANG
@@ -4479,12 +4891,15 @@ continue
     if (mypnum == glb_root) then
       write (iout,102) "grid_elem",size(grid_elem),storage_size(grid_elem)
       write (iout,102) "grid_xyz ",size(grid_xyz),storage_size(grid_xyz)
+      if (allocated(grid_sol)) then
+        write (iout,102) "grid_sol ",size(grid_sol),storage_size(grid_sol)
+      end if
       flush (iout)
     end if
     write (iout,100) mypnum,"d) after  root_packs_grid_dt, before mpi_barrier"
     call mpi_barrier(host_roots_comm,mpierr)
     write (iout,100) mypnum, &
-            "e) after  mpi_barrier, before mpi_bast(array_sizes)",mpierr
+            "e) after  mpi_barrier, before mpi_bcast(array_sizes)",mpierr
   end if
 #endif
   !
@@ -4495,7 +4910,7 @@ continue
 #ifdef DEBUG_HOST_HANG
   if (i_am_host_root) then
     write (iout,100) mypnum, &
-            "f) after  mpi_bast(array_sizes), before allocation",mpierr
+            "f) after  mpi_bcast(array_sizes), before allocation",mpierr
   end if
 #endif
   !
@@ -4510,7 +4925,7 @@ continue
   !
 #ifdef DEBUG_HOST_HANG
   if (i_am_host_root) then
-    write (iout,100) mypnum,"g) after  allocation, before mpi_bast(grid_elem)"
+    write (iout,100) mypnum,"g) after  allocation, before mpi_bcast(grid_elem)"
   end if
 #endif
   !
@@ -4531,7 +4946,7 @@ continue
 #ifdef DEBUG_HOST_HANG
   if (i_am_host_root) then
     write (iout,100) mypnum, &
-            "h) after  mpi_bcast(grid_elem), before mpi_bast(grid_xyz)",mpierr
+            "h) after  mpi_bcast(grid_elem), before mpi_bcast(grid_xyz)",mpierr
   end if
 #endif
   !
@@ -4559,19 +4974,55 @@ continue
 #ifdef DEBUG_HOST_HANG
     if (i_am_host_root) then
       write (iout,100) mypnum, &
-              "i) after  mpi_bcast(grid_xyz), before unpack_grid_dt",mpierr
+              "i) after  mpi_bcast(grid_xyz), before mpi_bcast(grid_sol)",mpierr
     end if
 #endif
   end if
   !
-  ! Have all host roots unpack the grid_elem and grid_xyz arrays
+  ! Allocate the grid_sol array on the non-root processes
+  ! so it can be received from the root process.
+  !
+  n1 = array_sizes(5)
+  n2 = array_sizes(6)
+  !
+  if (n1*n2 > 0) then
+    !
+    if (.not. allocated(grid_sol)) then
+      allocate ( grid_sol(1:n1,1:n2) , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid_sol",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    ! Broadcast the grid_sol array to all host roots
+    !
+    n = size(grid_sol,kind=int_mpi)
+    if (use_all_processors) then
+      call mpi_bcast(grid_sol,n,mpi_flttyp,glb_root,MPI_COMM_WORLD,mpierr)
+      if (.not. i_am_host_root) then
+        deallocate ( grid_sol , stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"grid_sol",2,__LINE__,__FILE__, &
+                         ierr,error_message)
+      end if
+    else
+      call mpi_bcast(grid_sol,n,mpi_flttyp,glb_root,host_roots_comm,mpierr)
+#ifdef DEBUG_HOST_HANG
+      if (i_am_host_root) then
+        write (iout,100) mypnum, &
+                "i) after  mpi_bcast(grid_sol), before unpack_grid_dt",mpierr
+      end if
+#endif
+    end if
+    !
+  end if
+  !
+  ! Have all host roots unpack the grid_elem, grid_xyz, and grid_sol arrays
   ! into the global grid derived type.
   ! NOTE: This also needs to be done on the global root process since move_alloc
-  !       was used to copy grid%xyz over to grid_xyz, which leaves grid%xyz
-  !       deallocated after the copy.
+  !       was used to respectively copy grid%xyz and grid%sol over to grid_xyz
+  !       and grid_sol, which leaves grid%xyz and grid%sol deallocated after the
+  !       copy.
   !
   if (i_am_host_root) then
-    call unpack_grid_dt(array_sizes(4),grid_elem,grid_xyz,grid)
+    call unpack_grid_dt(array_sizes(4),grid_elem,grid_xyz,grid_sol,grid)
 #ifdef DEBUG_HOST_HANG
     write (iout,100) mypnum,"j) after unpack_grid_dt, before mpi_barrier"
     call mpi_barrier(host_roots_comm,mpierr)
@@ -4579,7 +5030,7 @@ continue
 #endif
   end if
   !
-  ! The local allocatable arrays grid_xyz and grid_elem should
+  ! The local allocatable arrays grid_xyz, grid_elem, and grid_sol should
   ! have been deallocated at the end of the previous routine.
   !
   call debug_timer(leaving_procedure,pname)
@@ -4588,7 +5039,7 @@ end subroutine root_broadcasts_grid_dt
 !
 !###############################################################################
 !
-subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid)
+subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
   use geovar, only : grid_t
@@ -4596,6 +5047,7 @@ subroutine root_packs_grid_dt(grid_elem,grid_xyz,grid)
   !.. Formal Arguments ..
   integer,      allocatable, intent(inout) :: grid_elem(:)
   real(wp),     allocatable, intent(inout) :: grid_xyz(:,:)
+  real(wp),     allocatable, intent(inout) :: grid_sol(:,:)
   type(grid_t), allocatable, intent(inout) :: grid
   !
   !.. Local Scalars ..
@@ -4618,6 +5070,11 @@ continue
   if (allocated(grid_xyz)) then
     deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_sol)) then
+    deallocate ( grid_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_sol",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! #######
@@ -4830,6 +5287,25 @@ continue
     call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
+  ! Create grid_sol
+  !
+  ! Copy all of grid%sol into grid_sol
+  !
+  ! USE MOVE_ALLOC TO PREVENT HAVING TO MAKE A COPY OF THE grid%sol
+  ! ARRAY JUST TO BROADCAST IT TO THE OTHER HOST ROOTS. ONCE THE BROADCAST
+  ! HAS COMPLETED, USE ANOTHER MOVE_ALLOC TO MOVE grid_sol BACK INTO
+  ! grid%sol.
+  !
+  if (allocated(grid%sol)) then
+    call debug_timer(start_timer,"creating grid_sol")
+    call move_alloc( from=grid%sol , to=grid_sol )
+    call debug_timer(stop_timer,"creating grid_sol")
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
@@ -4842,7 +5318,7 @@ end subroutine root_packs_grid_dt
 !
 !###############################################################################
 !
-subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid)
+subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
   use geovar, only : grid_t
@@ -4851,6 +5327,7 @@ subroutine unpack_grid_dt(num_cells,grid_elem,grid_xyz,grid)
   integer,                      intent(in) :: num_cells
   integer,      allocatable, intent(inout) :: grid_elem(:)
   real(wp),     allocatable, intent(inout) :: grid_xyz(:,:)
+  real(wp),     allocatable, intent(inout) :: grid_sol(:,:)
   type(grid_t), allocatable, intent(inout) :: grid
   !
   !.. Local Scalars ..
@@ -4953,7 +5430,18 @@ continue
     call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  ! Deallocate grid_elem and grid_xyz because they are no longer needed
+  ! Create the grid%sol array
+  !
+  if (allocated(grid_sol)) then
+    ! USE MOVE_ALLOC (AVOIDS COPYING DATA TO NEW MEMORY)
+    call move_alloc( from=grid_sol , to=grid%sol )
+    ! USE STANDARD ALLOCATION (COPIES DATA TO NEW MEMORY)
+   !allocate ( grid%sol , source=grid_sol , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"grid%sol",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Deallocate grid_elem, grid_xyz, and grid_sol
+  ! because they are no longer needed
   !
   if (allocated(grid_elem)) then
     deallocate ( grid_elem , stat=ierr , errmsg=error_message )
@@ -4963,6 +5451,11 @@ continue
   if (allocated(grid_xyz)) then
     deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_sol)) then
+    deallocate ( grid_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_sol",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
