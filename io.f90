@@ -11,6 +11,7 @@ module io_mod
   use ovar,    only : output_dir
   use ovar,    only : plot3d_cutfile
   use ovar,    only : plot3d_bcsfile
+  use ovar,    only : solution_file, solution_format
   !
   implicit none
   !
@@ -337,6 +338,29 @@ continue
   ! Adjust the name of the grid file
   !
   gridfile = trim(adjustl(gridfile))
+  solution_file = trim(adjustl(solution_file))
+  !
+  ! Additional checks on solution file.
+  !
+  if (len_trim(solution_file) > 0) then
+    !
+    ! Make sure we have a reader for that solution format.
+    !
+    if (.not. any(solution_format == [Plot3D_Format,Restart_Format])) then
+      write (error_message,108)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    !
+    ! Make sure the grid and solution file formats are compatible.
+    !
+    if ((solution_format == Plot3D_Format .and. &
+             grid_format /= Plot3D_Format) .or. &
+        (solution_format == CGNS_Format .and. &
+             grid_format /= CGNS_Format)) then
+      write (error_message,109)
+      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
   !
   ! Make sure both profile_io_restart and profile_io_cgns
   ! are true if profile_io_all is true
@@ -478,10 +502,10 @@ continue
     !
   end if
   !
-  if (itestcase == Channel_Flow) then
-    call read_channel_init_file
-    call check_for_bad_number(__LINE__,__FILE__)
-  end if
+ !if (itestcase == Channel_Flow) then
+ !  call read_channel_init_file
+ !  call check_for_bad_number(__LINE__,__FILE__)
+ !end if
   !
   ! Compute periodic information for the transport problems
   !
@@ -744,6 +768,15 @@ continue
                 "#######################################",/)
   106 format ("Lobatto solutions points are not yet compatible with the ", &
               "option to correct the output solution so that it is continuous!")
+  108 format (/, &
+     "***************************** ERROR **********************",/, &
+     "   NO READER AVAILABLE FOR SPECIFIED SOLUTION FORMAT.",/, &
+     "***************************** ERROR **********************",/)
+  109 format (/, &
+     "***************************** ERROR **********************",/, &
+     "   THE SPECIFIED GRID AND SOLUTION FILE FORMATS ARE NOT",/, &
+     "   COMPATIBLE.",/, &
+     "***************************** ERROR **********************",/)
   21 format ("MMS ERROR: MMS solutions 1 and 2 are allowed for 2D and 3D only!")
   22 format ("MMS ERROR: MMS solution 3 is allowed for 1D and 2D only!")
   23 format ("MMS ERROR: MMS solution 4 is allowed for 2D only!")
@@ -1280,7 +1313,8 @@ continue
   else if (grid_format == CGNS_Format) then
     call read_cgns_gridfile( gridfile )
   else if (grid_format == Plot3D_Format) then
-    call read_plot3d_gridfile( gridfile , plot3d_cutfile , plot3d_bcsfile )
+    call read_plot3d_gridfile( gridfile , solution_file , &
+                               plot3d_cutfile , plot3d_bcsfile )
     call check_for_bad_number(__LINE__,__FILE__)
   end if
   !
