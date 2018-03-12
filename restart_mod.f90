@@ -133,7 +133,7 @@ contains
 !
 !###############################################################################
 !
-subroutine read_restart_file
+subroutine read_restart_file(restart_fname)
   !
   !.. Use Statements ..
   use ovar,    only : itrst,tmrst,dtrst
@@ -143,6 +143,9 @@ subroutine read_restart_file
   use ovar,    only : read_time_ave_restart
   use ovar,    only : use_old_restart_format
   use flowvar, only : usp,uavesp,time_ave_variables
+  !
+  !.. Optional Arguments ..
+  character(len=*), optional, intent(in) :: restart_fname
   !
   !.. Local Scalars ..
   integer :: n,ierr
@@ -161,6 +164,7 @@ continue
   call debug_timer(entering_procedure,pname)
   !
   fname = trim(adjustl(restart_file))
+  if (present(restart_fname)) fname = trim(adjustl(restart_fname))
   !
   if (use_old_restart_format) then
     !
