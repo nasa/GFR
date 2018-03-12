@@ -574,12 +574,24 @@ module module_kind_types
   integer, parameter :: k_omega_1998 = +k_omega
   integer, parameter :: k_omega_2006 = -k_omega
   !
-  ! Grid Types
+  ! Grid/Solution Types
+  integer, parameter :: Unknown_Format = -99
   integer, parameter :: Internally_Generated_Grid = -1
+  integer, parameter :: Restart_Format = 0
   integer, parameter :: Gambit_Neutral = 1
   integer, parameter :: Gmsh_Format = 2
   integer, parameter :: Plot3D_Format = 3
   integer, parameter :: CGNS_Format = 4
+  !
+  ! Parameterizations for Plot3D Agglomeration
+  integer, parameter :: Cartesian_Parameterization = 1
+  integer, parameter :: Axisymmetric_Parameterization = 2
+  ! ANOTHER POSSIBLE SET OF AGGLOMERATION PARAMETERS TO ALLOW
+  ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY 
+ !integer, parameter :: Cartesian_Parameterization = -1
+ !integer, parameter :: Axisymmetric_X_Parameterization = 1
+ !integer, parameter :: Axisymmetric_Y_Parameterization = 2
+ !integer, parameter :: Axisymmetric_Z_Parameterization = 3
   !
   ! CGNS constants
   integer, parameter :: reopen_CGNS = 2
