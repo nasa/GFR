@@ -471,6 +471,7 @@ module geovar
   type, public :: grid_t
     type(elem_t), allocatable :: elem(:)
     real(wp),     allocatable :: xyz(:,:)
+    real(wp),     allocatable :: sol(:,:)
   end type grid_t
   !
   type(grid_t), public, save, allocatable :: grid
@@ -1142,8 +1143,37 @@ continue
     end if
     !
     if (allocated(grid%xyz)) then
-      call dt%add( storage_size(grid%xyz,kind=inttype) , &
-                           size(grid%xyz,kind=inttype) )
+      !
+      call array%set( storage_size(grid%xyz,kind=inttype) , &
+                              size(grid%xyz,kind=inttype) )
+      !
+      write (array_name,5) "grid%xyz(:,:)"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+     !call dt%add( storage_size(grid%xyz,kind=inttype) , &
+     !                     size(grid%xyz,kind=inttype) )
+    else
+      !
+      write (iou,7) "grid%xyz(:,:)"
+      !
+    end if
+    !
+    if (allocated(grid%sol)) then
+      !
+      call array%set( storage_size(grid%sol,kind=inttype) , &
+                              size(grid%sol,kind=inttype) )
+      !
+      write (array_name,5) "grid%sol(:,:)"
+      write (iou,2) array_name,array%get_units()
+      !
+      call dt%add(array)
+     !call dt%add( storage_size(grid%sol,kind=inttype) , &
+     !                     size(grid%sol,kind=inttype) )
+    else
+      !
+      write (iou,7) "grid%sol(:,:)"
+      !
     end if
     !
     call total%add(dt)
