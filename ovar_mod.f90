@@ -2,7 +2,7 @@ module ovar
   !
   use module_kind_types, only : wp,lk,ldk,fals,true
   use module_kind_types, only : Euler_Eqns
-  use module_kind_types, only : Gambit_Neutral
+  use module_kind_types, only : Gambit_Neutral,Unknown_Format
   use module_kind_types, only : Legendre_Gauss,Legendre_Gauss_Lobatto
   use module_kind_types, only : TVD3_RK
   use module_kind_types, only : invs_flux_ROE
@@ -162,7 +162,11 @@ module ovar
   character(len=150), public, save :: plot3d_cutfile = ""
   character(len=150), public, save :: plot3d_bcsfile = ""
   !
+  integer,            public, save :: solution_format = Unknown_Format
+  character(len=150), public, save :: solution_file  = ""
+  !
   integer, public, save :: plot3d_agglomerate_order = -1
+  integer, public, save :: parametric_agglomeration = 0
   !
   integer, public, save :: plot3d_all_strides = -1
   integer, public, save :: plot3d_i_stride    = -1
@@ -572,8 +576,9 @@ module input_namelist_mod
   !.. Use Statements ..
   use ovar,      only : grid_format, gridfile, plot3d_all_strides
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
-  use ovar,      only : plot3d_agglomerate_order
+  use ovar,      only : plot3d_agglomerate_order,parametric_agglomeration
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
+  use ovar,      only : solution_format, solution_file
   use ovar,      only : loc_solution_pts, loc_flux_pts
   use ovar,      only : loc_triangle_pts, loc_quadrature_pts
   use ovar,      only : flux_divergence, correction_function
@@ -648,9 +653,12 @@ module input_namelist_mod
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
                      grid_scaling_factor
+  ! SOlUTION INFORMATION
+  namelist / input / solution_format, solution_file
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
-                     plot3d_all_strides, plot3d_agglomerate_order
+                     plot3d_all_strides, plot3d_agglomerate_order, &
+                     parametric_agglomeration
   ! BASE FR OPTIONS
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
