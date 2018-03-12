@@ -3735,6 +3735,7 @@ subroutine root_localizes_grid(nodes_of_cell,nodes_of_cell_ptr,bface, &
   real(wp),     allocatable :: global_xyz(:,:)
   integer,      allocatable :: grid_elem(:)
   real(wp),     allocatable :: grid_xyz(:,:)
+  real(wp),     allocatable :: grid_sol(:,:)
   type(grid_t), allocatable :: global_grid
   !
   !.. Local Parameters ..
@@ -3860,7 +3861,7 @@ continue
       ! Localize the grid derived type
       !
       call root_localizes_grid_dt(this_part,cell_map,global_grid, &
-                                  grid_elem,grid_xyz)
+                                  grid_elem,grid_xyz,grid_sol)
       !
     end if
     !
@@ -3878,7 +3879,7 @@ continue
      !  else
           call send_localized_partition(this_part,bface,cell_geom,cell_order, &
                                         nodes_of_cell,nodes_of_cell_ptr, &
-                                        xyz_nodes,grid_elem,grid_xyz)
+                                        xyz_nodes,grid_elem,grid_xyz,grid_sol)
      !  end if
      !end if
       !
@@ -3888,7 +3889,7 @@ continue
     !
     if (my_part == this_part) then
       call unpack_localized_grid_dt(size(cell_map(this_part)%loc_to_glb), &
-                                    grid_elem,grid_xyz,grid)
+                                    grid_elem,grid_xyz,grid_sol,grid)
     end if
     !
     call debug_timer(stop_timer,part_message)
@@ -3933,12 +3934,12 @@ continue
     ! Localize the grid derived type
     !
     call root_localizes_grid_dt(this_part,cell_map,global_grid, &
-                                grid_elem,grid_xyz)
+                                grid_elem,grid_xyz,grid_sol)
     !
     ! Unpack the grid_elem and grid_xyz arrays into grid
     !
     call unpack_localized_grid_dt(size(cell_map(this_part)%loc_to_glb), &
-                                  grid_elem,grid_xyz,grid)
+                                  grid_elem,grid_xyz,grid_sol,grid)
     !
     call debug_timer(stop_timer,part_message)
     !
@@ -4006,7 +4007,7 @@ end subroutine root_localizes_grid
 !
 !###############################################################################
 !
-subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid)
+subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid_sol,grid)
   !
   !.. Use Statements ..
   use geovar,        only : grid_t
@@ -4019,6 +4020,7 @@ subroutine unpack_localized_grid_dt(lcell,grid_elem,grid_xyz,grid)
   integer,                      intent(in) :: lcell
   integer,      allocatable, intent(inout) :: grid_elem(:)
   real(wp),     allocatable, intent(inout) :: grid_xyz(:,:)
+  real(wp),     allocatable, intent(inout) :: grid_sol(:,:)
   type(grid_t), allocatable, intent(inout) :: grid
   !
   !.. Local Scalars ..
@@ -4047,6 +4049,16 @@ continue
   ! USE STANDARD ALLOCATION (COPIES DATA TO NEW MEMORY)
  !allocate ( grid%xyz , source=grid_xyz , stat=ierr , errmsg=error_message )
  !call alloc_error(pname,"grid%xyz",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Create the grid%sol array
+  !
+  if (allocated(grid_sol)) then
+    ! USE MOVE_ALLOC (AVOIDS COPYING DATA TO NEW MEMORY)
+    call move_alloc( from=grid_sol , to=grid%sol )
+    ! USE STANDARD ALLOCATION (COPIES DATA TO NEW MEMORY)
+   !allocate ( grid%sol , source=grid_sol , stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"grid%sol",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Create the grid%elem array
   !
@@ -4142,7 +4154,7 @@ continue
     call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
-  ! Deallocate grid_elem and grid_xyz because they are no longer needed
+  ! Deallocate grid_elem, grid_xyz, grid_sol because they are no longer needed
   !
   if (allocated(grid_elem)) then
     deallocate ( grid_elem , stat=ierr , errmsg=error_message )
@@ -4152,6 +4164,11 @@ continue
   if (allocated(grid_xyz)) then
     deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_sol)) then
+    deallocate ( grid_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_sol",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Format Statements
@@ -4192,7 +4209,7 @@ end function linear_element_properties
 !
 subroutine send_localized_partition(this_part,bface,cell_geom,cell_order, &
                                     nodes_of_cell,nodes_of_cell_ptr, &
-                                    xyz_nodes,grid_elem,grid_xyz)
+                                    xyz_nodes,grid_elem,grid_xyz,grid_sol)
   !
   !.. Formal Arguments ..
   integer,                  intent(in) :: this_part
@@ -4204,6 +4221,7 @@ subroutine send_localized_partition(this_part,bface,cell_geom,cell_order, &
   real(wp), allocatable, intent(inout) :: xyz_nodes(:,:)
   integer,  allocatable, intent(inout) :: grid_elem(:)
   real(wp), allocatable, intent(inout) :: grid_xyz(:,:)
+  real(wp), allocatable, intent(inout) :: grid_sol(:,:)
   !
   !.. Local Scalars ..
   integer :: n1,n2,ierr
@@ -4212,7 +4230,7 @@ subroutine send_localized_partition(this_part,bface,cell_geom,cell_order, &
   integer(INT_MPI) :: itag6,itag7,itag8,itag9,nsz
   !
   !.. Local Arrays ..
-  integer :: array_sizes(1:13)
+  integer :: array_sizes(1:15)
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
   !
   !.. Local Parameters ..
@@ -4257,6 +4275,13 @@ continue
     array_sizes(11) = size(xyz_nodes,dim=2)
     array_sizes(12) = size(grid_xyz,dim=1)
     array_sizes(13) = size(grid_xyz,dim=2)
+    if (allocated(grid_sol)) then
+      array_sizes(14) = size(grid_sol,dim=1)
+      array_sizes(15) = size(grid_sol,dim=2)
+    else
+      array_sizes(14) = 0
+      array_sizes(15) = 0
+    end if
     !
 #ifdef DEBUG_PARALLEL
     write (iout,11) "cell_geom",         size(cell_geom)
@@ -4273,6 +4298,15 @@ continue
     write (iout,12) "grid_xyz",1,        size(grid_xyz,dim=1)
     write (iout,12) "grid_xyz",2,        size(grid_xyz,dim=2)
     write (iout,11) "grid_xyz",          size(grid_xyz)
+    if (allocated(grid_sol)) then
+      write (iout,12) "grid_sol",1,      size(grid_sol,dim=1)
+      write (iout,12) "grid_sol",2,      size(grid_sol,dim=2)
+      write (iout,11) "grid_sol",        size(grid_sol)
+    else
+      write (iout,12) "grid_sol",1,      0
+      write (iout,12) "grid_sol",2,      0
+      write (iout,11) "grid_sol",        0
+    end if
 #endif
     !
     call mpi_send(array_sizes,size(array_sizes,kind=int_mpi), &
@@ -4491,6 +4525,35 @@ continue
     !
     call mpi_recv(grid_xyz,size(grid_xyz,kind=int_mpi),mpi_flttyp, &
                   send_cpu,itag9,MPI_COMM_WORLD,istat(1),mpierr)
+    !
+  end if
+  !
+  ! ########
+  ! ## 10 ##
+  ! ########
+  !
+  ! Send the grid_sol array to the receiving processor
+  !
+  n1 = array_sizes(14)
+  n2 = array_sizes(15)
+  !
+  if (n1*n2 > 0) then
+    !
+    if (mypnum == send_cpu) then
+      !
+      call mpi_send(grid_sol,size(grid_sol,kind=int_mpi), &
+                    mpi_flttyp,recv_cpu,itag9,MPI_COMM_WORLD,mpierr)
+      !
+    else if (mypnum == recv_cpu) then
+      !
+      allocate ( grid_sol(1:n1,1:n2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"grid_sol",1,__LINE__,__FILE__,ierr,error_message)
+      !
+      call mpi_recv(grid_sol,size(grid_sol,kind=int_mpi),mpi_flttyp, &
+                    send_cpu,itag9,MPI_COMM_WORLD,istat(1),mpierr)
+      !
+    end if
     !
   end if
   !
@@ -4990,7 +5053,7 @@ end subroutine root_localizes_xyz_nodes
 !###############################################################################
 !
 subroutine root_localizes_grid_dt(this_part,cell_map,global_grid, &
-                                  grid_elem,grid_xyz)
+                                  grid_elem,grid_xyz,grid_sol)
   !
   !.. Use Statements ..
   use geovar, only : grid_t
@@ -5001,6 +5064,7 @@ subroutine root_localizes_grid_dt(this_part,cell_map,global_grid, &
   type(grid_t),             intent(in) :: global_grid
   integer,  allocatable, intent(inout) :: grid_elem(:)
   real(wp), allocatable, intent(inout) :: grid_xyz(:,:)
+  real(wp), allocatable, intent(inout) :: grid_sol(:,:)
   !
   !.. Local Scalars ..
   integer :: i,j,n,ngp,nge,nlp,ierr
@@ -5029,6 +5093,11 @@ continue
   if (allocated(grid_xyz)) then
     deallocate ( grid_xyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"grid_xyz",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(grid_sol)) then
+    deallocate ( grid_sol , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_sol",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! #######
@@ -5147,6 +5216,34 @@ continue
     grid_xyz(:,loc_pnt) = global_grid%xyz(:,l2g_map(loc_pnt))
   end do
   !
+  ! #######
+  ! ## 3 ##
+  ! #######
+  !
+  ! Create grid_sol
+  !
+  ! Allocate the grid_sol array and copy data into it from global_grid%sol
+  !
+  if (allocated(global_grid%sol)) then
+    !
+   !grid_sol = global_grid%sol(:,l2g_map) ! F2003 auto-realloc
+    !
+    n1 = size(global_grid%sol,dim=1)
+    !
+    allocate ( grid_sol(1:n1,1:nlp), source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"grid_sol",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    do loc_pnt = 1,nlp
+      grid_sol(:,loc_pnt) = global_grid%sol(:,l2g_map(loc_pnt))
+    end do
+    !
+  end if
+  !
+  ! #######
+  ! ## 4 ##
+  ! #######
+  !
   ! Create the global point index to local point index reverse mapping array
   ! NOTE: I TRIED TO COMBINE THE PREVIOUS LOOP WITH THE FOLLOWING LOOP INTO A
   !       SINGLE LOOP, AS IN:
@@ -5180,7 +5277,7 @@ continue
   end if
   !
   ! #######
-  ! ## 3 ##
+  ! ## 5 ##
   ! #######
   !
   ! Create grid_elem
