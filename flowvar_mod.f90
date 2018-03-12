@@ -229,10 +229,12 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-  allocate ( usp(1:n_solpts,1:nq) , source=zero , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
-  !$ACC UPDATE DEVICE(usp)
+  if (.not. allocated(usp)) then
+    allocate ( usp(1:n_solpts,1:nq) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(usp)
+  end if
   !
   !
   allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
