@@ -173,7 +173,7 @@ continue
 
   ! Going to wipe iblank anyway, so do it now.
   if ( present(iblank) ) then
-    if ( allocated(iblank) ) deallocate(iblank)
+    if ( allocated(iblank) ) deallocate (iblank)
   end if
 
   ! Main loop is just a container, so we can exit out.
@@ -181,7 +181,7 @@ continue
   do loop_main_var = 1,1
 
     ! Make sure the file exists before trying to read it multiple times.
-    inquire(file=trim(file),exist=file_exists)
+    inquire (file=trim(file),exist=file_exists)
     if ( .not. file_exists ) then
       iostat = 1
       iomsg = 'Plot3d file does not exist.'
@@ -201,32 +201,32 @@ continue
 
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
-        if ( 1 == 1 ) then
-          write(iout,*) 'Reading plot3d header from: ',trim(file)
-          write(iout,*) '  Form    = ',trim(p3d_form   )
-          write(iout,*) '  Convert = ',trim(p3d_convert)
-          flush(iout)
+        if (mypnum == glb_root) then
+          write (iout,*) 'Reading plot3d header from: ',trim(file)
+          write (iout,*) '  Form    = ',trim(p3d_form   )
+          write (iout,*) '  Convert = ',trim(p3d_convert)
+          flush (iout)
         endif
 !-DEBUG_END:
 
       ! Warning:  convert= is a non-standard fortran extension to the
       !           open command but is pretty common among compilers.
-      open(newunit=iop3d,file=trim(file), &
-           form=trim(p3d_form), &
-           status="old",action="read",position="rewind", &
-           convert=trim(p3d_convert), &
-           iostat=iostat, iomsg=iomsg)
+      open (newunit=iop3d,file=trim(file), &
+            form=trim(p3d_form), &
+            status="old",action="read",position="rewind", &
+            convert=trim(p3d_convert), &
+            iostat=iostat, iomsg=iomsg)
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
-        if ( 1 == 1 ) then
+        if (mypnum == glb_root) then
           if ( iostat == 0 ) then
-            write(iout,*) '  Open SUCCEEDED'
+            write (iout,*) '  Open SUCCEEDED'
           else
-            write(iout,*) '  Open FAILED'
-            write(iout,*) '    iostat = ',iostat
-            write(iout,*) '    errmsg = ',trim(iomsg)
+            write (iout,*) '  Open FAILED'
+            write (iout,*) '    iostat = ',iostat
+            write (iout,*) '    errmsg = ',trim(iomsg)
           endif
-          flush(iout)
+          flush (iout)
         endif
 !-DEBUG_END:
       ! If file opened ok, proceed.
@@ -247,15 +247,15 @@ continue
 
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
-        if ( 1 == 1 ) then
-!         write(iout,*) 'Reading plot3d header from: ',trim(file)
-!         write(iout,*) '  Form    = ',trim(p3d_form   )
-!         write(iout,*) '  Convert = ',trim(p3d_convert)
-          write(iout,*) '  Type    = ',trim(p3d_type   )
-          write(iout,*) '  Mgrid   = ',trim(p3d_mgrid  )
-          write(iout,*) '  Dim     = ',trim(p3d_dim    )
-          write(iout,*) '  Iprec   = ',trim(p3d_iprec  )
-          flush(iout)
+        if (mypnum == glb_root) then
+!         write (iout,*) 'Reading plot3d header from: ',trim(file)
+!         write (iout,*) '  Form    = ',trim(p3d_form   )
+!         write (iout,*) '  Convert = ',trim(p3d_convert)
+          write (iout,*) '  Type    = ',trim(p3d_type   )
+          write (iout,*) '  Mgrid   = ',trim(p3d_mgrid  )
+          write (iout,*) '  Dim     = ',trim(p3d_dim    )
+          write (iout,*) '  Iprec   = ',trim(p3d_iprec  )
+          flush (iout)
         endif
 !-DEBUG_END:
         ! Read Plot3d header info.
@@ -267,22 +267,22 @@ continue
                                   iostat=iostat,iomsg=iomsg)
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
-        if ( 1 == 1 ) then
-          write(iout,*) '  iostat  = ',iostat
-          write(iout,*) '  iomsg   = ',trim(iomsg)
-          flush(iout)
+        if (mypnum == glb_root) then
+          write (iout,*) '  iostat  = ',iostat
+          write (iout,*) '  iomsg   = ',trim(iomsg)
+          flush (iout)
         endif
 !-DEBUG_END:
         ! If header read ok, exit loop_header.
         if ( iostat == 0 ) exit loop_header
         ! Else, rewind and try again on next pass.
-        rewind(iop3d)
+        rewind (iop3d)
         end do
         end do
         end do
         end do
         ! Must close file before reopening on next loop pass.
-        close(iop3d)
+        close (iop3d)
       end if
     end do
     end do
@@ -290,7 +290,7 @@ continue
     iostat_header = iostat
     ! If could not read header, then skip reading the body.
     if ( iostat /= 0 ) then
-      close(iop3d)
+      close (iop3d)
       exit loop_main
     end if
 
@@ -311,22 +311,22 @@ continue
                               iostat=iostat,iomsg=iomsg)
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we tried to read.
-      if ( 1 == 1 ) then
-        write(iout,*) 'Reading plot3d body from: ',trim(file)
-        write(iout,*) '  Blank   = ',trim(p3d_blank  )
-        write(iout,*) '  Rprec   = ',trim(p3d_rprec  )
-        write(iout,*) '  iostat  = ',iostat
-        write(iout,*) '  iomsg   = ',trim(iomsg)
-        flush(iout)
+      if (mypnum == glb_root) then
+        write (iout,*) 'Reading plot3d body from: ',trim(file)
+        write (iout,*) '  Blank   = ',trim(p3d_blank  )
+        write (iout,*) '  Rprec   = ',trim(p3d_rprec  )
+        write (iout,*) '  iostat  = ',iostat
+        write (iout,*) '  iomsg   = ',trim(iomsg)
+        flush (iout)
       endif
 !-DEBUG_END:
       ! If body read ok, exit loop_body.
       if ( iostat == 0 ) then
-        close(iop3d)
+        close (iop3d)
         exit loop_body
       end if
       ! Else, rewind, read header, and try again on next pass.
-      rewind(iop3d)
+      rewind (iop3d)
       call plot3dio_read_header(unit=iop3d,file=file,form=p3d_form, &
                                 type=p3d_type, &
                                 mgrid=p3d_mgrid,dim=p3d_dim, &
@@ -336,7 +336,7 @@ continue
       ! Should never have trouble re-reading the header.
       ! But if so, exit out of here.
       if ( iostat /= 0 ) then
-        close(iop3d)
+        close (iop3d)
         exit loop_body
       end if
 
@@ -358,15 +358,17 @@ continue
   else
     ! Read failed.  Modify the error message to include the file name.
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG_BEG[plot3dio_read_unknown_file]'
-  write(iout,*) '  Unable to read Plot3d file'
-  write(iout,*) '  ',trim(file)
-  write(iout,*) '  ',trim(iomsg)
-  write(iout,*) 'DEBUG_END[plot3dio_read_unknown_file]'
-  flush(iout)
+    if (mypnum == glb_root) then
+      write (iout,*) 'DEBUG_BEG[plot3dio_read_unknown_file]'
+      write (iout,*) '  Unable to read Plot3d file'
+      write (iout,*) '  ',trim(file)
+      write (iout,*) '  ',trim(iomsg)
+      write (iout,*) 'DEBUG_END[plot3dio_read_unknown_file]'
+      flush (iout)
+    end if
 !-DEBUG_CMT: gcc "Fortran runtime error: End of file" on next regular line.
 !-DEBUG_END:
-    write(iomsg,'(a,/,a)') 'Unable to read Plot3d file '//trim(file)//'.', &
+    write (iomsg,'(a,/,a)') 'Unable to read Plot3d file '//trim(file)//'.', &
                            trim(iomsg)
   end if
 
@@ -501,14 +503,16 @@ continue
     !
     ! Warning:  convert= is a non-standard fortran extension to the
     !           open command but is pretty common among compilers.
-    open(newunit=iop3d,file=trim(file), &
-         form=trim(p3d_form), &
-         status="old",action="read",position="rewind", &
-         convert=trim(p3d_convert), &
-         iostat=iostat, iomsg=iomsg)
+    open (newunit=iop3d,file=trim(file), &
+          form=trim(p3d_form), &
+          status="old",action="read",position="rewind", &
+          convert=trim(p3d_convert), &
+          iostat=iostat, iomsg=iomsg)
     if ( iostat == 0 ) then
       ! Read Plot3d header info.
-      write(*,*) '  Reading Plot3d header.'  ! DEBUG OUTPUT
+      if (mypnum == glb_root) then
+        write (iout,*) '  Reading Plot3d header.'  ! DEBUG OUTPUT
+      end if
       call plot3dio_read_header(unit=iop3d,file=file,form=p3d_form, &
                                 type=p3d_type, &
                                 mgrid=p3d_mgrid,dim=p3d_dim, &
@@ -518,10 +522,12 @@ continue
       if ( iostat == 0 ) then
         ! Deallocate iblank to help keep free memory contiguous.
         if ( present(iblank) ) then
-          if ( allocated(iblank) ) deallocate(iblank)
+          if ( allocated(iblank) ) deallocate (iblank)
         end if
         ! Read Plot3d body data.
-        write(*,*) '  Reading Plot3d body.'  ! DEBUG OUTPUT
+        if (mypnum == glb_root) then
+          write (iout,*) '  Reading Plot3d body.'  ! DEBUG OUTPUT
+        end if
         call plot3dio_read_data(unit=iop3d,file=file,form=p3d_form, &
                                 type=p3d_type,blank=p3d_blank, &
                                 mgrid=p3d_mgrid,dim=p3d_dim, &
@@ -611,8 +617,8 @@ continue
       ijk  = int(ijk_dp)  ! Using F2003 Auto-Reallocation
       nvar = int(nvar_dp) ! Using F2003 Auto-Reallocation
     end if
-    if ( allocated(ijk_dp) ) deallocate(ijk_dp)
-    if ( allocated(nvar_dp) ) deallocate(nvar_dp)
+    if ( allocated(ijk_dp) ) deallocate (ijk_dp)
+    if ( allocated(nvar_dp) ) deallocate (nvar_dp)
   else
     iostat = 1
     iomsg  = 'Plot3d iprec option must be one of "SINGLE|DOUBLE".'
@@ -673,12 +679,12 @@ continue
     if ( allocated(data) ) then
       if ( size(data,dim=1) /= mxvar .or. &
            size(data,dim=2) /= nblk  ) then
-        deallocate( data, stat=ierr, errmsg=error_message )
+        deallocate ( data, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"data",2,__LINE__,__FILE__,ierr,error_message)
       end if
     end if
     if ( .not. allocated(data) ) then
-      allocate( data(1:mxvar,1:nnode), source=0.0_wp, &
+      allocate ( data(1:mxvar,1:nnode), source=0.0_wp, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"data",1,__LINE__,__FILE__,ierr,error_message)
     end if
@@ -698,7 +704,7 @@ continue
       end if
       if ( allocated(data_sp) ) then
         if ( iostat == 0 ) data(:,:) = real(data_sp(:,:),kind(wp))
-        deallocate(data_sp)
+        deallocate (data_sp)
       end if
     else if ( rprec == 'DOUBLE' ) then
       if ( form == 'FORMATTED' ) then
@@ -712,7 +718,7 @@ continue
       end if
       if ( allocated(data_dp) ) then
         if ( iostat == 0 ) data(:,:) = real(data_dp(:,:),kind(wp))
-        deallocate(data_dp)
+        deallocate (data_dp)
       end if
     else
       iostat = 1
@@ -808,11 +814,11 @@ continue
   iomsg  = ''
 
   if ( form == 'FORMATTED' ) then
-    read(dim,'(i1)') ndim
+    read (dim,'(i1)') ndim
     if ( mgrid == 'NO' ) then
       nblk = 1
     else
-      read(unit,*,iostat=iostat,iomsg=iomsg) nblk_i4
+      read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i4
       nblk = int(nblk_i4)
     end if
     if ( iostat /= 0 ) then
@@ -825,31 +831,31 @@ continue
       iomsg  = 'Number of blocks in header of Plot3d file is too large.'
     else
       if ( allocated(ijk) ) then
-        deallocate( ijk, stat=ierr, errmsg=error_message )
+        deallocate ( ijk, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"ijk",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( ijk(1:3,1:nblk), source=1_i4, &
+      allocate ( ijk(1:3,1:nblk), source=1_i4, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"ijk",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( allocated(nvar) ) then
-        deallocate( nvar, stat=ierr, errmsg=error_message )
+        deallocate ( nvar, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"nvar",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( nvar(1:nblk), source=1_i4, &
+      allocate ( nvar(1:nblk), source=1_i4, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"nvar",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( type == 'XYZ' ) then
-        read(unit,*,iostat=iostat,iomsg=iomsg) &
+        read (unit,*,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
       else if ( type == 'SOL' ) then
-        read(unit,*,iostat=iostat) &
+        read (unit,*,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim+2
       else if ( type == 'FUN' ) then
-        read(unit,*,iostat=iostat) &
+        read (unit,*,iostat=iostat) &
           ((ijk(l,n),nvar(n), l=1,ndim), n=1,nblk)
         if ( any(nvar(:) <= 0 ) ) then
           iostat = 1
@@ -935,19 +941,19 @@ continue
     mxvar = maxval(nvar(:))
 
     if ( allocated(data) ) then
-      deallocate( data, stat=ierr, errmsg=error_message )
+      deallocate ( data, stat=ierr, errmsg=error_message )
       call alloc_error(pname,"data",2,__LINE__,__FILE__,ierr,error_message)
     end if
-    allocate( data(1:mxvar,1:nnode), source=0.0_sp, &
+    allocate ( data(1:mxvar,1:nnode), source=0.0_sp, &
               stat=ierr, errmsg=error_message )
     call alloc_error(pname,"data",1,__LINE__,__FILE__,ierr,error_message)
 
     if ( type == 'XYZ' .and. blank == 'YES' ) then
       if ( allocated(iblank) ) then
-        deallocate( iblank, stat=ierr, errmsg=error_message )
+        deallocate ( iblank, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( iblank(1:nnode), source=1, &
+      allocate ( iblank(1:nnode), source=1, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"iblank",1,__LINE__,__FILE__,ierr,error_message)
 
@@ -955,26 +961,26 @@ continue
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
       else
-        allocate( iblank_i8(1:nnode), source=1_i8, &
+        allocate ( iblank_i8(1:nnode), source=1_i8, &
                   stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank_i8",1,__LINE__,__FILE__, &
                          ierr,error_message)
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank_i8(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
         iblank(:) = int(iblank_i8(:))
-        deallocate(iblank_i8)
+        deallocate (iblank_i8)
       end if
 
     else
@@ -982,9 +988,9 @@ continue
       do iblk = 1,nblk
         npts = product(ijk(1:ndim,iblk))
         if ( type == 'SOL' ) then
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
         end if
-        read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+        read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
           ((data(l,i0+i), i=1,npts),l=1,nvar(iblk))
         i0 = i0 + npts
       end do
@@ -1050,11 +1056,11 @@ continue
   iomsg  = ''
 
   if ( form /= 'FORMATTED' ) then
-    read(dim,'(i1)') ndim
+    read (dim,'(i1)') ndim
     if ( mgrid == 'NO' ) then
       nblk = 1
     else
-      read(unit,iostat=iostat,iomsg=iomsg) nblk_i4
+      read (unit,iostat=iostat,iomsg=iomsg) nblk_i4
       nblk = int(nblk_i4)
     end if
     if ( iostat /= 0 ) then
@@ -1067,31 +1073,31 @@ continue
       iomsg  = 'Number of blocks in header of Plot3d file is too large.'
     else
       if ( allocated(ijk) ) then
-        deallocate( ijk, stat=ierr, errmsg=error_message )
+        deallocate ( ijk, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"ijk",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( ijk(1:3,1:nblk), source=1_i4, &
+      allocate ( ijk(1:3,1:nblk), source=1_i4, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"ijk",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( allocated(nvar) ) then
-        deallocate( nvar, stat=ierr, errmsg=error_message )
+        deallocate ( nvar, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"nvar",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( nvar(1:nblk), source=1_i4, &
+      allocate ( nvar(1:nblk), source=1_i4, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"nvar",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( type == 'XYZ' ) then
-        read(unit,iostat=iostat,iomsg=iomsg) &
+        read (unit,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
       else if ( type == 'SOL' ) then
-        read(unit,iostat=iostat) &
+        read (unit,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim+2
       else if ( type == 'FUN' ) then
-        read(unit,iostat=iostat) &
+        read (unit,iostat=iostat) &
           ((ijk(l,n),nvar(n), l=1,ndim), n=1,nblk)
         if ( any(nvar(:) <= 0 ) ) then
           iostat = 1
@@ -1177,19 +1183,19 @@ continue
     mxvar = maxval(nvar(:))
 
     if ( allocated(data) ) then
-      deallocate( data, stat=ierr, errmsg=error_message )
+      deallocate ( data, stat=ierr, errmsg=error_message )
       call alloc_error(pname,"data",2,__LINE__,__FILE__,ierr,error_message)
     end if
-    allocate( data(1:mxvar,1:nnode), source=0.0_sp, &
+    allocate ( data(1:mxvar,1:nnode), source=0.0_sp, &
               stat=ierr, errmsg=error_message )
     call alloc_error(pname,"data",1,__LINE__,__FILE__,ierr,error_message)
 
     if ( type == 'XYZ' .and. blank == 'YES' ) then
       if ( allocated(iblank) ) then
-        deallocate( iblank, stat=ierr, errmsg=error_message )
+        deallocate ( iblank, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( iblank(1:nnode), source=1, &
+      allocate ( iblank(1:nnode), source=1, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"iblank",1,__LINE__,__FILE__,ierr,error_message)
 
@@ -1197,26 +1203,26 @@ continue
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
       else
-        allocate( iblank_i8(1:nnode), source=1_i8, &
+        allocate ( iblank_i8(1:nnode), source=1_i8, &
                   stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank_i8",1,__LINE__,__FILE__, &
                          ierr,error_message)
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank_i8(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
         iblank(:) = int(iblank_i8(:))
-        deallocate(iblank_i8)
+        deallocate (iblank_i8)
       end if
 
     else
@@ -1224,9 +1230,9 @@ continue
       do iblk = 1,nblk
         npts = product(ijk(1:ndim,iblk))
         if ( type == 'SOL' ) then
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
         end if
-        read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+        read (unit,iostat=iostat,iomsg=iomsg,end=9) &
           ((data(l,i0+i), i=1,npts),l=1,nvar(iblk))
         i0 = i0 + npts
       end do
@@ -1292,11 +1298,11 @@ continue
   iomsg  = ''
 
   if ( form == 'FORMATTED' ) then
-    read(dim,'(i1)') ndim
+    read (dim,'(i1)') ndim
     if ( mgrid == 'NO' ) then
       nblk = 1
     else
-      read(unit,*,iostat=iostat,iomsg=iomsg) nblk_i8
+      read (unit,*,iostat=iostat,iomsg=iomsg) nblk_i8
       nblk = int(nblk_i8)
     end if
     if ( iostat /= 0 ) then
@@ -1309,31 +1315,31 @@ continue
       iomsg  = 'Number of blocks in header of Plot3d file is too large.'
     else
       if ( allocated(ijk) ) then
-        deallocate( ijk, stat=ierr, errmsg=error_message )
+        deallocate ( ijk, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"ijk",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( ijk(1:3,1:nblk), source=1_i8, &
+      allocate ( ijk(1:3,1:nblk), source=1_i8, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"ijk",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( allocated(nvar) ) then
-        deallocate( nvar, stat=ierr, errmsg=error_message )
+        deallocate ( nvar, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"nvar",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( nvar(1:nblk), source=1_i8, &
+      allocate ( nvar(1:nblk), source=1_i8, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"nvar",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( type == 'XYZ' ) then
-        read(unit,*,iostat=iostat,iomsg=iomsg) &
+        read (unit,*,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
       else if ( type == 'SOL' ) then
-        read(unit,*,iostat=iostat) &
+        read (unit,*,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim+2
       else if ( type == 'FUN' ) then
-        read(unit,*,iostat=iostat) &
+        read (unit,*,iostat=iostat) &
           ((ijk(l,n),nvar(n), l=1,ndim), n=1,nblk)
         if ( any(nvar(:) <= 0 ) ) then
           iostat = 1
@@ -1419,19 +1425,19 @@ continue
     mxvar = maxval(nvar(:))
 
     if ( allocated(data) ) then
-      deallocate( data, stat=ierr, errmsg=error_message )
+      deallocate ( data, stat=ierr, errmsg=error_message )
       call alloc_error(pname,"data",2,__LINE__,__FILE__,ierr,error_message)
     end if
-    allocate( data(1:mxvar,1:nnode), source=0.0_dp, &
+    allocate ( data(1:mxvar,1:nnode), source=0.0_dp, &
               stat=ierr, errmsg=error_message )
     call alloc_error(pname,"data",1,__LINE__,__FILE__,ierr,error_message)
 
     if ( type == 'XYZ' .and. blank == 'YES' ) then
       if ( allocated(iblank) ) then
-        deallocate( iblank, stat=ierr, errmsg=error_message )
+        deallocate ( iblank, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( iblank(1:nnode), source=1, &
+      allocate ( iblank(1:nnode), source=1, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"iblank",1,__LINE__,__FILE__,ierr,error_message)
 
@@ -1439,26 +1445,26 @@ continue
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
       else
-        allocate( iblank_i8(1:nnode), source=1_i8, &
+        allocate ( iblank_i8(1:nnode), source=1_i8, &
                   stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank_i8",1,__LINE__,__FILE__, &
                          ierr,error_message)
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank_i8(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
         iblank(:) = int(iblank_i8(:))
-        deallocate(iblank_i8)
+        deallocate (iblank_i8)
       end if
 
     else
@@ -1466,9 +1472,9 @@ continue
       do iblk = 1,nblk
         npts = product(ijk(1:ndim,iblk))
         if ( type == 'SOL' ) then
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
         end if
-        read(unit,*,iostat=iostat,iomsg=iomsg,end=9) &
+        read (unit,*,iostat=iostat,iomsg=iomsg,end=9) &
           ((data(l,i0+i), i=1,npts),l=1,nvar(iblk))
         i0 = i0 + npts
       end do
@@ -1534,11 +1540,11 @@ continue
   iomsg  = ''
 
   if ( form /= 'FORMATTED' ) then
-    read(dim,'(i1)') ndim
+    read (dim,'(i1)') ndim
     if ( mgrid == 'NO' ) then
       nblk = 1
     else
-      read(unit,iostat=iostat,iomsg=iomsg) nblk_i8
+      read (unit,iostat=iostat,iomsg=iomsg) nblk_i8
       nblk = int(nblk_i8)
     end if
     if ( iostat /= 0 ) then
@@ -1551,31 +1557,31 @@ continue
       iomsg  = 'Number of blocks in header of Plot3d file is too large.'
     else
       if ( allocated(ijk) ) then
-        deallocate( ijk, stat=ierr, errmsg=error_message )
+        deallocate ( ijk, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"ijk",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( ijk(1:3,1:nblk), source=1_i8, &
+      allocate ( ijk(1:3,1:nblk), source=1_i8, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"ijk",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( allocated(nvar) ) then
-        deallocate( nvar, stat=ierr, errmsg=error_message )
+        deallocate ( nvar, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"nvar",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( nvar(1:nblk), source=1_i8, &
+      allocate ( nvar(1:nblk), source=1_i8, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"nvar",1,__LINE__,__FILE__,ierr,error_message)
 
       if ( type == 'XYZ' ) then
-        read(unit,iostat=iostat,iomsg=iomsg) &
+        read (unit,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
       else if ( type == 'SOL' ) then
-        read(unit,iostat=iostat) &
+        read (unit,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim+2
       else if ( type == 'FUN' ) then
-        read(unit,iostat=iostat) &
+        read (unit,iostat=iostat) &
           ((ijk(l,n),nvar(n), l=1,ndim), n=1,nblk)
         if ( any(nvar(:) <= 0 ) ) then
           iostat = 1
@@ -1661,19 +1667,19 @@ continue
     mxvar = maxval(nvar(:))
 
     if ( allocated(data) ) then
-      deallocate( data, stat=ierr, errmsg=error_message )
+      deallocate ( data, stat=ierr, errmsg=error_message )
       call alloc_error(pname,"data",2,__LINE__,__FILE__,ierr,error_message)
     end if
-    allocate( data(1:mxvar,1:nnode), source=0.0_dp, &
+    allocate ( data(1:mxvar,1:nnode), source=0.0_dp, &
               stat=ierr, errmsg=error_message )
     call alloc_error(pname,"data",1,__LINE__,__FILE__,ierr,error_message)
 
     if ( type == 'XYZ' .and. blank == 'YES' ) then
       if ( allocated(iblank) ) then
-        deallocate( iblank, stat=ierr, errmsg=error_message )
+        deallocate ( iblank, stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank",2,__LINE__,__FILE__,ierr,error_message)
       end if
-      allocate( iblank(1:nnode), source=1, &
+      allocate ( iblank(1:nnode), source=1, &
                 stat=ierr, errmsg=error_message )
       call alloc_error(pname,"iblank",1,__LINE__,__FILE__,ierr,error_message)
 
@@ -1681,26 +1687,26 @@ continue
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
       else
-        allocate( iblank_i8(1:nnode), source=1_i8, &
+        allocate ( iblank_i8(1:nnode), source=1_i8, &
                   stat=ierr, errmsg=error_message )
         call alloc_error(pname,"iblank_i8",1,__LINE__,__FILE__, &
                          ierr,error_message)
         i0 = 0
         do iblk = 1,nblk
           npts = product(ijk(1:ndim,iblk))
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) &
             ((data(l,i0+i), i=1,npts),l=1,nvar(iblk)), &
              (iblank_i8(i0+i), i=1,npts)
           i0 = i0 + npts
         end do
         iblank(:) = int(iblank_i8(:))
-        deallocate(iblank_i8)
+        deallocate (iblank_i8)
       end if
 
     else
@@ -1708,9 +1714,9 @@ continue
       do iblk = 1,nblk
         npts = product(ijk(1:ndim,iblk))
         if ( type == 'SOL' ) then
-          read(unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
+          read (unit,iostat=iostat,iomsg=iomsg,end=9) fsmach,alpha,re,time
         end if
-        read(unit,iostat=iostat,iomsg=iomsg,end=9) &
+        read (unit,iostat=iostat,iomsg=iomsg,end=9) &
           ((data(l,i0+i), i=1,npts),l=1,nvar(iblk))
         i0 = i0 + npts
       end do
