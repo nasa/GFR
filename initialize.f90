@@ -632,7 +632,8 @@ continue
       if (itestcase == Nozzle_Jet) then
         div = eps1*smc000_interior_wall_radius(one)
       else if (itestcase == -Nozzle_Jet) then
-        div = eps1*arn2_interior_wall_radius(one)
+       !div = eps1*arn2_interior_wall_radius(one)
+        div = 0.04_wp*arn2_interior_wall_radius(one)
       end if
       !
       do k = 1,np
@@ -861,6 +862,7 @@ subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   !
   !.. Use Statements ..
   use geovar, only : grid
+  use ovar,   only : jet_init_func
   !
   !.. Dummy Function Interface ..
   interface
@@ -884,7 +886,7 @@ subroutine find_elem_for_initial_jet_profile(point_is_in_nozzle_interior)
   character(len=*), parameter :: pname = "find_elem_for_initial_jet_profile"
   !
  !integer, parameter :: init_val = 1 ! radial error function profile
-  integer, parameter :: init_val = 2 ! inflow mach number limiter
+ !integer, parameter :: init_val = 2 ! inflow mach number limiter
  !integer, parameter :: init_val = 3 ! options 1 and 2 combined
   !
 continue
@@ -902,13 +904,13 @@ continue
       end do
       !
       if (xyz_ave(1) > zero) then
-        if (any(init_val == [2,3])) then
+        if (any(jet_init_func == [2,3])) then
           init = 0
         else
-          init = init_val
+          init = jet_init_func
         end if
       else
-        init = merge(init_val,0,point_is_in_nozzle_interior(xyz_ave))
+        init = merge(jet_init_func,0,point_is_in_nozzle_interior(xyz_ave))
       end if
       !
       if (size(grid%elem(n)%tags) < 2) then
@@ -2293,7 +2295,9 @@ continue
           if (nr >= 2) then
             alpha = atan2(bc_in(i)%pv(nmy),bc_in(i)%pv(nmx))
             if (nr == 3) then
-              beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+              if (norm2(bc_in(i)%pv(nmb:nme)) > zero) then
+                beta = asin(bc_in(i)%pv(nmz)/norm2(bc_in(i)%pv(nmb:nme)))
+              end if
             end if
           end if
           alpha = alpha * radians2degrees
