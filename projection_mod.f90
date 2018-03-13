@@ -1,6 +1,6 @@
 module projection_mod
   !
-#define PROFILE_ON
+!!!#define PROFILE_ON
   !
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
@@ -121,7 +121,7 @@ subroutine init_projection_matrices()
   !
   !.. Use Statements ..
   use geovar,          only : nr
-  use order_mod,       only : geom_solpts
+  use order_mod,       only : geom_solpts,p_order
   use order_mod,       only : n_min_geom,n_max_geom
   use order_mod,       only : n_min_order,n_max_order
   use quadrature_mod,  only : geom_is_used
@@ -412,6 +412,7 @@ continue
           lmtr_omin = elem_order-1
         end if
       end if
+      lmtr_omin = min(lmtr_omin,p_order)
       !
       lmtr_omax = elem_order-1
       !
