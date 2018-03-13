@@ -3,7 +3,7 @@ module ovar
   use module_kind_types, only : wp,lk,ldk,fals,true
   use module_kind_types, only : Euler_Eqns
   use module_kind_types, only : Gambit_Neutral,Unknown_Format
-  use module_kind_types, only : Legendre_Gauss,Legendre_Gauss_Lobatto
+  use module_kind_types, only : Legendre_Gauss,Equi_Distant_Points
   use module_kind_types, only : TVD3_RK
   use module_kind_types, only : invs_flux_ROE
   use module_kind_types, only : visc_flux_BR2
@@ -79,7 +79,7 @@ module ovar
   logical(lk), public, save :: load_restart_file = fals
   integer,  public, save :: restart_interval = 0
   character(len=150), public, save :: restart_file = "out.rst"
-  logical(lk), public, save :: restart_output_uses_host_roots = fals
+  logical(lk), public, save :: restart_output_uses_host_roots = true
   !
   integer,  public, save :: iter_out_interval =  1
   integer,  public, save :: results_interval  =  0
@@ -137,7 +137,7 @@ module ovar
   integer, public, save :: Limiting_Interval = 0
   !
   ! Default to output solution at Legendre Gauss Lobatto points
-  integer,  public, save :: loc_output_pts = Legendre_Gauss_Lobatto
+  integer,  public, save :: loc_output_pts = Equi_Distant_Points
   ! Default to initialize solution at solution points
   integer,  public, save :: loc_init_pts   = 0
   ! Default to compute solution error at Legendre Gauss points
@@ -182,7 +182,7 @@ module ovar
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
   real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
   !
-  logical(lk), public, save :: use_bc_conflicts = true
+  logical(lk), public, save :: use_bc_conflicts = fals
   !
   logical(lk), public, save :: dump_memory_usage = fals
   logical(lk), public, save :: dump_fluxes       = fals
@@ -648,7 +648,7 @@ module input_namelist_mod
   !
   public
   !
-  integer, save :: all_orders = 3
+  integer, save :: all_orders = -3
   integer, save :: solution_order = 3
   integer, save :: projection_order = 3
   integer, save :: quadrature_order = 3
