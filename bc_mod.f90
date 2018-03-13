@@ -130,16 +130,17 @@ continue
             bc_idx,(bc_in(bc_idx)%cv(j),j=1,nq), &
             bc_idx,(bc_in(bc_idx)%pv(j),j=1,nq)
       flush (mypnum+500)
-      100 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &
-                    "bc_grps(",i0,")%end_fp  = ",i0,/, &
-                    "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
-                    "bc_grps(",i0,")%bc_idx  = ",i0,/, &
-                    "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
-                    "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
-                    "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
-             "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")",/, &
-             "bc_in(",i0,")%cv = ",5es14.6,/, &
-             "bc_in(",i0,")%pv = ",5es14.6)
+      100 format (/, &
+        "bc_grps(",i0,")%beg_fp  = ",i0,/, &
+        "bc_grps(",i0,")%end_fp  = ",i0,/, &
+        "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
+        "bc_grps(",i0,")%bc_idx  = ",i0,/, &
+        "dim(bc_in(",i0,")%cv) = bc_in(",i0,")%cv(",i0,":",i0,")",/, &
+        "dim(bc_in(",i0,")%pv) = bc_in(",i0,")%pv(",i0,":",i0,")",/, &
+        "dim(facenrm) = facenrm(",i0,":",i0,",",i0,":",i0,")",/, &
+        "dim(faceusp) = faceusp(",i0,":",i0,",",i0,":",i0,",",i0,":",i0,")",/, &
+        "bc_in(",i0,")%cv = ",5es14.6,/, &
+        "bc_in(",i0,")%pv = ",5es14.6)
     end if
 #endif
     !
