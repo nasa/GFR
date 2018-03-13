@@ -3133,6 +3133,7 @@ subroutine get_input_mpi_datatypes(restart_nq,restart_rp,real_type, &
   integer(int_mpi), allocatable :: sol_blklen(:)
   integer(int_mpi), allocatable :: tmp_copy(:)
   integer,          allocatable :: pinc_ptr(:)
+  integer,          allocatable :: cell_input_order(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_input_mpi_datatypes"
@@ -3222,6 +3223,11 @@ continue
   call alloc_error(pname,"cell_input_data",1,__LINE__,__FILE__,ierr, &
                    error_message)
   !
+  allocate ( cell_input_order(1:ncell) , source=0 , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_input_order",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
   allocate ( msk(1:ncell) , source=true , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"msk",1,__LINE__,__FILE__,ierr,error_message)
   !
@@ -3231,11 +3237,21 @@ continue
   !       some fancy sorting algorithm and this simple minloc method will
   !       more than likely be relatively inexpensive.
   !
+  call heap_sort_integer(ncell,sol_offset,cell_input_order)
+  !
   do nc = 1,ncell
-    n = minloc( sol_offset , dim=1 , mask=msk )
-    msk(n) = fals
-    cell_input_data(nc)%input_cell = n
+    cell_input_data(nc)%input_cell = cell_input_order(nc)
   end do
+  !
+  deallocate ( cell_input_order , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"cell_input_order",2,__LINE__,__FILE__, & 
+                   ierr,error_message)
+  !
+ !do nc = 1,ncell
+ !  n = minloc( sol_offset , dim=1 , mask=msk )
+ !  msk(n) = fals
+ !  cell_input_data(nc)%input_cell = n
+ !end do
   !
   ! Deallocate the msk array
   !
