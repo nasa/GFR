@@ -23,6 +23,7 @@ modules/gpu/*
 modules/gpu_mm/*
 recon
 debug_recon
+recon_skylake
 recon_broadwell
 recon_haswell
 recon_ivybridge
