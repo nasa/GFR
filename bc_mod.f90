@@ -6674,15 +6674,15 @@ continue
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
   do n = n1,n2
-    face_cv(n,nec,2) =  face_cv(periodic_list(n),nec,1)
-    face_cv(n,nmx,2) =  face_cv(periodic_list(n),nmx,1)
-    face_cv(n,nmy,2) =  face_cv(periodic_list(n),nmy,1)
+    face_cv(n,nec,2) =  face_cv(periodic_list(n-n1+1),nec,1)
+    face_cv(n,nmx,2) =  face_cv(periodic_list(n-n1+1),nmx,1)
+    face_cv(n,nmy,2) =  face_cv(periodic_list(n-n1+1),nmy,1)
 #ifdef REVERSE_PERIODIC
-    face_cv(n,nmz,2) = -face_cv(periodic_list(n),nmz,1)
+    face_cv(n,nmz,2) = -face_cv(periodic_list(n-n1+1),nmz,1)
 #else
-    face_cv(n,nmz,2) =  face_cv(periodic_list(n),nmz,1)
+    face_cv(n,nmz,2) =  face_cv(periodic_list(n-n1+1),nmz,1)
 #endif
-    face_cv(n,nee,2) =  face_cv(periodic_list(n),nee,1)
+    face_cv(n,nee,2) =  face_cv(periodic_list(n-n1+1),nee,1)
   end do
   !
 end subroutine get_bc_periodic_solution_3d
@@ -6715,14 +6715,14 @@ continue
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
   do n = n1,n2
-    face_cv(n,nec,2) =  face_cv(periodic_list(n),nec,1)
-    face_cv(n,nmx,2) =  face_cv(periodic_list(n),nmx,1)
+    face_cv(n,nec,2) =  face_cv(periodic_list(n-n1+1),nec,1)
+    face_cv(n,nmx,2) =  face_cv(periodic_list(n-n1+1),nmx,1)
 #ifdef REVERSE_PERIODIC
-    face_cv(n,nmy,2) = -face_cv(periodic_list(n),nmy,1)
+    face_cv(n,nmy,2) = -face_cv(periodic_list(n-n1+1),nmy,1)
 #else
-    face_cv(n,nmy,2) =  face_cv(periodic_list(n),nmy,1)
+    face_cv(n,nmy,2) =  face_cv(periodic_list(n-n1+1),nmy,1)
 #endif
-    face_cv(n,nee,2) =  face_cv(periodic_list(n),nee,1)
+    face_cv(n,nee,2) =  face_cv(periodic_list(n-n1+1),nee,1)
   end do
   !
 end subroutine get_bc_periodic_solution_2d
@@ -6754,7 +6754,7 @@ continue
   !$ACC&              PRESENT(face_cv,periodic_list)
   do m = 1,size(face_cv,dim=2)
     do n = n1,n2
-      face_cv(n,m,2) = face_cv(periodic_list(n),m,1)
+      face_cv(n,m,2) = face_cv(periodic_list(n-n1+1),m,1)
     end do
   end do
 #ifdef REVERSE_PERIODIC
@@ -6764,7 +6764,7 @@ continue
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv,periodic_list)
   do n = n1,n2
-    face_cv(n,nme,2) = -face_cv(periodic_list(n),nme,1)
+    face_cv(n,nme,2) = -face_cv(periodic_list(n-n1+1),nme,1)
   end do
 #endif
   !
@@ -7417,25 +7417,25 @@ continue
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list)
   do n = n1,n2
     !
-    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n),1,nec,1)
-    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n),2,nec,1)
-    face_dcvdx(n,3,nec,2) = face_dcvdx(periodic_list(n),3,nec,1)
+    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n-n1+1),1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n-n1+1),2,nec,1)
+    face_dcvdx(n,3,nec,2) = face_dcvdx(periodic_list(n-n1+1),3,nec,1)
     !
-    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n),1,nmx,1)
-    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n),2,nmx,1)
-    face_dcvdx(n,3,nmx,2) = face_dcvdx(periodic_list(n),3,nmx,1)
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n-n1+1),1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n-n1+1),2,nmx,1)
+    face_dcvdx(n,3,nmx,2) = face_dcvdx(periodic_list(n-n1+1),3,nmx,1)
     !
-    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n),1,nmy,1)
-    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n),2,nmy,1)
-    face_dcvdx(n,3,nmy,2) = face_dcvdx(periodic_list(n),3,nmy,1)
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n-n1+1),1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n-n1+1),2,nmy,1)
+    face_dcvdx(n,3,nmy,2) = face_dcvdx(periodic_list(n-n1+1),3,nmy,1)
     !
-    face_dcvdx(n,1,nmz,2) = face_dcvdx(periodic_list(n),1,nmz,1)
-    face_dcvdx(n,2,nmz,2) = face_dcvdx(periodic_list(n),2,nmz,1)
-    face_dcvdx(n,3,nmz,2) = face_dcvdx(periodic_list(n),3,nmz,1)
+    face_dcvdx(n,1,nmz,2) = face_dcvdx(periodic_list(n-n1+1),1,nmz,1)
+    face_dcvdx(n,2,nmz,2) = face_dcvdx(periodic_list(n-n1+1),2,nmz,1)
+    face_dcvdx(n,3,nmz,2) = face_dcvdx(periodic_list(n-n1+1),3,nmz,1)
     !
-    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n),1,nee,1)
-    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n),2,nee,1)
-    face_dcvdx(n,3,nee,2) = face_dcvdx(periodic_list(n),3,nee,1)
+    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n-n1+1),1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n-n1+1),2,nee,1)
+    face_dcvdx(n,3,nee,2) = face_dcvdx(periodic_list(n-n1+1),3,nee,1)
     !
   end do
   !
@@ -7460,17 +7460,17 @@ continue
   !$ACC PARALLEL LOOP PRESENT(face_dcvdx,periodic_list)
   do n = n1,n2
     !
-    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n),1,nec,1)
-    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n),2,nec,1)
+    face_dcvdx(n,1,nec,2) = face_dcvdx(periodic_list(n-n1+1),1,nec,1)
+    face_dcvdx(n,2,nec,2) = face_dcvdx(periodic_list(n-n1+1),2,nec,1)
     !
-    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n),1,nmx,1)
-    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n),2,nmx,1)
+    face_dcvdx(n,1,nmx,2) = face_dcvdx(periodic_list(n-n1+1),1,nmx,1)
+    face_dcvdx(n,2,nmx,2) = face_dcvdx(periodic_list(n-n1+1),2,nmx,1)
     !
-    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n),1,nmy,1)
-    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n),2,nmy,1)
+    face_dcvdx(n,1,nmy,2) = face_dcvdx(periodic_list(n-n1+1),1,nmy,1)
+    face_dcvdx(n,2,nmy,2) = face_dcvdx(periodic_list(n-n1+1),2,nmy,1)
     !
-    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n),1,nee,1)
-    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n),2,nee,1)
+    face_dcvdx(n,1,nee,2) = face_dcvdx(periodic_list(n-n1+1),1,nee,1)
+    face_dcvdx(n,2,nee,2) = face_dcvdx(periodic_list(n-n1+1),2,nee,1)
     !
   end do
   !
@@ -7497,7 +7497,7 @@ continue
   do m = 1,size(face_dcvdx,dim=3)
     do l = 1,size(face_dcvdx,dim=2)
       do n = n1,n2
-        face_dcvdx(n,l,m,2) = face_dcvdx(periodic_list(n),l,m,1)
+        face_dcvdx(n,l,m,2) = face_dcvdx(periodic_list(n-n1+1),l,m,1)
       end do
     end do
   end do
