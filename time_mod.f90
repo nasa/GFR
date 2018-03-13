@@ -1694,6 +1694,290 @@ end subroutine rresi
 !
 !###############################################################################
 !
+subroutine check_total_temperature(np,usp,nst)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam,rgasref_nd,tref,tmin,tmax
+  use ovar, only : ideal_total_temperature
+  use ovar, only : limit_total_temperature
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: np
+  integer,     intent(in) :: nst
+  real(wp), intent(inout) :: usp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: n,nr,loc_ttmin,loc_ttmax
+  integer  :: num_min_limits
+  integer  :: num_max_limits
+  real(wp) :: gm1,rgas_inv,gm1_over_2gmR
+  real(wp) :: rho,rho_inv,pres,temp,total_temp
+  real(wp) :: velx,vely,velz,q2,a2
+  real(wp) :: tmin_lim,tmax_lim,ttmin,ttmax
+  !
+  !.. Local Arrays ..
+  integer :: num_temp_limits(1:2)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "check_total_temperature"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  rgas_inv = one / rgasref_nd
+  gm1_over_2gmR = half*gm1*rgas_inv/gam
+  !
+  num_min_limits = 0
+  num_max_limits = 0
+  !
+  ttmin = tmax/tref
+  ttmax = tmin/tref
+  !
+  tmin_lim = ideal_total_temperature*(one - limit_total_temperature)
+  tmax_lim = ideal_total_temperature*(one + limit_total_temperature)
+  !
+  nr = nme-nmb+1
+  !
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
+    !$ACC&              REDUCTION(max:ttmax) &
+    !$ACC&              REDUCTION(min:ttmin)
+    do n = 1,np
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      velz = usp(n,nmz)*rho_inv
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(usp(n,nee) - half*rho*q2)
+      !
+      a2 = max( gam*pres*rho_inv , rndoff )
+      !
+      temp = pres*rho_inv*rgas_inv
+      !
+      total_temp = temp*(one + half*gm1*q2/a2)
+      !
+      if (total_temp > ttmax) then
+        ttmax = total_temp
+        loc_ttmax = n
+      else if (total_temp < ttmin) then
+        ttmin = total_temp
+        loc_ttmin = n
+      end if
+      !
+      if (total_temp > tmax_lim) then
+        !
+        total_temp = tmax_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+!#define APPLY_TTOTAL_LIMIT_TO_PRESSURE
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_max_limits = num_max_limits + 1
+        !
+      else if (total_temp < tmin_lim) then
+        !
+        total_temp = tmin_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_min_limits = num_min_limits + 1
+        !
+      end if
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
+    !$ACC&              REDUCTION(max:ttmax) &
+    !$ACC&              REDUCTION(min:ttmin)
+    do n = 1,np
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(usp(n,nee) - half*rho*q2)
+      !
+      a2 = max( gam*pres*rho_inv , rndoff )
+      !
+      temp = pres*rho_inv*rgas_inv
+      !
+      total_temp = temp*(one + half*gm1*q2/a2)
+      !
+      if (total_temp > ttmax) then
+        ttmax = total_temp
+        loc_ttmax = n
+      else if (total_temp < ttmin) then
+        ttmin = total_temp
+        loc_ttmin = n
+      end if
+      !
+      if (total_temp > tmax_lim) then
+        !
+        total_temp = tmax_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_max_limits = num_max_limits + 1
+        !
+      else if (total_temp < tmin_lim) then
+        !
+        total_temp = tmin_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_min_limits = num_min_limits + 1
+        !
+      end if
+      !
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP PRESENT(usp) &
+    !$ACC&              REDUCTION(+:num_min_limits,num_max_limits) &
+    !$ACC&              REDUCTION(max:ttmax) &
+    !$ACC&              REDUCTION(min:ttmin)
+    do n = 1,np
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      !
+      q2 = velx*velx
+      !
+      pres = gm1*(usp(n,nee) - half*rho*q2)
+      !
+      a2 = max( gam*pres*rho_inv , rndoff )
+      !
+      temp = pres*rho_inv*rgas_inv
+      !
+      total_temp = temp*(one + half*gm1*q2/a2)
+      !
+      if (total_temp > ttmax) then
+        ttmax = total_temp
+        loc_ttmax = n
+      else if (total_temp < ttmin) then
+        ttmin = total_temp
+        loc_ttmin = n
+      end if
+      !
+      if (total_temp > tmax_lim) then
+        !
+        total_temp = tmax_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_max_limits = num_max_limits + 1
+        !
+      else if (total_temp < tmin_lim) then
+        !
+        total_temp = tmin_lim
+        !
+        temp = total_temp - q2*gm1_over_2gmR
+        !
+#ifdef APPLY_TTOTAL_LIMIT_TO_PRESSURE
+        pres = rho*rgasref_nd*temp
+        usp(n,nee) = pres/gm1 + half*rho*q2
+#else
+        usp(n,nec) = rgas_inv*pres/temp
+#endif
+        !
+        num_min_limits = num_min_limits + 1
+        !
+      end if
+      !
+    end do
+    !
+  end if
+  !
+!#define OUTPUT_TOTAL_TEMP_LIMITS
+#ifdef OUTPUT_TOTAL_TEMP_LIMITS
+  num_temp_limits(1:2) = [num_min_limits,num_max_limits]
+  if (ncpu > 1) then
+    call mpi_allreduce(MPI_IN_PLACE,num_temp_limits, &
+                       size(num_temp_limits,kind=int_mpi),mpi_inttyp, &
+                       MPI_SUM,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,ttmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,ttmax,1_int_mpi,mpi_flttyp, &
+                       MPI_MAX,MPI_COMM_WORLD,mpierr)
+  end if
+  if (mypnum == glb_root) then
+    if (any(num_temp_limits > 0)) then
+      write (iout,100) nst,num_temp_limits(1),ttmin, &
+                           num_temp_limits(2),ttmax
+      flush (iout)
+    end if
+  end if
+#endif
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  100 format (6x,"RK Stage #",i0,t20,":  # min T0 limits = ",i0,",", &
+                                 t55,"min T0 = ",f8.2,/, &
+                                 t23,"# max T0 limits = ",i0,",", &
+                                 t55,"max T0 = ",f8.2)
+  !
+end subroutine check_total_temperature
+!
+!###############################################################################
+!
 subroutine stabilize_usp(nst,Apply_Filter,Apply_Limiter)
   !
   !.. Use Statements ..
@@ -1753,6 +2037,7 @@ subroutine update_CK_RK4(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : rk_sum,residual,usp,dtsp
+  use ovar,    only : ideal_total_temperature
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -1776,6 +2061,12 @@ continue
     call update_CK_RK4_S4(n_solpts,dtsp,residual,usp,rk_sum)
   else if (nst == 2) then
     call update_CK_RK4_S5(n_solpts,dtsp,residual,usp,rk_sum)
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call check_total_temperature(n_solpts,usp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2237,6 +2528,7 @@ subroutine update_TVD_RK2(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,dtsp
+  use ovar,    only : ideal_total_temperature
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2254,6 +2546,12 @@ continue
     call update_TVD_RK2_S1(n_solpts,dtsp,residual,usp)
   else
     call update_TVD_RK2_S2(n_solpts,dtsp,uoldsp,residual,usp)
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call check_total_temperature(n_solpts,usp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2370,6 +2668,7 @@ subroutine update_TVD_RK3(nst,Apply_Filter,Apply_Limiter,iter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : residual,usp,uoldsp,dtsp
+  use ovar,    only : ideal_total_temperature
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst,iter
@@ -2392,6 +2691,12 @@ continue
     call update_TVD_RK3_S2(n_solpts,dtsp,uoldsp,residual,usp)
   else if (nst == 3) then
     call update_TVD_RK3_S3(n_solpts,dtsp,uoldsp,residual,usp)
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call check_total_temperature(n_solpts,usp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2561,6 +2866,7 @@ subroutine update_TVD_RK4(nst,Apply_Filter,Apply_Limiter)
   !.. Use Statements ..
   use geovar,  only : n_solpts
   use flowvar, only : rssprk,residual,usp,uoldsp,rk_sum,dtsp
+  use ovar,    only : ideal_total_temperature
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -2587,6 +2893,12 @@ continue
     call update_TVD_RK4_S4(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
   else if (nst == 5) then
     call update_TVD_RK4_S5(n_solpts,dtsp,uoldsp,residual,usp,rk_sum)
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call check_total_temperature(n_solpts,usp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
@@ -2948,6 +3260,7 @@ subroutine update_Classic_RK(nst,Apply_Filter,Apply_Limiter)
   use geovar,  only : n_solpts
   use ovar,    only : num_rk_stages
   use flowvar, only : rssprk,residual,usp,uoldsp,dtsp
+  use ovar,    only : ideal_total_temperature
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: nst
@@ -3022,6 +3335,12 @@ continue
     else if (nst == 4) then
       call update_Classic_RK4_S4(n_solpts,uoldsp,rssprk,dtsp,usp)
     end if
+  end if
+  !
+  ! Apply realizable total temperature limiter
+  !
+  if (ideal_total_temperature > zero) then
+    call check_total_temperature(n_solpts,usp,nst)
   end if
   !
   ! Apply filtering or limiting to stabilize the solution
