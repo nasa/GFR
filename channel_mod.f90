@@ -74,9 +74,11 @@ subroutine channel_source()
   !.. Use Statements ..
   use geovar,      only : ncell,cell
   use ovar,        only : channel_body_force
+  use ovar,        only : channel_add_or_subtract
+  use ovar,        only : channel_jac_exponent
   use ovar,        only : rhoref,aref
   use flowvar,     only : residual,usp
-  use metrics_mod, only : metrics_dt
+  use metrics_mod, only : jac
   !
   !.. Local Scalars ..
   integer :: n,nc,n1,n2
@@ -84,8 +86,8 @@ subroutine channel_source()
   real(wp) :: bfx,hc,vx
   !
   !.. Local Parameters ..
-  real(wp), parameter :: add_or_subtract = +one
- !real(wp), parameter :: add_or_subtract = -one
+ !real(wp), parameter :: add_or_subtract = +one
+  real(wp), parameter :: add_or_subtract = -one
   !
  !integer, parameter :: jac_exp =  0
   integer, parameter :: jac_exp =  1
@@ -94,6 +96,8 @@ subroutine channel_source()
   character(len=*), parameter :: pname = "channel_source"
   !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   bfx = channel_body_force / (rhoref*aref*aref)
   !
@@ -106,14 +110,18 @@ continue
       !
       vx = usp(n,nmx) / usp(n,nec)
       !
-      hc = -bfx / (metrics_dt(nc)%jac(n-n1+1)**jac_exp)
+      hc = -bfx / (jac(n)**channel_jac_exponent)
       !
-      residual(n,nmx) = residual(n,nmx) + add_or_subtract * hc
-      residual(n,nee) = residual(n,nee) + add_or_subtract * hc * vx
+     !write (500+mypnum,100) n,hc,vx,jac(n),residual(n,nmx),residual(n,nee)
+     !100 format (i8,5es18.10)
+      residual(n,nmx) = residual(n,nmx) + channel_add_or_subtract * hc
+      residual(n,nee) = residual(n,nee) + channel_add_or_subtract * hc * vx
       !
     end do
     !
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine channel_source
 !
