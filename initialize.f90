@@ -1018,6 +1018,269 @@ end function cylinder_function
 !
 subroutine initialize_dusp()
   !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call initialize_dusp_3d
+  else if (nr == 2) then
+    call initialize_dusp_2d
+  else
+    call initialize_dusp_nd
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine initialize_dusp
+!
+!###############################################################################
+!
+subroutine initialize_dusp_3d()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell
+  use metrics_mod,     only : metrics_array
+  use derivatives_mod, only : deriv
+  use flowvar,         only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,nc,n0,np
+  integer  :: this_geom,this_order
+  real(wp) :: a
+  real(wp) :: decdi,dmxdi,dmydi,dmzdi,deedi,didx,didy,didz
+  real(wp) :: decdj,dmxdj,dmydj,dmzdj,deedj,djdx,djdy,djdz
+  real(wp) :: decdk,dmxdk,dmydk,dmzdk,deedk,dkdx,dkdy,dkdz
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp_3d"
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
+    np = cell(nc)%end_sp-n0 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do n = 1,np
+      !
+      decdi = zero
+      dmxdi = zero
+      dmydi = zero
+      dmzdi = zero
+      deedi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        decdi = decdi + a * usp(n0+j,nec)
+        dmxdi = dmxdi + a * usp(n0+j,nmx)
+        dmydi = dmydi + a * usp(n0+j,nmy)
+        dmzdi = dmzdi + a * usp(n0+j,nmz)
+        deedi = deedi + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      decdj = zero
+      dmxdj = zero
+      dmydj = zero
+      dmzdj = zero
+      deedj = zero
+      !
+      do i = deriv(this_geom,this_order)%d(2)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(2)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(2)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(2)%row_val(i)
+        !
+        decdj = decdj + a * usp(n0+j,nec)
+        dmxdj = dmxdj + a * usp(n0+j,nmx)
+        dmydj = dmydj + a * usp(n0+j,nmy)
+        dmzdj = dmzdj + a * usp(n0+j,nmz)
+        deedj = deedj + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      decdk = zero
+      dmxdk = zero
+      dmydk = zero
+      dmzdk = zero
+      deedk = zero
+      !
+      do i = deriv(this_geom,this_order)%d(3)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(3)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(3)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(3)%row_val(i)
+        !
+        decdk = decdk + a * usp(n0+j,nec)
+        dmxdk = dmxdk + a * usp(n0+j,nmx)
+        dmydk = dmydk + a * usp(n0+j,nmy)
+        dmzdk = dmzdk + a * usp(n0+j,nmz)
+        deedk = deedk + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      didx = metrics_array(n0+n,1,1)
+      djdx = metrics_array(n0+n,2,1)
+      dkdx = metrics_array(n0+n,3,1)
+      !
+      didy = metrics_array(n0+n,1,2)
+      djdy = metrics_array(n0+n,2,2)
+      dkdy = metrics_array(n0+n,3,2)
+      !
+      didz = metrics_array(n0+n,1,3)
+      djdz = metrics_array(n0+n,2,3)
+      dkdz = metrics_array(n0+n,3,3)
+      !
+      dusp(n0+n,1,nec) = decdi*didx + decdj*djdx + decdk*dkdx
+      dusp(n0+n,2,nec) = decdi*didy + decdj*djdy + decdk*dkdy
+      dusp(n0+n,3,nec) = decdi*didz + decdj*djdz + decdk*dkdz
+      !
+      dusp(n0+n,1,nmx) = dmxdi*didx + dmxdj*djdx + dmxdk*dkdx
+      dusp(n0+n,2,nmx) = dmxdi*didy + dmxdj*djdy + dmxdk*dkdy
+      dusp(n0+n,3,nmx) = dmxdi*didz + dmxdj*djdz + dmxdk*dkdz
+      !
+      dusp(n0+n,1,nmy) = dmydi*didx + dmydj*djdx + dmydk*dkdx
+      dusp(n0+n,2,nmy) = dmydi*didy + dmydj*djdy + dmydk*dkdy
+      dusp(n0+n,3,nmy) = dmydi*didz + dmydj*djdz + dmydk*dkdz
+      !
+      dusp(n0+n,1,nmz) = dmzdi*didx + dmzdj*djdx + dmzdk*dkdx
+      dusp(n0+n,2,nmz) = dmzdi*didy + dmzdj*djdy + dmzdk*dkdy
+      dusp(n0+n,3,nmz) = dmzdi*didz + dmzdj*djdz + dmzdk*dkdz
+      !
+      dusp(n0+n,1,nee) = deedi*didx + deedj*djdx + deedk*dkdx
+      dusp(n0+n,2,nee) = deedi*didy + deedj*djdy + deedk*dkdy
+      dusp(n0+n,3,nee) = deedi*didz + deedj*djdz + deedk*dkdz
+      !
+    end do
+    !
+  end do
+  !
+end subroutine initialize_dusp_3d
+!
+!###############################################################################
+!
+subroutine initialize_dusp_2d()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use geovar,          only : ncell,cell
+  use metrics_mod,     only : metrics_array
+  use derivatives_mod, only : deriv
+  use flowvar,         only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,n,nc,n0,np
+  integer  :: this_geom,this_order
+  real(wp) :: a
+  real(wp) :: decdi,dmxdi,dmydi,deedi,didx,didy
+  real(wp) :: decdj,dmxdj,dmydj,deedj,djdx,djdy
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp_2d"
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp-1  ! beginning index for solpts in cell nc
+    np = cell(nc)%end_sp-n0 ! number of solution points in this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do n = 1,np
+      !
+      decdi = zero
+      dmxdi = zero
+      dmydi = zero
+      deedi = zero
+      !
+      do i = deriv(this_geom,this_order)%d(1)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(1)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(1)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(1)%row_val(i)
+        !
+        decdi = decdi + a * usp(n0+j,nec)
+        dmxdi = dmxdi + a * usp(n0+j,nmx)
+        dmydi = dmydi + a * usp(n0+j,nmy)
+        deedi = deedi + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      decdj = zero
+      dmxdj = zero
+      dmydj = zero
+      deedj = zero
+      !
+      do i = deriv(this_geom,this_order)%d(2)%row_ptr(n)+1, &
+             deriv(this_geom,this_order)%d(2)%row_ptr(n+1)
+        !
+        j = deriv(this_geom,this_order)%d(2)%row_idx(i)
+        a = deriv(this_geom,this_order)%d(2)%row_val(i)
+        !
+        decdj = decdj + a * usp(n0+j,nec)
+        dmxdj = dmxdj + a * usp(n0+j,nmx)
+        dmydj = dmydj + a * usp(n0+j,nmy)
+        deedj = deedj + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      didx = metrics_array(n0+n,1,1)
+      djdx = metrics_array(n0+n,2,1)
+      !
+      didy = metrics_array(n0+n,1,2)
+      djdy = metrics_array(n0+n,2,2)
+      !
+      dusp(n0+n,1,nec) = decdi*didx + decdj*djdx
+      dusp(n0+n,2,nec) = decdi*didy + decdj*djdy
+      !
+      dusp(n0+n,1,nmx) = dmxdi*didx + dmxdj*djdx
+      dusp(n0+n,2,nmx) = dmxdi*didy + dmxdj*djdy
+      !
+      dusp(n0+n,1,nmy) = dmydi*didx + dmydj*djdx
+      dusp(n0+n,2,nmy) = dmydi*didy + dmydj*djdy
+      !
+      dusp(n0+n,1,nee) = deedi*didx + deedj*djdx
+      dusp(n0+n,2,nee) = deedi*didy + deedj*djdy
+      !
+    end do
+    !
+  end do
+  !
+end subroutine initialize_dusp_2d
+!
+!###############################################################################
+!
+subroutine initialize_dusp_nd()
+  !
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
@@ -1036,7 +1299,120 @@ subroutine initialize_dusp()
   real(wp), dimension(1:nr) :: dudr
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "initialize_dusp"
+  character(len=*), parameter :: pname = "initialize_dusp_nd"
+  !
+ !logical(lk), parameter :: use_conservative_form = true
+  logical(lk), parameter :: use_conservative_form = fals
+  !
+continue
+  !
+  ! Loop over the cells and get the derivative of
+  ! the primitive variables at each solution point
+  !
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    ! Compute the gradient of the conservative variables at each solution point
+    !
+    do k = 1,np
+      !
+      n = n0+k ! total index of solution point on current partition
+      !
+      do m = 1,nq
+        !
+        if (use_conservative_form) then
+          !
+          do l = 1,nr
+            !
+            val = zero
+            do ll = 1,nr
+              do i = deriv(this_geom,this_order)%d(ll)%row_ptr(k)+1, &
+                     deriv(this_geom,this_order)%d(ll)%row_ptr(k+1)
+                !
+                j = deriv(this_geom,this_order)%d(ll)%row_idx(i)
+                a = deriv(this_geom,this_order)%d(ll)%row_val(i)
+                !
+                val = val + a*usp(n0+j,m)*metrics_array(n0+j,ll,l)
+                !
+              end do
+            end do
+            !
+            dusp(n,l,m) = val
+            !
+           !dudr(1) = deriv(this_geom,this_order)%d(1)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,1,l) )
+           !dudr(2) = deriv(this_geom,this_order)%d(2)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,2,l) )
+           !dudr(3) = deriv(this_geom,this_order)%d(3)% &
+           !          dot( k , tusp(1:np,m)*metrics_dt(nc)%met(:,3,l) )
+           !!
+           !dusp(n,l,m) = sum(dudr)!* jacobian(n)
+            !
+          end do
+          !
+        else
+          !
+          ! Compute the derivatives in r-s space
+          !
+          do l = 1,nr
+            val = zero
+            do i = deriv(this_geom,this_order)%d(l)%row_ptr(k)+1, &
+                   deriv(this_geom,this_order)%d(l)%row_ptr(k+1)
+              !
+              j = deriv(this_geom,this_order)%d(l)%row_idx(i)
+              a = deriv(this_geom,this_order)%d(l)%row_val(i)
+              !
+              val = val + a*usp(n0+j,m)
+              !
+            end do
+            dudr(l) = val
+          end do
+         !dudr(1:nr) = deriv(this_geom,this_order)%grad( k , tusp(1:np,m) )
+          !
+          ! Transform the derivatives back to x-y space
+          !
+          do l = 1,nr
+            dusp(n,l,m) = dot( dudr(1:nr) , metrics_array(n,1:nr,l) )
+          end do
+          !
+        end if
+        !
+      end do
+      !
+    end do
+    !
+  end do
+  !
+end subroutine initialize_dusp_nd
+!
+!###############################################################################
+!
+subroutine initialize_dusp_old()
+  !
+  ! This routine computes the discontinuous gradient at each solution point
+  !
+  !.. Use Statements ..
+  use order_mod,  only : maxSP
+  use geovar,  only : nr,ncell,cell
+  use metrics_mod,  only : metrics_array
+  use derivatives_mod, only : deriv
+  use flowvar, only : usp,dusp
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,ll,m,n,nc,np,n0
+  integer  :: this_geom,this_order
+  real(wp) :: a,val
+  !
+  !.. Local Arrays ..
+  real(wp), dimension(1:nr) :: dudr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "initialize_dusp_old"
   !
  !logical(lk), parameter :: use_conservative_form = true
   logical(lk), parameter :: use_conservative_form = fals
@@ -1129,7 +1505,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine initialize_dusp
+end subroutine initialize_dusp_old
 !
 !###############################################################################
 !
