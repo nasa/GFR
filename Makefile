@@ -23,12 +23,14 @@ rebuild-debug: FCADD += -DPROFILE_ON
 all: debug_recon
 all: recon
 .PHONY: all-nodes
-all-nodes: recon_merope
+all-nodes: debug_recon
 all-nodes: recon_westmere
+all-nodes: recon_merope
 all-nodes: recon_sandybridge
 all-nodes: recon_ivybridge
 all-nodes: recon_broadwell
 all-nodes: recon_skylake
+all-nodes: recon
 
 .PHONY: rebuild
 rebuild: rebuild-debug
