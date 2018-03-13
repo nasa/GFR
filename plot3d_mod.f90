@@ -92,6 +92,7 @@ subroutine read_plot3d_gridfile ( gridfile , solfile , cutfile , bcsfile )
   !
   !.. Use Statements ..
   use geovar, only : grid
+  use ovar,   only : itestcase
   !
   ! This routine reads in a multi-block grid in plot3d
   ! format and converts it to an unstructured grid.
@@ -207,6 +208,12 @@ continue
     !
     if (plot3d_has_periodic_faces) then
       call match_plot3d_periodic_boundaries
+    end if
+    !
+  else
+    !
+    if (itestcase == -Channel_Flow) then
+      itestcase = Channel_Flow
     end if
     !
   end if
