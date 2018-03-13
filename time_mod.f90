@@ -348,11 +348,13 @@ continue
   ! Get the minimum timestep across all processors
   !
   if (ncpu > 1) then
+    ! Update the value of dtmin on the CPU
+    !$ACC UPDATE SELF(dtmin)
     call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
                        MPI_MIN,MPI_COMM_WORLD,mpierr)
+    ! Update the value of dtmin on the GPU
+    !$ACC UPDATE DEVICE(dtmin)
   end if
-  !
- !!$ACC UPDATE SELF(dtmin)
   !
   !$ACC PARALLEL LOOP PRESENT(dtsp)
   do n = 1,n_solpts
