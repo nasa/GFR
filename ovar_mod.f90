@@ -74,6 +74,7 @@ module ovar
   logical(lk),  public, save :: mms_output_solution = fals
   !
   integer,  public, save :: itestcase = 5
+  integer,  public, save :: jet_init_func = 2
   !
   logical(lk), public, save :: load_restart_file = fals
   integer,  public, save :: restart_interval = 0
@@ -212,6 +213,9 @@ module ovar
   character(len=150), public, save :: restart_list_file = ""
   !
   logical(lk),        public, save :: use_async_for_error = fals
+  !
+  real(wp), public, save :: ideal_total_temperature = -1.0_wp
+  real(wp), public, save :: limit_total_temperature = 0.2_wp
   !
   ! #################################
   ! ####   Non-Input Variables   ####
@@ -366,10 +370,11 @@ module ovar
   !
   !$ACC DECLARE CREATE(walls_are_exact,sub_inflow_method, &
   !$ACC&               turb_is_on,include_tke_in_energy, &
-  !$ACC&               time,itcur,gam,pr,aref,rhoref,tref, &
+  !$ACC&               time,itcur,gam,pr,aref,rhoref,tref,tmin,tmax, &
   !$ACC&               cpref_nd,ptotref_nd,rgasref_nd, &
   !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
+  !$ACC&               ideal_total_temperature,limit_total_temperature, &
   !$ACC&               invs_flux_method)
 contains
 !
@@ -590,7 +595,7 @@ module input_namelist_mod
   use ovar,      only : Timestep_Type, minimum_timesteps
   use ovar,      only : all_points, metis_option, use_old_restart_format
   use ovar,      only : mms_opt, mms_init, mms_output_solution
-  use ovar,      only : itestcase, governing_equations
+  use ovar,      only : itestcase, jet_init_func, governing_equations
   use ovar,      only : load_restart_file, restart_interval, restart_file
   use ovar,      only : restart_output_uses_host_roots
   use ovar,      only : iter_out_interval, results_interval
@@ -631,6 +636,7 @@ module input_namelist_mod
   use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
   use ovar,      only : use_async_for_error
+  use ovar,      only : ideal_total_temperature,limit_total_temperature
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -686,7 +692,7 @@ module input_namelist_mod
   ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
   namelist / input / mms_opt, mms_init, mms_output_solution
   ! INITIALIZATION / TEST CASE
-  namelist / input / itestcase
+  namelist / input / itestcase, jet_init_func
   ! RESTART OPTIONS
   namelist / input / load_restart_file, restart_interval, &
                      use_old_restart_format, restart_file, &
@@ -765,6 +771,8 @@ module input_namelist_mod
                      time_ave_vel_is_axisymm
   ! OPENACC INPUT OPTIONS
   namelist / input / use_async_for_error
+  ! REALIZABLE TOTAL TEMPERATURE LIMITER
+  namelist / input / ideal_total_temperature, limit_total_temperature
   !
   ! CFL ADJUSTMENT NAMELIST
   !
