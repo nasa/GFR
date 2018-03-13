@@ -5106,7 +5106,7 @@ subroutine check_face_flux_point_orderings()
   use order_mod, only : geom_solpts
   use geovar, only : ncell,cell
   use geovar, only : nfbnd,nface,face,fp
-  use geovar, only : nr,xyz,bface
+  use geovar, only : nr,xyz,bface,bc_grps
   use interpolation_mod, only : interp
   use flowvar, only : face_var,faceusp_array
   use parallel_mod, only : exchange_faceusp,wait_faceusp
@@ -5115,6 +5115,7 @@ subroutine check_face_flux_point_orderings()
   !.. Local Scalars ..
   integer :: i,j,nf,nfp,kf,kl,kr,l,ierr
   integer :: l1,l2,r1,r2,npl,npr,pf,f0,ntfp
+  integer :: n1,n2,n0,np,bc_type
   integer :: face_geom,face_order
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
@@ -5333,16 +5334,50 @@ continue
     f0 = face(nf)%beg_fp - 1
     nfp = face(nf)%end_fp - f0
     !
-    do i = 1,2
-      do kf = 1,nfp
-        do l = 1,nr
-     !    write (iout,100) mypnum,nf,f0,kf,l,i
-     !    100 format ("CPU # ",i0," : ",i5,i5,i3,i2,i2)
-     !    flush (iout)
-          faceusp_array(f0+kf,l,i) = face_xyz(nf)%v(l,kf,i)
-        end do
+   !do i = 1,2
+    do kf = 1,nfp
+      do l = 1,nr
+   !    write (iout,100) mypnum,nf,f0,kf,l,i
+   !    100 format ("CPU # ",i0," : ",i5,i5,i3,i2,i2)
+   !    flush (iout)
+        faceusp_array(f0+kf,l,1) = face_xyz(nf)%v(l,kf,1)
       end do
     end do
+   !end do
+   !!
+    if (nf > nfbnd) then
+      do kf = 1,nfp
+        do l = 1,nr
+          faceusp_array(f0+kf,l,2) = face_xyz(nf)%v(l,kf,2)
+        end do
+      end do
+    end if
+    !
+  end do
+  !
+  do i = 1,size(bc_grps)
+    !
+    n1 = bc_grps(i)%beg_fp
+    n2 = bc_grps(i)%end_fp
+    !
+    n0 = bc_grps(i)%beg_fp - 1
+    np = bc_grps(i)%end_fp - n0
+    !
+    bc_type = bc_grps(i)%bc_type
+    !
+    if (bc_type == bc_periodic) then
+      !
+      call transfer_periodic(n1,n2,faceusp_array,bc_grps(i)%periodic_list)
+      !
+    else
+      !
+      do kf = 1,np
+        do l = 1,nr
+          faceusp_array(n0+kf,l,2) = faceusp_array(n0+kf,l,1)
+        end do
+      end do
+      !
+    end if
     !
   end do
   !
@@ -5427,6 +5462,26 @@ continue
  12 format ("FACE ",i0,4x,a)
   !
 end subroutine check_face_flux_point_orderings
+!
+!###############################################################################
+!
+pure subroutine transfer_periodic(n1,n2,face_cv,periodic_list)
+  !
+  integer,     intent(in) :: n1,n2
+  integer,     intent(in) :: periodic_list(:)
+  real(wp), intent(inout) :: face_cv(:,:,:)
+  !
+  integer :: n
+  !
+continue
+  !
+  do n = n1,n2
+    face_cv(n,nec,2) = face_cv(periodic_list(n-n1+1),nec,1)
+    face_cv(n,nmx,2) = face_cv(periodic_list(n-n1+1),nmx,1)
+    face_cv(n,nmy,2) = face_cv(periodic_list(n-n1+1),nmy,1)
+  end do
+  !
+end subroutine transfer_periodic
 !
 !###############################################################################
 !
@@ -5864,7 +5919,7 @@ continue
  11 format (1x,100(es12.4))
 !11 format (1x,*(es12.4))
  12 format ("FACE ",i0,4x,a)
- 13 format (1x,100(i6))
+ 13 format (1x,100(i9))
   !
 end subroutine test_communication
 !
