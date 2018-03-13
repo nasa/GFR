@@ -10,6 +10,8 @@
 #define _MPI_STATUS_SIZE_    1
 #define _MPI_COMM_WORLD_VAL_ MPI_COMM_WORLD%MPI_VAL
 #define _MPI_COMM_SELF_VAL_  MPI_COMM_SELF%MPI_VAL
+#define _MPI_OP_TYPE_        type(MPI_OP)
+#define _MPI_USER_FUNCTION_  procedure(MPI_USER_FUNCTION)
 
 #else
 
@@ -23,5 +25,7 @@
 #define _MPI_STATUS_SIZE_    MPI_STATUS_SIZE
 #define _MPI_COMM_WORLD_VAL_ MPI_COMM_WORLD
 #define _MPI_COMM_SELF_VAL_  MPI_COMM_SELF
+#define _MPI_OP_TYPE_        integer(INT_MPI)
+#define _MPI_USER_FUNCTION_  external
 
 #endif
