@@ -986,7 +986,8 @@ continue
   ! Compute the troubled marker
   !
   if (Limiter_Option == 1) then
-    orders_to_cutoff = proj_order+1
+   !orders_to_cutoff = proj_order+1
+    orders_to_cutoff = proj_order
     call resolution_indicator(troubled_cell=troubled_cell, &
                               orders_to_cutoff=orders_to_cutoff)
   else
