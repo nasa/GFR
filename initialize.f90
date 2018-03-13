@@ -1713,6 +1713,8 @@ subroutine initialize_reference
   use ovar,   only : suth_Sref,suth_Tref
   use ovar,   only : alpha_aoaref,beta_aoaref
   use ovar,   only : itestcase,Lref
+  use ovar,   only : ideal_total_temperature
+  use ovar,   only : limit_total_temperature
   !
   !.. Local Scalars ..
   integer  :: ierr
@@ -1921,6 +1923,10 @@ continue
   tmin = 10.0_wp
   tmax = 15000.0_wp
   !
+  if (ideal_total_temperature > zero) then
+    ideal_total_temperature = ideal_total_temperature / tref
+  end if
+  !
   ! Initialize the viscosity reference conditions
   !
   call initialize_viscosity
@@ -1929,7 +1935,10 @@ continue
   !
   call initialize_turbulence
   !
-  !$ACC UPDATE DEVICE(aref,rhoref,tref,gam,rgasref_nd,cpref_nd,ptotref_nd)
+  !$ACC UPDATE DEVICE(aref,rhoref,tref,tmin,tmax, &
+  !$ACC&              gam,rgasref_nd,cpref_nd,ptotref_nd, &
+  !$ACC&              ideal_total_temperature, &
+  !$ACC&              limit_total_temperature)
   !
   call debug_timer(leaving_procedure,pname)
   !
