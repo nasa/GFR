@@ -1,6 +1,7 @@
 results
 objects/debug/*
 objects/optimize/*
+objects/optimize_skylake/*
 objects/optimize_broadwell/*
 objects/optimize_haswell/*
 objects/optimize_ivybridge/*
@@ -11,6 +12,7 @@ objects/gpu/*
 objects/gpu_mm/*
 modules/debug/*
 modules/optimize/*
+modules/optimize_skylake/*
 modules/optimize_broadwell/*
 modules/optimize_haswell/*
 modules/optimize_ivybridge/*
@@ -27,5 +29,7 @@ recon_ivybridge
 recon_sandybridge
 recon_westmere
 recon_merope
+recon_gpu
+recon_gpu_mm
 grid_files
 other
