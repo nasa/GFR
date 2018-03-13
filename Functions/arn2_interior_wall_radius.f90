@@ -16,7 +16,7 @@ pure function arn2_interior_wall_radius(x,eps_1) result(return_value)
   real(wp) :: e1
   !
   !.. Local Parameters ..
-  real(wp), parameter :: pa(2) = [-0.196596_wp,0.0762_wp]
+  real(wp), parameter :: pa(2) = [-0.179705_wp,0.0762_wp]
   real(wp), parameter :: pb(2) = [-0.006350_wp,0.0254_wp]
   !
   real(wp), parameter :: c0 =  0.0256084_wp
@@ -68,7 +68,7 @@ continue
   !
   x = xyz(1)
   !
-  if (x >= x_in-eps_1 .and. x < x_exit-eps_1) then
+  if (x >= x_in-eps_1 .and. x < x_exit+eps_1) then
     !
     r = norm2(xyz(2:))
     !
