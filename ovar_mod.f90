@@ -152,8 +152,6 @@ module ovar
   real(wp), public, save :: VortexGrid_Lref = 10.0_wp
   !
   real(wp),           public, save :: channel_body_force = 0.0_wp
-  real(wp),           public, save :: channel_add_or_subtract = +one
-  integer,            public, save :: channel_jac_exponent = 1
   character(len=150), public, save :: channel_init_file = ""
   !
   logical(lk), public, save :: output_plot3d_to_tecplot = fals
@@ -207,7 +205,8 @@ module ovar
   integer, public, save :: sub_inflow_method = 1
   !
   logical(lk),        public, save :: output_time_averaging = fals
-  logical(lk),        public, save :: time_ave_vel_is_axisymm = true
+ !logical(lk),        public, save :: time_ave_vel_is_axisymm = true
+  logical(lk),        public, save :: time_ave_vel_is_axisymm = fals
   character(len=150), public, save :: time_ave_file = "out.ave"
   real(wp),           public, save :: time_scaling_factor = 1.0_wp
   !
@@ -630,7 +629,6 @@ module input_namelist_mod
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : channel_body_force,channel_init_file
-  use ovar,      only : channel_add_or_subtract,channel_jac_exponent
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
@@ -740,8 +738,7 @@ module input_namelist_mod
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
                      VortexGrid_perturb_percent, VortexGrid_Lref
   ! CHANNEL FLOW PARAMETERS
-  namelist / input / channel_body_force, channel_init_file, &
-                     channel_add_or_subtract, channel_jac_exponent
+  namelist / input / channel_body_force, channel_init_file
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
