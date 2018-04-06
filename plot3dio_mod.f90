@@ -368,7 +368,7 @@ continue
     end if
 !-DEBUG_CMT: gcc "Fortran runtime error: End of file" on next regular line.
 !-DEBUG_END:
-    write (iomsg,'(a,/,a)') 'Unable to read Plot3d file '//trim(file)//'.', &
+    write (iomsg,'(a,a,/,a)') 'Unable to read Plot3d file '//trim(file)//'.', &
                            trim(iomsg)
   end if
 
