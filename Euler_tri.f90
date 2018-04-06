@@ -34,6 +34,7 @@ program Euler_tri
   use ovar, only : time_average_restart_files,ave_start_time
   use ovar, only : Filtering_Interval,Limiting_Interval
   use ovar, only : move_bcin_to_device
+  use ovar, only : channel_spatial_ave_restart
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -132,6 +133,7 @@ program Euler_tri
   use mms_mod, only : initialize_mms
   !
   use channel_mod, only : channel_source
+  use channel_mod, only : spatial_ave_channel_flow
   !
   use bnd_profiles_mod, only : init_bnd_profile_structures
   use bnd_profiles_mod, only : compute_bnd_profiles
@@ -341,6 +343,10 @@ continue
   !
   if (time_average_restart_files) then
     call average_restart_files
+  end if
+  !
+  if (channel_spatial_ave_restart) then
+    call spatial_ave_channel_flow
   end if
   !
   call move_face_to_device
