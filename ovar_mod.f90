@@ -153,6 +153,7 @@ module ovar
   !
   real(wp),           public, save :: channel_body_force = 0.0_wp
   character(len=150), public, save :: channel_init_file = ""
+  logical(lk),        public, save :: channel_spatial_ave_restart = fals
   !
   logical(lk), public, save :: output_plot3d_to_tecplot = fals
   logical(lk), public, save :: output_bface_array = fals
@@ -629,6 +630,7 @@ module input_namelist_mod
   use ovar,      only : VortexGrid_DOF,VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent,VortexGrid_Lref
   use ovar,      only : channel_body_force,channel_init_file
+  use ovar,      only : channel_spatial_ave_restart
   use ovar,      only : convert_restart_to_cgns, completely_disable_cgns
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
@@ -738,7 +740,8 @@ module input_namelist_mod
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
                      VortexGrid_perturb_percent, VortexGrid_Lref
   ! CHANNEL FLOW PARAMETERS
-  namelist / input / channel_body_force, channel_init_file
+  namelist / input / channel_body_force, channel_init_file, &
+                     channel_spatial_ave_restart
   ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
   namelist / input / output_plot3d_to_tecplot
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
