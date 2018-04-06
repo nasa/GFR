@@ -72,27 +72,17 @@ end function channel_initialization
 subroutine channel_source()
   !
   !.. Use Statements ..
-  use geovar,      only : ncell,cell
+  use geovar,      only : n_solpts
   use ovar,        only : channel_body_force
-  use ovar,        only : channel_add_or_subtract
-  use ovar,        only : channel_jac_exponent
   use ovar,        only : rhoref,aref
   use flowvar,     only : residual,usp
   use metrics_mod, only : jac
   !
   !.. Local Scalars ..
-  integer :: n,nc,n1,n2
-  !
+  integer  :: n
   real(wp) :: bfx,hc,vx
   !
   !.. Local Parameters ..
- !real(wp), parameter :: add_or_subtract = +one
-  real(wp), parameter :: add_or_subtract = -one
-  !
- !integer, parameter :: jac_exp =  0
-  integer, parameter :: jac_exp =  1
- !integer, parameter :: jac_exp = -1
-  !
   character(len=*), parameter :: pname = "channel_source"
   !
 continue
@@ -101,23 +91,14 @@ continue
   !
   bfx = channel_body_force / (rhoref*aref*aref)
   !
-  do nc = 1,ncell
+  do n = 1,n_solpts
     !
-    n1 = cell(nc)%beg_sp
-    n2 = cell(nc)%end_sp
+    vx = usp(n,nmx) / usp(n,nec)
     !
-    do n = n1,n2
-      !
-      vx = usp(n,nmx) / usp(n,nec)
-      !
-      hc = -bfx / (jac(n)**channel_jac_exponent)
-      !
-     !write (500+mypnum,100) n,hc,vx,jac(n),residual(n,nmx),residual(n,nee)
-     !100 format (i8,5es18.10)
-      residual(n,nmx) = residual(n,nmx) + channel_add_or_subtract * hc
-      residual(n,nee) = residual(n,nee) + channel_add_or_subtract * hc * vx
-      !
-    end do
+    hc = -bfx * jac(n)
+    !
+    residual(n,nmx) = residual(n,nmx) + hc
+    residual(n,nee) = residual(n,nee) + hc * vx
     !
   end do
   !
