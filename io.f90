@@ -255,7 +255,7 @@ subroutine read_nml_input_file(input_fname)
   use order_mod, only : initialize_geom_solpts
   use order_mod, only : n_order,p_order,q_order,o_order,e_order
   !
-  use geovar, only : nr,using_quadrature
+  use geovar, only : nr,using_quadrature,xyz_nodes
   !
   use input_namelist_mod ! use all the variables in the input namelist
   !
@@ -283,6 +283,7 @@ subroutine read_nml_input_file(input_fname)
   real(wp) :: real_Total_Periods
   real(wp) :: aoa_radians
   real(wp) :: cfl_sum,cfl_time
+  real(wp) :: xmin,xmax
   !
   !.. Local Arrays ..
   character(len=80), dimension(12) :: input_text
@@ -658,6 +659,17 @@ continue
       end if
       !
     end if
+    !
+  end if
+  !
+  ! Set the time scaling factor to the flow-through-time for the channel flow
+  !
+  if (abs(itestcase) == Channel_Flow) then
+    !
+    xmin = minval(xyz_nodes(1,:))
+    xmax = maxval(xyz_nodes(1,:))
+    !
+    time_scaling_factor = (machref*aref) / abs(xmax-xmin)
     !
   end if
   !
