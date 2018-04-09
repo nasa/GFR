@@ -288,6 +288,7 @@ subroutine readplot3d(gridfile,solfile,sol_nodes)
   use ovar,   only : plot3d_j_stride
   use ovar,   only : plot3d_k_stride
   use ovar,   only : grid_scaling_factor
+  use ovar,   only : solution_format
   use ovar,   only : itestcase
   !
   use plot3dio_mod, only : type_plot3dinfo
@@ -409,7 +410,7 @@ continue
     !
     ! Read solution file, if provided.
     !
-    if (len_trim(solfile) > 0) then
+    if (len_trim(solfile) > 0 .and. solution_format == Plot3d_Format) then
       read_message = 'Reading plot3d solution file '//trim(solfile)
       call debug_timer(start_timer,read_message)
       call plot3dio_read(file=solfile,type='SOL', &
