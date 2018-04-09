@@ -301,10 +301,11 @@ subroutine readplot3d(gridfile,solfile,sol_nodes)
   real(wp), allocatable, intent(inout) :: sol_nodes(:,:)
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l,n,iblk,ierr,cpos,recl_max
-  integer :: noff,npts,nnode_new,ncell_new
-  integer :: ibeg,iend,jbeg,jend,kbeg,kend
-  integer :: nvar,ndim
+  integer  :: i,j,k,l,n,iblk,ierr,cpos,recl_max
+  integer  :: noff,npts,nnode_new,ncell_new
+  integer  :: ibeg,iend,jbeg,jend,kbeg,kend
+  integer  :: nvar,ndim
+  real(wp) :: rho,rhow,rhoe
   character(len=100) :: read_message
   !
   type(type_plot3dinfo) :: plot3dinfo_xyz
@@ -467,6 +468,16 @@ continue
         sol_nodes(3,n) = sol_nodes(3,n) * 157.0875_wp !   TO
         sol_nodes(4,n) = sol_nodes(4,n) * 157.0875_wp ! (kg/m^3)*(m/s)
         sol_nodes(5,n) = sol_nodes(5,n) * 47.88_wp    ! (lbf/ft^2) to (N/m^2)
+      end do
+      ! Zero the z-momentum
+      do n = 1,size(sol_nodes,dim=2)
+        rho  = sol_nodes(1,n)
+        rhow = sol_nodes(4,n)
+        rhoe = sol_nodes(5,n)
+        ! Zero the z-momentum
+        sol_nodes(4,n) = zero
+        ! Subtract the z-momentum from the total energy
+        sol_nodes(5,n) = rhoe - half*rhow*rhow/rho
       end do
       itestcase = Channel_Flow
     end if
