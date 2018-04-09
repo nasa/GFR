@@ -25,7 +25,7 @@ module generic_mod
   logical(lk), save :: vortex_has_collapsed = fals
   integer,     save :: final_countdown = 0
   !
-! real(wp), save :: rl2mx = -huge(zero)
+ !real(wp), save :: rl2mx = -huge(zero)
   real(wp), save :: rl2mx1 = -huge(zero)
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that

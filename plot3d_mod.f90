@@ -411,7 +411,7 @@ continue
     !
     ! Read solution file, if provided.
     !
-    if (len_trim(solfile) > 0 .and. solution_format == Plot3d_Format) then
+    if (len_trim(solfile) > 0 .and. solution_format == Plot3D_Format) then
       read_message = 'Reading plot3d solution file '//trim(solfile)
       call debug_timer(start_timer,read_message)
       call plot3dio_read(file=solfile,type='SOL', &
