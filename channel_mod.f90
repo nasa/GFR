@@ -128,10 +128,6 @@ subroutine spatial_ave_channel_flow()
   character(len=50)  :: varname
   character(len=100) :: avefile
   !
-  character(len=1)  :: ta_char
-  character(len=1)  :: vmult
-  character(len=50) :: varname
-  !
   !.. Local Arrays ..
   real(wp) :: y_vals(1:10000)
   real(wp) :: var_dim(1:size(uavesp,dim=2))
