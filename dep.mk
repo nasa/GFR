@@ -262,7 +262,6 @@ $(OBJDIR)/io.o : io.f90 \
        $(OBJDIR)/interpolation_mod.o \
        $(OBJDIR)/derivatives_mod.o \
        $(OBJDIR)/initialize.o \
-       $(OBJDIR)/channel_mod.o \
        $(OBJDIR)/restart_mod.o \
        $(OBJDIR)/limiters.o \
        $(FUNDIR)/last.f90 \
