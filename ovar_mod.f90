@@ -287,6 +287,8 @@ module ovar
   !
   real(wp), public, save :: betark(4,4)
   !
+  real(wp), public, save :: rl2mx = -huge(zero)
+  !
   real(wp), public, save, allocatable :: uverr(:,:,:)
   real(wp), public, save, allocatable :: uverr1(:,:,:)
   !$ACC DECLARE CREATE(uverr)
