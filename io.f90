@@ -268,8 +268,6 @@ subroutine read_nml_input_file(input_fname)
   use quadrature_mod, only : init_geom_quadrature_rules
   use quadrature_mod, only : init_face_quadrature_rules
   !
-  use channel_mod, only : read_channel_init_file
-  !
   use restart_mod, only : check_restart_dir
   !
   !.. Formal Arguments ..
