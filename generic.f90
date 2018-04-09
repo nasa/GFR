@@ -25,7 +25,7 @@ module generic_mod
   logical(lk), save :: vortex_has_collapsed = fals
   integer,     save :: final_countdown = 0
   !
-  real(wp), save :: rl2mx = -huge(zero)
+! real(wp), save :: rl2mx = -huge(zero)
   real(wp), save :: rl2mx1 = -huge(zero)
   !
   ! TGV_KEDR : array used for the Taylor-Green vortex problem that
@@ -1495,7 +1495,7 @@ subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
   use ovar,    only : convergence_reached,itestcase,Period_Timesteps
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
-  use ovar,    only : uverr,this_is_final_timestep,iter_out_interval
+  use ovar,    only : rl2mx,uverr,this_is_final_timestep,iter_out_interval
   use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
   !
   use pbs_mod, only : pbs_remaining_walltime
