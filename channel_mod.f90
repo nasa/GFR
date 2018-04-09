@@ -115,10 +115,18 @@ subroutine spatial_ave_channel_flow()
   use geovar,  only : n_solpts,ncell,cell,xyz
   use flowvar, only : uavesp,time_ave_variables
   use ovar,    only : rhoref,aref,tref,tkeref,tlsref
+  use ovar,    only : itcur,time,time_ref,time_scaling_factor
+  use ovar,    only : ave_start_time,output_time_averaging
   !
   !.. Local Scalars ..
   integer  :: l,m,n,nc,n1,n2,ierr,io
   integer  :: nvar,n_yloc
+  real(wp) :: out_time
+  !
+  character(len=1)   :: ta_char
+  character(len=1)   :: vmult
+  character(len=50)  :: varname
+  character(len=100) :: avefile
   !
   character(len=1)  :: ta_char
   character(len=1)  :: vmult
@@ -135,7 +143,6 @@ subroutine spatial_ave_channel_flow()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "spatial_ave_channel_flow"
-  character(len=*), parameter :: avefile = "spatial_ave.dat"
   !
 continue
   !
@@ -202,6 +209,8 @@ continue
     end do
   end do
   !
+  write (avefile,20) itcur
+  avefile = trim(adjustl(avefile))
   !
   open (newunit=io,file=avefile,status="replace",action="write", &
                    iostat=ierr,iomsg=error_message)
@@ -271,6 +280,20 @@ continue
   close (io,iostat=ierr,iomsg=error_message)
   call io_error(pname,avefile,2,__LINE__,__FILE__,ierr,error_message)
   !
+  ! Output the current iteration and how many
+  ! flow-through-times have been averaged
+  !
+  if (mypnum == glb_root) then
+    !
+    out_time = time*time_ref*time_scaling_factor
+    if (output_time_averaging) then
+      out_time = out_time - ave_start_time*time_ref*time_scaling_factor
+    end if
+    !
+    write (iout,21) itcur,out_time
+    !
+  end if
+  !
   !
   write (error_message,1)
   call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
@@ -283,6 +306,10 @@ continue
   11 format ('"',a,'"',:,a)
   12 format ('ZONE T="Spatial Average", I=',i0,', DATAPACKING=POINT')
   13 format (100es14.6)
+  !
+  20 format ("spatial_ave.",i0,".dat")
+  21 format (/,2x,"Number of iterations completed = ",i0,/, &
+               2x,"Number of flow-through-times averaged = ",f9.4,/)
   !
 end subroutine spatial_ave_channel_flow
 !
