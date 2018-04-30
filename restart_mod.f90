@@ -38,6 +38,7 @@ module restart_mod
   !#################################
   !
   logical(lk), save :: restart_needs_initialization = true
+  logical(lk), save :: time_ave_needs_initialization = true
   !
   integer, save :: restart_solution_form
   !
@@ -105,6 +106,9 @@ module restart_mod
   integer(INT_MPI), save, allocatable :: pts_counts(:)
   integer(INT_MPI), save, allocatable :: pts_displs(:)
   !
+  integer(int_mpi), save, allocatable :: pts_offset(:)
+  integer(int_mpi), save, allocatable :: pts_blklen(:)
+  !
   type(sp_idx_t), save, allocatable :: host_output_order(:)
   !
   type(rstrt_cell_t), save, allocatable :: cell_input_data(:)
@@ -136,7 +140,7 @@ contains
 subroutine read_restart_file(restart_fname)
   !
   !.. Use Statements ..
-  use ovar,    only : itrst,tmrst,dtrst
+  use ovar,    only : itrst,tmrst,dtrst,rl2mx
   use ovar,    only : prev_ave_time,ave_start_time
   use ovar,    only : restart_file,time_ave_file
   use ovar,    only : output_time_averaging
@@ -185,43 +189,61 @@ continue
     tmrst = real( real_header(1) , kind=kind(tmrst) )
     dtrst = real( real_header(2) , kind=kind(dtrst) )
     !
-    if (output_time_averaging .and. read_time_ave_restart) then
+    if (size(real_header) >= 3) then
+      rl2mx = real( real_header(3) , kind=kind(rl2mx) )
+    end if
+    !
+    if (output_time_averaging) then
       !
-      fname = trim(adjustl(time_ave_file))
-      !
-      ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
-      !
-      call read_solution_file(fname,int_header,real_header,uavesp,var_header, &
-                              sol_is_transposed=true)
-      !
-      prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
-      ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
-      !
-      if (int_header(4) /= itrst) then
-        write (error_message,1) int_header(4),itrst
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      end if
-      !
-      if (abs(real_header(1)-tmrst) > eps9) then
-        write (error_message,2) real_header(1),tmrst
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      end if
-      !
-      if (allocated(time_ave_variables)) then
-        deallocate ( time_ave_variables , stat=ierr , errmsg=error_message )
-        call alloc_error(pname,"time_ave_variables",2,__LINE__,__FILE__, &
+      if (read_time_ave_restart) then
+        !
+        fname = trim(adjustl(time_ave_file))
+        !
+        ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
+        !
+        call read_solution_file(fname,int_header,real_header,uavesp, &
+                                var_header,sol_is_transposed=true)
+        !
+        prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
+        ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
+        !
+        if (size(real_header) >= 4) then
+          rl2mx = real( real_header(4) , kind=kind(rl2mx) )
+        end if
+        !
+        if (int_header(4) /= itrst) then
+          write (error_message,1) int_header(4),itrst
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        end if
+        !
+        if (abs(real_header(1)-tmrst) > eps9) then
+          write (error_message,2) real_header(1),tmrst
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        end if
+        !
+        if (allocated(time_ave_variables)) then
+          deallocate ( time_ave_variables , stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"time_ave_variables",2,__LINE__,__FILE__, &
+                           ierr,error_message)
+        end if
+        !
+        allocate ( time_ave_variables(1:size(var_header)) , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
                          ierr,error_message)
+        !
+        do n = 1,size(var_header)
+          time_ave_variables(n) = transfer(var_header(n),time_ave_variables(n))
+          time_ave_variables(n) = trim(adjustl(time_ave_variables(n)))
+        end do
+        !
+      else
+        !
+        ! Reset rl2mx since we are starting a new time averaging
+        !
+        rl2mx = -huge(zero)
+        !
       end if
-      !
-      allocate ( time_ave_variables(1:size(var_header)) , &
-                 stat=ierr , errmsg=error_message )
-      call alloc_error(pname,"time_ave_variables",1,__LINE__,__FILE__, &
-                       ierr,error_message)
-      !
-      do n = 1,size(var_header)
-        time_ave_variables(n) = transfer(var_header(n),time_ave_variables(n))
-        time_ave_variables(n) = trim(adjustl(time_ave_variables(n)))
-      end do
       !
     end if
     !
@@ -844,7 +866,7 @@ subroutine write_restart_file(itnum)
   !
   !.. Use Statements ..
   use geovar,       only : n_global_cell
-  use ovar,         only : itcur,time,d_t
+  use ovar,         only : itcur,time,d_t,rl2mx
   use ovar,         only : loc_solution_pts
   use ovar,         only : output_time_averaging
   use ovar,         only : restart_output_uses_host_roots
@@ -876,7 +898,7 @@ subroutine write_restart_file(itnum)
   !
   !.. Local Arrays ..
   integer(wip) :: int_header(1:4)
-  real(wp)     :: real_header(1:2)
+  real(wp)     :: real_header(1:3)
   !
   !.. Local Allocatable Arrays ..
   integer(i4), allocatable :: ordered_geom(:)
@@ -1027,7 +1049,7 @@ continue
     !
     ! Store the time data into the real_header array
     !
-    real_header = [ time , d_t ]
+    real_header = [ time , d_t , rl2mx ]
     !
     ! Now write the actual restart file using all the
     ! MPI processes actually involved with the I/O
@@ -1508,7 +1530,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
                                         sol_is_transposed)
   !
   !.. Use Statements ..
-  use ovar,    only : time,prev_ave_time,ave_start_time,itcur
+  use ovar,    only : time,prev_ave_time,ave_start_time,itcur,rl2mx
   use ovar,    only : restart_output_uses_host_roots
   use flowvar, only : uavesp,time_ave_variables
   !
@@ -1536,7 +1558,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   _MPI_COMM_TYPE_ :: timeave_comm
   !
   !.. Local Arrays ..
-  real(wp) :: real_header(1:3)
+  real(wp) :: real_header(1:4)
   !
   !.. Local Allocatable Arrays ..
   integer,  allocatable :: var_header(:)
@@ -1550,6 +1572,23 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (time_ave_needs_initialization) then
+    !
+    ! Get the MPI derived types required to
+    ! read/write the time-averaging restart file
+    !
+    if (restart_output_uses_host_roots) then
+      call get_host_time_ave_mpi_datatypes
+    else
+      call get_time_ave_mpi_datatypes
+    end if
+    !
+    ! Unset the restart initialization flag since this has now been done
+    !
+    time_ave_needs_initialization = fals
+    !
+  end if
   !
   flip_sol_indices = fals
   if (present(sol_is_transposed)) then
@@ -1598,7 +1637,7 @@ continue
   ! Store the time data specific to the time averaged solution
   ! into the respective location within the real_header array
   !
-  real_header(:) = [ time , prev_ave_time , ave_start_time ]
+  real_header(:) = [ time , prev_ave_time , ave_start_time , rl2mx ]
   !
   ! Create the variable header for the time averaged solution
   !
@@ -2423,12 +2462,6 @@ subroutine get_host_output_mpi_datatypes()
   !.. Local Allocatable Arrays ..
   logical(lk),      allocatable :: msk(:)
   integer(int_mpi), allocatable :: og_offset(:)
-  integer(int_mpi), allocatable :: pts_offset(:)
-  integer(int_mpi), allocatable :: pts_blklen(:)
-  integer(int_mpi), allocatable :: sol_offset(:)
-  integer(int_mpi), allocatable :: sol_blklen(:)
-  integer(int_mpi), allocatable :: ave_offset(:)
-  integer(int_mpi), allocatable :: ave_blklen(:)
   integer(int_mpi), allocatable :: tmp_copy(:)
   integer(int_mpi), allocatable :: recvcounts(:)
   integer(int_mpi), allocatable :: recvdispls(:)
@@ -2794,40 +2827,12 @@ continue
                              sol_block_type,mpierr)
     call mpi_type_commit(sol_block_type,mpierr)
     !
-    ! Multiply the offsets and block lengths by nq to account
-    ! for the number of equations in the solution data
     !
-    sol_offset = pts_offset(:) * int(nq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
-    sol_blklen = pts_blklen(:) * int(nq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
     !
     call mpi_type_indexed(size(pts_offset,kind=int_mpi), &
                           pts_blklen,pts_offset, &
                           sol_block_type,solution_type,mpierr)
     call mpi_type_commit(solution_type,mpierr)
-    !
-    ! Create the MPI derived datatype for writing the
-    ! time averaged solution data to the averaging file
-    !
-    if (allocated(uavesp)) then
-      !
-      naq = minval( shape(uavesp) )
-      !
-      call mpi_type_contiguous(int(naq,kind=int_mpi),mpi_flttyp, &
-                               ave_block_type,mpierr)
-      call mpi_type_commit(ave_block_type,mpierr)
-      !
-      ! Multiply the offsets and block lengths by naq to account for
-      ! the number of time averaged quantities in the solution data
-      !
-      ave_offset = pts_offset(:)*int(naq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
-      ave_blklen = pts_blklen(:)*int(naq,kind=int_mpi) ! F2003 AUTO-REALLOCATION
-      !
-      call mpi_type_indexed(size(pts_offset,kind=int_mpi), &
-                            pts_blklen,pts_offset, &
-                            ave_block_type,averaging_type,mpierr)
-      call mpi_type_commit(averaging_type,mpierr)
-      !
-    end if
     !
   end if
   !
@@ -2836,36 +2841,6 @@ continue
   if (allocated(og_offset)) then
     deallocate ( og_offset , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(pts_offset)) then
-    deallocate ( pts_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"pts_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(pts_blklen)) then
-    deallocate ( pts_blklen , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"pts_blklen",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(sol_offset)) then
-    deallocate ( sol_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(sol_blklen)) then
-    deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(ave_offset)) then
-    deallocate ( ave_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ave_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(ave_blklen)) then
-    deallocate ( ave_blklen , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"ave_blklen",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2889,12 +2864,8 @@ subroutine get_output_mpi_datatypes()
   !.. Local Allocatable Arrays ..
   logical(lk),      allocatable :: msk(:)
   integer(int_mpi), allocatable :: og_offset(:)
-  integer(int_mpi), allocatable :: pts_offset(:)
-  integer(int_mpi), allocatable :: pts_blklen(:)
   integer(int_mpi), allocatable :: sol_offset(:)
   integer(int_mpi), allocatable :: sol_blklen(:)
-  integer(int_mpi), allocatable :: ave_offset(:)
-  integer(int_mpi), allocatable :: ave_blklen(:)
   integer(int_mpi), allocatable :: tmp_copy(:)
   !
   !.. Local Parameters ..
@@ -3040,6 +3011,109 @@ continue
                         mpi_flttyp,solution_type,mpierr)
   call mpi_type_commit(solution_type,mpierr)
   !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(og_offset)) then
+    deallocate ( og_offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(sol_offset)) then
+    deallocate ( sol_offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(sol_blklen)) then
+    deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_output_mpi_datatypes
+!
+!###############################################################################
+!
+subroutine get_host_time_ave_mpi_datatypes()
+  !
+  !.. Use Statement ..
+  use flowvar, only : uavesp
+  !
+  !.. Local Scalars ..
+  integer :: naq,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_host_time_ave_mpi_datatypes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Create the cell offsets as well as the block lengths
+  ! and offsets for the solution data
+  !
+  if (i_am_host_root) then
+    !
+    ! Create the MPI derived datatype for writing the
+    ! time averaged solution data to the averaging file
+    !
+    if (allocated(uavesp)) then
+      !
+      naq = minval( shape(uavesp) )
+      !
+      call mpi_type_contiguous(int(naq,kind=int_mpi),mpi_flttyp, &
+                               ave_block_type,mpierr)
+      call mpi_type_commit(ave_block_type,mpierr)
+      !
+      !
+      !
+      call mpi_type_indexed(size(pts_offset,kind=int_mpi), &
+                            pts_blklen,pts_offset, &
+                            ave_block_type,averaging_type,mpierr)
+      call mpi_type_commit(averaging_type,mpierr)
+      !
+    end if
+    !
+  end if
+  !
+  ! Deallocate the local arrays before leaving
+  !
+  if (allocated(pts_offset)) then
+    deallocate ( pts_offset , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts_offset",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(pts_blklen)) then
+    deallocate ( pts_blklen , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"pts_blklen",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_host_time_ave_mpi_datatypes
+!
+!###############################################################################
+!
+subroutine get_time_ave_mpi_datatypes()
+  !
+  !.. Use Statement ..
+  use flowvar, only : uavesp
+  !
+  !.. Local Scalars ..
+  integer :: naq,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  logical(lk),      allocatable :: msk(:)
+  integer(int_mpi), allocatable :: ave_offset(:)
+  integer(int_mpi), allocatable :: ave_blklen(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_time_ave_mpi_datatypes"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
   ! Create the MPI derived datatype for writing the
   ! time averaged solution data to the averaging file
   !
@@ -3062,36 +3136,21 @@ continue
   !
   ! Deallocate the local arrays before leaving
   !
-  if (allocated(og_offset)) then
-    deallocate ( og_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"og_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
   if (allocated(pts_offset)) then
     deallocate ( pts_offset , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"pts_offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
-    !
+  !
   if (allocated(pts_blklen)) then
     deallocate ( pts_blklen , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"pts_blklen",2,__LINE__,__FILE__,ierr,error_message)
   end if
-    !
-  if (allocated(sol_offset)) then
-    deallocate ( sol_offset , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sol_offset",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
-  if (allocated(sol_blklen)) then
-    deallocate ( sol_blklen , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"sol_blklen",2,__LINE__,__FILE__,ierr,error_message)
-  end if
-    !
+  !
   if (allocated(ave_offset)) then
     deallocate ( ave_offset , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ave_offset",2,__LINE__,__FILE__,ierr,error_message)
   end if
-    !
+  !
   if (allocated(ave_blklen)) then
     deallocate ( ave_blklen , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"ave_blklen",2,__LINE__,__FILE__,ierr,error_message)
@@ -3099,7 +3158,7 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine get_output_mpi_datatypes
+end subroutine get_time_ave_mpi_datatypes
 !
 !###############################################################################
 !
