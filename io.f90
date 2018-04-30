@@ -6742,18 +6742,18 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
- !character(len=*), parameter :: char_sdefault(1:7) = ["Density         ", &
- !                                                     "Velocity        ", &
- !                                                     "Pressure        ", &
- !                                                     "Mach            ", &
- !                                                     "Temperature     ", &
- !                                                     "ResolutionMarker", &
- !                                                     "JumpMarker      "]
-  character(len=*), parameter :: char_sdefault(1:5) = ["Density    ", &
-                                                       "Velocity   ", &
-                                                       "Pressure   ", &
-                                                       "Mach       ", &
-                                                       "Temperature"]
+  character(len=*), parameter :: char_sdefault(1:7) = ["Density         ", &
+                                                       "Velocity        ", &
+                                                       "Pressure        ", &
+                                                       "Mach            ", &
+                                                       "Temperature     ", &
+                                                       "ResolutionMarker", &
+                                                       "JumpMarker      "]
+ !character(len=*), parameter :: char_sdefault(1:5) = ["Density    ", &
+ !                                                     "Velocity   ", &
+ !                                                     "Pressure   ", &
+ !                                                     "Mach       ", &
+ !                                                     "Temperature"]
  !character(len=*), parameter :: char_sdefault(1:6) = ["Density    ", &
  !                                                     "Velocity   ", &
  !                                                     "Pressure   ", &
