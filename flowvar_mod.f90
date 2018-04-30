@@ -266,6 +266,24 @@ continue
   !$ACC UPDATE DEVICE(uoldsp)
   !
   !
+  if (convert_restart_to_cgns) then
+    !
+    nfpts = face(nface)%end_fp ! end fp index for last face
+    !
+    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !$ACC UPDATE DEVICE(faceusp_array)
+   !!
+   !allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
+   !           stat=ierr , errmsg=error_message )
+   !call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
+   !                 ierr,error_message)
+   !!$ACC UPDATE DEVICE(facedusp_array)
+    !
+  end if
+  !
   ! Allocate the outer part of the face solution/flux arrays
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
@@ -355,17 +373,22 @@ continue
     !$ACC UPDATE DEVICE(faceflx)
     !
 !!!#ifdef USE_FACE_ARRAYS
-    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+    if (.not. allocated(faceusp_array)) then
+      allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !$ACC UPDATE DEVICE(faceusp_array)
+    end if
     !
-    allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
-                     ierr,error_message)
+    if (.not. allocated(facedusp_array)) then
+      allocate ( facedusp_array(1:nfpts,1:nr,1:nq,1:2) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"facedusp_array",1,__LINE__,__FILE__, &
+                       ierr,error_message)
+      !$ACC UPDATE DEVICE(facedusp_array)
+    end if
     !
-    !$ACC UPDATE DEVICE(faceusp_array,facedusp_array)
 !!!#endif
     !
     !
