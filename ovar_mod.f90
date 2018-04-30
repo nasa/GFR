@@ -219,6 +219,8 @@ module ovar
   real(wp), public, save :: ideal_total_temperature = -1.0_wp
   real(wp), public, save :: limit_total_temperature = 0.2_wp
   !
+  logical(lk), public, save :: output_limiter_statistics = fals
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -292,6 +294,8 @@ module ovar
   real(wp), public, save, allocatable :: uverr(:,:,:)
   real(wp), public, save, allocatable :: uverr1(:,:,:)
   !$ACC DECLARE CREATE(uverr)
+  !
+  integer, public, save, allocatable :: nlim(:)
   !
   real(wp), public, save, dimension(1:3,1:3,1:5) :: advec_error
   real(wp), public, save, dimension(1:5,1:2,1:5) :: vortex_error
@@ -642,6 +646,7 @@ module input_namelist_mod
   use ovar,      only : time_average_restart_files, restart_list_file
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
+  use ovar,      only : output_limiter_statistics
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -779,6 +784,8 @@ module input_namelist_mod
   namelist / input / use_async_for_error
   ! REALIZABLE TOTAL TEMPERATURE LIMITER
   namelist / input / ideal_total_temperature, limit_total_temperature
+  ! OUTPUT THE STATISTICS OF THE LIMITER
+  namelist / input / output_limiter_statistics
   !
   ! CFL ADJUSTMENT NAMELIST
   !

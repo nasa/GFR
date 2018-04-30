@@ -1491,12 +1491,15 @@ end subroutine compute_residual_error
 subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   !
   !.. Use Statements ..
-  use geovar,  only : global_pinc_ptr
+  use geovar,  only : global_pinc_ptr,n_global_cell
   use ovar,    only : itcur,d_t,cfl,time,minimum_timesteps,time_ref
   use ovar,    only : convergence_reached,itestcase,Period_Timesteps
+  use ovar,    only : output_limiter_statistics,nlim
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : rl2mx,uverr,this_is_final_timestep,iter_out_interval
   use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
+  !
+  use order_mod, only : n_order
   !
   use pbs_mod, only : pbs_remaining_walltime
   !
@@ -1506,12 +1509,12 @@ subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   !
   !.. Local Scalars ..
   integer  :: hrs_left,min_left,sec_left
-  integer  :: nloc,kloc
+  integer  :: n,nloc,kloc,ierr
   real(wp) :: xentmax,yentmax
   real(wp) :: entL2
   real(wp) :: wall_time_left,out_time
   real(wp) :: orders_converged,output_L2val
-  real(wp) :: rltwo
+  real(wp) :: rltwo,rlim
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_iter_stats_gpu"
@@ -1581,11 +1584,34 @@ continue
     !
   end if
   !
+  if (output_limiter_statistics) then
+    !
+    if (.not. allocated(nlim)) then
+      allocate ( nlim(0:n_order) , source=0 , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"nlim",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+    if (ncpu > 1) then
+      call mpi_allreduce(MPI_IN_PLACE,nlim,size(nlim,kind=int_mpi), &
+                         mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    end if
+    !
+  end if
+  !
   ! Output the results for the current time step
   !
   call pbs_remaining_walltime(walltime_expiring,wall_time_left)
   !
   if (mypnum == glb_root) then
+    !
+    if (output_limiter_statistics) then
+      do n = lbound(nlim,dim=1),ubound(nlim,dim=1)
+        if (nlim(n) > 0) then
+          rlim = ten*ten * real(nlim(n),kind=wp) / real(n_global_cell,kind=wp)
+          write (iout,10) nlim(n),rlim,n
+        end if
+      end do
+    end if
     !
     out_time = time*time_ref*time_scaling_factor
     if (output_time_averaging) then
@@ -1689,6 +1715,8 @@ continue
               " RUN ANOTHER 25 PERIODS PAST THE POINT OF COLLAPSE!",/, &
               " STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
               "******************************************************",/)
+  !
+  10 format (8x,i8," Cells (",f7.3," %) limited to P",i0)
   !
 end subroutine write_iter_stats_gpu
 !

@@ -1047,12 +1047,14 @@ end subroutine identify_troubled_cells
 !
 !###############################################################################
 !
-subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
+subroutine resolution_indicator(apply_projection,troubled_cell, &
+                                orders_to_cutoff)
   !
   !.. Use Statements ..
   use order_mod, only : p_order,n_order
   use geovar,    only : ncell,cell
   use flowvar,   only : usp
+  use ovar,      only : output_limiter_statistics,nlim
   !
   !.. Optional Arguments ..
   logical(lk),  optional,    intent(in) :: apply_projection
@@ -1063,9 +1065,6 @@ subroutine resolution_indicator(apply_projection,troubled_cell,orders_to_cutoff)
   integer :: n,nc,nr,ord_mlt,ord_add
   integer :: this_order,limit_order
   integer :: num_limited_cells,ierr
-  !
-  !.. Local Arrays ..
-  integer :: nlim(0:n_order)
   !
   !.. Local Allocatable Arrays ..
   logical(ldk), allocatable :: skip_cell(:)
@@ -1202,33 +1201,30 @@ continue
         !
       end do
       !
-#ifdef DEBUG_ON
-      nlim(:) = 0
-      !
-      do n = 0,n_order
-        num_limited_cells = 0
-        !$ACC PARALLEL LOOP REDUCTION(+:num_limited_cells) &
-        !$ACC&              PRESENT(lmtr_order)
-        do nc = 1,ncell
-          if (.not. skip_cell(nc)) then
-            if (lmtr_order(nc) == n) then
-              num_limited_cells = num_limited_cells + 1
+      if (output_limiter_statistics) then
+        !
+        if (.not. allocated(nlim)) then
+          allocate ( nlim(0:n_order) , stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"nlim",1,__LINE__,__FILE__,ierr,error_message)
+        end if
+        !
+        nlim(:) = 0
+        !
+        do n = 0,n_order
+          num_limited_cells = 0
+          !$ACC PARALLEL LOOP REDUCTION(+:num_limited_cells) &
+          !$ACC&              PRESENT(lmtr_order)
+          do nc = 1,ncell
+            if (.not. skip_cell(nc)) then
+              if (lmtr_order(nc) == n) then
+                num_limited_cells = num_limited_cells + 1
+              end if
             end if
-          end if
+          end do
+          nlim(n) = num_limited_cells
         end do
-        nlim(n) = num_limited_cells
-      end do
-      !
-      if (ncpu > 1) then
-        call mpi_allreduce(MPI_IN_PLACE,nlim,size(nlim,kind=int_mpi), &
-                           mpi_inttyp,MPI_SUM,MPI_COMM_WORLD,mpierr)
+        !
       end if
-      if (mypnum == glb_root) then
-        do n = lbound(nlim,dim=1),ubound(nlim,dim=1)
-          if (nlim(n) > 0) write (iout,1) nlim(n),n
-        end do
-      end if
-#endif
       !
       ! Apply the projection limiter to the cells marked as needing limiting
       !
@@ -1250,10 +1246,6 @@ continue
   deallocate ( skip_cell )
   !
   call debug_timer(leaving_procedure,pname)
-  !
-  ! Format Statements
-  !
-  1 format (8x,i8," Cells limited to P",i0)
   !
 end subroutine resolution_indicator
 !
