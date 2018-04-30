@@ -1263,10 +1263,11 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
                                           marker,scaled_marker)
   !
   !.. Use Statements ..
-  use order_mod,   only : maxSP
-  use geovar,      only : n_solpts,ncell,cell
-  use metrics_mod, only : wtdjac
-  use filter_mod,  only : filter
+  use order_mod,      only : maxSP
+  use geovar,         only : n_solpts,ncell,cell
+  use metrics_mod,    only : wtdjac
+  use filter_mod,     only : filter
+  use quadrature_mod, only : std_elem
   !
   !.. Formal Arguments ..
   real(wp),     intent(in) :: usp(:,:)
@@ -1346,29 +1347,32 @@ continue
   !
   !$ACC PARALLEL LOOP GANG &
   !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(cell,wtdjac) &
+  !$ACC&              PRESENT(cell,std_elem) &
   !$ACC&              PRESENT(usp,marker) &
   !$ACC&              PRESENT(rho_pm1)
   do nc = 1,ncell
     !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
+    n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
+    np = cell(nc)%end_sp - n0 ! number of sol-pts for this cell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
     !
     l2_n = zero ! numerator   for resolution indicator
     l2_d = zero ! denominator for resolution indicator
     !
     !$ACC LOOP VECTOR REDUCTION(+:l2_n,l2_d)
-    do n = n1,n2
+    do n = 1,np
       !
-      rho_d = usp(n,nec)         ! denominator rho is: rho[P]
-      rho_n = rho_d - rho_pm1(n) ! numerator   rho is: rho[P] - rho[P-1]
+      rho_d = usp(n0+n,nec)         ! denominator rho is: rho[P]
+      rho_n = rho_d - rho_pm1(n0+n) ! numerator   rho is: rho[P] - rho[P-1]
       !
-      l2_n = l2_n + rho_n*rho_n*wtdjac(n)
-      l2_d = l2_d + rho_d*rho_d*wtdjac(n)
+      l2_n = l2_n + rho_n*rho_n*std_elem(this_geom,this_order)%wts(n)
+      l2_d = l2_d + rho_d*rho_d*std_elem(this_geom,this_order)%wts(n)
       !
     end do
     !
-    marker(nc) = max(l2_n,rndoff) / l2_d
+    marker(nc) = l2_n / l2_d
     !
   end do
   !
@@ -1386,7 +1390,7 @@ continue
       !
     else
       !
-      l10_marker = log10( marker(nc) )
+      l10_marker = log10( max( marker(nc) , rndoff ) )
       !
       psi0 = -one*(c1 + c2*log10(real(cutoff_order(nc),kind=wp)))
       !
@@ -1693,6 +1697,7 @@ subroutine resolution_indicator_old(apply_projection,troubled_cell, &
   use metrics_mod,    only : wtdjac
   use filter_mod,     only : filter
   use projection_mod, only : projct
+  use quadrature_mod, only : std_elem
   !
   !.. Optional Arguments ..
   logical(lk),  optional,    intent(in) :: apply_projection
@@ -1802,12 +1807,17 @@ continue
     !
     ! Compute the L2 inner product of the two polynomials
     !
-    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * wtdjac(n1:n2) )
+   !l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * wtdjac(n1:n2) )
+    l2_pm1 = sum( rho_pm1(1:np) * rho_pm1(1:np) * &
+                  std_elem(this_geom,this_order)%wts(1:np) )
     l2_pm1 = max(l2_pm1,rndoff)
     !
-    l2_p = sum( rho_p(1:np) * rho_p(1:np) * wtdjac(n1:n2) )
+   !l2_p = sum( rho_p(1:np) * rho_p(1:np) * wtdjac(n1:n2) )
+    l2_p = sum( rho_p(1:np) * rho_p(1:np) * &
+                std_elem(this_geom,this_order)%wts(1:np) )
     !
-    marker(nc) = log10( l2_pm1 / l2_p )
+   !marker(nc) = log10( l2_pm1 / l2_p )
+    marker(nc) = log10( max( l2_pm1/l2_p , rndoff ) )
     !
     psi0 = -one*(c1 + c2*log10(real(cutoff_order,kind=wp)))
     !
