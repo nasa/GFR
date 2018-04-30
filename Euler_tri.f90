@@ -18,7 +18,7 @@ program Euler_tri
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
   use ovar, only : num_rk_stages,Runge_Kutta_Scheme
-  use ovar, only : time,time_ref,itcur,num_timesteps
+  use ovar, only : time,time_ref,itcur,num_timesteps,rl2mx
   use ovar, only : governing_equations,visc_flux_method
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
@@ -166,11 +166,14 @@ program Euler_tri
   logical(lk)  :: completed_initial_cgns_output
   logical(lk)  :: exit_main_loop
   logical(lk)  :: walltime_expiring
+  !
   logical(ldk) :: request_stop
   logical(ldk) :: request_restart
   logical(ldk) :: request_solution
   logical(ldk) :: request_cfl_adjustment
   logical(ldk) :: request_restart_interupt
+  logical(ldk) :: request_time_ave
+  logical(ldk) :: request_array(1:6)
   !
   logical(lk)  :: Apply_Filter
   logical(lk)  :: Apply_Limiter
@@ -185,6 +188,10 @@ continue
   call check_for_bad_number(__LINE__)
   request_restart = .false.
   request_solution = .false.
+  request_time_ave = .false.
+  request_restart_interupt = .false.
+  request_cfl_adjustment = .false.
+  request_stop = .false.
   completed_initial_cgns_output = fals
   !
   ! Initialize the overall MPI session
@@ -405,7 +412,7 @@ continue
   !
   call recon_cpu_time(0)
   !
-  if (num_timesteps > 0) then
+ !if (num_timesteps > 0) then
     !
     call interp_cv_to_flxpts(0,0) ! ; call check_for_bad_number(__LINE__)
     call memory_pause("initial interpolation of C.V. to flux points", &
@@ -413,7 +420,7 @@ continue
     call check_for_bad_number(__LINE__)
     if (ncpu > 1) then
       call exchange_faceusp       ! ; call check_for_bad_number(__LINE__)
-#define IMMEDIATE_WAIT_FOR_MPI
+!#define IMMEDIATE_WAIT_FOR_MPI
 #ifdef IMMEDIATE_WAIT_FOR_MPI
       call wait_faceusp           ! ; call check_for_bad_number(__LINE__)
 #endif
@@ -446,7 +453,7 @@ continue
       call check_for_bad_number(__LINE__)
     end if
     !
-  end if
+ !end if
   !
 #ifdef PAUSE_BETWEEN_ITERATIONS
   if (mypnum == glb_root) then
@@ -793,6 +800,29 @@ continue
             cfl_tmp = [cfl,cfl_beg,cfl_end,real(cfl_cycles,kind=wp)]
             !
           end if
+          !
+          ! Check for a start time-averaging request
+          !
+          inquire (file="START_TIME_AVERAGING",exist=request_time_ave)
+          !
+          ! If stop was requested, delete the
+          ! STOP_RECON file and exit the main loop
+          !
+          if (request_time_ave) then
+            !
+            if (output_time_averaging) then
+              request_time_ave = .false.
+            else
+              write (iout,94)
+            end if
+            !
+            ! We dont care about the exit status here since we are
+            ! going to be stopping execution after this anyways
+            !
+            open (newunit=i,file="START_TIME_AVERAGING",iostat=ierr)
+            close (i,status="delete",iostat=ierr)
+            !
+          end if
          !!
          !! Check for a file requesting an interuption of the current
          !! simulation to restart it with a new restart file
@@ -811,33 +841,34 @@ continue
          !  !
          !end if
           !
+          request_array(:) = [request_stop,request_restart,request_solution, &
+                              request_cfl_adjustment,request_restart_interupt, &
+                              request_time_ave]
+          !
         end if
         !
-        ! Have the root processor broadcast request_stop to
-        ! the other processors so all processors can exit the
-        ! main loop together if the STOP_RECON file was found
+        ! Have the root processor broadcast all the request logicals to
+        ! the other processors so they can proceed as needed
         !
-        call mpi_bcast(request_stop,1_int_mpi,MPI_LOGICAL, &
-                       0_int_mpi,MPI_COMM_WORLD,mpierr)
+        call mpi_bcast(request_array,size(request_array,kind=int_mpi), &
+                       MPI_LOGICAL,0_int_mpi,MPI_COMM_WORLD,mpierr)
+        !
+        request_stop = request_array(1)
+        request_restart = request_array(2)
+        request_solution = request_array(3)
+        request_cfl_adjustment = request_array(4)
+        request_restart_interupt = request_array(5)
+        request_time_ave = request_array(6)
+        !
+        ! Exit if the STOP_RECON file was found
+        !
         if (request_stop) exit main_loop
-        !
-        ! Have the root processor broadcast request_restart to
-        ! the other processors
-        !
-        call mpi_bcast(request_restart,1_int_mpi,MPI_LOGICAL, &
-                       0_int_mpi,MPI_COMM_WORLD,mpierr)
         !
         ! If a restart dump was requested, write a restart file
         !
         if (request_restart) then
           call write_restart_file(itcur)
         end if
-        !
-        ! Have the root processor broadcast request_solution to
-        ! the other processors
-        !
-        call mpi_bcast(request_solution,1_int_mpi,MPI_LOGICAL, &
-                       0_int_mpi,MPI_COMM_WORLD,mpierr)
         !
         ! If a solution dump was requested, dump the solution and then let
         ! the CGNS subroutine know that the file needs to be reopened.
@@ -850,9 +881,6 @@ continue
           end if
           CGNS_action = reopen_CGNS
         end if
-        !
-        call mpi_bcast(request_cfl_adjustment,1_int_mpi,MPI_LOGICAL, &
-                       0_int_mpi,MPI_COMM_WORLD,mpierr)
         !
         if (request_cfl_adjustment) then
           !
@@ -868,8 +896,14 @@ continue
           !
         end if
         !
-       !call mpi_bcast(request_restart_interupt,1_int_mpi,MPI_LOGICAL, &
-       !               0_int_mpi,MPI_COMM_WORLD,mpierr)
+        if (request_time_ave) then
+          !
+          output_time_averaging = true
+          rl2mx = -huge(zero)
+          !
+          call initialize_time_ave
+          !
+        end if
         !
       end if
       !
@@ -996,7 +1030,7 @@ continue
       if (output_time_averaging) then
         out_time = out_time - ave_start_time*time_ref*time_scaling_factor
       end if
-      write (iout,40) itcur,out_time
+      write (iout,40) ncpu,itcur,out_time
       call recon_cpu_time(-1)
       !
       call write_final_error
@@ -1031,13 +1065,17 @@ continue
   19 format (/,' Lowest  Cell Order = ',i4,/, &
                ' Highest Cell Order = ',i4,/)
   !
-  40 format (//' Final iteration count   = ',i12,/, &
-               ' Simulation elapsed time = ',f12.3)
+  40 format (//,' Number of CPU cores used = ',i12,//, &
+                ' Final iteration count    = ',i12,/, &
+                ' Simulation elapsed time  = ',f12.3)
   41 format (/,"TOTAL SIMULATION WALL TIME WAS ",f18.6," s.",/,&
                "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
   !
   50 format (/'Done'/)
   !
+  94 format (/,"*******************************************************",/, &
+               "    FOUND FILE REQUESTING TO START TIME AVERAGING! ",/, &
+               "*******************************************************",/)
   95 format (/,"*******************************************************",/, &
                "    FOUND FILE REQUESTING AN ADJUSTMENT TO THE CFL! ",/, &
                "*******************************************************",/)
