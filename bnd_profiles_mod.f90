@@ -83,13 +83,13 @@ subroutine compute_bnd_profiles
   use ovar,              only : machref,rhoref,aref,muref,tref
   use ovar,              only : cpref_nd,Pr
   use ovar,              only : output_bnd_profiles
-  use metrics_mod,       only : geofa
+ !use metrics_mod,       only : facenrm
   use flowvar,           only : usp,dusp
   use interpolation_mod, only : interp
   use interpolation_mod, only : outerp,outerp_mv_mult
   !
   !.. Local Scalars ..
-  integer :: i,j,k,l,m,n,nf,np,n1,n2,kf,kl
+  integer :: i,j,k,l,m,n,nf,np,n1,n2,kf,kl,f0
   integer :: host_cell,host_geom,host_order
   integer :: ndata,face_geom,face_order,nfp
   integer :: ioprf,ierr
@@ -107,7 +107,7 @@ subroutine compute_bnd_profiles
   character(len=20) :: zonetype
   !
   !.. Local Arrays ..
-  real(wp), dimension(1:nr) :: unrm
+ !real(wp), dimension(1:nr) :: unrm
   real(wp), dimension(1:nr) :: xyz_fp
   real(wp), dimension(1:nq) :: cvfp
   real(wp), dimension(1:nq) :: pvfp
@@ -157,6 +157,8 @@ continue
       face_geom = face(nf)%geom   ! geometry of boundary face
       face_order = face(nf)%order ! order    of boundary face
       !
+      f0 = face(nf)%beg_fp-1
+      !
       nfp = geom_solpts(face_geom,face_order) ! number of flx-pts
       !
       host_cell = face(nf)%left%cell ! host cell on current boundary face
@@ -195,7 +197,7 @@ continue
         ! Index within qty_data for current flx-pt
         kf = ndata + k
         !
-        unrm(1:nr) = geofa(nf)%v(1:nr,k)
+       !unrm(1:nr) = facenrm(1:nr,f0+k)
         !
         ! Interpolate the conservative variables from the interior sol-pts
         ! to the current flux point on face nf
