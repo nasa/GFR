@@ -1384,7 +1384,8 @@ continue
       !
       l10_marker = log10( max( marker(nc) , rndoff ) )
       !
-      psi0 = -one*(c1 + c2*log10(real(cutoff_order(nc),kind=wp)))
+      psi0 = -one*(c1 + c2*log10(real(cell(nc)%order,kind=wp)))
+     !psi0 = -one*(c1 + c2*log10(real(cutoff_order(nc),kind=wp)))
       !
       if (l10_marker <= psi0-dpsi) then
         scaled_marker(nc) = zero
