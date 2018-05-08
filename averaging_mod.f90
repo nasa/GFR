@@ -549,7 +549,7 @@ subroutine deallocate_solver_arrays()
   use flowvar,     only : nodeusp_dt,nodedusp_dt
   use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
   use flowvar,     only : global_usp,global_var
-  use metrics_mod, only : metrics_dt,geofa
+  use metrics_mod, only : metrics_dt,geofa,facenrm
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -659,6 +659,11 @@ continue
   if (allocated(geofa)) then
     deallocate ( geofa , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  if (allocated(facenrm)) then
+    deallocate ( facenrm , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facenrm",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
