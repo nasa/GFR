@@ -710,7 +710,13 @@ continue
   !
   do this_order = omin,omax
     !
-    ! Edge face
+    !
+    !######################################
+    !######################################
+    !##########   1. Edge face   ##########
+    !######################################
+    !######################################
+    !
     !
     nep = geom_solpts(Geom_Edge,this_order)
     !
@@ -738,7 +744,13 @@ continue
     fp%geord(Geom_Edge,this_order)%rot(1)%pts(1:nep) = intseq(0,nep-1)
     fp%geord(Geom_Edge,this_order)%rot(2)%pts(1:nep) = intseq(nep-1,0,-1)
     !
-    ! Triangular Face
+    !
+    !##########################################
+    !##########################################
+    !##########   2. Triangle face   ##########
+    !##########################################
+    !##########################################
+    !
     !
     nfp = geom_solpts(Geom_Tria,this_order)
     !
@@ -757,7 +769,13 @@ continue
       !
     end do
     !
-    ! Quadrilateral Face
+    !
+    !###############################################
+    !###############################################
+    !##########   3. Quadrilateral face   ##########
+    !###############################################
+    !###############################################
+    !
     !
     nfp = geom_solpts(Geom_Quad,this_order)
     !
@@ -853,10 +871,11 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   ! Look in the module geovar for the definition of the derived type.
   !
   !.. Use Statements ..
-  use order_mod, only : maxFP
+  use order_mod, only : maxFP,q_order
   use order_mod, only : geom_solpts
   use order_mod, only : find_geom_max_interp_order
   use geovar,    only : face_t,fp_t,n_flxpts,n_bnd_flxpts
+  use geovar,    only : n_bnd_qdtpts,n_flx_qdtpts
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: bface(:,:)
@@ -887,7 +906,9 @@ subroutine create_face_derived_type(bface,cell_geom,cell_order,xyz_nodes, &
   integer :: face_geom,face_order,face_pts
   integer :: c1,c2,this_cell,this_geom,adj_cell
   integer :: left_order,right_order
+  integer :: left_qorder,right_qorder
   integer :: rotation,fp_counter
+  integer :: qp_counter,nqp,qdtr_pts,qdtr_order
   character(len=200) :: array_name
   logical(lk) :: error_finding_rotation
   logical(lk) :: flxpt_offset_is_zero
@@ -1228,6 +1249,7 @@ continue
   ! and create the beginning and ending face point index for each face
   !
   fp_counter = 0
+  qp_counter = 0
   do nf = 1,lfbnd
     !
     left_cell = face(nf)%left%cell
@@ -1236,17 +1258,27 @@ continue
     left_order = cell_order(left_cell)
     right_order = cell_order(right_cell)
     !
+    left_qorder = max(left_order,q_order)
+    right_qorder = max(right_order,q_order)
+    !
     face(nf)%order = max(left_order,right_order)
+    face(nf)%qdtr_order = max(left_qorder,right_qorder)
     !
     nfp = geom_solpts(face(nf)%geom,face(nf)%order)
+    nqp = geom_solpts(face(nf)%geom,face(nf)%qdtr_order)
     !
     face(nf)%beg_fp = fp_counter + 1
     face(nf)%end_fp = fp_counter + nfp
     !
+    face(nf)%beg_qp = qp_counter + 1
+    face(nf)%end_qp = qp_counter + nqp
+    !
     fp_counter = fp_counter + nfp
+    qp_counter = qp_counter + nqp
     !
   end do
   n_bnd_flxpts = fp_counter
+  n_bnd_qdtpts = qp_counter
   !
   do nf = lfbnd+1,lface
     !
@@ -1256,17 +1288,27 @@ continue
     left_order = cell_order(left_cell)
     right_order = cell_order(right_cell)
     !
+    left_qorder = max(left_order,q_order)
+    right_qorder = max(right_order,q_order)
+    !
     face(nf)%order = max(left_order,right_order)
+    face(nf)%qdtr_order = max(left_qorder,right_qorder)
     !
     nfp = geom_solpts(face(nf)%geom,face(nf)%order)
+    nqp = geom_solpts(face(nf)%geom,face(nf)%qdtr_order)
     !
     face(nf)%beg_fp = fp_counter + 1
     face(nf)%end_fp = fp_counter + nfp
     !
+    face(nf)%beg_qp = qp_counter + 1
+    face(nf)%end_qp = qp_counter + nqp
+    !
     fp_counter = fp_counter + nfp
+    qp_counter = qp_counter + nqp
     !
   end do
   n_flxpts = fp_counter
+  n_flx_qdtpts = qp_counter
   !
   call debug_timer(stop_timer,"section 6")
   ! ###########
@@ -1325,6 +1367,7 @@ continue
     !
     face_geom = face(nf)%geom
     face_order = face(nf)%order
+    qdtr_order = face(nf)%qdtr_order
     !
     nfp = geom_solpts(face_geom,face_order)
     !
@@ -1358,12 +1401,14 @@ continue
       ! with the value .TRUE.
       !
       face_pts = 0
+      qdtr_pts = 0
       !
     else
       !
       ! Initialize the flux point offset to 1
       !
       face_pts = 1
+      qdtr_pts = 1
       !
       ! For the left cell, the starting index is the sum of all face points
       ! for all faces up to the current face + 1. The '+1' is why face_pts
@@ -1379,6 +1424,7 @@ continue
         ifa = faces_of_cell(ncf,left_cell)
         !
         face_pts = face_pts + geom_solpts(face(ifa)%geom,face_order)
+        qdtr_pts = qdtr_pts + geom_solpts(face(ifa)%geom,qdtr_order)
         !
       end do
       !
@@ -1398,6 +1444,10 @@ continue
     ! Save the rotation index for this face
     !
     face(nf)%left%rotation = rotation
+    !
+    ! Save the offset for the quadrature flux points
+    !
+    face(nf)%left%qp_offset = qdtr_pts
     !
     ! ##############################
     ! ##############################
@@ -1421,12 +1471,14 @@ continue
       ! with the value .TRUE.
       !
       face_pts = 0
+      qdtr_pts = 0
       !
     else
       !
       ! Initialize the flux point offset to 1
       !
       face_pts = 1
+      qdtr_pts = 1
       !
       ! The offset is just 1 for a boundary face, so we only need to continue
       ! with computing the flux point offset if this is an interior face
@@ -1447,12 +1499,18 @@ continue
           ifa = faces_of_cell(ncf,right_cell)
           !
           face_pts = face_pts + geom_solpts(face(ifa)%geom,face_order)
+          qdtr_pts = qdtr_pts + geom_solpts(face(ifa)%geom,qdtr_order)
           !
         end do
         !
       end if
       !
     end if
+    !
+    ! Save the offset for the flux points and quadrature flux points
+    !
+    face(nf)%right%fp_offset = face_pts
+    face(nf)%right%qp_offset = qdtr_pts
     !
     ! Get the local cell indices for the nodes of the right cell that are
     ! located on the current face
@@ -1489,14 +1547,6 @@ continue
       rotation = RotateFluxPoints_Edge(left_nodes(1:nfnods), &
                                        right_nodes(1:nfnods))
       !
-      ! If the previous function could not find the rotation, mark that there
-      ! was an error finding the correct face rotation between cells.
-      !
-      if (rotation == 0) error_finding_rotation = true
-      !
-      face(nf)%right%fp_offset = face_pts
-      face(nf)%right%rotation = rotation
-      !
     else if (face_geom == Geom_Quad) then
       !
       ! Get the nodes from the left and right cells that are on the current face
@@ -1514,14 +1564,6 @@ continue
       rotation = RotateFluxPoints_Quad(left_nodes(1:nfnods), &
                                        right_nodes(1:nfnods))
       !
-      ! If the previous function could not find the rotation, mark that there
-      ! was an error finding the correct face rotation between cells.
-      !
-      if (rotation == 0) error_finding_rotation = true
-      !
-      face(nf)%right%fp_offset = face_pts
-      face(nf)%right%rotation = rotation
-      !
     else if (face_geom == Geom_Tria) then
       !
       call GetFaceNodes_for_TriaFace(nodes_of_cell(l1:l2),left_side, &
@@ -1531,15 +1573,16 @@ continue
       rotation = RotateFluxPoints_Tria(left_nodes(1:nfnods), &
                                        right_nodes(1:nfnods))
       !
-      ! If the previous function could not find the rotation, mark that there
-      ! was an error finding the correct face rotation between cells.
-      !
-      if (rotation == 0) error_finding_rotation = true
-      !
-      face(nf)%right%fp_offset = face_pts
-      face(nf)%right%rotation = rotation
-      !
     end if
+    !
+    ! If the previous function could not find the rotation, mark that there
+    ! was an error finding the correct face rotation between cells.
+    !
+    if (rotation == 0) error_finding_rotation = true
+    !
+    ! Save the rotation index for this face
+    !
+    face(nf)%right%rotation = rotation
     !
   end do
   !
@@ -2564,11 +2607,11 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
                                     cells_with_edge,cells_with_edge_ptr)
   !
   !.. Use Statements ..
-  use geovar,    only : ncell,cell,nedge
+  use geovar,    only : ncell,cell,nedge,n_qdtpts
   use geovar,    only : nfbnd,nface,face
   use geovar,    only : cell_geom
   use geovar,    only : cell_order
-  use order_mod, only : geom_solpts
+  use order_mod, only : geom_solpts,q_order
   use ovar,      only : continuous_output
   !
   !.. Formal Arguments ..
@@ -2589,6 +2632,7 @@ subroutine create_cell_derived_type(nodes_of_cell,nodes_of_cell_ptr, &
   integer :: host_face,left_face,right_face
   integer :: this_cell,this_geom,this_order
   integer :: this_edge,this_node,cell_edge
+  integer :: qbeg,qend,qdtr_order
   real(wp) :: ave
   character(len=200) :: array_name
   !
@@ -2651,19 +2695,27 @@ continue
   ! point, and last solution point of each cell within the cell array.
   !
   iend = 0
+  qend = 0
   !
   do nc = 1,ncell
     !
     this_geom = cell_geom(nc)
     this_order = cell_order(nc)
+    qdtr_order = max(this_order,q_order)
     !
     ibeg = iend + 1
     iend = iend + geom_solpts( this_geom , this_order )
     !
+    qbeg = qend + 1
+    qend = qend + geom_solpts( this_geom, qdtr_order )
+    !
     cell(nc)%geom = this_geom
     cell(nc)%order = this_order
+    cell(nc)%qdtr_order = qdtr_order
     cell(nc)%beg_sp = ibeg
     cell(nc)%end_sp = iend
+    cell(nc)%beg_qp = qbeg
+    cell(nc)%end_qp = qend
     !
     num_faces = geom_faces(this_geom)
     !
@@ -2692,6 +2744,8 @@ continue
     !
   end do
   !
+  n_qdtpts = cell(ncell)%end_qp
+  !
   ! Loop through the faces and create the flx-pt information for each
   ! cell attached to the face.
   !
@@ -2703,6 +2757,7 @@ continue
     host_face  = face(nf)%left%cell_face
     face_geom  = face(nf)%geom
     face_order = face(nf)%order
+    qdtr_order = face(nf)%qdtr_order
     !
     ! Copy in the face information for the current cell face
     !
@@ -2710,9 +2765,11 @@ continue
     cell(host_cell)%face(host_face)%side = left_side
     cell(host_cell)%face(host_face)%geom = face_geom
     cell(host_cell)%face(host_face)%order = face_order
+    cell(host_cell)%face(host_face)%qdtr_order = qdtr_order
     !
     cell(host_cell)%face(host_face)%fp_offset = face(nf)%left%fp_offset
     cell(host_cell)%face(host_face)%rotation = face(nf)%left%rotation
+    cell(host_cell)%face(host_face)%qp_offset = face(nf)%left%qp_offset
     !
   end do
   !
@@ -2728,6 +2785,7 @@ continue
     right_face = face(nf)%right%cell_face
     face_geom  = face(nf)%geom
     face_order = face(nf)%order
+    qdtr_order = face(nf)%qdtr_order
     !
     ! ####################################
     ! ####################################
@@ -2742,9 +2800,11 @@ continue
     cell(left_cell)%face(left_face)%side = left_side
     cell(left_cell)%face(left_face)%geom = face_geom
     cell(left_cell)%face(left_face)%order = face_order
+    cell(left_cell)%face(left_face)%qdtr_order = qdtr_order
     !
     cell(left_cell)%face(left_face)%fp_offset = face(nf)%left%fp_offset
     cell(left_cell)%face(left_face)%rotation = face(nf)%left%rotation
+    cell(left_cell)%face(left_face)%qp_offset = face(nf)%left%qp_offset
     !
     ! #####################################
     ! #####################################
@@ -2759,9 +2819,11 @@ continue
     cell(right_cell)%face(right_face)%side = right_side
     cell(right_cell)%face(right_face)%geom = face_geom
     cell(right_cell)%face(right_face)%order = face_order
+    cell(right_cell)%face(right_face)%qdtr_order = qdtr_order
     !
     cell(right_cell)%face(right_face)%fp_offset = face(nf)%right%fp_offset
     cell(right_cell)%face(right_face)%rotation = face(nf)%right%rotation
+    cell(right_cell)%face(right_face)%qp_offset = face(nf)%right%qp_offset
     !
   end do
   !
@@ -2909,14 +2971,14 @@ subroutine create_bc_grps(bface,face)
   !.. Use Statements ..
   use geovar, only : num_bc_grps,bc_grps,bc_grp_t
   use geovar, only : face_t
-  use geovar, only : n_wall_flxpts
+  use geovar, only : n_wall_flxpts,n_wall_qdtpts
   !
   !.. Formal Arguments ..
   integer,      intent(in) :: bface(:,:)
   type(face_t), intent(in) :: face(:)
   !
   !.. Local Scalars ..
-  integer :: i,k,n,nf,pf,p1,p2,lfbnd,ierr
+  integer :: i,k,n,nf,pf,p1,p2,q1,q2,lfbnd,ierr
   integer :: bc_idx,bc_grp,periodic_pts,ngrps
   !
   character(len=50) :: array_name
@@ -2992,14 +3054,17 @@ continue
       !
       bc_grps(n)%beg_fp = face(nf)%beg_fp
       bc_grps(n)%end_fp = face(nf)%end_fp
+      bc_grps(n)%beg_qp = face(nf)%beg_qp
+      bc_grps(n)%end_qp = face(nf)%end_qp
       bc_grps(n)%bc_type = bface(1,nf)
       bc_grps(n)%bc_idx = bc_idx
       !
     else
       !
-      ! This keeps incrementing end_fp until a new BC group is found
+      ! This keeps incrementing end_fp and end_qp until a new BC group is found
       !
       bc_grps(n)%end_fp = face(nf)%end_fp
+      bc_grps(n)%end_qp = face(nf)%end_qp
       !
     end if
     !
@@ -3018,6 +3083,8 @@ continue
     !
     bc_grps(n)%beg_fp =  huge(0)
     bc_grps(n)%end_fp = -huge(0)
+    bc_grps(n)%beg_qp =  huge(0)
+    bc_grps(n)%end_qp = -huge(0)
     bc_grps(n)%bc_type = bc_periodic
     bc_grps(n)%bc_idx = 0
     !
@@ -3035,9 +3102,13 @@ continue
       pf = bface(5,nf)
       p1 = face(pf)%beg_fp
       p2 = face(pf)%end_fp
+      q1 = face(pf)%beg_qp
+      q2 = face(pf)%end_qp
       !
       bc_grps(n)%beg_fp = min(bc_grps(n)%beg_fp,p1)
       bc_grps(n)%end_fp = max(bc_grps(n)%end_fp,p2)
+      bc_grps(n)%beg_qp = min(bc_grps(n)%beg_qp,q1)
+      bc_grps(n)%end_qp = max(bc_grps(n)%end_qp,q2)
       !
 #ifdef REVERSE_PERIODIC
       do k = p2,p1,-1
@@ -3055,9 +3126,11 @@ continue
   ngrps = n
   !
   n_wall_flxpts = 0
+  n_wall_qdtpts = 0
   do i = 1,size(bc_grps)
     if (any(bc_grps(i)%bc_type == bc_walls)) then
       n_wall_flxpts = bc_grps(i)%end_fp
+      n_wall_qdtpts = bc_grps(i)%end_qp
     end if
   end do
   !
@@ -3076,8 +3149,10 @@ continue
     if (size(bc_grps) >= 1) then
       do n = 1,size(bc_grps)
         write (mypnum+500,2) n,bc_grps(n)%beg_fp, &
-                       n,bc_grps(n)%end_fp, &
-                       n,bc_grps(n)%bc_type, &
+                             n,bc_grps(n)%end_fp, &
+                             n,bc_grps(n)%beg_qp, &
+                             n,bc_grps(n)%end_qp, &
+                             n,bc_grps(n)%bc_type, &
          trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
                        n,bc_grps(n)%bc_idx
         if (allocated(bc_grps(n)%periodic_list)) then
@@ -3106,6 +3181,8 @@ continue
         do n = 1,size(bc_grps)
           write (iout,2) n,bc_grps(n)%beg_fp, &
                          n,bc_grps(n)%end_fp, &
+                         n,bc_grps(n)%beg_qp, &
+                         n,bc_grps(n)%end_qp, &
                          n,bc_grps(n)%bc_type, &
          trim(adjustl(bc_integer_to_string(bc_grps(n)%bc_type))), &
                          n,bc_grps(n)%bc_idx
@@ -3130,6 +3207,8 @@ continue
   1 format ("bc_grps(",i0,")%periodic_list")
   2 format (/,"bc_grps(",i0,")%beg_fp  = ",i0,/, &
               "bc_grps(",i0,")%end_fp  = ",i0,/, &
+              "bc_grps(",i0,")%beg_qp  = ",i0,/, &
+              "bc_grps(",i0,")%end_qp  = ",i0,/, &
               "bc_grps(",i0,")%bc_type = ",i0," (",a,")",/, &
               "bc_grps(",i0,")%bc_idx  = ",i0)
   3 format ("bc_grps(",i0,")%periodic_list IS allocated")
