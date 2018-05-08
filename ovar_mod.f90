@@ -66,6 +66,7 @@ module ovar
   integer,  public, save :: minimum_timesteps = 100
   !
   integer,  public, save :: loc_quadrature_pts = 1
+  integer,  public, save :: combine_common_flux_projections = 0
   !
   integer,  public, save :: metis_option = 3
   !
@@ -594,6 +595,7 @@ module input_namelist_mod
   use ovar,      only : solution_format, solution_file
   use ovar,      only : loc_solution_pts, loc_flux_pts
   use ovar,      only : loc_triangle_pts, loc_quadrature_pts
+  use ovar,      only : combine_common_flux_projections
   use ovar,      only : flux_divergence, correction_function
   use ovar,      only : Runge_Kutta_Scheme, num_rk_stages
   use ovar,      only : invs_flux_method, visc_flux_method
@@ -692,7 +694,8 @@ module input_namelist_mod
   ! CFL CONTROL VARIABLES
   namelist / input / cfl, cfl_beg, cfl_end, cfl_cycles
   ! OVER-INTEGRATION OPTIONS
-  namelist / input / projection_order, quadrature_order, loc_quadrature_pts
+  namelist / input / projection_order, quadrature_order, loc_quadrature_pts, &
+                     combine_common_flux_projections
   ! ERROR-INTEGRATION OPTIONS
   namelist / input / error_order, loc_error_pts
   ! FORCE GLOBAL ORDER AND SOLUTION POINTS
