@@ -175,17 +175,21 @@ end subroutine outerp_mv_mult_in_place
 subroutine init_interpolation_matrices()
   !
   !.. Use Statements ..
+  use ovar,           only : loc_quadrature_pts
   use order_mod,      only : geom_solpts,geom_flxpts
   use order_mod,      only : n_min_geom,n_max_geom
   use order_mod,      only : n_min_order,n_max_order
   use order_mod,      only : geom_mio,geom_edgpts
   use quadrature_mod, only : geom_is_used
   use quadrature_mod, only : std_elem,face_elem
+  use polynomial_mod, only : legendre_gauss_quadrature
+  use polynomial_mod, only : legendre_gauss_lobatto_quadrature
   !
   !.. Local Scalars ..
   integer :: gmin,gmax,omin,omax,ierr
   integer :: this_omin,this_omax
   integer :: nsolpts,this_order,this_geom
+  integer :: nvolpts,cell_order
   integer :: nflxpts,face_order
   integer :: nedgpts,edge_order
   integer :: nnodpts,node_order
@@ -193,14 +197,17 @@ subroutine init_interpolation_matrices()
   !
   !.. Local Pointers ..
   type(interpolation_matrix), pointer :: this_interp
+  type(matrix), pointer :: this_cell
   type(matrix), pointer :: this_face
   type(matrix), pointer :: this_edge
   type(matrix), pointer :: this_node
+  real(wp), pointer :: cell_mat(:,:)
   real(wp), pointer :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..
   real(wp), allocatable :: edgpts(:)
   real(wp), allocatable :: flxpts(:)
+  real(wp), allocatable :: pts(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_interpolation_matrices"
@@ -212,9 +219,11 @@ continue
   ! Initialize the local pointers to disassociated
   !
   this_interp => null()
+  this_cell   => null()
   this_face   => null()
   this_edge   => null()
   this_node   => null()
+  cell_mat    => null()
   solpts      => null()
   !
   gmin = n_min_geom
@@ -255,6 +264,84 @@ continue
       ! were never found while creating the array.
       !
       if (this_omax < this_omin) cycle order_loop
+      !
+      ! Allocate the interp%toCell component of interp
+      !
+      allocate ( this_interp%toCell(this_omin:this_omax) , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"toCell"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      !
+      ! Loop through all the interpolation orders for this combo
+      ! and compute the corresponding interpolation matrices
+      !
+      cell_order_loop: do cell_order = this_omin,this_omax
+        !
+        ! Assign local pointers to these matrices
+        ! as aliases to simplify the code
+        !
+        this_cell => this_interp%toCell(cell_order)
+        !
+        ! Get the number of volume points for this cell order
+        !
+        nvolpts = geom_solpts(this_geom,cell_order)
+        !
+        ! Allocate the interpolation matrix for this cell order
+        !
+        allocate ( this_cell%mat(1:nvolpts,1:nsolpts) , &
+                   source=zero , stat=ierr , errmsg=error_message )
+        write (array_name,1) Geom_Name(this_geom),this_order,"toCell",cell_order
+        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                         error_message)
+        !
+        cell_mat => this_cell%mat
+        !
+        allocate ( pts(1:cell_order+1) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"pts",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        if (loc_quadrature_pts == Legendre_Gauss) then
+          !
+          call legendre_gauss_quadrature(pts)
+          !
+        else if (loc_quadrature_pts == Legendre_Gauss_Lobatto) then
+          !
+          call legendre_gauss_lobatto_quadrature(pts)
+          !
+        else if (loc_quadrature_pts == Equi_Distant_Points) then
+          !
+          pts(:) = real(intseq(-cell_order,cell_order,2),kind=wp) / &
+                   real(max(cell_order,1),kind=wp)
+          !
+        else
+          !
+          write (error_message,3) "quadrature", Legendre_Gauss, &
+                                  Legendre_Gauss_Lobatto, Equi_Distant_Points, &
+                                  "loc_quadrature_pts",loc_quadrature_pts
+          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          !
+        end if
+        !
+        ! Create the matrix to interpolate to quadrature points
+        !
+        cell_mat(:,:) = InterpToCell(this_geom,this_order,nsolpts,nvolpts,pts)
+        !
+        ! Deallocate the pts array if needed
+        !
+        if (allocated(pts)) then
+          deallocate ( pts , stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"pts",2,__LINE__,__FILE__,ierr, &
+                           error_message,skip_alloc_pause)
+        end if
+        !
+        !
+        ! Remove all associations of the local pointers before continuing
+        !
+        if (associated(cell_mat )) cell_mat  => null()
+        if (associated(this_cell)) this_cell => null()
+        if (associated(solpts   )) solpts    => null()
+        !
+      end do cell_order_loop
       !
       ! Allocate the interp%toFace component of interp
       !
@@ -518,6 +605,10 @@ continue
   !
   do this_geom = gmin,gmax
     do this_order = omin,omax
+      if (allocated(interp(this_geom,this_order)%toCell)) then
+       !call interp(this_geom,this_order)%toCell%check_for_sparsity
+        call create_matrix_sparsity( interp(this_geom,this_order)%toCell )
+      end if
       if (allocated(interp(this_geom,this_order)%toFace)) then
        !call interp(this_geom,this_order)%toFace%check_for_sparsity
         call create_matrix_sparsity( interp(this_geom,this_order)%toFace )
@@ -539,6 +630,11 @@ continue
   !
   1 format ("interp(",a,",",i0,")%",a,:,"(",i0,")%mat")
   2 format (" A grid cell of an unknown geometry type was found!")
+  3 format (2x,"Invalid option given for the location of the ",a," points!",/, &
+            4x,"Valid options are :",4x,i0," => Legendre Gauss Points",/, &
+            27x,i0," => Legendre Gauss Lobatto Points",/, &
+            27x,i0," => Equidistant Points",/, &
+            9x,"Option given : ",a," = ",i0)
   !
 end subroutine init_interpolation_matrices
 !
