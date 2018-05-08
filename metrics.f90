@@ -31,6 +31,10 @@ module metrics_mod
   real(wp), public, save, allocatable :: facenrm(:,:)
   real(wp), public, save, allocatable :: facejac(:,:)
   !
+  ! facenrm_qdtpts : normal of the face at each of the face quadrature points
+  !
+  real(wp), public, save, allocatable :: facenrm_qdtpts(:,:)
+  !
   !$ACC DECLARE CREATE(facenrm,facejac)
   !
   ! wtdjac : jacobian * quadrature weight at each solution point
@@ -194,6 +198,7 @@ subroutine get_metrics()
   use geovar, only : nr,n_totpts,n_totcel
   use geovar, only : ncell,cell,xyz
   use geovar, only : nnode,nfbnd,nface,n_solpts
+  use geovar, only : using_quadrature
   !
   use quadrature_mod, only : std_elem
   !
@@ -537,6 +542,12 @@ continue
   !
   call compute_face_normals
   !
+  ! Get the face normal at the flux quadrature points on each face
+  !
+  if (using_quadrature) then
+    call compute_quadrature_face_normals
+  end if
+  !
   ! Reduce the volumes of each partition to the root
   ! processor to determine the volume of the global grid.
   !
@@ -586,7 +597,7 @@ subroutine compute_face_normals
   use derivatives_mod,   only : deriv
   !
   !.. Local Scalars ..
-  integer :: i,j,n,nc,nf,ncf,f0,n1,n2,np
+  integer :: i,j,m,n,nc,nf,ncf,f0,n1,n2,np
   integer :: kf,lf,l,k,nfp,ndim,lcfp,rcfp
   integer :: left_cell,left_geom,left_order
   integer :: right_cell,right_geom,right_order
@@ -746,10 +757,10 @@ continue
           ! computed below results in a outward facing normal for the left cell
           ! on the face.
           !
-          kf = n
+          m = n
           if (face_geom /= Geom_Edge) then
             if (any(ncf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
-              kf = ndim+1 - n
+              m = ndim+1 - n
             end if
           end if
           !
@@ -764,7 +775,7 @@ continue
               val = val + a * xyz_face(j,l)
               !
             end do
-            dvec(l,kf) = val
+            dvec(l,m) = val
           end do
           !
         end do
@@ -840,6 +851,11 @@ continue
     end do
   end do
   !$ACC UPDATE DEVICE(facenrm)
+  !
+  if (allocated(geofa)) then
+    deallocate ( geofa , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geofa",2,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Create the interpolated jacobians at the face points
   !
@@ -983,6 +999,321 @@ continue
   24 format (4(1x,i0))
   !
 end subroutine compute_face_normals
+!
+!###############################################################################
+!
+subroutine compute_quadrature_face_normals
+  !
+  !.. Use Statements ..
+  use order_mod,         only : maxSP,maxGP
+  use order_mod,         only : geom_solpts
+  use geovar,            only : ncell,cell,fp
+  use geovar,            only : nface,face,n_flx_qdtpts
+  use geovar,            only : nr,xyz
+  use interpolation_mod, only : interp
+  use derivatives_mod,   only : deriv
+  !
+  !.. Local Scalars ..
+  integer :: i,j,m,n,nc,nf,ncf,n0,np
+  integer :: kf,lf,l,k,nqp,ndim
+  integer :: left_geom,left_order
+  integer :: face_geom,qdtr_order
+  integer :: inrm,ierr,npcount,nfqpts
+  real(wp) :: a,val
+  character(len=200) :: array_name
+  !
+  !.. Local Arrays ..
+  real(wp) :: dvec(1:3,1:3)
+  real(wp) :: txyz(1:maxSP,1:nr)
+  real(wp) :: xyz_qdtr(1:maxGP,1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  integer,          allocatable :: ipface(:,:)
+  type(face_nrm_t), allocatable :: geofq(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_quadrature_face_normals"
+  character(len=*), parameter :: fname = "face_qdtr_normals.tec.dat"
+ !logical(lk), parameter :: output_face_normals = true
+  logical(lk), parameter :: output_face_normals = fals
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  ! Allocate the outer part of the geofq array
+  !
+  allocate ( geofq(1:nface) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"geofq",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate the data components of the geofq array
+  !
+  do nf = 1,nface
+    !
+    face_geom = face(nf)%geom
+    qdtr_order = face(nf)%qdtr_order
+    !
+    nfqpts = geom_solpts(face_geom,qdtr_order)
+    !
+    allocate ( geofq(nf)%v(1:nr,1:nfqpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) "geofq",nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  if (output_face_normals) then
+    !
+    npcount = 0
+    nfqpts = 0
+    do nf = 1,nface
+      nfqpts = nfqpts + size(geofq(nf)%v,dim=2)
+    end do
+    !
+    open (newunit=inrm,file=fname,status="replace",action="write", &
+                       form="formatted",position="rewind",iostat=ierr, &
+                       iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+    !
+    if (nr == 2) then
+      !
+      write (inrm,20) nfqpts,nface
+      !
+      allocate ( ipface(1:2,1:nface) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",1,__LINE__,__FILE__,ierr,error_message)
+      !
+    else if (nr == 3) then
+      !
+      write (inrm,21) nfqpts,nface
+      !
+      allocate ( ipface(1:4,1:nface) , source=0 , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",1,__LINE__,__FILE__,ierr,error_message)
+      !
+    end if
+    !
+  end if
+  !
+  cell_loop: do nc = 1,ncell
+    !
+    left_geom  = cell(nc)%geom
+    left_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp-1
+    np = cell(nc)%end_sp-n0
+    !
+    do k = 1,np
+      do l = 1,nr
+        txyz(k,l) = xyz(l,n0+k)
+      end do
+    end do
+    !
+    ! Loop through the faces of the current cell
+    ! to get the normals at each face point
+    !
+    cell_face_loop: do ncf = 1,size(cell(nc)%face)
+      !
+      if (cell(nc)%face(ncf)%side == 2) cycle cell_face_loop
+      !
+      nf = cell(nc)%face(ncf)%idx
+      !
+      face_geom  = cell(nc)%face(ncf)%geom
+      qdtr_order = cell(nc)%face(ncf)%qdtr_order
+      !
+      nqp = geom_solpts(face_geom,qdtr_order)
+      !
+      ! Interpolate the coordinates of the solution points to get the
+      ! coordinates of the flux points on the current face.
+      !
+      do l = 1,nr
+        !
+        do kf = 1,nqp
+          !
+          lf = cell(nc)%face(ncf)%qp_offset + fp%geord(face_geom,qdtr_order)% &
+                                            rot(cell(nc)%face(ncf)%rotation)% &
+                                              pts(kf)
+          !
+          val = zero
+          do i = interp(left_geom,left_order)%toFace(qdtr_order)%row_ptr(lf)+1,&
+                 interp(left_geom,left_order)%toFace(qdtr_order)%row_ptr(lf+1)
+            !
+            j = interp(left_geom,left_order)%toFace(qdtr_order)%row_idx(i)
+            a = interp(left_geom,left_order)%toFace(qdtr_order)%row_val(i)
+            !
+            val = val + a * txyz(j,l)
+            !
+          end do
+          !
+          xyz_qdtr(kf,l) = val
+          !
+        end do
+        !
+      end do
+      !
+      ! If the current face is an edge, initialize the k components of the
+      ! two vectors the dvec array to one and everything else to zero
+      !
+      if (face_geom == Geom_Edge) then
+        dvec = zero
+        dvec(3,:) = one
+      end if
+      !
+      ! Now compute the derivative of the flux point coordinates
+      !
+      ndim = size(deriv(face_geom,qdtr_order)%d)
+      !
+      do k = 1,nqp
+        !
+        do n = 1,ndim
+          !
+          ! If the current cell face is a x-min, y-max, or z-min face, we need
+          ! to reverse the order of the derivatives so that the cross_product
+          ! computed below results in a outward facing normal for the left cell
+          ! on the face.
+          !
+          m = n
+          if (face_geom /= Geom_Edge) then
+            if (any(ncf == [Xmin3D_Face,Ymax3D_Face,Zmin3D_Face])) then
+              m = ndim+1 - n
+            end if
+          end if
+          !
+          do l = 1,nr
+            val = zero
+            do i = deriv(face_geom,qdtr_order)%d(n)%row_ptr(k)+1, &
+                   deriv(face_geom,qdtr_order)%d(n)%row_ptr(k+1)
+              !
+              j = deriv(face_geom,qdtr_order)%d(n)%row_idx(i)
+              a = deriv(face_geom,qdtr_order)%d(n)%row_val(i)
+              !
+              val = val + a * xyz_qdtr(j,l)
+              !
+            end do
+            dvec(l,m) = val
+          end do
+          !
+        end do
+        !
+        ! Finally, the length/area normal to the current face at the current
+        ! flux point is just the cross product of the two vectors in dvec
+        !
+       !dvec(:,3) = cross_product( dvec(:,1) , dvec(:,2) )
+        if (face_geom == Geom_Edge) then
+          dvec(1,3) = dvec(2,1) - dvec(2,2)
+          dvec(2,3) = dvec(1,2) - dvec(1,1)
+          dvec(3,3) = zero
+        else
+          dvec(1,3) = dvec(2,1)*dvec(3,2) - dvec(3,1)*dvec(2,2)
+          dvec(2,3) = dvec(3,1)*dvec(1,2) - dvec(1,1)*dvec(3,2)
+          dvec(3,3) = dvec(1,1)*dvec(2,2) - dvec(2,1)*dvec(1,2)
+        end if
+        !
+        ! Zero/chop all the normals less than 10*roundoff
+        !
+        geofq(nf)%v(1:nr,k) = chop( real(dvec(1:nr,3),kind=qp)/qten ) * ten
+        !
+        if (output_face_normals) then
+          !
+          npcount = npcount + 1
+          !
+          if (nr == 2) then
+            !
+            if (k == 1) then
+              ipface(1,nf) = npcount
+            else if (k == nqp) then
+              ipface(2,nf) = npcount
+            end if
+            !
+            write (inrm,22) (xyz_qdtr(k,l),l=1,nr), &
+                            (geofq(nf)%v(l,k),l=1,nr)!,npcount
+            !
+          else if (nr == 3) then
+            !
+            if (k == 1) then
+              ipface(1,nf) = npcount
+            else if (k == qdtr_order+1) then
+              ipface(2,nf) = npcount
+            else if (k == nqp) then
+              ipface(3,nf) = npcount
+            else if (face_geom == Geom_Quad) then
+              if (k == (qdtr_order+1)*qdtr_order) then
+                ipface(4,nf) = npcount
+              end if
+            end if
+            !
+            if (face_geom == Geom_Tria) ipface(4,nf) = ipface(3,nf)
+            !
+            write (inrm,23) (xyz_qdtr(k,l),l=1,nr), &
+                            (geofq(nf)%v(l,k),l=1,nr)!,npcount
+            !
+          end if
+          !
+        end if
+        !
+      end do
+      !
+    end do cell_face_loop
+    !
+  end do cell_loop
+  !
+  ! Copy geofq into facenrm_qdtpts
+  !
+  allocate ( facenrm_qdtpts(1:nr,1:n_flx_qdtpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"facenrm_qdtpts",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !$ACC UPDATE DEVICE(facenrm_qdtpts)
+  !
+  n = 0
+  do nf = 1,size(geofq)
+    do k = 1,size(geofq(nf)%v,dim=2)
+      n = n + 1
+      facenrm_qdtpts(1:nr,n) = geofq(nf)%v(1:nr,k)
+    end do
+  end do
+  !$ACC UPDATE DEVICE(facenrm_qdtpts)
+  !
+  if (allocated(geofq)) then
+    deallocate ( geofq , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"geofq",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  !
+  !
+  if (output_face_normals) then
+    !
+    do nf = 1,nface
+      write (inrm,24) (ipface(l,nf),l=1,size(ipface,dim=1))
+    end do
+    !
+    close (inrm,iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    !
+    if (allocated(ipface)) then
+      deallocate ( ipface , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"ipface",2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1  format (a,"(",i0,")%v")
+  20 format ('VARIABLES = "X", "Y", "n_x", "n_y"',/, &
+             'ZONE T="Face Normals", N=',i0,', E=',i0, &
+             ', DATAPACKING=POINT, ZONETYPE=FELINESEG')
+  21 format ('VARIABLES = "X", "Y", "Z", "n_x", "n_y", "n_z"',/, &
+             'ZONE T="Face Normals", N=',i0,', E=',i0, &
+             ', DATAPACKING=POINT, ZONETYPE=FEQUADRILATERAL')
+  22 format (2es23.15,1x,2es23.15,:,1x,i0)
+  23 format (3es14.6,1x,3es14.6,:,1x,i0)
+  24 format (4(1x,i0))
+  !
+end subroutine compute_quadrature_face_normals
 !
 !###############################################################################
 !
