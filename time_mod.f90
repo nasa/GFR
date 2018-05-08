@@ -991,7 +991,7 @@ subroutine get_cell_timestep(dtmin)
   use ovar, only : governing_equations
   use ovar, only : this_is_final_timestep
   !
-  use metrics_mod, only : geofa,metrics_dt,facejac
+  use metrics_mod, only : facenrm,metrics_dt,facejac
   !
   use flowvar, only : dtsp
   use flowvar, only : faceusp_array
@@ -1062,12 +1062,12 @@ continue
         mul = viscosity_pv_sp( vl(1:nq) )
       end if
       !
-      ds = norm2( geofa(nf)%v(1:nr,kf) )
+      ds = norm2( facenrm(1:nr,f0+kf) )
       dsl = ds * cl(host_geom) ! face length/area for left cell
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
+     !vell = dot( vl(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       !
@@ -1136,14 +1136,14 @@ continue
         mur = viscosity_pv_sp( vr(1:nq) )
       end if
       !
-      ds = norm2( geofa(nf)%v(1:nr,kf) )
+      ds = norm2( facenrm(1:nr,f0+kf) )
       dsl = ds * cl(left_geom) ! face length/area for left  cell
       dsr = ds * cl(right_geom) ! face length/area for right cell
       !
       ! Normal velocity at this flux point
       !
-     !vell = dot( vl(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
-     !velr = dot( vr(nmb:nme) , unit_vector(geofa(nf)%v(1:nr,kf)) )
+     !vell = dot( vl(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
+     !velr = dot( vr(nmb:nme) , unit_vector(facenrm(1:nr,f0+kf)) )
       vell = selfdot( vl(nmb:nme) )
       if (use_sqrt) vell = sqrt(vell)
       velr = selfdot( vr(nmb:nme) )
