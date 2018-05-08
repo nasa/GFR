@@ -71,7 +71,6 @@ end subroutine interp_cv_to_flxpts
 !
 subroutine interp_cv_to_flxpts_3d(iter,nst)
   !
-  use order_mod,         only : maxSP,maxFP
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar,           only : usp
@@ -182,7 +181,6 @@ end subroutine interp_cv_to_flxpts_3d
 !
 subroutine interp_cv_to_flxpts_2d()
   !
-  use order_mod,         only : maxSP,maxFP
   use geovar,            only : ncell,cell,fp
   use interpolation_mod, only : interp
   use flowvar,           only : usp
@@ -2770,23 +2768,6 @@ continue
   !
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      write (iout,100) mypnum,n1,n2
-      100 format ("[",i4,"] : (n_bnd_flxpts+1,n_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (invs_flux_method == invs_flux_ROE) then
     !
@@ -2836,23 +2817,6 @@ continue
   !
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      write (iout,100) mypnum,n1,n2
-      100 format ("[",i4,"] : (n_bnd_flxpts+1,n_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
@@ -2896,36 +2860,11 @@ subroutine get_invs_common_fluxes_bc()
 continue
   !
   call debug_timer(entering_procedure,pname)
-#ifdef DEBUG_FLUXES
-  if (mypnum == 998) then
-    do n = 1,n_bnd_flxpts
-      write (mypnum+5000,102) ((faceusp_array(n,i,j),i=1,nq),j=1,2)
-    end do
-  end if
-  102 format (5es10.2,6x,5es10.2)
-#endif
   !
   ! Get the inviscid common flux for all flux points on wall BCs
   !
   n1 = 1
   n2 = n_wall_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      if (n2 >= n1) write (iout,100) mypnum,n1,n2
-      100 format ("[",i4,"] : (1,n_wall_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (n2 >= n1) then
     !
@@ -2938,23 +2877,6 @@ continue
   !
   n1 = n_wall_flxpts+1
   n2 = n_bnd_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      if (n2 >= n1) write (iout,101) mypnum,n1,n2
-      101 format ("[",i4,"] : (n_wall_flxpts+1,n_bnd_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (invs_flux_method == invs_flux_ROE) then
     !
@@ -3007,23 +2929,6 @@ continue
   !
   n1 = 1
   n2 = n_wall_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      if (n2 >= n1) write (iout,100) mypnum,n1,n2
-      100 format ("[",i4,"] : (1,n_wall_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (n2 >= n1) then
     !
@@ -3037,23 +2942,6 @@ continue
   !
   n1 = n_wall_flxpts+1
   n2 = n_bnd_flxpts
-#ifdef DEBUG_FLUXES
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  do n = 0,ncpu-1
-    if (mypnum == n) then
-      if (n2 >= n1) write (iout,101) mypnum,n1,n2
-      101 format ("[",i4,"] : (n_wall_flxpts+1,n_bnd_flxpts) = (",i0,",",i0,")")
-      flush (iout)
-    end if
-    flush (iout)
-    call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  end do
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  flush (iout)
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
   if (visc_variables_to_ave == visc_interface_fluxes) then
     !
@@ -4357,17 +4245,8 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
-#define ENABLE_BR2_3D
-#define ENABLE_BR2_2D
-#define ENABLE_BR2_ND
-!#define ENABLE_OLD_BR2
   if (nr == 3) then
-#define USE_NEW_GPU_BR2
-#ifdef USE_NEW_GPU_BR2
-    call correct_gradients_br2_gpu_3d_new
-#else
     call correct_gradients_br2_gpu_3d
-#endif
   else if (nr == 2) then
     call correct_gradients_br2_gpu_2d
   else
@@ -4377,392 +4256,6 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine correct_gradients_br2_gpu
-!
-!###############################################################################
-!
-subroutine correct_gradients_br2_gpu_3d_new()
-  !
-  use order_mod,         only : maxSP
-  use geovar,            only : n_flxpts,ncell,cell,fp,face
-  use metrics_mod,       only : jac,facenrm
-  use correction_mod,    only : correct
-  use flowvar,           only : dusp
-  use flowvar,           only : faceusp_array
-  use flowvar,           only : facedusp_array
-  use interpolation_mod, only : interp
-  !
-  !.. Local Scalars ..
-  integer :: i,n,nc,n1,n2,np,k,n0
-  integer :: nf,kf,lf,sf,ncf,nfp
-  integer :: this_geom,this_order
-  integer :: face_geom,face_order
-  integer :: fp_offset,face_rot
-  integer :: num_cell_faces
-  real(wp) :: a,rnx,rny,rnz
-  real(wp) :: decdx,dmxdx,dmydx,dmzdx,deedx
-  real(wp) :: decdy,dmxdy,dmydy,dmzdy,deedy
-  real(wp) :: decdz,dmxdz,dmydz,dmzdz,deedz
-  real(wp) :: cor_ec,cor_mx,cor_my,cor_mz,cor_ee
-  !
-  !.. Local Arrays ..
-  real(wp) :: face_corr(1:maxSP,1:6,1:3,1:nq)
-  real(wp) :: cell_invjac(1:maxSP)
-  !
-  integer :: array(1:1) ! DONT REMOVE THIS
-  !
-  integer  :: cf_f0(1:6)
-  integer  :: cf_sf(1:6)
-  integer  :: cf_nfp(1:6)
-  integer  :: cf_face_order(1:6)
-  integer  :: cf_face_geom(1:6)
-  integer  :: cf_fp_offset(1:6)
-  integer  :: cf_face_rot(1:6)
-  !
-#ifndef DISABLE_FOR_GPU
-  integer :: cell_info(1:6,1:ncell)
-#endif
-  !
-  !.. Local Parameters ..
-  character(len=*), parameter :: pname = "correct_gradients_br2_gpu_3d_new"
-  !
-continue
-  !
-  ! Loop through each interior cell and interpolate the conserved
-  ! variables at the solution points to the flux points of each cell
-  !
-#ifdef ENABLE_BR2_3D
-  !
-  !$ACC PARALLEL LOOP &
-  !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
-  do n = 1,n_flxpts
-    a = cbias(n)
-    face_jump(n,nec) = a*( faceusp_array(n,nec,2) - faceusp_array(n,nec,1) )
-    face_jump(n,nmx) = a*( faceusp_array(n,nmx,2) - faceusp_array(n,nmx,1) )
-    face_jump(n,nmy) = a*( faceusp_array(n,nmy,2) - faceusp_array(n,nmy,1) )
-    face_jump(n,nmz) = a*( faceusp_array(n,nmz,2) - faceusp_array(n,nmz,1) )
-    face_jump(n,nee) = a*( faceusp_array(n,nee,2) - faceusp_array(n,nee,1) )
-  end do
-  !
-  !$ACC PARALLEL LOOP GANG &
-  !$ACC&              VECTOR_LENGTH(32) &
-  !$ACC&              PRESENT(facedusp_array,facenrm) &
-  !$ACC&              PRESENT(jac) &
-  !$ACC&              PRESENT(face) &
-  !$ACC&              PRESENT(cell) &
-  !$ACC&              PRESENT(fp) &
-  !$ACC&              PRESENT(correct) &
-  !$ACC&              PRESENT(interp) &
-  !$ACC&              PRESENT(dusp) &
-  !$ACC&              PRESENT(cl) &
-  !$ACC&              PRESENT(face_jump) &
-  !$ACC&              PRIVATE(face_corr,cf_f0,cf_sf,cell_invjac, &
-  !$ACC&                      cf_face_geom,cf_fp_offset,cf_face_rot, &
-  !$ACC&                      cf_nfp,cf_face_order,array)
-  cell_loop: do nc = 1,ncell
-    !
-    n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
-    n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
-    np = n2-n1+1         ! number of sol-pts in this cell
-    n0 = n1-1
-    !
-    this_geom = cell(nc)%geom   ! geometry type of this cell
-    this_order = cell(nc)%order ! solution order of this cell
-#ifndef DISABLE_FOR_GPU
-   !write (150,101) nc
-   !write (160,101) nc
-#endif
-    !
-    ! Now Interpolate the interior solution gradients to the flux points
-    !
-    num_cell_faces = size(cell(nc)%face)
-    !
-    !$ACC LOOP VECTOR
-    do n = 1,np
-      cell_invjac(n) = cl(this_geom) / jac(n0+n)
-    end do
-    !
-    do ncf = 1,num_cell_faces
-      !
-      nf = cell(nc)%face(ncf)%idx  ! index of the current face
-      !
-      cf_sf(ncf) = cell(nc)%face(ncf)%side ! side of face that cell nc is on
-      cf_face_geom(ncf) = cell(nc)%face(ncf)%geom   ! geom  of current face
-      cf_face_order(ncf) = cell(nc)%face(ncf)%order ! order of current face
-      cf_fp_offset(ncf) = cell(nc)%face(ncf)%fp_offset
-      cf_face_rot(ncf) = cell(nc)%face(ncf)%rotation
-      !
-      cf_f0(ncf) = face(nf)%beg_fp - 1
-      cf_nfp(ncf) = face(nf)%end_fp - cf_f0(ncf)
-      !
-    end do
-    !
-    !$ACC LOOP VECTOR COLLAPSE(2)
-    do ncf = 1,6
-      do n = 1,np
-        !
-        face_corr(n,ncf,1,nec) = zero
-        face_corr(n,ncf,2,nec) = zero
-        face_corr(n,ncf,3,nec) = zero
-        !
-        face_corr(n,ncf,1,nmx) = zero
-        face_corr(n,ncf,2,nmx) = zero
-        face_corr(n,ncf,3,nmx) = zero
-        !
-        face_corr(n,ncf,1,nmy) = zero
-        face_corr(n,ncf,2,nmy) = zero
-        face_corr(n,ncf,3,nmy) = zero
-        !
-        face_corr(n,ncf,1,nmz) = zero
-        face_corr(n,ncf,2,nmz) = zero
-        face_corr(n,ncf,3,nmz) = zero
-        !
-        face_corr(n,ncf,1,nee) = zero
-        face_corr(n,ncf,2,nee) = zero
-        face_corr(n,ncf,3,nee) = zero
-        !
-      end do
-    end do
-    !
-    ! Loop over the faces of this cell
-    cell_faces: do ncf = 1,num_cell_faces
-      !
-      ! kf: index of flx-pt local to this face
-      ! lf: index of flx-pt within interp%mat
-      !
-      ! Apply the jump correction to the interior discontinuous gradients
-      !
-      !$ACC LOOP VECTOR
-      face_points: do kf = 1,cf_nfp(ncf)
-        !
-        k = cf_f0(ncf) + kf
-        !
-        rnx = facenrm(1,k)
-        rny = facenrm(2,k)
-        rnz = facenrm(3,k)
-        !
-        face_order = cf_face_order(ncf)
-        face_geom = cf_face_geom(ncf)
-        fp_offset = cf_fp_offset(ncf)
-        face_rot = cf_face_rot(ncf)
-        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
-        !
-        !$ACC LOOP SEQ
-        do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
-               correct(this_geom,this_order)%row_ptr(lf+1)
-          !
-          n = correct(this_geom,this_order)%row_idx(i)
-          a = correct(this_geom,this_order)%row_val(i)
-          !
-#ifndef DISABLE_FOR_GPU
-         !write (150,100) ncf,kf,lf,i,n
-#endif
-          cor_ec = a * face_jump(k,nec) * cell_invjac(n)
-          cor_mx = a * face_jump(k,nmx) * cell_invjac(n)
-          cor_my = a * face_jump(k,nmy) * cell_invjac(n)
-          cor_mz = a * face_jump(k,nmz) * cell_invjac(n)
-          cor_ee = a * face_jump(k,nee) * cell_invjac(n)
-          !
-          face_corr(n,ncf,1,nec) = face_corr(n,ncf,1,nec) + cor_ec*rnx
-          face_corr(n,ncf,2,nec) = face_corr(n,ncf,2,nec) + cor_ec*rny
-          face_corr(n,ncf,3,nec) = face_corr(n,ncf,3,nec) + cor_ec*rnz
-          !
-          face_corr(n,ncf,1,nmx) = face_corr(n,ncf,1,nmx) + cor_mx*rnx
-          face_corr(n,ncf,2,nmx) = face_corr(n,ncf,2,nmx) + cor_mx*rny
-          face_corr(n,ncf,3,nmx) = face_corr(n,ncf,3,nmx) + cor_mx*rnz
-          !
-          face_corr(n,ncf,1,nmy) = face_corr(n,ncf,1,nmy) + cor_my*rnx
-          face_corr(n,ncf,2,nmy) = face_corr(n,ncf,2,nmy) + cor_my*rny
-          face_corr(n,ncf,3,nmy) = face_corr(n,ncf,3,nmy) + cor_my*rnz
-          !
-          face_corr(n,ncf,1,nmz) = face_corr(n,ncf,1,nmz) + cor_mz*rnx
-          face_corr(n,ncf,2,nmz) = face_corr(n,ncf,2,nmz) + cor_mz*rny
-          face_corr(n,ncf,3,nmz) = face_corr(n,ncf,3,nmz) + cor_mz*rnz
-          !
-          face_corr(n,ncf,1,nee) = face_corr(n,ncf,1,nee) + cor_ee*rnx
-          face_corr(n,ncf,2,nee) = face_corr(n,ncf,2,nee) + cor_ee*rny
-          face_corr(n,ncf,3,nee) = face_corr(n,ncf,3,nee) + cor_ee*rnz
-          !
-        end do
-        !
-      end do face_points
-    end do cell_faces
-    !
-    ! Interpolate the face corrected gradient from the interior solution
-    ! points to the interface flux points now that we are done with all
-    ! the flux points on the current face of the current cell.
-    !
-    cell_faces2: do ncf = 1,num_cell_faces
-      !
-      ! kf: index of flx-pt local to this face
-      ! lf: index of flx-pt within interp%mat
-      !
-      !$ACC LOOP VECTOR
-      interpolate_face: do kf = 1,cf_nfp(ncf)
-        !
-        k = cf_f0(ncf) + kf
-        sf = cf_sf(ncf)
-        face_order = cf_face_order(ncf)
-        face_geom = cf_face_geom(ncf)
-        fp_offset = cf_fp_offset(ncf)
-        face_rot = cf_face_rot(ncf)
-        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(kf)
-        !
-        decdx = zero ; decdy = zero ; decdz = zero
-        dmxdx = zero ; dmxdy = zero ; dmxdz = zero
-        dmydx = zero ; dmydy = zero ; dmydz = zero
-        dmzdx = zero ; dmzdy = zero ; dmzdz = zero
-        deedx = zero ; deedy = zero ; deedz = zero
-        !
-        do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-               interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
-          !
-          n = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
-          a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
-          !
-#ifndef DISABLE_FOR_GPU
-         !write (160,100) ncf,kf,lf,i,n
-#endif
-          decdx = decdx + a * ( dusp(n0+n,1,nec) + face_corr(n,ncf,1,nec) )
-          decdy = decdy + a * ( dusp(n0+n,2,nec) + face_corr(n,ncf,2,nec) )
-          decdz = decdz + a * ( dusp(n0+n,3,nec) + face_corr(n,ncf,3,nec) )
-          !
-          dmxdx = dmxdx + a * ( dusp(n0+n,1,nmx) + face_corr(n,ncf,1,nmx) )
-          dmxdy = dmxdy + a * ( dusp(n0+n,2,nmx) + face_corr(n,ncf,2,nmx) )
-          dmxdz = dmxdz + a * ( dusp(n0+n,3,nmx) + face_corr(n,ncf,3,nmx) )
-          !
-          dmydx = dmydx + a * ( dusp(n0+n,1,nmy) + face_corr(n,ncf,1,nmy) )
-          dmydy = dmydy + a * ( dusp(n0+n,2,nmy) + face_corr(n,ncf,2,nmy) )
-          dmydz = dmydz + a * ( dusp(n0+n,3,nmy) + face_corr(n,ncf,3,nmy) )
-          !
-          dmzdx = dmzdx + a * ( dusp(n0+n,1,nmz) + face_corr(n,ncf,1,nmz) )
-          dmzdy = dmzdy + a * ( dusp(n0+n,2,nmz) + face_corr(n,ncf,2,nmz) )
-          dmzdz = dmzdz + a * ( dusp(n0+n,3,nmz) + face_corr(n,ncf,3,nmz) )
-          !
-          deedx = deedx + a * ( dusp(n0+n,1,nee) + face_corr(n,ncf,1,nee) )
-          deedy = deedy + a * ( dusp(n0+n,2,nee) + face_corr(n,ncf,2,nee) )
-          deedz = deedz + a * ( dusp(n0+n,3,nee) + face_corr(n,ncf,3,nee) )
-          !
-        end do
-        !
-        facedusp_array(k,1,nec,sf) = decdx
-        facedusp_array(k,2,nec,sf) = decdy
-        facedusp_array(k,3,nec,sf) = decdz
-        !
-        facedusp_array(k,1,nmx,sf) = dmxdx
-        facedusp_array(k,2,nmx,sf) = dmxdy
-        facedusp_array(k,3,nmx,sf) = dmxdz
-        !
-        facedusp_array(k,1,nmy,sf) = dmydx
-        facedusp_array(k,2,nmy,sf) = dmydy
-        facedusp_array(k,3,nmy,sf) = dmydz
-        !
-        facedusp_array(k,1,nmz,sf) = dmzdx
-        facedusp_array(k,2,nmz,sf) = dmzdy
-        facedusp_array(k,3,nmz,sf) = dmzdz
-        !
-        facedusp_array(k,1,nee,sf) = deedx
-        facedusp_array(k,2,nee,sf) = deedy
-        facedusp_array(k,3,nee,sf) = deedz
-        !
-      end do interpolate_face
-      !
-    end do cell_faces2
-    !
-    ! Copy the total corrected gradient accounting for all cell faces
-    ! back into dusp
-    !
-    !$ACC LOOP VECTOR
-    do n = n1,n2
-      !
-      dusp(n,1,nec) = dusp(n,1,nec) &
-                    + face_corr(n-n0,1,1,nec) + face_corr(n-n0,2,1,nec) &
-                    + face_corr(n-n0,3,1,nec) + face_corr(n-n0,4,1,nec) &
-                    + face_corr(n-n0,5,1,nec) + face_corr(n-n0,6,1,nec)
-      !
-      dusp(n,2,nec) = dusp(n,2,nec) &
-                    + face_corr(n-n0,1,2,nec) + face_corr(n-n0,2,2,nec) &
-                    + face_corr(n-n0,3,2,nec) + face_corr(n-n0,4,2,nec) &
-                    + face_corr(n-n0,5,2,nec) + face_corr(n-n0,6,2,nec)
-      !
-      dusp(n,3,nec) = dusp(n,3,nec) &
-                    + face_corr(n-n0,1,3,nec) + face_corr(n-n0,2,3,nec) &
-                    + face_corr(n-n0,3,3,nec) + face_corr(n-n0,4,3,nec) &
-                    + face_corr(n-n0,5,3,nec) + face_corr(n-n0,6,3,nec)
-      !
-      dusp(n,1,nmx) = dusp(n,1,nmx) &
-                    + face_corr(n-n0,1,1,nmx) + face_corr(n-n0,2,1,nmx) &
-                    + face_corr(n-n0,3,1,nmx) + face_corr(n-n0,4,1,nmx) &
-                    + face_corr(n-n0,5,1,nmx) + face_corr(n-n0,6,1,nmx)
-      !
-      dusp(n,2,nmx) = dusp(n,2,nmx) &
-                    + face_corr(n-n0,1,2,nmx) + face_corr(n-n0,2,2,nmx) &
-                    + face_corr(n-n0,3,2,nmx) + face_corr(n-n0,4,2,nmx) &
-                    + face_corr(n-n0,5,2,nmx) + face_corr(n-n0,6,2,nmx)
-      !
-      dusp(n,3,nmx) = dusp(n,3,nmx) &
-                    + face_corr(n-n0,1,3,nmx) + face_corr(n-n0,2,3,nmx) &
-                    + face_corr(n-n0,3,3,nmx) + face_corr(n-n0,4,3,nmx) &
-                    + face_corr(n-n0,5,3,nmx) + face_corr(n-n0,6,3,nmx)
-      !
-      dusp(n,1,nmy) = dusp(n,1,nmy) &
-                    + face_corr(n-n0,1,1,nmy) + face_corr(n-n0,2,1,nmy) &
-                    + face_corr(n-n0,3,1,nmy) + face_corr(n-n0,4,1,nmy) &
-                    + face_corr(n-n0,5,1,nmy) + face_corr(n-n0,6,1,nmy)
-      !
-      dusp(n,2,nmy) = dusp(n,2,nmy) &
-                    + face_corr(n-n0,1,2,nmy) + face_corr(n-n0,2,2,nmy) &
-                    + face_corr(n-n0,3,2,nmy) + face_corr(n-n0,4,2,nmy) &
-                    + face_corr(n-n0,5,2,nmy) + face_corr(n-n0,6,2,nmy)
-      !
-      dusp(n,3,nmy) = dusp(n,3,nmy) &
-                    + face_corr(n-n0,1,3,nmy) + face_corr(n-n0,2,3,nmy) &
-                    + face_corr(n-n0,3,3,nmy) + face_corr(n-n0,4,3,nmy) &
-                    + face_corr(n-n0,5,3,nmy) + face_corr(n-n0,6,3,nmy)
-      !
-      dusp(n,1,nmz) = dusp(n,1,nmz) &
-                    + face_corr(n-n0,1,1,nmz) + face_corr(n-n0,2,1,nmz) &
-                    + face_corr(n-n0,3,1,nmz) + face_corr(n-n0,4,1,nmz) &
-                    + face_corr(n-n0,5,1,nmz) + face_corr(n-n0,6,1,nmz)
-      !
-      dusp(n,2,nmz) = dusp(n,2,nmz) &
-                    + face_corr(n-n0,1,2,nmz) + face_corr(n-n0,2,2,nmz) &
-                    + face_corr(n-n0,3,2,nmz) + face_corr(n-n0,4,2,nmz) &
-                    + face_corr(n-n0,5,2,nmz) + face_corr(n-n0,6,2,nmz)
-      !
-      dusp(n,3,nmz) = dusp(n,3,nmz) &
-                    + face_corr(n-n0,1,3,nmz) + face_corr(n-n0,2,3,nmz) &
-                    + face_corr(n-n0,3,3,nmz) + face_corr(n-n0,4,3,nmz) &
-                    + face_corr(n-n0,5,3,nmz) + face_corr(n-n0,6,3,nmz)
-      !
-      dusp(n,1,nee) = dusp(n,1,nee) &
-                    + face_corr(n-n0,1,1,nee) + face_corr(n-n0,2,1,nee) &
-                    + face_corr(n-n0,3,1,nee) + face_corr(n-n0,4,1,nee) &
-                    + face_corr(n-n0,5,1,nee) + face_corr(n-n0,6,1,nee)
-      !
-      dusp(n,2,nee) = dusp(n,2,nee) &
-                    + face_corr(n-n0,1,2,nee) + face_corr(n-n0,2,2,nee) &
-                    + face_corr(n-n0,3,2,nee) + face_corr(n-n0,4,2,nee) &
-                    + face_corr(n-n0,5,2,nee) + face_corr(n-n0,6,2,nee)
-      !
-      dusp(n,3,nee) = dusp(n,3,nee) &
-                    + face_corr(n-n0,1,3,nee) + face_corr(n-n0,2,3,nee) &
-                    + face_corr(n-n0,3,3,nee) + face_corr(n-n0,4,3,nee) &
-                    + face_corr(n-n0,5,3,nee) + face_corr(n-n0,6,3,nee)
-      !
-    end do
-    !
-  end do cell_loop
-#ifndef DISABLE_FOR_GPU
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"end of br2_gpu_3d_new")
-#endif
-  !
-#endif
-  !
-  100 format(i4,4i5)
-  101 format(/,8x,"Cell # ",i0,/, &
-               " ncf   kf   lf    i    n")
-  !
-end subroutine correct_gradients_br2_gpu_3d_new
 !
 !###############################################################################
 !
@@ -4812,8 +4305,6 @@ continue
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
   !
-#ifdef ENABLE_BR2_3D
-  !
   !$ACC PARALLEL LOOP &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
   do n = 1,n_flxpts
@@ -5125,8 +4616,6 @@ continue
     !
   end do cell_loop
   !
-#endif
-  !
 end subroutine correct_gradients_br2_gpu_3d
 !
 !###############################################################################
@@ -5174,8 +4663,6 @@ continue
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
-  !
-#ifdef ENABLE_BR2_2D
   !
   !$ACC PARALLEL LOOP &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
@@ -5405,8 +4892,6 @@ continue
     !
   end do cell_loop
   !
-#endif
-  !
 end subroutine correct_gradients_br2_gpu_2d
 !
 !###############################################################################
@@ -5451,8 +4936,6 @@ continue
   !
   ! Loop through each interior cell and interpolate the conserved
   ! variables at the solution points to the flux points of each cell
-  !
-#ifdef ENABLE_BR2_ND
   !
   !$ACC PARALLEL LOOP COLLAPSE(2) &
   !$ACC&              PRESENT(faceusp_array,cbias,face_jump)
@@ -5610,8 +5093,6 @@ continue
     end do
     !
   end do cell_loop
-  !
-#endif
   !
 end subroutine correct_gradients_br2_gpu_nd
 !
