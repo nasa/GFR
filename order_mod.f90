@@ -36,12 +36,12 @@ module order_mod
   integer, public, save :: n_max_order
   !
   integer, public, save :: maxpts
-  integer, public, save :: maxSP
-  integer, public, save :: maxQP
-  integer, public, save :: maxFP
-  integer, public, save :: maxGP
-  integer, public, save :: maxOP
-  integer, public, save :: maxEP
+  integer, public, save :: maxSP ! maximum number of cell solution points
+  integer, public, save :: maxQP ! maximum number of cell quadrature points
+  integer, public, save :: maxFP ! maximum number of flux points
+  integer, public, save :: maxGP ! maximum number of flux quadrature points
+  integer, public, save :: maxOP ! maximum number of cell output points
+  integer, public, save :: maxEP ! maximum number of cell error points
   !
   ! Number of solution points for each cell geometry type
   !
