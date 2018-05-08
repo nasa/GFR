@@ -1267,11 +1267,8 @@ subroutine flux_gradient_at_solpts(iter,nst)
   !
   !.. Use Statements ..
   use geovar,  only : nr,n_solpts
+  use geovar,  only : using_quadrature
   use flowvar, only : usp,dusp
-  use ovar,    only : governing_equations
-  !
-  use visc_flux_mod, only : visc_flx_cv_gpu
-  use invs_flux_mod, only : invs_flx_cv_gpu
   !
   !.. Formal Arguments ..
   integer, intent(in) :: iter,nst
@@ -1294,33 +1291,11 @@ continue
   allocate ( vfluxes(1:n_solpts,1:nr,1:nq) )
   !$ACC DATA CREATE(ifluxes,vfluxes)
   !
-  call invs_flx_cv_gpu( usp , ifluxes )
-  !
-  if (governing_equations == NavierStokes_Eqns) then
-    !
-    call visc_flx_cv_gpu( 1 , n_solpts , usp , dusp , vfluxes )
-    !
+  if (using_quadrature) then
+    call compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
   else
-    !
-    !$ACC PARALLEL LOOP COLLAPSE(3)
-    do m = 1,nq
-      do l = 1,nr
-        do n = 1,n_solpts
-          vfluxes(n,l,m) = zero
-        end do
-      end do
-    end do
-    !
+    call compute_fluxes_at_solpts(usp,dusp,ifluxes,vfluxes)
   end if
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(3)
-  do m = 1,nq
-    do l = 1,nr
-      do n = 1,n_solpts
-        ifluxes(n,l,m) = ifluxes(n,l,m) - vfluxes(n,l,m)
-      end do
-    end do
-  end do
   !
   ! Transform the fluxes from physical to computation space. The viscous
   ! fluxes currently stored in vfluxes are no longer needed, so store the
@@ -1339,6 +1314,1000 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine flux_gradient_at_solpts
+!
+!###############################################################################
+!
+subroutine compute_fluxes_at_solpts(usp,dusp,ifluxes,vfluxes)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts
+  use ovar,    only : governing_equations
+  !
+  use visc_flux_mod, only : visc_flx_cv_gpu
+  use invs_flux_mod, only : invs_flx_cv_gpu
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  real(wp), intent(inout) :: vfluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: l,m,n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_fluxes_at_solpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  call invs_flx_cv_gpu( usp , ifluxes )
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    !
+    call visc_flx_cv_gpu( 1 , n_solpts , usp , dusp , vfluxes )
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(3) &
+    !$ACC&              PRESENT(ifluxes,vfluxes)
+    do m = 1,nq
+      do l = 1,nr
+        do n = 1,n_solpts
+          ifluxes(n,l,m) = ifluxes(n,l,m) - vfluxes(n,l,m)
+        end do
+      end do
+    end do
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_fluxes_at_solpts
+!
+!###############################################################################
+!
+subroutine compute_fluxes_at_qdtpts(usp,dusp,ifluxes)
+  !
+  !.. Use Statements ..
+  use geovar,  only : nr,n_solpts,n_qdtpts
+  use ovar,    only : governing_equations
+  !
+  use visc_flux_mod, only : visc_flx_cv_gpu
+  use invs_flux_mod, only : invs_flx_cv_gpu
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer :: l,m,n
+  !
+  !.. Local Allocatable Arrays ..
+  real(wp), allocatable :: uqp(:,:)
+  real(wp), allocatable :: duqp(:,:,:)
+  real(wp), allocatable :: iflxqp(:,:,:)
+  real(wp), allocatable :: vflxqp(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "compute_fluxes_at_qdtpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( uqp(1:n_qdtpts,1:nq) )
+  allocate ( iflxqp(1:n_qdtpts,1:nr,1:nq) )
+  !$ACC ENTER DATA CREATE(uqp,iflxqp)
+  !
+  ! Interpolate the conserved variables from the solution points
+  ! to the quadrature points
+  !
+  call interp_cv_to_qdtpts( usp , uqp )
+  !
+  ! Compute the inviscid fluxes at the quadrature points
+  !
+  call invs_flx_cv_gpu( uqp , iflxqp )
+  !
+  if (governing_equations == NavierStokes_Eqns) then
+    !
+    ! Interpolate the derivatives of the conserved variables from
+    ! the solution points to the quadrature points
+    !
+    allocate ( duqp(1:n_qdtpts,1:nr,1:nq) )
+    allocate ( vflxqp(1:n_qdtpts,1:nr,1:nq) )
+    !$ACC ENTER DATA CREATE(duqp,vflxqp)
+    !
+    call interp_dusp_to_qdtpts( dusp , duqp )
+    !
+    ! Compute the viscous fluxes at the quadrature points
+    !
+    call visc_flx_cv_gpu( 1 , n_qdtpts , uqp , duqp , vflxqp )
+    !
+    ! Subtract the viscous fluxes from the inviscid fluxes to get
+    ! the total flux at the quadrature points
+    !
+    !$ACC PARALLEL LOOP COLLAPSE(3) &
+    !$ACC&              PRESENT(iflxqp,vflxqp)
+    do m = 1,nq
+      do l = 1,nr
+        do n = 1,n_qdtpts
+          iflxqp(n,l,m) = iflxqp(n,l,m) - vflxqp(n,l,m)
+        end do
+      end do
+    end do
+    !
+    !$ACC EXIT DATA DELETE(duqp,vflxqp)
+    deallocate ( vflxqp )
+    deallocate ( duqp )
+    !
+  end if
+  !
+  !$ACC EXIT DATA DELETE(uqp)
+  deallocate ( uqp )
+  !
+  ! Project the total flux at the quadrature points to the solution polynomial
+  ! space and get the value of this polynomial at the solution points
+  !
+  call project_fluxes_to_solpts( iflxqp , ifluxes )
+  !
+  !$ACC EXIT DATA DELETE(iflxqp)
+  deallocate ( iflxqp )
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine compute_fluxes_at_qdtpts
+!
+!###############################################################################
+!
+subroutine interp_cv_to_qdtpts(usp,uqp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp), intent(inout) :: uqp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_qdtpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call interp_cv_to_qdtpts_3d(usp,uqp)
+  else if (nr == 2) then
+    call interp_cv_to_qdtpts_2d(usp,uqp)
+  else
+    call interp_cv_to_qdtpts_nd(usp,uqp)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine interp_cv_to_qdtpts
+!
+!###############################################################################
+!
+subroutine interp_cv_to_qdtpts_3d(usp,uqp)
+  !
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp), intent(inout) :: uqp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,cv_ec,cv_mx,cv_my,cv_mz,cv_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_qdtpts_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(uqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the conserved variables from the solution points
+    ! to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      cv_ec = zero
+      cv_mx = zero
+      cv_my = zero
+      cv_mz = zero
+      cv_ee = zero
+      !
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        !
+        cv_ec = cv_ec + a * usp(n0+j,nec)
+        cv_mx = cv_mx + a * usp(n0+j,nmx)
+        cv_my = cv_my + a * usp(n0+j,nmy)
+        cv_mz = cv_mz + a * usp(n0+j,nmz)
+        cv_ee = cv_ee + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      uqp(q0+k,nec) = cv_ec
+      uqp(q0+k,nmx) = cv_mx
+      uqp(q0+k,nmy) = cv_my
+      uqp(q0+k,nmz) = cv_mz
+      uqp(q0+k,nee) = cv_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_cv_to_qdtpts_3d
+!
+!###############################################################################
+!
+subroutine interp_cv_to_qdtpts_2d(usp,uqp)
+  !
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp), intent(inout) :: uqp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,cv_ec,cv_mx,cv_my,cv_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_qdtpts_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(uqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the conserved variables from the solution points
+    ! to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      cv_ec = zero
+      cv_mx = zero
+      cv_my = zero
+      cv_ee = zero
+      !
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        !
+        cv_ec = cv_ec + a * usp(n0+j,nec)
+        cv_mx = cv_mx + a * usp(n0+j,nmx)
+        cv_my = cv_my + a * usp(n0+j,nmy)
+        cv_ee = cv_ee + a * usp(n0+j,nee)
+        !
+      end do
+      !
+      uqp(q0+k,nec) = cv_ec
+      uqp(q0+k,nmx) = cv_mx
+      uqp(q0+k,nmy) = cv_my
+      uqp(q0+k,nee) = cv_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_cv_to_qdtpts_2d
+!
+!###############################################################################
+!
+subroutine interp_cv_to_qdtpts_nd(usp,uqp)
+  !
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: usp(:,:)
+  real(wp), intent(inout) :: uqp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,m,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_cv_to_qdtpts_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(usp) &
+  !$ACC&                   PRESENT(uqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the conserved variables from the solution points
+    ! to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do k = 1,nqp
+      do m = 1,nq
+        !
+        val = zero
+        !
+        do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+               interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+          !
+          j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+          a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+          !
+          val = val + a * usp(n0+j,m)
+          !
+        end do
+        !
+        uqp(q0+k,m) = val
+        !
+      end do
+      !
+    end do
+  end do
+  !
+end subroutine interp_cv_to_qdtpts_nd
+!
+!###############################################################################
+!
+subroutine interp_dusp_to_qdtpts(dusp,duqp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: duqp(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_qdtpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call interp_dusp_to_qdtpts_3d(dusp,duqp)
+  else if (nr == 2) then
+    call interp_dusp_to_qdtpts_2d(dusp,duqp)
+  else
+    call interp_dusp_to_qdtpts_nd(dusp,duqp)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine interp_dusp_to_qdtpts
+!
+!###############################################################################
+!
+subroutine interp_dusp_to_qdtpts_3d(dusp,duqp)
+  !
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: duqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: decdx,dmxdx,dmydx,dmzdx,deedx
+  real(wp) :: decdy,dmxdy,dmydy,dmzdy,deedy
+  real(wp) :: decdz,dmxdz,dmydz,dmzdz,deedz
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_qdtpts_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(dusp) &
+  !$ACC&                   PRESENT(duqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      decdx = zero ; decdy = zero ; decdz = zero
+      dmxdx = zero ; dmxdy = zero ; dmxdz = zero
+      dmydx = zero ; dmydy = zero ; dmydz = zero
+      dmzdx = zero ; dmzdy = zero ; dmzdz = zero
+      deedx = zero ; deedy = zero ; deedz = zero
+      !
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        !
+        decdx = decdx + a * dusp(n0+j,1,nec)
+        decdy = decdy + a * dusp(n0+j,2,nec)
+        decdz = decdz + a * dusp(n0+j,3,nec)
+        !
+        dmxdx = dmxdx + a * dusp(n0+j,1,nmx)
+        dmxdy = dmxdy + a * dusp(n0+j,2,nmx)
+        dmxdz = dmxdz + a * dusp(n0+j,3,nmx)
+        !
+        dmydx = dmydx + a * dusp(n0+j,1,nmy)
+        dmydy = dmydy + a * dusp(n0+j,2,nmy)
+        dmydz = dmydz + a * dusp(n0+j,3,nmy)
+        !
+        dmzdx = dmzdx + a * dusp(n0+j,1,nmz)
+        dmzdy = dmzdy + a * dusp(n0+j,2,nmz)
+        dmzdz = dmzdz + a * dusp(n0+j,3,nmz)
+        !
+        deedx = deedx + a * dusp(n0+j,1,nee)
+        deedy = deedy + a * dusp(n0+j,2,nee)
+        deedz = deedz + a * dusp(n0+j,3,nee)
+        !
+      end do
+      !
+      duqp(q0+k,1,nec) = decdx
+      duqp(q0+k,2,nec) = decdy
+      duqp(q0+k,3,nec) = decdz
+      !
+      duqp(q0+k,1,nmx) = dmxdx
+      duqp(q0+k,2,nmx) = dmxdy
+      duqp(q0+k,3,nmx) = dmxdz
+      !
+      duqp(q0+k,1,nmy) = dmydx
+      duqp(q0+k,2,nmy) = dmydy
+      duqp(q0+k,3,nmy) = dmydz
+      !
+      duqp(q0+k,1,nmz) = dmzdx
+      duqp(q0+k,2,nmz) = dmzdy
+      duqp(q0+k,3,nmz) = dmzdz
+      !
+      duqp(q0+k,1,nee) = deedx
+      duqp(q0+k,2,nee) = deedy
+      duqp(q0+k,3,nee) = deedz
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_dusp_to_qdtpts_3d
+!
+!###############################################################################
+!
+subroutine interp_dusp_to_qdtpts_2d(dusp,duqp)
+  !
+  use geovar,            only : ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: duqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: decdx,dmxdx,dmydx,deedx
+  real(wp) :: decdy,dmxdy,dmydy,deedy
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_qdtpts_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(dusp) &
+  !$ACC&                   PRESENT(duqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      decdx = zero ; decdy = zero
+      dmxdx = zero ; dmxdy = zero
+      dmydx = zero ; dmydy = zero
+      deedx = zero ; deedy = zero
+      !
+      do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+        !
+        decdx = decdx + a * dusp(n0+j,1,nec)
+        decdy = decdy + a * dusp(n0+j,2,nec)
+        !
+        dmxdx = dmxdx + a * dusp(n0+j,1,nmx)
+        dmxdy = dmxdy + a * dusp(n0+j,2,nmx)
+        !
+        dmydx = dmydx + a * dusp(n0+j,1,nmy)
+        dmydy = dmydy + a * dusp(n0+j,2,nmy)
+        !
+        deedx = deedx + a * dusp(n0+j,1,nee)
+        deedy = deedy + a * dusp(n0+j,2,nee)
+        !
+      end do
+      !
+      duqp(q0+k,1,nec) = decdx
+      duqp(q0+k,2,nec) = decdy
+      !
+      duqp(q0+k,1,nmx) = dmxdx
+      duqp(q0+k,2,nmx) = dmxdy
+      !
+      duqp(q0+k,1,nmy) = dmydx
+      duqp(q0+k,2,nmy) = dmydy
+      !
+      duqp(q0+k,1,nee) = deedx
+      duqp(q0+k,2,nee) = deedy
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_dusp_to_qdtpts_2d
+!
+!###############################################################################
+!
+subroutine interp_dusp_to_qdtpts_nd(dusp,duqp)
+  !
+  use geovar,            only : nr,ncell,cell
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: dusp(:,:,:)
+  real(wp), intent(inout) :: duqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,m,nc,n0,q0,nqp
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_qdtpts_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(dusp) &
+  !$ACC&                   PRESENT(duqp) &
+  !$ACC&                   PRESENT(interp)
+  do nc = 1,ncell
+    !
+    n0  = cell(nc)%beg_sp - 1
+    !
+    q0  = cell(nc)%beg_qp - 1
+    nqp = cell(nc)%end_qp - q0
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(3)
+    do k = 1,nqp
+      do m = 1,nq
+        do l = 1,nr
+          !
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+                 interp(this_geom,this_order)%toCell(qdtr_order)%col_ptr(k+1)
+            !
+            j = interp(this_geom,this_order)%toCell(qdtr_order)%col_idx(i)
+            a = interp(this_geom,this_order)%toCell(qdtr_order)%col_val(i)
+            !
+            val = val + a * dusp(n0+j,l,m)
+            !
+          end do
+          !
+          duqp(q0+k,l,m) = val
+          !
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine interp_dusp_to_qdtpts_nd
+!
+!###############################################################################
+!
+subroutine project_fluxes_to_solpts(iflxqp,ifluxes)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: iflxqp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_fluxes_to_solpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call project_fluxes_to_solpts_3d(iflxqp,ifluxes)
+  else if (nr == 2) then
+    call project_fluxes_to_solpts_2d(iflxqp,ifluxes)
+  else
+    call project_fluxes_to_solpts_nd(iflxqp,ifluxes)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine project_fluxes_to_solpts
+!
+!###############################################################################
+!
+subroutine project_fluxes_to_solpts_3d(iflxqp,ifluxes)
+  !
+  use geovar,         only : ncell,cell
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: iflxqp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,np
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: xflx_ec,xflx_mx,xflx_my,xflx_mz,xflx_ee
+  real(wp) :: yflx_ec,yflx_mx,yflx_my,yflx_mz,yflx_ee
+  real(wp) :: zflx_ec,zflx_mx,zflx_my,zflx_mz,zflx_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_fluxes_to_solpts_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(iflxqp) &
+  !$ACC&                   PRESENT(ifluxes) &
+  !$ACC&                   PRESENT(projct)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    q0 = cell(nc)%beg_qp - 1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,np
+      !
+      xflx_ec = zero ; yflx_ec = zero ; zflx_ec = zero
+      xflx_mx = zero ; yflx_mx = zero ; zflx_mx = zero
+      xflx_my = zero ; yflx_my = zero ; zflx_my = zero
+      xflx_mz = zero ; yflx_mz = zero ; zflx_mz = zero
+      xflx_ee = zero ; yflx_ee = zero ; zflx_ee = zero
+      !
+      do i = projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+             projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k+1)
+        !
+        j = projct(this_geom,this_order)%CellOI(qdtr_order)%row_idx(i)
+        a = projct(this_geom,this_order)%CellOI(qdtr_order)%row_val(i)
+        !
+        xflx_ec = xflx_ec + a * iflxqp(q0+j,1,nec)
+        yflx_ec = yflx_ec + a * iflxqp(q0+j,2,nec)
+        zflx_ec = zflx_ec + a * iflxqp(q0+j,3,nec)
+        !
+        xflx_mx = xflx_mx + a * iflxqp(q0+j,1,nmx)
+        yflx_mx = yflx_mx + a * iflxqp(q0+j,2,nmx)
+        zflx_mx = zflx_mx + a * iflxqp(q0+j,3,nmx)
+        !
+        xflx_my = xflx_my + a * iflxqp(q0+j,1,nmy)
+        yflx_my = yflx_my + a * iflxqp(q0+j,2,nmy)
+        zflx_my = zflx_my + a * iflxqp(q0+j,3,nmy)
+        !
+        xflx_mz = xflx_mz + a * iflxqp(q0+j,1,nmz)
+        yflx_mz = yflx_mz + a * iflxqp(q0+j,2,nmz)
+        zflx_mz = zflx_mz + a * iflxqp(q0+j,3,nmz)
+        !
+        xflx_ee = xflx_ee + a * iflxqp(q0+j,1,nee)
+        yflx_ee = yflx_ee + a * iflxqp(q0+j,2,nee)
+        zflx_ee = zflx_ee + a * iflxqp(q0+j,3,nee)
+        !
+      end do
+      !
+      ifluxes(n0+k,1,nec) = xflx_ec
+      ifluxes(n0+k,2,nec) = yflx_ec
+      ifluxes(n0+k,3,nec) = zflx_ec
+      !
+      ifluxes(n0+k,1,nmx) = xflx_mx
+      ifluxes(n0+k,2,nmx) = yflx_mx
+      ifluxes(n0+k,3,nmx) = zflx_mx
+      !
+      ifluxes(n0+k,1,nmy) = xflx_my
+      ifluxes(n0+k,2,nmy) = yflx_my
+      ifluxes(n0+k,3,nmy) = zflx_my
+      !
+      ifluxes(n0+k,1,nmz) = xflx_mz
+      ifluxes(n0+k,2,nmz) = yflx_mz
+      ifluxes(n0+k,3,nmz) = zflx_mz
+      !
+      ifluxes(n0+k,1,nee) = xflx_ee
+      ifluxes(n0+k,2,nee) = yflx_ee
+      ifluxes(n0+k,3,nee) = zflx_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine project_fluxes_to_solpts_3d
+!
+!###############################################################################
+!
+subroutine project_fluxes_to_solpts_2d(iflxqp,ifluxes)
+  !
+  use geovar,         only : ncell,cell
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: iflxqp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nc,n0,q0,np
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: xflx_ec,xflx_mx,xflx_my,xflx_ee
+  real(wp) :: yflx_ec,yflx_mx,yflx_my,yflx_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_fluxes_to_solpts_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(iflxqp) &
+  !$ACC&                   PRESENT(ifluxes) &
+  !$ACC&                   PRESENT(projct)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    q0 = cell(nc)%beg_qp - 1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,np
+      !
+      xflx_ec = zero ; yflx_ec = zero
+      xflx_mx = zero ; yflx_mx = zero
+      xflx_my = zero ; yflx_my = zero
+      xflx_ee = zero ; yflx_ee = zero
+      !
+      do i = projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+             projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k+1)
+        !
+        j = projct(this_geom,this_order)%CellOI(qdtr_order)%row_idx(i)
+        a = projct(this_geom,this_order)%CellOI(qdtr_order)%row_val(i)
+        !
+        xflx_ec = xflx_ec + a * iflxqp(q0+j,1,nec)
+        yflx_ec = yflx_ec + a * iflxqp(q0+j,2,nec)
+        !
+        xflx_mx = xflx_mx + a * iflxqp(q0+j,1,nmx)
+        yflx_mx = yflx_mx + a * iflxqp(q0+j,2,nmx)
+        !
+        xflx_my = xflx_my + a * iflxqp(q0+j,1,nmy)
+        yflx_my = yflx_my + a * iflxqp(q0+j,2,nmy)
+        !
+        xflx_ee = xflx_ee + a * iflxqp(q0+j,1,nee)
+        yflx_ee = yflx_ee + a * iflxqp(q0+j,2,nee)
+        !
+      end do
+      !
+      ifluxes(n0+k,1,nec) = xflx_ec
+      ifluxes(n0+k,2,nec) = yflx_ec
+      !
+      ifluxes(n0+k,1,nmx) = xflx_mx
+      ifluxes(n0+k,2,nmx) = yflx_mx
+      !
+      ifluxes(n0+k,1,nmy) = xflx_my
+      ifluxes(n0+k,2,nmy) = yflx_my
+      !
+      ifluxes(n0+k,1,nee) = xflx_ee
+      ifluxes(n0+k,2,nee) = yflx_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine project_fluxes_to_solpts_2d
+!
+!###############################################################################
+!
+subroutine project_fluxes_to_solpts_nd(iflxqp,ifluxes)
+  !
+  use geovar,         only : nr,ncell,cell
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  real(wp),    intent(in) :: iflxqp(:,:,:)
+  real(wp), intent(inout) :: ifluxes(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,m,nc,n0,q0,np
+  integer  :: this_geom,this_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_fluxes_to_solpts_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(cell) &
+  !$ACC&                   PRESENT(iflxqp) &
+  !$ACC&                   PRESENT(ifluxes) &
+  !$ACC&                   PRESENT(projct)
+  do nc = 1,ncell
+    !
+    n0 = cell(nc)%beg_sp - 1
+    np = cell(nc)%end_sp - n0
+    !
+    q0 = cell(nc)%beg_qp - 1
+    !
+    this_geom = cell(nc)%geom   ! geometry type of this cell
+    this_order = cell(nc)%order ! solution order of this cell
+    qdtr_order = cell(nc)%qdtr_order
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(3)
+    do k = 1,np
+      do m = 1,nq
+        do l = 1,nr
+          !
+          val = zero
+          !
+          do i = projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+                 projct(this_geom,this_order)%CellOI(qdtr_order)%row_ptr(k+1)
+            !
+            j = projct(this_geom,this_order)%CellOI(qdtr_order)%row_idx(i)
+            a = projct(this_geom,this_order)%CellOI(qdtr_order)%row_val(i)
+            !
+            val = val + a * iflxqp(q0+j,l,m)
+            !
+          end do
+          !
+          ifluxes(n0+k,l,m) = val
+          !
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine project_fluxes_to_solpts_nd
 !
 !###############################################################################
 !
