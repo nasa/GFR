@@ -771,10 +771,10 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   !.. Use Statements ..
   use order_mod,         only : maxSP,maxFP,geom_solpts
   use geovar,            only : nr,ncell
-  use geovar,            only : cell,fp
+  use geovar,            only : cell,face,fp
   use interpolation_mod, only : interp
   use derivatives_mod,   only : deriv
-  use metrics_mod,       only : metrics_dt,geofa
+  use metrics_mod,       only : metrics_dt,facenrm
   use flowvar,           only : usp,dusp,residual
   use ovar,              only : governing_equations
   use correction_mod,    only : correct
@@ -788,7 +788,7 @@ subroutine flux_gradient_at_solpts_visc(time_step,rk_step)
   !
   !.. Local Scalars ..
   integer :: i,j,k,l,m,n,nc,n1,n2,np
-  integer :: nf,sf,kf,lf
+  integer :: nf,sf,kf,lf,f0
   integer :: this_geom,this_order
   integer :: face_geom,face_order
   integer :: fp_offset,face_rot,nfp,ncf
@@ -939,6 +939,7 @@ continue
       nf = cell(nc)%face(ncf)%idx  ! index of the current face
       sf = cell(nc)%face(ncf)%side ! side of face that cell nc is on
       ds = cl(this_geom) * merge(-one,one,sf==1)
+      f0 = face(nf)%beg_fp-1
       !
       face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
       face_order = cell(nc)%face(ncf)%order ! order of current face
@@ -971,7 +972,7 @@ continue
               val = val + a * xyflx(n,m,l)
               !
             end do
-            fval = fval + val*geofa(nf)%v(l,kf)
+            fval = fval + val*facenrm(l,f0+kf)
           end do
           do i = correct(this_geom,this_order)%row_ptr(lf)+1, &
                  correct(this_geom,this_order)%row_ptr(lf+1)
@@ -2391,7 +2392,7 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   use geovar,            only : bface,face,cell,fp
   use ovar,              only : invs_flux_method,governing_equations
   use ovar,              only : output_dir,dump_fluxes
-  use metrics_mod,       only : geofa
+  use metrics_mod,       only : facenrm
   use correction_mod,    only : correct
   use flowvar,           only : residual
   use flowvar,           only : faceusp_array,facedusp_array
@@ -2412,7 +2413,7 @@ subroutine correct_interface_flux_visc(time_step,rk_step)
   !
   !.. Local Scalars ..
   integer  :: i,k,l,m,n,nf,r1,r2,l1,l2
-  integer  :: kl,kr,iu,nfp,f0
+  integer  :: kl,kr,iu,nfp,f0,f1,f2
   integer  :: ierr,iofp
   integer  :: face_geom,face_order
   integer  :: host_cell,host_geom,host_order
@@ -2453,8 +2454,10 @@ continue
     face_geom  = face(nf)%geom  ! geometry of face
     face_order = face(nf)%order ! order of face
     !
-    f0 = face(nf)%beg_fp - 1
-    nfp = face(nf)%end_fp - f0
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    f0 = f1 - 1
+    nfp = f2 - f0
     !
     host_cell  = face(nf)%left%cell    ! host cell on boundary face
     host_geom  = cell(host_cell)%geom  ! geometry of host cell
@@ -2485,7 +2488,7 @@ continue
       end do
     end if
     !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp) ! Area face normals at FP
+    rnrm(1:nr,1:nfp) = facenrm(1:nr,f1:f2) ! Area face normals at FP
     !
     ! Get the common flux at each flux point
     !
@@ -2597,8 +2600,10 @@ continue
     face_geom = face(nf)%geom  ! geometry of face
     face_order = face(nf)%order ! order of face
     !
-    f0 = face(nf)%beg_fp - 1
-    nfp = face(nf)%end_fp - f0 ! number of flux points on this face
+    f1 = face(nf)%beg_fp
+    f2 = face(nf)%end_fp
+    f0 = f1 - 1
+    nfp = f2 - f0 ! number of flux points on this face
     !
     left_cell = face(nf)%left%cell ! left  cell on face
     right_cell = face(nf)%right%cell ! right cell on face
@@ -2637,7 +2642,7 @@ continue
       end do
     end if
     !
-    rnrm(1:nr,1:nfp) = geofa(nf)%v(1:nr,1:nfp)
+    rnrm(1:nr,1:nfp) = facenrm(1:nr,f1:f2)
     !
     ! Get the common flux at each flux point
     !
@@ -5105,7 +5110,7 @@ subroutine correct_gradients_br2()
   use geovar,            only : cell
   use geovar,            only : nr,ncell,nfbnd,bface
   use geovar,            only : face,fp
-  use metrics_mod,       only : geofa,metrics_dt
+  use metrics_mod,       only : facenrm,metrics_dt
   use correction_mod,    only : correct
   use flowvar,           only : dusp,facedusp_array,faceusp_array
   use ovar,              only : walls_are_exact,LDG_beta
@@ -5214,11 +5219,11 @@ continue
         !
         ! Get the unit normal at this flux point
         !
-        unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,kf) )
+        unrm(1:nr) = unit_vector( facenrm(1:nr,f0+kf) )
         !
         ! Get the face length for the current face
         !
-        dsl = cl(this_geom) * norm2( geofa(nf)%v(1:nr,kf) )
+        dsl = cl(this_geom) * norm2( facenrm(1:nr,f0+kf) )
         !
         ! Compute the BR2 jump correction for this point
         !    jump_left  =  half * (u_right - u_left)
@@ -5328,7 +5333,7 @@ subroutine correct_gradients_at_solpts()
   use order_mod,         only : maxpts,geom_solpts
   use geovar,            only : nfbnd,nface,nr,n_solpts,ncell
   use geovar,            only : face,cell,bface,fp
-  use metrics_mod,       only : geofa,metrics_dt
+  use metrics_mod,       only : facenrm,metrics_dt
   use correction_mod,    only : correct
   use flowvar,           only : dusp,faceusp_array
   use ovar,              only : walls_are_exact
@@ -5410,11 +5415,11 @@ continue
       !
       ! Get the unit normal at this flux point
       !
-      unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
+      unrm(1:nr) = unit_vector( facenrm(1:nr,f0+k) )
       !
       ! Get the face length for the current face
       !
-      dsl = cl(host_geom) * norm2( geofa(nf)%v(1:nr,k) )
+      dsl = cl(host_geom) * norm2( facenrm(1:nr,f0+k) )
       !
       ! Compute the LDG directional parameters
       ! NOTE: bias is used for all boundary faces that allow for flow
@@ -5550,11 +5555,11 @@ continue
       !
       ! Get the unit normal at this flux point
       !
-      unrm(1:nr) = unit_vector( geofa(nf)%v(1:nr,k) )
+      unrm(1:nr) = unit_vector( facenrm(1:nr,f0+k) )
       !
       ! Get the face length for the current face
       !
-      ds = norm2( geofa(nf)%v(1:nr,k) )
+      ds = norm2( facenrm(1:nr,f0+k) )
       dsl = cl(left_geom)*ds
       dsr = cl(right_geom)*ds
       !
