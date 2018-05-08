@@ -10,6 +10,14 @@
 ################################################################################
 ################################################################################
 
+* Need to fix bug with time averaging indices for pressure and energy. Currently
+  pressure and energy are set to the same index, but pressure will be the
+  variable accessed with the index. Energy is currently not used with any
+  time-averaged variables except for energy itself, which is averaged correctly,
+  which means this bug does not affect anything at the moment.
+
+* Need to port the time averaging subroutines for use with GPUs.
+
 * Potential bug reading a multi-block Plot3D grid with K indices set to 1.  The
   Plot3D reader will set nr to 2 after reading the gridfile header before
   actually reading the grid coordinates.  It then reads the coordinates as
