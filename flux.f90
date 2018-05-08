@@ -32,6 +32,14 @@ module flux_mod
   real(wp), save, allocatable :: face_jump(:,:)
   !$ACC DECLARE CREATE(face_jump)
   !
+  real(wp), save, allocatable :: faceuqp(:,:,:)
+  real(wp), save, allocatable :: faceduqp(:,:,:,:)
+  real(wp), save, allocatable :: flux_qdtpts(:,:)
+  !
+  integer, parameter :: Separate_All_Projections = 0
+  integer, parameter :: Separate_BC_Projections = 1
+  integer, parameter :: Combine_All_Projections = 2
+  !
   interface write_array
     module procedure write_2d_array, write_3d_array
   end interface write_array
@@ -3717,7 +3725,46 @@ end subroutine correct_interface_flux_visc
 !
 subroutine get_invs_common_fluxes_interior()
   !
-  use geovar,      only : nr,n_bnd_flxpts,n_flxpts
+  !.. Use Statements ..
+  use geovar,  only : using_quadrature
+  use flowvar, only : faceflx
+  !
+  !.. Local Scalars ..
+  integer :: m,n
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_invs_common_fluxes_interior"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  !$ACC PARALLEL LOOP COLLAPSE(2) &
+  !$ACC&              PRESENT(faceflx)
+  do m = 1,size(faceflx,dim=2)
+    do n = 1,size(faceflx,dim=1)
+      faceflx(n,m) = zero
+    end do
+  end do
+  !
+  ! Get the inviscid upwind flux at all of the interior flux points
+  !
+  if (using_quadrature) then
+    call invs_common_fluxes_interior_at_qdtpts
+  else
+    call invs_common_fluxes_interior_at_flxpts
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_invs_common_fluxes_interior
+!
+!###############################################################################
+!
+subroutine invs_common_fluxes_interior_at_flxpts()
+  !
+  !.. Use Statements ..
+  use geovar,      only : n_bnd_flxpts,n_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
@@ -3729,14 +3776,12 @@ subroutine get_invs_common_fluxes_interior()
   use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
   !
   !.. Local Scalars ..
-  integer :: n,n1,n2
+  integer :: n1,n2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_invs_common_fluxes_interior"
+  character(len=*), parameter :: pname = "invs_common_fluxes_interior_at_flxpts"
   !
 continue
-  !
-  call debug_timer(entering_procedure,pname)
   !
   ! Get the inviscid upwind flux at all of the interior flux points
   !
@@ -3761,26 +3806,77 @@ continue
     !
   end if
   !
-  call debug_timer(leaving_procedure,pname)
+end subroutine invs_common_fluxes_interior_at_flxpts
+!
+!###############################################################################
+!
+subroutine invs_common_fluxes_interior_at_qdtpts()
   !
-end subroutine get_invs_common_fluxes_interior
+  !.. Use Statements ..
+  use geovar,      only : nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
+  use ovar,        only : invs_flux_method
+  use ovar,        only : combine_common_flux_projections
+  use metrics_mod, only : facenrm_qdtpts
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceflx
+  !
+  use upwind_flux_mod, only : roe_upwind_flux_gpu
+  use upwind_flux_mod, only : hllc_upwind_flux_gpu
+  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
+  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nf1,nf2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "invs_common_fluxes_interior_at_qdtpts"
+  !
+continue
+  !
+  allocate ( faceuqp(1:n_flx_qdtpts,1:nq,1:2) )
+  allocate ( flux_qdtpts(1:n_flx_qdtpts,1:nq) )
+  !$ACC ENTER DATA CREATE(faceusp,flux_qdtpts)
+  !
+  ! Get the inviscid upwind flux at all of the interior flux points
+  !
+  nf1 = nfbnd+1
+  nf2 = nface
+  !
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp)
+  !
+  n1 = n_bnd_qdtpts+1
+  n2 = n_flx_qdtpts
+  !
+  if (invs_flux_method == invs_flux_ROE) then
+    !
+    call roe_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_HLLC) then
+    !
+    call hllc_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_LDFSS) then
+    !
+    call ldfss_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+    !
+    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  end if
+  !
+  if (combine_common_flux_projections == Separate_All_Projections) then
+    call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+  end if
+  !
+end subroutine invs_common_fluxes_interior_at_qdtpts
 !
 !###############################################################################
 !
 subroutine get_visc_common_fluxes_interior()
   !
-  use geovar,      only : nr,n_bnd_flxpts,n_flxpts
-  use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
-  use flowvar,     only : facedusp_array
-  use flowvar,     only : faceflx
-  use ovar,        only : visc_variables_to_ave
-  !
-  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
-  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
-  !
-  !.. Local Scalars ..
-  integer :: n,n1,n2
+  !.. Use Statements ..
+  use geovar, only : using_quadrature
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_interior"
@@ -3788,6 +3884,39 @@ subroutine get_visc_common_fluxes_interior()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (using_quadrature) then
+    call visc_common_fluxes_interior_at_qdtpts
+  else
+    call visc_common_fluxes_interior_at_flxpts
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_visc_common_fluxes_interior
+!
+!###############################################################################
+!
+subroutine visc_common_fluxes_interior_at_flxpts()
+  !
+  !.. Use Statements ..
+  use geovar,      only : n_bnd_flxpts,n_flxpts
+  use ovar,        only : visc_variables_to_ave
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
+  use flowvar,     only : faceflx
+  !
+  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
+  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_common_fluxes_interior_at_flxpts"
+  !
+continue
   !
   n1 = n_bnd_flxpts+1
   n2 = n_flxpts
@@ -3804,15 +3933,90 @@ continue
     !
   end if
   !
-  call debug_timer(leaving_procedure,pname)
+end subroutine visc_common_fluxes_interior_at_flxpts
+!
+!###############################################################################
+!
+subroutine visc_common_fluxes_interior_at_qdtpts()
   !
-end subroutine get_visc_common_fluxes_interior
+  !.. Use Statements ..
+  use geovar,      only : nr,nfbnd,nface,n_bnd_qdtpts,n_flx_qdtpts
+  use ovar,        only : visc_variables_to_ave
+  use ovar,        only : combine_common_flux_projections
+  use metrics_mod, only : facenrm_qdtpts
+  use flowvar,     only : facedusp_array
+  use flowvar,     only : faceflx
+  !
+  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
+  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nf1,nf2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_common_fluxes_interior_at_qdtpts"
+  !
+continue
+  !
+  allocate ( faceduqp(1:n_flx_qdtpts,1:nr,1:nq,1:2) )
+  !$ACC ENTER DATA CREATE(facedusp)
+  !
+  nf1 = nfbnd+1
+  nf2 = nface
+  !
+  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp_array,faceduqp)
+  !
+  n1 = n_bnd_qdtpts+1
+  n2 = n_flx_qdtpts
+  !
+  if (visc_variables_to_ave == visc_interface_fluxes) then
+    !
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+                                    faceduqp,flux_qdtpts)
+    !
+  else ! visc_variables_to_ave == visc_solution_and_gradients
+    !
+    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+                                          faceduqp,flux_qdtpts)
+    !
+  end if
+  !
+  if (combine_common_flux_projections /= Combine_All_Projections) then
+    call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+  end if
+  !
+end subroutine visc_common_fluxes_interior_at_qdtpts
 !
 !###############################################################################
 !
 subroutine get_invs_common_fluxes_bc()
   !
-  use geovar,      only : nr,n_wall_flxpts,n_bnd_flxpts
+  !.. Use Statements ..
+  use geovar, only : using_quadrature
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (using_quadrature) then
+    call invs_common_fluxes_bc_at_qdtpts
+  else
+    call invs_common_fluxes_bc_at_flxpts
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_invs_common_fluxes_bc
+!
+!###############################################################################
+!
+subroutine invs_common_fluxes_bc_at_flxpts()
+  !
+  !.. Use Statements ..
+  use geovar,      only : n_wall_flxpts,n_bnd_flxpts
   use ovar,        only : invs_flux_method
   use metrics_mod, only : facenrm
   use flowvar,     only : faceusp_array
@@ -3826,14 +4030,12 @@ subroutine get_invs_common_fluxes_bc()
   use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
   !
   !.. Local Scalars ..
-  integer :: i,j,n,n1,n2
+  integer :: n1,n2
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_invs_common_fluxes_bc"
+  character(len=*), parameter :: pname = "invs_common_fluxes_bc_at_flxpts"
   !
 continue
-  !
-  call debug_timer(entering_procedure,pname)
   !
   ! Get the inviscid common flux for all flux points on wall BCs
   !
@@ -3870,27 +4072,84 @@ continue
     !
   end if
   !
-  call debug_timer(leaving_procedure,pname)
+end subroutine invs_common_fluxes_bc_at_flxpts
+!
+!###############################################################################
+!
+subroutine invs_common_fluxes_bc_at_qdtpts()
   !
-end subroutine get_invs_common_fluxes_bc
+  !.. Use Statements ..
+  use geovar,      only : nfbnd,n_wall_qdtpts,n_bnd_qdtpts
+  use ovar,        only : invs_flux_method
+  use ovar,        only : combine_common_flux_projections
+  use metrics_mod, only : facenrm_qdtpts
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : faceflx
+  !
+  use invs_flux_mod, only : invs_wall_flx_gpu
+  !
+  use upwind_flux_mod, only : roe_upwind_flux_gpu
+  use upwind_flux_mod, only : hllc_upwind_flux_gpu
+  use upwind_flux_mod, only : ldfss_upwind_flux_gpu
+  use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nf1,nf2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "invs_common_fluxes_bc_at_qdtpts"
+  !
+continue
+  !
+  ! Get the inviscid upwind flux at all of the bc flux points
+  !
+  nf1 = 1
+  nf2 = nfbnd
+  !
+  call interp_faceusp_to_faceuqp(nf1,nf2,faceusp_array,faceuqp)
+  !
+  n1 = 1
+  n2 = n_wall_qdtpts
+  !
+  if (n2 >= n1) then
+    !
+    call invs_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  end if
+  !
+  n1 = n_wall_qdtpts+1
+  n2 = n_bnd_qdtpts
+  !
+  if (invs_flux_method == invs_flux_ROE) then
+    !
+    call roe_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_HLLC) then
+    !
+    call hllc_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_LDFSS) then
+    !
+    call ldfss_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  else if (invs_flux_method == invs_flux_Rotated_RHLL) then
+    !
+    call rotated_rhll_upwind_flux_gpu(n1,n2,facenrm_qdtpts,faceuqp,flux_qdtpts)
+    !
+  end if
+  !
+  if (combine_common_flux_projections == Separate_All_Projections) then
+    call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+  end if
+  !
+end subroutine invs_common_fluxes_bc_at_qdtpts
 !
 !###############################################################################
 !
 subroutine get_visc_common_fluxes_bc()
   !
-  use geovar,      only : nr,n_wall_flxpts,n_bnd_flxpts
-  use metrics_mod, only : facenrm
-  use flowvar,     only : faceusp_array
-  use flowvar,     only : facedusp_array
-  use flowvar,     only : faceflx
-  use ovar,        only : visc_variables_to_ave
-  !
-  use visc_flux_mod, only : visc_wall_flx_gpu
-  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
-  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
-  !
-  !.. Local Scalars ..
-  integer :: n,n1,n2
+  !.. Use Statements ..
+  use geovar, only : using_quadrature
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "get_visc_common_fluxes_bc"
@@ -3898,6 +4157,40 @@ subroutine get_visc_common_fluxes_bc()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (using_quadrature) then
+    call visc_common_fluxes_bc_at_qdtpts
+  else
+    call visc_common_fluxes_bc_at_flxpts
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_visc_common_fluxes_bc
+!
+!###############################################################################
+!
+subroutine visc_common_fluxes_bc_at_flxpts()
+  !
+  !.. Use Statements ..
+  use geovar,      only : n_wall_flxpts,n_bnd_flxpts
+  use ovar,        only : visc_variables_to_ave
+  use metrics_mod, only : facenrm
+  use flowvar,     only : faceusp_array
+  use flowvar,     only : facedusp_array
+  use flowvar,     only : faceflx
+  !
+  use visc_flux_mod, only : visc_wall_flx_gpu
+  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
+  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_common_fluxes_bc_at_flxpts"
+  !
+continue
   !
   ! Get the viscous common flux for all flux points on wall BCs
   !
@@ -3929,9 +4222,1045 @@ continue
     !
   end if
   !
+end subroutine visc_common_fluxes_bc_at_flxpts
+!
+!###############################################################################
+!
+subroutine visc_common_fluxes_bc_at_qdtpts()
+  !
+  !.. Use Statements ..
+  use geovar,      only : nfbnd,nface,n_wall_qdtpts,n_bnd_qdtpts
+  use ovar,        only : visc_variables_to_ave
+  use ovar,        only : combine_common_flux_projections
+  use metrics_mod, only : facenrm_qdtpts
+  use flowvar,     only : facedusp_array
+  use flowvar,     only : faceflx
+  !
+  use visc_flux_mod, only : visc_wall_flx_gpu
+  use visc_flux_mod, only : common_vflx_ave_fluxes_gpu
+  use visc_flux_mod, only : common_vflx_ave_sol_and_grad_gpu
+  !
+  !.. Local Scalars ..
+  integer :: n1,n2,nf1,nf2
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "visc_common_fluxes_bc_at_qdtpts"
+  !
+continue
+  !
+  nf1 = 1
+  nf2 = nfbnd
+  !
+  call interp_facedusp_to_faceduqp(nf1,nf2,facedusp_array,faceduqp)
+  !
+  n1 = 1
+  n2 = n_wall_qdtpts
+  !
+  if (n2 >= n1) then
+    !
+    call visc_wall_flx_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+                           faceduqp,flux_qdtpts)
+    !
+  end if
+  !
+  n1 = n_wall_qdtpts+1
+  n2 = n_bnd_qdtpts
+  !
+  if (visc_variables_to_ave == visc_interface_fluxes) then
+    !
+    call common_vflx_ave_fluxes_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+                                    faceduqp,flux_qdtpts)
+    !
+  else ! visc_variables_to_ave == visc_solution_and_gradients
+    !
+    call common_vflx_ave_sol_and_grad_gpu(n1,n2,facenrm_qdtpts,faceuqp, &
+                                          faceduqp,flux_qdtpts)
+    !
+  end if
+  !
+  if (combine_common_flux_projections == Combine_All_Projections) then
+    nf1 = 1
+    nf2 = nface
+  end if
+  !
+  call project_flux_qdtpts_to_faceflx(nf1,nf2,flux_qdtpts,faceflx)
+  !
+  deallocate ( faceduqp )
+  deallocate ( flux_qdtpts )
+  deallocate ( faceuqp )
+  !$ACC EXIT DATA DELETE(facedusp,flux_qdtpts,faceuqp)
+  !
+end subroutine visc_common_fluxes_bc_at_qdtpts
+!
+!###############################################################################
+!
+subroutine project_flux_qdtpts_to_faceflx(nf1,nf2,flxqp,flxfp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: flxqp(:,:)
+  real(wp), intent(inout) :: flxfp(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_flux_qdtpts_to_faceflx"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call project_flux_qdtpts_to_faceflx_3d(nf1,nf2,flxqp,flxfp)
+  else if (nr == 2) then
+    call project_flux_qdtpts_to_faceflx_2d(nf1,nf2,flxqp,flxfp)
+  else
+    call project_flux_qdtpts_to_faceflx_nd(nf1,nf2,flxqp,flxfp)
+  end if
+  !
   call debug_timer(leaving_procedure,pname)
   !
-end subroutine get_visc_common_fluxes_bc
+end subroutine project_flux_qdtpts_to_faceflx
+!
+!###############################################################################
+!
+subroutine project_flux_qdtpts_to_faceflx_3d(nf1,nf2,flxqp,flxfp)
+  !
+  !.. Use Statements ..
+  use geovar,         only : face
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: flxqp(:,:)
+  real(wp), intent(inout) :: flxfp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nfp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,flx_ec,flx_mx,flx_my,flx_mz,flx_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_flux_qdtpts_to_faceflx_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(flxqp) &
+  !$ACC&                   PRESENT(flxfp) &
+  !$ACC&                   PRESENT(projct)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    q0 = face(nf)%beg_qp - 1
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nfp
+      !
+      flx_ec = zero
+      flx_mx = zero
+      flx_my = zero
+      flx_mz = zero
+      flx_ee = zero
+      !
+      do i = projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+             projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k+1)
+        !
+        j = projct(face_geom,face_order)%CellOI(qdtr_order)%row_idx(i)
+        a = projct(face_geom,face_order)%CellOI(qdtr_order)%row_val(i)
+        !
+        flx_ec = flx_ec + a * flxqp(q0+j,nec)
+        flx_mx = flx_mx + a * flxqp(q0+j,nmx)
+        flx_my = flx_my + a * flxqp(q0+j,nmy)
+        flx_mz = flx_mz + a * flxqp(q0+j,nmz)
+        flx_ee = flx_ee + a * flxqp(q0+j,nee)
+        !
+      end do
+      !
+      flxfp(f0+k,nec) = flxfp(f0+k,nec) + flx_ec
+      flxfp(f0+k,nmx) = flxfp(f0+k,nmx) + flx_mx
+      flxfp(f0+k,nmy) = flxfp(f0+k,nmy) + flx_my
+      flxfp(f0+k,nmz) = flxfp(f0+k,nmz) + flx_mz
+      flxfp(f0+k,nee) = flxfp(f0+k,nee) + flx_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine project_flux_qdtpts_to_faceflx_3d
+!
+!###############################################################################
+!
+subroutine project_flux_qdtpts_to_faceflx_2d(nf1,nf2,flxqp,flxfp)
+  !
+  !.. Use Statements ..
+  use geovar,         only : face
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: flxqp(:,:)
+  real(wp), intent(inout) :: flxfp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nfp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,flx_ec,flx_mx,flx_my,flx_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_flux_qdtpts_to_faceflx_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(flxqp) &
+  !$ACC&                   PRESENT(flxfp) &
+  !$ACC&                   PRESENT(projct)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    q0 = face(nf)%beg_qp - 1
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nfp
+      !
+      flx_ec = zero
+      flx_mx = zero
+      flx_my = zero
+      flx_ee = zero
+      !
+      do i = projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+             projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k+1)
+        !
+        j = projct(face_geom,face_order)%CellOI(qdtr_order)%row_idx(i)
+        a = projct(face_geom,face_order)%CellOI(qdtr_order)%row_val(i)
+        !
+        flx_ec = flx_ec + a * flxqp(q0+j,nec)
+        flx_mx = flx_mx + a * flxqp(q0+j,nmx)
+        flx_my = flx_my + a * flxqp(q0+j,nmy)
+        flx_ee = flx_ee + a * flxqp(q0+j,nee)
+        !
+      end do
+      !
+      flxfp(f0+k,nec) = flxfp(f0+k,nec) + flx_ec
+      flxfp(f0+k,nmx) = flxfp(f0+k,nmx) + flx_mx
+      flxfp(f0+k,nmy) = flxfp(f0+k,nmy) + flx_my
+      flxfp(f0+k,nee) = flxfp(f0+k,nee) + flx_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine project_flux_qdtpts_to_faceflx_2d
+!
+!###############################################################################
+!
+subroutine project_flux_qdtpts_to_faceflx_nd(nf1,nf2,flxqp,flxfp)
+  !
+  !.. Use Statements ..
+  use geovar,         only : face
+  use projection_mod, only : projct
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: flxqp(:,:)
+  real(wp), intent(inout) :: flxfp(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,m,nf,f0,q0,nfp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "project_flux_qdtpts_to_faceflx_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(flxqp) &
+  !$ACC&                   PRESENT(flxfp) &
+  !$ACC&                   PRESENT(projct)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    nfp = face(nf)%end_fp - f0
+    !
+    q0 = face(nf)%beg_qp - 1
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(2)
+    do k = 1,nfp
+      do m = 1,nq
+        !
+        val = zero
+        !
+        do i = projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k)+1, &
+               projct(face_geom,face_order)%CellOI(qdtr_order)%row_ptr(k+1)
+          !
+          j = projct(face_geom,face_order)%CellOI(qdtr_order)%row_idx(i)
+          a = projct(face_geom,face_order)%CellOI(qdtr_order)%row_val(i)
+          !
+          val = val + a * flxqp(q0+j,m)
+          !
+        end do
+        !
+        flxfp(f0+k,m) = flxfp(f0+k,m) + val
+        !
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine project_flux_qdtpts_to_faceflx_nd
+!
+!###############################################################################
+!
+subroutine interp_faceusp_to_faceuqp(nf1,nf2,faceusp,faceuqp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: faceusp(:,:,:)
+  real(wp), intent(inout) :: faceuqp(:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_usp_to_qdtpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call interp_faceusp_to_faceuqp_3d(nf1,nf2,faceusp,faceuqp)
+  else if (nr == 2) then
+    call interp_faceusp_to_faceuqp_2d(nf1,nf2,faceusp,faceuqp)
+  else
+    call interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine interp_faceusp_to_faceuqp
+!
+!###############################################################################
+!
+subroutine interp_faceusp_to_faceuqp_3d(nf1,nf2,faceusp,faceuqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: faceusp(:,:,:)
+  real(wp), intent(inout) :: faceuqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nqp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: l_ec,l_mx,l_my,l_mz,l_ee
+  real(wp) :: r_ec,r_mx,r_my,r_mz,r_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_faceusp_to_faceuqp_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(faceusp) &
+  !$ACC&                   PRESENT(faceuqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      l_ec = zero
+      l_mx = zero
+      l_my = zero
+      l_mz = zero
+      l_ee = zero
+      !
+      r_ec = zero
+      r_mx = zero
+      r_my = zero
+      r_mz = zero
+      r_ee = zero
+      !
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        !
+        l_ec = l_ec + a * faceusp(f0+j,nec,1)
+        l_mx = l_mx + a * faceusp(f0+j,nmx,1)
+        l_my = l_my + a * faceusp(f0+j,nmy,1)
+        l_mz = l_mz + a * faceusp(f0+j,nmz,1)
+        l_ee = l_ee + a * faceusp(f0+j,nee,1)
+        !
+        r_ec = r_ec + a * faceusp(f0+j,nec,2)
+        r_mx = r_mx + a * faceusp(f0+j,nmx,2)
+        r_my = r_my + a * faceusp(f0+j,nmy,2)
+        r_mz = r_mz + a * faceusp(f0+j,nmz,2)
+        r_ee = r_ee + a * faceusp(f0+j,nee,2)
+        !
+      end do
+      !
+      faceuqp(q0+k,nec,1) = l_ec
+      faceuqp(q0+k,nmx,1) = l_mx
+      faceuqp(q0+k,nmy,1) = l_my
+      faceuqp(q0+k,nmz,1) = l_mz
+      faceuqp(q0+k,nee,1) = l_ee
+      !
+      faceuqp(q0+k,nec,2) = r_ec
+      faceuqp(q0+k,nmx,2) = r_mx
+      faceuqp(q0+k,nmy,2) = r_my
+      faceuqp(q0+k,nmz,2) = r_mz
+      faceuqp(q0+k,nee,2) = r_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_faceusp_to_faceuqp_3d
+!
+!###############################################################################
+!
+subroutine interp_faceusp_to_faceuqp_2d(nf1,nf2,faceusp,faceuqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: faceusp(:,:,:)
+  real(wp), intent(inout) :: faceuqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nqp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: l_ec,l_mx,l_my,l_ee
+  real(wp) :: r_ec,r_mx,r_my,r_ee
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_faceusp_to_faceuqp_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(faceusp) &
+  !$ACC&                   PRESENT(faceuqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      l_ec = zero
+      l_mx = zero
+      l_my = zero
+      l_ee = zero
+      !
+      r_ec = zero
+      r_mx = zero
+      r_my = zero
+      r_ee = zero
+      !
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        !
+        l_ec = l_ec + a * faceusp(f0+j,nec,1)
+        l_mx = l_mx + a * faceusp(f0+j,nmx,1)
+        l_my = l_my + a * faceusp(f0+j,nmy,1)
+        l_ee = l_ee + a * faceusp(f0+j,nee,1)
+        !
+        r_ec = r_ec + a * faceusp(f0+j,nec,2)
+        r_mx = r_mx + a * faceusp(f0+j,nmx,2)
+        r_my = r_my + a * faceusp(f0+j,nmy,2)
+        r_ee = r_ee + a * faceusp(f0+j,nee,2)
+        !
+      end do
+      !
+      faceuqp(q0+k,nec,1) = l_ec
+      faceuqp(q0+k,nmx,1) = l_mx
+      faceuqp(q0+k,nmy,1) = l_my
+      faceuqp(q0+k,nee,1) = l_ee
+      !
+      faceuqp(q0+k,nec,2) = r_ec
+      faceuqp(q0+k,nmx,2) = r_mx
+      faceuqp(q0+k,nmy,2) = r_my
+      faceuqp(q0+k,nee,2) = r_ee
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_faceusp_to_faceuqp_2d
+!
+!###############################################################################
+!
+subroutine interp_faceusp_to_faceuqp_nd(nf1,nf2,faceusp,faceuqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: faceusp(:,:,:)
+  real(wp), intent(inout) :: faceuqp(:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,m,n,nf,f0,q0,nqp,i1,i2
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_faceusp_to_faceuqp_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(faceusp) &
+  !$ACC&                   PRESENT(faceuqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(4)
+    do k = 1,nqp
+      do n = 1,2
+        do m = 1,nq
+          !
+          val = zero
+          !
+          do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+                 interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+            !
+            j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+            a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+            !
+            val = val + a * faceusp(f0+j,m,n)
+            !
+          end do
+          !
+          faceuqp(q0+k,m,n) = val
+          !
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine interp_faceusp_to_faceuqp_nd
+!
+!###############################################################################
+!
+subroutine interp_facedusp_to_faceduqp(nf1,nf2,facedusp,faceduqp)
+  !
+  !.. Use Statements ..
+  use geovar, only : nr
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: facedusp(:,:,:,:)
+  real(wp), intent(inout) :: faceduqp(:,:,:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_dusp_to_qdtpts"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  if (nr == 3) then
+    call interp_facedusp_to_faceduqp_3d(nf1,nf2,facedusp,faceduqp)
+  else if (nr == 2) then
+    call interp_facedusp_to_faceduqp_2d(nf1,nf2,facedusp,faceduqp)
+  else
+    call interp_facedusp_to_faceduqp_nd(nf1,nf2,facedusp,faceduqp)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine interp_facedusp_to_faceduqp
+!
+!###############################################################################
+!
+subroutine interp_facedusp_to_faceduqp_3d(nf1,nf2,facedusp,faceduqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: facedusp(:,:,:,:)
+  real(wp), intent(inout) :: faceduqp(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nqp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: decdxl,dmxdxl,dmydxl,dmzdxl,deedxl
+  real(wp) :: decdyl,dmxdyl,dmydyl,dmzdyl,deedyl
+  real(wp) :: decdzl,dmxdzl,dmydzl,dmzdzl,deedzl
+  real(wp) :: decdxr,dmxdxr,dmydxr,dmzdxr,deedxr
+  real(wp) :: decdyr,dmxdyr,dmydyr,dmzdyr,deedyr
+  real(wp) :: decdzr,dmxdzr,dmydzr,dmzdzr,deedzr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_facedusp_to_faceduqp_3d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(facedusp) &
+  !$ACC&                   PRESENT(faceduqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      decdxl = zero ; decdyl = zero ; decdzl = zero
+      dmxdxl = zero ; dmxdyl = zero ; dmxdzl = zero
+      dmydxl = zero ; dmydyl = zero ; dmydzl = zero
+      dmzdxl = zero ; dmzdyl = zero ; dmzdzl = zero
+      deedxl = zero ; deedyl = zero ; deedzl = zero
+      !
+      decdxr = zero ; decdyr = zero ; decdzr = zero
+      dmxdxr = zero ; dmxdyr = zero ; dmxdzr = zero
+      dmydxr = zero ; dmydyr = zero ; dmydzr = zero
+      dmzdxr = zero ; dmzdyr = zero ; dmzdzr = zero
+      deedxr = zero ; deedyr = zero ; deedzr = zero
+      !
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        !
+        decdxl = decdxl + a * facedusp(f0+j,1,nec,1)
+        decdyl = decdyl + a * facedusp(f0+j,2,nec,1)
+        decdzl = decdzl + a * facedusp(f0+j,3,nec,1)
+        !
+        dmxdxl = dmxdxl + a * facedusp(f0+j,1,nmx,1)
+        dmxdyl = dmxdyl + a * facedusp(f0+j,2,nmx,1)
+        dmxdzl = dmxdzl + a * facedusp(f0+j,3,nmx,1)
+        !
+        dmydxl = dmydxl + a * facedusp(f0+j,1,nmy,1)
+        dmydyl = dmydyl + a * facedusp(f0+j,2,nmy,1)
+        dmydzl = dmydzl + a * facedusp(f0+j,3,nmy,1)
+        !
+        dmzdxl = dmzdxl + a * facedusp(f0+j,1,nmz,1)
+        dmzdyl = dmzdyl + a * facedusp(f0+j,2,nmz,1)
+        dmzdzl = dmzdzl + a * facedusp(f0+j,3,nmz,1)
+        !
+        deedxl = deedxl + a * facedusp(f0+j,1,nee,1)
+        deedyl = deedyl + a * facedusp(f0+j,2,nee,1)
+        deedzl = deedzl + a * facedusp(f0+j,3,nee,1)
+        !
+        decdxr = decdxr + a * facedusp(f0+j,1,nec,2)
+        decdyr = decdyr + a * facedusp(f0+j,2,nec,2)
+        decdzr = decdzr + a * facedusp(f0+j,3,nec,2)
+        !
+        dmxdxr = dmxdxr + a * facedusp(f0+j,1,nmx,2)
+        dmxdyr = dmxdyr + a * facedusp(f0+j,2,nmx,2)
+        dmxdzr = dmxdzr + a * facedusp(f0+j,3,nmx,2)
+        !
+        dmydxr = dmydxr + a * facedusp(f0+j,1,nmy,2)
+        dmydyr = dmydyr + a * facedusp(f0+j,2,nmy,2)
+        dmydzr = dmydzr + a * facedusp(f0+j,3,nmy,2)
+        !
+        dmzdxr = dmzdxr + a * facedusp(f0+j,1,nmz,2)
+        dmzdyr = dmzdyr + a * facedusp(f0+j,2,nmz,2)
+        dmzdzr = dmzdzr + a * facedusp(f0+j,3,nmz,2)
+        !
+        deedxr = deedxr + a * facedusp(f0+j,1,nee,2)
+        deedyr = deedyr + a * facedusp(f0+j,2,nee,2)
+        deedzr = deedzr + a * facedusp(f0+j,3,nee,2)
+        !
+      end do
+      !
+      faceduqp(q0+k,1,nec,1) = decdxl
+      faceduqp(q0+k,2,nec,1) = decdyl
+      faceduqp(q0+k,3,nec,1) = decdzl
+      !
+      faceduqp(q0+k,1,nmx,1) = dmxdxl
+      faceduqp(q0+k,2,nmx,1) = dmxdyl
+      faceduqp(q0+k,3,nmx,1) = dmxdzl
+      !
+      faceduqp(q0+k,1,nmy,1) = dmydxl
+      faceduqp(q0+k,2,nmy,1) = dmydyl
+      faceduqp(q0+k,3,nmy,1) = dmydzl
+      !
+      faceduqp(q0+k,1,nmz,1) = dmzdxl
+      faceduqp(q0+k,2,nmz,1) = dmzdyl
+      faceduqp(q0+k,3,nmz,1) = dmzdzl
+      !
+      faceduqp(q0+k,1,nee,1) = deedxl
+      faceduqp(q0+k,2,nee,1) = deedyl
+      faceduqp(q0+k,3,nee,1) = deedzl
+      !
+      faceduqp(q0+k,1,nec,2) = decdxr
+      faceduqp(q0+k,2,nec,2) = decdyr
+      faceduqp(q0+k,3,nec,2) = decdzr
+      !
+      faceduqp(q0+k,1,nmx,2) = dmxdxr
+      faceduqp(q0+k,2,nmx,2) = dmxdyr
+      faceduqp(q0+k,3,nmx,2) = dmxdzr
+      !
+      faceduqp(q0+k,1,nmy,2) = dmydxr
+      faceduqp(q0+k,2,nmy,2) = dmydyr
+      faceduqp(q0+k,3,nmy,2) = dmydzr
+      !
+      faceduqp(q0+k,1,nmz,2) = dmzdxr
+      faceduqp(q0+k,2,nmz,2) = dmzdyr
+      faceduqp(q0+k,3,nmz,2) = dmzdzr
+      !
+      faceduqp(q0+k,1,nee,2) = deedxr
+      faceduqp(q0+k,2,nee,2) = deedyr
+      faceduqp(q0+k,3,nee,2) = deedzr
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_facedusp_to_faceduqp_3d
+!
+!###############################################################################
+!
+subroutine interp_facedusp_to_faceduqp_2d(nf1,nf2,facedusp,faceduqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: facedusp(:,:,:,:)
+  real(wp), intent(inout) :: faceduqp(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,nf,f0,q0,nqp
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a
+  real(wp) :: decdxl,dmxdxl,dmydxl,deedxl
+  real(wp) :: decdyl,dmxdyl,dmydyl,deedyl
+  real(wp) :: decdxr,dmxdxr,dmydxr,deedxr
+  real(wp) :: decdyr,dmxdyr,dmydyr,deedyr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_facedusp_to_faceduqp_2d"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(facedusp) &
+  !$ACC&                   PRESENT(faceduqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR
+    do k = 1,nqp
+      !
+      decdxl = zero ; decdyl = zero
+      dmxdxl = zero ; dmxdyl = zero
+      dmydxl = zero ; dmydyl = zero
+      deedxl = zero ; deedyl = zero
+      !
+      decdxr = zero ; decdyr = zero
+      dmxdxr = zero ; dmxdyr = zero
+      dmydxr = zero ; dmydyr = zero
+      deedxr = zero ; deedyr = zero
+      !
+      do i = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1, &
+             interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+        !
+        j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+        a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+        !
+        decdxl = decdxl + a * facedusp(f0+j,1,nec,1)
+        decdyl = decdyl + a * facedusp(f0+j,2,nec,1)
+        !
+        dmxdxl = dmxdxl + a * facedusp(f0+j,1,nmx,1)
+        dmxdyl = dmxdyl + a * facedusp(f0+j,2,nmx,1)
+        !
+        dmydxl = dmydxl + a * facedusp(f0+j,1,nmy,1)
+        dmydyl = dmydyl + a * facedusp(f0+j,2,nmy,1)
+        !
+        deedxl = deedxl + a * facedusp(f0+j,1,nee,1)
+        deedyl = deedyl + a * facedusp(f0+j,2,nee,1)
+        !
+        decdxr = decdxr + a * facedusp(f0+j,1,nec,2)
+        decdyr = decdyr + a * facedusp(f0+j,2,nec,2)
+        !
+        dmxdxr = dmxdxr + a * facedusp(f0+j,1,nmx,2)
+        dmxdyr = dmxdyr + a * facedusp(f0+j,2,nmx,2)
+        !
+        dmydxr = dmydxr + a * facedusp(f0+j,1,nmy,2)
+        dmydyr = dmydyr + a * facedusp(f0+j,2,nmy,2)
+        !
+        deedxr = deedxr + a * facedusp(f0+j,1,nee,2)
+        deedyr = deedyr + a * facedusp(f0+j,2,nee,2)
+        !
+      end do
+      !
+      faceduqp(q0+k,1,nec,1) = decdxl
+      faceduqp(q0+k,2,nec,1) = decdyl
+      !
+      faceduqp(q0+k,1,nmx,1) = dmxdxl
+      faceduqp(q0+k,2,nmx,1) = dmxdyl
+      !
+      faceduqp(q0+k,1,nmy,1) = dmydxl
+      faceduqp(q0+k,2,nmy,1) = dmydyl
+      !
+      faceduqp(q0+k,1,nee,1) = deedxl
+      faceduqp(q0+k,2,nee,1) = deedyl
+      !
+      faceduqp(q0+k,1,nec,2) = decdxr
+      faceduqp(q0+k,2,nec,2) = decdyr
+      !
+      faceduqp(q0+k,1,nmx,2) = dmxdxr
+      faceduqp(q0+k,2,nmx,2) = dmxdyr
+      !
+      faceduqp(q0+k,1,nmy,2) = dmydxr
+      faceduqp(q0+k,2,nmy,2) = dmydyr
+      !
+      faceduqp(q0+k,1,nee,2) = deedxr
+      faceduqp(q0+k,2,nee,2) = deedyr
+      !
+    end do
+    !
+  end do
+  !
+end subroutine interp_facedusp_to_faceduqp_2d
+!
+!###############################################################################
+!
+subroutine interp_facedusp_to_faceduqp_nd(nf1,nf2,facedusp,faceduqp)
+  !
+  !.. Use Statements ..
+  use geovar,            only : nr,face
+  use interpolation_mod, only : interp
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nf1
+  integer,     intent(in) :: nf2
+  real(wp),    intent(in) :: facedusp(:,:,:,:)
+  real(wp), intent(inout) :: faceduqp(:,:,:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,m,n,nf,f0,q0,nqp,i1,i2
+  integer  :: face_geom,face_order,qdtr_order
+  real(wp) :: a,val
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interp_facedusp_to_faceduqp_nd"
+  !
+continue
+  !
+  ! Loop through each interior cell and interpolate the conserved
+  ! variables at the solution points to the flux points of each cell
+  !
+  !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
+  !$ACC&                   PRESENT(face) &
+  !$ACC&                   PRESENT(facedusp) &
+  !$ACC&                   PRESENT(faceduqp) &
+  !$ACC&                   PRESENT(interp)
+  do nf = nf1,nf2
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    qdtr_order = face(nf)%qdtr_order
+    !
+    f0 = face(nf)%beg_fp - 1
+    !
+    q0 = face(nf)%beg_qp - 1
+    nqp = face(nf)%end_qp - q0
+    !
+    ! Now interpolate the derivatives of the conserved variables
+    ! from the solution points to the quadrature points
+    !
+    !$ACC LOOP VECTOR COLLAPSE(4)
+    do k = 1,nqp
+      do n = 1,2
+        do m = 1,nq
+          do l = 1,nr
+            !
+            val = zero
+            !
+            i1 = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k)+1
+            i2 = interp(face_geom,face_order)%toCell(qdtr_order)%col_ptr(k+1)
+            !
+            do i = i1,i2
+              !
+              j = interp(face_geom,face_order)%toCell(qdtr_order)%col_idx(i)
+              a = interp(face_geom,face_order)%toCell(qdtr_order)%col_val(i)
+              !
+              val = val + a * facedusp(f0+j,l,m,n)
+              !
+            end do
+            !
+            faceduqp(q0+k,l,m,n) = val
+            !
+          end do
+        end do
+      end do
+    end do
+    !
+  end do
+  !
+end subroutine interp_facedusp_to_faceduqp_nd
+!
+!###############################################################################
+!
 !
 !
 !###############################################################################
@@ -3950,7 +5279,7 @@ subroutine discontinuous_gradient_at_solpts()
   ! This routine computes the discontinuous gradient at each solution point
   !
   !.. Use Statements ..
-  use geovar,          only : nr
+  use geovar, only : nr
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "discontinuous_gradient_at_solpts"
