@@ -419,8 +419,12 @@ continue
   !
   q_order = max(n_order,q_order)
   !
-  using_quadrature = .not. (q_order==n_order .and. &
-                            loc_solution_pts==loc_quadrature_pts)
+  if (q_order > n_order) then
+    using_quadrature = true
+  end if
+  if (loc_solution_pts /= loc_quadrature_pts) then
+    using_quadrature = true
+  end if
   !
   ! Get the number of solution points for each of the different geometry types
   ! This includes quadrature and face values
