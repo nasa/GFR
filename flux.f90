@@ -2743,7 +2743,7 @@ end subroutine correct_interface_flux_visc
 !###############################################################################
 !###############################################################################
 !
-subroutine get_invs_common_fluxes_interior(iter,nst)
+subroutine get_invs_common_fluxes_interior()
   !
   use geovar,      only : nr,n_bnd_flxpts,n_flxpts
   use ovar,        only : invs_flux_method
@@ -2755,9 +2755,6 @@ subroutine get_invs_common_fluxes_interior(iter,nst)
   use upwind_flux_mod, only : hllc_upwind_flux_gpu
   use upwind_flux_mod, only : ldfss_upwind_flux_gpu
   use upwind_flux_mod, only : rotated_rhll_upwind_flux_gpu
-  !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iter,nst
   !
   !.. Local Scalars ..
   integer :: n,n1,n2
@@ -2810,7 +2807,6 @@ continue
   end if
   !
   call debug_timer(leaving_procedure,pname)
- !call write_array(200,iter,nst,faceusp_array(:,:,2))
   !
 end subroutine get_invs_common_fluxes_interior
 !

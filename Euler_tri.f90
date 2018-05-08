@@ -531,7 +531,7 @@ continue
       call get_faceusp_bc(newton_failures) ! call check_for_bad_number(__LINE__)
       call check_for_bad_number(__LINE__,newton_failures)
       !
-      call get_invs_common_fluxes_interior(iter,nst)
+      call get_invs_common_fluxes_interior
                                            ! call check_for_bad_number(__LINE__)
       !
       if (ncpu > 1) then
