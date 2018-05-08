@@ -33,9 +33,14 @@ module geovar
   ! n_wall_flxpts : total number of flux points for all wall boundary faces
   !
   integer, public, save :: n_solpts
+  integer, public, save :: n_qdtpts
   integer, public, save :: n_flxpts
   integer, public, save :: n_bnd_flxpts
   integer, public, save :: n_wall_flxpts = 0
+  !
+  integer, public, save :: n_flx_qdtpts
+  integer, public, save :: n_bnd_qdtpts
+  integer, public, save :: n_wall_qdtpts = 0
   !
   integer, public, save, allocatable :: bc_fp_groups(:)
   !
@@ -169,6 +174,8 @@ module geovar
   type, public :: bc_grp_t
     integer :: beg_fp
     integer :: end_fp
+    integer :: beg_qp
+    integer :: end_qp
     integer :: bc_type
     integer :: bc_idx
     integer, allocatable :: periodic_list(:)
@@ -269,6 +276,9 @@ module geovar
     ! rotation : index giving the rotation of the flux points
     !            for the current element on this face
     integer :: rotation
+    ! qp_offset : offset to add to the quadrature flux point indices
+    !             given by the rotation index
+    integer :: qp_offset = 0
  !contains
  !  private
  !  procedure :: get_fp_index => get_face_fp_index
@@ -285,10 +295,16 @@ module geovar
     !         NOTE: This should be the maximum solution order between the two
     !               cells attached to the current face.
     integer :: order
+    ! qdtr_order : quadrature order of the current face
+    integer :: qdtr_order
     ! beg_fp : index of first flux point on the current face
     integer :: beg_fp
     ! end_fp : index of last  flux point on the current face
     integer :: end_fp
+    ! beg_qp : index of first quadrature point on the current face
+    integer :: beg_qp
+    ! end_qp : index of last  quadrature point on the current face
+    integer :: end_qp
     ! nodes : array containing the indices for the grid nodes that define this
     !         face. At most this array will contain four node indices for a
     !         quadrilateral face. For triangular or edge faces, the remaining
@@ -339,12 +355,17 @@ module geovar
     integer :: geom
     ! order : polynomial order of the current face
     integer :: order
+    ! qdtr_order : quadrature order of the current face
+    integer :: qdtr_order
     ! fp_offset : offset to add to the flux point indices
     !             given by the rotation index
     integer :: fp_offset
     ! rotation : index giving the rotation of the flux points
     !            for the current face of this element
     integer :: rotation
+    ! qp_offset : offset to add to the quadrature flux point indices
+    !             given by the rotation index
+    integer :: qp_offset
  !contains
  !  private
  !  procedure :: get_fp_index => get_cell_fp_index
@@ -403,10 +424,16 @@ module geovar
     integer :: geom
     ! order : solution order of the current cell
     integer :: order
+    ! qdtr_order : quadrature order of the current cell
+    integer :: qdtr_order
     ! beg_sp : index of first solution point in the current cell
     integer :: beg_sp
     ! end_sp : index of last  solution point in the current cell
     integer :: end_sp
+    ! beg_qp : index of first quadrature point in the current cell
+    integer :: beg_qp
+    ! end_qp : index of last  quadrature point in the current cell
+    integer :: end_qp
     ! face : array giving the flx-pt information
     !        for all faces of the current cell
     type(face_of_cell_t), allocatable :: face(:)
@@ -838,6 +865,11 @@ continue
       !
       call dt%add( storage_size(face(i)%geom,kind=inttype) )
       call dt%add( storage_size(face(i)%order,kind=inttype) )
+      call dt%add( storage_size(face(i)%qdtr_order,kind=inttype) )
+      call dt%add( storage_size(face(i)%beg_fp,kind=inttype) )
+      call dt%add( storage_size(face(i)%end_fp,kind=inttype) )
+      call dt%add( storage_size(face(i)%beg_qp,kind=inttype) )
+      call dt%add( storage_size(face(i)%end_qp,kind=inttype) )
       call dt%add( storage_size(face(i)%nodes,kind=inttype) , &
                            size(face(i)%nodes,kind=inttype) )
       call dt%add( storage_size(face(i)%left,kind=inttype) )
@@ -849,12 +881,14 @@ continue
       !
       call array%set( storage_size(face(i)%left%fp_offset,kind=inttype) )
       call array%add( storage_size(face(i)%left%rotation,kind=inttype) )
+      call array%add( storage_size(face(i)%left%qp_offset,kind=inttype) )
       call left_fp%add(array)
       call flxpts%add(array)
       call dt%add(array)
       !
       call array%set( storage_size(face(i)%right%fp_offset,kind=inttype) )
       call array%add( storage_size(face(i)%right%rotation,kind=inttype) )
+      call array%add( storage_size(face(i)%right%qp_offset,kind=inttype) )
       call right_fp%add(array)
       call flxpts%add(array)
       call dt%add(array)
@@ -925,8 +959,11 @@ continue
       !
       call dt%add( storage_size(cell(i)%geom,kind=inttype) )
       call dt%add( storage_size(cell(i)%order,kind=inttype) )
+      call dt%add( storage_size(cell(i)%qdtr_order,kind=inttype) )
       call dt%add( storage_size(cell(i)%beg_sp,kind=inttype) )
       call dt%add( storage_size(cell(i)%end_sp,kind=inttype) )
+      call dt%add( storage_size(cell(i)%beg_qp,kind=inttype) )
+      call dt%add( storage_size(cell(i)%end_qp,kind=inttype) )
       !
       if (allocated(cell(i)%face)) then
         !
@@ -940,9 +977,11 @@ continue
           call dt%add( storage_size(cell(i)%face(j)%side,kind=inttype) )
           call dt%add( storage_size(cell(i)%face(j)%geom,kind=inttype) )
           call dt%add( storage_size(cell(i)%face(j)%order,kind=inttype) )
+          call dt%add( storage_size(cell(i)%face(j)%qdtr_order,kind=inttype) )
           !
           call array%set( storage_size(cell(i)%face(j)%fp_offset,kind=inttype) )
           call array%add( storage_size(cell(i)%face(j)%rotation,kind=inttype) )
+          call array%add( storage_size(cell(i)%face(j)%qp_offset,kind=inttype) )
           call face_idx%add(array)
           call dt%add(array)
           !
