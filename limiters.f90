@@ -1055,6 +1055,7 @@ subroutine resolution_indicator(apply_projection,troubled_cell, &
   use geovar,    only : ncell,cell
   use flowvar,   only : usp
   use ovar,      only : output_limiter_statistics,nlim
+  use ovar,      only : Limiter_Option
   !
   !.. Optional Arguments ..
   logical(lk),  optional,    intent(in) :: apply_projection
@@ -1126,6 +1127,14 @@ continue
     ord_mlt = 1
    !ord_add = 0
     ord_add = -1
+  end if
+  !
+  if (present(apply_projection)) then
+   !if (apply_projection) then
+      if (Limiter_Option == -2) then
+        ord_add = 0
+      end if
+   !end if
   end if
   !
   !$ACC PARALLEL LOOP PRESENT(cell,lmtr_order)

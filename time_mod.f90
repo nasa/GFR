@@ -2018,7 +2018,7 @@ continue
       if (mypnum == glb_root) write (iout,2) nst
       2 format (8x,"Applying Limiter : nst = ",i0)
 #endif
-      if (Limiter_Option == -1) then
+      if (Limiter_Option <= -1) then
         call resolution_indicator(apply_projection=true)
       else if (Limiter_Option >= 1) then
         call limit_by_projecting
