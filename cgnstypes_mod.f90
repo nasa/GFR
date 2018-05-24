@@ -8,7 +8,10 @@ module module_cgns_types
   !
   !.. Use Statements
   use, intrinsic :: iso_c_binding, only : C_CHAR,C_NULL_CHAR
-  use module_kind_types, only : i4,i8,r4,r8,lk,fals,true
+  use module_kind_types, only : i4,i8,r4,r8,wp,lk,fals,true
+  use module_kind_types, only : MPI_COMM_WORLD,mpierr
+  use module_kind_types, only : mpi_barrier,mpi_wtime
+  use module_kind_types, only : mypnum,glb_root,iout
 #ifdef CGNS_3_3
   use cgns
 #endif
@@ -102,6 +105,13 @@ module module_cgns_types
   ! Logical to activate/deactivate using CGNS queue functions
   !
   logical(lk), save :: cgns_use_queue = .false.
+  !
+  ! Integer parameters for CGNS timer
+  !
+  integer, parameter :: start_cgns_file_timer      = 1
+  integer, parameter :: stop_cgns_file_timer       = 2
+  integer, parameter :: start_cgns_procedure_timer = 3
+  integer, parameter :: stop_cgns_procedure_timer  = 4
   !
 contains
 !
@@ -275,6 +285,80 @@ continue
   13 format (" ***************************************************** ",//)
   !
 end subroutine cgns_error
+!
+!###############################################################################
+!
+subroutine cgns_timer(time_flag,profile_io_cgns,message)
+  !
+  !.. Formal Arguments ..
+  integer,          intent(in) :: time_flag
+  logical(lk),      intent(in) :: profile_io_cgns
+  character(len=*), intent(in) :: message
+  !
+  !.. Local Scalars ..
+  real(wp), save :: beg_file_time
+  real(wp)       :: end_file_time
+  !
+  real(wp), save :: beg_procedure_time
+  real(wp)       :: end_procedure_time
+  !
+  real(wp)       :: wall_time
+  !
+continue
+  !
+  if (.not. profile_io_cgns) return
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  if (mypnum == glb_root) then
+    !
+    if (time_flag == start_cgns_file_timer) then
+      !
+      beg_file_time = mpi_wtime()
+     !beg_file_time = dclock()
+     !call cpu_time( beg_file_time )
+      !
+      write (iout,1) trim(adjustl(message))
+      !
+    else if (time_flag == stop_cgns_file_timer) then
+      !
+      end_file_time = mpi_wtime()
+     !end_file_time = dclock()
+     !call cpu_time( end_file_time )
+      wall_time = end_file_time - beg_file_time
+      !
+      write (iout,2) trim(adjustl(message)),wall_time
+      !
+    else if (time_flag == start_cgns_procedure_timer) then
+      !
+      beg_procedure_time = mpi_wtime()
+     !beg_procedure_time = dclock()
+     !call cpu_time( beg_procedure_time )
+      !
+    else if (time_flag == stop_cgns_procedure_timer) then
+      !
+      end_procedure_time = mpi_wtime()
+      !end_procedure_time = dclock()
+      !call cpu_time( end_procedure_time )
+      wall_time = end_procedure_time - beg_procedure_time
+      !
+      write (iout,3) trim(adjustl(message)),wall_time
+      !
+    end if
+    !
+    flush (iout)
+    !
+  end if
+  !
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
+  ! Format Statements
+  !
+  1 format (/,2x,"Starting I/O timer for: ",a)
+  2 format (2x,"Total wall time to write ",a," : ",f12.6," seconds",/)
+  3 format (4x,"Time to complete call to ",a," : ",f12.6," seconds")
+  !
+end subroutine cgns_timer
 !
 !###############################################################################
 !
