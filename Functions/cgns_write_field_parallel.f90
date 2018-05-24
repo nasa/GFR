@@ -31,10 +31,12 @@
     !
     ! Add the data for current variable to the output queue.
     !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_field_write_data_f")
     call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
                                 my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Solution variable",n)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_field_write_data_f")
     !
     ! Finally, flush the queue containing
     ! the current variable to the CGNS file.
