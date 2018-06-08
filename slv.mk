@@ -20,7 +20,8 @@ CSFXFLG = .c
 #CFLAG = -O3
 #CFLAG += -g
 
-HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
+#HDF5LIB  := -lhdf5hl_fortran -lhdf5_hl -lhdf5_fortran -lhdf5 -ldl -lz
+HDF5LIB  := -lhdf5 -ldl -lz
 CGNSLIB  := -lcgns
 METISLIB := -lmetis
 
