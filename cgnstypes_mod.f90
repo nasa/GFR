@@ -234,6 +234,8 @@ continue
   if (.not. file_operation_is_serial) then
     call mpi_allreduce(MPI_IN_PLACE,ierror,1_int_mpi,mpi_inttyp, &
                        MPI_MAX,MPI_COMM_WORLD,mpierr)
+ !else
+ !  write (iout,20) trim(adjustl(cgns_routine))
   end if
   if (ierror == 0) return
   !
@@ -283,17 +285,21 @@ continue
   12 format ("                       ON LINE #  ",i0,/, &
              "                     OF THE FILE '",a,"'")
   13 format (" ***************************************************** ",//)
+  20 format (2x,"Checking error for: ",a)
   !
 end subroutine cgns_error
 !
 !###############################################################################
 !
-subroutine cgns_timer(time_flag,profile_io_cgns,message)
+subroutine cgns_timer(time_flag,profile_io_cgns,message,override_barrier)
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: time_flag
   logical(lk),      intent(in) :: profile_io_cgns
   character(len=*), intent(in) :: message
+  !
+  !.. Optional Arguments ..
+  logical(lk), optional, intent(in) :: override_barrier
   !
   !.. Local Scalars ..
   real(wp), save :: beg_file_time
@@ -304,11 +310,21 @@ subroutine cgns_timer(time_flag,profile_io_cgns,message)
   !
   real(wp)       :: wall_time
   !
+  logical(lk) :: skip_barrier
+  !
 continue
   !
   if (.not. profile_io_cgns) return
   !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  skip_barrier = fals
+  !
+  if (present(override_barrier)) then
+    skip_barrier = override_barrier
+  end if
+  !
+  if (.not. skip_barrier) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
   if (mypnum == glb_root) then
     !
@@ -334,6 +350,9 @@ continue
       beg_procedure_time = mpi_wtime()
      !beg_procedure_time = dclock()
      !call cpu_time( beg_procedure_time )
+     !if (skip_barrier) then
+     !  write (iout,1) trim(adjustl(message))
+     !end if
       !
     else if (time_flag == stop_cgns_procedure_timer) then
       !
@@ -350,7 +369,9 @@ continue
     !
   end if
   !
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  if (.not. skip_barrier) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
   ! Format Statements
   !
