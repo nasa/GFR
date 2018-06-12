@@ -870,6 +870,7 @@ subroutine write_restart_file(itnum)
   use ovar,         only : loc_solution_pts
   use ovar,         only : output_time_averaging
   use ovar,         only : restart_output_uses_host_roots
+  use ovar,         only : max_restart_wall_time
   use flowvar,      only : usp
   !.. Use Statements for old restart files ..
   use geovar,       only : n_global_totpts
@@ -1059,7 +1060,7 @@ continue
       call write_solution_file(fullname,int_header,real_header,restart_comm, &
                                ordered_geom,ordered_geom_type, &
                                solution,solution_type,sol_block_type, &
-                               statfile=statfile)
+                               max_restart_wall_time,statfile=statfile)
       !
     end if
 !!!#ifdef DEBUG_ON
@@ -1117,7 +1118,7 @@ end subroutine write_restart_file
 !
 subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
                                ordered_geom,og_type,solution,sol_type, &
-                               sol_blktyp,var_header,statfile)
+                               sol_blktyp,max_wall_time,var_header,statfile)
   !
   !.. Use Statements ..
   use ovar,    only : lustre_stripe_factor
@@ -1135,6 +1136,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   real(wp),         intent(in) :: solution(:,:)
   _MPI_DATA_TYPE_,  intent(in) :: sol_type
   _MPI_DATA_TYPE_,  intent(in) :: sol_blktyp
+  real(wp),      intent(inout) :: max_wall_time
   !
   !.. Optional Arguments ..
   integer,          optional, intent(in) :: var_header(:)
@@ -1152,6 +1154,7 @@ subroutine write_solution_file(file_name,int_header,real_header,file_comm, &
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
+  real(wp) :: restart_wall_time
   !
   !.. Local Arrays ..
   _MPI_STATUS_TYPE_ :: istat(1:_MPI_STATUS_SIZE_)
@@ -1167,7 +1170,7 @@ continue
   if (mypnum == glb_root) then
     write (iout,1)
     flush (iout)
-    if (profile_io_restart) beg_wall_time = mpi_wtime()
+    beg_wall_time = mpi_wtime()
   end if
   call mpi_barrier(file_comm,mpierr)
   !
@@ -1433,10 +1436,12 @@ continue
   !
   call mpi_barrier(file_comm,mpierr)
   if (mypnum == glb_root) then
+    end_wall_time = mpi_wtime()
+    restart_wall_time = end_wall_time - beg_wall_time
+    max_wall_time = max(max_wall_time,restart_wall_time)
     if (profile_io_restart) then
-      end_wall_time = mpi_wtime()
       write (iout,2) trim(adjustl(file_name)), &
-                     end_wall_time - beg_wall_time, &
+                     restart_wall_time, &
                      trim(adjustl(merge("ONLY HOST ROOTS  ", &
                                         "ALL MPI PROCESSES", &
                                         restart_output_uses_host_roots)))
@@ -1532,6 +1537,7 @@ subroutine write_time_averaged_solution(itnum,ordered_geom,int_header, &
   !.. Use Statements ..
   use ovar,    only : time,prev_ave_time,ave_start_time,itcur,rl2mx
   use ovar,    only : restart_output_uses_host_roots
+  use ovar,    only : max_time_ave_rst_wall_time
   use flowvar, only : uavesp,time_ave_variables
   !
   !.. Formal Arguments ..
@@ -1657,6 +1663,7 @@ continue
     call write_solution_file(fullname,int_header,real_header,timeave_comm, &
                              ordered_geom,ordered_geom_type, &
                              solution,averaging_type,ave_block_type, &
+                             max_time_ave_rst_wall_time, &
                              var_header=var_header,statfile=statfile)
     !
   end if

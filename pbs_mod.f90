@@ -28,13 +28,15 @@ contains
 !
 !###############################################################################
 !
-subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining)
+subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining, &
+                                  io_time_needed)
   !
   !.. Formal Arguments ..
   logical(lk), intent(out) :: walltime_expiring
   !
   !.. Optional Arguments ..
   real(wp), optional, intent(out) :: wall_time_remaining
+  real(wp), optional,  intent(in) :: io_time_needed(:)
   !
   !.. Local Scalars ..
   integer(pbs_int) :: current_wtl
@@ -42,6 +44,7 @@ subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining)
   real(wp)         :: time_elapsed
   real(wp)         :: next_time_est
   real(wp)         :: wall_time_left
+  real(wp)         :: shutdown_time_needed
   !
   !.. Local Arrays ..
   real(wp) :: time_values(1:2)
@@ -49,7 +52,10 @@ subroutine pbs_remaining_walltime(walltime_expiring,wall_time_remaining)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "pbs_remaining_walltime"
   real(wp), parameter :: max_sec = real( 1000*3600-1 , kind=wp )
-  real(wp), parameter :: five_min = real( 300 , kind=wp )
+  real(wp), parameter :: one_min = real( 60 , kind=wp )
+  real(wp), parameter :: two_min = two*one_min
+  real(wp), parameter :: three_min = three*one_min
+  real(wp), parameter :: five_min = five*one_min
   !
 continue
   !
@@ -100,8 +106,62 @@ continue
     !
     next_time_est = time_elapsed * (two+half)
     !
+    shutdown_time_needed = five_min
+    if (present(io_time_needed)) then
+      !
+      shutdown_time_needed = zero
+      !
+      ! Restart file
+      !
+      if (io_time_needed(1) >= eps6) then
+        shutdown_time_needed = shutdown_time_needed + io_time_needed(1)
+      else
+        ! max_restart_wall_time has not been set so default to 1 minute
+        shutdown_time_needed = shutdown_time_needed + one_min
+      end if
+      !
+      ! Time averaged restart file
+      !
+      if (io_time_needed(2) > eps6) then
+        ! max_time_ave_rst_wall_time has been set
+        shutdown_time_needed = shutdown_time_needed + io_time_needed(2)
+      else if (io_time_needed(2) >= zero) then
+        ! max_time_ave_rst_wall_time has not been set but we are time averaging
+        shutdown_time_needed = shutdown_time_needed + one_min
+     !else if (io_time_needed(2) < zero) then
+        ! we are not time averaging so we do not need to add shutdown time
+        ! for writing the time averaged restart file
+      end if
+      !
+      ! CGNS solution file
+      !
+      if (io_time_needed(3) >= eps6) then
+        shutdown_time_needed = shutdown_time_needed + io_time_needed(3)
+      else
+        ! max_cgns_wall_time has not been set so default to 2 minutes
+        shutdown_time_needed = shutdown_time_needed + two_min
+      end if
+      !
+      ! Time averaged CGNS solution file
+      !
+      if (io_time_needed(4) > eps6) then
+        ! max_time_ave_cgns_wall_time has been set
+        shutdown_time_needed = shutdown_time_needed + io_time_needed(4)
+      else if (io_time_needed(4) >= zero) then
+        ! max_time_ave_cgns_wall_time has not been set but we are time averaging
+        shutdown_time_needed = shutdown_time_needed + three_min
+     !else if (io_time_needed(4) < zero) then
+        ! we are not time averaging so we do not need to add shutdown time
+        ! for writing the time averaged CGNS solution file
+      end if
+      !
+      ! Add a two minute buffer
+      shutdown_time_needed = shutdown_time_needed + two_min
+      !
+    end if
+    !
     walltime_expiring = (wall_time_left-next_time_est <= zero) .or. &
-                        (wall_time_left-five_min <= zero)
+                        (wall_time_left-shutdown_time_needed <= zero)
     !
     previous_wtl = current_wtl
     previous_wtime = current_wtime

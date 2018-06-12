@@ -189,9 +189,10 @@ module ovar
   !
   logical(lk), public, save :: check_flux_point_coordinates = fals
   !
-  logical(lk), public, save :: profile_io_all     = fals
-  logical(lk), public, save :: profile_io_cgns    = fals
-  logical(lk), public, save :: profile_io_restart = fals
+  logical(lk), public, save :: profile_io_all       = fals
+  logical(lk), public, save :: profile_io_cgns      = fals
+  logical(lk), public, save :: profile_io_cgns_subs = fals
+  logical(lk), public, save :: profile_io_restart   = fals
   !
   logical(lk), public, save :: output_bnd_profiles = fals
   !
@@ -317,6 +318,11 @@ module ovar
   real(wp),         save :: end_wall_time
   real(wp),         save :: wall_time
   real(wp), public, save :: work_units
+  !
+  real(wp), public, save :: max_restart_wall_time       = zero
+  real(wp), public, save :: max_time_ave_rst_wall_time  = zero
+  real(wp), public, save :: max_cgns_wall_time          = zero
+  real(wp), public, save :: max_time_ave_cgns_wall_time = zero
   !
   real(wp), public, save :: Period_Time
   integer,  public, save :: Period_Timesteps
@@ -618,7 +624,8 @@ module input_namelist_mod
   use ovar,      only : rhoref, tref, pref, rgasref
   use ovar,      only : turbulence_model, tinref, tvrref
   use ovar,      only : alpha_aoaref, beta_aoaref
-  use ovar,      only : profile_io_all,profile_io_cgns,profile_io_restart
+  use ovar,      only : profile_io_all,profile_io_restart
+  use ovar,      only : profile_io_cgns,profile_io_cgns_subs
   use ovar,      only : suth_muref, suth_Tref, suth_Sref
   use ovar,      only : Filter_Option, Limiter_Filter_Option
   use ovar,      only : Filter_etac,   Limiter_Filter_etac
@@ -766,7 +773,8 @@ module input_namelist_mod
   ! MEMORY USAGE
   namelist / input / dump_memory_usage
   ! PROFILE PARALLEL IO
-  namelist / input / profile_io_all, profile_io_cgns, profile_io_restart
+  namelist / input / profile_io_all, profile_io_restart, &
+                     profile_io_cgns, profile_io_cgns_subs
   ! TEMPORARY DEBUGGING LOGICALS
   namelist / input / use_bc_conflicts,sub_inflow_method
   ! PROFILE OUTPUT OPTIONS

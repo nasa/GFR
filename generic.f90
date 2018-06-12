@@ -1498,6 +1498,8 @@ subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   use ovar,    only : convergence_order_max_res,convergence_order_abs_res
   use ovar,    only : rl2mx,uverr,this_is_final_timestep,iter_out_interval
   use ovar,    only : output_time_averaging,time_scaling_factor,ave_start_time
+  use ovar,    only : max_restart_wall_time,max_time_ave_rst_wall_time
+  use ovar,    only : max_cgns_wall_time,max_time_ave_cgns_wall_time
   !
   use order_mod, only : n_order
   !
@@ -1515,6 +1517,9 @@ subroutine write_iter_stats_gpu(walltime_expiring,exit_main_loop)
   real(wp) :: wall_time_left,out_time
   real(wp) :: orders_converged,output_L2val
   real(wp) :: rltwo,rlim
+  !
+  !.. Local Arrays ..
+  real(wp) :: max_wall_times(1:4)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_iter_stats_gpu"
@@ -1600,7 +1605,19 @@ continue
   !
   ! Output the results for the current time step
   !
-  call pbs_remaining_walltime(walltime_expiring,wall_time_left)
+  max_wall_times(1:4) = [ max_restart_wall_time, &
+                          max_time_ave_rst_wall_time, &
+                          max_cgns_wall_time, &
+                          max_time_ave_cgns_wall_time ]
+  !
+  if (.not. output_time_averaging) then
+    max_wall_times(2) = -one
+    max_wall_times(4) = -one
+  end if
+  !
+  call pbs_remaining_walltime(walltime_expiring, &
+                              wall_time_remaining=wall_time_left, &
+                              io_time_needed=max_wall_times)
   !
   if (mypnum == glb_root) then
     !

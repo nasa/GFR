@@ -84,21 +84,19 @@ module io_mod
   !
   logical(lk), save :: disable_cgns_output = fals
   !
-  !.. CGNS Data Array ..
-  !
-  ! NOTE: This is to ensure coordinate and solution variables
-  !       are the same real type
-  !
-  real(CRT), allocatable, dimension(:) :: var
+  ! Generic interface for interpolate_for_output
   !
   interface interpolate_for_output
     module procedure interpolate_for_output_1d, &
                      interpolate_for_output_2d
   end interface interpolate_for_output
   !
+  ! Module variables used for debugging
+  !
   integer, save :: current_cell
   integer, save :: save_n1
   integer, save :: save_n2
+  !
 contains
 !
 !###############################################################################
@@ -6369,12 +6367,16 @@ subroutine write_parallel_cgns_time_file()
   !
   !.. Use Statements ..
   use geovar, only : nr
-  use ovar,   only : profile_io_cgns
+  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
   !
   !.. Local Scalars ..
   integer :: n
   !
   integer(CBT) :: ifile_t,ibase_t,izone_t,iiter_t
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=CGLEN) :: sect_name
   character(len=300)   :: link_path
@@ -6387,164 +6389,226 @@ subroutine write_parallel_cgns_time_file()
   !
 continue
   !
-  iiter_t = 1_CBT
-  !
   call debug_timer(entering_procedure,pname)
   !
 #ifndef SPECIAL_FOR_PGI
   !
-  cgns_time_file = trim(adjustl(cgns_dir)) // cgns_time_fname
-  !
-  call cgns_timer(start_cgns_file_timer,profile_io_cgns,cgns_time_file)
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
-  call cgp_open_f(cgns_time_file,CG_MODE_WRITE,ifile_t,cgierr)
-  call cgns_error(pname,cgns_time_file,"cgp_open_f", &
-                  cgierr,__LINE__,__FILE__, &
-                  "Mode = CG_MODE_WRITE")
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
-  !
-  ! Set the CGNS base (who knows what this is for)
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
-  call cg_base_write_f(ifile_t,base_name,int(nr,kind=CBT), &
-                       int(nr,kind=CBT),ibase_t,cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_base_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
-  !
-  ! Write the title for this solution
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
-  call cg_zone_write_f(ifile_t,ibase_t,zone_name,zone_size, &
-                       UNSTRUCTURED,izone_t,cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_zone_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
-  !
-  ! Create a link to the grid coordinates in the grid file
-  !
- !call cg_goto_f(ifile_t,ibase_t,cgierr, &
- !               "Zone_t",izone_t, &
- !               CGNS_GOTO_END)
- !call cgns_error(pname,cgns_time_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  !
-  link_path = base_name//"/"//zone_name//"/GridCoordinates"
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
-  call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_link_write_f(GridCoordinates)", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
-  !
-  ! Create a link to the element connectivity in the grid file
-  !
-  if (nr == 2) then
-    sect_name = "Quadrilaterals"
-  else if (nr == 3) then
-    sect_name = "Hexahedrals"
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
-  link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
-  call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
-                       trim(link_path),cgierr)
-  call cgns_error(pname,cgns_time_file, &
-                  "cg_link_write_f("//trim(sect_name)//")", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  iiter_t = 1_CBT
   !
+  call cgp_mpi_comm_f(mpi_comm_self_val,cgierr)
   !
-  ! Create a links to the solution node in each of the solution files
-  !
- !call cg_goto_f(ifile_t,ibase_t,cgierr, &
- !               "Zone_t",izone_t, &
- !               CGNS_GOTO_END)
- !call cgns_error(pname,cgns_time_file,"cg_goto_f", &
- !                cgierr,__LINE__,__FILE__)
-  !
-  do n = 1,size(solname)
+  if (mypnum == glb_root) then
     !
-    link_path = base_name//"/"//zone_name//"/"//trim(solname(n))
+    cgns_time_file = trim(adjustl(cgns_dir)) // cgns_time_fname
     !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-                    "cg_link_write_f")
-    call cg_link_write_f(trim(solname(n)),trim(solfile(n)), &
+    call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs, &
+                    cgns_time_file,override_barrier=true)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_open_f",override_barrier=true)
+    call cgp_open_f(cgns_time_file,CG_MODE_WRITE,ifile_t,cgierr)
+    call cgns_error(pname,cgns_time_file,"cgp_open_f", &
+                    cgierr,__LINE__,__FILE__, &
+                    "Mode = CG_MODE_WRITE",not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_open_f",override_barrier=true)
+    !
+    ! Set the CGNS base (who knows what this is for)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_base_write_f",override_barrier=true)
+    call cg_base_write_f(ifile_t,base_name,int(nr,kind=CBT), &
+                         int(nr,kind=CBT),ibase_t,cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_base_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_base_write_f",override_barrier=true)
+    !
+    ! Write the title for this solution
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_zone_write_f",override_barrier=true)
+    call cg_zone_write_f(ifile_t,ibase_t,zone_name,zone_size, &
+                         UNSTRUCTURED,izone_t,cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_zone_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_zone_write_f",override_barrier=true)
+    !
+    ! Create a link to the grid coordinates in the grid file
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
+    call cg_goto_f(ifile_t,ibase_t,cgierr, &
+                   "Zone_t",izone_t, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_time_file,"cg_goto_f",cgierr, &
+                    __LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
+    !
+    link_path = base_name//"/"//zone_name//"/GridCoordinates"
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
+    call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
                          trim(link_path),cgierr)
-    call cgns_error(pname,cgns_time_file,"cg_link_write_f", &
-                    cgierr,__LINE__,__FILE__)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+    call cgns_error(pname,cgns_time_file,"cg_link_write_f(GridCoordinates)", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
     !
-  end do
+    ! Create a link to the element connectivity in the grid file
+    !
+    if (nr == 2) then
+      sect_name = "Quadrilaterals"
+    else if (nr == 3) then
+      sect_name = "Hexahedrals"
+    end if
+    link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
+    call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
+                         trim(link_path),cgierr)
+    call cgns_error(pname,cgns_time_file, &
+                    "cg_link_write_f("//trim(sect_name)//")", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_link_write_f",override_barrier=true)
+    !
+    !
+    ! Create a links to the solution node in each of the solution files
+    !
+   !call cg_goto_f(ifile_t,ibase_t,cgierr, &
+   !               "Zone_t",izone_t, &
+   !               CGNS_GOTO_END)
+   !call cgns_error(pname,cgns_time_file,"cg_goto_f", &
+   !                cgierr,__LINE__,__FILE__,not_parallel=true)
+    !
+    do n = 1,size(solname)
+      !
+      link_path = base_name//"/"//zone_name//"/"//trim(solname(n))
+      !
+      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                      "cg_link_write_f",override_barrier=true)
+      call cg_link_write_f(trim(solname(n)),trim(solfile(n)), &
+                           trim(link_path),cgierr)
+      call cgns_error(pname,cgns_time_file,"cg_link_write_f", &
+                      cgierr,__LINE__,__FILE__,not_parallel=true)
+      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                      "cg_link_write_f",override_barrier=true)
+      !
+    end do
+    !
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_biter_write_f",override_barrier=true)
+    call cg_biter_write_f(ifile_t,ibase_t,'TimeIterValues', &
+                          size(soltime,kind=CBT),cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_biter_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_biter_write_f",override_barrier=true)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_goto_f",override_barrier=true)
+    call cg_goto_f(ifile_t,ibase_t,cgierr, &
+                   "BaseIterativeData_t",iiter_t, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_time_file,"cg_goto_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_goto_f",override_barrier=true)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_array_write_f",override_barrier=true)
+    call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
+                          size(soltime,kind=CST),soltime,cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_array_write_f",override_barrier=true)
+    !
+    ! Update the zone iterative node
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_ziter_write_f",override_barrier=true)
+    call cg_ziter_write_f(ifile_t,ibase_t,izone_t,"ZoneIterativeData",cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_ziter_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_ziter_write_f",override_barrier=true)
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_goto_f",override_barrier=true)
+    call cg_goto_f(ifile_t,ibase_t,cgierr, &
+                   "Zone_t",izone_t, &
+                   "ZoneIterativeData_t",iiter_t, &
+                   CGNS_GOTO_END)
+    call cgns_error(pname,cgns_time_file,"cg_goto_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_goto_f",override_barrier=true)
+    !
+    idata(:) = int( [32,size(solname)] , kind=kind(idata) )
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_array_write_f",override_barrier=true)
+    call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
+                          idata,solname,cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_array_write_f",override_barrier=true)
+    !
+    ! Identify the flow solution within the CGNS file as time dependent
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_simulation_type_write_f",override_barrier=true)
+    call cg_simulation_type_write_f(ifile_t,ibase_t,TIMEACCURATE,cgierr)
+    call cgns_error(pname,cgns_time_file,"cg_simulation_type_write_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cg_simulation_type_write_f",override_barrier=true)
+    !
+    ! Close the CGNS FILE
+    !
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_close_f",override_barrier=true)
+    call cgp_close_f(ifile_t,cgierr)
+    call cgns_error(pname,cgns_time_file,"cgp_close_f", &
+                    cgierr,__LINE__,__FILE__,not_parallel=true)
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                    "cgp_close_f",override_barrier=true)
+    !
+    call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs, &
+                    cgns_time_file,override_barrier=true)
+    !
+  end if
   !
+  call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
+  call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_biter_write_f")
-  call cg_biter_write_f(ifile_t,ibase_t,'TimeIterValues', &
-                        size(soltime,kind=CBT),cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_biter_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_biter_write_f")
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
-  call cg_goto_f(ifile_t,ibase_t,cgierr, &
-                 "BaseIterativeData_t",iiter_t, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_time_file,"cg_goto_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_array_write_f")
-  call cg_array_write_f("TimeValues",CGNS_KIND_REAL,1_CBT, &
-                        size(soltime,kind=CST),soltime,cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_array_write_f")
-  !
-  ! Update the zone iterative node
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_ziter_write_f")
-  call cg_ziter_write_f(ifile_t,ibase_t,izone_t,"ZoneIterativeData",cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_ziter_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_ziter_write_f")
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
-  call cg_goto_f(ifile_t,ibase_t,cgierr, &
-                 "Zone_t",izone_t, &
-                 "ZoneIterativeData_t",iiter_t, &
-                 CGNS_GOTO_END)
-  call cgns_error(pname,cgns_time_file,"cg_goto_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
-  !
-  idata(:) = int( [32,size(solname)] , kind=kind(idata) )
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_array_write_f")
-  call cg_array_write_f("FlowSolutionPointers",CHARACTER,2_CBT, &
-                        idata,solname,cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_array_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_array_write_f")
-  !
-  ! Identify the flow solution within the CGNS file as time dependent
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-                  "cg_simulation_type_write_f")
-  call cg_simulation_type_write_f(ifile_t,ibase_t,TIMEACCURATE,cgierr)
-  call cgns_error(pname,cgns_time_file,"cg_simulation_type_write_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-                  "cg_simulation_type_write_f")
-  !
-  ! Close the CGNS FILE
-  !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
-  call cgp_close_f(ifile_t,cgierr)
-  call cgns_error(pname,cgns_time_file,"cgp_close_f", &
-                  cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
-  !
-  call cgns_timer(stop_cgns_file_timer,profile_io_cgns,cgns_time_file)
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      write (iout,2) pname,trim(adjustl(cgns_time_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
 #endif
   !
@@ -6552,11 +6616,10 @@ continue
   !
   ! Format Statements
   !
-  1 format ("#############################################",/, &
-            "    FOR PROCESSOR #",i0)
-  2 format (a," = ",i0)
-  3 format ("('solution.',i0.",i0,",'.cgns')")
-  4 format (i0)
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
 end subroutine write_parallel_cgns_time_file
 !
@@ -6566,13 +6629,17 @@ subroutine write_parallel_cgns_grid_file()
   !
   !.. Use Statements ..
   use geovar, only : nr,n_solpts,xyz
-  use ovar,   only : profile_io_cgns
+  use ovar,   only : profile_io_cgns,profile_io_cgns_subs
   !
   !.. Local Scalars ..
   integer :: n,ierr
   !
   integer(CST) :: my_cells_beg,my_cells_end
   integer(CST) :: n_total_output_cells
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=CGLEN) :: varname
   !
@@ -6581,7 +6648,9 @@ subroutine write_parallel_cgns_grid_file()
   !
   !.. Local Allocatable Arrays ..
   integer(CST), allocatable :: ipelem(:,:)
-  real(wp),     allocatable :: vartmp(:)
+  !
+  real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_grid_file"
@@ -6590,6 +6659,18 @@ subroutine write_parallel_cgns_grid_file()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+#ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
   cgns_grid_file = trim(adjustl(cgns_dir)) // cgns_grid_fname
   !
@@ -6605,44 +6686,48 @@ continue
   !
   ! Open the cgns grid file
   !
-  call cgns_timer(start_cgns_file_timer,profile_io_cgns,cgns_grid_file)
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   call cgp_open_f(cgns_grid_file,CG_MODE_WRITE,ifile_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cgp_open_f", &
                   cgierr,__LINE__,__FILE__, &
                   "Mode = CG_MODE_WRITE")
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
   ! Set the CGNS base (who knows what this is for)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   call cg_base_write_f(ifile_n,base_name,int(nr,kind=CBT), &
                        int(nr,kind=CBT),ibase_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_base_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   !
   ! Write the title for this solution
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   call cg_zone_write_f(ifile_n,ibase_n,zone_name,zone_size, &
                        UNSTRUCTURED,izone_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cg_zone_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   !
   ! Create data nodes for the coordinates
   !
   do n = 1,nr
     varname = "Coordinate"//char_xyz(n)
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_f")
     call cgp_coord_write_f(ifile_n,ibase_n,izone_n,CGNS_KIND_REAL, &
                            trim(varname),ixyz_n(n),cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_f", &
                     cgierr,__LINE__,__FILE__,"Write node: Coordinate",n)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_f")
   end do
   !
@@ -6679,13 +6764,13 @@ continue
     !
     ! Add the data for current coordinate variable to the output queue.
     !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
     call cgp_coord_write_data_f(ifile_n,ibase_n,izone_n,ixyz_n(n), &
                                 my_pts_beg,my_pts_end,var,cgierr)
     call cgns_error(pname,cgns_grid_file,"cgp_coord_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate",n)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_coord_write_data_f")
     !
     ! Finally, flush the queue containing the
@@ -6708,7 +6793,7 @@ continue
   !
   ! Create the data node for the grid connectivity
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_section_write_f")
   if (nr == 2) then
     call cgp_section_write_f(ifile_n,ibase_n,izone_n,"Quadrilaterals", &
@@ -6721,7 +6806,7 @@ continue
   end if
   call cgns_error(pname,cgns_grid_file,"cgp_section_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_section_write_f")
   !
   ! Write the element connectivity in parallel
@@ -6732,13 +6817,13 @@ continue
   !
   ! Add the element connectivity data to the output queue.
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_elements_write_data_f")
   call cgp_elements_write_data_f(ifile_n,ibase_n,izone_n,isect_n, &
                                  my_cells_beg,my_cells_end,ipelem,cgierr)
   call cgns_error(pname,cgns_grid_file,"cgp_elements_write_data_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                   "cgp_elements_write_data_f")
   !
   ! Finally, flush the queue containing the
@@ -6755,15 +6840,35 @@ continue
   !
   ! Close the CGNS FILE
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   call cgp_close_f(ifile_n,cgierr)
   call cgns_error(pname,cgns_grid_file,"cgp_close_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   !
-  call cgns_timer(stop_cgns_file_timer,profile_io_cgns,cgns_grid_file)
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_grid_file)
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      write (iout,2) pname,trim(adjustl(cgns_grid_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+#endif
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
 end subroutine write_parallel_cgns_grid_file
 !
@@ -6777,8 +6882,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : pref,machref,itestcase,bc_in
   use ovar,    only : interpolate_before_output_variable
   use ovar,    only : governing_equations
-  use ovar,    only : profile_io_cgns
+  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : Limiter_Option
+  use ovar,    only : max_wall_time => max_cgns_wall_time
   use flowvar, only : usp,dusp
   !
   use module_limiters, only : marker,scaled_marker
@@ -6794,6 +6900,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   logical(lk) :: need_vorticity
   !
@@ -6860,26 +6967,28 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   !.. Local Allocatable Arrays ..
-  integer(CBT),  allocatable, dimension(:) :: isvar_s
+  integer(CBT), allocatable, dimension(:) :: isvar_s
   !
-  real(wp), allocatable, dimension(:)     :: vartmp
-  real(wp), allocatable, dimension(:,:)   :: interp_usp
-  real(wp), allocatable, dimension(:,:,:) :: interp_dusp
+  real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:)
+  real(wp),  allocatable :: interp_usp(:,:)
+  real(wp),  allocatable :: interp_dusp(:,:,:)
   !
 continue
   !
   call debug_timer(entering_procedure,pname)
-#ifdef PBS_ENV
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == glb_root) then
-    write (iout,1)
-    flush (iout)
-    if (profile_io_cgns) beg_wall_time = mpi_wtime()
-  end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
 #ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
   ! Make sure vorticity is one of the variables that will
   ! be output if running the Taylor-Green vortex problem.
@@ -6923,48 +7032,54 @@ continue
   !
   ! Open the CGNS solution file if iflag is 1
   !
-  call cgns_timer(start_cgns_file_timer,profile_io_cgns,cgns_sol_file)
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
   ! Set the CGNS base (who knows what this is for)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
                        int(nr,kind=CBT),ibase_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   !
   ! Write the title for this solution
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
                        UNSTRUCTURED,izone_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   !
   ! Create a link to the grid coordinates in the grid file
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
                  CGNS_GOTO_END)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
                        trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Create a link to the element connectivity in the grid file
   !
@@ -6975,13 +7090,15 @@ continue
   end if
   link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
                        trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file, &
                   "cg_link_write_f("//trim(sect_name)//")", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Allocate var and vartmp if they arent already allocated
   !
@@ -7008,10 +7125,12 @@ continue
   !
   ! Write the flow variables
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
   call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
   !
   ! #######################################
   ! #####   WRITING FIELD VARIABLES   #####
@@ -7036,14 +7155,14 @@ continue
     !
     do l = 1,nr
       varname = "Density_d"//char_xyz(l)
-      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                       "cgp_field_write_f")
       call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                              trim(varname),isvar_s(l),cgierr)
       call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                       cgierr,__LINE__,__FILE__, &
                       "Write node: Gradient variable",l)
-      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                       "cgp_field_write_f")
     end do
     !
@@ -7053,14 +7172,14 @@ continue
       do l = 1,nr
         n = m*nr + l
         varname = "Velocity"//char_xyz(m)//"_d"//char_xyz(l)
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                                trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Gradient variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
       end do
     end do
@@ -7083,14 +7202,14 @@ continue
         !
         ! Add the data for current variable to the output queue.
         !
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_data_f")
         call cgp_field_write_data_f(ifile_s,ibase_s,izone_s,isol_s,isvar_s(n), &
                                     my_pts_beg,my_pts_end,var,cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_data_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write data: Gradient variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_data_f")
         !
         ! Finally, flush the queue containing
@@ -7161,28 +7280,28 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "Velocity"//char_xyz(m)
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
       else if (trim(char_sname(l)) == "Vorticity") then
         do m = 1,nr
           n = n + 1
           varname = "Vorticity"//char_xyz(merge(m,3,nr==3))
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           if (nr < 3) exit
         end do
@@ -7190,28 +7309,28 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "Momentum"//char_xyz(m)
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
       else if (trim(char_sname(l)) == "GradDensity") then
         do m = 1,nr
           n = n + 1
           varname = "DensityGradient"//char_xyz(m)
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
       else if (trim(char_sname(l)) == "GradMomentum") then
@@ -7219,7 +7338,7 @@ continue
           do k = 1,nr
             n = n + 1
             varname = "Momentum"//char_xyz(m)//"Gradient"//char_xyz(k)
-            call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+            call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                             "cgp_field_write_f")
             call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                    CGNS_KIND_REAL,trim(varname), &
@@ -7227,7 +7346,7 @@ continue
             call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                             cgierr,__LINE__,__FILE__, &
                             "Write node: Solution variable",n)
-            call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+            call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                             "cgp_field_write_f")
           end do
         end do
@@ -7235,75 +7354,75 @@ continue
         do m = 1,nr
           n = n + 1
           varname = "EnergyGradient"//char_xyz(m)
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end do
       else if (trim(char_sname(l)) == "Viscosity") then
         if (governing_equations == NavierStokes_Eqns) then
           n = n + 1
           varname = trim(char_sname(l))
-          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
           call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                  CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
           call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                           cgierr,__LINE__,__FILE__, &
                           "Write node: Solution variable",n)
-          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                           "cgp_field_write_f")
         end if
       else if (trim(char_sname(l)) == "ResolutionMarker") then
         n = n + 1
         varname = trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         n = n + 1
         varname = "Scaled"//trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
       else if (trim(char_sname(l)) == "JumpMarker") then
         n = n + 1
         varname = trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         n = n + 1
         varname = "Scaled"//trim(char_sname(l))
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
       else
         n = n + 1
@@ -7312,14 +7431,14 @@ continue
         else
           varname = trim(char_sname(l))
         end if
-        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
         call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
                                CGNS_KIND_REAL,trim(varname),isvar_s(n),cgierr)
         call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                         cgierr,__LINE__,__FILE__, &
                         "Write node: Solution variable",n)
-        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+        call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
       end if
     end do
@@ -7487,14 +7606,12 @@ continue
   !
   ! Close the CGNS FILE
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,2,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   !
-  call cgns_timer(stop_cgns_file_timer,profile_io_cgns,cgns_sol_file)
-  !
-#endif
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
   ! Deallocate the arrays var and vartmp
   !
@@ -7519,28 +7636,28 @@ continue
     call alloc_error(pname,"isvar_s",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-#ifdef PBS_ENV
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == glb_root) then
-    if (profile_io_cgns) then
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
       end_wall_time = mpi_wtime()
-      write (iout,2) trim(adjustl(cgns_sol_file)), &
-                     end_wall_time - beg_wall_time
-    else
-      write (iout,2)
+      cgns_wall_time = end_wall_time - beg_wall_time
+      max_wall_time = max(max_wall_time,cgns_wall_time)
+      write (iout,2) pname,trim(adjustl(cgns_sol_file)),cgns_wall_time
+      flush (iout)
     end if
-    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
 #endif
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format (/," Entering write_parallel_cgns_solution_file")
-  2 format (" Leaving write_parallel_cgns_solution_file",/,:, &
-          5x,"Wall time taken to write the file '",a, &
-             "' = ",f12.6," seconds",/)
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
   !-----------------------------------------------------------------------------
   !
@@ -7560,7 +7677,8 @@ subroutine write_parallel_cgns_time_ave_file()
   use geovar,  only : nr,n_solpts
   use ovar,    only : aref,rhoref,tref,tkeref,tlsref
   use ovar,    only : interpolate_before_output_variable
-  use ovar,    only : profile_io_cgns
+  use ovar,    only : profile_io_cgns,profile_io_cgns_subs
+  use ovar,    only : max_wall_time => max_time_ave_cgns_wall_time
   use flowvar, only : uavesp,time_ave_variables
   !
   !.. Local Scalars ..
@@ -7568,6 +7686,7 @@ subroutine write_parallel_cgns_time_ave_file()
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=1)     :: ta_char
   character(len=1)     :: vmult
@@ -7579,10 +7698,11 @@ subroutine write_parallel_cgns_time_ave_file()
   integer(CBT) :: ifile_s,ibase_s,izone_s,isol_s
   !
   !.. Local Allocatable Arrays ..
-  integer(CBT),  allocatable :: isvar_s(:)
+  integer(CBT), allocatable :: isvar_s(:)
   !
-  real(wp), allocatable :: vartmp(:)
-  real(wp), allocatable :: var_dim(:)
+  real(CRT), allocatable :: var(:)
+  real(wp),  allocatable :: vartmp(:)
+  real(wp),  allocatable :: var_dim(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_time_ave_file"
@@ -7591,67 +7711,74 @@ subroutine write_parallel_cgns_time_ave_file()
   !
 continue
   !
-  naq = size(uavesp,dim=2)
-  !
   call debug_timer(entering_procedure,pname)
-#ifdef PBS_ENV
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == glb_root) then
-    write (iout,1)
-    flush (iout)
-    if (profile_io_cgns) beg_wall_time = mpi_wtime()
-  end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-#endif
   !
 #ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
+  naq = size(uavesp,dim=2)
   !
   cgns_sol_file = trim(adjustl(cgns_dir)) // fname
   !
   ! Open the CGNS solution file if iflag is 1
   !
-  call cgns_timer(start_cgns_file_timer,profile_io_cgns,cgns_sol_file)
+  call cgns_timer(start_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   call cgp_open_f(cgns_sol_file,CG_MODE_WRITE,ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,1,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_open_f")
   !
   ! Set the CGNS base (who knows what this is for)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   call cg_base_write_f(ifile_s,base_name,int(nr,kind=CBT), &
                        int(nr,kind=CBT),ibase_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_base_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_base_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_base_write_f")
   !
   ! Write the title for this solution
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   call cg_zone_write_f(ifile_s,ibase_s,zone_name,zone_size, &
                        UNSTRUCTURED,izone_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_zone_write_f", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_zone_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_zone_write_f")
   !
   ! Create a link to the grid coordinates in the grid file
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   call cg_goto_f(ifile_s,ibase_s,cgierr, &
                  "Zone_t",izone_s, &
                  CGNS_GOTO_END)
   call cgns_error(pname,cgns_sol_file,"cg_goto_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_goto_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cg_goto_f")
   !
   link_path = base_name//"/"//zone_name//"/GridCoordinates"
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   call cg_link_write_f("GridCoordinates",trim(cgns_base_fname), &
                        trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_link_write_f(GridCoordinates)", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Create a link to the element connectivity in the grid file
   !
@@ -7662,13 +7789,15 @@ continue
   end if
   link_path = base_name//"/"//zone_name//"/"//trim(sect_name)
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   call cg_link_write_f(trim(sect_name),trim(cgns_base_fname), &
                        trim(link_path),cgierr)
   call cgns_error(pname,cgns_sol_file, &
                   "cg_link_write_f("//trim(sect_name)//")", &
                   cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_link_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_link_write_f")
   !
   ! Allocate isvar_s and var_dim to the number of time averaged variables
   !
@@ -7680,10 +7809,12 @@ continue
   !
   ! Write the flow variables
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
   call cg_sol_write_f(ifile_s,ibase_s,izone_s,tname,VERTEX,isol_s,cgierr)
   call cgns_error(pname,cgns_sol_file,"cg_sol_write_f",cgierr,__LINE__,__FILE__)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                  "cg_sol_write_f")
   !
   !
   ! ##############################################################
@@ -7736,14 +7867,14 @@ continue
       vmult = "*"
     end do
     !
-    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_f")
     call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s,CGNS_KIND_REAL, &
                            trim(adjustl(varname)),isvar_s(n),cgierr)
     call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
                     cgierr,__LINE__,__FILE__, &
                     "Write node: Time-averaged variable",n)
-    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
+    call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                     "cgp_field_write_f")
     !
   end do
@@ -7775,14 +7906,12 @@ continue
   !
   ! Close the CGNS FILE
   !
-  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   call cgp_close_f(ifile_s,cgierr)
   call io_error(pname,cgns_sol_file,2,__LINE__,__FILE__,cgierr)
-  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
+  call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs,"cgp_close_f")
   !
-  call cgns_timer(stop_cgns_file_timer,profile_io_cgns,cgns_sol_file)
-  !
-#endif
+  call cgns_timer(stop_cgns_file_timer,profile_io_cgns_subs,cgns_sol_file)
   !
   ! Deallocate the arrays var and vartmp
   !
@@ -7803,28 +7932,28 @@ continue
     call alloc_error(pname,"var_dim",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-#ifdef PBS_ENV
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
-  if (mypnum == glb_root) then
-    if (profile_io_cgns) then
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
       end_wall_time = mpi_wtime()
-      write (iout,2) trim(adjustl(cgns_sol_file)), &
-                     end_wall_time - beg_wall_time
-    else
-      write (iout,2)
+      cgns_wall_time = end_wall_time - beg_wall_time
+      max_wall_time = max(max_wall_time,cgns_wall_time)
+      write (iout,2) pname,trim(adjustl(cgns_sol_file)),cgns_wall_time
+      flush (iout)
     end if
-    flush (iout)
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
   end if
-  call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  !
 #endif
+  !
   call debug_timer(leaving_procedure,pname)
   !
   ! Format Statements
   !
-  1 format (/," Entering write_parallel_cgns_time_ave_file")
-  2 format (" Leaving write_parallel_cgns_time_ave_file",/,:, &
-          5x,"Wall time taken to write the file '",a, &
-             "' = ",f12.6," seconds",/)
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
   !-----------------------------------------------------------------------------
   !
@@ -8040,6 +8169,7 @@ subroutine TaylorGreen_8s_vorticity_solution()
   !
   !.. Use Statements ..
   use ovar, only : write_TaylorGreen_8s_solution
+  use ovar, only : profile_io_cgns
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -8048,6 +8178,10 @@ subroutine TaylorGreen_8s_vorticity_solution()
   integer(CBT) :: isect_v,isol_v,isvar_v
   !
   integer(CST) :: my_beg,my_end,my_pts
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: cgns_wall_time
   !
   character(len=170) :: cgns_vort_file
   !
@@ -8079,7 +8213,18 @@ subroutine TaylorGreen_8s_vorticity_solution()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
 #ifndef SPECIAL_FOR_PGI
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      write (iout,1) pname
+      flush (iout)
+      beg_wall_time = mpi_wtime()
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
   !
   cgns_vort_file = trim(adjustl(cgns_dir)) // fname
   !
@@ -8100,67 +8245,45 @@ continue
   !
   if (i_am_vort_cpu) then
     !
-   !call cgns_timer(start_cgns_file_timer,profile_io_cgns,cgns_vort_file)
-    !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_mpi_comm_f")
 #ifdef USE_MPI_F08
     call cgp_mpi_comm_f(vort_comm%mpi_val,cgierr)
 #else
     call cgp_mpi_comm_f(vort_comm,cgierr)
 #endif
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_mpi_comm_f")
     !
     ! Open the CGNS file
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
     call cgp_open_f(cgns_vort_file,CG_MODE_WRITE,ifile_v,cgierr)
     call io_error(pname,cgns_vort_file,1,__LINE__,__FILE__,cgierr)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_open_f")
     !
     ! Set the CGNS base (who knows what this is for)
     ! NOTE: We are creating this base 2-dimensional with surface (2D) cells
     !       since this file will contain a 2D solution along a boundary face
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cg_base_write_f")
     call cg_base_write_f(ifile_v,bname,2_CBT,2_CBT,ibase_v,cgierr)
     call cgns_error(pname,cgns_vort_file,"cg_base_write_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cg_base_write_f")
     !
     ! Write the title for this solution
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cg_zone_write_f")
     call cg_zone_write_f(ifile_v,ibase_v,zname,vort_zone_size, &
                          UNSTRUCTURED,izone_v,cgierr)
     call cgns_error(pname,cgns_vort_file,"cg_zone_write_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cg_zone_write_f")
     !
     ! Create data nodes for the coordinates
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_f")
     call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
                            "CoordinateY",ixyz_v(1),cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
                     cgierr,__LINE__,__FILE__,"Write node: Coordinate = 1 (Y)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_f")
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_f")
     call cgp_coord_write_f(ifile_v,ibase_v,izone_v,CGNS_KIND_REAL, &
                            "CoordinateZ",ixyz_v(2),cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_coord_write_f", &
                     cgierr,__LINE__,__FILE__,"Write node: Coordinate = 2 (Z)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_f")
     !
     ! Now create and write the coordinate data in parallel
     !
@@ -8190,15 +8313,11 @@ continue
     !       that have data to write call the CGNS write subroutine.
     !
     cgierr = 0
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_data_f")
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(1), &
                                 my_beg,my_end,vary,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate = 1 (Y)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_data_f")
     !
     ! Add the data for the z-coordinate to the output queue
     ! NOTE: It is an error for a processor to try an write data if it doesnt
@@ -8206,15 +8325,11 @@ continue
     !       that have data to write call the CGNS write subroutine.
     !
     cgierr = 0
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_data_f")
     call cgp_coord_write_data_f(ifile_v,ibase_v,izone_v,ixyz_v(2), &
                                 my_beg,my_end,varz,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_coord_write_data_f", &
                     cgierr,__LINE__,__FILE__,"Write data: Coordinate = 2 (Z)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_coord_write_data_f")
     !
     ! Finally, flush the queue containing the
     ! coordinate variables to the CGNS file
@@ -8223,15 +8338,11 @@ continue
     !
     ! Create the data node for the grid connectivity
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_section_write_f")
     call cgp_section_write_f(ifile_v,ibase_v,izone_v,"Quadrilaterals", &
                              QUAD_4,1_CST,vort_zone_size(2), &
                              0_CBT,isect_v,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_section_write_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_section_write_f")
     !
     ! Write the element connectivity in parallel
     !
@@ -8248,14 +8359,10 @@ continue
     !       that have data to write call the CGNS write subroutine.
     !
     cgierr = 0
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_elements_write_data_f")
     call cgp_elements_write_data_f(ifile_v,ibase_v,izone_v,isect_v, &
                                    my_beg,my_end,ipelem,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_elements_write_data_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_elements_write_data_f")
     !
     ! Finally, flush the queue containing the
     ! element connectivity to the CGNS file.
@@ -8281,25 +8388,19 @@ continue
     !
     ! Create the solution node
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
     call cg_sol_write_f(ifile_v,ibase_v,izone_v,"VorticitySolution", &
                         VERTEX,isol_v,cgierr)
     call cgns_error(pname,cgns_vort_file,"cg_sol_write_f", &
                     cgierr,__LINE__,__FILE__,not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cg_sol_write_f")
     !
     ! Create a data node for the vorticity solution
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_field_write_f")
     call cgp_field_write_f(ifile_v,ibase_v,izone_v,isol_v,CGNS_KIND_REAL, &
                            "VorticityMagnitude",isvar_v,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_field_write_f", &
                     cgierr,__LINE__,__FILE__, &
                     "Write node: Solution variable = 1 (VorticityMagnitude)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_field_write_f")
     !
     ! Compute the vorticity magnitude at each face point
     !
@@ -8315,16 +8416,12 @@ continue
     !       that have data to write call the CGNS write subroutine.
     !
     cgierr = 0
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_field_write_data_f")
     call cgp_field_write_data_f(ifile_v,ibase_v,izone_v,isol_v,isvar_v, &
                                 my_beg,my_end,vary,cgierr)
     call cgns_error(pname,cgns_vort_file,"cgp_field_write_data_f", &
                     cgierr,__LINE__,__FILE__, &
                     "Write data: Solution variable = 1 (VorticityMagnitude)", &
                     not_parallel=true)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns, &
-   !                "cgp_field_write_data_f")
     !
     ! Finally, flush the queue containing
     ! the current variable to the CGNS file.
@@ -8340,23 +8437,36 @@ continue
     !
     ! Close the CGNS file
     !
-   !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
     call cgp_close_f(ifile_v,cgierr)
     call io_error(pname,cgns_vort_file,2,__LINE__,__FILE__,cgierr)
-   !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_close_f")
-    !
-   !call cgns_timer(stop_cgns_file_timer,profile_io_cgns,cgns_vort_file)
     !
   end if
   !
- !call cgns_timer(start_cgns_procedure_timer,profile_io_cgns,"cgp_mpi_comm_f")
   call cgp_mpi_comm_f(mpi_comm_world_val,cgierr)
- !call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns,"cgp_mpi_comm_f")
+  !
+  if (profile_io_cgns) then
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+    if (mypnum == glb_root) then
+      end_wall_time = mpi_wtime()
+      cgns_wall_time = end_wall_time - beg_wall_time
+      write (iout,2) pname,trim(adjustl(cgns_vort_file)),cgns_wall_time
+      flush (iout)
+    end if
+    call mpi_barrier(MPI_COMM_WORLD,mpierr)
+  end if
+  !
 #endif
   !
   write_TaylorGreen_8s_solution = fals
   !
   call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering ",a)
+  2 format (1x,"Leaving ",a,/,:, &
+            5x,"Wall time taken to write the file '",a, &
+            "' = ",f12.6," seconds",/)
   !
 end subroutine TaylorGreen_8s_vorticity_solution
 !
