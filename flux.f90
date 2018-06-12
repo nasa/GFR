@@ -2449,10 +2449,9 @@ subroutine transform_fluxes_2d(tfluxes,rfluxes)
   !
   !.. Local Scalars ..
   integer  :: n,np
-  real(wp) :: d1dx,d2dx,d3dx
-  real(wp) :: d1dy,d2dy,d3dy
-  real(wp) :: d1dz,d2dz,d3dz
-  real(wp) :: xflx,yflx,zflx
+  real(wp) :: d1dx,d2dx
+  real(wp) :: d1dy,d2dy
+  real(wp) :: xflx,yflx
   real(wp) :: jacobian
   !
   !.. Local Parameters ..
@@ -2490,12 +2489,6 @@ continue
     !
     rfluxes(n,1,nmy) = xflx*d1dx + yflx*d1dy
     rfluxes(n,2,nmy) = xflx*d2dx + yflx*d2dy
-    !
-    xflx = tfluxes(n,1,nmz)
-    yflx = tfluxes(n,2,nmz)
-    !
-    rfluxes(n,1,nmz) = xflx*d1dx + yflx*d1dy
-    rfluxes(n,2,nmz) = xflx*d2dx + yflx*d2dy
     !
     xflx = tfluxes(n,1,nee)
     yflx = tfluxes(n,2,nee)
