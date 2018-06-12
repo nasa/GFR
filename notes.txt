@@ -10,6 +10,19 @@
 ################################################################################
 ################################################################################
 
+* For over-integrating face fluxes, the current method interpolates the already
+  known conserved variables at the face flux points to the face quadrature
+  points, then computes the face fluxes at the quadrature points, before
+  projecting the face flux to the face flux points. This is fine for interior
+  faces. However, for boundary faces, the boundary conditions might not be a
+  polynomial function, so the conserved variables at the boundary face flux
+  points may already represent an aliased polynomial. Interpolating this to the
+  boundary face quadrature points does nothing to alleviate this aliasing. We
+  need to compute the boundary conditions at the quadrature points, and then
+  use that get the common fluxes for the boundary faces. We could create a
+  separate faceuqp_bc for storing the boundary conditions at the boundary face
+  quadrature points.
+
 * Need to fix bug with time averaging indices for pressure and energy. Currently
   pressure and energy are set to the same index, but pressure will be the
   variable accessed with the index. Energy is currently not used with any
@@ -229,6 +242,9 @@
 ################################################################################
 ################################################################################
 ################################################################################
+
+* Add altitude input parameter that uses a look-up table to automatically set
+  free-stream density, pressure, and temperature.
 
 * Need to add MPI capabilities to the GPU code.
 
