@@ -1604,7 +1604,7 @@ continue
   ! cell geometry and cell order.
   !
   call find_geom_max_interp_order(cell_geom,cell_order,face(:)%left%cell, &
-                                  face(:)%right%cell,face(:)%order)
+                                  face(:)%right%cell,face(:)%qdtr_order)
   call debug_timer(stop_timer,"section 8")
   !
   call debug_timer(leaving_procedure,pname)
