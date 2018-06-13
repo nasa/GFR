@@ -109,7 +109,13 @@ continue
     !
     call get_current_cfl
     !
-    call get_point_timestep(dtmin)
+    if (Timestep_Type == Global_Point_Timestep) then
+      call get_point_global_timestep(dtmin)
+     !call get_point_timestep(dtmin)
+    else if (Timestep_Type == Local_Point_Timestep) then
+      call get_point_local_timestep(dtmin)
+     !call get_point_timestep(dtmin)
+    end if
     !
   end if
   !
@@ -1210,7 +1216,497 @@ end subroutine get_cell_timestep
 !
 !###############################################################################
 !
+subroutine get_point_global_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr,n_solpts
+  use ovar,        only : gam,CFL
+  use metrics_mod, only : time_metrics
+  use flowvar,     only : usp,dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: da,dx,dy,dz,dtpt,dtc
+  real(wp) :: rho,velx,vely,velz,rhoe
+  real(wp) :: rho_inv,q2,pres,aspd,gm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_point_global_timestep"
+  !
+ !integer, parameter :: make_p_plus_one = 0
+  integer, parameter :: make_p_plus_one = 1
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  !
+  dtmin = huge(zero)
+  !
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      dz = time_metrics(3,n)
+      da = time_metrics(4,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      velz = usp(n,nmz)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      da = time_metrics(3,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      da = time_metrics(2,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      pres = gm1*(rhoe - half*rho*velx*velx)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  end if
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    ! Update the value of dtmin on the CPU
+    !$ACC UPDATE SELF(dtmin)
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    ! Update the value of dtmin on the GPU
+    !$ACC UPDATE DEVICE(dtmin)
+  end if
+  !
+  !$ACC PARALLEL LOOP PRESENT(dtsp)
+  do n = 1,n_solpts
+    dtsp(n) = dtmin
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_point_global_timestep
+!
+!###############################################################################
+!
+subroutine get_point_local_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr,n_solpts
+  use ovar,        only : gam,CFL
+  use metrics_mod, only : time_metrics
+  use flowvar,     only : usp,dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: da,dx,dy,dz,dtpt,dtc
+  real(wp) :: rho,velx,vely,velz,rhoe
+  real(wp) :: rho_inv,q2,pres,aspd,gm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_point_local_timestep"
+  !
+ !integer, parameter :: make_p_plus_one = 0
+  integer, parameter :: make_p_plus_one = 1
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  !
+  dtmin = huge(zero)
+  !
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      dz = time_metrics(3,n)
+      da = time_metrics(4,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      velz = usp(n,nmz)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      da = time_metrics(3,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      da = time_metrics(2,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      pres = gm1*(rhoe - half*rho*velx*velx)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  end if
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    ! Update the value of dtmin on the CPU
+    !$ACC UPDATE SELF(dtmin)
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    ! Update the value of dtmin on the GPU
+    !$ACC UPDATE DEVICE(dtmin)
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_point_local_timestep
+!
+!###############################################################################
+!
 subroutine get_point_timestep(dtmin)
+  !
+  !.. Use Statements ..
+  use geovar,      only : nr,n_solpts
+  use ovar,        only : gam,time_ref,Final_Time,time,CFL,Timestep_Type
+  use ovar,        only : this_is_final_timestep
+  use metrics_mod, only : time_metrics
+  use flowvar,     only : usp,dtsp
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(out) :: dtmin
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: da,dx,dy,dz,dtpt,dtc
+  real(wp) :: rho,velx,vely,velz,rhoe
+  real(wp) :: rho_inv,q2,pres,aspd,gm1
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_point_timestep"
+  !
+ !integer, parameter :: make_p_plus_one = 0
+  integer, parameter :: make_p_plus_one = 1
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  gm1 = gam - one
+  !
+  dtmin = huge(zero)
+  !
+  if (nr == 3) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      dz = time_metrics(3,n)
+      da = time_metrics(4,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      velz = usp(n,nmz)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely + velz*velz
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + abs(velz)*dz + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else if (nr == 2) then
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      dy = time_metrics(2,n)
+      da = time_metrics(3,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      vely = usp(n,nmy)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      q2 = velx*velx + vely*vely
+      !
+      pres = gm1*(rhoe - half*rho*q2)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + abs(vely)*dy + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  else
+    !
+    !$ACC PARALLEL LOOP REDUCTION(min:dtmin) &
+    !$ACC&              PRESENT(usp,time_metrics,dtsp)
+    do n = 1,n_solpts
+      !
+      dx = time_metrics(1,n)
+      da = time_metrics(2,n)
+      !
+      rho = usp(n,nec)
+      !
+      rho_inv = one/rho
+      !
+      velx = usp(n,nmx)*rho_inv
+      !
+      rhoe = usp(n,nee)
+      !
+      pres = gm1*(rhoe - half*rho*velx*velx)
+      !
+      aspd = sqrt( max( gam*pres*rho_inv , rndoff ) )
+      !
+      dtc = abs(velx)*dx + aspd*da
+      !
+      dtpt = CFL/dtc
+      !
+      dtmin = min( dtpt , dtmin )
+      !
+      dtsp(n) = dtpt
+      !
+    end do
+    !
+  end if
+  !
+  !$ACC UPDATE SELF(dtmin)
+  !
+  ! Get the minimum timestep across all processors
+  !
+  if (ncpu > 1) then
+    ! Update the value of dtmin on the CPU
+    !$ACC UPDATE SELF(dtmin)
+    call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
+                       MPI_MIN,MPI_COMM_WORLD,mpierr)
+    ! Update the value of dtmin on the GPU
+    !$ACC UPDATE DEVICE(dtmin)
+  end if
+  !
+  ! Limit the local timesteps if using a global timestepping
+  !
+  if (Timestep_Type == Global_Point_Timestep) then
+    !
+    ! Make sure the timestep size doesnt make the final time exceed Final_Time
+    !
+    if (Final_Time > zero) then
+      if (time + dtmin > Final_Time/time_ref + eps9) then
+        dtmin = Final_Time/time_ref - time
+       !dtsp(:) = Final_Time/time_ref - time
+        this_is_final_timestep = true
+      end if
+    end if
+    !
+    ! Set all time step sizes to the minimum timestep
+    !
+    !$ACC PARALLEL LOOP PRESENT(dtsp)
+    do n = 1,n_solpts
+      dtsp(n) = dtmin
+    end do
+    !
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine get_point_timestep
+!
+!###############################################################################
+!
+subroutine get_point_timestep_old(dtmin)
   !
   !.. Use Statements ..
   use geovar,  only : nr,ncell,cell
@@ -1234,7 +1730,7 @@ subroutine get_point_timestep(dtmin)
   real(wp), dimension(1:nq) :: pv
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "get_point_timestep"
+  character(len=*), parameter :: pname = "get_point_timestep_old"
   !
  !integer, parameter :: make_p_plus_one = 0
   integer, parameter :: make_p_plus_one = 1
@@ -1314,7 +1810,7 @@ continue
     !
   end if
   !
-end subroutine get_point_timestep
+end subroutine get_point_timestep_old
 !
 !###############################################################################
 !
