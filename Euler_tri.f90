@@ -441,6 +441,11 @@ continue
                       "initial TGV KEDR evaluation")
     call check_for_bad_number(__LINE__)
     !
+    ! Get initial time step values in case they are needed for CGNS output
+    !
+    call get_dtsp(dtmin)
+    call check_for_bad_number(__LINE__)
+    !
     if (itestcase == Taylor_Green_Vortex) then
       call compute_TaylorGreen_KEDR_gpu(0,zero)
      !call compute_TaylorGreen_KEDR(0,zero)
