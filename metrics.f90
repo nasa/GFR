@@ -47,6 +47,24 @@ module metrics_mod
   !
   !$ACC DECLARE CREATE(wtdjac,jac)
   !
+  ! time_metrics : delta_x, delta_y, and delta_z components used to compute
+  !                the point-wise time-step using the structured grid CFL
+  !                condition.
+  !       
+  !       dt = 1 / [ abs(u)/dx + abs(v)/dy + abs(w)/dz + &
+  !                  a*sqrt(1/(dx**2) + 1/(dy**2) + 1/(dz**2)) ]
+  !       where:
+  !         u = x-velocity
+  !         v = y-velocity
+  !         w = z-velocity
+  !         a = speed of sound [a=sqrt(gam*pressure/density) ]
+  !         time_metrics(1,:) = 1/dx
+  !         time_metrics(2,:) = 1/dy
+  !         time_metrics(3,:) = 1/dz
+  !         time_metrics(4,:) = sqrt(1/(dx**2) + 1/(dy**2) + 1/(dz**2))
+  !
+  real(wp), public, save, allocatable :: time_metrics(:,:)
+  !
   logical(lk), parameter :: use_dJ = fals
   !
   !     For solution point 'n' of cell 'nc',
@@ -204,6 +222,7 @@ subroutine get_metrics()
   !
   use ovar, only : local_volume,total_volume
   use ovar, only : VortexGrid_random_perturb
+  use ovar, only : Timestep_Type
   !
   use order_mod, only : maxSP
   !
@@ -546,6 +565,10 @@ continue
   !
   if (using_quadrature) then
     call compute_quadrature_face_normals
+  end if
+  !
+  if (abs(Timestep_Type) == Point_Timestep) then
+    call create_time_metrics
   end if
   !
   ! Reduce the volumes of each partition to the root
@@ -1314,6 +1337,222 @@ continue
   24 format (4(1x,i0))
   !
 end subroutine compute_quadrature_face_normals
+!
+!###############################################################################
+!
+subroutine create_time_metrics()
+  !
+  !.. Use Statements ..
+  use geovar,         only : nr,ncell,cell,n_solpts
+  use quadrature_mod, only : element_type,std_elem
+  !
+  !.. Local Scalars ..
+  integer  :: i,j,k,l,n,nc,ni,n0,np,nd,ierr
+  integer  :: this_geom,this_order
+  real(wp) :: dx,dy,dz,jacobian
+  real(wp) :: d1,d2,d3
+  real(wp) :: d1dx,d2dx,d3dx
+  real(wp) :: d1dy,d2dy,d3dy
+  real(wp) :: d1dz,d2dz,d3dz
+  !
+  !.. Local Arrays ..
+  real(wp) :: del(1:nr)
+  !
+  !.. Local Allocatable Arrays ..
+  type(element_type), allocatable :: del_ref_coord(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "create_time_metrics"
+  character(len=*), parameter :: char_ijk(1:3) = ["xi  ","eta ","zeta"]
+  !
+  logical(lk), parameter :: account_for_boundaries = true
+ !logical(lk), parameter :: account_for_boundaries = fals
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  allocate ( del_ref_coord , source=std_elem , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"del_ref_coord",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do this_order = lbound(std_elem,dim=2),ubound(std_elem,dim=2)
+    do this_geom = lbound(std_elem,dim=1),ubound(std_elem,dim=1)
+      !
+      if (.not. allocated(del_ref_coord(this_geom,this_order)%pts)) cycle
+      !
+      nd = size(std_elem(this_geom,this_order)%pts,dim=1)
+      np = size(std_elem(this_geom,this_order)%pts,dim=2)
+      !
+      do n = 1,np
+        !
+        do l = 1,nd
+          dx = huge(zero)
+          do i = 1,np
+            if (i == n) cycle
+            dy = abs( std_elem(this_geom,this_order)%pts(l,n) - &
+                      std_elem(this_geom,this_order)%pts(l,i) )
+            if (dy > eps6) dx = min(dx,dy)
+          end do
+          if (account_for_boundaries) then
+            dy = abs( std_elem(this_geom,this_order)%pts(l,n) - one )
+            if (dy > eps6) dx = min(dx,dy)
+            if (this_geom == Geom_Tria .and. .not. tria_is_biunit) then
+              dy = abs( std_elem(this_geom,this_order)%pts(l,n) - zero )
+              if (dy > eps6) dx = min(dx,dy)
+            else
+              dy = abs( std_elem(this_geom,this_order)%pts(l,n) + one )
+              if (dy > eps6) dx = min(dx,dy)
+            end if
+          end if
+          del_ref_coord(this_geom,this_order)%pts(l,n) = one/dx
+        end do
+        !
+      end do
+      !
+      write (140,100) Geom_Name(this_geom),this_order
+      do l = 1,nd
+        ni = this_order+1
+        write (140,102) trim(adjustl(char_ijk(l)))
+        if (nd == 1) then
+          write (140,101) &
+            (one/del_ref_coord(this_geom,this_order)%pts(l,i),i=1,ni)
+        else if (nd == 2) then
+          do j = ni,1,-1
+            write (140,101) &
+              (one/del_ref_coord(this_geom,this_order)%pts(l,(j-1)*ni+i),i=1,ni)
+          end do
+        else if (nd == 3) then
+          do k = 1,ni
+            do j = ni,1,-1
+              write (140,101) &
+  (one/del_ref_coord(this_geom,this_order)%pts(l,(k-1)*ni*ni+(j-1)*ni+i),i=1,ni)
+            end do
+            write (140,*)
+          end do
+        end if
+      end do
+      100 format (/,"Geom = ",a," ; Order = ",i0)
+      101 format (2x,100es14.6)
+      102 format (2x,"delta_",a)
+      !
+    end do
+  end do
+  !
+  allocate ( time_metrics(1:nr+1,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"time_metrics",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  do nc = 1,ncell
+    !
+    this_geom = cell(nc)%geom
+    this_order = cell(nc)%order
+    !
+    n0 = cell(nc)%beg_sp-1
+    np = cell(nc)%end_sp-n0
+    !
+   !do n = 1,np
+   !  !
+   !  jacobian = jac(n0+n)
+   !  !
+   !  del(1:nr) = del_ref_coord(this_geom,this_order)%pts(1:nr,n)
+   !  !
+   !  do l = 1,nr
+   !    !
+   !    dx = jacobian * dot( del(1:nr) , metrics_array(n0+n,1:nr,l) )
+   !    !
+   !    time_metrics(l,n0+n) = one/dx
+   !    !
+   !  end do
+   !  !
+   !  time_metrics(nr+1,n0+n) = norm2(time_metrics(1:nr,n0+n))
+   !  !
+   !end do
+    !
+    if (nr == 3) then
+      !
+      do n = 1,np
+        !
+        d1 = del_ref_coord(this_geom,this_order)%pts(1,n)
+        d2 = del_ref_coord(this_geom,this_order)%pts(2,n)
+        d3 = del_ref_coord(this_geom,this_order)%pts(3,n)
+        !
+        jacobian = jac(n0+n)
+        !
+        d1dx = metrics_array(n0+n,1,1)*jacobian
+        d2dx = metrics_array(n0+n,2,1)*jacobian
+        d3dx = metrics_array(n0+n,3,1)*jacobian
+        !
+        d1dy = metrics_array(n0+n,1,2)*jacobian
+        d2dy = metrics_array(n0+n,2,2)*jacobian
+        d3dy = metrics_array(n0+n,3,2)*jacobian
+        !
+        d1dz = metrics_array(n0+n,1,3)*jacobian
+        d2dz = metrics_array(n0+n,2,3)*jacobian
+        d3dz = metrics_array(n0+n,3,3)*jacobian
+        !
+        dx = one / (d1*d1dx + d2*d2dx + d3*d3dx)
+        dy = one / (d1*d1dy + d2*d2dy + d3*d3dy)
+        dz = one / (d1*d1dz + d2*d2dz + d3*d3dz)
+        !
+        time_metrics(1,n0+n) = dx
+        time_metrics(2,n0+n) = dy
+        time_metrics(3,n0+n) = dz
+        time_metrics(4,n0+n) = sqrt(dx*dx + dy*dy + dz*dz)
+        !
+      end do
+      !
+    else if (nr == 2) then
+      !
+      do n = 1,np
+        !
+        d1 = del_ref_coord(this_geom,this_order)%pts(1,n)
+        d2 = del_ref_coord(this_geom,this_order)%pts(2,n)
+        !
+        jacobian = jac(n0+n)
+        !
+        d1dx = metrics_array(n0+n,1,1)*jacobian
+        d2dx = metrics_array(n0+n,2,1)*jacobian
+        !
+        d1dy = metrics_array(n0+n,1,2)*jacobian
+        d2dy = metrics_array(n0+n,2,2)*jacobian
+        !
+        dx = one / (d1*d1dx + d2*d2dx)
+        dy = one / (d1*d1dy + d2*d2dy)
+        !
+        time_metrics(1,n0+n) = dx
+        time_metrics(2,n0+n) = dy
+        time_metrics(3,n0+n) = sqrt(dx*dx + dy*dy)
+        !
+      end do
+      !
+    else
+      !
+      do n = 1,np
+        !
+        d1 = del_ref_coord(this_geom,this_order)%pts(1,n)
+        !
+        jacobian = jac(n0+n)
+        !
+        d1dx = metrics_array(n0+n,1,1)*jacobian
+        !
+        dx = one / (d1*d1dx)
+        !
+        time_metrics(1,n0+n) = dx
+        time_metrics(2,n0+n) = sqrt(dx*dx)
+        !
+      end do
+      !
+    end if
+    !
+  end do
+  !
+  deallocate ( del_ref_coord , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"del_ref_coord",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine create_time_metrics
 !
 !###############################################################################
 !
