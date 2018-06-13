@@ -38,6 +38,10 @@ module plot3dio_mod
 !   real(wp),allocatable,dimension(:,:),intent(inout) :: data
   end type type_plot3dinfo
 
+  character(len=*), parameter :: ind = "                    "
+  !
+  integer, save :: indx = 2
+  
   character(len=*), parameter :: &
      errstr = " ######################  ERROR!  ######################"
 
@@ -202,9 +206,10 @@ continue
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
         if (mypnum == glb_root) then
-          write (iout,*) 'Reading plot3d header from: ',trim(file)
-          write (iout,*) '  Form    = ',trim(p3d_form   )
-          write (iout,*) '  Convert = ',trim(p3d_convert)
+          write (iout,*) ind(1:indx-2),'Reading plot3d header from: ', &
+                                       trim(adjustl(file))
+          write (iout,*) ind(1:indx),'Form    = ',trim(adjustl(p3d_form   ))
+          write (iout,*) ind(1:indx),'Convert = ',trim(adjustl(p3d_convert))
           flush (iout)
         endif
 !-DEBUG_END:
@@ -220,17 +225,18 @@ continue
 !-DEBUG_CMT:  Print info on what we are trying to read.
         if (mypnum == glb_root) then
           if ( iostat == 0 ) then
-            write (iout,*) '  Open SUCCEEDED'
+            write (iout,*) ind(1:indx),'Open SUCCEEDED'
           else
-            write (iout,*) '  Open FAILED'
-            write (iout,*) '    iostat = ',iostat
-            write (iout,*) '    errmsg = ',trim(iomsg)
+            write (iout,*) ind(1:indx),'Open FAILED'
+            write (iout,*) ind(1:indx+2),'iostat = ',iostat
+            write (iout,*) ind(1:indx+2),'errmsg = ',trim(adjustl(iomsg))
           endif
           flush (iout)
         endif
 !-DEBUG_END:
       ! If file opened ok, proceed.
       if ( iostat == 0 ) then
+        indx = indx + 2
 
         ! Loop over remaining plot3d options for header.
         ! Loop order based on likelihood of guessing format (ie, popularity).
@@ -251,10 +257,10 @@ continue
 !         write (iout,*) 'Reading plot3d header from: ',trim(file)
 !         write (iout,*) '  Form    = ',trim(p3d_form   )
 !         write (iout,*) '  Convert = ',trim(p3d_convert)
-          write (iout,*) '  Type    = ',trim(p3d_type   )
-          write (iout,*) '  Mgrid   = ',trim(p3d_mgrid  )
-          write (iout,*) '  Dim     = ',trim(p3d_dim    )
-          write (iout,*) '  Iprec   = ',trim(p3d_iprec  )
+          write (iout,*) ind(1:indx),'Type    = ',trim(adjustl(p3d_type   ))
+          write (iout,*) ind(1:indx),'Mgrid   = ',trim(adjustl(p3d_mgrid  ))
+          write (iout,*) ind(1:indx),'Dim     = ',trim(adjustl(p3d_dim    ))
+          write (iout,*) ind(1:indx),'Iprec   = ',trim(adjustl(p3d_iprec  ))
           flush (iout)
         endif
 !-DEBUG_END:
@@ -268,8 +274,8 @@ continue
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we are trying to read.
         if (mypnum == glb_root) then
-          write (iout,*) '  iostat  = ',iostat
-          write (iout,*) '  iomsg   = ',trim(iomsg)
+          write (iout,*) ind(1:indx+2),'iostat  = ',iostat
+          write (iout,*) ind(1:indx+2),'iomsg   = ',trim(adjustl(iomsg))
           flush (iout)
         endif
 !-DEBUG_END:
@@ -287,6 +293,7 @@ continue
     end do
     end do
     end do loop_header
+    indx = indx - 2
     iostat_header = iostat
     ! If could not read header, then skip reading the body.
     if ( iostat /= 0 ) then
@@ -312,11 +319,12 @@ continue
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Print info on what we tried to read.
       if (mypnum == glb_root) then
-        write (iout,*) 'Reading plot3d body from: ',trim(file)
-        write (iout,*) '  Blank   = ',trim(p3d_blank  )
-        write (iout,*) '  Rprec   = ',trim(p3d_rprec  )
-        write (iout,*) '  iostat  = ',iostat
-        write (iout,*) '  iomsg   = ',trim(iomsg)
+        write (iout,*) ind(1:indx-2),'Reading plot3d body from: ', &
+                                     trim(adjustl(file))
+        write (iout,*) ind(1:indx),'Blank   = ',trim(adjustl(p3d_blank  ))
+        write (iout,*) ind(1:indx),'Rprec   = ',trim(adjustl(p3d_rprec  ))
+        write (iout,*) ind(1:indx),'iostat  = ',iostat
+        write (iout,'(1x,a,a,a)') ind(1:indx),'iomsg   = ',trim(adjustl(iomsg))
         flush (iout)
       endif
 !-DEBUG_END:
@@ -361,21 +369,21 @@ continue
     if (mypnum == glb_root) then
       write (iout,*) 'DEBUG_BEG[plot3dio_read_unknown_file]'
       write (iout,*) '  Unable to read Plot3d file'
-      write (iout,*) '  ',trim(file)
-      write (iout,*) '  ',trim(iomsg)
+      write (iout,*) '  ',trim(adjustl(file))
+      write (iout,*) '  ',trim(adjustl(iomsg))
       write (iout,*) 'DEBUG_END[plot3dio_read_unknown_file]'
       flush (iout)
     end if
 !-DEBUG_CMT: gcc "Fortran runtime error: End of file" on next regular line.
 !-DEBUG_END:
-    write (iomsg,'(a,a,/,a)') 'Unable to read Plot3d file '//trim(file)//'.', &
-                           trim(iomsg)
+    write (iomsg,'(a,a,/,a)') 'Unable to read Plot3d file ' // &
+                              trim(adjustl(file)) // '.', trim(adjustl(iomsg))
   end if
 
   ! Return Plot3d settings if requested.
   ! Set what was finally found to work.
   if ( present(plot3dinfo) ) then
-    plot3dinfo%file    = trim(file)
+    plot3dinfo%file    = trim(adjustl(file))
     if ( iostat_header == 0 ) then
       plot3dinfo%form    = p3d_form
       plot3dinfo%convert = p3d_convert
@@ -850,6 +858,15 @@ continue
         read (unit,*,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
+        if (ndim == 3) then
+          if (nblk == 1) then
+            if (ijk(1,nblk) == 1 .and. all(ijk(2:3,nblk)>1)) then
+              iostat = 1
+              iomsg  = 'This is most likely a 2D multi-block grid and ' // &
+                       'not a 3D single-block grid with only 1 i-plane.'
+            end if
+          end if
+        end if
       else if ( type == 'SOL' ) then
         read (unit,*,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
@@ -1334,6 +1351,15 @@ continue
         read (unit,*,iostat=iostat,iomsg=iomsg) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
         nvar(:) = ndim
+        if (ndim == 3) then
+          if (nblk == 1) then
+            if (ijk(1,nblk) == 1 .and. all(ijk(2:3,nblk)>1)) then
+              iostat = 1
+              iomsg  = 'This is most likely a 2D multi-block grid and ' // &
+                       'not a 3D single-block grid with only 1 i-plane.'
+            end if
+          end if
+        end if
       else if ( type == 'SOL' ) then
         read (unit,*,iostat=iostat) &
           ((ijk(l,n),             l=1,ndim), n=1,nblk)
