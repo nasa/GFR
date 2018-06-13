@@ -333,15 +333,14 @@ continue
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
       call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
-      ! We dont want to allocate the pts component for this geometry since
-      ! it will never be used and will just be a waste of memory.
+      ! Allocate the pts component of the current geometry/order combination
       !
-     !allocate ( this_elem%pts(1:ndim,1:npts) , &
-     !           stat=ierr , errmsg=error_message )
-     !write (array_name,1) Geom_Name(this_geom),this_order,"pts"
-     !call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
+      allocate ( this_elem%pts(1:ndim,1:npts) , &
+                 stat=ierr , errmsg=error_message )
+      write (array_name,1) Geom_Name(this_geom),this_order,"pts"
+      call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr,error_message)
       !
-      ! Fill in the quadrature weights for the
+      ! Fill in the quadrature points and weights for the
       ! current geometry/order combination
       !
       select case (this_geom)
@@ -835,34 +834,34 @@ function get_quad_quadrature(edge_elem) result(return_value)
   !
   integer :: i,j,l,n,ndim,npts,ierr
   !
- !real(qp), allocatable :: pts(:,:)
+  real(qp), allocatable :: pts(:,:)
   real(qp), allocatable :: wts(:)
   !
 continue
   !
   n = size(edge_elem%wts) - 1
   !
- !ndim = geom_dimen(Geom_Quad)
+  ndim = geom_dimen(Geom_Quad)
   npts = geom_solpts(Geom_Quad,n)
- !!
- !! Compute the tensor product of the 1D solution points
- !!
- !allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
- !!
- !l = 0
- !do j = 1,size(edge_elem%pts,dim=2)
- !  do i = 1,size(edge_elem%pts,dim=2)
- !    l = l + 1
- !    pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
- !    pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
- !  end do
- !end do
- !!
- !allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
- !!
- !return_value%pts = chop( pts )
- !!
- !deallocate ( pts , stat=ierr )
+  !
+  ! Compute the tensor product of the 1D solution points
+  !
+  allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
+  !
+  l = 0
+  do j = 1,size(edge_elem%pts,dim=2)
+    do i = 1,size(edge_elem%pts,dim=2)
+      l = l + 1
+      pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
+      pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
+    end do
+  end do
+  !
+  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
+  !
+  return_value%pts = chop( pts )
+  !
+  deallocate ( pts , stat=ierr )
   !
   ! Compute the tensor product of the 1D weights
   !
@@ -898,12 +897,14 @@ function get_tetr_quadrature(n) result(return_value)
   !
   type(element_type) :: return_value
   !
-  integer :: npts,ierr
+  integer :: ndim,npts,ierr
   !
 continue
   !
+  ndim = geom_dimen(Geom_Tetr)
   npts = geom_solpts(Geom_Tetr,n)
   !
+  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
   allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
   !
   return_value%wts = one / real(npts,kind=wp)
@@ -923,12 +924,14 @@ function get_pyra_quadrature(n) result(return_value)
   !
   type(element_type) :: return_value
   !
-  integer :: npts,ierr
+  integer :: ndim,npts,ierr
   !
 continue
   !
+  ndim = geom_dimen(Geom_Pyra)
   npts = geom_solpts(Geom_Pyra,n)
   !
+  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
   allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
   !
   return_value%wts = one / real(npts,kind=wp)
@@ -948,12 +951,14 @@ function get_pris_quadrature(n) result(return_value)
   !
   type(element_type) :: return_value
   !
-  integer :: npts,ierr
+  integer :: ndim,npts,ierr
   !
 continue
   !
+  ndim = geom_dimen(Geom_Pris)
   npts = geom_solpts(Geom_Pris,n)
   !
+  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
   allocate ( return_value%wts(1:npts) , source=zero , stat=ierr )
   !
   return_value%wts = one / real(npts,kind=wp)
@@ -975,37 +980,37 @@ function get_hexa_quadrature(edge_elem) result(return_value)
   !
   integer :: i,j,k,l,n,ndim,npts,ierr
   !
- !real(qp), allocatable :: pts(:,:)
+  real(qp), allocatable :: pts(:,:)
   real(qp), allocatable :: wts(:)
   !
 continue
   !
   n = size(edge_elem%wts) - 1
   !
- !ndim = geom_dimen(Geom_Hexa)
+  ndim = geom_dimen(Geom_Hexa)
   npts = geom_solpts(Geom_Hexa,n)
- !!
- !! Compute the tensor product of the 1D solution points
- !!
- !allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
- !!
- !l = 0
- !do k = 1,size(edge_elem%pts,dim=2)
- !  do j = 1,size(edge_elem%pts,dim=2)
- !    do i = 1,size(edge_elem%pts,dim=2)
- !      l = l + 1
- !      pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
- !      pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
- !      pts(3,l) = real( edge_elem%pts(1,k) , kind=qp )
- !    end do
- !  end do
- !end do
- !!
- !allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
- !!
- !return_value%pts = chop( pts )
- !!
- !deallocate ( pts , stat=ierr )
+  !
+  ! Compute the tensor product of the 1D solution points
+  !
+  allocate ( pts(1:ndim,1:npts) , source=qzero , stat=ierr )
+  !
+  l = 0
+  do k = 1,size(edge_elem%pts,dim=2)
+    do j = 1,size(edge_elem%pts,dim=2)
+      do i = 1,size(edge_elem%pts,dim=2)
+        l = l + 1
+        pts(1,l) = real( edge_elem%pts(1,i) , kind=qp )
+        pts(2,l) = real( edge_elem%pts(1,j) , kind=qp )
+        pts(3,l) = real( edge_elem%pts(1,k) , kind=qp )
+      end do
+    end do
+  end do
+  !
+  allocate ( return_value%pts(1:ndim,1:npts) , source=zero , stat=ierr )
+  !
+  return_value%pts = chop( pts )
+  !
+  deallocate ( pts , stat=ierr )
   !
   ! Compute the tensor product of the 1D weights
   !
