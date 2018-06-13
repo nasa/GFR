@@ -553,8 +553,6 @@ continue
     end do
   end do
   !
- !!$ACC UPDATE SELF(dtmin)
-  !
   !$ACC END DATA
   deallocate ( dsf )
   deallocate ( eigni )
@@ -565,8 +563,12 @@ continue
   ! Get the minimum timestep across all processors
   !
   if (ncpu > 1) then
+    ! Update the value of dtmin on the CPU
+    !$ACC UPDATE SELF(dtmin)
     call mpi_allreduce(MPI_IN_PLACE,dtmin,1_int_mpi,mpi_flttyp, &
                        MPI_MIN,MPI_COMM_WORLD,mpierr)
+    ! Update the value of dtmin on the GPU
+    !$ACC UPDATE DEVICE(dtmin)
   end if
   !
   call debug_timer(leaving_procedure,pname)
