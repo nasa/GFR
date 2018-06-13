@@ -223,6 +223,8 @@ module ovar
   !
   logical(lk), public, save :: output_limiter_statistics = fals
   !
+  logical(lk), public, save :: output_filter_diagonals = fals
+  !
   character(len=150), public, save :: sem_profile_file = ""
   !
   ! #################################
@@ -657,7 +659,7 @@ module input_namelist_mod
   use ovar,      only : time_average_restart_files, restart_list_file
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
-  use ovar,      only : output_limiter_statistics
+  use ovar,      only : output_limiter_statistics,output_filter_diagonals
   use ovar,      only : sem_profile_file
   use module_cgns_types, only : cgns_use_queue
   !
@@ -767,7 +769,7 @@ module input_namelist_mod
   ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
   namelist / input / walls_are_exact
   ! VARIOUS DEBUG TYPE VARIABLES
-  namelist / input / output_bface_array
+  namelist / input / output_bface_array, output_filter_diagonals
   ! CGNS OUTPUT OPTIONS
   namelist / input / cgns_use_queue, interpolate_before_output_variable, &
                      convert_restart_to_cgns, completely_disable_cgns

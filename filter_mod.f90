@@ -58,6 +58,8 @@ module filter_mod
   integer, parameter :: Cutoff_Filter_Option = 1
  !integer, parameter :: Cutoff_Filter_Option = 2
   !
+  integer, save :: io
+  !
 contains
 !
 !###############################################################################
@@ -65,6 +67,7 @@ contains
 subroutine init_filter_matrices()
   !
   !.. Use Statements ..
+  use ovar,      only : output_filter_diagonals
   use order_mod, only : geom_solpts
   use order_mod, only : n_min_geom,n_max_geom
   use order_mod, only : n_min_order,n_max_order
@@ -74,7 +77,7 @@ subroutine init_filter_matrices()
   !.. Local Scalars ..
   integer :: ierr,gmin,gmax,omin,omax
   integer :: this_geom,this_order,npts
-  integer :: cutoff_order
+  integer :: cutoff_order,i,j
   character(len=200) :: array_name
   character(len=300) :: timer_message
   !
@@ -89,6 +92,7 @@ subroutine init_filter_matrices()
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "init_filter_matrices"
+  character(len=*), parameter :: fname = "filter_diagonals.dat"
   !
 continue
   !
@@ -100,6 +104,12 @@ continue
   fmat => null()
   vmat => null()
   vmat_inv => null()
+  !
+  if (output_filter_diagonals .and. mypnum == glb_root) then
+    open (newunit=io,file=fname,status="replace",action="write", &
+                     iostat=ierr,iomsg=error_message)
+    call io_error(pname,fname,1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Allocate the filter array
   !
@@ -132,7 +142,7 @@ continue
       ! #####  1. Exponential Filter  #####
       ! ###################################
       !
-      if (Filter_Option > 0) then
+      if (Filter_Option > 0 .or. output_filter_diagonals) then
         !
         write (timer_message,200) trim(adjustl(Geom_Name(this_geom))),this_order
         200 format ("Exponential filter: Geometry = ",a,"  ;  Order = ",i0)
@@ -168,6 +178,14 @@ continue
           case (Geom_Edge)
             !
             fmat = FilterMatrix_Edge( vmat , vmat_inv )
+            !
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              write (io,800) "Edge Standard Filter"
+              if (Filter_Option == 0) write (io,802)
+              do j = npts,1,-1
+                write (io,801) (fmat(i,j), i=1,npts)
+              end do
+            end if
             !
           case (Geom_Tria)
             !
@@ -212,7 +230,7 @@ continue
       ! #####  2. Limiter Filter  #####
       ! ###############################
       !
-      if (Limiter_Filter_Option /= 0) then
+      if (Limiter_Filter_Option /= 0 .or. output_filter_diagonals) then
         !
         write (timer_message,201) trim(adjustl(Geom_Name(this_geom))),this_order
         201 format ("Limiter filter: Geometry = ",a,"  ;  Order = ",i0)
@@ -247,7 +265,21 @@ continue
         select case (this_geom)
           case (Geom_Edge)
             !
-            fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order=-1 )
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              !
+              fmat = FilterMatrix_Edge_with_output( vmat , vmat_inv , &
+                                                    cutoff_order=-1 )
+              write (io,800) "Edge Limiter Filter"
+              if (Limiter_Filter_Option == 0) write (io,802) 
+              do j = npts,1,-1
+                write (io,801) (fmat(i,j), i=1,npts)
+              end do
+              !
+            else
+              !
+              fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order=-1 )
+              !
+            end if
             !
           case (Geom_Tria)
             !
@@ -323,12 +355,31 @@ continue
         !
         fmat => filt%mat
         !
+        if (output_filter_diagonals .and. mypnum == glb_root) then
+          if (cutoff_order == this_order .and. this_geom == Geom_Edge) then
+            fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order+1 )
+            write (io,800) "Edge Cutoff Filter",&
+                           " for P-",this_order+1-(cutoff_order+1)
+            do j = npts,1,-1
+              write (io,801) (fmat(i,j), i=1,npts)
+            end do
+          end if
+        end if
+        !
         ! Compute the filter matrices depending on geometry type
         !
         select case (this_geom)
           case (Geom_Edge)
             !
             fmat = FilterMatrix_Edge( vmat , vmat_inv , cutoff_order )
+            !
+            if (output_filter_diagonals .and. mypnum == glb_root) then
+              write (io,800) "Edge Cutoff Filter",&
+                             " for P-",this_order+1-cutoff_order
+              do j = npts,1,-1
+                write (io,801) (fmat(i,j), i=1,npts)
+              end do
+            end if
             !
           case (Geom_Tria)
             !
@@ -383,6 +434,16 @@ continue
     !
   end do geom_loop
   !
+  if (output_filter_diagonals) then
+    if (mypnum == glb_root) then
+      flush (io)
+      close (io,iostat=ierr,iomsg=error_message)
+      call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
+    end if
+    write (error_message,803)
+    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
   ! Check for sparsity
   !
   do this_geom = gmin,gmax
@@ -420,6 +481,13 @@ continue
   !
   1 format ("filter(",a,",",i0,")%",a,:,"(",i0,")%mat")
   100 format (" A grid cell of an unknown geometry type was found!")
+  !
+  800 format (/,a,:,a,i0)
+  801 format (100(2x,es14.6))
+  802 format ("  NOTE: CURRENTLY NOT USED BECAUSE ", &
+              "IT IS TURNED OFF IN THE INPUT FILE!")
+  803 format ("AFTER WRITING OUT THE FILTER DIAGONALS ", &
+              "TO 'filter_diagonals.dat'.")
   !
 end subroutine init_filter_matrices
 !
@@ -811,6 +879,136 @@ continue
   return_value = chop( fmat_qp )
   !
 end function FilterMatrix_Edge
+!
+!###############################################################################
+!
+function FilterMatrix_Edge_with_output(vand,vand_inv,cutoff_order) &
+                                result(return_value)
+  !
+  ! Routine to compute the spectral filter matrices
+  !
+  !.. Formal Arguments ..
+  real(wp), dimension(:,:), intent(in) :: vand
+  real(wp), dimension(:,:), intent(in) :: vand_inv
+  !
+  !.. Optional Arguments ..
+  integer,  optional, intent(in) :: cutoff_order
+  !
+  !.. Function Return Value ..
+  real(wp), allocatable :: return_value(:,:)
+  !
+  !.. Local Scalars ..
+  integer  :: i,nsp,order
+  integer  :: Filter_Cutoff,ierr
+  integer  :: local_Filter_Option
+  integer  :: filt_order
+  real(qp) :: rd_qp,fetac_qp
+  real(qp) :: rn_qp,falpha_qp
+  real(qp) :: feps_qp
+  !
+  !.. Local Allocatable Arrays ..
+  real(qp), allocatable :: filter_1D_qp(:)
+  real(qp), allocatable :: fmat_qp(:,:)
+  !
+continue
+  !
+  ! Get the number of solution points
+  !
+  nsp = size(vand,dim=1)
+  order = nsp-1
+  !
+  ! Covert Filter_Alpha and Filter_etac to quad precision
+  !
+  falpha_qp = real( Filter_Alpha , kind=qp )
+  !
+  filt_order = Filter_Order
+  !
+  if (present(cutoff_order)) then
+    if (cutoff_order >= 0) then
+      local_Filter_Option = Cutoff_Filter_Option
+      Filter_Cutoff = cutoff_order
+      fetac_qp = real(cutoff_order,kind=qp) / real(order,kind=qp)
+      feps_qp = qzero
+    else
+      fetac_qp = real( Limiter_Filter_etac , kind=qp )
+      Filter_Cutoff = nint( max(zero,min(one,Limiter_Filter_etac)) * &
+                      real(order,kind=wp) )
+      local_Filter_Option = Limiter_Filter_Option
+      feps_qp = real( one - Limiter_Filter_eps , kind=qp )
+      falpha_qp = real( Limiter_Filter_Alpha , kind=qp )
+      filt_order = Limiter_Filter_Order
+    end if
+  else
+    fetac_qp = real( Filter_etac , kind=qp )
+    Filter_Cutoff = nint( max(zero,min(one,Filter_etac)) * real(order,kind=wp) )
+    local_Filter_Option = Filter_Option
+    feps_qp = real( one - Filter_eps , kind=qp )
+  end if
+  !
+  ! Allocate the return array containing the working
+  ! precision filter matrix
+  !
+  allocate ( return_value(1:nsp,1:nsp) , source=zero , stat=ierr )
+  !
+  ! Create the filter matrix using quad precision
+  !
+  allocate ( fmat_qp(1:nsp,1:nsp) , source=qzero , stat=ierr )
+  !
+  ! Initialize the local filter matrices to identity matrices
+  !
+  do i = 1,nsp
+    fmat_qp(i,i) = qone
+  end do
+  !
+  ! Fill the diagonal of the filter matrix with the filter function
+  !
+  if (local_Filter_Option /= 0) then
+    !
+    do i = 0,order
+      if (i >= Filter_Cutoff) then
+        !
+        rn_qp = real(i,kind=qp)/real(order,kind=qp) - fetac_qp
+        rd_qp = max( qzero , qone - fetac_qp )
+        !
+        if (rd_qp == qzero) then
+          fmat_qp(i+1,i+1) = feps_qp
+        else
+          fmat_qp(i+1,i+1) = feps_qp*exp(-falpha_qp*(rn_qp/rd_qp)**filt_order)
+        end if
+        !
+      end if
+    end do
+    !
+    if (mypnum == glb_root) then
+      if (present(cutoff_order)) then
+        if (cutoff_order == -1) then
+          write (io,102)
+          102 format (/,"Diagonal for edge limiter filter")
+        else
+          write (io,101) order+1-(Filter_cutoff)
+          101 format (/,"Diagonal for edge cutoff filter for P-",i0)
+        end if
+      else
+        write (io,103)
+        103 format (/,"Diagonal for edge standard filter")
+      end if
+      write (io,100) (fmat_qp(i,i),i=1,nsp)
+      100 format (100(2x,es14.6))
+    end if
+    !
+  end if
+  !
+  ! Compute the final filter matrix for quadrilaterals
+  !
+  fmat_qp = matmul( real(vand,kind=qp) , fmat_qp )
+  fmat_qp = matmul( fmat_qp , real(vand_inv,kind=qp) )
+  !
+  ! Use the chop function to copy fmat_qp into return_value while also
+  ! setting any values that are less than working machine epsilon to zero.
+  !
+  return_value = chop( fmat_qp )
+  !
+end function FilterMatrix_Edge_with_output
 !
 !###############################################################################
 !
