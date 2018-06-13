@@ -6885,7 +6885,9 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   use ovar,    only : profile_io_cgns,profile_io_cgns_subs
   use ovar,    only : Limiter_Option
   use ovar,    only : max_wall_time => max_cgns_wall_time
-  use flowvar, only : usp,dusp
+  use flowvar, only : usp,dusp,dtsp
+  !
+  use metrics_mod, only : time_metrics,metrics_array,jac
   !
   use module_limiters, only : marker,scaled_marker
   use module_limiters, only : resolution_indicator
@@ -6896,7 +6898,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: k,l,m,n,nc,ierr
+  integer :: i,k,l,m,n,nc,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -6919,12 +6921,23 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "write_parallel_cgns_solution_file"
   character(len=*), parameter :: char_xyz(1:3) = ["X","Y","Z"]
+  character(len=*), parameter :: char_ijk(1:3) = ["Xi  ","Eta ","Zeta"]
   character(len=*), parameter :: char_sdefault(1:6) = ["Density         ", &
                                                        "Velocity        ", &
                                                        "Pressure        ", &
                                                        "Mach            ", &
                                                        "Temperature     ", &
                                                        "ResolutionMarker"]
+ !character(len=*), parameter :: char_sdefault(1:10) = ["Density         ", &
+ !                                                      "Velocity        ", &
+ !                                                      "Pressure        ", &
+ !                                                      "Mach            ", &
+ !                                                      "Temperature     ", &
+ !                                                      "ResolutionMarker", &
+ !                                                      "JumpMarker      ", &
+ !                                                      "Timestep        ", &
+ !                                                      "TimeMetrics     ", &
+ !                                                      "ContraMetrics   "]
  !character(len=*), parameter :: char_sdefault(1:7) = ["Density         ", &
  !                                                     "Velocity        ", &
  !                                                     "Pressure        ", &
@@ -7264,6 +7277,14 @@ continue
         n = n + 2
       else if (trim(char_sname(l)) == "JumpMarker") then
         n = n + 2
+      else if (trim(char_sname(l)) == "TimeMetrics") then
+        if (allocated(time_metrics)) then
+          n = n + nr + 1
+        end if
+      else if (trim(char_sname(l)) == "CoMetrics") then
+     !  n = n + nr*nr
+      else if (trim(char_sname(l)) == "ContraMetrics") then
+        n = n + nr*nr
       else
         n = n + 1
       end if
@@ -7424,6 +7445,71 @@ continue
                         "Write node: Solution variable",n)
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
+      else if (trim(char_sname(l)) == "CoMetrics") then
+     !  do m = 1,nr
+     !    do i = 1,nr
+     !      n = n + 1
+     !      varname = "Covariant Metric d" // &
+     !                trim(adjustl(char_xyz(m))) // "d" // char_ijk(i)
+     !      call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+     !                      "cgp_field_write_f")
+     !      call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+     !                             CGNS_KIND_REAL,trim(varname), &
+     !                             isvar_s(n),cgierr)
+     !      call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+     !                      cgierr,__LINE__,__FILE__, &
+     !                      "Write node: Solution variable",n)
+     !      call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+     !                      "cgp_field_write_f")
+     !    end do
+     !  end do
+      else if (trim(char_sname(l)) == "ContraMetrics") then
+        do m = 1,nr
+          do i = 1,nr
+            n = n + 1
+            varname = "Contravariant Metric d" // &
+                      trim(adjustl(char_ijk(m))) // "d" // char_xyz(i)
+            call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                            "cgp_field_write_f")
+            call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                   CGNS_KIND_REAL,trim(varname), &
+                                   isvar_s(n),cgierr)
+            call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                            cgierr,__LINE__,__FILE__, &
+                            "Write node: Solution variable",n)
+            call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                            "cgp_field_write_f")
+          end do
+        end do
+      else if (trim(char_sname(l)) == "TimeMetrics") then
+        if (allocated(time_metrics)) then
+          do m = 1,nr
+            n = n + 1
+            varname = "Time Metric d" // char_xyz(m)
+            call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                            "cgp_field_write_f")
+            call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                   CGNS_KIND_REAL,trim(varname), &
+                                   isvar_s(n),cgierr)
+            call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                            cgierr,__LINE__,__FILE__, &
+                            "Write node: Solution variable",n)
+            call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                            "cgp_field_write_f")
+          end do
+          n = n + 1
+          varname = "Time Metric dA"
+          call cgns_timer(start_cgns_procedure_timer,profile_io_cgns_subs, &
+                          "cgp_field_write_f")
+          call cgp_field_write_f(ifile_s,ibase_s,izone_s,isol_s, &
+                                 CGNS_KIND_REAL,trim(varname), &
+                                 isvar_s(n),cgierr)
+          call cgns_error(pname,cgns_sol_file,"cgp_field_write_f", &
+                          cgierr,__LINE__,__FILE__, &
+                          "Write node: Solution variable",n)
+          call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
+                          "cgp_field_write_f")
+        end if
       else
         n = n + 1
         if (trim(char_sname(l)) == "Energy") then
@@ -7588,6 +7674,41 @@ continue
             vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = mypnum+1
           end do
           call cgns_write_field_parallel
+        case ("Timestep")
+          n = n + 1
+          vartmp(:) = interpolate_for_output( dtsp(1:n_solpts) )
+          vartmp(:) = vartmp(:) * time_ref
+          call cgns_write_field_parallel
+        case ("CoMetrics")
+         !do m = 1,nr
+         !  do i = 1,nr
+         !    n = n + 1
+         !    vartmp(:) = interpolate_for_output(metrics_array(1:n_solpts,m,i))
+         !    call cgns_write_field_parallel
+         !  end do
+         !end do
+        case ("ContraMetrics")
+          do m = 1,nr
+            do i = 1,nr
+              n = n + 1
+              vartmp(1:n_solpts) = jac(1:n_solpts)*metrics_array(1:n_solpts,m,i)
+              vartmp(:) = interpolate_for_output(vartmp(1:n_solpts))
+              call cgns_write_field_parallel
+            end do
+          end do
+        case ("TimeMetrics")
+          if (allocated(time_metrics)) then
+            do m = 1,nr
+              n = n + 1
+              vartmp(:) = one/time_metrics(m,1:n_solpts)
+              vartmp(:) = interpolate_for_output( vartmp(1:n_solpts) )
+              call cgns_write_field_parallel
+            end do
+            n = n + 1
+            vartmp(:) = interpolate_for_output( time_metrics(nr+1,1:n_solpts) )
+            vartmp(:) = vartmp(:) * time_ref
+            call cgns_write_field_parallel
+          end if
         case default
           n = n + 1
           vartmp(1:n_solpts) = interp_usp(1,1:n_solpts)
