@@ -223,6 +223,8 @@ module ovar
   !
   logical(lk), public, save :: output_limiter_statistics = fals
   !
+  character(len=150), public, save :: sem_profile_file = ""
+  !
   ! #################################
   ! ####   Non-Input Variables   ####
   ! #################################
@@ -656,6 +658,7 @@ module input_namelist_mod
   use ovar,      only : use_async_for_error
   use ovar,      only : ideal_total_temperature,limit_total_temperature
   use ovar,      only : output_limiter_statistics
+  use ovar,      only : sem_profile_file
   use module_cgns_types, only : cgns_use_queue
   !
   implicit none
@@ -797,6 +800,8 @@ module input_namelist_mod
   namelist / input / ideal_total_temperature, limit_total_temperature
   ! OUTPUT THE STATISTICS OF THE LIMITER
   namelist / input / output_limiter_statistics
+  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
+  namelist / input / sem_profile_file
   !
   ! CFL ADJUSTMENT NAMELIST
   !
