@@ -15,6 +15,8 @@ continue
       return_value = "sup_inflow"
     case (bc_mdot_inflow)
       return_value = "mdot_inflow"
+    case (bc_sem)
+      return_value = "SEM_inflow"
     case (bc_generic_outflow)
       return_value = "generic_outflow"
     case (bc_sub_outflow)

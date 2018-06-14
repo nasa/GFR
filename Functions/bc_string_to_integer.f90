@@ -73,6 +73,14 @@ continue
     ne = len_trim(text)
   end if
   !
+  ! Add the special case to check if the substring "SEM" exists
+  !
+  n = index(text,"SEM")
+  if (n > 0) then
+    return_value = bc_sem
+    return
+  end if
+  !
   ! Use the character string given in the PhysicalName
   ! section to set the value of the boundary condition\
   !

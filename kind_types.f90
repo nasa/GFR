@@ -411,6 +411,7 @@ module module_kind_types
   integer, parameter :: bc_sub_inflow = 2
   integer, parameter :: bc_sup_inflow = 3
   integer, parameter :: bc_mdot_inflow = 4
+  integer, parameter :: bc_sem = 5
   ! Outflow BCs
   integer, parameter :: bc_generic_outflow = 11
   integer, parameter :: bc_sub_outflow = 12
@@ -445,11 +446,12 @@ module module_kind_types
                                           bc_isothermal_wall ]
   !$ACC DECLARE COPYIN(bc_walls)
   !
-  integer, parameter :: bc_heirarchy(1:17) = [ bc_isothermal_wall, &
+  integer, parameter :: bc_heirarchy(1:18) = [ bc_isothermal_wall, &
                                                bc_adiabatic_wall, &
                                                bc_euler_wall, &
                                                bc_slip_wall, &
                                                bc_symmetry, &
+                                               bc_sem, &
                                                bc_fixed, &
                                                bc_freestream, &
                                                bc_sub_inflow, &
