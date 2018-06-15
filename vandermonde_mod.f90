@@ -359,7 +359,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !

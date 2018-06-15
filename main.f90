@@ -1213,7 +1213,7 @@ continue
                               trim(adjustl(invalid_error)), &
                               trim(adjustl(newton_error))
     !
-    call stop_recon(stop_mpi,pname,line_num,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,line_num,__FILE__,error_message)
     !
   end if
   !
@@ -1327,7 +1327,7 @@ continue
   if (present(request_stop)) then
     if (request_stop) then
       write (error_message,20)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !

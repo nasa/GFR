@@ -318,7 +318,7 @@ continue
           write (error_message,3) "quadrature", Legendre_Gauss, &
                                   Legendre_Gauss_Lobatto, Equi_Distant_Points, &
                                   "loc_quadrature_pts",loc_quadrature_pts
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
         end if
         !
@@ -422,7 +422,7 @@ continue
           case default
             !
             write (error_message,2)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -498,7 +498,7 @@ continue
           case default
             !
             write (error_message,2)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -584,7 +584,7 @@ continue
           case default
             !
             write (error_message,2)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -796,7 +796,7 @@ continue
           write (error_message,2) "initialization", &
                                   Legendre_Gauss, Legendre_Gauss_Lobatto, &
                                   "loc_init_pts",loc_init_pts
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
         end if
         !
@@ -871,7 +871,7 @@ continue
           write (error_message,3) "output", Legendre_Gauss, &
                                   Legendre_Gauss_Lobatto, Equi_Distant_Points, &
                                   "loc_output_pts",loc_output_pts
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
         end if
         !
@@ -947,7 +947,7 @@ continue
           write (error_message,2) "error", &
                                   Legendre_Gauss, Legendre_Gauss_Lobatto, &
                                   "loc_error_pts",loc_error_pts
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
         end if
         !
@@ -1114,7 +1114,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -1163,7 +1163,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !

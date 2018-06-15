@@ -1999,7 +1999,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "**************** ERROR ***************** "
     write (iout,*)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (var_min(nq+1) < tmin) then
@@ -2009,7 +2009,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "****************** ERROR ******************* "
     write (iout,*)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (var_max(nq+1) > tmax) then
@@ -2019,7 +2019,7 @@ continue
     write (iout,*) "ERROR OCCURRED ON PROCESSOR NO. ", mypnum
     write (iout,*) "****************** ERROR ******************* "
     write (iout,*)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   call debug_timer(leaving_procedure,pname)

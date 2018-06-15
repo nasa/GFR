@@ -459,7 +459,7 @@ continue
     !
     if (any(cells_with_node(n1:n2) /= 0)) then
       write (error_message,10)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     else
       call reallocate(cells_with_node,last(cells_with_node_ptr))
     end if
@@ -1176,7 +1176,7 @@ continue
     end if
     !
   end do
-  if (ic == 1) call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  if (ic == 1) call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   call debug_timer(stop_timer,"section 4")
   ! ###########
@@ -1588,7 +1588,7 @@ continue
   !
   if (error_finding_rotation) then
     write (iout,*) "There was an error rotating flux points!"
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   call debug_timer(stop_timer,"section 7")
@@ -1658,7 +1658,7 @@ continue
   !
   if ( left_ncnods < 5 .or. left_ncnods > 8 ) then
     write (error_message,1) ("left",i=1,3),left_ncnods
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Make sure the number of nodes for the right cell is between 4 and 8 because
@@ -1667,7 +1667,7 @@ continue
   !
   if ( right_ncnods < 4 .or. right_ncnods > 8 ) then
     write (error_message,2) ("right",i=1,3),right_ncnods
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Get the geometry of the left and right cells from the number of nodes
@@ -1733,7 +1733,7 @@ continue
       ! ERROR! This geometry is invalid
       !
       write (error_message,2) ("left",i=1,2),left_geom
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -1805,7 +1805,7 @@ continue
       ! ERROR! This geometry is invalid
       !
       write (error_message,2) ("right",i=1,2),right_geom
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -1864,7 +1864,7 @@ continue
   !
   if ( left_ncnods < 4 .or. left_ncnods > 6 ) then
     write (error_message,1) ("left",i=1,3),left_ncnods
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Make sure the number of nodes for the right cell is between 3 and 6 because
@@ -1873,7 +1873,7 @@ continue
   !
   if ( right_ncnods < 3 .or. right_ncnods > 6 ) then
     write (error_message,2) ("right",i=1,3),right_ncnods
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Get the geometry of the left and right cells from the number of nodes
@@ -1907,7 +1907,7 @@ continue
       ! ERROR! This geometry is invalid
       !
       write (error_message,2) ("left",i=1,2),left_geom
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -1945,7 +1945,7 @@ continue
       ! ERROR! This geometry is invalid
       !
       write (error_message,2) ("right",i=1,2),right_geom
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !
@@ -2924,7 +2924,7 @@ continue
   !
   if (bad_edges /= 0) then
     write (error_message,12)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Loop through the cells and create the information for each node of the cell
@@ -3765,7 +3765,7 @@ continue
  !      lon = lon + 1
  !      if (lon > max_lon) then
  !        write (error_message,3) max_lon
- !        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !      end if
  !      list_of_other_nodes(lon) = other_node
  !      !
@@ -4004,7 +4004,7 @@ continue
     !
     if (last(edges_with_node_ptr) /= size(edges_with_node)) then
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     write (iout,2) mypnum,"ledge",ledge
@@ -4192,7 +4192,7 @@ continue
   !
   if (last(cells_with_edge_ptr) /= size(cells_with_edge)) then
     write (error_message,1)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
  !allocate ( sorted_cwe(1:size(cells_with_edge)) , source=cells_with_edge , &

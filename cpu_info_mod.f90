@@ -686,7 +686,7 @@ continue
   end do
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
                   "AFTER DUMPING CPU LOCALITY!!")
 #endif
   !

@@ -77,7 +77,7 @@ continue
   do i = 1,n-1
     if (iarrin(indx(i+1)) < iarrin(indx(i))) then
       write (error_message,1)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
   end do
   !
@@ -143,7 +143,7 @@ continue
   do n = 1,nsort-1
     if (isort(n+1) < isort(n)) then
       write (error_message,1)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
   end do
   !

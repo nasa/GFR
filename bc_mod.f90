@@ -257,7 +257,7 @@ continue
         ! This shouldn't be here and is an unknown boundary condition
         !
         write (iout,1) bc_type
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+        call stop_gfr(abort,pname,__LINE__,__FILE__)
         !
     end select
     !
@@ -273,14 +273,14 @@ continue
       exit_error = newton_failures
     else
       write (error_message,2) newton_failures
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
   first_output = fals
   !
 #ifdef DEBUG_BC_GROUPS
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"after debugging bc_groups")
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"after debugging bc_groups")
 #endif
   !
  !call exchange_bc_conflicts_usp(faceusp)

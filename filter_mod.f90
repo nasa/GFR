@@ -214,7 +214,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -308,7 +308,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -411,7 +411,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -441,7 +441,7 @@ continue
       call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
     end if
     write (error_message,803)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Check for sparsity

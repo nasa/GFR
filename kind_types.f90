@@ -1465,7 +1465,7 @@ continue
   if (.not. tria_is_biunit) cl(Geom_Tria) = two
   !$ACC UPDATE DEVICE(cl)
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
 end subroutine initialize_runtime_parameters
 !
@@ -1512,7 +1512,7 @@ continue
     if (present(iemessag)) write (iout,5) trim(adjustl(iemessag))
     write (iout,6)
     !
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
     !
 #ifdef TRACK_MEMORY_ALLOCATIONS
 #define MEMORY_TEST_PAUSE
@@ -1599,7 +1599,7 @@ continue
   if (stop_value == 1) then
     error_message = "Abort issused during memory test at: " // &
                     trim(adjustl(after_message))
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   1 format ('(/," Memory test pause",/,a,/,a,/,', &
@@ -1678,7 +1678,7 @@ continue
     end if
     !
     write (iout,11) trim(adjustl(procedure_name)),error_flag
-    call stop_recon(abort,pname,line_number,src_file_name)
+    call stop_gfr(abort,pname,line_number,src_file_name)
     !
   end if
   !
@@ -1938,7 +1938,7 @@ continue
  !!
  !if (is_in_place(mpi_in_place) /= 1) then
  !  write (*,*) "MPI_IN_PLACE does not seem to be compatible with Fortran!"
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
  !end if
   !
 end subroutine initialize_mpi_environment
@@ -1963,7 +1963,7 @@ end subroutine finalize_mpi_environment
 !
 !###############################################################################
 !
-subroutine stop_recon(iend,procedure_name,line_number,file_name, &
+subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
                       optional_message)
   !
   !.. Formal Arguments ..
@@ -2062,7 +2062,7 @@ continue
   5 format (" ERROR MESSAGE: '",a,"'")
   6 format (66("#"),//)
   !
-end subroutine stop_recon
+end subroutine stop_gfr
 !
 !###############################################################################
 !

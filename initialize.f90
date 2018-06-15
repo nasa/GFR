@@ -159,7 +159,7 @@ continue
    !!
    !if ( .not. allocated(mapping) ) then
    !  write (error_message,101)
-   !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
    !end if
    !!
    !do this_cell = 1,ncell
@@ -1789,7 +1789,7 @@ continue
     !
     if (Lref <= zero) then
       write (error_message,101)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Set up the base reference conditions for the Taylor-Green Vortex problem
@@ -1833,7 +1833,7 @@ continue
       if (abs(pres_check-pref) > eps6) then
        !write (iout,102) pref,pres_check
         write (error_message,102) pref,pres_check
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     end if
     !
@@ -2255,7 +2255,7 @@ continue
           !
           if (ii == 5) then
             write (error_message,1) n
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           end if
           !
         end do iterate_bc_conditions
@@ -2780,7 +2780,7 @@ continue
   end if
   !
   if (errors_found) then
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Format Statements
@@ -2910,7 +2910,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-tmach) > eps6) then
         write (error_message,1) n,mach,tmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = tmach
@@ -2978,7 +2978,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-pmach) > eps6) then
         write (error_message,1) n,mach,pmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = pmach
@@ -3044,7 +3044,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-rmach) > eps6) then
         write (error_message,1) n,mach,rmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = rmach
@@ -3107,7 +3107,7 @@ continue
       !
       if (abs(pres_check-pres) > eps6) then
         write (error_message,1) n,pres,pres_check
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
     else if ( rho < zero .and. pres > zero .and. temp > zero ) then

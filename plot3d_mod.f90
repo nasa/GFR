@@ -398,7 +398,7 @@ continue
           if (mypnum == glb_root) then
             write(iout,*) &
             'ERROR:  For interpolation, both grids must be 2d or 3d.'
-            call stop_recon(abort,pname,__LINE__,__FILE__)
+            call stop_gfr(abort,pname,__LINE__,__FILE__)
           end if
           ! Have all the host roots call mpi_barrier here so that the
           ! MPI processes that arent the global root do not continue
@@ -487,7 +487,7 @@ continue
   !
   if ( ierr /= 0 ) then
     if (mypnum == glb_root) then
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -544,19 +544,19 @@ continue
   end do
   !
   ! If an error was found with the strides, only have the global root
-  ! call stop_recon with an abort flag. We cant use the stop_mpi flag
+  ! call stop_gfr with an abort flag. We cant use the stop_mpi flag
   ! here because only the host roots will call this routine, and the
-  ! stop_mpi flag requires all processes to call stop_recon together,
-  ! which would result in the program hanging within stop_recon. We
+  ! stop_mpi flag requires all processes to call stop_gfr together,
+  ! which would result in the program hanging within stop_gfr. We
   ! only want the global root to call it with abort, to make sure that
   ! the error statements in the above loop are written to iout. If some
-  ! other host root calls stop_recon with the abort flag, there isnt a
+  ! other host root calls stop_gfr with the abort flag, there isnt a
   ! guarantee that those error statements will be written before the
   ! call to mpi_abort.
   !
   if (l == 1) then
     if (mypnum == glb_root) then
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -662,7 +662,7 @@ continue
         write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
         write (iout,*) " npts      = ",npts
         write (iout,*) " nnode_new = ",nnode_new
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+        call stop_gfr(abort,pname,__LINE__,__FILE__)
       end if
       ! Have all the host roots call mpi_barrier here so that the MPI processes
       ! that arent the global root do not continue past this point before the
@@ -707,7 +707,7 @@ continue
     !
   end if
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
  !                "multiblock testing in readplot3d")
   !
   call debug_timer(leaving_procedure,pname)
@@ -900,19 +900,19 @@ continue
   end do
   !
   ! If an error was found with the strides, only have the global root
-  ! call stop_recon with an abort flag. We cant use the stop_mpi flag
+  ! call stop_gfr with an abort flag. We cant use the stop_mpi flag
   ! here because only the host roots will call this routine, and the
-  ! stop_mpi flag requires all processes to call stop_recon together,
-  ! which would result in the program hanging within stop_recon. We
+  ! stop_mpi flag requires all processes to call stop_gfr together,
+  ! which would result in the program hanging within stop_gfr. We
   ! only want the global root to call it with abort, to make sure that
   ! the error statements in the above loop are written to iout. If some
-  ! other host root calls stop_recon with the abort flag, there isnt a
+  ! other host root calls stop_gfr with the abort flag, there isnt a
   ! guarantee that those error statements will be written before the
   ! call to mpi_abort.
   !
   if (l == 1) then
     if (mypnum == glb_root) then
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -1158,7 +1158,7 @@ continue
         write (iout,*) " ERROR WITH NEW NUMBER OF NODES"
         write (iout,*) " npts      = ",npts
         write (iout,*) " nnode_new = ",nnode_new
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+        call stop_gfr(abort,pname,__LINE__,__FILE__)
       end if
       ! Have all the host roots call mpi_barrier here so that the MPI processes
       ! that arent the global root do not continue past this point before the
@@ -1202,7 +1202,7 @@ continue
     !
   end if
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
  !                "multiblock testing in readplot3d")
   !
   call debug_timer(leaving_procedure,pname)
@@ -1415,7 +1415,7 @@ continue
   !
   999 continue
   if (mypnum == glb_root) then
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   ! Have all the host roots call mpi_barrier here so that the MPI processes
   ! that arent the global root do not continue past this point before the
@@ -1591,7 +1591,7 @@ continue
   !
   999 continue
   if (mypnum == glb_root) then
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   ! Have all the host roots call mpi_barrier here so that the MPI processes
   ! that arent the global root do not continue past this point before the
@@ -1766,7 +1766,7 @@ end subroutine read_p3d_unformatted_header
 !      !
 !      if (all(nr /= [2,3])) then
 !        write (error_message,20)
-!        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+!        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
 !      end if
 !      !
 !    end if
@@ -2068,7 +2068,7 @@ end subroutine read_p3d_unformatted_header
 !  103 if (mypnum == 0) write (iout,5) errstr,errstr ; goto 999
 !  104 if (mypnum == 0) write (iout,6) errstr,errstr ; goto 999
 !  !
-!  999 call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+!  999 call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
 !  !
 !  ! Format Statements
 !  !
@@ -2292,7 +2292,7 @@ end subroutine read_p3d_unformatted_header
 !!  !
 !!  if (.not. first_record_successfully_read) then
 !!    write (error_message,1)
-!!    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+!!    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
 !!  end if
 !!  !
 !!  ! Determine the endianess of the file
@@ -2345,7 +2345,7 @@ end subroutine read_p3d_unformatted_header
 !!            " COULD NOT BE DETERMINED!")
 !!  4 format (a,i0)
 !!  !
-!!  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+!!  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
 !!  !
 !!end subroutine determine_unformatted_structure
 !
@@ -2495,7 +2495,7 @@ continue
   !
   if (l == 1) then
     if (mypnum == glb_root) then
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -3088,7 +3088,7 @@ continue
       if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
         if (mypnum == glb_root) then
           write (iout,3) nb,dir,dir1
-          call stop_recon(abort,pname,__LINE__,__FILE__)
+          call stop_gfr(abort,pname,__LINE__,__FILE__)
         end if
         ! Have all the host roots call mpi_barrier here so that the MPI
         ! processes that arent the global root do not continue past this
@@ -3276,7 +3276,7 @@ continue
   !
   if (mod(ncut,2) /= 0) then
     write (error_message,4)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ncut = ncut/2
@@ -3385,7 +3385,7 @@ continue
         if ( (dir==1 .and. dir1/=2) .or. (dir==2 .and. dir1/=1) ) then
           if (mypnum == glb_root) then
             write (iout,3) n,m,dir,dir1
-            call stop_recon(abort,pname,__LINE__,__FILE__)
+            call stop_gfr(abort,pname,__LINE__,__FILE__)
           end if
           ! Have all the host roots call mpi_barrier here so that the MPI
           ! processes that arent the global root do not continue past this
@@ -3443,7 +3443,7 @@ continue
       if (mypnum == glb_root) then
         write (iout,2) trim(cut_info(n)%cut_name(1)), &
                             cut_points(1),cut_points(2)
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+        call stop_gfr(abort,pname,__LINE__,__FILE__)
       end if
       ! Have all the host roots call mpi_barrier here so that the MPI
       ! processes that arent the global root do not continue past this
@@ -4307,7 +4307,7 @@ continue
   if (nfbnd /= nf) then
     if (mypnum == glb_root) then
       write (iout,2) nfbnd,nf
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -4457,7 +4457,7 @@ continue
       if (pfaces(1) /= pfaces(2)) write (iout,1) "X",pfaces(1),pfaces(2)
       if (pfaces(3) /= pfaces(4)) write (iout,1) "Y",pfaces(3),pfaces(4)
       if (pfaces(5) /= pfaces(6)) write (iout,1) "Z",pfaces(5),pfaces(6)
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     ! Have all the host roots call mpi_barrier here so that the MPI processes
     ! that arent the global root do not continue past this point before the
@@ -5303,7 +5303,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! #######
@@ -5446,7 +5446,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) mypnum+1,n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Create the grid%sol array
@@ -5637,14 +5637,14 @@ continue
   !
  !if (any(cell_geom == Geom_Tria)) then
  !  write (error_message,11)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -5704,14 +5704,14 @@ continue
   !
  !if (any(cell_geom == Geom_Tria)) then
  !  write (error_message,11)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !

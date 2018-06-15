@@ -430,7 +430,7 @@ continue
 #else
       !
       write (error_message,1)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
 #endif
       !
@@ -468,7 +468,7 @@ continue
  !  call output_partitions(mypnum,nodes_of_cell,nodes_of_cell_ptr, &
  !                         xyz_nodes,epart)
  !end if
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"outputing partitions")
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"outputing partitions")
   !
   if (i_am_host_root) then
     !
@@ -740,7 +740,7 @@ continue
  !end if
  !call mpi_barrier(MPI_COMM_WORLD,mpierr)
  !call mpi_barrier(MPI_COMM_WORLD,mpierr)
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
  !                "TEMPORARY STOP AFTER PARTITIONING THE GRID!!")
   !
   ! Format Statements
@@ -807,7 +807,7 @@ continue
   !
   if (.not. passes_inspection) then
     write (error_message,1000)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -968,7 +968,7 @@ continue
         ! The METIS option requested is invalid!
         !
         write (error_message,103)
-        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         !
       end if
       !
@@ -999,7 +999,7 @@ continue
     end do
     !
     write (error_message,102)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   end do part_loop
   !
@@ -1223,7 +1223,7 @@ continue
         ! The METIS option requested is invalid!
         !
         write (error_message,3)
-        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         !
       end if
       !
@@ -1256,7 +1256,7 @@ continue
     end do
     !
     write (error_message,2)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     !
   end do part_loop
   !
@@ -1642,7 +1642,7 @@ continue
     if (any(epart == n)) cycle
     write (iout,100) n
     passes_inspection = .false.
-   !call stop_recon(abort,pname,__LINE__,__FILE__)
+   !call stop_gfr(abort,pname,__LINE__,__FILE__)
   end do
   !
   !############################################################################
@@ -1863,7 +1863,7 @@ continue
           if (abs(cells_with_node(i)) /= ghost_cell) then
             write (error_message,2) n,n,nf,cells_with_node(i), &
                                     ghost_cell,host_cell
-            call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           end if
           !
           ! Store the host cell for this boundary face
@@ -2040,7 +2040,7 @@ continue
           if (abs(cells_with_edge(i)) /= ghost_cell) then
             write (error_message,3) n,n,nf,cells_with_edge(i), &
                                     ghost_cell,host_cell
-            call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           end if
           !
           ! Store the host cell for this boundary face
@@ -2643,7 +2643,7 @@ continue
   if ( any( epart(face(lfbnd+1:lface)%left%cell) /= &
             epart(face(lfbnd+1:lface)%right%cell) ) ) then
     write (iout,1)
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -3422,7 +3422,7 @@ continue
   close (io,iostat=ierr,iomsg=error_message)
   call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
                   "TEMPORARY STOP AFTER WRITING OUT THE MAPPING ARRAYS!!")
   !
   call debug_timer(leaving_procedure,pname)
@@ -4157,7 +4157,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) mypnum+1,n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Deallocate grid_elem, grid_xyz, grid_sol because they are no longer needed
@@ -4974,7 +4974,7 @@ continue
  !  write (mypnum+120,41) (nodes_of_cell(l),l=l1,l2)
  !end do
  !!
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! #######
   ! ## 3 ##
@@ -5440,7 +5440,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) this_part,n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Deallocate g2l_map before we leave
@@ -6933,7 +6933,7 @@ continue
   !
   if (maxval(nodpt_offset,dim=1)+1 /= size(bnd_nodes)) then
     write (error_message,1) "Something is wrong here with the node offset"
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   call debug_timer(stop_timer,"section 3")
   call debug_timer(start_timer,"section 4")
@@ -10639,7 +10639,7 @@ continue
   if (present(request_stop)) then
     if (request_stop) then
       write (error_message,20)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
