@@ -83,12 +83,742 @@ module interpolation_mod
   !
   type(outerpolation_matrix), public, save, target, allocatable :: outerp(:,:)
   !
+  type :: spanning_vectors_t
+    logical(lk) :: found = fals
+    integer :: idx1
+    integer :: idx2
+    integer :: idx3
+  end type spanning_vectors_t
+  !
+  type(spanning_vectors_t), save, allocatable :: ref_vectors(:,:)
+  !
   interface outerp_mv_mult
     module procedure outerp_mv_mult_with_rv, &
                      outerp_mv_mult_in_place
   end interface outerp_mv_mult
   !
 contains
+!
+!###############################################################################
+!
+subroutine interpolate_restart_solution(nc,xyz_pt,return_value)
+  !
+  !.. Use Statements ..
+  use order_mod,      only : maxSP
+  use order_mod,      only : n_min_geom,n_min_order
+  use order_mod,      only : n_max_geom,n_max_order
+  use geovar,         only : nr,cell,xyz
+  use flowvar,        only : usp
+  use quadrature_mod, only : std_elem,solpts_edge
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: nc
+  real(wp),    intent(in) :: xyz_pt(:)
+  real(wp), intent(inout) :: return_value(:)
+  !
+  !.. Local Scalars ..
+  integer  :: l,m,n,n1,n2,np,ierr
+  integer  :: idx0,idx1,idx2,idx3
+  integer  :: this_geom,this_order
+  real(wp) :: errmag
+  !
+  !.. Local Arrays ..
+  real(wp) :: xyz_cell(1:nr,1:maxSP)
+  real(wp) :: phys_a(1:nr),comp_a(1:nr)
+  real(wp) :: phys_b(1:nr),comp_b(1:nr)
+  real(wp) :: phys_c(1:nr),comp_c(1:nr)
+  real(wp) :: phys_r(1:nr),comp_r(1:nr)
+  real(wp) :: del_abc(1:nr)
+  real(wp) :: interp_mat(1:maxSP)
+  !
+  !.. Local Pointers ..
+  real(wp), pointer, contiguous :: solpts(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "interpolate_restart_solution"
+  !
+  integer, parameter :: max_iterations = 10
+  !
+continue
+  !
+  ! Initialize the local pointers to disassociated
+  !
+  solpts => null()
+  !
+  ! Information for the current cell
+  !
+  n1 = cell(nc)%beg_sp
+  n2 = cell(nc)%end_sp
+  np = n2-n1+1
+  !
+  this_geom = cell(nc)%geom
+  this_order = cell(nc)%order
+  !
+  if (.not. allocated(ref_vectors)) then
+    allocate ( ref_vectors(n_min_geom:n_max_geom,n_min_order:n_max_order) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ref_vectors",1,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  ! Get the indices for the reference points for this combination of
+  ! geometry/solution-order if it hasnt been done yet
+  !
+  if (.not. ref_vectors(this_geom,this_order)%found) then
+    ref_vectors(this_geom,this_order) = find_ref_vectors(this_geom,this_order)
+  end if
+  !
+  ! Get the indices of the points to use in this cell to create the
+  ! reference vectors that will used to find the computational space
+  ! coordinates corresponding to the physical space coordinates xyz_pt
+  !
+  idx0 = 1
+  idx1 = ref_vectors(this_geom,this_order)%idx1
+  idx2 = ref_vectors(this_geom,this_order)%idx2
+  idx3 = ref_vectors(this_geom,this_order)%idx3
+  !
+  ! Create a local copy of the physical space coordinates
+  ! of the solution points for this cell
+  !
+  xyz_cell(1:nr,1:maxSP) = xyz(1:nr,n1:n2)
+  !
+  ! Get the physical space vector for the first point 'a'
+  !
+  phys_a(:) = xyz_cell(:,idx1) - xyz_cell(:,idx0)
+  !
+  ! Get the computational space vector for the first point 'a'
+  !
+  comp_a(:) = std_elem(this_geom,this_order)%pts(:,idx1) &
+            - std_elem(this_geom,this_order)%pts(:,idx0)
+  !
+  ! Get the physical space vector for the second point 'b'
+  !
+  phys_b(:) = xyz_cell(:,idx2) - xyz_cell(:,idx0)
+  !
+  ! Get the computational space vector for the second point 'b'
+  !
+  comp_b(:) = std_elem(this_geom,this_order)%pts(:,idx2) &
+            - std_elem(this_geom,this_order)%pts(:,idx0)
+  !
+  if (nr == 3) then
+    !
+    ! If this is 3D, get the physical space vector for the third points 'c'
+    !
+    phys_c(:) = xyz_cell(:,idx3) - xyz_cell(:,idx0)
+    !
+    ! If this is 3D, get the computational space vector for the third point 'c'
+    !
+    comp_c(:) = std_elem(this_geom,this_order)%pts(:,idx3) &
+              - std_elem(this_geom,this_order)%pts(:,idx0)
+    !
+  end if
+  !
+  ! Compute the physical space vector from the "origin" location
+  ! to the location to which we want to interpolate
+  !
+  phys_r(:) = xyz_pt(:) - xyz_cell(:,idx0)
+  !
+  ! Initialize the location of xyz_pt in computational space to the
+  ! "origin" location used to create the other computational space vectors
+  !
+  comp_r(:) = std_elem(this_geom,this_order)%pts(:,idx0)
+  !
+  !
+  iter_loop: do n = 1,max_iterations
+    !
+    del_abc(:) = interpolate_vector_solve(phys_r,phys_a,phys_b,phys_c)
+    !
+    if (nr == 3) then
+      !
+      comp_r(1) = comp_r(1) + del_abc(1)*comp_a(1) &
+                            + del_abc(2)*comp_b(1) &
+                            + del_abc(3)*comp_c(1)
+      !
+      comp_r(2) = comp_r(2) + del_abc(1)*comp_a(2) &
+                            + del_abc(2)*comp_b(2) &
+                            + del_abc(3)*comp_c(2)
+      !
+      comp_r(3) = comp_r(3) + del_abc(1)*comp_a(3) &
+                            + del_abc(2)*comp_b(3) &
+                            + del_abc(3)*comp_c(3)
+      !
+    else
+      !
+      comp_r(1) = comp_r(1) + del_abc(1)*comp_a(1) + del_abc(2)*comp_b(1)
+      comp_r(2) = comp_r(2) + del_abc(1)*comp_a(2) + del_abc(2)*comp_b(2)
+      !
+    end if
+    !
+    ! Create a new interpolation matrix for the
+    ! updated computational space coordinates in comp_r
+    !
+    select case (this_geom)
+      !
+      case (Geom_Edge)
+        !
+        interp_mat(1:np) = InterpToPoint_Edge(solpts_edge,comp_r)
+        !
+      case (Geom_Tria)
+        !
+        solpts => std_elem(this_geom,this_order)%pts
+        !
+        interp_mat(1:np) = InterpToPoint_Tria(solpts,comp_r)
+        !
+        if (associated(solpts)) solpts => null()
+        !
+      case (Geom_Quad)
+        !
+        interp_mat(1:np) = InterpToPoint_Quad(solpts_edge,comp_r)
+        !
+      case (Geom_Tetr)
+        !
+        solpts => std_elem(this_geom,this_order)%pts
+        !
+        interp_mat(1:np) = InterpToPoint_Tetr(solpts,comp_r)
+        !
+        if (associated(solpts)) solpts => null()
+        !
+      case (Geom_Pyra)
+        !
+        solpts => std_elem(this_geom,this_order)%pts
+        !
+        interp_mat(1:np) = InterpToPoint_Pyra(solpts,comp_r)
+        !
+        if (associated(solpts)) solpts => null()
+        !
+      case (Geom_Pris)
+        !
+        solpts => std_elem(this_geom,this_order)%pts
+        !
+        interp_mat(1:np) = InterpToPoint_Pris(solpts,comp_r)
+        !
+        if (associated(solpts)) solpts => null()
+        !
+      case (Geom_Hexa)
+        !
+        interp_mat(1:np) = InterpToPoint_Hexa(solpts_edge,comp_r)
+        !
+    end select
+    !
+    ! Find the physical space coordinates corresponding to the
+    ! updated computational space coordinates in comp_r using
+    ! this new interpolation matrix
+    !
+    do l = 1,nr
+      phys_r(l) = xyz_pt(l) - dot( interp_mat(1:np) , xyz_cell(l,1:np) )
+    end do
+    !
+    ! Check to see if we have converged
+    !
+    errmag = norm2( phys_r(1:nr) )
+    !
+    if (errmag < eps3) then
+      exit iter_loop
+    end if
+    !
+  end do iter_loop
+  !
+  ! Use the last interpolation matrix that was created to interpolate
+  ! the solution in the current cell to the input point
+  !
+  do m = 1,size(usp,dim=1)
+    return_value(m) = dot( interp_mat(1:np) , usp(m,n1:n2) )
+  end do
+  ! 
+end subroutine interpolate_restart_solution
+!
+!###############################################################################
+!
+pure function find_ref_vectors(this_geom,this_order) result(return_value)
+  !
+  !.. Use Statements ..
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: this_geom
+  integer, intent(in) :: this_order
+  !
+  !.. Function Result ..
+  type(spanning_vectors_t) :: return_value
+  !
+  !.. Local Scalars ..
+  integer :: np_edge,np_tria,np_quad
+  !
+  !.. Local Parameters ..
+ !logical(lk), parameter :: use_short_vectors = fals
+  logical(lk), parameter :: use_short_vectors = true
+  !
+continue
+  !
+  np_edge = geom_solpts(Geom_Edge,this_order)
+  np_tria = geom_solpts(Geom_Tria,this_order)
+  np_quad = geom_solpts(Geom_Quad,this_order)
+  !
+  if (use_short_vectors) then
+    !
+    select case (this_geom)
+      !
+      case (Geom_Tria)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = 0
+        !
+      case (Geom_Quad)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = 0
+        !
+      case (Geom_Tetr)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = np_tria+1
+        !
+      case (Geom_Pyra)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = np_quad+1
+        !
+      case (Geom_Pris)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = np_tria+1
+        !
+      case (Geom_Hexa)
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = np_edge+1
+        return_value%idx3 = np_quad+1
+        !
+      case default
+        !
+        return_value%idx1 = 2
+        return_value%idx2 = 0
+        return_value%idx3 = 0
+        !
+    end select
+    !
+  else
+    !
+    select case (this_geom)
+      !
+      case (Geom_Tria)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_tria
+        return_value%idx3 = 0
+        !
+      case (Geom_Quad)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_edge*(np_edge-1) + 1
+        return_value%idx3 = 0
+        !
+      case (Geom_Tetr)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_tria
+        return_value%idx3 = geom_solpts(Geom_Tetr,this_order)
+        !
+      case (Geom_Pyra)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_edge*(np_edge-1) + 1
+        return_value%idx3 = geom_solpts(Geom_Pyra,this_order)
+        !
+      case (Geom_Pris)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_tria
+        return_value%idx3 = np_tria*(np_edge-1) + 1
+        !
+      case (Geom_Hexa)
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = np_edge*(np_edge-1) + 1
+        return_value%idx3 = np_quad*(np_edge-1) + 1
+        !
+      case default
+        !
+        return_value%idx1 = np_edge
+        return_value%idx2 = 0
+        return_value%idx3 = 0
+        !
+    end select
+    !
+  end if
+  !
+  return_value%found = true
+  !
+end function find_ref_vectors
+!
+!###############################################################################
+!
+pure function interpolate_vector_solve(r,a,b,c) result(return_value)
+  !
+  ! This function finds the coefficients that make a linear combination of
+  ! some reference vectors equivalent to the vector r.
+  !
+  ! For 3D: three reference vectors a, b, and c, the solution for these
+  !         coefficients becomes a linear equation of the form
+  !
+  !             coeff_a * ax + coeff_b * bx + coeff_c * cx = rx
+  !             coeff_a * ay + coeff_b * by + coeff_c * cy = ry
+  !             coeff_a * az + coeff_b * bz + coeff_c * cz = rz
+  !           
+  !             or in matrix form:
+  !           
+  !             | ax  bx  cx |   | coeff_a |   | rx |
+  !             | ay  by  cy | X | coeff_b | = | ry |
+  !             | az  bz  cz |   | coeff_c |   | rz |
+  !
+  ! For 2D: two reference vectors a and b, the solution for these
+  !         coefficients becomes a linear equation of the form:
+  !
+  !            coeff_a * ax + coeff_b * bx = rx
+  !            coeff_a * ay + coeff_b * by = ry
+  !
+  !            or in matrix form:
+  !
+  !            | ax  bx |   | coeff_a |   | rx |
+  !            |        | X |         | = |    |
+  !            | ay  by |   | coeff_b |   | ry |
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: r(:)
+  real(wp), intent(in) :: a(:)
+  real(wp), intent(in) :: b(:)
+  real(wp), intent(in) :: c(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(r))
+  !
+  !.. Local Scalars ..
+  integer  :: nr
+  real(wp) :: ax,ay,az,bx,by,bz,cx,cy,cz,rx,ry,rz
+  real(wp) :: m11,m12,m13,m21,m22,m23,m31,m32,m33
+  real(wp) :: det
+  !
+continue
+  !
+  nr = size(r)
+  !
+  return_value(:) = zero
+  !
+  if (nr == 3) then
+    !
+    ax = a(1) ; ay = a(2) ; az = a(3)
+    bx = b(1) ; by = b(2) ; bz = b(3)
+    cx = c(1) ; cy = c(2) ; cz = c(3)
+    rx = r(1) ; ry = r(2) ; rz = r(3)
+    !
+    m11 = by*cz - bz*cy
+    m12 = bz*cx - bx*cz
+    m13 = bx*cy - by*cx
+    !
+    m21 = az*cy - ay*cz
+    m22 = ax*cz - az*cx
+    m23 = ay*cx - ax*cy
+    !
+    m31 = ay*bz - az*by
+    m32 = az*bx - ax*bz
+    m33 = ax*by - ay*bx
+    !
+    det = ax*m11 + ay*m12 + az*m13
+    !
+    if (abs(det) > eps6) then
+      !
+      return_value(1) = rx*m11 + ry*m12 + rz*m13
+      return_value(2) = rx*m21 + ry*m22 + rz*m23
+      return_value(3) = rx*m31 + ry*m32 + rz*m33
+      !
+      return_value(1) = return_value(1) / det
+      return_value(2) = return_value(2) / det
+      return_value(3) = return_value(3) / det
+      !
+    end if
+    !
+  else
+    !
+    ax = a(1) ; ay = a(2)
+    bx = b(1) ; by = b(2)
+    rx = r(1) ; ry = r(2)
+    !
+    m11 = -by
+    m12 =  bx
+    !
+    m21 =  ay
+    m22 = -ax
+    !
+    det = ax*m11 + ay*m12
+    !
+    if (abs(det) > eps6) then
+      !
+      return_value(1) = rx*m11 + ry*m12
+      return_value(2) = rx*m21 + ry*m22
+      !
+      return_value(1) = return_value(1) / det
+      return_value(2) = return_value(2) / det
+      !
+    end if
+    !
+  end if
+  !
+end function interpolate_vector_solve
+!
+!###############################################################################
+!
+pure function InterpToPoint_Edge(xi_sp,xi_pt) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xi_sp(:)
+  real(wp), intent(in) :: xi_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(xi_sp))
+  !
+  !.. Local Scalars ..
+  integer :: i
+  !
+continue
+  !
+  do i = 1,size(xi_sp)
+    return_value(i) = eval_LagrangePoly( [i] , xi_pt , xi_sp )
+  end do
+  !
+end function InterpToPoint_Edge
+!
+!###############################################################################
+!
+pure function InterpToPoint_Quad(xi_sp,xi_pt) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xi_sp(:)
+  real(wp), intent(in) :: xi_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(xi_sp)**2)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,n,nsp
+  !
+continue
+  !
+  nsp = size(xi_sp)
+  !
+  ! Get the coefficients for interpolating a polynomial from the solution
+  ! points to the input point. These coefficients are simply the value of
+  ! the 2D Lagrange polynomial for a specified solution point evaluated at
+  ! the coordinates of the input point.
+  !
+  ! Get the value of the Lagrange polynomial for the
+  ! input point at each of the interior solution points
+  !
+  n = 0
+  do j = 1,nsp
+    do i = 1,nsp
+      n = n + 1
+      return_value(n) = eval_LagrangePoly( [i,j] , xi_pt , xi_sp )
+    end do
+  end do
+  !
+end function InterpToPoint_Quad
+!
+!###############################################################################
+!
+pure function InterpToPoint_Tria(rs_sp,rs_pt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: rs_sp(:,:)
+  real(wp), intent(in) :: rs_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(rs_sp,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: np,nfp
+  !
+continue
+  !
+ !np = size(rs_sp,dim=2)
+ !nfp = np2n( np ) + 1
+  !
+  return_value(:) = zero
+  !
+  return_value(1) = one
+  !
+end function InterpToPoint_Tria
+!
+!###############################################################################
+!
+pure function InterpToPoint_Tetr(rs_sp,rs_pt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: rs_sp(:,:)
+  real(wp), intent(in) :: rs_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(rs_sp,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nsp3d,nfp3d,nep3d
+  !
+continue
+  !
+  nsp3d = size(rs_sp,dim=2)
+  !
+  return_value(:) = zero
+  !
+  return_value(1) = one
+  !
+  ! Find the order for this tetrahedra
+  !
+  n = -1
+  do i = 0,256
+    if (Tetr_Solpts(i) == nsp3d) then
+      n = i
+      exit
+    end if
+  end do
+  !
+  ! If n is still -1, return with the interpolation matrix still being zero
+  !
+  if (n == -1) return
+  !
+  nfp3d = Cell_Flxpts(Geom_Tetr,n)
+  nep3d = n + 1
+  !
+end function InterpToPoint_Tetr
+!
+!###############################################################################
+!
+pure function InterpToPoint_Pyra(rs_sp,rs_pt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: rs_sp(:,:)
+  real(wp), intent(in) :: rs_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(rs_sp,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nfp3d,nsp3d,ierr
+  !
+continue
+  !
+  nsp3d = size(rs_sp,dim=2)
+  !
+  return_value(:) = zero
+  !
+  return_value(1) = one
+  !
+  ! Find the order for this tetrahedra
+  !
+  n = -1
+  do i = 0,256
+    if (Pyra_Solpts(i) == nsp3d) then
+      n = i
+      exit
+    end if
+  end do
+  !
+  nfp3d = Cell_Flxpts(Geom_Pyra,n)
+  !
+  ! If n is still -1, return with the interpolation matrix still being zero
+  !
+  if (n == -1) return
+  !
+end function InterpToPoint_Pyra
+!
+!###############################################################################
+!
+pure function InterpToPoint_Pris(rs_sp,rs_pt) result(return_value)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: rs_sp(:,:)
+  real(wp), intent(in) :: rs_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(rs_sp,dim=2))
+  !
+  !.. Local Scalars ..
+  integer :: i,n,nfp3d,nsp3d,ierr
+  !
+continue
+  !
+  nsp3d = size(rs_sp,dim=2)
+  !
+  return_value(:) = zero
+  !
+  return_value(1) = one
+  !
+  ! Find the order for this tetrahedra
+  !
+  n = -1
+  do i = 0,256
+    if (Pris_Solpts(i) == nsp3d) then
+      n = i
+      exit
+    end if
+  end do
+  !
+  nfp3d = Cell_Flxpts(Geom_Pris,n)
+  !
+  ! If n is still -1, return with the interpolation matrix still being zero
+  !
+  if (n == -1) return
+  !
+end function InterpToPoint_Pris
+!
+!###############################################################################
+!
+pure function InterpToPoint_Hexa(xi_sp,xi_pt) result(return_value)
+  !
+  !.. Use Statements ..
+  use polynomial_mod, only : eval_LagrangePoly
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: xi_sp(:)
+  real(wp), intent(in) :: xi_pt(:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(xi_sp)**3)
+  !
+  !.. Local Scalars ..
+  integer :: i,j,k,n,nsp
+  !
+continue
+  !
+  nsp = size(xi_sp)
+  !
+  ! Get the coefficients for interpolating a polynomial from the solution
+  ! points to the input point. These coefficients are simply the value of
+  ! the 3D Lagrange polynomial for a specified solution point evaluated at
+  ! the coordinates of the input point.
+  !
+  ! Get the value of the Lagrange polynomial for the
+  ! current point at each of the interior solution points
+  !
+  n = 0
+  do k = 1,nsp
+    do j = 1,nsp
+      do i = 1,nsp
+        n = n + 1
+        return_value(n) = eval_LagrangePoly( [i,j,k] , xi_pt , xi_sp )
+      end do
+    end do
+  end do
+  !
+end function InterpToPoint_Hexa
 !
 !###############################################################################
 !
