@@ -329,6 +329,8 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/typesgen_mod.o \
              $(OBJDIR)/poly.o
 
+$(OBJDIR)/metis.o : metis.f90
+
 $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \
@@ -362,6 +364,7 @@ $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
 $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
+             $(OBJDIR)/metis.o \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \
