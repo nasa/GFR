@@ -3220,9 +3220,10 @@ end subroutine create_bc_grps
 subroutine get_unit_cell_subconnectivity()
   !
   !.. Use Statements ..
-  use geovar, only : pst_geom
-  use geovar, only : global_cell_order
-  use ovar,   only : continuous_output
+  use geovar,    only : pst_geom
+  use geovar,    only : global_cell_order
+  use ovar,      only : continuous_output
+  use order_mod, only : o_order
   !
   !.. Local Scalars ..
   integer :: i,j,k,sk,ierr
@@ -3244,8 +3245,8 @@ continue
   !
   ! Allocate the pst_geom array
   !
-  omin = minval( global_cell_order )
-  omax = maxval( global_cell_order )
+  omin = min( minval( global_cell_order ) , o_order )
+  omax = max( maxval( global_cell_order ) , o_order )
   !
   allocate ( pst_geom(Geom_Min:Geom_Max,omin:omax) , &
              stat=ierr , errmsg=error_message )
