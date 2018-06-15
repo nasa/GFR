@@ -1,4 +1,4 @@
-program Euler_tri
+program GFR_main
   !
   use module_kind_types
   !
@@ -152,7 +152,7 @@ program Euler_tri
   !
   implicit none
   !
-  character(len=*), parameter :: pname = "Euler_tri(main)"
+  character(len=*), parameter :: pname = "GFR_main"
   !
   integer  :: iter,nst,i,ierr,k,npart
   integer  :: completed_timesteps
@@ -1340,7 +1340,7 @@ continue
   !
 end subroutine report_memory_usage
 !
-end program Euler_tri
+end program GFR_main
 !
 !###############################################################################
 !
