@@ -272,7 +272,7 @@ subroutine read_nml_input_file(input_fname)
   character(len=*), intent(in) :: input_fname
   !
   !.. Local Scalars ..
-  integer  :: it1,it2,ierr,ival,inpt
+  integer  :: i,it1,it2,ierr,ival,inpt
   integer  :: Period_Timesteps_X,Period_Timesteps_Y
   logical(lk)  :: use_qdtr_face_pts,mms_error
   real(wp) :: Period_Time_X,Period_Time_Y
@@ -406,6 +406,18 @@ continue
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
+  !
+  ! Disable use_bc_conflicts if Lobatto points are not being used.
+  !
+  one_pass: do i = 1,1
+    !
+    if (any(loc_solution_pts   == Gauss_Lobatto)) exit one_pass
+    if (any(loc_flux_pts       == Gauss_Lobatto)) exit one_pass
+    if (any(loc_quadrature_pts == Gauss_Lobatto)) exit one_pass
+    !
+    use_bc_conflicts = fals
+    !
+  end do one_pass
   !
   ! Adjust the solution order and compute the number
   ! of solution points for the different cell shapes
