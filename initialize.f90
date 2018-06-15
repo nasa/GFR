@@ -2197,6 +2197,23 @@ continue
         !
         bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
         !
+        if (size(vel) == 1) then
+          vel(:) = [ bc_input(n)%vx ]
+        else if (size(vel) == 2) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
+        else if (size(vel) == 3) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
+        end if
+        !
+        pv(nec) = bc_in(0)%pv(nec)
+        pv(nmb:nme) = vel(nmb:nme) / aref
+        pv(nee) = bc_in(0)%pv(nee)
+        !
+        cv(:) = vsp2u_sp(pv)
+        !
+        bc_in(i)%pv = pv(:) ! USING F2003 AUTO-REALLOCATION
+        bc_in(i)%cv = cv(:) ! USING F2003 AUTO-REALLOCATION
+        !
       else
         !
         r = bc_input(n)%rho_static
