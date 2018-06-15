@@ -782,13 +782,13 @@ continue
   !
   select case (location)
     !
-    case (DG_TriPoints)
+    case (AlphaOptimized_TriPoints)
       !
       ! Alpha optimized triangle quadrature from Hesthaven and Warburton
       !
       pts = TriNodes2D_DG(n,qzero)
       !
-    case (HT_TriPoints)
+    case (BarycentricLobatto_TriPoints)
       !
       ! 1D Lobatto quadrature extrapolated to a barycentric triangle
       ! coordinate system

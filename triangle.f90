@@ -14,8 +14,8 @@ module triangle_mod
   !
   private
   !
-  public :: TriNodes2D_DG
-  public :: TriNodes2D_HT
+  public :: TriNodes2D_AlphaOptimized
+  public :: TriNodes2D_BarycentricLobatto
   !
   interface EquiTriNodes2D
     module procedure EquiTriNodes2D_DP, &
@@ -37,15 +37,15 @@ module triangle_mod
                      xytors_QP
   end interface xytors
   !
-  interface TriNodes2D_DG
-    module procedure TriNodes2D_DG_DP, &
-                     TriNodes2D_DG_QP
-  end interface TriNodes2D_DG
+  interface TriNodes2D_AlphaOptimized
+    module procedure TriNodes2D_AlphaOptimized_DP, &
+                     TriNodes2D_AlphaOptimized_QP
+  end interface TriNodes2D_AlphaOptimized
   !
-  interface TriNodes2D_HT
-    module procedure TriNodes2D_HT_DP, &
-                     TriNodes2D_HT_QP
-  end interface TriNodes2D_HT
+  interface TriNodes2D_BarycentricLobatto
+    module procedure TriNodes2D_BarycentricLobatto_DP, &
+                     TriNodes2D_BarycentricLobatto_QP
+  end interface TriNodes2D_BarycentricLobatto
   !
 contains
 !
@@ -548,7 +548,7 @@ end function xytors_QP
 #ifndef DISABLE_PURE
 pure &
 #endif
-function TriNodes2D_DG_DP(N,val) result(return_value)
+function TriNodes2D_AlphaOptimized_DP(N,val) result(return_value)
   !
   integer, parameter :: lp = dp
   !
@@ -570,14 +570,14 @@ continue
   !
   return_value(:,:) = half * (return_value(:,:) + one)
   !
-end function TriNodes2D_DG_DP
+end function TriNodes2D_AlphaOptimized_DP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function TriNodes2D_DG_QP(N,val) result(return_value)
+function TriNodes2D_AlphaOptimized_QP(N,val) result(return_value)
   !
   integer, parameter :: lp = local_qp
   !
@@ -599,14 +599,14 @@ continue
   !
   return_value(:,:) = half * (return_value(:,:) + one)
   !
-end function TriNodes2D_DG_QP
+end function TriNodes2D_AlphaOptimized_QP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function TriNodes2D_HT_DP(N,val) result(return_value)
+function TriNodes2D_BarycentricLobatto_DP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
@@ -667,14 +667,14 @@ continue
   !
  !return_value = return_value*two - one
   !
-end function TriNodes2D_HT_DP
+end function TriNodes2D_BarycentricLobatto_DP
 !
 !###############################################################################
 !
 #ifndef DISABLE_PURE
 pure &
 #endif
-function TriNodes2D_HT_QP(N,val) result(return_value)
+function TriNodes2D_BarycentricLobatto_QP(N,val) result(return_value)
   !
   use polynomial_mod, only : nodes_legendre_gauss_lobatto
   !
@@ -735,7 +735,7 @@ continue
   !
  !return_value = return_value*two - one
   !
-end function TriNodes2D_HT_QP
+end function TriNodes2D_BarycentricLobatto_QP
 !
 !###############################################################################
 !

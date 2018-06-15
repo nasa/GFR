@@ -501,8 +501,8 @@ module module_kind_types
                                               Chebyshev_Gauss_Lobatto]
   !
   ! Method for creating triangle solution points
-  integer, parameter :: DG_TriPoints = 1
-  integer, parameter :: HT_TriPoints = 2
+  integer, parameter :: AlphaOptimized_TriPoints = 1
+  integer, parameter :: BarycentricLobatto_TriPoints = 2
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
