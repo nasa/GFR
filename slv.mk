@@ -75,7 +75,7 @@ COBJS := $(OBJDIR)/mycpu.o \
          $(OBJDIR)/pbs_time_left.o
 
 OBJS := $(OBJDIR)/kind_types.o \
-        $(OBJDIR)/Euler_tri.o \
+        $(OBJDIR)/main.o \
         $(OBJDIR)/order_mod.o \
         $(OBJDIR)/quadrature_mod.o \
         $(OBJDIR)/geovar_mod.o \
@@ -103,6 +103,7 @@ OBJS := $(OBJDIR)/kind_types.o \
         $(OBJDIR)/interpolation_mod.o \
         $(OBJDIR)/projection_mod.o \
         $(OBJDIR)/vandermonde_mod.o \
+        $(OBJDIR)/metis.o \
         $(OBJDIR)/parallel.o \
         $(OBJDIR)/mappings.o \
         $(OBJDIR)/connectivity.o \
@@ -123,13 +124,21 @@ OBJS := $(OBJDIR)/kind_types.o \
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
 
-.PHONY: O2-ip-opt
-O2-ip-opt: OPTIM = -O2 $(OPTFLAG) $(TARGET)
-O2-ip-opt: optimize
+.PHONY: O2
+O2: OPTIM = $(OPTFLAG) $(TARGET)
+O2: optimize
 
-.PHONY: O3-ipo-opt
-O3-ipo-opt: OPTIM = $(OPTFLAG) $(TARGET)
-O3-ipo-opt: optimize
+.PHONY: O3
+O3: OPTIM = $(OPTFLAG) $(TARGET)
+O3: optimize
+
+.PHONY: O2-host
+O2-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
+O2-host: optimize
+
+.PHONY: O3-host
+O3-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
+O3-host: optimize
 
 .PHONY: skylake
 skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
@@ -186,14 +195,6 @@ debug: all
 deplist: FCBASE += -gen-dep=deplist.txt
 deplist: debug
 
-.PHONY: time
-time: Command-Beg := /usr/bin/time -f '%e'
-time: Command-End  = 2>&1 | awk '{ printf "%-25s%8.2f seconds", "$<", $$1 }' $(HighlightName)
-time: FCFLAG = $(FCBASE) -O3 $(OPTFLAG) $(TARGET) $(ADDFLAGS)
-time: $(OBJS)
-	$(FC) $(FPP) $(FCFLAG) -o $(EXECUTABLE) $(OBJS) $(FLIB)
-	/bin/cp -f $(EXECUTABLE) $(EXEDIR)/$(EXECUTABLE)
-
 .PHONY: all
 all: Command-Beg := echo
 all: Command-End  = $(HighlightName); $(FC) $(FPP) $(FCFLAG) -c -o $@ $<
@@ -217,11 +218,10 @@ $(COBJS):
 
 $(OBJS):
 	$(QUIET) $(Command-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Command-End)
-##$(QUIET) $(Time-Beg) $(FC) $(FPP) $(FCFLAG) -c -o $@ $< $(Time-End) $(HighlightName)
 
 .PHONY: link-to-haswell
 link-to-haswell:
-	if [ -d $(EXEDIR) ] ; then /bin/ln -sf recon_haswell $(EXEDIR)/recon_broadwell ; fi
+	if [ -d $(EXEDIR) ] ; then /bin/ln -sf gfr_haswell $(EXEDIR)/gfr_broadwell ; fi
 
 .PHONY: clean
 clean:
@@ -246,7 +246,6 @@ ifeq "$(COMPFAMILY)" "intel"
  #FPEALL  := -fpe-all=0
   MODFLAG := -module
   ARCHFLAG := -x
-  TUNEFLAG := -ax
   WESARCH := SSE4.2
   SANARCH := AVX
   IVYARCH := CORE-AVX-I
@@ -279,20 +278,28 @@ else ifeq "$(COMPFAMILY)" "gcc"
   # GCC flags
   MODFLAG := -J
   ARCHFLAG := -march=
-  TUNEFLAG := -mtune=
+  ######################################################
+  #### USE THESE ARCH FLAGS FOR GCC 4.9.4 OR NEWER
   WESARCH := westmere
   SANARCH := sandybridge
   IVYARCH := ivybridge
   HASARCH := haswell
   BROARCH := broadwell
-  SKYARCH := broadwell
+  SKYARCH := skylake-avx512 # ONLY WORKS FOR 6.1.0 or newer
+  #### USE THESE ARCH FLAGS FOR GCC 4.8.5 OR OLDER
+ #WESARCH := corei7
+ #SANARCH := corei7-avx
+ #IVYARCH := corei7-avx-i
+ #HASARCH := corei7-avx2
+ #BROARCH := corei7-avx2
+ #SKYARCH := corei7-avx2
+  #######################################################
   FPPFLAG := -cpp
   OPTFLAG := -O2
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
   CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC
-  EXTOBJS  := $(METISDIR)/include/metis.o
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
   AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH)
   HOSTARCH := $(ARCHFLAG)native
@@ -300,7 +307,6 @@ else ifeq "$(COMPFAMILY)" "pgi"
   # PGI flags
   MODFLAG := -module
   ARCHFLAG := -tp=
-  TUNEFLAG := -tp=
   WESARCH := nehalem
   SANARCH := sandybridge
   IVYARCH := sandybridge
@@ -309,12 +315,10 @@ else ifeq "$(COMPFAMILY)" "pgi"
   SKYARCH := haswell
   FPPFLAG := -Mpreprocess
   OPTFLAG := -O2
- #OPTFLAG := -O3 -fast -Mipa=fast,inline
   DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
   TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
   CMPFLAGS := -DSPECIAL_FOR_PGI -DDISABLE_QP -DDISABLE_DTIO -Mbackslash
-  EXTOBJS  := $(METISDIR)/include/metis.o
   AUTOTARGETARCH := -tp=$(SANARCH),$(HASARCH)
   HOSTARCH :=
 endif

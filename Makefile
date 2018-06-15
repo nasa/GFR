@@ -20,51 +20,51 @@ debug: FCADD += -DPROFILE_ON
 rebuild-debug: FCADD += -DPROFILE_ON
 
 .PHONY: all
-all: debug_recon
-all: recon
+all: debug_gfr
+all: gfr
 .PHONY: all-nodes
-all-nodes: debug_recon
-all-nodes: recon_westmere
-all-nodes: recon_merope
-all-nodes: recon_sandybridge
-all-nodes: recon_ivybridge
-all-nodes: recon_broadwell
-all-nodes: recon_skylake
-all-nodes: recon
+all-nodes: debug_gfr
+all-nodes: gfr_westmere
+all-nodes: gfr_merope
+all-nodes: gfr_sandybridge
+all-nodes: gfr_ivybridge
+all-nodes: gfr_broadwell
+all-nodes: gfr_skylake
+all-nodes: gfr
 
 .PHONY: rebuild
 rebuild: rebuild-debug
 rebuild: rebuild-optimize
 
 .PHONY: optimize
-optimize: O3-ipo-opt
+optimize: O2
 .PHONY: rebuild-optimize
-rebuild-optimize: rebuild-O3-ipo-opt
+rebuild-optimize: rebuild-O2
 
-debug_recon: debug
-recon: optimize
+debug_gfr: debug
+gfr: optimize
 
-recon_skylake: skylake
-recon_broadwell: broadwell
-recon_haswell: haswell
-recon_ivybridge: ivybridge
-recon_sandybridge: sandybridge
-recon_westmere: westmere
-recon_merope: merope
-recon_gpu_mm: gpu-mm
-recon_gpu: gpu
+gfr_skylake: skylake
+gfr_broadwell: broadwell
+gfr_haswell: haswell
+gfr_ivybridge: ivybridge
+gfr_sandybridge: sandybridge
+gfr_westmere: westmere
+gfr_merope: merope
+gfr_gpu_mm: gpu-mm
+gfr_gpu: gpu
 
 # SKYLAKE
 
 .PHONY: skylake
 skylake: BDIR := optimize_skylake
-skylake: EXEF := recon_skylake
+skylake: EXEF := gfr_skylake
 skylake: TRGT := skylake
 skylake: build
 
 .PHONY: rebuild-skylake
 rebuild-skylake: BDIR := optimize_skylake
-rebuild-skylake: EXEF := recon_skylake
+rebuild-skylake: EXEF := gfr_skylake
 rebuild-skylake: TRGT := skylake
 rebuild-skylake: clean-build
 rebuild-skylake: build
@@ -93,13 +93,13 @@ rebuild-bro: rebuild-broadwell
 
 .PHONY: haswell
 haswell: BDIR := optimize_haswell
-haswell: EXEF := recon_haswell
+haswell: EXEF := gfr_haswell
 haswell: TRGT := haswell
 haswell: build
 
 .PHONY: rebuild-haswell
 rebuild-haswell: BDIR := optimize_haswell
-rebuild-haswell: EXEF := recon_haswell
+rebuild-haswell: EXEF := gfr_haswell
 rebuild-haswell: TRGT := haswell
 rebuild-haswell: clean-build
 rebuild-haswell: build
@@ -118,13 +118,13 @@ ivy-bridge: ivybridge
 
 .PHONY: ivybridge
 ivybridge: BDIR := optimize_ivybridge
-ivybridge: EXEF := recon_ivybridge
+ivybridge: EXEF := gfr_ivybridge
 ivybridge: TRGT := ivybridge
 ivybridge: build
 
 .PHONY: rebuild-ivybridge
 rebuild-ivybridge: BDIR := optimize_ivybridge
-rebuild-ivybridge: EXEF := recon_ivybridge
+rebuild-ivybridge: EXEF := gfr_ivybridge
 rebuild-ivybridge: TRGT := ivybridge
 rebuild-ivybridge: clean-build
 rebuild-ivybridge: build
@@ -143,13 +143,13 @@ sandy-bridge: sandybridge
 
 .PHONY: sandybridge
 sandybridge: BDIR := optimize_sandybridge
-sandybridge: EXEF := recon_sandybridge
+sandybridge: EXEF := gfr_sandybridge
 sandybridge: TRGT := sandybridge
 sandybridge: build
 
 .PHONY: rebuild-sandybridge
 rebuild-sandybridge: BDIR := optimize_sandybridge
-rebuild-sandybridge: EXEF := recon_sandybridge
+rebuild-sandybridge: EXEF := gfr_sandybridge
 rebuild-sandybridge: TRGT := sandybridge
 rebuild-sandybridge: clean-build
 rebuild-sandybridge: build
@@ -163,13 +163,13 @@ rebuild-san: rebuild-sandybridge
 
 .PHONY: westmere
 westmere: BDIR := optimize_westmere
-westmere: EXEF := recon_westmere
+westmere: EXEF := gfr_westmere
 westmere: TRGT := westmere
 westmere: build
 
 .PHONY: rebuild-westmere
 rebuild-westmere: BDIR := optimize_westmere
-rebuild-westmere: EXEF := recon_westmere
+rebuild-westmere: EXEF := gfr_westmere
 rebuild-westmere: TRGT := westmere
 rebuild-westmere: clean-build
 rebuild-westmere: build
@@ -183,14 +183,14 @@ rebuild-wes: rebuild-westmere
 
 .PHONY: merope
 merope: BDIR := optimize_merope
-merope: EXEF := recon_merope
+merope: EXEF := gfr_merope
 merope: TRGT := merope
 #merope: FCADD += -pg
 merope: build
 
 .PHONY: rebuild-merope
 rebuild-merope: BDIR := optimize_merope
-rebuild-merope: EXEF := recon_merope
+rebuild-merope: EXEF := gfr_merope
 rebuild-merope: TRGT := merope
 rebuild-merope: clean-build
 rebuild-merope: build
@@ -212,7 +212,7 @@ GPUADD += -Minfo=ccff,ftn
 
 .PHONY: gpu-mm
 gpu-mm: BDIR := gpu_mm
-gpu-mm: EXEF := recon_gpu_mm
+gpu-mm: EXEF := gfr_gpu_mm
 gpu-mm: TRGT := gpu-mm
 gpu-mm: GPUADD += -ta=tesla:managed
 #gpu-mm: GPUADD += -ta=tesla:fma
@@ -233,7 +233,7 @@ gpu-mm: build
 
 .PHONY: rebuild-gpu-mm
 rebuild-gpu-mm: BDIR := gpu_mm
-rebuild-gpu-mm: EXEF := recon_gpu_mm
+rebuild-gpu-mm: EXEF := gfr_gpu_mm
 rebuild-gpu-mm: TRGT := gpu-mm
 rebuild-gpu-mm: clean-build
 rebuild-gpu-mm: build
@@ -242,7 +242,7 @@ rebuild-gpu-mm: build
 
 .PHONY: gpu
 gpu: BDIR := gpu
-gpu: EXEF := recon_gpu
+gpu: EXEF := gfr_gpu
 gpu: TRGT := gpu
 #gpu: FCADD += -acc -ta=tesla:managed,nollvm,ptxinfo,cc35 -Minfo=accel
 #gpu: GPUADD += -ta=tesla:nollvm
@@ -264,7 +264,7 @@ gpu: build
 
 .PHONY: rebuild-gpu
 rebuild-gpu: BDIR := gpu
-rebuild-gpu: EXEF := recon_gpu
+rebuild-gpu: EXEF := gfr_gpu
 rebuild-gpu: TRGT := gpu
 rebuild-gpu: clean-build
 rebuild-gpu: build
@@ -303,10 +303,10 @@ warn-std90: std90
 #FCADD += -DTRACK_MEMORY_ALLOCATIONS
 #FCADD += -DMEMORY_TEST_PAUSE
 
-#recon_haswell: $(call build-function, optimize_haswell, \
-                       recon_haswell, $(FCADD), haswell)
+#gfr_haswell: $(call build-function, optimize_haswell, \
+                       gfr_haswell, $(FCADD), haswell)
 #rebuild-test: $(call rebuild-function, optimize_haswell, \
-                      recon_haswell, $(FCADD), haswell)
+                      gfr_haswell, $(FCADD), haswell)
 define build-function
   $(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=$(1)" \
                                "BUILDDIR=$(2)" \
@@ -333,59 +333,88 @@ build:
 
 .PHONY: debug
 debug:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" \
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_gfr" \
 	                             "BUILDDIR=debug" \
 				     "FCADD=$(FCADD)" \
 				     debug
 	@echo "-----------------------------------------------------"
 
-.PHONY: O2-ip-opt
-O2-ip-opt:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+.PHONY: O2
+O2:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O2-ip-opt
+				     O2
 	@echo "-----------------------------------------------------"
 
-.PHONY: O3-ipo-opt
-O3-ipo-opt:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+.PHONY: O3
+O3:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O3-ipo-opt
+				     O3
+	@echo "-----------------------------------------------------"
+
+.PHONY: O2-host
+O2-host:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     O2-host
+	@echo "-----------------------------------------------------"
+
+.PHONY: O3-host
+O3-host:
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     O3-host
 	@echo "-----------------------------------------------------"
 
 .PHONY: rebuild-debug
 rebuild-debug:
-	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_recon" \
+	make -f slv.mk "EXECUTABLE=debug_gfr" "BUILDDIR=debug" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=debug_gfr" \
 	                             "BUILDDIR=debug" \
 				     "FCADD=$(FCADD)" \
 				     debug
 	@echo "-----------------------------------------------------"
 
-.PHONY: rebuild-O2-ip-opt
-rebuild-O2-ip-opt:
-	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+.PHONY: rebuild-O2
+rebuild-O2:
+	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O2-ip-opt
+				     O2
 	@echo "-----------------------------------------------------"
 
-.PHONY: rebuild-O3-ipo-opt
-rebuild-O3-ipo-opt:
-	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" \
+.PHONY: rebuild-O3
+rebuild-O3:
+	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O3-ipo-opt
+				     O3
 	@echo "-----------------------------------------------------"
 
-.PHONY: time-optimize
-time-optimize:
-	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" time
+.PHONY: rebuild-O2-host
+rebuild-O2-host:
+	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     O2-host
+	@echo "-----------------------------------------------------"
+
+.PHONY: rebuild-O3-host
+rebuild-O3-host:
+	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
+	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
+	                             "BUILDDIR=optimize" \
+				     "FCADD=$(FCADD)" \
+				     O3-host
+	@echo "-----------------------------------------------------"
 
 .PHONY: link-to-haswell
 link-to-haswell:
@@ -393,8 +422,8 @@ link-to-haswell:
 
 .PHONY: deplist
 deplist:
-	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
-	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=debug_recon" \
+	make -f slv.mk "EXECUTABLE=debug_gfr" "BUILDDIR=debug" clean
+	$(MAKE) $(MAKEOPT) -B -f slv.mk "EXECUTABLE=debug_gfr" \
 	                                "BUILDDIR=debug" \
 				        "FCADD=$(FCADD)" \
 				        deplist
@@ -407,11 +436,11 @@ systeminfo:
 
 .PHONY: clean-debug
 clean-debug:
-	make -f slv.mk "EXECUTABLE=debug_recon" "BUILDDIR=debug" clean
+	make -f slv.mk "EXECUTABLE=debug_gfr" "BUILDDIR=debug" clean
 
 .PHONY: clean-optimize
 clean-optimize:
-	make -f slv.mk "EXECUTABLE=recon" "BUILDDIR=optimize" clean
+	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
 
 .PHONY: clean-build
 clean-build:
@@ -419,25 +448,25 @@ clean-build:
 
 .PHONY: clean
 clean:
-	make -f slv.mk "EXECUTABLE=debug_recon" \
+	make -f slv.mk "EXECUTABLE=debug_gfr" \
 	               "BUILDDIR=debug" clean
-	make -f slv.mk "EXECUTABLE=recon" \
+	make -f slv.mk "EXECUTABLE=gfr" \
 	               "BUILDDIR=optimize" clean
-	make -f slv.mk "EXECUTABLE=recon_merope" \
+	make -f slv.mk "EXECUTABLE=gfr_merope" \
 	               "BUILDDIR=optimize_merope" clean
-	make -f slv.mk "EXECUTABLE=recon_westmere" \
+	make -f slv.mk "EXECUTABLE=gfr_westmere" \
 	               "BUILDDIR=optimize_westmere" clean
-	make -f slv.mk "EXECUTABLE=recon_sandybridge" \
+	make -f slv.mk "EXECUTABLE=gfr_sandybridge" \
 	               "BUILDDIR=optimize_sandybridge" clean
-	make -f slv.mk "EXECUTABLE=recon_ivybridge" \
+	make -f slv.mk "EXECUTABLE=gfr_ivybridge" \
 	               "BUILDDIR=optimize_ivybridge" clean
-	make -f slv.mk "EXECUTABLE=recon_haswell" \
+	make -f slv.mk "EXECUTABLE=gfr_haswell" \
 	               "BUILDDIR=optimize_haswell" clean
-	make -f slv.mk "EXECUTABLE=recon_skylake" \
+	make -f slv.mk "EXECUTABLE=gfr_skylake" \
 	               "BUILDDIR=optimize_skylake" clean
-	make -f slv.mk "EXECUTABLE=recon_gpu_mm" \
+	make -f slv.mk "EXECUTABLE=gfr_gpu_mm" \
 	               "BUILDDIR=gpu_mm" clean
-	make -f slv.mk "EXECUTABLE=recon_gpu" \
+	make -f slv.mk "EXECUTABLE=gfr_gpu" \
 	               "BUILDDIR=gpu" clean
-	if [ -L recon_broadwell ] ; then /bin/rm -f recon_broadwell ; fi
+	if [ -L gfr_broadwell ] ; then /bin/rm -f gfr_broadwell ; fi
 
