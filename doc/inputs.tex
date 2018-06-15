@@ -1,0 +1,329 @@
+
+%\documentclass[]{aiaa-tc}% insert '[draft]' option to show overfull boxes
+%\documentclass[10pt,letterpaper]{article}% 
+%                 insert '[draft]' option to show overfull boxes
+
+\documentclass[letterpaper,10pt]{article}
+\usepackage[paper=letterpaper,landscape,centering]{geometry}
+%\usepackage[paper=letterpaper,centering]{geometry}
+
+%%\setlength{\paperwidth}{614.295pt}
+%%\setlength{\paperheight}{794.96999pt}
+%\addtolength{\textwidth}{0.5in}
+%%\setlength{\textheight}{556.47656pt}
+%\setlength{\oddsidemargin}{10.0pt}
+%\setlength{\evensidemargin}{10.0pt}
+%%\setlength{\topmargin}{9.97672pt}
+%\setlength{\headheight}{0.0pt}
+%\setlength{\headsep}{0.0pt}
+%\setlength{\topskip}{0.0pt}
+%\setlength{\footskip}{0.0pt}
+%\setlength{\marginparwidth}{0.0pt}
+%\setlength{\marginparsep}{0.0pt}
+%\setlength{\columnsep}{0.0pt}
+%\setlength{\hoffset}{-0.25in}
+%
+%
+
+\usepackage{longtable}
+\usepackage{tabularx}
+% \usepackage{color}
+% \usepackage{threeparttable}% tables with footnotes
+\usepackage{booktabs}
+%\usepackage{graphicx}
+% %
+% \usepackage{listings}
+% \usepackage{multirow}
+%%\usepackage{array}
+%%\usepackage{xifthen}
+% \usepackage{mathtools}
+% \usepackage{siunitx}
+%
+ \newcommand{\minorline}{\hline}
+%\newcommand{\groupline}[1]{\multicolumn{5}{|c|}{#1}\\\hline}
+ \newcommand{\groupline}[1]{}
+% \newcommand{\p}[1]{\ensuremath{\mathcal{P}#1}}
+% \newcommand{\dof}{DoF}
+% \newcommand{\tstar}{\ensuremath{t^{*}}}
+% \newcommand{\kedrz}{\ensuremath{\epsilon(\zeta)}}
+
+\begin{document}
+
+%\begin{center}
+   %\begin{tabular}{ | p{0.2\textwidth}
+   %\begin{longtable}{ | p{0.265\textwidth}
+   %                   | p{0.145\textwidth}
+   %                   | p{0.1\textwidth}
+    \begin{longtable}{ | l | c | c | c | p{0.45\textwidth} | }
+   %\begin{longtable}{ | l | c | c | X | }
+   %\begin{tabularx}{\textwidth}{ | l | c | c | X | }
+    \hline
+    Input Variable & Type & Default Value & Skill Level & Description \\ \hline
+
+    \groupline{GRID INFORMATION}
+    grid\_format                          & integer            & -1          & basic        & text \\ \minorline
+    gridfile                              & character(len=150) & `` ''       & basic        & text \\ \minorline
+    plot3d\_cutfile                       & character(len=150) & `` ''       & basic        & text \\ \minorline
+    plot3d\_bcsfile                       & character(len=150) & `` ''       & basic        & text \\ \minorline
+    grid\_scaling\_factor                 & real               & 1.0         & basic        & text \\ \minorline
+
+    \groupline{PLOT3D COARSENING OPTIONS}
+    plot3d\_i\_stride                     & integer            & -1          & advanced     & text \\ \minorline
+    plot3d\_j\_stride                     & integer            & -1          & advanced     & text \\ \minorline
+    plot3d\_k\_stride                     & integer            & -1          & advanced     & text \\ \minorline
+    plot3d\_all\_strides                  & integer            & -1          & advanced     & text \\ \minorline
+    plot3d\_agglomerate\_order            & integer            & -1          & basic        & text \\ \minorline
+
+    \groupline{BASE FR OPTIONS}
+    solution\_order                       & integer            & 3           & basic        & text \\ \minorline
+    flux\_divergence                      & integer            & 1           & not working  & text \\ \minorline
+    correction\_function                  & integer            & 1           & advanced     & text \\ \minorline
+
+    \groupline{LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS}
+    loc\_solution\_pts                    & integer            & 1           & advanced     & text \\ \minorline
+    loc\_flux\_pts                        & integer            & 1           & advanced     & text \\ \minorline
+    loc\_triangle\_pts                    & integer            & 2           & developer    & text \\ \minorline
+
+    \groupline{LOCATION OF INITIALIZATION POINTS}
+    loc\_init\_pts                        & integer            & 0           & expert       & text \\ \minorline
+
+    \groupline{RUNGE-KUTTA OPTIONS}
+    Runge\_Kutta\_Scheme                  & integer            & 3           & basic        & text \\ \minorline
+    num\_rk\_stages                       & integer            & 3           & basic        & text \\ \minorline
+
+    \groupline{COMMON FLUX OPTIONS}
+    invs\_flux\_method                    & integer            & 1           & advanced     & text \\ \minorline
+    visc\_flux\_method                    & integer            & 2           & advanced     & text \\ \minorline
+    visc\_variables\_to\_ave              & integer            & 1           & expert       & text \\ \minorline
+
+    \groupline{TIME STEPPING INFORMATION}
+    num\_timesteps                        & integer            & 25000       & basic        & text \\ \minorline
+    Final\_Time                           & real               & 10.0        & basic        & text \\ \minorline
+    constant\_dt                          & real               & 1.0e-6      & basic        & text \\ \minorline
+    Timestep\_Type                        & integer            & 1           & basic        & text \\ \minorline
+    minimum\_timesteps                    & integer            & 100         & basic        & text \\ \minorline
+
+    \groupline{CFL CONTROL VARIABLES}
+    cfl                                   & real               & 0.1         & basic        & text \\ \minorline
+    cfl\_beg                              & real               & 0.1         & basic        & text \\ \minorline
+    cfl\_end                              & real               & 0.1         & basic        & text \\ \minorline
+    cfl\_cycles                           & integer            & 1           & basic        & text \\ \minorline
+
+    \groupline{OVER-INTEGRATION OPTIONS}
+    projection\_order                     & integer            & 3           & advanced     & text \\ \minorline
+    quadrature\_order                     & integer            & 3           & advanced     & text \\ \minorline
+    loc\_quadrature\_pts                  & integer            & 1           & advanced     & text \\ \minorline
+
+    \groupline{ERROR-INTEGRATION OPTIONS}
+    error\_order                          & integer            & -3          & advanced     & text \\ \minorline
+    loc\_error\_pts                       & integer            & 1           & advanced     & text \\ \minorline
+
+    \groupline{FORCE GLOBAL ORDER AND SOLUTION POINTS}
+    all\_orders                           & integer            & -3          & basic        & text \\ \minorline
+    all\_points                           & integer            & -1          & advanced     & text \\ \minorline
+
+    \groupline{PARALLEL OPTIONS}
+    metis\_option                         & integer            & 3           & expert       & text \\ \minorline
+
+    \groupline{METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS}
+    mms\_opt                              & integer            & 0           & experimental & text \\ \minorline
+    mms\_init                             & real               & 0.1         & experimental & text \\ \minorline
+    mms\_output\_solution                 & logical            & .FALSE.     & experimental & text \\ \minorline
+
+    \groupline{INITIALIZATION / TEST CASE}
+    itestcase                             & integer            & 9           & basic        & text \\ \minorline
+
+    \groupline{RESTART OPTIONS}
+    load\_restart\_file                   & logical            & .FALSE.     & basic        & text \\ \minorline
+    restart\_interval                     & integer            & 0           & basic        & text \\ \minorline
+    use\_old\_restart\_format             & logical            & .FALSE.     & developer    & text \\ \minorline
+    restart\_file                         & character(len=150) & ``out.rst'' & basic        & text \\ \minorline
+    restart\_output\_uses\_host\_roots    & logical            & .TRUE.      & expert       & text \\ \minorline
+
+    \groupline{STATISTICAL OUTPUT OPTIONS}
+    iter\_out\_interval                   & integer            & 1           & basic        & text \\ \minorline
+    results\_interval                     & integer            & 0           & basic        & text \\ \minorline
+
+    \groupline{SOLUTION OUTPUT OPTIONS}
+    output\_dir                           & character(len=150) & ``.''       & basic        & text \\ \minorline
+    output\_interval                      & integer            & -5          & basic        & text \\ \minorline
+    continuous\_output                    & logical            & .FALSE.     & developer    & text \\ \minorline
+    output\_order                         & integer            & -3          & advanced     & text \\ \minorline
+    loc\_output\_pts                      & integer            & 0           & expert       & text \\ \minorline
+
+    \groupline{GOVERNING EQUATIONS}
+    governing\_equations                  & integer            & 2           & basic        & text \\ \minorline
+    turbulence\_model                     & integer            & 0           & not working  & text \\ \minorline
+
+    \groupline{NONDIMENSIONAL REFERENCE CONDITIONS}
+    machref                               & real               & 0.4         & basic        & text \\ \minorline
+    reyref                                & real               & -1.0        & basic        & reyref default evaluates to 8.7319053606e+6 \\ \minorline
+    gam                                   & real               & 1.4         & basic        & text \\ \minorline
+
+    \groupline{TOTAL REFERENCE CONDITIONS}
+    ptotref                               & real               & -1.0        & not working  & text \\ \minorline
+    ttotref                               & real               & -1.0        & not working  & text \\ \minorline
+    ptot2p\_ratio                         & real               & -1.0        & not working  & text \\ \minorline
+
+    \groupline{REFERENCE CONDITIONS}
+    rhoref                                & real               & -1.0        & basic        & rhoref default evaluates to 1.160833478437518 \\ \minorline
+    tref                                  & real               & 300.0       & basic        & text \\ \minorline
+    pref                                  & real               & 100000.0    & basic        & text \\ \minorline
+    rgasref                               & real               & 287.15      & basic        & text \\ \minorline
+
+    \groupline{REFERENCE TURBULENCE CONDITIONS}
+    tinref                                & real               & 0.0         & not working  & text \\ \minorline
+    tvrref                                & real               & 1.0e-6      & not working  & text \\ \minorline
+
+    \groupline{REFERENCE ANGLES OF ATTACK}
+    alpha\_aoaref                         & real               & 0.0         & basic        & text \\ \minorline
+    beta\_aoaref                          & real               & 0.0         & basic        & text \\ \minorline
+
+    \groupline{LAMINAR AND TURBULENT PRANDTL NUMBERS}
+    Pr                                    & real               & 0.72        & basic        & text \\ \minorline
+    Prt                                   & real               & 0.72        & not working  & text \\ \minorline
+
+    \groupline{SUTHERLANDS LAW COEFFICIENTS}
+    suth\_muref                           & real               & 1.716e-5    & basic        & text \\ \minorline
+    suth\_Tref                            & real               & 273.0       & basic        & text \\ \minorline
+    suth\_Sref                            & real               & 110.4       & basic        & text \\ \minorline
+
+    \groupline{FILTER OPTIONS}
+    Filter\_Option                        & integer            & 0           & advanced     & text \\ \minorline
+    Filter\_etac                          & real               & 0.0         & advanced     & text \\ \minorline
+    Filter\_Order                         & integer            & 16          & advanced     & text \\ \minorline
+    Filter\_Alpha                         & real               & 36.0        & advanced     & text \\ \minorline
+    Filter\_eps                           & real               & 0.0         & advanced     & text \\ \minorline
+
+    \groupline{LIMITER FILTER OPTIONS}
+    Limiter\_Filter\_Option               & integer            & 0           & advanced     & text \\ \minorline
+    Limiter\_Filter\_etac                 & real               & 0.0         & advanced     & text \\ \minorline
+    Limiter\_Filter\_Order                & integer            & 16          & advanced     & text \\ \minorline
+    Limiter\_Filter\_Alpha                & real               & 36.0        & advanced     & text \\ \minorline
+    Limiter\_Filter\_eps                  & real               & 0.0         & advanced     & text \\ \minorline
+
+    \groupline{LIMITER OPTIONS}
+    Limiter\_Option                       & integer            & 0           & advanced     & text \\ \minorline
+
+    \groupline{CONTROL OVER FREQUENCY OF FILTERING/LIMITING}
+    Filtering\_Interval                   & integer            & 0           & advanced     & text \\ \minorline
+    Limiting\_Interval                    & integer            & 0           & advanced     & text \\ \minorline
+
+    \groupline{ISENTROPIC VORTEX CONSTANTS}
+    vortex\_bigR                          & real               & 1.0         & special case & text \\ \minorline
+    vortex\_bigGam                        & real               & 5.0         & special case & text \\ \minorline
+    VortexGrid\_Lref                      & real               & 10.0        & special case & text \\ \minorline
+
+    \groupline{TAYLOR-GREEN VORTEX CONSTANTS}
+    VortexGrid\_DOF                       & integer            & 48          & special case & text \\ \minorline
+    VortexGrid\_random\_perturb           & logical            & .FALSE.     & special case & text \\ \minorline
+    VortexGrid\_perturb\_percent          & integer            & 30          & special case & text \\ \minorline
+
+    \groupline{CHANNEL FLOW PARAMETERS}
+    channel\_body\_force                  & real               & 0.0         & not working  & text \\ \minorline
+    channel\_init\_file                   & character(len=150) & `` ''       & not working  & text \\ \minorline
+
+    \groupline{OPTIONS FOR MODIFYING BC ALGORITHMS}
+    walls\_are\_exact                     & logical            & .TRUE.      & advanced     & text \\ \minorline
+    sub\_inflow\_method                   & integer            & 1           & advanced     & text \\ \minorline
+    use\_bc\_conflicts                    & logical            & .TRUE.      & special case & text \\ \minorline
+
+    \groupline{CGNS OUTPUT OPTIONS}
+    cgns\_use\_queue                      & logical            & .FALSE.     & developer    & text \\ \minorline
+    interpolate\_before\_output\_variable & logical            & .TRUE.      & developer    & text \\ \minorline
+    convert\_restart\_to\_cgns            & logical            & .FALSE.     & utility      & text \\ \minorline
+    completely\_disable\_cgns             & logical            & .FALSE.     & advanced     & text \\ \minorline
+
+    \groupline{CONVERGENCE CRITERIA}
+    convergence\_order\_abs\_res          & real               & -16.0       & advanced     & text \\ \minorline
+    convergence\_order\_max\_res          & real               & -16.0       & advanced     & text \\ \minorline
+
+    \groupline{PROFILE PARALLEL IO}
+    profile\_io\_all                      & logical            & .FALSE.     & developer    & text \\ \minorline
+    profile\_io\_cgns                     & logical            & .FALSE.     & developer    & text \\ \minorline
+    profile\_io\_restart                  & logical            & .FALSE.     & developer    & text \\ \minorline
+
+    \groupline{OPTIONS TO OUTPUT BOUNDARY PROFILE}
+    output\_bnd\_profiles                 & logical            & .FALSE.     & experimental & text \\ \minorline
+
+    \groupline{CONTROL DOT\_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE}
+    use\_unrolled\_dot\_products          & logical            & .TRUE.      & developer    & text \\ \minorline
+
+    \groupline{LUSTRE FILE SYSTEM STRIPING PARAMETERS}
+    lustre\_stripe\_count                 & integer            & 64          & expert       & text \\ \minorline
+    lustre\_stripe\_size                  & character(len=10)  & ``4m''      & expert       & text \\ \minorline
+
+    \groupline{TIME AVERAGING}
+    output\_time\_averaging               & logical            & .FALSE.     & basic        & text \\ \minorline
+    time\_ave\_file                       & character(len=150) & ``out.ave'' & basic        & text \\ \minorline
+    time\_scaling\_factor                 & real               & 1.0         & basic        & text \\ \minorline
+    time\_ave\_vel\_is\_axisymm           & logical            & .FALSE.     & advanced     & text \\ \minorline
+
+    \groupline{UTILITY TO TIME AVERAGE EXISTING RESTART FILES}
+    time\_average\_restart\_files         & logical            & .FALSE.     & utility      & text \\ \minorline
+    restart\_list\_file                   & character(len=150) & `` ''       & utility      & text \\ \minorline
+
+    \groupline{MEMORY USAGE}
+    dump\_memory\_usage                   & logical            & .FALSE.     & developer    & text \\ \minorline
+
+    \groupline{DUMP FLUX INFORMATION FOR DEBUGGING}
+    dump\_fluxes                          & logical            & .FALSE.     & developer    & text \\ \minorline
+    check\_flux\_point\_coordinates       & logical            & .FALSE.     & developer    & text \\ \minorline
+
+    \groupline{ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR}
+    postproc\_debug\_grid                 & logical            & .FALSE.     & developer    & text \\ \minorline
+
+    \groupline{OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT}
+    output\_plot3d\_to\_tecplot           & logical            & .FALSE.     & utility      & text \\ \minorline
+
+    \groupline{OPTION TO OUTPUT BOUNDARY CONDITIONS TO TECPLOT FILE}
+    output\_bface\_array                  & logical            & .FALSE.     & developer    & text \\ \minorline
+
+    \groupline{INPUT BOUNDARY CONDITIONS}
+    bc\_input(1:20)                       & bc\_input\_t       &             & basic        & text \\ \minorline
+
+    bc\_input(1)\%name                    & character(len=32)  & `` ''       & basic        & text \\ \minorline
+
+    bc\_input(1)\%set\_bc\_value          & integer            & -9999       & basic        & text \\ \minorline
+
+    bc\_input(1)\%t\_static               & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%p\_static               & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%rho\_static             & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%mach                    & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%vx                      & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%vy                      & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%vz                      & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%t\_total                & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%p\_total                & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%rho\_total              & real               & -1.0        & basic        & text \\ \minorline
+    bc\_input(1)\%alpha\_aoa              & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%beta\_aoa               & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%wall\_temp              & real               & -1.0        & basic        & text \\ \minorline
+
+    bc\_input(1)\%relax\%value            & real               & 1.0         & basic        & text \\ \minorline
+    bc\_input(1)\%relax\%time             & real               & 0.0         & basic        & text \\ \minorline
+    bc\_input(1)\%relax\%iter             & integer            & 0           & basic        & text \\ \minorline
+
+
+
+   %Monday & 11C & 22C & A clear day with lots of sunshine.  
+   %However, the strong breeze will bring down the temperatures. \\ \hline
+   %Tuesday & 9C & 19C & Cloudy with rain, across many northern regions. Clear spells 
+   %across most of Scotland and Northern Ireland, 
+   %but rain reaching the far northwest. \\ \hline
+   %Wednesday & 10C & 21C & Rain will still linger for the morning. 
+   %Conditions will improve by early afternoon and continue 
+   %throughout the evening. \\
+    \hline
+%   \end{tabularx}
+    \end{longtable}
+%   \end{tabular}
+%\end{center}
+
+%\input{vortex}
+%
+%\newpage
+%
+%\input{taylorgreen}
+
+\end{document}
