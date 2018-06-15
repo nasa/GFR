@@ -6898,7 +6898,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   character(len=*), intent(in) :: tname
   !
   !.. Local Scalars ..
-  integer :: i,k,l,m,n,nc,ierr
+  integer :: i,k,l,m,n,nc,npts,ierr
   !
   real(wp) :: beg_wall_time
   real(wp) :: end_wall_time
@@ -6986,6 +6986,7 @@ subroutine write_parallel_cgns_solution_file(sol_file,tname)
   real(wp),  allocatable :: vartmp(:)
   real(wp),  allocatable :: interp_usp(:,:)
   real(wp),  allocatable :: interp_dusp(:,:,:)
+  real(wp),  allocatable :: marker_tmp(:)
   !
 continue
   !
@@ -7115,25 +7116,23 @@ continue
   !
   ! Allocate var and vartmp if they arent already allocated
   !
-  if (.not. allocated(vartmp)) then
-    allocate ( vartmp(1:n_solpts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(vartmp)) then
+    deallocate ( vartmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  if (allocated(interp_usp)) then
+    deallocate ( interp_usp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_usp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(interp_dusp)) then
+    deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   if (.not. allocated(var)) then
     allocate ( var(1:n_my_output_pts) , source=real(0,CRT) , &
                stat=ierr , errmsg=error_message )
     call alloc_error(pname,"var",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (.not. allocated(interp_usp)) then
-    allocate ( interp_usp(1:nq,1:n_solpts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
-  end if
-  if (.not. allocated(interp_dusp)) then
-    allocate ( interp_dusp(1:nr,1:nq,1:n_solpts) , source=zero , &
-               stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   ! Write the flow variables
@@ -7150,6 +7149,12 @@ continue
   ! #######################################
   !
   if (check_gradients) then
+    !
+    npts = n_solpts
+    !
+    allocate ( vartmp(1:npts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! ################################################
     ! #####   WRITING GRADIENT FIELD VARIABLES   #####
@@ -7205,7 +7210,8 @@ continue
         !
         n = (m-nec)*nr + l
         !
-        vartmp(1:n_solpts) = grad_of_selected_pv(l,m,usp,dusp)
+        vartmp(1:npts) = grad_of_selected_pv(l,m,usp(:,1:n_solpts), &
+                                              dusp(:,:,1:n_solpts))
         !
         var(:) = real( interpolate_for_output(vartmp) , kind(var) )
         !
@@ -7236,21 +7242,47 @@ continue
     !
   else
     !
-    ! ################################################
-    ! #####   WRITING SOLUTION FIELD VARIABLES   #####
-    ! ################################################
+    if (interpolate_before_output_variable) then
+      npts = n_my_output_pts
+    else
+      npts = n_solpts
+    end if
+    !
+    allocate ( vartmp(1:npts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"vartmp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( interp_usp(1:nq,1:npts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_usp",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    allocate ( interp_dusp(1:nr,1:nq,1:npts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"interp_dusp",1,__LINE__,__FILE__,ierr,error_message)
     !
     ! Copy the solution and gradients into interp_usp and interp_dusp
     !
-    do n = 1,n_solpts
-      do m = 1,nq
-        interp_usp(m,n) = usp(n,m)
-        do l = 1,nr
-          interp_dusp(l,m,n) = dusp(n,l,m)
-        end do
+    if (interpolate_before_output_variable) then
+      !
+      ! Interpolate the conservative variables for output
+      !
+      interp_usp(1:nq,1:npts) = interpolate_for_output( usp(1:nq,1:n_solpts) )
+      !
+      do l = 1,nq
+        interp_dusp(1:nr,l,1:npts) = &
+                 interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
       end do
-    end do
-   !interp_dusp(1:nr,1:nq,1:n_solpts) = dusp(1:nr,1:nq,1:n_solpts)
+      !
+    else
+      !
+      interp_usp(1:nq,1:npts) = usp(1:nq,1:n_solpts)
+      interp_dusp(1:nr,1:nq,1:npts) = dusp(1:nr,1:nq,1:n_solpts)
+      !
+    end if
+    !
+    ! ################################################
+    ! #####   WRITING SOLUTION FIELD VARIABLES   #####
+    ! ################################################
     !
     ! Count the total number of solution variables that will be written
     ! and allocate isvar_s accordingly
@@ -7422,6 +7454,14 @@ continue
                         "Write node: Solution variable",n)
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
+        !
+        if (.not. allocated(marker_tmp)) then
+          allocate ( marker_tmp(1:n_solpts) , source=zero , &
+                     stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"marker_tmp",1,__LINE__,__FILE__, &
+                           ierr,error_message)
+        end if
+        !
       else if (trim(char_sname(l)) == "JumpMarker") then
         n = n + 1
         varname = trim(char_sname(l))
@@ -7445,6 +7485,14 @@ continue
                         "Write node: Solution variable",n)
         call cgns_timer(stop_cgns_procedure_timer,profile_io_cgns_subs, &
                         "cgp_field_write_f")
+        !
+        if (.not. allocated(marker_tmp)) then
+          allocate ( marker_tmp(1:n_solpts) , source=zero , &
+                     stat=ierr , errmsg=error_message )
+          call alloc_error(pname,"marker_tmp",1,__LINE__,__FILE__, &
+                           ierr,error_message)
+        end if
+        !
       else if (trim(char_sname(l)) == "CoMetrics") then
      !  do m = 1,nr
      !    do i = 1,nr
@@ -7529,17 +7577,6 @@ continue
       end if
     end do
     !
-    ! Interpolate the conservative variables for output
-    !
-    if (interpolate_before_output_variable) then
-      interp_usp(1:nq,1:n_solpts) = &
-            interpolate_for_output( interp_usp(1:nq,1:n_solpts) )
-      do l = 1,nq
-        interp_dusp(1:nr,l,1:n_solpts) = &
-                 interpolate_for_output( interp_dusp(1:nr,l,1:n_solpts) )
-      end do
-    end if
-    !
     ! Now create the output data and write it to the CGNS file in parallel
     !
     n = 0
@@ -7548,26 +7585,26 @@ continue
       select case (trim(char_sname(l)))
         case ("Density") ! Density
           n = n + 1
-          vartmp(1:n_solpts) = interp_usp(nec,1:n_solpts)
+          vartmp(1:npts) = interp_usp(nec,1:npts)
           vartmp(:) = vartmp * rhoref
           if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - rhoref
           call cgns_write_field_parallel
         case ("Momentum") ! Momentum
           do m = nmb,nme
             n = n + 1
-            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts)
+            vartmp(1:npts) = interp_usp(m,1:npts)
             vartmp(:) = vartmp * rhoref * aref
             call cgns_write_field_parallel
           end do
         case ("Energy") ! Energy
           n = n + 1
-          vartmp(1:n_solpts) = interp_usp(nee,1:n_solpts)
+          vartmp(1:npts) = interp_usp(nee,1:npts)
           vartmp(:) = vartmp * rhoref * aref * aref
           call cgns_write_field_parallel
         case ("GradDensity") ! GradDensity
           do m = 1,nr
             n = n + 1
-            vartmp(1:n_solpts) = interp_dusp(m,nec,1:n_solpts)
+            vartmp(1:npts) = interp_dusp(m,nec,1:npts)
             vartmp(:) = vartmp * rhoref
             call cgns_write_field_parallel
           end do
@@ -7575,7 +7612,7 @@ continue
           do m = nmb,nme
             do k = 1,nr
               n = n + 1
-              vartmp(1:n_solpts) = interp_dusp(k,m,1:n_solpts)
+              vartmp(1:npts) = interp_dusp(k,m,1:npts)
               vartmp(:) = vartmp * rhoref * aref
               call cgns_write_field_parallel
             end do
@@ -7583,15 +7620,15 @@ continue
         case ("GradEnergy") ! GradEnergy
           do m = 1,nr
             n = n + 1
-            vartmp(1:n_solpts) = interp_dusp(m,nee,1:n_solpts)
+            vartmp(1:npts) = interp_dusp(m,nee,1:npts)
             vartmp(:) = vartmp * rhoref * aref * aref
             call cgns_write_field_parallel
           end do
         case ("Velocity") ! Velocity
           do m = nmb,nme
             n = n + 1
-            vartmp(1:n_solpts) = interp_usp(m,1:n_solpts) / &
-                                 interp_usp(nec,1:n_solpts)
+            vartmp(1:npts) = interp_usp(m,1:npts) / &
+                             interp_usp(nec,1:npts)
             vartmp(:) = vartmp * aref
             if (itestcase == Freestream_Preservation) then
               if (m == nmb) vartmp(:) = vartmp - aref*machref
@@ -7603,6 +7640,11 @@ continue
           vartmp(:) = pressure_cv( interp_usp )
           vartmp(:) = vartmp * rhoref * aref * aref
           if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - pref
+          call cgns_write_field_parallel
+        case ("P0") ! Total Pressure
+          n = n + 1
+          vartmp(:) = total_pressure_cv( interp_usp )
+          vartmp(:) = vartmp * rhoref * aref * aref
           call cgns_write_field_parallel
         case ("Mach") ! Mach number
           n = n + 1
@@ -7618,6 +7660,11 @@ continue
           vartmp(:) = temperature_cv( interp_usp )
           vartmp(:) = vartmp * tref
           if (itestcase == Freestream_Preservation) vartmp(:) = vartmp - tref
+          call cgns_write_field_parallel
+        case ("T0") ! Total Temperature
+          n = n + 1
+          vartmp(:) = total_temperature_cv( interp_usp )
+          vartmp(:) = vartmp * tref
           call cgns_write_field_parallel
         case ("Viscosity") ! Viscosity
           if (governing_equations == NavierStokes_Eqns) then
@@ -7637,37 +7684,65 @@ continue
             if (nr < 3) exit
           end do
         case ("ResolutionMarker")
+          !
           if (Limiter_Option >= 0 .or. &
               .not. allocated(marker) .or. &
               .not. allocated(scaled_marker)) then
             call resolution_indicator(apply_projection=fals)
           end if
+          !
           n = n + 1
           do nc = 1,ncell
-            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
+            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
           end do
+          if (interpolate_before_output_variable) then
+            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
+          else
+            vartmp(1:npts) = marker_tmp(1:n_solpts)
+          end if
           call cgns_write_field_parallel
+          !
           n = n + 1
           do nc = 1,ncell
-            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
+            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
           end do
+          if (interpolate_before_output_variable) then
+            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
+          else
+            vartmp(1:npts) = marker_tmp(1:n_solpts)
+          end if
           call cgns_write_field_parallel
+          !
         case ("JumpMarker")
+          !
           if (Limiter_Option <= 1 .or. &
               .not. allocated(marker) .or. &
               .not. allocated(scaled_marker)) then
             call jump_indicator
           end if
+          !
           n = n + 1
           do nc = 1,ncell
-            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
+            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = marker(nc)
           end do
+          if (interpolate_before_output_variable) then
+            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
+          else
+            vartmp(1:npts) = marker_tmp(1:n_solpts)
+          end if
           call cgns_write_field_parallel
+          !
           n = n + 1
           do nc = 1,ncell
-            vartmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
+            marker_tmp(cell(nc)%beg_sp:cell(nc)%end_sp) = scaled_marker(nc)
           end do
+          if (interpolate_before_output_variable) then
+            vartmp(1:npts) = interpolate_for_output( marker_tmp(1:n_solpts) )
+          else
+            vartmp(1:npts) = marker_tmp(1:n_solpts)
+          end if
           call cgns_write_field_parallel
+          !
         case ("Partition")
           n = n + 1
           do nc = 1,ncell
@@ -7751,6 +7826,10 @@ continue
   if (allocated(interp_dusp)) then
     deallocate ( interp_dusp , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"interp_dusp",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  if (allocated(marker_tmp)) then
+    deallocate ( marker_tmp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"marker_tmp",2,__LINE__,__FILE__,ierr,error_message)
   end if
   if (allocated(isvar_s)) then
     deallocate ( isvar_s , stat=ierr , errmsg=error_message )
@@ -8096,7 +8175,7 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   use geovar,    only : global_cell_geom
   use geovar,    only : global_cell_order
   use geovar,    only : cell_map
-  use order_mod, only : geom_solpts
+  use order_mod, only : o_order,geom_solpts
   !
   !.. Formal Arguments ..
   integer(CST),              intent(inout) :: my_cells_beg
@@ -8106,7 +8185,8 @@ subroutine get_initial_data_for_cgns(my_cells_beg,my_cells_end,ipelem)
   !.. Local Scalars ..
   integer :: n,nc,np,ierr,icpu
   integer :: gmin,gmax,this_subcells
-  integer :: this_cell,this_geom,this_order
+  integer :: this_cell,this_geom
+  integer :: this_order,output_order
   !
   integer(CST) :: p1,this_npts
   integer(CST) :: n_my_output_cells
@@ -8151,7 +8231,9 @@ continue
       !
       ! Number of solution points for this cell geometry at this order
       !
-      this_npts = int(geom_solpts(this_geom,this_order),kind=kind(this_npts))
+      output_order = max(this_order,o_order)
+      !
+      this_npts = int(geom_solpts(this_geom,output_order),kind=kind(this_npts))
       !
       ! Get the number of subcells for this cell geometry at this order.
       ! The number of subcells is basically:
@@ -8159,7 +8241,7 @@ continue
       ! NOTE: Make sure that the number of subcells is at least 1,
       !       particularly for the case of this_order=0
       !
-      this_subcells = max( 1 , this_order**geom_dimen(this_geom) )
+      this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
       !
       ! Add the number of solution points for this cell geometry at
       ! this order to the running count of the global total number of
@@ -8245,7 +8327,9 @@ continue
     !
     ! Number of solution points for this cell geometry at this order
     !
-    this_npts = int(geom_solpts(this_geom,this_order),kind=kind(this_npts))
+    output_order = max(this_order,o_order)
+    !
+    this_npts = int(geom_solpts(this_geom,output_order),kind=kind(this_npts))
     !
     ! Get the number of subcells for this cell geometry at this order.
     ! The number of subcells is basically:
@@ -8253,7 +8337,7 @@ continue
     ! NOTE: Make sure that the number of subcells is at least 1,
     !       particularly for the case of this_order=0
     !
-    this_subcells = max( 1 , this_order**geom_dimen(this_geom) )
+    this_subcells = max( 1 , output_order**geom_dimen(this_geom) )
     !
     ! Loop through the number of subcells and add the subconnectivity
     ! to the first solution point of the current grid cell to get the
@@ -8263,8 +8347,8 @@ continue
       !
       nc = nc + 1
       !
-      ipelem(:,nc) = p1 + int( pst_geom(this_geom,this_order)% &
-                                            connectivity(:,n) , &
+      ipelem(:,nc) = p1 + int( pst_geom(this_geom,output_order)% &
+                                              connectivity(:,n) , &
                                kind=kind(ipelem) )
       !
     end do
@@ -9217,16 +9301,18 @@ pure function interpolate_for_output_1d(array) result(return_value)
   real(wp), dimension(:), intent(in) :: array
   !
   !.. Function Return Value ..
-  real(wp), dimension(1:size(array)) :: return_value
+  real(wp), dimension(1:n_my_output_pts) :: return_value
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,np,n
+  integer :: i1,i2,nc,n1,n2,np,n
   integer :: this_geom,this_order
   !
 continue
   !
   ! Interpolate the data depending on if we are working on
   ! a local or global data array.
+  !
+  i2 = 0
   !
   if (size(array) == n_solpts) then
     !
@@ -9240,10 +9326,14 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
         call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                             array(n1:n2) , return_value(n1:n2) )
+                             array(n1:n2) , return_value(i1:i2) )
       else
-        return_value(n1:n2) = array(n1:n2)
+        i1 = i2 + 1
+        i2 = i2 + np
+        return_value(i1:i2) = array(n1:n2)
       end if
       !
     end do
@@ -9260,10 +9350,14 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
         call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                             array(n1:n2) , return_value(n1:n2) )
+                             array(n1:n2) , return_value(i1:i2) )
       else
-        return_value(n1:n2) = array(n1:n2)
+        i1 = i2 + 1
+        i2 = i2 + np
+        return_value(i1:i2) = array(n1:n2)
       end if
       !
     end do
@@ -9297,10 +9391,10 @@ pure function interpolate_for_output_2d(array) result(return_value)
   real(wp), dimension(:,:), intent(in) :: array
   !
   !.. Function Return Value ..
-  real(wp) :: return_value( 1:size(array,dim=1) , 1:size(array,dim=2) )
+  real(wp) :: return_value( 1:size(array,dim=1) , 1:n_my_output_pts )
   !
   !.. Local Scalars ..
-  integer :: nc,n1,n2,np,n,npts,nvar,m
+  integer :: i1,i2,nc,n1,n2,np,n,npts,nvar,m
   integer :: this_geom,this_order
   !
 continue
@@ -9310,6 +9404,8 @@ continue
   !
   ! Interpolate the data depending on if we are working on
   ! a local or global data array.
+  !
+  i2 = 0
   !
   if (npts == n_solpts) then
     !
@@ -9323,14 +9419,18 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
         do m = 1,nvar
           call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                               array(m,n1:n2) , return_value(m,n1:n2) )
+                               array(m,n1:n2) , return_value(m,i1:i2) )
         end do
       else
+        i1 = i2 + 1
+        i2 = i2 + np
         do n = n1,n2
           do m = 1,nvar
-            return_value(m,n) = array(m,n)
+            return_value(m,i1+n-n1) = array(m,n)
           end do
         end do
       end if
@@ -9349,14 +9449,18 @@ continue
       np = n2-n1+1
       !
       if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
         do m = 1,nvar
           call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                               array(m,n1:n2) , return_value(m,n1:n2) )
+                               array(m,n1:n2) , return_value(m,i1:i2) )
         end do
       else
+        i1 = i2 + 1
+        i2 = i2 + np
         do n = n1,n2
           do m = 1,nvar
-            return_value(m,n) = array(m,n)
+            return_value(m,i1+n-n1) = array(m,n)
           end do
         end do
       end if
@@ -9411,6 +9515,60 @@ continue
   end do
   !
 end function vorticity_dusp
+!
+!###############################################################################
+!
+pure function total_temperature_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: uu(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(uu,dim=2))
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: mach,temp
+  !
+continue
+  !
+  do n = 1,size(uu,dim=2)
+    temp = temperature_cv_sp( uu(:,n) )
+    mach = mach_number_cv_sp( uu(:,n) )
+    return_value(n) = temp*(one + half*(gam-one)*mach*mach)
+  end do
+  !
+end function total_temperature_cv
+!
+!###############################################################################
+!
+pure function total_pressure_cv(uu) result(return_value)
+  !
+  !.. Use Statements ..
+  use ovar, only : gam
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(in) :: uu(:,:)
+  !
+  !.. Function Result ..
+  real(wp) :: return_value(1:size(uu,dim=2))
+  !
+  !.. Local Scalars ..
+  integer  :: n
+  real(wp) :: mach,pres
+  !
+continue
+  !
+  do n = 1,size(uu,dim=2)
+    pres = pressure_cv_sp( uu(:,n) )
+    mach = mach_number_cv_sp( uu(:,n) )
+    return_value(n) = pres*( (one + half*(gam-one)*mach*mach)**(gam/(gam-one)) )
+  end do
+  !
+end function total_pressure_cv
 !
 !###############################################################################
 !
