@@ -23,7 +23,7 @@ program GFR_main
   use ovar, only : results_interval,iter_out_interval
   use ovar, only : restart_interval,output_interval
   use ovar, only : dump_memory_usage,mms_opt
-  use ovar, only : recon_cpu_time,this_is_final_timestep
+  use ovar, only : gfr_cpu_time,this_is_final_timestep
   use ovar, only : write_TaylorGreen_8s_solution
   use ovar, only : write_TaylorGreen_full_solution
   use ovar, only : continuous_output,completely_disable_cgns
@@ -204,7 +204,7 @@ continue
   !
   ! Initialize the wall time
   !
-  call recon_cpu_time(0)
+  call gfr_cpu_time(0)
   call check_for_bad_number(__LINE__)
   !
   ! Get the number of seconds allowed for this simulation
@@ -410,7 +410,7 @@ continue
   !
   ! Initialize the wall time
   !
-  call recon_cpu_time(0)
+  call gfr_cpu_time(0)
   !
  !if (num_timesteps > 0) then
     !
@@ -490,7 +490,7 @@ continue
   !
   ! Initialize the wall time
   !
-  call recon_cpu_time(0)
+  call gfr_cpu_time(0)
   !
   main_loop: do iter = 1, num_timesteps
     !
@@ -709,7 +709,7 @@ continue
       !
       if (mod(itcur,results_interval)==0 .and. iter/=num_timesteps) then
         !
-        call recon_cpu_time(1)
+        call gfr_cpu_time(1)
         !
         if (mypnum == glb_root) call write_residual_file_gpu(0,itcur)
        !if (mypnum == glb_root) call write_residual_file(0,itcur)
@@ -741,10 +741,10 @@ continue
           !
           ! Check for a stop request
           !
-          inquire (file="STOP_RECON",exist=request_stop)
+          inquire (file="STOP_GFR",exist=request_stop)
           !
           ! If stop was requested, delete the
-          ! STOP_RECON file and exit the main loop
+          ! STOP_GFR file and exit the main loop
           !
           if (request_stop) then
             !
@@ -753,7 +753,7 @@ continue
             ! We dont care about the exit status here since we are
             ! going to be stopping execution after this anyways
             !
-            open (newunit=i,file="STOP_RECON",iostat=ierr)
+            open (newunit=i,file="STOP_GFR",iostat=ierr)
             close (i,status="delete",iostat=ierr)
             !
           end if
@@ -811,7 +811,7 @@ continue
           inquire (file="START_TIME_AVERAGING",exist=request_time_ave)
           !
           ! If stop was requested, delete the
-          ! STOP_RECON file and exit the main loop
+          ! STOP_GFR file and exit the main loop
           !
           if (request_time_ave) then
             !
@@ -865,7 +865,7 @@ continue
         request_restart_interupt = request_array(5)
         request_time_ave = request_array(6)
         !
-        ! Exit if the STOP_RECON file was found
+        ! Exit if the STOP_GFR file was found
         !
         if (request_stop) exit main_loop
         !
@@ -999,7 +999,7 @@ continue
   !
   ! Get the elapsed wall time
   !
-  call recon_cpu_time(1)
+  call gfr_cpu_time(1)
   !
   ! If solving the Taylor-Green Vortex problem,
   ! finalize the kinetic energy dissipation rates
@@ -1036,7 +1036,7 @@ continue
         out_time = out_time - ave_start_time*time_ref*time_scaling_factor
       end if
       write (iout,40) ncpu,itcur,out_time
-      call recon_cpu_time(-1)
+      call gfr_cpu_time(-1)
       !
       call write_final_error
       call write_residual_file_gpu(-1,itcur)
@@ -1094,11 +1094,11 @@ continue
                " VORTEX HAS APPEARED TO COLLAPSE!",/, &
                " THE SIMULATION WAS RUN ANOTHER 25 PERIODS", &
                " PAST THE POINT OF COLLAPSE!",/, &
-               " RECON IS NOW STOPPING EXECUTION AND", &
+               " GFR IS NOW STOPPING EXECUTION AND", &
                " DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
   99 format (/,"*******************************************************",/, &
-               " FOUND FILE REQUESTING TO STOP THE EXECUTION OF RECON! ",/, &
+               " FOUND FILE REQUESTING TO STOP THE EXECUTION OF GFR! ",/, &
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
   !
