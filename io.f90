@@ -67,7 +67,7 @@ module io_mod
   character(len=CGLEN), save, allocatable :: solname(:)
   character(len=CGLEN), save, allocatable :: solfile(:)
   !
-  character(len=*), parameter :: base_name = "recon_base"
+  character(len=*), parameter :: base_name = "gfr_base"
   character(len=*), parameter :: zone_name = "Solution"
   !
   !.. CGNS Parallel Point Indices ..
@@ -111,7 +111,7 @@ subroutine read_input_file
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_input_file"
-  character(len=*), parameter :: default_fname = "recon3.in"
+  character(len=*), parameter :: default_fname = "gfr.in"
   !
 continue
   !
@@ -156,9 +156,9 @@ continue
     call check_input_file(input_fname,input_status)
     !
     if (input_status /= 0) then
-      call write_nml_input_file('recon.in.default')
+      call write_nml_input_file('gfr.in.default')
       write (error_message,11)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
   end do one_pass_loop
@@ -236,7 +236,7 @@ continue
   !
   100 continue
   write (error_message,10) trim(adjustl(input_fname)), ierr
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   ! Format statements
   !
@@ -345,7 +345,7 @@ continue
     !
     if (.not. any(solution_format == [Plot3D_Format,Restart_Format])) then
       write (error_message,108)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Make sure the grid and solution file formats are compatible.
@@ -355,7 +355,7 @@ continue
         (solution_format == CGNS_Format .and. &
              grid_format /= CGNS_Format)) then
       write (error_message,109)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -397,13 +397,13 @@ continue
   !
   if (loc_solution_pts /= loc_flux_pts) then
     if (mypnum == 0) write (iout,101)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (loc_solution_pts == Legendre_Gauss_Lobatto) then
     if (continuous_output) then
       write (error_message,106)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -489,7 +489,7 @@ continue
       mms_error = true
     end if
     if (mms_error) then
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! If mms_output_solution is true, set the MMS initialization factor
@@ -1120,7 +1120,7 @@ continue
     !
     output_dir = output_dir(8:clen)
     if (mypnum == 0) write (iout,1) trim(output_dir)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else
     !
@@ -1140,7 +1140,7 @@ continue
         !
         if (exitstat /= 0 .or. cmndstat /= 0) then
           write (error_message,2) trim(output_dir)//"flux_files"
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         end if
         !
       end if
@@ -1498,7 +1498,7 @@ continue
   !
   if (errors_found) then
     write (error_message,2)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ngrps = count( face_grps(1,:,:) > 0 )
@@ -1949,14 +1949,14 @@ continue
   !
   if (any(cell_geom == Geom_Tria)) then
     write (*,3)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (*,2)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     end if
   end if
   !
@@ -3312,7 +3312,7 @@ continue
   !
   if (bnd_face_error) then
     write (error_message,2)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Have the root processor broadcast all the grid
@@ -3427,17 +3427,8 @@ continue
     grid%elem(nc)%prop%geom = cell_geom(nc)
     grid%elem(nc)%prop%elem_type = cell_geom(nc)
     !
-#ifdef SPECIAL_FOR_PGI
-    grid%elem(nc)%pts = nodes_of_cell(n1:n2)   ! USING F2003 AUTO-REALLOCATION
-   !grid%elem(nc)%pts = ip(1:np)               ! USING F2003 AUTO-REALLOCATION
-   !grid%elem(nc)%pts = ip(0:np-1)             ! USING F2003 AUTO-REALLOCATION
-    grid%elem(nc)%nodes = nodes_of_cell(n1:n2) ! USING F2003 AUTO-REALLOCATION
-   !grid%elem(nc)%nodes = ip(1:np)             ! USING F2003 AUTO-REALLOCATION
-   !grid%elem(nc)%nodes = ip(0:np-1)           ! USING F2003 AUTO-REALLOCATION
-#else
     grid%elem(nc)%pts = nodes_of_cell(n1:n2)   ! USING F2003 AUTO-REALLOCATION
     grid%elem(nc)%nodes = nodes_of_cell(n1:n2) ! USING F2003 AUTO-REALLOCATION
-#endif
     !
     grid%elem(nc)%tags = [0,0] ! F2003 AUTO-REALLOCATION
     !
@@ -3899,7 +3890,7 @@ continue
         cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
       case default
         write (iout,1)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     end select
     !
     ! If the cell volume is negative, this means the cell is in clockwise
@@ -3940,7 +3931,7 @@ continue
       else
         !
         write (iout,2)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         !
       end if
       !
@@ -3976,7 +3967,7 @@ continue
         cell_vol = vol_hex( cell_nodes(1:nr,1:np) )
       case default
         write (iout,1)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     end select
     !
     ! If the cell volume is negative, this means the cell is in clockwise
@@ -3996,7 +3987,7 @@ continue
       else
         !
         write (iout,2)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
         !
       end if
     end if
@@ -4085,7 +4076,7 @@ continue
     !
     if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
       write (error_message,100)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     nodes_of_cell_ptr(ncell+nf+1) = num_face_nodes(host_side,host_geom)
@@ -4146,7 +4137,7 @@ continue
     !
     if (g2-g1+1 /= nfnods) then
       write (error_message,102)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Node offsets for this face of the host cell
@@ -4487,7 +4478,7 @@ continue
     !
     if (all(host_geom /= [Geom_1D,Geom_2D,Geom_3D])) then
       write (error_message,100)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Create new nodes for the remaining ghost cell nodes
@@ -4670,7 +4661,7 @@ continue
       !
       if (num_face_nodes(periodic_side,periodic_geom) /= nfnods) then
         write (error_message,101)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! Get the number of nodes defining the periodic cell
@@ -4878,7 +4869,7 @@ continue
     end do
     write (error_message,6) trim(error_message)//new_line('a'),sum(error_count)
     !
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !
@@ -5025,7 +5016,7 @@ continue
     !
     if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
       write (error_message,7)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! ##########################################################################
@@ -5060,7 +5051,7 @@ continue
       !
       if (all(cell_geom(bface(2,nf)) /= Geom_2D)) then
         write (error_message,7)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
       ! ########################################################################
@@ -5458,8 +5449,8 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
- !                "After dumping flux point coordinates")
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
+ !              "After dumping flux point coordinates")
   !
   ! Format Statements
   !
@@ -5726,8 +5717,8 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
-                  "After dumping flux point coordinates")
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
+                "After dumping flux point coordinates")
   !
   ! Format Statements
   !
@@ -8284,10 +8275,10 @@ continue
   !
   if (any(Geom_Unknown == [gmin,gmax])) then
     write (error_message,1)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   else if (geom_dimen(gmin) /= geom_dimen(gmax)) then
     write (error_message,2)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Get the number of nodes needed to define grid cells of this dimension
