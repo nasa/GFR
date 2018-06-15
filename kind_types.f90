@@ -2066,6 +2066,24 @@ end subroutine stop_gfr
 !
 !###############################################################################
 !
+subroutine gfr_timer(current_wall_time)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: current_wall_time
+  !
+  !.. Local Scalars ..
+  integer(i8) :: clock_count
+  integer(i8) :: clock_count_rate
+  !
+continue
+  !
+  call system_clock(count=clock_count,count_rate=clock_count_rate)
+  current_wall_time = real(clock_count,kind=wp) / real(clock_count_rate,kind=wp)
+  !
+end subroutine gfr_timer
+!
+!###############################################################################
+!
 #include "Functions/debug_timer.f90"
 !
 !##############################################################################
