@@ -1,7 +1,7 @@
 module ovar
   !
   use module_kind_types, only : wp,lk,ldk,fals,true
-  use module_kind_types, only : Euler_Eqns
+  use module_kind_types, only : NavierStokes_Eqns
   use module_kind_types, only : Gambit_Neutral,Unknown_Format
   use module_kind_types, only : Legendre_Gauss,Equi_Distant_Points
   use module_kind_types, only : TVD3_RK
@@ -21,7 +21,7 @@ module ovar
   !
   private
   !
-  public :: recon_cpu_time
+  public :: gfr_cpu_time
   public :: ovar_memory_usage
   public :: adjust_cfl_cycles
   public :: move_bcin_to_device
@@ -39,14 +39,14 @@ module ovar
   ! ####   Input Variables   ####
   ! #############################
   !
-  integer,  public, save :: all_points       = -1
+  integer,  public, save :: all_points       = 1
   integer,  public, save :: loc_solution_pts       = Legendre_Gauss
   integer,  public, save :: loc_flux_pts       = Legendre_Gauss
   integer,  public, save :: loc_triangle_pts       = 2
   integer,  public, save :: flux_divergence  = 1
   integer,  public, save :: correction_function = Correction_gDG
   !
-  integer,  public, save :: governing_equations = Euler_Eqns
+  integer,  public, save :: governing_equations = NavierStokes_Eqns
   !
   integer,  public, save :: Runge_Kutta_Scheme     = TVD3_RK
   integer,  public, save :: num_rk_stages  = 3
@@ -56,13 +56,13 @@ module ovar
   integer,  public, save :: visc_variables_to_ave = visc_interface_fluxes
   !
   integer,  public, save :: num_timesteps     = 25000
-  real(wp), public, save :: Final_Time = -1.0_wp
+  real(wp), public, save :: Final_Time = -2.0_wp
   real(wp), public, save :: cfl_beg    = 0.1_wp
-  real(wp), public, save :: cfl_end    = 1.0_wp
-  integer,  public, save :: cfl_cycles = 0
-  real(wp), public, save :: cfl        = 1.0_wp
-  real(wp), public, save :: constant_dt = 0.0008_wp
-  integer,  public, save :: Timestep_Type = 0
+  real(wp), public, save :: cfl_end    = 0.1_wp
+  integer,  public, save :: cfl_cycles = 1
+  real(wp), public, save :: cfl        = 0.1_wp
+  real(wp), public, save :: constant_dt = 1.0e-6_wp
+  integer,  public, save :: Timestep_Type = 1
   integer,  public, save :: minimum_timesteps = 100
   !
   integer,  public, save :: loc_quadrature_pts = 1
@@ -74,7 +74,7 @@ module ovar
   real(wp), public, save :: mms_init = 0.1_wp
   logical(lk),  public, save :: mms_output_solution = fals
   !
-  integer,  public, save :: itestcase = 5
+  integer,  public, save :: itestcase = 9
   integer,  public, save :: jet_init_func = 2
   !
   logical(lk), public, save :: load_restart_file = fals
@@ -482,7 +482,10 @@ end subroutine adjust_cfl_cycles
 !
 !###############################################################################
 !
-subroutine recon_cpu_time(time_flag)
+subroutine gfr_cpu_time(time_flag)
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : gfr_timer
   !
   !.. Formal Arguments ..
   integer, intent(in) :: time_flag
@@ -494,12 +497,12 @@ continue
   !
   if (time_flag == 0) then
     !
-    beg_wall_time = mpi_wtime()
+    call gfr_timer( beg_wall_time )
     work_units = zero
     !
   else if (time_flag == 1) then
     !
-    end_wall_time = mpi_wtime()
+    call gfr_timer( end_wall_time )
     wall_time = end_wall_time-beg_wall_time
     work_units = wall_time/one_work_unit
     !
@@ -519,7 +522,7 @@ continue
               " (",i0,":",i2.2,":",i2.2,")",/, &
               "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
   !
-end subroutine recon_cpu_time
+end subroutine gfr_cpu_time
 !
 !###############################################################################
 !
