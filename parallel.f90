@@ -15,15 +15,15 @@ module parallel_mod
   use geovar,  only : map_t,cell_map
   !
 #ifdef METIS_5
-  use metis5
+  use metis5_mod
+#else
+  use intrinsic :: iso_fortran_env, only : idx_t => int32
+  use intrinsic :: iso_fortran_env, only : real_t => real32
 #endif
   !
   implicit none
   !
   private
-#ifdef METIS_5
-!!include "metis.fh"
-#endif
   !
   !.. Public Module Procedures ..
   !
@@ -327,17 +327,18 @@ subroutine partition_grid(npart,metis_option_requested,bface,nodes_of_cell, &
   character(len=200) :: array_name
   !
   !.. Local Allocatable Arrays ..
-  integer, allocatable, dimension(:)   :: xadj
-  integer, allocatable, dimension(:)   :: adjncy
-  integer, allocatable, dimension(:)   :: epart
-  integer, allocatable, dimension(:)   :: cells_with_node
-  integer, allocatable, dimension(:)   :: cells_with_node_ptr
-  integer, allocatable, dimension(:)   :: cells_surr_cell
-  integer, allocatable, dimension(:)   :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:)   :: cells_with_edge
-  integer, allocatable, dimension(:)   :: cells_with_edge_ptr
-  integer, allocatable, dimension(:,:) :: nodes_on_edge
-  integer, allocatable, dimension(:,:) :: face_rotation
+  integer, allocatable :: cells_with_node(:)
+  integer, allocatable :: cells_with_node_ptr(:)
+  integer, allocatable :: cells_surr_cell(:)
+  integer, allocatable :: cells_surr_cell_ptr(:)
+  integer, allocatable :: cells_with_edge(:)
+  integer, allocatable :: cells_with_edge_ptr(:)
+  integer, allocatable :: nodes_on_edge(:,:)
+  integer, allocatable :: face_rotation(:,:)
+  !
+  integer(idx_t), allocatable :: xadj(:)
+  integer(idx_t), allocatable :: adjncy(:)
+  integer(idx_t), allocatable :: epart(:)
   !
   !.. Local Allocatable Derived-Type Arrays ..
   type(node_t),     allocatable :: node(:)
@@ -401,7 +402,8 @@ continue
     !
     ! Allocate the epart array to store the cell partition numbers
     !
-    allocate ( epart(1:lcell) , source=0 , stat=ierr , errmsg=error_message )
+    allocate ( epart(1:lcell) , source=0_idx_t , &
+               stat=ierr , errmsg=error_message )
     call alloc_error(pname,"epart",1,__LINE__,__FILE__,ierr,error_message)
    !if (mypnum == 0) then
    !  call output_partitions(99,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes)
@@ -828,13 +830,13 @@ subroutine partition_using_metis_4(metis_option_requested,npart, &
   use iso_c_binding, only : c_double
   !
   !.. Formal Arguments ..
-  integer,                  intent(in) :: metis_option_requested
-  integer,                  intent(in) :: npart
-  integer, dimension(:),    intent(in) :: cell_geom
-  integer, dimension(:),    intent(in) :: cell_order
-  integer, dimension(:),    intent(in) :: xadj
-  integer, dimension(:),    intent(in) :: adjncy
-  integer, dimension(:), intent(inout) :: epart
+  integer,           intent(in) :: metis_option_requested
+  integer,           intent(in) :: npart
+  integer,           intent(in) :: cell_geom(:)
+  integer,           intent(in) :: cell_order(:)
+  integer(idx_t),    intent(in) :: xadj(:)
+  integer(idx_t),    intent(in) :: adjncy(:)
+  integer(idx_t), intent(inout) :: epart(:)
   !
   !.. Local Scalars ..
   integer :: n,ip,ierr,lcell
@@ -1041,39 +1043,33 @@ end subroutine partition_using_metis_4
 subroutine partition_using_metis_5(metis_option_requested,npart, &
                                    xadj,adjncy,epart)
   !
-  !.. Use Statements ..
-  use iso_c_binding, only : c_float
-  use iso_c_binding, only : c_double
-  use iso_c_binding, only : c_null_ptr
-  !
   !.. Formal Arguments ..
-  integer,                  intent(in) :: metis_option_requested
-  integer,                  intent(in) :: npart
-  integer, dimension(:),    intent(in) :: xadj
-  integer, dimension(:),    intent(in) :: adjncy
-  integer, dimension(:), intent(inout) :: epart
+  integer,           intent(in) :: metis_option_requested
+  integer,           intent(in) :: npart
+  integer(idx_t),    intent(in) :: xadj(:)
+  integer(idx_t),    intent(in) :: adjncy(:)
+  integer(idx_t), intent(inout) :: epart(:)
   !
   !.. Local Scalars ..
-  integer :: n,ip,ierr,lcell
-  integer :: ncon,objval
-  integer :: metis_option
-  logical(ldk) :: passes_inspection
+  integer        :: n,ip,ierr,lcell,metis_option
+  integer(idx_t) :: nvtxs,ncon,nparts,objval
+  logical(ldk)   :: passes_inspection
   character(len=19) :: method
   character(len=12) :: weight
   character(len=20) :: minmzd
   !
   !.. Local Arrays ..
-  integer, dimension(1:5) :: metis_option_hierarchy
+  integer :: metis_option_hierarchy(1:5)
 #ifdef METIS_5
-  integer, dimension(0:METIS_NOPTIONS-1) :: options
+  integer(idx_t) :: options(0:METIS_NOPTIONS-1)
 #endif
   !
   !.. Local Allocatable Arrays ..
-  integer,       allocatable, dimension(:) :: vwgt
-  integer,       allocatable, dimension(:) :: vsize
-  integer,       allocatable, dimension(:) :: adjwgt
-  real(c_float), allocatable, dimension(:) :: tpwgts
-  real(c_float), allocatable, dimension(:) :: ubvec
+  integer(idx_t), allocatable :: vwgt(:)
+  integer(idx_t), allocatable :: vsize(:)
+  integer(idx_t), allocatable :: adjwgt(:)
+  real(real_t),   allocatable :: tpwgts(:)
+  real(real_t),   allocatable :: ubvec(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "partition_using_metis_5"
@@ -1100,27 +1096,37 @@ continue
   !
   ! Define other METIS variables
   !
-  ncon = 1 ! number of weights associated with each vertex (>= 1)
+  nvtxs = int(lcell,kind=idx_t)
+  ncon = 1_idx_t ! number of weights associated with each vertex (>= 1)
+  nparts = int(npart,kind=idx_t)
   !
   ! Allocate the local arrays
   !
 #ifdef DEBUG_ON
-  allocate ( vwgt(1:ncon*lcell) , source=1 , stat=ierr , errmsg=error_message )
+  allocate ( vwgt(1:ncon*lcell) , source=1_idx_t , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vwgt",1,__LINE__,__FILE__,ierr,error_message)
-  allocate ( vsize(1:lcell) , source=1 , stat=ierr , errmsg=error_message )
+  !
+  allocate ( vsize(1:lcell) , source=1_idx_t , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"vsize",1,__LINE__,__FILE__,ierr,error_message)
-  allocate ( adjwgt(1:size(adjncy)) , source=1 , &
+  !
+  allocate ( adjwgt(1:size(adjncy)) , source=1_idx_t , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"adjwgt",1,__LINE__,__FILE__,ierr,error_message)
+  !
   allocate ( tpwgts(0:ncon*npart-1) , &
-             source=1.0_c_float/real(npart,c_float) , &
+             source=1.0_real_t/real(npart,kind=real_t) , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"tpwgts",1,__LINE__,__FILE__,ierr,error_message)
-  tpwgts = real( one/real(npart,kind=wp) , kind=kind(tpwgts) )
-  tpwgts = tpwgts / sum(tpwgts)
-  allocate ( ubvec(1:ncon) , source=1.01_c_float , &
+  !
+  tpwgts(:) = real( one/real(npart,kind=wp) , kind=kind(tpwgts) )
+  tpwgts(:) = tpwgts(:) / sum(tpwgts(:))
+  !
+  allocate ( ubvec(1:ncon) , source=1.01_real_t , &
              stat=ierr , errmsg=error_message )
   call alloc_error(pname,"ubvec",1,__LINE__,__FILE__,ierr,error_message)
+  !
   if (mypnum == glb_root) write (iout,5) mypnum,sum(tpwgts)
 #endif
   !
@@ -1150,8 +1156,8 @@ continue
         weight = "non-weighted"
         minmzd = "      edge cut      "
         !
-        call metis_partgraphrecursive(lcell,ncon,xadj,adjncy,vwgt,vsize, &
-                                      adjwgt,npart,tpwgts,ubvec,options, &
+        call metis_partgraphrecursive(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                      adjwgt,nparts,tpwgts,ubvec,options, &
                                       objval,epart)
         !
       else if (metis_option == 2) then
@@ -1166,8 +1172,8 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_CUT
         !
-        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,npart,tpwgts,ubvec,options, &
+        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
         !
       else if (metis_option == 3) then
@@ -1182,8 +1188,8 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,npart,tpwgts,ubvec,options, &
+        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
         !
       else if (metis_option == 4) then
@@ -1208,8 +1214,8 @@ continue
         !
         options(METIS_OPTION_OBJTYPE) = METIS_OBJTYPE_VOL
         !
-        call metis_partgraphkway(lcell,ncon,xadj,adjncy,vwgt,vsize, &
-                                 adjwgt,npart,tpwgts,ubvec,options, &
+        call metis_partgraphkway(nvtxs,ncon,xadj,adjncy,vwgt,vsize, &
+                                 adjwgt,nparts,tpwgts,ubvec,options, &
                                  objval,epart)
         !
       else
@@ -1406,10 +1412,10 @@ subroutine create_metis_dual_graph(cells_surr_cell,cells_surr_cell_ptr, &
   ! dual graph arrays required by METIS to partition the global grid
   !
   !.. Formal Arguments ..
-  integer,              dimension(:),    intent(in) :: cells_surr_cell
-  integer,              dimension(:),    intent(in) :: cells_surr_cell_ptr
-  integer, allocatable, dimension(:), intent(inout) :: xadj
-  integer, allocatable, dimension(:), intent(inout) :: adjncy
+  integer,                        intent(in) :: cells_surr_cell(:)
+  integer,                        intent(in) :: cells_surr_cell_ptr(:)
+  integer(idx_t), allocatable, intent(inout) :: xadj(:)
+  integer(idx_t), allocatable, intent(inout) :: adjncy(:)
   !
   !.. Local Scalars ..
   integer :: n,nf,n1,n2,ic,ierr,lcell
@@ -1450,12 +1456,13 @@ continue
   !
   ! Allocate the xadj and adjncy arrays
   !
-  allocate ( xadj(1:lcell+1) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( xadj(1:lcell+1) , source=0_idx_t , &
+             stat=ierr , errmsg=error_message )
   call alloc_error(pname,"xadj",1,__LINE__,__FILE__,ierr,error_message)
-  xadj(1) = 1
+  xadj(1) = 1_idx_t
   !
   n = count( cells_surr_cell(:) > 0 )
-  allocate ( adjncy(1:n) , source=0 , stat=ierr , errmsg=error_message )
+  allocate ( adjncy(1:n) , source=0_idx_t , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"adjncy",1,__LINE__,__FILE__,ierr,error_message)
   !
   ! Loop through the cells to copy only the greater than zero
@@ -1468,9 +1475,9 @@ continue
     n2 = cells_surr_cell_ptr(n+1)
     do nf = n1,n2
       if (cells_surr_cell(nf) > 0) then
-        xadj(n+1) = xadj(n+1) + 1
+        xadj(n+1) = xadj(n+1) + 1_idx_t
         ic = ic + 1
-        adjncy(ic) = cells_surr_cell(nf)
+        adjncy(ic) = int( cells_surr_cell(nf) , kind=idx_t )
       end if
     end do
   end do
@@ -1491,16 +1498,16 @@ subroutine create_grid_weights(metis_option,ncon,n_dual_vertices,n_dual_edges, &
                                vwgt,adjwgt,vsize,wgtflag,cell_geom,cell_order)
   !
   !.. Formal Arguments ..
-  integer,                               intent(in) :: metis_option
-  integer,                               intent(in) :: ncon
-  integer,                               intent(in) :: n_dual_vertices
-  integer,                               intent(in) :: n_dual_edges
-  integer,              dimension(:),    intent(in) :: cell_geom
-  integer,              dimension(:),    intent(in) :: cell_order
-  integer,                            intent(inout) :: wgtflag
-  integer, allocatable, dimension(:), intent(inout) :: vwgt
-  integer, allocatable, dimension(:), intent(inout) :: adjwgt
-  integer, allocatable, dimension(:), intent(inout) :: vsize
+  integer,                 intent(in) :: metis_option
+  integer,                 intent(in) :: ncon
+  integer,                 intent(in) :: n_dual_vertices
+  integer,                 intent(in) :: n_dual_edges
+  integer,                 intent(in) :: cell_geom(:)
+  integer,                 intent(in) :: cell_order(:)
+  integer,              intent(inout) :: wgtflag
+  integer, allocatable, intent(inout) :: vwgt(:)
+  integer, allocatable, intent(inout) :: adjwgt(:)
+  integer, allocatable, intent(inout) :: vsize(:)
   !
   !.. Local Scalars ..
   integer :: ierr
@@ -1610,13 +1617,12 @@ end subroutine create_grid_weights
 !
 !###############################################################################
 !
-subroutine check_quality_of_partitioning(npart,epart, &
-                                         passes_inspection)
+subroutine check_quality_of_partitioning(npart,epart,passes_inspection)
   !
   !.. Formal Arguments ..
-  integer, intent(in) :: npart
-  integer, dimension(:), intent(in) :: epart
-  logical(ldk), intent(out) :: passes_inspection
+  integer,        intent(in) :: npart
+  integer(idx_t), intent(in) :: epart(:)
+  logical(ldk),  intent(out) :: passes_inspection
   !
   !.. Local Scalars ..
   integer :: n
@@ -1737,17 +1743,17 @@ subroutine create_node_and_edge_arrays(nodes_of_cell,nodes_of_cell_ptr, &
                                        cell_order,epart,bface,node,edge)
   !
   !.. Formal Arguments ..
-  integer,                   dimension(:),    intent(in) :: nodes_of_cell
-  integer,                   dimension(:),    intent(in) :: nodes_of_cell_ptr
-  integer,                   dimension(:),    intent(in) :: cells_with_node
-  integer,                   dimension(:),    intent(in) :: cells_with_node_ptr
-  integer,                   dimension(:),    intent(in) :: cells_with_edge
-  integer,                   dimension(:),    intent(in) :: cells_with_edge_ptr
-  integer,                   dimension(:),    intent(in) :: epart
-  integer,                   dimension(:),    intent(in) :: cell_order
-  integer,                   dimension(:,:),  intent(in) :: bface
-  type(node_t), allocatable, dimension(:), intent(inout) :: node
-  type(edge_t), allocatable, dimension(:), intent(inout) :: edge
+  integer,                      intent(in) :: nodes_of_cell(:)
+  integer,                      intent(in) :: nodes_of_cell_ptr(:)
+  integer,                      intent(in) :: cells_with_node(:)
+  integer,                      intent(in) :: cells_with_node_ptr(:)
+  integer,                      intent(in) :: cells_with_edge(:)
+  integer,                      intent(in) :: cells_with_edge_ptr(:)
+  integer(idx_t),               intent(in) :: epart(:)
+  integer,                      intent(in) :: cell_order(:)
+  integer,                      intent(in) :: bface(:,:)
+  type(node_t), allocatable, intent(inout) :: node(:)
+  type(edge_t), allocatable, intent(inout) :: edge(:)
   !
   !.. Local Scalars ..
   integer :: n,n1,n2,nf,np,i,ierr
@@ -2293,7 +2299,7 @@ end subroutine find_priority_bc
 subroutine find_partition_boundaries(epart,bface,face,cell_geom,cell_order)
   !
   !.. Formal Arguments ..
-  integer,                      intent(in) :: epart(:)
+  integer(idx_t),               intent(in) :: epart(:)
   integer,      allocatable, intent(inout) :: bface(:,:)
   type(face_t), allocatable, intent(inout) :: face(:)
   integer,      allocatable, intent(inout) :: cell_geom(:)
@@ -2859,7 +2865,7 @@ subroutine create_cell_map(npart,epart,cell_map)
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: npart
-  integer,                     intent(in) :: epart(:)
+  integer(idx_t),              intent(in) :: epart(:)
   type(map_t), allocatable, intent(inout) :: cell_map(:)
   !
   !.. Local Scalars ..
@@ -2939,7 +2945,7 @@ subroutine create_node_map(npart,epart,node,cells_with_node, &
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: npart
-  integer,                      intent(in) :: epart(:)
+  integer(idx_t),               intent(in) :: epart(:)
   integer,                      intent(in) :: cells_with_node(:)
   integer,                      intent(in) :: cells_with_node_ptr(:)
   type(node_t), allocatable, intent(inout) :: node(:)
@@ -3069,7 +3075,7 @@ subroutine create_face_map(npart,epart,face,face_map)
   !
   !.. Formal Arguments ..
   integer,                     intent(in) :: npart
-  integer,                     intent(in) :: epart(:)
+  integer(idx_t),              intent(in) :: epart(:)
   type(face_t),                intent(in) :: face(:)
   type(map_t), allocatable, intent(inout) :: face_map(:)
   !
@@ -3150,7 +3156,7 @@ subroutine create_edge_map(npart,epart,edge,cells_with_edge, &
   !
   !.. Formal Arguments ..
   integer,                      intent(in) :: npart
-  integer,                      intent(in) :: epart(:)
+  integer(idx_t),               intent(in) :: epart(:)
   integer,                      intent(in) :: cells_with_edge(:)
   integer,                      intent(in) :: cells_with_edge_ptr(:)
   type(edge_t), allocatable, intent(inout) :: edge(:)
@@ -9549,11 +9555,13 @@ end subroutine collect_global_solution
 subroutine output_partitions(id,nodes_of_cell,nodes_of_cell_ptr,xyz_nodes,epart)
   !
   !.. Formal Arguments ..
-  integer,                          intent(in) :: id
-  integer,  dimension(:),           intent(in) :: nodes_of_cell
-  integer,  dimension(:),           intent(in) :: nodes_of_cell_ptr
-  real(wp), dimension(:,:),         intent(in) :: xyz_nodes
-  integer,  dimension(:), optional, intent(in) :: epart
+  integer,  intent(in) :: id
+  integer,  intent(in) :: nodes_of_cell(:)
+  integer,  intent(in) :: nodes_of_cell_ptr(:)
+  real(wp), intent(in) :: xyz_nodes(:,:)
+  !
+  !.. Optional Arguments ..
+  integer(idx_t), optional, intent(in) :: epart(:)
   !
   !.. Local Scalars ..
   integer :: i,n,n1,n2,ierr,np,nc,ndim
@@ -10031,9 +10039,9 @@ subroutine partition_memory_usage(iou,xadj,adjncy,epart,node,edge,face, &
   !
   !.. Formal Arguments ..
   integer,                       intent(in) :: iou
-  integer,          allocatable, intent(in) :: xadj(:)
-  integer,          allocatable, intent(in) :: adjncy(:)
-  integer,          allocatable, intent(in) :: epart(:)
+  integer(idx_t),   allocatable, intent(in) :: xadj(:)
+  integer(idx_t),   allocatable, intent(in) :: adjncy(:)
+  integer(idx_t),   allocatable, intent(in) :: epart(:)
   integer,          allocatable, intent(in) :: cells_with_node(:)
   integer,          allocatable, intent(in) :: cells_with_node_ptr(:)
   integer,          allocatable, intent(in) :: cells_surr_cell(:)
@@ -10539,9 +10547,9 @@ subroutine report_parallel_memory_usage(xadj,adjncy,epart,node,edge,face, &
   use module_cgns,   only : cgns_memory_usage
   !
   !.. Formal Arguments ..
-  integer,          allocatable, intent(in) :: xadj(:)
-  integer,          allocatable, intent(in) :: adjncy(:)
-  integer,          allocatable, intent(in) :: epart(:)
+  integer(idx_t),   allocatable, intent(in) :: xadj(:)
+  integer(idx_t),   allocatable, intent(in) :: adjncy(:)
+  integer(idx_t),   allocatable, intent(in) :: epart(:)
   integer,          allocatable, intent(in) :: cells_with_node(:)
   integer,          allocatable, intent(in) :: cells_with_node_ptr(:)
   integer,          allocatable, intent(in) :: cells_surr_cell(:)
