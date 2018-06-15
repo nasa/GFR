@@ -154,6 +154,12 @@ continue
         ! Free stream boundary condition
         !
         call get_bc_freestream_solution(n1,n2,faceusp_array(:,:,2), &
+                                        bc_in(0)%cv)
+      case (bc_fixed)
+        !
+        ! Fixed boundary condition
+        !
+        call get_bc_freestream_solution(n1,n2,faceusp_array(:,:,2), &
                                         bc_in(bc_idx)%cv)
         !
       case (bc_characteristic)
