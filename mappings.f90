@@ -38,8 +38,8 @@ module mappings_mod
   !
   !
   !
-  logical(lk), parameter :: edge_defined_uses_endpts = fals
- !logical(lk), parameter :: edge_defined_uses_endpts = true
+ !logical(lk), parameter :: edge_defined_uses_endpts = fals
+  logical(lk), parameter :: edge_defined_uses_endpts = true
   !
   ! Generic interfaces
   !
