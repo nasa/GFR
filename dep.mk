@@ -235,8 +235,10 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/typesgen_mod.o \
                       $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/order_mod.o \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/poly.o \
+                      $(OBJDIR)/flowvar_mod.o \
                       $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
