@@ -7656,7 +7656,13 @@ continue
           call cgns_write_field_parallel
         case ("Entropy") ! Entropy
           n = n + 1
-          vartmp(:) = entropy_cv( interp_usp )
+          if (itestcase == Inviscid_Gaussian_Bump) then
+            vartmp(:) = entropy_cv( interp_usp , log_opt=fals , &
+                                    use_pref_nd=true )
+            vartmp(:) = abs( one - vartmp(:) )
+          else
+            vartmp(:) = entropy_cv( interp_usp )
+          end if
           call cgns_write_field_parallel
         case ("Temperature") ! Temperature
           n = n + 1
