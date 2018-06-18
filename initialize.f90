@@ -2111,6 +2111,10 @@ subroutine create_bc_in
   !
 continue
   !
+  if (allocated(bc_in)) then
+    return
+  end if
+  !
   rhoa2 = rhoref * aref * aref
   gm1 = gam - one
   one_over_gm1 = one / gm1
