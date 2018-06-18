@@ -2558,7 +2558,7 @@ subroutine dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
   !
 continue
   !
-  if (mypnum /= 0) return
+  if (mypnum /= glb_root) return
   !
   write (iout,1) trim(adjustl(string)),ii, &
                  r,p,t,static_is_set, &
