@@ -2968,9 +2968,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation temperature = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation temperature = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_temp
@@ -3037,9 +3037,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation pressure = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation pressure = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_pres
@@ -3103,9 +3103,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation density = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation density = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_dens
@@ -3159,11 +3159,11 @@ continue
   !
   ! Format Statements
   !
-  1 format (" Error with BC # ",i0," !",/, &
-            " Pressure specified for boundary condition = ",es14.6,/, &
-            " Pressure computed from other specified conditions = ",es14.6,/, &
-            " Please correct the flow conditions for this BC in the input",/, &
-            " file or set one of density, pressure, and temperature to a",/, &
+  1 format (" Error with BC # ",i0," !", &
+            " Pressure specified for boundary condition = ",es14.6, &
+            " Pressure computed from other specified conditions = ",es14.6, &
+            " Please correct the flow conditions for this BC in the input", &
+            " file or set one of density, pressure, and temperature to a", &
             " negative value so it is explicitly computed.")
   !
 end subroutine igl
