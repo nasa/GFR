@@ -61,8 +61,6 @@ subroutine init_correction_matrices()
   !.. Local Pointers ..
  !type(matrix), pointer :: this_correct
   type(matrix), pointer :: this_correct
- !real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: cmat(:,:)
   real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: cmat(:,:)
   !

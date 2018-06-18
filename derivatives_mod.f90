@@ -243,8 +243,6 @@ subroutine init_derivative_matrices()
   !
   !.. Local Pointers ..
   type(derivative_matrices), pointer :: this_dmat
- !real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: d1_mat(:,:)
   real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: d1_mat(:,:)
   !

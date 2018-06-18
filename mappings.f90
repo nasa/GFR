@@ -465,9 +465,7 @@ subroutine assume_equidistant_mapping()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
- !real(wp),     pointer, contiguous :: edge_pts(:)
   real(wp),     pointer :: edge_pts(:)
- !real(wp),     pointer, contiguous :: tria_pts(:,:)
   real(wp),     pointer :: tria_pts(:,:)
   !
   !.. Local Allocatable Arrays ..

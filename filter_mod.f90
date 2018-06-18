@@ -83,9 +83,6 @@ subroutine init_filter_matrices()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: filt
- !real(wp), pointer, contiguous :: fmat(:,:)
- !real(wp), pointer, contiguous :: vmat(:,:)
- !real(wp), pointer, contiguous :: vmat_inv(:,:)
   real(wp), pointer :: fmat(:,:)
   real(wp), pointer :: vmat(:,:)
   real(wp), pointer :: vmat_inv(:,:)

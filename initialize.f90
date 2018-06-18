@@ -74,8 +74,6 @@ subroutine initialize_flow()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
- !real(wp), pointer, contiguous :: numer2init(:,:)
- !real(wp), pointer, contiguous :: init2numer(:,:)
   real(wp), pointer :: numer2init(:,:)
   real(wp), pointer :: init2numer(:,:)
   !

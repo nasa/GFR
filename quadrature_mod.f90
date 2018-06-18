@@ -45,7 +45,6 @@ module quadrature_mod
   !
   ! solpts_edge : pointer to the 'n_order' 1D edge solution points
   !
- !real(wp), public, protected, pointer, contiguous :: solpts_edge(:) => null()
   real(wp), public, protected, pointer :: solpts_edge(:) => null()
   !
   ! face_elem : Array giving the location of the flux points and their

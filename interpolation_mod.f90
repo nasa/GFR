@@ -132,7 +132,7 @@ subroutine interpolate_restart_solution(nc,xyz_pt,return_value)
   real(wp) :: interp_mat(1:maxSP)
   !
   !.. Local Pointers ..
-  real(wp), pointer, contiguous :: solpts(:,:)
+  real(wp), pointer :: solpts(:,:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interpolate_restart_solution"
@@ -1396,9 +1396,6 @@ subroutine init_outerpolation_matrices()
   !
   !.. Local Pointers ..
   type(outerpolation_matrix), pointer :: this_outerp
- !real(wp), pointer, contiguous :: imat(:,:)
- !real(wp), pointer, contiguous :: omat(:,:)
- !real(wp), pointer, contiguous :: emat(:,:)
   real(wp), pointer :: imat(:,:)
   real(wp), pointer :: omat(:,:)
   real(wp), pointer :: emat(:,:)
@@ -1779,7 +1776,6 @@ function InterpToCell(this_geom,this_order,opts,npts,pts) result(return_value)
   real(wp) :: return_value(1:npts,1:opts)
   !
   !.. Local Pointers ..
- !real(wp), pointer, contiguous :: solpts(:,:)
   real(wp), pointer :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..

@@ -149,7 +149,6 @@ subroutine init_projection_matrices()
   !.. Local Pointers ..
   type(matrix),            pointer :: proj
   type(projection_matrix), pointer :: this_projct
- !real(wp), contiguous,    pointer :: pmat(:,:)
   real(wp),                pointer :: pmat(:,:)
   !
   !.. Local Parameters ..
