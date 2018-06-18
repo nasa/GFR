@@ -1326,10 +1326,11 @@ continue
   call memory_pause("reading input file","reading grid file")
   if (postproc_debug_grid) then
     call create_postproc_debug_grid
-  else if (itestcase == Taylor_Green_Vortex .and. VortexGrid_DOF > 0) then
+  else if (itestcase == Taylor_Green_Vortex .and. &
+           grid_format == Internally_Generated_Grid) then
     call create_TaylorGreenVortex_grid
   else if (any(abs(itestcase) == Transport_Problems) .and. &
-           VortexGrid_DOF > 0) then
+           grid_format == Internally_Generated_Grid) then
     call create_IsentropicVortex_grid
   else if (grid_format == Gambit_Neutral) then
     call read_gambit_neutral_gridfile
