@@ -630,7 +630,11 @@ continue
     ! Set time_ref to Lref/aref for nondimensionalizing time
     ! NOTE: Lref is always just one
     !
-    time_ref = one / aref
+    if (itestcase == Infinite_Cylinder) then
+      time_ref = machref
+    else
+      time_ref = one / aref
+    end if
     !
     if (convert_restart_to_cgns) then
       !
