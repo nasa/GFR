@@ -2,7 +2,7 @@ module ovar
   !
   use module_kind_types, only : wp,lk,ldk,fals,true
   use module_kind_types, only : NavierStokes_Eqns
-  use module_kind_types, only : Gambit_Neutral,Unknown_Format
+  use module_kind_types, only : Internally_Generated_Grid,Unknown_Format
   use module_kind_types, only : Legendre_Gauss,Equi_Distant_Points
   use module_kind_types, only : TVD3_RK
   use module_kind_types, only : invs_flux_ROE
@@ -16,6 +16,9 @@ module ovar
   use module_kind_types, only : bc_unknown
   use module_kind_types, only : project_derivatives
   use module_kind_types, only : derivative_of_proj_fluxes
+  use module_kind_types, only : BarycentricLobatto_TriPoints
+  use module_kind_types, only : LagrangePolynomial
+  use module_kind_types, only : Global_Cell_Timestep
   !
   implicit none
   !
@@ -28,204 +31,307 @@ module ovar
   !
   !
   !
+  ! ##############################
+  ! ###  Module Derived Types  ###
+  ! ##############################
+  !
+  type, public :: relaxation_t
+    real(wp) :: value = one
+    real(wp) :: time  = zero
+    integer  :: iter  = 0
+  end type relaxation_t
+  !
+  type, public :: bc_input_t
+    !
+    character(len=32) :: name = ""
+    !
+    integer :: set_bc_value = bc_unknown
+    !
+    real(wp) :: t_static   = -one
+    real(wp) :: p_static   = -one
+    real(wp) :: rho_static = -one
+    real(wp) :: mach       = -one
+    real(wp) :: vx         = zero
+    real(wp) :: vy         = zero
+    real(wp) :: vz         = zero
+    real(wp) :: t_total    = -one
+    real(wp) :: p_total    = -one
+    real(wp) :: rho_total  = -one
+    real(wp) :: alpha_aoa  = zero
+    real(wp) :: beta_aoa   = zero
+    real(wp) :: wall_temp  = -one
+    !
+    type(relaxation_t) :: relax
+    !
+  contains
+    !
+    procedure :: has_default_flow_conditions
+    !
+  end type bc_input_t
+  !
+  type, public :: bc_in_t
+    real(wp), allocatable :: cv(:)
+    real(wp), allocatable :: pv(:)
+    real(wp) :: wall_temperature = -one
+    type(relaxation_t) :: relax
+    integer :: bc_input_idx
+  end type bc_in_t
+  !
+  !
+  !
   ! ################################
   ! ###  Module Local Variables  ###
   ! ################################
   !
-  ! NOTE: Input defaults are set to run P3 80x80 Shu Vortex on [-10,10] domain
-  !       for 1 period using Ga-LP, SSP-RK3, and Roe flux with entropy fix.
+  ! NOTE: Input defaults are set to run P3 48**3 DoF Taylor-Green vortex
+  !       using gDG, Ga-LP, SSP-RK3, and Roe flux with entropy fix.
   !
   ! #############################
   ! ####   Input Variables   ####
   ! #############################
   !
-  integer,  public, save :: all_points       = 1
-  integer,  public, save :: loc_solution_pts       = Legendre_Gauss
-  integer,  public, save :: loc_flux_pts       = Legendre_Gauss
-  integer,  public, save :: loc_triangle_pts       = 2
-  integer,  public, save :: flux_divergence  = 1
-  integer,  public, save :: correction_function = Correction_gDG
+  ! GRID INFORMATION
+  integer,            public, save :: grid_format = Internally_Generated_Grid
+  character(len=150), public, save :: gridfile = ""
+  character(len=150), public, save :: plot3d_cutfile = ""
+  character(len=150), public, save :: plot3d_bcsfile = ""
+  real(wp),           public, save :: grid_scaling_factor = 1.0_wp
   !
-  integer,  public, save :: governing_equations = NavierStokes_Eqns
+  ! PLOT3D COARSENING OPTIONS
+  integer, public, save :: plot3d_i_stride          = -1
+  integer, public, save :: plot3d_j_stride          = -1
+  integer, public, save :: plot3d_k_stride          = -1
+  integer, public, save :: plot3d_all_strides       = -1
+  integer, public, save :: plot3d_agglomerate_order = -1
+  integer, public, save :: parametric_agglomeration =  0
   !
-  integer,  public, save :: Runge_Kutta_Scheme     = TVD3_RK
-  integer,  public, save :: num_rk_stages  = 3
-  integer,  public, save :: invs_flux_method = invs_flux_ROE
-  integer,  public, save :: visc_flux_method = visc_flux_BR2
-  logical(lk),  public, save :: walls_are_exact = true
-  integer,  public, save :: visc_variables_to_ave = visc_interface_fluxes
+  ! BASE FR OPTIONS
+  integer, public, save :: flux_divergence     = LagrangePolynomial
+  integer, public, save :: correction_function = Correction_gDG
   !
+  ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
+  integer, public, save :: loc_solution_pts = Legendre_Gauss
+  integer, public, save :: loc_flux_pts     = Legendre_Gauss
+  integer, public, save :: loc_triangle_pts = BarycentricLobatto_TriPoints
+  !
+  ! LOCATION OF INITIALIZATION POINTS
+  integer, public, save :: loc_init_pts = 0 ! uses same as solution points
+  !
+  ! RUNGE-KUTTA OPTIONS
+  integer, public, save :: Runge_Kutta_Scheme = TVD3_RK
+  integer, public, save :: num_rk_stages      = 3
+  !
+  ! COMMON FLUX OPTIONS
+  integer, public, save :: invs_flux_method      = invs_flux_ROE
+  integer, public, save :: visc_flux_method      = visc_flux_BR2
+  integer, public, save :: visc_variables_to_ave = visc_interface_fluxes
+  !
+  ! TIME STEPPING INFORMATION
   integer,  public, save :: num_timesteps     = 25000
-  real(wp), public, save :: Final_Time = -2.0_wp
+  real(wp), public, save :: Final_Time        = 10.0_wp
+  real(wp), public, save :: constant_dt       = 1.0e-6_wp
+  integer,  public, save :: Timestep_Type     = Global_Cell_Timestep
+  integer,  public, save :: minimum_timesteps = 100
+  !
+  ! CFL CONTROL VARIABLES
+  real(wp), public, save :: cfl        = 0.1_wp
   real(wp), public, save :: cfl_beg    = 0.1_wp
   real(wp), public, save :: cfl_end    = 0.1_wp
   integer,  public, save :: cfl_cycles = 1
-  real(wp), public, save :: cfl        = 0.1_wp
-  real(wp), public, save :: constant_dt = 1.0e-6_wp
-  integer,  public, save :: Timestep_Type = 1
-  integer,  public, save :: minimum_timesteps = 100
   !
-  integer,  public, save :: loc_quadrature_pts = 1
-  integer,  public, save :: combine_common_flux_projections = 0
+  ! OVER-INTEGRATION OPTIONS
+  integer, public, save :: loc_quadrature_pts              = Legendre_Gauss
+  integer, public, save :: combine_common_flux_projections = 0
   !
-  integer,  public, save :: metis_option = 3
+  ! ERROR-INTEGRATION OPTIONS
+  integer, public, save :: loc_error_pts = Legendre_Gauss
   !
-  integer,  public, save :: mms_opt = 0
-  real(wp), public, save :: mms_init = 0.1_wp
-  logical(lk),  public, save :: mms_output_solution = fals
+  ! FORCE GLOBAL ORDER AND SOLUTION POINTS
+  integer, public, save :: all_points = -1
   !
-  integer,  public, save :: itestcase = 9
-  integer,  public, save :: jet_init_func = 2
+  ! PARALLEL OPTIONS
+  integer, public, save :: metis_option = 3 ! k-way part, min comm volume
   !
-  logical(lk), public, save :: load_restart_file = fals
-  integer,  public, save :: restart_interval = 0
-  character(len=150), public, save :: restart_file = "out.rst"
-  logical(lk), public, save :: restart_output_uses_host_roots = true
+  ! METHOD OF MANUFACTURED SOLUTIONS (MMS) OPTIONS
+  integer,     public, save :: mms_opt             = 0
+  real(wp),    public, save :: mms_init            = 0.1_wp
+  logical(lk), public, save :: mms_output_solution = fals
   !
-  integer,  public, save :: iter_out_interval =  1
-  integer,  public, save :: results_interval  =  0
+  ! INITIALIZATION / TEST CASE
+  integer, public, save :: itestcase     = 9
+  integer, public, save :: jet_init_func = 2
   !
-  character(len=150), public, save :: output_dir = "."
-  integer,            public, save :: output_interval = -5
-  logical(lk),            public, save :: continuous_output  = fals
-  logical(lk),            public, save :: postproc_debug_grid = fals
+  ! RESTART OPTIONS
+  logical(lk),        public, save :: load_restart_file              = fals
+  integer,            public, save :: restart_interval               = 0
+  logical(lk),        public, save :: use_old_restart_format         = fals
+  character(len=150), public, save :: restart_file                   = "out.rst"
+  logical(lk),        public, save :: restart_output_uses_host_roots = true
   !
-  real(wp), public, save :: grid_scaling_factor = 1.00_wp
+  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  integer,            public, save :: solution_format = Unknown_Format
+  character(len=150), public, save :: solution_file   = ""
   !
-  real(wp), public, save :: rhoref  =     -1.00_wp
-  ! rhoref default evaluates to 1.160833478437518_wp
-  real(wp), public, save :: tref    =    300.00_wp
-  real(wp), public, save :: pref    = 100000.00_wp
-  real(wp), public, save :: machref =      0.40_wp
-  real(wp), public, save :: gam     =      1.40_wp
-  real(wp), public, save :: rgasref =    287.15_wp
-  real(wp), public, save :: reyref  =     -1.00_wp
+  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
+  character(len=150), public, save :: sem_profile_file = ""
+  !
+  ! STATISTICAL OUTPUT OPTIONS
+  integer, public, save :: iter_out_interval = 1
+  integer, public, save :: results_interval  = 0
+  !
+  ! SOLUTION OUTPUT OPTIONS
+  character(len=150), public, save :: output_dir        = "."
+  integer,            public, save :: output_interval   = -5
+  logical(lk),        public, save :: continuous_output = fals
+  integer,            public, save :: loc_output_pts    = Equi_Distant_Points
+  !
+  ! GOVERNING EQUATIONS
+  integer, public, save :: governing_equations = NavierStokes_Eqns
+  integer, public, save :: turbulence_model    = laminar_flow
+  !
+  ! NONDIMENSIONAL REFERENCE CONDITIONS
+  real(wp), public, save :: machref =  0.4_wp
+  real(wp), public, save :: reyref  = -1.0_wp
   ! reyref default evaluates to 8.7319053606e+6
+  real(wp), public, save :: gam     =  1.4_wp
   !
-  real(wp), public, save :: ptot2p_ratio = -1.00_wp
-  real(wp), public, save :: ptotref = -1.00_wp
-  real(wp), public, save :: ttotref = -1.00_wp
+  ! TOTAL REFERENCE CONDITIONS
+  real(wp), public, save :: ptotref      = -1.0_wp
+  real(wp), public, save :: ttotref      = -1.0_wp
+  real(wp), public, save :: ptot2p_ratio = -1.0_wp
   !
-  real(wp), public, save :: alpha_aoaref = 0.00_wp
-  real(wp), public, save :: beta_aoaref  = 0.00_wp
+  ! REALIZABLE TOTAL TEMPERATURE LIMITER
+  real(wp), public, save :: ideal_total_temperature = -1.0_wp
+  real(wp), public, save :: limit_total_temperature = 0.2_wp
   !
-  real(wp), public, save :: Pr = 0.72_wp
-  real(wp), public, save :: Prt = 0.72_wp
+  ! REFERENCE CONDITIONS
+  real(wp), public, save :: rhoref  =     -1.0_wp
+  ! rhoref default evaluates to 1.160833478437518_wp
+  real(wp), public, save :: tref    =    300.0_wp
+  real(wp), public, save :: pref    = 100000.0_wp
+  real(wp), public, save :: rgasref =    287.15_wp
   !
-  real(wp), public, save :: suth_Sref = 110.4_wp
-  real(wp), public, save :: suth_Tref = 273.0_wp
-  real(wp), public, save :: suth_muref = 1.716e-5_wp
-  !
-  integer,  public, save :: turbulence_model = laminar_flow
+  ! REFERENCE TURBULENCE CONDITIONS
   real(wp), public, save :: tinref = 0.0_wp
   real(wp), public, save :: tvrref = 1.0e-6_wp
   !
-  integer,  public, save :: Limiter_Option = 0
+  ! REFERENCE ANGLES OF ATTACK
+  real(wp), public, save :: alpha_aoaref = 0.0_wp
+  real(wp), public, save :: beta_aoaref  = 0.0_wp
   !
-  integer,  public, save :: Limiter_Filter_Option = 0
-  integer,  public, save :: Limiter_Filter_Order  = 16
-  real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
-  real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
-  real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
+  ! LAMINAR AND TURBULENT PRANDTL NUMBERS
+  real(wp), public, save :: Pr  = 0.72_wp
+  real(wp), public, save :: Prt = 0.72_wp
   !
+  ! SUTHERLANDS LAW COEFFICIENTS
+  real(wp), public, save :: suth_muref = 1.716e-5_wp
+  real(wp), public, save :: suth_Tref  = 273.0_wp
+  real(wp), public, save :: suth_Sref  = 110.4_wp
+  !
+  ! FILTER OPTIONS
   integer,  public, save :: Filter_Option = 0
+  real(wp), public, save :: Filter_etac   = 0.0_wp
   integer,  public, save :: Filter_Order  = 16
   real(wp), public, save :: Filter_Alpha  = 36.0_wp
-  real(wp), public, save :: Filter_etac   = 0.0_wp
   real(wp), public, save :: Filter_eps    = 0.0_wp
   !
+  ! LIMITER FILTER OPTIONS
+  integer,  public, save :: Limiter_Filter_Option = 0
+  real(wp), public, save :: Limiter_Filter_etac   = 0.0_wp
+  integer,  public, save :: Limiter_Filter_Order  = 16
+  real(wp), public, save :: Limiter_Filter_Alpha  = 36.0_wp
+  real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
+  !
+  ! LIMITER OPTIONS
+  integer, public, save :: Limiter_Option = 0
+  !
+  ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Filtering_Interval = 0
-  integer, public, save :: Limiting_Interval = 0
+  integer, public, save :: Limiting_Interval  = 0
   !
-  ! Default to output solution at Legendre Gauss Lobatto points
-  integer,  public, save :: loc_output_pts = Equi_Distant_Points
-  ! Default to initialize solution at solution points
-  integer,  public, save :: loc_init_pts   = 0
-  ! Default to compute solution error at Legendre Gauss points
-  integer,  public, save :: loc_error_pts  = Legendre_Gauss
+  ! OUTPUT THE STATISTICS OF THE LIMITER
+  logical(lk), public, save :: output_limiter_statistics = fals
   !
-  real(wp), public, save :: vortex_bigR = 1.0_wp
-  real(wp), public, save :: vortex_bigGam = 5.0_wp
+  ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
+  logical(lk), public, save :: output_filter_diagonals = fals
   !
-  integer,  public, save :: VortexGrid_DOF = 64
-  logical(lk),  public, save :: VortexGrid_random_perturb = fals
-  integer,  public, save :: VortexGrid_perturb_percent = 30
+  ! ISENTROPIC VORTEX CONSTANTS
+  real(wp), public, save :: vortex_bigR     = 1.0_wp
+  real(wp), public, save :: vortex_bigGam   = 5.0_wp
   real(wp), public, save :: VortexGrid_Lref = 10.0_wp
   !
-  real(wp),           public, save :: channel_body_force = 0.0_wp
-  character(len=150), public, save :: channel_init_file = ""
+  ! TAYLOR-GREEN VORTEX CONSTANTS
+  integer,     public, save :: VortexGrid_DOF             = 48
+  logical(lk), public, save :: VortexGrid_random_perturb  = fals
+  integer,     public, save :: VortexGrid_perturb_percent = 30
+  !
+  ! CHANNEL FLOW PARAMETERS
+  real(wp),           public, save :: channel_body_force          = 0.0_wp
+  character(len=150), public, save :: channel_init_file           = ""
   logical(lk),        public, save :: channel_spatial_ave_restart = fals
   !
-  logical(lk), public, save :: output_plot3d_to_tecplot = fals
-  logical(lk), public, save :: output_bface_array = fals
+  ! OPTIONS FOR MODIFYING BC ALGORITHMS
+  logical(lk), public, save :: walls_are_exact   = true
+  integer,     public, save :: sub_inflow_method = 1
+  logical(lk), public, save :: use_bc_conflicts  = fals
   !
-  integer,            public, save :: grid_format = Gambit_Neutral
-  character(len=150), public, save :: gridfile = &
-                                      "grid_files/meilin/quad.40x40.2X.neu"
-  character(len=150), public, save :: plot3d_cutfile = ""
-  character(len=150), public, save :: plot3d_bcsfile = ""
-  !
-  integer,            public, save :: solution_format = Unknown_Format
-  character(len=150), public, save :: solution_file  = ""
-  !
-  integer, public, save :: plot3d_agglomerate_order = -1
-  integer, public, save :: parametric_agglomeration = 0
-  !
-  integer, public, save :: plot3d_all_strides = -1
-  integer, public, save :: plot3d_i_stride    = -1
-  integer, public, save :: plot3d_j_stride    = -1
-  integer, public, save :: plot3d_k_stride    = -1
-  !
+  ! CGNS OUTPUT OPTIONS
   logical(lk), public, save :: interpolate_before_output_variable = true
-  logical(lk), public, save :: completely_disable_cgns = fals
+  logical(lk), public, save :: convert_restart_to_cgns            = fals
+  logical(lk), public, save :: completely_disable_cgns            = fals
   !
+  ! CONVERGENCE CRITERIA
   real(wp), public, save :: convergence_order_abs_res = real( -16 , kind=wp )
   real(wp), public, save :: convergence_order_max_res = real( -16 , kind=wp )
   !
-  logical(lk), public, save :: use_bc_conflicts = fals
-  !
-  logical(lk), public, save :: dump_memory_usage = fals
-  logical(lk), public, save :: dump_fluxes       = fals
-  !
-  logical(lk), public, save :: check_flux_point_coordinates = fals
-  !
+  ! PROFILE PARALLEL IO
   logical(lk), public, save :: profile_io_all       = fals
   logical(lk), public, save :: profile_io_cgns      = fals
   logical(lk), public, save :: profile_io_cgns_subs = fals
   logical(lk), public, save :: profile_io_restart   = fals
   !
+  ! OPTIONS TO OUTPUT BOUNDARY PROFILE
   logical(lk), public, save :: output_bnd_profiles = fals
   !
+  ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
   logical(lk), public, save :: use_unrolled_dot_products = true
   !
-  logical(lk), public, save :: convert_restart_to_cgns = fals
-  !
-  logical(lk), public, save :: use_old_restart_format = fals
-  !
+  ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
   integer,           public, save :: lustre_stripe_count = 64
   character(len=10), public, save :: lustre_stripe_size  = "4m"
   !
-  integer, public, save :: sub_inflow_method = 1
+  ! OPENACC INPUT OPTIONS
+  logical(lk), public, save :: use_async_for_error = fals
   !
-  logical(lk),        public, save :: output_time_averaging = fals
- !logical(lk),        public, save :: time_ave_vel_is_axisymm = true
+  ! TIME AVERAGING
+  logical(lk),        public, save :: output_time_averaging   = fals
+  character(len=150), public, save :: time_ave_file           = "out.ave"
+  real(wp),           public, save :: time_scaling_factor     = 1.0_wp
   logical(lk),        public, save :: time_ave_vel_is_axisymm = fals
-  character(len=150), public, save :: time_ave_file = "out.ave"
-  real(wp),           public, save :: time_scaling_factor = 1.0_wp
   !
+  ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   logical(lk),        public, save :: time_average_restart_files = fals
-  character(len=150), public, save :: restart_list_file = ""
+  character(len=150), public, save :: restart_list_file          = ""
   !
-  logical(lk),        public, save :: use_async_for_error = fals
+  ! MEMORY USAGE
+  logical(lk), public, save :: dump_memory_usage = fals
   !
-  real(wp), public, save :: ideal_total_temperature = -1.0_wp
-  real(wp), public, save :: limit_total_temperature = 0.2_wp
+  ! DUMP FLUX INFORMATION FOR DEBUGGING
+  logical(lk), public, save :: dump_fluxes                  = fals
+  logical(lk), public, save :: check_flux_point_coordinates = fals
   !
-  logical(lk), public, save :: output_limiter_statistics = fals
+  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
+  logical(lk), public, save :: postproc_debug_grid = fals
   !
-  logical(lk), public, save :: output_filter_diagonals = fals
+  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+  logical(lk), public, save :: output_plot3d_to_tecplot = fals
   !
-  character(len=150), public, save :: sem_profile_file = ""
+  ! OPTION TO OUTPUT BOUNDARY CONDITIONS TO TECPLOT FILE
+  logical(lk), public, save :: output_bface_array = fals
+  !
+  ! INPUT BOUNDARY CONDITIONS
+  type(bc_input_t), public, save :: bc_input(1:20)
+  !
   !
   ! #################################
   ! ####   Non-Input Variables   ####
@@ -339,50 +445,6 @@ module ovar
   real(wp), public, save :: LDG_beta(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
   real(wp), public, save :: LDG_tau = 0.0_wp
   !
-  type, public :: relaxation_t
-    real(wp) :: value = 1.0_wp
-    real(wp) :: time  = 0.0_wp
-    integer  :: iter  = 0
-  end type relaxation_t
-  !
-  type, public :: bc_input_t
-    !
-    character(len=32) :: name = ""
-    !
-    integer :: set_bc_value = bc_unknown
-    !
-    real(wp) :: t_static   = -huge(0.0_wp)
-    real(wp) :: p_static   = -huge(0.0_wp)
-    real(wp) :: rho_static = -huge(0.0_wp)
-    real(wp) :: mach       = -huge(0.0_wp)
-    real(wp) :: vx         = 0.0_wp
-    real(wp) :: vy         = 0.0_wp
-    real(wp) :: vz         = 0.0_wp
-    real(wp) :: t_total    = -huge(0.0_wp)
-    real(wp) :: p_total    = -huge(0.0_wp)
-    real(wp) :: rho_total  = -huge(0.0_wp)
-    real(wp) :: alpha_aoa  = 0.0_wp
-    real(wp) :: beta_aoa   = 0.0_wp
-    real(wp) :: wall_temp  = -huge(0.0_wp)
-    !
-    type(relaxation_t) :: relax
-    !
-  contains
-    !
-    procedure :: has_default_flow_conditions
-    !
-  end type bc_input_t
-  !
-  type(bc_input_t), public, save :: bc_input(1:20)
-  !
-  type, public :: bc_in_t
-    real(wp), allocatable :: cv(:)
-    real(wp), allocatable :: pv(:)
-    real(wp) :: wall_temperature = -one
-    type(relaxation_t) :: relax
-    integer :: bc_input_idx
-  end type bc_in_t
-  !
   type(bc_in_t), public, save, allocatable :: bc_in(:)
   !
   character(len=32), public, save, allocatable :: bc_names(:)
@@ -447,23 +509,23 @@ continue
   !
   return_value = fals
   !
-  if (abs(this%t_static  +huge(zero)) > eps6) return
-  if (abs(this%p_static  +huge(zero)) > eps6) return
-  if (abs(this%rho_static+huge(zero)) > eps6) return
-  if (abs(this%mach      +huge(zero)) > eps6) return
-  if (abs(this%vx                   ) > eps6) return
-  if (abs(this%vy                   ) > eps6) return
-  if (abs(this%vz                   ) > eps6) return
-  if (abs(this%t_total   +huge(zero)) > eps6) return
-  if (abs(this%p_total   +huge(zero)) > eps6) return
-  if (abs(this%rho_total +huge(zero)) > eps6) return
-  if (abs(this%alpha_aoa            ) > eps6) return
-  if (abs(this%beta_aoa             ) > eps6) return
-  if (abs(this%wall_temp +huge(zero)) > eps6) return
+  if (abs(this%t_static  +one) > eps6) return
+  if (abs(this%p_static  +one) > eps6) return
+  if (abs(this%rho_static+one) > eps6) return
+  if (abs(this%mach      +one) > eps6) return
+  if (abs(this%vx            ) > eps6) return
+  if (abs(this%vy            ) > eps6) return
+  if (abs(this%vz            ) > eps6) return
+  if (abs(this%t_total   +one) > eps6) return
+  if (abs(this%p_total   +one) > eps6) return
+  if (abs(this%rho_total +one) > eps6) return
+  if (abs(this%alpha_aoa     ) > eps6) return
+  if (abs(this%beta_aoa      ) > eps6) return
+  if (abs(this%wall_temp +one) > eps6) return
   !
   if (abs(this%relax%value- one) > eps6) return
   if (abs(this%relax%time -zero) > eps6) return
-  if (    this%relax%iter        /=    0) return
+  if (    this%relax%iter        /=   0) return
   !
   return_value = true
   !
@@ -686,8 +748,6 @@ module input_namelist_mod
   ! GRID INFORMATION
   namelist / input / grid_format, gridfile, plot3d_cutfile, plot3d_bcsfile, &
                      grid_scaling_factor
-  ! SOlUTION INFORMATION
-  namelist / input / solution_format, solution_file
   ! PLOT3D COARSENING OPTIONS
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides, plot3d_agglomerate_order, &
@@ -696,13 +756,12 @@ module input_namelist_mod
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS
   namelist / input / loc_solution_pts, loc_flux_pts, loc_triangle_pts
-  ! LOCATION OF OUTPUT, INITIALIZATION, AND ERROR POINTS
-  namelist / input / loc_output_pts, loc_init_pts
-  ! SOLVER OPTIONS
-  namelist / input / Runge_Kutta_Scheme, num_rk_stages, &
-                     invs_flux_method, visc_flux_method
-  ! VISCOUS OPTIONS
-  namelist / input / visc_variables_to_ave
+  ! LOCATION OF INITIALIZATION POINTS
+  namelist / input / loc_init_pts
+  ! RUNGE-KUTTA OPTIONS
+  namelist / input / Runge_Kutta_Scheme, num_rk_stages
+  ! COMMON FLUX OPTIONS
+  namelist / input / invs_flux_method, visc_flux_method, visc_variables_to_ave
   ! TIME STEPPING INFORMATION
   namelist / input / num_timesteps, Final_Time, constant_dt, &
                      Timestep_Type, minimum_timesteps
@@ -725,19 +784,23 @@ module input_namelist_mod
   namelist / input / load_restart_file, restart_interval, &
                      use_old_restart_format, restart_file, &
                      restart_output_uses_host_roots
+  ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
+  namelist / input / solution_format, solution_file
+  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
+  namelist / input / sem_profile_file
   ! STATISTICAL OUTPUT OPTIONS
   namelist / input / iter_out_interval, results_interval
   ! SOLUTION OUTPUT OPTIONS
-  namelist / input / output_dir, output_interval, output_order, &
-                     continuous_output
-  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
-  namelist / input / postproc_debug_grid
+  namelist / input / output_dir, output_interval, continuous_output, &
+                     output_order, loc_output_pts
   ! GOVERNING EQUATIONS
   namelist / input / governing_equations, turbulence_model
   ! NONDIMENSIONAL REFERENCE CONDITIONS
   namelist / input / machref, reyref, gam
   ! TOTAL REFERENCE CONDITIONS
   namelist / input / ptotref, ttotref, ptot2p_ratio
+  ! REALIZABLE TOTAL TEMPERATURE LIMITER
+  namelist / input / ideal_total_temperature, limit_total_temperature
   ! REFERENCE CONDITIONS
   namelist / input / rhoref, tref, pref, rgasref
   ! REFERENCE TURBULENCE CONDITIONS
@@ -759,54 +822,53 @@ module input_namelist_mod
   namelist / input / Limiter_Option
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval
-  ! VORTEX CONSTANTS
-  namelist / input / vortex_bigR, vortex_bigGam
+  ! OUTPUT THE STATISTICS OF THE LIMITER
+  namelist / input / output_limiter_statistics
+  ! OPTION TO OUTPUT FILTER DIAGONALS TO FILE
+  namelist / input / output_filter_diagonals
+  ! ISENTROPIC VORTEX CONSTANTS
+  namelist / input / vortex_bigR, vortex_bigGam, VortexGrid_Lref
   ! TAYLOR-GREEN VORTEX CONSTANTS
   namelist / input / VortexGrid_DOF, VortexGrid_random_perturb, &
-                     VortexGrid_perturb_percent, VortexGrid_Lref
+                     VortexGrid_perturb_percent
   ! CHANNEL FLOW PARAMETERS
   namelist / input / channel_body_force, channel_init_file, &
                      channel_spatial_ave_restart
-  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
-  namelist / input / output_plot3d_to_tecplot
-  ! LOGICAL IDENTIFYING HOW WALL SOLUTIONS ARE TREATED
-  namelist / input / walls_are_exact
-  ! VARIOUS DEBUG TYPE VARIABLES
-  namelist / input / output_bface_array, output_filter_diagonals
+  ! OPTIONS FOR MODIFYING BC ALGORITHMS
+  namelist / input / walls_are_exact, sub_inflow_method, use_bc_conflicts
   ! CGNS OUTPUT OPTIONS
   namelist / input / cgns_use_queue, interpolate_before_output_variable, &
                      convert_restart_to_cgns, completely_disable_cgns
   ! CONVERGENCE CRITERIA
   namelist / input / convergence_order_abs_res, convergence_order_max_res
-  ! MEMORY USAGE
-  namelist / input / dump_memory_usage
   ! PROFILE PARALLEL IO
   namelist / input / profile_io_all, profile_io_restart, &
                      profile_io_cgns, profile_io_cgns_subs
-  ! TEMPORARY DEBUGGING LOGICALS
-  namelist / input / use_bc_conflicts,sub_inflow_method
-  ! PROFILE OUTPUT OPTIONS
+  ! OPTIONS TO OUTPUT BOUNDARY PROFILE
   namelist / input / output_bnd_profiles
   ! CONTROL DOT_PRODUCT PROCEDURES BOUND TO MATRIX DERIVED-TYPE
   namelist / input / use_unrolled_dot_products
-  ! DUMP FLUX INFORMATION FOR DEBUGGING
-  namelist / input / dump_fluxes, check_flux_point_coordinates
   ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
   namelist / input / lustre_stripe_count, lustre_stripe_size
-  ! INPUT BOUNDARY CONDITIONS
-  namelist / input / bc_input
-  ! TIME AVERAGING
-  namelist / input / output_time_averaging, time_ave_file, restart_list_file, &
-                     time_average_restart_files, time_scaling_factor, &
-                     time_ave_vel_is_axisymm
   ! OPENACC INPUT OPTIONS
   namelist / input / use_async_for_error
-  ! REALIZABLE TOTAL TEMPERATURE LIMITER
-  namelist / input / ideal_total_temperature, limit_total_temperature
-  ! OUTPUT THE STATISTICS OF THE LIMITER
-  namelist / input / output_limiter_statistics
-  ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
-  namelist / input / sem_profile_file
+  ! TIME AVERAGING
+  namelist / input / output_time_averaging, time_ave_file, &
+                     time_scaling_factor, time_ave_vel_is_axisymm
+  ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
+  namelist / input / time_average_restart_files, restart_list_file
+  ! MEMORY USAGE
+  namelist / input / dump_memory_usage
+  ! DUMP FLUX INFORMATION FOR DEBUGGING
+  namelist / input / dump_fluxes, check_flux_point_coordinates
+  ! ACTIVATE SPECIAL GRID FOR DEBUGGING THE POSTPROCESSOR
+  namelist / input / postproc_debug_grid
+  ! OPTION TO OUTPUT PLOT3D GRID TO TECPLOT IN UNSTRUCTURED FORMAT
+  namelist / input / output_plot3d_to_tecplot
+  ! OPTION TO OUTPUT CONTENTS OF BFACE ARRAY
+  namelist / input / output_bface_array
+  ! INPUT BOUNDARY CONDITIONS
+  namelist / input / bc_input
   !
   ! CFL ADJUSTMENT NAMELIST
   !
