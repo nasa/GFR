@@ -412,6 +412,8 @@ continue
   !
   call gfr_cpu_time(0)
   !
+  call reset_fp_exceptions
+  !
  !if (num_timesteps > 0) then
     !
     call interp_cv_to_flxpts(0,0) ! ; call check_for_bad_number(__LINE__)
@@ -1157,9 +1159,9 @@ continue
   bad_number_found = merge(1,0,signaling_exceptions)
   !
   if (ncpu > 1) then
-  call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
-                     size(bad_number_found,kind=int_mpi), &
-                     mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
+    call mpi_allreduce(MPI_IN_PLACE,bad_number_found, &
+                       size(bad_number_found,kind=int_mpi), &
+                       mpi_inttyp,MPI_MAX,MPI_COMM_WORLD,mpierr)
   end if
   !
   if (present(newton_failures)) then
@@ -1232,6 +1234,35 @@ continue
 #endif
   !
 end subroutine check_for_bad_number
+!
+!###############################################################################
+!
+subroutine reset_fp_exceptions
+  !
+#ifndef SPECIAL_FOR_GCC
+  use, intrinsic :: ieee_exceptions, only : ieee_usual
+  use, intrinsic :: ieee_exceptions, only : ieee_set_flag
+  !
+  !.. Local Scalars ..
+  integer :: n
+  !
+  !.. Local Arrays ..
+  logical(ldk) :: reset_exceptions(1:size(ieee_usual))
+  !
+  character(len=*), parameter :: pname = "reset_fp_exceptions"
+  !
+continue
+  !
+  do n = 1,size(reset_exceptions)
+    reset_exceptions(n) = .false.
+  end do
+  !
+  ! First check to make sure that no floating-point exceptions are signaling
+  !
+  call ieee_set_flag(ieee_usual,reset_exceptions)
+#endif
+  !
+end subroutine reset_fp_exceptions
 !
 !###############################################################################
 !
