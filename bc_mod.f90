@@ -230,14 +230,16 @@ continue
         !
         ! No-slip adiabatic wall
         !
-        call get_bc_adiabatic_wall_solution(n1,n2,faceusp_array)
+        call get_bc_adiabatic_wall_solution(n1,n2,faceusp_array, &
+                                            bc_in(bc_idx)%pv)
         !
       case (bc_isothermal_wall)
         !
         ! No-slip isothermal wall
         !
-        call get_bc_isothermal_wall_solution(n1,n2,facenrm,faceusp_array, &
-                                             bc_in(bc_idx)%wall_temperature)
+        call get_bc_isothermal_wall_solution(n1,n2,faceusp_array, &
+                                             bc_in(bc_idx)%wall_temperature, &
+                                             bc_in(bc_idx)%pv)
         !
       case (bc_periodic)
         !
@@ -6059,7 +6061,7 @@ end subroutine get_bc_slip_wall_solution_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv)
+pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6072,6 +6074,7 @@ pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv)
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer :: nr
@@ -6081,18 +6084,23 @@ continue
   nr = nme-nmb+1
   !
   if (nr == 3) then
-    call get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv)
+    call get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv,pv_in)
   else if (nr == 2) then
-    call get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv)
+    call get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv,pv_in)
   else
-    call get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv)
+    call get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv,pv_in)
   end if
+  !
+  ! The above subroutines will return the boundary condition states as
+  ! primitive variables. These need to be converted to conservative variables.
+  !
+  call tvsp2u_gpu(n1,n2,face_cv(:,:,2))
   !
 end subroutine get_bc_adiabatic_wall_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv)
+pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6103,38 +6111,49 @@ pure subroutine get_bc_adiabatic_wall_solution_3d(n1,n2,face_cv)
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Use Statements ..
-  use ovar, only : walls_are_exact
+  use ovar, only : gam,walls_are_exact
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
-  real(wp) :: velocity_const,energy_const
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
+  real(wp) :: gm1,wall_vx,wall_vy,wall_vz
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
   velocity_const = merge(zero,-one,walls_are_exact)
-  energy_const = merge(-one,zero,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
+  !
+  wall_vx = pv_in(nmx)
+  wall_vy = pv_in(nmy)
+  wall_vz = pv_in(nmz)
+  !
+  gm1 = gam - one
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv)
   do n = n1,n2
     !
     rho  = face_cv(n,nec,1)
-    rhou = face_cv(n,nmx,1)
-    rhov = face_cv(n,nmy,1)
-    rhow = face_cv(n,nmz,1)
-    rhoe = face_cv(n,nee,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
+    vz = face_cv(n,nmz,1)*rho_inv
     !
-    rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+    q2 = vx*vx + vy*vy + vz*vz
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
     face_cv(n,nec,2) = rho
-    face_cv(n,nmx,2) = rhou*velocity_const
-    face_cv(n,nmy,2) = rhov*velocity_const
-    face_cv(n,nmz,2) = rhow*velocity_const
-    face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+    face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+    face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+    face_cv(n,nmz,2) = vz*velocity_const + wall_vz*moving_wall_const
+    face_cv(n,nee,2) = pres
     !
   end do
   !
@@ -6142,7 +6161,7 @@ end subroutine get_bc_adiabatic_wall_solution_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv)
+pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6153,36 +6172,46 @@ pure subroutine get_bc_adiabatic_wall_solution_2d(n1,n2,face_cv)
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Use Statements ..
-  use ovar, only : walls_are_exact
+  use ovar, only : gam,walls_are_exact
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: rho,rhou,rhov,rhoe,rhoq2
-  real(wp) :: velocity_const,energy_const
+  real(wp) :: rho,rho_inv,vx,vy,q2,pres
+  real(wp) :: gm1,wall_vx,wall_vy
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
   velocity_const = merge(zero,-one,walls_are_exact)
-  energy_const = merge(-one,zero,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
+  !
+  wall_vx = pv_in(nmx)
+  wall_vy = pv_in(nmy)
+  !
+  gm1 = gam - one
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv)
   do n = n1,n2
     !
     rho  = face_cv(n,nec,1)
-    rhou = face_cv(n,nmx,1)
-    rhov = face_cv(n,nmy,1)
-    rhoe = face_cv(n,nee,1)
+    rho_inv = one/rho
+    vx = face_cv(n,nmx,1)*rho_inv
+    vy = face_cv(n,nmy,1)*rho_inv
     !
-    rhoq2 = rhou*rhou + rhov*rhov
+    q2 = vx*vx + vy*vy
+    !
+    pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
     face_cv(n,nec,2) = rho
-    face_cv(n,nmx,2) = rhou*velocity_const
-    face_cv(n,nmy,2) = rhov*velocity_const
-    face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+    face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+    face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+    face_cv(n,nee,2) = pres
     !
   end do
   !
@@ -6190,7 +6219,7 @@ end subroutine get_bc_adiabatic_wall_solution_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv)
+pure subroutine get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6201,83 +6230,106 @@ pure subroutine get_bc_adiabatic_wall_solution_nd(n1,n2,face_cv)
   ! FACE_CV : Conservative variables at the flux points
   !
   !.. Use Statements ..
-  use ovar, only : walls_are_exact
+  use ovar, only : gam,walls_are_exact
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n,nr
-  real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
-  real(wp) :: velocity_const,energy_const
+  real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
+  real(wp) :: gm1,wall_vx,wall_vy,wall_vz
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
   nr = nme-nmb+1
-  !
   velocity_const = merge(zero,-one,walls_are_exact)
-  energy_const = merge(-one,zero,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
+  !
+  gm1 = gam - one
   !
   if (nr == 3) then
+    !
+    wall_vx = pv_in(nmx)
+    wall_vy = pv_in(nmy)
+    wall_vz = pv_in(nmz)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
-      rho  = face_cv(n,nec,1)
-      rhou = face_cv(n,nmx,1)
-      rhov = face_cv(n,nmy,1)
-      rhow = face_cv(n,nmz,1)
-      rhoe = face_cv(n,nee,1)
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
+      vz = face_cv(n,nmz,1)*rho_inv
       !
-      rhoq2 = rhou*rhou + rhov*rhov + rhow*rhow
+      q2 = vx*vx + vy*vy + vz*vz
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
       !
       face_cv(n,nec,2) = rho
-      face_cv(n,nmx,2) = rhou*velocity_const
-      face_cv(n,nmy,2) = rhov*velocity_const
-      face_cv(n,nmz,2) = rhow*velocity_const
-      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+      face_cv(n,nmz,2) = vz*velocity_const + wall_vz*moving_wall_const
+      face_cv(n,nee,2) = pres
       !
     end do
+    !
   else if (nr == 2) then
+    !
+    wall_vx = pv_in(nmx)
+    wall_vy = pv_in(nmy)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
-      rho  = face_cv(n,nec,1)
-      rhou = face_cv(n,nmx,1)
-      rhov = face_cv(n,nmy,1)
-      rhoe = face_cv(n,nee,1)
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
+      vy = face_cv(n,nmy,1)*rho_inv
       !
-      rhoq2 = rhou*rhou + rhov*rhov
+      q2 = vx*vx + vy*vy
+      !
+      pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
       !
       face_cv(n,nec,2) = rho
-      face_cv(n,nmx,2) = rhou*velocity_const
-      face_cv(n,nmy,2) = rhov*velocity_const
-      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+      face_cv(n,nee,2) = pres
       !
     end do
+    !
   else
+    !
+    wall_vx = pv_in(nmx)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
-      rho  = face_cv(n,nec,1)
-      rhou = face_cv(n,nmx,1)
-      rhoe = face_cv(n,nee,1)
+      rho = face_cv(n,nec,1)
+      rho_inv = one/rho
+      vx = face_cv(n,nmx,1)*rho_inv
       !
-      rhoq2 = rhou*rhou
+      pres = gm1*(face_cv(n,nee,1) - half*rho*vx*vx)
       !
       face_cv(n,nec,2) = rho
-      face_cv(n,nmx,2) = rhou*velocity_const
-      face_cv(n,nee,2) = rhoe + energy_const*half*rhoq2/rho
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+      face_cv(n,nee,2) = pres
       !
     end do
+    !
   end if
   !
 end subroutine get_bc_adiabatic_wall_solution_nd
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution(n1,n2,facenrm,face_cv, &
-                                                wall_temperature)
+pure subroutine get_bc_isothermal_wall_solution(n1,n2,face_cv, &
+                                                wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6285,7 +6337,6 @@ pure subroutine get_bc_isothermal_wall_solution(n1,n2,facenrm,face_cv, &
   ! #####################################################
   ! #####################################################
   !
-  ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! WALL_TEMPERATURE : isothermal wall temperature
   !
@@ -6295,25 +6346,25 @@ pure subroutine get_bc_isothermal_wall_solution(n1,n2,facenrm,face_cv, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: wall_temperature
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer :: nr
   !
 continue
   !
-  nr = size(facenrm,dim=1)
+  nr = nme-nmb+1
   !
   if (nr == 3) then
-    call get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
-                                            wall_temperature)
+    call get_bc_isothermal_wall_solution_3d(n1,n2,face_cv, &
+                                            wall_temperature,pv_in)
   else if (nr == 2) then
-    call get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
-                                            wall_temperature)
+    call get_bc_isothermal_wall_solution_2d(n1,n2,face_cv, &
+                                            wall_temperature,pv_in)
   else
-    call get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
-                                            wall_temperature)
+    call get_bc_isothermal_wall_solution_nd(n1,n2,face_cv, &
+                                            wall_temperature,pv_in)
   end if
   !
   ! The above subroutines will return the boundary condition states as
@@ -6325,8 +6376,8 @@ end subroutine get_bc_isothermal_wall_solution
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
-                                                   wall_temperature)
+pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,face_cv, &
+                                                   wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6334,7 +6385,6 @@ pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
   ! #####################################################
   ! #####################################################
   !
-  ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! WALL_TEMPERATURE : isothermal wall temperature
   !
@@ -6345,25 +6395,28 @@ pure subroutine get_bc_isothermal_wall_solution_3d(n1,n2,facenrm,face_cv, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: wall_temperature
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1,rtw_inv,rnx,rny,rnz,uny
+  real(wp) :: gm1,rtw_inv
   real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
-  real(wp) :: velocity_const,wall_velocity
-  !
-  !.. Local Parameters ..
- !logical(lk), parameter :: use_moving_wall = fals
-  logical(lk), parameter :: use_moving_wall = true
+  real(wp) :: wall_vx,wall_vy,wall_vz
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
   velocity_const = merge(zero,-one,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
   !
   gm1 = gam - one
   rtw_inv = one / rgasref_nd / wall_temperature
+  !
+  wall_vx = pv_in(nmx)
+  wall_vy = pv_in(nmy)
+  wall_vz = pv_in(nmz)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv)
   do n = n1,n2
@@ -6379,42 +6432,19 @@ continue
     pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
     face_cv(n,nec,2) = pres * rtw_inv
-    face_cv(n,nmx,2) = vx * velocity_const
-    face_cv(n,nmy,2) = vy * velocity_const
-    face_cv(n,nmz,2) = vz * velocity_const
+    face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+    face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+    face_cv(n,nmz,2) = vz*velocity_const + wall_vz*moving_wall_const
     face_cv(n,nee,2) = pres
     !
   end do
-  !
-  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
-  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
-  !
-  if (use_moving_wall) then
-    !
-    wall_velocity = 30.0_wp / aref
-    !
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-    do n = n1,n2
-      !
-      rnx = facenrm(1,n)
-      rny = facenrm(2,n)
-      rnz = facenrm(3,n)
-      uny = rny / sqrt( rnx*rnx + rny*rny + rnz*rnz )
-      !
-      if (uny > half) then
-        face_cv(n,nmy,2) = wall_velocity
-      end if
-      !
-    end do
-    !
-  end if
   !
 end subroutine get_bc_isothermal_wall_solution_3d
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
-                                                   wall_temperature)
+pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,face_cv, &
+                                                   wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6422,7 +6452,6 @@ pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
   ! #####################################################
   ! #####################################################
   !
-  ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! WALL_TEMPERATURE : isothermal wall temperature
   !
@@ -6433,25 +6462,27 @@ pure subroutine get_bc_isothermal_wall_solution_2d(n1,n2,facenrm,face_cv, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: wall_temperature
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n
-  real(wp) :: gm1,rtw_inv,rnx,rny,uny
+  real(wp) :: gm1,rtw_inv
   real(wp) :: rho,rho_inv,vx,vy,q2,pres
-  real(wp) :: velocity_const,wall_velocity
-  !
-  !.. Local Parameters ..
- !logical(lk), parameter :: use_moving_wall = fals
-  logical(lk), parameter :: use_moving_wall = true
+  real(wp) :: wall_vx,wall_vy
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
   velocity_const = merge(zero,-one,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
   !
   gm1 = gam - one
   rtw_inv = one / rgasref_nd / wall_temperature
+  !
+  wall_vx = pv_in(nmx)
+  wall_vy = pv_in(nmy)
   !
   !$ACC PARALLEL LOOP PRESENT(face_cv)
   do n = n1,n2
@@ -6466,40 +6497,18 @@ continue
     pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
     !
     face_cv(n,nec,2) = pres * rtw_inv
-    face_cv(n,nmx,2) = vx * velocity_const
-    face_cv(n,nmy,2) = vy * velocity_const
+    face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+    face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
     face_cv(n,nee,2) = pres
     !
   end do
-  !
-  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
-  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
-  !
-  if (use_moving_wall) then
-    !
-    wall_velocity = 30.0_wp / aref
-    !
-    !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-    do n = n1,n2
-      !
-      rnx = facenrm(1,n)
-      rny = facenrm(2,n)
-      uny = rny / sqrt( rnx*rnx + rny*rny )
-      !
-      if (uny > half) then
-        face_cv(n,nmy,2) = wall_velocity
-      end if
-      !
-    end do
-    !
-  end if
   !
 end subroutine get_bc_isothermal_wall_solution_2d
 !
 !###############################################################################
 !
-pure subroutine get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
-                                                   wall_temperature)
+pure subroutine get_bc_isothermal_wall_solution_nd(n1,n2,face_cv, &
+                                                   wall_temperature,pv_in)
   !
   ! #####################################################
   ! #####################################################
@@ -6507,7 +6516,6 @@ pure subroutine get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
   ! #####################################################
   ! #####################################################
   !
-  ! FACENRM : Face outward normal vector at the flux points
   ! FACE_CV : Conservative variables at the flux points
   ! WALL_TEMPERATURE : isothermal wall temperature
   !
@@ -6518,29 +6526,33 @@ pure subroutine get_bc_isothermal_wall_solution_nd(n1,n2,facenrm,face_cv, &
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp),    intent(in) :: wall_temperature
-  real(wp),    intent(in) :: facenrm(:,:)
   real(wp), intent(inout) :: face_cv(:,:,:)
+  real(wp),    intent(in) :: pv_in(:)
   !
   !.. Local Scalars ..
   integer  :: n,nr
-  real(wp) :: gm1,rtw_inv,rnx,rny,rnz,uny,zcoef
+  real(wp) :: gm1,rtw_inv
   real(wp) :: rho,rho_inv,vx,vy,vz,q2,pres
-  real(wp) :: velocity_const,wall_velocity
-  !
-  !.. Local Parameters ..
- !logical(lk), parameter :: use_moving_wall = fals
-  logical(lk), parameter :: use_moving_wall = true
+  real(wp) :: wall_vx,wall_vy,wall_vz
+  real(wp) :: velocity_const
+  real(wp) :: moving_wall_const
   !
 continue
   !
-  nr = size(facenrm,dim=1)
+  nr = nme-nmb+1
   !
   velocity_const = merge(zero,-one,walls_are_exact)
+  moving_wall_const = merge(one,two,walls_are_exact)
   !
   gm1 = gam - one
   rtw_inv = one / rgasref_nd / wall_temperature
   !
   if (nr == 3) then
+    !
+    wall_vx = pv_in(nmx)
+    wall_vy = pv_in(nmy)
+    wall_vz = pv_in(nmz)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
@@ -6555,13 +6567,18 @@ continue
       pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
       !
       face_cv(n,nec,2) = pres * rtw_inv
-      face_cv(n,nmx,2) = vx * velocity_const
-      face_cv(n,nmy,2) = vy * velocity_const
-      face_cv(n,nmz,2) = vz * velocity_const
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
+      face_cv(n,nmz,2) = vz*velocity_const + wall_vz*moving_wall_const
       face_cv(n,nee,2) = pres
       !
     end do
+    !
   else if (nr == 2) then
+    !
+    wall_vx = pv_in(nmx)
+    wall_vy = pv_in(nmy)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
@@ -6575,12 +6592,16 @@ continue
       pres = gm1*(face_cv(n,nee,1) - half*rho*q2)
       !
       face_cv(n,nec,2) = pres * rtw_inv
-      face_cv(n,nmx,2) = vx * velocity_const
-      face_cv(n,nmy,2) = vy * velocity_const
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
+      face_cv(n,nmy,2) = vy*velocity_const + wall_vy*moving_wall_const
       face_cv(n,nee,2) = pres
       !
     end do
+    !
   else
+    !
+    wall_vx = pv_in(nmx)
+    !
     !$ACC PARALLEL LOOP PRESENT(face_cv)
     do n = n1,n2
       !
@@ -6591,35 +6612,10 @@ continue
       pres = gm1*(face_cv(n,nee,1) - half*rho*vx*vx)
       !
       face_cv(n,nec,2) = pres * rtw_inv
-      face_cv(n,nmx,2) = vx * velocity_const
+      face_cv(n,nmx,2) = vx*velocity_const + wall_vx*moving_wall_const
       face_cv(n,nee,2) = pres
       !
     end do
-  end if
-  !
-  ! HARDWIRED MOVING ISOTHERMAL WALL: THIS NEEDS TO BE GENERALIZED
-  ! INTO EXISTING BCs OR A NEW SEPARATE BC NEEDS TO BE CREATED
-  !
-  if (use_moving_wall) then
-    !
-    wall_velocity = 30.0_wp / aref
-    zcoef = merge(one,zero,nr==3)
-    !
-    if (nr > 1) then
-      !$ACC PARALLEL LOOP PRESENT(facenrm,face_cv)
-      do n = n1,n2
-        !
-        rnx = facenrm(1,n)
-        rny = facenrm(2,n)
-        rnz = facenrm(nr,n)
-        uny = rny / sqrt( rnx*rnx + rny*rny + zcoef*rnz*rnz )
-        !
-        if (uny > half) then
-          face_cv(n,nmy,2) = wall_velocity
-        end if
-        !
-      end do
-    end if
     !
   end if
   !
