@@ -1507,7 +1507,10 @@
     %===========================================================================
     output\_bface\_array & \typlog & \fls & \sldev &
     \descriptionbegin
-    Flag to output the boundary conditions to a Tecplot file for visualization.
+    Flag to have each MPI process output the contents of its own local bface
+    array to the text file ``bface.[MPI process \#].dat''. The bface array
+    contains the boundary conditions and connectivity information for each
+    boundary face.
     \descriptionend
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
