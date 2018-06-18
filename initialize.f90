@@ -2204,7 +2204,7 @@ continue
         end if
         !
         pv(nec) = bc_in(0)%pv(nec)
-        pv(nmb:nme) = vel(nmb:nme) / aref
+        pv(nmb:nme) = vel(1:nr) / aref
         pv(nee) = bc_in(0)%pv(nee)
         !
         cv(:) = vsp2u_sp(pv)
