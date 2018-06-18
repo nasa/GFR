@@ -368,7 +368,8 @@ continue
   end if
   !
   ! Allow for the use of the variable all_orders to make
-  ! n_order, p_order, and q_order all the same value without
+  ! solution_order (n_order), projection_order (p_order), 
+  ! and quadrature_order (q_order) all the same value without
   ! having to explicitly specify each one individually.
   !
   if (all_orders >= 0) then
