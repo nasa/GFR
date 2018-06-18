@@ -9326,31 +9326,7 @@ continue
   !
   i2 = 0
   !
-  if (size(array) == n_solpts) then
-    !
-    do nc = 1,ncell
-      !
-      this_geom = cell(nc)%geom
-      this_order = cell(nc)%order
-      !
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%end_sp
-      np = n2-n1+1
-      !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                             array(n1:n2) , return_value(i1:i2) )
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        return_value(i1:i2) = array(n1:n2)
-      end if
-      !
-    end do
-    !
-  else if (size(array) == n_global_solpts) then
+  if (size(array) == n_global_solpts) then
     !
     do nc = 1,n_global_cell
       !
@@ -9376,8 +9352,26 @@ continue
     !
   else
     !
-    do n = 1,size(array)
-      return_value(n) = array(n)
+    do nc = 1,ncell
+      !
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
+      !
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
+      np = n2-n1+1
+      !
+      if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
+        call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                             array(n1:n2) , return_value(i1:i2) )
+      else
+        i1 = i2 + 1
+        i2 = i2 + np
+        return_value(i1:i2) = array(n1:n2)
+      end if
+      !
     end do
     !
   end if
@@ -9419,37 +9413,7 @@ continue
   !
   i2 = 0
   !
-  if (npts == n_solpts) then
-    !
-    do nc = 1,ncell
-      !
-      this_geom = cell(nc)%geom
-      this_order = cell(nc)%order
-      !
-      n1 = cell(nc)%beg_sp
-      n2 = cell(nc)%end_sp
-      np = n2-n1+1
-      !
-      if (allocated(outerp(this_geom,this_order)%output)) then
-        i1 = i2 + 1
-        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
-        do m = 1,nvar
-          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
-                               array(m,n1:n2) , return_value(m,i1:i2) )
-        end do
-      else
-        i1 = i2 + 1
-        i2 = i2 + np
-        do n = n1,n2
-          do m = 1,nvar
-            return_value(m,i1+n-n1) = array(m,n)
-          end do
-        end do
-      end if
-      !
-    end do
-    !
-  else if (npts == n_global_solpts) then
+  if (npts == n_global_solpts) then
     !
     do nc = 1,n_global_cell
       !
@@ -9481,12 +9445,32 @@ continue
     !
   else
     !
-    ! No interpolation, just copy the array
-    !
-    do n = 1,npts
-      do m = 1,nvar
-        return_value(m,n) = array(m,n)
-      end do
+    do nc = 1,ncell
+      !
+      this_geom = cell(nc)%geom
+      this_order = cell(nc)%order
+      !
+      n1 = cell(nc)%beg_sp
+      n2 = cell(nc)%end_sp
+      np = n2-n1+1
+      !
+      if (allocated(outerp(this_geom,this_order)%output)) then
+        i1 = i2 + 1
+        i2 = i2 + size(outerp(this_geom,this_order)%output%mat,dim=1)
+        do m = 1,nvar
+          call outerp_mv_mult( outerp(this_geom,this_order)%output , &
+                               array(m,n1:n2) , return_value(m,i1:i2) )
+        end do
+      else
+        i1 = i2 + 1
+        i2 = i2 + np
+        do n = n1,n2
+          do m = 1,nvar
+            return_value(m,i1+n-n1) = array(m,n)
+          end do
+        end do
+      end if
+      !
     end do
     !
   end if
