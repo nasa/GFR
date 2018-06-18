@@ -11,7 +11,7 @@
 OPERATING_SYSTEM = $(shell uname)
 ARCH = $(shell uname -m)
 
-FCADD += -DDISABLE_PURE
+#FCADD += -DDISABLE_PURE
 #FCADD += -DUSE_FACE_ARRAYS
 #FCADD += -DPROFILE_ON
 #FCADD += -DIGNORE_MPI_INFO
@@ -37,9 +37,9 @@ rebuild: rebuild-debug
 rebuild: rebuild-optimize
 
 .PHONY: optimize
-optimize: O2
+optimize: opt
 .PHONY: rebuild-optimize
-rebuild-optimize: rebuild-O2
+rebuild-optimize: rebuild-opt
 
 debug_gfr: debug
 gfr: optimize
@@ -339,36 +339,20 @@ debug:
 				     debug
 	@echo "-----------------------------------------------------"
 
-.PHONY: O2
-O2:
+.PHONY: opt
+opt:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O2
+				     opt
 	@echo "-----------------------------------------------------"
 
-.PHONY: O3
-O3:
+.PHONY: opt-host
+opt-host:
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O3
-	@echo "-----------------------------------------------------"
-
-.PHONY: O2-host
-O2-host:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
-	                             "BUILDDIR=optimize" \
-				     "FCADD=$(FCADD)" \
-				     O2-host
-	@echo "-----------------------------------------------------"
-
-.PHONY: O3-host
-O3-host:
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
-	                             "BUILDDIR=optimize" \
-				     "FCADD=$(FCADD)" \
-				     O3-host
+				     opt-host
 	@echo "-----------------------------------------------------"
 
 .PHONY: rebuild-debug
@@ -380,40 +364,22 @@ rebuild-debug:
 				     debug
 	@echo "-----------------------------------------------------"
 
-.PHONY: rebuild-O2
-rebuild-O2:
+.PHONY: rebuild-opt
+rebuild-opt:
 	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O2
+				     opt
 	@echo "-----------------------------------------------------"
 
-.PHONY: rebuild-O3
-rebuild-O3:
+.PHONY: rebuild-opt-host
+rebuild-opt-host:
 	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
 	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
 	                             "BUILDDIR=optimize" \
 				     "FCADD=$(FCADD)" \
-				     O3
-	@echo "-----------------------------------------------------"
-
-.PHONY: rebuild-O2-host
-rebuild-O2-host:
-	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
-	                             "BUILDDIR=optimize" \
-				     "FCADD=$(FCADD)" \
-				     O2-host
-	@echo "-----------------------------------------------------"
-
-.PHONY: rebuild-O3-host
-rebuild-O3-host:
-	make -f slv.mk "EXECUTABLE=gfr" "BUILDDIR=optimize" clean
-	$(MAKE) $(MAKEOPT) -f slv.mk "EXECUTABLE=gfr" \
-	                             "BUILDDIR=optimize" \
-				     "FCADD=$(FCADD)" \
-				     O3-host
+				     opt-host
 	@echo "-----------------------------------------------------"
 
 .PHONY: link-to-haswell

@@ -55,7 +55,7 @@ TARGET ?= $(HOSTARCH)
 
 FPP = $(FPPFLAG) $(METISFPP) $(PBSFPP) $(CGNSFPP) $(MPIFPP) $(MKLFPP) $(OTHERFPP)
 
-INCDIR = $(sort $(CGNSDIR) $(METISDIR))
+#INCDIR = $(sort $(CGNSDIR))
 LIBDIR = $(sort $(HDF5DIR) $(SZIPDIR) $(CGNSDIR) $(METISDIR))
 
 FINC = $(foreach i,$(INCDIR),-I$(i)/include) -I./ $(MKLINC) $(OTHERINCDIR)
@@ -124,21 +124,13 @@ OBJS := $(OBJDIR)/kind_types.o \
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
 
-.PHONY: O2
-O2: OPTIM = $(OPTFLAG) $(TARGET)
-O2: optimize
+.PHONY: opt
+opt: OPTIM = $(OPTFLAG) $(TARGET)
+opt: optimize
 
-.PHONY: O3
-O3: OPTIM = $(OPTFLAG) $(TARGET)
-O3: optimize
-
-.PHONY: O2-host
-O2-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
-O2-host: optimize
-
-.PHONY: O3-host
-O3-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
-O3-host: optimize
+.PHONY: opt-host
+opt-host: OPTIM = $(OPTFLAG) $(HOSTARCH)
+opt-host: optimize
 
 .PHONY: skylake
 skylake: OPTIM = $(OPTFLAG) $(SKYOPT)
@@ -186,7 +178,8 @@ optimize: CFLAG = -O3
 optimize: all
 
 .PHONY: debug
-debug: FPP += -DDEBUG_ON -DDISABLE_QP
+debug: FPP += -DDEBUG_ON
+#debug: FPP += -DDEBUG_ON -DDISABLE_QP
 debug: FCFLAG = $(FCBASE) $(DBGFLAG) $(ADDFLAGS)
 debug: CFLAG = -O0 -g
 debug: all
@@ -252,12 +245,6 @@ ifeq "$(COMPFAMILY)" "intel"
   HASARCH := CORE-AVX2
   BROARCH := CORE-AVX2
   SKYARCH := CORE-AVX512
-  WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
-  SANOPT  := $(ARCHFLAG)$(SANARCH) $(ALIGN32)
-  IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
-  HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
-  BROOPT  := $(ARCHFLAG)$(BROARCH) $(ALIGN32)
-  SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64)
  #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE)
  #SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64) $(FPE) -qopt-zmm-usage=high
   FPPFLAG := -fpp
@@ -295,7 +282,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
  #SKYARCH := corei7-avx2
   #######################################################
   FPPFLAG := -cpp
-  OPTFLAG := -O2
+  OPTFLAG := -O3
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
@@ -314,7 +301,7 @@ else ifeq "$(COMPFAMILY)" "pgi"
   BROARCH := haswell
   SKYARCH := haswell
   FPPFLAG := -Mpreprocess
-  OPTFLAG := -O2
+  OPTFLAG := -O3
   DBGFLAG := -Mbounds -Mchkfpstk -Mchkptr -Mchkstk -Minform=inform -Ktrap=fp
   TRACEFLAG := #-traceback
   REALLOCFLAG := -Mallocatable=03
@@ -322,5 +309,12 @@ else ifeq "$(COMPFAMILY)" "pgi"
   AUTOTARGETARCH := -tp=$(SANARCH),$(HASARCH)
   HOSTARCH :=
 endif
+
+WESOPT  := $(ARCHFLAG)$(WESARCH) $(ALIGN32)
+SANOPT  := $(ARCHFLAG)$(SANARCH) $(ALIGN32)
+IVYOPT  := $(ARCHFLAG)$(IVYARCH) $(ALIGN32)
+HASOPT  := $(ARCHFLAG)$(HASARCH) $(ALIGN32)
+BROOPT  := $(ARCHFLAG)$(BROARCH) $(ALIGN32)
+SKYOPT  := $(ARCHFLAG)$(SKYARCH) $(ALIGN64)
 
 include dep.mk
