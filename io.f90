@@ -5257,7 +5257,8 @@ continue
             val = val + a * xyz(l,r1-1+j)
             !
           end do
-          face_xyz(nf)%v(l,kf,2) = val
+         !face_xyz(nf)%v(l,kf,2) = val
+          face_xyz(nf)%v(l,nfp-kf+1,2) = val
         end do
         !
       end do
@@ -5632,7 +5633,8 @@ continue
       !
       do kf = 1,nfp
         do l = 1,nr
-          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,kf,1)
+         !face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,kf,1)
+          face_xyz(nf)%v(l,kf,2) = face_xyz(pf)%v(l,nfp-kf+1,1)
         end do
       end do
       !
