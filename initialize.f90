@@ -2409,7 +2409,7 @@ subroutine write_bc_conditions
   use ovar,   only : rhoref,aref,gam
   !
   !.. Local Scalars ..
-  integer     :: i,ii,nf
+  integer     :: i,ii,nf,bc_type
   real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
   real(wp)    :: alpha,beta,rhoa2,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
@@ -2436,7 +2436,20 @@ continue
       if (i == 0) then
         write (iout,1)
       else
-        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name))
+        !
+        bc_type_loop: do nf = 1,size(bface,dim=2)
+          if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) then
+            cycle bc_type_loop
+          end if
+          if (bface(6,nf) == i) then
+            bc_type = bface(1,nf)
+            exit bc_type_loop
+          end if
+        end do bc_type_loop
+        !
+        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name)), &
+                         trim(adjustl(bc_integer_to_string(bc_type)))
+        !
       end if
       !
       if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
@@ -2517,11 +2530,12 @@ continue
   ! Format Statements
   !
   1 format (/," Flow conditions for BC # 0 - Reference/Freestream BCs")
-  2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
+  2 format (/," Flow conditions for BC # ",i0," - '",a,"'",/, &
+              4x,"BC Type = ",a)
   3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
-            4x,"X-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
-            4x,"Z-velocity            = ",es14.6," m/s")
+            4x,"X-velocity            = ",es14.6," m/s",/,:, &
+            4x,"Y-velocity            = ",es14.6," m/s",/,:, &
+            4x,"Z-velocity            = ",es14.6," m/s",/)
   4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
             4x,"X-velocity            = ",es14.6," m/s",:,/, &
             4x,"Y-velocity            = ",es14.6," m/s",:,/, &
