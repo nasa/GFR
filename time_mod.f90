@@ -2533,7 +2533,7 @@ continue
     if (Apply_Filter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
+      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
 #endif
       call filter_usp
     end if
@@ -2545,7 +2545,7 @@ continue
     if (Apply_Limiter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
+      2 format (8x,"Applying Limiter : RK Stage = ",i0)
 #endif
       if (Limiter_Option <= -1) then
         call resolution_indicator(apply_projection=true)
