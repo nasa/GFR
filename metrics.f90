@@ -50,7 +50,7 @@ module metrics_mod
   ! time_metrics : delta_x, delta_y, and delta_z components used to compute
   !                the point-wise time-step using the structured grid CFL
   !                condition.
-  !       
+  !
   !       dt = 1 / [ abs(u)/dx + abs(v)/dy + abs(w)/dz + &
   !                  a*sqrt(1/(dx**2) + 1/(dy**2) + 1/(dz**2)) ]
   !       where:

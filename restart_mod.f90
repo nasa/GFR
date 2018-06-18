@@ -3310,7 +3310,7 @@ continue
   end do
   !
   deallocate ( cell_input_order , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_input_order",2,__LINE__,__FILE__, & 
+  call alloc_error(pname,"cell_input_order",2,__LINE__,__FILE__, &
                    ierr,error_message)
   !
  !do nc = 1,ncell

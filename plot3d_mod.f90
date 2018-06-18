@@ -429,7 +429,7 @@ continue
           ! ijk values match.
           ! Check whether solution has 2 more variables than grid.
           if ( any( nsol_var - nxyz_var /= 2 ) ) then
-            ierr = 1 
+            ierr = 1
             error_message = 'Number of variables in Plot3d solution ' // &
                             'file do not correspond to grid file.'
           else

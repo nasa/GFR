@@ -191,7 +191,7 @@ continue
    !  !
    !  ! Copy the transposed solution back into usp
    !  ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
-   !  ! NOTE: grid%sol is expected to be dimensional and in metric units, 
+   !  ! NOTE: grid%sol is expected to be dimensional and in metric units,
    !  !       and thus elem_sol and elem_usp should also be dimensional and
    !  !       in metrics units. While we are copying the transpose of elem_usp
    !  !       into usp, nondimensionalize the flow variables.

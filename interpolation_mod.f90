@@ -323,7 +323,7 @@ continue
   do m = 1,size(usp,dim=1)
     return_value(m) = dot( interp_mat(1:np) , usp(m,n1:n2) )
   end do
-  ! 
+  !
 end subroutine interpolate_restart_solution
 !
 !###############################################################################
@@ -468,9 +468,9 @@ pure function interpolate_vector_solve(r,a,b,c) result(return_value)
   !             coeff_a * ax + coeff_b * bx + coeff_c * cx = rx
   !             coeff_a * ay + coeff_b * by + coeff_c * cy = ry
   !             coeff_a * az + coeff_b * bz + coeff_c * cz = rz
-  !           
+  !
   !             or in matrix form:
-  !           
+  !
   !             | ax  bx  cx |   | coeff_a |   | rx |
   !             | ay  by  cy | X | coeff_b | = | ry |
   !             | az  bz  cz |   | coeff_c |   | rz |

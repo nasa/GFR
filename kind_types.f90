@@ -589,7 +589,7 @@ module module_kind_types
   integer, parameter :: Cartesian_Parameterization = 1
   integer, parameter :: Axisymmetric_Parameterization = 2
   ! ANOTHER POSSIBLE SET OF AGGLOMERATION PARAMETERS TO ALLOW
-  ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY 
+  ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY
  !integer, parameter :: Cartesian_Parameterization = -1
  !integer, parameter :: Axisymmetric_X_Parameterization = 1
  !integer, parameter :: Axisymmetric_Y_Parameterization = 2

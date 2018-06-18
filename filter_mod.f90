@@ -267,7 +267,7 @@ continue
               fmat = FilterMatrix_Edge_with_output( vmat , vmat_inv , &
                                                     cutoff_order=-1 )
               write (io,800) "Edge Limiter Filter"
-              if (Limiter_Filter_Option == 0) write (io,802) 
+              if (Limiter_Filter_Option == 0) write (io,802)
               do j = npts,1,-1
                 write (io,801) (fmat(i,j), i=1,npts)
               end do
