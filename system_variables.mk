@@ -51,8 +51,10 @@ CGNSFPP := -DCGNS_3_3
 # Select the MPI Fortran module to access
 #     MPIFPP := -DUSE_MPI_F08  => USE MPI_F08
 #     MPIFPP :=                => USE MPI
-MPIFPP := 
-#MPIFPP := -DUSE_MPI_F08
+MPIFPP := -DUSE_MPI_F08
+ifeq "$(COMPFAMILY)" "pgi"
+MPIFPP :=
+endif
 
 # Select whether to link to the Intel Math Libraries
 #     MKLFPP := -DUSE_INTEL_MKL  => Do     link to Intel MKL
