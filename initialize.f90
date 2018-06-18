@@ -2442,7 +2442,10 @@ continue
       if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
            (bc_in(i)%wall_temperature*tref <= tmax) ) then
         !
-        write (iout,3) bc_in(i)%wall_temperature*tref
+        vel(1:nr) = bc_in(i)%pv(nmb:nme)*aref
+        !
+        write (iout,3) bc_in(i)%wall_temperature*tref, &
+                       (vel(ii),ii=1,nr)
         !
       else
         !
@@ -2515,7 +2518,10 @@ continue
   !
   1 format (/," Flow conditions for BC # 0 - Reference/Freestream BCs")
   2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
-  3 format (4x,"Wall Temperature      = ",es14.6," K",/)
+  3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
+            4x,"X-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Y-velocity            = ",es14.6," m/s",:,/, &
+            4x,"Z-velocity            = ",es14.6," m/s")
   4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
             4x,"X-velocity            = ",es14.6," m/s",:,/, &
             4x,"Y-velocity            = ",es14.6," m/s",:,/, &
