@@ -1072,19 +1072,33 @@
     %===========================================================================
     Limiter\_Option & \typint & 0 & \sladv &
     \begin{minipage}[t]{\linewidth}\begin{flushleft}
-    Specifies the frequency to apply the standard filter.
-    \begin{tabular}{ @{\quad} r @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
-    $= 0$ & Apply the standard filter after each Runge-Kutta stage. \\
-   %$> 0$ & Apply the standard filter after the last Runge-Kutta stage of every
-   %$\textsl{Filtering\_Interval}^{\;\textrm{th}}$ time step. \\
-    $> 0$ & \begin{minipage}[t]{\linewidth}\begin{flushleft}
-            Apply the standard filter after the last Runge-Kutta stage if
-            \newline $\textrm{mod} \left( \textsl{Filtering\_Interval},
-            \textsl{current\_time\_step} \right) \eql 0$.
-            \end{flushleft}\end{minipage} \\
-    $< 0$ & The standard filter will NOT be applied even if \newline
-    $\textsl{Filter\_Option}\neq0$
+    Specifies the type of limiter to use.
+    \begin{tabular}{ @{\quad} l @{ $\Rightarrow$ } p{0.85\linewidth} @{} }
+    $= 0$ & Do not use a limiter. \\
+    $= -1$ & Use the resolution indicator to identify troubled cells. For any
+    troubled cells, project the solution down to a order that is dynamically
+    chosen by the value of the resolution indicator; cells with higher indicator
+    values will be projected to lower orders, whereas cells with lower indicator
+    values will be projected down only an order or two from the solution order.
+    \\
+    $= 1$ & Use the resolution indicator to identify troubled cells. The
+    resolution indicator is based on the integral of the (P-1)-order solution
+    density divided by the (P)-order solution density.\\
+    $= 2$ & Use the jump indicator to identify troubled cells. The jump
+    indicator is based on the pressure difference with neighboring cells for all
+    the faces of a cell. \\
     \end{tabular}
+    \newline \newline
+    If $\textsl{Limiter\_Filter\_Option} = 0$, the limiting will be performed by
+    projecting the solution in each troubled cell down by one order, after which
+    all troubled cells will be rechecked to see if they are still troubled. If
+    any are still troubled the solution in those cells will be projected down
+    another order, and this loop continues until there are no more troubled
+    cells or the remaining troubled cells have been reduced to P1 solutions.
+    \newline \newline
+    If $\textsl{Limiter\_Filter\_Option} \neq 0$, the limiter filter will be
+    applied once to all troubled cells.
+    \newline
     \end{flushleft}\end{minipage} \\ \minorline
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
