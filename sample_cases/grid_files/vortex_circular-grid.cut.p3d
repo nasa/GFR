@@ -1,0 +1,24 @@
+CUT NAME   BLK  FACE  PLACE  IND1  BEG   END  IND2  BEG   END
+CUT_1       1     J    MAX     I   MIN   MAX    K   MIN   MAX
+CUT_1       2     J    MIN     I   MIN   MAX    K   MIN   MAX
+
+CUT_2       1     I    MAX     J   MIN   MAX    K   MIN   MAX
+CUT_2       3     J    MIN     I   MAX   MIN    K   MIN   MAX
+
+CUT_3       1     J    MIN     I   MIN   MAX    K   MIN   MAX
+CUT_3       4     J    MIN     I   MAX   MIN    K   MIN   MAX
+
+CUT_4       1     I    MIN     J   MIN   MAX    K   MIN   MAX
+CUT_4       5     J    MIN     I   MIN   MAX    K   MIN   MAX
+
+CUT_5       2     I    MAX     J   MIN   MAX    K   MIN   MAX
+CUT_5       3     I    MIN     J   MIN   MAX    K   MIN   MAX
+
+CUT_6       3     I    MAX     J   MIN   MAX    K   MIN   MAX
+CUT_6       4     I    MIN     J   MIN   MAX    K   MIN   MAX
+
+CUT_7       4     I    MAX     J   MIN   MAX    K   MIN   MAX
+CUT_7       5     I    MIN     J   MIN   MAX    K   MIN   MAX
+
+CUT_8       5     I    MAX     J   MIN   MAX    K   MIN   MAX
+CUT_8       2     I    MIN     J   MIN   MAX    K   MIN   MAX
