@@ -1,0 +1,27 @@
+&input
+
+VORTEXGRID_DOF = 128  ! degrees of freedom (128^2)
+
+ALL_ORDERS = 3 ! P3 solution, 4th order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+
+GOVERNING_EQUATIONS = 1   ! Euler equations
+TIMESTEP_TYPE = 0         ! Constant dt
+CONSTANT_DT = 0.0004
+CFL = 1.0
+NUM_TIMESTEPS = 250000
+FINAL_TIME = -2.0        ! Propagate 2 periods
+
+!Timing information:
+RESTART_INTERVAL = 0
+OUTPUT_INTERVAL = 1000
+RESULTS_INTERVAL = 10
+ITER_OUT_INTERVAL = 100
+
+!ITESTCASE = -5  ! Stationary Shu vortex
+ ITESTCASE =  5  ! Diagonally propagating Shu vortex
+!ITESTCASE = -6  ! Propagate only in y-direction
+!ITESTCASE =  6  ! Propagate based on alpha_aoaref
+
+/
+
