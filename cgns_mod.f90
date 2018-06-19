@@ -412,7 +412,7 @@ continue
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
   !
   call mpi_barrier(MPI_COMM_WORLD,mpierr)
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__, &
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__, &
  !                "TEMPORARY STOP AFTER READING CGNS GRID")
   !
   ! Finish create the arrays defining the grid geometry:
@@ -451,7 +451,7 @@ continue
   !
   if (grid_requires_int64) then
     write (error_message,1)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! FOR NOW: Abort if there is more than one base in the CGNS file
@@ -459,11 +459,11 @@ continue
   if (allocated(base)) then
     if (size(base) > 1) then
       write (error_message,2)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
   else
     write (error_message,12)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! FOR NOW: Abort if there is more than one zone in the CGNS file for any base
@@ -472,11 +472,11 @@ continue
     if (allocated(base(ib)%zone)) then
       if (size(base(ib)%zone) > 1) then
         write (error_message,3)
-        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
     else
       write (error_message,13)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
     end if
   end do
   !
@@ -489,12 +489,12 @@ continue
         do is = 1,size(base(ib)%zone(iz)%section)
           if (any(base(ib)%zone(iz)%section(is)%type == [NGON_n,NFACE_n])) then
             write (error_message,4)
-            call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           end if
         end do
       else
         write (error_message,14)
-        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
     end do
   end do
@@ -507,11 +507,11 @@ continue
       if (allocated(base(ib)%zone(iz)%grid)) then
         if (size(base(ib)%zone(iz)%grid) > 1) then
           write (error_message,5)
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         end if
       else
         write (error_message,15)
-        call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
     end do
   end do
@@ -527,12 +527,12 @@ continue
           do ic = 2,size(base(ib)%zone(iz)%grid(ig)%coord)
             if (n /= size(base(ib)%zone(iz)%grid(ig)%coord(ic)%x)) then
               write (error_message,6)
-              call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+              call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
             end if
           end do
         else
           write (error_message,16)
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
         end if
       end do
     end do
@@ -667,7 +667,7 @@ continue
   !
   if (z%type /= UNSTRUCTURED .or. base(ib_g)%zone(iz_g)%index_dim /= 1) then
     write (error_message,1) ib_g,iz_g
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Read the number of grids that are in the current zone
@@ -1082,12 +1082,12 @@ continue
   !
   if (base(ib_g)%cell_dim == 3 .and. bc%location /= FACECENTER) then
     write (error_message,1) 1,ibc_g,trim(adjustl(bc%name)),"Face"
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   if (base(ib_g)%cell_dim == 2 .and. bc%location /= EDGECENTER) then
     write (error_message,1) 2,ibc_g,trim(adjustl(bc%name)),"Edge"
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Allocate the pnts component for this boundary condition
@@ -1432,7 +1432,7 @@ continue
       if (mypnum == glb_root) write (iout,12) sume,size(mske)
     end if
     write (error_message,13)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Deallocate mske
@@ -1851,7 +1851,7 @@ continue
   !
   if ( igrps+bgrps+b0grps /= size(cell_grps) ) then
     write (iout,11) igrps,bgrps,b0grps,size(cell_grps)
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   ! #######
@@ -1910,7 +1910,7 @@ continue
   !
   if (n /= size(grid%elem) - b0cells) then
     write (iout,21) size(grid%elem),b0cells,size(grid%elem)-b0cells,n
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   ! Finally, use move_alloc to rebuild grid%elem with the new ordering
@@ -1957,7 +1957,7 @@ continue
     !
     if (n /= size(cell_grps) - b0grps) then
       write (iout,22) size(cell_grps),b0grps,size(cell_grps)-b0grps,n
-      call stop_recon(abort,pname,__LINE__,__FILE__)
+      call stop_gfr(abort,pname,__LINE__,__FILE__)
     end if
     !
     ! Use move_alloc to rebuild cell_grps without any 0-D cell groups
@@ -2042,7 +2042,7 @@ continue
   !
   if (ncell /= ncell_correct) then
     write (iout,12) ncell,ncell_correct
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   nfbnd = 0
@@ -2052,14 +2052,14 @@ continue
   !
   if (nfbnd /= nfbnd_correct) then
     write (iout,13) nfbnd,nfbnd_correct
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   ! Check that the number of interior cells and boundary faces are correct
   !
   if ( ncell+nfbnd /= size(grid%elem) ) then
     write (iout,14) ncell,nfbnd,size(grid%elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   ! #######
@@ -2528,7 +2528,7 @@ continue
   !
   if (error_found) then
     write (iout,99)
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -3029,7 +3029,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -3150,7 +3150,7 @@ continue
   !
   if (n /= size(grid_elem)) then
     write (error_message,1) mypnum+1,n,size(grid_elem)
-    call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Deallocate grid_elem and grid_xyz because they are no longer needed
@@ -3599,7 +3599,7 @@ continue
   end if
   !
   write (error_message,100)
-  call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -3727,7 +3727,7 @@ continue
   !
  !if (count(csc(:) == 0) /= lfaces) then
  !  write (error_message,100) count(csc(:) == 0),lfaces
- !  call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+ !  call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
  !end if
   missing_elem = count(csc(:) == 0)
   !
@@ -4337,14 +4337,14 @@ continue
   !
  !if (any(cell_geom == Geom_Tria)) then
  !  write (error_message,11)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -4404,14 +4404,14 @@ continue
   !
  !if (any(cell_geom == Geom_Tria)) then
  !  write (error_message,11)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       write (error_message,12)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !

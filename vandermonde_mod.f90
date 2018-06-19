@@ -96,9 +96,6 @@ subroutine init_vandermonde_matrices()
   !
   !.. Local Pointers ..
   type(vandermonde_matrix), pointer :: this_vand
-!!real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: vmat(:,:)
- !real(wp), pointer, contiguous :: vmat_inv(:,:)
 ! real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: vmat(:,:)
   real(wp), pointer :: vmat_inv(:,:)
@@ -250,7 +247,6 @@ function Compute_Basis_Matrix(elem_geom,elem_order,basis_order,nodal_points) &
   integer :: npts,nmodes,ierr
   !
   !.. Local Pointers ..
- !real(wp), pointer, contiguous :: solpts(:,:)
   real(wp), pointer :: solpts(:,:)
   !
   !.. Local Allocatable Arrays ..
@@ -359,7 +355,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !

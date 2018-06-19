@@ -1,0 +1,25 @@
+&input
+
+VORTEXGRID_DOF = 64  ! degrees of freedom (48^3)
+
+ALL_ORDERS = 3 ! P3 solution, 4th order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+
+GOVERNING_EQUATIONS = 2   ! Navier-Stokes equations
+NUM_TIMESTEPS = 1000000
+TIMESTEP_TYPE = 1         ! Global CFL condition
+CFL = 0.25
+CFL_BEG = 0.25
+CFL_END = 0.25
+CFL_CYCLES = 1
+FINAL_TIME = 20.0
+
+!Timing information:
+RESTART_INTERVAL = 100000
+OUTPUT_INTERVAL = 100000
+RESULTS_INTERVAL = 10
+ITER_OUT_INTERVAL = 10
+
+ITESTCASE = 9 ! Taylor-Green vortex problem
+
+/

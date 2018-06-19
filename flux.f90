@@ -3562,8 +3562,8 @@ continue
   ! ##############################################################
   ! ##############################################################
   !
-  ! Loop over the interior faces and reconstruct the
-  ! interface fluxes at each cell solution point
+  ! Loop over the interior faces and apply the correction from
+  ! the fluxes at each face point to all the cell solution points
   !
   interior_fluxes: do nf = nfbnd+1,nface
     !

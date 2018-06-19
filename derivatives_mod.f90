@@ -243,8 +243,6 @@ subroutine init_derivative_matrices()
   !
   !.. Local Pointers ..
   type(derivative_matrices), pointer :: this_dmat
- !real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: d1_mat(:,:)
   real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: d1_mat(:,:)
   !
@@ -344,7 +342,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !

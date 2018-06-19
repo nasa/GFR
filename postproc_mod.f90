@@ -136,7 +136,7 @@ module postprocessor_mod
   real(sp),             save, allocatable, dimension(:) :: soltime
   character(len=CGLEN), save, allocatable, dimension(:) :: solname
   !
-  character(len=*), parameter :: base_name = "recon_base"
+  character(len=*), parameter :: base_name = "gfr_base"
   character(len=*), parameter :: zone_name = "Solution"
   !
   !.. CGNS Parallel Point Indices ..
@@ -404,7 +404,7 @@ continue
   write (error_message,100)
   100 format ("Temporary stop after writing initial CGNS files using the ", &
               "new continuous output from the post-processor module.")
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   call debug_timer(leaving_procedure,pname)
   !
@@ -1992,7 +1992,7 @@ continue
   !
   if (bad_indices /= 0) then
     write (error_message,13)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   !############################################################################
@@ -2499,7 +2499,7 @@ continue
     ! Abort execution if bad_indices was non-zero on any processor
     !
     write (error_message,23)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !
@@ -2600,7 +2600,7 @@ continue
     else
       write (error_message,'(a)') &
             "n_my_output_cells should be a multiple of ncell!"
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -3202,7 +3202,7 @@ continue
     case default
       !
       write (error_message,1)
-      call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       !
   end select
   !

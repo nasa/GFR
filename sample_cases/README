@@ -1,0 +1,220 @@
+
+###########################################
+#####   Description of Sample Cases   #####
+###########################################
+
+NOTE: If wanting to run GFR in serial, ignore [MPI COMMAND] and simply enter:
+
+        prompt> gfr [INPUT FILE]
+
+      where [INPUT FILE] is replaced with the name of the GFR input file.
+
+NOTE: If wanting to run GFR in parallel, replace [MPI COMMAND] with the
+      necessary command to run a program using MPI. A common command would be:
+
+        [MPI COMMAND] => mpiexec -np [# of MPI PROCESSES]
+
+      where [# of MPI PROCESSES] should be an integer value for the desired 
+      number of MPI processes. For example, to run GFR using 4 MPI processes:
+
+        prompt> mpiexec -np 4 gfr [INPUT FILE]
+
+      where [INPUT FILE] is replaced with the name of the GFR input file.
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Isentropic Euler Vortex   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ Input File : Isentropic_Vortex/euler_vortex.in
+  Grid File : [Generated internally within GFR]
+
+Description : This test case concerns the long term transport of a vortex by a
+              uniform base flow over a 2D doubly periodic domain. This problem
+              is aimed at testing a high-order method’s capability to preserve
+              vorticity in an unsteady inviscid flow.
+
+              The grid resolution for this test case can be adjusted by changing
+              the 'VortexGrid_DOF' input parameter which specifies the DOF in
+              each direction. The number of grid cells in each direction is
+              determined as:
+                 [# of cells] = nint( VortexGrid_DOF / (solution_order+1) )
+              Example: VortexGrid_DOF = 200
+                       solution_order = 5
+                       Grid = 33x33 Cells
+
+How to run this case:
+              prompt> cd Isentropic_Vortex
+              prompt> [MPI COMMAND] gfr euler_vortex.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Isentropic Euler Vortex (Circular Grid Version)   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+      Input File  : Isentropic_Vortex_Circular-Grid/vortex_circular-grid.in
+       Grid Files : grid_files/vortex_circular-grid.64.p3d
+                    grid_files/vortex_circular-grid.128.p3d
+ Plot3D  BC File  : grid_files/vortex_circular-grid.bcs.p3d
+ Plot3D Cut File  : grid_files/vortex_circular-grid.cut.p3d
+
+Description : This test case is the same as the previous isentropic Euler vortex
+              test case except that this version uses a circular 5-block Plot3D
+              grid file with an O-H topology. Since this grid contains
+              curvature, a P4 agglomeration is used to combine linear grid cells
+              into high-order grid cells, i.e., 4x4 (16) linear grid cells are
+              combined into one P4 grid cell.
+              
+              There are two grid files that can be used with this test case:
+                 A) vortex_circular-grid.64.p3d which contains 64 linear cells
+                    per quadrant in the rotational direction.
+                 B) vortex_circular-grid.128.p3d which contains 128 linear cells
+                    per quadrant in the rotational direction.
+
+
+How to run this case:
+              prompt> cd Isentropic_Vortex_Circular-Grid
+              prompt> [MPI COMMAND] gfr vortex_circular-grid.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Inviscid Subsonic Flow over a Gaussian Bump   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Input File  : Inviscid_Gaussian_Bump/bump.in
+ Grid Files : grid_files/bump.P1.msh
+              grid_files/bump.P2.msh
+              grid_files/bump.P3.msh
+              grid_files/bump.P4.msh
+
+Description : This test case concerns the subsonic flow over a smooth Gaussian
+              bump in a channel. This problem is aimed at testing high-order
+              methods for the computation of internal flow with a high-order
+              curved boundary representation. In this subsonic flow problem, the
+              geometry is smooth, and so is the flow.
+
+              The names of the grid files refer to the order of the cells
+              contained in the grid. The 'bump.P1.msh' grid contains linear (P1)
+              cells, the 'bump.P2.msh' grid contains quadratic (P2) cells, the
+              'bump.P3.msh' grid contains cubic (P3) cells, and the
+              'bump.P4.msh' grid contains quartic (P4) cells.
+
+              This test case can be used to experiment with how the grid order
+              affects solution accuracy for various solution orders. It is
+              recommended that the solution order is greater than or equal to
+              the grid order.
+
+How to run this case:
+              prompt> cd Inviscid_Gaussian_Bump
+              prompt> [MPI COMMAND] gfr bump.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Couette Flow   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+     Input File : Couette_Flow/couette.in
+      Grid File : grid_files/couette.grd
+ Plot3D BC File : grid_files/couette.bcs.grd
+
+    Description : This is the classic Couette flow problem. It consists of 2D
+                  viscous flow in a channel between two parallel walls, with one
+                  wall moving at a constant velocity while the other wall stays
+                  still. In this specific case, the two walls are treated as
+                  isothermal walls with a constant temperature of 300 K, and the
+                  top wall has a velocity of 30.0 m/s.
+
+How to run this case:
+              prompt> cd Couette_Flow
+              prompt> [MPI COMMAND] gfr couette.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Taylor-Green Vortex Problem   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ Input File : Taylor-Green_Vortex/tgv.in
+  Grid File : [Generated internally within GFR]
+
+Description : This problem is the LES/DNS of a three-dimensional periodic and
+              transitional flow defined by a simple initial condition: the
+              Taylor-Green vortex. The computational domain is a triply periodic
+              cubic domain, in which initially 8 vortices reside, described by
+              an analytical formula. This flow transitions to turbulence, with
+              the creation of small scales, followed by a decay phase similar to
+              decaying homogeneous turbulence.
+
+              This test case will create an output file named
+              'TaylorGreen_KEDR.dat' which provides the integrated kinetic
+              energy and kinetic energy dissipation rates (KEDR) throughout the
+              simulation. This test case will also create an output solution
+              file named 'CGNS_files/TGV_vorticity_8s.cgns' which contains the
+              vorticity norm on the periodic face x/L=-PI at t*=8. These two
+              results can be compared with a reference solution found by a
+              pseudo-spectral code using 512^3 degrees of freedom (DOF) which
+              can be downloaded from:
+         https://www.grc.nasa.gov/wp-content/uploads/sites/22/C3.3_datafiles.zip
+
+              The grid resolution for this test case can be adjusted by changing
+              the 'VortexGrid_DOF' input parameter which specifies the DOF in
+              each direction. The number of grid cells in each direction is
+              determined as:
+                 [# of cells] = nint( VortexGrid_DOF / (solution_order+1) )
+              Example: VortexGrid_DOF = 128
+                       solution_order = 4
+                       Grid = 26x26x26 Cells
+
+How to run this case:
+              prompt> cd Taylor-Green_Vortex
+              prompt> [MPI COMMAND] gfr tgv.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   LES of Flow over Cylinder at Re=3900   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Description : This test case concerns the flow over a cylinder at a Reynolds
+              number of 3900. This is based off of the similar test case of
+              flow over an infinitely long cylinder at the same flow conditions
+              which approximates the infinite span using a spanwise periodic
+              mesh. However, periodic boundary conditions for Gmsh grid files
+              are not yet supported in GFR. Therefore, the periodic boundary
+              conditions at the spanwise grid boundaries have been replaced in
+              this version of this test case with symmetric/reflecting boundary
+              conditions.
+
+------------------------
+ Flow Development Phase
+------------------------
+ Input File : LES_Flow_over_Cylinder/cylinder_init.in
+  Grid File : grid_files/cylinder.P3.msh
+
+Description : This phase of this test case is used to run the simulation
+              starting from the initial conditions to a point at which the flow
+              has become turbulent such that time-average quantities can begin
+              to be accumulated. The initial conditions for this case consist
+              of an infinitely smooth solution with a bias in the spanwise and
+              vertical direction imposed to ensure that the non-symmetric flow
+              is not a consequence of round-off or truncation errors.
+
+----------------------
+ Time-Averaging Phase
+----------------------
+ Input File : LES_Flow_over_Cylinder/cylinder_ave.in
+  Grid File : grid_files/cylinder.P3.msh
+
+Description : This phase of this test case is used to compute time-averaged flow
+              quantities after the flow over the cylinder has become fully
+              turbulent.
+
+How to run this case:
+              prompt> cd LES_Flow_over_Cylinder
+              prompt> [MPI COMMAND] gfr cylinder_init.in
+              prompt> [MPI COMMAND] gfr cylinder_ave.in
+

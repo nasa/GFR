@@ -38,8 +38,8 @@ module mappings_mod
   !
   !
   !
-  logical(lk), parameter :: edge_defined_uses_endpts = fals
- !logical(lk), parameter :: edge_defined_uses_endpts = true
+ !logical(lk), parameter :: edge_defined_uses_endpts = fals
+  logical(lk), parameter :: edge_defined_uses_endpts = true
   !
   ! Generic interfaces
   !
@@ -96,7 +96,7 @@ continue
     !
     if (parametric_agglomeration == Axisymmetric_Parameterization) then
       write (error_message,1)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     call parametrically_corrected_mapping
@@ -308,7 +308,7 @@ continue
       case default
         !
         write (iout,2) this_cell,cell_geom(this_cell)
-        call stop_recon(abort,pname,__LINE__,__FILE__)
+        call stop_gfr(abort,pname,__LINE__,__FILE__)
         !
     end select
     !
@@ -465,9 +465,7 @@ subroutine assume_equidistant_mapping()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
- !real(wp),     pointer, contiguous :: edge_pts(:)
   real(wp),     pointer :: edge_pts(:)
- !real(wp),     pointer, contiguous :: tria_pts(:,:)
   real(wp),     pointer :: tria_pts(:,:)
   !
   !.. Local Allocatable Arrays ..
@@ -668,7 +666,7 @@ continue
         case (Geom_Tetr)
           !
           write (error_message,3) "Tetrahedral"
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_tetr_to_solpts( mp , np , tria_pts , &
                                              mesh_order , elem_family )
@@ -676,7 +674,7 @@ continue
         case (Geom_Pyra)
           !
           write (error_message,3) "Pyramid"
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_pyra_to_solpts( mp , np , edge_pts , tria_pts , &
                                              mesh_order , elem_family )
@@ -684,7 +682,7 @@ continue
         case (Geom_Pris)
           !
           write (error_message,3) "Prism"
-          call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
           !
           this_map%mat = map_pris_to_solpts( mp , np , edge_pts , tria_pts , &
                                              mesh_order , elem_family )
@@ -697,7 +695,7 @@ continue
         case default
           !
           write (iout,2) this_cell,cell_geom(this_cell)
-          call stop_recon(abort,pname,__LINE__,__FILE__)
+          call stop_gfr(abort,pname,__LINE__,__FILE__)
           !
       end select
       !

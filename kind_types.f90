@@ -501,8 +501,8 @@ module module_kind_types
                                               Chebyshev_Gauss_Lobatto]
   !
   ! Method for creating triangle solution points
-  integer, parameter :: DG_TriPoints = 1
-  integer, parameter :: HT_TriPoints = 2
+  integer, parameter :: AlphaOptimized_TriPoints = 1
+  integer, parameter :: BarycentricLobatto_TriPoints = 2
   !
   integer, parameter :: LagrangePolynomial = 1
   integer, parameter :: ChainRuleCV = 2
@@ -589,7 +589,7 @@ module module_kind_types
   integer, parameter :: Cartesian_Parameterization = 1
   integer, parameter :: Axisymmetric_Parameterization = 2
   ! ANOTHER POSSIBLE SET OF AGGLOMERATION PARAMETERS TO ALLOW
-  ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY 
+  ! FOR AXISYMMETRIC GRIDS TO HAVE DIFFERENT AXES OF SYMMETRY
  !integer, parameter :: Cartesian_Parameterization = -1
  !integer, parameter :: Axisymmetric_X_Parameterization = 1
  !integer, parameter :: Axisymmetric_Y_Parameterization = 2
@@ -1465,7 +1465,7 @@ continue
   if (.not. tria_is_biunit) cl(Geom_Tria) = two
   !$ACC UPDATE DEVICE(cl)
   !
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
 end subroutine initialize_runtime_parameters
 !
@@ -1512,7 +1512,7 @@ continue
     if (present(iemessag)) write (iout,5) trim(adjustl(iemessag))
     write (iout,6)
     !
-    call stop_recon(abort,pname,__LINE__,__FILE__)
+    call stop_gfr(abort,pname,__LINE__,__FILE__)
     !
 #ifdef TRACK_MEMORY_ALLOCATIONS
 #define MEMORY_TEST_PAUSE
@@ -1599,7 +1599,7 @@ continue
   if (stop_value == 1) then
     error_message = "Abort issused during memory test at: " // &
                     trim(adjustl(after_message))
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   1 format ('(/," Memory test pause",/,a,/,a,/,', &
@@ -1678,7 +1678,7 @@ continue
     end if
     !
     write (iout,11) trim(adjustl(procedure_name)),error_flag
-    call stop_recon(abort,pname,line_number,src_file_name)
+    call stop_gfr(abort,pname,line_number,src_file_name)
     !
   end if
   !
@@ -1938,7 +1938,7 @@ continue
  !!
  !if (is_in_place(mpi_in_place) /= 1) then
  !  write (*,*) "MPI_IN_PLACE does not seem to be compatible with Fortran!"
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
  !end if
   !
 end subroutine initialize_mpi_environment
@@ -1963,7 +1963,7 @@ end subroutine finalize_mpi_environment
 !
 !###############################################################################
 !
-subroutine stop_recon(iend,procedure_name,line_number,file_name, &
+subroutine stop_gfr(iend,procedure_name,line_number,file_name, &
                       optional_message)
   !
   !.. Formal Arguments ..
@@ -2062,7 +2062,25 @@ continue
   5 format (" ERROR MESSAGE: '",a,"'")
   6 format (66("#"),//)
   !
-end subroutine stop_recon
+end subroutine stop_gfr
+!
+!###############################################################################
+!
+subroutine gfr_timer(current_wall_time)
+  !
+  !.. Formal Arguments ..
+  real(wp), intent(inout) :: current_wall_time
+  !
+  !.. Local Scalars ..
+  integer(i8) :: clock_count
+  integer(i8) :: clock_count_rate
+  !
+continue
+  !
+  call system_clock(count=clock_count,count_rate=clock_count_rate)
+  current_wall_time = real(clock_count,kind=wp) / real(clock_count_rate,kind=wp)
+  !
+end subroutine gfr_timer
 !
 !###############################################################################
 !

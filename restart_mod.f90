@@ -213,12 +213,12 @@ continue
         !
         if (int_header(4) /= itrst) then
           write (error_message,1) int_header(4),itrst
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end if
         !
         if (abs(real_header(1)-tmrst) > eps9) then
           write (error_message,2) real_header(1),tmrst
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
         end if
         !
         if (allocated(time_ave_variables)) then
@@ -381,7 +381,7 @@ continue
       case (int16) ; call read_rstrt_file_i2(file_handle,int_header)
       case default
         write (error_message,20)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
   !
@@ -400,7 +400,7 @@ continue
     end if
     if (restart_nq /= sol_nq) then
       write (error_message,10) restart_nq,sol_nq
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
   end if
   !
@@ -410,7 +410,7 @@ continue
   !
   if (restart_ncells /= n_global_cell) then
     write (error_message,11) restart_ncells,n_global_cell
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Extract the format that the solution data is in within the restart file
@@ -456,7 +456,7 @@ continue
       case (real128) ; call read_rstrt_file_r16(file_handle,real_header)
       case default
         write (error_message,21)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
   !
@@ -488,7 +488,7 @@ continue
       case (int16) ; call read_rstrt_file_i2(file_handle,ordered_geom)
       case default
         write (error_message,22)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
   !
@@ -525,7 +525,7 @@ continue
         case (int16) ; call read_rstrt_file_i2(file_handle,var_header)
         case default
           write (error_message,24)
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end select
     end if
     !
@@ -592,7 +592,7 @@ continue
   !
   if (solution_errors /= 0) then
     write (error_message,13)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Set the file view to write the ordered_geom array to the restart file
@@ -622,7 +622,7 @@ continue
                                                 read_block_type)
       case default
         write (error_message,23)
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end select
   end if
   !
@@ -695,7 +695,7 @@ continue
   !
   if (solution_errors > 0) then
     write (error_message,31) solution_errors
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Deallocate cell_input_data if we are not time-averaging a bunch of
@@ -2128,7 +2128,7 @@ continue
         write (iout,100) trim(adjustl(fname))
         flush (iout)
         load_restart_file = fals
-       !call stop_recon(abort,pname,__LINE__,__FILE__,error_message)
+       !call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
       end if
       !
     end if
@@ -3310,7 +3310,7 @@ continue
   end do
   !
   deallocate ( cell_input_order , stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"cell_input_order",2,__LINE__,__FILE__, & 
+  call alloc_error(pname,"cell_input_order",2,__LINE__,__FILE__, &
                    ierr,error_message)
   !
  !do nc = 1,ncell
@@ -3463,7 +3463,7 @@ continue
     !
     write (error_message,1) trim(adjustl(restart_form)), &
                             trim(adjustl(inp_solpts))
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !

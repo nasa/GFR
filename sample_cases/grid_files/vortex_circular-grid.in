@@ -1,0 +1,31 @@
+&input
+
+GRID_FORMAT = 3
+GRIDFILE =       "../grid_files/vortex_circular-grid.64.p3d"
+PLOT3D_BCSFILE = "../grid_files/vortex_circular-grid.bcs.p3d"
+PLOT3D_CUTFILE = "../grid_files/vortex_circular-grid.cut.p3d"
+
+PLOT3D_AGGLOMERATE_ORDER = 4   ! Create P4 grid cells
+
+ALL_ORDERS = 7 ! P3 solution, 4th order accuracy
+ALL_POINTS = 1 ! Legendre-Gauss points
+
+GOVERNING_EQUATIONS = 1   ! Euler equations
+TIMESTEP_TYPE = 0         ! Constant dt
+CONSTANT_DT = 0.0004
+CFL = 1.0
+NUM_TIMESTEPS = 100000
+FINAL_TIME = 40.0         ! Equivalent to propagating for 2 periods
+
+!Timing information:
+RESTART_INTERVAL = 0
+OUTPUT_INTERVAL = 2500
+RESULTS_INTERVAL = 10
+ITER_OUT_INTERVAL = 10
+
+ ITESTCASE = -5  ! Stationary Shu vortex
+!ITESTCASE =  5  ! Diagonally propagating Shu vortex
+!ITESTCASE = -6  ! Propagate only in y-direction
+!ITESTCASE =  6  ! Propagate based on alpha_aoaref
+
+/

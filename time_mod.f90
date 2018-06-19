@@ -85,6 +85,9 @@ subroutine get_dtsp(dtmin)
   !.. Formal Arguments ..
   real(wp), intent(out) :: dtmin
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_dtsp"
+  !
 continue
   !
   if (Timestep_Type == Constant_Timestep) then
@@ -145,6 +148,9 @@ subroutine get_current_cfl
   !.. Local Scalars ..
   real(wp) :: cycle_ratio
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_current_cfl"
+  !
 continue
   !
   if (itcur < cfl_cycle_end) then
@@ -178,7 +184,12 @@ subroutine get_constant_timestep(dtmin)
   !.. Local Scalars ..
   integer :: n
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_constant_timestep"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   dtmin = CFL * constant_dt
   !
@@ -193,6 +204,8 @@ continue
   do n = 1,n_solpts
     dtsp(n) = dtmin
   end do
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_constant_timestep
 !
@@ -1033,7 +1046,12 @@ subroutine get_cell_timestep(dtmin)
   integer, parameter :: lsf = 1
   integer, parameter :: rsf = 2
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "get_cell_timestep"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   mul = zero
   mur = zero
@@ -1211,6 +1229,8 @@ continue
       this_is_final_timestep = true
     end if
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine get_cell_timestep
 !
@@ -1737,6 +1757,8 @@ subroutine get_point_timestep_old(dtmin)
   !
 continue
   !
+  call debug_timer(entering_procedure,pname)
+  !
   dtmin = huge(zero)
   !
   visc = zero
@@ -1810,6 +1832,8 @@ continue
     !
   end if
   !
+  call debug_timer(leaving_procedure,pname)
+  !
 end subroutine get_point_timestep_old
 !
 !###############################################################################
@@ -1837,7 +1861,12 @@ subroutine old_get_point_timestep(dtmin)
   real(wp) :: vel(1:nr)
   real(wp) :: met(1:nr,1:nr)
   !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "old_get_point_timestep"
+  !
 continue
+  !
+  call debug_timer(entering_procedure,pname)
   !
   gm1 = gam - one
   !
@@ -1908,6 +1937,8 @@ continue
     end if
     !
   end if
+  !
+  call debug_timer(leaving_procedure,pname)
   !
 end subroutine old_get_point_timestep
 !
@@ -2502,7 +2533,7 @@ continue
     if (Apply_Filter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,1) nst
-      1 format (8x,"Applying Filter : nst = ",i0)
+      1 format (8x,"Applying Standard Filter : RK Stage = ",i0)
 #endif
       call filter_usp
     end if
@@ -2514,7 +2545,7 @@ continue
     if (Apply_Limiter) then
 #ifdef PROFILE_ON
       if (mypnum == glb_root) write (iout,2) nst
-      2 format (8x,"Applying Limiter : nst = ",i0)
+      2 format (8x,"Applying Limiter : RK Stage = ",i0)
 #endif
       if (Limiter_Option <= -1) then
         call resolution_indicator(apply_projection=true)

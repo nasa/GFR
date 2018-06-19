@@ -1,37 +1,37 @@
-$(OBJDIR)/Euler_tri.o : Euler_tri.f90 \
-              $(OBJDIR)/kind_types.o \
-              $(OBJDIR)/pbs_mod.o \
-              $(OBJDIR)/geovar_mod.o \
-              $(OBJDIR)/ovar_mod.o \
-              $(OBJDIR)/flowvar_mod.o \
-              $(OBJDIR)/quadrature_mod.o \
-              $(OBJDIR)/vandermonde_mod.o \
-              $(OBJDIR)/derivatives_mod.o \
-              $(OBJDIR)/correction_mod.o \
-              $(OBJDIR)/interpolation_mod.o \
-              $(OBJDIR)/projection_mod.o \
-              $(OBJDIR)/filter_mod.o \
-              $(OBJDIR)/io.o \
-              $(OBJDIR)/metrics.o \
-              $(OBJDIR)/mappings.o \
-              $(OBJDIR)/connectivity.o \
-              $(OBJDIR)/initialize.o \
-              $(OBJDIR)/generic.o \
-              $(OBJDIR)/bc_mod.o \
-              $(OBJDIR)/bnd_profiles_mod.o \
-              $(OBJDIR)/flux.o \
-              $(OBJDIR)/parallel.o \
-              $(OBJDIR)/time_mod.o \
-              $(OBJDIR)/mms_mod.o \
-              $(OBJDIR)/channel_mod.o \
-              $(OBJDIR)/limiters.o \
-              $(OBJDIR)/postproc_mod.o \
-              $(OBJDIR)/restart_mod.o \
-              $(OBJDIR)/plot3d_mod.o \
-              $(OBJDIR)/gmsh_mod.o \
-              $(OBJDIR)/cgns_mod.o \
-              $(OBJDIR)/averaging_mod.o \
-              $(OBJDIR)/cpu_info_mod.o
+$(OBJDIR)/main.o : main.f90 \
+         $(OBJDIR)/kind_types.o \
+         $(OBJDIR)/pbs_mod.o \
+         $(OBJDIR)/geovar_mod.o \
+         $(OBJDIR)/ovar_mod.o \
+         $(OBJDIR)/flowvar_mod.o \
+         $(OBJDIR)/quadrature_mod.o \
+         $(OBJDIR)/vandermonde_mod.o \
+         $(OBJDIR)/derivatives_mod.o \
+         $(OBJDIR)/correction_mod.o \
+         $(OBJDIR)/interpolation_mod.o \
+         $(OBJDIR)/projection_mod.o \
+         $(OBJDIR)/filter_mod.o \
+         $(OBJDIR)/io.o \
+         $(OBJDIR)/metrics.o \
+         $(OBJDIR)/mappings.o \
+         $(OBJDIR)/connectivity.o \
+         $(OBJDIR)/initialize.o \
+         $(OBJDIR)/generic.o \
+         $(OBJDIR)/bc_mod.o \
+         $(OBJDIR)/bnd_profiles_mod.o \
+         $(OBJDIR)/flux.o \
+         $(OBJDIR)/parallel.o \
+         $(OBJDIR)/time_mod.o \
+         $(OBJDIR)/mms_mod.o \
+         $(OBJDIR)/channel_mod.o \
+         $(OBJDIR)/limiters.o \
+         $(OBJDIR)/postproc_mod.o \
+         $(OBJDIR)/restart_mod.o \
+         $(OBJDIR)/plot3d_mod.o \
+         $(OBJDIR)/gmsh_mod.o \
+         $(OBJDIR)/cgns_mod.o \
+         $(OBJDIR)/averaging_mod.o \
+         $(OBJDIR)/cpu_info_mod.o
 
 $(OBJDIR)/averaging_mod.o : averaging_mod.f90 \
                   $(OBJDIR)/kind_types.o \
@@ -235,8 +235,10 @@ $(OBJDIR)/interpolation_mod.o : interpolation_mod.f90 \
                       $(OBJDIR)/kind_types.o \
                       $(OBJDIR)/typesgen_mod.o \
                       $(OBJDIR)/geovar_mod.o \
+                      $(OBJDIR)/order_mod.o \
                       $(OBJDIR)/quadrature_mod.o \
                       $(OBJDIR)/poly.o \
+                      $(OBJDIR)/flowvar_mod.o \
                       $(FUNDIR)/np2n.f90
 
 $(OBJDIR)/invs_flux_mod.o : invs_flux_mod.f90 \
@@ -329,6 +331,8 @@ $(OBJDIR)/mappings.o : mappings.f90 \
              $(OBJDIR)/typesgen_mod.o \
              $(OBJDIR)/poly.o
 
+$(OBJDIR)/metis.o : metis.f90
+
 $(OBJDIR)/metrics.o : metrics.f90 \
             $(OBJDIR)/kind_types.o \
             $(OBJDIR)/geovar_mod.o \
@@ -362,6 +366,7 @@ $(OBJDIR)/ovar_mod.o : ovar_mod.f90 \
 $(OBJDIR)/parallel.o : parallel.f90 \
              $(OBJDIR)/kind_types.o \
              $(OBJDIR)/eqn_idx_mod.o \
+             $(OBJDIR)/metis.o \
              $(OBJDIR)/geovar_mod.o \
              $(OBJDIR)/order_mod.o \
              $(OBJDIR)/flowvar_mod.o \

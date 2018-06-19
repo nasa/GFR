@@ -83,9 +83,6 @@ subroutine init_filter_matrices()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: filt
- !real(wp), pointer, contiguous :: fmat(:,:)
- !real(wp), pointer, contiguous :: vmat(:,:)
- !real(wp), pointer, contiguous :: vmat_inv(:,:)
   real(wp), pointer :: fmat(:,:)
   real(wp), pointer :: vmat(:,:)
   real(wp), pointer :: vmat_inv(:,:)
@@ -214,7 +211,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -270,7 +267,7 @@ continue
               fmat = FilterMatrix_Edge_with_output( vmat , vmat_inv , &
                                                     cutoff_order=-1 )
               write (io,800) "Edge Limiter Filter"
-              if (Limiter_Filter_Option == 0) write (io,802) 
+              if (Limiter_Filter_Option == 0) write (io,802)
               do j = npts,1,-1
                 write (io,801) (fmat(i,j), i=1,npts)
               end do
@@ -308,7 +305,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -411,7 +408,7 @@ continue
           case default
             !
             write (error_message,100)
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
             !
         end select
         !
@@ -441,7 +438,7 @@ continue
       call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
     end if
     write (error_message,803)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Check for sparsity

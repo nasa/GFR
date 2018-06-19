@@ -666,22 +666,22 @@ continue
   if ( .not. meshformat_successful ) then
     !
     if (mypnum == 0) write (iout,2)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else if ( .not. nodes_successful ) then
     !
     if (mypnum == 0) write (iout,3)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else if ( .not. elements_successful ) then
     !
     if (mypnum == 0) write (iout,4)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else if ( .not. physicalnames_successful ) then
     !
     if (mypnum == 0) write (iout,5)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else
     !
@@ -778,7 +778,7 @@ continue
       return
   !
   101 if (mypnum == 0) write (iout,2) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -817,7 +817,7 @@ continue
   !
   if (nint(gmsh_version_num) /= 22) then
     if (mypnum == 0) write (iout,1)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Return if the line marking the end of the MeshFormat section is found
@@ -833,15 +833,15 @@ continue
     if (mypnum == 0) write (iout,3)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,2) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   101 if (mypnum == 0) write (iout,4) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -959,15 +959,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -1044,19 +1044,19 @@ continue
          (grid%elem(i)%prop%geom == Geom_Unknown) ) then
       !
       write (error_message,5) ntype
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
-    else if (grid%elem(i)%prop%family /= Complete) then
-      !
-      write (error_message,6) ntype
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
-      !
+   !else if (grid%elem(i)%prop%family /= Complete) then
+   !  !
+   !  write (error_message,6) ntype
+   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !  !
     else if (grid%elem(i)%prop%warning) then
       !
       if (mypnum == 0) then
         write (iout,7) grid%elem(i)%prop%npts, &
                        grid%elem(i)%prop%order, &
-                       Geom_String(grid%elem(i)%prop%geom)
+                       trim(adjustl(Geom_String(grid%elem(i)%prop%geom)))
       end if
       !
     end if
@@ -1118,15 +1118,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -1152,7 +1152,7 @@ continue
             ") IN THE GMSH GRID FILE! THIS IS AN INCOMPLETE", &
             " (EDGE-DEFINED OR SERENDIPITY-TYPE) ELEMENT", &
             " WHICH ARE NOT SUPPORTED AT THIS TIME!")
-  7 format (" WARNING!!! ",i0,"-point, ",a,"-order ",a, &
+  7 format (" WARNING!!! ",i0,"-point, ",i0,"-order ",a, &
             " geometry could cause problems!")
   !
 end subroutine read_gmsh_section_elements
@@ -1219,15 +1219,15 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Read error continuation statements
   !
   100 if (mypnum == 0) write (iout,1) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   101 if (mypnum == 0) write (iout,3) ierr
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -1356,7 +1356,7 @@ continue
   !
   if ( igrps+bgrps+b0grps /= size(phys_grps) ) then
     if (mypnum == 0) write (iout,1) igrps,bgrps,b0grps,size(phys_grps)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! #######
@@ -1410,8 +1410,12 @@ continue
   end do
   !
   if (n /= size(grid%elem) - b0cells) then
-    write (error_message,9) size(grid%elem),b0cells,size(grid%elem)-b0cells,n
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    if (mypnum == glb_root) then
+      write (iout,4)
+      write (iout,9) size(grid%elem),b0cells,size(grid%elem)-b0cells,n
+      write (iout,4)
+    end if
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   !
   ! Finally, use move_alloc to rebuild grid%elem with the new ordering
@@ -1454,7 +1458,7 @@ continue
     !
     if (n /= size(phys_grps) - b0grps) then
       write (error_message,10) size(phys_grps),b0grps,size(phys_grps)-b0grps,n
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Use move_alloc to rebuild phys_grps without any 0-D physical groups
@@ -1538,7 +1542,7 @@ continue
   !
   if ( ncell+nfbnd /= size(grid%elem) ) then
     if (mypnum == 0) write (iout,2) ncell,nfbnd,size(grid%elem)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! #######
@@ -1989,7 +1993,7 @@ continue
   !
   if (error_found) then
     if (mypnum == 0) write (iout,4)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Make sure that Lobatto nodes are requested if the grid contains triangle
@@ -1997,14 +2001,14 @@ continue
   !
  !if (any(cell_geom == Geom_Tria)) then
  !  if (mypnum == 0) write (iout,8)
- !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+ !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
  !end if
   !
   if (loc_solution_pts /= Legendre_Gauss_Lobatto .or. &
       loc_flux_pts /= Legendre_Gauss_Lobatto) then
     if (any(cell_geom == Geom_Tria)) then
       if (mypnum == 0) write (iout,7)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     end if
   end if
   !
@@ -2091,7 +2095,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -2135,7 +2139,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -2179,7 +2183,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -2223,7 +2227,7 @@ continue
     if (mypnum == 0) write (iout,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -2269,7 +2273,7 @@ continue
     write (error_message,2)
   end if
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   !
   ! Format Statements
   !
@@ -2461,6 +2465,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (17)
      !return_value = prop_t(npts=20, &
      !                      order=2, &
@@ -2472,6 +2477,7 @@ continue
       return_value%geom = Geom_Hexa
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (18)
      !return_value = prop_t(npts=15, &
      !                      order=2, &
@@ -2483,6 +2489,7 @@ continue
       return_value%geom = Geom_Pris
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (19)
      !return_value = prop_t(npts=13, &
      !                      order=2, &
@@ -2494,6 +2501,7 @@ continue
       return_value%geom = Geom_Pyra
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (20)
      !return_value = prop_t(npts=9, &
      !                      order=3, &
@@ -2505,6 +2513,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (21)
      !return_value = prop_t(npts=10, &
      !                      order=3, &
@@ -2525,6 +2534,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (23)
      !return_value = prop_t(npts=15, &
      !                      order=4, &
@@ -2545,6 +2555,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (25)
      !return_value = prop_t(npts=21, &
      !                      order=5, &
@@ -2619,6 +2630,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (33)
      !return_value = prop_t(npts=28, &
      !                      order=5, &
@@ -2630,6 +2642,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (36)
      !return_value = prop_t(npts=16, &
      !                      order=3, &
@@ -2668,6 +2681,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (40)
      !return_value = prop_t(npts=16, &
      !                      order=4, &
@@ -2679,6 +2693,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (41)
      !return_value = prop_t(npts=20, &
      !                      order=5, &
@@ -2690,6 +2705,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (42)
      !return_value = prop_t(npts=28, &
      !                      order=6, &
@@ -2791,6 +2807,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (53)
      !return_value = prop_t(npts=21, &
      !                      order=7, &
@@ -2802,6 +2819,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (54)
      !return_value = prop_t(npts=24, &
      !                      order=8, &
@@ -2813,6 +2831,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (55)
      !return_value = prop_t(npts=27, &
      !                      order=9, &
@@ -2824,6 +2843,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (56)
      !return_value = prop_t(npts=30, &
      !                      order=10, &
@@ -2835,6 +2855,7 @@ continue
       return_value%geom = Geom_Tria
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (57)
      !return_value = prop_t(npts=24, &
      !                      order=6, &
@@ -2846,6 +2867,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (58)
      !return_value = prop_t(npts=28, &
      !                      order=7, &
@@ -2857,6 +2879,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (59)
      !return_value = prop_t(npts=32, &
      !                      order=8, &
@@ -2868,6 +2891,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (60)
      !return_value = prop_t(npts=36, &
      !                      order=9, &
@@ -2879,6 +2903,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (61)
      !return_value = prop_t(npts=40, &
      !                      order=10, &
@@ -2890,6 +2915,7 @@ continue
       return_value%geom = Geom_Quad
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (62)
      !return_value = prop_t(npts=7, &
      !                      order=6, &
@@ -3262,6 +3288,7 @@ continue
       return_value%geom = Geom_Tetr
       return_value%elem_type = elem_type
       return_value%family = Edge_Defined
+      return_value%warning = true
     case (132)
      !return_value = prop_t(npts=1, &
      !                      order=0, &

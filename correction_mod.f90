@@ -61,8 +61,6 @@ subroutine init_correction_matrices()
   !.. Local Pointers ..
  !type(matrix), pointer :: this_correct
   type(matrix), pointer :: this_correct
- !real(wp), pointer, contiguous :: solpts(:,:)
- !real(wp), pointer, contiguous :: cmat(:,:)
   real(wp), pointer :: solpts(:,:)
   real(wp), pointer :: cmat(:,:)
   !
@@ -178,7 +176,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !

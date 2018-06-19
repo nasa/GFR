@@ -45,7 +45,6 @@ module quadrature_mod
   !
   ! solpts_edge : pointer to the 'n_order' 1D edge solution points
   !
- !real(wp), public, protected, pointer, contiguous :: solpts_edge(:) => null()
   real(wp), public, protected, pointer :: solpts_edge(:) => null()
   !
   ! face_elem : Array giving the location of the flux points and their
@@ -355,19 +354,19 @@ continue
         case (Geom_Tetr)
           !
           write (error_message,3) "Geom_Tetr"
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_tetr_quadrature(this_order)
           !
         case (Geom_Pyra)
           !
           write (error_message,3) "Geom_Pyra"
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_pyra_quadrature(this_order)
           !
         case (Geom_Pris)
           !
           write (error_message,3) "Geom_Pris"
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           this_elem = get_pris_quadrature(this_order)
           !
         case (Geom_Hexa)
@@ -377,7 +376,7 @@ continue
         case default
           !
           write (error_message,2)
-          call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           !
       end select
       !
@@ -782,13 +781,13 @@ continue
   !
   select case (location)
     !
-    case (DG_TriPoints)
+    case (AlphaOptimized_TriPoints)
       !
       ! Alpha optimized triangle quadrature from Hesthaven and Warburton
       !
       pts = TriNodes2D_DG(n,qzero)
       !
-    case (HT_TriPoints)
+    case (BarycentricLobatto_TriPoints)
       !
       ! 1D Lobatto quadrature extrapolated to a barycentric triangle
       ! coordinate system
@@ -1679,7 +1678,7 @@ continue
   close (io,iostat=ierr,iomsg=error_message)
   call io_error(pname,filename,2,__LINE__,__FILE__,ierr,error_message)
   !
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"dumping solution points")
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"dumping solution points")
   !
   ! Format Statements
   !
@@ -1928,7 +1927,7 @@ continue
       np1d = nint( sqrt( real(np,kind=wp) ) )
       if (np1d*np1d /= np) then
         write (error_message,100) "Quad",np,np1d
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       nc1d = np1d-1
       nc = nc1d*nc1d
@@ -1942,7 +1941,7 @@ continue
       np1d = nint( (real(np,kind=wp)**one3) )
       if (np1d*np1d*np1d /= np) then
         write (error_message,100) "Hexa",np,np1d
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       nc1d = np1d-1
       nc = nc1d*nc1d*nc1d
@@ -1954,7 +1953,7 @@ continue
     else
       !
       write (error_message,101)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       !
     end if
     !

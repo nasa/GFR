@@ -74,8 +74,6 @@ subroutine initialize_flow()
   !
   !.. Local Pointers ..
   type(matrix), pointer :: this_map
- !real(wp), pointer, contiguous :: numer2init(:,:)
- !real(wp), pointer, contiguous :: init2numer(:,:)
   real(wp), pointer :: numer2init(:,:)
   real(wp), pointer :: init2numer(:,:)
   !
@@ -159,7 +157,7 @@ continue
    !!
    !if ( .not. allocated(mapping) ) then
    !  write (error_message,101)
-   !  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
    !end if
    !!
    !do this_cell = 1,ncell
@@ -193,7 +191,7 @@ continue
    !  !
    !  ! Copy the transposed solution back into usp
    !  ! NOTE: elem_usp should be sized elem_usp(1:nq,1:np)
-   !  ! NOTE: grid%sol is expected to be dimensional and in metric units, 
+   !  ! NOTE: grid%sol is expected to be dimensional and in metric units,
    !  !       and thus elem_sol and elem_usp should also be dimensional and
    !  !       in metrics units. While we are copying the transpose of elem_usp
    !  !       into usp, nondimensionalize the flow variables.
@@ -1789,7 +1787,7 @@ continue
     !
     if (Lref <= zero) then
       write (error_message,101)
-      call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
     !
     ! Set up the base reference conditions for the Taylor-Green Vortex problem
@@ -1833,7 +1831,7 @@ continue
       if (abs(pres_check-pref) > eps6) then
        !write (iout,102) pref,pres_check
         write (error_message,102) pref,pres_check
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     end if
     !
@@ -2113,6 +2111,10 @@ subroutine create_bc_in
   !
 continue
   !
+  if (allocated(bc_in)) then
+    return
+  end if
+  !
   rhoa2 = rhoref * aref * aref
   gm1 = gam - one
   one_over_gm1 = one / gm1
@@ -2197,6 +2199,23 @@ continue
         !
         bc_in(i)%wall_temperature = bc_input(n)%wall_temp/tref
         !
+        if (size(vel) == 1) then
+          vel(:) = [ bc_input(n)%vx ]
+        else if (size(vel) == 2) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy ]
+        else if (size(vel) == 3) then
+          vel(:) = [ bc_input(n)%vx , bc_input(n)%vy , bc_input(n)%vz ]
+        end if
+        !
+        pv(nec) = bc_in(0)%pv(nec)
+        pv(nmb:nme) = vel(1:nr) / aref
+        pv(nee) = bc_in(0)%pv(nee)
+        !
+        cv(:) = vsp2u_sp(pv)
+        !
+        bc_in(i)%pv = pv(:) ! USING F2003 AUTO-REALLOCATION
+        bc_in(i)%cv = cv(:) ! USING F2003 AUTO-REALLOCATION
+        !
       else
         !
         r = bc_input(n)%rho_static
@@ -2221,7 +2240,7 @@ continue
         !
         iterate_bc_conditions: do ii = 1,5
           !
-          mach_is_set = ( abs(mach) < five*five )
+          mach_is_set = ( abs(mach) < five*five .and. mach > zero )
           vel_is_set  = ( norm2(vel) > zero )
           !
           call igl(r,p,t,static_is_set,n)
@@ -2255,7 +2274,7 @@ continue
           !
           if (ii == 5) then
             write (error_message,1) n
-            call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+            call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
           end if
           !
         end do iterate_bc_conditions
@@ -2394,7 +2413,7 @@ subroutine write_bc_conditions
   use ovar,   only : rhoref,aref,gam
   !
   !.. Local Scalars ..
-  integer     :: i,ii,nf
+  integer     :: i,ii,nf,bc_type
   real(wp)    :: r,p,t,r0,p0,t0,mach,aspd,visc,reyn
   real(wp)    :: alpha,beta,rhoa2,total_cond
   real(wp)    :: gm1,gam_over_gm1,one_over_gm1
@@ -2421,13 +2440,29 @@ continue
       if (i == 0) then
         write (iout,1)
       else
-        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name))
+        !
+        bc_type_loop: do nf = 1,size(bface,dim=2)
+          if (any(bface(1,nf) == bc_comm) .or. bface(5,nf) == 0) then
+            cycle bc_type_loop
+          end if
+          if (bface(6,nf) == i) then
+            bc_type = bface(1,nf)
+            exit bc_type_loop
+          end if
+        end do bc_type_loop
+        !
+        write (iout,2) i,trim(adjustl(bc_input(bc_in(i)%bc_input_idx)%name)), &
+                         trim(adjustl(bc_integer_to_string(bc_type)))
+        !
       end if
       !
       if ( (bc_in(i)%wall_temperature*tref >= tmin) .and. &
            (bc_in(i)%wall_temperature*tref <= tmax) ) then
         !
-        write (iout,3) bc_in(i)%wall_temperature*tref
+        vel(1:nr) = bc_in(i)%pv(nmb:nme)*aref
+        !
+        write (iout,3) bc_in(i)%wall_temperature*tref, &
+                       (vel(ii),ii=1,nr)
         !
       else
         !
@@ -2499,8 +2534,12 @@ continue
   ! Format Statements
   !
   1 format (/," Flow conditions for BC # 0 - Reference/Freestream BCs")
-  2 format (/," Flow conditions for BC # ",i0," - '",a,"'")
-  3 format (4x,"Wall Temperature      = ",es14.6," K",/)
+  2 format (/," Flow conditions for BC # ",i0," - '",a,"'",/, &
+              4x,"BC Type = ",a)
+  3 format (4x,"Wall Temperature      = ",es14.6," K",/, &
+            4x,"X-velocity            = ",es14.6," m/s",/,:, &
+            4x,"Y-velocity            = ",es14.6," m/s",/,:, &
+            4x,"Z-velocity            = ",es14.6," m/s",/)
   4 format (4x,"Static Density        = ",es14.6," kg/m^3",/, &
             4x,"X-velocity            = ",es14.6," m/s",:,/, &
             4x,"Y-velocity            = ",es14.6," m/s",:,/, &
@@ -2543,7 +2582,7 @@ subroutine dump_bc_conditions(ii,r,p,t,r0,p0,t0,vel,mach,alpha,beta, &
   !
 continue
   !
-  if (mypnum /= 0) return
+  if (mypnum /= glb_root) return
   !
   write (iout,1) trim(adjustl(string)),ii, &
                  r,p,t,static_is_set, &
@@ -2780,7 +2819,7 @@ continue
   end if
   !
   if (errors_found) then
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
   end if
   !
   ! Format Statements
@@ -2910,7 +2949,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-tmach) > eps6) then
         write (error_message,1) n,mach,tmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = tmach
@@ -2933,9 +2972,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation temperature = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation temperature = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_temp
@@ -2978,7 +3017,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-pmach) > eps6) then
         write (error_message,1) n,mach,pmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = pmach
@@ -3002,9 +3041,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation pressure = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation pressure = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_pres
@@ -3044,7 +3083,7 @@ continue
     if (mach_is_set) then
       if (abs(mach-rmach) > eps6) then
         write (error_message,1) n,mach,rmach
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
     else
       mach = rmach
@@ -3068,9 +3107,9 @@ continue
   ! Format Statements
   !
   1 format ( &
-     " Error with BC # ",i0," !",/, &
-     " Mach number specified for boundary condition = ",es14.6,/, &
-     " Mach number computed from the stagnation density = ",es14.6,/, &
+     " Error with BC # ",i0," !", &
+     " Mach number specified for boundary condition = ",es14.6, &
+     " Mach number computed from the stagnation density = ",es14.6, &
      " Please correct the input values for this BC!")
   !
 end subroutine mach_total_dens
@@ -3107,7 +3146,7 @@ continue
       !
       if (abs(pres_check-pres) > eps6) then
         write (error_message,1) n,pres,pres_check
-        call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
       end if
       !
     else if ( rho < zero .and. pres > zero .and. temp > zero ) then
@@ -3124,11 +3163,11 @@ continue
   !
   ! Format Statements
   !
-  1 format (" Error with BC # ",i0," !",/, &
-            " Pressure specified for boundary condition = ",es14.6,/, &
-            " Pressure computed from other specified conditions = ",es14.6,/, &
-            " Please correct the flow conditions for this BC in the input",/, &
-            " file or set one of density, pressure, and temperature to a",/, &
+  1 format (" Error with BC # ",i0," !", &
+            " Pressure specified for boundary condition = ",es14.6, &
+            " Pressure computed from other specified conditions = ",es14.6, &
+            " Please correct the flow conditions for this BC in the input", &
+            " file or set one of density, pressure, and temperature to a", &
             " negative value so it is explicitly computed.")
   !
 end subroutine igl

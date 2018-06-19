@@ -4,7 +4,7 @@
 ###########################################################
 
 # MPI compiler wrappers for Fortran and C
-FC := mpif08
+FC := mpif90
 CC := gcc
 
 # Compiler family/brand
@@ -13,7 +13,7 @@ CC := gcc
  COMPFAMILY := intel
 
 # Directory to put Executables
-EXEDIR := $(HOME)/bin/$(COMPFAMILY)
+EXEDIR := $(CURDIR)/bin
 
 # Paths to install directories of required libraries
 # not including lib or include sub-directories, e.g.,
@@ -33,14 +33,15 @@ METISDIR := $(METIS_ROOT)
 # Fortran Preprocessor Definitions
 
 # Select which version of the METIS library to use
-#     METISFPP := -DMETIS_5  => METIS 5.1.0 (requires custom METIS module)
-#     METISFPP := -DMETIS_4  => METIS 4.0.3
-METISFPP := -DMETIS_5
+#     METISFPP := -DMETIS_5 -DMETIS_32_BIT => METIS 5.1.0 (built 32-bit)
+#     METISFPP := -DMETIS_5 -DMETIS_64_BIT => METIS 5.1.0 (built 64-bit)
+#     METISFPP := -DMETIS_4                => METIS 4.0.3
+METISFPP := -DMETIS_5 -DMETIS_32_BIT
 
 # Enable/Disable code accessing the PBS environment
 #     PBSFPP := -DPBS_ENV  => Enable  code for PBS environment
 #     PBSFPP :=            => Disable code for PBS environment
-PBSFPP := -DPBS_ENV
+PBSFPP :=
 
 # Select which version of the CGNS library to use
 #     CGNSFPP := -DCGNS_3_3  => CGNS 3.3.x
@@ -51,7 +52,9 @@ CGNSFPP := -DCGNS_3_3
 #     MPIFPP := -DUSE_MPI_F08  => USE MPI_F08
 #     MPIFPP :=                => USE MPI
 MPIFPP := -DUSE_MPI_F08
-#MPIFPP := 
+ifeq "$(COMPFAMILY)" "pgi"
+MPIFPP :=
+endif
 
 # Select whether to link to the Intel Math Libraries
 #     MKLFPP := -DUSE_INTEL_MKL  => Do     link to Intel MKL
