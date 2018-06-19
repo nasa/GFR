@@ -1,0 +1,37 @@
+&input
+
+grid_format = 2
+gridfile = "grid_files/bump.P4.msh"
+
+all_orders = 4 ! P4 (5th order) solution
+all_points = 1 ! Gauss-Legendre points
+
+correction_function = 1 ! gDG correction function
+
+invs_flux_method = 1 ! Roe common inviscid flux with Entropy fix
+
+governing_equations = 1
+num_timesteps = 150000
+Timestep_Type = 1 ! Global CFL condition
+CFL     = 0.1
+cfl_beg = 0.1
+cfl_end = 0.1
+cfl_cycles = 100
+
+! Flow reference conditions:
+machref = 0.5
+gam = 1.4
+tref = 300.0
+pref = 100000.0
+
+!Timing information:
+restart_interval = 1000000
+output_interval = 1000
+results_interval = 100
+iter_out_interval = 100
+
+convergence_order_max_res = -11.0
+
+itestcase = 3 ! Inviscid Bump
+
+/

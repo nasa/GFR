@@ -1,0 +1,94 @@
+&INPUT
+
+!check_flux_point_coordinates = T
+
+!grid_scaling_factor = 25.0
+
+GRID_FORMAT    = 3
+GRIDFILE       = "couette.grd"
+PLOT3D_BCSFILE = "couette.bcs.grd"
+
+all_orders = 2
+all_points = 1 ! 1-Gauss, 2-Lobatto
+e_order = 2
+
+! CORRECTION FUNCTION
+ correction_function = 1 ! gDG (DEFAULT)
+!correction_function = 2 ! g2
+!correction_function = 3 ! gGauss
+
+! UPWIND FLUX
+ invs_flux_method = 1 ! Roe flux with Entropy fix (DEFAULT)
+!invs_flux_method = 2 ! HLLC
+!invs_flux_method = 3 ! LDFSS
+
+! VISCOUS FLUX METHOD
+!visc_flux_method = 1 ! BR1
+ visc_flux_method = 2 ! BR2 (DEFAULT)
+!visc_flux_method = 3 ! LDG
+
+! FILTER OPTIONS
+ Filter_Option = 0 ! No filter
+!Filter_Option = 1 ! Filter based on tensor product of 1D filter
+!Filter_Option = 2 ! Filter based on polynomial degree of nr*P
+Filter_Order = 16
+Filter_Alpha = 18.0
+Filter_etac = 0.8
+!Filter_eps = 0.0
+
+governing_equations = 2
+!governing_equations = 1
+num_ts = 1000000
+Final_time = 1389.7762927896
+!dt_in = 0.013897762927896
+!Timestep_Type = 0 ! Constant delta t
+!CFL = 1.0
+
+Timestep_Type = -1 ! Local CFL condition
+cfl_beg = 0.1
+cfl_end = 0.5
+cfl_cycles = 1000
+CFL = 0.5
+
+!Flow reference conditions:
+machref = 0.2014712737961417
+gam = 1.4
+rhoref = 1.1597335475725683
+pref = 100000.0
+tref = -1.0
+reyref = 200.0
+rgasref = 287.1428571428571429
+
+suth_muref = 0.417
+suth_tref = 300.0
+suth_sref = 0.0
+
+!Timing information:
+restart_interval = 1000
+output_interval = 1000
+results_interval = 10
+iter_out_interval = 10
+
+restart_output_uses_host_roots = F
+
+! Restart information:
+irestart = 0
+restart_file = '../6.run/Restart_files/out.current.rst'
+
+convergence_order_max_res = -16.0
+convergence_order_abs_res = -16.0
+
+ itestcase = 1  ! initialize to free stream
+!itestcase = 10 ! initialize to jet profile
+
+use_bc_conflicts = F
+
+sub_inflow_method = 1 ! Use Newton Iteration for Subsonic Inflow BC
+
+BC_INPUT(1)%NAME      = "TOP_WALL"
+BC_INPUT(1)%WALL_TEMP = 300.0
+
+BC_INPUT(2)%NAME      = "BOT_WALL"
+BC_INPUT(2)%WALL_TEMP = 300.0
+
+/

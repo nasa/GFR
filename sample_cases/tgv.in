@@ -1,0 +1,80 @@
+&input
+
+VortexGrid_DOF = 48   ! degrees of freedom (48^3)
+
+all_orders = 3
+all_points = 1 ! 1-Gauss, 2-Lobatto
+error_order = 3
+loc_output_pts = 0 ! equidistant points
+
+! CORRECTION FUNCTION
+ correction_function = 1 ! gDG (DEFAULT)
+!correction_function = 2 ! g2
+!correction_function = 3 ! gGauss
+
+! UPWIND FLUX
+ invs_flux_method = 1 ! Roe flux with Entropy fix (DEFAULT)
+!invs_flux_method = 2 ! HLLC
+!invs_flux_method = 3 ! LDFSS
+!invs_flux_method = 4 ! Rotated-RHLL
+
+! VISCOUS FLUX METHOD
+!visc_flux_method = 1 ! BR1
+ visc_flux_method = 2 ! BR2 (DEFAULT)
+!visc_flux_method = 3 ! LDG
+
+! VISCOUS COMMON FLUX METHOD
+ visc_variables_to_ave = 1 ! average fluxes
+!visc_variables_to_ave = 2 ! average solutions and gradients
+
+! FILTER OPTIONS
+ Filter_Option = 0 ! No filter
+!Filter_Option = 1 ! Filter based on tensor product of 1D filter
+!Filter_Option = 2 ! Filter based on polynomial degree of nr*P
+Filter_Order = 16
+Filter_Alpha = 18.0
+Filter_etac = 0.8
+!Filter_eps = 0.0
+
+Limiter_Option = 0
+Limiter_Filter_Option = 1 ! Filter based on tensor product of 1D filter
+Limiter_Filter_Order = 4
+Limiter_Filter_Alpha = 36.0
+Limiter_Filter_etac = 0.4
+
+Filtering_Interval = 0
+Limiting_Interval = 0
+
+governing_equations = 2
+num_timesteps = 10
+Timestep_Type = 1 ! Global CFL condition
+!CFL     = 0.4
+!cfl_beg = 0.4
+!cfl_end = 0.4
+ CFL     = 0.1
+ cfl_beg = 0.1
+ cfl_end = 0.1
+cfl_cycles = 1
+Final_Time = -2.0
+constant_dt = 1.0e-6
+
+!Timing information:
+restart_interval = 100000
+output_interval = 100000
+results_interval = 1
+iter_out_interval = 1
+
+restart_output_uses_host_roots = T
+profile_io_all = T
+completely_disable_cgns = T
+
+! Restart information:
+load_restart_file = F
+restart_file = 'Restart_files/out.current.rst'
+
+itestcase = 9 ! Run Taylor-Green vortex problem
+
+use_bc_conflicts = F
+
+/
+
