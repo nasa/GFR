@@ -3470,5 +3470,5 @@ $PhysicalNames
 1 1 "Characteristic"   "SubInflow"
 1 2 "Characteristic"   "SubOutflow"
 1 3 "SlipWall"         "Lower SlipWall"
-1 4 "Characteristic"   "Upper SlipWall"
+1 4 "SlipWall"         "Upper SlipWall"
 $EndPhysicalNames
