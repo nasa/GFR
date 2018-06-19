@@ -30,7 +30,7 @@ NOTE: If wanting to run GFR in parallel, replace [MPI COMMAND] with the
  Input File : Isentropic_Vortex/euler_vortex.in
   Grid File : [Generated internally within GFR]
 
-Description : The test case concerns the long term transport of a vortex by a
+Description : This test case concerns the long term transport of a vortex by a
               uniform base flow over a 2D doubly periodic domain. This problem
               is aimed at testing a high-order method’s capability to preserve
               vorticity in an unsteady inviscid flow.
@@ -47,6 +47,36 @@ Description : The test case concerns the long term transport of a vortex by a
 How to run this case:
               prompt> cd Isentropic_Vortex
               prompt> [MPI COMMAND] gfr euler_vortex.in
+
+################################################################################
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%   Isentropic Euler Vortex (Circular Grid Version)   %%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+      Input File  : Isentropic_Vortex_Circular-Grid/vortex_circular-grid.in
+       Grid Files : grid_files/vortex_circular-grid.64.p3d
+                    grid_files/vortex_circular-grid.128.p3d
+ Plot3D  BC File  : grid_files/vortex_circular-grid.bcs.p3d
+ Plot3D Cut File  : grid_files/vortex_circular-grid.cut.p3d
+
+Description : This test case is the same as the previous isentropic Euler vortex
+              test case except that this version uses a circular 5-block Plot3D
+              grid file with an O-H topology. Since this grid contains
+              curvature, a P4 agglomeration is used to combine linear grid cells
+              into high-order grid cells, i.e., 4x4 (16) linear grid cells are
+              combined into one P4 grid cell.
+              
+              There are two grid files that can be used with this test case:
+                 A) vortex_circular-grid.64.p3d which contains 64 linear cells
+                    per quadrant in the rotational direction.
+                 B) vortex_circular-grid.128.p3d which contains 128 linear cells
+                    per quadrant in the rotational direction.
+
+
+How to run this case:
+              prompt> cd Isentropic_Vortex_Circular-Grid
+              prompt> [MPI COMMAND] gfr vortex_circular-grid.in
 
 ################################################################################
 
@@ -124,7 +154,7 @@ Description : This problem is the LES/DNS of a three-dimensional periodic and
               energy and kinetic energy dissipation rates (KEDR) throughout the
               simulation. This test case will also create an output solution
               file named 'CGNS_files/TGV_vorticity_8s.cgns' which contains the
-              vorticity normon the periodic face x/L=-PI at t*=8. These two
+              vorticity norm on the periodic face x/L=-PI at t*=8. These two
               results can be compared with a reference solution found by a
               pseudo-spectral code using 512^3 degrees of freedom (DOF) which
               can be downloaded from:
