@@ -1,0 +1,96 @@
+module octroot_mod
+!
+! Module for octree root info.  Stuff common to the entire octtree.
+!
+! -------------------------------------------------------------------------
+
+  use octstat_mod
+  implicit none
+
+! -------------------------------------------------------------------------
+! Octtree root type.  Stuff common to the entire octtree.
+! Set some default values.  Each octtree can then alter its own instance.
+  type :: octroot_type
+    integer :: totoctdata  =  0  ! global number of data points in tree
+    integer :: totoctnode  =  0  ! global number of octnodes in tree
+    integer :: MAXOCTDATA  = 32  ! max data pts in each octnode
+    integer :: MAXOCTNODES =  8  ! max subnodes in each octnode
+                                 ! Typically this is 2**nr, but can't set
+                                 ! here because nr is not a parameter.
+                                 ! Set during init instead, if desired.
+  contains
+    procedure :: init    => octroot_init
+    procedure :: dealloc => octroot_dealloc
+    final :: octroot_final, octroot_rank1_final
+  end type octroot_type
+
+contains
+
+!##########################################################################
+  subroutine octroot_final(this)
+  !
+  ! Finalize the octroot_type.
+  !
+  implicit none
+  type(octroot_type) :: this
+  !
+  integer :: status
+  !
+  call octroot_dealloc(this,status)
+  return
+  end subroutine octroot_final
+!##########################################################################
+  subroutine octroot_rank1_final(this)
+  !
+  ! Finalize an array of octroot_type.
+  !
+  implicit none
+  type(octroot_type) ,dimension(:) :: this
+  !
+  integer :: n
+  integer :: status
+  !
+  do n=1,size(this)
+    call octroot_dealloc(this(n),status)
+  enddo
+  return
+  end subroutine octroot_rank1_final
+!##########################################################################
+  subroutine octroot_dealloc(octroot,status)
+  !
+  ! Deallocare the octroot data.
+  !
+  implicit none
+  class(octroot_type) ,intent(inout) :: octroot
+  integer             ,intent(out)   :: status
+  !
+  ! Nothing much to dealloc, just reset counters.
+  octroot%totoctdata = 0
+  octroot%totoctnode = 0
+  !
+  status  = OCT_STATUS_OK
+  return
+  end subroutine octroot_dealloc
+!##########################################################################
+  subroutine octroot_init(octroot,maxoctdata,maxoctnodes,status)
+  !
+  ! Init octroot values.
+  !
+  class(octroot_type) ,intent(inout) :: octroot
+  integer             ,intent(in)    :: maxoctdata
+  integer             ,intent(in)    :: maxoctnodes
+  integer             ,intent(out)   :: status
+  !
+  ! Negative input values will retain current (likely default) setting.
+  if ( maxoctdata  .ge. 0 ) octroot%MAXOCTDATA  = maxoctdata
+  if ( maxoctnodes .ge. 0 ) octroot%MAXOCTNODES = maxoctnodes
+  !
+  ! Reset counters.
+  octroot%totoctdata = 0
+  octroot%totoctnode = 0
+  !
+  status  = OCT_STATUS_OK
+  return
+  end subroutine octroot_init
+!##########################################################################
+end module octroot_mod

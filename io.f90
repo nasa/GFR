@@ -9,9 +9,6 @@ module io_mod
   use ovar,    only : grid_format
   use ovar,    only : gridfile
   use ovar,    only : output_dir
-  use ovar,    only : plot3d_cutfile
-  use ovar,    only : plot3d_bcsfile
-  use ovar,    only : solution_file, solution_format
   !
   implicit none
   !
@@ -101,7 +98,10 @@ contains
 !
 !###############################################################################
 !
-subroutine read_input_file
+subroutine read_input_file(input_mode)
+  !
+  !.. Formal Arguments ..
+  integer, intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer :: i,j,ierr,input_status
@@ -164,7 +164,7 @@ continue
   end do one_pass_loop
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  call read_nml_input_file(input_fname)
+  call read_nml_input_file(input_fname,input_mode)
   call check_for_bad_number(__LINE__,__FILE__)
   !
   call debug_timer(leaving_procedure,pname)
@@ -247,7 +247,7 @@ end subroutine check_input_file
 !
 !###############################################################################
 !
-subroutine read_nml_input_file(input_fname)
+subroutine read_nml_input_file(input_fname,input_mode)
   !
   !.. Use Statements ..
   use order_mod, only : initialize_geom_solpts
@@ -270,6 +270,7 @@ subroutine read_nml_input_file(input_fname)
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: input_fname
+  integer,          intent(in) :: input_mode
   !
   !.. Local Scalars ..
   integer  :: i,it1,it2,ierr,ival,inpt
@@ -305,6 +306,30 @@ continue
   !
   close (inpt,iostat=ierr,iomsg=error_message)
   call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! For interpolation pass, shuffle some variables around to trick
+  ! the lower level readers to read interp_gridfile which will be
+  ! interpolated onto.  If no name provided for interp_gridfile
+  ! then skip interpolation and treat as normal solver read.
+  !
+  if (input_mode == 1 .and. len_trim(adjustl(interp_gridfile)) > 0) then
+    if (ncpu > 1) then
+      write (error_message,107)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+    grid_format              = interp_grid_format
+    gridfile                 = interp_gridfile
+    plot3d_cutfile           = interp_plot3d_cutfile
+    plot3d_bcsfile           = interp_plot3d_bcsfile
+    solution_file            = ""
+    grid_scaling_factor      = interp_grid_scaling_factor
+    plot3d_i_stride          = interp_plot3d_i_stride
+    plot3d_j_stride          = interp_plot3d_j_stride
+    plot3d_k_stride          = interp_plot3d_k_stride
+    plot3d_all_strides       = interp_plot3d_all_strides
+    plot3d_agglomerate_order = interp_plot3d_agglomerate_order
+    solution_order           = interp_solution_order
+  end if
   !
   ! Check the lustre striping parameters
   !
@@ -757,11 +782,18 @@ continue
   !
   ! Now write out a copy of the input file to standard output
   !
-  if (mypnum == 0) then
+  if (mypnum == glb_root) then
     !
-    write (iout,104)
-    write (iout,nml=input)
-    write (iout,105)
+    ! If interpolating, make sure to only write once with the
+    ! non-manipulated namelist input values.
+    !
+    if (input_mode == 2 .or. len_trim(adjustl(interp_gridfile)) == 0) then
+      !
+      write (iout,104)
+      write (iout,nml=input)
+      write (iout,105)
+      !
+    end if
     !
   end if
   !
@@ -797,6 +829,7 @@ continue
                 "#######################################",/)
   106 format ("Lobatto solutions points are not yet compatible with the ", &
               "option to correct the output solution so that it is continuous!")
+  107 format ("Interpolation cannot be done in parallel.")
   108 format (/, &
      "***************************** ERROR **********************",/, &
      "   NO READER AVAILABLE FOR SPECIFIED SOLUTION FORMAT.",/, &
@@ -1316,6 +1349,9 @@ subroutine read_grid_file()
   use ovar,           only : use_bc_conflicts
   use ovar,           only : itestcase,VortexGrid_DOF
   use ovar,           only : postproc_debug_grid
+  use ovar,           only : solution_file
+  use ovar,           only : plot3d_cutfile
+  use ovar,           only : plot3d_bcsfile
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_grid_file"
@@ -7279,15 +7315,21 @@ continue
       !
       interp_usp(1:nq,1:npts) = interpolate_for_output( usp(1:nq,1:n_solpts) )
       !
-      do l = 1,nq
-        interp_dusp(1:nr,l,1:npts) = &
-                 interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
-      end do
+      if (allocated(dusp)) then
+        do l = 1,nq
+          interp_dusp(1:nr,l,1:npts) = &
+                   interpolate_for_output( dusp(1:nr,l,1:n_solpts) )
+        end do
+      !else, already initialized to zero during above allocation
+      end if
       !
     else
       !
       interp_usp(1:nq,1:npts) = usp(1:nq,1:n_solpts)
-      interp_dusp(1:nr,1:nq,1:npts) = dusp(1:nr,1:nq,1:n_solpts)
+      if (allocated(dusp)) then
+        interp_dusp(1:nr,1:nq,1:npts) = dusp(1:nr,1:nq,1:n_solpts)
+      !else, already initialized to zero during above allocation
+      end if
       !
     end if
     !

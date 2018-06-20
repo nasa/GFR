@@ -947,7 +947,7 @@ continue
     call io_error(pname,fname,2,__LINE__,__FILE__,ierr,error_message)
     !
     write (error_message,104)
-    call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     !
   end if
   !

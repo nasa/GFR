@@ -1019,7 +1019,8 @@ end function cylinder_function
 subroutine initialize_dusp()
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,  only : nr
+  use flowvar, only : dusp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
@@ -1027,6 +1028,8 @@ subroutine initialize_dusp()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (.not. allocated(dusp)) return
   !
   if (nr == 3) then
     call initialize_dusp_3d
@@ -1420,6 +1423,8 @@ subroutine initialize_dusp_old()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (.not. allocated(dusp)) return
   !
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point

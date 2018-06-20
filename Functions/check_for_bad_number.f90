@@ -125,7 +125,7 @@ continue
                               trim(adjustl(invalid_error))
 #endif
     !
-    call stop_recon(stop_mpi,pname,line_num,file_name,error_message)
+    call stop_gfr(stop_mpi,pname,line_num,file_name,error_message)
     !
   end if
   !

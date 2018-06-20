@@ -5,6 +5,7 @@ program GFR_main
   use geovar, only : ncell,n_global_cell
   use geovar, only : nnode,n_global_node
   use geovar, only : nfbnd,n_global_fbnd
+  use geovar, only : nr,n_solpts
   use geovar, only : n_global_solpts
   use geovar, only : bface,xyz_nodes,nface
   use geovar, only : cell_geom,cell_order,global_cell_order
@@ -14,6 +15,8 @@ program GFR_main
   use geovar, only : move_fp_to_device
   use geovar, only : move_bcgrps_to_device
   use geovar, only : move_cellmap_to_device
+  !
+  use eqn_idx, only : nq
   !
   use ovar, only : metis_option,convergence_reached
   use ovar, only : total_volume,local_volume,itestcase
@@ -35,9 +38,12 @@ program GFR_main
   use ovar, only : Filtering_Interval,Limiting_Interval
   use ovar, only : move_bcin_to_device
   use ovar, only : channel_spatial_ave_restart
+  use ovar, only : if_interpto_newgrid
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
+  !
+  use flowvar, only : usp,dusp
   !
   use quadrature_mod, only : solpts_edge
   !
@@ -148,6 +154,14 @@ program GFR_main
   use averaging_mod, only : update_time_ave
   use averaging_mod, only : average_restart_files
   !
+  use interpsol_mod, only : mv_global_to_grid2
+  use interpsol_mod, only : mv_grid2_to_global
+  use interpsol_mod, only : interpsol
+!-DEBUG_BEG:
+  use interpsol_mod, only : interpsol_debug
+  use mydebug_mod,   only : mydebug
+!-DEBUG_END:
+  !
   use, intrinsic :: iso_c_binding,   only : c_long
   !
   implicit none
@@ -162,6 +176,7 @@ program GFR_main
   character(len=50) :: memfile
   !
   integer :: CGNS_action
+  integer :: input_mode
   !
   logical(lk)  :: completed_initial_cgns_output
   logical(lk)  :: exit_main_loop
@@ -218,38 +233,102 @@ continue
   call memory_pause("base initializations","reading input and grid files")
   call check_for_bad_number(__LINE__)
   !
-  ! Read in the input file
+  ! Perform preprocessing loop twice, if necessary.
+  !   input_mode = 1  Interpolation Mode
+  !   input_mode = 2  Normal Solver Mode
+  ! During mode 1, try to load data into the interpolation destination set.
+  ! However, if interp_gridfile name is empty then drop into mode 2.
+  ! During mode 2, load data into the normal solver set.
+  preprocessing_loop: &
+  do input_mode = 1,2
+    !
+    ! Read in the input file
+    !
+    call read_input_file(input_mode)
+    call memory_pause("reading input and grid files","partitioning the grid")
+    call check_for_bad_number(__LINE__)
+    !
+    ! Partition the grid if using more than one processor.
+    ! Upon entry:  These arrays define the global grid
+    ! Upon return: These arrays define the partition local
+    !              to the respective processor along with
+    !              connectivities for the partition boundaries
+    npart = ncpu
+    if (npart > 1) then
+      call partition_grid(npart,metis_option,bface,nodes_of_cell, &
+                          nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
+      call memory_pause("partitioning the grid","getting the solution points")
+    else
+      call create_serial_cell_map(ncell)
+      call memory_pause("getting serial cell map","getting the solution points")
+    end if
+    call check_for_bad_number(__LINE__)
+    !
+    ! Get the coordinates of the solution points within each grid cell
+    !
+!-DEBUG_BEG:
+    call mydebug(pname,__LINE__,__FILE__)
+    write(iout,*) 'DEBUG[Euler]:  Calling get_solution_points next.'
+    flush(iout)
+!-DEBUG_END:
+    call get_solution_points
+!-DEBUG_BEG:
+    write(iout,*) 'DEBUG[Euler]:  Back from get_solution_points.'
+    flush(iout)
+    call mydebug(pname,__LINE__,__FILE__)
+!-DEBUG_END:
+    call memory_pause("getting the solution points","getting grid connectivity")
+    call check_for_bad_number(__LINE__)
+    !
+    ! Get the grid connectivity and metrics
+    !
+    call get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
+                               nodes_of_cell,nodes_of_cell_ptr)
+    !
+    ! Special handling for interpolation mode (input_mode=1)
+    !
+    if (input_mode == 1) then
+      if ( if_interpto_newgrid() ) then
+        ! We will be interpolating the sol from one grid to another.
+        ! Data for the destination grid to be used with interpolation
+        ! has just been loaded into the normal global arrays.  
+        !
+        ! Allocate the solution array, which would normally be done
+        ! during initialization.
+        allocate ( usp(1:n_solpts,1:nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+        call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        ! Allocate the derivative array, which would normally be done
+        ! during initialization.  This is only needed for meaningful
+        ! derivative quantities in CGNS output, else they will be zero.
+!-out   allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
+!-out              stat=ierr , errmsg=error_message )
+!-out   call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
+        !
+        ! Move this data to another set of variables, so that during the
+        ! second pass of this preprocessing loop we can read the
+        ! interpolation source grid/solution into these same global variables.
+        call mv_global_to_grid2()
+!-DEBUG_BEG:
+!-DEBUG_CMT: Print debug info to check if arrays moved ok.
+        if (mypnum == glb_root) then
+          write(iout,*) 'Data has been moved to the g2_* variables.'
+        end if
+        call mydebug(pname,__LINE__,__FILE__)
+!-DEBUG_END:
+        call memory_pause("getting grid connectivity", &
+                          "rereading input and grid files")
+        !
+      else
+        ! We will not be interpolating the sol from one grid to another.
+        ! Data was loaded into the normal solver set instead.
+        ! No need to proceed with second input_mode pass.
+        exit preprocessing_loop
+      end if
+    end if
+  end do preprocessing_loop
   !
-  call read_input_file
-  call memory_pause("reading input and grid files","partitioning the grid")
-  call check_for_bad_number(__LINE__)
-  !
-  ! Partition the grid if using more than one processor.
-  ! Upon entry:  These arrays define the global grid
-  ! Upon return: These arrays define the partition local
-  !              to the respective processor along with
-  !              connectivities for the partition boundaries
-  npart = ncpu
-  if (npart > 1) then
-    call partition_grid(npart,metis_option,bface,nodes_of_cell, &
-                        nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
-    call memory_pause("partitioning the grid","getting the solution points")
-  else
-    call create_serial_cell_map(ncell)
-    call memory_pause("getting serial cell map","getting the solution points")
-  end if
-  call check_for_bad_number(__LINE__)
-  !
-  ! Get the coordinates of the solution points within each grid cell
-  !
-  call get_solution_points
-  call memory_pause("getting the solution points","getting grid connectivity")
-  call check_for_bad_number(__LINE__)
-  !
-  ! Get the grid connectivity and metrics
-  !
-  call get_grid_connectivity(bface,cell_geom,cell_order,xyz_nodes, &
-                             nodes_of_cell,nodes_of_cell_ptr)
   call memory_pause("getting grid connectivity", &
                     "initializing vandermonde matrices")
   call check_for_bad_number(__LINE__)
@@ -345,6 +424,66 @@ continue
   call check_for_bad_number(__LINE__)
   call memory_pause("initializing solution","initializing generic module")
   call init_cbias
+  !
+  ! Interpolate solution onto a new grid.
+  !
+  if ( if_interpto_newgrid() ) then
+!-DEBUG_BEG:
+!-DEBUG_CMT:  Write source grid/sol to cgns to examine, then stop
+!-DEBUG_CMT:  before interpolating.
+    if (.false.) then
+      if (mypnum == glb_root) then
+        write (iout,*) 'DEBUG[Euler] Write source grid/solution to cgns.'
+        flush (iout)
+      end if
+      call write_parallel_cgns(open_CGNS)
+      write (error_message,210)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+!-DEBUG_END:
+    !
+    ! Interpolate current global solution to grid 2.
+    !
+    if (mypnum == glb_root) write (iout,201)
+    !
+!-DEBUG_BEG:
+!-DEBUG_CMT: Debug interpolation at a given point and stop.
+!-DEBUG_CMT: Much faster than interpolating a whole grid, and
+!-DEBUG_CMT: could test a location that is not a grid point.
+    if (.false.) then
+      call interpsol_debug()
+      write (error_message,211)
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+!-DEBUG_END:
+    !
+    call interpsol()
+    if (mypnum == glb_root) then
+      write (iout,202)
+      flush (iout)
+    end if
+    !
+    ! Move grid 2 data to current global arrays.
+    ! This puts the destination grid/solution back into the global arrays.
+    !
+    call mv_grid2_to_global()
+    !
+    ! Write restart file of the interpolated solution.
+    !
+    if ( mypnum == glb_root ) write (iout,207)
+    call write_restart_file(itcur)
+    !
+    ! Write CGNS file of the interpolated solution.
+    !
+    if ( mypnum == glb_root ) write (iout,208)
+    call write_parallel_cgns(open_CGNS)
+    !
+    ! Force termination with a message.
+    !
+    write (error_message,210)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    !
+  end if
   !
   ! Time average the list of restart files
   !
@@ -1103,6 +1242,13 @@ continue
                " FOUND FILE REQUESTING TO STOP THE EXECUTION OF GFR! ",/, &
                "   STOPPING EXECUTION AND DUMPING THE FINAL RESULTS!",/, &
                "*******************************************************",/)
+  !
+  201 format (/,"INTERPOLATING SOLUTION TO NEW GRID.")
+  202 format (/,"INTERPOLATION COMPLETE.")
+  207 format (/,"WRITING RESTART FILE.")
+  208 format (/,"WRITING CGNS FILE.")
+  210 format ("STOPPING EXECUTION SO YOU MAY EXAMINE INTERPOLATED SOLUTION.")
+  211 format ("STOPPING EXECUTION SO YOU MAY EXAMINE interpsol_debug.tec")
   !
 contains
 !

@@ -292,7 +292,7 @@ continue
   !
   !
   write (error_message,1)
-  call stop_recon(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   !
   1 format ("After spatial averaging a channel flow restart file.")
   2 format (/,"  Points used for averaging: Min = ",i0,/, &

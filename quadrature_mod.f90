@@ -210,9 +210,11 @@ continue
   !
   ! Allocate the std_elem array
   !
-  allocate ( std_elem(Geom_Min:Geom_Max,n_min_order:n_max_order) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"std_elem",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(std_elem)) then
+    allocate ( std_elem(Geom_Min:Geom_Max,n_min_order:n_max_order) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"std_elem",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Loop through all the possible orders and get the quadrature rules
   ! for the most basic geometries that are used (Geom_Edge and Geom_Tria).
@@ -247,7 +249,13 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      ! Allocate the wts component of the current geometry/order combination
+      ! Allocate the wts component of the current geometry/order combination.
+      ! If already allocated, then the rest of this loop was done before
+      !
+      if (allocated(this_elem%wts)) then
+        if (associated(this_elem)) this_elem => null()
+        cycle basic_order_loop
+      end if
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
@@ -326,7 +334,13 @@ continue
       !
       npts = geom_solpts(this_geom,this_order)
       !
-      ! Allocate the wts component of the current geometry/order combination
+      ! Allocate the wts component of the current geometry/order combination.
+      ! If already allocated, then the rest of this loop was done before
+      !
+      if (allocated(this_elem%wts)) then
+        if (associated(this_elem)) this_elem => null()
+        cycle geom_loop
+      end if
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(this_geom),this_order,"wts"
@@ -448,22 +462,24 @@ continue
   ! are 3D to see if we need to find the quadrature rules for 2D faces.
   !
   gmin = Geom_Edge
-  gmax = Geom_Edge
+  gmax = maxval( Geom_2D )
   !
   there_are_tria_faces = fals
   there_are_quad_faces = fals
   !
   if (any(geom_is_used(Geom_3D))) then
-    gmax = maxval( Geom_2D , mask=geom_is_used(Geom_2D) )
+   !gmax = maxval( Geom_2D , mask=geom_is_used(Geom_2D) )
     there_are_tria_faces = geom_is_used(Geom_Tria)
     there_are_quad_faces = geom_is_used(Geom_Quad)
   end if
   !
-  ! Allocate the face_elem array
+  ! Allocate the face_elem array if not already available
   !
-  allocate ( face_elem(gmin:gmax,n_min_order:n_max_order) , &
-             stat=ierr , errmsg=error_message )
-  call alloc_error(pname,"face_elem",1,__LINE__,__FILE__,ierr,error_message)
+  if (.not. allocated(face_elem)) then
+    allocate ( face_elem(gmin:gmax,n_min_order:n_max_order) , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"face_elem",1,__LINE__,__FILE__,ierr,error_message)
+  end if
   !
   ! Loop through all the possible orders and get the edge quadrature rules.
   !
@@ -488,7 +504,13 @@ continue
     !
     npts = geom_solpts(Geom_Edge,this_order)
     !
-    ! Allocate the wts component of the current geometry/order combination
+    ! Allocate the wts component of the current geometry/order combination.
+    ! If already allocated, then the rest of this loop was done before
+    !
+    if (allocated(this_elem%wts)) then
+      if (associated(this_elem)) this_elem => null()
+      cycle edge_loop
+    end if
     !
     allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
     write (array_name,1) Geom_Name(Geom_Edge),this_order,"wts"
@@ -536,7 +558,13 @@ continue
       !
       npts = geom_solpts(Geom_Tria,this_order)
       !
-      ! Allocate the wts component of the current geometry/order combination
+      ! Allocate the wts component of the current geometry/order combination.
+      ! If already allocated, then the rest of this loop was done before
+      !
+      if (allocated(this_elem%wts)) then
+        if (associated(this_elem)) this_elem => null()
+        cycle tria_loop
+      end if
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Tria),this_order,"wts"
@@ -592,7 +620,13 @@ continue
       !
       npts = geom_solpts(Geom_Quad,this_order)
       !
-      ! Allocate the wts component of the current geometry/order combination
+      ! Allocate the wts component of the current geometry/order combination.
+      ! If already allocated, then the rest of this loop was done before
+      !
+      if (allocated(this_elem%wts)) then
+        if (associated(this_elem)) this_elem => null()
+        cycle quad_loop
+      end if
       !
       allocate ( this_elem%wts(1:npts) , stat=ierr , errmsg=error_message )
       write (array_name,1) Geom_Name(Geom_Quad),this_order,"wts"

@@ -2953,7 +2953,7 @@ continue
  !    write (*,*) lf,kf,geom_solpts(lf,kf)
  !  end do
  !end do
- !call stop_recon(stop_mpi,pname,__LINE__,__FILE__,"error")
+ !call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,"error")
   !
   !$ACC PARALLEL LOOP GANG VECTOR_LENGTH(32) &
   !$ACC&                   PRESENT(correct) &

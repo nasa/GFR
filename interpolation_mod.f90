@@ -15,6 +15,7 @@ module interpolation_mod
   public :: init_interpolation_matrices
   public :: init_outerpolation_matrices
   public :: interpolation_memory_usage
+  public :: interpolate_restart_solution
   public :: move_interp_to_device
   public :: move_outerp_to_device
   public :: outerp_mv_mult
