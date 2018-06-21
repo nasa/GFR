@@ -263,6 +263,7 @@ $(OBJDIR)/interpsol_mod.o : interpsol_mod.f90 \
                   $(OBJDIR)/octedat_facexyz_mod.o \
                   $(OBJDIR)/octtree_mod.o \
                   $(OBJDIR)/mydebug_mod.o
+		  $(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/interpsolvar_mod.o : interpsolvar_mod.f90 \
                      $(OBJDIR)/kind_types.o \
@@ -408,19 +409,12 @@ $(OBJDIR)/octnode_mod.o : octnode_mod.f90 \
                 $(OBJDIR)/octedat_mod.o \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o
+		$(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/octroot_mod.o : octroot_mod.f90 \
                 $(OBJDIR)/octstat_mod.o
 
 $(OBJDIR)/octstat_mod.o : octstat_mod.f90
-
-$(OBJDIR)/octtree_example1_mod.o : octtree_example1_mod.f90 \
-                         $(OBJDIR)/kind_types.o \
-                         $(OBJDIR)/geovar_mod.o \
-                         $(OBJDIR)/octedat_mod.o \
-                         $(OBJDIR)/octnode_mod.o \
-                         $(OBJDIR)/octstat_mod.o \
-                         $(OBJDIR)/octtree_mod.o
 
 $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
                 $(OBJDIR)/kind_types.o \
@@ -429,6 +423,7 @@ $(OBJDIR)/octtree_mod.o : octtree_mod.f90 \
                 $(OBJDIR)/octnode_mod.o \
                 $(OBJDIR)/octroot_mod.o \
                 $(OBJDIR)/octstat_mod.o
+		$(FUNDIR)/debug_timer.f90
 
 $(OBJDIR)/order_mod.o : order_mod.f90 \
               $(OBJDIR)/kind_types.o \
