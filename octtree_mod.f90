@@ -2,6 +2,7 @@ module octtree_mod
 !
 ! Base module for performing an octtree based search through xyz data.
 !
+!#define PROFILE_ON
 ! -------------------------------------------------------------------------
 ! #ifdef compiler derectives:
 !
@@ -14,16 +15,29 @@ module octtree_mod
 ! -------------------------------------------------------------------------
 !
   use module_kind_types, only : wp, alloc_error, error_message
+  use module_kind_types, only : start_accumulation
+  use module_kind_types, only : stop_accumulation
+  use module_kind_types, only : reset_accumulated_time
+  use module_kind_types, only : report_accumulated_time
+  use module_kind_types, only : start_timer,stop_timer
+  use module_kind_types, only : entering_procedure
+  use module_kind_types, only : leaving_procedure
+  use module_kind_types, only : mypnum,mpi_wtime,iout,zero
   use geovar, only : nr
   use octstat_mod
   use octroot_mod
   use octedat_mod
   use octnode_mod
   implicit none
+  private
+  public :: octtree_dealloc
+  public :: octtree_init
+  public :: octtree_addxyz
+  public :: octtree_find_nearest_xyz
 !
 ! -------------------------------------------------------------------------
 ! Abstract base octtree type.
-  type :: octtree_type
+  type, public :: octtree_type
     class(octedat_type) ,pointer :: octedat
     type(octroot_type)           :: octroot
     type(octnode_type)           :: octnode
@@ -217,7 +231,7 @@ continue
   return
   end subroutine octtree_find_containing_octnode
 !##########################################################################
-  subroutine octtree_find_nearest_xyz(octtree,xyz_pt, ixyz_pt,status)
+  subroutine octtree_find_nearest_xyz(octtree,xyz_pt, ixyz_pt,status,tid,acc)
   !
   ! Find point in octtree that is nearest to desired xyz_pt.
   ! Return the index info used to retrieve the corresponding xyz point
@@ -230,6 +244,9 @@ continue
   real(wp)           ,dimension(:) ,intent(in)  :: xyz_pt
   integer            ,dimension(:) ,intent(out) :: ixyz_pt
   integer                          ,intent(out) :: status
+  !
+  integer, optional, intent(in) :: tid
+  integer, optional, intent(in) :: acc
   !
   !.. Local Scalars ..
   type(octnode_type) ,pointer                   :: containing_octnode
@@ -254,7 +271,37 @@ continue
   !
 continue
   !
+  if (present(acc)) then
+    if (acc == 1) then
+      call debug_timer(reset_accumulated_time,"Crap 1", &
+                       acc=1,pid=tid)
+      call debug_timer(reset_accumulated_time,"octnode_find_containing_node", &
+                       acc=2,pid=tid)
+      call debug_timer(reset_accumulated_time,"Crap 2", &
+                       acc=3,pid=tid)
+      call debug_timer(reset_accumulated_time,"octnode_find_nearest_xyz", &
+                       acc=4,pid=tid)
+      call debug_timer(reset_accumulated_time,"Crap 3", &
+                       acc=5,pid=tid)
+      return
+    else if (acc == 2) then
+      call debug_timer(report_accumulated_time,"Crap 1", &
+                       acc=1,pid=tid)
+      call debug_timer(report_accumulated_time,"octnode_find_containing_node", &
+                       acc=2,pid=tid)
+      call debug_timer(report_accumulated_time,"Crap 2", &
+                       acc=3,pid=tid)
+      call debug_timer(report_accumulated_time,"octnode_find_nearest_xyz", &
+                       acc=4,pid=tid)
+      call debug_timer(report_accumulated_time,"Crap 3", &
+                       acc=5,pid=tid)
+      return
+    end if
+  end if
+
   ! Set default values, in case no point is found.
+  call debug_timer(start_accumulation,"Crap 1", &
+                   acc=1,pid=tid)
   status = OCT_STATUS_NOT_FOUND
   containing_octnode => null()
   best_octnode => null()
@@ -271,11 +318,19 @@ continue
   endif
   best_ixyz = 0
   !
+  call debug_timer(stop_accumulation,"Crap 1", &
+                   acc=1,pid=tid)
+  call debug_timer(start_accumulation,"octnode_find_containing_octnode", &
+                   acc=2,pid=tid)
   ! Find the smallest octnode containing xyz_pt.
   call octnode_find_containing_octnode(octtree%octnode, &
          octtree%octroot,octtree%octedat, xyz_pt,containing_octnode,status)
+  call debug_timer(stop_accumulation,"octnode_find_containing_octnode", &
+                   acc=2,pid=tid)
   !
   if ( status .eq. OCT_STATUS_OK ) then
+    call debug_timer(start_accumulation,"Crap 2", &
+                     acc=3,pid=tid)
     best_octnode => containing_octnode
     ! Now have the smallest octnode containing xyz_pt.
     ! Nearest point could be in the containing_octnode or an adjacent octnode
@@ -292,14 +347,22 @@ continue
     xyz_bbox(:,1) = xyz_pt(:) - 2*bbox_diag
     xyz_bbox(:,2) = xyz_pt(:) + 2*bbox_diag
     !
+    call debug_timer(stop_accumulation,"Crap 2", &
+                     acc=3,pid=tid)
     ! Search octtree octnodes for point nearest to xyz_pt.
+    call debug_timer(start_accumulation,"octnode_find_nearest_xyz", &
+                     acc=4,pid=tid)
     call octnode_find_nearest_xyz(octtree%octnode,octtree%octroot, &
            octtree%octedat,xyz_pt,xyz_bbox, &
            best_octnode,best_octixyz,best_ixyz,best_dist2,status)
     if ( status .eq. OCT_STATUS_OK ) then
       ixyz_pt = best_ixyz
     end if
+    call debug_timer(stop_accumulation,"octnode_find_nearest_xyz", &
+                     acc=4,pid=tid)
   end if
+  call debug_timer(start_accumulation,"Crap 3", &
+                   acc=5,pid=tid)
   !
 #ifdef DEBUG_OCTFIND
 #ifdef OCTID
@@ -326,6 +389,9 @@ continue
     deallocate( best_ixyz , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"best_ixyz",2,__LINE__,__FILE__,ierr,error_message)
   end if
+  call debug_timer(stop_accumulation,"Crap 3", &
+                   acc=5,pid=tid)
+  !
   return
   end subroutine octtree_find_nearest_xyz
 !##########################################################################
@@ -351,6 +417,11 @@ continue
   !
   return
   end subroutine octtree_print
+!
+!##########################################################################
+!
+#include "Functions/debug_timer.f90"
+!
 !##########################################################################
 !
 end module octtree_mod
