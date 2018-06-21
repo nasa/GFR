@@ -19,6 +19,8 @@ ARCH = $(shell uname -m)
 debug: FCADD += -DPROFILE_ON
 rebuild-debug: FCADD += -DPROFILE_ON
 
+FCADD += -qopenmp -DENABLE_OPENMP -DPROFILE_ON
+
 .PHONY: all
 all: debug_gfr
 all: gfr

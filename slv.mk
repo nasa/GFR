@@ -119,7 +119,16 @@ OBJS := $(OBJDIR)/kind_types.o \
 	$(OBJDIR)/invs_flux_mod.o \
 	$(OBJDIR)/visc_flux_mod.o \
 	$(OBJDIR)/upwind_flux_mod.o \
-	$(OBJDIR)/plot3dio_mod.o
+	$(OBJDIR)/plot3dio_mod.o \
+	$(OBJDIR)/octstat_mod.o \
+	$(OBJDIR)/octroot_mod.o \
+	$(OBJDIR)/octedat_mod.o \
+	$(OBJDIR)/octnode_mod.o \
+	$(OBJDIR)/octtree_mod.o \
+	$(OBJDIR)/octedat_facexyz_mod.o \
+	$(OBJDIR)/interpsolvar_mod.o \
+	$(OBJDIR)/interpsol_mod.o \
+	$(OBJDIR)/mydebug_mod.o
 
 
 HighlightName := | /bin/grep -hi --color '[^ ]\+\.\(f[0-9]*\|c\)\>'
@@ -257,7 +266,7 @@ ifeq "$(COMPFAMILY)" "intel"
   TRACEFLAG := -traceback
   REALLOCFLAG := -assume realloc_lhs
  #CMPFLAGS := -DSPECIAL_FOR_INTEL
-  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -mkl=sequential
+  CMPFLAGS := -DSPECIAL_FOR_INTEL -DDISABLE_QP -mkl=sequential -DOCTID
  #CPMFLAGS += -guide -parallel -qopt-report=5 -qopt-report-file=stderr
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH) -ax$(SKYARCH),$(HASARCH),$(IVYARCH) $(ALIGN32)
   HOSTARCH := $(ARCHFLAG)Host
@@ -286,7 +295,7 @@ else ifeq "$(COMPFAMILY)" "gcc"
   DBGFLAG := -fcheck=all -Wall -Wextra -Wuninitialized
   TRACEFLAG := -fbacktrace
   REALLOCFLAG := -frealloc-lhs
-  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC
+  CMPFLAGS := -DDISABLE_DTIO -DSPECIAL_FOR_GCC -DOCTID
   AUTOTARGETARCH := $(ARCHFLAG)$(SANARCH)
   AUTOTARGETARCH += -mtune=$(IVYARCH) -mtune=$(HASARCH) -mtune=$(BROARCH) -mtune=$(SKYARCH)
   HOSTARCH := $(ARCHFLAG)native

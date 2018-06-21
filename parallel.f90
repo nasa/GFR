@@ -291,6 +291,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  if (allocated(cell_map)) then
+    deallocate ( cell_map , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"cell_map",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
   allocate ( cell_map(1:1) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"cell_map",1,__LINE__,__FILE__,ierr, &
                    error_message,skip_alloc_pause)

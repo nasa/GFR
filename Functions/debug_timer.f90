@@ -1,4 +1,4 @@
-subroutine debug_timer(time_flag,message,processor,part_num,acc)
+subroutine debug_timer(time_flag,message,processor,part_num,acc,pid)
   !
   !.. Formal Arguments ..
   integer,          intent(in) :: time_flag
@@ -9,6 +9,7 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc)
   integer, optional, intent(in) :: processor
   integer, optional, intent(in) :: part_num
   integer, optional, intent(in) :: acc
+  integer, optional, intent(in) :: pid
   !
 #ifdef PROFILE_ON
   !.. Local Scalars ..
@@ -18,7 +19,7 @@ subroutine debug_timer(time_flag,message,processor,part_num,acc)
   real(wp)       :: temp_time
   !
   integer, save :: procedure_counter = 0
-  integer       :: i,output_cpu
+  integer       :: i,output_cpu,output_id
   !
   character(len=300) :: out_message
   !
@@ -35,6 +36,8 @@ continue
   output_cpu = 0
  !output_cpu = mypnum
   if (present(processor)) output_cpu = processor
+  output_id = mypnum
+  if (present(pid)) output_id = pid
   !
   if (time_flag == start_timer) then
     !
@@ -48,7 +51,7 @@ continue
     !
     call gfr_timer( beg_wall_time )
     !
-    if (mypnum == output_cpu) then
+    if (output_id == output_cpu) then
       write (iout,1) leading_space(1:i),trim(adjustl(out_message))
     end if
     !
@@ -66,7 +69,7 @@ continue
     !
     i = 3 + procedure_counter*2
     !
-    if (mypnum == output_cpu) then
+    if (output_id == output_cpu) then
       write (iout,2) leading_space(1:i),wall_time,trim(adjustl(out_message))
     end if
     !
@@ -91,7 +94,7 @@ continue
     !
     i = 3 + procedure_counter*2
     !
-    if (mypnum == output_cpu) then
+    if (output_id == output_cpu) then
       write (iout,2) leading_space(1:i),accumulated_time(acc), &
                      trim(adjustl(out_message))
     end if
@@ -118,7 +121,7 @@ continue
     !
     i = 1 + procedure_counter*2
     !
-    if (mypnum == output_cpu) then
+    if (output_id == output_cpu) then
       write (iout,3) leading_space(1:i),trim(adjustl(message))
     end if
     !
@@ -136,7 +139,7 @@ continue
     !
     i = 1 + procedure_counter*2
     !
-    if (mypnum == output_cpu) then
+    if (output_id == output_cpu) then
       write (iout,4) leading_space(1:i),trim(adjustl(message)),wall_time
     end if
     !

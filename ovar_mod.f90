@@ -27,6 +27,7 @@ module ovar
   public :: gfr_cpu_time
   public :: ovar_memory_usage
   public :: adjust_cfl_cycles
+  public :: if_interpto_newgrid
   public :: move_bcin_to_device
   !
   !
@@ -104,6 +105,23 @@ module ovar
   integer, public, save :: plot3d_all_strides       = -1
   integer, public, save :: plot3d_agglomerate_order = -1
   integer, public, save :: parametric_agglomeration =  0
+  !
+  ! These interp_* variables store inputs for the grid that
+  ! will be interpolated onto.
+  !
+  ! INTERPOLATION UTILITY GRID INFORMATION
+  integer,            public, save :: interpto_grid_format         = Unknown_Format
+  character(len=150), public, save :: interpto_gridfile            = ""
+  character(len=150), public, save :: interpto_plot3d_cutfile      = ""
+  character(len=150), public, save :: interpto_plot3d_bcsfile      = ""
+  real(wp),           public, save :: interpto_grid_scaling_factor = 1.0_wp
+  !
+  ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
+  integer, public, save :: interpto_plot3d_i_stride          = -1
+  integer, public, save :: interpto_plot3d_j_stride          = -1
+  integer, public, save :: interpto_plot3d_k_stride          = -1
+  integer, public, save :: interpto_plot3d_all_strides       = -1
+  integer, public, save :: interpto_plot3d_agglomerate_order = -1
   !
   ! BASE FR OPTIONS
   integer, public, save :: flux_divergence     = LagrangePolynomial
@@ -533,6 +551,29 @@ end function has_default_flow_conditions
 !
 !###############################################################################
 !
+pure &
+function if_interpto_newgrid() result(return_value)
+  !
+  ! Function to determine whether code will interpolate onto new grid.
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = fals ! default
+  !
+  ! If user specifies interpto_gridfile filename,
+  ! then code should interpolate onto it.
+  !
+  if (len_trim(adjustl(interpto_gridfile)) > 0) then
+    return_value = true
+  end if
+  !
+end function if_interpto_newgrid
+!
+!###############################################################################
+!
 subroutine adjust_cfl_cycles
   !
 continue
@@ -667,6 +708,12 @@ module input_namelist_mod
   use ovar,      only : plot3d_i_stride, plot3d_j_stride, plot3d_k_stride
   use ovar,      only : plot3d_agglomerate_order,parametric_agglomeration
   use ovar,      only : plot3d_cutfile, plot3d_bcsfile, grid_scaling_factor
+  use ovar,      only : interpto_grid_format, interpto_gridfile
+  use ovar,      only : interpto_plot3d_all_strides, interpto_plot3d_i_stride
+  use ovar,      only : interpto_plot3d_j_stride, interpto_plot3d_k_stride
+  use ovar,      only : interpto_plot3d_agglomerate_order
+  use ovar,      only : interpto_plot3d_cutfile, interpto_plot3d_bcsfile
+  use ovar,      only : interpto_grid_scaling_factor
   use ovar,      only : solution_format, solution_file
   use ovar,      only : loc_solution_pts, loc_flux_pts
   use ovar,      only : loc_triangle_pts, loc_quadrature_pts
@@ -740,6 +787,7 @@ module input_namelist_mod
   integer, save :: quadrature_order = 3
   integer, save :: output_order = -3
   integer, save :: error_order = -3
+  integer, save :: interpto_solution_order = 3
   !
   ! ########################
   ! ###  Input Namelist  ###
@@ -752,6 +800,16 @@ module input_namelist_mod
   namelist / input / plot3d_i_stride, plot3d_j_stride, plot3d_k_stride, &
                      plot3d_all_strides, plot3d_agglomerate_order, &
                      parametric_agglomeration
+  ! INTERPOLATION UTILITY GRID INFORMATION
+  namelist / input / interpto_grid_format, interpto_gridfile, &
+                     interpto_plot3d_cutfile, interpto_plot3d_bcsfile, &
+                     interpto_grid_scaling_factor
+  ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
+  namelist / input / interpto_plot3d_i_stride, interpto_plot3d_j_stride, &
+                     interpto_plot3d_k_stride, interpto_plot3d_all_strides, &
+                     interpto_plot3d_agglomerate_order
+  ! INTERPOLATION UTILITY SOLUTION ORDER
+  namelist / input / interpto_solution_order
   ! BASE FR OPTIONS
   namelist / input / solution_order, flux_divergence, correction_function
   ! LOCATION OF SOLUTION, FLUX, AND TRIANGULAR POINTS

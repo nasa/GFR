@@ -10,6 +10,7 @@ module initialization_mod
   !
   private
   !
+  public :: initialize_dusp
   public :: initialize_flow
   public :: initialize_reference
   public :: create_bc_in
@@ -124,11 +125,12 @@ continue
   !
   ! Check for using a restart file to initialize the solution
   !
-  if (len_trim(solution_file) > 0 .and. solution_format == Restart_Format) then
+  if (len_trim(adjustl(solution_file)) > 0 .and. &
+      solution_format == Restart_Format) then
     !
     ! Read in usp from the restart file
     !
-    call read_restart_file(solution_file)
+    call read_restart_file(solution_file,force_serial_read=true)
     !
     ! Do not initialize the iteration counter, time step,
     ! and elapsed time to that in the restart file.
@@ -142,7 +144,7 @@ continue
     call read_restart_file
     !
     ! Initialize the iteration counter, time step,
-    ! and elapsed time to that in the restart file
+    ! and elapsed time to that in the restart file.
     !
     d_t   = dtrst
     itcur = itrst
@@ -1019,7 +1021,8 @@ end function cylinder_function
 subroutine initialize_dusp()
   !
   !.. Use Statements ..
-  use geovar, only : nr
+  use geovar,  only : nr
+  use flowvar, only : dusp
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "initialize_dusp"
@@ -1027,6 +1030,8 @@ subroutine initialize_dusp()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (.not. allocated(dusp)) return
   !
   if (nr == 3) then
     call initialize_dusp_3d
@@ -1420,6 +1425,8 @@ subroutine initialize_dusp_old()
 continue
   !
   call debug_timer(entering_procedure,pname)
+  !
+  if (.not. allocated(dusp)) return
   !
   ! Loop over the cells and get the derivative of
   ! the primitive variables at each solution point

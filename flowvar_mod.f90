@@ -21,6 +21,10 @@ module flowvar
   public :: flowvar_memory_usage
   public :: allocate_flowvar_arrays
   !
+  ! SOL_NODES : conservation variables at plot3d nodes
+  !
+  real(wp), public, save, allocatable :: sol_nodes(:,:)
+  !
   ! USP  : conservative variables at the solution points (@SP)
   ! DUSP : gradient of primitive variables @SP
   !
@@ -200,6 +204,17 @@ module flowvar
   type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz_dt
   !
   !
+  !
+  ! ###################################
+  ! ###  MODULE GENERIC INTERFACES  ###
+  ! ###################################
+  !
+  interface alloc_face_dt_components
+    module procedure alloc_face_xyz_dt_components, &
+                     alloc_face_var_dt_components, &
+                     alloc_face_vec_dt_components
+  end interface alloc_face_dt_components
+  !
 contains
 !
 !###############################################################################
@@ -216,6 +231,7 @@ subroutine allocate_flowvar_arrays()
   use ovar,      only : convert_restart_to_cgns
   use ovar,      only : continuous_output
   use ovar,      only : time_average_restart_files
+  use ovar,      only : if_interpto_newgrid
   !
   !.. Local Scalars ..
   integer :: n,ne,nf,nn,nepts,nfp,nfpts
@@ -244,9 +260,51 @@ continue
   !
   !
   ! If we are only time averaging restart files, we dont need any of
-  ! these other arrays so
+  ! these other arrays so return out of here
   !
   if (time_average_restart_files) return
+  !
+  !
+  ! If we are only interpolating the solution to a new grid,
+  ! then only need facexyz before returning out of here.
+  !
+  if ( if_interpto_newgrid() ) then
+    !
+    ! Deallocate dusp because we do not need it when interpolating the
+    ! solution to a new grid and it takes up too much memory.
+    !
+    deallocate ( dusp , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"dusp",2,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! The interpolation utility needs facexyz_array to
+    ! be defined for both interior and boundary faces.
+    !
+    allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_dt",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
+    !
+    allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_array",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    ! Procedure interpsol needs faceusp_dt to print debug info
+    !
+    allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
+    !
+    allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_array",1,__LINE__,__FILE__, &
+                     ierr,error_message)
+    !
+    return
+    !
+  end if
+  !
   !
   allocate ( residual(1:n_solpts,1:nq) , source=zero , &
              stat=ierr , errmsg=error_message )
@@ -288,15 +346,6 @@ continue
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
-!#ifndef USE_FACE_ARRAY
-!    allocate ( faceusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"faceusp_dt",1,__LINE__,__FILE__,ierr,error_message)
-!    !
-!    allocate ( facedusp_dt(1:nface) , stat=ierr , errmsg=error_message )
-!    call alloc_error(pname,"facedusp_dt",1,__LINE__,__FILE__, &
-!                     ierr,error_message)
-!#endif
-    !
     ! If using the continuous output option or MMS, allocate the facexyz array
     !
     if (continuous_output) then
@@ -330,37 +379,11 @@ continue
     !##########################################################################
     !
     if (allocated(faceusp_dt)) then
-      do nf = 1,nface
-        !
-        face_geom = face(nf)%geom
-        face_order = face(nf)%order
-        !
-        nfpts = geom_solpts(face_geom,face_order)
-        !
-        allocate ( faceusp_dt(nf)%v(1:nq,1:nfpts,1:2) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "faceusp_dt",nf
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_face_dt_components(faceusp_dt,nfpts,"faceusp_dt")
     end if
     !
     if (allocated(facedusp_dt)) then
-      do nf = 1,nface
-        !
-        face_geom = face(nf)%geom
-        face_order = face(nf)%order
-        !
-        nfpts = geom_solpts(face_geom,face_order)
-        !
-        allocate ( facedusp_dt(nf)%v(1:nr,1:nq,1:nfpts,1:2) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "facedusp_dt",nf
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_face_dt_components(facedusp_dt,nfpts,"facedusp_dt")
     end if
     !
     !
@@ -372,7 +395,6 @@ continue
                      ierr,error_message)
     !$ACC UPDATE DEVICE(faceflx)
     !
-!!!#ifdef USE_FACE_ARRAYS
     if (.not. allocated(faceusp_array)) then
       allocate ( faceusp_array(1:nfpts,1:nq,1:2) , source=zero , &
                  stat=ierr , errmsg=error_message )
@@ -389,28 +411,10 @@ continue
       !$ACC UPDATE DEVICE(facedusp_array)
     end if
     !
-!!!#endif
-    !
     !
     if (allocated(facexyz_dt)) then
       !
-      nfpts = 0
-      !
-      do nf = 1,size(facexyz_dt) ! could be nfbnd or nface
-        !
-        face_geom = face(nf)%geom
-        face_order = face(nf)%order
-        !
-        nfp = geom_solpts(face_geom,face_order)
-        nfpts = nfpts + nfp
-        !
-        allocate ( facexyz_dt(nf)%v(1:nr,1:nfp) , source=zero , &
-                   stat=ierr , errmsg=error_message )
-        write (array_name,1) "facexyz_dt",nf
-        call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
-                         error_message,skip_alloc_pause)
-        !
-      end do
+      call alloc_face_dt_components(facexyz_dt,nfpts,"facexyz_dt")
       !
       allocate ( facexyz_array(1:nr,1:nfpts) , source=zero , &
                  stat=ierr , errmsg=error_message )
@@ -543,6 +547,155 @@ continue
   1 format (a,"(",i0,")%v")
   !
 end subroutine allocate_flowvar_arrays
+!
+!###############################################################################
+!
+subroutine alloc_face_xyz_dt_components(array,npts,aname)
+  !
+  !.. Use Statements ..
+  use geovar,    only : nr,face
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  type(face_xyz), intent(inout) :: array(:)
+  integer,        intent(inout) :: npts
+  character(len=*),  intent(in) :: aname
+  !
+  !.. Local Scalars ..
+  integer :: nf,nfp,ierr
+  integer :: face_geom,face_order
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_face_xyz_dt_components"
+  !
+continue
+  !
+  npts = 0
+  !
+  do nf = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    npts = npts + nfp
+    !
+    allocate ( array(nf)%v(1:nr,1:nfp) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_face_xyz_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_face_var_dt_components(array,npts,aname)
+  !
+  !.. Use Statements ..
+  use eqn_idx,   only : nq
+  use geovar,    only : face
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  type(face_var), intent(inout) :: array(:)
+  integer,        intent(inout) :: npts
+  character(len=*),  intent(in) :: aname
+  !
+  !.. Local Scalars ..
+  integer :: nf,nfp,ierr
+  integer :: face_geom,face_order
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_face_var_dt_components"
+  !
+continue
+  !
+  npts = 0
+  !
+  do nf = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    npts = npts + nfp
+    !
+    allocate ( array(nf)%v(1:nq,1:nfp,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_face_var_dt_components
+!
+!###############################################################################
+!
+subroutine alloc_face_vec_dt_components(array,npts,aname)
+  !
+  !.. Use Statements ..
+  use eqn_idx,   only : nq
+  use geovar,    only : nr,face
+  use order_mod, only : geom_solpts
+  !
+  !.. Formal Arguments ..
+  type(face_vec), intent(inout) :: array(:)
+  integer,        intent(inout) :: npts
+  character(len=*),  intent(in) :: aname
+  !
+  !.. Local Scalars ..
+  integer :: nf,nfp,ierr
+  integer :: face_geom,face_order
+  !
+  character(len=200) :: array_name
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "alloc_face_vec_dt_components"
+  !
+continue
+  !
+  npts = 0
+  !
+  do nf = lbound(array,dim=1),ubound(array,dim=1)
+    !
+    face_geom = face(nf)%geom
+    face_order = face(nf)%order
+    !
+    nfp = geom_solpts(face_geom,face_order)
+    !
+    npts = npts + nfp
+    !
+    allocate ( array(nf)%v(1:nr,1:nq,1:nfp,1:2) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    write (array_name,1) trim(adjustl(aname)),nf
+    call alloc_error(pname,array_name,1,__LINE__,__FILE__,ierr, &
+                     error_message,skip_alloc_pause)
+    !
+  end do
+  !
+  ! Format Statements
+  !
+  1 format (a,"(",i0,")%v")
+  !
+end subroutine alloc_face_vec_dt_components
 !
 !###############################################################################
 !###############################################################################
