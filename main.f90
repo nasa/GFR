@@ -15,6 +15,7 @@ program GFR_main
   use geovar, only : move_fp_to_device
   use geovar, only : move_bcgrps_to_device
   use geovar, only : move_cellmap_to_device
+  use geovar, only : cell
   !
   use eqn_idx, only : nq
   !
@@ -39,11 +40,14 @@ program GFR_main
   use ovar, only : move_bcin_to_device
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : if_interpto_newgrid
+  use ovar, only : convert_restart_to_cgns
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
   !
   use flowvar, only : usp,dusp
+  !
+  use order_mod, only : n_order,p_order,q_order
   !
   use quadrature_mod, only : solpts_edge
   !
@@ -82,9 +86,11 @@ program GFR_main
   !
   use projection_mod, only : init_projection_matrices
   use projection_mod, only : move_projct_to_device
+  use projection_mod, only : project_to_porder
   !
   use filter_mod, only : init_filter_matrices
   use filter_mod, only : move_filter_to_device
+  use filter_mod, only : filter_usp
   !
   use initialization_mod, only : initialize_flow
   use initialization_mod, only : initialize_dusp
@@ -255,6 +261,7 @@ continue
     !              to the respective processor along with
     !              connectivities for the partition boundaries
     npart = ncpu
+    if (input_mode == 2) npart = 1
     if (npart > 1) then
       call partition_grid(npart,metis_option,bface,nodes_of_cell, &
                           nodes_of_cell_ptr,xyz_nodes,cell_geom,cell_order)
@@ -422,10 +429,18 @@ continue
   ! Interpolate solution onto a new grid.
   !
   if ( if_interpto_newgrid() ) then
+    !
+    ! Start by projecting the source solution to p_order
+    !
+    if (p_order < n_order) then
+      call project_to_porder(cell,usp)
+    end if
+    !
 !-DEBUG_BEG:
 !-DEBUG_CMT:  Write source grid/sol to cgns to examine, then stop
 !-DEBUG_CMT:  before interpolating.
     if (.false.) then
+   !if (.true.) then
       if (mypnum == glb_root) then
         write (iout,*) 'DEBUG[Euler] Write source grid/solution to cgns.'
         flush (iout)
@@ -445,22 +460,36 @@ continue
 !-DEBUG_CMT: Much faster than interpolating a whole grid, and
 !-DEBUG_CMT: could test a location that is not a grid point.
     if (.false.) then
+      call gfr_cpu_time(0)
       call interpsol_debug()
+      call gfr_cpu_time(1)
+      call gfr_cpu_time(-1)
       write (error_message,211)
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
 !-DEBUG_END:
     !
+    call gfr_cpu_time(0)
     call interpsol()
     if (mypnum == glb_root) then
       write (iout,202)
       flush (iout)
     end if
+    call gfr_cpu_time(1)
+    call gfr_cpu_time(-1)
     !
     ! Move grid 2 data to current global arrays.
     ! This puts the destination grid/solution back into the global arrays.
     !
     call mv_grid2_to_global()
+    !
+    ! Finish by projecting or filtering the destination solution
+    !
+    if (p_order < n_order) then
+      call project_to_porder(cell,usp)
+    else
+      call filter_usp
+    end if
     !
     ! Allocate the derivative array, which would normally be done
     ! during initialization.  This is only needed for meaningful
@@ -470,7 +499,7 @@ continue
       allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
                  stat=ierr , errmsg=error_message )
       call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
-      call initialize_dusp
+     !call initialize_dusp
     end if
     !
     ! Write restart file of the interpolated solution.
@@ -628,6 +657,14 @@ continue
     call new_write_parallel_cgns
   else
     call write_parallel_cgns(open_CGNS)
+  end if
+  if (convert_restart_to_cgns) then
+    if (.not. continuous_output) then
+      call write_parallel_cgns(close_CGNS)
+    end if
+    call write_restart_file(-1)
+    write (error_message,209)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
   end if
   completed_initial_cgns_output = true
   CGNS_action = add_to_CGNS
@@ -1252,6 +1289,7 @@ continue
   202 format (/,"INTERPOLATION COMPLETE.")
   207 format (/,"WRITING RESTART FILE.")
   208 format (/,"WRITING CGNS FILE.")
+  209 format ("CONVERTING RESTART FILE TO CGNS SOLUTION FILE.")
   210 format ("STOPPING EXECUTION SO YOU MAY EXAMINE INTERPOLATED SOLUTION.")
   211 format ("STOPPING EXECUTION SO YOU MAY EXAMINE interpsol_debug.tec")
   !
