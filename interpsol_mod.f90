@@ -2,7 +2,9 @@ module interpsol_mod
 
 ! Module to handle interpolation of (grid1,sol1) -> (grid2,sol2).
 
-  use module_kind_types
+!#define PROFILE_ON
+
+  use module_kind_types, global_debug_timer => debug_timer
 ! use module_kind_types, only : wp,lk,true,fals,error_message, &
 !                               Geom_Edge,Geom_Tria,Geom_Quad,Geom_Tetr, &
 !                               Geom_Pyra,Geom_Pris,Geom_Hexa, &
@@ -159,6 +161,13 @@ subroutine mv_grid2_to_global()
   write(iout,*) '  Before move_alloc(from=g2_usp,to=usp):'
   write(iout,2001) '    g2_usp(:,1) = ',g2_usp(:,1)
   write(iout,2001) '       usp(:,1) = ',   usp(:,1)
+  write (iout,2002) "g2_usp", &
+                    lbound(g2_usp,dim=1),ubound(g2_usp,dim=1), &
+                    lbound(g2_usp,dim=2),ubound(g2_usp,dim=2)
+  write (iout,2002) "usp", &
+                    lbound(usp,dim=1),ubound(usp,dim=1), &
+                    lbound(usp,dim=2),ubound(usp,dim=2)
+  2002 format ("  Bounds of ",a," = (",i0,":",i0,",",i0,":",i0,")")
   2001 format(x,a,e20.6,:,/,(20x,e20.6))
   flush(iout)
 !-DEBUG_END:
@@ -170,8 +179,22 @@ subroutine mv_grid2_to_global()
   
 !-DEBUG_BEG:
   write(iout,*) '  After  move_alloc(from=g2_usp,to=usp):'
-  write(iout,*)    '    g2_usp(:,1) = unallocated'
-  write(iout,2001) '       usp(:,1) = ',   usp(:,1)
+  if (allocated(g2_usp)) then
+    write(iout,2001) '    g2_usp(:,1) = ',g2_usp(:,1)
+    write (iout,2002) "g2_usp", &
+                      lbound(g2_usp,dim=1),ubound(g2_usp,dim=1), &
+                      lbound(g2_usp,dim=2),ubound(g2_usp,dim=2)
+  else
+    write(iout,*)    '    g2_usp(:,1) = unallocated'
+  end if
+  if (allocated(usp)) then
+    write(iout,2001) '       usp(:,1) = ',   usp(:,1)
+    write (iout,2002) "usp", &
+                      lbound(usp,dim=1),ubound(usp,dim=1), &
+                      lbound(usp,dim=2),ubound(usp,dim=2)
+  else
+    write(iout,*)    '    usp(:,1) = unallocated'
+  end if
   write(iout,*) 'DEBUG_END[mv_grid2_to_global]'
   flush(iout)
 !-DEBUG_END:
@@ -189,6 +212,45 @@ end subroutine mv_grid2_to_global
 !
 !##########################################################################
 !
+subroutine partition_usp_to_g2()
+  !
+  !.. Use Statements ..
+  use eqn_idx, only : nq
+  use geovar,  only : cell
+  use flowvar, only : usp
+  !
+  !.. Local Variables ..
+  integer :: g1,g2,l1,l2,mypart,loc_cell,glb_cell
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "partition_usp_to_g2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  mypart = mypnum + 1
+  !
+  do loc_cell = 1,size(g2_cell_map(mypart)%loc_to_glb)
+    !
+    glb_cell = g2_cell_map(mypart)%loc_to_glb(loc_cell)
+    !
+    l1 = g2_cell(loc_cell)%beg_sp
+    l2 = g2_cell(loc_cell)%end_sp
+    !
+    g1 = cell(glb_cell)%beg_sp
+    g2 = cell(glb_cell)%end_sp
+    !
+    g2_usp(1:nq,l1:l2) = usp(1:nq,g1:g2)
+    !
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine partition_usp_to_g2
+!
+!##########################################################################
+!
 subroutine interpsol()
   
 ! Interpolate solution onto grid2.
@@ -203,17 +265,22 @@ subroutine interpsol()
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
+  use octstat_mod
   use interpolation_mod, only : interp_cell_sol_to_xyz, interp
 !-DEBUG_BEG:
 ! use ifport           , only : sleep
   use mydebug_mod
 !-DEBUG_END:
+#ifdef ENABLE_OPENMP
+  use omp_lib, only : omp_get_thread_num
+  use omp_lib, only : omp_get_num_threads
+#endif
   implicit none
 
   !.. Local Scalars ..
   type(octedat_facexyz_type) ,target :: octedat
   type(octtree_type)                 :: octtree
-  integer :: status
+  integer :: status,tid,nthreads,acc
   integer :: ifp,k,l,nc,ncf,nf,nfp,sf
   integer :: n1,n2,np,knp,m,lf
   integer :: this_geom,this_order
@@ -225,6 +292,8 @@ subroutine interpsol()
   integer :: size_cell, size_face
   integer :: size_cell2, size_face2
   logical :: debug_print
+  integer :: hours,minutes,seconds,pts_completed
+  real(wp) :: start_time,new_time,elapsed_time,percent_complete
 !-DEBUG_END:
 
   !.. Local Arrays ..
@@ -238,6 +307,14 @@ subroutine interpsol()
   character(len=*), parameter :: pname = "interpsol"
 
 continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+ !if (ncpu > 1) then
+ !  call partition_usp_to_g2
+ !  call debug_timer(leaving_procedure,pname)
+ !  return
+ !end if
 
 !-DEBUG_BEG:
   ! Need faceusp for debug output.  Must compute it first.
@@ -247,32 +324,50 @@ continue
 !-DEBUG_END:
 
 ! Size the bounding box to contain the dst grid volume points.
-  write(iout,*) 'DEBUG[interpsol] Size bounding box.'  ! DEBUG
-  flush(iout)
-  bbox(:,1) = g2_xyz(:,1)
-  bbox(:,2) = g2_xyz(:,1)
-  do k = 2,size(g2_xyz,dim=2)
-    do l = 1,nr
-      bbox(l,1) = min( bbox(l,1), g2_xyz(l,k) )
-      bbox(l,2) = max( bbox(l,2), g2_xyz(l,k) )
-    end do
-  end do
-
-! Increase the bounding box to also contain the donor grid face points.
-  write(iout,*) 'DEBUG[interpsol] Resize bounding box.'  ! DEBUG
-  flush(iout)
-  do nf = 1,nface
-    do ifp = 1,size(facexyz(nf)%v,dim=2)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Size bounding box.'  ! DEBUG
+    flush(iout)
+    bbox(:,1) = g2_xyz(:,1)
+    bbox(:,2) = g2_xyz(:,1)
+    do k = 2,size(g2_xyz,dim=2)
       do l = 1,nr
-        bbox(l,1) = min( bbox(l,1), facexyz(nf)%v(l,ifp) )
-        bbox(l,2) = max( bbox(l,2), facexyz(nf)%v(l,ifp) )
+        bbox(l,1) = min( bbox(l,1), g2_xyz(l,k) )
+        bbox(l,2) = max( bbox(l,2), g2_xyz(l,k) )
       end do
     end do
-  end do
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
+
+! Increase the bounding box to also contain the donor grid face points.
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Resize bounding box.'  ! DEBUG
+    flush(iout)
+    do nf = 1,nface
+      do ifp = 1,size(facexyz(nf)%v,dim=2)
+        do l = 1,nr
+          bbox(l,1) = min( bbox(l,1), facexyz(nf)%v(l,ifp) )
+          bbox(l,2) = max( bbox(l,2), facexyz(nf)%v(l,ifp) )
+        end do
+      end do
+    end do
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 
 ! Init the encapsulated data for the octtree.
-  write(iout,*) 'DEBUG[interpsol] Init octedat.'  ! DEBUG
-  flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Init octedat.'  ! DEBUG
+    flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
   octedat%varname = "facexyz(1:nface)%v(1:nr,1:nfp)"
   octedat%vardesc = "Get facexyz given cell,face,facept = (nc,ncf,nfp)."
 ! octedat%facexyz => facexyz
@@ -284,27 +379,45 @@ continue
   !   idx(3) = ifp  ! cell face facept no.
 
 ! Init the empty octtree.
-  write(iout,*) 'DEBUG[interpsol] Init empty octtree.'  ! DEBUG
-  flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Init empty octtree.'  ! DEBUG
+    flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
   octtree%octedat => octedat
   call octtree_init(octtree,bbox,status)
 
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol] Filling octree for use in interpolation.'
-  flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Filling octree for use in interpolation.'
+    flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
 
 ! Fill the octree with the donor grid face points.
   do nc = 1,ncell  ! cell loop
 !-DEBUG_BEG:
 !-DEBUG_CMT: Print percent complete status every 10%.
-    if ( nc .gt. 1 .and. (ncell-1)*10 > 100 ) then
-      if ( mod( nc-1, ((ncell-1)*10)/100 ) == 0 ) then
-        write(iout,201) int( 100.0*(nc-1.0)/(ncell-1.0) + 0.5 )
-        flush(iout)
-        201 format('Octree fill ',i3,' percent complete.')
+#ifdef ONLY_GLB_ROOT_OUTPUT
+    if (mypnum == glb_root) then
+#endif
+      if ( nc .gt. 1 .and. (ncell-1)*10 > 100 ) then
+        if ( mod( nc-1, ((ncell-1)*10)/100 ) == 0 ) then
+          write(iout,201) int( 100.0*(nc-1.0)/(ncell-1.0) + 0.5 )
+          flush(iout)
+          201 format('Octree fill ',i3,' percent complete.')
+        end if
       end if
+#ifdef ONLY_GLB_ROOT_OUTPUT
     end if
+#endif
 !-DEBUG_END:
     do ncf = 1,size(cell(nc)%face)  ! cell face loop
       nf = cell(nc)%face(ncf)%idx   ! global face index
@@ -317,9 +430,15 @@ continue
         do ifp = 1,nfp  ! current cell face point loop
 !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
-    write(iout,'(x,3a, i4,"/",i4,"  ", i4,"/",i4,"  ", i4,"/",i4)') &
-      'DEBUG[',pname,']  nc,ncf,ifp = ', &
-      nc,ncell, ncf,size(cell(nc)%face) ,ifp,nfp
+#ifdef ONLY_GLB_ROOT_OUTPUT
+          if (mypnum == glb_root) then
+#endif
+            write(iout,'(x,3a, i4,"/",i4,"  ", i4,"/",i4,"  ", i4,"/",i4)') &
+              'DEBUG[',pname,']  nc,ncf,ifp = ', &
+              nc,ncell, ncf,size(cell(nc)%face) ,ifp,nfp
+#ifdef ONLY_GLB_ROOT_OUTPUT
+          end if
+#endif
 #endif
 !-DEBUG_BEG:
 !   call sleep(1)  ! Sleep # seconds.
@@ -331,11 +450,15 @@ continue
           xyz_pt = facexyz(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,status)
           if ( status .ne. OCT_STATUS_OK ) then
-            if ( mypnum == glb_root) then
+#ifdef ONLY_GLB_ROOT_OUTPUT
+            if (mypnum == glb_root) then
+#endif
               write(iout,*) 'ERROR:  Failed to init octree for interpolation.'
               write(iout,*) '          status = ',status
               call stop_gfr(abort,pname,__LINE__,__FILE__)
+#ifdef ONLY_GLB_ROOT_OUTPUT
             end if
+#endif
             ! Have all the host roots call mpi_barrier here so that the
             ! MPI processes that arent the global root do not continue
             ! past this point before the global root has a chance to
@@ -351,160 +474,210 @@ continue
 ! Interpolate solution onto each volume point in the destination grid.
 !
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol] Octtree fill complete.'
-  write(iout,*) 
-  write(iout,*) 'DEBUG[interpsol] Performing interpolation.'
-  write(iout,*) 'DEBUG_BEG:[interpsol]'
-  size_cell=0; if ( allocated(cell) ) size_cell=size(cell)
-  size_face=0; if ( allocated(face) ) size_face=size(face)
-  size_cell2=0; if ( allocated(g2_cell) ) size_cell2=size(g2_cell)
-  size_face2=0; if ( allocated(g2_face) ) size_face2=size(g2_face)
-  write(iout,*) '      ncell/nface/nfbnd = ',ncell,' / ',nface,' / ',nfbnd
-  write(iout,*) '   g2_ncell/nface/nfbnd = ',g2_ncell,' / ',g2_nface, &
-                                                     ' / ',g2_nfbnd
-  write(iout,*) '        size(cell/face) = ',size_cell ,' / ',size_face
-  write(iout,*) '     g2_size(cell/face) = ',size_cell2,' / ',size_face2
-  !
-  lcell_min = huge(0)
-  rcell_min = huge(0)
-  lcell_max = 0
-  rcell_max = 0
-  do nc = 1,ncell
-    do ncf = 1,size(cell(nc)%face)
-      nf = cell(nc)%face(ncf)%idx
-      lcell_min = min(lcell_min, face(nf)%left%cell)
-      rcell_min = min(rcell_min, face(nf)%right%cell)
-      lcell_max = max(lcell_max, face(nf)%left%cell)
-      rcell_max = max(rcell_max, face(nf)%right%cell)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Octtree fill complete.'
+    write(iout,*) 
+    write(iout,*) 'DEBUG[interpsol] Performing interpolation.'
+    write(iout,*) 'DEBUG_BEG:[interpsol]'
+    size_cell=0; if ( allocated(cell) ) size_cell=size(cell)
+    size_face=0; if ( allocated(face) ) size_face=size(face)
+    size_cell2=0; if ( allocated(g2_cell) ) size_cell2=size(g2_cell)
+    size_face2=0; if ( allocated(g2_face) ) size_face2=size(g2_face)
+    write(iout,*) '      ncell/nface/nfbnd = ',ncell,' / ',nface,' / ',nfbnd
+    write(iout,*) '   g2_ncell/nface/nfbnd = ',g2_ncell,' / ',g2_nface, &
+                                                       ' / ',g2_nfbnd
+    write(iout,*) '        size(cell/face) = ',size_cell ,' / ',size_face
+    write(iout,*) '     g2_size(cell/face) = ',size_cell2,' / ',size_face2
+    !
+    lcell_min = huge(0)
+    rcell_min = huge(0)
+    lcell_max = 0
+    rcell_max = 0
+    do nc = 1,ncell
+      do ncf = 1,size(cell(nc)%face)
+        nf = cell(nc)%face(ncf)%idx
+        lcell_min = min(lcell_min, face(nf)%left%cell)
+        rcell_min = min(rcell_min, face(nf)%right%cell)
+        lcell_max = max(lcell_max, face(nf)%left%cell)
+        rcell_max = max(rcell_max, face(nf)%right%cell)
+      enddo
     enddo
-  enddo
-  write(iout,*) '       lcell_min/max    = ',lcell_min,' / ',lcell_max
-  write(iout,*) '       rcell_min/max    = ',rcell_min,' / ',rcell_max
-  !
-  lcell_min = huge(0)
-  rcell_min = huge(0)
-  lcell_max = 0
-  rcell_max = 0
-  do nc = 1,g2_ncell
-    do ncf = 1,size(g2_cell(nc)%face)
-      nf = g2_cell(nc)%face(ncf)%idx
-      lcell_min = min(lcell_min, g2_face(nf)%left%cell)
-      rcell_min = min(rcell_min, g2_face(nf)%right%cell)
-      lcell_max = max(lcell_max, g2_face(nf)%left%cell)
-      rcell_max = max(rcell_max, g2_face(nf)%right%cell)
+    write(iout,*) '       lcell_min/max    = ',lcell_min,' / ',lcell_max
+    write(iout,*) '       rcell_min/max    = ',rcell_min,' / ',rcell_max
+    !
+    lcell_min = huge(0)
+    rcell_min = huge(0)
+    lcell_max = 0
+    rcell_max = 0
+    do nc = 1,g2_ncell
+      do ncf = 1,size(g2_cell(nc)%face)
+        nf = g2_cell(nc)%face(ncf)%idx
+        lcell_min = min(lcell_min, g2_face(nf)%left%cell)
+        rcell_min = min(rcell_min, g2_face(nf)%right%cell)
+        lcell_max = max(lcell_max, g2_face(nf)%left%cell)
+        rcell_max = max(rcell_max, g2_face(nf)%right%cell)
+      enddo
     enddo
-  enddo
-  write(iout,*) '    g2_lcell_min/max    = ',lcell_min,' / ',lcell_max
-  write(iout,*) '    g2_rcell_min/max    = ',rcell_min,' / ',rcell_max
-  write(iout,*) '    g2_n_solpts         = ',g2_n_solpts
-  write(iout,*) ' Looping over g2_n_solpts in destination grid.'
-  !
-  flush(iout)
+    write(iout,*) '    g2_lcell_min/max    = ',lcell_min,' / ',lcell_max
+    write(iout,*) '    g2_rcell_min/max    = ',rcell_min,' / ',rcell_max
+    write(iout,*) '    g2_n_solpts         = ',g2_n_solpts
+    write(iout,*) ' Looping over g2_n_solpts in destination grid.'
+    !
+    flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
 ! Loop over volume points in dst grid.
+ !open (unit=6,form='formatted',carriagecontrol='fortran',buffered='no')
+  !$OMP PARALLEL &
+  !$OMP&         DEFAULT(SHARED) &
+  !$OMP&         PRIVATE(k,g2_xyz_pt,nc,ncf,ifp,nf,face_to_xyz,donor_cell, &
+  !$OMP&                 n1,n2,np,this_geom,this_order,knp,m,tusp,tid, &
+  !$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt, &
+  !$OMP&                 start_time,new_time,elapsed_time,percent_complete, &
+  !$OMP&                 hours,minutes,seconds,pts_completed)
+  !
+ !!$OMP&         NUM_THREADS(40) &
+  !
+!!!$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt) &
+  !
+!!!$OMP&         SHARED(octtree,g2_usp,interp,cell,usp,face,geofa,facexyz, &
+!!!$OMP&                g2_n_solpts,g2_xyz,nq,nfbnd,OCT_STATUS_OK)
+  !
+  call debug_timer(reset_accumulated_time, &
+                   "octtree_find_nearest_xyz",acc=1)
+  call debug_timer(reset_accumulated_time, &
+                   "LEFT cell interp_cell_sol_to_xyz",acc=2)
+  call debug_timer(reset_accumulated_time, &
+                   "RIGHT cell interp_cell_sol_to_xyz",acc=3)
+  call debug_timer(reset_accumulated_time, &
+                   "outside boundary face",acc=4)
+  !
+  start_time = mpi_wtime()
+#ifdef ENABLE_OPENMP
+  tid = omp_get_thread_num()
+  nthreads = omp_get_num_threads()
+#else
+  tid = 0
+  nthreads = 1
+#endif
+  pts_completed = 0
+  !
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    if (tid == glb_root) then
+      write (iout,'(a,i0)') "number of threads = ",nthreads
+      flush (iout)
+    end if
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
+  g2_xyz_pt(:) = zero
+  ixyz_pt(:) = 0
+  call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,status, &
+                                tid=tid,acc=1)
+  !
+  !$OMP DO SCHEDULE(GUIDED)
+ !!$OMP DO SCHEDULE(RUNTIME)
   do k = 1,g2_n_solpts
 !-DEBUG_BEG:
 !-DEBUG_CMT: Print percent complete status every 10%.
-    if ( k .gt. 1 .and. (g2_n_solpts-1)*10 > 100 ) then
-      if ( mod( k-1, ((g2_n_solpts-1)*10)/100 ) == 0 ) then
-        write(iout,301) int( 100.0*(k-1.0)/(g2_n_solpts-1.0) + 0.5 )
-        flush(iout)
-        301 format('Interpolation ',i3,' percent complete.')
+#ifdef ONLY_GLB_ROOT_OUTPUT
+    if (mypnum == glb_root) then
+#endif
+      if (tid == glb_root) then
+        if ( pts_completed > 0 .and. (g2_n_solpts-1)*10 > 100 ) then
+         !if ( mod( k-1, ((g2_n_solpts-1)*10)/100 ) == 0 ) then
+         !  write(iout,301) int( 100.0*(k-1.0)/(g2_n_solpts-1.0) + 0.5 )
+         !  flush(iout)
+         !  301 format('Interpolation ',i3,' percent complete.')
+         !end if
+          if (k == g2_n_solpts) then
+            write(iout,303)
+            flush(iout)
+            303 format(t1,'Interpolation  100.000 percent complete', &
+                          ' ( 0:00:00 remaining).')
+          else if ( mod( pts_completed-1, 1000 ) == 0 ) then
+            new_time = mpi_wtime()
+            elapsed_time = new_time - start_time
+            percent_complete = real(pts_completed,kind=wp) / &
+                               real((g2_n_solpts-1)/nthreads,kind=wp)
+            new_time = elapsed_time/percent_complete - elapsed_time
+            hours = nint(new_time) / 3600
+            minutes = (nint(new_time) - hours*3600) / 60
+            seconds = nint(new_time) - hours*3600 - minutes*60
+            write(iout,302) 100.0_wp*percent_complete,hours,minutes,seconds
+            flush(iout)
+            302 format('Interpolation ',f8.3,' percent complete ', &
+                       '(',i0,':',i2.2,':',i2.2,' remaining).')
+          end if
+        end if
       end if
+#ifdef ONLY_GLB_ROOT_OUTPUT
     end if
+#endif
 !-DEBUG_END:
+    !
     ! Get volume point xyz in dst grid to interp sol onto.
+    !
     g2_xyz_pt = g2_xyz(:,k)
+    !
     ! Find index of nearest face pt in src grid.
-    call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,status)
-!-DEBUG_BEG:
-! debug_print determines which k points debug info is printed for.
-  debug_print = .false.
-! if ( k <= 1+9 ) debug_print = .true.
-! if ( any( [1,10,100,500,1000,10000,100000,300000] == k ) ) &
-!    debug_print = .true.
-! if ( k >= g2_n_solpts-9 ) debug_print = .true.
-  !
-  if ( debug_print ) then
-    write(iout,*) '  Destination point = k = ',k,' / ',g2_n_solpts
-    write(iout,*) '  octtree search status = ',status
-    flush(iout)
-  endif
-!-DEBUG_END:
-    if ( status .eq. OCT_STATUS_OK ) then
+    !
+    call debug_timer(start_accumulation,"octtree_find_nearest_xyz",acc=1)
+    call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,status, &
+                                  tid=tid,acc=0)
+    call debug_timer(stop_accumulation,"octtree_find_nearest_xyz",acc=1)
+    !
+    if ( status == OCT_STATUS_OK ) then
+      !
       nc  = ixyz_pt(1)  ! cell no.
       ncf = ixyz_pt(2)  ! cell face no.
       ifp = ixyz_pt(3)  ! cell face face_pt no.
       nf  = cell(nc)%face(ncf)%idx   ! global face index
       xyz_pt(:) = facexyz(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
-!-DEBUG_BEG:
-if ( debug_print ) then
-  write(iout,*) '    nc         = ',nc
-  write(iout,*) '    ncf        = ',ncf
-  write(iout,*) '    ifp        = ',ifp
-  write(iout,*) '    nf         = ',nf
-  write(iout,*) '    r-cell     = ',face(nf)%right%cell
-  write(iout,*) '    l-cell     = ',face(nf)%left%cell
-  write(iout,*) '    g2_xyz_pt  = ',g2_xyz_pt(:)
-  write(iout,*) '    facexyz_pt = ',facexyz(nf)%v(:,ifp)
-  write(iout,*) '    normal     = ',geofa(nf)%v(:,ifp)
-  write(iout,*) '    face2dst   = ',face_to_xyz(:)
-  write(iout,*) '    dot(n,f2d) = ',dot( geofa(nf)%v(:,ifp), face_to_xyz(:) )
-  if ( allocated(g2_usp) ) then
-  write(iout,*) '    g2_usp     = allocated'
-  else
-  write(iout,*) '    g2_usp     = NOT allocated'
-  endif
-  flush(iout)
-  write(iout,*) '    size(g2_usp,dim=1) = ',size(g2_usp,dim=1)
-  write(iout,*) '    size(g2_usp,dim=2) = ',size(g2_usp,dim=2)
-  ! Output xyz and usp for closest face point on donor grid.
-  2001 format(x,a,e20.6,:,/,(26x,e20.6))
-  write(iout,*)    '    Donor grid/solution info.'
-  write(iout,2001) '    facexyz(:)         = ',facexyz(nf)%v(1:nr,ifp)
-  write(iout,2001) '    faceusp(:,left)    = ',faceusp(nf)%v(1:nq,ifp,1)
-  write(iout,2001) '    faceusp(:,right)   = ',faceusp(nf)%v(1:nq,ifp,2)
-  flush(iout)
-endif
-!-DEBUG_END:
+      !
       ! Dot face normal with face_to_xyz vector.
       ! Face normal always points toward right cell.
-      if ( dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) .le. 0 ) then
+      !
+      if ( dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) >= 0 ) then
+        !
         ! xyz_pt is inside this (left) donor cell.
         ! Interpolate donor sol to this xyz_pt.
-!-DEBUG_BEG:
-if ( debug_print ) then
-  write(iout,*) '    Using left cell as donor.'
-  flush(iout)
-endif
-!-DEBUG_END:
+        !
+        call debug_timer(start_accumulation, &
+                         "LEFT cell interp_cell_sol_to_xyz",acc=2)
         donor_cell = face(nf)%left%cell
-        call interp_cell_sol_to_xyz &
-               (donor_cell,g2_xyz_pt, g2_usp(:,k))
+        !
+        call interp_cell_sol_to_xyz(donor_cell,g2_xyz_pt, g2_usp(:,k))
+        call debug_timer(stop_accumulation, &
+                         "LEFT cell interp_cell_sol_to_xyz",acc=2)
+        !
       else if ( nf > nfbnd ) then
+        !
         ! xyz_pt is inside adjacent (right) cell.
         ! Interpolate donor sol to this xyz_pt.
+        !
+        call debug_timer(start_accumulation, &
+                         "RIGHT cell interp_cell_sol_to_xyz",acc=3)
         donor_cell = face(nf)%right%cell
-        call interp_cell_sol_to_xyz &
-               (donor_cell,g2_xyz_pt, g2_usp(:,k))
-!-DEBUG_BEG:
-if ( debug_print ) then
-  write(iout,*) '    Using right cell as donor.'
-  flush(iout)
-endif
-!-DEBUG_END:
+        !
+        call interp_cell_sol_to_xyz(donor_cell,g2_xyz_pt, g2_usp(:,k))
+        call debug_timer(stop_accumulation, &
+                         "RIGHT cell interp_cell_sol_to_xyz",acc=3)
+        !
       else
+        !
+        call debug_timer(start_accumulation,"outside boundary face",acc=4)
         ! xyz_pt is outside boundary face of cell.
         ! Interpolate donor volume sol to closest donor face pt.
         ! Similar to subroutine interp_cv_to_flxpts.
         !
-!-DEBUG_BEG:
-if ( debug_print ) then
-  write(iout,*) '    Using closest donor face pt.'
-  flush(iout)
-endif
-!-DEBUG_END:
         n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
         n2 = cell(nc)%end_sp ! ending    index of sol-pts for this cell
         np = n2-n1+1         ! number of sol-pts in this cell
@@ -539,50 +712,72 @@ endif
        !                       toFace(face_order)% &
        !                       dot( lf , tusp(1:np,m) )
        !end do
+        call debug_timer(stop_accumulation,"outside boundary face",acc=4)
         !
       end if
+      !
     else
-      if ( mypnum == glb_root) then
-        write(iout,*) 'ERROR:  Octree failed to locate nearest point ', &
-                      'for interpolation.'
-        call stop_gfr(abort,pname,__LINE__,__FILE__)
-      end if
-      ! Have all the host roots call mpi_barrier here so that the
-      ! MPI processes that arent the global root do not continue
-      ! past this point before the global root has a chance to
-      ! call mpi_abort within the above conditional.
-      call mpi_barrier(host_roots_comm,mpierr)
+      !
+      write (error_message,1000)
+      call stop_gfr(abort,pname,__LINE__,__FILE__,error_message)
+      !
     end if
-!-DEBUG_BEG:
-  ! Output xyz and usp for point on dest grid.
-if ( debug_print ) then
-  write(iout,*)    '    Destination grid/solution info.'
-  write(iout,2001) '    g2_xyz(:)          = ',g2_xyz_pt(:)
-  write(iout,2001) '    g2_usp(:)          = ',g2_usp(:,k)
-  write(iout,*)
-  flush(iout)
-  if ( .false. .and. k .eq. 10 ) then
-    error_message = '[DEBUG] Only print first 10 points and stop.'
-    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-  endif
-endif
-!-DEBUG_END:
+    !
+    pts_completed = pts_completed + 1
+    !
   end do  ! k-loop
-  
+  !$OMP END DO
+  !
+  call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,status, &
+                                tid=tid,acc=2)
+  call debug_timer(report_accumulated_time, &
+                   "octtree_find_nearest_xyz",acc=1)
+  call debug_timer(report_accumulated_time, &
+                   "LEFT cell interp_cell_sol_to_xyz",acc=2)
+  call debug_timer(report_accumulated_time, &
+                   "RIGHT cell interp_cell_sol_to_xyz",acc=3)
+  call debug_timer(report_accumulated_time, &
+                   "outside boundary face",acc=4)
+  write (iout,1001) mypnum,tid
+  1001 format ("CPU # ",i0," , Thread # ",i2," finished interpolation!")
+  flush (iout)
+  !$OMP END PARALLEL
+  !
+  1000 format ("ERROR:  Octree failed to locate nearest", &
+               " point for interpolation.")
+  !
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG_END:[interpsol]'
-  flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG_END:[interpsol]'
+    flush(iout)
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
 !
 ! Cleanup
 !
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol] Deallocate octtree.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Deallocate octtree.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
   dealloc_octedat = .false.         ! Do this manually instead.
   call octtree_dealloc(octtree,dealloc_octedat,status)
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol] Deallocate octtree now complete.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Deallocate octtree now complete.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
   nullify(octtree%octedat)          ! Manually clear octtree%octedat
 ! nullify(octedat%facexyz)
@@ -591,8 +786,17 @@ endif
   octedat%vardesc = ""
 
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol] Leaving subroutine interpsol.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  if (mypnum == glb_root) then
+#endif
+    write(iout,*) 'DEBUG[interpsol] Leaving subroutine interpsol.'
+#ifdef ONLY_GLB_ROOT_OUTPUT
+  end if
+#endif
 !-DEBUG_END:
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
   return
 end subroutine interpsol
 !
@@ -615,6 +819,7 @@ subroutine interpsol_debug()
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
+  use octstat_mod
   use interpolation_mod, only : interp_cell_sol_to_xyz, interp
 !-DEBUG_BEG:
   use mydebug_mod
@@ -653,6 +858,7 @@ subroutine interpsol_debug()
 
 continue
 
+  call debug_timer(entering_procedure,pname)
 !-DEBUG_BEG:
   ! Need faceusp for debug output.  Must compute it first.
   call interp_cv_to_flxpts()
@@ -704,7 +910,7 @@ continue
   call octtree_init(octtree,bbox,status)
 
 !-DEBUG_BEG:
-  write(iout,*) 'DEBUG[interpsol_debug] Filling octree for use in interpolation.'
+  write(iout,*)'DEBUG[interpsol_debug] Filling octree for use in interpolation.'
   flush(iout)
 !-DEBUG_END:
 
@@ -1032,6 +1238,7 @@ endif
 !-DEBUG_BEG:
   write(iout,*) 'DEBUG[interpsol_debug] Leaving subroutine interpsol_debug.'
 !-DEBUG_END:
+  call debug_timer(leaving_procedure,pname)
   return
 end subroutine interpsol_debug
 !###############################################################################
@@ -1156,7 +1363,12 @@ continue
   !
   call debug_timer(leaving_procedure,pname)
   !
-  end subroutine deallocate_solver_arrays
+end subroutine deallocate_solver_arrays
 !
 !##########################################################################
+!
+#include "Functions/debug_timer.f90"
+!
+!##########################################################################
+!
 end module interpsol_mod
