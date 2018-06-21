@@ -10,6 +10,7 @@ module octstat_mod
 ! -------------------------------------------------------------------------
 
   implicit none
+  public
 
   integer ,parameter :: OCT_STATUS_OK           = 0
   integer ,parameter :: OCT_STATUS_MEMORY_ERROR = 1

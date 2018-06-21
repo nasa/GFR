@@ -13,6 +13,8 @@ module interpsolvar_mod
   use geovar,            only : map_t
   use flowvar,           only : face_xyz,face_var,faceusp,sol_nodes
   implicit none
+  private
+  public :: faceusp,sol_nodes
 
 ! Grid2 copies of variables from geovar.
   integer, public, save :: g2_n_solpts

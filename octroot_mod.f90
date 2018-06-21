@@ -6,14 +6,16 @@ module octroot_mod
 
   use octstat_mod
   implicit none
+  private
+  public :: octroot_init
 
 ! -------------------------------------------------------------------------
 ! Octtree root type.  Stuff common to the entire octtree.
 ! Set some default values.  Each octtree can then alter its own instance.
-  type :: octroot_type
+  type, public :: octroot_type
     integer :: totoctdata  =  0  ! global number of data points in tree
     integer :: totoctnode  =  0  ! global number of octnodes in tree
-    integer :: MAXOCTDATA  = 32  ! max data pts in each octnode
+    integer :: MAXOCTDATA  = 16  ! max data pts in each octnode
     integer :: MAXOCTNODES =  8  ! max subnodes in each octnode
                                  ! Typically this is 2**nr, but can't set
                                  ! here because nr is not a parameter.

@@ -9,9 +9,13 @@ module octedat_facexyz_mod
   use flowvar,           only : face_xyz
   use geovar,     only : cell_t
   use octedat_mod
+  use octstat_mod
+  !
+  implicit none
+  private
 
 ! Source data based on facexyz and cell array structures.
-  type ,extends(octedat_type) :: octedat_facexyz_type
+  type, public, extends(octedat_type) :: octedat_facexyz_type
 !   We will use the global variables:  facexyz, cell
 !   rather than pointer components to these global variables.
 !   type(face_xyz) ,dimension(:) ,pointer :: facexyz

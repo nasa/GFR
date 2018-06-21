@@ -7,10 +7,11 @@ module octedat_mod
   use octstat_mod                   ! will be needed by future derived types
 
   implicit none
+  private
 
   ! Define an abstract base type for encapsulated data which will be used to
   ! hide details of the actual xyz array/structure from the octtree routines.
-  type ,abstract :: octedat_type
+  type, public, abstract :: octedat_type
     ! Define two strings to identify what xyz data is contained.
     ! This is mainly for convenience/debugging.
     !   varname = name of variable being stored
@@ -29,7 +30,7 @@ module octedat_mod
     ! the derived type.
     integer :: MAXINDICES = 1
     !
-contains
+  contains
     ! Functions to be provided by the derived type.  See below.
     procedure (octedat_dealloc_interface)    ,deferred :: dealloc
 !   procedure (octedat_evalbbox_interface)   ,deferred :: evalbbox

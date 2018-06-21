@@ -21,6 +21,14 @@ module octnode_mod
   use octroot_mod
   use octedat_mod
   implicit none
+  private
+  !
+  public :: octnode_dealloc
+  public :: octnode_init
+  public :: octnode_addxyz
+  public :: octnode_find_containing_octnode
+  public :: octnode_find_nearest_xyz
+  public :: octnode_print
 !
 ! -------------------------------------------------------------------------
 ! Octtree node type.  Stuff unique to each branch/leaf octnode.
@@ -34,7 +42,7 @@ module octnode_mod
 !                           from whatever array/struct is in octedat.
 ! Note: child is a pointer because not all compilers support allocatable
 !       recursive components yet.
-  type :: octnode_type
+  type, public :: octnode_type
 #ifdef OCTID
     integer                                         :: octid    = -1
 #endif
