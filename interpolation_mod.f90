@@ -138,7 +138,9 @@ subroutine interpolate_restart_solution(nc,xyz_pt,return_value)
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interpolate_restart_solution"
   !
-  integer, parameter :: max_iterations = 10
+  integer,  parameter :: max_iterations = 50
+ !real(wp), parameter :: error_goal = eps3
+  real(wp), parameter :: error_goal = eps6
   !
 continue
   !
@@ -312,7 +314,7 @@ continue
     !
     errmag = norm2( phys_r(1:nr) )
     !
-    if (errmag < eps3) then
+    if (errmag < error_goal) then
       exit iter_loop
     end if
     !
