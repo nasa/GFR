@@ -313,10 +313,10 @@ continue
   ! then skip interpolation and treat as normal solver read.
   !
   if (input_mode == 1 .and. len_trim(adjustl(interpto_gridfile)) > 0) then
-    if (ncpu > 1) then
-      write (error_message,107)
-      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
-    end if
+   !if (ncpu > 1) then
+   !  write (error_message,107)
+   !  call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+   !end if
     grid_format              = interpto_grid_format
     gridfile                 = interpto_gridfile
     plot3d_cutfile           = interpto_plot3d_cutfile
