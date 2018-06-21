@@ -130,7 +130,7 @@ continue
     !
     ! Read in usp from the restart file
     !
-    call read_restart_file(solution_file)
+    call read_restart_file(solution_file,force_serial_read=true)
     !
     ! Do not initialize the iteration counter, time step,
     ! and elapsed time to that in the restart file.
