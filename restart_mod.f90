@@ -118,26 +118,54 @@ module restart_mod
   !############################################################################
   !
   interface read_rstrt_file_r4
-    module procedure read_rstrt_file_r4_rank1, read_rstrt_file_r4_rank2
+    module procedure read_rstrt_file_r4_rank1, &
+                     read_rstrt_file_r4_rank2
   end interface read_rstrt_file_r4
   !
   interface read_rstrt_file_r8
-    module procedure read_rstrt_file_r8_rank1, read_rstrt_file_r8_rank2
+    module procedure read_rstrt_file_r8_rank1, &
+                     read_rstrt_file_r8_rank2
   end interface read_rstrt_file_r8
   !
   interface read_rstrt_file_r16
-    module procedure read_rstrt_file_r16_rank1, read_rstrt_file_r16_rank2
+    module procedure read_rstrt_file_r16_rank1, &
+                     read_rstrt_file_r16_rank2
   end interface read_rstrt_file_r16
   !
   interface read_rstrt_file_wp
-    module procedure read_rstrt_file_wp_rank1, read_rstrt_file_wp_rank2
+    module procedure read_rstrt_file_wp_rank1, &
+                     read_rstrt_file_wp_rank2
   end interface read_rstrt_file_wp
+  !
+  !############################################################################
+  !### Generic interfaces for procedures to read REAL data using Serial I/O ###
+  !############################################################################
+  !
+  interface read_rstrt_file_serial_r4
+    module procedure read_rstrt_file_serial_r4_rank1, &
+                     read_rstrt_file_serial_r4_rank2
+  end interface read_rstrt_file_serial_r4
+  !
+  interface read_rstrt_file_serial_r8
+    module procedure read_rstrt_file_serial_r8_rank1, &
+                     read_rstrt_file_serial_r8_rank2
+  end interface read_rstrt_file_serial_r8
+  !
+  interface read_rstrt_file_serial_r16
+    module procedure read_rstrt_file_serial_r16_rank1, &
+                     read_rstrt_file_serial_r16_rank2
+  end interface read_rstrt_file_serial_r16
+  !
+  interface read_rstrt_file_serial_wp
+    module procedure read_rstrt_file_serial_wp_rank1, &
+                     read_rstrt_file_serial_wp_rank2
+  end interface read_rstrt_file_serial_wp
   !
 contains
 !
 !###############################################################################
 !
-subroutine read_restart_file(restart_fname)
+subroutine read_restart_file(restart_fname,force_serial_read)
   !
   !.. Use Statements ..
   use ovar,    only : itrst,tmrst,dtrst,rl2mx
@@ -150,9 +178,11 @@ subroutine read_restart_file(restart_fname)
   !
   !.. Optional Arguments ..
   character(len=*), optional, intent(in) :: restart_fname
+  logical(lk),      optional, intent(in) :: force_serial_read
   !
   !.. Local Scalars ..
   integer :: n,ierr
+  logical(lk) :: force_serial
   character(len=150) :: fname
   !
   !.. Local Allocatable Arrays ..
@@ -167,6 +197,9 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  force_serial = fals
+  if (present(force_serial_read)) force_serial = force_serial_read
+  !
   fname = trim(adjustl(restart_file))
   if (present(restart_fname)) fname = trim(adjustl(restart_fname))
   !
@@ -179,8 +212,13 @@ continue
     ! Read the restart solution file
     ! NOTE: usp SHOULD BE ALLOCATED AT THIS POINT
     !
-    call read_solution_file(fname,int_header,real_header,usp, &
-                            sol_is_transposed=true)
+    if (ncpu == 1 .or. force_serial) then
+      call read_solution_file_serial(fname,int_header,real_header,usp, &
+                                     sol_is_transposed=true)
+    else
+      call read_solution_file(fname,int_header,real_header,usp, &
+                              sol_is_transposed=true)
+    end if
     !
     ! Extract the required information from the header arrays
     !
@@ -201,8 +239,13 @@ continue
         !
         ! NOTE: uavesp SHOULD NOT BE ALLOCATED AT THIS POINT
         !
-        call read_solution_file(fname,int_header,real_header,uavesp, &
-                                var_header,sol_is_transposed=true)
+        if (ncpu == 1 .or. force_serial) then
+          call read_solution_file_serial(fname,int_header,real_header,uavesp, &
+                                         var_header,sol_is_transposed=true)
+        else
+          call read_solution_file(fname,int_header,real_header,uavesp, &
+                                  var_header,sol_is_transposed=true)
+        end if
         !
         prev_ave_time = real( real_header(2) , kind=kind(prev_ave_time) )
         ave_start_time = real( real_header(3) , kind=kind(ave_start_time) )
@@ -770,6 +813,433 @@ end subroutine read_solution_file
 !
 !###############################################################################
 !
+subroutine read_solution_file_serial(file_name,int_header,real_header, &
+                                     solution,var_header,sol_is_transposed)
+  !
+  !.. Use Statements ..
+  use geovar, only : ncell,cell,n_solpts
+  use geovar, only : n_global_cell
+  use ovar,   only : time_average_restart_files
+  !
+  !.. Formal Arguments ..
+  character(len=*),              intent(in   ) :: file_name
+  integer(wip),     allocatable, intent(  out) :: int_header(:)
+  real(wp),         allocatable, intent(  out) :: real_header(:)
+  real(wp),         allocatable, intent(inout) :: solution(:,:)
+  !
+  !.. Optional Arguments ..
+  integer(wip), optional, allocatable, intent(out) :: var_header(:)
+  logical(lk),  optional,               intent(in) :: sol_is_transposed
+  !
+  !.. Local Scalars ..
+  integer :: io,l0,l1,l2,m,n,np,n0,n1,n2,ierr
+  integer :: sol_nq
+  integer :: restart_ip,restart_rp
+  logical(lk) :: flip_sol_indices
+  !
+  integer :: solution_errors
+  integer :: restart_nq,restart_ncells
+  integer :: n_header_int,n_header_real
+  !
+  integer :: inp_geom,inp_order
+  integer :: this_cell,this_geom,this_order
+  !
+  !.. Local Allocatable Arrays ..
+  integer(wip), allocatable :: ordered_geom(:)
+  real(wp),     allocatable :: rst_sol(:,:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_solution_file_serial"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  flip_sol_indices = fals
+  if (present(sol_is_transposed)) then
+    flip_sol_indices = sol_is_transposed
+  end if
+  !
+  !
+  solution_errors = 0
+  !
+  ! Open the restart file
+  !
+  open (newunit=io,file=trim(adjustl(file_name)),status="old",action="read", &
+                   form="unformatted",access="stream",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,file_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read the header section of the restart file
+  !
+! ######################################
+! ### Integer part of restart header ###
+! ######################################
+  !
+  ! Read the integer type for the integer part of the restart header
+  !
+  read (io,iostat=ierr) restart_ip
+  !
+  ! Read the number of integer header items
+  !
+  read (io,iostat=ierr) n_header_int
+  !
+  ! Allocate the int_header array
+  !
+  if (allocated(int_header)) then
+    deallocate ( int_header , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"int_header",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( int_header(1:n_header_int) , source=0_wip , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"int_header",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read the integer part of the restart header
+  !
+  if (restart_ip == wip) then
+    call read_rstrt_file_serial_wip(io,int_header)
+  else
+    select case (restart_ip)
+      case (int32) ; call read_rstrt_file_serial_i4(io,int_header)
+      case (int64) ; call read_rstrt_file_serial_i8(io,int_header)
+      case (int8)  ; call read_rstrt_file_serial_i1(io,int_header)
+      case (int16) ; call read_rstrt_file_serial_i2(io,int_header)
+      case default
+        write (error_message,20)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+  ! Extract the information from the integer section of the header
+  !
+  ! Extract the number of flow variables saved at each solution point
+  ! within the restart file
+  !
+  restart_nq = int( int_header(1) , kind=kind(restart_nq) )
+  !
+  if (allocated(solution)) then
+    if (flip_sol_indices) then
+      sol_nq = size(solution,dim=2)
+    else
+      sol_nq = size(solution,dim=1)
+    end if
+    if (restart_nq /= sol_nq) then
+      write (error_message,10) restart_nq,sol_nq
+      call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end if
+  end if
+  !
+  ! Extracted the total number of grid cells contained within the restart file
+  !
+  restart_ncells = int( int_header(2) , kind=kind(restart_ncells) )
+  !
+  if (restart_ncells /= n_global_cell) then
+    write (error_message,11) restart_ncells,n_global_cell
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Extract the format that the solution data is in within the restart file
+  !
+  restart_solution_form = int( int_header(3) , &
+                               kind=kind(restart_solution_form) )
+  !
+  call check_restart_solution_form(restart_solution_form)
+  !
+! ###################################
+! ### Real part of restart header ###
+! ###################################
+  !
+  ! Read the real type for the real part of the restart header
+  !
+  read (io,iostat=ierr) restart_rp
+  !
+  ! Read the number of real header items
+  !
+  read (io,iostat=ierr) n_header_real
+  !
+  ! Allocate the real_header array
+  !
+  if (allocated(real_header)) then
+    deallocate ( real_header , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"real_header",2,__LINE__,__FILE__,ierr,error_message)
+  end if
+  !
+  allocate ( real_header(1:n_header_real) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"real_header",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read the real part of the restart header
+  !
+  if (restart_rp == wp) then
+    call read_rstrt_file_serial_wp(io,real_header)
+  else
+    select case (restart_rp)
+      case (real64)  ; call read_rstrt_file_serial_r8(io,real_header)
+      case (real32)  ; call read_rstrt_file_serial_r4(io,real_header)
+      case (real128) ; call read_rstrt_file_serial_r16(io,real_header)
+      case default
+        write (error_message,21)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+! #############################################
+! ### Ordered_Geom part of the restart file ###
+! #############################################
+  !
+  ! Read the integer type for the ordered_geom array
+  !
+  read (io,iostat=ierr) restart_ip
+  !
+  allocate ( ordered_geom(1:restart_ncells) , source=0_wip , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"ordered_geom",1,__LINE__,__FILE__,ierr, &
+                   error_message)
+  !
+  ! Read the ordered_geom data so that each
+  !
+  if (restart_ip == wip) then
+    call read_rstrt_file_serial_wip(io,ordered_geom)
+  else
+    select case (restart_ip)
+      case (int32) ; call read_rstrt_file_serial_i4(io,ordered_geom)
+      case (int64) ; call read_rstrt_file_serial_i8(io,ordered_geom)
+      case (int8)  ; call read_rstrt_file_serial_i1(io,ordered_geom)
+      case (int16) ; call read_rstrt_file_serial_i2(io,ordered_geom)
+      case default
+        write (error_message,22)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+! ################################################
+! ### Variable header part of the restart file ###
+! ################################################
+  !
+  if (present(var_header)) then
+    !
+    ! Read the real type for the solution data
+    !
+    read (io,iostat=ierr) restart_ip
+    !
+    if (allocated(var_header)) then
+      deallocate ( var_header , stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"var_header",2,__LINE__,__FILE__, &
+                       ierr,error_message)
+    end if
+    !
+    allocate ( var_header(1:restart_nq) , source=0_wip , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"var_header",1,__LINE__,__FILE__,ierr,error_message)
+    !
+    ! Read the variable header for the solution data
+    !
+    if (restart_ip == wip) then
+      call read_rstrt_file_serial_wip(io,var_header)
+    else
+      select case (restart_ip)
+        case (int32) ; call read_rstrt_file_serial_i4(io,var_header)
+        case (int64) ; call read_rstrt_file_serial_i8(io,var_header)
+        case (int8)  ; call read_rstrt_file_serial_i1(io,var_header)
+        case (int16) ; call read_rstrt_file_serial_i2(io,var_header)
+        case default
+          write (error_message,24)
+          call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+      end select
+    end if
+    !
+    if (.not. allocated(solution)) then
+      if (flip_sol_indices) then
+        allocate ( solution(1:n_solpts,1:restart_nq) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+      else
+        allocate ( solution(1:restart_nq,1:n_solpts) , source=zero , &
+                   stat=ierr , errmsg=error_message )
+      end if
+      call alloc_error(pname,"solution",1,__LINE__,__FILE__,ierr,error_message)
+    end if
+    !
+  end if
+  !
+! #########################################
+! ### Solution part of the restart file ###
+! #########################################
+  !
+  ! Read the real type for the solution data
+  !
+  read (io,iostat=ierr) restart_rp
+  !
+  ! Compute the number of solution points in the restart file
+  !
+  num_pts = 0
+  do this_cell = 1,ncell
+    !
+    inp_order = ordered_geom(this_cell) / 100
+    inp_geom = ordered_geom(this_cell) - 100*inp_order
+    !
+    num_pts = num_pts + Cell_Solpts(inp_geom,inp_order)
+    !
+  end do
+  !
+  ! IF WE ARE TO MOVE THE POINT IN THE PRE-PROCESSING PHASE AT WHICH THE
+  ! RESTART FILE IS READ, WE NEED TO MAKE SURE THAT N_SOLPTS HAS BEEN
+  ! RECOMPUTED SO THAT IT IS LOCAL TO EACH PROCESSOR BECAUSE THIS IS NOT
+  ! DONE WITHIN PARALLEL_MOD AFTER PARTITIONING THE GRID.
+  !
+  if (num_pts /= n_solpts) then
+    write (iout,12) mypnum,num_pts,n_solpts
+    write (error_message,13)
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Allocate the rst_sol array to read in the solution restart data
+  !
+  allocate ( rst_sol(1:restart_nq,1:n_solpts) , source=zero , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rst_sol",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Read in the solution restart data
+  !
+  if (restart_rp == wp) then
+    call read_rstrt_file_serial_wp(io,rst_sol)
+  else
+    select case (restart_rp)
+      case (real64)  ; call read_rstrt_file_serial_r8(io,rst_sol)
+      case (real32)  ; call read_rstrt_file_serial_r4(io,rst_sol)
+      case (real128) ; call read_rstrt_file_serial_r16(io,rst_sol)
+      case default
+        write (error_message,23)
+        call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+    end select
+  end if
+  !
+  ! Finally close the restart file
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,file_name,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Copy the restart solution data over into the solution array
+  !
+  solution_errors = 0
+  !
+  l2 = 0
+  do this_cell = 1,ncell
+    !
+    inp_order = ordered_geom(this_cell) / 100
+    inp_geom = ordered_geom(this_cell) - 100*inp_order
+    !
+    l1 = l2 + 1
+    l2 = l2 + Cell_Solpts(inp_geom,inp_order)
+    l0 = l1-1
+    !
+    n1 = cell(this_cell)%beg_sp
+    n2 = cell(this_cell)%end_sp
+    n0 = n1-1
+    np = n2-n0
+    !
+    this_geom = cell(this_cell)%geom
+    this_order = cell(this_cell)%order
+    !
+    ! NEED TO ADD SOMETHING HERE TO CONVERT THE SOLUTION IF THE SOLUTION
+    ! FORM DOESNT MATCH THE CURRENT SIMULATION.  FOR NOW, JUST CREATE AN
+    ! ERROR IF IT DOESNT MATCH THE RESTART FORM.
+    !
+    if ((inp_geom /= this_geom) .or. (inp_order /= this_order)) then
+      write (iout,30) mypnum,this_cell, inp_geom, inp_order, &
+                             this_cell,this_geom,this_order
+      solution_errors = solution_errors + 1
+    end if
+    !
+    if (flip_sol_indices) then
+      do n = 1,np
+        do m = 1,restart_nq
+          solution(n0+n,m) = rst_sol(m,l0+n)
+        end do
+      end do
+    else
+      do n = 1,np
+        do m = 1,restart_nq
+          solution(m,n0+n) = rst_sol(m,l0+n)
+        end do
+      end do
+    end if
+   !solution(:,n1:n2) = rst_sol(:,l1:l2)
+    !
+  end do
+  !
+  ! Deallocate ordered_geom since it is no longer needed
+  !
+  if (allocated(ordered_geom)) then
+    deallocate ( ordered_geom , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"ordered_geom",2,__LINE__,__FILE__, &
+                     ierr,error_message)
+  end if
+  !
+  ! Deallocate rst_sol since it is no longer needed
+  !
+  deallocate ( rst_sol , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"rst_sol",2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Stop the simulation if there were any errors copying the restart
+  ! solution data into solution.
+  !
+  if (solution_errors > 0) then
+    write (error_message,31) solution_errors
+    call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
+  end if
+  !
+  ! Reset num_pts to default values in case we ever need to come back here
+  ! and read in a new restart file.
+  !
+  if (.not. time_average_restart_files) then
+    num_pts = 0
+  end if
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  10 format("The number of variables in the restart file does not match the ", &
+            "number of variables in the solution array: restart_nq=",i0, &
+            ", current_nq=",i0,".")
+  11 format("The number of global grid cells in the restart file does not ", &
+            "match the current simulation: restart_n_global_cell=",i0, &
+            ", current_n_global_cell=",i0,".")
+  12 format(/,"  The number of solution points for the cells on CPU-",i0," ", &
+              "does not match the",/,"   number of solution points for the ", &
+              "corresponding cells in the restart file: ",/, &
+              "        restart_n_solpts=",i0,/, &
+              "        current_n_solpts=",i0)
+  13 format("The number of solution points for cells in the restart file ", &
+            "do not seem to match the corresponding cells in the current ", &
+            "simulation.")
+  !
+  20 format("Unknown integer type when trying to read the integer section ", &
+            "of the restart file header.")
+  21 format("Unknown real type when trying to read the real section ", &
+            "of the restart file header.")
+  22 format("Unknown integer type when trying to read the ordered_geom data ", &
+            "from the restart file.")
+  23 format("Unknown real type when trying to read the solution data ", &
+            "from the restart file.")
+  24 format("Unknown integer type when trying to read the variable header ", &
+            "for the solution data from the restart file.")
+  !
+  30 format(" CPU-",i0, &
+            ": Error copying restart solution into solution array.",/, &
+            "      restart cell: ",i0,":   geom = ",i0,", order = ",i0,/, &
+            "      current cell: ",i0,":   geom = ",i0,", order = ",i0)
+  31 format("The geometry and structure of the solution data in the restart ", &
+            "file does not match the current simulation. There were ",i0," ", &
+            "total errors encountered across all the processors when ", &
+            "trying to copy the restart solution data into the current ", &
+            "solution array.")
+  !
+end subroutine read_solution_file_serial
+!
+!###############################################################################
+!
 subroutine read_restart_old_format(file_name,solution,sol_is_transposed)
   !
   !.. Use Statements ..
@@ -1057,10 +1527,16 @@ continue
     !
     if (involved_with_output) then
       !
-      call write_solution_file(fullname,int_header,real_header,restart_comm, &
-                               ordered_geom,ordered_geom_type, &
-                               solution,solution_type,sol_block_type, &
-                               max_restart_wall_time,statfile=statfile)
+      if (ncpu > 1) then
+        call write_solution_file(fullname,int_header,real_header,restart_comm, &
+                                 ordered_geom,ordered_geom_type, &
+                                 solution,solution_type,sol_block_type, &
+                                 max_restart_wall_time,statfile=statfile)
+      else
+        call write_solution_file_serial(fullname,int_header,real_header, &
+                                        ordered_geom,solution, &
+                                        max_restart_wall_time,statfile=statfile)
+      end if
       !
     end if
 !!!#ifdef DEBUG_ON
@@ -1466,6 +1942,140 @@ end subroutine write_solution_file
 !
 !###############################################################################
 !
+subroutine write_solution_file_serial(file_name,int_header,real_header, &
+                                      ordered_geom,solution,max_wall_time, &
+                                      var_header)
+  !
+  !.. Use Statements ..
+  use ovar, only : profile_io_restart
+  !
+  !.. Formal Arguments ..
+  character(len=*), intent(in) :: file_name
+  integer,          intent(in) :: int_header(:)
+  real(wp),         intent(in) :: real_header(:)
+  integer(i4),      intent(in) :: ordered_geom(:)
+  real(wp),         intent(in) :: solution(:,:)
+  real(wp),      intent(inout) :: max_wall_time
+  !
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: var_header(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,io,ierr
+  !
+  real(wp) :: beg_wall_time
+  real(wp) :: end_wall_time
+  real(wp) :: restart_wall_time
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "write_solution_file_serial"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  write (iout,1)
+  flush (iout)
+  beg_wall_time = mpi_wtime()
+  !
+  ! Open the restart file
+  !
+  open (newunit=io,file=trim(adjustl(file_name)), &
+                   status="replace",action="write", &
+                   form="unformatted",access="stream",position="rewind", &
+                   iostat=ierr,iomsg=error_message)
+  call io_error(pname,file_name,1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Write the header for the restart file
+  !
+  ! Write the integer type for the size information for the simulation
+  !
+  write (io,iostat=ierr) wip
+  !
+  ! Write the number of size data items
+  !
+  write (io,iostat=ierr) size(int_header,kind=wip)
+  !
+  ! Write the size information for the simulation to the restart file
+  !
+  write (io,iostat=ierr) (int_header(i), i=1,size(int_header))
+  !
+  ! Write the real type for the time data
+  !
+  write (io,iostat=ierr) wp
+  !
+  ! Write the number of time data items
+  !
+  write (io,iostat=ierr) size(real_header,kind=wip)
+  !
+  ! Write the time data to the restart file
+  !
+  write (io,iostat=ierr) (real_header(i), i=1,size(real_header))
+  !
+  ! Write the integer type for the ordered_geom array
+  !
+  write (io,iostat=ierr) i4
+  !
+  ! Write the ordered_geom array to the restart file
+  !
+  write (io,iostat=ierr) (ordered_geom(i), i=1,size(ordered_geom))
+  !
+  ! Write the variable header for the solution data to the restart file
+  !
+  if (present(var_header)) then
+    !
+    ! Write the integer type for the size information for the simulation
+    !
+    write (io,iostat=ierr) wip
+    !
+    ! Write the variable header information for
+    ! the solution data to the restart file
+    !
+    write (io,iostat=ierr) (var_header(i), i=1,size(var_header))
+    !
+  end if
+  !
+  ! Write the kind value for real working-precision
+  !
+  write (io,iostat=ierr) wp
+  !
+  ! Write the solution data to the restart file
+  !
+  write (io,iostat=ierr) ((solution(i,n), i=1,size(solution,dim=1)), &
+                                          n=1,size(solution,dim=2))
+  !
+  ! Finally close the restart file
+  !
+  close (io,iostat=ierr,iomsg=error_message)
+  call io_error(pname,file_name,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Output the wall time taken to write the restart solution file if
+  ! the input parameter profile_io_restart is true
+  !
+  end_wall_time = mpi_wtime()
+  restart_wall_time = end_wall_time - beg_wall_time
+  max_wall_time = max(max_wall_time,restart_wall_time)
+  if (profile_io_restart) then
+    write (iout,2) trim(adjustl(file_name)), restart_wall_time
+  else
+    write (iout,2)
+  end if
+  flush (iout)
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+  ! Format Statements
+  !
+  1 format (/," Entering write_solution_file_serial")
+  2 format (" Leaving write_solution_file_serial",/,:, &
+          5x,"Wall time taken to write the file '",a, &
+             "' = ",f12.6," seconds",/, &
+         10x,"(USING SERIAL-I/O)",/)
+  !
+end subroutine write_solution_file_serial
+!
+!###############################################################################
+!
 subroutine write_restart_old_format(file_name,solution)
   !
   !.. Use Statements ..
@@ -1660,11 +2270,18 @@ continue
   !
   if (involved_with_output) then
     !
-    call write_solution_file(fullname,int_header,real_header,timeave_comm, &
-                             ordered_geom,ordered_geom_type, &
-                             solution,averaging_type,ave_block_type, &
-                             max_time_ave_rst_wall_time, &
-                             var_header=var_header,statfile=statfile)
+    if (ncpu > 1) then
+      call write_solution_file(fullname,int_header,real_header,timeave_comm, &
+                               ordered_geom,ordered_geom_type, &
+                               solution,averaging_type,ave_block_type, &
+                               max_time_ave_rst_wall_time, &
+                               var_header=var_header,statfile=statfile)
+    else
+      call write_solution_file_serial(fullname,int_header,real_header, &
+                                      ordered_geom,solution, &
+                                      max_time_ave_rst_wall_time, &
+                                      var_header=var_header)
+    end if
     !
   end if
 #ifdef USE_CREATE_SYMLINK
@@ -3875,6 +4492,429 @@ continue
   call debug_timer(leaving_procedure,pname)
   !
 end subroutine read_rstrt_file_wp_rank2
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for 8-bit INTEGER data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_i1(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: io
+  integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  integer(int8) :: read_int(1:size(int_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_i1"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,size(read_int))
+  !
+  do i = 1,size(int_data,dim=1)
+    int_data(i) = int( read_int(i) , kind=wip )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_i1
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for 16-bit INTEGER data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_i2(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: io
+  integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  integer(int16) :: read_int(1:size(int_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_i2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,size(read_int))
+  !
+  do i = 1,size(int_data,dim=1)
+    int_data(i) = int( read_int(i) , kind=wip )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_i2
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for 32-bit INTEGER data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_i4(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: io
+  integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  integer(int32) :: read_int(1:size(int_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_i4"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,size(read_int))
+  !
+  do i = 1,size(int_data,dim=1)
+    int_data(i) = int( read_int(i) , kind=wip )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_i4
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for 64-bit INTEGER data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_i8(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: io
+  integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  integer(int64) :: read_int(1:size(int_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_i8"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_int(i), i=1,size(read_int))
+  !
+  do i = 1,size(int_data,dim=1)
+    int_data(i) = int( read_int(i) , kind=wip )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_i8
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutine for INTEGER data matching the working integer precision
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_wip(io,int_data)
+  !
+  !.. Formal Arguments ..
+  integer,         intent(in) :: io
+  integer(wip), intent(inout) :: int_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_wip"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (int_data(i), i=1,size(int_data))
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_wip
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutines for 32-bit REAL data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_r4_rank1(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  real(real32) :: read_real(1:size(real_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r4_rank1"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_real(i), i=1,size(read_real))
+  !
+  do i = 1,size(real_data,dim=1)
+    real_data(i) = real( read_real(i) , kind=wp )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r4_rank1
+!-------------------------------------------------------------------------------
+subroutine read_rstrt_file_serial_r4_rank2(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,ierr
+  !
+  !.. Local Arrays ..
+  real(real32) :: read_real(1:size(real_data,dim=1), &
+                            1:size(real_data,dim=2))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r4_rank2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) ((read_real(i,n), i=1,size(read_real,dim=1)), &
+                                          n=1,size(read_real,dim=2))
+  !
+  do n = 1,size(real_data,dim=2)
+    do i = 1,size(real_data,dim=1)
+      real_data(i,n) = real( read_real(i,n) , kind=wp )
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r4_rank2
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutines for 64-bit REAL data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_r8_rank1(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  real(real64) :: read_real(1:size(real_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r8_rank1"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_real(i), i=1,size(read_real))
+  !
+  do i = 1,size(real_data,dim=1)
+    real_data(i) = real( read_real(i) , kind=wp )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r8_rank1
+!-------------------------------------------------------------------------------
+subroutine read_rstrt_file_serial_r8_rank2(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,ierr
+  !
+  !.. Local Arrays ..
+  real(real64) :: read_real(1:size(real_data,dim=1), &
+                            1:size(real_data,dim=2))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r8_rank2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) ((read_real(i,n), i=1,size(read_real,dim=1)), &
+                                          n=1,size(read_real,dim=2))
+  !
+  do n = 1,size(real_data,dim=2)
+    do i = 1,size(real_data,dim=1)
+      real_data(i,n) = real( read_real(i,n) , kind=wp )
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r8_rank2
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutines for 128-bit REAL data
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_r16_rank1(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Arrays ..
+  real(max(real64,real128)) :: read_real(1:size(real_data))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r16_rank1"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (read_real(i), i=1,size(read_real))
+  !
+  do i = 1,size(real_data,dim=1)
+    real_data(i) = real( read_real(i) , kind=wp )
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r16_rank1
+!-------------------------------------------------------------------------------
+subroutine read_rstrt_file_serial_r16_rank2(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,ierr
+  !
+  !.. Local Arrays ..
+  real(max(real64,real128)) :: read_real(1:size(real_data,dim=1), &
+                                         1:size(real_data,dim=2))
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_r16_rank2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) ((read_real(i,n), i=1,size(read_real,dim=1)), &
+                                          n=1,size(read_real,dim=2))
+  !
+  do n = 1,size(real_data,dim=2)
+    do i = 1,size(real_data,dim=1)
+      real_data(i,n) = real( read_real(i,n) , kind=wp )
+    end do
+  end do
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_r16_rank2
+!
+!###############################################################################
+!###############################################################################
+! Serial read subroutines for REAL data matching the current working precision (wp)
+!###############################################################################
+!###############################################################################
+!
+subroutine read_rstrt_file_serial_wp_rank1(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:)
+  !
+  !.. Local Scalars ..
+  integer :: i,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_wp_rank1"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) (real_data(i), i=1,size(real_data))
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_wp_rank1
+!-------------------------------------------------------------------------------
+subroutine read_rstrt_file_serial_wp_rank2(io,real_data)
+  !
+  !.. Formal Arguments ..
+  integer,     intent(in) :: io
+  real(wp), intent(inout) :: real_data(:,:)
+  !
+  !.. Local Scalars ..
+  integer :: i,n,ierr
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "read_rstrt_file_serial_wp_rank2"
+  !
+continue
+  !
+  call debug_timer(entering_procedure,pname)
+  !
+  read (io,iostat=ierr) ((real_data(i,n), i=1,size(real_data,dim=1)), &
+                                          n=1,size(real_data,dim=2))
+  !
+  call debug_timer(leaving_procedure,pname)
+  !
+end subroutine read_rstrt_file_serial_wp_rank2
 !
 !###############################################################################
 !###############################################################################
