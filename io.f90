@@ -308,27 +308,27 @@ continue
   call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
   !
   ! For interpolation pass, shuffle some variables around to trick
-  ! the lower level readers to read interp_gridfile which will be
-  ! interpolated onto.  If no name provided for interp_gridfile
+  ! the lower level readers to read interpto_gridfile which will be
+  ! interpolated onto.  If no name provided for interpto_gridfile
   ! then skip interpolation and treat as normal solver read.
   !
-  if (input_mode == 1 .and. len_trim(adjustl(interp_gridfile)) > 0) then
+  if (input_mode == 1 .and. len_trim(adjustl(interpto_gridfile)) > 0) then
     if (ncpu > 1) then
       write (error_message,107)
       call stop_gfr(stop_mpi,pname,__LINE__,__FILE__,error_message)
     end if
-    grid_format              = interp_grid_format
-    gridfile                 = interp_gridfile
-    plot3d_cutfile           = interp_plot3d_cutfile
-    plot3d_bcsfile           = interp_plot3d_bcsfile
+    grid_format              = interpto_grid_format
+    gridfile                 = interpto_gridfile
+    plot3d_cutfile           = interpto_plot3d_cutfile
+    plot3d_bcsfile           = interpto_plot3d_bcsfile
+    grid_scaling_factor      = interpto_grid_scaling_factor
+    plot3d_i_stride          = interpto_plot3d_i_stride
+    plot3d_j_stride          = interpto_plot3d_j_stride
+    plot3d_k_stride          = interpto_plot3d_k_stride
+    plot3d_all_strides       = interpto_plot3d_all_strides
+    plot3d_agglomerate_order = interpto_plot3d_agglomerate_order
     solution_file            = ""
-    grid_scaling_factor      = interp_grid_scaling_factor
-    plot3d_i_stride          = interp_plot3d_i_stride
-    plot3d_j_stride          = interp_plot3d_j_stride
-    plot3d_k_stride          = interp_plot3d_k_stride
-    plot3d_all_strides       = interp_plot3d_all_strides
-    plot3d_agglomerate_order = interp_plot3d_agglomerate_order
-    solution_order           = interp_solution_order
+    solution_order           = interpto_solution_order
   end if
   !
   ! Check the lustre striping parameters
@@ -357,14 +357,14 @@ continue
   call check_restart_dir
   call check_for_bad_number(__LINE__,__FILE__)
   !
-  ! Adjust the name of the grid file
+  ! Adjust the name of the grid and solution files
   !
   gridfile = trim(adjustl(gridfile))
   solution_file = trim(adjustl(solution_file))
   !
   ! Additional checks on solution file.
   !
-  if (len_trim(solution_file) > 0) then
+  if (len_trim(adjustl(solution_file)) > 0) then
     !
     ! Make sure we have a reader for that solution format.
     !
@@ -787,7 +787,7 @@ continue
     ! If interpolating, make sure to only write once with the
     ! non-manipulated namelist input values.
     !
-    if (input_mode == 2 .or. len_trim(adjustl(interp_gridfile)) == 0) then
+    if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
       write (iout,104)
       write (iout,nml=input)

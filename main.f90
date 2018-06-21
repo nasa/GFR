@@ -87,6 +87,7 @@ program GFR_main
   use filter_mod, only : move_filter_to_device
   !
   use initialization_mod, only : initialize_flow
+  use initialization_mod, only : initialize_dusp
   !
   use module_bc, only : get_faceusp_bc
   use module_bc, only : get_facedusp_bc
@@ -237,7 +238,7 @@ continue
   !   input_mode = 1  Interpolation Mode
   !   input_mode = 2  Normal Solver Mode
   ! During mode 1, try to load data into the interpolation destination set.
-  ! However, if interp_gridfile name is empty then drop into mode 2.
+  ! However, if interpto_gridfile name is empty then drop into mode 2.
   ! During mode 2, load data into the normal solver set.
   preprocessing_loop: &
   do input_mode = 1,2
@@ -298,13 +299,6 @@ continue
         allocate ( usp(1:n_solpts,1:nq) , source=zero , &
                    stat=ierr , errmsg=error_message )
         call alloc_error(pname,"usp",1,__LINE__,__FILE__,ierr,error_message)
-        !
-        ! Allocate the derivative array, which would normally be done
-        ! during initialization.  This is only needed for meaningful
-        ! derivative quantities in CGNS output, else they will be zero.
-!-out   allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
-!-out              stat=ierr , errmsg=error_message )
-!-out   call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
         !
         ! Move this data to another set of variables, so that during the
         ! second pass of this preprocessing loop we can read the
@@ -467,6 +461,17 @@ continue
     ! This puts the destination grid/solution back into the global arrays.
     !
     call mv_grid2_to_global()
+    !
+    ! Allocate the derivative array, which would normally be done
+    ! during initialization.  This is only needed for meaningful
+    ! derivative quantities in CGNS output, else they will be zero.
+    !
+    if (.not. allocated(dusp)) then
+      allocate ( dusp(1:n_solpts,1:nr,1:nq) , source=zero , &
+                 stat=ierr , errmsg=error_message )
+      call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
+      call initialize_dusp
+    end if
     !
     ! Write restart file of the interpolated solution.
     !
