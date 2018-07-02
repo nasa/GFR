@@ -792,8 +792,8 @@ pure &
 function get_tria_quadrature(n,location) result(return_value)
   !
   use order_mod,      only : geom_solpts
-  use triangle_mod,   only : TriNodes2D_DG
-  use triangle_mod,   only : TriNodes2D_HT
+  use triangle_mod,   only : TriNodes2D_AlphaOptimized
+  use triangle_mod,   only : TriNodes2D_BarycentricLobatto
   !
   integer, intent(in) :: n
   integer, intent(in) :: location
@@ -819,20 +819,20 @@ continue
       !
       ! Alpha optimized triangle quadrature from Hesthaven and Warburton
       !
-      pts = TriNodes2D_DG(n,qzero)
+      pts = TriNodes2D_AlphaOptimized(n,qzero)
       !
     case (BarycentricLobatto_TriPoints)
       !
       ! 1D Lobatto quadrature extrapolated to a barycentric triangle
       ! coordinate system
       !
-      pts = TriNodes2D_HT(n,qzero)
+      pts = TriNodes2D_BarycentricLobatto(n,qzero)
       !
     case default
       !
       ! Default to the barycentric Lobatto quadrature
       !
-      pts = TriNodes2D_HT(n,qzero)
+      pts = TriNodes2D_BarycentricLobatto(n,qzero)
       !
   end select
   !
