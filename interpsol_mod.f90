@@ -83,7 +83,7 @@ subroutine mv_global_to_grid2()
 ! Variables from flowvar.
   call move_alloc( from=usp               , to=g2_usp               )
   call move_alloc( from=dusp              , to=g2_dusp              )
-  call move_alloc( from=facexyz           , to=g2_facexyz           )
+  call move_alloc( from=facexyz_dt        , to=g2_facexyz_dt        )
   
 ! Variables from ovar.
   call move_alloc( from=bc_names          , to=g2_bc_names          )
@@ -175,7 +175,7 @@ subroutine mv_grid2_to_global()
 ! Variables from flowvar.
   call move_alloc( from=g2_usp               , to=usp               )
   call move_alloc( from=g2_dusp              , to=dusp              )
-  call move_alloc( from=g2_facexyz           , to=facexyz           )
+  call move_alloc( from=g2_facexyz_dt        , to=facexyz_dt        )
   
 !-DEBUG_BEG:
   write(iout,*) '  After  move_alloc(from=g2_usp,to=usp):'
@@ -261,7 +261,7 @@ subroutine interpsol()
   use geovar,            only : cell,face
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa
-  use flowvar,           only : facexyz, usp
+  use flowvar,           only : facexyz_dt, usp
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -348,10 +348,10 @@ continue
     write(iout,*) 'DEBUG[interpsol] Resize bounding box.'  ! DEBUG
     flush(iout)
     do nf = 1,nface
-      do ifp = 1,size(facexyz(nf)%v,dim=2)
+      do ifp = 1,size(facexyz_dt(nf)%v,dim=2)
         do l = 1,nr
-          bbox(l,1) = min( bbox(l,1), facexyz(nf)%v(l,ifp) )
-          bbox(l,2) = max( bbox(l,2), facexyz(nf)%v(l,ifp) )
+          bbox(l,1) = min( bbox(l,1), facexyz_dt(nf)%v(l,ifp) )
+          bbox(l,2) = max( bbox(l,2), facexyz_dt(nf)%v(l,ifp) )
         end do
       end do
     end do
@@ -368,7 +368,7 @@ continue
 #ifdef ONLY_GLB_ROOT_OUTPUT
   end if
 #endif
-  octedat%varname = "facexyz(1:nface)%v(1:nr,1:nfp)"
+  octedat%varname = "facexyz_dt(1:nface)%v(1:nr,1:nfp)"
   octedat%vardesc = "Get facexyz given cell,face,facept = (nc,ncf,nfp)."
 ! octedat%facexyz => facexyz
 ! octedat%cell    => cell
@@ -447,7 +447,7 @@ continue
           ixyz_pt(1) = nc   ! cell no.
           ixyz_pt(2) = ncf  ! cell face no.
           ixyz_pt(3) = ifp  ! cell face facept no.
-          xyz_pt = facexyz(nf)%v(:,ifp)
+          xyz_pt = facexyz_dt(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,status)
           if ( status .ne. OCT_STATUS_OK ) then
 #ifdef ONLY_GLB_ROOT_OUTPUT
@@ -544,7 +544,7 @@ continue
   !
 !!!$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt) &
   !
-!!!$OMP&         SHARED(octtree,g2_usp,interp,cell,usp,face,geofa,facexyz, &
+!!!$OMP&         SHARED(octtree,g2_usp,interp,cell,usp,face,geofa,facexyz_dt, &
 !!!$OMP&                g2_n_solpts,g2_xyz,nq,nfbnd,OCT_STATUS_OK)
   !
   call debug_timer(reset_accumulated_time, &
@@ -639,7 +639,7 @@ continue
       ncf = ixyz_pt(2)  ! cell face no.
       ifp = ixyz_pt(3)  ! cell face face_pt no.
       nf  = cell(nc)%face(ncf)%idx   ! global face index
-      xyz_pt(:) = facexyz(nf)%v(:,ifp)
+      xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
       !
       ! Dot face normal with face_to_xyz vector.
@@ -815,7 +815,7 @@ subroutine interpsol_debug()
   use geovar,            only : xyz
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa
-  use flowvar,           only : facexyz, usp
+  use flowvar,           only : facexyz_dt, usp
   use order_mod,         only : maxSP,geom_solpts
   use octedat_facexyz_mod
   use octtree_mod
@@ -882,10 +882,10 @@ continue
   write(iout,*) 'DEBUG[interpsol_debug] Resize bounding box.'  ! DEBUG
   flush(iout)
   do nf = 1,nface
-    do ifp = 1,size(facexyz(nf)%v,dim=2)
+    do ifp = 1,size(facexyz_dt(nf)%v,dim=2)
       do l = 1,nr
-        bbox(l,1) = min( bbox(l,1), facexyz(nf)%v(l,ifp) )
-        bbox(l,2) = max( bbox(l,2), facexyz(nf)%v(l,ifp) )
+        bbox(l,1) = min( bbox(l,1), facexyz_dt(nf)%v(l,ifp) )
+        bbox(l,2) = max( bbox(l,2), facexyz_dt(nf)%v(l,ifp) )
       end do
     end do
   end do
@@ -893,7 +893,7 @@ continue
 ! Init the encapsulated data for the octtree.
   write(iout,*) 'DEBUG[interpsol_debug] Init octedat.'  ! DEBUG
   flush(iout)
-  octedat%varname = "facexyz(1:nface)%v(1:nr,1:nfp)"
+  octedat%varname = "facexyz_dt(1:nface)%v(1:nr,1:nfp)"
   octedat%vardesc = "Get facexyz given cell,face,facept = (nc,ncf,nfp)."
 ! octedat%facexyz => facexyz
 ! octedat%cell    => cell
@@ -945,7 +945,7 @@ continue
           ixyz_pt(1) = nc   ! cell no.
           ixyz_pt(2) = ncf  ! cell face no.
           ixyz_pt(3) = ifp  ! cell face facept no.
-          xyz_pt = facexyz(nf)%v(:,ifp)
+          xyz_pt = facexyz_dt(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,status)
           if ( status .ne. OCT_STATUS_OK ) then
             if ( mypnum == glb_root) then
@@ -1059,7 +1059,7 @@ continue
       ncf = ixyz_pt(2)  ! cell face no.
       ifp = ixyz_pt(3)  ! cell face face_pt no.
       nf  = cell(nc)%face(ncf)%idx   ! global face index
-      xyz_pt(:) = facexyz(nf)%v(:,ifp)
+      xyz_pt(:) = facexyz_dt(nf)%v(:,ifp)
       face_to_xyz(:) = g2_xyz_pt(:) - xyz_pt(:)   ! vector from face to dst pt
 !
 !-DEBUG_BEG:
@@ -1072,16 +1072,16 @@ if ( debug_print ) then
   write(iout,*) '    r-cell     = ',face(nf)%right%cell
   write(iout,*) '    l-cell     = ',face(nf)%left%cell
   write(iout,*) '    g2_xyz_pt  = ',g2_xyz_pt(:)
-  write(iout,*) '    facexyz_pt = ',facexyz(nf)%v(:,ifp)
+  write(iout,*) '    facexyz_pt = ',facexyz_dt(nf)%v(:,ifp)
   write(iout,*) '    normal     = ',geofa(nf)%v(:,ifp)
   write(iout,*) '    face2dst   = ',face_to_xyz(:)
   write(iout,*) '    dot(n,f2d) = ',dot( geofa(nf)%v(:,ifp), face_to_xyz(:) )
   ! Output xyz and usp for closest face point on donor grid.
   2001 format(x,a,e20.6,:,/,(26x,e20.6))
   write(iout,*)    '    Donor grid/solution info.'
-  write(iout,2001) '    facexyz(:)         = ',facexyz(nf)%v(1:nr,ifp)
-  write(iout,2001) '    faceusp(:,left)    = ',faceusp(nf)%v(1:nq,ifp,1)
-  write(iout,2001) '    faceusp(:,right)   = ',faceusp(nf)%v(1:nq,ifp,2)
+  write(iout,2001) '    facexyz_dt(:)         = ',facexyz_dt(nf)%v(1:nr,ifp)
+  write(iout,2001) '    faceusp_dt(:,left)    = ',faceusp_dt(nf)%v(1:nq,ifp,1)
+  write(iout,2001) '    faceusp_dt(:,right)   = ',faceusp_dt(nf)%v(1:nq,ifp,2)
   flush(iout)
 endif
 !-DEBUG_END:
@@ -1250,7 +1250,7 @@ subroutine deallocate_solver_arrays()
   !
   !.. Use Statements ..
   use geovar,      only : face,grid
-  use flowvar,     only : faceusp,facedusp,faceflx,facexyz
+  use flowvar,     only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
   use flowvar,     only : residual,dtsp,uoldsp,usp_sum,rssprk
   use flowvar,     only : nodeusp,nodedusp,edgeusp,edgedusp,edgexyz
   use flowvar,     only : global_usp,global_var
@@ -1271,14 +1271,14 @@ continue
     call alloc_error(pname,"grid",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(faceusp)) then
-    deallocate ( faceusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"faceusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(faceusp_dt)) then
+    deallocate ( faceusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"faceusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facedusp)) then
-    deallocate ( facedusp , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facedusp",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(facedusp_dt)) then
+    deallocate ( facedusp_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facedusp_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(faceflx)) then
@@ -1286,9 +1286,9 @@ continue
     call alloc_error(pname,"faceflx",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
-  if (allocated(facexyz)) then
-    deallocate ( facexyz , stat=ierr , errmsg=error_message )
-    call alloc_error(pname,"facexyz",2,__LINE__,__FILE__,ierr,error_message)
+  if (allocated(facexyz_dt)) then
+    deallocate ( facexyz_dt , stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"facexyz_dt",2,__LINE__,__FILE__,ierr,error_message)
   end if
   !
   if (allocated(residual)) then

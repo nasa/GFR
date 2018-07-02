@@ -11,10 +11,10 @@ module interpsolvar_mod
   use geovar,            only : geom_conn, conflict, fp_t
   use geovar,            only : cell_t, face_t, grid_t
   use geovar,            only : map_t
-  use flowvar,           only : face_xyz,face_var,faceusp,sol_nodes
+  use flowvar,           only : face_xyz,face_var,faceusp_dt,sol_nodes
   implicit none
   private
-  public :: faceusp,sol_nodes
+  public :: faceusp_dt,sol_nodes
 
 ! Grid2 copies of variables from geovar.
   integer, public, save :: g2_n_solpts
@@ -62,8 +62,8 @@ module interpsolvar_mod
   real(wp), public, save, allocatable, dimension(:,:)   :: g2_sol_nodes
   real(wp), public, save, allocatable, dimension(:,:)   :: g2_usp
   real(wp), public, save, allocatable, dimension(:,:,:) :: g2_dusp
-  type(face_xyz), public, save, allocatable, dimension(:) :: g2_facexyz
-  type(face_var), public, save, allocatable, dimension(:) :: g2_faceusp
+  type(face_xyz), public, save, allocatable, dimension(:) :: g2_facexyz_dt
+  type(face_var), public, save, allocatable, dimension(:) :: g2_faceusp_dt
 
 ! Grid2 copies of variables from ovar.
   character(len=32), public, save, allocatable :: g2_bc_names(:)

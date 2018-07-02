@@ -61,7 +61,7 @@ contains
 ! Evaluate xyz at a single point given by the index values in idx.
 
   use geovar,  only : cell
-  use flowvar, only : facexyz
+  use flowvar, only : facexyz_dt
   implicit none
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
@@ -83,7 +83,7 @@ contains
   if ( nc .ge. 1 .and. nc .le. size(cell) ) then
     if ( ncf .ge. 1 .and. ncf .le. size(cell(nc)%face) ) then
       nf = cell(nc)%face(ncf)%idx  ! global face index
-      xyz(:) = facexyz(nf)%v(:,ifp)
+      xyz(:) = facexyz_dt(nf)%v(:,ifp)
       status = OCT_STATUS_OK
     end if
   end if
@@ -96,7 +96,7 @@ contains
 ! Evaluate xyz at multiple points given by the index values in idx.
 
   use geovar,  only : cell
-  use flowvar, only : facexyz
+  use flowvar, only : facexyz_dt
   implicit none
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
@@ -131,7 +131,7 @@ contains
       if ( nc .ge. 1 .and. nc .le. size(cell) ) then
         if ( ncf .ge. 1 .and. ncf .le. size(cell(nc)%face) ) then
           nf = cell(nc)%face(ncf)%idx  ! global face index
-          xyz(:,n) = facexyz(nf)%v(:,ifp)
+          xyz(:,n) = facexyz_dt(nf)%v(:,ifp)
         else
           status = OCT_STATUS_DATA_ERROR
           xyz(:,n) = -9999

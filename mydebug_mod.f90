@@ -17,7 +17,7 @@ contains
   use eqn_idx, only :  nq
   use geovar,  only :  nnode, ncell, nface, nfbnd, nr
   use geovar,  only :  grid, xyz_nodes, xyz
-  use flowvar, only :  facexyz, faceusp, sol_nodes, usp
+  use flowvar, only :  facexyz_dt, faceusp_dt, sol_nodes, usp
   implicit none
 
   !.. Formal Arguments ..
@@ -67,15 +67,15 @@ contains
 
   ! Print info about facexyz.
     if ( index(local_query,'|facexyz|') .gt. 0 ) then
-    if ( allocated( facexyz ) ) then
-      write(iout,*) '  facexyz   =   allocated to size:', size(facexyz)
+    if ( allocated( facexyz_dt ) ) then
+      write(iout,*) '  facexyz_dt   =   allocated to size:', size(facexyz_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
-      do nf=1,size(facexyz)     ! size should equal nface
-        if ( allocated( facexyz(nf)%v ) ) then
+      do nf=1,size(facexyz_dt)     ! size should equal nface
+        if ( allocated( facexyz_dt(nf)%v ) ) then
           do n=1,nr
-            a_minval(n) = min(a_minval(n), minval(facexyz(nf)%v(n,:)))
-            a_maxval(n) = max(a_maxval(n), minval(facexyz(nf)%v(n,:)))
+            a_minval(n) = min(a_minval(n), minval(facexyz_dt(nf)%v(n,:)))
+            a_maxval(n) = max(a_maxval(n), minval(facexyz_dt(nf)%v(n,:)))
           enddo
         endif
       enddo
@@ -84,7 +84,7 @@ contains
         write(iout,*) n,a_minval(n),a_maxval(n)
       enddo
     else
-      write(iout,*) '  facexyz  = unallocated'
+      write(iout,*) '  facexyz_dt  = unallocated'
     endif
     endif
 
@@ -139,15 +139,15 @@ contains
 
   ! Print info about faceusp.
     if ( index(local_query,'|faceusp|') .gt. 0 ) then
-    if ( allocated( faceusp ) ) then
-      write(iout,*) '  faceusp   =   allocated to size:', size(faceusp)
+    if ( allocated( faceusp_dt ) ) then
+      write(iout,*) '  faceusp_dt   =   allocated to size:', size(faceusp_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
-      do nf=1,size(faceusp)     ! size should equal nface
-        if ( allocated( faceusp(nf)%v ) ) then
+      do nf=1,size(faceusp_dt)     ! size should equal nface
+        if ( allocated( faceusp_dt(nf)%v ) ) then
           do n=1,nq
-            a_minval(n) = min(a_minval(n), minval(faceusp(nf)%v(n,:,:)))
-            a_maxval(n) = max(a_maxval(n), minval(faceusp(nf)%v(n,:,:)))
+            a_minval(n) = min(a_minval(n), minval(faceusp_dt(nf)%v(n,:,:)))
+            a_maxval(n) = max(a_maxval(n), minval(faceusp_dt(nf)%v(n,:,:)))
           enddo
         endif
       enddo
@@ -156,7 +156,7 @@ contains
         write(iout,*) n,a_minval(n),a_maxval(n)
       enddo
     else
-      write(iout,*) '  faceusp   = unallocated'
+      write(iout,*) '  faceusp_dt   = unallocated'
     endif
     endif
 
@@ -226,7 +226,7 @@ contains
   use geovar,           only :  nr
   use interpsolvar_mod, only :  g2_nnode, g2_ncell, g2_nface, g2_nfbnd
   use interpsolvar_mod, only :  g2_grid, g2_xyz_nodes, g2_xyz
-  use interpsolvar_mod, only :  g2_facexyz, g2_faceusp, g2_sol_nodes, g2_usp
+  use interpsolvar_mod, only :  g2_facexyz_dt, g2_faceusp_dt, g2_sol_nodes, g2_usp
   implicit none
 
   !.. Formal Arguments ..
@@ -276,15 +276,15 @@ contains
 
   ! Print info about facexyz.
     if ( index(local_query,'|facexyz|') .gt. 0 ) then
-    if ( allocated( g2_facexyz ) ) then
-      write(iout,*) '  g2_facexyz   =   allocated to size:', size(g2_facexyz)
+    if ( allocated( g2_facexyz_dt ) ) then
+      write(iout,*) '  g2_facexyz_dt   =   allocated to size:', size(g2_facexyz_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
-      do nf=1,size(g2_facexyz)     ! size should equal nface
-        if ( allocated( g2_facexyz(nf)%v ) ) then
+      do nf=1,size(g2_facexyz_dt)     ! size should equal nface
+        if ( allocated( g2_facexyz_dt(nf)%v ) ) then
           do n=1,nr
-            a_minval(n) = min(a_minval(n), minval(g2_facexyz(nf)%v(n,:)))
-            a_maxval(n) = max(a_maxval(n), minval(g2_facexyz(nf)%v(n,:)))
+            a_minval(n) = min(a_minval(n), minval(g2_facexyz_dt(nf)%v(n,:)))
+            a_maxval(n) = max(a_maxval(n), minval(g2_facexyz_dt(nf)%v(n,:)))
           enddo
         endif
       enddo
@@ -293,7 +293,7 @@ contains
         write(iout,*) n,a_minval(n),a_maxval(n)
       enddo
     else
-      write(iout,*) '  g2_facexyz  = unallocated'
+      write(iout,*) '  g2_facexyz_dt  = unallocated'
     endif
     endif
 
@@ -348,15 +348,15 @@ contains
 
   ! Print info about faceusp.
     if ( index(local_query,'|faceusp|') .gt. 0 ) then
-    if ( allocated( g2_faceusp ) ) then
-      write(iout,*) '  g2_faceusp   =   allocated to size:', size(g2_faceusp)
+    if ( allocated( g2_faceusp_dt ) ) then
+      write(iout,*) '  g2_faceusp_dt   =   allocated to size:', size(g2_faceusp_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
-      do nf=1,size(g2_faceusp)     ! size should equal nface
-        if ( allocated( g2_faceusp(nf)%v ) ) then
+      do nf=1,size(g2_faceusp_dt)     ! size should equal nface
+        if ( allocated( g2_faceusp_dt(nf)%v ) ) then
           do n=1,nq
-            a_minval(n) = min(a_minval(n), minval(g2_faceusp(nf)%v(n,:,:)))
-            a_maxval(n) = max(a_maxval(n), minval(g2_faceusp(nf)%v(n,:,:)))
+            a_minval(n) = min(a_minval(n), minval(g2_faceusp_dt(nf)%v(n,:,:)))
+            a_maxval(n) = max(a_maxval(n), minval(g2_faceusp_dt(nf)%v(n,:,:)))
           enddo
         endif
       enddo
@@ -365,7 +365,7 @@ contains
         write(iout,*) n,a_minval(n),a_maxval(n)
       enddo
     else
-      write(iout,*) '  g2_faceusp   = unallocated'
+      write(iout,*) '  g2_faceusp_dt   = unallocated'
     endif
     endif
 

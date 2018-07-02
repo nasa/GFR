@@ -110,13 +110,13 @@ module flowvar
 #endif
   end type face_vec
   !
-  ! FACEUSP  : conservative variables at the interface flux points
-  ! FACEDUSP : conservative variable gradients at the interface flux points
-  ! FACEXYZ  : coordinates of the flux points on the boundary faces
+  ! FACEUSP_DT  : conservative variables at the interface flux points
+  ! FACEDUSP_DT : conservative variable gradients at the interface flux points
+  ! FACEXYZ_DT  : coordinates of the flux points on the boundary faces
   !
-  ! faceusp(1:nface)%v(1:nq,1:n_sp1de,1:2)
-  ! facedusp(1:nface)%v(1:nr,1:nq,1:n_sp1de,1:2)
-  ! facexyz(1:nface)%v(1:nr,1:n_sp1de)
+  ! faceusp_dt(1:nface)%v(1:nq,1:n_sp1de,1:2)
+  ! facedusp_dt(1:nface)%v(1:nr,1:nq,1:n_sp1de,1:2)
+  ! facexyz_dt(1:nface)%v(1:nr,1:n_sp1de)
   !
   type(face_var), public, save, allocatable, dimension(:) :: faceusp_dt
   type(face_vec), public, save, allocatable, dimension(:) :: facedusp_dt
