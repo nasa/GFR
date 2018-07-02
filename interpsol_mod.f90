@@ -258,7 +258,7 @@ subroutine interpsol()
   use module_kind_types, only : dot
   use eqn_idx, only : nq
   use geovar,            only : ncell,nface,nfbnd,nr
-  use geovar,            only : cell,face
+  use geovar,            only : cell,face,fp
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa
   use flowvar,           only : facexyz_dt, usp
@@ -281,12 +281,14 @@ subroutine interpsol()
   type(octedat_facexyz_type) ,target :: octedat
   type(octtree_type)                 :: octtree
   integer :: status,tid,nthreads,acc
-  integer :: ifp,k,l,nc,ncf,nf,nfp,sf
+  integer :: i,j,ifp,k,l,nc,ncf,nf,nfp,sf
   integer :: n1,n2,np,knp,m,lf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
   integer :: donor_cell
   logical :: dealloc_octedat
+  real(wp) :: a,val
 !-DEBUG_BEG:
   integer :: lcell_min, lcell_max, rcell_min, rcell_max
   integer :: size_cell, size_face
@@ -536,16 +538,16 @@ continue
   !$OMP&         DEFAULT(SHARED) &
   !$OMP&         PRIVATE(k,g2_xyz_pt,nc,ncf,ifp,nf,face_to_xyz,donor_cell, &
   !$OMP&                 n1,n2,np,this_geom,this_order,knp,m,tusp,tid, &
-  !$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt, &
+  !$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt,val, &
   !$OMP&                 start_time,new_time,elapsed_time,percent_complete, &
-  !$OMP&                 hours,minutes,seconds,pts_completed)
+  !$OMP&                 hours,minutes,seconds,pts_completed,fp_offset,face_rot)
   !
  !!$OMP&         NUM_THREADS(40) &
   !
 !!!$OMP&                 face_geom,face_order,lf,status,ixyz_pt,xyz_pt) &
   !
 !!!$OMP&         SHARED(octtree,g2_usp,interp,cell,usp,face,geofa,facexyz_dt, &
-!!!$OMP&                g2_n_solpts,g2_xyz,nq,nfbnd,OCT_STATUS_OK)
+!!!$OMP&                fp,g2_n_solpts,g2_xyz,nq,nfbnd,OCT_STATUS_OK)
   !
   call debug_timer(reset_accumulated_time, &
                    "octtree_find_nearest_xyz",acc=1)
@@ -684,7 +686,6 @@ continue
         !
         this_geom = cell(nc)%geom   ! geometry type of this cell
         this_order = cell(nc)%order ! solution order of this cell
-
         !
         ! Create transpose of usp array to reduce cache misses.
         !
@@ -700,13 +701,36 @@ continue
         face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
         face_order = cell(nc)%face(ncf)%order ! order of current face
         !
+        fp_offset = cell(nc)%face(ncf)%fp_offset
+        face_rot = cell(nc)%face(ncf)%rotation
+        !
         ! ifp: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(ncf)%get_fp_idx(ifp)
+       !lf = cell(nc)%face(ncf)%get_fp_idx(ifp)
         !
-        g2_usp(1:nq,k) = interp(this_geom,this_order)% &
-                                toFace(face_order)% &
-                                dot_mat( lf , tusp(1:np,1:nq) )
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(ifp)
+        !
+        do m = 1,nq
+          !
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * tusp(j,m)
+            !
+          end do
+          !
+          g2_usp(m,k) = val
+          !
+        end do
+        !
+       !g2_usp(1:nq,k) = interp(this_geom,this_order)% &
+       !                        toFace(face_order)% &
+       !                        dot_mat( lf , tusp(1:np,1:nq) )
        !do m = 1,nq
        !  g2_usp(m,k) = interp(this_geom,this_order)% &
        !                       toFace(face_order)% &
@@ -811,7 +835,7 @@ subroutine interpsol_debug()
   use module_kind_types, only : dot
   use eqn_idx, only : nq
   use geovar,            only : nnode,ncell,nface,nfbnd,nr
-  use geovar,            only : cell,face
+  use geovar,            only : cell,face,fp
   use geovar,            only : xyz
   use flux_mod,          only : interp_cv_to_flxpts  ! DEBUG: for debug output
   use metrics_mod,       only : geofa
@@ -831,13 +855,15 @@ subroutine interpsol_debug()
   type(octtree_type)                 :: octtree
   integer :: status
   integer :: iotec
-  integer :: ifp,k,l,nc,ncf,nf,nfp,sf
+  integer :: i,j,ifp,k,l,nc,ncf,nf,nfp,sf
   integer :: n1,n2,np,knp,m,lf
   integer :: this_geom,this_order
   integer :: face_geom,face_order
+  integer :: fp_offset,face_rot
   integer :: donor_cell
   integer :: donor_lr_flag
   logical :: dealloc_octedat
+  real(wp) :: a,val
 !-DEBUG_BEG:
   integer :: lcell_min, lcell_max, rcell_min, rcell_max
   integer :: size_cell, size_face
@@ -1149,13 +1175,36 @@ endif
         face_geom = cell(nc)%face(ncf)%geom   ! geom  of current face
         face_order = cell(nc)%face(ncf)%order ! order of current face
         !
+        fp_offset = cell(nc)%face(ncf)%fp_offset
+        face_rot = cell(nc)%face(ncf)%rotation
+        !
         ! ifp: index of the flx-pt local to this face
         ! lf: index of flx-pt within interp%mat
-        lf = cell(nc)%face(ncf)%get_fp_idx(ifp)
+       !lf = cell(nc)%face(ncf)%get_fp_idx(ifp)
         !
-        g2_usp_pt(1:nq) = interp(this_geom,this_order)% &
-                                 toFace(face_order)% &
-                                 dot_mat( lf , tusp(1:np,1:nq) )
+        lf = fp_offset + fp%geord(face_geom,face_order)%rot(face_rot)%pts(ifp)
+        !
+        do m = 1,nq
+          !
+          val = zero
+          !
+          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+            !
+            j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
+            a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
+            !
+            val = val + a * tusp(j,m)
+            !
+          end do
+          !
+          g2_usp_pt(m) = val
+          !
+        end do
+        !
+       !g2_usp_pt(1:nq) = interp(this_geom,this_order)% &
+       !                         toFace(face_order)% &
+       !                         dot_mat( lf , tusp(1:np,1:nq) )
        !do m = 1,nq
        !  g2_usp_pt(m) = interp(this_geom,this_order)% &
        !                        toFace(face_order)% &
