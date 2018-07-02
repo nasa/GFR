@@ -178,28 +178,28 @@ module flowvar
 #endif
   end type ne3d_t
   !
-  ! NODEUSP  : conservative variables at the nodes
-  !                nodeusp(1:nnode)%v(1:nq)
+  ! NODEUSP_DT  : conservative variables at the nodes
+  !                   nodeusp_dt(1:nnode)%v(1:nq)
   !
   type(ne1d_t), public, save, allocatable, dimension(:) :: nodeusp_dt
   !
-  ! NODEDUSP : conservative variable gradients at the nodes
-  !                nodedusp(1:nnode)%v(1:nr,1:nq)
+  ! NODEDUSP_DT : conservative variable gradients at the nodes
+  !                   nodedusp_dt(1:nnode)%v(1:nr,1:nq)
   !
   type(ne2d_t), public, save, allocatable, dimension(:) :: nodedusp_dt
   !
-  ! EDGEUSP  : conservative variables at the edge points
-  !                edgeusp(1:nedge)%v(1:nq,1:n_sp1de)
+  ! EDGEUSP_DT  : conservative variables at the edge points
+  !                   edgeusp_dt(1:nedge)%v(1:nq,1:n_sp1de)
   !
   type(ne2d_t), public, save, allocatable, dimension(:) :: edgeusp_dt
   !
-  ! EDGEDUSP : conservative variable gradients at the edge points
-  !                edgedusp(1:nedge)%v(1:nr,1:nq,1:n_sp1de)
+  ! EDGEDUSP_DT : conservative variable gradients at the edge points
+  !                   edgedusp_dt(1:nedge)%v(1:nr,1:nq,1:n_sp1de)
   !
   type(ne3d_t), public, save, allocatable, dimension(:) :: edgedusp_dt
   !
-  ! EDGEXYZ : conservative variable gradients at the edge points
-  !               edgexyz(1:nedge)%v(1:nr,1:n_sp1de)
+  ! EDGEXYZ_DT  : conservative variable gradients at the edge points
+  !                   edgexyz_dt(1:nedge)%v(1:nr,1:n_sp1de)
   !
   type(ne2d_t), public, save, allocatable, dimension(:) :: edgexyz_dt
   !
@@ -266,7 +266,7 @@ continue
   !
   !
   ! If we are only interpolating the solution to a new grid,
-  ! then only need facexyz before returning out of here.
+  ! then only need facexyz_dt before returning out of here.
   !
   if ( if_interpto_newgrid() ) then
     !
@@ -346,11 +346,11 @@ continue
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
-    ! If using the continuous output option or MMS, allocate the facexyz array
+    ! If using the continuous output option or MMS, allocate the facexyz_dt array
     !
     if (continuous_output) then
       !
-      ! If using continuous output, facexyz needs to be defined
+      ! If using continuous output, facexyz_dt needs to be defined
       ! for both interior and boundary faces
       !
       allocate ( facexyz_dt(1:nface) , stat=ierr , errmsg=error_message )
@@ -359,7 +359,7 @@ continue
       !
     else if (mms_opt /= 0) then
       !
-      ! If using MMS but not using continuous output, facexyz only needs
+      ! If using MMS but not using continuous output, facexyz_dt only needs
       ! to be defined for the boundary faces
       !
       allocate ( facexyz_dt(1:nfbnd) , stat=ierr , errmsg=error_message )
@@ -425,8 +425,8 @@ continue
       !
     end if
     !
-    ! If using continuous output, allocate the nodeusp, nodedusp, edgeusp,
-    ! and edgedusp arrays
+    ! If using continuous output, allocate the nodeusp_dt, nodedusp_dt, edgeusp_dt,
+    ! and edgedusp_dt arrays
     !
     !##########################################################################
     !##########################################################################
@@ -438,7 +438,7 @@ continue
     !
     if (continuous_output) then
       !
-      ! Allocate the nodeusp array and its data components
+      ! Allocate the nodeusp_dt array and its data components
       !
       allocate ( nodeusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodeusp_dt",1,__LINE__,__FILE__, &
@@ -452,7 +452,7 @@ continue
                          error_message,skip_alloc_pause)
       end do
       !
-      ! Allocate the nodedusp array and its data components
+      ! Allocate the nodedusp_dt array and its data components
       !
       allocate ( nodedusp_dt(1:nnode) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"nodedusp_dt",1,__LINE__,__FILE__, &
@@ -466,7 +466,7 @@ continue
                          error_message,skip_alloc_pause)
       end do
       !
-      ! Allocate the edgeusp array and its data components
+      ! Allocate the edgeusp_dt array and its data components
       !
       allocate ( edgeusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgeusp_dt",1,__LINE__,__FILE__, &
@@ -484,7 +484,7 @@ continue
         !
       end do
       !
-      ! Allocate the edgedusp array and its data components
+      ! Allocate the edgedusp_dt array and its data components
       !
       allocate ( edgedusp_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgedusp_dt",1,__LINE__,__FILE__, &
@@ -502,7 +502,7 @@ continue
         !
       end do
       !
-      ! Allocate the edgexyz array and its data components
+      ! Allocate the edgexyz_dt array and its data components
       !
       allocate ( edgexyz_dt(1:nedge) , stat=ierr , errmsg=error_message )
       call alloc_error(pname,"edgexyz_dt",1,__LINE__,__FILE__, &
