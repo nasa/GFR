@@ -433,7 +433,7 @@ continue
     ! Start by projecting the source solution to p_order
     !
     if (p_order < n_order) then
-      call project_to_porder(cell,usp)
+      call project_to_porder(usp)
     end if
     !
 !-DEBUG_BEG:
@@ -486,7 +486,7 @@ continue
     ! Finish by projecting or filtering the destination solution
     !
     if (p_order < n_order) then
-      call project_to_porder(cell,usp)
+      call project_to_porder(usp)
     else
       call filter_usp
     end if
