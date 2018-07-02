@@ -80,8 +80,8 @@ contains
   ifp = idx(3)  ! cell face facept no.
 
 ! Get xyz.
-  if ( nc .ge. 1 .and. nc .le. size(cell) ) then
-    if ( ncf .ge. 1 .and. ncf .le. size(cell(nc)%face) ) then
+  if ( nc >= 1 .and. nc <= size(cell) ) then
+    if ( ncf >= 1 .and. ncf <= size(cell(nc)%face) ) then
       nf = cell(nc)%face(ncf)%idx  ! global face index
       xyz(:) = facexyz_dt(nf)%v(:,ifp)
       status = OCT_STATUS_OK
@@ -120,7 +120,7 @@ contains
 #endif
 !-DEBUG_END:
 
-  if ( npts .ge. 1 .and. npts .le. size(idx,dim=2) ) then
+  if ( npts >= 1 .and. npts <= size(idx,dim=2) ) then
     do n = 1,npts
 !     Decode the index info.
       nc  = idx(1,n)  ! cell no.
@@ -128,8 +128,8 @@ contains
       ifp = idx(3,n)  ! cell face facept no.
 
 !     Get xyz.
-      if ( nc .ge. 1 .and. nc .le. size(cell) ) then
-        if ( ncf .ge. 1 .and. ncf .le. size(cell(nc)%face) ) then
+      if ( nc >= 1 .and. nc <= size(cell) ) then
+        if ( ncf >= 1 .and. ncf <= size(cell(nc)%face) ) then
           nf = cell(nc)%face(ncf)%idx  ! global face index
           xyz(:,n) = facexyz_dt(nf)%v(:,ifp)
         else

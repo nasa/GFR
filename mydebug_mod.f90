@@ -46,27 +46,27 @@ contains
                   ', line ',line_num,' in file ',trim(file_nam)
 
   ! Print info about nnode.
-    if ( index(local_query,'|nnode|') .gt. 0 ) then
+    if ( index(local_query,'|nnode|') > 0 ) then
       write(iout,*) '  nnode     = ',nnode
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|ncell|') .gt. 0 ) then
+    if ( index(local_query,'|ncell|') > 0 ) then
       write(iout,*) '  ncell     = ',ncell
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|nface|') .gt. 0 ) then
+    if ( index(local_query,'|nface|') > 0 ) then
       write(iout,*) '  nface     = ',nface
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|nfbnd|') .gt. 0 ) then
+    if ( index(local_query,'|nfbnd|') > 0 ) then
       write(iout,*) '  nfbnd     = ',nfbnd
     endif
 
   ! Print info about facexyz.
-    if ( index(local_query,'|facexyz|') .gt. 0 ) then
+    if ( index(local_query,'|facexyz|') > 0 ) then
     if ( allocated( facexyz_dt ) ) then
       write(iout,*) '  facexyz_dt   =   allocated to size:', size(facexyz_dt)
       a_minval =  huge(1.0)
@@ -89,7 +89,7 @@ contains
     endif
 
   ! Print info about xyz_nodes.
-    if ( index(local_query,'|xyz_nodes|') .gt. 0 ) then
+    if ( index(local_query,'|xyz_nodes|') > 0 ) then
     if ( allocated( xyz_nodes ) ) then
       write(iout,*) '  xyz_nodes =   allocated to size:', &
                     size(xyz_nodes,dim=1), size(xyz_nodes,dim=2)
@@ -103,7 +103,7 @@ contains
     endif
 
   ! Print info about grid%xyz.
-    if ( index(local_query,'|grid%xyz|') .gt. 0 ) then
+    if ( index(local_query,'|grid%xyz|') > 0 ) then
     if ( allocated( grid ) ) then
       write(iout,*) '  grid      =   allocated'
       if ( allocated( grid%xyz ) ) then
@@ -122,7 +122,7 @@ contains
     endif
 
   ! Print info about xyz.
-    if ( index(local_query,'|xyz|') .gt. 0 ) then
+    if ( index(local_query,'|xyz|') > 0 ) then
     if ( allocated( xyz ) ) then
       write(iout,*) '  xyz       =   allocated to size ', &
                        size(xyz,dim=1), size(xyz,dim=2)
@@ -138,7 +138,7 @@ contains
 
 
   ! Print info about faceusp.
-    if ( index(local_query,'|faceusp|') .gt. 0 ) then
+    if ( index(local_query,'|faceusp|') > 0 ) then
     if ( allocated( faceusp_dt ) ) then
       write(iout,*) '  faceusp_dt   =   allocated to size:', size(faceusp_dt)
       a_minval =  huge(1.0)
@@ -161,7 +161,7 @@ contains
     endif
 
   ! Print info about sol_nodes.
-    if ( index(local_query,'|sol_nodes|') .gt. 0 ) then
+    if ( index(local_query,'|sol_nodes|') > 0 ) then
     if ( allocated( sol_nodes ) ) then
       write(iout,*) '  sol_nodes =   allocated to size:', &
                     size(sol_nodes,dim=1), size(sol_nodes,dim=2)
@@ -175,7 +175,7 @@ contains
     endif
 
   ! Print info about grid%sol.
-    if ( index(local_query,'|grid%sol|') .gt. 0 ) then
+    if ( index(local_query,'|grid%sol|') > 0 ) then
     if ( allocated( grid ) ) then
       write(iout,*) '  grid      =   allocated'
       if ( allocated( grid%sol ) ) then
@@ -194,7 +194,7 @@ contains
     endif
 
   ! Print info about usp.
-    if ( index(local_query,'|usp|') .gt. 0 ) then
+    if ( index(local_query,'|usp|') > 0 ) then
     if ( allocated( usp ) ) then
       write(iout,*) '  usp       =   allocated to size ', &
                     size(usp,dim=1), size(usp,dim=2)
@@ -255,27 +255,27 @@ contains
                   ', line ',line_num,' in file ',trim(file_nam)
 
   ! Print info about nnode.
-    if ( index(local_query,'|nnode|') .gt. 0 ) then
+    if ( index(local_query,'|nnode|') > 0 ) then
       write(iout,*) '  g2_nnode     = ',g2_nnode
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|ncell|') .gt. 0 ) then
+    if ( index(local_query,'|ncell|') > 0 ) then
       write(iout,*) '  g2_ncell     = ',g2_ncell
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|nface|') .gt. 0 ) then
+    if ( index(local_query,'|nface|') > 0 ) then
       write(iout,*) '  g2_nface     = ',g2_nface
     endif
 
   ! Print info about ncell.
-    if ( index(local_query,'|nfbnd|') .gt. 0 ) then
+    if ( index(local_query,'|nfbnd|') > 0 ) then
       write(iout,*) '  g2_nfbnd     = ',g2_nfbnd
     endif
 
   ! Print info about facexyz.
-    if ( index(local_query,'|facexyz|') .gt. 0 ) then
+    if ( index(local_query,'|facexyz|') > 0 ) then
     if ( allocated( g2_facexyz_dt ) ) then
       write(iout,*) '  g2_facexyz_dt   =   allocated to size:', size(g2_facexyz_dt)
       a_minval =  huge(1.0)
@@ -298,7 +298,7 @@ contains
     endif
 
   ! Print info about xyz_nodes.
-    if ( index(local_query,'|xyz_nodes|') .gt. 0 ) then
+    if ( index(local_query,'|xyz_nodes|') > 0 ) then
     if ( allocated( g2_xyz_nodes ) ) then
       write(iout,*) '  g2_xyz_nodes =   allocated to size:', &
                     size(g2_xyz_nodes,dim=1), size(g2_xyz_nodes,dim=2)
@@ -312,7 +312,7 @@ contains
     endif
 
   ! Print info about grid%xyz.
-    if ( index(local_query,'|grid%xyz|') .gt. 0 ) then
+    if ( index(local_query,'|grid%xyz|') > 0 ) then
     if ( allocated( g2_grid ) ) then
       write(iout,*) '  g2_grid      =   allocated'
       if ( allocated( g2_grid%xyz ) ) then
@@ -331,7 +331,7 @@ contains
     endif
 
   ! Print info about xyz.
-    if ( index(local_query,'|xyz|') .gt. 0 ) then
+    if ( index(local_query,'|xyz|') > 0 ) then
     if ( allocated( g2_xyz ) ) then
       write(iout,*) '  g2_xyz       =   allocated to size ', &
                        size(g2_xyz,dim=1), size(g2_xyz,dim=2)
@@ -347,7 +347,7 @@ contains
 
 
   ! Print info about faceusp.
-    if ( index(local_query,'|faceusp|') .gt. 0 ) then
+    if ( index(local_query,'|faceusp|') > 0 ) then
     if ( allocated( g2_faceusp_dt ) ) then
       write(iout,*) '  g2_faceusp_dt   =   allocated to size:', size(g2_faceusp_dt)
       a_minval =  huge(1.0)
@@ -370,7 +370,7 @@ contains
     endif
 
   ! Print info about sol_nodes.
-    if ( index(local_query,'|sol_nodes|') .gt. 0 ) then
+    if ( index(local_query,'|sol_nodes|') > 0 ) then
     if ( allocated( g2_sol_nodes ) ) then
       write(iout,*) '  g2_sol_nodes =   allocated to size:', &
                     size(g2_sol_nodes,dim=1), size(g2_sol_nodes,dim=2)
@@ -384,7 +384,7 @@ contains
     endif
 
   ! Print info about grid%sol.
-    if ( index(local_query,'|grid%sol|') .gt. 0 ) then
+    if ( index(local_query,'|grid%sol|') > 0 ) then
     if ( allocated( g2_grid ) ) then
       write(iout,*) '  g2_grid      =   allocated'
       if ( allocated( g2_grid%sol ) ) then
@@ -403,7 +403,7 @@ contains
     endif
 
   ! Print info about usp.
-    if ( index(local_query,'|usp|') .gt. 0 ) then
+    if ( index(local_query,'|usp|') > 0 ) then
     if ( allocated( g2_usp ) ) then
       write(iout,*) '  g2_usp       =   allocated to size ', &
                     size(g2_usp,dim=1), size(g2_usp,dim=2)

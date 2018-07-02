@@ -125,22 +125,22 @@ continue
   if ( associated(octnode%child) ) then
     do n=1,size(octnode%child)
       call octnode_dealloc(octnode%child(n),ierr)
-      if ( ierr .ne. OCT_STATUS_OK ) status = ierr
+      if ( ierr /= OCT_STATUS_OK ) status = ierr
     end do
     deallocate( octnode%child , stat=ierr , errmsg=error_message )
-    if ( ierr .ne. 0 ) status = OCT_STATUS_MEMORY_ERROR
+    if ( ierr /= 0 ) status = OCT_STATUS_MEMORY_ERROR
     call alloc_error(pname,"octnode%child",2,__LINE__,__FILE__,ierr, &
                      error_message)
   end if
   if ( allocated(octnode%bbox) ) then
     deallocate( octnode%bbox , stat=ierr , errmsg=error_message )
-    if ( ierr .ne. 0 ) status = OCT_STATUS_MEMORY_ERROR
+    if ( ierr /= 0 ) status = OCT_STATUS_MEMORY_ERROR
     call alloc_error(pname,"octnode%bbox",2,__LINE__,__FILE__,ierr, &
                      error_message)
   end if
   if ( allocated(octnode%ixyzdata) ) then
     deallocate( octnode%ixyzdata , stat=ierr , errmsg=error_message )
-    if ( ierr .ne. 0 ) status = OCT_STATUS_MEMORY_ERROR
+    if ( ierr /= 0 ) status = OCT_STATUS_MEMORY_ERROR
     call alloc_error(pname,"octnode%ixyzdata",2,__LINE__,__FILE__,ierr, &
                      error_message)
   end if
@@ -197,7 +197,7 @@ continue
   allocate( octnode%bbox(1:nr,1:2) , stat=ierr , errmsg=error_message )
   call alloc_error(pname,"octnode%bbox",1,__LINE__,__FILE__,ierr, &
                    error_message)
-  if ( ierr .ne. 0 ) then
+  if ( ierr /= 0 ) then
     status = OCT_STATUS_MEMORY_ERROR
   else
     octnode%bbox = bbox
@@ -233,8 +233,8 @@ continue
   !
   status = OCT_STATUS_NOT_FOUND
   do l = 1,nr
-    if ( xyz_pt(l) .lt. octnode%bbox(l,1) ) return
-    if ( xyz_pt(l) .gt. octnode%bbox(l,2) ) return
+    if ( xyz_pt(l) < octnode%bbox(l,1) ) return
+    if ( xyz_pt(l) > octnode%bbox(l,2) ) return
   end do
   !
   status = OCT_STATUS_OK
@@ -256,11 +256,11 @@ continue
   !
   if ( allocated(octnode%ixyzdata) ) then
     ! This octnode contains data.
-    if ( octnode%nxyzdata .eq. octroot%MAXOCTDATA ) then
+    if ( octnode%nxyzdata == octroot%MAXOCTDATA ) then
       ! octnode data is full.  Create children.  Push exisiting data to them.
       ! Push of xyz_pt will occur in next if-block.
       call octnode_makechildren(octnode,octroot,octedat,status)
-      if ( status .ne. OCT_STATUS_OK ) return
+      if ( status /= OCT_STATUS_OK ) return
     end if
   end if
   !
@@ -286,7 +286,7 @@ continue
 !-DEBUG_END:
       call octnode_addxyz(octnode%child(n),octroot,octedat, &
                           ixyz_pt,xyz_pt,status)
-      if ( status .ne. OCT_STATUS_NOT_FOUND ) exit
+      if ( status /= OCT_STATUS_NOT_FOUND ) exit
     end do
   else
     ! This octnode contains no children.  Check for data.
@@ -296,7 +296,7 @@ continue
                 stat=ierr , errmsg=error_message )
       call alloc_error(pname,"octnode%ixyzdata",1,__LINE__,__FILE__,ierr, &
                        error_message)
-      if ( ierr .ne. 0 ) then
+      if ( ierr /= 0 ) then
         status = OCT_STATUS_MEMORY_ERROR
         return
       end if
@@ -304,7 +304,7 @@ continue
     end if
     ! This octnode contains data array with room for xyz_pt.
     ! Add xyz_pt and increment octnode data count.
-    if ( octnode%nxyzdata .lt. octroot%MAXOCTDATA ) then
+    if ( octnode%nxyzdata < octroot%MAXOCTDATA ) then
       octnode%nxyzdata = octnode%nxyzdata + 1
       octnode%ixyzdata(:,octnode%nxyzdata) = ixyz_pt
       octroot%totoctdata = octroot%totoctdata + 1
@@ -380,7 +380,7 @@ continue
             errmsg=error_message )
   call alloc_error(pname,"octnode%child",1,__LINE__,__FILE__,ierr, &
                    error_message)
-  if ( ierr .ne. 0 ) then
+  if ( ierr /= 0 ) then
     status = OCT_STATUS_MEMORY_ERROR
     return
   end if
@@ -400,18 +400,18 @@ continue
   do n = 1,octroot%MAXOCTNODES
     bit(:) = 0
     oct = n
-    if ( oct .gt. 4 ) then
+    if ( oct > 4 ) then
       oct = oct - 4 ; bit(3) = 1
     end if
-    if ( oct .gt. 2 ) then
+    if ( oct > 2 ) then
       oct = oct - 2 ; bit(2) = 1
     end if
-    if ( oct .gt. 1 ) then
+    if ( oct > 1 ) then
       oct = oct - 1 ; bit(1) = 1
     end if
     do l = 1,nr
       boxmid = ( bbox(l,1) + bbox(l,2) ) * half
-      if ( bit(l) .eq. 0 ) then
+      if ( bit(l) == 0 ) then
         subbbox(l,1) = bbox(l,1)
         subbbox(l,2) = boxmid
       else
@@ -424,7 +424,7 @@ continue
     !
     call octnode_init(octnode%child(n),octroot,subbbox,status, &
                       parent=octnode)
-    if ( status .ne. OCT_STATUS_OK ) return
+    if ( status /= OCT_STATUS_OK ) return
   end do ! n
 
   if ( allocated(octnode%ixyzdata) ) then
@@ -433,13 +433,13 @@ continue
     ! Need to get xyz data for all points in ixyzdata.
     allocate( xyz_pts(nr,octnode%nxyzdata) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"xyz_pts",1,__LINE__,__FILE__,ierr,error_message)
-    if ( ierr .ne. 0 ) then
+    if ( ierr /= 0 ) then
       status = OCT_STATUS_MEMORY_ERROR
       return
     endif
     call octedat%evalxyz_pts(octnode%nxyzdata,octnode%ixyzdata, &
                              xyz_pts,status)
-    if ( status .ne. OCT_STATUS_OK ) return
+    if ( status /= OCT_STATUS_OK ) return
     !
     ! Now push each point down to child octnodes.
     do k = 1,octnode%nxyzdata
@@ -452,8 +452,8 @@ continue
 !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
   ! Print debug info when making children.
-  if ( k .eq.  1 ) then
-    if ( n .eq. 1 ) then
+  if ( k ==  1 ) then
+    if ( n == 1 ) then
     write(*,*) 'DEBUG_BEG[octnode_makechildren]'
     write(*,*) '  Push existing octnode data to children.'
     write(*,*) '  ixyzdata = ',ixyz_pt
@@ -462,18 +462,18 @@ continue
     write(*,*) '  k,n,status = ',k,n,status
     write(*,*) '  bboxmin    = ',(octnode%child(n)%bbox(l,1), l=1,nr)
     write(*,*) '  bboxmax    = ',(octnode%child(n)%bbox(l,2), l=1,nr)
-    if ( n .eq. octroot%MAXOCTNODES ) then
+    if ( n == octroot%MAXOCTNODES ) then
     write(*,*) 'DEBUG_END[octnode_makechildren]'
     end if
   end if
 #endif
 !-DEBUG_END:
 !
-        if ( status .eq. OCT_STATUS_OK ) then
+        if ( status == OCT_STATUS_OK ) then
           ! Data pushed to child.  No need to try other children.
           exit  ! n-loop
         end if
-        if ( status .ne. OCT_STATUS_NOT_FOUND ) then
+        if ( status /= OCT_STATUS_NOT_FOUND ) then
           ! Error while pushing data to child.  Abort with status.
           return
         end if
@@ -481,7 +481,7 @@ continue
 !
 !-DEBUG_BEG:
 #ifdef DEBUG_OCTFILL
-  if ( status .ne. OCT_STATUS_OK ) then
+  if ( status /= OCT_STATUS_OK ) then
     write(*,*) 'DEBUG_BEG[octnode_makechildren]'
     write(*,*) '  Should never get here!'
     write(*,*) '  nxyzdata   = ',octnode%nxyzdata
@@ -540,8 +540,8 @@ continue
   ! If xyz_pt not within this octnode, return with error.
   status = OCT_STATUS_NOT_FOUND
   do l = 1,nr
-    if ( xyz_pt(l) .lt. octnode%bbox(l,1) ) return
-    if ( xyz_pt(l) .gt. octnode%bbox(l,2) ) return
+    if ( xyz_pt(l) < octnode%bbox(l,1) ) return
+    if ( xyz_pt(l) > octnode%bbox(l,2) ) return
   end do
 !
   if ( associated(octnode%child) ) then
@@ -549,7 +549,7 @@ continue
     do n = 1,octroot%MAXOCTNODES
       call octnode_find_containing_octnode(octnode%child(n), &
              octroot,octedat,xyz_pt,containing_octnode,status)
-      if ( status .eq. OCT_STATUS_OK ) return
+      if ( status == OCT_STATUS_OK ) return
     end do
   else
     ! This is the smallest octnode containing xyz_pt.
@@ -617,8 +617,8 @@ continue
   ! If any min/max edge of xyz_bbox is right/left of max/min of octnode%bbox,
   ! then boxes to not overlap.
   do l = 1,nr
-    if ( xyz_bbox(l,1) .gt. octnode%bbox(l,2) ) return
-    if ( xyz_bbox(l,2) .lt. octnode%bbox(l,1) ) return
+    if ( xyz_bbox(l,1) > octnode%bbox(l,2) ) return
+    if ( xyz_bbox(l,2) < octnode%bbox(l,1) ) return
   end do
   !
   !-COMMENT_BEG:
@@ -632,7 +632,7 @@ continue
     dist_to_bbox =  min( dist_to_bbox, abs( xyz_pt(l) - octnode%bbox(l,1) ) &
                                      , abs( xyz_pt(l) - octnode%bbox(l,2) ) )
   end do
-  if ( dist_to_bbox**2 .gt. best_dist2 ) return
+  if ( dist_to_bbox**2 > best_dist2 ) return
   !-COMMENT_END:
   !
   if ( associated(octnode%child) ) then
@@ -642,7 +642,7 @@ continue
       call octnode_find_nearest_xyz(octnode%child(n),octroot,octedat, &
              xyz_pt,xyz_bbox, &
              best_octnode,best_octixyz,best_ixyz,best_dist2,octnode_status)
-      if ( octnode_status .eq. OCT_STATUS_OK ) status = OCT_STATUS_OK
+      if ( octnode_status == OCT_STATUS_OK ) status = OCT_STATUS_OK
     end do
 
   else if ( allocated(octnode%ixyzdata) ) then
@@ -653,16 +653,16 @@ continue
     allocate( xyz_pts(1:nr,1:octnode%nxyzdata) , stat=ierr , &
               errmsg=error_message )
     call alloc_error(pname,"xyz_pts",1,__LINE__,__FILE__,ierr,error_message)
-    if ( ierr .ne. 0 ) then
+    if ( ierr /= 0 ) then
       status = OCT_STATUS_MEMORY_ERROR
     else
       call octedat%evalxyz_pts(octnode%nxyzdata,octnode%ixyzdata, &
                                xyz_pts,status)
-      if ( status .eq. OCT_STATUS_OK ) then
+      if ( status == OCT_STATUS_OK ) then
         do k = 1,octnode%nxyzdata
           dxyz = xyz_pt(:) - xyz_pts(:,k)
           dist2 = dot_product(dxyz,dxyz)
-          if ( dist2 .lt. best_dist2 ) then
+          if ( dist2 < best_dist2 ) then
             best_octnode => octnode
             best_octixyz = k                     ! index within octnode data
             best_ixyz    = octnode%ixyzdata(:,k) ! index within octedat data
@@ -730,7 +730,7 @@ continue
   !
   ! Print data.
   write(20,*) 'nxyzdata = ',octnode%nxyzdata
-  if ( allocated(octnode%ixyzdata) .and. octnode%nxyzdata .gt. 0 ) then
+  if ( allocated(octnode%ixyzdata) .and. octnode%nxyzdata > 0 ) then
     allocate( xyz_pts(nr,octnode%nxyzdata) , stat=ierr , errmsg=error_message )
     call alloc_error(pname,"xyz_pts",1,__LINE__,__FILE__,ierr,error_message)
     call octedat%evalxyz_pts(octnode%nxyzdata,octnode%ixyzdata, &

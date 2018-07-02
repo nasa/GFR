@@ -153,24 +153,24 @@ continue
   ! Make sure this octtree is empty.
   dealloc_octedat = .false. ! don't erase octedat data
   call octtree_dealloc(octtree,dealloc_octedat,status)
-  if ( status .ne. OCT_STATUS_OK ) return
+  if ( status /= OCT_STATUS_OK ) return
   !
   ! Init the octroot.
   maxoctdata  = -1       ! use default from octnode_mod
   maxoctnodes = 2**nr
   call octroot_init(octtree%octroot,maxoctdata,maxoctnodes,status)
-  if ( status .ne. OCT_STATUS_OK ) return
+  if ( status /= OCT_STATUS_OK ) return
   !
   ! Init the initial octnode.
   call octnode_init(octtree%octnode,octtree%octroot, &
                     bbox,status) ! ,parent=null()
-  if ( status .ne. OCT_STATUS_OK ) return
+  if ( status /= OCT_STATUS_OK ) return
   !
 ! Push data into octtree.
 ! For a simple array src_xyzdata(3,npts):
 !   do k = 1,size(src_xyzdata,dim=2)
 !     call octnode_addxyz(octtree%octnode,octtree%octroot,k,status)
-!     if ( status .ne. OCT_STATUS_OK ) return
+!     if ( status /= OCT_STATUS_OK ) return
 !   end do
 ! However, we 
 ! call ed_data%octtree_fill(octtree,
@@ -312,7 +312,7 @@ continue
   allocate( best_ixyz(octtree%octedat%maxindices) , stat=ierr , &
             errmsg=error_message )
   call alloc_error(pname,"best_ixyz",1,__LINE__,__FILE__,ierr,error_message)
-  if ( ierr .ne. 0 ) then
+  if ( ierr /= 0 ) then
     status = OCT_STATUS_MEMORY_ERROR
     return
   endif
@@ -328,7 +328,7 @@ continue
   call debug_timer(stop_accumulation,"octnode_find_containing_octnode", &
                    acc=2,pid=tid)
   !
-  if ( status .eq. OCT_STATUS_OK ) then
+  if ( status == OCT_STATUS_OK ) then
     call debug_timer(start_accumulation,"Crap 2", &
                      acc=3,pid=tid)
     best_octnode => containing_octnode
@@ -355,7 +355,7 @@ continue
     call octnode_find_nearest_xyz(octtree%octnode,octtree%octroot, &
            octtree%octedat,xyz_pt,xyz_bbox, &
            best_octnode,best_octixyz,best_ixyz,best_dist2,status)
-    if ( status .eq. OCT_STATUS_OK ) then
+    if ( status == OCT_STATUS_OK ) then
       ixyz_pt = best_ixyz
     end if
     call debug_timer(stop_accumulation,"octnode_find_nearest_xyz", &

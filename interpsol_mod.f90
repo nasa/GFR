@@ -408,7 +408,7 @@ continue
 #ifdef ONLY_GLB_ROOT_OUTPUT
     if (mypnum == glb_root) then
 #endif
-      if ( nc .gt. 1 .and. (ncell-1)*10 > 100 ) then
+      if ( nc > 1 .and. (ncell-1)*10 > 100 ) then
         if ( mod( nc-1, ((ncell-1)*10)/100 ) == 0 ) then
           write(iout,201) int( 100.0*(nc-1.0)/(ncell-1.0) + 0.5 )
           flush(iout)
@@ -423,7 +423,7 @@ continue
       nf = cell(nc)%face(ncf)%idx   ! global face index
       sf = cell(nc)%face(ncf)%side
       ! Only left faces to avoid duplicate pts from right face.
-      if ( sf .eq. 1 ) then
+      if ( sf == 1 ) then
         face_geom  = cell(nc)%face(ncf)%geom
         face_order = cell(nc)%face(ncf)%order
         nfp = geom_solpts(face_geom,face_order)  ! current cell face pts
@@ -449,7 +449,7 @@ continue
           ixyz_pt(3) = ifp  ! cell face facept no.
           xyz_pt = facexyz_dt(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,status)
-          if ( status .ne. OCT_STATUS_OK ) then
+          if ( status /= OCT_STATUS_OK ) then
 #ifdef ONLY_GLB_ROOT_OUTPUT
             if (mypnum == glb_root) then
 #endif
@@ -918,7 +918,7 @@ continue
   do nc = 1,ncell  ! cell loop
 !-DEBUG_BEG:
 !-DEBUG_CMT: Print percent complete status every 10%.
-    if ( nc .gt. 1 .and. (ncell-1)*10 > 100 ) then
+    if ( nc > 1 .and. (ncell-1)*10 > 100 ) then
       if ( mod( nc-1, ((ncell-1)*10)/100 ) == 0 ) then
         write(iout,201) int( 100.0*(nc-1.0)/(ncell-1.0) + 0.5 )
         flush(iout)
@@ -930,7 +930,7 @@ continue
       nf = cell(nc)%face(ncf)%idx   ! global face index
       sf = cell(nc)%face(ncf)%side
       ! Only left faces to avoid duplicate pts from right face.
-      if ( sf .eq. 1 ) then
+      if ( sf == 1 ) then
         face_geom  = cell(nc)%face(ncf)%geom
         face_order = cell(nc)%face(ncf)%order
         nfp = geom_solpts(face_geom,face_order)  ! current cell face pts
@@ -947,7 +947,7 @@ continue
           ixyz_pt(3) = ifp  ! cell face facept no.
           xyz_pt = facexyz_dt(nf)%v(:,ifp)
           call octtree_addxyz(octtree,ixyz_pt,xyz_pt,status)
-          if ( status .ne. OCT_STATUS_OK ) then
+          if ( status /= OCT_STATUS_OK ) then
             if ( mypnum == glb_root) then
               write(iout,*) 'ERROR:  Failed to init octree for interpolation.'
               write(iout,*) '          status = ',status
@@ -1031,7 +1031,7 @@ continue
 ! Loop over test points.
   do k = 1,1
     ! Specify volume point xyz to interp sol onto.
-    if ( nr .eq. 3 ) then
+    if ( nr == 3 ) then
       g2_xyz_pt(1) = 4.25
       g2_xyz_pt(2) = 19.1107340438399191
       g2_xyz_pt(3) = 0.567418334509571576
@@ -1053,7 +1053,7 @@ continue
   endif
 !-DEBUG_END:
 !
-    if ( status .eq. OCT_STATUS_OK ) then
+    if ( status == OCT_STATUS_OK ) then
       ! Decode cell info from ixyz_pt.
       nc  = ixyz_pt(1)  ! cell no.
       ncf = ixyz_pt(2)  ! cell face no.
@@ -1088,7 +1088,7 @@ endif
 !
       ! Dot face normal with face_to_xyz vector.
       ! Face normal always points toward right cell.
-      if ( dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) .le. 0 ) then
+      if ( dot( geofa(nf)%v(:,ifp), face_to_xyz(:) ) <= 0 ) then
         ! xyz_pt is inside this (left) donor cell.
         ! Interpolate donor sol to this xyz_pt.
         donor_lr_flag = 1
@@ -1188,7 +1188,7 @@ endif
       close(iotec)
       !
     else
-      ! status .ne. OCT_STATUS_OK
+      ! status /= OCT_STATUS_OK
       if ( mypnum == glb_root) then
         write(iout,*) 'ERROR:  Octree failed to locate nearest point ', &
                       'for interpolation.'

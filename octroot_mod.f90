@@ -84,8 +84,8 @@ contains
   integer             ,intent(out)   :: status
   !
   ! Negative input values will retain current (likely default) setting.
-  if ( maxoctdata  .ge. 0 ) octroot%MAXOCTDATA  = maxoctdata
-  if ( maxoctnodes .ge. 0 ) octroot%MAXOCTNODES = maxoctnodes
+  if ( maxoctdata  >= 0 ) octroot%MAXOCTDATA  = maxoctdata
+  if ( maxoctnodes >= 0 ) octroot%MAXOCTNODES = maxoctnodes
   !
   ! Reset counters.
   octroot%totoctdata = 0
