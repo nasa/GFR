@@ -1535,7 +1535,7 @@ continue
       else
         call write_solution_file_serial(fullname,int_header,real_header, &
                                         ordered_geom,solution, &
-                                        max_restart_wall_time,statfile=statfile)
+                                        max_restart_wall_time)
       end if
       !
     end if
