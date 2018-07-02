@@ -6080,6 +6080,9 @@ pure subroutine get_bc_adiabatic_wall_solution(n1,n2,face_cv,pv_in)
   !
   ! FACE_CV : Conservative variables at the flux points
   !
+  !.. Use Statements ..
+  use gpu_mod, only : tvsp2u_gpu
+  !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1,n2
   real(wp), intent(inout) :: face_cv(:,:,:)
