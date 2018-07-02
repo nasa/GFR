@@ -15,7 +15,7 @@ module interpolation_mod
   public :: init_interpolation_matrices
   public :: init_outerpolation_matrices
   public :: interpolation_memory_usage
-  public :: interpolate_restart_solution
+  public :: interp_cell_sol_to_xyz
   public :: move_interp_to_device
   public :: move_outerp_to_device
   public :: outerp_mv_mult
@@ -102,7 +102,7 @@ contains
 !
 !###############################################################################
 !
-subroutine interpolate_restart_solution(nc,xyz_pt,return_value)
+subroutine interp_cell_sol_to_xyz(nc,xyz_pt,return_value)
   !
   !.. Use Statements ..
   use order_mod,      only : maxSP
@@ -136,7 +136,7 @@ subroutine interpolate_restart_solution(nc,xyz_pt,return_value)
   real(wp), pointer :: solpts(:,:)
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "interpolate_restart_solution"
+  character(len=*), parameter :: pname = "interp_cell_sol_to_xyz"
   !
   integer,  parameter :: max_iterations = 50
  !real(wp), parameter :: error_goal = eps3
@@ -327,7 +327,7 @@ continue
     return_value(m) = dot( interp_mat(1:np) , usp(m,n1:n2) )
   end do
   !
-end subroutine interpolate_restart_solution
+end subroutine interp_cell_sol_to_xyz
 !
 !###############################################################################
 !
