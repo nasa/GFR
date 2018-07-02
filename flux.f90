@@ -53,8 +53,8 @@ subroutine interp_cv_to_flxpts(iter,nst)
   !.. Use Statements ..
   use geovar, only : nr
   !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iter,nst
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: iter,nst
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "interp_cv_to_flxpts"
@@ -85,8 +85,8 @@ subroutine interp_cv_to_flxpts_3d(iter,nst)
   use geovar,            only : face
   use flowvar,           only : faceusp_array
   !
-  !.. Formal Arguments ..
-  integer, intent(in) :: iter,nst
+  !.. Optional Arguments ..
+  integer, optional, intent(in) :: iter,nst
   !
   !.. Local Scalars ..
   integer :: n,nc,n0,ncf,f0
@@ -179,8 +179,10 @@ continue
     !
   end do
   !
- !if (iter > 0 .and. nst > 0) then
- !  call write_array(100,iter,nst,faceusp_array(:,:,1))
+ !if (present(iter) .and. present(nst)) then
+ !  if (iter > 0 .and. nst > 0) then
+ !    call write_array(100,iter,nst,faceusp_array(:,:,1))
+ !  end if
  !end if
   !
 end subroutine interp_cv_to_flxpts_3d
