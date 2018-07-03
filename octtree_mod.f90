@@ -53,8 +53,6 @@ contains
   !
   ! Finalize the octtree_type.
   !
-  implicit none
-  !
   !.. Formal Arguments ..
   type(octtree_type) ,intent(inout) :: octtree
   !
@@ -87,8 +85,6 @@ continue
   subroutine octtree_dealloc(octtree,dealloc_octedat,status)
   !
   ! Deallocate the octtree and all subnode data.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   class(octtree_type) ,intent(inout) :: octtree
@@ -131,8 +127,6 @@ continue
   ! Initialize the empty octtree but do not polulate.
   ! Initialize octtree%octedat elsewhere, since we don't know anything
   ! about octedat structure here.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octtree_type)         ,intent(inout) :: octtree
@@ -183,8 +177,6 @@ continue
   !
   ! Add an xyz point to this octtree.
   !
-  implicit none
-  !
   !.. Formal Arguments ..
   type(octtree_type)                    ,intent(inout) :: octtree
   integer              ,dimension(:)    ,intent(in)    :: ixyz_pt
@@ -207,8 +199,6 @@ continue
   ! Within this octtree, find the smallest octnode or sub-octnode whose bbox
   ! contains xyz_pt.  This node will have no children, and may or may not
   ! have data.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octtree_type)                    ,intent(in)  :: octtree
@@ -237,8 +227,6 @@ continue
   ! Find point in octtree that is nearest to desired xyz_pt.
   ! Return the index info used to retrieve the corresponding xyz point
   ! from routine octtree%octedat%evalxyz_pt(idx,xyz,status).
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octtree_type)               ,intent(in)  :: octtree
@@ -399,8 +387,6 @@ continue
   subroutine octtree_print(octtree,filename,status)
   !
   ! Print the octtree to file for debugging.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octtree_type)                    ,intent(in)    :: octtree

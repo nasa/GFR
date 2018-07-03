@@ -29,7 +29,6 @@ subroutine mv_global_to_grid2()
   use geovar
   use flowvar
   use ovar,              only : bc_names
-  implicit none
 
 !-DEBUG_BEG:
   write(iout,*) 'DEBUG[mv_global_to_grid2] Move global vars to grid2.'
@@ -105,7 +104,6 @@ subroutine mv_grid2_to_global()
   use geovar
   use flowvar
   use ovar,              only : bc_names
-  implicit none
 
 !-DEBUG_BEG:
   write(iout,*) 'DEBUG[mv_grid2_to_global] Move grid2 vars to global.'
@@ -275,7 +273,6 @@ subroutine interpsol()
   use omp_lib, only : omp_get_thread_num
   use omp_lib, only : omp_get_num_threads
 #endif
-  implicit none
 
   !.. Local Scalars ..
   type(octedat_facexyz_type) ,target :: octedat
@@ -850,7 +847,6 @@ subroutine interpsol_debug()
 !-DEBUG_BEG:
   use mydebug_mod
 !-DEBUG_END:
-  implicit none
 
   !.. Local Scalars ..
   type(octedat_facexyz_type) ,target :: octedat

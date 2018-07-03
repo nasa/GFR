@@ -33,7 +33,6 @@ contains
   !
   ! Finalize the octroot_type.
   !
-  implicit none
   type(octroot_type) :: this
   !
   integer :: status
@@ -46,7 +45,6 @@ contains
   !
   ! Finalize an array of octroot_type.
   !
-  implicit none
   type(octroot_type) ,dimension(:) :: this
   !
   integer :: n
@@ -62,7 +60,6 @@ contains
   !
   ! Deallocare the octroot data.
   !
-  implicit none
   class(octroot_type) ,intent(inout) :: octroot
   integer             ,intent(out)   :: status
   !

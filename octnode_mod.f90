@@ -62,8 +62,6 @@ contains
   !
   ! Finalize the octnode_type.
   !
-  implicit none
-  !
   !.. Formal Arguments ..
   type(octnode_type) :: this
   !
@@ -95,8 +93,6 @@ continue
   subroutine octnode_dealloc(octnode,status)
   !
   ! Deallocate the octnode and all child octnodes.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   class(octnode_type) :: octnode
@@ -159,8 +155,6 @@ continue
   !
   ! Initialize non-default components of an octnode.
   !
-  implicit none
-  !
   !.. Formal Arguments ..
   type(octnode_type)                    ,intent(inout) :: octnode
   type(octroot_type)                    ,intent(inout) :: octroot
@@ -210,8 +204,6 @@ continue
   subroutine octnode_addxyz(octnode,octroot,octedat,ixyz_pt,xyz_pt,status)
   !
   ! Add an xyz point to this octnode or one of the subnodes.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octnode_type)                    ,intent(inout) :: octnode
@@ -338,8 +330,6 @@ continue
   !
   ! Create octnode children and push exisiting octnode data down to them.
   ! Assumes children do not already exist.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octnode_type)                    ,intent(inout) :: octnode
@@ -516,8 +506,6 @@ continue
   ! contains xyz_pt.  This node will have no children, and may or may not
   ! have data.
   !
-  implicit none
-  !
   !.. Formal Arguments ..
   type(octnode_type) ,target            ,intent(in)  :: octnode
   type(octroot_type)                    ,intent(in)  :: octroot
@@ -583,8 +571,6 @@ continue
   !   OCT_STATUS_OK          Closer match to xyz_pt was found.
   !   OCT_STATUS_NOT_FOUND   Closer match to xyz_pt was not found.
   !   OCT_STATUS_DATA_ERROR  Error evaluating data within the octtree.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octnode_type)   ,target          ,intent(in)    :: octnode
@@ -684,8 +670,6 @@ continue
   subroutine octnode_print(octnode,octedat,status,filename)
   !
   ! Print the octnode to file for debugging.
-  !
-  implicit none
   !
   !.. Formal Arguments ..
   type(octnode_type)                    ,intent(in)    :: octnode

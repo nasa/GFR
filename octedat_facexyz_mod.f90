@@ -62,7 +62,6 @@ contains
 
   use geovar,  only : cell
   use flowvar, only : facexyz_dt
-  implicit none
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
   integer  ,dimension(:)       ,intent(in)  :: idx
@@ -97,7 +96,6 @@ contains
 
   use geovar,  only : cell
   use flowvar, only : facexyz_dt
-  implicit none
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
   integer                      ,intent(in)  :: npts
