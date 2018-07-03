@@ -1812,6 +1812,9 @@ continue
     aref = sqrt( gam*pref/rhoref ) ! (m/s) ~ 347.2169357
     machref = 0.1_wp
     uref = aref * machref ! (m/s) ~ 34.72169357
+    velref(1) = uref
+    velref(2) = zero
+    velref(3) = zero
     !
     if (reyref <= zero) then
       reyref = 1600.0_wp
