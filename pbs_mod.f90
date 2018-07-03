@@ -202,6 +202,7 @@ subroutine initialize_pbs_mod(walltime_expiring)
   logical(lk), intent(out) :: walltime_expiring
   !
   !.. Local Scalars ..
+  integer(pbs_int) :: hours,minutes,seconds
   integer(pbs_int) :: current_wtl
   !
   !.. Local Parameters ..
@@ -215,10 +216,17 @@ continue
 #ifdef PBS_ENV
   call pbs_time_left(current_wtl)
  !current_wtl = real (8*3600,kind=wp)
+  !
+  hours = current_wtl / 3600_pbs_int
+  minutes = (current_wtl - 3600_pbs_int*hours) / 60_pbs_int
+  seconds = current_wtl - hours*3600_pbs_int - minutes*60_pbs_int
+  !
+  write (iout,1) current_wtl,hours,minutes,seconds,ncpu
 #else
   current_wtl = huge(int(0,kind=kind(current_wtl)))
+  !
+  write (iout,2) current_wtl,ncpu
 #endif
-  write (iout,1) current_wtl,ncpu
   !
   ! Initialize the module variables storing the previous wall time left
   ! and previous mpi_wtime
@@ -231,7 +239,9 @@ continue
   !
   ! Format Statements
   !
-  1 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)
+  1 format (/," Allocated Wall Time = ",i0," s. (",i0,":",i2.2,":",i2.2, &
+              ") running on ",i0," CPUs",/)
+  2 format (/," Allocated Wall Time = ",i0," s. running on ",i0," CPUs",/)
   !
 end subroutine initialize_pbs_mod
 !
