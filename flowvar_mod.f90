@@ -346,7 +346,8 @@ continue
   !
   if (.not. convert_restart_to_cgns .or. continuous_output) then
     !
-    ! If using the continuous output option or MMS, allocate the facexyz_dt array
+    ! If using the continuous output option or MMS,
+    ! allocate the facexyz_dt array
     !
     if (continuous_output) then
       !
@@ -425,8 +426,8 @@ continue
       !
     end if
     !
-    ! If using continuous output, allocate the nodeusp_dt, nodedusp_dt, edgeusp_dt,
-    ! and edgedusp_dt arrays
+    ! If using continuous output, allocate the nodeusp_dt, nodedusp_dt,
+    ! edgeusp_dt, and edgedusp_dt arrays
     !
     !##########################################################################
     !##########################################################################

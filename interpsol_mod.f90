@@ -714,8 +714,10 @@ continue
           !
           val = zero
           !
-          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          do i = interp(this_geom,this_order)% &
+                           toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)% &
+                           toFace(face_order)%row_ptr(lf+1)
             !
             j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
             a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
@@ -1188,8 +1190,10 @@ endif
           !
           val = zero
           !
-          do i = interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf)+1, &
-                 interp(this_geom,this_order)%toFace(face_order)%row_ptr(lf+1)
+          do i = interp(this_geom,this_order)% &
+                           toFace(face_order)%row_ptr(lf)+1, &
+                 interp(this_geom,this_order)% &
+                           toFace(face_order)%row_ptr(lf+1)
             !
             j = interp(this_geom,this_order)%toFace(face_order)%row_idx(i)
             a = interp(this_geom,this_order)%toFace(face_order)%row_val(i)
@@ -1301,7 +1305,8 @@ subroutine deallocate_solver_arrays()
   use geovar,      only : face,grid
   use flowvar,     only : faceusp_dt,facedusp_dt,faceflx,facexyz_dt
   use flowvar,     only : residual,dtsp,uoldsp,rk_sum,rssprk
-  use flowvar,     only : nodeusp_dt,nodedusp_dt,edgeusp_dt,edgedusp_dt,edgexyz_dt
+  use flowvar,     only : nodeusp_dt,nodedusp_dt
+  use flowvar,     only : edgeusp_dt,edgedusp_dt,edgexyz_dt
   use flowvar,     only : global_usp,global_var
   use metrics_mod, only : metrics_dt,geofa
   !

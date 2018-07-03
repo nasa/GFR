@@ -4435,7 +4435,7 @@ end subroutine read_rstrt_file_r16_rank2
 !
 !###############################################################################
 !###############################################################################
-! MPI read subroutines for REAL data matching the current working precision (wp)
+! MPI read subroutines for current working precision REAL data (wp)
 !###############################################################################
 !###############################################################################
 !
@@ -4867,7 +4867,7 @@ end subroutine read_rstrt_file_serial_r16_rank2
 !
 !###############################################################################
 !###############################################################################
-! Serial read subroutines for REAL data matching the current working precision (wp)
+! Serial read subroutines for current working precision REAL data (wp)
 !###############################################################################
 !###############################################################################
 !

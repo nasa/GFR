@@ -110,10 +110,10 @@ module ovar
   ! will be interpolated onto.
   !
   ! INTERPOLATION UTILITY GRID INFORMATION
-  integer,            public, save :: interpto_grid_format         = Unknown_Format
-  character(len=150), public, save :: interpto_gridfile            = ""
-  character(len=150), public, save :: interpto_plot3d_cutfile      = ""
-  character(len=150), public, save :: interpto_plot3d_bcsfile      = ""
+  integer,            public, save :: interpto_grid_format      = Unknown_Format
+  character(len=150), public, save :: interpto_gridfile         = ""
+  character(len=150), public, save :: interpto_plot3d_cutfile   = ""
+  character(len=150), public, save :: interpto_plot3d_bcsfile   = ""
   real(wp),           public, save :: interpto_grid_scaling_factor = 1.0_wp
   !
   ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS

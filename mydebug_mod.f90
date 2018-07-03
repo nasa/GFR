@@ -226,7 +226,8 @@ contains
   use geovar,           only :  nr
   use interpsolvar_mod, only :  g2_nnode, g2_ncell, g2_nface, g2_nfbnd
   use interpsolvar_mod, only :  g2_grid, g2_xyz_nodes, g2_xyz
-  use interpsolvar_mod, only :  g2_facexyz_dt, g2_faceusp_dt, g2_sol_nodes, g2_usp
+  use interpsolvar_mod, only :  g2_facexyz_dt, g2_faceusp_dt
+  use interpsolvar_mod, only :  g2_sol_nodes, g2_usp
   implicit none
 
   !.. Formal Arguments ..
@@ -277,7 +278,8 @@ contains
   ! Print info about facexyz.
     if ( index(local_query,'|facexyz|') > 0 ) then
     if ( allocated( g2_facexyz_dt ) ) then
-      write(iout,*) '  g2_facexyz_dt   =   allocated to size:', size(g2_facexyz_dt)
+      write(iout,*) '  g2_facexyz_dt   =   allocated to size:', &
+                    size(g2_facexyz_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
       do nf=1,size(g2_facexyz_dt)     ! size should equal nface
@@ -349,7 +351,8 @@ contains
   ! Print info about faceusp.
     if ( index(local_query,'|faceusp|') > 0 ) then
     if ( allocated( g2_faceusp_dt ) ) then
-      write(iout,*) '  g2_faceusp_dt   =   allocated to size:', size(g2_faceusp_dt)
+      write(iout,*) '  g2_faceusp_dt   =   allocated to size:', &
+                    size(g2_faceusp_dt)
       a_minval =  huge(1.0)
       a_maxval = -huge(1.0)
       do nf=1,size(g2_faceusp_dt)     ! size should equal nface
