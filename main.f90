@@ -41,6 +41,8 @@ program GFR_main
   use ovar, only : channel_spatial_ave_restart
   use ovar, only : if_interpto_newgrid
   use ovar, only : convert_restart_to_cgns
+  use ovar, only : start_averaging_timestep
+  use ovar, only : start_averaging_tstar,init_tstar
   !
   use input_namelist_mod, only : cfl_adjustment
   use input_namelist_mod, only : restart_interupt
@@ -179,6 +181,7 @@ program GFR_main
   integer  :: completed_timesteps
   integer  :: newton_failures
   real(wp) :: dtmin,out_time
+  real(wp) :: current_tstar
   !
   character(len=50) :: memfile
   !
@@ -903,6 +906,53 @@ continue
     !
     call check_for_bad_number(__LINE__)
     !
+    ! Initialize time averaging if start_averaging_timestep
+    ! is equal to the current time step
+    !
+    if (.not. output_time_averaging) then
+      if (start_averaging_timestep > 0) then
+        if (itcur == start_averaging_timestep) then
+          !
+          if (mypnum == glb_root) then
+            write (iout,80)
+            flush (iout)
+          end if
+          !
+          output_time_averaging = true
+          rl2mx = -huge(zero)
+          !
+          call initialize_time_ave
+          !
+        end if
+      end if
+    end if
+    !
+    ! Initialize time averaging if the current non-dimensional elapsed
+    ! simulation time (t* or t_star) since the beginning of the simulation
+    ! is greater than start_averaging_tstar
+    !
+    if (.not. output_time_averaging) then
+      if (start_averaging_tstar > zero) then
+        !
+        current_tstar = time*time_ref*time_scaling_factor - init_tstar
+        !
+        if (current_tstar > start_averaging_tstar) then
+          !
+          if (mypnum == glb_root) then
+            write (iout,81)
+            flush (iout)
+          end if
+          !
+          output_time_averaging = true
+          rl2mx = -huge(zero)
+          !
+          call initialize_time_ave
+          !
+        end if
+        !
+      end if
+    end if
+    !
     ! Every 50 (1000 for NAS) iterations
     !    1. Compute the residual error for this time step and exit
     !       the main loop if the remaining wall time is almost zero
@@ -1260,6 +1310,20 @@ continue
                "TOTAL COMPUTATIONAL COST WAS   ",f18.6," work units.")
   !
   50 format (/'Done'/)
+  !
+  80 format (/, &
+    1x,72("*"),//, &
+    25x,"START OF TIME AVERAGING!",//, &
+    4x,"THE CURRENT ITERATION IS EQUAL TO THE VALUE OF THE INPUT PARAMETER",/, &
+    4x,"START_AVERAGING_TIMESTEP THAT WAS GIVEN IN THE INPUT FILE!",//, &
+    1x,72("*"),/)
+  81 format (/, &
+       1x,69("*"),//, &
+       23x,"START OF TIME AVERAGING!",//, &
+       4x,"THE CURRENT ELAPSED SIMULATION TIME SINCE THE BEGINNING OF THIS",/, &
+       4x,"SIMULATION IS GREATER THAN THE VALUE OF THE INPUT PARAMETER",/, &
+       4x,"START_AVERAGING_TSTAR THAT WAS GIVEN IN THE INPUT FILE!",//, &
+       1x,69("*"),/)
   !
   94 format (/,"*******************************************************",/, &
                "    FOUND FILE REQUESTING TO START TIME AVERAGING! ",/, &

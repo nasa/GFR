@@ -31,6 +31,7 @@ subroutine initialize_flow()
   use ovar, only : rhoref,aref,itestcase
   use ovar, only : cv_in
   use ovar, only : load_restart_file,d_t,constant_dt,itcur,time
+  use ovar, only : init_tstar,time_ref,time_scaling_factor
   use ovar, only : dtrst,itrst,tmrst
   use ovar, only : rhoref,pref,tref,gam,rgasref,cpref
   use ovar, only : aref,machref,velref,uref,muref,reyref
@@ -376,6 +377,8 @@ continue
    !call project_to_porder(usp)
     !
   end if
+  !
+  init_tstar = time*time_ref*time_scaling_factor
   !
   ! Create the character format strings for the
   ! restart file names and the linking commands

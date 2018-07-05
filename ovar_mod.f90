@@ -322,10 +322,12 @@ module ovar
   logical(lk), public, save :: use_async_for_error = fals
   !
   ! TIME AVERAGING
-  logical(lk),        public, save :: output_time_averaging   = fals
-  character(len=150), public, save :: time_ave_file           = "out.ave"
-  real(wp),           public, save :: time_scaling_factor     = 1.0_wp
-  logical(lk),        public, save :: time_ave_vel_is_axisymm = fals
+  logical(lk),        public, save :: output_time_averaging    = fals
+  character(len=150), public, save :: time_ave_file            = "out.ave"
+  real(wp),           public, save :: time_scaling_factor      = 1.0_wp
+  logical(lk),        public, save :: time_ave_vel_is_axisymm  = fals
+  integer,            public, save :: start_averaging_timestep = -1
+  real(wp),           public, save :: start_averaging_tstar    = -one
   !
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   logical(lk),        public, save :: time_average_restart_files = fals
@@ -400,6 +402,8 @@ module ovar
   real(wp),     public, save :: prev_ave_time = 0.0_wp
   real(wp),     public, save :: ave_start_time = 0.0_wp
   logical(ldk), public, save :: read_time_ave_restart = .false.
+  !
+  real(wp), public, save :: init_tstar = 0.0_wp
   !
   real(wp), public, save :: cfl_cycle_start
   real(wp), public, save :: cfl_cycle_end
@@ -766,6 +770,7 @@ module input_namelist_mod
   use ovar,      only : lustre_stripe_count, lustre_stripe_size
   use ovar,      only : bc_input!,bc_input_t
   use ovar,      only : output_time_averaging, time_ave_file
+  use ovar,      only : start_averaging_timestep, start_averaging_tstar
   use ovar,      only : time_ave_vel_is_axisymm
   use ovar,      only : time_scaling_factor
   use ovar,      only : time_average_restart_files, restart_list_file
@@ -912,7 +917,8 @@ module input_namelist_mod
   namelist / input / use_async_for_error
   ! TIME AVERAGING
   namelist / input / output_time_averaging, time_ave_file, &
-                     time_scaling_factor, time_ave_vel_is_axisymm
+                     time_scaling_factor, time_ave_vel_is_axisymm, &
+                     start_averaging_timestep, start_averaging_tstar
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   namelist / input / time_average_restart_files, restart_list_file
   ! MEMORY USAGE
