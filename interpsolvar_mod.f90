@@ -9,15 +9,17 @@ module interpsolvar_mod
   use geovar,            only : cell_t, face_t, grid_t
   use geovar,            only : map_t
   use flowvar,           only : sol_nodes
-  use flowvar,           only : faceusp_dt
-  use flowvar,           only : face_xyz,face_var
+ !use flowvar,           only : faceusp_array
+ !use flowvar,           only : faceusp_dt
+ !use flowvar,           only : face_xyz,face_var
   !
   implicit none
   !
   private
   !
   public :: sol_nodes
-  public :: faceusp_dt
+ !public :: faceusp_dt
+ !public :: faceusp_array
   !
   ! Grid2 copies of variables from geovar.
   integer,     public, save :: g2_n_solpts
@@ -75,8 +77,8 @@ module interpsolvar_mod
   real(wp), public, save, allocatable :: g2_usp(:,:)
   real(wp), public, save, allocatable :: g2_dusp(:,:,:)
   !
-  type(face_xyz), public, save, allocatable :: g2_facexyz_dt(:)
-  type(face_var), public, save, allocatable :: g2_faceusp_dt(:)
+ !type(face_xyz), public, save, allocatable :: g2_facexyz_dt(:)
+ !type(face_var), public, save, allocatable :: g2_faceusp_dt(:)
   !
   real(wp), public, save, allocatable :: g2_facexyz_array(:,:)
   real(wp), public, save, allocatable :: g2_faceusp_array(:,:,:)

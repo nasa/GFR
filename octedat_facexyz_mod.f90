@@ -6,8 +6,8 @@ module octedat_facexyz_mod
 #ifdef DEBUG_OCTEDAT_FACEXYZ
   use module_kind_types, only : iout  ! DEBUG
 #endif
-  use flowvar,           only : face_xyz
-  use geovar,     only : cell_t
+ !use flowvar,           only : face_xyz
+ !use geovar,     only : cell_t
   use octedat_mod
   use octstat_mod
   !
@@ -60,15 +60,16 @@ contains
 
 ! Evaluate xyz at a single point given by the index values in idx.
 
-  use geovar,  only : cell
-  use flowvar, only : facexyz_dt
+  use geovar,  only : cell,face
+ !use flowvar, only : facexyz_dt
+  use flowvar, only : facexyz_array
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
   integer  ,dimension(:)       ,intent(in)  :: idx
   real(wp) ,dimension(:)       ,intent(out) :: xyz
   integer                      ,intent(out) :: status
 
-  integer :: ifp,nc,ncf,nf
+  integer :: ifp,nc,ncf,nf,f0
 
   status = OCT_STATUS_DATA_ERROR
   xyz(:) = -9999
@@ -82,7 +83,9 @@ contains
   if ( nc >= 1 .and. nc <= size(cell) ) then
     if ( ncf >= 1 .and. ncf <= size(cell(nc)%face) ) then
       nf = cell(nc)%face(ncf)%idx  ! global face index
-      xyz(:) = facexyz_dt(nf)%v(:,ifp)
+      f0 = face(nf)%beg_fp - 1     ! flxpt offset for this face
+      xyz(:) = facexyz_array(:,f0+ifp)
+     !xyz(:) = facexyz_dt(nf)%v(:,ifp)
       status = OCT_STATUS_OK
     end if
   end if
@@ -94,8 +97,9 @@ contains
 
 ! Evaluate xyz at multiple points given by the index values in idx.
 
-  use geovar,  only : cell
-  use flowvar, only : facexyz_dt
+  use geovar,  only : cell,face
+ !use flowvar, only : facexyz_dt
+  use flowvar, only : facexyz_array
 
   class(octedat_facexyz_type)  ,intent(in)  :: this
   integer                      ,intent(in)  :: npts
@@ -103,7 +107,7 @@ contains
   real(wp) ,dimension(:,:)     ,intent(out) :: xyz
   integer                      ,intent(out) :: status
 
-  integer :: ifp,n,nc,ncf,nf
+  integer :: ifp,n,nc,ncf,nf,f0
 
   status = OCT_STATUS_OK
 
@@ -129,7 +133,9 @@ contains
       if ( nc >= 1 .and. nc <= size(cell) ) then
         if ( ncf >= 1 .and. ncf <= size(cell(nc)%face) ) then
           nf = cell(nc)%face(ncf)%idx  ! global face index
-          xyz(:,n) = facexyz_dt(nf)%v(:,ifp)
+          f0 = face(nf)%beg_fp - 1     ! flxpt offset for this face
+          xyz(:,n) = facexyz_array(:,f0+ifp)
+         !xyz(:,n) = facexyz_dt(nf)%v(:,ifp)
         else
           status = OCT_STATUS_DATA_ERROR
           xyz(:,n) = -9999

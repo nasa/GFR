@@ -22,7 +22,9 @@ subroutine mydebug(caller_name,line_num,file_nam,query)
   use eqn_idx, only : nq
   use geovar,  only : nnode, ncell, nface, nfbnd, nr
   use geovar,  only : grid, xyz_nodes, xyz
-  use flowvar, only : facexyz_dt, faceusp_dt, sol_nodes, usp
+ !use flowvar, only : facexyz_dt, faceusp_dt
+  use flowvar, only : facexyz_array, faceusp_array
+  use flowvar, only : sol_nodes, usp
   !
   !.. Formal Arguments ..
   character(len=*), intent(in) :: caller_name
@@ -81,28 +83,46 @@ continue
     if (index(local_query,'|nfbnd|') > 0) then
       write (iout,5) "nfbnd",nfbnd
     end if
+   !!
+   !! Print info about facexyz_dt.
+   !!
+   !if (index(local_query,'|facexyz|') > 0) then
+   !  if (allocated(facexyz_dt)) then
+   !    write (iout,3) "facexyz_dt", size(facexyz_dt)
+   !    a_minval =  huge(one)
+   !    a_maxval = -huge(one)
+   !    do nf = 1,size(facexyz_dt)     ! size should equal nface
+   !      if (allocated(facexyz_dt(nf)%v)) then
+   !        do n = 1,nr
+   !          a_minval(n) = min(a_minval(n), minval(facexyz_dt(nf)%v(n,:)))
+   !          a_maxval(n) = max(a_maxval(n), maxval(facexyz_dt(nf)%v(n,:)))
+   !        end do
+   !      end if
+   !    end do
+   !    write (iout,4)
+   !    do n = 1,nr
+   !      write (iout,7) n,a_minval(n),a_maxval(n)
+   !    end do
+   !  else
+   !    write (iout,2) "facexyz_dt"
+   !  end if
+   !end if
     !
-    ! Print info about facexyz.
+    ! Print info about facexyz_array.
     !
     if (index(local_query,'|facexyz|') > 0) then
-      if (allocated(facexyz_dt)) then
-        write (iout,3) "facexyz_dt", size(facexyz_dt)
-        a_minval =  huge(one)
-        a_maxval = -huge(one)
-        do nf = 1,size(facexyz_dt)     ! size should equal nface
-          if (allocated(facexyz_dt(nf)%v)) then
-            do n = 1,nr
-              a_minval(n) = min(a_minval(n), minval(facexyz_dt(nf)%v(n,:)))
-              a_maxval(n) = max(a_maxval(n), minval(facexyz_dt(nf)%v(n,:)))
-            end do
-          end if
+      if (allocated(facexyz_array)) then
+        write (iout,3) "facexyz_array", shape(facexyz_array)
+        do n = 1,nr
+          a_minval(n) = minval(facexyz_array(n,:))
+          a_maxval(n) = maxval(facexyz_array(n,:))
         end do
         write (iout,4)
         do n = 1,nr
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "facexyz_dt"
+        write (iout,2) "facexyz_array"
       end if
     end if
     !
@@ -152,28 +172,46 @@ continue
         write (iout,2) "xyz"
       end if
     end if
+   !!
+   !! Print info about faceusp_dt.
+   !!
+   !if (index(local_query,'|faceusp|') > 0) then
+   !  if (allocated(faceusp_dt)) then
+   !    write (iout,3) "faceusp_dt", size(faceusp_dt)
+   !    a_minval =  huge(one)
+   !    a_maxval = -huge(one)
+   !    do nf = 1,size(faceusp_dt)     ! size should equal nface
+   !      if (allocated(faceusp_dt(nf)%v)) then
+   !        do n = 1,nq
+   !          a_minval(n) = min(a_minval(n), minval(faceusp_dt(nf)%v(n,:,:)))
+   !          a_maxval(n) = max(a_maxval(n), maxval(faceusp_dt(nf)%v(n,:,:)))
+   !        end do
+   !      end if
+   !    end do
+   !    write (iout,4)
+   !    do n = 1,nq
+   !      write (iout,7) n,a_minval(n),a_maxval(n)
+   !    end do
+   !  else
+   !    write (iout,2) "faceusp_dt"
+   !  end if
+   !end if
     !
-    ! Print info about faceusp.
+    ! Print info about faceusp_array.
     !
     if (index(local_query,'|faceusp|') > 0) then
-      if (allocated(faceusp_dt)) then
-        write (iout,3) "faceusp_dt", size(faceusp_dt)
-        a_minval =  huge(one)
-        a_maxval = -huge(one)
-        do nf = 1,size(faceusp_dt)     ! size should equal nface
-          if (allocated(faceusp_dt(nf)%v)) then
-            do n = 1,nq
-              a_minval(n) = min(a_minval(n), minval(faceusp_dt(nf)%v(n,:,:)))
-              a_maxval(n) = max(a_maxval(n), minval(faceusp_dt(nf)%v(n,:,:)))
-            end do
-          end if
+      if (allocated(faceusp_array)) then
+        write (iout,3) "faceusp_array", shape(faceusp_array)
+        do n = 1,nq
+          a_minval(n) = minval(faceusp_array(:,n,:))
+          a_maxval(n) = maxval(faceusp_array(:,n,:))
         end do
         write (iout,4)
         do n = 1,nq
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "faceusp_dt"
+        write (iout,2) "faceusp_array"
       end if
     end if
     !
@@ -217,7 +255,7 @@ continue
         write (iout,3) "usp", shape(usp)
         write (iout,4)
         do n = 1,nq
-          write (iout,7) n,minval(usp(n,:)),maxval(usp(n,:))
+          write (iout,7) n,minval(usp(:,n)),maxval(usp(:,n))
         end do
       else
         write (iout,2) "usp"
@@ -255,7 +293,8 @@ subroutine mydebug_g2(caller_name,line_num,file_nam,query)
   use geovar,           only : nr
   use interpsolvar_mod, only : g2_nnode, g2_ncell, g2_nface, g2_nfbnd
   use interpsolvar_mod, only : g2_grid, g2_xyz_nodes, g2_xyz
-  use interpsolvar_mod, only : g2_facexyz_dt, g2_faceusp_dt
+ !use interpsolvar_mod, only : g2_facexyz_dt, g2_faceusp_dt
+  use interpsolvar_mod, only : g2_facexyz_array, g2_faceusp_array
   use interpsolvar_mod, only : g2_sol_nodes, g2_usp
   !
   !.. Formal Arguments ..
@@ -315,28 +354,46 @@ continue
     if (index(local_query,'|nfbnd|') > 0) then
       write (iout,5) "g2_nfbnd",g2_nfbnd
     end if
+   !!
+   !! Print info about facexyz_dt.
+   !!
+   !if (index(local_query,'|facexyz|') > 0) then
+   !  if (allocated(g2_facexyz_dt)) then
+   !    write (iout,3) "g2_facexyz_dt", size(g2_facexyz_dt)
+   !    a_minval =  huge(one)
+   !    a_maxval = -huge(one)
+   !    do nf = 1,size(g2_facexyz_dt)     ! size should equal nface
+   !      if (allocated(g2_facexyz_dt(nf)%v)) then
+   !        do n = 1,nr
+   !          a_minval(n) = min(a_minval(n), minval(g2_facexyz_dt(nf)%v(n,:)))
+   !          a_maxval(n) = max(a_maxval(n), maxval(g2_facexyz_dt(nf)%v(n,:)))
+   !        end do
+   !      end if
+   !    end do
+   !    write (iout,4)
+   !    do n = 1,nr
+   !      write (iout,7) n,a_minval(n),a_maxval(n)
+   !    end do
+   !  else
+   !    write (iout,2) "g2_facexyz_dt"
+   !  end if
+   !end if
     !
-    ! Print info about facexyz.
+    ! Print info about facexyz_array.
     !
     if (index(local_query,'|facexyz|') > 0) then
-      if (allocated(g2_facexyz_dt)) then
-        write (iout,3) "g2_facexyz_dt", size(g2_facexyz_dt)
-        a_minval =  huge(one)
-        a_maxval = -huge(one)
-        do nf = 1,size(g2_facexyz_dt)     ! size should equal nface
-          if (allocated(g2_facexyz_dt(nf)%v)) then
-            do n = 1,nr
-              a_minval(n) = min(a_minval(n), minval(g2_facexyz_dt(nf)%v(n,:)))
-              a_maxval(n) = max(a_maxval(n), minval(g2_facexyz_dt(nf)%v(n,:)))
-            end do
-          end if
+      if (allocated(g2_facexyz_array)) then
+        write (iout,3) "g2_facexyz_array", shape(g2_facexyz_array)
+        do n = 1,nr
+          a_minval(n) = minval(g2_facexyz_array(n,:))
+          a_maxval(n) = maxval(g2_facexyz_array(n,:))
         end do
         write (iout,4)
         do n = 1,nr
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "g2_facexyz_dt"
+        write (iout,2) "g2_facexyz_array"
       end if
     end if
     !
@@ -386,28 +443,46 @@ continue
         write (iout,2) "g2_xyz"
       end if
     end if
+   !!
+   !! Print info about faceusp_dt.
+   !!
+   !if (index(local_query,'|faceusp|') > 0) then
+   !  if (allocated(g2_faceusp_dt)) then
+   !    write (iout,3) "g2_faceusp_dt", size(g2_faceusp_dt)
+   !    a_minval =  huge(one)
+   !    a_maxval = -huge(one)
+   !    do nf = 1,size(g2_faceusp_dt)     ! size should equal nface
+   !      if (allocated(g2_faceusp_dt(nf)%v)) then
+   !        do n = 1,nq
+   !          a_minval(n) = min(a_minval(n), minval(g2_faceusp_dt(nf)%v(n,:,:)))
+   !          a_maxval(n) = max(a_maxval(n), maxval(g2_faceusp_dt(nf)%v(n,:,:)))
+   !        end do
+   !      end if
+   !    end do
+   !    write (iout,4)
+   !    do n = 1,nq
+   !      write (iout,7) n,a_minval(n),a_maxval(n)
+   !    end do
+   !  else
+   !    write (iout,2) "g2_faceusp_dt"
+   !  end if
+   !end if
     !
-    ! Print info about faceusp.
+    ! Print info about faceusp_array.
     !
     if (index(local_query,'|faceusp|') > 0) then
-      if (allocated(g2_faceusp_dt)) then
-        write (iout,3) "g2_faceusp_dt", size(g2_faceusp_dt)
-        a_minval =  huge(one)
-        a_maxval = -huge(one)
-        do nf = 1,size(g2_faceusp_dt)     ! size should equal nface
-          if (allocated(g2_faceusp_dt(nf)%v)) then
-            do n = 1,nq
-              a_minval(n) = min(a_minval(n), minval(g2_faceusp_dt(nf)%v(n,:,:)))
-              a_maxval(n) = max(a_maxval(n), minval(g2_faceusp_dt(nf)%v(n,:,:)))
-            end do
-          end if
+      if (allocated(g2_faceusp_array)) then
+        write (iout,3) "g2_faceusp_array", shape(g2_faceusp_array)
+        do n = 1,nq
+          a_minval(n) = minval(g2_faceusp_array(:,n,:))
+          a_maxval(n) = maxval(g2_faceusp_array(:,n,:))
         end do
         write (iout,4)
         do n = 1,nq
           write (iout,7) n,a_minval(n),a_maxval(n)
         end do
       else
-        write (iout,2) "g2_faceusp_dt"
+        write (iout,2) "g2_faceusp_array"
       end if
     end if
     !
@@ -451,7 +526,7 @@ continue
         write (iout,3) "g2_usp", shape(g2_usp)
         write (iout,4)
         do n = 1,nq
-          write (iout,7) n,minval(g2_usp(n,:)),maxval(g2_usp(n,:))
+          write (iout,7) n,minval(g2_usp(:,n)),maxval(g2_usp(:,n))
         end do
       else
         write (iout,2) "g2_usp"
