@@ -3,11 +3,7 @@ module interpsolvar_mod
 ! Module to define variables used in interpolation of
 ! (grid1,sol1) -> (grid2,sol2).
 
-  use module_kind_types
-! use module_kind_types, only : wp,lk,true,fals,error_message, &
-!                               Geom_Edge,Geom_Tria,Geom_Quad,Geom_Tetr, &
-!                               Geom_Pyra,Geom_Pris,Geom_Hexa, &
-!                               dot
+  use module_kind_types, only : wp,lk
   use geovar,            only : geom_conn, conflict, fp_t
   use geovar,            only : cell_t, face_t, grid_t
   use geovar,            only : map_t
