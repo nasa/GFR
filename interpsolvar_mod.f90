@@ -65,6 +65,9 @@ module interpsolvar_mod
   type(face_xyz), public, save, allocatable :: g2_facexyz_dt(:)
   type(face_var), public, save, allocatable :: g2_faceusp_dt(:)
 
+  real(wp), public, save, allocatable :: g2_facexyz_array(:,:)
+  real(wp), public, save, allocatable :: g2_faceusp_array(:,:,:)
+
 ! Grid2 copies of variables from ovar.
   character(len=32), public, save, allocatable :: g2_bc_names(:)
 
