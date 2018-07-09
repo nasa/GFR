@@ -256,7 +256,7 @@ subroutine interpsol()
   
 ! Interpolate solution onto grid2.
 
-  use module_kind_types, only : dot
+  use module_kind_types, only : dot,lk,fals
   use eqn_idx, only : nq
   use geovar,            only : ncell,nface,nfbnd,nr
   use geovar,            only : cell,face,fp
@@ -289,7 +289,7 @@ subroutine interpsol()
   integer :: face_geom,face_order
   integer :: fp_offset,face_rot
   integer :: donor_cell
-  logical :: dealloc_octedat
+  logical(lk) :: dealloc_octedat
   real(wp) :: a,val
 !-DEBUG_BEG:
   integer :: lcell_min, lcell_max, rcell_min, rcell_max
@@ -806,7 +806,7 @@ continue
   end if
 #endif
 !-DEBUG_END:
-  dealloc_octedat = .false.         ! Do this manually instead.
+  dealloc_octedat = fals         ! Do this manually instead.
   call octtree_dealloc(octtree,dealloc_octedat,status)
 !-DEBUG_BEG:
 #ifdef ONLY_GLB_ROOT_OUTPUT
@@ -846,7 +846,7 @@ subroutine interpsol_debug()
 ! This routine is similar to interpsol and is used to debug interpolation
 ! at a specified xyz location (hard-coded below).
 
-  use module_kind_types, only : dot
+  use module_kind_types, only : dot,lk,fals
   use eqn_idx, only : nq
   use geovar,            only : nnode,ncell,nface,nfbnd,nr
   use geovar,            only : cell,face,fp
@@ -878,7 +878,7 @@ subroutine interpsol_debug()
   integer :: fp_offset,face_rot
   integer :: donor_cell
   integer :: donor_lr_flag
-  logical :: dealloc_octedat
+  logical(lk) :: dealloc_octedat
   real(wp) :: a,val
 !-DEBUG_BEG:
   integer :: lcell_min, lcell_max, rcell_min, rcell_max
@@ -1305,7 +1305,7 @@ end if
 !-DEBUG_BEG:
   write(iout,*) 'DEBUG[interpsol_debug] Deallocate octtree.'
 !-DEBUG_END:
-  dealloc_octedat = .false.         ! Do this manually instead.
+  dealloc_octedat = fals         ! Do this manually instead.
   call octtree_dealloc(octtree,dealloc_octedat,status)
 !-DEBUG_BEG:
   write(iout,*) 'DEBUG[interpsol_debug] Deallocate octtree now complete.'
