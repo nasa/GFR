@@ -49,49 +49,49 @@ module octedat_mod
   !
   abstract interface
     ! Deallocate any memory inside the octedat structure.
-    subroutine octedat_dealloc_interface(this,status)
+    subroutine octedat_dealloc_interface(this,istat)
       import :: octedat_type
       class(octedat_type), intent(inout) :: this
-      integer,               intent(out) :: status
+      integer,               intent(out) :: istat
     end subroutine octedat_dealloc_interface
   end interface
   !
  !abstract interface
  !  ! Evaluate the bounding box, bbox(1:nr,1:2), with min/max values of
  !  ! the octedat xyzdata array/struct.
- !  ! Status indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
- !  subroutine octedat_evalbbox_interface(this,bbox,status)
+ !  ! istat indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
+ !  subroutine octedat_evalbbox_interface(this,bbox,istat)
  !    import :: wp,octedat_type
  !    class(octedat_type), intent(in) :: this
  !    real(wp),           intent(out) :: bbox(:,:)
- !    integer,            intent(out) :: status
+ !    integer,            intent(out) :: istat
  !  end subroutine octedat_evalbbox_interface
  !end interface
   !
   abstract interface
     ! Evaluate xyz(1:nr) at a single point given by idx(:).
     ! Elements of idx(:) serve as indices to octedat xyzdata array/struct.
-    ! Status indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
-    subroutine octedat_evalxyzpt_interface(this,idx,xyz,status)
+    ! istat indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
+    subroutine octedat_evalxyzpt_interface(this,idx,xyz,istat)
       import :: wp,octedat_type
       class(octedat_type), intent(in) :: this
       integer,             intent(in) :: idx(:)
       real(wp),           intent(out) :: xyz(:)
-      integer,            intent(out) :: status
+      integer,            intent(out) :: istat
     end subroutine octedat_evalxyzpt_interface
   end interface
   !
   abstract interface
     ! Evaluate xyz(1:nr,1:npts) at a multiple point given by idx(:,1:npts).
     ! Elements of idx(:,ipt) serve as indices to octedat xyzdata array/struct.
-    ! Status indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
-    subroutine octedat_evalxyzpts_interface(this,npts,idx,xyz,status)
+    ! istat indicates OCT_STATUS_OK or OCT_STATUS_DATA_ERROR.
+    subroutine octedat_evalxyzpts_interface(this,npts,idx,xyz,istat)
       import :: wp,octedat_type
       class(octedat_type), intent(in) :: this
       integer,             intent(in) :: npts
       integer,             intent(in) :: idx(:,:)
       real(wp),           intent(out) :: xyz(:,:)
-      integer,            intent(out) :: status
+      integer,            intent(out) :: istat
     end subroutine octedat_evalxyzpts_interface
   end interface
   !
