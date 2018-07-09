@@ -125,8 +125,8 @@ continue
   subroutine octtree_init(octtree,bbox,status)
   !
   ! Initialize the empty octtree but do not polulate.
-  ! Initialize octtree%octedat elsewhere, since we don't know anything
-  ! about octedat structure here.
+  ! Initialize octtree%octedat somewhere else, since we
+  ! do not know anything about octedat structure here.
   !
   !.. Formal Arguments ..
   type(octtree_type)         ,intent(inout) :: octtree
@@ -304,7 +304,7 @@ continue
   if ( ierr /= 0 ) then
     status = OCT_STATUS_MEMORY_ERROR
     return
-  endif
+  end if
   best_ixyz = 0
   !
   call debug_timer(stop_accumulation,"Crap 1", &

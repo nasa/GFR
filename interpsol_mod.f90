@@ -514,8 +514,8 @@ continue
         rcell_min = min(rcell_min, face(nf)%right%cell)
         lcell_max = max(lcell_max, face(nf)%left%cell)
         rcell_max = max(rcell_max, face(nf)%right%cell)
-      enddo
-    enddo
+      end do
+    end do
     write(iout,*) '       lcell_min/max    = ',lcell_min,' / ',lcell_max
     write(iout,*) '       rcell_min/max    = ',rcell_min,' / ',rcell_max
     !
@@ -530,8 +530,8 @@ continue
         rcell_min = min(rcell_min, g2_face(nf)%right%cell)
         lcell_max = max(lcell_max, g2_face(nf)%left%cell)
         rcell_max = max(rcell_max, g2_face(nf)%right%cell)
-      enddo
-    enddo
+      end do
+    end do
     write(iout,*) '    g2_lcell_min/max    = ',lcell_min,' / ',lcell_max
     write(iout,*) '    g2_rcell_min/max    = ',rcell_min,' / ',rcell_max
     write(iout,*) '    g2_n_solpts         = ',g2_n_solpts
@@ -1051,8 +1051,8 @@ continue
       rcell_min = min(rcell_min, face(nf)%right%cell)
       lcell_max = max(lcell_max, face(nf)%left%cell)
       rcell_max = max(rcell_max, face(nf)%right%cell)
-    enddo
-  enddo
+    end do
+  end do
   write(iout,*) '       lcell_min/max    = ',lcell_min,' / ',lcell_max
   write(iout,*) '       rcell_min/max    = ',rcell_min,' / ',rcell_max
   !
@@ -1067,8 +1067,8 @@ continue
       rcell_min = min(rcell_min, g2_face(nf)%right%cell)
       lcell_max = max(lcell_max, g2_face(nf)%left%cell)
       rcell_max = max(rcell_max, g2_face(nf)%right%cell)
-    enddo
-  enddo
+    end do
+  end do
   write(iout,*) '    g2_lcell_min/max    = ',lcell_min,' / ',lcell_max
   write(iout,*) '    g2_rcell_min/max    = ',rcell_min,' / ',rcell_max
   write(iout,*) '    g2_n_solpts         = ',g2_n_solpts
@@ -1087,7 +1087,7 @@ continue
       g2_xyz_pt(3) = 0.567418334509571576
     else
       g2_xyz_pt = 0.0
-    endif
+    end if
     !
     ! Find index of nearest face pt in src grid.
     call octtree_find_nearest_xyz(octtree,g2_xyz_pt, ixyz_pt,status)
@@ -1100,7 +1100,7 @@ continue
     write(iout,*) '    xyz = ',g2_xyz_pt(:)
     write(iout,*) '  octtree search status = ',status
     flush(iout)
-  endif
+  end if
 !-DEBUG_END:
 !
     if ( status == OCT_STATUS_OK ) then
@@ -1139,7 +1139,7 @@ if ( debug_print ) then
  !write(iout,2001) '    faceusp_dt(:,right)    = ',faceusp_dt(nf)%v(1:nq,ifp,2)
   write(iout,2001) '    faceusp_array(:,right) = ',faceusp_array(f0+ifp,1:nq,2)
   flush(iout)
-endif
+end if
 !-DEBUG_END:
 !
       ! Dot face normal with face_to_xyz vector.
@@ -1152,7 +1152,7 @@ endif
 if ( debug_print ) then
   write(iout,*) '    Using left cell as donor.'
   flush(iout)
-endif
+end if
 !-DEBUG_END:
         donor_cell = face(nf)%left%cell
         call interp_cell_sol_to_xyz &
@@ -1168,7 +1168,7 @@ endif
 if ( debug_print ) then
   write(iout,*) '    Using right cell as donor.'
   flush(iout)
-endif
+end if
 !-DEBUG_END:
       else
         ! xyz_pt is outside boundary face of cell.
@@ -1180,7 +1180,7 @@ endif
 if ( debug_print ) then
   write(iout,*) '    Using closest donor face pt.'
   flush(iout)
-endif
+end if
 !-DEBUG_END:
         donor_cell = nc
         n1 = cell(nc)%beg_sp ! beginning index of sol-pts for this cell
@@ -1290,7 +1290,7 @@ if ( debug_print ) then
   write(iout,2001) '       usp(:)          = ',g2_usp_pt(:)
   write(iout,*)
   flush(iout)
-endif
+end if
 !-DEBUG_END:
 !
   end do  ! k-loop

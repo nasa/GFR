@@ -52,7 +52,7 @@ contains
   !
   do n=1,size(this)
     call octroot_dealloc(this(n),status)
-  enddo
+  end do
   return
   end subroutine octroot_rank1_final
 !##########################################################################

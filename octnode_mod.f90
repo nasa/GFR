@@ -426,7 +426,7 @@ continue
     if ( ierr /= 0 ) then
       status = OCT_STATUS_MEMORY_ERROR
       return
-    endif
+    end if
     call octedat%evalxyz_pts(octnode%nxyzdata,octnode%ixyzdata, &
                              xyz_pts,status)
     if ( status /= OCT_STATUS_OK ) return

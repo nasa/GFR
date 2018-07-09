@@ -211,7 +211,7 @@ continue
           write (iout,*) ind(1:indx),'Form    = ',trim(adjustl(p3d_form   ))
           write (iout,*) ind(1:indx),'Convert = ',trim(adjustl(p3d_convert))
           flush (iout)
-        endif
+        end if
 !-DEBUG_END:
 
       ! Warning:  convert= is a non-standard fortran extension to the
@@ -230,9 +230,9 @@ continue
             write (iout,*) ind(1:indx),'Open FAILED'
             write (iout,*) ind(1:indx+2),'iostat = ',iostat
             write (iout,*) ind(1:indx+2),'errmsg = ',trim(adjustl(iomsg))
-          endif
+          end if
           flush (iout)
-        endif
+        end if
 !-DEBUG_END:
       ! If file opened ok, proceed.
       if ( iostat == 0 ) then
@@ -262,7 +262,7 @@ continue
           write (iout,*) ind(1:indx),'Dim     = ',trim(adjustl(p3d_dim    ))
           write (iout,*) ind(1:indx),'Iprec   = ',trim(adjustl(p3d_iprec  ))
           flush (iout)
-        endif
+        end if
 !-DEBUG_END:
         ! Read Plot3d header info.
         call plot3dio_read_header(unit=iop3d,file=file,form=p3d_form, &
@@ -277,7 +277,7 @@ continue
           write (iout,*) ind(1:indx+2),'iostat  = ',iostat
           write (iout,*) ind(1:indx+2),'iomsg   = ',trim(adjustl(iomsg))
           flush (iout)
-        endif
+        end if
 !-DEBUG_END:
         ! If header read ok, exit loop_header.
         if ( iostat == 0 ) exit loop_header
@@ -326,7 +326,7 @@ continue
         write (iout,*) ind(1:indx),'iostat  = ',iostat
         write (iout,'(1x,a,a,a)') ind(1:indx),'iomsg   = ',trim(adjustl(iomsg))
         flush (iout)
-      endif
+      end if
 !-DEBUG_END:
       ! If body read ok, exit loop_body.
       if ( iostat == 0 ) then
@@ -391,7 +391,7 @@ continue
       plot3dinfo%mgrid   = p3d_mgrid
       plot3dinfo%dim     = p3d_dim
       plot3dinfo%iprec   = p3d_iprec
-    endif
+    end if
     if ( iostat_body == 0 ) then
       plot3dinfo%blank   = p3d_blank
       plot3dinfo%rprec   = p3d_rprec
@@ -765,7 +765,7 @@ continue
         iostat = 0
         iomsg = ''
       end if
-    endif
+    end if
   end if
 
   return
@@ -900,7 +900,7 @@ continue
   else
     iostat = 1
     iomsg  = 'Routine '//pname//' cannot read '//trim(form)//' files.'
-  endif  ! plot3d format
+  end if  ! plot3d format
 
 9 continue
   return
@@ -1142,7 +1142,7 @@ continue
   else
     iostat = 1
     iomsg  = 'Routine '//pname//' cannot read '//trim(form)//' files.'
-  endif  ! plot3d format
+  end if  ! plot3d format
 
 9 continue
   return
@@ -1393,7 +1393,7 @@ continue
   else
     iostat = 1
     iomsg  = 'Routine '//pname//' cannot read '//trim(form)//' files.'
-  endif  ! plot3d format
+  end if  ! plot3d format
 
 9 continue
   return
@@ -1635,7 +1635,7 @@ continue
   else
     iostat = 1
     iomsg  = 'Routine '//pname//' cannot read '//trim(form)//' files.'
-  endif  ! plot3d format
+  end if  ! plot3d format
 
 9 continue
   return

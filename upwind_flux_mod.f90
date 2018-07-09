@@ -1082,7 +1082,7 @@ continue
   else
     nx1 = -ny
     ny1 =  nx
-  endif
+  end if
   !
   alpha1 = nx * nx1 + ny * ny1
   !
@@ -3066,7 +3066,7 @@ continue
     else
       nx1 = -uny
       ny1 =  unx
-    endif
+    end if
     !
     alpha1 = unx * nx1 + uny * ny1
     !

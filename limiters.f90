@@ -253,7 +253,7 @@ continue
         first_output = fals
       else
         write (iout,101) ntc,n_max_order-dropped_orders+1
-      endif
+      end if
     end if
     100 format (6x,"=> ",i8," troubled cells at P",i0)
     101 format (9x,i8," troubled cells at P",i0)

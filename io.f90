@@ -873,7 +873,7 @@ continue
     write (ionml,nml=input)
     write (iout,101) trim(output_fname)
     close(ionml)
-  endif
+  end if
   !
   101 format(/,"Default namelist input file written to:  ",A)
   !
@@ -5312,7 +5312,7 @@ continue
         end do
       end do
       !
-    endif
+    end if
     !
   end do
   !
@@ -5887,7 +5887,7 @@ continue
         end do
       end do
       !
-    endif
+    end if
     !
   end do
   !
