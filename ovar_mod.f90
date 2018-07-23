@@ -261,7 +261,8 @@ module ovar
   real(wp), public, save :: Limiter_Filter_eps    = 0.0_wp
   !
   ! LIMITER OPTIONS
-  integer, public, save :: Limiter_Option = 0
+  integer, public, save :: Limiter_Option             = 0
+  integer, public, save :: Resolution_Marker_Variable = 0
   !
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   integer, public, save :: Filtering_Interval = 0
@@ -478,7 +479,7 @@ module ovar
   !$ACC&               suth_Tref,suth_Sref,suth_muref,suth_c1, &
   !$ACC&               LDG_beta,LDG_tau,visc_variables_to_ave, &
   !$ACC&               ideal_total_temperature,limit_total_temperature, &
-  !$ACC&               invs_flux_method)
+  !$ACC&               invs_flux_method,Resolution_Marker_Variable)
 contains
 !
 !###############################################################################
@@ -752,7 +753,7 @@ module input_namelist_mod
   use ovar,      only : Filter_Order,  Limiter_Filter_Order
   use ovar,      only : Filter_Alpha,  Limiter_Filter_Alpha
   use ovar,      only : Filter_eps,    Limiter_Filter_eps
-  use ovar,      only : Limiter_Option
+  use ovar,      only : Limiter_Option, Resolution_Marker_Variable
   use ovar,      only : Filtering_Interval, Limiting_Interval
   use ovar,      only : loc_output_pts, loc_init_pts, loc_error_pts
   use ovar,      only : vortex_bigR, vortex_bigGam
@@ -882,7 +883,7 @@ module input_namelist_mod
                      Limiter_Filter_Order, Limiter_Filter_Alpha, &
                      Limiter_Filter_eps
   ! LIMITER OPTIONS
-  namelist / input / Limiter_Option
+  namelist / input / Limiter_Option, Resolution_Marker_Variable
   ! CONTROL OVER FREQUENCY OF FILTERING/LIMITING
   namelist / input / Filtering_Interval, Limiting_Interval
   ! OUTPUT THE STATISTICS OF THE LIMITER

@@ -481,6 +481,12 @@ continue
   call init_face_quadrature_rules
   call check_for_bad_number(__LINE__,__FILE__)
   !
+  ! Make sure the variable index for the resolution marker is valid
+  !
+  if (Resolution_Marker_Variable <= 0 .or. Resolution_Marker_Variable > nq) then
+    Resolution_Marker_Variable = nec
+  end if
+  !
   ! Make sure the number of RK stages is correct for some RK types
   !
   if (Runge_Kutta_Scheme == TVD2_RK) then
@@ -799,7 +805,7 @@ continue
   !
   !$ACC UPDATE DEVICE(nr,pr,walls_are_exact,sub_inflow_method, &
   !$ACC&              LDG_beta,LDG_tau,visc_variables_to_ave, &
-  !$ACC&              invs_flux_method)
+  !$ACC&              invs_flux_method,Resolution_Marker_Variable)
   !
   flush (iout)
   call mpi_barrier(MPI_COMM_WORLD,mpierr)

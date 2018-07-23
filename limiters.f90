@@ -1266,6 +1266,7 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   !.. Use Statements ..
   use order_mod,      only : maxSP
   use geovar,         only : n_solpts,ncell,cell
+  use ovar,           only : Resolution_Marker_Variable
   use metrics_mod,    only : wtdjac
   use filter_mod,     only : filter
   use quadrature_mod, only : std_elem
@@ -1278,13 +1279,13 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   real(wp),  intent(inout) :: scaled_marker(:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,n,nc,np,n0,n1,n2
+  integer  :: i,k,n,nc,np,n0,n1,n2,nvar
   integer  :: this_geom,this_order,order
-  real(wp) :: l2_n,l2_d,rho_d,rho_n
+  real(wp) :: l2_n,l2_d,var_d,var_n
   real(wp) :: a,val,l10_marker,psi0
   !
   !.. Local Allocatable Arrays ..
-  real(wp), allocatable :: rho_pm1(:)
+  real(wp), allocatable :: var_pm1(:)
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "compute_resolution_marker"
@@ -1294,8 +1295,10 @@ pure subroutine compute_resolution_marker(usp,skip_cell,cutoff_order, &
   !
 continue
   !
-  allocate ( rho_pm1(1:n_solpts) )
-  !$ACC DATA CREATE(rho_pm1)
+  nvar = Resolution_Marker_Variable
+  !
+  allocate ( var_pm1(1:n_solpts) )
+  !$ACC DATA CREATE(var_pm1)
   !
   ! Compute u_hat, the degree-(P-1) solution of density at the sol-pts
   !
@@ -1303,7 +1306,7 @@ continue
   !$ACC&              VECTOR_LENGTH(32) &
   !$ACC&              PRESENT(cell,filter) &
   !$ACC&              PRESENT(usp,skip_cell,cutoff_order) &
-  !$ACC&              PRESENT(rho_pm1)
+  !$ACC&              PRESENT(var_pm1)
   do nc = 1,ncell
     !
     n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
@@ -1313,7 +1316,7 @@ continue
       !
       !$ACC LOOP VECTOR
       do n = 1,np
-        rho_pm1(n0+n) = usp(n0+n,nec)
+        var_pm1(n0+n) = usp(n0+n,nvar)
       end do
       !
     else
@@ -1334,11 +1337,11 @@ continue
           k = filter(this_geom,this_order)%cutoff(order)%col_idx(i)
           a = filter(this_geom,this_order)%cutoff(order)%col_val(i)
           !
-          val = val + a * usp(n0+k,nec)
+          val = val + a * usp(n0+k,nvar)
           !
         end do
         !
-        rho_pm1(n0+n) = val
+        var_pm1(n0+n) = val
         !
       end do
       !
@@ -1350,7 +1353,7 @@ continue
   !$ACC&              VECTOR_LENGTH(32) &
   !$ACC&              PRESENT(cell,std_elem) &
   !$ACC&              PRESENT(usp,marker) &
-  !$ACC&              PRESENT(rho_pm1)
+  !$ACC&              PRESENT(var_pm1)
   do nc = 1,ncell
     !
     n0 = cell(nc)%beg_sp - 1  ! offset index of sol-pts for this cell
@@ -1365,11 +1368,11 @@ continue
     !$ACC LOOP VECTOR REDUCTION(+:l2_n,l2_d)
     do n = 1,np
       !
-      rho_d = usp(n0+n,nec)         ! denominator rho is: rho[P]
-      rho_n = rho_d - rho_pm1(n0+n) ! numerator   rho is: rho[P] - rho[P-1]
+      var_d = usp(n0+n,nvar)        ! denominator var is: var[P]
+      var_n = var_d - var_pm1(n0+n) ! numerator   var is: var[P] - var[P-1]
       !
-      l2_n = l2_n + rho_n*rho_n*std_elem(this_geom,this_order)%wts(n)
-      l2_d = l2_d + rho_d*rho_d*std_elem(this_geom,this_order)%wts(n)
+      l2_n = l2_n + var_n*var_n*std_elem(this_geom,this_order)%wts(n)
+      l2_d = l2_d + var_d*var_d*std_elem(this_geom,this_order)%wts(n)
       !
     end do
     !
@@ -1411,7 +1414,7 @@ continue
   end do
   !
   !$ACC END DATA
-  deallocate ( rho_pm1 )
+  deallocate ( var_pm1 )
   !
 end subroutine compute_resolution_marker
 !
