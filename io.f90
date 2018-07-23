@@ -1341,7 +1341,7 @@ end subroutine check_cgns_dir
 subroutine read_grid_file()
   !
   !.. Use Statements ..
-  use geovar,         only : grid
+  use geovar,         only : nr,grid
   use module_cgns,    only : read_cgns_gridfile
   use module_gmsh,    only : read_gmsh_gridfile
   use module_plot3d,  only : read_plot3d_gridfile
@@ -1352,6 +1352,11 @@ subroutine read_grid_file()
   use ovar,           only : solution_file
   use ovar,           only : plot3d_cutfile
   use ovar,           only : plot3d_bcsfile
+  !
+  use initialization_mod, only : initialize_reference
+  use initialization_mod, only : create_bc_in
+  !
+  use eqn_idx, only : create_equation_indices
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "read_grid_file"
@@ -1390,6 +1395,21 @@ continue
     end if
   end if
   !
+  !
+  ! Create the equation indices now that we know the dimension of the grid
+  !
+  call create_equation_indices(nr)
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! Initialize the reference conditions
+  !
+  call initialize_reference
+  call check_for_bad_number(__LINE__,__FILE__)
+  !
+  ! First, initialize the bc_in array
+  ! NOTE: This will also fill bface(6,:) with the correct value
+  !
+  call create_bc_in
   !
   ! Reorder the boundary faces
   !
@@ -1441,14 +1461,9 @@ end subroutine read_grid_file
 subroutine reorder_boundary_faces()
   !
   !.. Use Statements ..
-  use geovar, only : nr,ncell,nfbnd,bface
+  use geovar, only : ncell,nfbnd,bface
   use geovar, only : num_bc_grps
   use geovar, only : grid,grid_t
-  !
-  use initialization_mod, only : initialize_reference
-  use initialization_mod, only : create_bc_in
-  !
-  use eqn_idx, only : create_equation_indices
   !
   !.. Local Scalars ..
   integer :: i,j,k,n,nc,nf,ngrps,ierr
@@ -1472,21 +1487,6 @@ subroutine reorder_boundary_faces()
 continue
   !
   call debug_timer(entering_procedure,pname)
-  !
-  ! Create the equation indices now that we know the dimension of the grid
-  !
-  call create_equation_indices(nr)
-  call check_for_bad_number(__LINE__,__FILE__)
-  !
-  ! Initialize the reference conditions
-  !
-  call initialize_reference
-  call check_for_bad_number(__LINE__,__FILE__)
-  !
-  ! First, initialize the bc_in array
-  ! NOTE: This will also fill bface(6,:) with the correct value
-  !
-  call create_bc_in
   !
   contains_periodic_faces = fals
   errors_found = fals
