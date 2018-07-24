@@ -289,6 +289,11 @@ continue
   !
   call debug_timer(entering_procedure,pname)
   !
+  ! Allocate all the variables within the input namelist
+  ! to their default sizes and values
+  !
+  call allocate_namelist_variables
+  !
   ! Open the input file
   !
   open (newunit=inpt,file=input_fname,status="old",action="read", &
@@ -303,6 +308,11 @@ continue
   !
   close (inpt,iostat=ierr,iomsg=error_message)
   call io_error(pname,input_fname,2,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Resize all the allocatable variables within the input
+  ! namelist to sizes more appropriate to their input values
+  !
+  call resize_namelist_allocatables
   !
   ! For interpolation pass, shuffle some variables around to trick
   ! the lower level readers to read interpto_gridfile which will be
@@ -867,6 +877,11 @@ subroutine write_nml_input_file(output_fname)
   !
 continue
   !
+  ! Allocate all the variables within the input namelist
+  ! to their default sizes and values
+  !
+  call allocate_namelist_variables
+  !
   if (mypnum == 0) then
     open (newunit=ionml,file=output_fname,status="new",action="write", &
                         delim='apostrophe', &
@@ -1053,7 +1068,7 @@ continue
   ! Initialize test_file and test_dir
   !
   test_file = " "
-  test_dir = " "
+  test_dir = trim(adjustl(output_dir))
   !
   ! Only perform the following tests using the root processor
   ! to minimize contention and prevent each MPI process from
@@ -1065,14 +1080,16 @@ continue
       !
       ! Check for a directory "/" at the end of the input output_dir
       !
-      clen = len_trim(output_dir)
-      if (output_dir(clen:clen) /= "/") then
-        output_dir = trim(output_dir)//"/"
+      test_dir = trim(adjustl(output_dir))
+      !
+      clen = len_trim(test_dir)
+      if (test_dir(clen:clen) /= "/") then
+        test_dir = trim(test_dir)//"/"
       end if
       !
       ! Try to open a file in the given directory
       !
-      test_file = trim(output_dir)//"output_dir.test_file.dat"
+      test_file = trim(test_dir)//"output_dir.test_file.dat"
       !
       open (newunit=iodir,file=trim(test_file),status="replace", &
                           action="write",iostat=ierr)
@@ -1081,22 +1098,24 @@ continue
       !
       if (ierr == 0) then
         close (iodir,status="delete",iostat=ierr)
+        output_dir = trim(adjustl(test_dir))
         exit one_pass
       end if
       !
-      ! Reset test_file
+      ! Reset test_file and test_dir
       !
       test_file = " "
+      test_dir = trim(adjustl(output_dir))
       !
       ! Try to append nobackup to the beginning of output_dir
       ! and try a test file in that directory
       !
-      if (output_dir(1:len(nobackup)) /= nobackup) then
+      if (test_dir(1:len(nobackup)) /= nobackup) then
         !
-        if (output_dir(1:1) /= "/") then
-          test_dir = nobackup//"/"//trim(output_dir)
+        if (test_dir(1:1) /= "/") then
+          test_dir = nobackup//"/"//trim(test_dir)
         else
-          test_dir = nobackup//trim(output_dir)
+          test_dir = nobackup//trim(test_dir)
         end if
         !
         ! Try to open a file in the new output_dir
@@ -1111,7 +1130,7 @@ continue
         !
         if (ierr == 0) then
           close (iodir,status="delete",iostat=ierr)
-          output_dir = trim(test_dir)
+          output_dir = trim(adjustl(test_dir))
           exit one_pass
         end if
         !
@@ -1120,17 +1139,17 @@ continue
       ! Reset test_file and test_dir
       !
       test_file = " "
-      test_dir = " "
+      test_dir = trim(adjustl(output_dir))
       !
       ! Finally, try to append homedir to the beginning of output_dir
       ! and try a test file in that directory
       !
-      if (output_dir(1:len(homedir)) /= homedir) then
+      if (test_dir(1:len(homedir)) /= homedir) then
         !
-        if (output_dir(1:1) /= "/") then
-          test_dir = homedir//"/"//trim(output_dir)
+        if (test_dir(1:1) /= "/") then
+          test_dir = homedir//"/"//trim(test_dir)
         else
-          test_dir = homedir//trim(output_dir)
+          test_dir = homedir//trim(test_dir)
         end if
         !
         ! Try to open a file in the new output_dir
@@ -1145,7 +1164,7 @@ continue
         !
         if (ierr == 0) then
           close (iodir,status="delete",iostat=ierr)
-          output_dir = trim(test_dir)
+          output_dir = trim(adjustl(test_dir))
           exit one_pass
         end if
         !
@@ -1161,22 +1180,28 @@ continue
   end if root_proc_only
   !
   ! Broadcast the value of output_dir to all the non-root MPI processes
+  ! NOTE: Use test_dir instead of output_dir for the MPI broadcasts since
+  !       some versions of MPI have problems with allocatable characters
   !
-  clen = len_trim(output_dir)
+  test_dir = trim(adjustl(output_dir))
+  clen = len_trim(test_dir)
+  !
   call mpi_bcast(clen,1_int_mpi,mpi_inttyp,0_int_mpi,MPI_COMM_WORLD,mpierr)
-  call mpi_bcast(output_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
+  call mpi_bcast(test_dir(1:clen),int(clen,kind=int_mpi),MPI_CHARACTER, &
                  0_int_mpi,MPI_COMM_WORLD,mpierr)
   !
   ! If output_dir starts with "BAD_DIR", we cant seem to find the
   ! output directory that was given in the input file so exit
   !
-  if (output_dir(1:7) == "BAD_DIR") then
+  if (test_dir(1:7) == "BAD_DIR") then
     !
-    output_dir = output_dir(8:clen)
-    if (mypnum == 0) write (iout,1) trim(output_dir)
+    output_dir = test_dir(8:clen)
+    if (mypnum == 0) write (iout,1) trim(adjustl(output_dir))
     call stop_gfr(stop_mpi,pname,__LINE__,__FILE__)
     !
   else
+    !
+    output_dir = trim(adjustl(test_dir))
     !
     ! Create the flux directory if the dump_flux flag was given
     ! in the input file

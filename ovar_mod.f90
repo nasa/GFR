@@ -66,6 +66,7 @@ module ovar
     !
   contains
     !
+    procedure :: is_not_default
     procedure :: has_default_flow_conditions
     !
   end type bc_input_t
@@ -93,9 +94,9 @@ module ovar
   !
   ! GRID INFORMATION
   integer,            public, save :: grid_format = Internally_Generated_Grid
-  character(len=150), public, save :: gridfile = ""
-  character(len=150), public, save :: plot3d_cutfile = ""
-  character(len=150), public, save :: plot3d_bcsfile = ""
+  character(len=:), public, save, allocatable :: gridfile
+  character(len=:), public, save, allocatable :: plot3d_cutfile
+  character(len=:), public, save, allocatable :: plot3d_bcsfile
   real(wp),           public, save :: grid_scaling_factor = 1.0_wp
   !
   ! PLOT3D COARSENING OPTIONS
@@ -111,9 +112,9 @@ module ovar
   !
   ! INTERPOLATION UTILITY GRID INFORMATION
   integer,            public, save :: interpto_grid_format      = Unknown_Format
-  character(len=150), public, save :: interpto_gridfile         = ""
-  character(len=150), public, save :: interpto_plot3d_cutfile   = ""
-  character(len=150), public, save :: interpto_plot3d_bcsfile   = ""
+  character(len=:), public, save, allocatable :: interpto_gridfile
+  character(len=:), public, save, allocatable :: interpto_plot3d_cutfile
+  character(len=:), public, save, allocatable :: interpto_plot3d_bcsfile
   real(wp),           public, save :: interpto_grid_scaling_factor = 1.0_wp
   !
   ! INTERPOLATION UTILITY PLOT3D COARSENING OPTIONS
@@ -183,22 +184,22 @@ module ovar
   logical(lk),        public, save :: load_restart_file              = fals
   integer,            public, save :: restart_interval               = 0
   logical(lk),        public, save :: use_old_restart_format         = fals
-  character(len=150), public, save :: restart_file                   = "out.rst"
+  character(len=:), public, save, allocatable :: restart_file
   logical(lk),        public, save :: restart_output_uses_host_roots = true
   !
   ! OPTIONS TO USE SOLUTION FILE FOR INITIAL CONDITIONS
   integer,            public, save :: solution_format = Unknown_Format
-  character(len=150), public, save :: solution_file   = ""
+  character(len=:), public, save, allocatable :: solution_file
   !
   ! PROFILE FILE FOR SEM TURBULENCE INFLOW GENERATOR
-  character(len=150), public, save :: sem_profile_file = ""
+  character(len=:), public, save, allocatable :: sem_profile_file
   !
   ! STATISTICAL OUTPUT OPTIONS
   integer, public, save :: iter_out_interval = 1
   integer, public, save :: results_interval  = 0
   !
   ! SOLUTION OUTPUT OPTIONS
-  character(len=150), public, save :: output_dir        = "."
+  character(len=:), public, save, allocatable :: output_dir
   integer,            public, save :: output_interval   = -5
   logical(lk),        public, save :: continuous_output = fals
   integer,            public, save :: loc_output_pts    = Equi_Distant_Points
@@ -286,7 +287,7 @@ module ovar
   !
   ! CHANNEL FLOW PARAMETERS
   real(wp),           public, save :: channel_body_force          = 0.0_wp
-  character(len=150), public, save :: channel_init_file           = ""
+  character(len=:), public, save, allocatable :: channel_init_file
   logical(lk),        public, save :: channel_spatial_ave_restart = fals
   !
   ! OPTIONS FOR MODIFYING BC ALGORITHMS
@@ -317,14 +318,14 @@ module ovar
   !
   ! LUSTRE FILE SYSTEM STRIPING PARAMETERS
   integer,           public, save :: lustre_stripe_count = 64
-  character(len=10), public, save :: lustre_stripe_size  = "4m"
+  character(len=:), public, save, allocatable :: lustre_stripe_size
   !
   ! OPENACC INPUT OPTIONS
   logical(lk), public, save :: use_async_for_error = fals
   !
   ! TIME AVERAGING
   logical(lk),        public, save :: output_time_averaging    = fals
-  character(len=150), public, save :: time_ave_file            = "out.ave"
+  character(len=:), public, save, allocatable :: time_ave_file
   real(wp),           public, save :: time_scaling_factor      = 1.0_wp
   logical(lk),        public, save :: time_ave_vel_is_axisymm  = fals
   integer,            public, save :: start_averaging_timestep = -1
@@ -332,7 +333,7 @@ module ovar
   !
   ! UTILITY TO TIME AVERAGE EXISTING RESTART FILES
   logical(lk),        public, save :: time_average_restart_files = fals
-  character(len=150), public, save :: restart_list_file          = ""
+  character(len=:), public, save, allocatable :: restart_list_file
   !
   ! MEMORY USAGE
   logical(lk), public, save :: dump_memory_usage = fals
@@ -351,7 +352,7 @@ module ovar
   logical(lk), public, save :: output_bface_array = fals
   !
   ! INPUT BOUNDARY CONDITIONS
-  type(bc_input_t), public, save :: bc_input(1:20)
+  type(bc_input_t), public, allocatable :: bc_input(:)
   !
   !
   ! #################################
@@ -517,6 +518,27 @@ continue
   end if
   !
 end subroutine move_bcin_to_device
+!
+!###############################################################################
+!
+pure function is_not_default(this) result(return_value)
+  !
+  !.. Passed Argument from Invoking Object ..
+  class(bc_input_t), intent(in) :: this
+  !
+  !.. Function Result ..
+  logical(lk) :: return_value
+  !
+continue
+  !
+  return_value = true
+  !
+  if (len_trim(adjustl(this%name)) > 0) return
+  if (this%set_bc_value /= bc_unknown)  return
+  !
+  return_value = (.not. this%has_default_flow_conditions())
+  !
+end function is_not_default
 !
 !###############################################################################
 !
@@ -943,6 +965,186 @@ module input_namelist_mod
   !
   namelist / restart_interupt / restart_file
   !
+contains
+!
+!###############################################################################
+!
+subroutine allocate_namelist_variables
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : alloc_error,error_message
+  !
+  !.. Local Scalars ..
+  integer :: ierr
+  character(len=20) :: blanks
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "allocate_namelist_variables"
+  integer, parameter :: default_len = 150
+  !
+continue
+  !
+  ! Allocate bc_input before reading the namelist
+  !
+  allocate ( bc_input(1:20) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"bc_input",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  ! Allocate all the character input variables
+  !
+  allocate ( character(len=default_len) :: gridfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"gridfile",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: plot3d_cutfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"plot3d_cutfile",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: plot3d_bcsfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"plot3d_bcsfile",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: interpto_gridfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interpto_gridfile",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: interpto_plot3d_cutfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interpto_plot3d_cutfile",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: interpto_plot3d_bcsfile , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"interpto_plot3d_bcsfile",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: restart_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"restart_file",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: solution_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"solution_file",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: sem_profile_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"sem_profile_file",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: output_dir , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"output_dir",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: channel_init_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"channel_init_file",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: lustre_stripe_size , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"lustre_stripe_size",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: time_ave_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"time_ave_file",1,__LINE__,__FILE__,ierr,error_message)
+  !
+  allocate ( character(len=default_len) :: restart_list_file , &
+             stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"restart_list_file",1,__LINE__,__FILE__, &
+                   ierr,error_message)
+  !
+  ! Set all the character input variables to their default values
+  !
+  write (blanks,1) default_len
+  !
+  write (gridfile,blanks)
+  write (plot3d_cutfile,blanks)
+  write (plot3d_bcsfile,blanks)
+  write (interpto_gridfile,blanks)
+  write (interpto_plot3d_cutfile,blanks)
+  write (interpto_plot3d_bcsfile,blanks)
+  write (restart_file,blanks)
+  write (solution_file,blanks)
+  write (sem_profile_file,blanks)
+  write (output_dir,blanks)
+  write (channel_init_file,blanks)
+  write (lustre_stripe_size,blanks)
+  write (time_ave_file,blanks)
+  write (restart_list_file,blanks)
+  !
+  restart_file(1:7) = "out.rst"
+  output_dir(1:1) = "."
+  lustre_stripe_size(1:2)  = "4m"
+  time_ave_file(1:7) = "out.ave"
+  !
+  1 format ('(',i0,'x)')
+  !
+end subroutine allocate_namelist_variables
+!
+!###############################################################################
+!
+subroutine resize_namelist_allocatables
+  !
+  !.. Use Statements ..
+  use module_kind_types, only : alloc_error,error_message
+  use ovar,              only : bc_input_t
+  !
+  !.. Local Scalars ..
+  integer :: i,n,ierr
+  !
+  !.. Local Allocatable Arrays ..
+  type(bc_input_t), allocatable :: tmp_bc_input(:)
+  !
+  !.. Local Parameters ..
+  character(len=*), parameter :: pname = "resize_namelist_allocatables"
+  !
+continue
+  !
+  ! Reallocate bc_input to the actual size needed for the inputs
+  ! 
+  n = 0
+  do i = 1,size(bc_input)
+    if (bc_input(i)%is_not_default()) then
+      n = n + 1
+    end if
+  end do
+  !
+  allocate ( tmp_bc_input(1:n) , stat=ierr , errmsg=error_message )
+  call alloc_error(pname,"tmp_bc_input",1,__LINE__,__FILE__,ierr,error_message)
+  ! 
+  n = 0
+  do i = 1,size(bc_input)
+    if (bc_input(i)%is_not_default()) then
+      n = n + 1
+      tmp_bc_input(n) = bc_input(i)
+    end if
+  end do
+  !
+  call move_alloc( from=tmp_bc_input , to=bc_input )
+  !
+  ! Following are F2003 AUTO REALLOCATIONS
+  !
+  gridfile = trim(adjustl(gridfile))
+  plot3d_cutfile = trim(adjustl(plot3d_cutfile))
+  plot3d_bcsfile = trim(adjustl(plot3d_bcsfile))
+  interpto_gridfile = trim(adjustl(interpto_gridfile))
+  interpto_plot3d_cutfile = trim(adjustl(interpto_plot3d_cutfile))
+  interpto_plot3d_bcsfile = trim(adjustl(interpto_plot3d_bcsfile))
+  restart_file = trim(adjustl(restart_file))
+  solution_file = trim(adjustl(solution_file))
+  sem_profile_file = trim(adjustl(sem_profile_file))
+  output_dir = trim(adjustl(output_dir))
+  channel_init_file = trim(adjustl(channel_init_file))
+  lustre_stripe_size = trim(adjustl(lustre_stripe_size))
+  time_ave_file = trim(adjustl(time_ave_file))
+  restart_list_file = trim(adjustl(restart_list_file))
+  !
+end subroutine resize_namelist_allocatables
+!
+!###############################################################################
+!
 end module input_namelist_mod
 !
 !###############################################################################
