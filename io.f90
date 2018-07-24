@@ -793,7 +793,7 @@ continue
     if (input_mode == 2 .or. len_trim(adjustl(interpto_gridfile)) == 0) then
       !
       write (iout,104)
-      write (iout,nml=input)
+      write (iout,nml=input,delim='apostrophe')
       write (iout,105)
       !
     end if
@@ -873,7 +873,7 @@ continue
                         position="rewind",iostat=ierr,iomsg=error_message)
     call io_error(pname,trim(adjustl(gridfile)),1,__LINE__,__FILE__, &
                   ierr,error_message)
-    write (ionml,nml=input)
+    write (ionml,nml=input,delim='apostrophe')
     write (iout,101) trim(output_fname)
     close(ionml)
   end if
