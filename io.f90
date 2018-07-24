@@ -6,9 +6,6 @@ module io_mod
   use module_kind_types
   use module_cgns_types
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,ntk,ntl,nq
-  use ovar,    only : grid_format
-  use ovar,    only : gridfile
-  use ovar,    only : output_dir
   !
   implicit none
   !
@@ -1031,6 +1028,7 @@ subroutine check_output_dir
   !
   !.. Use Statements ..
   use ovar, only : dump_fluxes
+  use ovar, only : output_dir
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir,ii
@@ -1222,7 +1220,9 @@ end subroutine check_output_dir
 subroutine check_cgns_dir
   !
   !.. Use Statements ..
-  use ovar, only : lustre_stripe_count,lustre_stripe_size
+  use ovar, only : output_dir
+  use ovar, only : lustre_stripe_count
+  use ovar, only : lustre_stripe_size
   !
   !.. Local Scalars ..
   integer :: clen,ierr,iodir
@@ -1355,9 +1355,11 @@ subroutine read_grid_file()
   use ovar,           only : use_bc_conflicts
   use ovar,           only : itestcase,VortexGrid_DOF
   use ovar,           only : postproc_debug_grid
-  use ovar,           only : solution_file
+  use ovar,           only : grid_format
+  use ovar,           only : gridfile
   use ovar,           only : plot3d_cutfile
   use ovar,           only : plot3d_bcsfile
+  use ovar,           only : solution_file
   !
   use initialization_mod, only : initialize_reference
   use initialization_mod, only : create_bc_in
@@ -1717,7 +1719,7 @@ subroutine read_gambit_neutral_gridfile()
   use geovar, only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar, only : cell_geom,cell_order
   use ovar,   only : loc_solution_pts,loc_flux_pts
-  use ovar,   only : grid_scaling_factor
+  use ovar,   only : gridfile,grid_scaling_factor
   use order_mod, only : n_order
   !
   !.. Local Scalars ..
@@ -2046,6 +2048,7 @@ subroutine create_IsentropicVortex_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,l,n
@@ -2378,6 +2381,7 @@ subroutine create_TaylorGreenVortex_grid()
   use geovar,    only : nr,nbfai,nnode,ncell,nfbnd,xyz_nodes
   use geovar,    only : bface,nodes_of_cell_ptr,nodes_of_cell
   use geovar,    only : cell_geom,cell_order
+  use ovar,      only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n
@@ -2737,6 +2741,7 @@ subroutine create_postproc_debug_grid
   use geovar,    only : cell_geom,cell_order
   use ovar,      only : VortexGrid_random_perturb
   use ovar,      only : VortexGrid_perturb_percent
+  use ovar,      only : grid_format
   !
   !.. Local Scalars ..
   integer :: nc,np,ierr,i,j,k,l,n
