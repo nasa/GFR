@@ -11,6 +11,16 @@ module eqn_idx
   !
   public :: create_equation_indices
   !
+  ! NCS : number of chemical species
+  !
+  integer, public, protected, save :: ncs
+  !
+  ! NCB : index for first species continuity equation
+  ! NCE : index for last  species continuity equation
+  !
+  integer, public, protected, save :: ncb
+  integer, public, protected, save :: nce
+  !
   ! NEC : index for continuity equation
   !
   integer, public, protected, save :: nec
@@ -29,7 +39,7 @@ module eqn_idx
   integer, public, protected, save :: nmb
   integer, public, protected, save :: nme
   !
-  ! NEC : index for energy equation
+  ! NEE : index for energy equation
   !
   integer, public, protected, save :: nee
   !
@@ -105,7 +115,7 @@ contains
 !
 !###############################################################################
 !
-subroutine create_equation_indices(num_dim)
+subroutine create_equation_indices(num_dim,itestcase)
   !
   !.. Use Statements ..
   use ovar, only : governing_equations
@@ -113,6 +123,7 @@ subroutine create_equation_indices(num_dim)
   !
   !.. Formal Arguments ..
   integer, intent(in) :: num_dim
+  integer, intent(in) :: itestcase
   !
   !.. Local Parameters ..
   character(len=*), parameter :: pname = "create_equation_indices"
@@ -126,9 +137,18 @@ continue
     !
   end if
   !
+  ncs = 0
+  if (itestcase == Reacting_Backstep) then
+    ncs = 2
+  else if (itestcase == Diffusion_Flame) then
+    ncs = 2
+  end if
+  !
   ! Continuity equations
   !
-  ngov(1:3,1) = 1
+  ngov(1,1) = 1
+  ngov(2,1) = ngov(1,1) + ncs
+  ngov(3,1) = ngov(2,1)
   !
   ! Momentum equations
   !
@@ -165,10 +185,13 @@ continue
   !
   ! Set the indices that will be used through the code
   !
+  ncb = ngov(1,1)     ! index for first species continuity equation
+  nce = ngov(2,1) - 1 ! index for last  species continuity equation
+  !
   nec = ngov(2,1)
   nmx = ngov(1,2)
-  nmy = ngov(1,2) + 1
-  nmz = merge( ngov(1,2) + 2 , 0 , num_dim == 3 )
+  nmy = merge( ngov(1,2) + 1 , 0 , ngov(3,2) >= 2 )
+  nmz = merge( ngov(1,2) + 2 , 0 , ngov(3,2) == 3 )
   nee = ngov(2,3)
   !
   nmb = nmx

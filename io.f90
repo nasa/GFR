@@ -1431,7 +1431,7 @@ continue
   !
   ! Create the equation indices now that we know the dimension of the grid
   !
-  call create_equation_indices(nr)
+  call create_equation_indices(nr,itestcase)
   call check_for_bad_number(__LINE__,__FILE__)
   !
   ! Initialize the reference conditions
