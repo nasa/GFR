@@ -4,7 +4,7 @@ module initialization_mod
   ! initialize the solution
   !
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,ncs,nq
   !
   implicit none
   !
@@ -1036,9 +1036,9 @@ continue
   !
   if (.not. allocated(dusp)) return
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call initialize_dusp_3d
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call initialize_dusp_2d
   else
     call initialize_dusp_nd
