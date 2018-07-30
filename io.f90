@@ -5570,9 +5570,9 @@ pure subroutine transfer_periodic(n1,n2,face_cv,periodic_list)
 continue
   !
   do n = n1,n2
-    face_cv(n,nec,2) = face_cv(periodic_list(n-n1+1),nec,1)
-    face_cv(n,nmx,2) = face_cv(periodic_list(n-n1+1),nmx,1)
-    face_cv(n,nmy,2) = face_cv(periodic_list(n-n1+1),nmy,1)
+    face_cv(n,1,2) = face_cv(periodic_list(n-n1+1),1,1)
+    face_cv(n,2,2) = face_cv(periodic_list(n-n1+1),2,1)
+    face_cv(n,3,2) = face_cv(periodic_list(n-n1+1),3,1)
   end do
   !
 end subroutine transfer_periodic
