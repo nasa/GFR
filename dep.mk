@@ -148,6 +148,7 @@ $(OBJDIR)/filter_mod.o : filter_mod.f90 \
                $(OBJDIR)/flowvar_mod.o \
                $(OBJDIR)/quadrature_mod.o \
                $(OBJDIR)/vandermonde_mod.o \
+               $(OBJDIR)/species_mod.o \
                $(FUNDIR)/solpts2order.f90 \
                $(FUNDIR)/debug_timer.f90
 
@@ -525,6 +526,8 @@ $(OBJDIR)/restart_mod.o : restart_mod.f90 \
                 $(FUNDIR)/cell_solpts.f90 \
                 $(FUNDIR)/sort.f90 \
                           mpi_defs.h
+
+$(OBJDIR)/species_mod.o : species_mod.f90
 
 $(OBJDIR)/time_mod.o : time_mod.f90 \
              $(OBJDIR)/kind_types.o \
