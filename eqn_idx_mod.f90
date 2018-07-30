@@ -14,16 +14,19 @@ module eqn_idx
   ! NCS : number of chemical species
   !
   integer, public, protected, save :: ncs
+  !$ACC DECLARE CREATE(ncs)
   !
   ! NCB : index for first species continuity equation
   ! NCE : index for last  species continuity equation
   !
   integer, public, protected, save :: ncb
   integer, public, protected, save :: nce
+  !$ACC DECLARE CREATE(ncb,nce)
   !
   ! NEC : index for continuity equation
   !
   integer, public, protected, save :: nec
+  !$ACC DECLARE CREATE(nec)
   !
   ! NMX : index for x-momentum equation
   ! NMY : index for y-momentum equation
@@ -32,28 +35,31 @@ module eqn_idx
   integer, public, protected, save :: nmx
   integer, public, protected, save :: nmy
   integer, public, protected, save :: nmz
+  !$ACC DECLARE CREATE(nmx,nmy,nmz)
   !
   ! NMB : index for first momentum equation
   ! NME : index for last  momentum equation
   !
   integer, public, protected, save :: nmb
   integer, public, protected, save :: nme
+  !$ACC DECLARE CREATE(nmb,nme)
   !
   ! NEE : index for energy equation
   !
   integer, public, protected, save :: nee
+  !$ACC DECLARE CREATE(nee)
   !
   ! NTK : index for turbulence kinetic energy equation
   ! NTL : index for turbulence length scale equation
   !
   integer, public, protected, save :: ntk
   integer, public, protected, save :: ntl
+  !$ACC DECLARE CREATE(ntk,ntl)
   !
   ! NQ : total number of equations
   !
   integer, public, protected, save :: nq = 4
-  !
-  !$ACC DECLARE CREATE(nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq)
+  !$ACC DECLARE CREATE(nq)
   !
   ! NGOV : Equation control parameters
   !
@@ -200,7 +206,7 @@ continue
   ntk = ngov(1,4)
   ntl = ngov(2,4)
   !
-  !$ACC UPDATE DEVICE(nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
+  !$ACC UPDATE DEVICE(nq,ncs,ncb,nce,nec,nmx,nmy,nmz,nee,nmb,nme,ntk,ntl)
   !
 end subroutine create_equation_indices
 !
