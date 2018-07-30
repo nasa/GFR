@@ -5,7 +5,7 @@ module filter_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
   !
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ncs,nq,ntk,ntl
   !
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
@@ -509,9 +509,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call filter_usp_3d(usp)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call filter_usp_2d(usp)
   else
     call filter_usp_nd(usp)
@@ -699,11 +699,13 @@ pure subroutine filter_usp_nd(usp)
   use order_mod, only : maxSP
   use geovar,    only : ncell,cell
   !
+  use species_mod, only : compute_mixture_density
+  !
   !.. Formal Arguments ..
   real(wp), intent(inout) :: usp(:,:)
   !
   !.. Local Scalars ..
-  integer  :: i,k,m,n,nc,np,n0
+  integer  :: i,k,m,n,nc,np,n0,n1,n2
   integer  :: this_geom,this_order
   real(wp) :: a,val
   !
@@ -762,6 +764,17 @@ continue
     end do
     !
   end do
+  !
+  ! Recompute the mixture density if this is a multi-species gas
+  !
+  if (ncs > 0) then
+    !
+    n1 = cell(1)%beg_sp
+    n2 = cell(ncell)%end_sp
+    !
+    call compute_mixture_density(n1,n2,usp)
+    !
+  end if
   !
 end subroutine filter_usp_nd
 !
