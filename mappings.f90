@@ -3,7 +3,7 @@ module mappings_mod
   !.. Global Use Statements ..
   use module_kind_types
   use generic_types_mod, only : matrix => matrix_gpu_t
-  use eqn_idx, only : nec,nmx,nmy,nmz,nee,nq
+  use eqn_idx, only : nec,nmb,nme,nee,nq
   !
   implicit none
   !
@@ -348,28 +348,11 @@ continue
       !       in metrics units. While we are copying the transpose of elem_usp
       !       into usp, nondimensionalize the flow variables.
       !
-      if (nr == 3) then
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-          usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      else if (nr == 2) then
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      else
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      end if
+      do n = 1,np
+        usp(n0+n,  1:nec) = elem_usp(  1:nec,n) * rhoref_inv
+        usp(n0+n,nmb:nme) = elem_usp(nmb:nme,n) * rhoa_inv
+        usp(n0+n,    nee) = elem_usp(    nee,n) * rhoa2_inv
+      end do
      !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
       !
     end if
@@ -738,28 +721,11 @@ continue
       !       in metrics units. While we are copying the transpose of elem_usp
       !       into usp, nondimensionalize the flow variables.
       !
-      if (nr == 3) then
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-          usp(n0+n,nmz) = elem_usp(nmz,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      else if (nr == 2) then
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nmy) = elem_usp(nmy,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      else
-        do n = 1,np
-          usp(n0+n,nec) = elem_usp(nec,n) * rhoref_inv
-          usp(n0+n,nmx) = elem_usp(nmx,n) * rhoa_inv
-          usp(n0+n,nee) = elem_usp(nee,n) * rhoa2_inv
-        end do
-      end if
+      do n = 1,np
+        usp(n0+n,  1:nec) = elem_usp(  1:nec,n) * rhoref_inv
+        usp(n0+n,nmb:nme) = elem_usp(nmb:nme,n) * rhoa_inv
+        usp(n0+n,    nee) = elem_usp(    nee,n) * rhoa2_inv
+      end do
      !usp(n1:n2,1:nq) = transpose( elem_usp(:,:) )
       !
     end if
