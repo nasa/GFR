@@ -13,7 +13,7 @@ contains
 !
 !###############################################################################
 !
-subroutine compute_mixture_density(n1,n2,usp)
+pure subroutine compute_mixture_density(n1,n2,usp)
   !
   !.. Formal Arguments ..
   integer,     intent(in) :: n1
