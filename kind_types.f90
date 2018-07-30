@@ -481,6 +481,8 @@ module module_kind_types
   integer, parameter :: Double_Mach_Reflection  = 11
   integer, parameter :: Infinite_Cylinder       = 12
   integer, parameter :: Freestream_Preservation = 13
+  integer, parameter :: Reacting_Backstep       = 14
+  integer, parameter :: Diffusion_Flame         = 15
   integer, parameter :: Advec_Problems(1:2) = [ Density_Transport, &
                                                 Entropy_Transport ]
   integer, parameter :: Vortex_Problems(1:2) = [ Shu_Vortex, &
@@ -488,6 +490,8 @@ module module_kind_types
   integer, parameter :: Transport_Problems(1:4) = [ Shu_Vortex, &
                                                     Vortex_Transport, &
                                                     Advec_Problems ]
+  integer, parameter :: Reacting_Flows(1:2) = [Reacting_Backstep, &
+                                               Diffusion_Flame]
   !
   ! Location of 1D solution points
   integer, parameter :: Equi_Distant_Points     = 0
