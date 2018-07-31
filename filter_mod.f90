@@ -5,7 +5,8 @@ module filter_mod
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
   !
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ncs,nq,ntk,ntl
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx, only : ncs
   !
   use generic_types_mod, only : matrix => matrix_gpu_t
   use generic_types_mod, only : create_matrix_sparsity
