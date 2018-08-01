@@ -61,6 +61,41 @@ module eqn_idx
   integer, public, protected, save :: nq = 4
   !$ACC DECLARE CREATE(nq)
   !
+  ! NG : total number of gas properties
+  !       1) pressure
+  !       2) temperature
+  !       3) viscosity
+  !       4) thermal conductivity
+  !       5) gamma
+  !       6) enthalpy
+  !       7) Cp
+  !
+  integer, public, protected, save :: ng = 7
+  !$ACC DECLARE CREATE(ng)
+  !
+  ! NPRES : index for pressure
+  ! NTEMP : index for temperature
+  ! NVISC : index for molecular viscosity
+  ! NCOND : index for thermal conductivity
+  ! NGAMM : index for gamma
+  ! NENTH : index for enthalpy
+  ! NCP   : index for specific heat at constant pressure
+  !
+  integer, public, protected, save :: npres = 1
+  !$ACC DECLARE CREATE(npres)
+  integer, public, protected, save :: ntemp = 2
+  !$ACC DECLARE CREATE(ntemp)
+  integer, public, protected, save :: nvisc = 3
+  !$ACC DECLARE CREATE(nvisc)
+  integer, public, protected, save :: ncond = 4
+  !$ACC DECLARE CREATE(ncond)
+  integer, public, protected, save :: ngamm = 5
+  !$ACC DECLARE CREATE(ngamm)
+  integer, public, protected, save :: nenth = 6
+  !$ACC DECLARE CREATE(nenth)
+  integer, public, protected, save :: ncp   = 7
+  !$ACC DECLARE CREATE(ncp)
+  !
   ! NGOV : Equation control parameters
   !
   !        NOTE: THIS IS COPIED FROM VULCAN MOST IS NOT USED
