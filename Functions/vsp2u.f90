@@ -24,7 +24,8 @@ pure function vsp2u_sp(vv) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk,ntl
+  use ovar,    only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv

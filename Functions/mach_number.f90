@@ -1,7 +1,8 @@
 pure function mach_number_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -38,7 +39,8 @@ end function mach_number_cv
 pure function mach_number_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -70,7 +72,8 @@ end function mach_number_cv_sp
 pure function mach_number_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use eqn_idx, only : nec,nmb,nme,nee
+  use ovar,    only : gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: vv
@@ -101,7 +104,8 @@ end function mach_number_pv
 pure function mach_number_pv_sp(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam
+  use eqn_idx, only : nec,nmb,nme,nee
+  use ovar,    only : gam
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv

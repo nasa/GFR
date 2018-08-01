@@ -1,7 +1,8 @@
 pure function entropy_cv(uu,log_opt,use_pref_nd) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, pref_nd, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, pref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: uu(:,:)
@@ -51,7 +52,8 @@ end function entropy_cv
 pure function entropy_cv_sp(uu,log_opt,use_pref_nd) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, pref_nd, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, pref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: uu(:)
@@ -96,7 +98,8 @@ end function entropy_cv_sp
 pure function entropy_pv(vv,log_opt,use_pref_nd) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, pref_nd
+  use eqn_idx, only : nec,nee
+  use ovar,    only : gam, pref_nd
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: vv(:,:)
@@ -140,7 +143,8 @@ end function entropy_pv
 pure function entropy_pv_sp(vv,log_opt,use_pref_nd) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, pref_nd
+  use eqn_idx, only : nec,nee
+  use ovar,    only : gam, pref_nd
   !
   !.. Formal Arguments ..
   real(wp), intent(in) :: vv(:)

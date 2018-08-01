@@ -2,7 +2,8 @@ pure function usp2v(uu,swap_t_for_rho) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use ovar, only : rgasref_nd
+  use eqn_idx, only : nec,nee
+  use ovar,    only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -36,7 +37,8 @@ pure function usp2v_sp(uu,swap_t_for_rho) result(return_value)
 ! !$ACC ROUTINE SEQ
   !
   !.. Use Statements ..
-  use ovar, only : gam, rgasref_nd, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk,ntl
+  use ovar,    only : gam, rgasref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu

@@ -1,7 +1,8 @@
 pure function temperature_cv(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, rgasref_nd, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, rgasref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: uu
@@ -38,7 +39,8 @@ end function temperature_cv
 pure function temperature_cv_sp(uu) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : gam, rgasref_nd, include_tke_in_energy
+  use eqn_idx, only : nec,nmb,nme,nee,ntk
+  use ovar,    only : gam, rgasref_nd, include_tke_in_energy
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: uu
@@ -68,7 +70,8 @@ end function temperature_cv_sp
 pure function temperature_pv(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref_nd
+  use eqn_idx, only : nec,nee
+  use ovar,    only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:,:), intent(in) :: vv
@@ -95,7 +98,8 @@ end function temperature_pv
 pure function temperature_pv_sp(vv) result(return_value)
   !
   !.. Use Statements ..
-  use ovar, only : rgasref_nd
+  use eqn_idx, only : nec,nee
+  use ovar,    only : rgasref_nd
   !
   !.. Formal Arguments ..
   real(wp), dimension(:), intent(in) :: vv
