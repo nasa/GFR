@@ -30,12 +30,12 @@ pure subroutine compute_mixture_density(n1,n2,usp)
 continue
   !
   !$ACC PARALLEL LOOP GANG &
-  !$ACC&              VECTOR_LENGTH(32) &
+  !$ACC&              VECTOR &
   !$ACC&              PRESENT(usp)
   do n = n1,n2
     !
     rho = zero
-    !$ACC LOOP VECTOR REDUCTION(+:rho)
+    !$ACC LOOP SEQ REDUCTION(+:rho)
     do m = ncb,nce
       rho = rho + usp(n,m)
     end do
