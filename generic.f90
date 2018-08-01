@@ -4,6 +4,7 @@ module generic_mod
   !
   use module_kind_types, global_debug_timer => debug_timer
   use eqn_idx, only : nec,nmb,nme,nmx,nmy,nmz,nee,nq
+  use eqn_idx, only : ncs,ncb,nce
   !
   implicit none
   !
@@ -523,7 +524,7 @@ subroutine get_unew_solpts_gpu(tunew)
   real(wp), intent(inout) :: tunew(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer  :: m,n,nr
   real(wp) :: rho,rhou,rhov,rhow,rhoe,rhoq2
   real(wp) :: gm1,gm1_over_pref_nd,pres
   !
@@ -540,7 +541,7 @@ continue
   !
   if (output_time_averaging) then
     !
-    if (nr == 3) then
+    if (nr == 3 .and. ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = uavesp(n,nec)
@@ -549,7 +550,7 @@ continue
         tunew(n,nmz) = uavesp(n,nmz)
         tunew(n,nee) = uavesp(n,nee)
       end do
-    else if (nr == 2) then
+    else if (nr == 2 .and. ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = uavesp(n,nec)
@@ -558,17 +559,17 @@ continue
         tunew(n,nee) = uavesp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(uavesp,tunew)
-      do n = 1,n_solpts
-        tunew(n,nec) = uavesp(n,nec)
-        tunew(n,nmx) = uavesp(n,nmx)
-        tunew(n,nee) = uavesp(n,nee)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,tunew)
+      do m = 1,nq
+        do n = 1,n_solpts
+          tunew(n,m) = uavesp(n,m)
+        end do
       end do
     end if
     !
   else
     !
-    if (nr == 3) then
+    if (nr == 3 .and. ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(usp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = usp(n,nec)
@@ -577,7 +578,7 @@ continue
         tunew(n,nmz) = usp(n,nmz)
         tunew(n,nee) = usp(n,nee)
       end do
-    else if (nr == 2) then
+    else if (nr == 2 .and. ncs == 0) then
       !$ACC PARALLEL LOOP PRESENT(usp,tunew)
       do n = 1,n_solpts
         tunew(n,nec) = usp(n,nec)
@@ -586,11 +587,11 @@ continue
         tunew(n,nee) = usp(n,nee)
       end do
     else
-      !$ACC PARALLEL LOOP PRESENT(usp,tunew)
-      do n = 1,n_solpts
-        tunew(n,nec) = usp(n,nec)
-        tunew(n,nmx) = usp(n,nmx)
-        tunew(n,nee) = usp(n,nee)
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,tunew)
+      do m = 1,nq
+        do n = 1,n_solpts
+          tunew(n,m) = usp(n,m)
+        end do
       end do
     end if
     !
@@ -725,7 +726,7 @@ subroutine get_uold_solpts_gpu(tuold)
   real(wp), intent(inout) :: tuold(:,:)
   !
   !.. Local Scalars ..
-  integer     :: n,nr
+  integer     :: m,n,nr
   real(wp)    :: a,b,gm1,pres,rhoq2
   real(wp)    :: rho,rhou,rhov,rhow,rhoe
   logical(lk) :: use_uavesp
@@ -802,7 +803,7 @@ continue
       a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
       b = one - a
       !
-      if (nr == 3) then
+      if (nr == 3 .and. ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
@@ -811,7 +812,7 @@ continue
           tuold(n,nmz) = b * uavesp(n,nmz) - a * usp(n,nmz)
           tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
         end do
-      else if (nr == 2) then
+      else if (nr == 2 .and. ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
@@ -821,16 +822,16 @@ continue
         end do
       else
         !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tuold)
-        do n = 1,n_solpts
-          tuold(n,nec) = b * uavesp(n,nec) - a * usp(n,nec)
-          tuold(n,nmx) = b * uavesp(n,nmx) - a * usp(n,nmx)
-          tuold(n,nee) = b * uavesp(n,nee) - a * usp(n,nee)
+        do m = 1,nq
+          do n = 1,n_solpts
+            tuold(n,m) = b * uavesp(n,m) - a * usp(n,m)
+          end do
         end do
       end if
       !
     else
       !
-      if (nr == 3) then
+      if (nr == 3 .and. ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = uoldsp(n,nec)
@@ -839,7 +840,7 @@ continue
           tuold(n,nmz) = uoldsp(n,nmz)
           tuold(n,nee) = uoldsp(n,nee)
         end do
-      else if (nr == 2) then
+      else if (nr == 2 .and. ncs == 0) then
         !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
         do n = 1,n_solpts
           tuold(n,nec) = uoldsp(n,nec)
@@ -849,10 +850,10 @@ continue
         end do
       else
         !$ACC PARALLEL LOOP PRESENT(uoldsp,tuold)
-        do n = 1,n_solpts
-          tuold(n,nec) = uoldsp(n,nec)
-          tuold(n,nmx) = uoldsp(n,nmx)
-          tuold(n,nee) = uoldsp(n,nee)
+        do m = 1,nq
+          do n = 1,n_solpts
+            tuold(n,m) = uoldsp(n,m)
+          end do
         end do
       end if
       !
@@ -939,7 +940,7 @@ subroutine get_vnew_solpts_gpu(tvnew)
   real(wp), intent(inout) :: tvnew(:,:)
   !
   !.. Local Scalars ..
-  integer  :: n,nr
+  integer  :: m,n,nr
   real(wp) :: velx,vely,velz,q2,rho,rho_inv
   real(wp) :: rhoe,pres,temp,rgas_inv,gm1
   !
@@ -1002,9 +1003,31 @@ continue
         !
       end do
     end if
+    !
+    if (ncs > 0) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(uavesp,tvnew)
+      do m = ncb,nce
+        do n = 1,n_solpts
+          tvnew(n,m) = uavesp(n,nq+m)
+        end do
+      end do
+    end if
+    !
   else
     !
     rgas_inv = one/rgasref_nd
+    !
+    ! Need to first convert species densities to mass fractions
+    ! before temperature is saved in the density location of tvnew
+    !
+    if (ncs > 0) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(tvnew)
+      do m = ncb,nce
+        do n = 1,n_solpts
+          tvnew(n,m) = tvnew(n,m)/tvnew(n,nec)
+        end do
+      end do
+    end if
     !
     if (nr == 3) then
       !$ACC PARALLEL LOOP PRESENT(tvnew)
@@ -1100,7 +1123,7 @@ subroutine get_vold_solpts_gpu(tvold)
   real(wp), intent(inout) :: tvold(:,:)
   !
   !.. Local Scalars ..
-  integer     :: n,nr
+  integer     :: m,n,nr
   real(wp)    :: a,b,velx,vely,velz,q2,rho,rho_inv
   real(wp)    :: rhoe,pres,temp,rgas_inv,gm1
   logical(lk) :: use_uavesp
@@ -1137,6 +1160,18 @@ continue
     !
     a = (prev_ave_time-saved_ave_time) / (saved_ave_time-ave_start_time)
     b = one - a
+    !
+    ! Need to first convert species densities to mass fractions
+    ! before temperature is saved in the density location of tvold
+    !
+    if (ncs > 0) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(usp,uavesp,tvold)
+      do m = ncb,nce
+        do n = 1,n_solpts
+          tvold(n,m) = b * uavesp(n,nq+m) - a * usp(n,m)/usp(n,nec)
+        end do
+      end do
+    end if
     !
     if (nr == 3) then
       !$ACC PARALLEL LOOP PRESENT(usp,uavesp,tvold)
@@ -1228,6 +1263,18 @@ continue
     end if
     !
   else
+    !
+    ! Need to first convert species densities to mass fractions
+    ! before temperature is saved in the density location of tvold
+    !
+    if (ncs > 0) then
+      !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(tvold)
+      do m = ncb,nce
+        do n = 1,n_solpts
+          tvold(n,m) = tvold(n,m) / tvold(n,nec)
+        end do
+      end do
+    end if
     !
     if (nr == 3) then
       !$ACC PARALLEL LOOP PRESENT(tvold)
