@@ -4,6 +4,7 @@ module module_limiters
   use module_kind_types, global_debug_timer => debug_timer
   !
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
+  use eqn_idx, only : ncs
   !
   implicit none
   !
@@ -307,9 +308,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call apply_filter_limiter_to_usp_3d(troubled_cell,usp)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call apply_filter_limiter_to_usp_2d(troubled_cell,usp)
   else
     call apply_filter_limiter_to_usp_nd(troubled_cell,usp)
@@ -621,9 +622,9 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call apply_projct_limiter_to_usp_3d(troubled_cell,usp,dropped_orders)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call apply_projct_limiter_to_usp_2d(troubled_cell,usp,dropped_orders)
   else
     call apply_projct_limiter_to_usp_nd(troubled_cell,usp,dropped_orders)
@@ -1239,9 +1240,9 @@ continue
       !
       nr = nme-nmb+1
       !
-      if (nr == 3) then
+      if (nr == 3 .and. ncs == 0) then
         call res_ind_apply_proj_3d(usp,skip_cell,lmtr_order)
-      else if (nr == 2) then
+      else if (nr == 2 .and. ncs == 0) then
         call res_ind_apply_proj_2d(usp,skip_cell,lmtr_order)
       else
         call res_ind_apply_proj_nd(usp,skip_cell,lmtr_order)
@@ -2132,12 +2133,12 @@ continue
   !
   nr = nme-nmb+1
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call compute_pressure_jump_3d(face_cv,pres_jump)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call compute_pressure_jump_2d(face_cv,pres_jump)
   else
-    call compute_pressure_jump_1d(face_cv,pres_jump)
+    call compute_pressure_jump_nd(face_cv,pres_jump)
   end if
   !
   call debug_timer(leaving_procedure,pname)
@@ -2254,7 +2255,7 @@ end subroutine compute_pressure_jump_2d
 !
 !###############################################################################
 !
-pure subroutine compute_pressure_jump_1d(face_cv,pres_jump)
+pure subroutine compute_pressure_jump_nd(face_cv,pres_jump)
   !
   !.. Use Statements ..
   use ovar, only : gam
@@ -2264,13 +2265,13 @@ pure subroutine compute_pressure_jump_1d(face_cv,pres_jump)
   real(wp), intent(inout) :: pres_jump(:)
   !
   !.. Local Scalars ..
-  integer  :: k,np
+  integer  :: k,m,np
   real(wp) :: gm1
-  real(wp) :: rho_l,rhou_l,rhoe_l,pres_l
-  real(wp) :: rho_r,rhou_r,rhoe_r,pres_r
+  real(wp) :: rho_l,rhoq_l,rhoe_l,pres_l
+  real(wp) :: rho_r,rhoq_r,rhoe_r,pres_r
   !
   !.. Local Parameters ..
-  character(len=*), parameter :: pname = "compute_pressure_jump_1d"
+  character(len=*), parameter :: pname = "compute_pressure_jump_nd"
   !
 continue
   !
@@ -2282,22 +2283,27 @@ continue
   do k = 1,np
     !
     rho_l = face_cv(k,nec,1)
-    rhou_l = face_cv(k,nmx,1)
     rhoe_l = face_cv(k,nee,1)
     !
-    pres_l = gm1*(rhoe_l - half*rhou_l*rhou_l/rho_l)
-    !
     rho_r = face_cv(k,nec,2)
-    rhou_r = face_cv(k,nmx,2)
     rhoe_r = face_cv(k,nee,2)
     !
-    pres_r = gm1*(rhoe_r - half*rhou_r*rhou_r/rho_r)
+    rhoq_l = zero
+    rhoq_r = zero
+    !$ACC LOOP SEQ REDUCTION(+:rhoq_l,rhoq_r)
+    do m = nmb,nme
+      rhoq_l = rhoq_l + face_cv(k,m,1)*face_cv(k,m,1)
+      rhoq_r = rhoq_r + face_cv(k,m,2)*face_cv(k,m,2)
+    end do
+    !
+    pres_l = gm1*(rhoe_l - half*rhoq_l/rho_l)
+    pres_r = gm1*(rhoe_r - half*rhoq_r/rho_r)
     !
     pres_jump(k) = two * abs(pres_l - pres_r) / (pres_l + pres_r)
     !
   end do
   !
-end subroutine compute_pressure_jump_1d
+end subroutine compute_pressure_jump_nd
 !
 !###############################################################################
 !
