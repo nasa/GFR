@@ -3,7 +3,7 @@ module time_mod
 !#define PROFILE_ON
   !
   use module_kind_types, global_debug_timer => debug_timer
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !

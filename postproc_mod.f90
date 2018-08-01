@@ -3,7 +3,7 @@ module postprocessor_mod
   !.. Global Use Statements ..
   use module_kind_types
   use module_cgns_types
-  use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme,ntk
+  use eqn_idx, only : nq,nec,nmx,nmy,nmz,nee,nmb,nme
   !
   implicit none
   !

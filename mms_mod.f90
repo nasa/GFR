@@ -5,7 +5,7 @@ module mms_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq,ntk,ntl
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !

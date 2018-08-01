@@ -2,7 +2,7 @@ module upwind_flux_mod
   !
   !.. Use Statements ..
   use module_kind_types
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !

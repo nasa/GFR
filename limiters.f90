@@ -3,7 +3,7 @@ module module_limiters
   !.. Use Statements ..
   use module_kind_types, global_debug_timer => debug_timer
   !
-  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,nq
   !
   implicit none
   !
