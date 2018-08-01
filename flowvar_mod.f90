@@ -26,12 +26,15 @@ module flowvar
   real(wp), public, save, allocatable :: sol_nodes(:,:)
   !
   ! USP  : conservative variables at the solution points (@SP)
-  ! DUSP : gradient of primitive variables @SP
+  ! DUSP : gradient of conservative variables @SP
+  ! GPSP : gas properties at the solution points
   !
   real(wp), public, save, allocatable, dimension(:,:)   :: usp
   !$ACC DECLARE CREATE(usp)
   real(wp), public, save, allocatable, dimension(:,:,:) :: dusp
   !$ACC DECLARE CREATE(dusp)
+  real(wp), public, save, allocatable, dimension(:,:) :: gpsp
+  !$ACC DECLARE CREATE(gpsp)
   !
   ! UOLDSP   : conservative variables of previous time step @SP
   ! RESIDUAL : RHS residual @SP for current time/RK step
@@ -222,7 +225,7 @@ contains
 subroutine allocate_flowvar_arrays()
   !
   !.. Use Statements ..
-  use eqn_idx,   only : nq
+  use eqn_idx,   only : nq,ng,ncs
   use geovar,    only : nr,n_solpts,n_totpts
   use geovar,    only : nfbnd,nface,face
   use geovar,    only : nnode,nedge,edge
@@ -258,6 +261,12 @@ continue
   call alloc_error(pname,"dusp",1,__LINE__,__FILE__,ierr,error_message)
   !$ACC UPDATE DEVICE(dusp)
   !
+  if (ncs > 0) then
+    allocate ( gpsp(1:n_solpts,1:ng) , source=zero , &
+               stat=ierr , errmsg=error_message )
+    call alloc_error(pname,"gpsp",1,__LINE__,__FILE__,ierr,error_message)
+    !$ACC UPDATE DEVICE(gpsp)
+  end if
   !
   ! If we are only time averaging restart files, we dont need any of
   ! these other arrays so return out of here
@@ -1126,6 +1135,15 @@ continue
     write (iou,2) array_name,array%get_units()
   else
     write (iou,7) "dusp"
+  end if
+  if (allocated(gpsp)) then
+    call array%set( storage_size(gpsp,kind=inttype) , &
+                            size(gpsp,kind=inttype) )
+    call total%add(array)
+    write (array_name,5) "gpsp"
+    write (iou,2) array_name,array%get_units()
+  else
+    write (iou,7) "gpsp"
   end if
   if (allocated(uoldsp)) then
     call array%set( storage_size(uoldsp,kind=inttype) , &
