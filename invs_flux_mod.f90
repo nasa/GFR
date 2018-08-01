@@ -3,6 +3,7 @@ module invs_flux_mod
   !.. Use Statements ..
   use module_kind_types
   use eqn_idx, only : nec,nmx,nmy,nmz,nmb,nme,nee,ntk,ntl,nq
+  use eqn_idx, only : ncs
   !
   implicit none
   !
@@ -44,8 +45,7 @@ continue
   !
   pres = (gam-one)*(uu(nee) - half*selfdot(uu(nmb:nme))/uu(nec))
   !
-  return_value(nec) = uu(meq)
-  return_value(nmb:nme) = flxvel * uu(nmb:nme)
+  return_value(1:nme) = flxvel * uu(1:nme)
   return_value(meq) = return_value(meq) + pres
   return_value(nee) = flxvel * (uu(nee) + pres)
   !
@@ -75,9 +75,9 @@ continue
   !
   nr = size(return_value,dim=2)
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call invs_flx_cv_gpu_3d(usp,return_value)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call invs_flx_cv_gpu_2d(usp,return_value)
   else
     call invs_flx_cv_gpu_nd(usp,return_value)
@@ -310,19 +310,10 @@ continue
   nr = size(return_value,dim=2)
   gm1 = gam - one
   !
-  ! Continuity equation
-  !
-  !$ACC PARALLEL LOOP COLLAPSE(2) PRESENT(return_value,usp)
-  do l = 1,nr
-    do n = 1,np
-      return_value(n,l,nec) = usp(n,nec+l)
-    end do
-  end do
-  !
-  ! Momentum equations (without pressure flux)
+  ! Continuity equations and momentum equations (without pressure flux)
   !
   !$ACC PARALLEL LOOP COLLAPSE(3) PRESENT(return_value,usp)
-  do m = nmb,nme
+  do m = 1,nme
     do l = 1,nr
       do n = 1,np
         return_value(n,l,m) = usp(n,m)*usp(n,nec+l)/usp(n,nec)
@@ -398,8 +389,8 @@ continue
   !
   ener = vv(nee)/(gam-one) + half*vv(nec)*selfdot(vv(nmb:nme))
   !
+  return_value(1:nme) = flxvel * vv(nec)*vv(1:nme)
   return_value(nec) = flxvel * vv(nec)
-  return_value(nmb:nme) = flxvel * vv(nec)*vv(nmb:nme)
   return_value(meq) = return_value(meq) + vv(nee)
   return_value(nee) = flxvel * (ener + vv(nee))
   !
@@ -525,9 +516,9 @@ continue
   !
   nr = size(facenrm,dim=1)
   !
-  if (nr == 3) then
+  if (nr == 3 .and. ncs == 0) then
     call invs_wall_flx_gpu_3d(n1,n2,facenrm,face_cv,return_value)
-  else if (nr == 2) then
+  else if (nr == 2 .and. ncs == 0) then
     call invs_wall_flx_gpu_2d(n1,n2,facenrm,face_cv,return_value)
   else
     call invs_wall_flx_gpu_nd(n1,n2,facenrm,face_cv,return_value)
@@ -676,7 +667,10 @@ continue
     !
     pres = gm1*(face_cv(n,nee,1) - half*rhoq2/face_cv(n,nec,1))
     !
-    return_value(n,nec) = zero
+    !$ACC LOOP SEQ
+    do m = 1,nec
+      return_value(n,m) = zero
+    end do
     !$ACC LOOP SEQ
     do l = 1,nr
       return_value(n,nec+l) = facenrm(l,n)*pres
